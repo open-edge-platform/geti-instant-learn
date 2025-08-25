@@ -31,15 +31,15 @@ class Source(PipelineComponent):
 class Sink(PipelineComponent):
     """Gets data from a queue and writes it using a StreamWriter."""
 
-    def __init__(self, stream_writer: StreamWriter, in_queue: Queue):
+    def __init__(self, stream_writer: StreamWriter, out_queue: Queue):
         super().__init__(name="Sink")
         self._writer = stream_writer
-        self._in_queue = in_queue
+        self._out_queue = out_queue
 
     def _main_loop(self) -> None:
         while not self._stop_event.is_set():
             try:
-                data = self._in_queue.get(timeout=0.1)
+                data = self._out_queue.get(timeout=0.1)
                 if data is None:
                     break
                 self._writer.write(data)
