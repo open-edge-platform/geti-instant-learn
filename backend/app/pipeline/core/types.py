@@ -1,7 +1,10 @@
-from typing import TypeVar, Any, Dict
+#  Copyright (C) 2022-2025 Intel Corporation
+#  LIMITED EDGE SOFTWARE DISTRIBUTION LICENSE
+
+from typing import Any, TypeVar
 
 # Generic type variables for pipeline data flow
-IN = TypeVar('IN')
-OUT = TypeVar('OUT')
+IN = TypeVar("IN")
+OUT = TypeVar("OUT")
 
-ConfigDict = Dict[str, Any]
+ConfigDict = dict[str, Any]

@@ -1,8 +1,12 @@
+#  Copyright (C) 2022-2025 Intel Corporation
+#  LIMITED EDGE SOFTWARE DISTRIBUTION LICENSE
+
 import threading
 from abc import ABC, abstractmethod
-from typing import Callable, Any, Generic
+from collections.abc import Callable
+from typing import Any, Generic
 
-from types import IN, OUT
+from .types import IN, OUT
 
 
 class PipelineComponent(ABC, Callable[[], None]):
@@ -22,7 +26,6 @@ class PipelineComponent(ABC, Callable[[], None]):
     @abstractmethod
     def _main_loop(self) -> None:
         """The core logic of the component, to be implemented by subclasses."""
-        pass
 
     def __call__(self) -> None:
         """Makes the component instance callable and resets its state for restarts."""

@@ -1,9 +1,12 @@
+#  Copyright (C) 2022-2025 Intel Corporation
+#  LIMITED EDGE SOFTWARE DISTRIBUTION LICENSE
+
 import time
-from queue import Queue, Empty
-from typing import List
+from queue import Empty, Queue
 
 from backend.app.pipeline.core.base import PipelineComponent, Processor, StreamReader, StreamWriter
-from types import IN, OUT
+
+from .types import IN, OUT
 
 
 class Source(PipelineComponent):
@@ -47,7 +50,7 @@ class Sink(PipelineComponent):
 class SequenceProcessor(PipelineComponent, Processor[IN, OUT]):
     """A component and a composite processor impl that runs a sequence of processors."""
 
-    def __init__(self, processors: List[Processor], in_queue: Queue, out_queue: Queue):
+    def __init__(self, processors: list[Processor], in_queue: Queue, out_queue: Queue):
         super().__init__(name="Processor")
         self._processors = processors
         self._in_queue = in_queue

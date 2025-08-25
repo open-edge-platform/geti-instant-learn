@@ -1,8 +1,11 @@
+#  Copyright (C) 2022-2025 Intel Corporation
+#  LIMITED EDGE SOFTWARE DISTRIBUTION LICENSE
+
+import argparse
 import json
 import pathlib
-import argparse
+
 from app.main import app
-from fastapi.openapi.utils import get_openapi
 
 parser = argparse.ArgumentParser(description="Generate OpenAPI schema")
 parser.add_argument("output_path", type=pathlib.Path, help="The path where the openapi-spec.json file will be saved.")

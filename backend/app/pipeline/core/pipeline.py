@@ -1,11 +1,14 @@
+#  Copyright (C) 2022-2025 Intel Corporation
+#  LIMITED EDGE SOFTWARE DISTRIBUTION LICENSE
+
 import threading
 from queue import Queue
-from typing import List, Dict
 
-from backend.app.pipeline.core.base import Processor, PipelineComponent
-from backend.app.pipeline.core.components import Source, SequenceProcessor, Sink
+from backend.app.pipeline.core.base import PipelineComponent, Processor
+from backend.app.pipeline.core.components import SequenceProcessor, Sink, Source
 from backend.app.pipeline.core.factories import StreamReaderFactory, StreamWriterFactory
-from types import ConfigDict
+
+from .types import ConfigDict
 
 
 class Pipeline:
@@ -15,7 +18,7 @@ class Pipeline:
 
     def __init__(self,
                  source_config: ConfigDict,
-                 processors: List[Processor],
+                 processors: list[Processor],
                  sink_config: ConfigDict):
 
         self._processors_config = processors
@@ -29,10 +32,10 @@ class Pipeline:
         processor = SequenceProcessor(self._processors_config, self._in_queue, self._out_queue)
         sink = Sink(sink_writer, self._out_queue)
 
-        self._components: Dict[str, PipelineComponent] = {
+        self._components: dict[str, PipelineComponent] = {
             c.name: c for c in [source, processor, sink]
         }
-        self._threads: Dict[str, threading.Thread] = {}
+        self._threads: dict[str, threading.Thread] = {}
 
     def start(self):
         for name, component in self._components.items():

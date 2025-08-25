@@ -1,8 +1,10 @@
-from abc import ABC, abstractmethod
-from typing import Dict, Any
+#  Copyright (C) 2022-2025 Intel Corporation
+#  LIMITED EDGE SOFTWARE DISTRIBUTION LICENSE
+
 
 from backend.app.pipeline.core.base import StreamReader, StreamWriter
-from types import ConfigDict
+
+from .types import ConfigDict
 
 
 class StreamReaderFactory:
