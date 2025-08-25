@@ -30,13 +30,10 @@ class PipelineComponent(ABC, Callable[[], None]):
     def __call__(self) -> None:
         """Makes the component instance callable and resets its state for restarts."""
         self._stop_event.clear()
-        print(f"[{self.name}] Starting...")
         self._main_loop()
-        print(f"[{self.name}] Stopped.")
 
     def stop(self) -> None:
         """Signals the component's main loop to terminate."""
-        print(f"[{self.name}] Stop signal received.")
         self._stop_event.set()
 
 
