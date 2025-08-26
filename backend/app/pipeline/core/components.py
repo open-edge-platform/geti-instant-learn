@@ -25,7 +25,6 @@ class Source(PipelineComponent):
                     time.sleep(0.1)
                     continue
                 self._in_queue.put(data)
-        self._in_queue.put(None)
 
 
 class Sink(PipelineComponent):
@@ -40,8 +39,6 @@ class Sink(PipelineComponent):
         while not self._stop_event.is_set():
             try:
                 data = self._out_queue.get(timeout=0.1)
-                if data is None:
-                    break
                 self._writer.write(data)
             except Empty:
                 continue
@@ -60,14 +57,10 @@ class SequenceProcessor(PipelineComponent, Processor[IN, OUT]):
         while not self._stop_event.is_set():
             try:
                 data = self._in_queue.get(timeout=0.1)
-                if data is None:
-                    self._in_queue.put(None)
-                    break
                 processed_data = self.process(data)
                 self._out_queue.put(processed_data)
             except Empty:
                 continue
-        self._out_queue.put(None)
 
     def process(self, input_data: IN) -> OUT:
         result = input_data
