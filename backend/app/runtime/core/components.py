@@ -57,12 +57,12 @@ class Sink(PipelineComponent):
 
 
 class TaskRunner(PipelineComponent):
-    """A component and a composite processor impl that runs a sequence of processors."""
+    """A component that delegates processing logic to a processor."""
 
-    def __init__(self, in_queue: Queue, out_queue: Queue, processors: Processor):
+    def __init__(self, in_queue: Queue, out_queue: Queue, processor: Processor):
 
         super().__init__()
-        self._processor = processors
+        self._processor = processor
         self._in_queue = in_queue
         self._out_queue = out_queue
 
