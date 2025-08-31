@@ -17,7 +17,7 @@ class PipelineActivationEvent(BaseModel):
 class ComponentConfigChangeEvent(BaseModel):
     """Event fired when a component of the active pipeline changes."""
     pipeline_id: str
-    component_type: str  # Using a simple string as the contract
+    component_type: str
     component_id: str
 
 
