@@ -1,9 +1,10 @@
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 """This file contains helper functions for the web UI.
 
 It includes functions for image preparation, data processing, and pipeline management.
 """
-# Copyright (C) 2025 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
 
 import argparse
 import base64

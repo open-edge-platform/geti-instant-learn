@@ -1,6 +1,7 @@
-"""Datasets."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Datasets."""
 
 from .dataset_base import Dataset
 from .dataset_iterator_base import DatasetIter

@@ -1,5 +1,6 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
 from difflib import SequenceMatcher
 
 from getiprompt.types.prompts import Prompt

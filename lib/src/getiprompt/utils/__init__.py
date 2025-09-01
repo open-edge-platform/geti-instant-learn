@@ -1,6 +1,7 @@
-"""Utils."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Utils."""
 
 from getiprompt.utils.utils import (
     MaybeToTensor,

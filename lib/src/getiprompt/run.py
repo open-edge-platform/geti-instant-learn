@@ -1,8 +1,8 @@
-"""This module contains functionality for running the pipeline on custom data."""
-
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-# ruff: noqa: E402
+
+"""This module contains functionality for running the pipeline on custom data."""
+
 import warnings
 
 warnings.filterwarnings("ignore", category=UserWarning)

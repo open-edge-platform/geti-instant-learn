@@ -1,6 +1,7 @@
-"""Base class for visualization processes."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Base class for visualization processes."""
 
 import numpy as np
 import torch

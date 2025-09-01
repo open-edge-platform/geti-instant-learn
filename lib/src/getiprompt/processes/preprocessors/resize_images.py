@@ -1,6 +1,7 @@
-"""Resize images."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Resize images."""
 
 from getiprompt.processes import Process
 from getiprompt.types import Image

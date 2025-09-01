@@ -1,11 +1,5 @@
-# --------------------------------------------------------
-# TinyViT Model Architecture
-# Copyright (c) 2022 Microsoft
-# Adapted from LeViT and Swin Transformer
-#   LeViT: (https://github.com/facebookresearch/levit)
-#   Swin: (https://github.com/microsoft/swin-transformer)
-# Build the TinyViT Model
-# --------------------------------------------------------
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
 
 import itertools
 

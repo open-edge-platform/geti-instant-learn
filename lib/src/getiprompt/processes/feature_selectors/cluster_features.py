@@ -1,6 +1,7 @@
-"""Cluster features using KMeans."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Cluster features using KMeans."""
 
 import numpy as np
 import torch

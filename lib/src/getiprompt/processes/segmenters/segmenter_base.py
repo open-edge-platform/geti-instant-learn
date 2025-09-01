@@ -1,7 +1,8 @@
-"""Base class for segmenters."""
-
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Base class for segmenters."""
+
 from abc import abstractmethod
 
 from getiprompt.processes import Process

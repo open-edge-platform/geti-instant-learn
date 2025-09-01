@@ -1,6 +1,7 @@
-"""Export visualization to file."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Export visualization to file."""
 
 import colorsys
 from pathlib import Path

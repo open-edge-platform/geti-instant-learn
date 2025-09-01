@@ -1,7 +1,8 @@
-"""Base classes for prompt generators."""
-
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Base classes for prompt generators."""
+
 from abc import abstractmethod
 
 import torch

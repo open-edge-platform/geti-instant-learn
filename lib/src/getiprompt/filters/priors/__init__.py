@@ -1,6 +1,7 @@
-"""Priors filters."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Priors filters."""
 
 from .max_point_filter import MaxPointFilter
 from .multi_instance_prior_filter import MultiInstancePriorFilter

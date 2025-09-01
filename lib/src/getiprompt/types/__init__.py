@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation  # noqa: CPY001, D104
+# Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # Import all type classes

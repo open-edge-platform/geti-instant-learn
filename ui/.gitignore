@@ -17,3 +17,6 @@ dist/
 
 # We clone our geti packages during the npm install phase
 packages/
+
+playwright-report/
+test-results/

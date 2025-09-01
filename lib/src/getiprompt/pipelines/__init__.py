@@ -1,6 +1,7 @@
-"""Pipelines."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Pipelines."""
 
 from .grounding_dino import GroundingDinoSAM
 from .matcher_pipeline import Matcher

@@ -1,3 +1,6 @@
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 """This is the main file for the web UI.
 
 It is a Flask application that allows you to run several Visual Prompting pipelines and see the results.
@@ -6,9 +9,6 @@ The web UI is served at http://127.0.0.1:5050
 The web UI can be started by running:
 python -m web_ui.app
 """
-# Copyright (C) 2025 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
-# ruff: noqa: E402
 
 import argparse
 import logging

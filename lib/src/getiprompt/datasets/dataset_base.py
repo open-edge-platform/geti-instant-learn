@@ -1,6 +1,7 @@
-"""Base class for datasets."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Base class for datasets."""
 
 import logging
 import zipfile

@@ -1,6 +1,7 @@
-"""Cosine similarity matcher."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Cosine similarity matcher."""
 
 from getiprompt.processes.similarity_matchers.similarity_matcher_base import SimilarityMatcher
 from getiprompt.types import Features, Image, Similarities

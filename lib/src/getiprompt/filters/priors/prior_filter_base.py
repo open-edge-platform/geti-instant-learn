@@ -1,6 +1,7 @@
-"""Base class for prior filters."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Base class for prior filters."""
 
 from getiprompt.filters import Filter
 from getiprompt.types import Priors

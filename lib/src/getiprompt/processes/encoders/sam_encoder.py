@@ -1,6 +1,7 @@
-"""SAM encoder."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""SAM encoder."""
 
 import numpy as np
 import torch

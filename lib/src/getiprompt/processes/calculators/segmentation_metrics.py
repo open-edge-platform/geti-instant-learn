@@ -1,6 +1,7 @@
-"""Segmentation metrics calculator."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Segmentation metrics calculator."""
 
 from logging import getLogger
 from typing import Any

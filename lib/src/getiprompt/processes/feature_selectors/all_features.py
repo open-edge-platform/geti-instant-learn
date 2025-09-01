@@ -1,6 +1,7 @@
-"""Select all features."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Select all features."""
 
 import torch
 

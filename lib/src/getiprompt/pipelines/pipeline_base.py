@@ -1,7 +1,8 @@
-"""Base class for all pipelines."""
-
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Base class for all pipelines."""
+
 from abc import ABC, abstractmethod
 from logging import getLogger
 

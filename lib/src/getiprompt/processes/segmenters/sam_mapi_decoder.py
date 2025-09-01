@@ -1,6 +1,7 @@
-"""SAM MAPI decoder."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""SAM MAPI decoder."""
 
 import numpy as np
 from model_api.models import SAMLearnableVisualPrompter

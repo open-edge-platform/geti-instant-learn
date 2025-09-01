@@ -1,6 +1,7 @@
-"""DINOv2 encoder."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""DINOv2 encoder."""
 
 from logging import getLogger
 

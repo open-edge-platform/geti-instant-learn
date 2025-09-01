@@ -1,7 +1,8 @@
-"""Models and pipelines can be constructed using the methods in this file."""
-
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Models and pipelines can be constructed using the methods in this file."""
+
 from logging import getLogger
 from typing import TYPE_CHECKING
 

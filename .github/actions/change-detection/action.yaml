@@ -20,6 +20,17 @@ runs:
       with:
         files_yaml_from_source_file: "${{ inputs.path_filter }}"
 
+    - name: Install dependencies (a temp step while we are in the inner-source)
+      id: install-dependencies
+      shell: bash
+      run: |
+        YQ_VERSION=v4.44.2
+        sudo -E curl -L "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64" -o /usr/bin/yq
+        sudo chmod +x /usr/bin/yq
+        echo "### yq version: $(yq --version)"
+
+        sudo -E apt update && sudo -E apt install -y libjs-jquery
+
     - name: Get changed components
       id: components-list
       shell: bash

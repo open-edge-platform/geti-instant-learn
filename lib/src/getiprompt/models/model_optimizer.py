@@ -1,6 +1,7 @@
-"""This file contains several methods to optimize a model for inference."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""This file contains several methods to optimize a model for inference."""
 
 import time
 from collections.abc import Callable

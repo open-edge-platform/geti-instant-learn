@@ -1,8 +1,8 @@
-"""This module contains the VisionPrompt CLI."""
-
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-# ruff: noqa: E402
+
+"""This module contains the Geti Prompt CLI."""
+
 import inspect
 import warnings
 
@@ -19,11 +19,11 @@ from getiprompt.run import run_pipeline
 from getiprompt.utils.args import populate_benchmark_parser
 
 
-class VisionPromptCLI:
-    """This class is the entry point for the VisionPrompt CLI."""
+class GetiPromptCLI:
+    """This class is the entry point for the Geti Prompt CLI."""
 
     def __init__(self) -> None:
-        self.parser = ArgumentParser(description="VisionPrompt CLI", env_prefix="getiprompt")
+        self.parser = ArgumentParser(description="Geti Prompt CLI", env_prefix="getiprompt")
         self._add_subcommands()
         self.execute()
 
@@ -96,7 +96,7 @@ class VisionPromptCLI:
         self._execute_subcommands(instantiated_config)
 
     @staticmethod
-    def _visionprompt_subcommands() -> dict[str, str]:
+    def _getiprompt_subcommands() -> dict[str, str]:
         """Returns the subcommands and help messages for each subcommand."""
         return {
             "run": "Perform both learning and inference steps.",
@@ -108,7 +108,7 @@ class VisionPromptCLI:
         """Registers the subcommands for the CLI."""
         parser_subcommands = self.parser.add_subcommands()
 
-        for name, description in self._visionprompt_subcommands().items():
+        for name, description in self._getiprompt_subcommands().items():
             parser = ArgumentParser(description=description)
             self._add_common_args(parser)
             getattr(self, f"add_{name}_arguments")(parser)
@@ -154,7 +154,7 @@ class VisionPromptCLI:
 
 def main() -> None:
     """Main function for the CLI."""
-    VisionPromptCLI()
+    GetiPromptCLI()
 
 
 if __name__ == "__main__":

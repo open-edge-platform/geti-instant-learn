@@ -1,6 +1,7 @@
-"""SoftMatcher pipeline."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""SoftMatcher pipeline."""
 
 from typing import TYPE_CHECKING
 

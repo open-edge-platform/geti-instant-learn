@@ -1,7 +1,8 @@
-"""This is a Pipeline based on grounding Dino with a SAM decoder."""
-
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""This is a Pipeline based on grounding Dino with a SAM decoder."""
+
 
 from getiprompt.filters.masks import BoxAwareMaskFilter, ClassOverlapMaskFilter, MaskFilter
 from getiprompt.filters.priors import MultiInstancePriorFilter

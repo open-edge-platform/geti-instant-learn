@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2025 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { defineConfig } from '@rsbuild/core';
 import { pluginReact } from '@rsbuild/plugin-react';
 import { pluginSass } from '@rsbuild/plugin-sass';

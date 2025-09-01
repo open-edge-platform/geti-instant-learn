@@ -1,7 +1,6 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-
 from getiprompt.filters import Filter
 from getiprompt.types import Image
 

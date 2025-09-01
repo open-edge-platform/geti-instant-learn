@@ -1,7 +1,8 @@
-"""Base class for feature selectors."""
-
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Base class for feature selectors."""
+
 from abc import abstractmethod
 
 import torch

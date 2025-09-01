@@ -1,7 +1,8 @@
-"""Test the BoxAwareMaskFilter."""
-
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Test the BoxAwareMaskFilter."""
+
 
 import pytest
 import torch

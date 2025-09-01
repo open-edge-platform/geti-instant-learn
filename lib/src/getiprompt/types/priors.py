@@ -1,5 +1,6 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
 from getiprompt.types.boxes import Boxes
 from getiprompt.types.data import Data
 from getiprompt.types.masks import Masks

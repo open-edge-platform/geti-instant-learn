@@ -1,7 +1,8 @@
-"""Base class for similarity matchers."""
-
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Base class for similarity matchers."""
+
 import math
 from abc import abstractmethod
 

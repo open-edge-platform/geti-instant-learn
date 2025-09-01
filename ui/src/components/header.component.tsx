@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2025 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { Header as SpectrumHeader, View, Flex } from '@geti/ui';
 
 export const Header = () => {

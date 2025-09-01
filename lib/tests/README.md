@@ -1,4 +1,4 @@
-# VisionPrompt Testing Framework
+# Geti Prompt Testing Framework
 
 This directory contains the testing framework for the `getiprompt` library. We use `pytest` for test discovery and execution.
 
@@ -7,18 +7,19 @@ This directory contains the testing framework for the `getiprompt` library. We u
 The `tests` directory mirrors the `src/getiprompt` package structure. This makes it easy to locate the tests for a specific module. For example, tests for a module at `src/getiprompt/filters/masks/example.py` should be placed in `tests/filters/masks/test_example.py`.
 
 ```
-getiprompt/
-├── src/
-│   └── getiprompt/
-│       ├── filters/
-│       │   └── masks/
-│       │       └── mask_filter_base_copy.py
-│       └── ...
-└── tests/
-    ├── filters/
-    │   └── masks/
-    │       └── test_box_aware_mask_filter.py
-    └── ...
+geti-prompt/
+└── lib
+    ├──src/
+    │  └── getiprompt/
+    │        ├── filters/
+    │        │   └── masks/
+    │        │       └── mask_filter_base_copy.py
+    │        └── ...
+    └── tests/
+        ├── filters/
+        │    └── masks/
+        │        └── test_box_aware_mask_filter.py
+        └── ... 
 ```
 
 ## Running Tests

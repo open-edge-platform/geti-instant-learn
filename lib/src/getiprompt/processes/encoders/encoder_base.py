@@ -1,7 +1,8 @@
-"""Base class for encoders."""
-
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Base class for encoders."""
+
 from abc import abstractmethod
 
 from getiprompt.processes.process_base import Process

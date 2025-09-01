@@ -1,6 +1,7 @@
-"""Pipeline factory module."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Pipeline factory module."""
 
 from __future__ import annotations
 

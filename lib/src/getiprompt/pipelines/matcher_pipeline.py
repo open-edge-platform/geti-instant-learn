@@ -1,6 +1,7 @@
-"""Matcher pipeline, based on the paper 'Segment Anything with One Shot Using All-Purpose Feature Matching'."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Matcher pipeline, based on the paper 'Segment Anything with One Shot Using All-Purpose Feature Matching'."""
 
 from typing import TYPE_CHECKING
 

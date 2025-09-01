@@ -1,6 +1,7 @@
-"""Resize masks."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Resize masks."""
 
 from getiprompt.processes import Process
 from getiprompt.types import Priors

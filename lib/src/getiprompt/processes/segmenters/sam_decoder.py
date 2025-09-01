@@ -1,6 +1,7 @@
-"""SAM decoder."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""SAM decoder."""
 
 from collections import defaultdict
 from itertools import zip_longest

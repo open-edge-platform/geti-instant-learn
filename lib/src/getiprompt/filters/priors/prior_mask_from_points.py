@@ -1,6 +1,7 @@
-"""This module provides a filter that choces the top K foreground points."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""This module provides a filter that choces the top K foreground points."""
 
 from getiprompt.filters.priors.prior_filter_base import PriorFilter
 from getiprompt.processes.segmenters import Segmenter

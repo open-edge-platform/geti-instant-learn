@@ -1,0 +1,47 @@
+name: Lint UI
+
+on:
+  workflow_call: # Allows this workflow to be called from another workflow
+    inputs:
+      build_version:
+        description: "Specifies the build version"
+        type: string
+        required: false
+
+jobs:
+  lint:
+    name: Lint checks
+    runs-on: innersource.prod.amr.dind
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        id: setup-node
+        with:
+          node-version-file: ui/.nvmrc
+
+      - name: Install dependencies
+        working-directory: "ui"
+        run: npm ci
+
+      - name: Prettier
+        working-directory: "ui"
+        run: npm run format:check
+
+      - name: Lint
+        working-directory: "ui"
+        run: npm run lint
+
+      - name: Cyclic imports
+        working-directory: "ui"
+        run: npm run cyclic-deps-check
+
+      - name: Typescript
+        working-directory: "ui"
+        run: npm run type-check
+        if: false

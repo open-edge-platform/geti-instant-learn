@@ -1,4 +1,4 @@
-# VisionPrompt
+# Geti Prompt
 
 **A flexible and modular framework for exploring, developing, and evaluating visual prompting algorithms.**
 
@@ -118,10 +118,6 @@ getiprompt ui
 ```
 
 The UI allows you to select different pipelines, datasets, and images to inspect outputs like similarity maps, masks, and points. By default, it runs on `http://0.0.0.0:5050`. You can change this with `--host` and `--port` arguments.
-
-![Vision Prompt UI](docs/figs/VisionPromptUI.png)
-
-
 
 ## Modular Pipeline Example
 

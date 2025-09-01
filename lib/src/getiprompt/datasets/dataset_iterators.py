@@ -1,6 +1,7 @@
-"""Dataset iterators."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Dataset iterators."""
 
 from __future__ import annotations
 

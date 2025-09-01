@@ -1,6 +1,7 @@
-"""Base class for processes."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Base class for processes."""
 
 from abc import ABC, abstractmethod
 

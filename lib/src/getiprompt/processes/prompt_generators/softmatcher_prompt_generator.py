@@ -1,6 +1,7 @@
-"""Soft-matching prompt generator."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Soft-matching prompt generator."""
 
 from logging import getLogger
 

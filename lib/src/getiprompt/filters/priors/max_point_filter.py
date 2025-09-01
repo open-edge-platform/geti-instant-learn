@@ -1,6 +1,7 @@
-"""This module provides a filter that choces the top K foreground points."""
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""This module provides a filter that choces the top K foreground points."""
 
 import torch
 
