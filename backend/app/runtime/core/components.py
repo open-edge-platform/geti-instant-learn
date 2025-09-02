@@ -78,7 +78,7 @@ class TaskRunner(PipelineComponent):
         logger.debug(f"Exiting the task runner loop: {self._processor.get_config()}")
 
 
-class Pipeline:
+class Job:
     """
     Orchestrates the pipeline lifecycle, including queue and components' management.
     """

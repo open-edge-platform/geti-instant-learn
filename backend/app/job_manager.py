@@ -5,10 +5,9 @@ from typing import Protocol, Optional, Union
 
 from pydantic import BaseModel
 
-from backend.app.runtime.core.components import Pipeline
+from backend.app.runtime.core.components import Job
 
 
-# This is a good practice that avoids deep inheritance between the events themselves.
 class PipelineActivationEvent(BaseModel):
     """Event fired when a new pipeline should be activated."""
     pipeline_id: str
@@ -44,14 +43,14 @@ class ConfigChangeDispatcher:
             listener(event)
 
 
-class PiplineManager:
+class JobManager:
 
     def __init__(self, event_dispatcher: ConfigChangeDispatcher):
         self._event_dispatcher = event_dispatcher
-        self._pipeline: Optional[Pipeline] = None
+        self._job: Optional[Job] = None
 
     def start(self):
-        # retrieve an active pipeline configuration and strat it.
+        # retrieve an active pipeline configuration and run it.
         # subscribe for updates
         self._event_dispatcher.subscribe(self.on_config_change)
 
@@ -60,5 +59,5 @@ class PiplineManager:
 
     def stop(self):
         # gracefully stop the running pipeline
-        if self._pipeline:
-            self._pipeline.stop()
+        if self._job:
+            self._job.stop()
