@@ -54,8 +54,8 @@ class DinoEncoder(Encoder):
         logger.info("Loading DINOv2 encoder model")
 
         model = AutoModel.from_pretrained(model_id).to(device).eval()
-        self.encoder_input_size = model.config.image_size
-        self.patch_size = model.config.patch_size
+        self.encoder_input_size = model._config.image_size
+        self.patch_size = model._config.patch_size
         self.feature_size = self.encoder_input_size // self.patch_size
 
         self.model = optimize_model(

@@ -14,7 +14,7 @@ logger = getLogger(__name__)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
-config = context.config
+config = context._config
 
 # here we allow ourselves to pass interpolation vars to alembic.ini
 # from the host env

@@ -6,7 +6,7 @@ from contextlib import AbstractContextManager
 from multiprocessing import Event
 from typing import Any, Generic
 
-from .types import IN, OUT, ConfigDict
+from .types import IN, OUT
 
 
 class JobComponent(ABC):
@@ -26,16 +26,10 @@ class JobComponent(ABC):
 class Processor(Generic[IN, OUT], ABC):
 
     @abstractmethod
-    def get_config(self) -> ConfigDict: pass
-
-    @abstractmethod
     def process(self, input_data: IN) -> OUT: pass
 
 
 class StreamReader(AbstractContextManager, ABC):
-
-    @abstractmethod
-    def get_config(self) -> ConfigDict: pass
 
     @abstractmethod
     def read(self) -> Any | None: pass
@@ -48,9 +42,6 @@ class StreamReader(AbstractContextManager, ABC):
 
 
 class StreamWriter(AbstractContextManager, ABC):
-
-    @abstractmethod
-    def get_config(self) -> ConfigDict: pass
 
     @abstractmethod
     def write(self, data: Any) -> None: pass

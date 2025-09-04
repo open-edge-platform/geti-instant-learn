@@ -30,8 +30,8 @@ def get_dummy_input(model: AutoModel, precision: torch.dtype, device: str) -> to
         return model.dummy_inputs["pixel_values"].to(precision).to(device)
 
     # Fallback if dummy_inputs is not available or doesn't have pixel_values
-    image_size = model.config.image_size
-    num_channels = getattr(model.config, "num_channels", 3)
+    image_size = model._config.image_size
+    num_channels = getattr(model._config, "num_channels", 3)
     return torch.randn(1, num_channels, image_size, image_size, device=device, dtype=precision)
 
 
