@@ -1,32 +1,31 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""This is a Pipeline based on grounding Dino with a SAM decoder."""
-
+"""This Pipeline uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
 
 from getiprompt.filters.masks import BoxAwareMaskFilter, ClassOverlapMaskFilter, MaskFilter
 from getiprompt.filters.priors import MultiInstancePriorFilter
 from getiprompt.models.models import load_sam_model
 from getiprompt.pipelines.pipeline_base import Pipeline
 from getiprompt.processes.mask_processors import MaskProcessor, MasksToPolygons
-from getiprompt.processes.prompt_generators import GroundingDinoBoxGenerator
+from getiprompt.processes.prompt_generators import GroundedObjectDetector, GroundingModel
 from getiprompt.processes.segmenters import SamDecoder, Segmenter
 from getiprompt.types import Image, Priors, Results, Text
 from getiprompt.utils.constants import SAMModelName
 from getiprompt.utils.decorators import track_duration
 
 
-class GroundingDinoSAM(Pipeline):
-    """This Pipeline uses GroundingDino (from Huggingface) to generate boxes for SAM."""
+class GroundedSAM(Pipeline):
+    """This Pipeline uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
 
     def __init__(
         self,
         sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
+        grounding_model: GroundingModel = GroundingModel.LLMDET_TINY,
         apply_mask_refinement: bool = True,
         precision: str = "bf16",
         compile_models: bool = False,
-        verbose: bool = False,
-        backbone_size: GroundingDinoBoxGenerator.Size = GroundingDinoBoxGenerator.Size.TINY,
+        benchmark_inference_speed: bool = False,
         box_threshold: float = 0.4,
         text_threshold: float = 0.3,
         device: str = "cuda",
@@ -36,11 +35,11 @@ class GroundingDinoSAM(Pipeline):
 
         Args:
             sam: The SAM model name.
+            grounding_model: The grounding model to use.
             apply_mask_refinement: Whether to apply mask refinement.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
-            verbose: Whether to print verbose output of the model optimization process.
-            backbone_size: The size of the backbone.
+            benchmark_inference_speed: Whether to benchmark the inference speed.
             box_threshold: The box threshold.
             text_threshold: The text threshold.
             device: The device to use.
@@ -48,17 +47,21 @@ class GroundingDinoSAM(Pipeline):
         """
         super().__init__(image_size=image_size)
         self.sam_predictor = load_sam_model(
-            sam, device, precision=precision, compile_models=compile_models, verbose=verbose
+            sam,
+            device,
+            precision=precision,
+            compile_models=compile_models,
+            benchmark_inference_speed=benchmark_inference_speed,
         )
-        self.prompt_generator: GroundingDinoBoxGenerator = GroundingDinoBoxGenerator(
+        self.prompt_generator: GroundedObjectDetector = GroundedObjectDetector(
             device=device,
             box_threshold=box_threshold,
             text_threshold=text_threshold,
-            size=backbone_size,
+            template=GroundedObjectDetector.Template.specific_object,
+            grounding_model=grounding_model,
             precision=precision,
             compile_models=compile_models,
-            verbose=verbose,
-            template=GroundingDinoBoxGenerator.Template.specific_object,
+            benchmark_inference_speed=benchmark_inference_speed,
         )
         self.segmenter: Segmenter = SamDecoder(
             sam_predictor=self.sam_predictor,

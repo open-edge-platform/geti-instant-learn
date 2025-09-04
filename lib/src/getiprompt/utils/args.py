@@ -5,6 +5,7 @@ import argparse
 from enum import Enum
 from typing import TypeVar
 
+from getiprompt.processes.prompt_generators import GroundingModel
 from getiprompt.utils.constants import DatasetName, PipelineName, SAMModelName
 
 # Generate help strings with choices
@@ -21,7 +22,6 @@ HELP_DATASET_NAME = f"Dataset name or comma-separated list. Use 'all' to run all
 
 def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
     """Populate the argument parser with benchmark arguments."""
-    parser.add_argument("--log_level", type=str, default="INFO", help="Log level")
     parser.add_argument(
         "--sam",
         type=str,
@@ -190,7 +190,7 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         help="Whether to compile the models",
     )
     parser.add_argument(
-        "--verbose",
+        "--benchmark_inference_speed",
         action="store_true",
         help="Whether to show the inference time of the optimized models",
     )
@@ -199,6 +199,25 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         type=str,
         default="cuda",
         help="The device to use for the models",
+    )
+    parser.add_argument(
+        "--grounding_model",
+        type=str,
+        default=GroundingModel.LLMDET_TINY.value,
+        choices=[g.value for g in GroundingModel],
+        help="The grounding model to use",
+    )
+    parser.add_argument(
+        "--box_threshold",
+        type=float,
+        default=0.4,
+        help="The box threshold for the grounding model",
+    )
+    parser.add_argument(
+        "--text_threshold",
+        type=float,
+        default=0.3,
+        help="The text threshold for the grounding model",
     )
 
 

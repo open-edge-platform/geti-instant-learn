@@ -6,7 +6,6 @@ import hashlib
 import logging
 import random
 import sys
-from logging import getLogger
 from pathlib import Path
 
 import cv2
@@ -22,31 +21,33 @@ from sklearn.manifold import TSNE
 from torch.nn import functional as F
 from torchvision import transforms
 
-logger = getLogger("Vision Prompt")
+logger = logging.getLogger("Geti Prompt")
 
 
 def setup_logger(dir_path: Path | None = None, log_level: str = "INFO") -> None:
     """Save logs to a directory and setup console logging."""
-    root_logger = logging.getLogger()
-    root_logger.setLevel(log_level.upper())
+    logger = logging.getLogger("Geti Prompt")
+    logger.setLevel(log_level.upper())
+    logger.propagate = False  # This will prevent duplicate logs
 
     # Clear existing handlers to prevent duplicate logs
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
 
     if dir_path:
         if not dir_path.exists():
             dir_path.mkdir(parents=True, exist_ok=True)
         file_handler = logging.FileHandler(dir_path / "logs.log")
         file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
-        root_logger.addHandler(file_handler)
+        logger.addHandler(file_handler)
 
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(logging.Formatter("%(levelname)s - %(name)s: \t%(message)s"))
-    root_logger.addHandler(console_handler)
+    logger.addHandler(console_handler)
 
-    # Set PIL logger to a higher level to avoid verbose debug logs
+    # Set other loggers to a higher level to avoid verbose debug logs
     logging.getLogger("PIL").setLevel(logging.INFO)
+    logging.getLogger("sam2").setLevel(logging.WARNING)
 
 
 def precision_to_torch_dtype(precision: str) -> torch.dtype:

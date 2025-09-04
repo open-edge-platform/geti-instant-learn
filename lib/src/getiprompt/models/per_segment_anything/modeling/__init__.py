@@ -1,8 +1,7 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
 
 from .image_encoder import ImageEncoderViT as ImageEncoderViT
 from .mask_decoder import MaskDecoder as MaskDecoder

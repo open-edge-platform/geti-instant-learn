@@ -3,7 +3,7 @@
 
 """Pipelines."""
 
-from .grounding_dino import GroundingDinoSAM
+from .grounded_sam_pipeline import GroundedSAM
 from .matcher_pipeline import Matcher
 from .perdino_pipeline import PerDino
 from .persam_mapi_pipeline import PerSamMAPI
@@ -19,6 +19,6 @@ __all__ = [
     "PerSamMAPI",
     "Pipeline",
     "SoftMatcher",
-    "GroundingDinoSAM",
+    "GroundedSAM",
     "load_pipeline",
 ]

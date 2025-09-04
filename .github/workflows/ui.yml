@@ -11,7 +11,7 @@ on:
 jobs:
   generate-openapi-spec:
     name: Generate OpenAPI Spec
-    runs-on: innersource.prod.amr.dind
+    runs-on: ubuntu-latest
     permissions:
       contents: read # to checkout code
     steps:
@@ -32,13 +32,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo -E curl -fsSL 'https://proget.makedeb.org/debian-feeds/prebuilt-mpr.pub' | gpg --dearmor | sudo tee /usr/share/keyrings/prebuilt-mpr-archive-keyring.gpg 1> /dev/null && \
-          echo "deb [arch=all,$(dpkg --print-architecture) signed-by=/usr/share/keyrings/prebuilt-mpr-archive-keyring.gpg] https://proget.makedeb.org prebuilt-mpr $(lsb_release -cs)" | sudo tee /etc/apt/sources.list.d/prebuilt-mpr.list && \
-          sudo -E apt update && \
-          sudo -E apt install -y \
-            just \
-            libgl1-mesa-glx \
-            libglib2.0-0
+          sudo apt-get update
+          sudo apt-get install -y just libgl1 libglib2.0-0
 
       - name: Get OpenAPI spec
         run: |
@@ -51,7 +46,7 @@ jobs:
 
   build:
     name: Build UI
-    runs-on: innersource.prod.amr.dind
+    runs-on: ubuntu-latest
     permissions:
       contents: read # to checkout code
     steps:
@@ -89,7 +84,7 @@ jobs:
 
   unit-tests:
     name: Unit tests
-    runs-on: innersource.prod.amr.dind
+    runs-on: ubuntu-latest
     permissions:
       contents: read # to checkout code
     needs: generate-openapi-spec
@@ -111,7 +106,7 @@ jobs:
     permissions:
       contents: read # to checkout code
     timeout-minutes: 60
-    runs-on: innersource.prod.amr.dind
+    runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.55.0-noble
     steps:

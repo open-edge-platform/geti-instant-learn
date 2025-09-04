@@ -1,5 +1,6 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# ruff: noqa: E402
 
 import argparse
 import shutil
@@ -27,7 +28,7 @@ from getiprompt.utils.args import get_arguments, parse_experiment_args
 from getiprompt.utils.constants import DatasetName, PipelineName, SAMModelName
 from getiprompt.utils.data import get_filename_categories, get_image_and_mask_from_filename, load_dataset
 
-logger = getLogger("Vision Prompt")
+logger = getLogger("Geti Prompt")
 
 
 def handle_output_path(output_path: str, overwrite: bool) -> Path:

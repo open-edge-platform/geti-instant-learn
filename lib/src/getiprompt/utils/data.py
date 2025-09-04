@@ -11,7 +11,7 @@ from getiprompt.datasets.dataset_iterators import BatchedCategoryIter
 from getiprompt.datasets.lvis.lvis_dataset import LVISDataset
 from getiprompt.datasets.perseg.perseg_dataset import PerSegDataset
 
-logger = getLogger("Vision Prompt")
+logger = getLogger("Geti Prompt")
 
 
 def load_dataset(dataset_name: str, whitelist: list[str] | None = None, batch_size: int = 5) -> Dataset:

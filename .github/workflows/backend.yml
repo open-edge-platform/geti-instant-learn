@@ -10,7 +10,7 @@ on:
 jobs:
   component-check:
     name: Backend workflow
-    runs-on: innersource.prod.amr.dind
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     timeout-minutes: 30

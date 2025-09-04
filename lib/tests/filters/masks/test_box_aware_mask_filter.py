@@ -3,9 +3,9 @@
 
 """Test the BoxAwareMaskFilter."""
 
-
 import pytest
 import torch
+
 from getiprompt.filters.masks.box_aware_mask_filter import BoxAwareMaskFilter
 from getiprompt.types.boxes import Boxes
 from getiprompt.types.masks import Masks

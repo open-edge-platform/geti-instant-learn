@@ -1,3 +1,5 @@
+"""Generate bounding boxes using a zero shot object detector."""
+
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
@@ -13,65 +15,57 @@ from getiprompt.types import Boxes, Image, Priors, Text
 from getiprompt.utils import precision_to_torch_dtype
 
 
-class GroundingDinoBoxGenerator(PromptGenerator):
+class GroundingModel(Enum):
+    """The model to use for the grounding."""
+
+    GROUNDING_DINO_BASE = "IDEA-Research/grounding-dino-base"
+    GROUNDING_DINO_TINY = "IDEA-Research/grounding-dino-tiny"
+    LLMDET_TINY = "fushh7/llmdet_swin_tiny_hf"
+    LLMDET_BASE = "fushh7/llmdet_swin_base_hf"
+    LLMDET_LARGE = "fushh7/llmdet_swin_large_hf"
+
+
+class GroundedObjectDetector(PromptGenerator):
     """This class generates prompts for the segmenter.
 
-    This class uses the GroundingDino from HuggingFace to produce bounding box priors.
+    This class uses a zero-shot object detector from HuggingFace to produce bounding box priors.
     """
-
-    class Size(Enum):
-        """Size of the backbone."""
-
-        BASE = "base"
-        TINY = "tiny"
 
     class Template:
         """Template for object prompts."""
 
         specific_object = "{prior}"
         all_objects = "an object"
+        group_of_objects = "{prior} (group)"
 
     def __init__(
         self,
         box_threshold: float,
         text_threshold: float,
-        size: Size | str,
         template: str,
+        grounding_model: GroundingModel = GroundingModel.LLMDET_TINY,
         device: str = "cuda",
         precision: str = "bf16",
         compile_models: bool = False,
-        verbose: bool = False,
+        benchmark_inference_speed: bool = False,
     ) -> None:
-        """Initialize the GroundingDinoBoxGenerator.
+        """Initialize the GroundedObjectDetector.
 
         Args:
             box_threshold: The box threshold.
             text_threshold: The text threshold.
-            size: The size of the model.
             template: The template to use for the prompt
+            grounding_model: The grounding model to use.
             device: The device to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
-            verbose: Whether to print verbose output of the model optimization process.
+            benchmark_inference_speed: Whether to benchmark the inference speed.
         """
         super().__init__()
-        model_size = size.value if isinstance(size, self.Size) else size
-        self.model_id = f"IDEA-Research/grounding-dino-{model_size}"
+        self.model_id = grounding_model.value
         self.device = device
-        self.processor = AutoProcessor.from_pretrained(self.model_id)  # auto resizes to 800
-        self.model = (
-            AutoModelForZeroShotObjectDetection.from_pretrained(
-                self.model_id, torch_dtype=precision_to_torch_dtype(precision)
-            )
-            .to(self.device)
-            .eval()
-        )
-        self.model = optimize_model(
-            model=self.model,
-            device=self.device,
-            precision=precision_to_torch_dtype(precision),
-            compile_models=compile_models,
-            verbose=verbose,
+        self.model, self.processor = self._load_grounding_model_and_processor(
+            self.model_id, precision, device, compile_models, benchmark_inference_speed
         )
         self.box_threshold = box_threshold
         self.text_threshold = text_threshold
@@ -104,10 +98,10 @@ class GroundingDinoBoxGenerator(PromptGenerator):
             text = [self.template.format(prior=text_prior.get(cid)) for cid in text_prior.class_ids()]
             text_labels.append(". ".join(text) + ".")
 
-        # Run the dino model
+        # Run the grounding model
         inputs = self.processor(images=pil_images, text=text_labels, return_tensors="pt").to(self.device)
         inputs["pixel_values"] = inputs["pixel_values"].to(self.model.dtype)
-        with torch.no_grad(), torch.autocast(device_type=self.device, dtype=self.model.dtype):
+        with torch.inference_mode(), torch.autocast(device_type=self.device, dtype=self.model.dtype):
             outputs = self.model(**inputs)
         results = self.processor.post_process_grounded_object_detection(
             outputs,
@@ -123,6 +117,7 @@ class GroundingDinoBoxGenerator(PromptGenerator):
             result_per_label = {}  # store all boxes of a certain class
             # This returns the xyxy box, float score and text label.
             for box, score, label_text in zip(result["boxes"], result["scores"], result["labels"], strict=False):
+                # fuzzy match the label text to the class name
                 label_id = text_prior.find_best(label_text)
                 row = np.array([*[float(b) for b in box], float(score), float(label_id)])
                 if label_id in result_per_label:
@@ -137,3 +132,37 @@ class GroundingDinoBoxGenerator(PromptGenerator):
             priors = Priors(boxes=boxes)
             priors_per_image.append(priors)
         return priors_per_image
+
+    @staticmethod
+    def _load_grounding_model_and_processor(
+        model_id: str, precision: str, device: str, compile_models: bool, benchmark_inference_speed: bool
+    ) -> tuple[AutoModelForZeroShotObjectDetection, AutoProcessor]:
+        """Load the grounding model and processor.
+
+        Args:
+            model_id: The model id to load.
+            precision: The precision to use for the model.
+            device: The device to use for the model.
+            compile_models: Whether to compile the models.
+            benchmark_inference_speed: Whether to benchmark the inference speed.
+        """
+        processor = AutoProcessor.from_pretrained(model_id)
+        if model_id.startswith("fushh7/llmdet_swin"):
+            # LLMDET has a slightly different interface, use lazy import for efficiency
+            from getiprompt.models.grounding_dino import GroundingDinoForObjectDetection
+
+            model = GroundingDinoForObjectDetection.from_pretrained(
+                model_id, torch_dtype=precision_to_torch_dtype(precision)
+            )
+        else:
+            model = AutoModelForZeroShotObjectDetection.from_pretrained(
+                model_id, torch_dtype=precision_to_torch_dtype(precision)
+            )
+        model = optimize_model(
+            model=model.to(device).eval(),
+            device=device,
+            precision=precision_to_torch_dtype(precision),
+            compile_models=compile_models,
+            benchmark_inference_speed=benchmark_inference_speed,
+        )
+        return model, processor

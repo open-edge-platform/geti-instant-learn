@@ -2,4 +2,3 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Filters for Geti Prompt."""
-

@@ -15,7 +15,7 @@ from getiprompt.processes.encoders.encoder_base import Encoder
 from getiprompt.types import Features, Image, Masks, Priors
 from getiprompt.utils import MaybeToTensor, precision_to_torch_dtype
 
-logger = getLogger("Vision Prompt")
+logger = getLogger("Geti Prompt")
 
 
 class DinoEncoder(Encoder):
@@ -29,7 +29,7 @@ class DinoEncoder(Encoder):
         >>>
         >>> # Create a sample image
         >>> sample_image = np.zeros((224, 224, 3), dtype=np.uint8)
-        >>> encoder = DinoEncoder(precision=torch.float32, compile_models=False, verbose=False)
+        >>> encoder = DinoEncoder()
         >>> features, masks = encoder([Image(sample_image)], priors_per_image=[Priors()])
         >>> len(features), len(masks)
         (1, 1)
@@ -44,15 +44,16 @@ class DinoEncoder(Encoder):
 
     def __init__(
         self,
-        precision: str,
-        compile_models: bool,
-        verbose: bool,
+        precision: str = "bf16",
+        compile_models: bool = False,
+        benchmark_inference_speed: bool = False,
         model_id: str = "facebook/dinov2-large",
         device: str = "cuda",
     ) -> None:
         super().__init__()
-        model = AutoModel.from_pretrained(model_id).to(device).eval()
+        logger.info("Loading DINOv2 encoder model")
 
+        model = AutoModel.from_pretrained(model_id).to(device).eval()
         self.encoder_input_size = model.config.image_size
         self.patch_size = model.config.patch_size
         self.feature_size = self.encoder_input_size // self.patch_size
@@ -61,7 +62,7 @@ class DinoEncoder(Encoder):
             model=model,
             precision=precision_to_torch_dtype(precision),
             compile_models=compile_models,
-            verbose=verbose,
+            benchmark_inference_speed=benchmark_inference_speed,
             device=device,
         ).eval()
 
@@ -137,7 +138,7 @@ class DinoEncoder(Encoder):
                 features.add_local_features(local_features=local_features, class_id=class_id)
         return features, resized_masks
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def _extract_global_features_batch(self, images: list[Image]) -> list[Features]:
         """Extract all global features from the images."""
         image_tensors = [image.data for image in images]

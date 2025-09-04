@@ -12,7 +12,7 @@ from sklearn.metrics import confusion_matrix
 from getiprompt.processes.calculators.calculator_base import Calculator
 from getiprompt.types import Masks
 
-logger = getLogger("Vision Prompt")
+logger = getLogger("Geti Prompt")
 
 
 class SegmentationMetrics(Calculator):

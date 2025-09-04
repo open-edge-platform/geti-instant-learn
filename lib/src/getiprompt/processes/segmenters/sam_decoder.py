@@ -148,7 +148,13 @@ class SamDecoder(Segmenter):
         """
         all_masks = Masks()
         all_used_boxes = Boxes()
-        self.predictor.set_image(image.data)
+
+        with (
+            torch.inference_mode(),
+            torch.autocast(self.predictor.device.type, dtype=next(self.predictor.model.parameters()).dtype),
+        ):
+            self.predictor.set_image(image.data)
+
         for class_id, boxes_per_map in boxes.data.items():
             # iterate over each point list of each similarity map
             for all_boxes in boxes_per_map:
@@ -160,12 +166,10 @@ class SamDecoder(Segmenter):
                 # predict masks
                 for box in all_boxes:
                     x1, y1, x2, y2, _, _ = box
-
-                    masks, mask_scores, *_ = self.predictor.predict(
+                    masks, mask_scores, *_ = self._predict(
                         box=np.array([x1, y1, x2, y2]),
                         multimask_output=False,
                     )
-
                     final_mask = masks[np.argmax(mask_scores)]
 
                     # Filter the mask based on average similarity
@@ -206,7 +210,11 @@ class SamDecoder(Segmenter):
         all_masks = Masks()
         all_used_points = Points()
 
-        self.predictor.set_image(image.data)
+        with (
+            torch.inference_mode(),
+            torch.autocast(self.predictor.device.type, dtype=next(self.predictor.model.parameters()).dtype),
+        ):
+            self.predictor.set_image(image.data)
         for class_id, points_per_map in map_points.data.items():  # noqa: PLR1702
             # iterate over each point list of each similarity map
             for points_in_current_map in points_per_map:
@@ -260,10 +268,11 @@ class SamDecoder(Segmenter):
                     masks, mask_scores, low_res_logits, *_ = self._predict(
                         point_coords=point_coords,
                         point_labels=point_labels,
-                        multimask_output=False,
+                        multimask_output=True,
                         sim_map=similarities.data[class_id] if similarities is not None else None,
                     )
 
+                    # Refine the mask
                     if not self.apply_mask_refinement:
                         final_mask = masks[np.argmax(mask_scores)]
                     else:
@@ -291,10 +300,13 @@ class SamDecoder(Segmenter):
 
         return all_masks, all_used_points
 
+    @torch.inference_mode()
     def _predict(
         self,
-        point_coords: np.ndarray,
-        point_labels: np.ndarray,
+        point_coords: np.ndarray | None = None,
+        point_labels: np.ndarray | None = None,
+        box: np.ndarray | None = None,
+        mask_input: np.ndarray | None = None,
         multimask_output: bool = False,
         sim_map: torch.Tensor | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -303,6 +315,8 @@ class SamDecoder(Segmenter):
         Args:
             point_coords: The coordinates of the points to predict masks from.
             point_labels: The labels of the points to predict masks from.
+            box: The box to predict masks from.
+            mask_input: The mask input to use for the prediction.
             multimask_output: Whether to output multiple masks.
             sim_map: The similarity map to use for the prediction.
 
@@ -311,13 +325,19 @@ class SamDecoder(Segmenter):
         """
         # Not all predictors support target-guided-attention.
         supports_attention = "attn_sim" in self.predictor.predict.__code__.co_varnames
-
         if not supports_attention or not self.target_guided_attention:
-            return self.predictor.predict(
-                point_coords=point_coords,
-                point_labels=point_labels,
-                multimask_output=multimask_output,
-            )
+            with (
+                torch.inference_mode(),
+                torch.autocast(self.predictor.device.type, dtype=next(self.predictor.model.parameters()).dtype),
+            ):
+                masks, mask_scores, low_res_logits, *_ = self.predictor.predict(
+                    point_coords=point_coords,
+                    point_labels=point_labels,
+                    box=box,
+                    mask_input=mask_input,
+                    multimask_output=multimask_output,
+                )
+                return masks.astype(bool), mask_scores, low_res_logits
 
         sigmoid_sim_map = None
         if sim_map is not None:
@@ -329,13 +349,19 @@ class SamDecoder(Segmenter):
                 mode="nearest",
             ).squeeze(0)
             sigmoid_sim_map = F.sigmoid(sim_map).flatten().unsqueeze(0)
-
-        return self.predictor.predict(
-            point_coords=point_coords,
-            point_labels=point_labels,
-            multimask_output=multimask_output,
-            attn_sim=sigmoid_sim_map,
-        )
+        with (
+            torch.inference_mode(),
+            torch.autocast(self.predictor.device.type, dtype=next(self.predictor.model.parameters()).dtype),
+        ):
+            masks, mask_scores, low_res_logits, *_ = self.predictor.predict(
+                point_coords=point_coords,
+                point_labels=point_labels,
+                box=box,
+                mask_input=mask_input,
+                multimask_output=multimask_output,
+                attn_sim=sigmoid_sim_map,
+            )
+            return masks.astype(bool), mask_scores, low_res_logits
 
     def _filter_mask(
         self,
@@ -357,23 +383,16 @@ class SamDecoder(Segmenter):
         """
         # For odd sized images, SAM longest-side resize operation can result in different shape than sim map
         if mask.shape != similarities.shape[1:]:
-            mask_tensor = torch.from_numpy(mask).float().unsqueeze(0).unsqueeze(0)
-            mask_tensor = (
-                F.interpolate(
-                    mask_tensor,
-                    size=(similarities.shape[1], similarities.shape[2]),
-                    mode="nearest",
-                )
-                .squeeze(0)
-                .squeeze(0)
-                .bool()
-                .cpu()
-                .numpy()
+            print(f"Mask shape: {mask.shape}, Similarities shape: {similarities.shape[1:]}")
+            mask = torch.from_numpy(mask).float().unsqueeze(0).unsqueeze(0)
+            mask = F.interpolate(
+                mask,
+                size=(similarities.shape[1], similarities.shape[2]),
+                mode="nearest",
             )
-            mask = mask_tensor
+            mask = mask.squeeze(0).squeeze(0).bool().cpu().numpy()
 
-        mask_similarity = similarities[0, mask]
-        average_similarity = mask_similarity.mean()
+        average_similarity = similarities[0, mask].mean()
 
         # Store the score for analysis
         key = f"image_{image_id}_class_{class_id}"
@@ -401,7 +420,7 @@ class SamDecoder(Segmenter):
         """
         best_idx = 0
         # Cascaded Post-refinement-1
-        masks, scores, logits, *_ = self.predictor.predict(
+        masks, scores, logits, *_ = self._predict(
             point_coords=point_coords,
             point_labels=point_labels,
             mask_input=logits[best_idx : best_idx + 1, :, :],
@@ -420,14 +439,13 @@ class SamDecoder(Segmenter):
         y_min = y.min()
         y_max = y.max()
         input_box = np.array([x_min, y_min, x_max, y_max])
-        masks, scores, logits, *_ = self.predictor.predict(
+        masks, scores, logits, *_ = self._predict(
             point_coords=point_coords,
             point_labels=point_labels,
             box=input_box[None, :],
             mask_input=logits[best_idx : best_idx + 1, :, :],
             multimask_output=True,
         )
-        best_idx = np.argmax(scores)
         final_mask = masks[best_idx]
         final_score = scores[best_idx]
         return final_mask, masks, final_score

@@ -7,11 +7,11 @@ body,
 html,
 #root,
 #theme-provider {
-  margin: 0;
-  padding: 0;
-  height: 100%;
+    margin: 0;
+    padding: 0;
+    height: 100%;
 }
 
 #theme-provider {
-  background-color: var(--spectrum-global-color-gray-100);
+    background-color: var(--spectrum-global-color-gray-100);
 }

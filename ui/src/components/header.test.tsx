@@ -1,11 +1,17 @@
+/**
+ * Copyright (C) 2025 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { render } from '@geti-prompt/test-utils';
-import { Header } from './header.component';
 import { screen } from '@testing-library/react';
 
-describe('Header', () => {
-  it('renders header properly', () => {
-    render(<Header />);
+import { Header } from './header.component';
 
-    expect(screen.getByText('Geti Prompt')).toBeInTheDocument();
-  });
+describe('Header', () => {
+    it('renders header properly', () => {
+        render(<Header />);
+
+        expect(screen.getByText('Geti Prompt')).toBeInTheDocument();
+    });
 });

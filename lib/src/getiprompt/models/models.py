@@ -8,12 +8,14 @@ from typing import TYPE_CHECKING
 
 from efficientvit.models.efficientvit import EfficientViTSamPredictor
 from efficientvit.sam_model_zoo import create_efficientvit_sam_model
+from sam2.build_sam import build_sam2
+from sam2.sam2_image_predictor import SAM2ImagePredictor
 from segment_anything_fast import sam_model_fast_registry
 from segment_anything_fast.predictor import SamPredictor as SamFastPredictor
 from segment_anything_hq import sam_model_registry as sam_hq_model_registry
 from segment_anything_hq.predictor import SamPredictor as SamHQPredictor
 
-from getiprompt.models.model_optimizer import optimize_sam_model
+from getiprompt.models.model_optimizer import optimize_model
 from getiprompt.models.per_segment_anything import SamPredictor, sam_model_registry
 from getiprompt.utils import download_file, precision_to_torch_dtype
 from getiprompt.utils.constants import DATA_PATH, MODEL_MAP, SAMModelName
@@ -23,7 +25,7 @@ if TYPE_CHECKING:
 
     from getiprompt.models.per_segment_anything.modeling.sam import Sam
 
-logger = getLogger("Vision Prompt")
+logger = getLogger("Geti Prompt")
 
 
 def load_sam_model(
@@ -31,8 +33,8 @@ def load_sam_model(
     device: str = "cuda",
     precision: str = "bf16",
     compile_models: bool = False,
-    verbose: bool = False,
-) -> SamPredictor | SamHQPredictor | SamFastPredictor | EfficientViTSamPredictor:
+    benchmark_inference_speed: bool = False,
+) -> SamPredictor | SamHQPredictor | SamFastPredictor | EfficientViTSamPredictor | SAM2ImagePredictor:
     """Load and optimize a SAM model.
 
     Args:
@@ -40,7 +42,7 @@ def load_sam_model(
         device: The device to use for the model.
         precision: The precision of the model.
         compile_models: Whether to compile the model.
-        verbose: Whether to print verbose output.
+        benchmark_inference_speed: Whether to benchmark the inference speed.
 
     Returns:
         The loaded model.
@@ -61,6 +63,10 @@ def load_sam_model(
     if sam in {SAMModelName.SAM, SAMModelName.MOBILE_SAM}:
         model: Sam = sam_model_registry[registry_name](checkpoint=str(checkpoint_path)).to(device).eval()
         predictor = SamPredictor(model)
+    elif sam in {SAMModelName.SAM2_TINY, SAMModelName.SAM2_SMALL, SAMModelName.SAM2_BASE, SAMModelName.SAM2_LARGE}:
+        config_path = "configs/sam2.1/" + model_info["config_filename"]
+        sam_model = build_sam2(config_path, str(checkpoint_path))
+        predictor = SAM2ImagePredictor(sam_model)
     elif sam in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
         model: SamHQ = sam_hq_model_registry[registry_name](checkpoint=str(checkpoint_path)).to(device).eval()
         predictor = SamHQPredictor(model)
@@ -81,12 +87,12 @@ def load_sam_model(
         msg = f"Model {sam} not implemented yet"
         raise NotImplementedError(msg)
 
-    return optimize_sam_model(
-        sam_predictor=predictor,
+    return optimize_model(
+        model=predictor,
         device=device,
         precision=precision_to_torch_dtype(precision),
         compile_models=compile_models,
-        verbose=verbose,
+        benchmark_inference_speed=benchmark_inference_speed,
     )
 
 

@@ -1,8 +1,6 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
 
 
 import numpy as np
@@ -191,8 +189,8 @@ class SamPredictor:
         )
 
         masks = masks[0].detach().cpu().numpy()
-        iou_predictions = iou_predictions[0].detach().cpu().numpy()
-        low_res_masks = low_res_masks[0].detach().cpu().numpy()
+        iou_predictions = iou_predictions[0].float().detach().cpu().numpy()
+        low_res_masks = low_res_masks[0].float().detach().cpu().numpy()
         high_res_masks = high_res_masks[0]
 
         return masks, iou_predictions, low_res_masks, high_res_masks

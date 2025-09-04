@@ -12,7 +12,7 @@ from getiprompt.processes.prompt_generators.bidirectional_prompt_generator impor
 from getiprompt.types import Features, Masks, Priors, Similarities
 from getiprompt.types.image import Image
 
-logger = getLogger("Vision Prompt")
+logger = getLogger("Geti Prompt")
 
 
 class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
@@ -148,9 +148,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
                 similarities.add(local_similarity_map, class_id)
 
                 # Select background points based on similarity to averaged local feature
-                _averaged_feature_sim_map, bg_target_indices, bg_similarity_scores = self._select_background_points(
-                    similarity_map, mask
-                )
+                _, bg_target_indices, bg_similarity_scores = self._select_background_points(similarity_map, mask)
 
                 # Perform foreground matching
                 matched_indices, similarity_scores, soft_sim_map = self._perform_soft_matching(

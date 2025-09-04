@@ -14,7 +14,7 @@ from getiprompt.datasets.dataset_base import Annotation, Dataset, DatasetIter, I
 from getiprompt.datasets.dataset_iterators import CategoryIter, IndexIter
 from getiprompt.utils import color_overlay
 
-logger = getLogger("Vision Prompt")
+logger = getLogger("Geti Prompt")
 
 
 class PerSegAnnotation(Annotation):

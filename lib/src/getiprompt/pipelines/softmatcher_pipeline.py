@@ -70,7 +70,7 @@ class SoftMatcher(Matcher):
         softmatching_bidirectional: bool = False,
         precision: str = "bf16",
         compile_models: bool = False,
-        verbose: bool = False,
+        benchmark_inference_speed: bool = False,
         device: str = "cuda",
         image_size: int | tuple[int, int] | None = None,
     ) -> None:
@@ -90,7 +90,7 @@ class SoftMatcher(Matcher):
             softmatching_bidirectional: Whether to use bidirectional soft matching.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
-            verbose: Whether to print verbose output of the model optimization process.
+            benchmark_inference_speed: Whether to benchmark the inference speed.
             device: The device to use for the model.
             image_size: The size of the image to use, if None, the image will not be resized.
         """
@@ -103,7 +103,7 @@ class SoftMatcher(Matcher):
             mask_similarity_threshold=mask_similarity_threshold,
             precision=precision,
             compile_models=compile_models,
-            verbose=verbose,
+            benchmark_inference_speed=benchmark_inference_speed,
             device=device,
             image_size=image_size,
         )

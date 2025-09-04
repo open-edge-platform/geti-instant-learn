@@ -1,5 +1,6 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+# ruff: noqa: E402
 
 """This is the main file for the web UI.
 
@@ -7,7 +8,7 @@ It is a Flask application that allows you to run several Visual Prompting pipeli
 The web UI is served at http://127.0.0.1:5050
 
 The web UI can be started by running:
-python -m web_ui.app
+getiprompt ui
 """
 
 import argparse
@@ -47,7 +48,7 @@ current_pipeline_name = initial_default_args.pipeline
 @app.route("/")
 def index() -> str:
     """Serves the main HTML page."""
-    ui_pipelines = [p.value for p in PipelineName if p != PipelineName.GROUNDING_DINO_SAM]
+    ui_pipelines = [p.value for p in PipelineName if p != PipelineName.GROUNDED_SAM]
     ui_datasets = [d.value for d in DatasetName]
     return render_template(
         "index.html",

@@ -20,7 +20,7 @@ from getiprompt.datasets.dataset_base import Annotation, Dataset, DatasetIter, I
 from getiprompt.datasets.dataset_iterators import CategoryIter, IndexIter
 from getiprompt.utils import color_overlay
 
-logger = getLogger("Vision Prompt")
+logger = getLogger("Geti Prompt")
 
 
 def segment_to_mask(segment: list[float], height: int, width: int) -> np.ndarray:
@@ -705,14 +705,44 @@ class LVISDataset(Dataset):
         Args:
             filename: The filename of the metadata
         """
-        with Path(filename).open("rb") as f:
-            data = pickle.load(f)  # noqa: S301
-            self._category_id_to_name = data["category_id_to_name"]
-            self._category_name_to_id = data["category_name_to_id"]
-            self.instance_count = data["instance_count"]
-            self.image_count = data["image_count"]
-            self.instances_per_image = data["instances_per_image"]
-            self._category_index_to_id = data["category_index_to_id"]
+        try:
+            with Path(filename).open("rb") as f:
+                data = pickle.load(f)  # noqa: S301
+                self._category_id_to_name = data["category_id_to_name"]
+                self._category_name_to_id = data["category_name_to_id"]
+                self.instance_count = data["instance_count"]
+                self.image_count = data["image_count"]
+                self.instances_per_image = data["instances_per_image"]
+                self._category_index_to_id = data["category_index_to_id"]
+        except (ModuleNotFoundError, ImportError, KeyError, EOFError):
+            # Cache file is corrupted or contains old module references
+            # Delete the cache file and let it be regenerated
+            if Path(filename).exists():
+                Path(filename).unlink()
+            raise
+
+    def _load_data(self, filename: Path) -> None:
+        """Load the data from a cache file.
+
+        Args:
+            filename: The filename of the data
+        """
+        try:
+            with Path(filename).open("rb") as f:
+                data = pickle.load(f)  # noqa: S301
+                self._image_index_to_id = data["image_index_to_id"]
+                self._images = data["images"]
+                self._annotations = data["annotations"]
+                self._annotation_to_image = data["annotation_to_image"]
+                self._annotation_to_category = data["annotation_to_category"]
+                self._image_to_annotations = data["image_to_annotations"]
+                self._category_to_annotations = data["category_to_annotations"]
+        except (ModuleNotFoundError, ImportError, KeyError, EOFError):
+            # Cache file is corrupted or contains old module references
+            # Delete the cache file and let it be regenerated
+            if Path(filename).exists():
+                Path(filename).unlink()
+            raise
 
     def _save_data(self, filename: Path) -> None:
         """Saves the data in a cache file.
@@ -732,22 +762,6 @@ class LVISDataset(Dataset):
             }
 
             pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
-
-    def _load_data(self, filename: Path) -> None:
-        """Load the data from a cache file.
-
-        Args:
-            filename: The filename of the data
-        """
-        with Path(filename).open("rb") as f:
-            data = pickle.load(f)  # noqa: S301
-            self._image_index_to_id = data["image_index_to_id"]
-            self._images = data["images"]
-            self._annotations = data["annotations"]
-            self._annotation_to_image = data["annotation_to_image"]
-            self._annotation_to_category = data["annotation_to_category"]
-            self._image_to_annotations = data["image_to_annotations"]
-            self._category_to_annotations = data["category_to_annotations"]
 
     def _check_cache(self) -> bool:
         """Check if a list has been changed to determine when to invalidate caches.

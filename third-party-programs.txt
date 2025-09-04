@@ -54,3 +54,7 @@ terms are listed below.
 10. Segment Anything Fast
     Copyright (c) @pytorch-labs, https://github.com/pytorch-labs/segment-anything-fast.
     SPDX-License-Identifier: Apache-2.0
+
+11. LLMDet
+    Copyright (c) @iSEE-Laboratory, https://github.com/iSEE-Laboratory/LLMDet.
+    SPDX-License-Identifier: Apache-2.0

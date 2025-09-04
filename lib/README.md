@@ -31,7 +31,7 @@ This repository explores algorithms that make visual prompting more effective, e
 
 - 🧩 **Modular Pipeline Architecture:** Easily configure pipelines by modifying their Python class definitions to mix and match components (backbones, feature extractors, matchers, etc.). Simplifies experimentation and development of novel approaches.
 - 🔬 **Extensive Algorithm & Backbone Support:** Includes implementations for various state-of-the-art algorithms (PerSAM, Matcher, Dino-based methods) and diverse backbone models (SAM, MobileSAM, EfficientViT-SAM, DinoV2).
-- 📊 **Comprehensive Evaluation Framework:** Unified evaluation script (`main.py`) with support for multiple datasets (LVIS, PerSeg, etc.) and standard metrics (mIoU, Precision, Recall).
+- 📊 **Comprehensive Evaluation Framework:** Unified evaluation script with support for multiple datasets (LVIS, PerSeg, etc.) and standard metrics (mIoU, Precision, Recall).
 - 💻 **Interactive Web UI:** Visually inspect similarity maps, generated masks, and points for qualitative analysis and debugging. Easily switch between configurations.
 - 🔌 **Easy Integration:** Designed for straightforward addition of new algorithms, backbones, or datasets.
 
@@ -85,11 +85,11 @@ The `benchmark` subcommand is used to evaluate pipeline performance on various d
 **Basic Usage:**
 
 ```bash
-# Evaluate the default pipeline (MatcherModular) on LVIS dataset with 1-shot
+# Evaluate the default pipeline on LVIS dataset with 1-shot
 getiprompt benchmark
 
 # Specify dataset and pipeline
-getiprompt benchmark --dataset_name PerSeg --pipeline MatcherModular
+getiprompt benchmark --dataset_name PerSeg --pipeline Matcher
 
 # Change number of reference shots
 getiprompt benchmark --n_shot 3
@@ -118,6 +118,9 @@ getiprompt ui
 ```
 
 The UI allows you to select different pipelines, datasets, and images to inspect outputs like similarity maps, masks, and points. By default, it runs on `http://0.0.0.0:5050`. You can change this with `--host` and `--port` arguments.
+
+[Geti Prompt UI](../docs/figs/Geti-Prompt-Library-UI.png)
+
 
 ## Modular Pipeline Example
 
@@ -151,12 +154,16 @@ class PerSam(Pipeline):
         mask_similarity_threshold: float,
         precision: torch.dtype = torch.bfloat16,
         compile_models: bool = False,
-        verbose: bool = False,
+        benchmark_inference_speed: bool = False,
         image_size: int | tuple[int, int] | None = None,
     ) -> None:
         super().__init__(image_size=image_size)
         self.sam_predictor = load_sam_model(
-            sam, device, precision=precision, compile_models=compile_models, verbose=verbose
+            sam,
+            device,
+            precision=precision,
+            compile_models=compile_models,
+            benchmark_inference_speed=benchmark_inference_speed,
         )
         self.encoder: Encoder = SamEncoder(sam_predictor=sam_predictor)
         self.feature_selector: FeatureSelector = AverageFeatures()

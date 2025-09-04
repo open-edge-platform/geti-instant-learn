@@ -10,7 +10,7 @@ from getiprompt.processes.preprocessors import ResizeImages, ResizeMasks
 from getiprompt.processes.process_base import Process
 from getiprompt.types import Image, Priors, Results
 
-logger = getLogger("Vision Prompt")
+logger = getLogger("Geti Prompt")
 
 
 class Pipeline(ABC):

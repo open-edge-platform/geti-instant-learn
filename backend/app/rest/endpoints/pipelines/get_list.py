@@ -28,4 +28,4 @@ def get_pipelines_list() -> Response:
     """
     logger.debug("Received GET pipelines request.")
 
-    return Response(status_code=status.HTTP_200_OK, content={"pipelines": []})
+    return Response(status_code=status.HTTP_200_OK, content="pipelinesssss")

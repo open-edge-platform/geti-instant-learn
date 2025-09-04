@@ -6,11 +6,13 @@
 import time
 from collections.abc import Callable
 from logging import getLogger
+from typing import Any
 
 import numpy as np
 import torch
 from efficientvit.models.efficientvit import EfficientViTSamPredictor
 from efficientvit.models.nn import UpSampleLayer
+from sam2.sam2_image_predictor import SAM2ImagePredictor
 from segment_anything_fast.predictor import SamPredictor as SamFastPredictor
 from segment_anything_hq.predictor import SamPredictor as SamHQPredictor
 from torch import nn
@@ -19,153 +21,147 @@ from transformers import AutoModel
 from getiprompt.models.per_segment_anything import SamPredictor
 from getiprompt.models.per_segment_anything.modeling.tiny_vit_sam import Attention, TinyViT
 
-logger = getLogger("Vision Prompt")
+logger = getLogger("Geti Prompt")
+
+
+def get_dummy_input(model: AutoModel, precision: torch.dtype, device: str) -> torch.Tensor:
+    """Gets or creates a dummy input tensor for the model."""
+    if hasattr(model, "dummy_inputs") and "pixel_values" in model.dummy_inputs:
+        return model.dummy_inputs["pixel_values"].to(precision).to(device)
+
+    # Fallback if dummy_inputs is not available or doesn't have pixel_values
+    image_size = model.config.image_size
+    num_channels = getattr(model.config, "num_channels", 3)
+    return torch.randn(1, num_channels, image_size, image_size, device=device, dtype=precision)
 
 
 def optimize_model(
-    model: AutoModel,
+    model: AutoModel | SamPredictor | SamHQPredictor | SamFastPredictor | EfficientViTSamPredictor | SAM2ImagePredictor,
     device: str,
     precision: torch.dtype,
     compile_models: bool,
-    verbose: bool = True,
-    backend: str = "inductor",
-) -> AutoModel:
-    """This method optimizes a HuggingFace model.
+    benchmark_inference_speed: bool = True,
+    compile_backend: str = "inductor",
+) -> AutoModel | SamPredictor | SamHQPredictor | SamFastPredictor | EfficientViTSamPredictor | SAM2ImagePredictor:
+    """This method optimizes a model by quantizing it and compiling it.
 
     Args:
         model: The model to optimize.
         device: The device to use for the model.
         precision: The precision to use for the model.
         compile_models: Whether to compile the model.
-        verbose: Whether to show the inference time.
-        backend: The backend to use for the model.
+        benchmark_inference_speed: Whether to show the inference time.
+        compile_backend: The backend to use for the model.
 
     Returns:
         The optimized model.
     """
+    if isinstance(model, SamFastPredictor):
+        logger.debug("First inference with SamFastPredictor can take while to warm up the model")
+        model.set_image(np.ones(shape=(1024, 1024, 3), dtype=np.uint8))
+        logger.debug("SamFastPredictor model warmed up")
+        return model
 
-    def get_dummy_input() -> torch.Tensor:
-        """Gets or creates a dummy input tensor for the model."""
-        if hasattr(model, "dummy_inputs") and "pixel_values" in model.dummy_inputs:
-            return model.dummy_inputs["pixel_values"].to(precision).to(device)
-
-        # Fallback if dummy_inputs is not available or doesn't have pixel_values
-        image_size = model.config.image_size
-        num_channels = getattr(model.config, "num_channels", 3)
-        return torch.randn(1, num_channels, image_size, image_size, device=device, dtype=precision)
-
-    def show_inference_time(model_to_time: AutoModel) -> None:
-        """This method shows the inference time of the model."""
-        dummy_input = get_dummy_input()
-
-        start = time.time()
-        _ = model_to_time(pixel_values=dummy_input)
-        end = time.time()
-        if device.startswith("cuda"):
-            model_size = torch.cuda.memory_allocated() / 1e6
-        else:
-            model_size = torch.cpu.memory_allocated() / 1e6
-        logger.debug(
-            f"Inference time: {end - start:.2f} seconds, FPS: {1 / (end - start):.2f}, "
-            f"Memory allocated: {model_size:.2f} MB",
-        )
-
-    if verbose:
+    # Initial inference
+    if benchmark_inference_speed:
         logger.debug("Model initial inference:")
-        show_inference_time(model)
+        initial_inference_duration = benchmark_inference(model, precision)
 
+    # Quantize
     if precision != torch.float32:
-        model = model.to(dtype=precision)
-        if verbose:
+        if is_sam_model(model):
+            model.model.to(precision)
+            # Patch SAM model to use the correct dtype
+            _monkey_patch_dtype(model)
+        else:
+            model = model.to(dtype=precision)
+        if benchmark_inference_speed:
             logger.debug("Quantized inference:")
-            show_inference_time(model)
+            quantized_inference_duration = benchmark_inference(model, precision)
+            logger.debug(f"Quantization speedup: {initial_inference_duration / quantized_inference_duration:.2f}x")
 
+    # Compile
     if compile_models:
         logger.debug("Compiling model, this can take a while...")
-        model = torch.compile(model, backend=backend)
-        dummy_input = get_dummy_input()
-        model(pixel_values=dummy_input)  # Run one inference to compile
-        if verbose:
-            logger.debug("Compiled model inference:")
-            show_inference_time(model)
+        if torch.cuda.is_available() and torch.cuda.get_device_capability() in {(7, 0), (8, 0), (9, 0)}:
+            if is_sam_model(model):
+                model.model.image_encoder.forward = torch.compile(
+                    model.model.image_encoder.forward,
+                    mode="max-autotune",
+                    fullgraph=True,
+                    dynamic=False,
+                    backend=compile_backend,
+                )
+                model.set_image(np.ones(shape=(1024, 1024, 3), dtype=np.uint8))
+                model.predict(point_coords=np.array([[512, 512]]), point_labels=np.array([1]))
+            else:
+                model = torch.compile(model, backend=compile_backend)
+                model(pixel_values=get_dummy_input(model, precision, device))  # Run one inference to compile
+            if benchmark_inference_speed:
+                logger.debug("Compiled model inference:")
+                compiled_inference_duration = benchmark_inference(model, precision)
+                logger.debug(
+                    f"Quantization + Compilation speedup: "
+                    f"{initial_inference_duration / compiled_inference_duration:.2f}x"
+                )
+        else:
+            logger.warning("GPU is not NVIDIA V100, A100, or H100. Compilation will be skipped.")
 
     return model
 
 
-def optimize_sam_model(
-    sam_predictor: SamPredictor | SamHQPredictor | SamFastPredictor | EfficientViTSamPredictor,
-    device: str,
+@torch.inference_mode()
+def benchmark_inference(
+    model: SamPredictor | SamHQPredictor | EfficientViTSamPredictor | SAM2ImagePredictor | AutoModel,
     precision: torch.dtype,
-    compile_models: bool,
-    verbose: bool,
-) -> SamPredictor | SamHQPredictor | SamFastPredictor | EfficientViTSamPredictor:
-    """Optimize a SAM model for inference.
-
-    Optimization is performed by quantizing the model to the specified precision and then compiling the model.
-    The model functions are monkey patched to use the correct precision.
+    repeat: int = 10,
+) -> float:
+    """Test the inference time of the model.
 
     Args:
-        sam_predictor: The SAM predictor to optimize.
-        device: The device to use for the model.
-        precision: The precision to use for the model.
-        compile_models: Whether to compile the model.
-        verbose: Whether to show detailed optimization logs.
+        model: The SAM or huggingface model to benchmark.
+        precision: The precision to use for the inference.
+        repeat: The number of times to repeat the inference.
 
     Returns:
-        The optimized SAM model.
+        The average inference time.
     """
-    if isinstance(sam_predictor, SamFastPredictor):
-        logger.debug("First inference with SamFastPredictor can take while to warm up the model")
-        sam_predictor.set_image(np.ones(shape=(1024, 1024, 3), dtype=np.uint8))
-        logger.debug("SamFastPredictor model warmed up")
-        return sam_predictor
-    logger.debug(
-        f"Optimizing SAM model for {precision!s} inference "
-        f"{'and compiling for current hardware.' if compile_models else ''}",
-    )
+    # Create a dummy image with two squares.
+    image = np.zeros((1024, 1024, 3), dtype=np.uint8)
+    image[256:768, 256:768, :] = 255
+    image[512:1024, 512:1024, :] = 255
 
-    def test_inference(
-        sam_predictor: SamPredictor | SamHQPredictor | EfficientViTSamPredictor,
-    ) -> float:
+    # Create points in the middle of the two squares.
+    points = np.array([[512, 512], [768, 768]])
+
+    if not is_sam_model(model):
+        image = get_dummy_input(model, precision, model.device)
+    dtype = (next(model.model.parameters()) if is_sam_model(model) else next(model.parameters())).dtype
+
+    with torch.autocast(model.device.type, dtype=dtype):
         start = time.time()
-        sam_predictor.set_image(np.ones(shape=(1024, 1024, 3), dtype=np.uint8))
-        end = time.time()
-        if device.startswith("cuda"):
-            model_size = torch.cuda.memory_allocated() / 1e6
-        else:
-            model_size = torch.cpu.memory_allocated() / 1e6
-        logger.debug(
-            f"Inference time: {end - start:.2f} seconds, FPS: {1 / (end - start):.2f}, "
-            f"Memory allocated: {model_size:.2f} MB"
-        )
-        return end - start
+        for _ in range(repeat):
+            torch.cuda.synchronize()
+            if is_sam_model(model):
+                model.set_image(image)
+                for p in points:
+                    model.predict(point_coords=np.array([p]), point_labels=np.array([1]))
+            else:
+                _ = model(pixel_values=image)
 
-    if verbose:
-        logger.debug("SAM model initial inference:")
-        intial_inference_duration = test_inference(sam_predictor)
-
-    if precision != torch.float32:
-        sam_predictor.model.to(precision)
-    _monkey_patch_dtype(sam_predictor)
-
-    if verbose:
-        logger.debug(f"Quantized {precision!s} inference:")
-        optimized_inference_duration = test_inference(sam_predictor)
-        logger.debug(f"Quantization speedup: {intial_inference_duration / optimized_inference_duration:.2f}x")
-
-    if compile_models:
-        logger.debug("Compiling model, this can take a while...")
-        sam_predictor.model.image_encoder = torch.compile(sam_predictor.model.image_encoder)
-        sam_predictor.set_image(np.ones(shape=(1024, 1024, 3), dtype=np.uint8))
-        if verbose:
-            logger.debug("Compiled model inference:")
-            optimized_inference_duration = test_inference(sam_predictor)
-            logger.debug(
-                f"Quantization + Compilation speedup: {intial_inference_duration / optimized_inference_duration:.2f}x"
-            )
-    logger.debug("Done optimizing SAM model")
-
-    return sam_predictor
+        torch.cuda.synchronize()
+        avg_duration = (time.time() - start) / repeat
+    if model.device.type == "cuda":
+        model_size = torch.cuda.memory_allocated() / 1e6
+    elif model.device.type == "xpu":
+        model_size = torch.xpu.memory_allocated() / 1e6
+    else:
+        model_size = torch.cpu.memory_allocated() / 1e6
+    logger.debug(
+        f"Inference time: {avg_duration:.2f} seconds, FPS: {1 / avg_duration:.2f}, "
+        f"Memory allocated: {model_size:.2f} MB"
+    )
+    return avg_duration
 
 
 def _monkey_patch_transform(predictor: EfficientViTSamPredictor, dtype: torch.dtype) -> None:
@@ -209,9 +205,9 @@ def _monkey_patch_preprocess(predictor: SamPredictor | SamHQPredictor, dtype: to
     predictor.model.preprocess = preprocess_dtype_wrapper
 
 
-def _monkey_patch_prompt_encoder(predictor: SamPredictor | SamHQPredictor, dtype: torch.dtype) -> None:
+def _monkey_patch_prompt_encoder(prompt_encoder: nn.Module, dtype: torch.dtype) -> None:
     """Monkey patch the prompt encoder methods to use the correct dtype."""
-    original_pe_encoding = predictor.model.prompt_encoder.pe_layer._pe_encoding  # noqa: SLF001
+    original_pe_encoding = prompt_encoder.pe_layer._pe_encoding  # noqa: SLF001
 
     def pe_encoding_dtype_wrapper(*args, **kwargs) -> torch.Tensor:
         processed_args = []
@@ -228,15 +224,15 @@ def _monkey_patch_prompt_encoder(predictor: SamPredictor | SamHQPredictor, dtype
 
         return original_pe_encoding(*args, **kwargs)
 
-    predictor.model.prompt_encoder.pe_layer._pe_encoding = pe_encoding_dtype_wrapper  # noqa: SLF001
+    prompt_encoder.pe_layer._pe_encoding = pe_encoding_dtype_wrapper  # noqa: SLF001
 
-    original_prompt_encoder_forward = predictor.model.prompt_encoder.forward
+    original_prompt_encoder_forward = prompt_encoder.forward
 
     def prompt_encoder_dtype_wrapper(*args, **kwargs) -> torch.Tensor:
         outputs = original_prompt_encoder_forward(*args, **kwargs)
         return [output.to(dtype) for output in outputs]
 
-    predictor.model.prompt_encoder.forward = prompt_encoder_dtype_wrapper
+    prompt_encoder.forward = prompt_encoder_dtype_wrapper
 
 
 def _monkey_patch_predict_torch(predictor: SamPredictor | SamHQPredictor, dtype: torch.dtype) -> None:
@@ -303,8 +299,38 @@ def _monkey_patch_tinyvit_architecture(predictor: SamPredictor | SamHQPredictor,
     )
 
 
+def _monkey_patch_sam2_architecture(predictor: SAM2ImagePredictor, dtype: torch.dtype) -> None:
+    """Monkey patch the SAM2 architecture to use the correct dtype.
+
+    We adapt the transforms JIT script used and add a .to(dtype) at the end of the Sequential.
+    """
+    original_transforms = predictor._transforms.transforms  # noqa: SLF001
+
+    class DtypeWrapper(nn.Module):
+        """Wrapper to apply dtype conversion after a transformation in a JIT-compatible way."""
+
+        def __init__(self, transform: nn.Module, target_dtype_tensor: torch.Tensor):  # noqa: ANN204
+            super().__init__()
+            self.transform = transform
+            # Store a tensor with the target dtype. Using its dtype is JIT-compatible.
+            self.register_buffer("target_dtype_tensor", target_dtype_tensor)
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            """Forward pass with dtype conversion."""
+            return self.transform(x).to(self.target_dtype_tensor.dtype)
+
+    # Get device from the model to ensure tensors are on the same device.
+    device = next(predictor.model.parameters()).device
+    dummy_tensor = torch.tensor([], dtype=dtype, device=device)
+
+    new_transforms_module = DtypeWrapper(original_transforms, dummy_tensor)
+    scripted_new_transforms = torch.jit.script(new_transforms_module)
+
+    predictor._transforms.transforms = scripted_new_transforms  # noqa: SLF001
+
+
 def _monkey_patch_dtype(
-    predictor: SamPredictor | SamHQPredictor | EfficientViTSamPredictor,
+    predictor: SamPredictor | SamHQPredictor | EfficientViTSamPredictor | SAM2ImagePredictor,
 ) -> None:
     """Monkey patch the predictor to use the correct dtype for the model.
 
@@ -313,15 +339,25 @@ def _monkey_patch_dtype(
     Args:
         predictor: The predictor to monkey patch.
     """
+    if isinstance(predictor, SAM2ImagePredictor):
+        dtype = predictor.model.sam_mask_decoder.iou_prediction_head.layers[0].weight.dtype
+        _monkey_patch_sam2_architecture(predictor, dtype)
+        _monkey_patch_prompt_encoder(predictor.model.sam_prompt_encoder, dtype)
+        return
+
     dtype = predictor.model.mask_decoder.iou_prediction_head.layers[0].weight.dtype
-    _monkey_patch_prompt_encoder(predictor, dtype)
+    _monkey_patch_prompt_encoder(predictor.model.prompt_encoder, dtype)
     _monkey_patch_predict_torch(predictor, dtype)
     if isinstance(predictor, EfficientViTSamPredictor):
-        _monkey_patch_prompt_encoder(predictor, dtype)
+        _monkey_patch_prompt_encoder(predictor.model.prompt_encoder, dtype)
         _monkey_patch_transform(predictor, dtype)
         _monkey_patch_upsample_layers(predictor.model, dtype)
         _monkey_patch_predict_torch(predictor, dtype)
         return
     _monkey_patch_preprocess(predictor, dtype)
-
     _monkey_patch_tinyvit_architecture(predictor, dtype)
+
+
+def is_sam_model(model: Any) -> bool:  # noqa: ANN401
+    """Check if the model is a SAM model."""
+    return hasattr(model, "set_image")

@@ -1,5 +1,5 @@
-# Copyright (C) 2022-2025 Intel Corporation
-# LIMITED EDGE SOFTWARE DISTRIBUTION LICENSE
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
 [project]
 name = "geti-prompt-backend"
 version = "1.0.0"
@@ -10,6 +10,8 @@ dependencies = [
     "fastapi~=0.116",
     "uvicorn~=0.35.0",
     "python-multipart~=0.0.20",
+    "SQLAlchemy~=2.0.43",
+    "alembic~=1.16.5",
 ]
 
 [dependency-groups]
@@ -34,6 +36,7 @@ line-length = 120
 
 exclude = [
     ".venv*",
+    "app/alembic/*.py",
 ]
 src = ["app"]
 
@@ -80,5 +83,5 @@ max-args=7
 [tool.mypy]
 python_version = "3.10"
 ignore_missing_imports = true
-exclude = "^tests/.*\\.py"
+exclude = "^.*/tests/.*\\.py|app/alembic/.*\\.py"
 show_error_codes = true

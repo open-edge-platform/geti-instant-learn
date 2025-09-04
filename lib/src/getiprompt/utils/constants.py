@@ -14,12 +14,16 @@ class SAMModelName(Enum):
     SAM_HQ = "SAM-HQ"
     SAM_HQ_TINY = "SAM-HQ-tiny"
     SAM_FAST = "SAM-Fast"
+    SAM2_TINY = "SAM2-tiny"
+    SAM2_SMALL = "SAM2-small"
+    SAM2_BASE = "SAM2-base"
+    SAM2_LARGE = "SAM2-large"
 
 
 class PipelineName(Enum):
     """Enum for pipeline types."""
 
-    GROUNDING_DINO_SAM = "GroundingDinoSAM"
+    GROUNDED_SAM = "GroundedSAM"
     MATCHER = "Matcher"
     PER_SAM = "PerSAM"
     PER_DINO = "PerDino"
@@ -42,6 +46,34 @@ MODEL_MAP = {
         "local_filename": "sam_vit_h_4b8939.pth",
         "download_url": "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth",
         "sha_sum": "a7bf3b02f3ebf1267aba913ff637d9a2d5c33d3173bb679e46d9f338c26f262e",
+    },
+    SAMModelName.SAM2_TINY: {  # 1024x1024 input resolution
+        "registry_name": "vit_t",
+        "local_filename": "sam2.1_hiera_tiny.pt",
+        "config_filename": "sam2.1_hiera_t.yaml",
+        "download_url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_tiny.pt",
+        "sha_sum": "7402e0d864fa82708a20fbd15bc84245c2f26dff0eb43a4b5b93452deb34be69",
+    },
+    SAMModelName.SAM2_SMALL: {  # 1024x1024 input resolution
+        "registry_name": "vit_s",
+        "local_filename": "sam2.1_hiera_small.pt",
+        "config_filename": "sam2.1_hiera_s.yaml",
+        "download_url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_small.pt",
+        "sha_sum": "6d1aa6f30de5c92224f8172114de081d104bbd23dd9dc5c58996f0cad5dc4d38",
+    },
+    SAMModelName.SAM2_BASE: {  # 1024x1024 input resolution
+        "registry_name": "vit_b",
+        "local_filename": "sam2.1_hiera_base_plus.pt",
+        "config_filename": "sam2.1_hiera_b+.yaml",
+        "download_url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_base_plus.pt",
+        "sha_sum": "a2345aede8715ab1d5d31b4a509fb160c5a4af1970f199d9054ccfb746c004c5",
+    },
+    SAMModelName.SAM2_LARGE: {  # 1024x1024 input resolution
+        "registry_name": "vit_l",
+        "local_filename": "sam2.1_hiera_large.pt",
+        "config_filename": "sam2.1_hiera_l.yaml",
+        "download_url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_large.pt",
+        "sha_sum": "2647878d5dfa5098f2f8649825738a9345572bae2d4350a2468587ece47dd318",
     },
     SAMModelName.MOBILE_SAM: {  # 1024x1024 input resolution
         "registry_name": "vit_t",

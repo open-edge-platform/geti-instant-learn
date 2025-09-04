@@ -5,6 +5,7 @@ import logging
 
 from fastapi import Response, status
 
+from dependencies import SessionDep
 from routers import pipelines_router
 
 logger = logging.getLogger(__name__)
@@ -22,10 +23,11 @@ logger = logging.getLogger(__name__)
         },
     },
 )
-def create_pipeline() -> Response:
+def create_pipeline(db_session: SessionDep) -> Response:
     """
     Create a new pipeline configuration.
     """
     logger.debug("Received POST pipelines request.")
+    logger.debug(f"db conneection: {db_session}")
 
     return Response(status_code=status.HTTP_201_CREATED)

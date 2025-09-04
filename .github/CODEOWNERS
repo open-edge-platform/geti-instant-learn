@@ -1,5 +1,5 @@
 # Default for anything not covered by one of the more specific rules below
-* @mpryahin @LenaRudaya @piotrgrubicki
+* @Daankrol @mpryahin @LenaRudaya @piotrgrubicki
 
 # Backend
 backend/ @mpryahin @LenaRudaya @piotrgrubicki
@@ -11,7 +11,7 @@ ui/ @dwesolow @pplaskie @jpggvilaca
 deploy/ @mpryahin @LenaRudaya @piotrgrubicki
 
 # Docs
-docs/ @Daankrol @mpryahin @LenaRudaya @dwesolow @pplaskie
+docs/ @Daankrol @mpryahin @LenaRudaya @eugene123tw @dwesolow @pplaskie @samet-akcay
 
 # Lib
-lib/ @Daankrol @mpryahin @LenaRudaya
+lib/ @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay

@@ -15,7 +15,7 @@ concurrency:
 jobs:
   build-parameters:
     name: Prepare build parameters
-    runs-on: innersource.prod.amr.dind
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     timeout-minutes: 10

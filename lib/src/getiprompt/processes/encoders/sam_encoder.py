@@ -92,7 +92,11 @@ class SamEncoder(Encoder):
         Returns:
             The image embedding.
         """
-        self.predictor.set_image(image.data)
+        with (
+            torch.inference_mode(),
+            torch.autocast(self.predictor.device.type, dtype=next(self.predictor.model.parameters()).dtype),
+        ):
+            self.predictor.set_image(image.data)
         # save the size after preprocessing for later use
         image.sam_preprocessed_size = self.predictor.input_size
         embedding = self.predictor.features.squeeze().permute(1, 2, 0)
