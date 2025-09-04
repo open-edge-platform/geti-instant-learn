@@ -9,7 +9,7 @@ from typing import Any, Generic
 from .types import IN, OUT, ConfigDict
 
 
-class PipelineComponent(ABC):
+class JobComponent(ABC):
 
     def __init__(self):
         self._stop_event = Event()

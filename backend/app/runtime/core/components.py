@@ -5,16 +5,16 @@ import logging
 import time
 from multiprocessing import Queue, Process
 from queue import Empty
-from typing import Optional, Type
+from typing import Type
 
-from backend.app.runtime.core.base import Processor, StreamReader, StreamWriter, PipelineComponent
+from backend.app.runtime.core.base import Processor, StreamReader, StreamWriter, JobComponent
 from .factories import StreamReaderFactory, ProcessorFactory, StreamWriterFactory
-from .types import ConfigDict
+from ...schemas.pipeline import PipelineConfig
 
 logger = logging.getLogger(__name__)
 
 
-class Source(PipelineComponent):
+class Source(JobComponent):
     """Reads from a StreamReader and puts the data into the provided queue."""
 
     def __init__(self, in_queue: Queue, stream_reader: StreamReader):
@@ -36,7 +36,7 @@ class Source(PipelineComponent):
             logger.debug(f"Existing the source loop: {self._reader.get_config()}")
 
 
-class Sink(PipelineComponent):
+class Sink(JobComponent):
     """Gets data from a queue and writes it using a StreamWriter."""
 
     def __init__(self, out_queue: Queue, stream_writer: StreamWriter):
@@ -56,7 +56,7 @@ class Sink(PipelineComponent):
             logger.debug(f"Existing the sink loop: {self._writer.get_config()}")
 
 
-class TaskRunner(PipelineComponent):
+class TaskRunner(JobComponent):
     """A component that delegates processing logic to a processor."""
 
     def __init__(self, in_queue: Queue, out_queue: Queue, processor: Processor):
@@ -83,39 +83,45 @@ class Job:
     Orchestrates the pipeline lifecycle, including queue and components' management.
     """
 
-    def __init__(self,
-                 pipeline_id: str,
-                 source_conf: Optional[ConfigDict] = None,
-                 task_runner_conf: Optional[ConfigDict] = None,
-                 sink_conf: Optional[ConfigDict] = None):
+    def __init__(self, pipeline_config: PipelineConfig):
 
         self._in_queue = Queue(maxsize=5)
         self._out_queue = Queue(maxsize=5)
-        self._pipeline_id = pipeline_id
+
+        self._pipeline_id = pipeline_config.pipeline_id
         self._processes: dict[Type, Process] = {}
 
         self._components = {
-            Source: Source(self._in_queue, StreamReaderFactory.create(source_conf)),
-            TaskRunner: TaskRunner(self._in_queue, self._out_queue, ProcessorFactory.create(task_runner_conf)),
-            Sink: Sink(self._out_queue, StreamWriterFactory.create(sink_conf))
+            Source: Source(
+                self._in_queue,
+                StreamReaderFactory.create(pipeline_config.source_config)
+            ),
+            TaskRunner: TaskRunner(
+                self._in_queue,
+                self._out_queue,
+                ProcessorFactory.create(pipeline_config.processor_config)
+            ),
+            Sink: Sink(
+                self._out_queue,
+                StreamWriterFactory.create(pipeline_config.sink_config)
+            )
         }
-        logger.debug(f"A pipeline created: pipeline id: {pipeline_id} source config: {source_conf}, "
-                     f"task_runner config: {task_runner_conf}, sink config: {sink_conf}")
+        logger.debug(f"A streaming job created for a pipeline config: {pipeline_config}")
 
     def start(self) -> None:
         """Starts a process for each component."""
-        logger.debug(f"Starting a pipline, pipline_id {self._pipeline_id}")
+        logger.debug(f"Starting the streaming job for pipline_id {self._pipeline_id}")
         for name, component in self._components.items():
             process = Process(target=component.run)
             process.start()
             self._processes[name] = process
-        logger.debug(f"The pipline has started, pipline_id {self._pipeline_id}")
+        logger.debug(f"The job has started for pipline_id {self._pipeline_id}")
 
     def stop(self):
         """Stops all components and their associated processes gracefully."""
 
         # Stop components in order: source -> inference -> sink
-        logger.debug(f"Stopping the pipeline, pipline_id {self._pipeline_id}")
+        logger.debug(f"Stopping the streaming job, pipline_id {self._pipeline_id}")
 
         for component_cls in [Source, TaskRunner, Sink]:
             component = self._components.get(component_cls)
@@ -125,37 +131,35 @@ class Job:
                 if process and process.is_alive():
                     process.join(timeout=5)
 
-        logger.debug(f"The pipeline has stopped, pipline_id {self._pipeline_id}")
+        logger.debug(f"The streaming job has stopped, pipline_id {self._pipeline_id}")
 
-    def update_config(self, source_config: Optional[ConfigDict] = None,
-                      inference_config: Optional[ConfigDict] = None,
-                      sink_config: Optional[ConfigDict] = None):
+    def update_config(self, pipeline_config: PipelineConfig):
         """Update configuration for specific components."""
 
-        logger.debug(f"Updating the pipeline configuration, pipline_id {self._pipeline_id}")
+        logger.debug(f"Updating the streaming job configuration for pipline_id {self._pipeline_id}")
         updates = [
             (
-                Source, source_config,
+                Source, pipeline_config.source_config,
                 lambda cfg: Source(self._in_queue, StreamReaderFactory.create(cfg))
             ),
             (
-                TaskRunner, inference_config,
+                TaskRunner, pipeline_config.processor_config,
                 lambda cfg: TaskRunner(self._in_queue, self._out_queue, ProcessorFactory.create(cfg))
             ),
             (
-                Sink, sink_config,
+                Sink, pipeline_config.sink_config,
                 lambda cfg: Sink(self._out_queue, StreamWriterFactory.create(cfg))
             )
         ]
 
         for component_cls, config, factory in updates:
             if config is not None:
-                logger.debug(f"Updating the pipeline component. Component: {component_cls},"
+                logger.debug(f"Updating the streaming job component. Component: {component_cls},"
                              f"component config: {config}, pipline_id {self._pipeline_id}")
 
                 self._restart_component(component_cls, factory(config))
 
-                logger.debug(f"The pipeline component has been updated. Component: {component_cls},"
+                logger.debug(f"The streaming job  component has been updated. Component: {component_cls},"
                              f"component config: {config}, pipline_id {self._pipeline_id}")
 
     def _restart_component(self, component_cls, new_component) -> None:
