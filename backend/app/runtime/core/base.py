@@ -23,7 +23,7 @@ class JobComponent(ABC):
         self._stop_event.set()
 
 
-class Processor(Generic[IN, OUT], ABC):
+class Processor[IN, OUT](ABC):
 
     @abstractmethod
     def process(self, input_data: IN) -> OUT: pass

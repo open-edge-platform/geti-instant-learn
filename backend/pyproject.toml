@@ -4,7 +4,7 @@
 name = "geti-prompt-backend"
 version = "1.0.0"
 description = "Geti Prompt service"
-requires-python = ">=3.10, <3.14"
+requires-python = ">=3.13, <3.14"
 
 dependencies = [
     "fastapi~=0.116",
@@ -12,6 +12,7 @@ dependencies = [
     "python-multipart~=0.0.20",
     "SQLAlchemy~=2.0.43",
     "alembic~=1.16.5",
+    "numpy~=2.2.6"
 ]
 
 [dependency-groups]
@@ -44,8 +45,8 @@ src = ["app"]
 select = ["ARG", "E", "F", "I", "N", "UP", "YTT", "ASYNC", "S", "COM", "C4", "FA", "PIE", "PYI", "Q", "RSE", "RET", "SIM",
     "TID", "TC", "PL", "RUF", "C90", "D103", "ANN001", "ANN201", "ANN205", "FAST"]
 
-ignore = ["N801", "N805","N806","N807", "N818", "COM812", "RET503", "SIM108", "SIM105", "PLR2004",
-    "RUF010", "TC001",  "RUF012"]
+ignore = ["N801", "N805", "N806", "N807", "N818", "COM812", "RET503", "SIM108", "SIM105", "PLR2004",
+    "RUF010", "TC001", "RUF012"]
 
 fixable = ["ALL"]
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
@@ -78,7 +79,7 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
     "ANN"]
 
 [tool.ruff.lint.pylint]
-max-args=7
+max-args = 7
 
 [tool.mypy]
 python_version = "3.10"

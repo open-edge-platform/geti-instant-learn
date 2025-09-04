@@ -21,7 +21,7 @@ class Source(JobComponent):
 
     def run(self) -> None:
 
-        logger.debug(f"Entering a source loop: {self._reader.get_config()}")
+        logger.debug(f"Starting a source loop")
         with self._reader:
             while not self._stop_event.is_set():
                 data = self._reader.read()
@@ -30,7 +30,7 @@ class Source(JobComponent):
                     continue
                 self._in_queue.put(data)
 
-            logger.debug(f"Existing the source loop: {self._reader.get_config()}")
+            logger.debug(f"Stopping the source loop")
 
 
 class Sink(JobComponent):
@@ -50,7 +50,7 @@ class Sink(JobComponent):
                     self._writer.write(data)
                 except Empty:
                     continue
-            logger.debug(f"Existing the sink loop: {self._writer.get_config()}")
+            logger.debug(f"Stopping the sink loop")
 
 
 class PipelineRunner(JobComponent):
@@ -72,4 +72,4 @@ class PipelineRunner(JobComponent):
                 self._out_queue.put(processed_data)
             except Empty:
                 continue
-        logger.debug(f"Exiting the pipeline runner loop")
+        logger.debug(f"Stopping the pipeline runner loop")
