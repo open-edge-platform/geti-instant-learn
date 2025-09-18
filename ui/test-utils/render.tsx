@@ -12,13 +12,19 @@ import { MemoryRouter } from 'react-router';
 
 import { queryClient } from '../src/providers';
 
-export const render = (ui: ReactNode, options?: RenderOptions) => {
-    return rtlRender(
+const TestProviders = ({ children }: { children: ReactNode }) => {
+    return (
         <QueryClientProvider client={queryClient}>
             <ThemeProvider>
-                <MemoryRouter>{ui}</MemoryRouter>
+                <MemoryRouter>{children}</MemoryRouter>
             </ThemeProvider>
-        </QueryClientProvider>,
-        options
+        </QueryClientProvider>
     );
+};
+
+export const render = (ui: ReactNode, options?: Omit<RenderOptions, 'wrapper'>) => {
+    return rtlRender(ui, {
+        wrapper: TestProviders,
+        ...options,
+    });
 };
