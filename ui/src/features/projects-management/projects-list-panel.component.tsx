@@ -43,20 +43,17 @@ const SelectedProjectButton = ({ name }: SelectedProjectProps) => {
     );
 };
 
-export const ProjectsListPanel = () => {
-    const { projectId } = useProjectIdentifier();
-    const { data } = $api.useQuery('get', '/api/v1/projects');
+interface AddProjectProps {
+    onSetProjectInEdition: (projectId: string) => void;
+    projectsCount: number;
+}
+
+const AddProjectButton = ({ onSetProjectInEdition, projectsCount }: AddProjectProps) => {
     const addProjectMutation = $api.useMutation('post', '/api/v1/projects');
-    const updateProjectMutation = $api.useMutation('put', '/api/v1/projects/{project_id}');
-    const deleteProjectMutation = $api.useMutation('delete', '/api/v1/projects/{project_id}');
-
-    const [projectInEdition, setProjectInEdition] = useState<string | null>(null);
-
-    const selectedProjectName = data?.projects.find((project) => project.id === projectId)?.name || '';
 
     const addProject = () => {
         const newProjectId = uuid();
-        const newProjectName = `Project #${(data?.projects.length || 0) + 1}`;
+        const newProjectName = `Project #${projectsCount + 1}`;
 
         addProjectMutation.mutate({
             body: {
@@ -65,31 +62,31 @@ export const ProjectsListPanel = () => {
             },
         });
 
-        setProjectInEdition(newProjectId);
+        onSetProjectInEdition(newProjectId);
     };
 
-    const updateProjectName = (id: string, name: string): void => {
-        updateProjectMutation.mutate({
-            body: {
-                name,
-            },
-            params: {
-                path: {
-                    project_id: id,
-                },
-            },
-        });
-    };
+    return (
+        <ActionButton
+            isQuiet
+            width={'100%'}
+            marginStart={'size-100'}
+            marginEnd={'size-350'}
+            UNSAFE_className={styles.addProjectButton}
+            onPress={addProject}
+        >
+            <AddCircle />
+            <Text marginX='size-50'>Add project</Text>
+        </ActionButton>
+    );
+};
 
-    const deleteProject = (id: string): void => {
-        deleteProjectMutation.mutate({
-            params: {
-                path: {
-                    project_id: id,
-                },
-            },
-        });
-    };
+export const ProjectsListPanel = () => {
+    const { projectId } = useProjectIdentifier();
+    const { data } = $api.useSuspenseQuery('get', '/api/v1/projects');
+
+    const [projectInEdition, setProjectInEdition] = useState<string | null>(null);
+
+    const selectedProjectName = data.projects.find((project) => project.id === projectId)?.name || '';
 
     return (
         <DialogTrigger type='popover' hideArrow>
@@ -112,27 +109,18 @@ export const ProjectsListPanel = () => {
                 <Content>
                     <Divider size={'S'} marginY={'size-200'} />
                     <ProjectsList
-                        projects={data?.projects ?? []}
+                        projects={data.projects}
                         projectIdInEdition={projectInEdition}
                         setProjectInEdition={setProjectInEdition}
-                        onDeleteProject={deleteProject}
-                        onUpdateProjectName={updateProjectName}
                     />
                     <Divider size={'S'} marginY={'size-200'} />
                 </Content>
 
                 <ButtonGroup UNSAFE_className={styles.panelButtons}>
-                    <ActionButton
-                        isQuiet
-                        width={'100%'}
-                        marginStart={'size-100'}
-                        marginEnd={'size-350'}
-                        UNSAFE_className={styles.addProjectButton}
-                        onPress={addProject}
-                    >
-                        <AddCircle />
-                        <Text marginX='size-50'>Add project</Text>
-                    </ActionButton>
+                    <AddProjectButton
+                        onSetProjectInEdition={setProjectInEdition}
+                        projectsCount={data?.projects.length}
+                    />
                 </ButtonGroup>
             </Dialog>
         </DialogTrigger>

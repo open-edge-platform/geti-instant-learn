@@ -15,7 +15,8 @@ import { Toolbar } from '../components/toolbar.component';
 const useCheckIfProjectIsValid = () => {
     const { projectId } = useProjectIdentifier();
 
-    // Note: when the project is not found, the project query will throw an error and parent ErrorPage will be rendered
+    // Note: when the project is not found, the project query will throw an error and the parent error boundary with
+    // ErrorPage will be rendered
     $api.useSuspenseQuery('get', '/api/v1/projects/{project_id}', {
         params: {
             path: {
