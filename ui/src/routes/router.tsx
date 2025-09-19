@@ -4,7 +4,6 @@
  */
 
 import { $api } from '@geti-prompt/api';
-import { isEmpty } from 'lodash-es';
 import { Navigate } from 'react-router';
 import { createBrowserRouter } from 'react-router-dom';
 import { path } from 'static-path';

@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 
+import { $api } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import {
     ActionButton,
@@ -21,6 +22,7 @@ import {
     View,
 } from '@geti/ui';
 import { AddCircle } from '@geti/ui/icons';
+import { v4 as uuid } from 'uuid';
 
 import { ProjectsList } from './projects-list.component';
 
@@ -41,34 +43,52 @@ const SelectedProjectButton = ({ name }: SelectedProjectProps) => {
     );
 };
 
-const MOCKED_PROJECTS = [
-    { name: 'Project #1', id: '1' },
-    { name: 'Project #2', id: '2' },
-    { name: 'Project #3', id: '3' },
-];
-
 export const ProjectsListPanel = () => {
     const { projectId } = useProjectIdentifier();
+    const { data } = $api.useQuery('get', '/api/v1/projects');
+    const addProjectMutation = $api.useMutation('post', '/api/v1/projects');
+    const updateProjectMutation = $api.useMutation('put', '/api/v1/projects/{project_id}');
+    const deleteProjectMutation = $api.useMutation('delete', '/api/v1/projects/{project_id}');
 
-    const [projects, setProjects] = useState(MOCKED_PROJECTS);
     const [projectInEdition, setProjectInEdition] = useState<string | null>(null);
 
-    const selectedProjectName = projects.find((project) => project.id === projectId)?.name || '';
+    const selectedProjectName = data?.projects.find((project) => project.id === projectId)?.name || '';
 
     const addProject = () => {
-        const newProjectId = Math.random().toString(36).substring(2, 15);
-        setProjects((prevProjects) => [...prevProjects, { name: `Project #${newProjectId}`, id: newProjectId }]);
+        const newProjectId = uuid();
+        const newProjectName = `Project #${(data?.projects.length || 0) + 1}`;
+
+        addProjectMutation.mutate({
+            body: {
+                id: newProjectId,
+                name: newProjectName,
+            },
+        });
+
         setProjectInEdition(newProjectId);
     };
 
     const updateProjectName = (id: string, name: string): void => {
-        setProjects((prevProjects) =>
-            prevProjects.map((project) => (project.id === id ? { ...project, name } : project))
-        );
+        updateProjectMutation.mutate({
+            body: {
+                name,
+            },
+            params: {
+                path: {
+                    project_id: id,
+                },
+            },
+        });
     };
 
     const deleteProject = (id: string): void => {
-        setProjects((prevProjects) => prevProjects.filter((project) => project.id !== id));
+        deleteProjectMutation.mutate({
+            params: {
+                path: {
+                    project_id: id,
+                },
+            },
+        });
     };
 
     return (
@@ -92,7 +112,7 @@ export const ProjectsListPanel = () => {
                 <Content>
                     <Divider size={'S'} marginY={'size-200'} />
                     <ProjectsList
-                        projects={projects}
+                        projects={data?.projects ?? []}
                         projectIdInEdition={projectInEdition}
                         setProjectInEdition={setProjectInEdition}
                         onDeleteProject={deleteProject}

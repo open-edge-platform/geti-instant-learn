@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { isEmpty } from 'lodash-es';
+
 import { Project, ProjectListItem } from './project-list-item/project-list-item.component';
 
 import styles from './projects-list.module.scss';
@@ -28,6 +30,12 @@ export const ProjectsList = ({
 
     const handleBlur = (projectId: string, newName: string) => {
         setProjectInEdition(null);
+
+        const projectToUpdate = projects.find((project) => project.id === projectId);
+        if (projectToUpdate?.name === newName || isEmpty(newName.trim())) {
+            return;
+        }
+
         onUpdateProjectName(projectId, newName);
     };
 
