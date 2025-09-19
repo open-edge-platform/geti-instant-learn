@@ -18,7 +18,7 @@ import {
 } from '@geti/ui';
 import { useNavigate } from 'react-router';
 
-import { routes } from '../../../router';
+import { routes } from '../../../routes/router';
 
 import styles from './project-list-item.module.scss';
 
