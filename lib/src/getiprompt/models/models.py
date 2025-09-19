@@ -34,6 +34,7 @@ def load_sam_model(
     precision: str = "bf16",
     compile_models: bool = False,
     benchmark_inference_speed: bool = False,
+    apply_onnx_patches: bool = False,
 ) -> SamPredictor | SamHQPredictor | SamFastPredictor | EfficientViTSamPredictor | SAM2ImagePredictor:
     """Load and optimize a SAM model.
 
@@ -43,6 +44,7 @@ def load_sam_model(
         precision: The precision of the model.
         compile_models: Whether to compile the model.
         benchmark_inference_speed: Whether to benchmark the inference speed.
+        apply_onnx_patches: Whether to apply ONNX-compatible patches regardless of precision.
 
     Returns:
         The loaded model.
@@ -93,6 +95,7 @@ def load_sam_model(
         precision=precision_to_torch_dtype(precision),
         compile_models=compile_models,
         benchmark_inference_speed=benchmark_inference_speed,
+        apply_onnx_patches=apply_onnx_patches,
     )
 
 

@@ -5,6 +5,7 @@
 
 from .sam_decoder import SamDecoder
 from .sam_mapi_decoder import SamMAPIDecoder
+from .sam_decoder_pt import PTSamDecoder
 from .segmenter_base import Segmenter
 
-__all__ = ["Segmenter", "SamDecoder", "SamMAPIDecoder"]
+__all__ = ["Segmenter", "SamDecoder", "SamMAPIDecoder", "PTSamDecoder"]
