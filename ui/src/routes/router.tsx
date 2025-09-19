@@ -3,11 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { $api } from '@geti-prompt/api';
+import { isEmpty } from 'lodash-es';
 import { Navigate } from 'react-router';
 import { createBrowserRouter } from 'react-router-dom';
 import { path } from 'static-path';
 
-import { MainContent } from './components/main-content.component';
+import { MainContent } from '../components/main-content.component';
+import { ErrorPage } from './error-page.component';
 import { ProjectLayout } from './project-layout.component';
 
 export const routes = {
@@ -16,10 +19,9 @@ export const routes = {
 };
 
 const RedirectToProject = () => {
-    // TODO: Include the logic to check if there is already a project ID, validate the ID or redirect to the first
-    // project
+    const { data } = $api.useSuspenseQuery('get', '/api/v1/projects');
 
-    return <Navigate to={routes.project({ projectId: '1' })} replace />;
+    return <Navigate to={routes.project({ projectId: data.projects[0].id })} replace />;
 };
 
 export const router = createBrowserRouter([
@@ -29,6 +31,7 @@ export const router = createBrowserRouter([
     },
     {
         path: routes.project.pattern,
+        errorElement: <ErrorPage />,
         element: <ProjectLayout />,
         children: [
             {
