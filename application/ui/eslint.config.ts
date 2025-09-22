@@ -29,6 +29,16 @@ export default [
     },
     ...sharedEslintConfig,
     {
+        settings: {
+            'import/resolver': {
+                typescript: {
+                    alwaysTryTypes: true,
+                    project: ['./tsconfig.json', './tests/tsconfig.json'],
+                },
+            },
+        },
+    },
+    {
         plugins: {
             headers,
         },
