@@ -16,7 +16,7 @@ const test = testBase.extend<Fixtures>({
     network: createNetworkFixture({
         initialHandlers: [
             ...handlers,
-            /*http.get('/api/v1/projects', ({ response }) => {
+            http.get('/api/v1/projects', ({ response }) => {
                 return response(200).json({
                     projects: [
                         {
@@ -31,7 +31,7 @@ const test = testBase.extend<Fixtures>({
                     id: '1',
                     name: 'Project #1',
                 });
-            }),*/
+            }),
         ],
     }),
 });
