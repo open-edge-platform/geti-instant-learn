@@ -9,5 +9,5 @@
   "references": [{
     "path": "../tsconfig.json"
   }],
-  "include": ["./**/*.ts"]
+  "include": ["./sample.spec.ts"]
 }
