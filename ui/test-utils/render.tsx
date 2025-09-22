@@ -12,7 +12,7 @@ import { RenderOptions, render as rtlRender } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 
 import { queryClient } from '../src/providers';
-import { routes } from '../src/routes/router';
+import { paths } from '../src/routes/router';
 
 interface Options extends RenderOptions {
     route: string;
@@ -31,7 +31,7 @@ const TestProviders = ({ children }: { children: ReactNode }) => {
 
 export const render = (
     ui: ReactNode,
-    options: Options = { route: routes.project({ projectId: '1' }), path: routes.project.pattern }
+    options: Options = { route: paths.project({ projectId: '1' }), path: paths.project.pattern }
 ) => {
     const router = createMemoryRouter(
         [

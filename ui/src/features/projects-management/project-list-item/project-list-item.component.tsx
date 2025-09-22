@@ -18,7 +18,7 @@ import {
 } from '@geti/ui';
 import { useNavigate } from 'react-router';
 
-import { routes } from '../../../routes/router';
+import { paths } from '../../../routes/paths';
 
 import styles from './project-list-item.module.scss';
 
@@ -135,7 +135,7 @@ export const ProjectListItem = ({ project, isInEditMode, onBlur, onRename, onDel
     };
 
     const handleNavigateToProject = () => {
-        navigate(routes.project({ projectId: project.id }));
+        navigate(paths.project({ projectId: project.id }));
     };
 
     return (

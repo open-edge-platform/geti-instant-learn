@@ -6,30 +6,25 @@
 import { $api } from '@geti-prompt/api';
 import { Navigate } from 'react-router';
 import { createBrowserRouter } from 'react-router-dom';
-import { path } from 'static-path';
 
 import { MainContent } from '../components/main-content.component';
 import { ErrorPage } from './error-page.component';
+import { paths } from './paths';
 import { ProjectLayout } from './project-layout.component';
-
-export const routes = {
-    root: path('/'),
-    project: path('/projects/:projectId'),
-};
 
 const RedirectToProject = () => {
     const { data } = $api.useSuspenseQuery('get', '/api/v1/projects');
 
-    return <Navigate to={routes.project({ projectId: data.projects[0].id })} replace />;
+    return <Navigate to={paths.project({ projectId: data.projects[0].id })} replace />;
 };
 
 export const router = createBrowserRouter([
     {
-        path: routes.root.pattern,
+        path: paths.root.pattern,
         element: <RedirectToProject />,
     },
     {
-        path: routes.project.pattern,
+        path: paths.project.pattern,
         errorElement: <ErrorPage />,
         element: <ProjectLayout />,
         children: [

@@ -8,7 +8,7 @@ import { NotFound } from '@geti/ui/icons';
 import { isObject, isString } from 'lodash-es';
 import { isRouteErrorResponse, useRouteError } from 'react-router';
 
-import { routes } from './router';
+import { paths } from './paths';
 import { redirectTo } from './utils';
 
 const useErrorMessage = () => {
@@ -64,7 +64,7 @@ export const ErrorPage = () => {
                     variant={'accent'}
                     marginTop={'size-200'}
                     onPress={() => {
-                        redirectTo(routes.root({}));
+                        redirectTo(paths.root({}));
                     }}
                 >
                     Go back to home page
