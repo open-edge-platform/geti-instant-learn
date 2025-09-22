@@ -39,6 +39,21 @@ def apply_coords(coords: torch.Tensor, original_size: tuple[int, int], long_side
     coords[..., 1] = coords[..., 1] * (new_h / old_h)
     return coords
 
+def apply_inverse_coords(coords: torch.Tensor, original_size: tuple[int, ...], long_side_length: int) -> torch.Tensor:
+    """
+    Inverts the coordinate transformation back to the original image size.
+    """
+    old_h, old_w = original_size
+    new_h, new_w = get_preprocess_shape(
+        original_size[0], original_size[1], long_side_length,
+    )
+    # coords = copy.deepcopy(coords).to(torch.float)
+    coords = torch.clone(coords).to(torch.float)
+    coords[..., 0] = coords[..., 0] * (old_w / new_w)
+    coords[..., 1] = coords[..., 1] * (old_h / new_h)
+    return coords
+
+
 
 class PTSamDecoder(nn.Module):
     def __init__(
@@ -138,7 +153,7 @@ class PTSamDecoder(nn.Module):
             # Set the preprocessed image in the predictor
             self.predictor.set_torch_image(preprocessed_image, original_size)            
             if len(preprocessed_points_per_image) > 0:
-                masks, points_used = self._predict_by_batch_points(
+                masks, points_used = self.predict_by_points(
                     preprocessed_points_per_image,
                     similarities_per_image,
                     original_size,
@@ -209,7 +224,7 @@ class PTSamDecoder(nn.Module):
         plt.savefig(save_path)
         plt.close(fig)
 
-    def _predict_by_batch_points(
+    def predict_by_points(
         self,
         class_points: dict[int, torch.Tensor],
         similarities: Similarities | None = None,
@@ -218,10 +233,12 @@ class PTSamDecoder(nn.Module):
     ) -> tuple[Masks, Points]:
         all_masks = Masks()
         all_used_points = Points()
-        for class_id, points_per_map in class_points.items():
-            # points_per_map is of shape (n, 4), each item is (x, y, score, label),
-            # label 1 for foreground and 0 for background
 
+        label_ids = sorted(list(similarities.data.keys()))
+        similarity_maps = torch.cat([similarities.data[label_id] for label_id in label_ids])
+        class_points_list = [class_points[label_id] for label_id in label_ids]
+
+        for label_id, points_per_map, similarity_map in zip(label_ids, class_points_list, similarity_maps):
             if (points_per_map[:, 3] == 1).any():
                 point_coords = points_per_map[:, :2].unsqueeze(1)
                 point_labels = points_per_map[:, 3].unsqueeze(1)
@@ -231,30 +248,30 @@ class PTSamDecoder(nn.Module):
                     point_labels=point_labels,
                     multimask_output=True,
                 )
-
-                # if DEBUG:
-                #     self.plot_masks(masks.squeeze(1), mask_weights.squeeze(1), f"masks_{image_id}_{class_id}_preprocessed.png")
-
-                final_masks, final_used_points, final_mask_scores = self.mask_nms(
+                
+                final_masks, final_used_points, final_mask_scores = self.mask_refinement(
                     masks,
                     mask_weights,
                     low_res_logits,
                     point_coords,
                     point_labels,
-                    similarities.data[class_id],
+                    similarity_map,
                     original_size,
                     score_threshold=self.mask_similarity_threshold,
                 )
 
-                if final_masks.shape[0] == 0:
+                if len(final_masks) == 0:
                     continue
-                
-                if DEBUG:
-                    self.plot_masks(final_masks, final_mask_scores, f"masks_{image_id}_{class_id}_final.png")
 
                 for final_mask in final_masks:
-                    all_masks.add(final_mask, class_id)
-                all_used_points.add(final_used_points, class_id)
+                    all_masks.add(final_mask, label_id)
+
+                final_used_points = apply_inverse_coords(
+                    final_used_points, 
+                    original_size, 
+                    self.predictor.transform.target_length,
+                )
+                all_used_points.add(final_used_points, label_id)
                 
         return all_masks, all_used_points
 
@@ -275,7 +292,7 @@ class PTSamDecoder(nn.Module):
         )
         return masks.bool(), mask_scores, low_res_logits
 
-    def mask_nms(
+    def mask_refinement(
         self,
         masks: torch.Tensor,
         mask_weights: torch.Tensor,
@@ -286,13 +303,13 @@ class PTSamDecoder(nn.Module):
         original_size: tuple[int, int],
         score_threshold: float = 0.45,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Postprocess the masks.
+        """Refine the masks.
         
         Args:
-            masks: The masks to postprocess.
-            low_res_logits: The low-res logits to postprocess.
-            point_coords: The point coordinates to postprocess.
-            point_labels: The point labels to postprocess.
+            masks: The masks to refine.
+            low_res_logits: The low-res logits to refine.
+            point_coords: The point coordinates to refine.
+            point_labels: The point labels to refine.
             mask_weights: The mask weights to postprocess.
             similarities: The similarities to postprocess.
             original_size: The original size of the image.
@@ -330,6 +347,7 @@ class PTSamDecoder(nn.Module):
             multimask_output=True,
         )
 
+        # nms the masks
         nms_indices = batched_nms(
             boxes.squeeze(1),
             mask_weights.squeeze(1),
@@ -344,18 +362,17 @@ class PTSamDecoder(nn.Module):
         point_coords = point_coords[nms_indices]
         point_labels = point_labels[nms_indices]
 
-        if masks.shape[-2:] != similarities.shape[1:]:
+        if masks.shape[-2:] != similarities.shape[0:]:
             masks = F.interpolate(
                 masks,
-                size=(similarities.shape[1], similarities.shape[2]),
+                size=(similarities.shape[0], similarities.shape[1]),
                 mode="nearest",
             )
 
         masks = masks.squeeze(1)
         mask_sum = (similarities * masks).sum(dim=(1, 2))
         mask_area = masks.sum(dim=(1, 2))
-        # area_norm = mask_area / mask_area.max()
-        mask_scores = (mask_sum / (mask_area + 1e-6)) # * area_norm
+        mask_scores = (mask_sum / (mask_area + 1e-6))
         weighted_scores = (mask_scores * mask_weights.T).squeeze(0)
         keep = weighted_scores > score_threshold
         if not keep.any():

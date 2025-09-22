@@ -68,7 +68,7 @@ class Matcher(Pipeline):
         num_background_points: int = 2,
         apply_mask_refinement: bool = True,
         skip_points_in_existing_masks: bool = True,
-        mask_similarity_threshold: float | None = 0.4,
+        mask_similarity_threshold: float | None = 0.38,
         precision: str = "bf16",
         compile_models: bool = False,
         benchmark_inference_speed: bool = False,
