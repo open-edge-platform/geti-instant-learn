@@ -20,3 +20,6 @@ packages/
 
 playwright-report/
 test-results/
+
+src/api/openapi-spec.json
+src/api/openapi-spec.d.ts

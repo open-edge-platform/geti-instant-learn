@@ -1,7 +1,14 @@
+/**
+ * Copyright (C) 2025 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import react from '@vitejs/plugin-react';
 import svgr from 'vite-plugin-svgr';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
+
+const CI = !!process.env.CI;
 
 export default defineConfig({
     plugins: [
@@ -19,11 +26,11 @@ export default defineConfig({
         watch: false,
         environment: 'jsdom',
         include: ['./src/**/*.test.{ts,tsx}'],
-        setupFiles: ['./src/setup-test.ts'],
+        setupFiles: './src/setup-test.ts',
         css: false,
         coverage: {
             provider: 'v8',
-            reporter: ['text'],
+            reporter: [CI ? 'json-summary' : 'text'],
             reportOnFailure: true,
             include: ['src/**/*.{ts,tsx}'],
         },

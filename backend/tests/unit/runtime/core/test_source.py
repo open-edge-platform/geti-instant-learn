@@ -20,7 +20,7 @@ test_cases = [
         ["frame1", "frame2", "frame3"]
     ),
     (
-        "drops_oldest_on_overflow",
+        "drops_oldest_on_queue_overflow",
         ["frame1", "frame2", "frame3", "frame4"],
         3,
         ["frame2", "frame3", "frame4"]  # frame1 is dropped

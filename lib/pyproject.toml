@@ -36,6 +36,7 @@ dependencies = [
     "umap==0.1.1",
     "pandas==2.2.3",
     "scikit-learn==1.6.1",
+    "scikit-image==0.24.0",
     "openvino-model-api==0.3.0.2",
     "torch==2.7.0+cu126",
     "torchvision==0.22.0+cu126",
@@ -45,6 +46,8 @@ dependencies = [
     "markupsafe==3.0.2",
     "jsonargparse",
     "sam-2",
+    "ftfy",
+    "pytest",
 ]
 
 [tool.uv.sources]

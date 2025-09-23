@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { expect, test } from '@playwright/test';
+import { expect, test } from '@geti-prompt/test-fixtures';
 
 test.describe('Sample test - to be removed', () => {
     test('Check if main components are properly shown', async ({ page }) => {

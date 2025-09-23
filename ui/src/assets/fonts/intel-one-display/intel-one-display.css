@@ -1,0 +1,27 @@
+@font-face {
+    font-family: 'IntelOne Display';
+    src: url('./intelone-display-light.woff') format('woff');
+    font-weight: 300; /* Light */
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'IntelOne Display';
+    src: url('./intelone-display-regular.woff') format('woff');
+    font-weight: 400; /* Regular */
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'IntelOne Display';
+    src: url('./intelone-display-medium.woff') format('woff');
+    font-weight: 500; /* Medium */
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'IntelOne Display';
+    src: url('./intelone-display-bold.woff') format('woff');
+    font-weight: 700; /* Bold */
+    font-style: normal;
+}

@@ -6,30 +6,30 @@ from uuid import UUID
 
 from fastapi import Response, status
 
-from routers import pipelines_router
+from routers import projects_router
 
 logger = logging.getLogger(__name__)
 
 
-@pipelines_router.put(
-    path="/{pipeline_id}/source",
+@projects_router.put(
+    path="/{project_id}/source",
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_201_CREATED: {
-            "description": "Successfully created the configuration for the pipeline's source.",
+            "description": "Successfully created the configuration for the project's source.",
         },
         status.HTTP_200_OK: {
-            "description": "Successfully updates the configuration for the pipeline's source.",
+            "description": "Successfully updates the configuration for the project's source.",
         },
         status.HTTP_500_INTERNAL_SERVER_ERROR: {
-            "description": "Unexpected error occurred while updating the configuration of the pipeline's source.",
+            "description": "Unexpected error occurred while updating the configuration of the project's source.",
         },
     },
 )
-def update_source(pipeline_id: UUID) -> Response:
+def update_source(project_id: UUID) -> Response:
     """
-    Update the pipeline's configuration.
+    Update the project's configuration.
     """
-    logger.debug(f"Received PUT pipeline {pipeline_id} source request.")
+    logger.debug(f"Received PUT project {project_id} source request.")
 
-    return Response(status_code=status.HTTP_200_OK, content={"pipeline_source": {}})
+    return Response(status_code=status.HTTP_200_OK, content={"project_source": {}})

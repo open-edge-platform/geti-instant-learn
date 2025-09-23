@@ -3,5 +3,4 @@
 
 from fastapi import APIRouter
 
-pipelines_router = APIRouter(prefix="/pipelines", tags=["Pipelines"])
-state_router = APIRouter(prefix="/state", tags=["State"])
+projects_router = APIRouter(prefix="/projects", tags=["Projects"])

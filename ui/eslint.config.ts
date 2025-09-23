@@ -21,7 +21,10 @@ const compat = new FlatCompat({
 
 export default [
     {
-        files: ['src/**/*.{js,jsx,ts,tsx}'],
+        ignores: [...sharedEslintConfig[0].ignores, 'src/api/openapi-spec.d.ts'],
+    },
+    {
+        files: ['src/**/*.{js,jsx,ts,tsx}', 'test-utils/**/*.{js,jsx,ts,tsx}'],
         ignores: ['packages/**/*'],
     },
     ...sharedEslintConfig,
@@ -33,6 +36,12 @@ export default [
             'no-restricted-imports': [
                 'error',
                 {
+                    paths: [
+                        {
+                            name: '@adobe/react-spectrum',
+                            message: 'Use component from the @geti/ui folder instead.',
+                        },
+                    ],
                     patterns: [
                         {
                             group: ['@react-spectrum'],
@@ -44,6 +53,14 @@ export default [
                         },
                         {
                             group: ['@spectrum-icons'],
+                            message: 'Use icons from the @geti/ui/icons folder instead.',
+                        },
+                        {
+                            group: ['packages/ui'],
+                            message: 'Use components from the @geti/ui folder instead.',
+                        },
+                        {
+                            group: ['packages/ui/icons'],
                             message: 'Use icons from the @geti/ui/icons folder instead.',
                         },
                     ],

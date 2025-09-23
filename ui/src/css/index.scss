@@ -1,0 +1,53 @@
+/*
+ * Copyright (C) 2025 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+@import './fonts.css';
+
+* {
+    box-sizing: border-box;
+}
+
+body,
+html,
+#root,
+#theme-provider {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+
+#theme-provider {
+    background-color: var(--spectrum-global-color-gray-100);
+}
+
+div[class*='spectrum-Tabs-selectionIndicator'] {
+    background-color: var(--energy-blue) !important;
+}
+
+h2 {
+    font-weight: 500;
+}
+
+button[data-variant='secondary'][data-style='fill'] {
+    --spectrum-button-color: var(--spectrum-gray-300) !important;
+    --spectrum-button-color-hover: var(--spectrum-gray-200) !important;
+}
+
+button[class*='toggleButton'][data-variant='accent']:disabled {
+    background: var(--spectrum-accent-background-color-default) !important;
+    color: var(--spectrum-gray-100) !important;
+    opacity: 0.5 !important;
+}
+
+svg {
+    fill: currentColor;
+}
+
+// Increase the modal’s background when a dialog is opened inside another dialog.
+[data-testid='underlay'] {
+    & + div[class*='spectrum-Modal-wrapper'] {
+        z-index: 100000 !important;
+    }
+    z-index: 100000 !important;
+}

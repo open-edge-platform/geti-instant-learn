@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from alembic import command
 from alembic.config import Config
+from settings import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,14 @@ def get_session() -> Generator[Session, Any, None]:
 SessionDep = Annotated[Session, Depends(get_session)]
 
 
-def run_db_migrations() -> None:
+def run_db_migrations(settings: Settings) -> None:
     """Run database migrations using Alembic."""
-    alembic_cfg = Config("alembic.ini")
-    command.upgrade(alembic_cfg, "head")
+    try:
+        logger.info("Running database migrations...")
+        alembic_cfg = Config(settings.alembic_config_path)
+        alembic_cfg.set_main_option("script_location", settings.alembic_script_location)
+        alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
+        command.upgrade(alembic_cfg, "head")
+        logger.info("✓ Database migrations completed successfully")
+    except Exception:
+        logger.exception("✗ Database migration failed")

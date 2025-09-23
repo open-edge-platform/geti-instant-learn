@@ -19,7 +19,7 @@ geti-prompt/
         ├── filters/
         │    └── masks/
         │        └── test_box_aware_mask_filter.py
-        └── ... 
+        └── ...
 ```
 
 ## Running Tests

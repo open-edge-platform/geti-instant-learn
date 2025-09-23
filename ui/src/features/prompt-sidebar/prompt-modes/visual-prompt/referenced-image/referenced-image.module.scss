@@ -1,0 +1,19 @@
+.referencedImage {
+    position: relative;
+
+    &:hover .actionMenu {
+        visibility: visible;
+        opacity: 1;
+    }
+}
+
+.image {
+    height: 100%;
+    width: 100%;
+}
+
+.actionMenu {
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}

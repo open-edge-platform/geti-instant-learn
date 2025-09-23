@@ -1,29 +1,17 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import time
-from logging import getLogger
-from logging.config import fileConfig
-
 from alembic import context
 from db.model import Base
 from sqlalchemy import engine_from_config, pool
-from sqlalchemy.exc import OperationalError
-
-logger = getLogger(__name__)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
-config = context._config
+config = context.config
 
 # here we allow ourselves to pass interpolation vars to alembic.ini
 # from the host env
 section = config.config_ini_section
-
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
 
 # add your model's MetaData object here
 # for 'autogenerate' support
@@ -84,12 +72,4 @@ def run_migrations_online() -> None:
 if context.is_offline_mode():
     run_migrations_offline()
 else:
-    for _ in range(5):
-        try:
-            run_migrations_online()
-            break
-        except OperationalError as op_err:
-            logger.warning(op_err)
-            time.sleep(15)
-    else:
-        raise RuntimeError("Failed to migrate database.")
+    run_migrations_online()

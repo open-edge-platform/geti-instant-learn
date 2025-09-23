@@ -2,13 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 [project]
 name = "geti-prompt-backend"
-version = "1.0.0"
+version = "0.1.0"
 description = "Geti Prompt service"
 requires-python = ">=3.13, <3.14"
 
 dependencies = [
     "fastapi~=0.116",
-    "uvicorn~=0.35.0",
+    "uvicorn[standard]~=0.35.0",
+    "pydantic-settings~=2.10.1",
     "python-multipart~=0.0.20",
     "SQLAlchemy~=2.0.43",
     "alembic~=1.16.5",

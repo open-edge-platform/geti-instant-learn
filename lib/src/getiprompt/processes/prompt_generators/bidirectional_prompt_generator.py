@@ -124,9 +124,7 @@ class BidirectionalPromptGenerator(FeaturePromptGenerator):
                 similarities.add(local_similarity_map, class_id)
 
                 # Select background points based on similarity to averaged local feature
-                _averaged_feature_sim_map, bg_target_indices, bg_similarity_scores = self._select_background_points(
-                    similarity_map, mask
-                )
+                _, bg_target_indices, bg_similarity_scores = self._select_background_points(similarity_map, mask)
 
                 # Perform foreground matching
                 matched_indices, similarity_scores, _ = self._perform_matching(

@@ -6,27 +6,27 @@ from uuid import UUID
 
 from fastapi import Response, status
 
-from routers import pipelines_router
+from routers import projects_router
 
 logger = logging.getLogger(__name__)
 
 
-@pipelines_router.get(
-    path="/{pipeline_id}/sink",
+@projects_router.get(
+    path="/{project_id}/sink",
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {
-            "description": "Successfully retrieved the sink configuration for the pipeline.",
+            "description": "Successfully retrieved the sink configuration for the project.",
         },
         status.HTTP_500_INTERNAL_SERVER_ERROR: {
-            "description": "Unexpected error occurred while retrieving the sink configuration of the pipeline.",
+            "description": "Unexpected error occurred while retrieving the sink configuration of the project.",
         },
     },
 )
-def get_sink(pipeline_id: UUID) -> Response:
+def get_sink(project_id: UUID) -> Response:
     """
-    Retrieve the sink configuration of the pipeline.
+    Retrieve the sink configuration of the project.
     """
-    logger.debug(f"Received GET pipeline {pipeline_id} sink request.")
+    logger.debug(f"Received GET project {project_id} sink request.")
 
-    return Response(status_code=status.HTTP_200_OK, content={"pipeline_sink": {}})
+    return Response(status_code=status.HTTP_200_OK, content={"project_sink": {}})

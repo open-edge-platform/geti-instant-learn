@@ -6,27 +6,27 @@ from uuid import UUID
 
 from fastapi import Response, status
 
-from routers import pipelines_router
+from routers import projects_router
 
 logger = logging.getLogger(__name__)
 
 
-@pipelines_router.get(
-    path="/{pipeline_id}/source",
+@projects_router.get(
+    path="/{project_id}/source",
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {
-            "description": "Successfully retrieved the source configuration for the pipeline.",
+            "description": "Successfully retrieved the source configuration for the project.",
         },
         status.HTTP_500_INTERNAL_SERVER_ERROR: {
-            "description": "Unexpected error occurred while retrieving the source configuration of the pipeline.",
+            "description": "Unexpected error occurred while retrieving the source configuration of the project.",
         },
     },
 )
-def get_source(pipeline_id: UUID) -> Response:
+def get_source(project_id: UUID) -> Response:
     """
-    Retrieve the source configuration of the pipeline.
+    Retrieve the source configuration of the project.
     """
-    logger.debug(f"Received GET pipeline {pipeline_id} source request.")
+    logger.debug(f"Received GET project {project_id} source request.")
 
-    return Response(status_code=status.HTTP_200_OK, content={"pipeline_source": {}})
+    return Response(status_code=status.HTTP_200_OK, content={"project_source": {}})
