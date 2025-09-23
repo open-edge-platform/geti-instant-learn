@@ -2,8 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 from backend.app.runtime.core.base import StreamReader, StreamWriter, Processor
-from .types import IN, OUT
-from ..schemas.pipeline import PipelineConfig
+from ..schemas.pipeline import PipelineConfig, InputData, OutputData
 from ..schemas.sink import SinkConfig
 from ..schemas.source import SourceConfig
 
@@ -25,5 +24,5 @@ class StreamWriterFactory:
 class ProcessorFactory:
 
     @classmethod
-    def create(cls, config: PipelineConfig) -> Processor[IN, OUT]:
+    def create(cls, config: PipelineConfig) -> Processor[InputData, OutputData]:
         pass

@@ -4,9 +4,10 @@
 from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
 from multiprocessing import Event
-from typing import Any, Generic
+from typing import Any, TypeVar
 
-from .types import IN, OUT
+IN = TypeVar("IN")
+OUT = TypeVar("OUT")
 
 
 class JobComponent(ABC):
@@ -14,12 +15,14 @@ class JobComponent(ABC):
     def __init__(self):
         self._stop_event = Event()
 
+    def __call__(self, *args, **kwargs):
+        self.run()
+
     @abstractmethod
     def run(self) -> None:
-        """The core logic of the component, to be implemented by subclasses."""
+        """The core logic of the component."""
 
     def stop(self) -> None:
-        """Signals the component's main loop to terminate."""
         self._stop_event.set()
 
 

@@ -16,4 +16,5 @@ _mypy:
     uv run mypy . --config-file=pyproject.toml
 
 
-
+run-local:
+    uv run app/main.py

@@ -21,7 +21,6 @@ ConfigChangeEvent = Union[ProjectActivationEvent, ComponentConfigChangeEvent]
 
 
 class ConfigChangeListener(Protocol):
-    """Defines the required signature for a configuration change listener."""
 
     def __call__(self, event: ConfigChangeEvent) -> None:
         ...
