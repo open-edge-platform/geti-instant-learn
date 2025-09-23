@@ -24,7 +24,7 @@ export default [
         ignores: [...sharedEslintConfig[0].ignores, 'src/api/openapi-spec.d.ts'],
     },
     {
-        files: ['src/**/*.{js,jsx,ts,tsx}', 'test-utils/**/*.{js,jsx,ts,tsx}'],
+        files: ['src/**/*.{js,jsx,ts,tsx}'],
         ignores: ['packages/**/*'],
     },
     ...sharedEslintConfig,
@@ -34,6 +34,7 @@ export default [
                 typescript: {
                     alwaysTryTypes: true,
                     project: ['./tsconfig.json', './tests/tsconfig.json'],
+                    noWarnOnMultipleProjects: true,
                 },
             },
         },
