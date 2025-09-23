@@ -71,6 +71,10 @@ class FrameBroadcaster:
 
     It manages a queue for each registered consumer. If a consumer's
     queue is full the oldest frame is dropped to make space for the new one.
+
+    The live nature of WebRTC streams requires consumers to be registered and unregistered dynamically as they connect
+    and disconnect. If we were to share a single queue for all consumers, they would compete for frames, effectively
+    stealing them from each other. This broadcaster ensures every consumer gets its own queue.
     """
 
     def __init__(self):
