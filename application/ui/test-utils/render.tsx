@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ReactNode, Suspense } from 'react';
+import { type ReactNode, Suspense } from 'react';
 
 import { IntelBrandedLoading } from '@geti/ui';
 import { ThemeProvider } from '@geti/ui/theme';
