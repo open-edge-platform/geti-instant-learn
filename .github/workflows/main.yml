@@ -48,6 +48,20 @@ jobs:
     with:
       build_version: ${{ needs.build-parameters.outputs.build_version }}
 
+  application:
+    name: Application build
+    needs: build-parameters
+    permissions:
+      contents: read
+      pull-requests: write
+    if: needs.build-parameters.outputs.components-list && contains(fromJson(needs.build-parameters.outputs.components-list), 'application')
+    strategy:
+      matrix:
+        component: [backend, ui]
+    uses: ./.github/workflows/${{ matrix.component }}.yml
+    with:
+      build_version: ${{ needs.build-parameters.outputs.build_version }}
+
   backend:
     name: Backend build
     needs: build-parameters
@@ -71,7 +85,7 @@ jobs:
 
   distrib:
     name: Distrib build
-    needs: [ library, backend, ui ]
+    needs: [ library, application, backend, ui ]
     permissions:
       contents: read
     uses: ./.github/workflows/distrib.yml
@@ -80,7 +94,7 @@ jobs:
 
   success:
     name: Status checks
-    needs: [ build-parameters, library, backend, ui, distrib ]
+    needs: [ build-parameters, library, application, backend, ui, distrib ]
     runs-on: ubuntu-latest
     if: ${{ always() && !cancelled() }}
     env:
