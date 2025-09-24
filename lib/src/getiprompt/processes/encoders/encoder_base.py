@@ -57,10 +57,6 @@ class Encoder(Process):
         """
 
     @abstractmethod
-    def _extract_global_features(self, image: Image) -> Features:
-        """This method extracts the global features from the image."""
-
-    @abstractmethod
     def _extract_local_features(self, features: Features, masks_per_class: Masks) -> tuple[Features, Masks]:
         """This method extracts the local features from the image."""
 

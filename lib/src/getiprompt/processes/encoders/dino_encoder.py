@@ -6,14 +6,11 @@
 from logging import getLogger
 
 import torch
-from torch.nn import functional as F
-from torchvision import transforms
-from transformers import AutoImageProcessor, AutoModel
+from torch import nn
 
-from getiprompt.models.model_optimizer import optimize_model
+from getiprompt.models.dinov2 import DinoV2
 from getiprompt.processes.encoders.encoder_base import Encoder
 from getiprompt.types import Features, Image, Masks, Priors
-from getiprompt.utils import MaybeToTensor, precision_to_torch_dtype
 
 logger = getLogger("Geti Prompt")
 
@@ -42,48 +39,10 @@ class DinoEncoder(Encoder):
 
     """
 
-    def __init__(
-        self,
-        precision: str = "bf16",
-        compile_models: bool = False,
-        benchmark_inference_speed: bool = False,
-        model_id: str = "facebook/dinov2-large",
-        device: str = "cuda",
-    ) -> None:
+    def __init__(self, model: nn.Module) -> None:
         super().__init__()
         logger.info("Loading DINOv2 encoder model")
-
-        model = AutoModel.from_pretrained(model_id).to(device).eval()
-        self.encoder_input_size = model.config.image_size
-        self.patch_size = model.config.patch_size
-        self.feature_size = self.encoder_input_size // self.patch_size
-
-        self.model = optimize_model(
-            model=model,
-            precision=precision_to_torch_dtype(precision),
-            compile_models=compile_models,
-            benchmark_inference_speed=benchmark_inference_speed,
-            device=device,
-        ).eval()
-
-        self.processor = AutoImageProcessor.from_pretrained(
-            model_id,
-            size={"height": self.encoder_input_size, "width": self.encoder_input_size},
-            do_center_crop=False,
-            use_fast=True,  # uses Rust based image processor
-        )
-        self.encoder_mask_transform = transforms.Compose([
-            MaybeToTensor(),
-            transforms.Lambda(lambda x: x.unsqueeze(0) if x.ndim == 2 else x),
-            transforms.Lambda(lambda x: x.float()),
-            transforms.Resize([self.encoder_input_size, self.encoder_input_size]),
-            # MinPool to make sure we do not use background features
-            transforms.Lambda(lambda x: (x * -1) + 1),
-            torch.nn.MaxPool2d(
-                kernel_size=(self.patch_size, self.patch_size),
-            ),
-            transforms.Lambda(lambda x: (x * -1) + 1),
-        ])
+        self.model = model
 
     def __call__(
         self,
@@ -127,7 +86,7 @@ class DinoEncoder(Encoder):
         for class_id, masks in masks_per_class.data.items():
             for mask in masks:
                 # preprocess mask, add batch dim, convert to float and resize
-                pooled_mask = self.encoder_mask_transform(mask.data).to(self.model.device)
+                pooled_mask = self.model.mask_transform(mask.data).to(self.model.device)
                 resized_masks.add(mask=pooled_mask, class_id=class_id)
                 # extract local features
                 indices = pooled_mask.flatten().bool()
@@ -142,11 +101,17 @@ class DinoEncoder(Encoder):
     def _extract_global_features_batch(self, images: list[Image]) -> list[Features]:
         """Extract all global features from the images."""
         image_tensors = [image.data for image in images]
-        inputs = self.processor(images=image_tensors, return_tensors="pt")
-        inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
-        features = self.model(**inputs).last_hidden_state[:, 1:, :]  # Remove CLS token
-        features = F.normalize(features, p=2, dim=-1)
+        features = self.model(image_tensors)
         image_features: list[Features] = []
         for idx, _image in enumerate(images):
             image_features.append(Features(global_features=features[idx]))
         return image_features
+
+
+if __name__ == "__main__":
+    import numpy as np
+
+    image = Image(np.zeros((224, 224, 3), dtype=np.uint8))
+    encoder = DinoEncoder(model=DinoV2(size=DinoV2.Size.SMALL, use_registers=True))
+    features, masks = encoder([image], priors_per_image=[Priors()])
+    print(features[0].global_features.shape)
