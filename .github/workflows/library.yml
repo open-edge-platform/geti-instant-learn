@@ -1,4 +1,4 @@
-name: lib
+name: library
 on:
   workflow_call:
     inputs:
@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 jobs:
   component-check:
-    name: Lib workflow
+    name: Library workflow
     runs-on: ubuntu-latest
     permissions:
       contents: read
