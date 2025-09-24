@@ -63,6 +63,7 @@ You can get help for any command by using the `-h` or `--help` flag, for example
 The `run` subcommand allows you to execute a pipeline on your own set of images.
 
 **Example:**
+
 ```bash
 # Run using predefined masks with default pipeline (Matcher)
 getiprompt run --reference_images path/to/reference/images --target_images path/to/target/images --reference_prompts path/to/reference/masks
@@ -76,6 +77,7 @@ getiprompt run --target_images path/to/target/images --reference_text_prompt "ca
 # Run any other subclass of Pipeline (e.g. SoftMatcher) using MobileSAM
 getiprompt run --pipeline SoftMatcher --pipeline.sam MOBILE_SAM ...
 ```
+
 You can configure the pipeline's parameters using dot notation (e.g., `--pipeline.mask_similarity_threshold`, `--pipeline.device`).
 
 ### Benchmark on Datasets
@@ -121,7 +123,6 @@ The UI allows you to select different pipelines, datasets, and images to inspect
 
 [Geti Prompt UI](../docs/figs/Geti-Prompt-Library-UI.png)
 
-
 ## Modular Pipeline Example
 
 The power of this repository lies in its modularity. You can easily modify pipelines by changing which components are instantiated within their class definition.
@@ -129,7 +130,7 @@ The power of this repository lies in its modularity. You can easily modify pipel
 For instance, here is the complete definition for the `PerSam` pipeline from [`context_learner/pipelines/persam_pipeline.py`](src/getiprompt/context_learner/pipelines/persam_pipeline.py). It shows how different processing components are instantiated within the `__init__` method to define the pipeline's behavior.
 
 ```python
-# lib/src/getiprompt/pipelines/persam_pipeline.py
+# library/src/getiprompt/pipelines/persam_pipeline.py
 
 class PerSam(Pipeline):
     """This is the PerSam algorithm pipeline.
@@ -364,7 +365,6 @@ classDiagram
     MasksToPolygons --|> Process
     ClassOverlapMaskFilter --|> Process
 ```
-
 
 ## Acknowledgements
 
