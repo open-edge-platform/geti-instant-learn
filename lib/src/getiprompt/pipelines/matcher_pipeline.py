@@ -150,13 +150,15 @@ class Matcher(Pipeline):
         )
         priors = self.point_filter(priors)
 
-        preprocessed_images, preprocessed_points, original_sizes = self.segmenter.preprocess_inputs(target_images, priors)
+        preprocessed_images, preprocessed_points, original_sizes = self.segmenter.preprocess_inputs(
+            target_images,
+            priors,
+        )
         masks, used_points, _ = self.segmenter(
             preprocessed_images, 
             preprocessed_points, 
             similarities, 
             original_sizes,
-            image_ids,
         )
 
         # masks, used_points, _ = self.segmenter(target_images, priors, similarities)

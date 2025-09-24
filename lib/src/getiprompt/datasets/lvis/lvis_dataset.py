@@ -644,6 +644,10 @@ class LVISDataset(Dataset):
         for name, source in self._subset_files["downloads"].items():
             destination = self._subset_files["source_folders"][name]
 
+            if destination.exists():
+                logger.info(f"Using cached downloaded file {destination}")
+                return
+
             dst = Path(self._root_path / "downloads" / Path(source).name)
             self._download(source, dst)
             if dst.suffix == ".zip":
@@ -658,6 +662,10 @@ class LVISDataset(Dataset):
         """Downloads the LVIS dataset metadata."""
         for name, source in self._subset_files["sources"].items():
             destination = Path(self._root_path, self._subset_files["files"][name])
+            if destination.exists():
+                logger.info(f"Using cached downloaded file {destination}")
+                return
+
             dst = Path(self._root_path, Path(source).name)
             self._download(source, dst)
             if dst.suffix == ".zip":
