@@ -26,7 +26,7 @@ export default defineConfig({
         watch: false,
         environment: 'jsdom',
         include: ['./src/**/*.test.{ts,tsx}'],
-        setupFiles: ['./src/setup-test.ts'],
+        setupFiles: './src/setup-test.ts',
         css: false,
         coverage: {
             provider: 'v8',

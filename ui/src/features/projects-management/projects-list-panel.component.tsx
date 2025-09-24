@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 
+import { $api } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import {
     ActionButton,
@@ -21,6 +22,7 @@ import {
     View,
 } from '@geti/ui';
 import { AddCircle } from '@geti/ui/icons';
+import { v4 as uuid } from 'uuid';
 
 import { ProjectsList } from './projects-list.component';
 
@@ -41,35 +43,50 @@ const SelectedProjectButton = ({ name }: SelectedProjectProps) => {
     );
 };
 
-const MOCKED_PROJECTS = [
-    { name: 'Project #1', id: '1' },
-    { name: 'Project #2', id: '2' },
-    { name: 'Project #3', id: '3' },
-];
+interface AddProjectProps {
+    onSetProjectInEdition: (projectId: string) => void;
+    projectsCount: number;
+}
+
+const AddProjectButton = ({ onSetProjectInEdition, projectsCount }: AddProjectProps) => {
+    const addProjectMutation = $api.useMutation('post', '/api/v1/projects');
+
+    const addProject = () => {
+        const newProjectId = uuid();
+        const newProjectName = `Project #${projectsCount + 1}`;
+
+        addProjectMutation.mutate({
+            body: {
+                id: newProjectId,
+                name: newProjectName,
+            },
+        });
+
+        onSetProjectInEdition(newProjectId);
+    };
+
+    return (
+        <ActionButton
+            isQuiet
+            width={'100%'}
+            marginStart={'size-100'}
+            marginEnd={'size-350'}
+            UNSAFE_className={styles.addProjectButton}
+            onPress={addProject}
+        >
+            <AddCircle />
+            <Text marginX='size-50'>Add project</Text>
+        </ActionButton>
+    );
+};
 
 export const ProjectsListPanel = () => {
     const { projectId } = useProjectIdentifier();
+    const { data } = $api.useSuspenseQuery('get', '/api/v1/projects');
 
-    const [projects, setProjects] = useState(MOCKED_PROJECTS);
     const [projectInEdition, setProjectInEdition] = useState<string | null>(null);
 
-    const selectedProjectName = projects.find((project) => project.id === projectId)?.name || '';
-
-    const addProject = () => {
-        const newProjectId = Math.random().toString(36).substring(2, 15);
-        setProjects((prevProjects) => [...prevProjects, { name: `Project #${newProjectId}`, id: newProjectId }]);
-        setProjectInEdition(newProjectId);
-    };
-
-    const updateProjectName = (id: string, name: string): void => {
-        setProjects((prevProjects) =>
-            prevProjects.map((project) => (project.id === id ? { ...project, name } : project))
-        );
-    };
-
-    const deleteProject = (id: string): void => {
-        setProjects((prevProjects) => prevProjects.filter((project) => project.id !== id));
-    };
+    const selectedProjectName = data.projects.find((project) => project.id === projectId)?.name || '';
 
     return (
         <DialogTrigger type='popover' hideArrow>
@@ -92,27 +109,18 @@ export const ProjectsListPanel = () => {
                 <Content>
                     <Divider size={'S'} marginY={'size-200'} />
                     <ProjectsList
-                        projects={projects}
+                        projects={data.projects}
                         projectIdInEdition={projectInEdition}
                         setProjectInEdition={setProjectInEdition}
-                        onDeleteProject={deleteProject}
-                        onUpdateProjectName={updateProjectName}
                     />
                     <Divider size={'S'} marginY={'size-200'} />
                 </Content>
 
                 <ButtonGroup UNSAFE_className={styles.panelButtons}>
-                    <ActionButton
-                        isQuiet
-                        width={'100%'}
-                        marginStart={'size-100'}
-                        marginEnd={'size-350'}
-                        UNSAFE_className={styles.addProjectButton}
-                        onPress={addProject}
-                    >
-                        <AddCircle />
-                        <Text marginX='size-50'>Add project</Text>
-                    </ActionButton>
+                    <AddProjectButton
+                        onSetProjectInEdition={setProjectInEdition}
+                        projectsCount={data.projects.length}
+                    />
                 </ButtonGroup>
             </Dialog>
         </DialogTrigger>

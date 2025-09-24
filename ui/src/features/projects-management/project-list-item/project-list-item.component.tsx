@@ -18,7 +18,7 @@ import {
 } from '@geti/ui';
 import { useNavigate } from 'react-router';
 
-import { routes } from '../../../router';
+import { paths } from '../../../routes/paths';
 
 import styles from './project-list-item.module.scss';
 
@@ -40,6 +40,17 @@ const ProjectEdition = ({ name, onBlur }: ProjectEditionProps) => {
         onBlur(newName);
     };
 
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            onBlur(newName);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            setNewName(name);
+            onBlur(name);
+        }
+    };
+
     useEffect(() => {
         textFieldRef.current?.select();
     }, []);
@@ -50,6 +61,7 @@ const ProjectEdition = ({ name, onBlur }: ProjectEditionProps) => {
             ref={textFieldRef}
             value={newName}
             onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
             onChange={setNewName}
             aria-label='Edit project name'
         />
@@ -123,7 +135,7 @@ export const ProjectListItem = ({ project, isInEditMode, onBlur, onRename, onDel
     };
 
     const handleNavigateToProject = () => {
-        navigate(routes.project({ projectId: project.id }));
+        navigate(paths.project({ projectId: project.id }));
     };
 
     return (
