@@ -1,16 +1,12 @@
-# Main components
-library:  # SDK component
+# Platform services
+library:
   - library/**
   - .github/workflows/**
-application:  # Studio application (UI + Backend)
-  - application/**
-  - .github/workflows/**
 
-# Application sub-components (optional granular triggers)
-backend:  # Backend component
+backend:
   - application/backend/**
   - library/**  # Backend might depend on library changes
   - .github/workflows/**
-ui:  # UI component
+ui:
   - application/ui/**
   - .github/workflows/**
