@@ -1,0 +1,19 @@
+#!/usr/bin/env just --justfile
+
+default:
+    @just --list
+
+gen-openapi:
+    PYTHONPATH=app uv run openapi.py .build
+
+lint: _ruff _mypy
+
+_ruff:
+    uv run ruff check --output-format=github .
+    uv run ruff format --check .
+
+_mypy:
+    uv run mypy . --config-file=pyproject.toml
+
+
+
