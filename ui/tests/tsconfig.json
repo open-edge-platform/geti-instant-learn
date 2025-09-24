@@ -1,5 +1,5 @@
 {
-  "extends": "../tsconfig.json",
+  "extends": "@geti/config/typescript",
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
@@ -9,5 +9,5 @@
   "references": [{
     "path": "../tsconfig.json"
   }],
-  "include": ["./sample.spec.ts"]
+  "include": ["./"],
 }

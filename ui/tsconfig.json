@@ -1,11 +1,11 @@
 {
     "extends": "@geti/config/typescript",
-    "include": ["src", "test-utils", "rsbuild.config.ts", "vitest.config.ts", "playwright.config.ts"],
+    "include": ["src", "rsbuild.config.ts", "vitest.config.ts", "playwright.config.ts"],
     "compilerOptions": {
         "types": ["vitest/globals", "@testing-library/jest-dom"],
         "baseUrl": ".",
         "paths": {
-            "@geti-prompt/test-utils": ["./test-utils"],
+            "@geti-prompt/test-utils": ["./src/test-utils"],
             "@geti-prompt/icons": ["./src/assets/icons"],
             "@geti-prompt/api": ["./src/api/client"],
             "@geti-prompt/hooks": ["./src/hooks"],
