@@ -432,10 +432,13 @@ class ExportMaskVisualization(Visualization):
         """
         if points is not None and i < len(points) and points[i] is not None and not points[i].is_empty:
             current_points = points[i].data[class_id][0]
+            if current_points.device.type == "cuda":
+                current_points = current_points.detach().cpu()
+
             return {
-                "points": current_points.cpu().numpy()[:, :2],
-                "point_scores": current_points.cpu().numpy()[:, 2],
-                "point_types": current_points.cpu().numpy()[:, 3],
+                "points": current_points.numpy()[:, :2],
+                "point_scores": current_points.numpy()[:, 2],
+                "point_types": current_points.numpy()[:, 3],
             }
         return {"points": None, "point_scores": None, "point_types": None}
 
@@ -450,10 +453,12 @@ class ExportMaskVisualization(Visualization):
         """
         if boxes is not None and i < len(boxes) and boxes[i] is not None and not boxes[i].is_empty:
             current_boxes = boxes[i].data[class_id][0]
+            if current_boxes.device.type == "cuda":
+                current_boxes = current_boxes.detach().cpu()
             return {
-                "boxes": current_boxes.cpu().numpy()[:, :4],
-                "box_scores": current_boxes.cpu().numpy()[:, 4],
-                "box_types": current_boxes.cpu().numpy()[:, 5],
+                "boxes": current_boxes.numpy()[:, :4],
+                "box_scores": current_boxes.numpy()[:, 4],
+                "box_types": current_boxes.numpy()[:, 5],
             }
         return {"boxes": None, "box_scores": None, "box_types": None}
 
