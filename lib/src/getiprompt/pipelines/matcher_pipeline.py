@@ -5,7 +5,6 @@
 
 from typing import TYPE_CHECKING
 
-import torch
 from getiprompt.filters.masks import ClassOverlapMaskFilter, MaskFilter
 from getiprompt.filters.priors import MaxPointFilter, PriorFilter, PriorMaskFromPoints
 from getiprompt.models.models import load_sam_model
@@ -14,7 +13,7 @@ from getiprompt.processes.encoders import DinoEncoder, Encoder
 from getiprompt.processes.feature_selectors import AllFeaturesSelector, FeatureSelector
 from getiprompt.processes.mask_processors import MaskProcessor, MasksToPolygons
 from getiprompt.processes.prompt_generators import BidirectionalPromptGenerator
-from getiprompt.processes.segmenters import SamDecoder, Segmenter, PTSamDecoder
+from getiprompt.processes.segmenters import PTSamDecoder, Segmenter
 from getiprompt.types import Image, Priors, Results
 from getiprompt.utils.constants import SAMModelName
 from getiprompt.utils.decorators import track_duration
@@ -112,7 +111,7 @@ class Matcher(Pipeline):
             num_background_points=num_background_points,
         )
         self.point_filter: PriorFilter = MaxPointFilter(max_num_points=num_foreground_points)
-        self.segmenter: Segmenter = PTSamDecoder( # PTSamDecoder(
+        self.segmenter: Segmenter = PTSamDecoder(
             sam_predictor=self.sam_predictor,
             apply_mask_refinement=apply_mask_refinement,
             mask_similarity_threshold=mask_similarity_threshold,
@@ -136,7 +135,7 @@ class Matcher(Pipeline):
         self.reference_features = self.feature_selector(reference_features)
 
     @track_duration
-    def infer(self, target_images: list[Image], image_ids: list[int] | None = None) -> Results:
+    def infer(self, target_images: list[Image]) -> Results:
         """Perform inference step on the target images."""
         target_images = self.resize_images(target_images)
 
@@ -149,19 +148,7 @@ class Matcher(Pipeline):
             target_images,
         )
         priors = self.point_filter(priors)
-
-        preprocessed_images, preprocessed_points, original_sizes = self.segmenter.preprocess_inputs(
-            target_images,
-            priors,
-        )
-        masks, used_points, _ = self.segmenter(
-            preprocessed_images, 
-            preprocessed_points, 
-            similarities, 
-            original_sizes,
-        )
-
-        # masks, used_points, _ = self.segmenter(target_images, priors, similarities)
+        masks, used_points, _ = self.segmenter(target_images, priors, similarities)
         masks = self.class_overlap_mask_filter(masks, used_points)
         annotations = self.mask_processor(masks)
 
