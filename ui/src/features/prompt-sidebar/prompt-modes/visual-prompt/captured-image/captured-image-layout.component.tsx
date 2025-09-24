@@ -7,7 +7,7 @@ import { Grid, minmax, View } from '@geti/ui';
 
 import { type CapturedImageType } from '../types';
 import { CapturedImageActions } from './captured-image-actions.component';
-import { Labels } from './labels.component';
+import { Labels } from './labels-management/labels.component';
 
 interface CapturedImageLayoutProps {
     image: CapturedImageType;
