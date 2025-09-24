@@ -64,10 +64,16 @@ All commands are run from the `ui` directory unless otherwise specified.
 
 ## Development
 
-Start the development server:
+To start the development, you need to have a running UI dev server and backend server. You can run them in separate terminal windows:
 
+To start UI dev server:
 ```bash
 npm start
+```
+
+To start a backend server:
+```bash
+npm run server
 ```
 
 The app will be available at [http://localhost:3000](http://localhost:3000).
