@@ -6,37 +6,39 @@ from typing import Optional
 from runtime.core.components.schemas.processor import ProcessorConfig
 from runtime.core.components.schemas.reader import ReaderConfig
 from runtime.core.components.schemas.writer import WriterConfig
-from runtime.job.events import ConfigChangeDispatcher, ConfigChangeEvent, ProjectActivationEvent, \
+from runtime.job.dispatcher import ConfigChangeDispatcher, ConfigChangeEvent, ProjectActivationEvent, \
     ComponentConfigChangeEvent
 from runtime.job.job import Job
 from runtime.job.schemas.project import ProjectConfig
 
 
 # todo: replace this dummy stub with getting the project config from the project repository/service:
-def get_active_project() -> str:
-    return 'the_active_project_id'
+class DummyProjectRepo:
 
+    def get_active_project(self) -> str:
+        return 'the_active_project_id'
 
-# todo: replace this dummy stub with getting the project config from the project repository/service:
-def get_project_configuration(project_id) -> ProjectConfig:
-    return ProjectConfig(
-        project_id=project_id,
-        processor=ProcessorConfig(),
-        reader=ReaderConfig(),
-        writer=WriterConfig()
-    )
+    def get_project_configuration(self, project_id) -> ProjectConfig:
+        return ProjectConfig(
+            project_id=project_id,
+            processor=ProcessorConfig(),
+            reader=ReaderConfig(),
+            writer=WriterConfig()
+        )
 
 
 class JobManager:
     """Glues the app configuration and runtime layers together"""
 
-    def __init__(self, event_dispatcher: ConfigChangeDispatcher):
+    def __init__(self, event_dispatcher: ConfigChangeDispatcher, project_repo: DummyProjectRepo):
         self._event_dispatcher = event_dispatcher
         self._job: Optional[Job] = None
+        self._project_repo = project_repo
 
     def start(self):
-        project_id = get_active_project()
-        job = Job(get_project_configuration(project_id))
+        project_id = self._project_repo.get_active_project()
+        project_config = self._project_repo.get_project_configuration(project_id)
+        job = Job(project_config)
         job.start()
         self._job = job
 
@@ -44,18 +46,20 @@ class JobManager:
         self._event_dispatcher.subscribe(self.on_config_change)
 
     def on_config_change(self, event: ConfigChangeEvent):
+
+        new_project_config = self._project_repo.get_project_configuration(event.project_id)
+
         match event:
             case ProjectActivationEvent() as event:
                 if self._job:
                     self._job.stop()
-
-                job = Job(get_project_configuration(event.project_id))
+                job = Job(new_project_config)
                 job.start()
                 self._job = job
 
             case ComponentConfigChangeEvent() as event:
                 if self._job and self._job.config.project_id == event.project_id:
-                    self._job.update_config(get_project_configuration(event.project_id))
+                    self._job.update_config(new_project_config)
 
     def stop(self):
         # gracefully stop the running pipeline
