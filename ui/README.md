@@ -41,30 +41,37 @@ npm install
 
 All commands are run from the `ui` directory unless otherwise specified.
 
-| Script                       | Description                                          |
-|------------------------------|------------------------------------------------------|
-| `npm start`                  | Start the development server (http://localhost:3000) |
-| `npm run server`             | Start the backend server (http://localhost:9100)     |
-| `npm run build`              | Build the app for production                         |
-| `npm run preview`            | Preview the production build locally                 |
-| `npm run lint`               | Run ESLint                                           |
-| `npm run lint:fix`           | Auto-fix lint issues                                 |
-| `npm run format`             | Format all files with Prettier                       |
-| `npm run format:check`       | Check formatting with Prettier                       |
-| `npm run type-check`         | Run TypeScript type checking                         |
-| `npm run test:unit`          | Run unit tests with Vitest                           |
-| `npm run test:unit:ui`       | Run unit tests in interactive UI mode                |
-| `npm run test:unit:coverage` | Run unit tests with coverage report                  |
-| `npm run test:unit:watch`    | Run unit tests in watch mode                         |
-| `npm run test:component`     | Run component tests with Playwright                  |
-| `npm run build:api`          | Download and generate OpenAPI types                  |
-| `npm run cyclic-deps-check`  | Check for circular dependencies                      |
+| Script                       | Description                                             |
+|------------------------------|---------------------------------------------------------|
+| `npm start`                  | Start the UI development server (http://localhost:3000) |
+| `npm run server`             | Start the backend server (http://localhost:9100)        |
+| `npm run dev`                | Start the UI and backend servers                        |
+| `npm run build`              | Build the app for production                            |
+| `npm run preview`            | Preview the production build locally                    |
+| `npm run lint`               | Run ESLint                                              |
+| `npm run lint:fix`           | Auto-fix lint issues                                    |
+| `npm run format`             | Format all files with Prettier                          |
+| `npm run format:check`       | Check formatting with Prettier                          |
+| `npm run type-check`         | Run TypeScript type checking                            |
+| `npm run test:unit`          | Run unit tests with Vitest                              |
+| `npm run test:unit:ui`       | Run unit tests in interactive UI mode                   |
+| `npm run test:unit:coverage` | Run unit tests with coverage report                     |
+| `npm run test:unit:watch`    | Run unit tests in watch mode                            |
+| `npm run test:component`     | Run component tests with Playwright                     |
+| `npm run build:api`          | Download and generate OpenAPI types                     |
+| `npm run cyclic-deps-check`  | Check for circular dependencies                         |
 
 ---
 
 ## Development
 
-To start the development, you need to have a running UI dev server and backend server. You can run them in separate terminal windows:
+To start the development, you need to have a running UI dev server and backend server. You can run them using:
+
+```bash
+npm run dev
+```
+
+or
 
 To start UI dev server:
 ```bash
