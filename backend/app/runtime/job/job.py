@@ -7,9 +7,7 @@ from threading import Thread
 from typing import Type
 
 from runtime.core.components.broadcaster import FrameBroadcaster
-from runtime.core.components.factories.processor import ProcessorFactory
-from runtime.core.components.factories.reader import StreamReaderFactory
-from runtime.core.components.factories.writer import StreamWriterFactory
+from runtime.core.components.factories.components import DefaultComponentFactory
 from runtime.core.components.pipeline import PipelineRunner
 from runtime.core.components.sink import Sink
 from runtime.core.components.source import Source
@@ -23,31 +21,21 @@ class Job:
     Orchestrates the job components lifecycle and runtime.
     """
 
-    def __init__(self, project_config: ProjectConfig):
+    def __init__(self, project_conf: ProjectConfig, broadcaster=FrameBroadcaster(),
+                 component_factory=DefaultComponentFactory()):
 
-        self._broadcaster = FrameBroadcaster()
+        self._broadcaster = broadcaster
+        self.factory = component_factory
         self._in_queue = Queue(maxsize=5)
-        self._out_queue = self._broadcaster.register()
-
-        self._config = project_config
+        self._config = project_conf
         self._threads: dict[Type, Thread] = {}
 
         self._components = {
-            Source: Source(
-                self._in_queue,
-                StreamReaderFactory.create(project_config.source_config)
-            ),
-            PipelineRunner: PipelineRunner(
-                self._in_queue,
-                self._broadcaster,
-                ProcessorFactory.create(project_config.pipeline_config)
-            ),
-            Sink: Sink(
-                self._out_queue,
-                StreamWriterFactory.create(project_config.sink_config)
-            )
+            Source: self.factory.create_source(self._in_queue, project_conf.reader),
+            PipelineRunner: self.factory.create_pipeline(self._in_queue, self._broadcaster, project_conf.processor),
+            Sink: self.factory.create_sink(self._broadcaster, project_conf.writer)
         }
-        logger.debug(f"A streaming job created for a project config: {project_config}")
+        logger.debug(f"A streaming job created for a project config: {project_conf}")
 
     @property
     def config(self) -> ProjectConfig:
@@ -82,7 +70,7 @@ class Job:
             logger.info(f"Source configuration changed for project_id {self._config.project_id}. "
                         f"old config: {self._config.source_config}, new config: {new_config.source_config}. "
                         f"Restarting component.")
-            new_source = Source(self._in_queue, StreamReaderFactory.create(new_config.source_config))
+            new_source = self.factory.create_source(self._in_queue, new_config.reader)
             self._restart_component(Source, new_source)
             logger.info(f"Source configuration has been refreshed for project_id {self._config.project_id}.")
 
@@ -90,8 +78,7 @@ class Job:
             logger.info(f"Pipeline configuration changed for project_id {self._config.project_id}. "
                         f"old config: {self._config.pipeline_config}, new config: {new_config.pipeline_config}. "
                         f"Restarting component.")
-            new_runner = PipelineRunner(self._in_queue, self._broadcaster,
-                                        ProcessorFactory.create(new_config.pipeline_config))
+            new_runner = self.factory.create_pipeline(self._in_queue, self._broadcaster, new_config.processor)
             self._restart_component(PipelineRunner, new_runner)
             logger.info(f"Pipeline configuration has been refreshed for project_id {self._config.project_id}.")
 
@@ -99,7 +86,7 @@ class Job:
             logger.info(f"Sink configuration changed for project_id {self._config.project_id}. "
                         f"old config: {self._config.sink_config}, new config: {new_config.sink_config}. "
                         f"Restarting component.")
-            new_sink = Sink(self._out_queue, StreamWriterFactory.create(new_config.sink_config))
+            new_sink = self.factory.create_sink(self._broadcaster, new_config.writer)
             self._restart_component(Sink, new_sink)
             logger.info(f"Sink configuration has been refreshed for project_id {self._config.project_id}.")
 

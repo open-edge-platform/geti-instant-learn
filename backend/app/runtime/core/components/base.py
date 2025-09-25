@@ -22,8 +22,12 @@ class JobComponent(ABC):
     def run(self) -> None:
         """The core logic of the component."""
 
+    def _stop(self) -> None:
+        pass
+
     def stop(self) -> None:
         self._stop_event.set()
+        self._stop()
 
 
 class Processor[IN, OUT](ABC):

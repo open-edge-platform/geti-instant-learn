@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from queue import Queue, Empty
+from queue import Empty
 
 from runtime.core.components.base import JobComponent
 from runtime.core.components.base import StreamWriter
+from runtime.core.components.broadcaster import FrameBroadcaster
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +14,11 @@ logger = logging.getLogger(__name__)
 class Sink(JobComponent):
     """Gets data from a queue and writes it using a StreamWriter."""
 
-    def __init__(self, out_queue: Queue, stream_writer: StreamWriter):
+    def __init__(self, broadcaster: FrameBroadcaster, stream_writer: StreamWriter):
         super().__init__()
         self._writer = stream_writer
-        self._out_queue = out_queue
+        self.broadcaster = broadcaster
+        self._out_queue = broadcaster.register()
 
     def run(self) -> None:
         logger.debug(f"Starting a sink loop")
@@ -28,3 +30,6 @@ class Sink(JobComponent):
                 except Empty:
                     continue
             logger.debug(f"Stopping the sink loop")
+
+    def _stop(self) -> None:
+        self.broadcaster.unregister(self._out_queue)

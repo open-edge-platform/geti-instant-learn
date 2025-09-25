@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, call
 import pytest
 
 from runtime.core.components.base import StreamWriter
+from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.sink import Sink
 
 test_cases = [
@@ -27,10 +28,12 @@ test_cases = [
 
 class TestSink:
     def setup_method(self, method):
+        self.broadcaster = MagicMock(spec=FrameBroadcaster)
         self.out_queue = MagicMock(spec=Queue)
+        self.broadcaster.register.return_value = self.out_queue
         self.mock_stream_writer = MagicMock(spec=StreamWriter)
         self.mock_stream_writer.__enter__.return_value = self.mock_stream_writer
-        self.sink = Sink(self.out_queue, self.mock_stream_writer)
+        self.sink = Sink(self.broadcaster, self.mock_stream_writer)
 
     @pytest.mark.parametrize(
         "test_id, get_side_effects, expected_writes",
