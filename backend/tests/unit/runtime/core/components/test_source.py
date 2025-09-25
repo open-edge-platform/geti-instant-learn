@@ -3,8 +3,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from backend.app.runtime.core.base import StreamReader
-from backend.app.runtime.core.components import Source
+from runtime.core.components.base import StreamReader
+from runtime.core.components.source import Source
 
 test_cases = [
     (

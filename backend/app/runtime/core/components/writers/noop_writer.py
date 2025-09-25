@@ -2,7 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 from typing import Any
 
-from backend.app.runtime.core.base import StreamWriter
+from runtime.core.components.base import StreamWriter
 
 
 class NoOpWriter(StreamWriter):

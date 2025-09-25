@@ -5,9 +5,14 @@ from queue import Queue
 from threading import Thread
 from typing import Type
 
-from backend.app.runtime.core.components import Source, PipelineRunner, Sink, FrameBroadcaster
-from backend.app.runtime.core.factories import StreamReaderFactory, ProcessorFactory, StreamWriterFactory
-from backend.app.runtime.schemas.project import ProjectConfig
+from runtime.core.components.broadcaster import FrameBroadcaster
+from runtime.core.components.factories.processor import ProcessorFactory
+from runtime.core.components.factories.reader import StreamReaderFactory
+from runtime.core.components.factories.writer import StreamWriterFactory
+from runtime.core.components.pipeline import PipelineRunner
+from runtime.core.components.sink import Sink
+from runtime.core.components.source import Source
+from runtime.job.schemas.project import ProjectConfig
 
 logger = logging.getLogger(__name__)
 

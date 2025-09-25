@@ -3,8 +3,9 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
-from backend.app.runtime.core.base import Processor
-from backend.app.runtime.core.components import FrameBroadcaster, PipelineRunner
+from runtime.core.components.base import Processor
+from runtime.core.components.broadcaster import FrameBroadcaster
+from runtime.core.components.pipeline import PipelineRunner
 
 runner_test_cases = [
     (

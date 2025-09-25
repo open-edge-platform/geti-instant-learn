@@ -1,7 +1,7 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
-from backend.app.runtime.core.base import Processor
-from backend.app.runtime.schemas.pipeline import InputData, OutputData
+from runtime.core.components.base import Processor
+from runtime.core.components.schemas.processor import InputData, OutputData
 
 
 class NoOpProcessor(Processor[InputData, OutputData]):

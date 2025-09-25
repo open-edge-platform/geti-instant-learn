@@ -3,8 +3,8 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
-from backend.app.runtime.core.base import StreamWriter
-from backend.app.runtime.core.components import Sink
+from runtime.core.components.base import StreamWriter
+from runtime.core.components.sink import Sink
 
 test_cases = [
     (

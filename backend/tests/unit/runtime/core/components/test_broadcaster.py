@@ -1,6 +1,6 @@
 from queue import Queue
 
-from backend.app.runtime.core.components import FrameBroadcaster
+from runtime.core.components.broadcaster import FrameBroadcaster
 
 
 class TestFrameBroadcaster:
@@ -54,7 +54,6 @@ class TestFrameBroadcaster:
         assert q2.get_nowait() == frame
 
     def test_broadcast_drops_oldest_frame_for_slow_consumer(self):
-
         fast_consumer_q = self.broadcaster.register()
         slow_consumer_q = self.broadcaster.register()
 
@@ -64,7 +63,6 @@ class TestFrameBroadcaster:
         assert slow_consumer_q.full()
 
         self.broadcaster.broadcast("frame2")
-
 
         assert fast_consumer_q.qsize() == 1
         assert fast_consumer_q.get_nowait() == "frame2"

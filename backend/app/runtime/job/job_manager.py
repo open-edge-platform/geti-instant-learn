@@ -2,13 +2,13 @@
 #  SPDX-License-Identifier: Apache-2.0
 from typing import Optional
 
-from backend.app.runtime.core.job import Job
-from backend.app.runtime.schemas.pipeline import PipelineConfig
-from backend.app.runtime.schemas.project import ProjectConfig
-from backend.app.runtime.schemas.sink import SinkConfig
-from backend.app.runtime.schemas.source import SourceConfig
-from backend.app.services.events import ConfigChangeDispatcher, ConfigChangeEvent, ProjectActivationEvent, \
+from runtime.core.components.schemas.processor import ProcessorConfig
+from runtime.core.components.schemas.reader import ReaderConfig
+from runtime.core.components.schemas.writer import WriterConfig
+from runtime.job.events import ConfigChangeDispatcher, ConfigChangeEvent, ProjectActivationEvent, \
     ComponentConfigChangeEvent
+from runtime.job.job import Job
+from runtime.job.schemas.project import ProjectConfig
 
 
 # todo: replace this dummy stub with getting the project config from the project repository/service:
@@ -20,9 +20,9 @@ def get_active_project() -> str:
 def get_project_configuration(project_id) -> ProjectConfig:
     return ProjectConfig(
         project_id=project_id,
-        source_config=SourceConfig(),
-        pipeline_config=PipelineConfig(),
-        sink_config=SinkConfig()
+        processor=ProcessorConfig(),
+        reader=ReaderConfig(),
+        writer=WriterConfig()
     )
 
 

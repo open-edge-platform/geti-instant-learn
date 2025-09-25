@@ -3,4 +3,4 @@
 from typing import Any
 
 # todo: to be defined
-SourceConfig = Any
+WriterConfig = Any
