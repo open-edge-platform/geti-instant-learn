@@ -18,7 +18,26 @@ logger = logging.getLogger(__name__)
 
 class Job:
     """
-    Orchestrates the job components lifecycle and runtime.
+    Orchestrates a multi-threaded streaming pipeline and manages its lifecycle.
+
+    This class wires together the core components of a processing job: a Source,
+    a PipelineRunner, and a Sink. Each component runs in a separate thread,
+    communicating through queues to form a processing pipeline:
+
+    Source -> Queue -> PipelineRunner -> Broadcaster -> Sink
+
+    The Job class is responsible for starting, stopping, and gracefully shutting
+    down all components. It also handles dynamic configuration updates by
+    restarting the relevant component without interrupting the entire job.
+
+    Args:
+        project_conf (ProjectConfig): The initial configuration for the job's
+            components (reader, processor, and writer).
+        broadcaster (FrameBroadcaster, optional): The broadcaster to distribute
+            processed frames to sinks. Defaults to a new FrameBroadcaster instance.
+        component_factory (DefaultComponentFactory, optional): The factory used
+            to create the job's components. Defaults to a new
+            DefaultComponentFactory instance.
     """
 
     def __init__(self, project_conf: ProjectConfig, broadcaster=FrameBroadcaster(),

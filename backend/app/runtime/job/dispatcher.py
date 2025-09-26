@@ -22,12 +22,21 @@ ConfigChangeEvent = Union[ProjectActivationEvent, ComponentConfigChangeEvent]
 
 
 class ConfigChangeListener(Protocol):
+    """
+    Defines a protocol for consumers that need to react to project activation or component configuration changes.
+    """
 
     def __call__(self, event: ConfigChangeEvent) -> None:
         ...
 
 
 class ConfigChangeDispatcher:
+    """
+    Manages and dispatches configuration change events to subscribed listeners.
+
+    This class allows components to subscribe to configuration changes and be
+    notified when an event occurs.
+    """
 
     def __init__(self):
         self._listeners: list[ConfigChangeListener] = []

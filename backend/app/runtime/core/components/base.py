@@ -11,6 +11,11 @@ OUT = TypeVar("OUT")
 
 
 class JobComponent(ABC):
+    """
+    An abstract base class for a runnable job component that can be executed in a thread or process. Its lifecycle is
+    managed by a stop_event. Subclasses should monitor this event and gracefully terminate their main loop
+    when the event is set.
+    """
 
     def __init__(self):
         self._stop_event = Event()
@@ -31,12 +36,14 @@ class JobComponent(ABC):
 
 
 class Processor[IN, OUT](ABC):
+    """An abstract class for adapting a zero-shot learning pipeline to be used as a Processor within the job runtime."""
 
     @abstractmethod
     def process(self, input_data: IN) -> OUT: pass
 
 
 class StreamReader(AbstractContextManager, ABC):
+    """An abstract interface for reading frames from various sources."""
 
     @abstractmethod
     def read(self) -> Any | None: pass
@@ -49,6 +56,7 @@ class StreamReader(AbstractContextManager, ABC):
 
 
 class StreamWriter(AbstractContextManager, ABC):
+    """An abstract interface for writing processed frames to various sources."""
 
     @abstractmethod
     def write(self, data: Any) -> None: pass

@@ -12,7 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 class PipelineRunner(JobComponent):
-    """A component that delegates processing logic to a processor."""
+    """
+    A job component responsible retrieving raw frames from an input queue, sending them to a processor for inference,
+    and broadcasting the processed results to subscribed consumers.
+    """
 
     def __init__(self, in_queue: Queue, broadcaster: FrameBroadcaster, processor: Processor):
 

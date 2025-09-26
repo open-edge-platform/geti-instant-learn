@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class Source(JobComponent):
-    """Reads from a StreamReader and puts the data into the provided queue."""
+    """Reads from a StreamReader and puts raw frames into the provided inbound queue."""
 
     def __init__(self, in_queue: Queue, stream_reader: StreamReader):
         super().__init__()

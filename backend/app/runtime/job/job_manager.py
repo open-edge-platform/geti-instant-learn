@@ -28,7 +28,13 @@ class DummyProjectRepo:
 
 
 class JobManager:
-    """Glues the app configuration and runtime layers together"""
+    """
+    Glues the app configuration and runtime layers together by managing the active Job.
+
+    This class listens for configuration change events and translates them into
+    lifecycle actions for the running Job instance, such as starting, stopping,
+    or performing a live configuration update.
+    """
 
     def __init__(self, event_dispatcher: ConfigChangeDispatcher, project_repo: DummyProjectRepo):
         self._event_dispatcher = event_dispatcher

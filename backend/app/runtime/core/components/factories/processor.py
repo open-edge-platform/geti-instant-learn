@@ -6,6 +6,9 @@ from runtime.core.components.schemas.processor import ProcessorConfig, InputData
 
 
 class ProcessorFactory:
+    """
+    A factory for creating Processor instances based on a configuration.
+    """
 
     @classmethod
     def create(cls, config: ProcessorConfig) -> Processor[InputData, OutputData]:
