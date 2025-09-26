@@ -2,10 +2,10 @@
 * @Daankrol @mpryahin @LenaRudaya @piotrgrubicki
 
 # Backend
-backend/ @mpryahin @LenaRudaya @piotrgrubicki
+application/backend/ @mpryahin @LenaRudaya @piotrgrubicki
 
 # Frontend
-ui/ @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura @romanowska
+application/ui/ @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura @romanowska
 
 # Deploy
 deploy/ @mpryahin @LenaRudaya @piotrgrubicki
