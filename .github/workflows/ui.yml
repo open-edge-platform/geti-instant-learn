@@ -37,12 +37,12 @@ jobs:
 
       - name: Get OpenAPI spec
         run: |
-          just backend/gen-openapi
+          just application/backend/gen-openapi
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: openapi-spec
-          path: backend/.build/openapi-spec.json
+          path: application/backend/.build/openapi-spec.json
 
   build:
     name: Build UI
@@ -177,7 +177,7 @@ jobs:
                   const functions = \`\${coverage.total.functions.pct.toFixed(1)}%\`;
                   const branches = \`\${coverage.total.branches.pct.toFixed(1)}%\`;
                   const statements = \`\${coverage.total.statements.pct.toFixed(1)}%\`;
-                  
+
                   console.log(\`| Metric | Coverage |\`);
                   console.log(\`| --- | --- |\`);
                   console.log(\`| Lines | \${lines} |\`);
@@ -198,7 +198,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            
+
             let coverageComment = '';
             try {
               coverageComment = fs.readFileSync('ui/coverage.md', 'utf8');
