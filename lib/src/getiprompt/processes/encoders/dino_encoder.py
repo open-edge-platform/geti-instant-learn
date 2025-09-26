@@ -6,9 +6,9 @@
 from logging import getLogger
 
 import torch
-from torch import nn
 from torchvision import transforms
 
+from getiprompt.models.dino import Dino
 from getiprompt.processes.encoders.encoder_base import Encoder
 from getiprompt.types import Features, Image, Masks, Priors
 from getiprompt.utils.utils import MaybeToTensor
@@ -27,7 +27,7 @@ class DinoEncoder(Encoder):
         >>> import numpy as np
         >>>
         >>> # Create a sample image
-        >>> sample_image = np.zeros((224, 224, 3), dtype=np.uint8)
+        >>> sample_image = np.zeros((518, 518, 3), dtype=np.uint8)
         >>> encoder = DinoEncoder(Dino(version="v2", size="large"))
         >>> features, masks = encoder([Image(sample_image)], priors_per_image=[Priors()])
         >>> len(features), len(masks)
@@ -41,7 +41,7 @@ class DinoEncoder(Encoder):
 
     """
 
-    def __init__(self, model: nn.Module) -> None:
+    def __init__(self, model: Dino) -> None:
         super().__init__()
         self.model = model
 

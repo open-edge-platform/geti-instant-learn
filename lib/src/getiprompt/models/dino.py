@@ -84,6 +84,7 @@ class Dino(nn.Module):
         precision: str = "bf16",
         compile_models: bool = False,
         benchmark_inference_speed: bool = False,
+        input_size: int = 518,
     ) -> None:
         """Initialize the DINO model.
 
@@ -94,6 +95,7 @@ class Dino(nn.Module):
             precision: The precision to use for the model.
             compile_models: Whether to compile the model.
             benchmark_inference_speed: Whether to benchmark the inference speed.
+            input_size: The size of the input image.
         """
         super().__init__()
 
@@ -105,6 +107,8 @@ class Dino(nn.Module):
 
         self.version = version
         self.size = size
+        self.input_size = input_size
+        self.device = device
 
         # Validate size for version
         self._validate_size_for_version(version, size)
@@ -112,15 +116,12 @@ class Dino(nn.Module):
         logger.info(f"Loading DINO{version.value.upper()}-{size.value.upper()} model")
 
         model_id = self._get_model_id(version, size)
-        self.model, self.processor = self._load_hf_model(model_id)
+        self.model, self.processor = self._load_hf_model(model_id, input_size)
         self.model = self.model.to(device).eval()
-
-        self.input_size = self.model.config.image_size
         self.patch_size = self.model.config.patch_size
         self.feature_size = self.input_size // self.patch_size
-
-        # Ignore CLS token and DinoV2 register tokens
-        self.ignore_token_length = 5 if version == DinoVersion.V2 else 1
+        # Ignore CLS token and register tokens
+        self.ignore_token_length = 1 + self.model.config.num_register_tokens
 
         self.precision = precision_to_torch_dtype(precision)
 
@@ -158,16 +159,6 @@ class Dino(nn.Module):
         msg = f"Unsupported version: {version}"
         raise ValueError(msg)
 
-    @staticmethod
-    def _get_ignore_token_length(version: DinoVersion) -> int:
-        """Get the ignore token length for a given version."""
-        if version == DinoVersion.V2:
-            return 5  # DinoV2 with registers
-        if version == DinoVersion.V3:
-            return 1  # DinoV3 with CLS token only
-        msg = f"Unsupported version: {version}"
-        raise ValueError(msg)
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Embed images using DINO.
 
@@ -184,7 +175,7 @@ class Dino(nn.Module):
         return F.normalize(features, p=2, dim=-1)
 
     @staticmethod
-    def _load_hf_model(model_id: str) -> tuple[nn.Module, AutoImageProcessor]:
+    def _load_hf_model(model_id: str, input_size: int) -> tuple[nn.Module, AutoImageProcessor]:
         """Load DINOv3 model from HuggingFace with error handling.
 
         Meta requires huggingface users to access weights by first requesting access on the HuggingFace website.
@@ -192,6 +183,7 @@ class Dino(nn.Module):
 
         Args:
             model_id: The model id of the model.
+            input_size: The size of the input image.
 
         Returns:
             The model and processor.
@@ -208,7 +200,7 @@ class Dino(nn.Module):
             model = AutoModel.from_pretrained(model_id)
             processor = AutoImageProcessor.from_pretrained(
                 model_id,
-                size={"height": model.config.image_size, "width": model.config.image_size},
+                size={"height": input_size, "width": input_size},
                 do_center_crop=False,
                 use_fast=True,  # uses Rust based image processor
             )

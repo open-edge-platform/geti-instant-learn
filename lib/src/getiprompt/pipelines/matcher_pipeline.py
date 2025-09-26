@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from getiprompt.filters.masks import ClassOverlapMaskFilter, MaskFilter
 from getiprompt.filters.priors import MaxPointFilter, PriorFilter, PriorMaskFromPoints
+from getiprompt.models.dino import Dino
 from getiprompt.models.models import load_sam_model
 from getiprompt.pipelines.pipeline_base import Pipeline
 from getiprompt.processes.encoders import DinoEncoder, Encoder
@@ -68,6 +69,8 @@ class Matcher(Pipeline):
         apply_mask_refinement: bool = True,
         skip_points_in_existing_masks: bool = True,
         mask_similarity_threshold: float | None = 0.42,
+        dino_version: str = "v3",
+        dino_size: str = "large",
         precision: str = "bf16",
         compile_models: bool = False,
         benchmark_inference_speed: bool = False,
@@ -83,6 +86,8 @@ class Matcher(Pipeline):
             apply_mask_refinement: Whether to apply mask refinement.
             skip_points_in_existing_masks: Whether to skip points in existing masks.
             mask_similarity_threshold: The similarity threshold for the mask.
+            dino_version: DINO encoder version to use ("v2" or "v3").
+            dino_size: DINO encoder size variant (e.g., "large").
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
             benchmark_inference_speed: Whether to benchmark the inference speed.
@@ -97,17 +102,20 @@ class Matcher(Pipeline):
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
         )
-        self.encoder: Encoder = DinoEncoder(
+        dino_model = Dino(
+            version=dino_version,
+            size=dino_size,
+            device=device,
             precision=precision,
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
-            device=device,
         )
+        self.encoder: Encoder = DinoEncoder(model=dino_model)
         self.feature_selector: FeatureSelector = AllFeaturesSelector()
         self.prompt_generator: PromptGenerator = BidirectionalPromptGenerator(
-            encoder_input_size=self.encoder.encoder_input_size,
-            encoder_patch_size=self.encoder.patch_size,
-            encoder_feature_size=self.encoder.feature_size,
+            encoder_input_size=self.encoder.model.input_size,
+            encoder_patch_size=self.encoder.model.patch_size,
+            encoder_feature_size=self.encoder.model.feature_size,
             num_background_points=num_background_points,
         )
         self.point_filter: PriorFilter = MaxPointFilter(max_num_points=num_foreground_points)

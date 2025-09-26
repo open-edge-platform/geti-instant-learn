@@ -178,15 +178,6 @@ class TestDinoModel:
             Dino._get_model_id("invalid", DinoSize.LARGE)  # noqa: SLF001
 
     @staticmethod
-    def test_ignore_token_lengths() -> None:
-        """Test that ignore token lengths are correct for each version."""
-        # Test DinoV2 ignore token length (5 for registers)
-        assert Dino._get_ignore_token_length(DinoVersion.V2) == 5  # noqa: SLF001
-
-        # Test DinoV3 ignore token length (1 for CLS only)
-        assert Dino._get_ignore_token_length(DinoVersion.V3) == 1  # noqa: SLF001
-
-    @staticmethod
     def test_model_loading_logic() -> None:
         """Test the model loading logic without actual loading."""
         # Test that the model ID selection works correctly
