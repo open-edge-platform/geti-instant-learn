@@ -1,0 +1,30 @@
+.badge {
+    --spectrum-high-contrast-button-text: var(--spectrum-global-color-gray-50);
+    border-radius: var(--spectrum-alias-border-radius-regular);
+    min-width: 0;
+    max-width: var(--spectrum-global-dimension-size-1600);
+    padding: var(--spectrum-global-dimension-size-50) var(--spectrum-global-dimension-size-100);
+}
+
+.iconButton {
+    background-color: transparent;
+    height: min-content;
+
+    &[class*='is-hovered'] {
+        background-color: transparent !important;
+        border: none !important;
+    }
+}
+
+.selected,
+.selected:focus {
+    outline-offset: var(--spectrum-global-dimension-size-50);
+    outline: var(--spectrum-global-dimension-size-50) solid transparent;
+}
+
+.buttonText {
+    color: var(--spectrum-high-contrast-button-text);
+    text-align: center;
+    width: min-content;
+    text-wrap: nowrap;
+}

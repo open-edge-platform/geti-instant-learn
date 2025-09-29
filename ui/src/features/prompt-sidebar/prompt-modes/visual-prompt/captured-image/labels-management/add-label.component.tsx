@@ -9,6 +9,9 @@ import { ActionButton, Button, ColorPickerDialog, Content, Dialog, DialogTrigger
 import { v4 as uuid } from 'uuid';
 
 import { Label } from './label.interface';
+import { getDistinctColorBasedOnHash } from './utils-temp';
+
+import classes from './add-label.module.css';
 
 interface AddLabelProps {
     addLabel: (label: Label) => void;
@@ -16,16 +19,22 @@ interface AddLabelProps {
 
 export const AddLabel = ({ addLabel }: AddLabelProps) => {
     //TODO: prevent adding label with same name (?)
-    //TODO: add color picker default color - find out what color it should be
 
-    const DEFAULT_COLOR = '#ededed';
     const MAX_NAME_LENGTH = 100;
 
-    const [color, setColor] = useState<string>(DEFAULT_COLOR);
+    const [id, setId] = useState<string>(uuid());
+    const [color, setColor] = useState<string>(getDistinctColorBasedOnHash(id));
     const [name, setName] = useState<string>('');
 
+    const resetState = () => {
+        setId(uuid());
+        setName('');
+        setColor(getDistinctColorBasedOnHash(id));
+    };
+
     const handleAddingLabel = (closeDialog: () => void) => {
-        addLabel({ name, color, id: uuid() });
+        addLabel({ name: name.trim(), color, id });
+        resetState();
         closeDialog();
     };
 
@@ -36,10 +45,7 @@ export const AddLabel = ({ addLabel }: AddLabelProps) => {
     };
 
     const onDialogClose = (isOpen: boolean) => {
-        if (!isOpen) {
-            setName('');
-            setColor(DEFAULT_COLOR);
-        }
+        if (!isOpen) resetState();
     };
 
     return (
@@ -59,6 +65,7 @@ export const AddLabel = ({ addLabel }: AddLabelProps) => {
                                 size={'M'}
                                 ariaLabelPrefix={'new label'}
                             />
+
                             <TextField
                                 flex={1}
                                 placeholder={'Add label'}
@@ -69,7 +76,11 @@ export const AddLabel = ({ addLabel }: AddLabelProps) => {
                                 maxLength={MAX_NAME_LENGTH}
                                 onKeyDown={(e) => handleKeyDown(e, _close)}
                             ></TextField>
-                            <ActionButton onPress={() => handleAddingLabel(_close)} isDisabled={!name.trim()}>
+                            <ActionButton
+                                onPress={() => handleAddingLabel(_close)}
+                                isDisabled={!name.trim()}
+                                UNSAFE_className={classes.addLabelButton}
+                            >
                                 +
                             </ActionButton>
                         </Flex>

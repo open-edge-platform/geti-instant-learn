@@ -22,6 +22,7 @@ import {
     View,
 } from '@geti/ui';
 import { AddCircle } from '@geti/ui/icons';
+import { isEmpty } from 'lodash-es';
 import { v4 as uuid } from 'uuid';
 
 import { ProjectsList } from './projects-list.component';
@@ -29,15 +30,20 @@ import { ProjectsList } from './projects-list.component';
 import styles from './projects-list.module.scss';
 
 interface SelectedProjectProps {
-    name: string;
+    project: Project;
 }
 
-const SelectedProjectButton = ({ name }: SelectedProjectProps) => {
+const SelectedProjectButton = ({ project }: SelectedProjectProps) => {
     return (
-        <ActionButton aria-label={`Selected project ${name}`} isQuiet height={'max-content'} staticColor='white'>
-            <View margin={'size-50'}>{name}</View>
+        <ActionButton
+            aria-label={`Selected project ${project.name}`}
+            isQuiet
+            height={'max-content'}
+            staticColor='white'
+        >
+            <View margin={'size-50'}>{project.name}</View>
             <View margin='size-50'>
-                <PhotoPlaceholder name={name} email='' height={'size-400'} width={'size-400'} />
+                <PhotoPlaceholder name={project.name} email={project.id} height={'size-400'} width={'size-400'} />
             </View>
         </ActionButton>
     );
@@ -86,23 +92,27 @@ export const ProjectsListPanel = () => {
 
     const [projectInEdition, setProjectInEdition] = useState<string | null>(null);
 
-    const selectedProjectName = data.projects.find((project) => project.id === projectId)?.name || '';
+    const selectedProject = data.projects.find((project) => project.id === projectId);
+
+    if (isEmpty(selectedProject)) {
+        return <></>;
+    }
 
     return (
         <DialogTrigger type='popover' hideArrow>
-            <SelectedProjectButton name={selectedProjectName} />
+            <SelectedProjectButton project={selectedProject} />
 
             <Dialog width={'size-4600'} UNSAFE_className={styles.dialog}>
                 <Header>
                     <Flex direction={'column'} justifyContent={'center'} width={'100%'} alignItems={'center'}>
                         <PhotoPlaceholder
-                            name={selectedProjectName}
-                            email=''
+                            name={selectedProject.name}
+                            email={selectedProject.id}
                             height={'size-1000'}
                             width={'size-1000'}
                         />
                         <Heading level={2} marginBottom={0}>
-                            {selectedProjectName}
+                            {selectedProject.name}
                         </Heading>
                     </Flex>
                 </Header>

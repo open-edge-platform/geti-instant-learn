@@ -1,0 +1,9 @@
+.addLabelButton {
+    border: none;
+    background-color: var(--energy-blue);
+}
+
+.addLabelButton:hover {
+    border: none;
+    background-color: var(--energy-blue);
+}
