@@ -7,7 +7,8 @@ import { fromOpenApi } from '@mswjs/source/open-api';
 import { HttpResponse } from 'msw';
 import { createOpenApiHttp, OpenApiHttpHandlers } from 'openapi-msw';
 
-import spec, { type paths } from './openapi-spec.json';
+import type { paths } from './openapi-spec.d.ts';
+import spec from './openapi-spec.json';
 
 const getOpenApiHttp = (): OpenApiHttpHandlers<paths> => {
     const http = createOpenApiHttp<paths>({
