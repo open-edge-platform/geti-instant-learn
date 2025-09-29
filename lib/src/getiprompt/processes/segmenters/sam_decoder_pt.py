@@ -5,12 +5,15 @@
 
 from itertools import zip_longest
 
+import numpy as np
 import torch
-from segment_anything_hq.predictor import SamPredictor as SamHQPredictor
 from torch import nn
-from torchvision.ops import batched_nms, masks_to_boxes
 
+
+from segment_anything_hq.predictor import SamPredictor as SamHQPredictor
 from getiprompt.types import Boxes, Image, Masks, Points, Priors, Similarities
+
+from torchvision.ops import masks_to_boxes, batched_nms
 
 
 class SamDecoder(nn.Module):
@@ -54,13 +57,14 @@ class SamDecoder(nn.Module):
             mask_similarity_threshold: The similarity threshold for the mask.
             nms_iou_threshold: The IoU threshold for the NMS.
         """
+
+
         super().__init__()
         self.predictor = sam_predictor
         self.mask_similarity_threshold = mask_similarity_threshold
         self.nms_iou_threshold = nms_iou_threshold
 
-    @staticmethod
-    def _get_preprocess_shape(oldh: int, oldw: int, long_side_length: int) -> tuple[int, int]:
+    def _get_preprocess_shape(self, oldh: int, oldw: int, long_side_length: int) -> tuple[int, int]:
         """Gets the preprocess shape for coordinate transformations."""
         scale = long_side_length * 1.0 / max(oldh, oldw)
         newh, neww = oldh * scale, oldw * scale
@@ -68,30 +72,20 @@ class SamDecoder(nn.Module):
         newh = int(newh + 0.5)
         return (newh, neww)
 
-    @staticmethod
-    def _apply_coords_torch(
-        coords: torch.Tensor,
-        original_size: tuple[int, int],
-        long_side_length: int,
-    ) -> torch.Tensor:
+    def _apply_coords_torch(self, coords: torch.Tensor, original_size: tuple[int, int], long_side_length: int) -> torch.Tensor:
         """Applies the coordinate transformation to the coordinates."""
         old_h, old_w = original_size
-        new_h, new_w = SamDecoder._get_preprocess_shape(old_h, old_w, long_side_length)
+        new_h, new_w = self._get_preprocess_shape(old_h, old_w, long_side_length)
         coords = torch.clone(coords).to(torch.float)
         coords[..., 0] = coords[..., 0] * (new_w / old_w)
         coords[..., 1] = coords[..., 1] * (new_h / old_h)
         return coords
 
-    @staticmethod
-    def _apply_inverse_coords_torch(
-        coords: torch.Tensor, original_size: tuple[int, ...], long_side_length: int
-    ) -> torch.Tensor:
+    def _apply_inverse_coords_torch(self, coords: torch.Tensor, original_size: tuple[int, ...], long_side_length: int) -> torch.Tensor:
         """Inverts the coordinate transformation back to the original image size."""
         old_h, old_w = original_size
-        new_h, new_w = SamDecoder._get_preprocess_shape(
-            original_size[0],
-            original_size[1],
-            long_side_length,
+        new_h, new_w = self._get_preprocess_shape(
+            original_size[0], original_size[1], long_side_length,
         )
         coords = torch.clone(coords).to(torch.float)
         coords[..., 0] = coords[..., 0] * (old_w / new_w)
@@ -112,11 +106,12 @@ class SamDecoder(nn.Module):
         Returns:
             A tuple of preprocessed images, preprocessed points, and original sizes.
         """
+
         preprocessed_images = []
         preprocessed_points = []
         original_sizes = []
-
-        for image, priors_per_image in zip_longest(images, priors, fillvalue=None):
+        
+        for (image, priors_per_image) in zip_longest(images, priors, fillvalue=None):
             # Preprocess image using SamPredictor transform
             input_image = self.predictor.transform.apply_image(image.data)
             input_image_torch = torch.as_tensor(input_image, device=self.predictor.device)
@@ -128,23 +123,23 @@ class SamDecoder(nn.Module):
             # Preprocess points for each class
             for class_id, points_per_class in priors_per_image.points.data.items():
                 if len(points_per_class) != 1:
-                    msg = (
-                        f"Each class must have exactly one prior map (got {len(points_per_class)} for class {class_id})"
-                    )
-                    raise ValueError(msg)
+                    raise ValueError("Each class must have exactly one prior map (got {} for class {})".format(len(points_per_class), class_id))
                 points = points_per_class[0]
                 if points.shape[0] == 0:
                     class_points[class_id] = torch.empty_like(points)
                 else:
                     # Extract coordinates (x, y) from points
-                    coords = points[:, :2]
+                    coords = points[:, :2].cpu().numpy().astype(np.float32)
 
                     # Apply coordinate transformation using SamPredictor's transform
-                    transformed_coords = self.predictor.transform.apply_coords_torch(coords, ori_size)
+                    transformed_coords = self.predictor.transform.apply_coords(coords, ori_size)
+                    
+                    # Convert back to tensor and update the points
+                    transformed_coords_tensor = torch.from_numpy(transformed_coords).to(device=points.device, dtype=points.dtype)
 
                     # Create new points tensor with transformed coordinates
                     _points = points.clone()
-                    _points[:, :2] = transformed_coords
+                    _points[:, :2] = transformed_coords_tensor
                     class_points[class_id] = _points
             preprocessed_points.append(class_points)
         return preprocessed_images, preprocessed_points, original_sizes
@@ -157,12 +152,13 @@ class SamDecoder(nn.Module):
         similarities: list[Similarities] | None = None,
     ) -> tuple[list[Masks], list[Points], list[Boxes]]:
         """Forward pass.
-
+        
         Args:
             images: The images to predict masks from.
             priors: The priors to predict masks from.
             similarities: The similarities to predict masks from.
         """
+
         if similarities is None:
             similarities = []
         masks_per_image: list[Masks] = []
@@ -187,7 +183,7 @@ class SamDecoder(nn.Module):
                 continue
 
             # Set the preprocessed image in the predictor
-            self.predictor.set_torch_image(preprocessed_image, original_size)
+            self.predictor.set_torch_image(preprocessed_image, original_size)            
             if len(preprocessed_points_per_image) > 0:
                 masks, points_used = self.predict_by_points(
                     preprocessed_points_per_image,
@@ -202,9 +198,9 @@ class SamDecoder(nn.Module):
             masks_per_image.append(masks)
         return masks_per_image, points_per_image, boxes_per_image
 
-    @staticmethod
     def point_preprocess(
-        points: torch.Tensor,
+        self, 
+        points: torch.Tensor, 
         labels: torch.Tensor,
         scores: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -216,11 +212,10 @@ class SamDecoder(nn.Module):
             points: The points to preprocess.
             labels: The labels to preprocess.
             scores: The scores to preprocess.
-
         Returns:
             The preprocessed points (with scores in last dimension) and labels
         """
-        # Separate Positive and Negative Points ---
+        # Separate Positive and Negative Points ---        
         positive_mask = (labels == 1).squeeze()
         negative_mask = (labels == 0).squeeze()
 
@@ -234,32 +229,33 @@ class SamDecoder(nn.Module):
         num_positive = positive_coords.shape[0]
         num_negative = negative_coords.shape[0]
 
-        # Combine each positive point with all negative points
+        # Combine each positive point with all negative points 
+        # negative_coords shape: [num_negative, 1, 2] -> squeeze -> [num_negative, 2] -> expand -> [num_positive, num_negative, 2]
         expanded_negative_coords = negative_coords.squeeze(1).expand(num_positive, -1, -1)
+        # negative_scores shape: [num_negative, 1] -> squeeze -> [num_negative] -> unsqueeze -> [num_negative, 1] -> expand -> [num_positive, num_negative, 1]
         expanded_negative_scores = negative_scores.squeeze(1).unsqueeze(-1).expand(num_positive, -1, -1)
 
         # Concatenate the positive coordinates with the expanded negative coordinates
         final_point_coords_2d = torch.cat([positive_coords, expanded_negative_coords], dim=1)
-
+        
         # Expand positive scores to match the dimension of expanded_negative_scores
         # positive_scores shape: [num_positive, 1] -> unsqueeze -> [num_positive, 1, 1]
         expanded_positive_scores = positive_scores.unsqueeze(1)
-
+        
         # Concatenate the positive scores with the expanded negative scores
-        final_point_scores = torch.cat([expanded_positive_scores, expanded_negative_scores], dim=1)
+        final_point_scores = torch.cat([expanded_positive_scores, expanded_negative_scores], dim=1)        
         final_point_coords = torch.cat([final_point_coords_2d, final_point_scores], dim=-1)
 
         positive_label = torch.tensor([1], device=points.device, dtype=torch.float32)
         negative_labels = torch.zeros(num_negative, device=points.device, dtype=torch.float32)
         single_group_labels = torch.cat([positive_label, negative_labels])
         final_point_labels = single_group_labels.expand(num_positive, -1)
-
+        
         return final_point_coords, final_point_labels
 
-    @staticmethod
-    def remap_preprocessed_points(preprocessed_points: torch.Tensor) -> torch.Tensor:
+    def remap_preprocessed_points(self, preprocessed_points: torch.Tensor) -> torch.Tensor:
         """Remap preprocessed points from grouped format to flat format.
-
+        
         Args:
             preprocessed_points: Tensor of shape [num_positive_points, 1_positive + N_negative, 3]
                                 where last dimension is [x, y, score]
@@ -272,7 +268,7 @@ class SamDecoder(nn.Module):
         num_neg = total_num - 1
         remapped_points = preprocessed_points.new_zeros(
             num_pos + num_neg,
-            last_dim + 1,  # last dimension is [x, y, score, label]
+            last_dim + 1  # last dimension is [x, y, score, label]
         )
         positive_points = preprocessed_points[:, 0]
         positive_labels = torch.ones(num_pos, device=preprocessed_points.device, dtype=torch.float32).unsqueeze(-1)
@@ -293,22 +289,21 @@ class SamDecoder(nn.Module):
         original_size: tuple[int, int] | None = None,
     ) -> tuple[Masks, Points]:
         """Predict masks from a list of points.
-
+        
         Args:
             class_points: The points to predict masks from.
             similarities: The class-specific similaritie maps to predict masks from.
             original_size: The original size of the image.
         """
+
         all_masks = Masks()
         all_used_points = Points()
 
-        label_ids = sorted(similarities.data.keys())
+        label_ids = sorted(list(similarities.data.keys()))
         similarity_maps = torch.cat([similarities.data[label_id] for label_id in label_ids])
         class_points_list = [class_points[label_id] for label_id in label_ids]
 
-        for label_id, points_per_map, similarity_map in zip(
-            label_ids, class_points_list, similarity_maps, strict=False
-        ):
+        for label_id, points_per_map, similarity_map in zip(label_ids, class_points_list, similarity_maps):
             if (points_per_map[:, 3] == 1).any():
                 point_coords = points_per_map[:, :2].unsqueeze(1)
                 point_scores = points_per_map[:, 2].unsqueeze(1)
@@ -318,9 +313,9 @@ class SamDecoder(nn.Module):
                     point_coords=point_coords[:, :, :2],  # Extract only x, y coordinates for SAM predictor
                     point_labels=point_labels,
                 )
-
+                
                 final_masks, final_points, _ = self.mask_refinement(
-                    masks=masks,
+                    masks= masks,
                     low_res_logits=low_res_logits,
                     point_coords=point_coords,
                     point_labels=point_labels,
@@ -339,15 +334,15 @@ class SamDecoder(nn.Module):
                 # Apply inverse coordinate transformation only to x, y coordinates
                 final_points[:, :2] = self._apply_inverse_coords_torch(
                     final_points[:, :2],  # Just the x, y coordinates
-                    original_size,
+                    original_size, 
                     self.predictor.transform.target_length,
                 )
-
+                
                 # Remap from [total_points, 3] to [total_points, 4] where last dim is [x, y, score, label]
                 remapped_points = self.remap_preprocessed_points(final_points)
 
                 all_used_points.add(remapped_points, label_id)
-
+                
         return all_masks, all_used_points
 
     def _predict(
@@ -358,7 +353,7 @@ class SamDecoder(nn.Module):
         mask_input: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Predict masks using SAMPredictor.
-
+        
         Args:
             point_coords: The point prompts to predict masks from.
             point_labels: The fg/bg labels of the points to predict masks from.
@@ -387,7 +382,7 @@ class SamDecoder(nn.Module):
         nms_iou_threshold: float = 0.1,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Refine the masks.
-
+        
         Args:
             masks: The masks to refine.
             low_res_logits: The low-res logits to refine.
@@ -396,11 +391,11 @@ class SamDecoder(nn.Module):
             similarity_map: The similarity map to postprocess.
             original_size: The original size of the image.
             score_threshold: The score threshold to postprocess.
-            nms_iou_threshold: The IoU threshold for the NMS.
 
         Returns:
             The postprocessed masks, point coordinates, and mask scores.
         """
+
         keep = masks.squeeze(1).sum(dim=(-1, -2)) > 0
         if not keep.any():
             return (
@@ -445,7 +440,7 @@ class SamDecoder(nn.Module):
         masks = masks.squeeze(1)
         mask_sum = (similarity_map * masks).sum(dim=(1, 2))
         mask_area = masks.sum(dim=(1, 2))
-        mask_scores = mask_sum / (mask_area + 1e-6)
+        mask_scores = (mask_sum / (mask_area + 1e-6))
         weighted_scores = (mask_scores * mask_weights.T).squeeze(0)
         keep = weighted_scores > score_threshold
         if not keep.any():
