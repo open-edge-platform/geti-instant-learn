@@ -4,7 +4,6 @@ from runtime.core.components.broadcaster import FrameBroadcaster
 
 
 class TestFrameBroadcaster:
-
     def setup_method(self, method):
         self.broadcaster = FrameBroadcaster()
 

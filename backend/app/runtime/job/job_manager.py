@@ -1,29 +1,28 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Optional
 
 from runtime.core.components.schemas.processor import ProcessorConfig
 from runtime.core.components.schemas.reader import ReaderConfig
 from runtime.core.components.schemas.writer import WriterConfig
-from runtime.job.dispatcher import ConfigChangeDispatcher, ConfigChangeEvent, ProjectActivationEvent, \
-    ComponentConfigChangeEvent
+from runtime.job.dispatcher import (
+    ComponentConfigChangeEvent,
+    ConfigChangeDispatcher,
+    ConfigChangeEvent,
+    ProjectActivationEvent,
+)
 from runtime.job.job import Job
 from runtime.job.schemas.project import ProjectConfig
 
 
 # todo: replace this dummy stub with getting the project config from the project repository/service:
 class DummyProjectRepo:
-
     def get_active_project(self) -> str:
-        return 'the_active_project_id'
+        return "the_active_project_id"
 
     def get_project_configuration(self, project_id) -> ProjectConfig:
         return ProjectConfig(
-            project_id=project_id,
-            processor=ProcessorConfig(),
-            reader=ReaderConfig(),
-            writer=WriterConfig()
+            project_id=project_id, processor=ProcessorConfig(), reader=ReaderConfig(), writer=WriterConfig()
         )
 
 
@@ -38,7 +37,7 @@ class JobManager:
 
     def __init__(self, event_dispatcher: ConfigChangeDispatcher, project_repo: DummyProjectRepo):
         self._event_dispatcher = event_dispatcher
-        self._job: Optional[Job] = None
+        self._job: Job | None = None
         self._project_repo = project_repo
 
     def start(self):
@@ -52,7 +51,6 @@ class JobManager:
         self._event_dispatcher.subscribe(self.on_config_change)
 
     def on_config_change(self, event: ConfigChangeEvent):
-
         new_project_config = self._project_repo.get_project_configuration(event.project_id)
 
         match event:

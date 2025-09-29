@@ -15,26 +15,22 @@ from runtime.core.components.source import Source
 
 class ComponentFactory(ABC):
     @abstractmethod
-    def create_source(self, in_queue: Queue, reader_conf: Any) -> Source:
-        ...
+    def create_source(self, in_queue: Queue, reader_conf: Any) -> Source: ...
 
     @abstractmethod
-    def create_pipeline(self, in_queue: Queue, broadcaster: FrameBroadcaster,
-                        pipeline_config: Any) -> PipelineRunner:
-        ...
+    def create_pipeline(
+        self, in_queue: Queue, broadcaster: FrameBroadcaster, pipeline_config: Any
+    ) -> PipelineRunner: ...
 
     @abstractmethod
-    def create_sink(self, broadcaster: FrameBroadcaster, writer_conf: Any) -> Sink:
-        ...
+    def create_sink(self, broadcaster: FrameBroadcaster, writer_conf: Any) -> Sink: ...
 
 
 class DefaultComponentFactory(ComponentFactory):
-
     def create_source(self, in_queue: Queue, reader_conf: Any) -> Source:
         return Source(in_queue, StreamReaderFactory.create(reader_conf))
 
-    def create_pipeline(self, in_queue: Queue, broadcaster: FrameBroadcaster,
-                        pipeline_config: Any) -> PipelineRunner:
+    def create_pipeline(self, in_queue: Queue, broadcaster: FrameBroadcaster, pipeline_config: Any) -> PipelineRunner:
         return PipelineRunner(in_queue, broadcaster, ProcessorFactory.create(pipeline_config))
 
     def create_sink(self, broadcaster: FrameBroadcaster, writer_conf: Any) -> Sink:

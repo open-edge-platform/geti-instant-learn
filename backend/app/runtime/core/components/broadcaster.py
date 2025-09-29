@@ -2,9 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from queue import Queue, Full
+from queue import Full, Queue
 from threading import Lock
-from typing import List
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +21,7 @@ class FrameBroadcaster:
     """
 
     def __init__(self):
-        self.queues: List[Queue] = []
+        self.queues: list[Queue] = []
         self._lock = Lock()
 
     def register(self) -> Queue:

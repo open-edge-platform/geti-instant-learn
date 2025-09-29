@@ -3,10 +3,9 @@
 
 import logging
 import time
-from queue import Queue, Full
+from queue import Full, Queue
 
-from runtime.core.components.base import JobComponent
-from runtime.core.components.base import StreamReader
+from runtime.core.components.base import JobComponent, StreamReader
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +19,6 @@ class Source(JobComponent):
         self._in_queue = in_queue
 
     def run(self) -> None:
-
         logger.debug("Starting a source loop")
         with self._reader:
             while not self._stop_event.is_set():
@@ -37,7 +35,6 @@ class Source(JobComponent):
                             self._in_queue.put_nowait(data)
                         except Full:
                             logger.error("Input queue still full after dropping. Skipping current data.")
-                            pass
                 except Exception as e:
                     logger.error(f"Error reading from stream: {e}.")
                     time.sleep(0.1)

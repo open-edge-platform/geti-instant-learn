@@ -5,11 +5,10 @@
 import unittest
 from unittest.mock import Mock
 
-from runtime.job.dispatcher import ConfigChangeDispatcher, ComponentConfigChangeEvent
+from runtime.job.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher
 
 
 class TestConfigChangeDispatcher(unittest.TestCase):
-
     def setUp(self):
         self.dispatcher = ConfigChangeDispatcher()
 
@@ -27,11 +26,7 @@ class TestConfigChangeDispatcher(unittest.TestCase):
         self.dispatcher.subscribe(mock_listener_1)
         self.dispatcher.subscribe(mock_listener_2)
 
-        event = ComponentConfigChangeEvent(
-            project_id="project-beta",
-            component_type="source",
-            component_id="camera-01"
-        )
+        event = ComponentConfigChangeEvent(project_id="project-beta", component_type="source", component_id="camera-01")
         self.dispatcher.dispatch(event)
 
         mock_listener_1.assert_called_once_with(event)

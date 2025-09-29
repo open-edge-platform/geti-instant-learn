@@ -4,8 +4,7 @@
 import logging
 from queue import Empty
 
-from runtime.core.components.base import JobComponent
-from runtime.core.components.base import StreamWriter
+from runtime.core.components.base import JobComponent, StreamWriter
 from runtime.core.components.broadcaster import FrameBroadcaster
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,7 @@ class Sink(JobComponent):
         self._out_queue = broadcaster.register()
 
     def run(self) -> None:
-        logger.debug(f"Starting a sink loop")
+        logger.debug("Starting a sink loop")
         with self._writer:
             while not self._stop_event.is_set():
                 try:
@@ -29,7 +28,7 @@ class Sink(JobComponent):
                     self._writer.write(data)
                 except Empty:
                     continue
-            logger.debug(f"Stopping the sink loop")
+            logger.debug("Stopping the sink loop")
 
     def _stop(self) -> None:
         self.broadcaster.unregister(self._out_queue)

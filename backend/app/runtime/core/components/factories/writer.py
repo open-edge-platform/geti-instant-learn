@@ -13,6 +13,7 @@ class StreamWriterFactory:
     the StreamWriter, allowing for different writer types to be instantiated
     based on the provided configuration.
     """
+
     @classmethod
     def create(cls, config: WriterConfig) -> StreamWriter:
         pass

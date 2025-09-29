@@ -1,4 +1,4 @@
-from queue import Queue, Empty
+from queue import Empty, Queue
 from unittest.mock import MagicMock, call
 
 import pytest
@@ -8,21 +8,13 @@ from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.sink import Sink
 
 test_cases = [
-    (
-        "writes_all_items",
-        ["data1", "data2", "data3"],
-        ["data1", "data2", "data3"]
-    ),
-    (
-        "handles_empty_queue",
-        [],
-        []
-    ),
+    ("writes_all_items", ["data1", "data2", "data3"], ["data1", "data2", "data3"]),
+    ("handles_empty_queue", [], []),
     (
         "handles_intermittent_empty_exceptions",
         ["data1", Empty(), "data2", Empty(), Empty(), "data3"],
-        ["data1", "data2", "data3"]
-    )
+        ["data1", "data2", "data3"],
+    ),
 ]
 
 
@@ -36,9 +28,7 @@ class TestSink:
         self.sink = Sink(self.broadcaster, self.mock_stream_writer)
 
     @pytest.mark.parametrize(
-        "test_id, get_side_effects, expected_writes",
-        test_cases,
-        ids=[case[0] for case in test_cases]
+        "test_id, get_side_effects, expected_writes", test_cases, ids=[case[0] for case in test_cases]
     )
     def test_sink_run_logic(self, test_id, get_side_effects, expected_writes):
         iterator = iter(get_side_effects)

@@ -2,10 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from queue import Queue, Empty
+from queue import Empty, Queue
 
-from runtime.core.components.base import JobComponent
-from runtime.core.components.base import Processor
+from runtime.core.components.base import JobComponent, Processor
 from runtime.core.components.broadcaster import FrameBroadcaster
 
 logger = logging.getLogger(__name__)
@@ -18,7 +17,6 @@ class PipelineRunner(JobComponent):
     """
 
     def __init__(self, in_queue: Queue, broadcaster: FrameBroadcaster, processor: Processor):
-
         super().__init__()
         self._processor = processor
         self._in_queue = in_queue

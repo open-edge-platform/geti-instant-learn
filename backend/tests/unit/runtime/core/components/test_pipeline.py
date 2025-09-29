@@ -12,48 +12,37 @@ runner_test_cases = [
         "processes_and_broadcasts_all_data",
         ["data1", "data2"],
         ["proc_data1", "proc_data2"],
-        ["proc_data1", "proc_data2"]
+        ["proc_data1", "proc_data2"],
     ),
     (
         "skips_broadcasting_for_none_results",
         ["data1", "data2", "data3"],
         ["proc_data1", None, "proc_data3"],
-        ["proc_data1", "proc_data3"]
+        ["proc_data1", "proc_data3"],
     ),
     (
         "handles_intermittent_empty_queue",
         [Empty(), "data1", Empty(), "data2"],
         ["proc_data1", "proc_data2"],
-        ["proc_data1", "proc_data2"]
+        ["proc_data1", "proc_data2"],
     ),
-    (
-        "handles_empty_input",
-        [],
-        [],
-        []
-    )
+    ("handles_empty_input", [], [], []),
 ]
 
 
 class TestPipelineRunner:
-
     def setup_method(self, method):
         self.mock_in_queue = MagicMock(spec=Queue)
         self.mock_broadcaster = MagicMock(spec=FrameBroadcaster)
         self.mock_processor = MagicMock(spec=Processor)
-        self.runner = PipelineRunner(
-            self.mock_in_queue,
-            self.mock_broadcaster,
-            self.mock_processor
-        )
+        self.runner = PipelineRunner(self.mock_in_queue, self.mock_broadcaster, self.mock_processor)
 
     @pytest.mark.parametrize(
         "test_id, queue_effects, processor_effects, expected_broadcasts",
         runner_test_cases,
-        ids=[case[0] for case in runner_test_cases]
+        ids=[case[0] for case in runner_test_cases],
     )
     def test_pipeline_runner_logic(self, test_id, queue_effects, processor_effects, expected_broadcasts):
-
         iterator = iter(queue_effects)
 
         def mock_get(*args, **kwargs):

@@ -39,30 +39,39 @@ class Processor[IN, OUT](ABC):
     """An abstract class for adapting a zero-shot learning pipeline to be used as a Processor within the job runtime."""
 
     @abstractmethod
-    def process(self, input_data: IN) -> OUT: pass
+    def process(self, input_data: IN) -> OUT:
+        pass
 
 
 class StreamReader(AbstractContextManager, ABC):
     """An abstract interface for reading frames from various sources."""
 
     @abstractmethod
-    def read(self) -> Any | None: pass
+    def read(self) -> Any | None:
+        pass
 
-    def close(self) -> None: pass
+    def close(self) -> None:
+        pass
 
-    def __enter__(self) -> "StreamReader": return self
+    def __enter__(self) -> "StreamReader":
+        return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb): self.close()
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
 
 class StreamWriter(AbstractContextManager, ABC):
     """An abstract interface for writing processed frames to various sources."""
 
     @abstractmethod
-    def write(self, data: Any) -> None: pass
+    def write(self, data: Any) -> None:
+        pass
 
-    def close(self) -> None: pass
+    def close(self) -> None:
+        pass
 
-    def __enter__(self) -> "StreamWriter": return self
+    def __enter__(self) -> "StreamWriter":
+        return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb): self.close()
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()

@@ -40,7 +40,6 @@ class MockComponentFactory(ComponentFactory):
 
 
 class TestJob(unittest.TestCase):
-
     def setUp(self):
         self.mock_config = Mock(spec=ProjectConfig)
         self.mock_config.project_id = "test-project-123"
@@ -68,7 +67,7 @@ class TestJob(unittest.TestCase):
 
         job = Job(self.mock_config, component_factory=mock_factory)
 
-        with patch('runtime.job.job.Thread') as mock_thread_class:
+        with patch("runtime.job.job.Thread") as mock_thread_class:
             mock_thread_instances = [Mock() for _ in range(3)]
             mock_thread_class.side_effect = mock_thread_instances
 
@@ -82,7 +81,7 @@ class TestJob(unittest.TestCase):
         mock_factory = MockComponentFactory()
         job = Job(self.mock_config, component_factory=mock_factory)
 
-        with patch('runtime.job.job.Thread'):
+        with patch("runtime.job.job.Thread"):
             job.start()
 
         job.stop()
@@ -105,7 +104,7 @@ class TestJob(unittest.TestCase):
         new_config.processor = self.mock_config.processor  # Same
         new_config.writer = self.mock_config.writer  # Same
 
-        with patch('runtime.job.job.Thread') as mock_thread:
+        with patch("runtime.job.job.Thread") as mock_thread:
             job.start()
             mock_thread.reset_mock()
 
@@ -131,7 +130,7 @@ class TestJob(unittest.TestCase):
         same_config.processor = self.mock_config.processor
         same_config.writer = self.mock_config.writer
 
-        with patch('runtime.job.job.Thread'):
+        with patch("runtime.job.job.Thread"):
             job.start()
 
             original_source = mock_factory.created_sources[0][0]
@@ -165,7 +164,7 @@ class TestJob(unittest.TestCase):
         new_config.processor = {"type": "new_pipeline"}  # Different
         new_config.writer = {"type": "new_sink"}  # Same
 
-        with patch('runtime.job.job.Thread'):
+        with patch("runtime.job.job.Thread"):
             job.start()
 
             original_source = mock_factory.created_sources[0][0]
@@ -189,7 +188,6 @@ class TestJob(unittest.TestCase):
             original_sink.stop.assert_called_once()
 
     def test_config_property_returns_deep_copy(self):
-
         mock_factory = MockComponentFactory()
         job = Job(self.mock_config, component_factory=mock_factory)
 

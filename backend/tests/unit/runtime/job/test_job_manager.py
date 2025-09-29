@@ -4,19 +4,18 @@
 import unittest
 from unittest.mock import Mock, patch
 
-from runtime.job.dispatcher import ConfigChangeDispatcher, ProjectActivationEvent, ComponentConfigChangeEvent
-from runtime.job.job_manager import JobManager, DummyProjectRepo
+from runtime.job.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher, ProjectActivationEvent
+from runtime.job.job_manager import DummyProjectRepo, JobManager
 from runtime.job.schemas.project import ProjectConfig
 
 
 class TestJobManager(unittest.TestCase):
-
     def setUp(self):
         self.mock_dispatcher = Mock(spec=ConfigChangeDispatcher)
         self.mock_repo = Mock(spec=DummyProjectRepo)
         self.job_manager = JobManager(self.mock_dispatcher, self.mock_repo)
 
-    @patch('runtime.job.job_manager.Job')
+    @patch("runtime.job.job_manager.Job")
     def test_start_initializes_and_starts_job(self, mock_job_class):
         self.mock_repo.get_active_project.return_value = "active-project-01"
         mock_config = Mock(spec=ProjectConfig)
@@ -32,7 +31,7 @@ class TestJobManager(unittest.TestCase):
         mock_job_instance.start.assert_called_once()
         self.mock_dispatcher.subscribe.assert_called_once_with(self.job_manager.on_config_change)
 
-    @patch('runtime.job.job_manager.Job')
+    @patch("runtime.job.job_manager.Job")
     def test_on_config_change_project_activation_stops_old_job_and_starts_new(self, mock_job_class):
         old_job = Mock()
         self.job_manager._job = old_job

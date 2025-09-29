@@ -4,7 +4,6 @@
 import logging
 from queue import Queue
 from threading import Thread
-from typing import Type
 
 from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.factories.components import DefaultComponentFactory
@@ -40,19 +39,19 @@ class Job:
             DefaultComponentFactory instance.
     """
 
-    def __init__(self, project_conf: ProjectConfig, broadcaster=FrameBroadcaster(),
-                 component_factory=DefaultComponentFactory()):
-
+    def __init__(
+        self, project_conf: ProjectConfig, broadcaster=FrameBroadcaster(), component_factory=DefaultComponentFactory()
+    ):
         self._broadcaster = broadcaster
         self._factory = component_factory
         self._in_queue = Queue(maxsize=5)
         self._config = project_conf
-        self._threads: dict[Type, Thread] = {}
+        self._threads: dict[type, Thread] = {}
 
         self._components = {
             Source: self._factory.create_source(self._in_queue, project_conf.reader),
             PipelineRunner: self._factory.create_pipeline(self._in_queue, self._broadcaster, project_conf.processor),
-            Sink: self._factory.create_sink(self._broadcaster, project_conf.writer)
+            Sink: self._factory.create_sink(self._broadcaster, project_conf.writer),
         }
         logger.debug(f"A streaming job created for a project config: {project_conf}")
 
@@ -86,25 +85,31 @@ class Job:
         logger.debug(f"Updating the streaming job configuration for project_id {self._config.project_id}")
 
         if new_config.reader != self._config.reader:
-            logger.info(f"Source configuration changed for project_id {self._config.project_id}. "
-                        f"old config: {self._config.reader}, new config: {new_config.reader}. "
-                        f"Restarting component.")
+            logger.info(
+                f"Source configuration changed for project_id {self._config.project_id}. "
+                f"old config: {self._config.reader}, new config: {new_config.reader}. "
+                f"Restarting component."
+            )
             new_source = self._factory.create_source(self._in_queue, new_config.reader)
             self._restart_component(Source, new_source)
             logger.info(f"Source configuration has been refreshed for project_id {self._config.project_id}.")
 
         if new_config.processor != self._config.processor:
-            logger.info(f"Pipeline configuration changed for project_id {self._config.project_id}. "
-                        f"old config: {self._config.processor}, new config: {new_config.processor}. "
-                        f"Restarting component.")
+            logger.info(
+                f"Pipeline configuration changed for project_id {self._config.project_id}. "
+                f"old config: {self._config.processor}, new config: {new_config.processor}. "
+                f"Restarting component."
+            )
             new_runner = self._factory.create_pipeline(self._in_queue, self._broadcaster, new_config.processor)
             self._restart_component(PipelineRunner, new_runner)
             logger.info(f"Pipeline configuration has been refreshed for project_id {self._config.project_id}.")
 
         if new_config.writer != self._config.writer:
-            logger.info(f"Sink configuration changed for project_id {self._config.project_id}. "
-                        f"old config: {self._config.writer}, new config: {new_config.writer}. "
-                        f"Restarting component.")
+            logger.info(
+                f"Sink configuration changed for project_id {self._config.project_id}. "
+                f"old config: {self._config.writer}, new config: {new_config.writer}. "
+                f"Restarting component."
+            )
             new_sink = self._factory.create_sink(self._broadcaster, new_config.writer)
             self._restart_component(Sink, new_sink)
             logger.info(f"Sink configuration has been refreshed for project_id {self._config.project_id}.")

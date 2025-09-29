@@ -7,29 +7,18 @@ from runtime.core.components.base import StreamReader
 from runtime.core.components.source import Source
 
 test_cases = [
-    (
-        "happy_path",
-        ["frame1", "frame2", "frame3"],
-        3,
-        ["frame1", "frame2", "frame3"]
-    ),
-    (
-        "handles_nones",
-        [None, "frame1", None, "frame2", "frame3", None],
-        3,
-        ["frame1", "frame2", "frame3"]
-    ),
+    ("happy_path", ["frame1", "frame2", "frame3"], 3, ["frame1", "frame2", "frame3"]),
+    ("handles_nones", [None, "frame1", None, "frame2", "frame3", None], 3, ["frame1", "frame2", "frame3"]),
     (
         "drops_oldest_on_queue_overflow",
         ["frame1", "frame2", "frame3", "frame4"],
         3,
-        ["frame2", "frame3", "frame4"]  # frame1 is dropped
-    )
+        ["frame2", "frame3", "frame4"],  # frame1 is dropped
+    ),
 ]
 
 
 class TestSource:
-
     def setup_method(self, method):
         self.in_queue = Queue(3)
         self.mock_stream_reader = MagicMock(spec=StreamReader)
@@ -37,9 +26,7 @@ class TestSource:
         self.source = Source(self.in_queue, self.mock_stream_reader)
 
     @pytest.mark.parametrize(
-        "test_id, input_data, expected_qsize, expected_output",
-        test_cases,
-        ids=[case[0] for case in test_cases]
+        "test_id, input_data, expected_qsize, expected_output", test_cases, ids=[case[0] for case in test_cases]
     )
     def test_source_run_logic(self, test_id, input_data, expected_qsize, expected_output):
         iterator = iter(input_data)

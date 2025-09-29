@@ -1,18 +1,20 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Union, Protocol
+from typing import Protocol, Union
 
 from pydantic import BaseModel
 
 
 class ProjectActivationEvent(BaseModel):
     """Event fired when a new pipeline should be activated."""
+
     project_id: str
 
 
 class ComponentConfigChangeEvent(BaseModel):
     """Event fired when a component of the active pipeline changes."""
+
     project_id: str
     component_type: str
     component_id: str
@@ -26,8 +28,7 @@ class ConfigChangeListener(Protocol):
     Defines a protocol for consumers that need to react to project activation or component configuration changes.
     """
 
-    def __call__(self, event: ConfigChangeEvent) -> None:
-        ...
+    def __call__(self, event: ConfigChangeEvent) -> None: ...
 
 
 class ConfigChangeDispatcher:
