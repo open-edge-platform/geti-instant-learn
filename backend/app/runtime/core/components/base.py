@@ -56,7 +56,7 @@ class StreamReader(AbstractContextManager, ABC):
 
 
 class StreamWriter(AbstractContextManager, ABC):
-    """An abstract interface for writing processed frames to various sources."""
+    """An abstract interface for writing processed frames to various sinks."""
 
     @abstractmethod
     def write(self, data: Any) -> None: pass
