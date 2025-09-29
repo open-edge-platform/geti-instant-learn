@@ -4,4 +4,4 @@
  */
 
 export { $api, client } from './client';
-export { type SchemaProjectListItem as Project } from './openapi-spec';
+export { type SchemaProjectListItem as Project } from './openapi-spec.json';
