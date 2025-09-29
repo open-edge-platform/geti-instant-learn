@@ -5,4 +5,3 @@
 
 export { $api, client } from './client';
 export { type SchemaProjectListItem as Project } from './openapi-spec';
-
