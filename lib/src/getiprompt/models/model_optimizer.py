@@ -239,29 +239,8 @@ def _apply_onnx_compatible_patches(prompt_encoder: nn.Module) -> None:
         point_embedding = point_embedding + mask_1 * self.point_embeddings[1].weight
         return point_embedding
 
-    # Override _embed_boxes with ONNX-compatible version
-    def _embed_boxes_onnx(self, boxes: torch.Tensor) -> torch.Tensor:
-        """Embeds box prompts."""
-        boxes = boxes + 0.5  # Shift to center of pixel
-        coords = boxes.reshape(-1, 2, 2)
-        corner_embedding = self.pe_layer.forward_with_coords(coords, self.input_image_size)
-        
-        # Use ONNX-compatible operations instead of tensor indexing
-        # Create masks for each corner
-        mask_0 = torch.zeros_like(corner_embedding)
-        mask_1 = torch.zeros_like(corner_embedding)
-        mask_0[:, 0, :] = 1.0  # First corner
-        mask_1[:, 1, :] = 1.0  # Second corner
-        
-        # Apply embeddings using element-wise multiplication
-        corner_embedding = corner_embedding + mask_0 * self.point_embeddings[2].weight
-        corner_embedding = corner_embedding + mask_1 * self.point_embeddings[3].weight
-        
-        return corner_embedding
-
     # Apply the ONNX-compatible methods
     prompt_encoder._embed_points = _embed_points_onnx.__get__(prompt_encoder, type(prompt_encoder))
-    prompt_encoder._embed_boxes = _embed_boxes_onnx.__get__(prompt_encoder, type(prompt_encoder))
 
 
 def _monkey_patch_prompt_encoder(prompt_encoder: nn.Module, dtype: torch.dtype, apply_onnx_patches: bool = False) -> None:

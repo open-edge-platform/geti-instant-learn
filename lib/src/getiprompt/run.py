@@ -115,7 +115,7 @@ def run_pipeline(
         task = progress.add_task("[cyan]Inference", total=len(target_images))
         for i in range(0, len(target_images), batch_size):
             chunk = target_images[i : i + batch_size]
-            results = pipeline.infer(chunk, image_ids=range(i, i + batch_size))
+            results = pipeline.infer(chunk)
             if output_masks_only:
                 for target_image in chunk:
                     target_image.data = np.zeros(target_image.data.shape, dtype=np.uint8)

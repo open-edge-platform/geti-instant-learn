@@ -58,16 +58,13 @@ class PTSamDecoder(nn.Module):
         sam_predictor: SamHQPredictor,
         apply_mask_refinement: bool = False,
         target_guided_attention: bool = False,
-        mask_similarity_threshold: float = 0.45,
+        mask_similarity_threshold: float = 0.38,
         skip_points_in_existing_masks: bool = True,
         nms_iou_threshold: float = 0.1,
     ) -> None:
         super().__init__()
         self.predictor = sam_predictor
-        self.apply_mask_refinement = apply_mask_refinement
-        self.target_guided_attention = target_guided_attention
         self.mask_similarity_threshold = mask_similarity_threshold
-        self.skip_points_in_existing_masks = skip_points_in_existing_masks
         self.nms_iou_threshold = nms_iou_threshold
 
     def preprocess_inputs(
@@ -116,19 +113,18 @@ class PTSamDecoder(nn.Module):
     @torch.inference_mode()
     def forward(
         self,
-        preprocessed_images: list[torch.Tensor],
-        preprocessed_points: list[dict[int, torch.Tensor]],
+        images: list[Image],
+        priors: list[Priors] | None = None,
         similarities: list[Similarities] | None = None,
-        original_sizes: list[tuple[int, int]] | None = None,
     ) -> tuple[list[Masks], list[Points], list[Boxes]]:
         if similarities is None:
             similarities = []
-        if original_sizes is None:
-            original_sizes = []
         masks_per_image: list[Masks] = []
         points_per_image: list[Points] = []
         boxes_per_image: list[Boxes] = []
-        
+
+        preprocessed_images, preprocessed_points, original_sizes = self.preprocess_inputs(images, priors)
+
         for (
             preprocessed_image,
             preprocessed_points_per_image,
@@ -217,44 +213,34 @@ class PTSamDecoder(nn.Module):
         
         return final_point_coords, final_point_labels
 
-    def remap_preprocessed_points(self, preprocessed_points: torch.Tensor, point_labels: torch.Tensor) -> torch.Tensor:
+    def remap_preprocessed_points(self, preprocessed_points: torch.Tensor) -> torch.Tensor:
         """
         Remap preprocessed points from grouped format to flat format.
         
         Args:
             preprocessed_points: Tensor of shape [num_positive_points, 1_positive + N_negative, 3]
                                 where last dimension is [x, y, score]
-            point_labels: Tensor of shape [num_positive_points, 1_positive + N_negative]
-                         where values are 1 for positive, 0 for negative
-                         
+
         Returns:
             Tensor of shape [num_positive_points + num_negative_points, 4]
             where last dimension is [x, y, score, label]
         """
-        # Get dimensions
-        num_positive_groups, points_per_group, coord_dims = preprocessed_points.shape
+        num_pos, total_num, last_dim = preprocessed_points.shape
+        num_neg = total_num - 1
+        remapped_points = preprocessed_points.new_zeros(
+            num_pos + num_neg,
+            last_dim + 1  # last dimension is [x, y, score, label]
+        )
+        positive_points = preprocessed_points[:, 0]
+        positive_labels = torch.ones(num_pos, device=preprocessed_points.device, dtype=torch.float32).unsqueeze(-1)
+        positive_points = torch.cat([positive_points, positive_labels], dim=-1)
 
-        # get negative points
-        num_negative_points = (point_labels == 0).sum() // num_positive_groups
-        negative_points = preprocessed_points[0, -num_negative_points:, :]
-        
-        flattened_points = preprocessed_points.reshape(-1, coord_dims)
-        flattened_labels = point_labels.reshape(-1)
-        positive_points = flattened_points[flattened_labels == 1]
-        
-        postive_labels = torch.ones(positive_points.shape[0], device=preprocessed_points.device, dtype=torch.float32)
-        negative_labels = torch.zeros(negative_points.shape[0], device=preprocessed_points.device, dtype=torch.float32)
-        labels = torch.cat([postive_labels, negative_labels], dim=0).unsqueeze(-1)
+        negative_points = preprocessed_points[0, 1:]
+        negative_labels = torch.zeros(num_neg, device=preprocessed_points.device, dtype=torch.float32).unsqueeze(-1)
+        negative_points = torch.cat([negative_points, negative_labels], dim=-1)
 
-        # Combine coordinates, scores, and labels
-        # Shape: [num_positive_groups * points_per_group, 4]
-        remapped_points = torch.cat([
-            positive_points,  # [x, y, score]
-            negative_points,  # [x, y, score]
-        ], dim=0)
-
-        remapped_points = torch.cat([remapped_points, labels], dim=-1)
-        
+        remapped_points[:num_pos, :] = positive_points
+        remapped_points[num_pos:, :] = negative_points
         return remapped_points
 
     def plot_masks(self, masks: torch.Tensor, scores: torch.Tensor, save_path: str):
@@ -289,7 +275,7 @@ class PTSamDecoder(nn.Module):
                 point_scores = points_per_map[:, 2].unsqueeze(1)
                 point_labels = points_per_map[:, 3].unsqueeze(1)
                 point_coords, point_labels = self.point_preprocess(point_coords, point_labels, point_scores)
-                masks, mask_weights, low_res_logits = self._predict(
+                masks, _, low_res_logits = self._predict(
                     point_coords=point_coords[:, :, :2],  # Extract only x, y coordinates for SAM predictor
                     point_labels=point_labels,
                     multimask_output=True,
@@ -297,13 +283,13 @@ class PTSamDecoder(nn.Module):
                 
                 final_masks, final_points, final_labels = self.mask_refinement(
                     masks= masks,
-                    mask_weights=mask_weights,
                     low_res_logits=low_res_logits,
                     point_coords=point_coords,
                     point_labels=point_labels,
                     similarity_map=similarity_map,
                     original_size=original_size,
                     score_threshold=self.mask_similarity_threshold,
+                    nms_iou_threshold=self.nms_iou_threshold,
                 )
 
                 if len(final_masks) == 0:
@@ -320,7 +306,7 @@ class PTSamDecoder(nn.Module):
                 )
                 
                 # Remap from [total_points, 3] to [total_points, 4] where last dim is [x, y, score, label]
-                remapped_points = self.remap_preprocessed_points(final_points, final_labels)
+                remapped_points = self.remap_preprocessed_points(final_points)
 
                 all_used_points.add(remapped_points, label_id)
                 
@@ -346,13 +332,13 @@ class PTSamDecoder(nn.Module):
     def mask_refinement(
         self,
         masks: torch.Tensor,
-        mask_weights: torch.Tensor,
         low_res_logits: torch.Tensor,
         point_coords: torch.Tensor,
         point_labels: torch.Tensor,
         similarity_map: torch.Tensor,
         original_size: tuple[int, int],
         score_threshold: float = 0.45,
+        nms_iou_threshold: float = 0.1,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Refine the masks.
         
@@ -361,7 +347,6 @@ class PTSamDecoder(nn.Module):
             low_res_logits: The low-res logits to refine.
             point_coords: The point coordinates to refine.
             point_labels: The point labels to refine.
-            mask_weights: The mask weights to postprocess.
             similarity_map: The similarity map to postprocess.
             original_size: The original size of the image.
             score_threshold: The score threshold to postprocess.
@@ -379,7 +364,6 @@ class PTSamDecoder(nn.Module):
             )
 
         masks = masks[keep]
-        mask_weights = mask_weights[keep]
         low_res_logits = low_res_logits[keep]
         point_coords = point_coords[keep]
         point_labels = point_labels[keep]
@@ -403,7 +387,7 @@ class PTSamDecoder(nn.Module):
             boxes.squeeze(1),
             mask_weights.squeeze(1),
             torch.zeros(len(boxes)),  # categories
-            iou_threshold=self.nms_iou_threshold,
+            iou_threshold=nms_iou_threshold,
         )
 
         masks = masks[nms_indices]
@@ -427,4 +411,3 @@ class PTSamDecoder(nn.Module):
             )
 
         return masks[keep], point_coords[keep], point_labels[keep]
-        
