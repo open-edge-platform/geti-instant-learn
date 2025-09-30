@@ -3,8 +3,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@geti-prompt/test-fixtures": ["./fixtures"],
-      "@geti-prompt/test-utils": ["../test-utils"]
+      "@geti-prompt/test-fixtures": ["./fixtures"]
     }
   },
   "references": [{
