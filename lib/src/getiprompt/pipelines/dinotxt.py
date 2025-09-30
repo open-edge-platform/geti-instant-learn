@@ -9,6 +9,7 @@ from getiprompt.models.dinotxt import IMAGENET_TEMPLATES, DinoTextEncoder
 from getiprompt.pipelines.pipeline_base import Pipeline
 from getiprompt.types import Image, Masks, Priors, Results
 from getiprompt.utils import precision_to_torch_dtype
+from getiprompt.utils.constants import DINOv3BackboneSize
 
 
 class DinoTxtZeroShotClassification(Pipeline):
@@ -24,14 +25,14 @@ class DinoTxtZeroShotClassification(Pipeline):
     Examples:
         >>> from getiprompt.pipelines import DinoTxtZeroShotClassification
         >>> from getiprompt.types import Image, Priors
-        >>> from pathlib import Path
+        >>> from getiprompt.utils.constants import DINOv3BackboneSize
         >>>
         >>> dinotxt = DinoTxtZeroShotClassification(
-        >>>     pretrained=True,
         >>>     prompt_templates=["a photo of a {}."],  # default is IMAGENET_TEMPLATES
         >>>     precision="bf16",
         >>>     device="cuda",
         >>>     image_size=(512, 512),
+        >>>     backbone_size=DINOv3BackboneSize.LARGE,
         >>> )
         >>> ref_priors = Priors(text={0: "cat", 1: "dog"})
     """
@@ -42,15 +43,15 @@ class DinoTxtZeroShotClassification(Pipeline):
         precision: str = "bf16",
         device: str = "cuda",
         image_size: tuple[int, int] | None = (512, 512),
+        backbone_size: DINOv3BackboneSize = DINOv3BackboneSize.LARGE,
     ) -> None:
         super().__init__(image_size=image_size)
         self.precision = precision = precision_to_torch_dtype(precision)
         self.dino_encoder = DinoTextEncoder(
-            repo_id="facebookresearch/dinov3",
-            model_id="dinov3_vitl16_dinotxt_tet1280d20h24l",
             device=device,
             image_size=image_size,
             precision=precision,
+            backbone_size=backbone_size,
         )
         self.prompt_templates = prompt_templates
 
@@ -106,7 +107,7 @@ class DinoTxtZeroShotClassification(Pipeline):
             >>> dinotxt = DinoTxtZeroShotClassification()
             >>> ref_priors = Priors(text={0: "cat", 1: "dog"})
             >>> dinotxt.learn(reference_images=[], reference_priors=[ref_priors])
-            >>> target_image = Image(data=torch.randn(3, 512, 512))
+            >>> target_image = Image(data=torch.randn(512, 512, 3))
             >>> result = dinotxt.infer(target_images=[target_image])
             >>> result.masks  # doctest: +SKIP
             [Masks(num_masks=1)]

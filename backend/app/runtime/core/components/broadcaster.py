@@ -39,7 +39,7 @@ class FrameBroadcaster[T]:
                 self.queues.remove(queue)
                 logging.info("Unregistered consumer. Total consumers:%", len(self.queues))
             except ValueError:
-            # if a client unregisters twice.
+                # if a client unregisters twice.
                 pass
 
     def broadcast(self, frame: T) -> None:

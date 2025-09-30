@@ -5,7 +5,7 @@
 
 import React from 'react';
 
-import ReactDOM from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
 
 import { Providers } from './providers';
 
@@ -14,7 +14,7 @@ import './css/index.scss';
 const rootEl = document.getElementById('root');
 
 if (rootEl) {
-    const root = ReactDOM.createRoot(rootEl);
+    const root = createRoot(rootEl);
 
     root.render(
         <React.StrictMode>

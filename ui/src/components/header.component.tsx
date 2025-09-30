@@ -4,7 +4,8 @@
  */
 
 import { Flex, Header as SpectrumHeader, View } from '@geti/ui';
-import { ProjectsListPanel } from 'src/features/projects-management/projects-list-panel.component';
+
+import { ProjectsListPanel } from '../features/projects-management/projects-list-panel.component';
 
 export const Header = () => {
     return (

@@ -8,6 +8,10 @@
     box-sizing: border-box;
 }
 
+:root {
+    --spectrum-global-dimension-fit-content: fit-content;
+}
+
 body,
 html,
 #root,

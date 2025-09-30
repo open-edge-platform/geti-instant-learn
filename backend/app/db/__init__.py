@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from . import model, repository
+from . import models
 
-__all__ = ["model", "repository"]
+__all__ = ["models"]

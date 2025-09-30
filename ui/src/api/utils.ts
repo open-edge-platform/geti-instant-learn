@@ -4,12 +4,11 @@
  */
 
 import { fromOpenApi } from '@mswjs/source/open-api';
+import { HttpResponse } from 'msw';
 import { createOpenApiHttp, OpenApiHttpHandlers } from 'openapi-msw';
 
 import { type paths } from './openapi-spec';
 import spec from './openapi-spec.json' with { type: 'json' };
-
-const handlers = await fromOpenApi(JSON.stringify(spec).replace(/}:/g, '}//:'));
 
 const getOpenApiHttp = (): OpenApiHttpHandlers<paths> => {
     const http = createOpenApiHttp<paths>({
@@ -29,5 +28,29 @@ const getOpenApiHttp = (): OpenApiHttpHandlers<paths> => {
 };
 
 const http = getOpenApiHttp();
+
+const openApiHandlers = await fromOpenApi(JSON.stringify(spec).replace(/}:/g, '}//:'));
+
+const initialHandlers = [
+    http.get('/api/v1/projects', () => {
+        return HttpResponse.json({
+            projects: [
+                {
+                    id: '1',
+                    name: 'Project #1',
+                },
+            ],
+        });
+    }),
+
+    http.get('/api/v1/projects/{project_id}', () => {
+        return HttpResponse.json({
+            id: '1',
+            name: 'Project #1',
+        });
+    }),
+];
+
+const handlers = [...openApiHandlers, ...initialHandlers];
 
 export { handlers, http };

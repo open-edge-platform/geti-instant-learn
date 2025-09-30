@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from db.model.source import SourceType
+from db.models.source import SourceType
 
 
 class SourceSchema(BaseModel):
