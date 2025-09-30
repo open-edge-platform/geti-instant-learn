@@ -143,9 +143,9 @@ class SamDecoder(nn.Module):
                     transformed_coords = self.predictor.transform.apply_coords_torch(coords, ori_size)
 
                     # Create new points tensor with transformed coordinates
-                    _points = points.clone()
-                    _points[:, :2] = transformed_coords
-                    class_points[class_id] = _points
+                    transformed_points = points.clone()
+                    transformed_points[:, :2] = transformed_coords
+                    class_points[class_id] = transformed_points
             preprocessed_points.append(class_points)
         return preprocessed_images, preprocessed_points, original_sizes
 

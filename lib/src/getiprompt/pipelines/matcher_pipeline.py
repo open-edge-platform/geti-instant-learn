@@ -65,9 +65,7 @@ class Matcher(Pipeline):
         sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
         num_foreground_points: int = 40,
         num_background_points: int = 2,
-        apply_mask_refinement: bool = True,
-        skip_points_in_existing_masks: bool = True,
-        mask_similarity_threshold: float | None = 0.42,
+        mask_similarity_threshold: float | None = 0.38,
         precision: str = "bf16",
         compile_models: bool = False,
         benchmark_inference_speed: bool = False,
@@ -80,8 +78,6 @@ class Matcher(Pipeline):
             sam: The name of the SAM model to use.
             num_foreground_points: The number of foreground points to use.
             num_background_points: The number of background points to use.
-            apply_mask_refinement: Whether to apply mask refinement.
-            skip_points_in_existing_masks: Whether to skip points in existing masks.
             mask_similarity_threshold: The similarity threshold for the mask.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
@@ -113,9 +109,7 @@ class Matcher(Pipeline):
         self.point_filter: PriorFilter = MaxPointFilter(max_num_points=num_foreground_points)
         self.segmenter: Segmenter = SamDecoder(
             sam_predictor=self.sam_predictor,
-            apply_mask_refinement=apply_mask_refinement,
             mask_similarity_threshold=mask_similarity_threshold,
-            skip_points_in_existing_masks=skip_points_in_existing_masks,
         )
         self.prior_mask_from_points: PriorFilter = PriorMaskFromPoints(segmenter=self.segmenter)
         self.mask_processor: MaskProcessor = MasksToPolygons()
