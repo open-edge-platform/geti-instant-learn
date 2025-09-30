@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from alembic import context
-from db.model import Base
+from db.models import Base
 from sqlalchemy import engine_from_config, pool
 
 # this is the Alembic Config object, which provides

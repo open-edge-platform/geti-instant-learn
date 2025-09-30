@@ -16,7 +16,6 @@ from getiprompt.types import Priors, Results
 def pipeline_instance() -> DinoTxtZeroShotClassification:
     """Returns an instance of the DinoTxtZeroShotClassification pipeline."""
     return DinoTxtZeroShotClassification(
-        pretrained=False,  # Use False for testing to avoid downloading models
         device="cpu",  # Use CPU for testing
         image_size=(224, 224),  # Smaller size for faster testing
         precision="bf16",
@@ -60,7 +59,6 @@ class TestDinoTxtZeroShotClassification:
         """Test pipeline initialization with custom parameters."""
         custom_templates = ["a photo of a {}."]
         pipeline = DinoTxtZeroShotClassification(
-            pretrained=False,
             prompt_templates=custom_templates,
             precision="fp16",
             device="cpu",
