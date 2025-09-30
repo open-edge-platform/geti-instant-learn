@@ -34,6 +34,6 @@ class PipelineRunner(JobComponent):
             except Empty:
                 continue
             except Exception as e:
-                logger.error(f"Error in pipeline runner loop: {e}")
+                logger.exception("Error in pipeline runner loop")
 
         logger.debug("Stopping the pipeline runner loop")
