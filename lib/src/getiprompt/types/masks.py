@@ -102,9 +102,10 @@ class Masks(Prompt):
 
     def to_numpy(self, class_id: int = 0) -> np.ndarray:
         """Convert the masks to a numpy array with shape HxWxC in uint8 format."""
-        if self._data[class_id].device != torch.device("cpu"):
-            self._data[class_id] = self._data[class_id].detach().cpu()
-        return self._data[class_id].numpy().astype(np.uint8)
+        mask_tensor = self._data[class_id]
+        if mask_tensor.device != torch.device("cpu"):
+            mask_tensor = mask_tensor.detach().cpu()
+        return mask_tensor.numpy().astype(np.uint8)
 
     def class_ids(self) -> list[int]:
         """Return the class ids."""
