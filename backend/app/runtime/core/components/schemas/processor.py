@@ -12,7 +12,7 @@ ProcessorConfig = Any
 
 @dataclass(kw_only=True)
 class InputData:
-    timestamp: int # processing date-time in epoch milliseconds.
+    timestamp: int  # processing date-time in epoch milliseconds.
     frame: np.ndarray  # frame loaded as numpy array
     context: dict[str, Any]  # unstructured metadata about the source of the frame (camera ID, video file, etc.)
 

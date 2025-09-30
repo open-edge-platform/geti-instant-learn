@@ -53,7 +53,6 @@ class TestPipelineRunner:
                 return next_item
             except StopIteration:
                 self.runner.stop()
-                raise Empty()
 
         self.mock_in_queue.get.side_effect = mock_get
         self.mock_processor.process.side_effect = processor_effects

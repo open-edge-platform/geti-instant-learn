@@ -4,6 +4,7 @@
 from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
 from multiprocessing import Event
+from types import TracebackType
 from typing import Any, TypeVar
 
 IN = TypeVar("IN")
@@ -20,7 +21,8 @@ class JobComponent(ABC):
     def __init__(self):
         self._stop_event = Event()
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs):  # noqa: ARG002
+        # signature must match interface
         self.run()
 
     @abstractmethod
@@ -56,7 +58,9 @@ class StreamReader(AbstractContextManager, ABC):
     def __enter__(self) -> "StreamReader":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None, /
+    ) -> None:
         self.close()
 
 
@@ -73,5 +77,7 @@ class StreamWriter(AbstractContextManager, ABC):
     def __enter__(self) -> "StreamWriter":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None, /
+    ) -> None:
         self.close()

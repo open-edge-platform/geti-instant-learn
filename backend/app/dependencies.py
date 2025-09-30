@@ -24,7 +24,7 @@ engine = create_engine(url=DATABASE_URL, connect_args={"check_same_thread": Fals
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-def get_session() -> Generator[Session, Any, None]:
+def get_session() -> Generator[Session, Any]:
     """Creates and returns database connection session"""
     with SessionLocal() as session:
         yield session

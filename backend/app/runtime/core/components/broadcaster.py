@@ -8,7 +8,7 @@ from threading import Lock
 logger = logging.getLogger(__name__)
 
 
-class FrameBroadcaster:
+class FrameBroadcaster[T]:
     """
     A thread-safe class to broadcast frames to multiple consumers.
 
@@ -21,18 +21,18 @@ class FrameBroadcaster:
     """
 
     def __init__(self):
-        self.queues: list[Queue] = []
+        self.queues: list[Queue[T]] = []
         self._lock = Lock()
 
     def register(self) -> Queue:
         """Register a new consumer and return its personal queue."""
         with self._lock:
-            queue = Queue(maxsize=2)
+            queue = Queue[T](maxsize=2)
             self.queues.append(queue)
             logging.info(f"Registered new consumer. Total consumers: {len(self.queues)}")
             return queue
 
-    def unregister(self, queue: Queue):
+    def unregister(self, queue: Queue) -> None:
         """Unregister a consumer by its queue."""
         with self._lock:
             try:
@@ -42,7 +42,7 @@ class FrameBroadcaster:
                 # if a client twice.
                 pass
 
-    def broadcast(self, frame):
+    def broadcast(self, frame: T) -> None:
         """Broadcast a frame to all registered consumers."""
         with self._lock:
             for queue in self.queues:

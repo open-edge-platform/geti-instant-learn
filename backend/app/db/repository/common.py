@@ -20,7 +20,7 @@ class ResourceType(str, Enum):
 class ResourceError(Exception):
     """Base exception for resource-related errors."""
 
-    def __init__(self, resource_type: ResourceType, resource_id: str, message: str):
+    def __init__(self, resource_type: ResourceType, resource_id: str | None, message: str):
         super().__init__(message)
         self.resource_type = resource_type
         self.resource_id = resource_id

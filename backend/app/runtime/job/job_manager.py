@@ -1,7 +1,6 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-
 from runtime.core.components.schemas.processor import ProcessorConfig
 from runtime.core.components.schemas.reader import ReaderConfig
 from runtime.core.components.schemas.writer import WriterConfig
@@ -20,7 +19,7 @@ class DummyProjectRepo:
     def get_active_project(self) -> str:
         return "the_active_project_id"
 
-    def get_project_configuration(self, project_id) -> ProjectConfig:
+    def get_project_configuration(self, project_id: str) -> ProjectConfig:
         return ProjectConfig(
             project_id=project_id, processor=ProcessorConfig(), reader=ReaderConfig(), writer=WriterConfig()
         )
@@ -40,7 +39,7 @@ class JobManager:
         self._job: Job | None = None
         self._project_repo = project_repo
 
-    def start(self):
+    def start(self) -> None:
         project_id = self._project_repo.get_active_project()
         project_config = self._project_repo.get_project_configuration(project_id)
         job = Job(project_config)
@@ -50,7 +49,7 @@ class JobManager:
         # subscribe for updates
         self._event_dispatcher.subscribe(self.on_config_change)
 
-    def on_config_change(self, event: ConfigChangeEvent):
+    def on_config_change(self, event: ConfigChangeEvent) -> None:
         new_project_config = self._project_repo.get_project_configuration(event.project_id)
 
         match event:
@@ -65,7 +64,7 @@ class JobManager:
                 if self._job and self._job.config.project_id == event.project_id:
                     self._job.update_config(new_project_config)
 
-    def stop(self):
+    def stop(self) -> None:
         # gracefully stop the running pipeline
         if self._job:
             self._job.stop()

@@ -41,7 +41,6 @@ class TestSink:
                 return next_item
             except StopIteration:
                 self.sink.stop()
-                raise Empty()
 
         self.out_queue.get.side_effect = mock_get
 

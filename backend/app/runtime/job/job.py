@@ -5,9 +5,11 @@ import logging
 from queue import Queue
 from threading import Thread
 
+from runtime.core.components.base import JobComponent
 from runtime.core.components.broadcaster import FrameBroadcaster
-from runtime.core.components.factories.components import DefaultComponentFactory
+from runtime.core.components.factories.components import ComponentFactory, DefaultComponentFactory
 from runtime.core.components.pipeline import PipelineRunner
+from runtime.core.components.schemas.processor import InputData, OutputData
 from runtime.core.components.sink import Sink
 from runtime.core.components.source import Source
 from runtime.job.schemas.project import ProjectConfig
@@ -40,15 +42,18 @@ class Job:
     """
 
     def __init__(
-        self, project_conf: ProjectConfig, broadcaster=FrameBroadcaster(), component_factory=DefaultComponentFactory()
+        self,
+        project_conf: ProjectConfig,
+        broadcaster: FrameBroadcaster[OutputData] = FrameBroadcaster[OutputData](),
+        component_factory: ComponentFactory = DefaultComponentFactory(),
     ):
         self._broadcaster = broadcaster
         self._factory = component_factory
-        self._in_queue = Queue(maxsize=5)
+        self._in_queue = Queue[InputData](maxsize=5)
         self._config = project_conf
         self._threads: dict[type, Thread] = {}
 
-        self._components = {
+        self._components: dict[type[JobComponent], JobComponent] = {
             Source: self._factory.create_source(self._in_queue, project_conf.reader),
             PipelineRunner: self._factory.create_pipeline(self._in_queue, self._broadcaster, project_conf.processor),
             Sink: self._factory.create_sink(self._broadcaster, project_conf.writer),
@@ -67,7 +72,7 @@ class Job:
             self._threads[name] = thread
         logger.debug(f"The job has started for project_id {self._config.project_id}")
 
-    def stop(self):
+    def stop(self) -> None:
         # Stop components in order: source -> inference -> sink
         logger.debug(f"Stopping the streaming job, project_id {self._config.project_id}")
 
@@ -81,7 +86,7 @@ class Job:
 
         logger.debug(f"The streaming job has stopped, project_id {self._config.project_id}")
 
-    def update_config(self, new_config: ProjectConfig):
+    def update_config(self, new_config: ProjectConfig) -> None:
         logger.debug(f"Updating the streaming job configuration for project_id {self._config.project_id}")
 
         if new_config.reader != self._config.reader:
@@ -116,7 +121,7 @@ class Job:
 
         self._config = new_config
 
-    def _restart_component(self, component_cls, new_component) -> None:
+    def _restart_component(self, component_cls: type[JobComponent], new_component: JobComponent) -> None:
         self._components[component_cls].stop()
         thread = self._threads.get(component_cls)
         if thread and thread.is_alive():

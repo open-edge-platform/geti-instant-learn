@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Protocol, Union
+from typing import Protocol
 
 from pydantic import BaseModel
 
@@ -20,7 +20,7 @@ class ComponentConfigChangeEvent(BaseModel):
     component_id: str
 
 
-ConfigChangeEvent = Union[ProjectActivationEvent, ComponentConfigChangeEvent]
+ConfigChangeEvent = ProjectActivationEvent | ComponentConfigChangeEvent
 
 
 class ConfigChangeListener(Protocol):
@@ -42,9 +42,9 @@ class ConfigChangeDispatcher:
     def __init__(self):
         self._listeners: list[ConfigChangeListener] = []
 
-    def subscribe(self, listener: ConfigChangeListener):
+    def subscribe(self, listener: ConfigChangeListener) -> None:
         self._listeners.append(listener)
 
-    def dispatch(self, event: ConfigChangeEvent):
+    def dispatch(self, event: ConfigChangeEvent) -> None:
         for listener in self._listeners:
             listener(event)

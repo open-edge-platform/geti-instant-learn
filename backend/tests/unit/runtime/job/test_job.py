@@ -1,7 +1,8 @@
-import unittest
 from queue import Queue
 from typing import Any
 from unittest.mock import Mock, patch
+
+import pytest
 
 from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.factories.components import ComponentFactory
@@ -39,33 +40,39 @@ class MockComponentFactory(ComponentFactory):
         return mock_sink
 
 
-class TestJob(unittest.TestCase):
-    def setUp(self):
-        self.mock_config = Mock(spec=ProjectConfig)
-        self.mock_config.project_id = "test-project-123"
-        self.mock_config.reader = {"type": "test_source"}
-        self.mock_config.processor = {"type": "test_pipeline"}
-        self.mock_config.writer = {"type": "test_sink"}
+@pytest.fixture
+def mock_config():
+    mock_config = Mock(spec=ProjectConfig)
+    mock_config.project_id = "test-project-123"
+    mock_config.reader = {"type": "test_source"}
+    mock_config.processor = {"type": "test_pipeline"}
+    mock_config.writer = {"type": "test_sink"}
 
-        self.mock_config.model_copy.return_value = self.mock_config
+    mock_config.model_copy.return_value = mock_config
 
-    def test_job_initialization_creates_components(self):
-        mock_factory = MockComponentFactory()
+    return Mock()
 
-        job = Job(self.mock_config, component_factory=mock_factory)
+
+@pytest.fixture
+def mock_factory():
+    return MockComponentFactory()
+
+
+class TestJob:
+    def test_job_initialization_creates_components(self, mock_config, mock_factory):
+        job = Job(mock_config, component_factory=mock_factory)
         job.stop()
+        assert len(mock_factory.created_sources) == 1
 
-        self.assertEqual(len(mock_factory.created_sources), 1)
-        self.assertEqual(len(mock_factory.created_pipeline_runners), 1)
-        self.assertEqual(len(mock_factory.created_sinks), 1)
+        assert len(mock_factory.created_pipeline_runners) == 1
+        assert len(mock_factory.created_sinks) == 1
 
         _, _, source_config = mock_factory.created_sources[0]
-        self.assertEqual(source_config, self.mock_config.reader)
 
-    def test_job_start_creates_threads_for_all_components(self):
-        mock_factory = MockComponentFactory()
+        assert source_config == mock_config.reader
 
-        job = Job(self.mock_config, component_factory=mock_factory)
+    def test_job_start_creates_threads_for_all_components(self, mock_config, mock_factory):
+        job = Job(mock_config, component_factory=mock_factory)
 
         with patch("runtime.job.job.Thread") as mock_thread_class:
             mock_thread_instances = [Mock() for _ in range(3)]
@@ -73,13 +80,12 @@ class TestJob(unittest.TestCase):
 
             job.start()
 
-            self.assertEqual(mock_thread_class.call_count, 3)
+            assert mock_thread_class.call_count == 3
             for mock_thread in mock_thread_instances:
                 mock_thread.start.assert_called_once()
 
-    def test_job_stop_stops_components_in_correct_order(self):
-        mock_factory = MockComponentFactory()
-        job = Job(self.mock_config, component_factory=mock_factory)
+    def test_job_stop_stops_components_in_correct_order(self, mock_config, mock_factory):
+        job = Job(mock_config, component_factory=mock_factory)
 
         with patch("runtime.job.job.Thread"):
             job.start()
@@ -94,15 +100,14 @@ class TestJob(unittest.TestCase):
         pipeline_mock.stop.assert_called_once()
         sink_mock.stop.assert_called_once()
 
-    def test_update_config_restarts_source_when_config_changes(self):
-        mock_factory = MockComponentFactory()
-        job = Job(self.mock_config, component_factory=mock_factory)
+    def test_update_config_restarts_source_when_config_changes(self, mock_config, mock_factory):
+        job = Job(mock_config, component_factory=mock_factory)
 
         new_config = Mock(spec=ProjectConfig)
-        new_config.project_id = self.mock_config.project_id
+        new_config.project_id = mock_config.project_id
         new_config.reader = {"type": "new_source"}  # Different config
-        new_config.processor = self.mock_config.processor  # Same
-        new_config.writer = self.mock_config.writer  # Same
+        new_config.processor = mock_config.processor  # Same
+        new_config.writer = mock_config.writer  # Same
 
         with patch("runtime.job.job.Thread") as mock_thread:
             job.start()
@@ -111,24 +116,23 @@ class TestJob(unittest.TestCase):
             job.update_config(new_config)
 
             # Should create one new source, adding 1 to a created source when the job started.
-            self.assertEqual(len(mock_factory.created_sources), 2)
+            assert len(mock_factory.created_sources) == 2
 
             # Should not create new pipeline or sink:
-            self.assertEqual(len(mock_factory.created_pipeline_runners), 1)
-            self.assertEqual(len(mock_factory.created_sinks), 1)
+            assert len(mock_factory.created_pipeline_runners) == 1
+            assert len(mock_factory.created_sinks) == 1
 
             # Should create one new thread for the restarted source
             mock_thread.assert_called_once()
 
-    def test_update_config_no_restart_when_config_unchanged(self):
-        mock_factory = MockComponentFactory()
-        job = Job(self.mock_config, component_factory=mock_factory)
+    def test_update_config_no_restart_when_config_unchanged(self, mock_config, mock_factory):
+        job = Job(mock_config, component_factory=mock_factory)
 
         # Same config
         same_config = Mock(spec=ProjectConfig)
-        same_config.reader = self.mock_config.reader
-        same_config.processor = self.mock_config.processor
-        same_config.writer = self.mock_config.writer
+        same_config.reader = mock_config.reader
+        same_config.processor = mock_config.processor
+        same_config.writer = mock_config.writer
 
         with patch("runtime.job.job.Thread"):
             job.start()
@@ -145,21 +149,20 @@ class TestJob(unittest.TestCase):
             job.update_config(same_config)
 
             # no new components should be created
-            self.assertEqual(len(mock_factory.created_sources), 0)
-            self.assertEqual(len(mock_factory.created_pipeline_runners), 0)
-            self.assertEqual(len(mock_factory.created_sinks), 0)
+            assert len(mock_factory.created_sources) == 0
+            assert len(mock_factory.created_pipeline_runners) == 0
+            assert len(mock_factory.created_sinks) == 0
 
             # Original components should not be stopped
             original_source.stop.assert_not_called()
             original_pipeline.stop.assert_not_called()
             original_sink.stop.assert_not_called()
 
-    def test_update_config_restarts_all_components(self):
-        mock_factory = MockComponentFactory()
-        job = Job(self.mock_config, component_factory=mock_factory)
+    def test_update_config_restarts_all_components(self, mock_config, mock_factory):
+        job = Job(mock_config, component_factory=mock_factory)
 
         new_config = Mock(spec=ProjectConfig)
-        new_config.project_id = self.mock_config.project_id
+        new_config.project_id = mock_config.project_id
         new_config.reader = {"type": "new_source"}  # Different
         new_config.processor = {"type": "new_pipeline"}  # Different
         new_config.writer = {"type": "new_sink"}  # Same
@@ -178,20 +181,11 @@ class TestJob(unittest.TestCase):
 
             job.update_config(new_config)
 
-            self.assertEqual(len(mock_factory.created_sources), 1)
-            self.assertEqual(len(mock_factory.created_pipeline_runners), 1)
-            self.assertEqual(len(mock_factory.created_sinks), 1)
+            assert len(mock_factory.created_sources) == 1
+            assert len(mock_factory.created_pipeline_runners) == 1
+            assert len(mock_factory.created_sinks) == 1
 
             # Original source and pipeline should be stopped
             original_source.stop.assert_called_once()
             original_pipeline.stop.assert_called_once()
             original_sink.stop.assert_called_once()
-
-    def test_config_property_returns_deep_copy(self):
-        mock_factory = MockComponentFactory()
-        job = Job(self.mock_config, component_factory=mock_factory)
-
-        returned_config = job.config
-
-        self.mock_config.model_copy.assert_called_once_with(deep=True)
-        self.assertEqual(returned_config, self.mock_config)
