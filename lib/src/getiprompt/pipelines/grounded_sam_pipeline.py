@@ -65,8 +65,6 @@ class GroundedSAM(Pipeline):
         )
         self.segmenter: Segmenter = SamDecoder(
             sam_predictor=self.sam_predictor,
-            apply_mask_refinement=apply_mask_refinement,
-            skip_points_in_existing_masks=False,  # not relevant for boxes
         )
         self.box_aware_mask_filter: MaskFilter = BoxAwareMaskFilter()
         self.multi_instance_prior_filter: MultiInstancePriorFilter = MultiInstancePriorFilter()

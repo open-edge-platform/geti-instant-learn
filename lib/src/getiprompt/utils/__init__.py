@@ -3,6 +3,7 @@
 
 """Utils."""
 
+from getiprompt.utils.transforms import ResizeLongestSide
 from getiprompt.utils.utils import (
     MaybeToTensor,
     color_overlay,
@@ -21,4 +22,5 @@ __all__ = [
     "setup_logger",
     "MaybeToTensor",
     "precision_to_torch_dtype",
+    "ResizeLongestSide",
 ]

@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 from .modeling.sam import Sam
-from .utils.transforms import ResizeLongestSide
+from getiprompt.utils import ResizeLongestSide
 
 
 class SamPredictor:

@@ -11,6 +11,7 @@ from torch import nn
 from torchvision.ops import batched_nms, masks_to_boxes
 
 from getiprompt.types import Boxes, Image, Masks, Points, Priors, Similarities
+from getiprompt.utils import ResizeLongestSide
 
 
 class SamDecoder(nn.Module):
@@ -58,45 +59,7 @@ class SamDecoder(nn.Module):
         self.predictor = sam_predictor
         self.mask_similarity_threshold = mask_similarity_threshold
         self.nms_iou_threshold = nms_iou_threshold
-
-    @staticmethod
-    def _get_preprocess_shape(oldh: int, oldw: int, long_side_length: int) -> tuple[int, int]:
-        """Gets the preprocess shape for coordinate transformations."""
-        scale = long_side_length * 1.0 / max(oldh, oldw)
-        newh, neww = oldh * scale, oldw * scale
-        neww = int(neww + 0.5)
-        newh = int(newh + 0.5)
-        return (newh, neww)
-
-    @staticmethod
-    def _apply_coords_torch(
-        coords: torch.Tensor,
-        original_size: tuple[int, int],
-        long_side_length: int,
-    ) -> torch.Tensor:
-        """Applies the coordinate transformation to the coordinates."""
-        old_h, old_w = original_size
-        new_h, new_w = SamDecoder._get_preprocess_shape(old_h, old_w, long_side_length)
-        coords = torch.clone(coords).to(torch.float)
-        coords[..., 0] = coords[..., 0] * (new_w / old_w)
-        coords[..., 1] = coords[..., 1] * (new_h / old_h)
-        return coords
-
-    @staticmethod
-    def _apply_inverse_coords_torch(
-        coords: torch.Tensor, original_size: tuple[int, ...], long_side_length: int
-    ) -> torch.Tensor:
-        """Inverts the coordinate transformation back to the original image size."""
-        old_h, old_w = original_size
-        new_h, new_w = SamDecoder._get_preprocess_shape(
-            original_size[0],
-            original_size[1],
-            long_side_length,
-        )
-        coords = torch.clone(coords).to(torch.float)
-        coords[..., 0] = coords[..., 0] * (old_w / new_w)
-        coords[..., 1] = coords[..., 1] * (old_h / new_h)
-        return coords
+        self.transform = ResizeLongestSide(self.predictor.model.image_encoder.img_size)
 
     def preprocess_inputs(
         self,
@@ -118,13 +81,15 @@ class SamDecoder(nn.Module):
 
         for image, priors_per_image in zip_longest(images, priors, fillvalue=None):
             # Preprocess image using SamPredictor transform
-            input_image = self.predictor.transform.apply_image(image.data)
+            input_image = self.transform.apply_image(image.data)
             input_image_torch = torch.as_tensor(input_image, device=self.predictor.device)
             input_image_torch = input_image_torch.permute(2, 0, 1).contiguous()[None, :, :, :]
             ori_size = image.data.shape[:2]
             preprocessed_images.append(input_image_torch)
             original_sizes.append(ori_size)
             class_points = {}
+            class_boxes = {}
+
             # Preprocess points for each class
             for class_id, points_per_class in priors_per_image.points.data.items():
                 if len(points_per_class) != 1:
@@ -140,7 +105,11 @@ class SamDecoder(nn.Module):
                     coords = points[:, :2]
 
                     # Apply coordinate transformation using SamPredictor's transform
-                    transformed_coords = self.predictor.transform.apply_coords_torch(coords, ori_size)
+                    transformed_coords = self.transform.apply_coords_torch(coords, ori_size)
+
+                    if points.shape[0] > 1:
+                        box = self.transform.apply_boxes(coords, ori_size)
+                        class_boxes[class_id] = box
 
                     # Create new points tensor with transformed coordinates
                     transformed_points = points.clone()
@@ -381,8 +350,8 @@ class SamDecoder(nn.Module):
         low_res_logits: torch.Tensor,
         point_coords: torch.Tensor,
         point_labels: torch.Tensor,
-        similarity_map: torch.Tensor,
         original_size: tuple[int, int],
+        similarity_map: torch.Tensor | None = None,
         score_threshold: float = 0.45,
         nms_iou_threshold: float = 0.1,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -393,8 +362,8 @@ class SamDecoder(nn.Module):
             low_res_logits: The low-res logits to refine.
             point_coords: The point coordinates to refine.
             point_labels: The point labels to refine.
-            similarity_map: The similarity map to postprocess.
             original_size: The original size of the image.
+            similarity_map: The similarity map to postprocess.
             score_threshold: The score threshold to postprocess.
             nms_iou_threshold: The IoU threshold for the NMS.
 
@@ -443,6 +412,9 @@ class SamDecoder(nn.Module):
         point_labels = point_labels[nms_indices]
 
         masks = masks.squeeze(1)
+        if similarity_map is None:
+            return masks, point_coords, point_labels
+
         mask_sum = (similarity_map * masks).sum(dim=(1, 2))
         mask_area = masks.sum(dim=(1, 2))
         mask_scores = mask_sum / (mask_area + 1e-6)
@@ -454,5 +426,4 @@ class SamDecoder(nn.Module):
                 point_coords.new_zeros(0),
                 point_labels.new_zeros(0),
             )
-
         return masks[keep], point_coords[keep], point_labels[keep]
