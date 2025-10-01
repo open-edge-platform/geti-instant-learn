@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ActionButton, Button, Text } from '@geti/ui';
+import { ActionButton, Button, Flex, Text } from '@geti/ui';
 import { Close, Edit } from '@geti/ui/icons';
 import { clsx } from 'clsx';
 import { useHover } from 'react-aria';
@@ -20,8 +20,6 @@ interface LabelIndicatorProps {
 }
 
 export const LabelBadge = ({ label, isSelected, onClick, deleteLabel }: LabelIndicatorProps) => {
-    //TODO: add delay to show buttons
-    //TODO: add animation to show buttons
     //TODO: add tooltip to buttons
 
     const { hoverProps, isHovered } = useHover({});
@@ -34,25 +32,22 @@ export const LabelBadge = ({ label, isSelected, onClick, deleteLabel }: LabelInd
                 UNSAFE_style={{ backgroundColor: label.color, outlineColor: label.color }}
                 UNSAFE_className={clsx(classes.badge, { [classes.selected]: isSelected })}
             >
-                {isHovered && (
-                    <>
-                        <ActionButton
-                            aria-label={`Edit ${label.name} label`}
-                            isQuiet
-                            UNSAFE_className={classes.iconButton}
-                        >
-                            <Edit />
-                        </ActionButton>
-                        <ActionButton
-                            aria-label={`Delete ${label.name} label`}
-                            isQuiet
-                            UNSAFE_className={classes.iconButton}
-                            onPress={deleteLabel}
-                        >
-                            <Close />
-                        </ActionButton>
-                    </>
-                )}
+                <Flex
+                    UNSAFE_className={clsx(classes.buttonsContainer, { [classes.buttonsContainerOpened]: isHovered })}
+                >
+                    <ActionButton aria-label={`Edit ${label.name} label`} isQuiet UNSAFE_className={classes.iconButton}>
+                        <Edit />
+                    </ActionButton>
+                    <ActionButton
+                        aria-label={`Delete ${label.name} label`}
+                        isQuiet
+                        UNSAFE_className={classes.iconButton}
+                        onPress={deleteLabel}
+                    >
+                        <Close />
+                    </ActionButton>
+                </Flex>
+
                 <Text UNSAFE_className={classes.buttonText}>{label.name}</Text>
             </Button>
         </div>

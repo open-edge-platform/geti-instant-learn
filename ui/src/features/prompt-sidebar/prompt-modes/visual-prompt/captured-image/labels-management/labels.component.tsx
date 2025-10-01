@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 
-import { Flex, View } from '@geti/ui';
+import { Flex } from '@geti/ui';
 import { v4 as uuid } from 'uuid';
 
 import { AddLabel } from './add-label.component';

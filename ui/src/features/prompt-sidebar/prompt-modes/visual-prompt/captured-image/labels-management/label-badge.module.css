@@ -6,6 +6,23 @@
     padding: var(--spectrum-global-dimension-size-50) var(--spectrum-global-dimension-size-100);
 }
 
+.buttonsContainer {
+    width: 0;
+    transition: width 0.2s;
+    & > button {
+        opacity: 0;
+        transition: opacity 0.1s;
+    }
+}
+
+.buttonsContainerOpened {
+    width: 80px;
+    min-width: 80px;
+    & > button {
+        opacity: 1;
+    }
+}
+
 .iconButton {
     background-color: transparent;
     height: min-content;
