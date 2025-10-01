@@ -10,7 +10,6 @@ from core.components.processor import Processor
 from core.components.sink import Sink
 from core.components.source import Source
 from core.runtime.pipeline import Pipeline
-
 from core.runtime.schemas.pipeline import PipelineConfig
 
 

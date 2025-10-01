@@ -27,7 +27,6 @@ runner_test_cases = [
 
 
 class TestProcessor:
-
     def setup_method(self, method):
         self.mock_in_queue = MagicMock(spec=Queue)
         self.mock_broadcaster = MagicMock(spec=FrameBroadcaster)

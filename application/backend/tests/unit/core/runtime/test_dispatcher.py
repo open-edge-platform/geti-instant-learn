@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from core.runtime.dispatcher import ConfigChangeDispatcher, ComponentConfigChangeEvent
+from core.runtime.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher
 
 
 @pytest.fixture
