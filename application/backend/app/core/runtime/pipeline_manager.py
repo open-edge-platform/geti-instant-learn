@@ -27,7 +27,7 @@ class DummyProjectRepo:
 
 class PipelineManager:
     """
-    Glues the app configuration and runtime layers together by managing the active Job.
+    Glues the app configuration and runtime layers together by managing the active Pipeline.
 
     This class listens for configuration change events and translates them into
     lifecycle actions for the running Job instance, such as starting, stopping,

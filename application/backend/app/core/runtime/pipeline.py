@@ -22,12 +22,12 @@ class Pipeline:
     Orchestrates a multi-threaded streaming pipeline and manages its lifecycle.
 
     This class wires together the core components of a processing job: a Source,
-    a PipelineRunner, and a Sink. Each component runs in a separate thread,
+    a Processor, and a Sink. Each component runs in a separate thread,
     communicating through queues to form a processing pipeline:
 
-    Source -> Queue -> PipelineRunner -> Broadcaster -> Sink
+    Source -> Queue -> Processor -> Broadcaster -> Sink
 
-    The Job class is responsible for starting, stopping, and gracefully shutting
+    The Pipeline class is responsible for starting, stopping, and gracefully shutting
     down all components. It also handles dynamic configuration updates by
     restarting the relevant component without interrupting the entire job.
 
