@@ -32,12 +32,11 @@ jobs:
           python-version: "3.13"
 
       - name: Lint backend
-        working-directory: backend
+        working-directory: application/backend
         run: |
           just lint
 
       - name: Run backend tests
-        working-directory: backend
+        working-directory: application/backend
         run: |
           just tests
-

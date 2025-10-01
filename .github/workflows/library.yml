@@ -1,0 +1,26 @@
+name: library
+on:
+  workflow_call:
+    inputs:
+      build_version:
+        description: "Specifies the build version to apply to all binaries produced by this workflow"
+        type: string
+        required: true
+  workflow_dispatch:
+jobs:
+  component-check:
+    name: Library workflow
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: lint
+        run: |
+          echo "A placeholder for ci steps, version: ${{ inputs.build_version }}"

@@ -1,11 +1,12 @@
 # Platform services
-lib:
-  - lib/**
+library:
+  - library/**
   - .github/workflows/**
+
 backend:
-  - backend/**
-  - lib/**
+  - application/backend/**
+  - library/**  # Backend might depend on library changes
   - .github/workflows/**
 ui:
-  - ui/**
+  - application/ui/**
   - .github/workflows/**
