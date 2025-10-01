@@ -146,7 +146,14 @@ export const ProjectListItem = ({ project, isInEditMode, onBlur, onRename, onDel
                         <ProjectEdition name={project.name} onBlur={handleBlur(project.id)} />
                     ) : (
                         <Flex alignItems={'center'} gap={'size-100'}>
-                            <PhotoPlaceholder name={project.name} email='' height={'size-300'} width={'size-300'} />
+                            {/* TODO: email is used for color generation, 
+                        component is reused from geti so right now attribute email is used as an indicator */}
+                            <PhotoPlaceholder
+                                name={project.name}
+                                email={project.id}
+                                height={'size-300'}
+                                width={'size-300'}
+                            />
                             <Text>{project.name}</Text>
                         </Flex>
                     )}

@@ -22,6 +22,7 @@ import {
     View,
 } from '@geti/ui';
 import { AddCircle } from '@geti/ui/icons';
+import { Project } from 'src/api';
 import { v4 as uuid } from 'uuid';
 
 import { ProjectsList } from './projects-list.component';
@@ -30,14 +31,17 @@ import styles from './projects-list.module.scss';
 
 interface SelectedProjectProps {
     name: string;
+    id: string;
 }
 
-const SelectedProjectButton = ({ name }: SelectedProjectProps) => {
+const SelectedProjectButton = ({ name, id }: SelectedProjectProps) => {
     return (
         <ActionButton aria-label={`Selected project ${name}`} isQuiet height={'max-content'} staticColor='white'>
             <View margin={'size-50'}>{name}</View>
             <View margin='size-50'>
-                <PhotoPlaceholder name={name} email='' height={'size-400'} width={'size-400'} />
+                {/* TODO: email is used for color generation, 
+                        component is reused from geti so right now attribute email is used as an indicator */}
+                <PhotoPlaceholder name={name} email={id} height={'size-400'} width={'size-400'} />
             </View>
         </ActionButton>
     );
@@ -82,27 +86,33 @@ const AddProjectButton = ({ onSetProjectInEdition, projectsCount }: AddProjectPr
 
 export const ProjectsListPanel = () => {
     const { projectId } = useProjectIdentifier();
-    const { data } = $api.useSuspenseQuery('get', '/api/v1/projects');
+    const { data }: { data: { projects: Project[] } } = $api.useSuspenseQuery('get', '/api/v1/projects');
 
     const [projectInEdition, setProjectInEdition] = useState<string | null>(null);
 
-    const selectedProjectName = data.projects.find((project) => project.id === projectId)?.name || '';
+    const selectedProject = data.projects.find((project) => project.id === projectId);
+
+    if (!selectedProject) {
+        return <div>No project found</div>;
+    }
 
     return (
         <DialogTrigger type='popover' hideArrow>
-            <SelectedProjectButton name={selectedProjectName} />
+            <SelectedProjectButton name={selectedProject.name} id={selectedProject.id} />
 
             <Dialog width={'size-4600'} UNSAFE_className={styles.dialog}>
                 <Header>
                     <Flex direction={'column'} justifyContent={'center'} width={'100%'} alignItems={'center'}>
+                        {/* TODO: email is used for color generation, 
+                        component is reused from geti so right now attribute email is used as an indicator */}
                         <PhotoPlaceholder
-                            name={selectedProjectName}
-                            email=''
+                            name={selectedProject.name}
+                            email={selectedProject.id}
                             height={'size-1000'}
                             width={'size-1000'}
                         />
                         <Heading level={2} marginBottom={0}>
-                            {selectedProjectName}
+                            {selectedProject.name}
                         </Heading>
                     </Flex>
                 </Header>
