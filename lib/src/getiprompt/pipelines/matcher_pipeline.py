@@ -5,7 +5,6 @@
 
 from typing import TYPE_CHECKING
 
-from getiprompt.filters.masks import ClassOverlapMaskFilter, MaskFilter
 from getiprompt.filters.priors import MaxPointFilter, PriorFilter, PriorMaskFromPoints
 from getiprompt.models.models import load_sam_model
 from getiprompt.pipelines.pipeline_base import Pipeline
@@ -113,7 +112,6 @@ class Matcher(Pipeline):
         )
         self.prior_mask_from_points: PriorFilter = PriorMaskFromPoints(segmenter=self.segmenter)
         self.mask_processor: MaskProcessor = MasksToPolygons()
-        self.class_overlap_mask_filter: MaskFilter = ClassOverlapMaskFilter()
         self.reference_features = None
         self.reference_masks = None
 
@@ -143,7 +141,6 @@ class Matcher(Pipeline):
         )
         priors = self.point_filter(priors)
         masks, used_points, _ = self.segmenter(target_images, priors, similarities)
-        masks = self.class_overlap_mask_filter(masks, used_points)
         annotations = self.mask_processor(masks)
 
         # write output

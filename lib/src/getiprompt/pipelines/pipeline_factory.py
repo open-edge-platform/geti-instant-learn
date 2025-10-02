@@ -73,8 +73,6 @@ def load_pipeline(sam: SAMModelName, pipeline_name: PipelineName, args: Namespac
                 sam=sam,
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
-                apply_mask_refinement=args.apply_mask_refinement,
-                skip_points_in_existing_masks=args.skip_points_in_existing_masks,
                 mask_similarity_threshold=args.mask_similarity_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
