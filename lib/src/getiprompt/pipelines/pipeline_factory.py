@@ -31,7 +31,7 @@ def load_pipeline(sam: SAMModelName, pipeline_name: PipelineName, args: Namespac
         The instantiated pipeline.
     """
     # Lazy import to avoid circular dependencies during module import time.
-    from getiprompt.pipelines import GroundedSAM, Matcher, PerDino, PerSam, PerSamMAPI, SoftMatcher
+    from getiprompt.pipelines import GroundedSAM, Matcher, PerDino, PerSam, SoftMatcher
 
     logger.info("Constructing pipeline: %s", pipeline_name.value)
 
@@ -82,8 +82,6 @@ def load_pipeline(sam: SAMModelName, pipeline_name: PipelineName, args: Namespac
                 image_size=args.image_size,
                 device=args.device,
             )
-        case PipelineName.PER_SAM_MAPI:
-            return PerSamMAPI()
         case PipelineName.SOFT_MATCHER:
             return SoftMatcher(
                 sam=sam,
