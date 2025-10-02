@@ -37,12 +37,12 @@ jobs:
 
       - name: Get OpenAPI spec
         run: |
-          just backend/gen-openapi
+          just application/backend/gen-openapi
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: openapi-spec
-          path: backend/.build/openapi-spec.json
+          path: application/backend/.build/openapi-spec.json
 
   build:
     name: Build UI
@@ -58,24 +58,24 @@ jobs:
       - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
         id: setup-node
         with:
-          node-version-file: ui/.nvmrc
+          node-version-file: application/ui/.nvmrc
 
       - name: Install dependencies
-        working-directory: "ui"
+        working-directory: "application/ui"
         run: npm ci
 
       - name: Build UI
-        working-directory: "ui"
+        working-directory: "application/ui"
         run: npm run build
 
       - name: Compress build
-        working-directory: "ui"
+        working-directory: "application/ui"
         run: tar -czf dist.tar.gz dist
 
       - uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: ui-dist
-          path: "ui/dist.tar.gz"
+          path: "application/ui/dist.tar.gz"
 
   lint:
     name: Lint checks
@@ -93,36 +93,36 @@ jobs:
       - uses: actions/setup-node@v4
         id: setup-node
         with:
-          node-version-file: ui/.nvmrc
+          node-version-file: application/ui/.nvmrc
 
       - name: Install dependencies
-        working-directory: "ui"
+        working-directory: "application/ui"
         run: npm ci
 
       - name: Download OpenAPI spec artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: openapi-spec
-          path: ui/src/api
+          path: application/ui/src/api
 
       - name: Build OpenAPI type definitions
-        working-directory: "ui"
+        working-directory: "application/ui"
         run: npm run build:api:types
 
       - name: Prettier
-        working-directory: "ui"
+        working-directory: "application/ui"
         run: npm run format:check
 
       - name: Lint
-        working-directory: "ui"
+        working-directory: "application/ui"
         run: npm run lint
 
       - name: Cyclic imports
-        working-directory: "ui"
+        working-directory: "application/ui"
         run: npm run cyclic-deps-check
 
       - name: Typescript
-        working-directory: "ui"
+        working-directory: "application/ui"
         run: npm run type-check
 
   unit-tests:
@@ -143,29 +143,29 @@ jobs:
       - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
         id: setup-node
         with:
-          node-version-file: ui/.nvmrc
+          node-version-file: application/ui/.nvmrc
 
       - name: Install dependencies
-        working-directory: "ui"
+        working-directory: "application/ui"
         run: npm ci
 
       - name: Download OpenAPI spec artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: openapi-spec
-          path: ui/src/api
+          path: application/ui/src/api
 
       - name: Build OpenAPI type definitions
-        working-directory: "ui"
+        working-directory: "application/ui"
         run: npm run build:api:types
 
       - name: Unit tests
-        working-directory: "ui"
+        working-directory: "application/ui"
         run: npm run test:unit:coverage
 
       - name: Generate coverage report
         if: github.event.pull_request.head.repo.full_name == github.repository
-        working-directory: "ui"
+        working-directory: "application/ui"
         run: |
           echo "## 📊 Test coverage report" > coverage.md
           if [ -f "coverage/coverage-summary.json" ]; then
@@ -177,7 +177,7 @@ jobs:
                   const functions = \`\${coverage.total.functions.pct.toFixed(1)}%\`;
                   const branches = \`\${coverage.total.branches.pct.toFixed(1)}%\`;
                   const statements = \`\${coverage.total.statements.pct.toFixed(1)}%\`;
-                  
+
                   console.log(\`| Metric | Coverage |\`);
                   console.log(\`| --- | --- |\`);
                   console.log(\`| Lines | \${lines} |\`);
@@ -198,10 +198,10 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            
+
             let coverageComment = '';
             try {
-              coverageComment = fs.readFileSync('ui/coverage.md', 'utf8');
+              coverageComment = fs.readFileSync('application/ui/coverage.md', 'utf8');
             } catch (error) {
               coverageComment = '## 📊 Test Coverage Report\n\nCoverage report generation failed.';
             }
@@ -251,39 +251,39 @@ jobs:
       - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
         id: setup-node
         with:
-          node-version-file: ui/.nvmrc
+          node-version-file: application/ui/.nvmrc
 
       - name: Install dependencies
-        working-directory: "ui"
+        working-directory: "application/ui"
         run: npm ci
 
       - name: Download OpenAPI spec artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: openapi-spec
-          path: ui/src/api
+          path: application/ui/src/api
 
       - name: Build OpenAPI type definitions
-        working-directory: "ui"
+        working-directory: "application/ui"
         run: npm run build:api:types
 
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: ui-dist
-          path: "ui"
+          path: "application/ui"
 
       - name: Unpack build
-        working-directory: "ui"
+        working-directory: "application/ui"
         run: tar -xzf dist.tar.gz
 
       - name: Download OpenAPI spec artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: openapi-spec
-          path: ui/src/api
+          path: application/ui/src/api
 
       - name: Run Playwright tests
-        working-directory: "ui"
+        working-directory: "application/ui"
         run: npm run test:component -- --project "Component tests"
 
       - name: Upload blob report to GitHub Actions Artifacts
@@ -291,5 +291,5 @@ jobs:
         if: always()
         with:
           name: playwright-report
-          path: ui/playwright-report/
+          path: application/ui/playwright-report/
           retention-days: 30

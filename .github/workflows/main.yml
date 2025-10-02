@@ -38,13 +38,13 @@ jobs:
         id: build-version
         uses: ./.github/actions/build-version
 
-  lib:
-    name: Lib build
+  library:
+    name: Library build
     needs: build-parameters
     permissions:
       contents: read
-    if: needs.build-parameters.outputs.components-list && contains(fromJson(needs.build-parameters.outputs.components-list), 'lib')
-    uses: ./.github/workflows/lib.yml
+    if: needs.build-parameters.outputs.components-list && contains(fromJson(needs.build-parameters.outputs.components-list), 'library')
+    uses: ./.github/workflows/library.yml
     with:
       build_version: ${{ needs.build-parameters.outputs.build_version }}
 
@@ -71,7 +71,7 @@ jobs:
 
   distrib:
     name: Distrib build
-    needs: [ lib, backend, ui ]
+    needs: [ library, backend, ui ]
     permissions:
       contents: read
     uses: ./.github/workflows/distrib.yml
@@ -80,7 +80,7 @@ jobs:
 
   success:
     name: Status checks
-    needs: [ build-parameters, lib, backend, ui, distrib ]
+    needs: [ build-parameters, library, backend, ui, distrib ]
     runs-on: ubuntu-latest
     if: ${{ always() && !cancelled() }}
     env:
