@@ -193,6 +193,12 @@ def parse_request_and_check_reload(
         requested_values["sam"] = new_sam_name
         new_args.sam = new_sam_name
 
+    # Encoder Model
+    if (new_encoder_model := request_data.get("encoder_model", new_args.encoder_model)) != new_args.encoder_model:
+        reload_needed = True
+        requested_values["encoder_model"] = new_encoder_model
+        new_args.encoder_model = new_encoder_model
+
     # Precision
     new_precision_str = request_data.get("precision", new_args.precision)
     if new_precision_str != new_args.precision:
@@ -246,6 +252,8 @@ def reload_pipeline_if_needed(
         logger.info("Pipeline not loaded yet, triggering initial load.")
         if "sam" not in requested_values:
             requested_values["sam"] = current_args.sam
+        if "encoder_model" not in requested_values:
+            requested_values["encoder_model"] = current_args.encoder_model
         if "pipeline" not in requested_values:
             requested_values["pipeline"] = current_args.pipeline
 

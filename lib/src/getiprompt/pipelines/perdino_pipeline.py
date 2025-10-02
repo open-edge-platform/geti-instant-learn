@@ -66,8 +66,7 @@ class PerDino(Pipeline):
         num_grid_cells: int = 16,
         similarity_threshold: float = 0.65,
         mask_similarity_threshold: float | None = 0.42,
-        dino_version: str = "v3",
-        dino_size: str = "large",
+        encoder_model: str = "dinov3_large",
         precision: str = "bf16",
         compile_models: bool = False,
         benchmark_inference_speed: bool = False,
@@ -85,8 +84,7 @@ class PerDino(Pipeline):
             num_grid_cells: The number of grid cells to use.
             similarity_threshold: The similarity threshold for the similarity matcher.
             mask_similarity_threshold: The similarity threshold for the mask.
-            dino_version: DINO encoder version to use ("v2" or "v3").
-            dino_size: DINO encoder size variant (e.g., "large").
+            encoder_model: Encoder model ID to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
             benchmark_inference_speed: Whether to benchmark the inference speed.
@@ -101,15 +99,14 @@ class PerDino(Pipeline):
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
         )
-        dino_model = Dino(
-            version=dino_version,
-            size=dino_size,
+        dino_instance = Dino(
+            model_id=encoder_model,
             device=device,
             precision=precision,
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
         )
-        self.encoder: Encoder = DinoEncoder(model=dino_model)
+        self.encoder: Encoder = DinoEncoder(model=dino_instance)
         self.feature_selector: FeatureSelector = AverageFeatures()
         self.similarity_matcher: SimilarityMatcher = CosineSimilarity()
         self.prompt_generator: PromptGenerator = GridPromptGenerator(

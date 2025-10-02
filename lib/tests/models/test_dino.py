@@ -7,94 +7,59 @@ from unittest.mock import patch
 
 import pytest
 
-from getiprompt.models.dino import Dino, DinoSize, DinoVersion
-
-
-class TestDinoVersion:
-    """Test DinoVersion enum."""
-
-    @staticmethod
-    def test_version_values() -> None:
-        """Test that version enum has correct values."""
-        assert DinoVersion.V2.value == "v2"
-        assert DinoVersion.V3.value == "v3"
-
-    @staticmethod
-    def test_version_from_string() -> None:
-        """Test creating version from string."""
-        assert DinoVersion("v2") == DinoVersion.V2
-        assert DinoVersion("v3") == DinoVersion.V3
-
-
-class TestDinoSize:
-    """Test DinoSize enum."""
-
-    @staticmethod
-    def test_size_values() -> None:
-        """Test that size enum has correct values."""
-        assert DinoSize.SMALL.value == "small"
-        assert DinoSize.BASE.value == "base"
-        assert DinoSize.LARGE.value == "large"
-        assert DinoSize.GIANT.value == "giant"
-        assert DinoSize.SMALL_PLUS.value == "small_plus"
-        assert DinoSize.HUGE.value == "huge"
-
-    @staticmethod
-    def test_size_from_string() -> None:
-        """Test creating size from string."""
-        assert DinoSize.from_str("small") == DinoSize.SMALL
-        assert DinoSize.from_str("base") == DinoSize.BASE
-        assert DinoSize.from_str("large") == DinoSize.LARGE
-        assert DinoSize.from_str("giant") == DinoSize.GIANT
-        assert DinoSize.from_str("small_plus") == DinoSize.SMALL_PLUS
-        assert DinoSize.from_str("huge") == DinoSize.HUGE
-
-    @staticmethod
-    def test_size_from_string_case_insensitive() -> None:
-        """Test that size from string is case insensitive."""
-        assert DinoSize.from_str("SMALL") == DinoSize.SMALL
-        assert DinoSize.from_str("Large") == DinoSize.LARGE
+from getiprompt.models.dino import ENCODER_MODEL_COLLECTION, Dino
 
 
 class TestDinoModel:
     """Test the unified Dino model."""
 
     @staticmethod
-    def test_invalid_size_for_version() -> None:
-        """Test that invalid sizes are rejected for each version."""
-        # Test DinoV2 with DinoV3-only size
-        with pytest.raises(ValueError, match="Size huge is not valid for DinoV2"):
-            Dino(version="v2", size="huge")
-
-        # Test DinoV3 with DinoV2-only size
-        with pytest.raises(ValueError, match="Size giant is not valid for DinoV3"):
-            Dino(version="v3", size="giant")
+    def test_invalid_model_id() -> None:
+        """Test that invalid model IDs are rejected."""
+        with pytest.raises(ValueError, match="Invalid model ID"):
+            Dino(model_id="invalid_model_id")
 
     @staticmethod
     def test_model_id_mapping() -> None:
         """Test that model IDs are correctly mapped."""
-        from getiprompt.models.dino import DINO_V2_MODEL_IDS, DINO_V3_MODEL_IDS
+        # Test that all expected model IDs are in the collection
+        expected_models = [
+            "dinov2_small",
+            "dinov2_base",
+            "dinov2_large",
+            "dinov2_giant",
+            "dinov3_small",
+            "dinov3_small_plus",
+            "dinov3_base",
+            "dinov3_large",
+            "dinov3_huge",
+        ]
 
-        # Test DinoV2 model IDs
-        assert DINO_V2_MODEL_IDS["small"] == "facebook/dinov2-with-registers-small"
-        assert DINO_V2_MODEL_IDS["base"] == "facebook/dinov2-with-registers-base"
-        assert DINO_V2_MODEL_IDS["large"] == "facebook/dinov2-with-registers-large"
-        assert DINO_V2_MODEL_IDS["giant"] == "facebook/dinov2-with-registers-giant"
-
-        # Test DinoV3 model IDs
-        assert DINO_V3_MODEL_IDS["small"] == "facebook/dinov3-vits16-pretrain-lvd1689m"
-        assert DINO_V3_MODEL_IDS["small_plus"] == "facebook/dinov3-vits16plus-pretrain-lvd1689m"
-        assert DINO_V3_MODEL_IDS["base"] == "facebook/dinov3-vitb16-pretrain-lvd1689m"
-        assert DINO_V3_MODEL_IDS["large"] == "facebook/dinov3-vitl16-pretrain-lvd1689m"
-        assert DINO_V3_MODEL_IDS["huge"] == "facebook/dinov3-vith16plus-pretrain-lvd1689m"
+        for model_id in expected_models:
+            assert model_id in ENCODER_MODEL_COLLECTION
 
     @staticmethod
-    def test_string_parameter_conversion() -> None:
-        """Test that string parameters are correctly converted to enums."""
+    def test_model_id_values() -> None:
+        """Test that model ID values are correct."""
+        # Test DinoV2 model IDs
+        assert ENCODER_MODEL_COLLECTION["dinov2_small"] == "facebook/dinov2-with-registers-small"
+        assert ENCODER_MODEL_COLLECTION["dinov2_base"] == "facebook/dinov2-with-registers-base"
+        assert ENCODER_MODEL_COLLECTION["dinov2_large"] == "facebook/dinov2-with-registers-large"
+        assert ENCODER_MODEL_COLLECTION["dinov2_giant"] == "facebook/dinov2-with-registers-giant"
+
+        # Test DinoV3 model IDs
+        assert ENCODER_MODEL_COLLECTION["dinov3_small"] == "facebook/dinov3-vits16-pretrain-lvd1689m"
+        assert ENCODER_MODEL_COLLECTION["dinov3_small_plus"] == "facebook/dinov3-vits16plus-pretrain-lvd1689m"
+        assert ENCODER_MODEL_COLLECTION["dinov3_base"] == "facebook/dinov3-vitb16-pretrain-lvd1689m"
+        assert ENCODER_MODEL_COLLECTION["dinov3_large"] == "facebook/dinov3-vitl16-pretrain-lvd1689m"
+        assert ENCODER_MODEL_COLLECTION["dinov3_huge"] == "facebook/dinov3-vith16plus-pretrain-lvd1689m"
+
+    @staticmethod
+    def test_default_parameters() -> None:
+        """Test that default parameters work correctly."""
         try:
-            model = Dino(version="v2", size="large")
-            assert model.version == DinoVersion.V2
-            assert model.size == DinoSize.LARGE
+            model = Dino()
+            assert model.model_id == "dinov3_large"  # Default model ID
         except ValueError as e:
             # This is expected if model files are not available or user doesn't have access
             if "User does not have access to the weights" in str(e):
@@ -103,12 +68,11 @@ class TestDinoModel:
                 raise
 
     @staticmethod
-    def test_default_parameters() -> None:
-        """Test that default parameters work correctly."""
+    def test_custom_model_id() -> None:
+        """Test that custom model ID works correctly."""
         try:
-            model = Dino()
-            assert model.version == DinoVersion.V3  # Default is V3
-            assert model.size == DinoSize.LARGE
+            model = Dino(model_id="dinov2_base")
+            assert model.model_id == "dinov2_base"
         except ValueError as e:
             # This is expected if model files are not available or user doesn't have access
             if "User does not have access to the weights" in str(e):
@@ -123,69 +87,76 @@ class TestDinoModel:
             mock_model.from_pretrained.side_effect = OSError("You are trying to access a gated repo.")
 
             with pytest.raises(ValueError, match="User does not have access to the weights"):
-                Dino(version="v3", size="large")
+                Dino(model_id="dinov3_large")
 
     @staticmethod
-    def test_validate_size_for_version() -> None:
-        """Test the size validation logic."""
-        from getiprompt.models.dino import Dino
-
-        # Test DinoV2 valid sizes
-        valid_v2_sizes = [DinoSize.SMALL, DinoSize.BASE, DinoSize.LARGE, DinoSize.GIANT]
-        for size in valid_v2_sizes:
-            # This should not raise an error
-            Dino._validate_size_for_version(DinoVersion.V2, size)  # noqa: SLF001
-
-        # Test DinoV3 valid sizes
-        valid_v3_sizes = [
-            DinoSize.SMALL,
-            DinoSize.SMALL_PLUS,
-            DinoSize.BASE,
-            DinoSize.LARGE,
-            DinoSize.HUGE,
-        ]
-        for size in valid_v3_sizes:
-            # This should not raise an error
-            Dino._validate_size_for_version(DinoVersion.V3, size)  # noqa: SLF001
-
-        # Test invalid combinations
-        with pytest.raises(ValueError, match="Size huge is not valid for DinoV2"):
-            Dino._validate_size_for_version(DinoVersion.V2, DinoSize.HUGE)  # noqa: SLF001
-
-        with pytest.raises(ValueError, match="Size giant is not valid for DinoV3"):
-            Dino._validate_size_for_version(DinoVersion.V3, DinoSize.GIANT)  # noqa: SLF001
+    def test_model_initialization_parameters() -> None:
+        """Test that all initialization parameters work correctly."""
+        try:
+            model = Dino(
+                model_id="dinov2_small",
+                device="cpu",
+                precision="fp32",
+                compile_models=False,
+                benchmark_inference_speed=False,
+                input_size=224,
+            )
+            assert model.model_id == "dinov2_small"
+            assert model.device == "cpu"
+            assert model.input_size == 224
+        except ValueError as e:
+            # This is expected if model files are not available or user doesn't have access
+            if "User does not have access to the weights" in str(e):
+                pass
+            else:
+                raise
 
     @staticmethod
-    def test_get_model_id() -> None:
-        """Test the model ID mapping logic."""
-        from getiprompt.models.dino import Dino
+    def test_model_forward_pass() -> None:
+        """Test that the model can perform forward pass."""
+        import torch
 
-        # Test DinoV2 model IDs
-        assert Dino._get_model_id(DinoVersion.V2, DinoSize.SMALL) == "facebook/dinov2-with-registers-small"  # noqa: SLF001
-        assert Dino._get_model_id(DinoVersion.V2, DinoSize.BASE) == "facebook/dinov2-with-registers-base"  # noqa: SLF001
-        assert Dino._get_model_id(DinoVersion.V2, DinoSize.LARGE) == "facebook/dinov2-with-registers-large"  # noqa: SLF001
-        assert Dino._get_model_id(DinoVersion.V2, DinoSize.GIANT) == "facebook/dinov2-with-registers-giant"  # noqa: SLF001
+        try:
+            model = Dino(model_id="dinov2_small", device="cpu")
+            # Create a dummy input tensor
+            dummy_input = torch.randn(1, 3, 224, 224)
 
-        # Test DinoV3 model IDs
-        assert Dino._get_model_id(DinoVersion.V3, DinoSize.SMALL) == "facebook/dinov3-vits16-pretrain-lvd1689m"  # noqa: SLF001
-        assert Dino._get_model_id(DinoVersion.V3, DinoSize.SMALL_PLUS) == "facebook/dinov3-vits16plus-pretrain-lvd1689m"  # noqa: SLF001
-        assert Dino._get_model_id(DinoVersion.V3, DinoSize.BASE) == "facebook/dinov3-vitb16-pretrain-lvd1689m"  # noqa: SLF001
-        assert Dino._get_model_id(DinoVersion.V3, DinoSize.LARGE) == "facebook/dinov3-vitl16-pretrain-lvd1689m"  # noqa: SLF001
-        assert Dino._get_model_id(DinoVersion.V3, DinoSize.HUGE) == "facebook/dinov3-vith16plus-pretrain-lvd1689m"  # noqa: SLF001
+            # Test forward pass
+            output = model(dummy_input)
 
-        # Test invalid version
-        with pytest.raises(ValueError, match="Unsupported version"):
-            Dino._get_model_id("invalid", DinoSize.LARGE)  # noqa: SLF001
+            # Check output shape (should be [batch_size, num_patches, feature_dim])
+            assert output.shape[0] == 1  # batch size
+            assert output.shape[1] > 0  # number of patches
+            assert output.shape[2] > 0  # feature dimension
+
+        except ValueError as e:
+            # This is expected if model files are not available or user doesn't have access
+            if "User does not have access to the weights" in str(e):
+                pass
+            else:
+                raise
 
     @staticmethod
-    def test_model_loading_logic() -> None:
-        """Test the model loading logic without actual loading."""
-        # Test that the model ID selection works correctly
-        v2_id = Dino._get_model_id(DinoVersion.V2, DinoSize.LARGE)  # noqa: SLF001
-        assert v2_id == "facebook/dinov2-with-registers-large"
+    def test_model_collection_completeness() -> None:
+        """Test that the model collection contains all expected models."""
+        # Check that we have both DinoV2 and DinoV3 models
+        dinov2_models = [k for k in ENCODER_MODEL_COLLECTION if k.startswith("dinov2_")]
+        dinov3_models = [k for k in ENCODER_MODEL_COLLECTION if k.startswith("dinov3_")]
 
-        v3_id = Dino._get_model_id(DinoVersion.V3, DinoSize.LARGE)  # noqa: SLF001
-        assert v3_id == "facebook/dinov3-vitl16-pretrain-lvd1689m"
+        assert len(dinov2_models) == 4  # small, base, large, giant
+        assert len(dinov3_models) == 5  # small, small_plus, base, large, huge
+
+        # Check specific models exist
+        assert "dinov2_small" in ENCODER_MODEL_COLLECTION
+        assert "dinov2_base" in ENCODER_MODEL_COLLECTION
+        assert "dinov2_large" in ENCODER_MODEL_COLLECTION
+        assert "dinov2_giant" in ENCODER_MODEL_COLLECTION
+
+        assert "dinov3_small" in ENCODER_MODEL_COLLECTION
+        assert "dinov3_small_plus" in ENCODER_MODEL_COLLECTION
+        assert "dinov3_base" in ENCODER_MODEL_COLLECTION
+        assert "dinov3_large" in ENCODER_MODEL_COLLECTION
+        assert "dinov3_huge" in ENCODER_MODEL_COLLECTION
 
 
 if __name__ == "__main__":

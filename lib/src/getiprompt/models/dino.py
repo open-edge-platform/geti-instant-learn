@@ -1,7 +1,6 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from enum import Enum
 from logging import getLogger
 
 import torch
@@ -15,47 +14,19 @@ from getiprompt.utils.utils import precision_to_torch_dtype
 logger = getLogger("Geti Prompt")
 
 
-class DinoVersion(Enum):
-    """The version of the DINO model."""
-
-    V2 = "v2"
-    V3 = "v3"
-
-
-class DinoSize(Enum):
-    """The size variants for DINO models."""
-
-    # DinoV2 sizes
-    SMALL = "small"
-    BASE = "base"
-    LARGE = "large"
-    GIANT = "giant"
-
-    # DinoV3 sizes
-    SMALL_PLUS = "small_plus"
-    HUGE = "huge"
-
-    @classmethod
-    def from_str(cls, size: str) -> "DinoSize":
-        """Convert a string to a DinoSize."""
-        return cls(size.lower())
-
-
-# Model ID mappings
-DINO_V2_MODEL_IDS = {
-    "small": "facebook/dinov2-with-registers-small",
-    "base": "facebook/dinov2-with-registers-base",
-    "large": "facebook/dinov2-with-registers-large",
-    "giant": "facebook/dinov2-with-registers-giant",
+ENCODER_MODEL_COLLECTION = {
+    "dinov2_small": "facebook/dinov2-with-registers-small",
+    "dinov2_base": "facebook/dinov2-with-registers-base",
+    "dinov2_large": "facebook/dinov2-with-registers-large",
+    "dinov2_giant": "facebook/dinov2-with-registers-giant",
+    "dinov3_small": "facebook/dinov3-vits16-pretrain-lvd1689m",
+    "dinov3_small_plus": "facebook/dinov3-vits16plus-pretrain-lvd1689m",
+    "dinov3_base": "facebook/dinov3-vitb16-pretrain-lvd1689m",
+    "dinov3_large": "facebook/dinov3-vitl16-pretrain-lvd1689m",
+    "dinov3_huge": "facebook/dinov3-vith16plus-pretrain-lvd1689m",
 }
 
-DINO_V3_MODEL_IDS = {
-    "small": "facebook/dinov3-vits16-pretrain-lvd1689m",
-    "small_plus": "facebook/dinov3-vits16plus-pretrain-lvd1689m",
-    "base": "facebook/dinov3-vitb16-pretrain-lvd1689m",
-    "large": "facebook/dinov3-vitl16-pretrain-lvd1689m",
-    "huge": "facebook/dinov3-vith16plus-pretrain-lvd1689m",
-}
+# TODO: add point similiarty threshold per model version
 
 
 class Dino(nn.Module):
@@ -78,8 +49,7 @@ class Dino(nn.Module):
 
     def __init__(
         self,
-        version: DinoVersion | str = DinoVersion.V3,
-        size: DinoSize | str = DinoSize.LARGE,
+        model_id: str = "dinov3_large",
         device: str = "cuda",
         precision: str = "bf16",
         compile_models: bool = False,
@@ -89,8 +59,7 @@ class Dino(nn.Module):
         """Initialize the DINO model.
 
         Args:
-            version: The DINO version (v2 or v3).
-            size: The size of the DINO model.
+            model_id: The DINO model id.
             device: The device to use for the model.
             precision: The precision to use for the model.
             compile_models: Whether to compile the model.
@@ -99,24 +68,16 @@ class Dino(nn.Module):
         """
         super().__init__()
 
-        # Convert string inputs to enums
-        if isinstance(version, str):
-            version = DinoVersion(version.lower())
-        if isinstance(size, str):
-            size = DinoSize.from_str(size)
+        if model_id not in ENCODER_MODEL_COLLECTION:
+            msg = f"Invalid model ID: {model_id}. Valid model IDs: {list(ENCODER_MODEL_COLLECTION.keys())}"
+            raise ValueError(msg)
 
-        self.version = version
-        self.size = size
+        self.model_id = model_id
         self.input_size = input_size
         self.device = device
 
-        # Validate size for version
-        self._validate_size_for_version(version, size)
-
-        logger.info(f"Loading DINO{version.value.upper()}-{size.value.upper()} model")
-
-        model_id = self._get_model_id(version, size)
-        self.model, self.processor = self._load_hf_model(model_id, input_size)
+        logger.info(f"Loading DINO model {model_id}")
+        self.model, self.processor = self._load_hf_model(ENCODER_MODEL_COLLECTION[model_id], input_size)
         self.model = self.model.to(device).eval()
         self.patch_size = self.model.config.patch_size
         self.feature_size = self.input_size // self.patch_size
@@ -132,32 +93,6 @@ class Dino(nn.Module):
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
         ).eval()
-
-    @staticmethod
-    def _validate_size_for_version(version: DinoVersion, size: DinoSize) -> None:
-        """Validate that the size is compatible with the version."""
-        if version == DinoVersion.V2:
-            valid_sizes = {DinoSize.SMALL, DinoSize.BASE, DinoSize.LARGE, DinoSize.GIANT}
-            if size not in valid_sizes:
-                valid_size_names = [s.value for s in valid_sizes]
-                msg = f"Size {size.value} is not valid for DinoV2. Valid sizes: {valid_size_names}"
-                raise ValueError(msg)
-        elif version == DinoVersion.V3:
-            valid_sizes = {DinoSize.SMALL, DinoSize.SMALL_PLUS, DinoSize.BASE, DinoSize.LARGE, DinoSize.HUGE}
-            if size not in valid_sizes:
-                valid_size_names = [s.value for s in valid_sizes]
-                msg = f"Size {size.value} is not valid for DinoV3. Valid sizes: {valid_size_names}"
-                raise ValueError(msg)
-
-    @staticmethod
-    def _get_model_id(version: DinoVersion, size: DinoSize) -> str:
-        """Get the model ID based on version and size."""
-        if version == DinoVersion.V2:
-            return DINO_V2_MODEL_IDS[size.value]
-        if version == DinoVersion.V3:
-            return DINO_V3_MODEL_IDS[size.value]
-        msg = f"Unsupported version: {version}"
-        raise ValueError(msg)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Embed images using DINO.
@@ -176,7 +111,7 @@ class Dino(nn.Module):
 
     @staticmethod
     def _load_hf_model(model_id: str, input_size: int) -> tuple[nn.Module, AutoImageProcessor]:
-        """Load DINOv3 model from HuggingFace with error handling.
+        """Load DINO model from HuggingFace with error handling.
 
         Meta requires huggingface users to access weights by first requesting access on the HuggingFace website.
         This function will raise an error if the user does not have access to the weights.

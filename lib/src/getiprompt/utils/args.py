@@ -5,7 +5,7 @@ import argparse
 from enum import Enum
 from typing import TypeVar
 
-from getiprompt.models.dino import DinoSize, DinoVersion
+from getiprompt.models.dino import ENCODER_MODEL_COLLECTION
 from getiprompt.processes.prompt_generators import GroundingModel
 from getiprompt.utils.constants import DatasetName, PipelineName, SAMModelName
 
@@ -202,18 +202,11 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         help="The device to use for the models",
     )
     parser.add_argument(
-        "--dino_version",
+        "--encoder_model",
         type=str,
-        default=DinoVersion.V3.value,
-        choices=[v.value for v in DinoVersion],
-        help="DINO version to use for feature encoder (v2 or v3)",
-    )
-    parser.add_argument(
-        "--dino_size",
-        type=str,
-        default=DinoSize.LARGE.value,
-        choices=[s.value for s in DinoSize],
-        help="DINO model size variant (e.g., small, base, large, giant, small_plus, huge)",
+        default="dinov3_large",
+        choices=list(ENCODER_MODEL_COLLECTION),
+        help="Encoder model id",
     )
     parser.add_argument(
         "--grounding_model",

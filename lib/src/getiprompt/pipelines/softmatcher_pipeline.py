@@ -68,8 +68,7 @@ class SoftMatcher(Matcher):
         approximate_matching: bool = False,
         softmatching_score_threshold: float = 0.4,
         softmatching_bidirectional: bool = False,
-        dino_version: str = "v3",
-        dino_size: str = "large",
+        encoder_model: str = "dinov3_large",
         precision: str = "bf16",
         compile_models: bool = False,
         benchmark_inference_speed: bool = False,
@@ -90,6 +89,7 @@ class SoftMatcher(Matcher):
             approximate_matching: Whether to use approximate matching.
             softmatching_score_threshold: The score threshold for the soft matching.
             softmatching_bidirectional: Whether to use bidirectional soft matching.
+            encoder_model: The encoder model to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
             benchmark_inference_speed: Whether to benchmark the inference speed.
@@ -103,8 +103,7 @@ class SoftMatcher(Matcher):
             apply_mask_refinement=apply_mask_refinement,
             skip_points_in_existing_masks=skip_points_in_existing_masks,
             mask_similarity_threshold=mask_similarity_threshold,
-            dino_version=dino_version,
-            dino_size=dino_size,
+            encoder_model=encoder_model,
             precision=precision,
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,

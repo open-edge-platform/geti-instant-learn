@@ -44,17 +44,20 @@ class DinoEncoder(Encoder):
     def __init__(self, model: Dino) -> None:
         super().__init__()
         self.model = model
+        self._encoder_input_size = model.input_size
+        self._encoder_patch_size = model.patch_size
+        self._encoder_feature_size = model.feature_size
 
         # Mask transform based on the model variant output size
         self.mask_transform = transforms.Compose([
             MaybeToTensor(),
             transforms.Lambda(lambda x: x.unsqueeze(0) if x.ndim == 2 else x),
             transforms.Lambda(lambda x: x.float()),
-            transforms.Resize([self.model.input_size, self.model.input_size]),
+            transforms.Resize([self._encoder_input_size, self._encoder_input_size]),
             # MinPool to make sure we do not use background features
             transforms.Lambda(lambda x: (x * -1) + 1),
             torch.nn.MaxPool2d(
-                kernel_size=(self.model.patch_size, self.model.patch_size),
+                kernel_size=(self._encoder_patch_size, self._encoder_patch_size),
             ),
             transforms.Lambda(lambda x: (x * -1) + 1),
         ])

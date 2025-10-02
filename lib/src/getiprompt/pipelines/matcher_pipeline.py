@@ -69,8 +69,7 @@ class Matcher(Pipeline):
         apply_mask_refinement: bool = True,
         skip_points_in_existing_masks: bool = True,
         mask_similarity_threshold: float | None = 0.42,
-        dino_version: str = "v3",
-        dino_size: str = "large",
+        encoder_model: str = "dinov3_large",
         precision: str = "bf16",
         compile_models: bool = False,
         benchmark_inference_speed: bool = False,
@@ -86,8 +85,7 @@ class Matcher(Pipeline):
             apply_mask_refinement: Whether to apply mask refinement.
             skip_points_in_existing_masks: Whether to skip points in existing masks.
             mask_similarity_threshold: The similarity threshold for the mask.
-            dino_version: DINO encoder version to use ("v2" or "v3").
-            dino_size: DINO encoder size variant (e.g., "large").
+            encoder_model: Encoder model ID to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
             benchmark_inference_speed: Whether to benchmark the inference speed.
@@ -102,15 +100,14 @@ class Matcher(Pipeline):
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
         )
-        dino_model = Dino(
-            version=dino_version,
-            size=dino_size,
+        dino_instance = Dino(
+            model_id=encoder_model,
             device=device,
             precision=precision,
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
         )
-        self.encoder: Encoder = DinoEncoder(model=dino_model)
+        self.encoder: Encoder = DinoEncoder(model=dino_instance)
         self.feature_selector: FeatureSelector = AllFeaturesSelector()
         self.prompt_generator: PromptGenerator = BidirectionalPromptGenerator(
             encoder_input_size=self.encoder.model.input_size,
