@@ -24,7 +24,7 @@ import {
 import { AddCircle } from '@geti/ui/icons';
 import { v4 as uuid } from 'uuid';
 
-import type { Project } from './project-list-item/project-list-item.component';
+import { useCreateProject } from './hooks/use-create-project.hook';
 import { ProjectsList } from './projects-list.component';
 
 import styles from './projects-list.module.scss';
@@ -50,18 +50,13 @@ interface AddProjectProps {
 }
 
 const AddProjectButton = ({ onSetProjectInEdition, projectsCount }: AddProjectProps) => {
-    const addProjectMutation = $api.useMutation('post', '/api/v1/projects');
+    const createProject = useCreateProject();
 
     const addProject = () => {
         const newProjectId = uuid();
         const newProjectName = `Project #${projectsCount + 1}`;
 
-        addProjectMutation.mutate({
-            body: {
-                id: newProjectId,
-                name: newProjectName,
-            },
-        });
+        createProject(newProjectName, newProjectId);
 
         onSetProjectInEdition(newProjectId);
     };
