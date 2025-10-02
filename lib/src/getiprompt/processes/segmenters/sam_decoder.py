@@ -310,8 +310,8 @@ class SamDecoder(nn.Module):
         similarity_maps = (
             [[] for _ in labels] if similarities is None else [similarities.data[label] for label in labels]
         )
-        class_points_list = [class_points[label].get(label, None) for label in labels]
-        class_boxes_list = [class_boxes[label].get(label, None) for label in labels]
+        class_points_list = [class_points.get(label, None) for label in labels]
+        class_boxes_list = [class_boxes.get(label, None) for label in labels]
 
         for label, points_per_class, boxes_per_class, similarity_map in zip(
             labels, class_points_list, class_boxes_list, similarity_maps, strict=True
@@ -490,4 +490,4 @@ class SamDecoder(nn.Module):
                 input_coords.new_zeros(0),
             )
 
-        return masks, input_coords
+        return masks[keep], input_coords[keep]
