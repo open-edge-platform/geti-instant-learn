@@ -43,7 +43,6 @@ dependencies = [
     "transformers==4.56.2",
     "efficientvit",
     "segment-anything-hq==0.3",
-    "pytorch-labs-segment-anything-fast",
     "markupsafe==3.0.2",
     "jsonargparse",
     "sam-2",
@@ -59,7 +58,6 @@ xformers = { index = "pytorch" }
 torchvision = { index = "pytorch" }
 torchmetrics = { index = "pytorch" }
 efficientvit = { git = "https://github.com/mit-han-lab/efficientvit.git", rev = "71b35be" }
-pytorch-labs-segment-anything-fast = { git = "https://github.com/pytorch-labs/segment-anything-fast.git", rev = "e6aadeb"}
 sam-2 = { git = "https://github.com/facebookresearch/sam2.git", rev = "2b90b9f"}
 
 [project.scripts]

@@ -672,15 +672,6 @@ wheels = [
 ]
 
 [[package]]
-name = "diskcache"
-version = "5.6.3"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/3f/21/1c1ffc1a039ddcc459db43cc108658f32c57d271d7289a2794e401d0fdb6/diskcache-5.6.3.tar.gz", hash = "sha256:2c3a3fa2743d8535d832ec61c2054a1641f41775aa7c556758a109941e33e4fc", size = 67916, upload-time = "2023-08-31T06:12:00.316Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3f/27/4570e78fc0bf5ea0ca45eb1de3818a23787af9b390c0b0a0033a1b8236f9/diskcache-5.6.3-py3-none-any.whl", hash = "sha256:5e31b2d5fbad117cc363ebaf6b689474db18a1f6438bc82358b024abd4c2ca19", size = 45550, upload-time = "2023-08-31T06:11:58.822Z" },
-]
-
-[[package]]
 name = "distlib"
 version = "0.3.9"
 source = { registry = "https://pypi.org/simple" }
@@ -895,7 +886,6 @@ dependencies = [
     { name = "pandas" },
     { name = "pot" },
     { name = "pycocotools" },
-    { name = "pytorch-labs-segment-anything-fast" },
     { name = "requests" },
     { name = "rich" },
     { name = "sam-2" },
@@ -949,7 +939,6 @@ requires-dist = [
     { name = "pre-commit", marker = "extra == 'dev'", specifier = "==4.2.0" },
     { name = "pycocotools", specifier = "==2.0.9" },
     { name = "pytest", marker = "extra == 'dev'", specifier = "==8.4.0" },
-    { name = "pytorch-labs-segment-anything-fast", git = "https://github.com/pytorch-labs/segment-anything-fast.git?rev=e6aadeb" },
     { name = "requests", specifier = "==2.32.4" },
     { name = "rich", specifier = "==14.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.11.12" },
@@ -3109,20 +3098,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pytorch-labs-segment-anything-fast"
-version = "0.2"
-source = { git = "https://github.com/pytorch-labs/segment-anything-fast.git?rev=e6aadeb#e6aadeb86f3ae1f58c3f98e2a91e251716e0f2aa" }
-dependencies = [
-    { name = "diskcache" },
-    { name = "pycocotools" },
-    { name = "scikit-image" },
-    { name = "scipy" },
-    { name = "torch" },
-    { name = "torchao" },
-    { name = "torchvision" },
-]
-
-[[package]]
 name = "pytz"
 version = "2025.2"
 source = { registry = "https://pypi.org/simple" }
@@ -4214,15 +4189,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/dd/72/687a54bab9a11e351cff3859ece48fb58e13786a493eb13a5da32b42de32/torch_fidelity-0.3.0.tar.gz", hash = "sha256:3d3e33db98919759cc4f3f24cb27e1e74bdc7c905d90a780630e4e1c18492b66", size = 31797, upload-time = "2021-06-15T16:10:50.758Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9f/2c/e24c7e261eaa00fc911c39a5e30f77efbace480aae2548db9ceaef410945/torch_fidelity-0.3.0-py3-none-any.whl", hash = "sha256:d01284825595feb7dc3eae3dc9a0d8ced02be764813a3483f109bc142b52a1d3", size = 37012, upload-time = "2021-06-15T16:10:49.068Z" },
-]
-
-[[package]]
-name = "torchao"
-version = "0.11.0"
-source = { registry = "https://pypi.org/simple" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/05/a3/e77dec21242b7e94932d226f0e07b680b1a1eeeb240fb9c30a5852157992/torchao-0.11.0-cp39-abi3-manylinux_2_28_x86_64.manylinux_2_24_x86_64.whl", hash = "sha256:5d9804833a7ec4d98a759d4750cd0f07dbd90503e3f3f4c59c77a9b9172bf043", size = 5499480, upload-time = "2025-05-09T21:51:56.649Z" },
-    { url = "https://files.pythonhosted.org/packages/59/69/c36ac1f5fbaa710230bd0e76bfb0a65a3b4a1d6b12225b600b0cd03f4105/torchao-0.11.0-py3-none-any.whl", hash = "sha256:22be86f06e95b3c1f700eb8eb9fc73a5c2c9d88845ef1f37b3448bb1848a2ccd", size = 917958, upload-time = "2025-05-09T21:51:54.916Z" },
 ]
 
 [[package]]

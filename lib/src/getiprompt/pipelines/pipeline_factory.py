@@ -31,30 +31,15 @@ def load_pipeline(sam: SAMModelName, pipeline_name: PipelineName, args: Namespac
         The instantiated pipeline.
     """
     # Lazy import to avoid circular dependencies during module import time.
-    from getiprompt.pipelines import GroundedSAM, Matcher, PerDino, PerSam, PerSamMAPI, SoftMatcher
+    from getiprompt.pipelines import GroundedSAM, Matcher, PerDino, SoftMatcher
 
     logger.info("Constructing pipeline: %s", pipeline_name.value)
 
     match pipeline_name:
-        case PipelineName.PER_SAM:
-            return PerSam(
-                sam=sam,
-                num_foreground_points=args.num_foreground_points,
-                num_background_points=args.num_background_points,
-                apply_mask_refinement=args.apply_mask_refinement,
-                skip_points_in_existing_masks=args.skip_points_in_existing_masks,
-                num_grid_cells=args.num_grid_cells,
-                similarity_threshold=args.similarity_threshold,
-                mask_similarity_threshold=args.mask_similarity_threshold,
-                precision=args.precision,
-                compile_models=args.compile_models,
-                benchmark_inference_speed=args.benchmark_inference_speed,
-                image_size=args.image_size,
-                device=args.device,
-            )
         case PipelineName.PER_DINO:
             return PerDino(
                 sam=sam,
+                encoder_model=args.encoder_model,
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
                 apply_mask_refinement=args.apply_mask_refinement,
@@ -62,7 +47,6 @@ def load_pipeline(sam: SAMModelName, pipeline_name: PipelineName, args: Namespac
                 num_grid_cells=args.num_grid_cells,
                 similarity_threshold=args.similarity_threshold,
                 mask_similarity_threshold=args.mask_similarity_threshold,
-                encoder_model=args.encoder_model,
                 precision=args.precision,
                 compile_models=args.compile_models,
                 benchmark_inference_speed=args.benchmark_inference_speed,
@@ -72,23 +56,22 @@ def load_pipeline(sam: SAMModelName, pipeline_name: PipelineName, args: Namespac
         case PipelineName.MATCHER:
             return Matcher(
                 sam=sam,
+                encoder_model=args.encoder_model,
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
                 apply_mask_refinement=args.apply_mask_refinement,
                 skip_points_in_existing_masks=args.skip_points_in_existing_masks,
                 mask_similarity_threshold=args.mask_similarity_threshold,
-                encoder_model=args.encoder_model,
                 precision=args.precision,
                 compile_models=args.compile_models,
                 benchmark_inference_speed=args.benchmark_inference_speed,
                 image_size=args.image_size,
                 device=args.device,
             )
-        case PipelineName.PER_SAM_MAPI:
-            return PerSamMAPI()
         case PipelineName.SOFT_MATCHER:
             return SoftMatcher(
                 sam=sam,
+                encoder_model=args.encoder_model,
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
                 apply_mask_refinement=args.apply_mask_refinement,
@@ -99,7 +82,6 @@ def load_pipeline(sam: SAMModelName, pipeline_name: PipelineName, args: Namespac
                 approximate_matching=args.approximate_matching,
                 softmatching_score_threshold=args.softmatching_score_threshold,
                 softmatching_bidirectional=args.softmatching_bidirectional,
-                encoder_model=args.encoder_model,
                 precision=args.precision,
                 compile_models=args.compile_models,
                 benchmark_inference_speed=args.benchmark_inference_speed,

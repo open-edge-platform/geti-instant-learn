@@ -7,10 +7,9 @@ from typing import TYPE_CHECKING
 
 from getiprompt.filters.masks import ClassOverlapMaskFilter, MaskFilter
 from getiprompt.filters.priors import MaxPointFilter, PriorFilter, PriorMaskFromPoints
-from getiprompt.models.dino import Dino
-from getiprompt.models.models import load_sam_model
+from getiprompt.models import load_sam_model
 from getiprompt.pipelines.pipeline_base import Pipeline
-from getiprompt.processes.encoders import DinoEncoder, Encoder
+from getiprompt.processes.encoders import Encoder
 from getiprompt.processes.feature_selectors import AllFeaturesSelector, FeatureSelector
 from getiprompt.processes.mask_processors import MaskProcessor, MasksToPolygons
 from getiprompt.processes.prompt_generators import BidirectionalPromptGenerator
@@ -100,19 +99,18 @@ class Matcher(Pipeline):
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
         )
-        dino_instance = Dino(
+        self.encoder: Encoder = Encoder(
             model_id=encoder_model,
             device=device,
             precision=precision,
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
         )
-        self.encoder: Encoder = DinoEncoder(model=dino_instance)
         self.feature_selector: FeatureSelector = AllFeaturesSelector()
         self.prompt_generator: PromptGenerator = BidirectionalPromptGenerator(
-            encoder_input_size=self.encoder.model.input_size,
-            encoder_patch_size=self.encoder.model.patch_size,
-            encoder_feature_size=self.encoder.model.feature_size,
+            encoder_input_size=self.encoder.input_size,
+            encoder_patch_size=self.encoder.patch_size,
+            encoder_feature_size=self.encoder.feature_size,
             num_background_points=num_background_points,
         )
         self.point_filter: PriorFilter = MaxPointFilter(max_num_points=num_foreground_points)

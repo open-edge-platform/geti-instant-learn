@@ -7,10 +7,9 @@ from typing import TYPE_CHECKING
 
 from getiprompt.filters.masks import ClassOverlapMaskFilter, MaskFilter
 from getiprompt.filters.priors import MaxPointFilter, PriorFilter, PriorMaskFromPoints
-from getiprompt.models.dino import Dino
-from getiprompt.models.models import load_sam_model
+from getiprompt.models import load_sam_model
 from getiprompt.pipelines.pipeline_base import Pipeline
-from getiprompt.processes.encoders import DinoEncoder, Encoder
+from getiprompt.processes.encoders import Encoder
 from getiprompt.processes.feature_selectors import AverageFeatures, FeatureSelector
 from getiprompt.processes.mask_processors import MaskProcessor, MasksToPolygons
 from getiprompt.processes.prompt_generators import GridPromptGenerator
@@ -28,7 +27,9 @@ if TYPE_CHECKING:
 class PerDino(Pipeline):
     """This is the PerDino algorithm pipeline.
 
-    It is very similar to the PerSam pipeline but uses DinoV2 for encoding the images.
+    It matches reference objects to target images by comparing their features extracted by Dino
+    and using Cosine Similarity. A grid prompt generator is used to generate prompts for the
+    segmenter and to allow for multi object target images.
 
     Examples:
         >>> import torch
@@ -59,6 +60,7 @@ class PerDino(Pipeline):
     def __init__(
         self,
         sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
+        encoder_model: str = "dinov3_large",
         num_foreground_points: int = 40,
         num_background_points: int = 2,
         apply_mask_refinement: bool = True,
@@ -66,7 +68,6 @@ class PerDino(Pipeline):
         num_grid_cells: int = 16,
         similarity_threshold: float = 0.65,
         mask_similarity_threshold: float | None = 0.42,
-        encoder_model: str = "dinov3_large",
         precision: str = "bf16",
         compile_models: bool = False,
         benchmark_inference_speed: bool = False,
@@ -99,14 +100,14 @@ class PerDino(Pipeline):
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
         )
-        dino_instance = Dino(
+
+        self.encoder: Encoder = Encoder(
             model_id=encoder_model,
             device=device,
             precision=precision,
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
         )
-        self.encoder: Encoder = DinoEncoder(model=dino_instance)
         self.feature_selector: FeatureSelector = AverageFeatures()
         self.similarity_matcher: SimilarityMatcher = CosineSimilarity()
         self.prompt_generator: PromptGenerator = GridPromptGenerator(

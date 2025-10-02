@@ -3,18 +3,18 @@
 
 """Models."""
 
-from getiprompt.models.dino import Dino
 from getiprompt.models.dinotxt import DinoTextEncoder
-from getiprompt.models.models import (
+from getiprompt.models.sam_model_factory import (
     SAMModelName,
     create_efficientvit_sam_model,
+    load_sam_model,
     sam_model_registry,
 )
 
 __all__ = [
-    "Dino",
     "DinoTextEncoder",
     "SAMModelName",
     "create_efficientvit_sam_model",
     "sam_model_registry",
+    "load_sam_model",
 ]

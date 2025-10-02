@@ -111,9 +111,9 @@ class SoftMatcher(Matcher):
             image_size=image_size,
         )
         self.prompt_generator: PromptGenerator = SoftmatcherPromptGenerator(
-            encoder_input_size=self.encoder.model.input_size,
-            encoder_patch_size=self.encoder.model.patch_size,
-            encoder_feature_size=self.encoder.model.feature_size,
+            encoder_input_size=self.encoder.input_size,
+            encoder_patch_size=self.encoder.patch_size,
+            encoder_feature_size=self.encoder.feature_size,
             num_background_points=num_background_points,
             num_foreground_points=num_foreground_points,
             use_sampling=use_sampling,

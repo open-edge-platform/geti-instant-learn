@@ -3,9 +3,6 @@
 
 """Encoders."""
 
-from getiprompt.processes.encoders.dino_encoder import DinoEncoder
-from getiprompt.processes.encoders.encoder_base import Encoder
-from getiprompt.processes.encoders.sam_encoder import SamEncoder
-from getiprompt.processes.encoders.sam_mapi_encoder import SamMAPIEncoder
+from getiprompt.processes.encoders.encoder import Encoder
 
-__all__ = ["DinoEncoder", "Encoder", "SamEncoder", "SamMAPIEncoder"]
+__all__ = ["Encoder"]

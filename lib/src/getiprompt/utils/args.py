@@ -5,7 +5,7 @@ import argparse
 from enum import Enum
 from typing import TypeVar
 
-from getiprompt.models.dino import ENCODER_MODEL_COLLECTION
+from getiprompt.processes.encoders.encoder import ENCODER_MODEL_COLLECTION
 from getiprompt.processes.prompt_generators import GroundingModel
 from getiprompt.utils.constants import DatasetName, PipelineName, SAMModelName
 

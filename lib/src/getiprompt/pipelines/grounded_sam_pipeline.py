@@ -5,7 +5,7 @@
 
 from getiprompt.filters.masks import BoxAwareMaskFilter, ClassOverlapMaskFilter, MaskFilter
 from getiprompt.filters.priors import MultiInstancePriorFilter
-from getiprompt.models.models import load_sam_model
+from getiprompt.models import load_sam_model
 from getiprompt.pipelines.pipeline_base import Pipeline
 from getiprompt.processes.mask_processors import MaskProcessor, MasksToPolygons
 from getiprompt.processes.prompt_generators import GroundedObjectDetector, GroundingModel

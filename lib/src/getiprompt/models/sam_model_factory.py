@@ -10,8 +10,6 @@ from efficientvit.models.efficientvit import EfficientViTSamPredictor
 from efficientvit.sam_model_zoo import create_efficientvit_sam_model
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
-from segment_anything_fast import sam_model_fast_registry
-from segment_anything_fast.predictor import SamPredictor as SamFastPredictor
 from segment_anything_hq import sam_model_registry as sam_hq_model_registry
 from segment_anything_hq.predictor import SamPredictor as SamHQPredictor
 
@@ -34,7 +32,7 @@ def load_sam_model(
     precision: str = "bf16",
     compile_models: bool = False,
     benchmark_inference_speed: bool = False,
-) -> SamPredictor | SamHQPredictor | SamFastPredictor | EfficientViTSamPredictor | SAM2ImagePredictor:
+) -> SamPredictor | SamHQPredictor | EfficientViTSamPredictor | SAM2ImagePredictor:
     """Load and optimize a SAM model.
 
     Args:
@@ -70,9 +68,6 @@ def load_sam_model(
     elif sam in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
         model: SamHQ = sam_hq_model_registry[registry_name](checkpoint=str(checkpoint_path)).to(device).eval()
         predictor = SamHQPredictor(model)
-    elif sam == SAMModelName.SAM_FAST:
-        model = sam_model_fast_registry[registry_name](checkpoint=str(checkpoint_path)).to(device).eval()
-        predictor = SamFastPredictor(model)
     elif sam == SAMModelName.EFFICIENT_VIT_SAM:
         model = (
             create_efficientvit_sam_model(

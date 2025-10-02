@@ -13,7 +13,6 @@ import torch
 from efficientvit.models.efficientvit import EfficientViTSamPredictor
 from efficientvit.models.nn import UpSampleLayer
 from sam2.sam2_image_predictor import SAM2ImagePredictor
-from segment_anything_fast.predictor import SamPredictor as SamFastPredictor
 from segment_anything_hq.predictor import SamPredictor as SamHQPredictor
 from torch import nn
 from transformers import AutoModel
@@ -36,13 +35,13 @@ def get_dummy_input(model: AutoModel, precision: torch.dtype, device: str) -> to
 
 
 def optimize_model(
-    model: AutoModel | SamPredictor | SamHQPredictor | SamFastPredictor | EfficientViTSamPredictor | SAM2ImagePredictor,
+    model: AutoModel | SamPredictor | SamHQPredictor | EfficientViTSamPredictor | SAM2ImagePredictor,
     device: str,
     precision: torch.dtype,
     compile_models: bool,
     benchmark_inference_speed: bool = True,
     compile_backend: str = "inductor",
-) -> AutoModel | SamPredictor | SamHQPredictor | SamFastPredictor | EfficientViTSamPredictor | SAM2ImagePredictor:
+) -> AutoModel | SamPredictor | SamHQPredictor | EfficientViTSamPredictor | SAM2ImagePredictor:
     """This method optimizes a model by quantizing it and compiling it.
 
     Args:
@@ -56,12 +55,6 @@ def optimize_model(
     Returns:
         The optimized model.
     """
-    if isinstance(model, SamFastPredictor):
-        logger.debug("First inference with SamFastPredictor can take while to warm up the model")
-        model.set_image(np.ones(shape=(1024, 1024, 3), dtype=np.uint8))
-        logger.debug("SamFastPredictor model warmed up")
-        return model
-
     # Initial inference
     if benchmark_inference_speed:
         logger.debug("Model initial inference:")
