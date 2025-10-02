@@ -1,0 +1,27 @@
+.header {
+    text-align: center;
+}
+
+.newProjectCard {
+    border: 1px dashed var(--spectrum-global-color-gray-700);
+    background-color: var(--spectrum-global-color-gray-300);
+}
+
+.projectCard {
+    display: flex;
+    gap: var(--spectrum-global-dimension-size-200);
+    text-decoration: none;
+    color: var(--spectrum-global-color-gray-900);
+    border: var(--spectrum-global-dimension-size-25) solid var(--spectrum-global-color-gray-200);
+    border-radius: var(--spectrum-global-dimension-size-50);
+    background-color: var(--spectrum-global-color-gray-50);
+    transition:
+        background-color,
+        border 0.2s ease-in-out;
+    cursor: pointer;
+
+    &:hover {
+        border-color: var(--energy-blue);
+        background-color: var(--spectrum-global-color-gray-100);
+    }
+}

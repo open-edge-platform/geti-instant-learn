@@ -36,18 +36,16 @@ export const Welcome = () => {
 
     return (
         <Layout>
-            <View paddingTop={'size-2000'}>
-                <IllustratedMessage>
-                    <Fireworks />
-                    <Heading level={1}>Welcome to Geti Prompt!</Heading>
-                    <Content>
-                        <Flex direction={'column'} gap={'size-200'}>
-                            <Text>To start exploring visual and text prompts</Text>
-                            <Button onPress={createProject}>Create project</Button>
-                        </Flex>
-                    </Content>
-                </IllustratedMessage>
-            </View>
+            <IllustratedMessage>
+                <Fireworks />
+                <Heading level={1}>Welcome to Geti Prompt!</Heading>
+                <Content>
+                    <Flex direction={'column'} gap={'size-200'}>
+                        <Text>To start exploring visual and text prompts</Text>
+                        <Button onPress={createProject}>Create project</Button>
+                    </Flex>
+                </Content>
+            </IllustratedMessage>
         </Layout>
     );
 };

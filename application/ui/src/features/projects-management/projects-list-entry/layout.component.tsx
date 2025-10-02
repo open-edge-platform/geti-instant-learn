@@ -25,6 +25,7 @@ export const Layout = ({ children }: LayoutProps) => {
                 backgroundRepeat: 'no-repeat',
                 backgroundSize: 'cover',
             }}
+            padding={'size-1000'}
         >
             {children}
         </View>
