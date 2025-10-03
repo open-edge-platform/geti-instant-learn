@@ -11,10 +11,11 @@ import styles from './project-list-item.module.scss';
 
 interface ProjectEditionProps {
     onBlur: (newName: string) => void;
+    onResetProjectInEdition: () => void;
     name: string;
 }
 
-export const ProjectEdition = ({ name, onBlur }: ProjectEditionProps) => {
+export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition }: ProjectEditionProps) => {
     const textFieldRef = useRef<TextFieldRef>(null);
     const [newName, setNewName] = useState<string>(name);
 
@@ -22,14 +23,16 @@ export const ProjectEdition = ({ name, onBlur }: ProjectEditionProps) => {
         onBlur(newName);
     };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            onBlur(newName);
-        } else if (e.key === 'Escape') {
-            e.preventDefault();
+    const handleKeyDown = (event: KeyboardEvent) => {
+        event.preventDefault();
+
+        if (event.key === 'Enter') {
+            handleBlur();
+            onResetProjectInEdition();
+        } else if (event.key === 'Escape') {
             setNewName(name);
             onBlur(name);
+            onResetProjectInEdition();
         }
     };
 

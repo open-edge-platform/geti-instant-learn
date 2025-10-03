@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Key, MouseEventHandler, useRef, useState } from 'react';
+import { Key, MouseEventHandler, useState } from 'react';
 
 import { $api } from '@geti-prompt/api';
 import { ActionButton, Flex, Grid, Heading, PhotoPlaceholder, repeat, Text, View } from '@geti/ui';
@@ -67,7 +67,6 @@ interface ProjectCardProps {
 const ProjectCard = ({ project }: ProjectCardProps) => {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
     const [projectIDInEdition, setProjectIdInEdition] = useState<string | null>(null);
-    const suppressNavigationToProject = useRef<boolean>(false);
     const updateProjectName = useUpdateProject();
     const deleteProject = useDeleteProject();
     const navigate = useNavigate();
@@ -85,10 +84,6 @@ const ProjectCard = ({ project }: ProjectCardProps) => {
     };
 
     const handleBlur = (newName: string) => {
-        // Mark that the next click (which often follows blur) should be ignored
-        suppressNavigationToProject.current = true;
-        setProjectIdInEdition(null);
-
         if (newName === project.name) return;
         if (newName.trim().length === 0) return;
 
@@ -101,10 +96,14 @@ const ProjectCard = ({ project }: ProjectCardProps) => {
 
     const isInEditionState = projectIDInEdition === project.id;
 
+    const handleResetProjectInEdition = () => {
+        setProjectIdInEdition(null);
+    };
+
     const handleCardClick: MouseEventHandler<HTMLDivElement> = () => {
-        // If we're editing, or the click is the one immediately following the blur, do nothing
-        if (isInEditionState || suppressNavigationToProject.current) {
-            suppressNavigationToProject.current = false;
+        if (isInEditionState) {
+            handleResetProjectInEdition();
+
             return;
         }
         handleNavigateToProject();
@@ -116,7 +115,15 @@ const ProjectCard = ({ project }: ProjectCardProps) => {
             <View flex={1} paddingStart={'size-200'} paddingEnd={'size-100'}>
                 <Flex justifyContent={'space-between'} alignItems={'center'}>
                     <Heading UNSAFE_className={styles.projectCardTitle}>
-                        {isInEditionState ? <ProjectEdition onBlur={handleBlur} name={project.name} /> : project.name}
+                        {isInEditionState ? (
+                            <ProjectEdition
+                                onBlur={handleBlur}
+                                onResetProjectInEdition={handleResetProjectInEdition}
+                                name={project.name}
+                            />
+                        ) : (
+                            project.name
+                        )}
                     </Heading>
 
                     <ProjectActions onAction={handleAction} />

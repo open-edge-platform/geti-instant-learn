@@ -42,8 +42,6 @@ export const ProjectsList = ({ projects, setProjectInEdition, projectIdInEdition
     };
 
     const handleBlur = (id: string, newName: string) => {
-        setProjectInEdition(null);
-
         const projectToUpdate = projects.find((project) => project.id === id);
         if (projectToUpdate?.name === newName || isEmpty(newName.trim())) {
             return;
@@ -56,6 +54,10 @@ export const ProjectsList = ({ projects, setProjectInEdition, projectIdInEdition
         setProjectInEdition(id);
     };
 
+    const handleResetProjectInEdition = () => {
+        setProjectInEdition(null);
+    };
+
     return (
         <ul className={styles.projectList}>
             {projects.map((project) => (
@@ -66,6 +68,7 @@ export const ProjectsList = ({ projects, setProjectInEdition, projectIdInEdition
                     onDelete={handleDelete}
                     onBlur={handleBlur}
                     isInEditMode={isInEditionMode(project.id)}
+                    onResetProjectInEdition={handleResetProjectInEdition}
                 />
             ))}
         </ul>
