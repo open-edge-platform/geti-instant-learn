@@ -38,5 +38,3 @@ describe('generateUniqueProjectName', () => {
         expect(result).toBe('Project #1000');
     });
 });
-
-
