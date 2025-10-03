@@ -1,15 +1,23 @@
 .header {
     text-align: center;
+    font-weight: 500;
+}
+
+.projectsList {
+    overflow-y: auto;
 }
 
 .newProjectCard {
     border: 1px dashed var(--spectrum-global-color-gray-700);
-    background-color: var(--spectrum-global-color-gray-300);
+
+    & button {
+        background-color: var(--spectrum-global-color-gray-300);
+        color: #fff;
+    }
 }
 
 .projectCard {
     display: flex;
-    gap: var(--spectrum-global-dimension-size-200);
     text-decoration: none;
     color: var(--spectrum-global-color-gray-900);
     border: var(--spectrum-global-dimension-size-25) solid var(--spectrum-global-color-gray-200);
@@ -24,4 +32,8 @@
         border-color: var(--energy-blue);
         background-color: var(--spectrum-global-color-gray-100);
     }
+}
+
+.projectCardTitle {
+    font-weight: 500;
 }
