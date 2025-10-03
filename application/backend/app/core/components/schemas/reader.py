@@ -8,7 +8,6 @@ from pydantic import BaseModel
 
 
 class SourceType(StrEnum):
-    DISCONNECTED = "disconnected"
     WEBCAM = "webcam"
 
 
