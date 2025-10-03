@@ -5,7 +5,7 @@
 
 import { Key, useState } from 'react';
 
-import { Project } from '@geti-prompt/api';
+import { type Project } from '@geti-prompt/api';
 import { Flex, PhotoPlaceholder, Text } from '@geti/ui';
 import { useNavigate } from 'react-router';
 

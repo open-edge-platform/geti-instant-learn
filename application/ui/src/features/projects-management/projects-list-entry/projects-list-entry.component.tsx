@@ -103,7 +103,7 @@ const ProjectCard = ({ project }: ProjectCardProps) => {
 
     return (
         <div className={styles.projectCard} onClick={handleCardClick}>
-            <PhotoPlaceholder name={project.name} email={project.id} width={'size-800'} height={'size-800'} />
+            <PhotoPlaceholder name={project.name} indicator={project.id} width={'size-800'} height={'size-800'} />
             <View flex={1} paddingStart={'size-200'} paddingEnd={'size-100'}>
                 <Flex justifyContent={'space-between'} alignItems={'center'}>
                     <Heading UNSAFE_className={styles.projectCardTitle}>

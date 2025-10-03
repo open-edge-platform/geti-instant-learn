@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 
-import { $api } from '@geti-prompt/api';
+import { $api, type Project } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import {
     ActionButton,
@@ -89,7 +89,6 @@ export const ProjectsListPanel = () => {
     }
 
     const projectsNames = data.projects.map((project) => project.name);
-
 
     return (
         <DialogTrigger type='popover' hideArrow>
