@@ -23,7 +23,7 @@ class BaseOpenCVReader(StreamReader, ABC):
         self.source = source
         self.source_type = source_type
         self._metadata = metadata
-        self._cap = None
+        self._cap: cv2.VideoCapture | None = None
         self.connected = False
 
     def connect(self) -> None:
@@ -42,11 +42,7 @@ class BaseOpenCVReader(StreamReader, ABC):
         if not ret:
             raise RuntimeError(f"Failed to capture frame from {self.source_type.value}")
 
-        return InputData(
-            timestamp=int(time.time() * 1000),
-            frame=frame,
-            context={}
-        )
+        return InputData(timestamp=int(time.time() * 1000), frame=frame, context={})
 
     def close(self) -> None:
         """Release OpenCV VideoCapture resources."""

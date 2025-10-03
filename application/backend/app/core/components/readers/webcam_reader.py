@@ -6,6 +6,5 @@ from core.components.schemas.reader import SourceType, WebCamConfig
 
 
 class WebCamReader(BaseOpenCVReader):
-
     def __init__(self, config: WebCamConfig) -> None:
         super().__init__(source=config.device_id, source_type=SourceType.WEBCAM, **config.model_dump())
