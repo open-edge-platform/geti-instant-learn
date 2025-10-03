@@ -24,12 +24,14 @@ export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition }: Projec
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
-        event.preventDefault();
-
         if (event.key === 'Enter') {
+            event.preventDefault();
+
             handleBlur();
             onResetProjectInEdition();
         } else if (event.key === 'Escape') {
+            event.preventDefault();
+
             setNewName(name);
             onBlur(name);
             onResetProjectInEdition();
