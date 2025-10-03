@@ -49,10 +49,10 @@ interface AddProjectProps {
     projectsCount: number;
 }
 
-const AddProjectButton = ({ onSetProjectInEdition, projectsCount }: AddProjectProps) => {
+const CreateProjectButton = ({ onSetProjectInEdition, projectsCount }: AddProjectProps) => {
     const createProject = useCreateProject();
 
-    const addProject = () => {
+    const handleCreateProject = () => {
         const newProjectId = uuid();
         const newProjectName = `Project #${projectsCount + 1}`;
 
@@ -67,11 +67,11 @@ const AddProjectButton = ({ onSetProjectInEdition, projectsCount }: AddProjectPr
             width={'100%'}
             marginStart={'size-100'}
             marginEnd={'size-350'}
-            UNSAFE_className={styles.addProjectButton}
-            onPress={addProject}
+            UNSAFE_className={styles.createProjectButton}
+            onPress={handleCreateProject}
         >
             <AddCircle />
-            <Text marginX='size-50'>Add project</Text>
+            <Text marginX='size-50'>Create project</Text>
         </ActionButton>
     );
 };
@@ -116,7 +116,7 @@ export const ProjectsListPanel = () => {
                 </Content>
 
                 <ButtonGroup UNSAFE_className={styles.panelButtons}>
-                    <AddProjectButton
+                    <CreateProjectButton
                         onSetProjectInEdition={setProjectInEdition}
                         projectsCount={data.projects.length}
                     />

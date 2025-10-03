@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Key, useState } from 'react';
+import { Key, useRef, useState } from 'react';
 
 import { Project } from '@geti-prompt/api';
-import { DialogContainer, Flex, PhotoPlaceholder, Text } from '@geti/ui';
+import { Flex, PhotoPlaceholder, Text } from '@geti/ui';
 import { useNavigate } from 'react-router';
 
 import { paths } from '../../../routes/paths';
@@ -25,6 +25,7 @@ interface ProjectListItemProps {
 export const ProjectListItem = ({ project, isInEditMode, onBlur, onRename, onDelete }: ProjectListItemProps) => {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
     const navigate = useNavigate();
+    const suppressNavigationToProject = useRef<boolean>(false);
 
     const handleAction = (key: Key) => {
         if (key === PROJECT_ACTIONS.RENAME) {
@@ -35,6 +36,7 @@ export const ProjectListItem = ({ project, isInEditMode, onBlur, onRename, onDel
     };
 
     const handleBlur = (projectId: string) => (newName: string) => {
+        suppressNavigationToProject.current = false;
         onBlur(projectId, newName);
     };
 
@@ -43,12 +45,17 @@ export const ProjectListItem = ({ project, isInEditMode, onBlur, onRename, onDel
     };
 
     const handleNavigateToProject = () => {
+        if (isInEditMode || suppressNavigationToProject.current) {
+            suppressNavigationToProject.current = false;
+            return;
+        }
+
         navigate(paths.project({ projectId: project.id }));
     };
 
     return (
         <>
-            <li className={styles.projectListItem} onClick={isInEditMode ? undefined : handleNavigateToProject}>
+            <li className={styles.projectListItem} onClick={handleNavigateToProject}>
                 <Flex justifyContent='space-between' alignItems='center' marginX={'size-200'}>
                     {isInEditMode ? (
                         <ProjectEdition name={project.name} onBlur={handleBlur(project.id)} />
