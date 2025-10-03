@@ -130,7 +130,7 @@ class TestSamDecoderBasic:
         mock_points = Points()
         mock_points.add(torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32), class_id=0)
 
-        sam_decoder.predict_by_points = MagicMock(return_value=(mock_masks, mock_points))
+        sam_decoder.predict_single = MagicMock(return_value=(mock_masks, mock_points))
 
         masks_per_image, points_per_image, boxes_per_image = sam_decoder.forward(
             [sample_image], [sample_priors], [sample_similarities]
