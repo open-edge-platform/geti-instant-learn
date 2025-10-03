@@ -9,10 +9,10 @@ import { $api } from '@geti-prompt/api';
 import { ActionButton, Flex, Grid, Heading, PhotoPlaceholder, repeat, Text, View } from '@geti/ui';
 import { AddCircle } from '@geti/ui/icons';
 import { useNavigate } from 'react-router';
-import { v4 as uuid } from 'uuid';
 
 import { SchemaProjectListItem as Project } from '../../../api/openapi-spec';
 import { paths } from '../../../routes/paths';
+import { useCreateProject } from '../hooks/use-create-project.hook';
 import { useDeleteProject } from '../hooks/use-delete-project.hook';
 import { useUpdateProject } from '../hooks/use-update-project.hook';
 import {
@@ -21,35 +21,27 @@ import {
     ProjectActions,
     ProjectEdition,
 } from '../project-list-item/project-actions.component';
+import { generateUniqueProjectName } from '../utils';
 import { Layout } from './layout.component';
 
 import styles from './projects-list-entry.module.scss';
 
 interface NewProjectCardProps {
-    projectsCount: number;
+    projectsNames: string[];
 }
 
-const NewProjectCard = ({ projectsCount }: NewProjectCardProps) => {
-    const createProjectMutation = $api.useMutation('post', '/api/v1/projects');
-    const navigate = useNavigate();
+const NewProjectCard = ({ projectsNames }: NewProjectCardProps) => {
+    const createProject = useCreateProject();
 
-    const createProject = () => {
-        const projectId = uuid();
-
-        createProjectMutation.mutate({
-            body: {
-                id: projectId,
-                name: `Project #${projectsCount + 1}`,
-            },
-        });
-
-        navigate(paths.project({ projectId }));
+    const handleCreateProject = () => {
+        const projectName = generateUniqueProjectName(projectsNames);
+        createProject(projectName);
     };
 
     return (
         <View UNSAFE_className={styles.newProjectCard} width={'100%'} height={'100%'}>
             <Flex width={'100%'} height={'100%'} alignItems={'center'}>
-                <ActionButton width={'100%'} height={'100%'} onPress={createProject}>
+                <ActionButton width={'100%'} height={'100%'} onPress={handleCreateProject}>
                     <Flex gap={'size-50'} alignItems={'center'}>
                         <AddCircle />
                         <Text>Create project</Text>
@@ -143,6 +135,8 @@ const ProjectCard = ({ project }: ProjectCardProps) => {
 export const ProjectsListEntry = () => {
     const { data } = $api.useSuspenseQuery('get', '/api/v1/projects');
 
+    const projectsNames = data.projects.map((project) => project.name);
+
     return (
         <Layout>
             <View maxWidth={'70vw'} minWidth={'50rem'} marginX={'auto'} height={'100%'}>
@@ -158,7 +152,7 @@ export const ProjectsListEntry = () => {
                         alignContent={'start'}
                         UNSAFE_className={styles.projectsList}
                     >
-                        <NewProjectCard projectsCount={data.projects.length} />
+                        <NewProjectCard projectsNames={projectsNames} />
                         {data.projects.map((project) => (
                             <ProjectCard project={project} key={project.id} />
                         ))}

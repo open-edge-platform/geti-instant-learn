@@ -26,6 +26,7 @@ import { v4 as uuid } from 'uuid';
 
 import { useCreateProject } from './hooks/use-create-project.hook';
 import { ProjectsList } from './projects-list.component';
+import { generateUniqueProjectName } from './utils';
 
 import styles from './projects-list.module.scss';
 
@@ -46,15 +47,15 @@ const SelectedProjectButton = ({ project: { name, id } }: SelectedProjectProps) 
 
 interface AddProjectProps {
     onSetProjectInEdition: (projectId: string) => void;
-    projectsCount: number;
+    projectsNames: string[];
 }
 
-const CreateProjectButton = ({ onSetProjectInEdition, projectsCount }: AddProjectProps) => {
+const CreateProjectButton = ({ onSetProjectInEdition, projectsNames }: AddProjectProps) => {
     const createProject = useCreateProject();
 
     const handleCreateProject = () => {
         const newProjectId = uuid();
-        const newProjectName = `Project #${projectsCount + 1}`;
+        const newProjectName = generateUniqueProjectName(projectsNames);
 
         createProject(newProjectName, newProjectId);
 
@@ -87,6 +88,9 @@ export const ProjectsListPanel = () => {
         return <div>No project found</div>;
     }
 
+    const projectsNames = data.projects.map((project) => project.name);
+
+
     return (
         <DialogTrigger type='popover' hideArrow>
             <SelectedProjectButton project={selectedProject} />
@@ -116,10 +120,7 @@ export const ProjectsListPanel = () => {
                 </Content>
 
                 <ButtonGroup UNSAFE_className={styles.panelButtons}>
-                    <CreateProjectButton
-                        onSetProjectInEdition={setProjectInEdition}
-                        projectsCount={data.projects.length}
-                    />
+                    <CreateProjectButton onSetProjectInEdition={setProjectInEdition} projectsNames={projectsNames} />
                 </ButtonGroup>
             </Dialog>
         </DialogTrigger>
