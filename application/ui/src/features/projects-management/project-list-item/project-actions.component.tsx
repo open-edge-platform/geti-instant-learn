@@ -41,15 +41,17 @@ export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition }: Projec
     }, []);
 
     return (
-        <TextField
-            isQuiet
-            ref={textFieldRef}
-            value={newName}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            onChange={setNewName}
-            aria-label='Edit project name'
-        />
+        <div onClick={(event) => event.stopPropagation()}>
+            <TextField
+                isQuiet
+                ref={textFieldRef}
+                value={newName}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                onChange={setNewName}
+                aria-label='Edit project name'
+            />
+        </div>
     );
 };
 
