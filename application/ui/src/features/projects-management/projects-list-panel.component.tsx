@@ -24,7 +24,7 @@ import {
 import { AddCircle } from '@geti/ui/icons';
 import { v4 as uuid } from 'uuid';
 
-import { Project } from './project-list-item/project-list-item.component';
+import type { Project } from './project-list-item/project-list-item.component';
 import { ProjectsList } from './projects-list.component';
 
 import styles from './projects-list.module.scss';
