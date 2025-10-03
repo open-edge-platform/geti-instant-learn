@@ -1,10 +1,10 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SourceType(StrEnum):
@@ -29,4 +29,4 @@ class WebCamConfig(BaseModel):
     }
 
 
-ReaderConfig = WebCamConfig
+ReaderConfig = Annotated[WebCamConfig, Field(discriminator="source_type")]

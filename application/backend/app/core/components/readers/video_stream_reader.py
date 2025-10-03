@@ -7,22 +7,22 @@ import cv2
 
 from core.components.base import StreamReader
 from core.components.schemas.processor import InputData
-from core.components.schemas.reader import SourceType
+from core.components.schemas.reader import ReaderConfig
 
 
 class BaseOpenCVReader(StreamReader, ABC):
     """Base class for OpenCV-based video reader with common functionality."""
 
-    def __init__(self, source: str | int, source_type: SourceType, **metadata) -> None:
-        """Initialize OpenCV stream.
+    def __init__(self, source: str | int, config: ReaderConfig) -> None:
+        """Initialize OpenCV reader.
         Args:
             source: Video source (device ID, file path, or URL)
             source_type: Type of the video source
-            **metadata: Additional metadata for the stream
+            **config: Additional metadata for the reader
         """
         self.source = source
-        self.source_type = source_type
-        self._metadata = metadata
+        self.source_type = config.source_type
+        self.config = config
         self._cap: cv2.VideoCapture | None = None
         self.connected = False
 
