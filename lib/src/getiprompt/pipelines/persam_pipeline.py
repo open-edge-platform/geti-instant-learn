@@ -63,8 +63,6 @@ class PerSam(Pipeline):
         sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
         num_foreground_points: int = 40,
         num_background_points: int = 2,
-        apply_mask_refinement: bool = True,
-        skip_points_in_existing_masks: bool = True,
         num_grid_cells: int = 16,
         similarity_threshold: float = 0.65,
         mask_similarity_threshold: float | None = 0.42,
@@ -80,8 +78,6 @@ class PerSam(Pipeline):
             sam: The name of the SAM model to use.
             num_foreground_points: The number of foreground points to use.
             num_background_points: The number of background points to use.
-            apply_mask_refinement: Whether to apply mask refinement.
-            skip_points_in_existing_masks: Whether to skip points in existing masks.
             num_grid_cells: The number of grid cells to use.
             similarity_threshold: The similarity threshold for the similarity matcher.
             mask_similarity_threshold: The similarity threshold for the mask.
@@ -112,9 +108,7 @@ class PerSam(Pipeline):
         )
         self.segmenter: Segmenter = SamDecoder(
             sam_predictor=self.sam_predictor,
-            apply_mask_refinement=apply_mask_refinement,
             mask_similarity_threshold=mask_similarity_threshold,
-            skip_points_in_existing_masks=skip_points_in_existing_masks,
         )
         self.mask_processor: MaskProcessor = MasksToPolygons()
         self.class_overlap_mask_filter: MaskFilter = ClassOverlapMaskFilter()

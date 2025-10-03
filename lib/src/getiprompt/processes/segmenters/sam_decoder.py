@@ -344,9 +344,11 @@ class SamDecoder(nn.Module):
                     )
                     all_used_boxes.add(final_boxes, label)
             else:
-                all_masks.add(torch.empty((0,)), label)
-                all_used_points.add(torch.empty((0,)), label)
-                all_used_boxes.add(torch.empty((0,)), label)
+                # TODO(Eugene): This part feels inconsistent.  # noqa: TD003
+                # It only adds empty points, but not empty masks or boxes.
+                # As a result, len(all_masks), len(all_used_points), and len(all_used_boxes) end up mismatched.
+                # Returning variables with inconsistent lengths is undesirable.
+                all_used_points.add(torch.tensor([]), label)
 
         return all_masks, all_used_points, all_used_boxes
 
@@ -476,10 +478,11 @@ class SamDecoder(nn.Module):
         input_labels = input_labels[nms_indices]
 
         masks = masks.squeeze(1)
-        if similarity_map is None:
+        # TODO(Eugene): in GroundedDINO similarity map is None, in PerDino it's an emppty list  # noqa: TD003
+        if similarity_map is None or len(similarity_map) == 0:
             return masks, input_coords
 
-        mask_sum = (similarity_map * masks).sum(dim=(1, 2))
+        mask_sum = (similarity_map[0] * masks).sum(dim=(1, 2))
         mask_area = masks.sum(dim=(1, 2))
         mask_scores = mask_sum / (mask_area + 1e-6)
         weighted_scores = (mask_scores * mask_weights.T).squeeze(0)
