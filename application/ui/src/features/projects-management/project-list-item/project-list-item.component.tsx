@@ -146,7 +146,12 @@ export const ProjectListItem = ({ project, isInEditMode, onBlur, onRename, onDel
                         <ProjectEdition name={project.name} onBlur={handleBlur(project.id)} />
                     ) : (
                         <Flex alignItems={'center'} gap={'size-100'}>
-                            <PhotoPlaceholder name={project.name} email='' height={'size-300'} width={'size-300'} />
+                            <PhotoPlaceholder
+                                name={project.name}
+                                indicator={project.id}
+                                height={'size-300'}
+                                width={'size-300'}
+                            />
                             <Text>{project.name}</Text>
                         </Flex>
                     )}
