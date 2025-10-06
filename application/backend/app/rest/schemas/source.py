@@ -1,15 +1,27 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any
-from uuid import UUID
 
-from pydantic import BaseModel
+from typing import Annotated, Literal, Union
 
-from db.models.source import SourceType
+from pydantic import BaseModel, Field
+
+from core.components.schemas.reader import ReaderConfig, SourceType
 
 
-class SourceSchema(BaseModel):
-    id: UUID
-    type: SourceType
-    config: dict[str, Any]  # TODO update later with strict schema
+class WebcamSourcePayload(BaseModel):
+    source_type: Literal[SourceType.WEBCAM]
+    name: str = "Default Webcam"
+    device_id: int
+
+
+InputSourcePayload = Union[WebcamSourcePayload]  # noqa UP007, extend this union later
+SourcePayloadSchema = Annotated[InputSourcePayload, Field(discriminator="source_type")]
+
+
+class SourceSchema(ReaderConfig):
+    connected: bool
+
+
+class SourcesListSchema(BaseModel):
+    sources: list[SourceSchema]

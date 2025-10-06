@@ -13,7 +13,7 @@ from rest.schemas.source import SourceSchema
 class ProjectSchema(BaseModel):
     id: UUID
     name: str = Field(max_length=80, min_length=1)
-    source: SourceSchema | None = None
+    sources: list[SourceSchema] | None = None
     processor: ProcessorSchema | None = None
     sink: SinkSchema | None = None
 

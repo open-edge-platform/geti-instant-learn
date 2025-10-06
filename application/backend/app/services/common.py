@@ -55,3 +55,12 @@ class ResourceAlreadyExistsError(ResourceError):
         else:
             msg = message
         super().__init__(resource_type, resource_value, msg)
+
+
+class ResourceUpdateConflictError(ResourceError):
+    """Exception raised when attempting to modify an immutable attribute of a resource."""
+
+    def __init__(self, resource_type: ResourceType, resource_id: str, field: str, message: str | None = None):
+        msg = message or f"{resource_type.value} with ID {resource_id} cannot change immutable field '{field}'."
+        super().__init__(resource_type, resource_id, msg)
+        self.field = field

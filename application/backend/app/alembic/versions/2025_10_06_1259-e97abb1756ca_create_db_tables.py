@@ -3,9 +3,9 @@
 
 """Create DB tables
 
-Revision ID: 8b19996bfac7
+Revision ID: e97abb1756ca
 Revises: 
-Create Date: 2025-09-02 10:50:18.129567+00:00
+Create Date: 2025-10-06 12:59:18.037860+00:00
 
 """
 
@@ -13,13 +13,12 @@ Create Date: 2025-09-02 10:50:18.129567+00:00
 
 from collections.abc import Sequence
 
-from alembic import context, op
+from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import sqlite
 
-
 # revision identifiers, used by Alembic.
-revision: str = '8b19996bfac7'
+revision: str = 'e97abb1756ca'
 down_revision: str | None = None
 branch_labels: str | (Sequence[str] | None) = None
 depends_on: str | (Sequence[str] | None) = None
@@ -62,13 +61,14 @@ def upgrade() -> None:
     sa.UniqueConstraint('project_id')
     )
     op.create_table('Source',
-    sa.Column('type', sa.Enum('VIDEO_FILE', 'WEB_CAMERA', 'IMAGE_DIRECTORY', name='sourcetype'), nullable=False),
+    sa.Column('type', sa.Enum('WEBCAM', name='sourcetype'), nullable=False),
+    sa.Column('name', sa.Text(), nullable=False),
+    sa.Column('connected', sa.Boolean(), nullable=False),
     sa.Column('config', sqlite.JSON(), nullable=False),
     sa.Column('project_id', sa.Uuid(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.ForeignKeyConstraint(['project_id'], ['Project.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('project_id')
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('Annotation',
     sa.Column('config', sqlite.JSON(), nullable=False),

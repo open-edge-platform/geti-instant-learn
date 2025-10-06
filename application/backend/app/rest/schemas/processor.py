@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from db.models.processor import ProcessorType
+from db.models import ProcessorType
 
 
 class ProcessorSchema(BaseModel):

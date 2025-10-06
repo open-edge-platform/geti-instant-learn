@@ -7,7 +7,7 @@ from db.models import ProjectDB
 from rest.schemas.processor import ProcessorSchema
 from rest.schemas.project import ProjectListItem, ProjectPostPayload, ProjectSchema
 from rest.schemas.sink import SinkSchema
-from rest.schemas.source import SourceSchema
+from services.mappers.source import sources_db_to_schemas
 
 
 def project_db_to_schema(project: ProjectDB) -> ProjectSchema:
@@ -17,15 +17,7 @@ def project_db_to_schema(project: ProjectDB) -> ProjectSchema:
     return ProjectSchema(
         id=project.id,
         name=project.name,
-        source=(
-            SourceSchema(
-                id=project.source.id,
-                type=project.source.type,
-                config=project.source.config,
-            )
-            if project.source
-            else None
-        ),
+        sources=sources_db_to_schemas(sources=project.sources),
         processor=(
             ProcessorSchema(
                 id=project.processor.id,
