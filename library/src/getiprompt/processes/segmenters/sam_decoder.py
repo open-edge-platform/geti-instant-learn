@@ -221,8 +221,8 @@ class SamDecoder(nn.Module):
             The preprocessed points (with scores in last dimension) and labels
         """
         # Separate Positive and Negative Points ---
-        positive_mask = (labels == 1).squeeze()
-        negative_mask = (labels == 0).squeeze()
+        positive_mask = (labels == 1).squeeze(1)
+        negative_mask = (labels == 0).squeeze(1)
 
         # Get the corresponding coordinates and scores
         positive_coords = points[positive_mask]
@@ -233,6 +233,10 @@ class SamDecoder(nn.Module):
         # Get the counts
         num_positive = positive_coords.shape[0]
         num_negative = negative_coords.shape[0]
+
+        if num_negative == 0:
+            final_point_coords = torch.cat([positive_coords, positive_scores.unsqueeze(-1)], dim=-1)
+            return positive_coords, labels
 
         # Combine each positive point with all negative points
         expanded_negative_coords = negative_coords.squeeze(1).expand(num_positive, -1, -1)
@@ -328,7 +332,7 @@ class SamDecoder(nn.Module):
                     all_masks.add(final_mask, label)
 
                 # Apply inverse coordinate transformation only to x, y coordinates
-                if final_points is not None:
+                if final_points is not None and len(final_points) > 0:
                     final_points[:, :2] = self.transform.apply_inverse_coords_torch(
                         final_points[:, :2],  # Just the x, y coordinates
                         original_size,
@@ -337,7 +341,7 @@ class SamDecoder(nn.Module):
                     remapped_points = self.remap_preprocessed_points(final_points)
                     all_used_points.add(remapped_points, label)
 
-                if final_boxes is not None:
+                if final_boxes is not None and len(final_boxes) > 0:
                     final_boxes[:, :4] = self.transform.apply_inverse_coords_torch(
                         final_boxes[:, :4],
                         original_size,
