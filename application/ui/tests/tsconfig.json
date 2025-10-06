@@ -1,13 +1,10 @@
 {
-  "extends": "@geti/config/typescript",
+  "extends": "../tsconfig.json",
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
       "@geti-prompt/test-fixtures": ["./fixtures"]
     }
   },
-  "references": [{
-    "path": "../tsconfig.json"
-  }],
   "include": ["./"],
 }
