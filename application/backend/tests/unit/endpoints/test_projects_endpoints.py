@@ -31,7 +31,9 @@ SINK_ID = uuid4()
 class FakeSource:
     id: UUID
     type: str
+    name: str
     config: dict
+    connected: bool = False
 
 
 @dataclass
@@ -52,13 +54,19 @@ class FakeSink:
 class FakeProject:
     id: UUID
     name: str
-    source: FakeSource | None = None
+    sources: list[FakeSource] | None = None
     processor: FakeProcessor | None = None
     sink: FakeSink | None = None
 
 
 def make_source() -> FakeSource:
-    return FakeSource(id=SOURCE_ID, type="VIDEO_FILE", config={"path": "/tmp/data.txt"})
+    return FakeSource(
+        id=SOURCE_ID,
+        type="webcam",
+        name="src1",
+        config={"device_id": 12345},
+        connected=False,
+    )
 
 
 def make_processor() -> FakeProcessor:
@@ -81,10 +89,11 @@ def make_project(
     processor: FakeProcessor | None = None,
     sink: FakeSink | None = None,
 ) -> FakeProject:
+    sources = [source] if source else []
     return FakeProject(
         id=project_id,
         name=name,
-        source=source,
+        sources=sources,
         processor=processor,
         sink=sink,
     )
@@ -93,7 +102,7 @@ def make_project(
 def assert_minimal_project_payload(data: dict, project_id: str, name: str):
     assert data["id"] == project_id
     assert data["name"] == name
-    assert data["source"] is None
+    assert data["sources"] == []
     assert data["processor"] is None
     assert data["sink"] is None
 
@@ -101,11 +110,13 @@ def assert_minimal_project_payload(data: dict, project_id: str, name: str):
 def assert_full_project_payload(data: dict):
     assert data["id"] == PROJECT_ID_STR
     assert data["name"] == "fullproj"
-    assert data["source"] == {
-        "id": str(SOURCE_ID),
-        "type": "VIDEO_FILE",
-        "config": {"path": "/tmp/data.txt"},
-    }
+    assert isinstance(data["sources"], list) and len(data["sources"]) == 1
+    src = data["sources"][0]
+    assert src["id"] == str(SOURCE_ID)
+    assert src["source_type"] == "webcam"
+    assert src["name"] == "src1"
+    assert src["device_id"] == 12345
+    assert src["connected"] is False
     assert data["processor"] == {
         "id": str(PROCESSOR_ID),
         "type": "DUMMY",
