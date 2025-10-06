@@ -3,10 +3,12 @@
 
 import logging
 from collections.abc import Generator
+from sqlite3 import Connection
 from typing import Annotated, Any
 
 from fastapi import Depends
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from alembic import command
@@ -26,6 +28,15 @@ logger.debug(f"Creating engine using SQLite DB: {DATABASE_URL}")
 engine = create_engine(url=DATABASE_URL, connect_args={"check_same_thread": False})
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection: Connection, _: Any) -> None:
+    """Enable foreign key support for SQLite."""
+    # https://docs.sqlalchemy.org/en/20/dialects/sqlite.html#foreign-key-support
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 
 
 def get_session() -> Generator[Session, Any]:
