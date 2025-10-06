@@ -8,8 +8,6 @@ from uuid import UUID
 from db.models import SourceDB
 from rest.schemas.source import SourcePayloadSchema, SourceSchema
 
-COMMON_FIELDS = {"source_type", "name", "id"}
-
 
 def source_db_to_schema(source: SourceDB) -> SourceSchema:
     """
