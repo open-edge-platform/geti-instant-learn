@@ -10,7 +10,7 @@ from core.components.schemas.reader import ReaderConfig, SourceType
 
 
 class WebcamSourcePayload(BaseModel):
-    source_type: Literal[SourceType.WEBCAM]
+    source_type: Literal[SourceType.WEBCAM]  # type: ignore[valid-type]
     name: str = "Default Webcam"
     device_id: int
 
