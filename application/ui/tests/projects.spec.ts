@@ -7,16 +7,16 @@ import { expect, http, test } from '@geti-prompt/test-fixtures';
 import { NetworkFixture } from '@msw/playwright';
 import { Page } from '@playwright/test';
 
-import { Project } from '../src/api';
+import { ProjectListItemType } from '../src/api';
 
 const registerApiProjects = ({
     network,
     defaultProjects = [],
 }: {
     network: NetworkFixture;
-    defaultProjects: Project[];
+    defaultProjects: ProjectListItemType[];
 }) => {
-    let projects: Project[] = [...defaultProjects];
+    let projects: ProjectListItemType[] = [...defaultProjects];
 
     network.use(
         http.get('/api/v1/projects', ({ response }) =>
@@ -40,7 +40,7 @@ const registerApiProjects = ({
         http.post('/api/v1/projects', async ({ response, request }) => {
             const body = await request.json();
 
-            projects.push(body as Project);
+            projects.push(body as ProjectListItemType);
 
             // @ts-expect-error We don't rely on the update response in the UI
             return response(201).json(body);
@@ -128,7 +128,7 @@ test.describe('Projects', () => {
             network,
             page,
         }) => {
-            const project: Project = {
+            const project: ProjectListItemType = {
                 id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                 name: 'Cool project',
             };
@@ -143,7 +143,7 @@ test.describe('Projects', () => {
         });
 
         test('Shows error page when the URL contains invalid project ID', async ({ network, page }) => {
-            const project: Project = {
+            const project: ProjectListItemType = {
                 id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                 name: 'Cool project',
             };
@@ -183,7 +183,7 @@ test.describe('Projects', () => {
             'Navigates to the projects list page when the URL does not contain project ID and there are ' +
                 'at least two projects',
             async ({ page, network }) => {
-                const projects: Project[] = [
+                const projects: ProjectListItemType[] = [
                     {
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
@@ -216,7 +216,7 @@ test.describe('Projects', () => {
             "Navigates to the project's details page when the URL does not contain project ID and there is " +
                 'only one project',
             async ({ network, page }) => {
-                const projects: Project[] = [
+                const projects: ProjectListItemType[] = [
                     {
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
