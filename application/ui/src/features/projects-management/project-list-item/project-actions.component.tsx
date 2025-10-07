@@ -19,6 +19,10 @@ const useOnOutsideClick = (textFieldRef: RefObject<TextFieldRef | null>, onClick
     const resetProjectInEditionRef = useRef(onClickOutside);
 
     useEffect(() => {
+        resetProjectInEditionRef.current = onClickOutside;
+    }, [onClickOutside]);
+
+    useEffect(() => {
         const abortController = new AbortController();
 
         document.addEventListener(
