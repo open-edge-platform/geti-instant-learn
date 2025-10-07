@@ -7,9 +7,9 @@ from uuid import UUID
 from fastapi import HTTPException, Response, status
 
 from dependencies import SessionDep
-from rest.schemas.source import SourcePayloadSchema, SourceSchema, SourcesListSchema
 from routers import projects_router
 from services.common import ResourceNotFoundError, ResourceUpdateConflictError
+from services.schemas.source import SourceCreateSchema, SourceSchema, SourcesListSchema, SourceUpdateSchema
 from services.source import SourceService
 
 logger = logging.getLogger(__name__)
@@ -39,11 +39,37 @@ def get_sources(project_id: UUID, db_session: SessionDep) -> SourcesListSchema:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list sources.")
 
 
+@projects_router.post(
+    path="/{project_id}/sources",
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_201_CREATED: {"description": "Source created."},
+        status.HTTP_404_NOT_FOUND: {"description": "Project not found."},
+        status.HTTP_409_CONFLICT: {"description": "Source of this type already exists in project."},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
+    },
+)
+def create_source(project_id: UUID, payload: SourceCreateSchema, db_session: SessionDep) -> SourceSchema:
+    """
+    Create a new source configuration for the project.
+    """
+    logger.debug(f"Received POST source request for project {project_id} with payload: {payload}.")
+    service = SourceService(db_session)
+    try:
+        return service.create_source(project_id=project_id, create_data=payload)
+    except ResourceUpdateConflictError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except ResourceNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception:
+        logger.exception(f"Error creating source for project {project_id}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create source.")
+
+
 @projects_router.put(
     path="/{project_id}/sources/{source_id}",
     status_code=status.HTTP_200_OK,
     responses={
-        status.HTTP_201_CREATED: {"description": "Successfully created the configuration for the project's source."},
         status.HTTP_200_OK: {"description": "Successfully updated the configuration for the project's source."},
         status.HTTP_404_NOT_FOUND: {"description": "Project or source not found."},
         status.HTTP_409_CONFLICT: {"description": "Source type change is not allowed."},
@@ -51,7 +77,7 @@ def get_sources(project_id: UUID, db_session: SessionDep) -> SourcesListSchema:
     },
 )
 def update_source(
-    project_id: UUID, source_id: UUID, payload: SourcePayloadSchema, db_session: SessionDep, response: Response
+    project_id: UUID, source_id: UUID, payload: SourceUpdateSchema, db_session: SessionDep
 ) -> SourceSchema:
     """
     Update the project's source configuration.
@@ -59,9 +85,7 @@ def update_source(
     logger.debug(f"Received PUT source {source_id} request for project {project_id}.")
     service = SourceService(db_session)
     try:
-        source, created = service.upsert_source(project_id=project_id, source_id=source_id, payload=payload)
-        response.status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
-        return source
+        return service.update_source(project_id=project_id, source_id=source_id, update_data=payload)
     except ResourceUpdateConflictError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except ResourceNotFoundError as e:

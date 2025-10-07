@@ -8,11 +8,11 @@ from unittest.mock import MagicMock
 import pytest
 
 from core.components.schemas.reader import SourceType
-from rest.schemas.source import WebcamSourcePayload
 from services.common import (
     ResourceNotFoundError,
     ResourceUpdateConflictError,
 )
+from services.schemas.source import WebcamSourcePayload
 from services.source import SourceService
 
 

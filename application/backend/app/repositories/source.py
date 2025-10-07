@@ -5,9 +5,10 @@ import logging
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from core.components.schemas.reader import SourceType
 from db.models import SourceDB
 from repositories.common import BaseRepository
 
@@ -70,4 +71,14 @@ class SourceRepository(BaseRepository):
         Retrieve the connected source in a project (if any).
         """
         stmt = select(SourceDB).where(SourceDB.project_id == project_id, SourceDB.connected.is_(True))
+        return self.session.scalars(stmt).first()
+
+    def get_by_type_in_project(self, project_id: UUID, source_type: SourceType) -> SourceDB | None:
+        """
+        Retrieve source of a given source_type in a project.
+        """
+        stmt = select(SourceDB).where(
+            SourceDB.project_id == project_id,
+            func.json_extract(SourceDB.config, "$.source_type") == source_type,
+        )
         return self.session.scalars(stmt).first()

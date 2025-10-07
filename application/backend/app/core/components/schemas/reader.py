@@ -3,18 +3,19 @@
 
 from enum import StrEnum
 from typing import Annotated, Literal
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 
 class SourceType(StrEnum):
     WEBCAM = "webcam"
+    IP_CAMERA = "ip_camera"
+    VIDEO_FILE = "video_file"
+    IMAGES_FOLDER = "images_folder"
 
 
 class WebCamConfig(BaseModel):
     source_type: Literal[SourceType.WEBCAM]
-    id: UUID
     device_id: int
     name: str
 
@@ -23,11 +24,28 @@ class WebCamConfig(BaseModel):
             "example": {
                 "source_type": "webcam",
                 "name": "Webcam 0",
-                "id": "f9e0ae4f-d96c-4304-baab-2ab845362d03",
                 "device_id": 0,
             }
         }
     }
 
 
-ReaderConfig = Annotated[WebCamConfig, Field(discriminator="source_type")]
+class IPCameraConfig(BaseModel):
+    source_type: Literal[SourceType.IP_CAMERA]
+    stream_url: str
+    auth_required: bool = False
+    name: str
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "source_type": "ip_camera",
+                "name": "Street Camera 123",
+                "stream_url": "http://example.com/stream",
+                "auth_required": True,
+            }
+        }
+    }
+
+
+ReaderConfig = Annotated[WebCamConfig | IPCameraConfig, Field(discriminator="source_type")]

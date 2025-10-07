@@ -9,13 +9,13 @@ from fastapi.testclient import TestClient
 
 from core.components.schemas.reader import SourceType
 from dependencies import SessionDep  # type: ignore
-from rest.schemas.source import SourceSchema, SourcesListSchema
 from routers import projects_router
 from services.common import (
     ResourceNotFoundError,
     ResourceType,
     ResourceUpdateConflictError,
 )
+from services.schemas.source import SourceSchema, SourcesListSchema
 
 PROJECT_ID = uuid4()
 PROJECT_ID_STR = str(PROJECT_ID)

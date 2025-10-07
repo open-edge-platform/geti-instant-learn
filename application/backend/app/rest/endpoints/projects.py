@@ -13,15 +13,15 @@ from rest.mappers.project import (
     project_post_payload_to_db,
     projects_db_to_list_items,
 )
-from rest.schemas.project import (
+from routers import projects_router
+from services.common import ResourceAlreadyExistsError, ResourceNotFoundError
+from services.project import ProjectService
+from services.schemas.project import (
     ProjectPostPayload,
     ProjectPutPayload,
     ProjectSchema,
     ProjectsListSchema,
 )
-from routers import projects_router
-from services.common import ResourceAlreadyExistsError, ResourceNotFoundError
-from services.project import ProjectService
 
 logger = logging.getLogger(__name__)
 

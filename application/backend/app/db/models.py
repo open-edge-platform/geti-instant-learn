@@ -4,11 +4,9 @@
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Text, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Text, UniqueConstraint, text
 from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-
-from core.components.schemas.reader import SourceType
 
 
 class Base(DeclarativeBase):
@@ -37,12 +35,19 @@ class AnnotationDB(Base):
 
 class SourceDB(Base):
     __tablename__ = "Source"
-    type: Mapped[SourceType] = mapped_column(nullable=False)
-    name: Mapped[str] = mapped_column(Text, nullable=False)
     connected: Mapped[bool] = mapped_column(nullable=False, default=False)
     config: Mapped[dict] = mapped_column(JSON, nullable=False)
     project_id: Mapped[UUID] = mapped_column(ForeignKey("Project.id", ondelete="CASCADE"))
     project: Mapped["ProjectDB"] = relationship(back_populates="sources")
+    __table_args__ = (
+        Index(
+            # ensures at most one source of each type per project
+            "uq_source_type_per_project",
+            "project_id",
+            text("json_extract(config, '$.source_type')"),
+            unique=True,
+        ),
+    )
 
 
 class SinkDB(Base):
