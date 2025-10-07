@@ -56,8 +56,8 @@ export const ProjectListItem = ({
     };
 
     return (
-        <li className={styles.projectListItem}>
-            <Link to={paths.project({ projectId: project.id })} onClick={handleItemClick} aria-label={`Project ${project.name}`}>
+        <li className={styles.projectListItem} aria-label={`Project ${project.name}`}>
+            <Link to={paths.project({ projectId: project.id })} onClick={handleItemClick}>
                 <Flex justifyContent='space-between' alignItems='center' marginX={'size-200'}>
                     {isInEditMode ? (
                         <ProjectEdition
