@@ -21,6 +21,7 @@ interface ProjectListItemProps {
     onRename: (projectId: string) => void;
     onDelete: (projectId: string) => void;
     onResetProjectInEdition: () => void;
+    projectNames: string[];
 }
 
 export const ProjectListItem = ({
@@ -30,6 +31,7 @@ export const ProjectListItem = ({
     onRename,
     onDelete,
     onResetProjectInEdition,
+    projectNames,
 }: ProjectListItemProps) => {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
 
@@ -64,6 +66,7 @@ export const ProjectListItem = ({
                             name={project.name}
                             onBlur={handleBlur(project.id)}
                             onResetProjectInEdition={onResetProjectInEdition}
+                            projectNames={projectNames}
                         />
                     ) : (
                         <Flex alignItems={'center'} gap={'size-100'}>
