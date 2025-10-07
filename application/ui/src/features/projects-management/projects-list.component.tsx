@@ -47,7 +47,7 @@ export const ProjectsList = ({ projects, setProjectInEdition, projectIdInEdition
             return;
         }
 
-        updateProjectName(projectId, newName);
+        updateProjectName(id, newName);
     };
 
     const handleRename = (id: string) => {
