@@ -49,25 +49,6 @@ class SourceService:
         self.source_repository = SourceRepository(session=session)
         self.project_repository = ProjectRepository(session=session)
 
-    def _ensure_project(self, project_id: UUID) -> ProjectDB:
-        """
-        Ensure the project exists.
-
-        Parameters:
-            project_id: Target project UUID.
-
-        Returns:
-            The ProjectDB entity.
-
-        Raises:
-            ResourceNotFoundError: If the project does not exist.
-        """
-        project = self.project_repository.get_by_id(project_id)
-        if not project:
-            logger.error("Project not found id=%s", project_id)
-            raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
-        return project
-
     def list_sources(self, project_id: UUID) -> SourcesListSchema:
         """
         List all sources belonging to a project.
@@ -113,7 +94,7 @@ class SourceService:
         )
         if existing_same_type:
             logger.error(
-                "Duplicate source_type in project create attempt project_id=%s source_type=%s existing_id=%s",
+                "Cannot create source: project_id=%s already has source_type=%s (existing source_id=%s)",
                 project_id,
                 source_type_value,
                 existing_same_type.id,
@@ -124,16 +105,19 @@ class SourceService:
                 field="source_type",
                 message=f"Project {project_id} already has a source of type {source_type_value}",
             )
-
+        if create_data.connected:
+            self._disconnect_existing_connected_source(project_id=project_id)
         new_source: SourceDB = source_schema_to_db(schema=create_data, project_id=project_id)
         self.source_repository.add(new_source)
         self.session.commit()
         self.session.refresh(new_source)
         logger.info(
-            "Created source id=%s project_id=%s source_type=%s",
+            "Source created: source_id=%s project_id=%s source_type=%s connected=%s config=%s",
             new_source.id,
             project_id,
             source_type_value,
+            new_source.connected,
+            new_source.config,
         )
         return source_db_to_schema(new_source)
 
@@ -149,17 +133,15 @@ class SourceService:
         self._ensure_project(project_id)
         source = self.source_repository.get_by_id_and_project(source_id, project_id)
         if not source:
-            logger.error(
-                "Update failed; source not found id=%s project_id=%s",
-                source_id,
-                project_id,
-            )
+            logger.error("Update failed; source not found id=%s project_id=%s", source_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.SOURCE, resource_id=str(source_id))
+
         existing_type = source.config.get("source_type")
         incoming_type = update_data.config.source_type.value
         if existing_type != incoming_type:
             logger.error(
-                "source_type change forbidden id=%s project_id=%s existing=%s incoming=%s",
+                "Cannot update source: source_type change forbidden for source_id=%s project_id=%s "
+                "(existing=%s, incoming=%s)",
                 source_id,
                 project_id,
                 existing_type,
@@ -170,15 +152,21 @@ class SourceService:
                 resource_id=str(source_id),
                 field="source_type",
             )
+        if update_data.connected and not source.connected:
+            self._disconnect_existing_connected_source(project_id=project_id)
+
         source.connected = update_data.connected
         source.config = update_data.config.model_dump()
+
         self.session.commit()
         self.session.refresh(source)
         logger.info(
-            "Updated source id=%s project_id=%s source_type=%s",
+            "Source updated: source_id=%s project_id=%s source_type=%s connected=%s config=%s",
             source_id,
             project_id,
             existing_type,
+            source.connected,
+            source.config,
         )
         return source_db_to_schema(source)
 
@@ -196,12 +184,41 @@ class SourceService:
         self._ensure_project(project_id)
         source = self.source_repository.get_by_id_and_project(source_id=source_id, project_id=project_id)
         if not source:
-            logger.error("Source delete failed (not found), source_id=%s project_id=%s", source_id, project_id)
+            logger.error("Cannot delete source: source_id=%s not found in project_id=%s", source_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.SOURCE, resource_id=str(source_id))
         self.source_repository.delete(source)
         self.session.commit()
-        logger.info(
-            "Source deleted: source_id=%s project_id=%s",
-            source_id,
-            project_id,
-        )
+        logger.info("Source deleted: source_id=%s project_id=%s", source_id, project_id)
+
+    def _ensure_project(self, project_id: UUID) -> ProjectDB:
+        """
+        Ensure the project exists.
+
+        Parameters:
+            project_id: Target project UUID.
+
+        Returns:
+            The ProjectDB entity.
+
+        Raises:
+            ResourceNotFoundError: If the project does not exist.
+        """
+        project = self.project_repository.get_by_id(project_id)
+        if not project:
+            logger.error("Project not found id=%s", project_id)
+            raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
+        return project
+
+    def _disconnect_existing_connected_source(self, project_id: UUID) -> None:
+        """
+        Disconnect any currently connected source in the project, except the one with exclude_id.
+        Does not commit by itself; caller commits.
+        """
+        connected_source = self.source_repository.get_connected_in_project(project_id)
+        if connected_source:
+            logger.info(
+                "Disconnecting previously connected source: source_id=%s project_id=%s",
+                connected_source.id,
+                project_id,
+            )
+            connected_source.connected = False
