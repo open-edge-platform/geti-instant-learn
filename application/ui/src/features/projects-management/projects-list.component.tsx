@@ -29,7 +29,7 @@ export const ProjectsList = ({ projects, setProjectInEdition, projectIdInEdition
 
     const handleDelete = (id: string): void => {
         deleteProject(id, () => {
-            if (projects.length > 1) {
+            if (projects.length > 1 && id === projectId) {
                 navigate(paths.projects({}));
             } else if (projects.length === 1) {
                 navigate(paths.welcome({}));

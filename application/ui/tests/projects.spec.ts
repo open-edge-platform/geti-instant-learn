@@ -379,7 +379,7 @@ test.describe('Projects', () => {
         await expect(projectPage.getProjectInTheList(project.name)).toBeHidden();
     });
 
-    test('Deletes a project via the project details page', async ({ network, page }) => {
+    test('Deletes a current project via the project details page', async ({ network, page }) => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
@@ -395,10 +395,9 @@ test.describe('Projects', () => {
         });
 
         const projectPage = new ProjectPage(page);
-
-        await projectPage.goto(projects[0].id);
-
         const [project] = projects;
+
+        await projectPage.goto(project.id);
 
         await projectPage.openProjectManagementPanel();
         await projectPage.openProjectMenu(project.name);
@@ -410,6 +409,38 @@ test.describe('Projects', () => {
 
         await expect(projectPage.projectsHeader).toBeVisible();
         await expect(page).toHaveURL('/projects');
+    });
+
+    test('Deletes a not current project via the project details page', async ({ network, page }) => {
+        const projects = registerApiProjects({
+            network,
+            defaultProjects: [
+                {
+                    id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                    name: 'Cool project #1',
+                },
+                {
+                    id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
+                    name: 'Cool project #2',
+                },
+            ],
+        });
+
+        const projectPage = new ProjectPage(page);
+        const [project, secondProject] = projects;
+
+        await projectPage.goto(project.id);
+
+        await projectPage.openProjectManagementPanel();
+        await projectPage.openProjectMenu(secondProject.name);
+        await projectPage.selectMenuItem('Delete');
+
+        await projectPage.delete();
+
+        await expect(projectPage.getProjectInTheList(secondProject.name)).toBeHidden();
+
+        await expect(projectPage.projectsHeader).toBeHidden();
+        await expect(page).toHaveURL(new RegExp(`/projects/${project.id}`));
     });
 
     test('Deletes a project via the project details page (the last project)', async ({ network, page }) => {
