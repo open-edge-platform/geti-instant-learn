@@ -91,10 +91,10 @@ export default [
     },
     ...compat.extends('plugin:playwright/playwright-test').map((config) => ({
         ...config,
-        files: ['tests/**/*.ts', 'tests/utils/**/*.ts', 'tests/**/*.ts', 'tests/e2e/**/*.ts'],
+        files: ['tests/**/*.ts'],
     })),
     {
-        files: ['tests/**/*.ts', 'tests/utils/**/*.ts', 'tests/**/*.ts', 'tests/e2e/**/*.ts'],
+        files: ['tests/**/*.ts'],
 
         rules: {
             'playwright/no-wait-for-selector': ['off'],
