@@ -3,8 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ActionButton, Flex, Text, Tooltip, TooltipTrigger } from '@geti/ui';
-import { Close, Edit } from '@geti/ui/icons';
+import { Flex, Text } from '@geti/ui';
 import { clsx } from 'clsx';
 import { useHover, usePress } from 'react-aria';
 
@@ -16,10 +15,10 @@ interface LabelIndicatorProps {
     label: Label;
     isSelected: boolean;
     onClick: () => void;
-    deleteLabel: () => void;
+    children: React.ReactNode;
 }
 
-export const LabelBadge = ({ label, isSelected, onClick, deleteLabel }: LabelIndicatorProps) => {
+export const LabelBadge = ({ label, isSelected, onClick, children: actionButtons }: LabelIndicatorProps) => {
     const { hoverProps, isHovered } = useHover({});
     const { pressProps } = usePress({
         onPress: onClick,
@@ -37,27 +36,7 @@ export const LabelBadge = ({ label, isSelected, onClick, deleteLabel }: LabelInd
                 <Flex
                     UNSAFE_className={clsx(classes.buttonsContainer, { [classes.buttonsContainerOpened]: isHovered })}
                 >
-                    <TooltipTrigger placement={'bottom'}>
-                        <ActionButton
-                            aria-label={`Edit ${label.name} label`}
-                            isQuiet
-                            UNSAFE_className={classes.iconButton}
-                        >
-                            <Edit />
-                        </ActionButton>
-                        <Tooltip>Edit label name</Tooltip>
-                    </TooltipTrigger>
-                    <TooltipTrigger placement={'bottom'}>
-                        <ActionButton
-                            aria-label={`Delete ${label.name} label`}
-                            isQuiet
-                            UNSAFE_className={classes.iconButton}
-                            onPress={deleteLabel}
-                        >
-                            <Close />
-                        </ActionButton>
-                        <Tooltip>Delete label</Tooltip>
-                    </TooltipTrigger>
+                    {actionButtons}
                 </Flex>
             </div>
         </div>

@@ -5,12 +5,15 @@
 
 import { useState } from 'react';
 
-import { Flex } from '@geti/ui';
+import { ActionButton, Flex, Tooltip, TooltipTrigger } from '@geti/ui';
+import { Close, Edit } from '@geti/ui/icons';
 import { v4 as uuid } from 'uuid';
 
 import { AddLabel } from './add-label.component';
 import { LabelBadge } from './label-badge.component';
 import { Label } from './label.interface';
+
+import classes from './labels.module.css';
 
 export const Labels = () => {
     const [labels, setLabels] = useState<Array<Label>>([
@@ -21,6 +24,9 @@ export const Labels = () => {
 
     const [selectedLabelId, setSelectedLabelId] = useState<string | null>(null);
 
+    const deleteLabels = (id: string) => setLabels(labels.filter((item) => item.id !== id));
+    const editLabel = () => alert('Edit label - to be implemented');
+
     return (
         <Flex height={'100%'} alignItems={'center'} width={'100%'}>
             <Flex gap='size-200' margin={'size-50'} wrap={'wrap'} width={'100%'}>
@@ -30,8 +36,30 @@ export const Labels = () => {
                         key={label.id}
                         label={label}
                         isSelected={selectedLabelId === label.id}
-                        deleteLabel={() => setLabels(labels.filter((item) => item.id !== label.id))}
-                    />
+                    >
+                        <TooltipTrigger placement={'bottom'}>
+                            <ActionButton
+                                aria-label={`Edit ${label.name} label`}
+                                isQuiet
+                                UNSAFE_className={classes.iconButton}
+                                onPress={editLabel}
+                            >
+                                <Edit />
+                            </ActionButton>
+                            <Tooltip>Edit label name</Tooltip>
+                        </TooltipTrigger>
+                        <TooltipTrigger placement={'bottom'}>
+                            <ActionButton
+                                aria-label={`Delete ${label.name} label`}
+                                isQuiet
+                                UNSAFE_className={classes.iconButton}
+                                onPress={() => deleteLabels(label.id)}
+                            >
+                                <Close />
+                            </ActionButton>
+                            <Tooltip>Delete label</Tooltip>
+                        </TooltipTrigger>
+                    </LabelBadge>
                 ))}
                 <Flex alignSelf={'flex-end'} flex={1} justifyContent={'end'}>
                     <AddLabel addLabel={(label) => setLabels([...labels, label])} />

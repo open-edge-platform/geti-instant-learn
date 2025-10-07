@@ -26,16 +26,6 @@
     }
 }
 
-.iconButton {
-    background-color: transparent;
-    height: min-content;
-
-    &[class*='is-hovered'] {
-        background-color: transparent !important;
-        border: none !important;
-    }
-}
-
 .selected,
 .selected:focus {
     outline-offset: var(--spectrum-global-dimension-size-50);
