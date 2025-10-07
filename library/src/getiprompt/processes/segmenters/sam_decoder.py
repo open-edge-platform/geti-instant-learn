@@ -74,6 +74,11 @@ class SamDecoder(nn.Module):
 
         Returns:
             A tuple of preprocessed images, preprocessed points, and original sizes.
+
+        TODO(Eugene): Unwrap getiprompt.Priors and getiprompt.Image into pure tensors for the SAM predictor.
+        Consider moving this to a dedicated preprocessing module once the data flow is finalized.
+        https://github.com/open-edge-platform/geti-prompt/issues/174
+
         """
         preprocessed_images = []
         preprocessed_points = []
@@ -320,7 +325,7 @@ class SamDecoder(nn.Module):
         for label, points_per_class, boxes_per_class, similarity_map in zip(
             labels, class_points_list, class_boxes_list, similarity_maps, strict=True
         ):
-            final_masks, final_points, final_boxes = self._predict(
+            final_masks, final_points, final_boxes = self.predict(
                 points_per_class=points_per_class,  # Extract only x, y coordinates for SAM predictor
                 boxes_per_class=boxes_per_class,
                 similarity_map=similarity_map,
@@ -348,15 +353,16 @@ class SamDecoder(nn.Module):
                     )
                     all_used_boxes.add(final_boxes, label)
             else:
-                # TODO(Eugene): This part feels inconsistent.  # noqa: TD003
+                # TODO(Eugene): This part feels inconsistent.
                 # It only adds empty points, but not empty masks or boxes.
                 # As a result, len(all_masks), len(all_used_points), and len(all_used_boxes) end up mismatched.
                 # Returning variables with inconsistent lengths is undesirable.
+                # https://github.com/open-edge-platform/geti-prompt/issues/174
                 all_used_points.add(torch.tensor([]), label)
 
         return all_masks, all_used_points, all_used_boxes
 
-    def _predict(
+    def predict(
         self,
         points_per_class: torch.Tensor,
         boxes_per_class: torch.Tensor,
@@ -482,7 +488,9 @@ class SamDecoder(nn.Module):
         input_labels = input_labels[nms_indices]
 
         masks = masks.squeeze(1)
-        # TODO(Eugene): in GroundedDINO similarity map is None, in PerDino it's an emppty list  # noqa: TD003
+        # TODO(Eugene): in GroundedDINO similarity map is None, in PerDino it's an emppty list
+        # Refactor this to use a more consistent approach.
+        # https://github.com/open-edge-platform/geti-prompt/issues/174
         if similarity_map is None or len(similarity_map) == 0:
             return masks, input_coords
 
