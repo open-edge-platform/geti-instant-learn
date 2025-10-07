@@ -8,7 +8,7 @@ import { Key, MouseEventHandler, useState } from 'react';
 import { $api } from '@geti-prompt/api';
 import { ActionButton, Flex, Grid, Heading, PhotoPlaceholder, repeat, Text, View } from '@geti/ui';
 import { AddCircle } from '@geti/ui/icons';
-import { useNavigate } from 'react-router';
+import { Link } from 'react-router-dom';
 
 import { SchemaProjectListItem as Project } from '../../../api/openapi-spec';
 import { paths } from '../../../routes/paths';
@@ -61,11 +61,6 @@ const ProjectCard = ({ project }: ProjectCardProps) => {
     const [projectIDInEdition, setProjectIdInEdition] = useState<string | null>(null);
     const updateProjectName = useUpdateProject();
     const deleteProject = useDeleteProject();
-    const navigate = useNavigate();
-
-    const handleNavigateToProject = () => {
-        navigate(paths.project({ projectId: project.id }));
-    };
 
     const handleAction = (key: Key) => {
         if (key === PROJECT_ACTIONS.RENAME) {
@@ -92,21 +87,21 @@ const ProjectCard = ({ project }: ProjectCardProps) => {
         setProjectIdInEdition(null);
     };
 
-    const handleCardClick: MouseEventHandler<HTMLDivElement> = () => {
+    const handleCardClick: MouseEventHandler<HTMLAnchorElement> = (event) => {
         if (isInEditionState) {
-            handleResetProjectInEdition();
+            event.preventDefault();
 
             return;
         }
-        handleNavigateToProject();
     };
 
     return (
-        <div
+        <Link
+            to={paths.project({ projectId: project.id })}
             className={styles.projectCard}
             onClick={handleCardClick}
-            aria-label={`Project ${project.name}`}
             role={'listitem'}
+            aria-label={`Project ${project.name}`}
         >
             <PhotoPlaceholder name={project.name} indicator={project.id} width={'size-800'} height={'size-800'} />
             <View flex={1} paddingStart={'size-200'} paddingEnd={'size-100'}>
@@ -133,7 +128,7 @@ const ProjectCard = ({ project }: ProjectCardProps) => {
                     />
                 </Flex>
             </View>
-        </div>
+        </Link>
     );
 };
 

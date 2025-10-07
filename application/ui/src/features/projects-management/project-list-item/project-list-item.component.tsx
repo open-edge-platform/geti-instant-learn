@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Key, useState } from 'react';
+import { Key, MouseEventHandler, useState } from 'react';
 
 import { type Project } from '@geti-prompt/api';
 import { Flex, PhotoPlaceholder, Text } from '@geti/ui';
-import { useNavigate } from 'react-router';
+import { Link } from 'react-router-dom';
 
 import { paths } from '../../../routes/paths';
 import { DeleteProjectDialog, PROJECT_ACTIONS, ProjectActions, ProjectEdition } from './project-actions.component';
@@ -32,7 +32,6 @@ export const ProjectListItem = ({
     onResetProjectInEdition,
 }: ProjectListItemProps) => {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
-    const navigate = useNavigate();
 
     const handleAction = (key: Key) => {
         if (key === PROJECT_ACTIONS.RENAME) {
@@ -50,22 +49,15 @@ export const ProjectListItem = ({
         onDelete(project.id);
     };
 
-    const handleNavigateToProject = () => {
-        navigate(paths.project({ projectId: project.id }));
-    };
-
-    const handleItemClick = () => {
+    const handleItemClick: MouseEventHandler<HTMLAnchorElement> = (event) => {
         if (isInEditMode) {
-            onResetProjectInEdition();
-            return;
+            event.preventDefault();
         }
-
-        handleNavigateToProject();
     };
 
     return (
-        <>
-            <li className={styles.projectListItem} onClick={handleItemClick} aria-label={`Project ${project.name}`}>
+        <li className={styles.projectListItem}>
+            <Link to={paths.project({ projectId: project.id })} onClick={handleItemClick} aria-label={`Project ${project.name}`}>
                 <Flex justifyContent='space-between' alignItems='center' marginX={'size-200'}>
                     {isInEditMode ? (
                         <ProjectEdition
@@ -86,13 +78,13 @@ export const ProjectListItem = ({
                     )}
                     <ProjectActions onAction={handleAction} />
                 </Flex>
-            </li>
+            </Link>
             <DeleteProjectDialog
                 isOpen={isDeleteDialogOpen}
                 onDismiss={() => setIsDeleteDialogOpen(false)}
                 onDelete={handleDelete}
                 projectName={project.name}
             />
-        </>
+        </li>
     );
 };

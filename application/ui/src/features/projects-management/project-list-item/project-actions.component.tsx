@@ -17,6 +17,7 @@ interface ProjectEditionProps {
 
 export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition }: ProjectEditionProps) => {
     const textFieldRef = useRef<TextFieldRef>(null);
+    const resetProjectInEditionRef = useRef(onResetProjectInEdition);
     const [newName, setNewName] = useState<string>(name);
 
     const handleBlur = () => {
@@ -42,8 +43,32 @@ export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition }: Projec
         textFieldRef.current?.select();
     }, []);
 
+    useEffect(() => {
+        const abortController = new AbortController();
+
+        document.addEventListener(
+            'click',
+            (event) => {
+                if (!textFieldRef.current?.UNSAFE_getDOMNode()?.contains(event.target as Node)) {
+                    resetProjectInEditionRef.current();
+                }
+            },
+            { signal: abortController.signal }
+        );
+        return () => {
+            abortController.abort();
+        };
+    }, []);
+
     return (
-        <div onClick={(event) => event.stopPropagation()}>
+        <div
+            onClick={(event) => {
+                // The goal of those two lines is to prevent the click event from bubbling up to the parent
+                // and triggering the default behavior of the Link (navigation) when being in edit mode.
+                event.stopPropagation();
+                event.preventDefault();
+            }}
+        >
             <TextField
                 isQuiet
                 ref={textFieldRef}
