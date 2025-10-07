@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Key, KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { Key, KeyboardEvent, RefObject, useEffect, useRef, useState } from 'react';
 
 import { ActionMenu, AlertDialog, DialogContainer, Item, TextField, TextFieldRef } from '@geti/ui';
 
@@ -15,9 +15,29 @@ interface ProjectEditionProps {
     name: string;
 }
 
+const useOnOutsideClick = (textFieldRef: RefObject<TextFieldRef | null>, onClickOutside: () => void) => {
+    const resetProjectInEditionRef = useRef(onClickOutside);
+
+    useEffect(() => {
+        const abortController = new AbortController();
+
+        document.addEventListener(
+            'click',
+            (event) => {
+                if (!textFieldRef.current?.UNSAFE_getDOMNode()?.contains(event.target as Node)) {
+                    resetProjectInEditionRef.current();
+                }
+            },
+            { signal: abortController.signal }
+        );
+        return () => {
+            abortController.abort();
+        };
+    }, [textFieldRef]);
+};
+
 export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition }: ProjectEditionProps) => {
     const textFieldRef = useRef<TextFieldRef>(null);
-    const resetProjectInEditionRef = useRef(onResetProjectInEdition);
     const [newName, setNewName] = useState<string>(name);
 
     const handleBlur = () => {
@@ -43,22 +63,7 @@ export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition }: Projec
         textFieldRef.current?.select();
     }, []);
 
-    useEffect(() => {
-        const abortController = new AbortController();
-
-        document.addEventListener(
-            'click',
-            (event) => {
-                if (!textFieldRef.current?.UNSAFE_getDOMNode()?.contains(event.target as Node)) {
-                    resetProjectInEditionRef.current();
-                }
-            },
-            { signal: abortController.signal }
-        );
-        return () => {
-            abortController.abort();
-        };
-    }, []);
+    useOnOutsideClick(textFieldRef, onResetProjectInEdition);
 
     return (
         <div
