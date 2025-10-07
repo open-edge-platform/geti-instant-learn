@@ -1,0 +1,50 @@
+.badge {
+    background-color: var(--labelBgColor);
+    border-radius: var(--spectrum-alias-border-radius-regular);
+    min-width: 0;
+    max-width: var(--spectrum-global-dimension-size-1600);
+    padding: var(--spectrum-global-dimension-size-50) var(--spectrum-global-dimension-size-100);
+    --foregroundColor: lch(from var(--labelBgColor) calc((50 - l) * infinity) 0 0);
+    --spectrum-high-contrast-button-text: var(--foregroundColor);
+    display: flex;
+}
+
+.buttonsContainer {
+    color: var(--foregroundColor);
+    transition: width 0.6s;
+    width: 0;
+    & > button {
+        opacity: 0;
+        transition: opacity 0.6s;
+    }
+}
+
+.buttonsContainerOpened {
+    width: 80px;
+    & > button {
+        opacity: 1;
+    }
+}
+
+.iconButton {
+    background-color: transparent;
+    height: min-content;
+
+    &[class*='is-hovered'] {
+        background-color: transparent !important;
+        border: none !important;
+    }
+}
+
+.selected,
+.selected:focus {
+    outline-offset: var(--spectrum-global-dimension-size-50);
+    outline: var(--spectrum-global-dimension-size-50) solid var(--labelBgColor);
+}
+
+.buttonText {
+    color: var(--foregroundColor);
+    text-align: center;
+    width: min-content;
+    text-wrap: nowrap;
+}
