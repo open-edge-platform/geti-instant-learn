@@ -21,7 +21,7 @@ from flask import Flask, Response, jsonify, render_template, request, stream_wit
 
 from getiprompt.components.encoders import AVAILABLE_IMAGE_ENCODERS
 from getiprompt.utils.args import get_arguments
-from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
+from getiprompt.utils.constants import DatasetName, SAMModelName
 from getiprompt.utils.data import load_dataset
 from web_ui.helpers import (
     load_and_prepare_data,
