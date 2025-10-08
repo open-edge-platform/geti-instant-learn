@@ -5,7 +5,7 @@
 
 from typing import TYPE_CHECKING
 
-from getiprompt.pipelines import Matcher
+from getiprompt.visual_prompting import Matcher
 from getiprompt.processes.prompt_generators.softmatcher_prompt_generator import SoftmatcherPromptGenerator
 from getiprompt.utils.constants import SAMModelName
 

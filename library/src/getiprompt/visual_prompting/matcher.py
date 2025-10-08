@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 
 from getiprompt.filters.priors import MaxPointFilter, PriorFilter, PriorMaskFromPoints
 from getiprompt.models.models import load_sam_model
-from getiprompt.pipelines.pipeline_base import Pipeline
+from getiprompt.visual_prompting.base import BaseModel
 from getiprompt.processes.encoders import DinoEncoder, Encoder
 from getiprompt.processes.feature_selectors import AllFeaturesSelector, FeatureSelector
-from getiprompt.processes.mask_processors import MaskProcessor, MasksToPolygons
+from getiprompt.processes.mask_processors import MasksToPolygons
 from getiprompt.processes.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.processes.segmenters import SamDecoder, Segmenter
 from getiprompt.types import Image, Priors, Results
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from getiprompt.processes.prompt_generators.prompt_generator_base import PromptGenerator
 
 
-class Matcher(Pipeline):
+class Matcher(BaseModel):
     """This is the Matcher pipeline.
 
     It's based on the paper "[ICLR'24] Matcher: Segment Anything with One Shot Using All-Purpose Feature Matching"
@@ -111,7 +111,7 @@ class Matcher(Pipeline):
             mask_similarity_threshold=mask_similarity_threshold,
         )
         self.prior_mask_from_points: PriorFilter = PriorMaskFromPoints(segmenter=self.segmenter)
-        self.mask_processor: MaskProcessor = MasksToPolygons()
+        self.mask_processor = MasksToPolygons()
         self.reference_features = None
         self.reference_masks = None
 

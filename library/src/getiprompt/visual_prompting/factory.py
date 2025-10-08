@@ -14,12 +14,12 @@ from getiprompt.utils.constants import PipelineName, SAMModelName
 if TYPE_CHECKING:
     from argparse import Namespace
 
-    from getiprompt.pipelines.pipeline_base import Pipeline
+    from getiprompt.visual_prompting.base import BaseModel
 
 logger = logging.getLogger("Geti Prompt")
 
 
-def load_pipeline(sam: SAMModelName, pipeline_name: PipelineName, args: Namespace) -> Pipeline:
+def load_module(sam: SAMModelName, pipeline_name: PipelineName, args: Namespace) -> BaseModel:
     """Instantiate and return the requested pipeline.
 
     Args:
@@ -31,7 +31,7 @@ def load_pipeline(sam: SAMModelName, pipeline_name: PipelineName, args: Namespac
         The instantiated pipeline.
     """
     # Lazy import to avoid circular dependencies during module import time.
-    from getiprompt.pipelines import GroundedSAM, Matcher, PerDino, PerSam, SoftMatcher
+    from getiprompt.visual_prompting import GroundedSAM, Matcher, PerDino, PerSam, SoftMatcher
 
     logger.info("Constructing pipeline: %s", pipeline_name.value)
 

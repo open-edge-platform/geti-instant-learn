@@ -59,14 +59,6 @@ class Encoder(Process):
     def _setup_model(self) -> None:
         """This method initializes the model."""
 
-    @staticmethod
-    def _preprocess(
-        images: list[Image],
-        annotations: list[Annotations] | None = None,
-    ) -> tuple[list[Image], list[Annotations] | None]:
-        """This method preprocesses the images and annotations."""
-        return images, annotations
-
     @property
     def patch_size(self) -> int:
         """Property for storing the patch_size."""

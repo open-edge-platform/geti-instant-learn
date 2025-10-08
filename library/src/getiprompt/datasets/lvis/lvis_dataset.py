@@ -10,15 +10,13 @@ from collections import OrderedDict
 from logging import getLogger
 from pathlib import Path
 
-import cv2
 import numpy as np
 import pycocotools.mask as mask_utils
 import requests
 from PIL import Image as PILImage
 
 from getiprompt.datasets.dataset_base import Annotation, Dataset, DatasetIter, Image
-from getiprompt.datasets.dataset_iterators import CategoryIter, IndexIter
-from getiprompt.utils import color_overlay
+from getiprompt.datasets.dataset_iterators import IndexIter
 
 logger = getLogger("Geti Prompt")
 
@@ -799,55 +797,3 @@ class LVISDataset(Dataset):
                 Path(self._cached_data).unlink()
 
         return valid
-
-
-def test_index_iter() -> None:
-    """Test the index iterator."""
-    # Use default index iterator (PyTorch style)
-    dataset = LVISDataset(
-        whitelist=["cupcake", "sheep", "pastry", "doughnut"],
-        download_full_dataset=True,
-        copy_files=False,
-    )
-
-    for image_index, (image, masks) in enumerate(dataset):
-        # Generate and save overlays
-        for category_id, mask in masks.items():
-            overlay = color_overlay(image, mask)
-            cat = dataset.category_id_to_name(category_id)
-            output_folder = Path(dataset.get_root_path(), "overlays", cat)
-            orig_filename = Path(dataset.get_image_filename(image_index)).stem
-            output_folder.mkdir(parents=True, exist_ok=True)
-            cv2.imwrite(
-                str(Path(output_folder) / f"{orig_filename}_{cat}.jpg"),
-                overlay,
-            )
-
-
-def test_category_iter() -> None:
-    """Test the category iterator."""
-    # Use category iterator
-    dataset = LVISDataset(
-        whitelist=["cupcake", "sheep", "pastry", "doughnut"],
-        iterator_type=CategoryIter,
-        download_full_dataset=True,
-        copy_files=False,
-    )
-
-    for category_index, (images, masks) in enumerate(dataset):
-        for image_index, (image, mask) in enumerate(zip(images, masks, strict=False)):
-            # Generate and save overlays
-            overlay = color_overlay(image, mask)
-            cat = dataset.category_id_to_name(dataset.category_index_to_id(category_index))
-            output_folder = Path(dataset.get_root_path(), "overlays", cat)
-            orig_filename = Path(dataset.get_image_filename_in_category(category_index, image_index)).stem
-            output_folder.mkdir(parents=True, exist_ok=True)
-            cv2.imwrite(
-                str(Path(output_folder) / f"{orig_filename}_{cat}.jpg"),
-                overlay,
-            )
-
-
-if __name__ == "__main__":
-    test_index_iter()
-    test_category_iter()

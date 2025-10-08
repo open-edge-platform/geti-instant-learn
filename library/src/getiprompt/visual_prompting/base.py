@@ -3,17 +3,18 @@
 
 """Base class for all pipelines."""
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from logging import getLogger
 
 from getiprompt.processes.preprocessors import ResizeImages, ResizeMasks
 from getiprompt.processes.process_base import Process
 from getiprompt.types import Image, Priors, Results
+from torch import nn
 
 logger = getLogger("Geti Prompt")
 
 
-class Pipeline(ABC):
+class BaseModel(nn.Module):
     """This class is the base class for all pipelines.
 
     Examples:
@@ -21,7 +22,7 @@ class Pipeline(ABC):
         >>> from getiprompt.pipelines import Pipeline
         >>> from getiprompt.types import Image, Priors, Results
         >>>
-        >>> class MyPipeline(Pipeline):
+        >>> class MyModel(BaseModel):
         ...     def learn(self, reference_images: list[Image], reference_priors: list[Priors]) -> Results:
         ...         self.resize_masks(reference_priors)
         ...         return Results()
@@ -47,6 +48,7 @@ class Pipeline(ABC):
         Args:
             image_size: The size of the image to use, if None, the image will not be resized.
         """
+        super().__init__()
         self.resize_images = ResizeImages(size=image_size)
         self.resize_masks = ResizeMasks(size=image_size)
 

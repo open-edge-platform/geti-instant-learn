@@ -6,13 +6,13 @@
 import torch
 
 from getiprompt.models.dinotxt import IMAGENET_TEMPLATES, DinoTextEncoder
-from getiprompt.pipelines.pipeline_base import Pipeline
+from getiprompt.visual_prompting.base import BaseModel
 from getiprompt.types import Image, Masks, Priors, Results
 from getiprompt.utils import precision_to_torch_dtype
 from getiprompt.utils.constants import DINOv3BackboneSize
 
 
-class DinoTxtZeroShotClassification(Pipeline):
+class DinoTxtZeroShotClassification(BaseModel):
     """DinoTxt pipeline.
 
     Args:

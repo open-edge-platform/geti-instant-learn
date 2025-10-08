@@ -5,14 +5,10 @@
 
 import cv2
 import numpy as np
-
-from getiprompt.processes.mask_processors.mask_processor_base import (
-    MaskProcessor,
-)
 from getiprompt.types import Annotations, Masks
 
 
-class MasksToPolygons(MaskProcessor):
+class MasksToPolygons:
     """This class converts a list of masks to a list of annotations (polygons).
 
     Examples:

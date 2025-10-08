@@ -6,8 +6,8 @@
 from getiprompt.filters.masks import BoxAwareMaskFilter, MaskFilter
 from getiprompt.filters.priors import MultiInstancePriorFilter
 from getiprompt.models.models import load_sam_model
-from getiprompt.pipelines.pipeline_base import Pipeline
-from getiprompt.processes.mask_processors import MaskProcessor, MasksToPolygons
+from getiprompt.visual_prompting.base import BaseModel
+from getiprompt.processes.mask_processors import MasksToPolygons
 from getiprompt.processes.prompt_generators import GroundedObjectDetector, GroundingModel
 from getiprompt.processes.segmenters import SamDecoder, Segmenter
 from getiprompt.types import Image, Priors, Results, Text
@@ -15,7 +15,7 @@ from getiprompt.utils.constants import SAMModelName
 from getiprompt.utils.decorators import track_duration
 
 
-class GroundedSAM(Pipeline):
+class GroundedSAM(BaseModel):
     """This Pipeline uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
 
     def __init__(
@@ -66,7 +66,7 @@ class GroundedSAM(Pipeline):
         )
         self.box_aware_mask_filter: MaskFilter = BoxAwareMaskFilter()
         self.multi_instance_prior_filter: MultiInstancePriorFilter = MultiInstancePriorFilter()
-        self.mask_processor: MaskProcessor = MasksToPolygons()
+        self.mask_processor = MasksToPolygons()
         self.text_priors: Text | None = None
 
     @track_duration
