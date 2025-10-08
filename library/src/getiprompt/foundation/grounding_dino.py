@@ -2253,8 +2253,6 @@ class GroundingDinoModel(GroundingDinoPreTrainedModel):
         object_query = self.enc_output_norm(self.enc_output(object_query))
         return object_query, output_proposals
 
-    @add_start_docstrings_to_model_forward(GROUNDING_DINO_INPUTS_DOCSTRING)
-    @replace_return_docstrings(output_type=GroundingDinoModelOutput, config_class=_CONFIG_FOR_DOC)
     def forward(
         self,
         pixel_values: Tensor,

@@ -3,8 +3,8 @@
 
 """Utils."""
 
-from getiprompt.utils.transforms import ResizeLongestSide
-from getiprompt.utils.utils import (
+from .transforms import ResizeLongestSide
+from .utils import (
     MaybeToTensor,
     color_overlay,
     download_file,

@@ -64,11 +64,6 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--save", action="store_true", help="Save results to disk")
     parser.add_argument(
-        "--apply_mask_refinement",
-        action="store_true",
-        help="Apply mask refinement",
-    )
-    parser.add_argument(
         "--class_name",
         type=str,
         default=None,
@@ -117,12 +112,6 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         type=float,
         default=0.42,
         help="Threshold for filtering masks based on average similarity",
-    )
-    parser.add_argument(
-        "--skip_points_in_existing_masks",
-        type=bool,
-        default=True,
-        help="Skip foreground points that fall within already generated masks for the same class",
     )
     parser.add_argument(
         "--num_foreground_points",

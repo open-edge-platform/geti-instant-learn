@@ -598,7 +598,7 @@ def perform_benchmark_experiment(args: argparse.Namespace | None = None) -> None
             f"Backbone={backbone_enum.value}",
         )
 
-        dataset = load_dataset(dataset_enum.value, target_classes=args.class_name, batch_size=args.batch_size)
+        dataset = load_dataset(dataset_enum.value, whitelist=args.class_name, batch_size=args.batch_size)
         model = load_model(sam=backbone_enum, model_name=model_enum, args=args)
 
         # Individual experiment artifacts are saved in a path derived from the base path.
