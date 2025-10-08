@@ -8,6 +8,7 @@ import { NetworkFixture } from '@msw/playwright';
 import { Page } from '@playwright/test';
 
 import { ProjectListItemType } from '../src/api';
+import { paths } from '../src/routes/paths';
 
 const registerApiProjects = ({
     network,
@@ -73,11 +74,11 @@ class ProjectPage {
     constructor(private page: Page) {}
 
     async goto(projectId: string) {
-        await this.page.goto(`/projects/${projectId}`);
+        await this.page.goto(paths.project({ projectId }));
     }
 
     async gotoProjects() {
-        await this.page.goto('/projects');
+        await this.page.goto(paths.projects({}));
     }
 
     get welcomeHeader() {
@@ -169,7 +170,7 @@ test.describe('Projects', () => {
 
                 const projectPage = new ProjectPage(page);
 
-                await page.goto('/');
+                await page.goto(paths.root({}));
 
                 await expect(projectPage.welcomeHeader).toBeVisible();
 
@@ -197,7 +198,7 @@ test.describe('Projects', () => {
                 registerApiProjects({ network, defaultProjects: projects });
                 const projectPage = new ProjectPage(page);
 
-                await page.goto('/');
+                await page.goto(paths.root({}));
 
                 await expect(projectPage.projectsHeader).toBeVisible();
 
@@ -208,7 +209,7 @@ test.describe('Projects', () => {
                 await projectPage.getProjectInTheList(projects[0].name).click();
 
                 await expect(projectPage.getSelectedProject(projects[0].name)).toBeVisible();
-                await expect(page).toHaveURL(new RegExp(`/projects/${projects[0].id}`));
+                await expect(page).toHaveURL(new RegExp(paths.project({ projectId: projects[0].id })));
             }
         );
 
@@ -227,12 +228,34 @@ test.describe('Projects', () => {
 
                 const projectPage = new ProjectPage(page);
 
-                await page.goto('/');
+                await page.goto(paths.root({}));
 
                 await expect(projectPage.getSelectedProject(projects[0].name)).toBeVisible();
-                await expect(page).toHaveURL(new RegExp(`/projects/${projects[0].id}`));
+                await expect(page).toHaveURL(new RegExp(paths.project({ projectId: projects[0].id })));
             }
         );
+
+        test('Navigates to projects page when trying to open welcome page and there is at least one project', async ({
+            network,
+            page,
+        }) => {
+            const projects: ProjectListItemType[] = [
+                {
+                    id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                    name: 'Cool project #1',
+                },
+            ];
+
+            registerApiProjects({ network, defaultProjects: projects });
+
+            const projectPage = new ProjectPage(page);
+
+            await page.goto(paths.welcome({}));
+
+            await expect(projectPage.welcomeHeader).toBeHidden();
+            await expect(projectPage.getSelectedProject(projects[0].name)).toBeVisible();
+            await expect(page).toHaveURL(new RegExp(paths.project({ projectId: projects[0].id })));
+        });
     });
 
     test.describe('Project management', () => {
@@ -408,7 +431,7 @@ test.describe('Projects', () => {
         await expect(projectPage.getProjectInTheList(project.name)).toBeHidden();
 
         await expect(projectPage.projectsHeader).toBeVisible();
-        await expect(page).toHaveURL('/projects');
+        await expect(page).toHaveURL(paths.projects({}));
     });
 
     test('Deletes a not current project via the project details page', async ({ network, page }) => {
@@ -440,7 +463,7 @@ test.describe('Projects', () => {
         await expect(projectPage.getProjectInTheList(secondProject.name)).toBeHidden();
 
         await expect(projectPage.projectsHeader).toBeHidden();
-        await expect(page).toHaveURL(new RegExp(`/projects/${project.id}`));
+        await expect(page).toHaveURL(new RegExp(paths.project({ projectId: project.id })));
     });
 
     test('Deletes a project via the project details page (the last project)', async ({ network, page }) => {
@@ -469,6 +492,6 @@ test.describe('Projects', () => {
         await expect(projectPage.getProjectInTheList(project.name)).toBeHidden();
 
         await expect(projectPage.welcomeHeader).toBeVisible();
-        await expect(page).toHaveURL('/welcome');
+        await expect(page).toHaveURL(paths.welcome({}));
     });
 });

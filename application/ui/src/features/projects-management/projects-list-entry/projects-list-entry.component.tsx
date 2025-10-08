@@ -5,12 +5,11 @@
 
 import { Key, MouseEventHandler, useState } from 'react';
 
-import { $api } from '@geti-prompt/api';
+import { $api, type ProjectListItemType } from '@geti-prompt/api';
 import { ActionButton, Flex, Grid, Heading, PhotoPlaceholder, repeat, Text, View } from '@geti/ui';
 import { AddCircle } from '@geti/ui/icons';
 import { Link } from 'react-router-dom';
 
-import { SchemaProjectListItem as Project } from '../../../api/openapi-spec';
 import { paths } from '../../../routes/paths';
 import { useCreateProject } from '../hooks/use-create-project.hook';
 import { useDeleteProject } from '../hooks/use-delete-project.hook';
@@ -53,10 +52,11 @@ const NewProjectCard = ({ projectsNames }: NewProjectCardProps) => {
 };
 
 interface ProjectCardProps {
-    project: Project;
+    project: ProjectListItemType;
+    projectNames: string[];
 }
 
-const ProjectCard = ({ project }: ProjectCardProps) => {
+const ProjectCard = ({ project, projectNames }: ProjectCardProps) => {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
     const [projectIDInEdition, setProjectIdInEdition] = useState<string | null>(null);
     const updateProjectName = useUpdateProject();
@@ -109,6 +109,7 @@ const ProjectCard = ({ project }: ProjectCardProps) => {
                     <Heading UNSAFE_className={styles.projectCardTitle}>
                         {isInEditionState ? (
                             <ProjectEdition
+                                projectNames={projectNames}
                                 onBlur={handleBlur}
                                 onResetProjectInEdition={handleResetProjectInEdition}
                                 name={project.name}
@@ -154,7 +155,11 @@ export const ProjectsListEntry = () => {
                     >
                         <NewProjectCard projectsNames={projectsNames} />
                         {data.projects.map((project) => (
-                            <ProjectCard project={project} key={project.id} />
+                            <ProjectCard
+                                project={project}
+                                key={project.id}
+                                projectNames={projectsNames.filter((name) => name !== project.name)}
+                            />
                         ))}
                     </Grid>
                 </Flex>

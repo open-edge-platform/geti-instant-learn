@@ -3,14 +3,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { $api } from '@geti-prompt/api';
 import { Fireworks } from '@geti-prompt/icons';
 import { Button, Content, Flex, Heading, IllustratedMessage, Text } from '@geti/ui';
+import { Navigate } from 'react-router';
 
+import { paths } from '../../../routes/paths';
 import { useCreateProject } from '../hooks/use-create-project.hook';
 import { Layout } from './layout.component';
 
 export const Welcome = () => {
     const createProject = useCreateProject();
+    const { data } = $api.useSuspenseQuery('get', '/api/v1/projects');
+
+    if (data.projects.length > 0) {
+        return <Navigate to={paths.root({})} replace />;
+    }
 
     const handleCreateProject = () => {
         createProject('Project #1');

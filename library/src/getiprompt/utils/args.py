@@ -7,6 +7,7 @@ from typing import TypeVar
 
 from getiprompt.components.prompt_generators import GroundingModel
 from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
+from getiprompt.processes.encoders import AVAILABLE_IMAGE_ENCODERS
 
 # Generate help strings with choices
 AVAILABLE_SAM_MODELS = ", ".join([model.value for model in SAMModelName])
@@ -203,6 +204,13 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         type=str,
         default="cuda",
         help="The device to use for the models",
+    )
+    parser.add_argument(
+        "--encoder_model",
+        type=str,
+        default="dinov3_large",
+        choices=list(AVAILABLE_IMAGE_ENCODERS),
+        help="ImageEncoder model id",
     )
     parser.add_argument(
         "--grounding_model",

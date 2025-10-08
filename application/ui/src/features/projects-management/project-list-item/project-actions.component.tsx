@@ -9,12 +9,6 @@ import { ActionMenu, AlertDialog, DialogContainer, Item, TextField, TextFieldRef
 
 import styles from './project-list-item.module.scss';
 
-interface ProjectEditionProps {
-    onBlur: (newName: string) => void;
-    onResetProjectInEdition: () => void;
-    name: string;
-}
-
 const useOnOutsideClick = (textFieldRef: RefObject<TextFieldRef | null>, onClickOutside: () => void) => {
     const resetProjectInEditionRef = useRef(onClickOutside);
 
@@ -40,17 +34,48 @@ const useOnOutsideClick = (textFieldRef: RefObject<TextFieldRef | null>, onClick
     }, [textFieldRef]);
 };
 
-export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition }: ProjectEditionProps) => {
+interface ProjectEditionProps {
+    onBlur: (newName: string) => void;
+    onResetProjectInEdition: () => void;
+    name: string;
+    projectNames: string[];
+}
+
+export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition, projectNames }: ProjectEditionProps) => {
     const textFieldRef = useRef<TextFieldRef>(null);
     const [newName, setNewName] = useState<string>(name);
 
     const handleBlur = () => {
-        onBlur(newName);
+        const errorMessage = validateProjectName(newName);
+
+        if (errorMessage !== undefined) {
+            return;
+        }
+
+        onBlur(newName.trim());
+    };
+
+    const validateProjectName = (inputName: string) => {
+        if (inputName.trim() === '') {
+            return 'Project name cannot be empty';
+        }
+
+        if (projectNames.includes(inputName.trim())) {
+            return 'That project name already exists';
+        }
+
+        return undefined;
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
         if (event.key === 'Enter') {
             event.preventDefault();
+
+            const errorMessage = validateProjectName(newName);
+
+            if (errorMessage !== undefined) {
+                return;
+            }
 
             handleBlur();
             onResetProjectInEdition();
@@ -69,6 +94,8 @@ export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition }: Projec
 
     useOnOutsideClick(textFieldRef, onResetProjectInEdition);
 
+    const errorMessage = validateProjectName(newName);
+
     return (
         <div
             onClick={(event) => {
@@ -86,6 +113,8 @@ export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition }: Projec
                 onKeyDown={handleKeyDown}
                 onChange={setNewName}
                 aria-label='Edit project name'
+                errorMessage={errorMessage}
+                validationState={errorMessage ? 'invalid' : undefined}
             />
         </div>
     );

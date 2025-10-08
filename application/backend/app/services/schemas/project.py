@@ -1,25 +1,23 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from rest.schemas.processor import ProcessorSchema
-from rest.schemas.sink import SinkSchema
-from rest.schemas.source import SourceSchema
+from services.schemas.base import BaseIDPayload, BaseIDSchema
+from services.schemas.processor import ProcessorSchema
+from services.schemas.sink import SinkSchema
+from services.schemas.source import SourceSchema
 
 
-class ProjectSchema(BaseModel):
-    id: UUID
+class ProjectSchema(BaseIDSchema):
     name: str = Field(max_length=80, min_length=1)
-    source: SourceSchema | None = None
+    sources: list[SourceSchema] | None = None
     processor: ProcessorSchema | None = None
     sink: SinkSchema | None = None
 
 
-class ProjectPostPayload(BaseModel):
-    id: UUID | None = None
+class ProjectPostPayload(BaseIDPayload):
     name: str = Field(max_length=80, min_length=1)
 
 
@@ -27,8 +25,7 @@ class ProjectPutPayload(BaseModel):
     name: str = Field(max_length=80, min_length=1)
 
 
-class ProjectListItem(BaseModel):
-    id: UUID
+class ProjectListItem(BaseIDSchema):
     name: str
 
 

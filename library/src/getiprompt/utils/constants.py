@@ -21,7 +21,6 @@ class SAMModelName(Enum):
     EFFICIENT_VIT_SAM = "EfficientViT-SAM"
     SAM_HQ = "SAM-HQ"
     SAM_HQ_TINY = "SAM-HQ-tiny"
-    SAM_FAST = "SAM-Fast"
     SAM2_TINY = "SAM2-tiny"
     SAM2_SMALL = "SAM2-small"
     SAM2_BASE = "SAM2-base"
@@ -126,12 +125,6 @@ MODEL_MAP = {
         "local_filename": "sam_hq_vit_tiny.pth",
         "download_url": "https://huggingface.co/lkeab/hq-sam/resolve/main/sam_hq_vit_tiny.pth",
         "sha_sum": "0f32c075ccdd870ae54db2f7630e7a0878ede5a2b06d05d6fe02c65a82fb7196",
-    },
-    SAMModelName.SAM_FAST: {  # 1024x1024 input resolution
-        "registry_name": "vit_h",
-        "local_filename": "sam_vit_h_4b8939.pth",
-        "download_url": "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth",
-        "sha_sum": "a7bf3b02f3ebf1267aba913ff637d9a2d5c33d3173bb679e46d9f338c26f262e",
     },
 }
 

@@ -193,6 +193,12 @@ def parse_request_and_check_reload(
         requested_values["sam"] = new_sam_name
         new_args.sam = new_sam_name
 
+    # ImageEncoder Model
+    if (new_encoder_model := request_data.get("encoder_model", new_args.encoder_model)) != new_args.encoder_model:
+        reload_needed = True
+        requested_values["encoder_model"] = new_encoder_model
+        new_args.encoder_model = new_encoder_model
+
     # Precision
     new_precision_str = request_data.get("precision", new_args.precision)
     if new_precision_str != new_args.precision:
@@ -231,7 +237,7 @@ def parse_request_and_check_reload(
     return reload_needed, requested_values, new_args
 
 
-def reload_pipeline_if_needed(
+def reload_model_if_needed(
     reload_needed: bool,
     requested_values: dict[str, Any],
     current_args: argparse.Namespace,
@@ -243,14 +249,16 @@ def reload_pipeline_if_needed(
 
     if model_instance is None:
         reload_needed = True
-        logger.info("Pipeline not loaded yet, triggering initial load.")
+        logger.info("Model not loaded yet, triggering initial load.")
         if "sam" not in requested_values:
             requested_values["sam"] = current_args.sam
         if "model" not in requested_values:
             requested_values["model"] = current_args.model
+        if "encoder_model" not in requested_values:
+            requested_values["encoder_model"] = current_args.encoder_model
 
     if reload_needed:
-        logger.info(f"Reloading pipeline due to changes in: {list(requested_values.keys())}")
+        logger.info(f"Reloading model due to changes in: {list(requested_values.keys())}")
         try:
             # Use the current model name if no model change was requested
             target_model_name = requested_values.get("model", model_name)
@@ -260,9 +268,9 @@ def reload_pipeline_if_needed(
                 args=current_args,
             )
             model_name = target_model_name
-            logger.info("Pipeline reloaded successfully.")
+            logger.info("Model reloaded successfully.")
         except Exception as e:
-            msg = f"Error reloading pipeline: {e}"
+            msg = f"Error reloading model: {e}"
             logger.error(msg, exc_info=True)
             raise ValueError(msg) from e
 

@@ -27,6 +27,8 @@ export const ProjectsList = ({ projects, setProjectInEdition, projectIdInEdition
     const { projectId } = useProjectIdentifier();
     const navigate = useNavigate();
 
+    const projectNames = projects.map((project) => project.name);
+
     const handleDelete = (id: string): void => {
         deleteProject(id, () => {
             if (projects.length > 1 && id === projectId) {
@@ -63,6 +65,7 @@ export const ProjectsList = ({ projects, setProjectInEdition, projectIdInEdition
             {projects.map((project) => (
                 <ProjectListItem
                     key={project.id}
+                    projectNames={projectNames.filter((name) => name !== project.name)}
                     project={project}
                     onRename={handleRename}
                     onDelete={handleDelete}

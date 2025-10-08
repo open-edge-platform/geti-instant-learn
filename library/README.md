@@ -30,7 +30,7 @@ This repository explores algorithms that make visual prompting more effective, e
 ## Key Features
 
 - 🧩 **Modular Pipeline Architecture:** Easily configure pipelines by modifying their Python class definitions to mix and match components (backbones, feature extractors, matchers, etc.). Simplifies experimentation and development of novel approaches.
-- 🔬 **Extensive Algorithm & Backbone Support:** Includes implementations for various state-of-the-art algorithms (PerSAM, Matcher, Dino-based methods) and diverse backbone models (SAM, MobileSAM, EfficientViT-SAM, DinoV2).
+- 🔬 **Extensive Algorithm & Backbone Support:** Includes implementations for various state-of-the-art algorithms (Matcher, SoftMatcher, Dino-based methods) and diverse backbone models (SAM, MobileSAM, EfficientViT-SAM, DinoV2).
 - 📊 **Comprehensive Evaluation Framework:** Unified evaluation script with support for multiple datasets (LVIS, PerSeg, etc.) and standard metrics (mIoU, Precision, Recall).
 - 💻 **Interactive Web UI:** Visually inspect similarity maps, generated masks, and points for qualitative analysis and debugging. Easily switch between configurations.
 - 🔌 **Easy Integration:** Designed for straightforward addition of new algorithms, backbones, or datasets.
@@ -127,37 +127,54 @@ The UI allows you to select different pipelines, datasets, and images to inspect
 
 The power of this repository lies in its modularity. You can easily modify pipelines by changing which components are instantiated within their class definition.
 
-For instance, here is the complete definition for the `PerSam` pipeline from [`context_learner/pipelines/persam_pipeline.py`](src/getiprompt/context_learner/pipelines/persam_pipeline.py). It shows how different processing components are instantiated within the `__init__` method to define the pipeline's behavior.
+For instance, here is the complete definition for the `PerDino` pipeline from [`context_learner/pipelines/perdino_pipeline.py`](src/getiprompt/context_learner/pipelines/perdino_pipeline.py). It shows how different processing components are instantiated within the `__init__` method to define the pipeline's behavior.
 
 ```python
-# library/src/getiprompt/pipelines/persam_pipeline.py
+# src/getiprompt/pipelines/perdino_pipeline.py
 
-class PerSam(Pipeline):
-    """This is the PerSam algorithm pipeline.
+class PerDino(Pipeline):
+    """This is the PerDino algorithm pipeline.
 
-    It's based on the paper "Personalize Segment Anything Model with One Shot"
-    https://arxiv.org/abs/2305.03048.
-
-    It matches reference objects to target images by comparing their features extracted by SAM
+    It matches reference objects to target images by comparing their features extracted by Dino
     and using Cosine Similarity. A grid prompt generator is used to generate prompts for the
     segmenter and to allow for multi object target images.
     """
 
     def __init__(
         self,
-        sam: str = "SAM",
-        num_foreground_points: int,
-        num_background_points: int,
-        apply_mask_refinement: bool,
-        skip_points_in_existing_masks: bool,
-        num_grid_cells: int,
-        similarity_threshold: float,
-        mask_similarity_threshold: float,
-        precision: torch.dtype = torch.bfloat16,
+        sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
+        encoder_model: str = "dinov3_large",
+        num_foreground_points: int = 40,
+        num_background_points: int = 2,
+        apply_mask_refinement: bool = True,
+        skip_points_in_existing_masks: bool = True,
+        num_grid_cells: int = 16,
+        similarity_threshold: float = 0.65,
+        mask_similarity_threshold: float | None = 0.42,
+        precision: str = "bf16",
         compile_models: bool = False,
         benchmark_inference_speed: bool = False,
+        device: str = "cuda",
         image_size: int | tuple[int, int] | None = None,
     ) -> None:
+        """Initialize the PerDino pipeline.
+
+        Args:
+            sam: The name of the SAM model to use.
+            num_foreground_points: The number of foreground points to use.
+            num_background_points: The number of background points to use.
+            apply_mask_refinement: Whether to apply mask refinement.
+            skip_points_in_existing_masks: Whether to skip points in existing masks.
+            num_grid_cells: The number of grid cells to use.
+            similarity_threshold: The similarity threshold for the similarity matcher.
+            mask_similarity_threshold: The similarity threshold for the mask.
+            encoder_model: ImageEncoder model ID to use.
+            precision: The precision to use for the model.
+            compile_models: Whether to compile the models.
+            benchmark_inference_speed: Whether to benchmark the inference speed.
+            device: The device to use for the model.
+            image_size: The size of the image to use, if None, the image will not be resized.
+        """
         super().__init__(image_size=image_size)
         self.sam_predictor = load_sam_model(
             sam,
@@ -166,7 +183,14 @@ class PerSam(Pipeline):
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
         )
-        self.encoder: Encoder = SamEncoder(sam_predictor=sam_predictor)
+
+        self.encoder: ImageEncoder = ImageEncoder(
+            model_id=encoder_model,
+            device=device,
+            precision=precision,
+            compile_models=compile_models,
+            benchmark_inference_speed=benchmark_inference_speed,
+        )
         self.feature_selector: FeatureSelector = AverageFeatures()
         self.similarity_matcher: SimilarityMatcher = CosineSimilarity()
         self.prompt_generator: PromptGenerator = GridPromptGenerator(
@@ -178,18 +202,21 @@ class PerSam(Pipeline):
             max_num_points=num_foreground_points,
         )
         self.segmenter: Segmenter = SamDecoder(
-            sam_predictor=sam_predictor,
+            sam_predictor=self.sam_predictor,
             apply_mask_refinement=apply_mask_refinement,
             mask_similarity_threshold=mask_similarity_threshold,
             skip_points_in_existing_masks=skip_points_in_existing_masks,
         )
+        self.prior_mask_from_points: PriorFilter = PriorMaskFromPoints(segmenter=self.segmenter)
         self.mask_processor: MaskProcessor = MasksToPolygons()
         self.class_overlap_mask_filter: MaskFilter = ClassOverlapMaskFilter()
         self.reference_features = None
 
+    @track_duration
     def learn(self, reference_images: list[Image], reference_priors: list[Priors]) -> Results:
         """Perform learning step on the reference images and priors."""
         reference_images = self.resize_images(reference_images)
+        reference_priors = self.prior_mask_from_points(reference_images, reference_priors)
         reference_priors = self.resize_masks(reference_priors)
 
         # Start running the pipeline
@@ -198,22 +225,18 @@ class PerSam(Pipeline):
             reference_priors,
         )
         self.reference_features = self.feature_selector(reference_features)
-        return Results()
 
+    @track_duration
     def infer(self, target_images: list[Image]) -> Results:
         """Perform inference step on the target images."""
         target_images = self.resize_images(target_images)
 
         # Start running the pipeline
         target_features, _ = self.encoder(target_images)
-        similarities = self.similarity_matcher(
-            self.reference_features,
-            target_features,
-            target_images,
-        )
+        similarities = self.similarity_matcher(self.reference_features, target_features, target_images)
         priors = self.prompt_generator(similarities, target_images)
         priors = self.point_filter(priors)
-        masks, used_points = self.segmenter(target_images, priors)
+        masks, used_points, _ = self.segmenter(target_images, priors, similarities)
         masks = self.class_overlap_mask_filter(masks, used_points)
         annotations = self.mask_processor(masks)
 
@@ -240,7 +263,7 @@ After that, it's simply a question of calling `learn()` on your reference images
 
 ```python
 # Example usage
-pipeline = PerSam()
+pipeline = PerDino()
 
 # Learn from reference images
 results = pipeline.learn(reference_images, reference_priors)
@@ -275,7 +298,7 @@ classDiagram
         +similarities: List~Similarities~
     }
 
-    class Encoder~Process~ {
+    class ImageEncoder~Process~ {
         <<Interface>>
         +__call__(List~Image~, List~Priors~) (List~Features~, List~Masks~)
     }
@@ -311,9 +334,9 @@ classDiagram
     Pipeline --> Process : uses
     Process --> Results : produces
 
-    class PerSam {
+    class PerDino {
         +SamPredictor sam_predictor
-        +Encoder encoder
+        +ImageEncoder encoder
         +FeatureSelector feature_selector
         +SimilarityMatcher similarity_matcher
         +PromptGenerator prompt_generator
@@ -324,42 +347,115 @@ classDiagram
         +List~Features~ reference_features
     }
 
-    Pipeline <|-- PerSam
+    class Matcher {
+        +SamPredictor sam_predictor
+        +ImageEncoder encoder
+        +FeatureSelector feature_selector
+        +PromptGenerator prompt_generator
+        +PriorFilter point_filter
+        +Segmenter segmenter
+        +MaskProcessor mask_processor
+        +MaskFilter class_overlap_mask_filter
+        +List~Features~ reference_features
+        +List~Masks~ reference_masks
+    }
 
-    PerSam o--> Encoder : uses
-    PerSam o--> FeatureSelector : uses
-    PerSam o--> SimilarityMatcher : uses
-    PerSam o--> PromptGenerator : uses
-    PerSam o--> PriorFilter : uses
-    PerSam o--> Segmenter : uses
-    PerSam o--> MaskProcessor : uses
-    PerSam o--> MaskFilter : uses
+    class SoftMatcher {
+        +SamPredictor sam_predictor
+        +ImageEncoder encoder
+        +FeatureSelector feature_selector
+        +PromptGenerator prompt_generator
+        +PriorFilter point_filter
+        +Segmenter segmenter
+        +MaskProcessor mask_processor
+        +MaskFilter class_overlap_mask_filter
+        +List~Features~ reference_features
+        +List~Masks~ reference_masks
+    }
 
-    class SamEncoder
+    class GroundedSAM {
+        +SamPredictor sam_predictor
+        +PromptGenerator prompt_generator
+        +Segmenter segmenter
+        +MaskFilter box_aware_mask_filter
+        +MaskFilter multi_instance_prior_filter
+        +MaskProcessor mask_processor
+        +MaskFilter class_overlap_mask_filter
+        +Text text_priors
+    }
+
+    Pipeline <|-- PerDino
+    Pipeline <|-- Matcher
+    Pipeline <|-- SoftMatcher
+    Pipeline <|-- GroundedSAM
+
+    PerDino o--> ImageEncoder : uses
+    PerDino o--> FeatureSelector : uses
+    PerDino o--> SimilarityMatcher : uses
+    PerDino o--> PromptGenerator : uses
+    PerDino o--> PriorFilter : uses
+    PerDino o--> Segmenter : uses
+    PerDino o--> MaskProcessor : uses
+    PerDino o--> MaskFilter : uses
+
+    Matcher o--> ImageEncoder : uses
+    Matcher o--> FeatureSelector : uses
+    Matcher o--> PromptGenerator : uses
+    Matcher o--> PriorFilter : uses
+    Matcher o--> Segmenter : uses
+    Matcher o--> MaskProcessor : uses
+    Matcher o--> MaskFilter : uses
+
+    SoftMatcher o--> ImageEncoder : uses
+    SoftMatcher o--> FeatureSelector : uses
+    SoftMatcher o--> PromptGenerator : uses
+    SoftMatcher o--> PriorFilter : uses
+    SoftMatcher o--> Segmenter : uses
+    SoftMatcher o--> MaskProcessor : uses
+    SoftMatcher o--> MaskFilter : uses
+
+    GroundedSAM o--> PromptGenerator : uses
+    GroundedSAM o--> Segmenter : uses
+    GroundedSAM o--> MaskProcessor : uses
+    GroundedSAM o--> MaskFilter : uses
+
+    class ImageEncoder
     class AverageFeatures
     class ClusterFeatures
+    class AllFeaturesSelector
     class CosineSimilarity
     class GridPromptGenerator
+    class BidirectionalPromptGenerator
+    class SoftmatcherPromptGenerator
+    class GroundedObjectDetector
     class MaxPointFilter
     class SamDecoder
     class MasksToPolygons
     class ClassOverlapMaskFilter
 
-    Encoder <|-- SamEncoder
+    ImageEncoder <|-- ImageEncoder
     FeatureSelector <|-- AverageFeatures
     FeatureSelector <|-- ClusterFeatures
+    FeatureSelector <|-- AllFeaturesSelector
     SimilarityMatcher <|-- CosineSimilarity
     PromptGenerator <|-- GridPromptGenerator
+    PromptGenerator <|-- BidirectionalPromptGenerator
+    PromptGenerator <|-- SoftmatcherPromptGenerator
+    PromptGenerator <|-- GroundedObjectDetector
     PriorFilter <|-- MaxPointFilter
     Segmenter <|-- SamDecoder
     MaskProcessor <|-- MasksToPolygons
     MaskFilter <|-- ClassOverlapMaskFilter
 
-    SamEncoder --|> Process
+    ImageEncoder --|> Process
     AverageFeatures --|> Process
     ClusterFeatures --|> Process
+    AllFeaturesSelector --|> Process
     CosineSimilarity --|> Process
     GridPromptGenerator --|> Process
+    BidirectionalPromptGenerator --|> Process
+    SoftmatcherPromptGenerator --|> Process
+    GroundedObjectDetector --|> Process
     MaxPointFilter --|> Process
     SamDecoder --|> Process
     MasksToPolygons --|> Process
@@ -368,17 +464,7 @@ classDiagram
 
 ## Acknowledgements
 
-This project builds upon and utilizes code from several excellent open-source repositories. We thank the authors for their contributions:
-
-- [PerSAM](https://github.com/ZrrSkywalker/Personalize-SAM)
-- [Matcher](https://github.com/aim-uofa/Matcher)
-- [DinoV2](https://github.com/facebookresearch/dinov2)
-- [SAM](https://github.com/facebookresearch/segment-anything)
-- [MobileSAM](https://github.com/ChaoningZhang/MobileSAM)
-- [EfficientViT-SAM](https://github.com/mit-han-lab/efficientvit/tree/master/applications/efficientvit_sam)
-- [ModelAPI](https://github.com/open-edge-platform/model_api)
-- [SAM-HQ](https://github.com/lkeab/SAM-HQ)
-- [GroundingDino](https://huggingface.co/IDEA-Research)
+This project builds upon and utilizes code from several excellent open-source repositories. We thank the authors for their contributions. A full list of third party software can be found in the [third-party-programs.txt](third-party-programs.txt) file.
 
 ## License
 

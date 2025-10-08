@@ -2,11 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from typing import Any
-from uuid import UUID
 
-from pydantic import BaseModel
+from services.schemas.base import BaseIDSchema
 
 
-class SinkSchema(BaseModel):
-    id: UUID
+class SinkSchema(BaseIDSchema):
     config: dict[str, Any]  # TODO update later with strict schema

@@ -25,7 +25,9 @@ if TYPE_CHECKING:
 class PerDino(BaseModel):
     """This is the PerDino algorithm model.
 
-    It is very similar to the PerSam model but uses DinoV2 for encoding the images.
+    It matches reference objects to target images by comparing their features extracted by Dino
+    and using Cosine Similarity. A grid prompt generator is used to generate prompts for the
+    segmenter and to allow for multi object target images.
 
     Examples:
         >>> import torch
@@ -56,6 +58,7 @@ class PerDino(BaseModel):
     def __init__(
         self,
         sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
+        encoder_model: str = "dinov3_large",
         num_foreground_points: int = 40,
         num_background_points: int = 2,
         num_grid_cells: int = 16,
@@ -76,6 +79,7 @@ class PerDino(BaseModel):
             num_grid_cells: The number of grid cells to use.
             similarity_threshold: The similarity threshold for the similarity matcher.
             mask_similarity_threshold: The similarity threshold for the mask.
+            encoder_model: ImageEncoder model ID to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
             benchmark_inference_speed: Whether to benchmark the inference speed.
@@ -90,11 +94,13 @@ class PerDino(BaseModel):
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
         )
-        self.encoder: Encoder = DinoEncoder(
+
+        self.encoder: ImageEncoder = ImageEncoder(
+            model_id=encoder_model,
+            device=device,
             precision=precision,
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
-            device=device,
         )
         self.feature_selector: FeatureSelector = AverageFeatures()
         self.similarity_matcher: SimilarityMatcher = CosineSimilarity()

@@ -501,13 +501,8 @@ def _generate_experiment_plan(
     all_combinations = list(itertools.product(datasets, models, backbones))
     valid_configs = []
 
-    for dataset, model, backbone in all_combinations:
-        # Skip unsupported combinations
-        if backbone == SAMModelName.EFFICIENT_VIT_SAM:
-            logger.info(f"Planning to skip {backbone.value} with {model.value} (unsupported).")
-            continue
-
-        valid_configs.append((dataset, model, backbone))
+    for dataset, pipeline, backbone in all_combinations:
+        valid_configs.append((dataset, pipeline, backbone))
 
     return valid_configs
 

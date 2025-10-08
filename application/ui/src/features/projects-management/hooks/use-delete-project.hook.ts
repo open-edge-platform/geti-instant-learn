@@ -5,8 +5,16 @@
 
 import { $api } from '@geti-prompt/api';
 
+import { queryClient } from '../../../query-client';
+
 export const useDeleteProject = () => {
-    const deleteProjectMutation = $api.useMutation('delete', '/api/v1/projects/{project_id}');
+    const deleteProjectMutation = $api.useMutation('delete', '/api/v1/projects/{project_id}', {
+        onSettled: async () => {
+            await queryClient.invalidateQueries({
+                predicate: (query) => Array.isArray(query.queryKey) && query.queryKey.includes('/api/v1/projects'),
+            });
+        },
+    });
 
     const deleteProject = (id: string, onSuccess?: () => void): void => {
         deleteProjectMutation.mutate(

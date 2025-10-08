@@ -56,9 +56,7 @@ def plot_priors_distrib_melt(dfm: pd.DataFrame, metrics: list[str], backbone: st
     """
     dfm_part = dfm[dfm["metric"].isin(metrics)]
     if backbone is not None:
-        dfm_part = dfm_part[
-            (dfm_part["backbone_name"] == backbone) | (dfm_part["pipeline_name"] == "PerSAMMAPIModular")
-        ]
+        dfm_part = dfm_part[(dfm_part["backbone_name"] == backbone)]
     sns.catplot(
         data=dfm_part,
         x="pipeline_name",

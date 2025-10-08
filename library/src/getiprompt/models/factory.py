@@ -39,6 +39,7 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Bas
         case ModelName.PER_DINO:
             return PerDino(
                 sam=sam,
+                encoder_model=args.encoder_model,
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
                 num_grid_cells=args.num_grid_cells,
@@ -53,6 +54,7 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Bas
         case ModelName.MATCHER:
             return Matcher(
                 sam=sam,
+                encoder_model=args.encoder_model,
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
                 mask_similarity_threshold=args.mask_similarity_threshold,
@@ -65,6 +67,7 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Bas
         case ModelName.SOFT_MATCHER:
             return SoftMatcher(
                 sam=sam,
+                encoder_model=args.encoder_model,
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
                 mask_similarity_threshold=args.mask_similarity_threshold,

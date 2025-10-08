@@ -15,7 +15,7 @@ terms are listed below.
 
 -------------------------------------------------------------
 
-1.  Segment Anything (SAM) and SAM 2
+1.  Segment Anything (SAM)
     Copyright (c) @facebookresearch, https://github.com/facebookresearch/segment-anything.
     SPDX-License-Identifier: Apache-2.0
 
@@ -51,8 +51,12 @@ terms are listed below.
     Copyright (c) @open-edge-platform, https://github.com/open-edge-platform/model_api.
     SPDX-License-Identifier: Apache-2.0
 
-10. Segment Anything Fast
-    Copyright (c) @pytorch-labs, https://github.com/pytorch-labs/segment-anything-fast.
+10. SAM2
+    Copyright (c) @facebookresearch, https://github.com/facebookresearch/sam2.
+    SPDX-License-Identifier: Apache-2.0
+
+11. DinoV3
+    Copyright (c) @facebookresearch, https://github.com/facebookresearch/dinov3.
     SPDX-License-Identifier: Apache-2.0
 
 11. LLMDet

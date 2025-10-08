@@ -66,6 +66,7 @@ class SoftMatcher(Matcher):
         approximate_matching: bool = False,
         softmatching_score_threshold: float = 0.4,
         softmatching_bidirectional: bool = False,
+        encoder_model: str = "dinov3_large",
         precision: str = "bf16",
         compile_models: bool = False,
         benchmark_inference_speed: bool = False,
@@ -84,6 +85,7 @@ class SoftMatcher(Matcher):
             approximate_matching: Whether to use approximate matching.
             softmatching_score_threshold: The score threshold for the soft matching.
             softmatching_bidirectional: Whether to use bidirectional soft matching.
+            encoder_model: The encoder model to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
             benchmark_inference_speed: Whether to benchmark the inference speed.
@@ -95,6 +97,7 @@ class SoftMatcher(Matcher):
             num_foreground_points=num_foreground_points,
             num_background_points=num_background_points,
             mask_similarity_threshold=mask_similarity_threshold,
+            encoder_model=encoder_model,
             precision=precision,
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
@@ -102,7 +105,7 @@ class SoftMatcher(Matcher):
             image_size=image_size,
         )
         self.prompt_generator: PromptGenerator = SoftmatcherPromptGenerator(
-            encoder_input_size=self.encoder.encoder_input_size,
+            encoder_input_size=self.encoder.input_size,
             encoder_patch_size=self.encoder.patch_size,
             encoder_feature_size=self.encoder.feature_size,
             num_background_points=num_background_points,
