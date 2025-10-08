@@ -12,7 +12,7 @@ import { pluginSvgr } from '@rsbuild/plugin-svgr';
 const { publicVars } = loadEnv();
 
 const outputConfig = process.env.STATIC_FILES_DIR
-  ? { assetPrefix: '/html' }
+  ? { assetPrefix: '/html', }
   : {};
 
 export default defineConfig({
