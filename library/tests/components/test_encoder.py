@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 import torch
 
-from getiprompt.processes.encoders import AVAILABLE_IMAGE_ENCODERS, ImageEncoder
+from getiprompt.components.encoders import AVAILABLE_IMAGE_ENCODERS, ImageEncoder
 from getiprompt.types import Features, Image, Masks, Priors
 
 
@@ -56,9 +56,9 @@ class TestEncoder:
 
         return mock_model_instance
 
-    @patch("getiprompt.processes.encoders.image_encoder.optimize_model")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoImageProcessor")
+    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
+    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_initialization(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
         """Test that encoder initializes correctly."""
         # Setup mocks with proper structure
@@ -75,9 +75,9 @@ class TestEncoder:
         assert encoder.patch_size == 16
         assert hasattr(encoder, "mask_transform")
 
-    @patch("getiprompt.processes.encoders.image_encoder.optimize_model")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoImageProcessor")
+    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
+    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_mask_transform_creation(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
         """Test that mask transform is created correctly."""
         # Setup mocks with proper structure
@@ -98,9 +98,9 @@ class TestEncoder:
         expected_shape = (1, 14, 14)  # (224/16, 224/16)
         assert result.shape == expected_shape
 
-    @patch("getiprompt.processes.encoders.image_encoder.optimize_model")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoImageProcessor")
+    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
+    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_call_without_priors(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
         """Test encoder call without priors."""
         # Setup mocks with proper structure
@@ -134,9 +134,9 @@ class TestEncoder:
         """Test that all valid model IDs are accepted."""
         for model_id in AVAILABLE_IMAGE_ENCODERS:
             with (
-                patch("getiprompt.processes.encoders.image_encoder.optimize_model") as mock_optimize,
-                patch("getiprompt.processes.encoders.image_encoder.AutoModel") as mock_model,
-                patch("getiprompt.processes.encoders.image_encoder.AutoImageProcessor") as mock_processor,
+                patch("getiprompt.components.encoders.image_encoder.optimize_model") as mock_optimize,
+                patch("getiprompt.components.encoders.image_encoder.AutoModel") as mock_model,
+                patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor") as mock_processor,
             ):
                 # Setup mocks with proper structure
                 mock_model_instance = Mock()
@@ -153,9 +153,9 @@ class TestEncoder:
                 encoder = ImageEncoder(model_id=model_id, device="cpu")
                 assert encoder.model_id == model_id
 
-    @patch("getiprompt.processes.encoders.image_encoder.optimize_model")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoImageProcessor")
+    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
+    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_with_different_input_sizes(
         self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock
     ) -> None:
@@ -169,9 +169,9 @@ class TestEncoder:
             encoder = ImageEncoder(model_id="dinov2_small", device="cpu", input_size=input_size)
             assert encoder.input_size == input_size
 
-    @patch("getiprompt.processes.encoders.image_encoder.optimize_model")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoImageProcessor")
+    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
+    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_with_different_precisions(
         self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock
     ) -> None:
@@ -186,9 +186,9 @@ class TestEncoder:
             encoder = ImageEncoder(model_id="dinov2_small", device="cpu", precision=precision_str, input_size=224)
             assert encoder.precision == expected_dtype
 
-    @patch("getiprompt.processes.encoders.image_encoder.optimize_model")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoImageProcessor")
+    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
+    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_with_compile_models(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
         """Test encoder with model compilation enabled."""
         # Setup mocks with proper structure
@@ -203,9 +203,9 @@ class TestEncoder:
         call_args = mock_optimize.call_args
         assert call_args[1]["compile_models"] is True
 
-    @patch("getiprompt.processes.encoders.image_encoder.optimize_model")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoImageProcessor")
+    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
+    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_with_benchmark_inference_speed(
         self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock
     ) -> None:
@@ -222,9 +222,9 @@ class TestEncoder:
         call_args = mock_optimize.call_args
         assert call_args[1]["benchmark_inference_speed"] is True
 
-    @patch("getiprompt.processes.encoders.image_encoder.optimize_model")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoImageProcessor")
+    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
+    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_device_handling(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
         """Test encoder device handling."""
         # Setup mocks with proper structure
@@ -240,9 +240,9 @@ class TestEncoder:
             call_args = mock_optimize.call_args
             assert call_args[1]["device"] == device
 
-    @patch("getiprompt.processes.encoders.image_encoder.optimize_model")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoImageProcessor")
+    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
+    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_all_parameters(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
         """Test encoder with all parameters specified."""
         # Setup mocks with proper structure
@@ -274,9 +274,9 @@ class TestEncoder:
         assert call_args[1]["compile_models"] is True
         assert call_args[1]["benchmark_inference_speed"] is True
 
-    @patch("getiprompt.processes.encoders.image_encoder.optimize_model")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoImageProcessor")
+    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
+    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_mask_transform_with_different_sizes(
         self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock
     ) -> None:
@@ -297,9 +297,9 @@ class TestEncoder:
             expected_size = input_size // 16
             assert result.shape == (1, expected_size, expected_size)
 
-    @patch("getiprompt.processes.encoders.image_encoder.optimize_model")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoImageProcessor")
+    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
+    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_with_priors(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
         """Test encoder call with priors."""
         # Setup mocks with proper structure
@@ -328,9 +328,9 @@ class TestEncoder:
         assert isinstance(masks[0], Masks)
         assert len(masks[0].data) > 0  # Should have masks
 
-    @patch("getiprompt.processes.encoders.image_encoder.optimize_model")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.processes.encoders.image_encoder.AutoImageProcessor")
+    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
+    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_embed_method(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
         """Test the _embed method."""
         # Setup mocks with proper structure
@@ -361,7 +361,7 @@ class TestEncoder:
             ImageEncoder(model_id="nonexistent_model")
 
     @staticmethod
-    @patch("getiprompt.processes.encoders.image_encoder.AutoModel")
+    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     def test_huggingface_access_error(mock_model: Mock) -> None:
         """Test error handling for HuggingFace access issues."""
         # Mock OSError for gated repo

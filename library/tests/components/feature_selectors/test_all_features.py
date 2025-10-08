@@ -5,7 +5,7 @@
 
 import pytest
 import torch
-from getiprompt.processes.feature_selectors.all_features import AllFeaturesSelector
+from getiprompt.components.feature_selectors.all_features import AllFeaturesSelector
 
 from getiprompt.types import Features
 

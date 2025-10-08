@@ -7,7 +7,7 @@ from getiprompt.components.mask_processors import MasksToPolygons
 from getiprompt.components.prompt_generators import GroundedObjectDetector, GroundingModel
 from getiprompt.components.segmenters import SamDecoder
 from getiprompt.filters import MultiInstancePriorFilter
-from getiprompt.foundation.models import load_sam_model
+from getiprompt.foundation import load_sam_model
 from getiprompt.models.base import BaseModel
 from getiprompt.types import Image, Priors, Results, Text
 from getiprompt.utils.constants import SAMModelName

@@ -19,9 +19,9 @@ warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 from flask import Flask, Response, jsonify, render_template, request, stream_with_context
 
-from getiprompt.processes.encoders import AVAILABLE_IMAGE_ENCODERS
+from getiprompt.components.encoders import AVAILABLE_IMAGE_ENCODERS
 from getiprompt.utils.args import get_arguments
-from getiprompt.utils.constants import DatasetName, PipelineName, SAMModelName
+from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
 from getiprompt.utils.data import load_dataset
 from web_ui.helpers import (
     load_and_prepare_data,

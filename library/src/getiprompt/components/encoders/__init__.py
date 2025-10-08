@@ -3,6 +3,6 @@
 
 """Encoders."""
 
-from .image_encoder import ImageEncoder
+from .image_encoder import ImageEncoder, AVAILABLE_IMAGE_ENCODERS
 
-__all__ = ["ImageEncoder"]
+__all__ = ["ImageEncoder", "AVAILABLE_IMAGE_ENCODERS"]

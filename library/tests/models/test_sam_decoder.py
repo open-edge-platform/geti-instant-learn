@@ -799,7 +799,7 @@ class TestSamDecoderMaskRefinement:
         sam_decoder.predictor.predict_torch.return_value = (refined_masks, mask_weights, refined_logits)
 
         # Mock NMS to return indices that match the actual number of masks
-        with patch("getiprompt.processes.segmenters.sam_decoder.nms") as mock_nms:
+        with patch("getiprompt.components.segmenters.sam_decoder.nms") as mock_nms:
             # The actual number of masks after filtering will be 3, so NMS should return [0, 1, 2]
             mock_nms.return_value = torch.tensor([0, 1, 2], dtype=torch.long)
 
@@ -864,7 +864,7 @@ class TestSamDecoderMaskRefinement:
         sam_decoder.predictor.predict_torch.return_value = (refined_masks, mask_weights, refined_logits)
 
         # Mock NMS to return indices that match the actual number of masks
-        with patch("getiprompt.processes.segmenters.sam_decoder.nms") as mock_nms:
+        with patch("getiprompt.components.segmenters.sam_decoder.nms") as mock_nms:
             mock_nms.return_value = torch.tensor([0, 1, 2], dtype=torch.long)
 
             refined_masks, refined_coords = sam_decoder.mask_refinement(
@@ -902,7 +902,7 @@ class TestSamDecoderMaskRefinement:
         sam_decoder.predictor.predict_torch.return_value = (refined_masks, mask_weights, refined_logits)
 
         # Mock NMS to return indices that match the actual number of masks
-        with patch("getiprompt.processes.segmenters.sam_decoder.nms") as mock_nms:
+        with patch("getiprompt.components.segmenters.sam_decoder.nms") as mock_nms:
             mock_nms.return_value = torch.tensor([0, 1, 2], dtype=torch.long)
 
             refined_masks, refined_coords = sam_decoder.mask_refinement(
@@ -942,7 +942,7 @@ class TestSamDecoderMaskRefinement:
         sam_decoder.predictor.predict_torch.return_value = (refined_masks, mask_weights, refined_logits)
 
         # Mock NMS to return indices that match the actual number of masks
-        with patch("getiprompt.processes.segmenters.sam_decoder.nms") as mock_nms:
+        with patch("getiprompt.components.segmenters.sam_decoder.nms") as mock_nms:
             mock_nms.return_value = torch.tensor([0, 1, 2], dtype=torch.long)
 
             refined_masks, refined_coords = sam_decoder.mask_refinement(

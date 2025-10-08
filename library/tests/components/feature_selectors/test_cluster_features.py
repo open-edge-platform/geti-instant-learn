@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 import torch
-from getiprompt.processes.feature_selectors.cluster_features import ClusterFeatures
+from getiprompt.components.feature_selectors.cluster_features import ClusterFeatures
 
 from getiprompt.types import Features
 
@@ -221,7 +221,7 @@ class TestClusterFeatures:
 
     def test_call_kmeans_initialization(self) -> None:
         """Test that KMeans is initialized with correct parameters."""
-        with patch("getiprompt.processes.feature_selectors.cluster_features.KMeans") as mock_kmeans:
+        with patch("getiprompt.components.feature_selectors.cluster_features.KMeans") as mock_kmeans:
             mock_kmeans.return_value.fit.return_value = None
             mock_kmeans.return_value.labels_ = np.array([0, 1, 0])
 
@@ -236,7 +236,7 @@ class TestClusterFeatures:
 
     def test_call_kmeans_fit_called(self) -> None:
         """Test that KMeans fit method is called."""
-        with patch("getiprompt.processes.feature_selectors.cluster_features.KMeans") as mock_kmeans:
+        with patch("getiprompt.components.feature_selectors.cluster_features.KMeans") as mock_kmeans:
             mock_instance = MagicMock()
             mock_instance.labels_ = np.array([0, 1, 0])
             mock_kmeans.return_value = mock_instance
