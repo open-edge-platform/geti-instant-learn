@@ -81,7 +81,6 @@ class TestDinoTxtZeroShotClassification:
         """Test that infer raises AttributeError when learn hasn't been called."""
         sample_images, _ = sample_dataset
         # Convert numpy arrays to Image objects
-        image_objects = [Image(img) for img in sample_images]
         with pytest.raises(AttributeError):
             model_instance.infer(sample_images)
 
@@ -96,9 +95,6 @@ class TestDinoTxtZeroShotClassification:
 
         # Learn first
         model_instance.learn([], [sample_priors])
-
-        # Convert numpy arrays to Image objects
-        image_objects = [Image(img) for img in sample_images]
 
         # Then infer
         result = model_instance.infer(sample_images)

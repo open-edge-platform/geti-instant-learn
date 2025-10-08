@@ -5,7 +5,6 @@
 
 from typing import TYPE_CHECKING
 
-from getiprompt.components.encoders import DinoEncoder, Encoder
 from getiprompt.components.feature_selectors import AverageFeatures, FeatureSelector
 from getiprompt.components.mask_processors import MasksToPolygons
 from getiprompt.components.prompt_generators import GridPromptGenerator

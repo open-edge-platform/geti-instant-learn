@@ -27,7 +27,7 @@ from web_ui.helpers import (
     load_and_prepare_data,
     parse_request_and_check_reload,
     prepare_reference_data,
-    reload_pipeline_if_needed,
+    reload_model_if_needed,
     stream_inference,
 )
 
@@ -123,7 +123,7 @@ def run_processing() -> Response:
             current_pipeline_args,
         )
 
-        current_pipeline_instance, current_pipeline_name, current_pipeline_args = reload_pipeline_if_needed(
+        current_pipeline_instance, current_pipeline_name, current_pipeline_args = reload_model_if_needed(
             reload_needed,
             requested_values,
             parsed_args,

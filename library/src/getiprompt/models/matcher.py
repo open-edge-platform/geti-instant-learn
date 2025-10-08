@@ -5,13 +5,12 @@
 
 from typing import TYPE_CHECKING
 
-from getiprompt.components.encoders import DinoEncoder, Encoder
 from getiprompt.components.feature_selectors import AllFeaturesSelector, FeatureSelector
 from getiprompt.components.mask_processors import MasksToPolygons
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.components.segmenters import SamDecoder
 from getiprompt.filters import MaskAdder, MaxPointFilter
-from getiprompt.foundation.models import load_sam_model
+from getiprompt.foundation import load_sam_model
 from getiprompt.models.base import BaseModel
 from getiprompt.types import Image, Priors, Results
 from getiprompt.utils.constants import SAMModelName

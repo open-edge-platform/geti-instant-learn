@@ -11,7 +11,7 @@ from torch.nn import functional as F
 from torchvision import transforms
 from transformers import AutoImageProcessor, AutoModel
 
-from getiprompt.models.model_optimizer import optimize_model
+from getiprompt.foundation.model_optimizer import optimize_model
 from getiprompt.types import Features, Image, Masks, Priors
 from getiprompt.utils.utils import MaybeToTensor, precision_to_torch_dtype
 

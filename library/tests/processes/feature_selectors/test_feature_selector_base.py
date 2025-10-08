@@ -5,8 +5,8 @@
 
 import pytest
 import torch
-
 from getiprompt.processes.feature_selectors.feature_selector_base import FeatureSelector
+
 from getiprompt.types import Features
 
 

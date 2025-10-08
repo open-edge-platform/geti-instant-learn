@@ -5,8 +5,8 @@
 
 import pytest
 import torch
-
 from getiprompt.processes.feature_selectors.average_features import AverageFeatures
+
 from getiprompt.types import Features
 
 

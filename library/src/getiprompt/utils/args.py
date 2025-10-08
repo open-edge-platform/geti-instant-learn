@@ -6,8 +6,8 @@ from enum import Enum
 from typing import TypeVar
 
 from getiprompt.components.prompt_generators import GroundingModel
-from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
 from getiprompt.processes.encoders import AVAILABLE_IMAGE_ENCODERS
+from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
 
 # Generate help strings with choices
 AVAILABLE_SAM_MODELS = ", ".join([model.value for model in SAMModelName])
