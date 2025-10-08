@@ -9,6 +9,7 @@ A modular UI for Geti Prompt, a framework for few-shot visual segmentation using
 ---
 
 ## Table of Contents
+
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Available Scripts](#available-scripts)
@@ -22,6 +23,7 @@ A modular UI for Geti Prompt, a framework for few-shot visual segmentation using
 ---
 
 ## Prerequisites
+
 - [Node.js v24.2.0](https://nodejs.org/)
 - [npm v11.3.0](https://www.npmjs.com/)
 
@@ -42,7 +44,7 @@ npm install
 All commands are run from the `ui` directory unless otherwise specified.
 
 | Script                       | Description                                             |
-|------------------------------|---------------------------------------------------------|
+| ---------------------------- | ------------------------------------------------------- |
 | `npm start`                  | Start the UI development server (http://localhost:3000) |
 | `npm run server`             | Start the backend server (http://localhost:9100)        |
 | `npm run dev`                | Start the UI and backend servers                        |
@@ -74,11 +76,13 @@ npm run dev
 or
 
 To start UI dev server:
+
 ```bash
 npm start
 ```
 
 To start a backend server:
+
 ```bash
 npm run server
 ```
@@ -90,68 +94,68 @@ The app will be available at [http://localhost:3000](http://localhost:3000).
 ## Testing
 
 - **Unit tests:**
-  ```bash
-  npm run test:unit
-  ```
+    ```bash
+    npm run test:unit
+    ```
 - **Unit tests (UI mode):**
-  ```bash
-  npm run test:unit:ui
-  ```
+    ```bash
+    npm run test:unit:ui
+    ```
 - **Unit tests (watch):**
-  ```bash
-  npm run test:unit:watch
-  ```
+    ```bash
+    npm run test:unit:watch
+    ```
 - **Unit tests (coverage):**
-  ```bash
-  npm run test:unit:coverage
-  ```
+    ```bash
+    npm run test:unit:coverage
+    ```
 - **Component tests (Playwright):**
-  ```bash
-  npm run test:component
-  ```
+    ```bash
+    npm run test:component
+    ```
 
 ---
 
 ## Linting & Formatting
 
 - **Lint:**
-  ```bash
-  npm run lint
-  ```
+    ```bash
+    npm run lint
+    ```
 - **Lint (auto-fix):**
-  ```bash
-  npm run lint:fix
-  ```
+    ```bash
+    npm run lint:fix
+    ```
 - **Format:**
-  ```bash
-  npm run format
-  ```
+    ```bash
+    npm run format
+    ```
 - **Format check:**
-  ```bash
-  npm run format:check
-  ```
+    ```bash
+    npm run format:check
+    ```
 
 ---
 
 ## Building
 
 - **Production build:**
-  ```bash
-  npm run build
-  ```
+    ```bash
+    npm run build
+    ```
 - **Preview production build:**
-  ```bash
-  npm run preview
-  ```
+    ```bash
+    npm run preview
+    ```
 
 ---
 
 ## Type Checking
 
 - **Type check:**
-  ```bash
-  npm run type-check
-  ```
+    ```bash
+    npm run type-check
+    ```
 
 ---
 

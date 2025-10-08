@@ -1,10 +1,10 @@
 {
-  "extends": "../tsconfig.json",
-  "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@geti-prompt/test-fixtures": ["./fixtures"]
-    }
-  },
-  "include": ["./"],
+    "extends": "../tsconfig.json",
+    "compilerOptions": {
+        "baseUrl": ".",
+        "paths": {
+            "@geti-prompt/test-fixtures": ["./fixtures"]
+        }
+    },
+    "include": ["./"]
 }
