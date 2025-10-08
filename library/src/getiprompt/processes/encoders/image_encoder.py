@@ -17,7 +17,7 @@ from getiprompt.utils.utils import MaybeToTensor, precision_to_torch_dtype
 
 logger = getLogger("Geti Prompt")
 
-ENCODER_MODEL_COLLECTION = {
+AVAILABLE_VISION_ENCODERS = {
     "dinov2_small": "facebook/dinov2-with-registers-small",
     "dinov2_base": "facebook/dinov2-with-registers-base",
     "dinov2_large": "facebook/dinov2-with-registers-large",
@@ -30,18 +30,18 @@ ENCODER_MODEL_COLLECTION = {
 }
 
 
-class Encoder(nn.Module):
+class ImageEncoder(nn.Module):
     """This encoder uses a model from HuggingFace to encode the images.
 
     Examples:
-        >>> from getiprompt.processes.encoders import Encoder
+        >>> from getiprompt.processes.encoders import ImageEncoder
         >>> from getiprompt.types import Image, Priors, Features
         >>> import torch
         >>> import numpy as np
         >>>
         >>> # Create a sample image
         >>> sample_image = np.zeros((518, 518, 3), dtype=np.uint8)
-        >>> encoder = Encoder(model_id="dinov2_large")
+        >>> encoder = ImageEncoder(model_id="dinov2_large")
         >>> features, masks = encoder([Image(sample_image)], priors_per_image=[Priors()])
         >>> len(features), len(masks)
         (1, 1)
@@ -75,8 +75,8 @@ class Encoder(nn.Module):
         """
         super().__init__()
 
-        if model_id not in ENCODER_MODEL_COLLECTION:
-            msg = f"Invalid model ID: {model_id}. Valid model IDs: {list(ENCODER_MODEL_COLLECTION.keys())}"
+        if model_id not in AVAILABLE_VISION_ENCODERS:
+            msg = f"Invalid model ID: {model_id}. Valid model IDs: {list(AVAILABLE_VISION_ENCODERS.keys())}"
             raise ValueError(msg)
 
         self.model_id = model_id
@@ -84,7 +84,7 @@ class Encoder(nn.Module):
         self.device = device
 
         logger.info(f"Loading DINO model {model_id}")
-        self.model, self.processor = self._load_hf_model(ENCODER_MODEL_COLLECTION[model_id], input_size)
+        self.model, self.processor = self._load_hf_model(AVAILABLE_VISION_ENCODERS[model_id], input_size)
         self.model = self.model.to(device).eval()
         self.patch_size = self.model.config.patch_size
         self.feature_size = self.input_size // self.patch_size
@@ -171,7 +171,6 @@ class Encoder(nn.Module):
         """
         resized_masks = Masks()
         for class_id, masks in masks_per_class.data.items():
-            # TODO we should vectorize this and use as one batch instead of looping
             for mask in masks:
                 # preprocess mask, add batch dim, convert to float and resize
                 pooled_mask = self.mask_transform(mask.data).to(self.model.device)

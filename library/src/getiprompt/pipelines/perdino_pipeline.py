@@ -9,7 +9,7 @@ from getiprompt.filters.masks import ClassOverlapMaskFilter, MaskFilter
 from getiprompt.filters.priors import MaxPointFilter, PriorFilter, PriorMaskFromPoints
 from getiprompt.models import load_sam_model
 from getiprompt.pipelines.pipeline_base import Pipeline
-from getiprompt.processes.encoders import Encoder
+from getiprompt.processes.encoders import ImageEncoder
 from getiprompt.processes.feature_selectors import AverageFeatures, FeatureSelector
 from getiprompt.processes.mask_processors import MaskProcessor, MasksToPolygons
 from getiprompt.processes.prompt_generators import GridPromptGenerator
@@ -85,7 +85,7 @@ class PerDino(Pipeline):
             num_grid_cells: The number of grid cells to use.
             similarity_threshold: The similarity threshold for the similarity matcher.
             mask_similarity_threshold: The similarity threshold for the mask.
-            encoder_model: Encoder model ID to use.
+            encoder_model: ImageEncoder model ID to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
             benchmark_inference_speed: Whether to benchmark the inference speed.
@@ -101,7 +101,7 @@ class PerDino(Pipeline):
             benchmark_inference_speed=benchmark_inference_speed,
         )
 
-        self.encoder: Encoder = Encoder(
+        self.encoder: ImageEncoder = ImageEncoder(
             model_id=encoder_model,
             device=device,
             precision=precision,

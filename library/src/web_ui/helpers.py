@@ -193,7 +193,7 @@ def parse_request_and_check_reload(
         requested_values["sam"] = new_sam_name
         new_args.sam = new_sam_name
 
-    # Encoder Model
+    # ImageEncoder Model
     if (new_encoder_model := request_data.get("encoder_model", new_args.encoder_model)) != new_args.encoder_model:
         reload_needed = True
         requested_values["encoder_model"] = new_encoder_model

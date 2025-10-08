@@ -168,7 +168,7 @@ class PerDino(Pipeline):
             num_grid_cells: The number of grid cells to use.
             similarity_threshold: The similarity threshold for the similarity matcher.
             mask_similarity_threshold: The similarity threshold for the mask.
-            encoder_model: Encoder model ID to use.
+            encoder_model: ImageEncoder model ID to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
             benchmark_inference_speed: Whether to benchmark the inference speed.
@@ -184,7 +184,7 @@ class PerDino(Pipeline):
             benchmark_inference_speed=benchmark_inference_speed,
         )
 
-        self.encoder: Encoder = Encoder(
+        self.encoder: ImageEncoder = ImageEncoder(
             model_id=encoder_model,
             device=device,
             precision=precision,
@@ -298,7 +298,7 @@ classDiagram
         +similarities: List~Similarities~
     }
 
-    class Encoder~Process~ {
+    class ImageEncoder~Process~ {
         <<Interface>>
         +__call__(List~Image~, List~Priors~) (List~Features~, List~Masks~)
     }
@@ -336,7 +336,7 @@ classDiagram
 
     class PerDino {
         +SamPredictor sam_predictor
-        +Encoder encoder
+        +ImageEncoder encoder
         +FeatureSelector feature_selector
         +SimilarityMatcher similarity_matcher
         +PromptGenerator prompt_generator
@@ -349,7 +349,7 @@ classDiagram
 
     class Matcher {
         +SamPredictor sam_predictor
-        +Encoder encoder
+        +ImageEncoder encoder
         +FeatureSelector feature_selector
         +PromptGenerator prompt_generator
         +PriorFilter point_filter
@@ -362,7 +362,7 @@ classDiagram
 
     class SoftMatcher {
         +SamPredictor sam_predictor
-        +Encoder encoder
+        +ImageEncoder encoder
         +FeatureSelector feature_selector
         +PromptGenerator prompt_generator
         +PriorFilter point_filter
@@ -389,7 +389,7 @@ classDiagram
     Pipeline <|-- SoftMatcher
     Pipeline <|-- GroundedSAM
 
-    PerDino o--> Encoder : uses
+    PerDino o--> ImageEncoder : uses
     PerDino o--> FeatureSelector : uses
     PerDino o--> SimilarityMatcher : uses
     PerDino o--> PromptGenerator : uses
@@ -398,7 +398,7 @@ classDiagram
     PerDino o--> MaskProcessor : uses
     PerDino o--> MaskFilter : uses
 
-    Matcher o--> Encoder : uses
+    Matcher o--> ImageEncoder : uses
     Matcher o--> FeatureSelector : uses
     Matcher o--> PromptGenerator : uses
     Matcher o--> PriorFilter : uses
@@ -406,7 +406,7 @@ classDiagram
     Matcher o--> MaskProcessor : uses
     Matcher o--> MaskFilter : uses
 
-    SoftMatcher o--> Encoder : uses
+    SoftMatcher o--> ImageEncoder : uses
     SoftMatcher o--> FeatureSelector : uses
     SoftMatcher o--> PromptGenerator : uses
     SoftMatcher o--> PriorFilter : uses
@@ -419,7 +419,7 @@ classDiagram
     GroundedSAM o--> MaskProcessor : uses
     GroundedSAM o--> MaskFilter : uses
 
-    class Encoder
+    class ImageEncoder
     class AverageFeatures
     class ClusterFeatures
     class AllFeaturesSelector
@@ -433,7 +433,7 @@ classDiagram
     class MasksToPolygons
     class ClassOverlapMaskFilter
 
-    Encoder <|-- Encoder
+    ImageEncoder <|-- ImageEncoder
     FeatureSelector <|-- AverageFeatures
     FeatureSelector <|-- ClusterFeatures
     FeatureSelector <|-- AllFeaturesSelector
@@ -447,7 +447,7 @@ classDiagram
     MaskProcessor <|-- MasksToPolygons
     MaskFilter <|-- ClassOverlapMaskFilter
 
-    Encoder --|> Process
+    ImageEncoder --|> Process
     AverageFeatures --|> Process
     ClusterFeatures --|> Process
     AllFeaturesSelector --|> Process

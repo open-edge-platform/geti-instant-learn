@@ -14,7 +14,7 @@ class Process(ABC):
     Typically classes that inherit from this method implement a __call__ method that
     accepts lists of objects. Each index in the list represents the image that it came from,
     so a List[Features] represents multiple features per image because it was generated using the
-    Encoder that used a List[Image] as an input.
+    ImageEncoder that used a List[Image] as an input.
     """
 
     def __init__(self) -> None:
