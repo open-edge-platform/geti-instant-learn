@@ -32,7 +32,7 @@ export default defineConfig({
         }),
     ],
     output: {
-        assetPrefix: '/html'
+        assetPrefix: '/html',
     },
     source: {
         define: {
