@@ -466,7 +466,7 @@ test.describe('Projects', () => {
         await expect(page).toHaveURL(new RegExp(paths.project({ projectId: project.id })));
     });
 
-    test.only('Deletes a project via the project details page (the last project)', async ({ network, page }) => {
+    test('Deletes a project via the project details page (the last project)', async ({ network, page }) => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
