@@ -63,18 +63,21 @@ app.add_middleware(  # TODO restrict settings in production
 
 app.include_router(projects_router, prefix="/api/v1")
 
-if settings.static_files_dir and bool(os.listdir(settings.static_files_dir)):
+if (
+    settings.static_files_dir
+    and os.path.isdir(settings.static_files_dir)
+    and bool(os.listdir(settings.static_files_dir))
+):
     app.mount("/html", StaticFiles(directory=settings.static_files_dir), name="static")
 
-
-@app.get("/", include_in_schema=False)
-@app.get("/{full_path:path}", include_in_schema=False)
-async def serve_spa(full_path: str = "") -> FileResponse:  # noqa: ARG001
-    """
-    Serve the Single Page Application (SPA) index.html file for any path
-    """
-    index_path = os.path.join(settings.static_files_dir, "index.html")
-    return FileResponse(index_path)
+    @app.get("/", include_in_schema=False)
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str = "") -> FileResponse:  # noqa: ARG001
+        """
+        Serve the Single Page Application (SPA) index.html file for any path
+        """
+        index_path = os.path.join(settings.static_files_dir, "index.html")
+        return FileResponse(index_path)
 
 
 def main() -> None:

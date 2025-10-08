@@ -24,7 +24,7 @@ COPY --link backend/app ./app
 #############
 # geti_ui_packages
 #############
-FROM node:24-alpine3.22@sha256:3e843c608bb5232f39ecb2b25e41214b958b0795914707374c8acc28487dea17 AS geti_ui_packags
+FROM node:24-alpine3.22@sha256:3e843c608bb5232f39ecb2b25e41214b958b0795914707374c8acc28487dea17 AS geti_ui_packages
 
 WORKDIR /home/app/web_ui/
 RUN apk add --no-cache git=2.49.1-r0
@@ -40,7 +40,7 @@ WORKDIR /home/app/web_ui/
 
 COPY --link ui/package.json ./
 COPY --link ui/package-lock.json ./
-COPY --from=geti_ui_packags /home/app/web_ui/packages/ /home/app/web_ui/packages/
+COPY --from=geti_ui_packages /home/app/web_ui/packages/ /home/app/web_ui/packages/
 RUN npm ci --audit=false --ignore-scripts
 
 COPY --link ui/tsconfig.json ./
