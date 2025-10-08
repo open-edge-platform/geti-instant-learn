@@ -3,7 +3,6 @@
 
 """Encoders."""
 
-from getiprompt.components.encoders.base import Encoder
-from getiprompt.components.encoders.dino_encoder import DinoEncoder
+from .image_encoder import ImageEncoder
 
-__all__ = ["DinoEncoder", "Encoder"]
+__all__ = ["ImageEncoder"]

@@ -661,6 +661,7 @@ class GroundingDinoMultiscaleDeformableAttention(nn.Module):
 
     @staticmethod
     def with_pos_embed(tensor: torch.Tensor, position_embeddings: Tensor | None) -> Tensor:
+        """Add pos embeddings to tensor."""
         return tensor if position_embeddings is None else tensor + position_embeddings
 
     def forward(

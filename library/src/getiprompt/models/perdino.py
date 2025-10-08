@@ -5,13 +5,14 @@
 
 from typing import TYPE_CHECKING
 
+from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_selectors import AverageFeatures, FeatureSelector
 from getiprompt.components.mask_processors import MasksToPolygons
 from getiprompt.components.prompt_generators import GridPromptGenerator
 from getiprompt.components.segmenters import SamDecoder
 from getiprompt.components.similarity_matchers import CosineSimilarity, SimilarityMatcher
 from getiprompt.filters import ClassOverlapMaskFilter, MaskAdder, MaxPointFilter
-from getiprompt.foundation.models import load_sam_model
+from getiprompt.foundation import load_sam_model
 from getiprompt.models.base import BaseModel
 from getiprompt.types import Image, Priors, Results
 from getiprompt.utils.constants import SAMModelName

@@ -3,12 +3,10 @@
 
 """Feature selectors."""
 
-from getiprompt.components.feature_selectors.all_features import AllFeaturesSelector
-from getiprompt.components.feature_selectors.average_features import AverageFeatures
-from getiprompt.components.feature_selectors.base import (
-    FeatureSelector,
-)
-from getiprompt.components.feature_selectors.cluster_features import ClusterFeatures
+from .all_features import AllFeaturesSelector
+from .average_features import AverageFeatures
+from .base import FeatureSelector
+from .cluster_features import ClusterFeatures
 
 __all__ = [
     "AverageFeatures",

@@ -5,6 +5,7 @@
 
 from typing import TYPE_CHECKING
 
+from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_selectors import AllFeaturesSelector, FeatureSelector
 from getiprompt.components.mask_processors import MasksToPolygons
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator

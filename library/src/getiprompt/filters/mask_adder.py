@@ -36,6 +36,7 @@ class MaskAdder(nn.Module):
         """
         # TODO(Eugene): PriorMaskFromPoints does not filter priros. It only adds masks if they are missing.
         # Consider renaming it to PriorMaskAdder or something similar.
+        # https://github.com/open-edge-platform/geti-prompt/issues/174
         if all(p.masks.is_empty for p in priors) and not any(p.points.is_empty for p in priors):
             masks, _ = self.segmenter(images, priors)
             for p, m in zip(priors, masks, strict=True):
