@@ -9,7 +9,7 @@ import numpy as np
 import torch
 from transformers import AutoModelForZeroShotObjectDetection, AutoProcessor
 
-from getiprompt.models.model_optimizer import optimize_model
+from getiprompt.foundation.model_optimizer import optimize_model
 from getiprompt.processes.prompt_generators.prompt_generator_base import PromptGenerator
 from getiprompt.types import Boxes, Image, Priors, Text
 from getiprompt.utils import precision_to_torch_dtype
@@ -149,7 +149,7 @@ class GroundedObjectDetector(PromptGenerator):
         processor = AutoProcessor.from_pretrained(model_id)
         if model_id.startswith("fushh7/llmdet_swin"):
             # LLMDET has a slightly different interface, use lazy import for efficiency
-            from getiprompt.models.grounding_dino import GroundingDinoForObjectDetection
+            from getiprompt.foundation.grounding_dino import GroundingDinoForObjectDetection
 
             model = GroundingDinoForObjectDetection.from_pretrained(
                 model_id, torch_dtype=precision_to_torch_dtype(precision)

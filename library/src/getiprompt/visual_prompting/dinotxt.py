@@ -5,7 +5,7 @@
 
 import torch
 
-from getiprompt.models.dinotxt import IMAGENET_TEMPLATES, DinoTextEncoder
+from getiprompt.foundation.dinotxt import IMAGENET_TEMPLATES, DinoTextEncoder
 from getiprompt.visual_prompting.base import BaseModel
 from getiprompt.types import Image, Masks, Priors, Results
 from getiprompt.utils import precision_to_torch_dtype

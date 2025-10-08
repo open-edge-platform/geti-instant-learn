@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 
-from getiprompt.models.per_segment_anything import SamPredictor
+from getiprompt.foundation.per_segment_anything import SamPredictor
 from getiprompt.processes.encoders.encoder_base import Encoder
 from getiprompt.types import Features, Image, Masks, Priors
 

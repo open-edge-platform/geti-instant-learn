@@ -6,7 +6,7 @@
 from typing import TYPE_CHECKING
 
 from getiprompt.filters.priors import MaxPointFilter, PriorFilter, PriorMaskFromPoints
-from getiprompt.models.models import load_sam_model
+from getiprompt.foundation.models import load_sam_model
 from getiprompt.visual_prompting.base import BaseModel
 from getiprompt.processes.encoders import DinoEncoder, Encoder
 from getiprompt.processes.feature_selectors import AllFeaturesSelector, FeatureSelector

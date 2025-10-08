@@ -19,7 +19,7 @@ import numpy as np
 import torch
 
 from getiprompt.datasets.dataset_base import Dataset
-from getiprompt.visual_prompting import BaseModel, load_module
+from getiprompt.visual_prompting import BaseModel, load_model
 from getiprompt.types import Image, Masks, Points, Priors, Similarities
 from getiprompt.utils.constants import PipelineName, SAMModelName
 from getiprompt.utils.data import load_dataset
@@ -238,35 +238,35 @@ def reload_pipeline_if_needed(
     current_pipeline_instance: BaseModel,
 ) -> tuple[BaseModel, str, argparse.Namespace]:
     """Reloads the pipeline if necessary based on changed critical parameters."""
-    pipeline_instance = current_pipeline_instance
-    pipeline_name = current_args.pipeline
+    model_instance = current_pipeline_instance
+    model_name = current_args.model
 
-    if pipeline_instance is None:
+    if model_instance is None:
         reload_needed = True
         logger.info("Pipeline not loaded yet, triggering initial load.")
         if "sam" not in requested_values:
             requested_values["sam"] = current_args.sam
-        if "pipeline" not in requested_values:
-            requested_values["pipeline"] = current_args.pipeline
+        if "model" not in requested_values:
+            requested_values["model"] = current_args.model
 
     if reload_needed:
         logger.info(f"Reloading pipeline due to changes in: {list(requested_values.keys())}")
         try:
-            # Use the current pipeline name if no pipeline change was requested
-            target_pipeline_name = requested_values.get("pipeline", pipeline_name)
-            pipeline_instance = load_module(
+            # Use the current model name if no model change was requested
+            target_model_name = requested_values.get("model", model_name)
+            model_instance = load_model(
                 sam=SAMModelName(current_args.sam),
-                pipeline_name=PipelineName(target_pipeline_name),
+                model_name=PipelineName(target_model_name),
                 args=current_args,
             )
-            pipeline_name = target_pipeline_name
+            model_name = target_model_name
             logger.info("Pipeline reloaded successfully.")
         except Exception as e:
             msg = f"Error reloading pipeline: {e}"
             logger.error(msg, exc_info=True)
             raise ValueError(msg) from e
 
-    return pipeline_instance, pipeline_name, current_args
+    return model_instance, model_name, current_args
 
 
 def load_and_prepare_data(
