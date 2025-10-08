@@ -5,7 +5,7 @@
 
 import { $api } from '@geti-prompt/api';
 
-import { queryClient } from '../../../providers';
+import { queryClient } from '../../../query-client';
 
 export const useDeleteProject = () => {
     const deleteProjectMutation = $api.useMutation('delete', '/api/v1/projects/{project_id}', {
