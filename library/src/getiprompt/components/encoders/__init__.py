@@ -3,6 +3,6 @@
 
 """Encoders."""
 
-from .image_encoder import ImageEncoder, AVAILABLE_IMAGE_ENCODERS
+from .image_encoder import AVAILABLE_IMAGE_ENCODERS, ImageEncoder
 
 __all__ = ["ImageEncoder", "AVAILABLE_IMAGE_ENCODERS"]
