@@ -20,8 +20,8 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeEl
 
 from getiprompt.datasets import BatchedSingleCategoryIter, Dataset
 from getiprompt.models import BaseModel, load_model
-from getiprompt.processes.calculators import SegmentationMetrics
-from getiprompt.processes.visualizations import ExportMaskVisualization
+from getiprompt.components.metrics import SegmentationMetrics
+from getiprompt.components.visualizations import ExportMaskVisualization
 from getiprompt.types import Image, Masks, Priors, Text
 from getiprompt.utils import setup_logger
 from getiprompt.utils.args import get_arguments, parse_experiment_args
@@ -503,7 +503,7 @@ def _generate_experiment_plan(
 
     for dataset, model, backbone in all_combinations:
         # Skip unsupported combinations
-        if model == ModelName.PER_SAM and backbone == SAMModelName.EFFICIENT_VIT_SAM:
+        if backbone == SAMModelName.EFFICIENT_VIT_SAM:
             logger.info(f"Planning to skip {backbone.value} with {model.value} (unsupported).")
             continue
 

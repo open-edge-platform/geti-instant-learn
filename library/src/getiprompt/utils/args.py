@@ -5,7 +5,7 @@ import argparse
 from enum import Enum
 from typing import TypeVar
 
-from getiprompt.processes.prompt_generators import GroundingModel
+from getiprompt.components.prompt_generators import GroundingModel
 from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
 
 # Generate help strings with choices

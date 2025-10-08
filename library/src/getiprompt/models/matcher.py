@@ -8,18 +8,18 @@ from typing import TYPE_CHECKING
 from getiprompt.filters.priors import MaxPointFilter, PriorFilter, PriorMaskFromPoints
 from getiprompt.foundation.models import load_sam_model
 from getiprompt.models.base import BaseModel
-from getiprompt.processes.encoders import DinoEncoder, Encoder
-from getiprompt.processes.feature_selectors import AllFeaturesSelector, FeatureSelector
-from getiprompt.processes.mask_processors import MasksToPolygons
-from getiprompt.processes.prompt_generators import BidirectionalPromptGenerator
-from getiprompt.processes.segmenters import SamDecoder, Segmenter
+from getiprompt.components.encoders import DinoEncoder, Encoder
+from getiprompt.components.feature_selectors import AllFeaturesSelector, FeatureSelector
+from getiprompt.components.mask_processors import MasksToPolygons
+from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
+from getiprompt.components.segmenters import SamDecoder
 from getiprompt.types import Image, Priors, Results
 from getiprompt.utils.constants import SAMModelName
 from getiprompt.utils.decorators import track_duration
 
 if TYPE_CHECKING:
     from getiprompt.filters.priors.prior_filter_base import PriorFilter
-    from getiprompt.processes.prompt_generators.prompt_generator_base import PromptGenerator
+    from getiprompt.components.prompt_generators.base import PromptGenerator
 
 
 class Matcher(BaseModel):
@@ -106,7 +106,7 @@ class Matcher(BaseModel):
             num_background_points=num_background_points,
         )
         self.point_filter: PriorFilter = MaxPointFilter(max_num_points=num_foreground_points)
-        self.segmenter: Segmenter = SamDecoder(
+        self.segmenter: SamDecoder = SamDecoder(
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
         )

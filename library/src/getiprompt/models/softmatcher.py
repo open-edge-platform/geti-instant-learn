@@ -6,11 +6,11 @@
 from typing import TYPE_CHECKING
 
 from getiprompt.models import Matcher
-from getiprompt.processes.prompt_generators.softmatcher_prompt_generator import SoftmatcherPromptGenerator
+from getiprompt.components.prompt_generators.softmatcher import SoftmatcherPromptGenerator
 from getiprompt.utils.constants import SAMModelName
 
 if TYPE_CHECKING:
-    from getiprompt.processes.prompt_generators.prompt_generator_base import PromptGenerator
+    from getiprompt.components.prompt_generators.base import PromptGenerator
 
 
 class SoftMatcher(Matcher):

@@ -2,12 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Base class for feature selectors."""
-
-from abc import abstractmethod
-
 import torch
-
-from getiprompt.components import Process
 from getiprompt.types import Features
 from torch import nn
 

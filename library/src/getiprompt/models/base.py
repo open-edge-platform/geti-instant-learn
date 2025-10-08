@@ -6,8 +6,7 @@
 from abc import abstractmethod
 from logging import getLogger
 
-from getiprompt.processes.preprocessors import ResizeImages, ResizeMasks
-from getiprompt.processes.process_base import Process
+from getiprompt.components.preprocessors import ResizeImages, ResizeMasks
 from getiprompt.types import Image, Priors, Results
 from torch import nn
 
@@ -29,7 +28,6 @@ class BaseModel(nn.Module):
         ...     def infer(self, target_images: list[Image]) -> Results:
         ...         self.resize_images(images=target_images)
         ...         return Results()
-        >>>
         >>> my_model = MyModel(image_size=512)
         >>> sample_image = np.zeros((10, 10, 3), dtype=np.uint8)
         >>> learn_results = my_model.learn([Image(sample_image)], [Priors()])
@@ -82,13 +80,13 @@ class BaseModel(nn.Module):
         return [
             (attr_value.__class__.__name__, attr_value.last_duration)
             for attr_value in self.__dict__.values()
-            if isinstance(attr_value, Process) and hasattr(attr_value, "last_duration")
+            if isinstance(attr_value, nn.Module) and hasattr(attr_value, "last_duration")
         ]
 
     def _reset_process_durations(self) -> None:
         """Reset the durations of the processes."""
         for attr_value in self.__dict__.values():
-            if isinstance(attr_value, Process):
+            if isinstance(attr_value, nn.Module):
                 attr_value.last_duration = 0.0
 
     def log_timing(self, title: str = "Inference") -> float:

@@ -6,15 +6,13 @@
 from .grounded_sam import GroundedSAM
 from .matcher import Matcher
 from .perdino import PerDino
-from .persam import PerSam
 from .base import BaseModel
 from .factory import load_model
 from .softmatcher import SoftMatcher
 
 __all__ = [
     "Matcher",
-    "PerDino",
-    "PerSam",
+    "PerDino",    
     "BaseModel",
     "SoftMatcher",
     "GroundedSAM",

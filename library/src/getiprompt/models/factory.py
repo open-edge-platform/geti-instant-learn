@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from getiprompt.processes.prompt_generators import GroundingModel
+from getiprompt.components.prompt_generators import GroundingModel
 from getiprompt.utils.constants import ModelName, SAMModelName
 
 if TYPE_CHECKING:
@@ -36,20 +36,6 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Bas
     logger.info("Constructing model: %s", model_name.value)
 
     match model_name:
-        case ModelName.PER_SAM:
-            return PerSam(
-                sam=sam,
-                num_foreground_points=args.num_foreground_points,
-                num_background_points=args.num_background_points,
-                num_grid_cells=args.num_grid_cells,
-                similarity_threshold=args.similarity_threshold,
-                mask_similarity_threshold=args.mask_similarity_threshold,
-                precision=args.precision,
-                compile_models=args.compile_models,
-                benchmark_inference_speed=args.benchmark_inference_speed,
-                image_size=args.image_size,
-                device=args.device,
-            )
         case ModelName.PER_DINO:
             return PerDino(
                 sam=sam,

@@ -6,11 +6,10 @@
 import numpy as np
 import torch
 
-from getiprompt.components import Process
 from getiprompt.types import Boxes, Masks, Points, Priors
 
 
-class Visualization(Process):
+class Visualization:
     """This is the base class for all visualization processes.
 
     It provides a way to visualize the data.

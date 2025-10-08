@@ -31,7 +31,6 @@ class ModelName(Enum):
 
     GROUNDED_SAM = "GroundedSAM"
     MATCHER = "Matcher"
-    PER_SAM = "PerSAM"
     PER_DINO = "PerDino"
     SOFT_MATCHER = "SoftMatcher"
 

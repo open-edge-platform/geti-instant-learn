@@ -4,7 +4,7 @@
 """This module provides a filter that choces the top K foreground points."""
 
 from getiprompt.filters.priors.prior_filter_base import PriorFilter
-from getiprompt.processes.segmenters import Segmenter
+from getiprompt.components.segmenters import SamDecoder
 from getiprompt.types import Image, Priors
 
 
@@ -14,11 +14,11 @@ class PriorMaskFromPoints(PriorFilter):
     This is used when only points are supplied for the reference images and the masks are not available.
     """
 
-    def __init__(self, segmenter: Segmenter) -> None:
+    def __init__(self, segmenter: SamDecoder) -> None:
         """Initialize the prior mask from points filter.
 
         Args:
-            segmenter: Segmenter to use to create masks from points
+            segmenter: SamDecoder to use to create masks from points
         """
         self.segmenter = segmenter
 

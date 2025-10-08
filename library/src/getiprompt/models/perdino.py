@@ -9,19 +9,19 @@ from getiprompt.filters.masks import ClassOverlapMaskFilter, MaskFilter
 from getiprompt.filters.priors import MaxPointFilter, PriorFilter, PriorMaskFromPoints
 from getiprompt.foundation.models import load_sam_model
 from getiprompt.models.base import BaseModel
-from getiprompt.processes.encoders import DinoEncoder, Encoder
-from getiprompt.processes.feature_selectors import AverageFeatures, FeatureSelector
-from getiprompt.processes.mask_processors import MasksToPolygons
-from getiprompt.processes.prompt_generators import GridPromptGenerator
-from getiprompt.processes.segmenters import SamDecoder, Segmenter
-from getiprompt.processes.similarity_matchers import CosineSimilarity, SimilarityMatcher
+from getiprompt.components.encoders import DinoEncoder, Encoder
+from getiprompt.components.feature_selectors import AverageFeatures, FeatureSelector
+from getiprompt.components.mask_processors import MasksToPolygons
+from getiprompt.components.prompt_generators import GridPromptGenerator
+from getiprompt.components.segmenters import SamDecoder
+from getiprompt.components.similarity_matchers import CosineSimilarity, SimilarityMatcher
 from getiprompt.types import Image, Priors, Results
 from getiprompt.utils.constants import SAMModelName
 from getiprompt.utils.decorators import track_duration
 
 if TYPE_CHECKING:
     from getiprompt.filters.priors.prior_filter_base import PriorFilter
-    from getiprompt.processes.prompt_generators.prompt_generator_base import PromptGenerator
+    from getiprompt.components.prompt_generators.base import PromptGenerator
 
 
 class PerDino(BaseModel):
@@ -108,7 +108,7 @@ class PerDino(BaseModel):
         self.point_filter: PriorFilter = MaxPointFilter(
             max_num_points=num_foreground_points,
         )
-        self.segmenter: Segmenter = SamDecoder(
+        self.segmenter: SamDecoder = SamDecoder(
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
         )
