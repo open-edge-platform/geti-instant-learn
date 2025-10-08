@@ -6,18 +6,18 @@ from enum import Enum
 from typing import TypeVar
 
 from getiprompt.processes.prompt_generators import GroundingModel
-from getiprompt.utils.constants import DatasetName, PipelineName, SAMModelName
+from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
 
 # Generate help strings with choices
-AVAILABLE_MODELS = ", ".join([model.value for model in SAMModelName])
-AVAILABLE_PIPELINES = ", ".join([p.value for p in PipelineName])
+AVAILABLE_SAM_MODELS = ", ".join([model.value for model in SAMModelName])
+AVAILABLE_MODELS = ", ".join([p.value for p in ModelName])
 AVAILABLE_DATASETS = ", ".join([d.value for d in DatasetName])
 
-HELP_SAM_NAME = (
-    f"Backbone segmentation model name or comma-separated list. Use 'all' to run all. Available: [{AVAILABLE_MODELS}]"
+HELP_SAM_ARG_MSG = (
+    f"Backbone segmentation model name or comma-separated list. Use 'all' to run all. Available: [{AVAILABLE_SAM_MODELS}]"
 )
-HELP_PIPELINE = f"Pipeline name or comma-separated list. Use 'all' to run all. Available: [{AVAILABLE_PIPELINES}]"
-HELP_DATASET_NAME = f"Dataset name or comma-separated list. Use 'all' to run all. Available: [{AVAILABLE_DATASETS}]"
+HELP_MODEL_ARG_MSG = f"Model name or comma-separated list. Use 'all' to run all. Available: [{AVAILABLE_MODELS}]"
+HELP_DATASET_ARG_MSG = f"Dataset name or comma-separated list. Use 'all' to run all. Available: [{AVAILABLE_DATASETS}]"
 
 
 def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
@@ -27,14 +27,14 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         type=str,
         default="SAM-HQ-tiny",
         choices=["all"] + [model.value for model in SAMModelName],
-        help=HELP_SAM_NAME,
+        help=HELP_SAM_ARG_MSG,
     )
     parser.add_argument(
-        "--pipeline",
+        "--model",
         type=str,
         default="Matcher",
-        choices=["all"] + [p.value for p in PipelineName],
-        help=HELP_PIPELINE,
+        choices=["all"] + [p.value for p in ModelName],
+        help=HELP_MODEL_ARG_MSG,
     )
     parser.add_argument(
         "--n_shot",
@@ -47,7 +47,7 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         type=str,
         default="lvis",
         choices=["all"] + [d.value for d in DatasetName],
-        help=HELP_DATASET_NAME,
+        help=HELP_DATASET_ARG_MSG,
     )
     parser.add_argument(
         "--dataset_filenames",
@@ -255,23 +255,7 @@ def _parse_enum_list(arg_str: str, enum_cls: type[TEnum], arg_name: str) -> list
     return [enum_cls(item) for item in items_to_run]
 
 
-def _parse_str_list(arg_str: str, all_values: list[str], arg_name: str) -> list[str]:
-    """Parses a comma-separated string of values, returning a list of valid values."""
-    if arg_str == "all":
-        return [v for v in all_values if v != "all"]
-
-    items_to_run = [p.strip() for p in arg_str.split(",")]
-    valid_items = [item for item in items_to_run if item in all_values]
-    invalid_items = [item for item in items_to_run if item not in all_values]
-
-    if invalid_items:
-        msg = f"Invalid {arg_name}(s): {invalid_items}. Available {arg_name}s: {[v for v in all_values if v != 'all']}"
-        raise ValueError(msg)
-
-    return valid_items
-
-
-def parse_experiment_args(args: argparse.Namespace) -> tuple[list[DatasetName], list[PipelineName], list[SAMModelName]]:
+def parse_experiment_args(args: argparse.Namespace) -> tuple[list[DatasetName], list[ModelName], list[SAMModelName]]:
     """Parse experiment arguments.
 
     Args:
@@ -280,24 +264,24 @@ def parse_experiment_args(args: argparse.Namespace) -> tuple[list[DatasetName], 
     Returns:
         tuple containing:
             - datasets_to_run: List of dataset enums to run
-            - pipelines_to_run: List of pipeline enums to run
+            - models_to_run: List of model enums to run
             - backbones_to_run: List of SAM model enums to run
 
     Raises:
         ValueError: If any invalid arguments are provided or if no valid arguments remain after filtering
     """
     valid_datasets = _parse_enum_list(args.dataset_name, DatasetName, "dataset")
-    valid_pipelines = _parse_enum_list(args.pipeline, PipelineName, "pipeline")
+    valid_models = _parse_enum_list(args.model, ModelName, "model")
     valid_backbones = _parse_enum_list(args.sam, SAMModelName, "SAM model")
 
     if not valid_datasets:
         msg = f"No valid datasets found from '{args.dataset_name}'. Available: {[d.value for d in DatasetName]}"
         raise ValueError(msg)
-    if not valid_pipelines:
-        msg = f"No valid pipelines found from '{args.pipeline}'. Available: {[p.value for p in PipelineName]}"
+    if not valid_models:
+        msg = f"No valid models found from '{args.model}'. Available: {[m.value for m in ModelName]}"
         raise ValueError(msg)
     if not valid_backbones:
         msg = f"No valid SAM models found from '{args.sam}'. Available: {[m.value for m in SAMModelName]}"
         raise ValueError(msg)
 
-    return valid_datasets, valid_pipelines, valid_backbones
+    return valid_datasets, valid_models, valid_backbones

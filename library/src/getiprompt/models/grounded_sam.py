@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""This Pipeline uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
+"""This model uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
 
 from getiprompt.filters.masks import BoxAwareMaskFilter, MaskFilter
 from getiprompt.filters.priors import MultiInstancePriorFilter
@@ -16,7 +16,7 @@ from getiprompt.utils.decorators import track_duration
 
 
 class GroundedSAM(BaseModel):
-    """This Pipeline uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
+    """This model uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
 
     def __init__(
         self,
@@ -30,7 +30,7 @@ class GroundedSAM(BaseModel):
         device: str = "cuda",
         image_size: int | tuple[int, int] | None = None,
     ) -> None:
-        """Initialize the pipeline.
+        """Initialize the model.
 
         Args:
             sam: The SAM model name.
@@ -85,7 +85,7 @@ class GroundedSAM(BaseModel):
     @track_duration
     def infer(self, target_images: list[Image]) -> Results:
         """Perform inference step on the target images."""
-        # Start running the pipeline
+        # Start running the model
         target_images = self.resize_images(target_images)
         priors = self.prompt_generator(target_images, [self.text_priors] * len(target_images))
         priors = self.multi_instance_prior_filter(priors)

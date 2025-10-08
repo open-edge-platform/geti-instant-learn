@@ -31,7 +31,7 @@ class FeatureSelector(Process):
         """This method merges features.
 
         This class has the same interface as the FeatureFilter() but,
-        is defined a process because it is an integral part of a pipeline flow.
+        is defined a process because it is an integral part of a model flow.
 
         Args:
             features_per_image: A list of features.

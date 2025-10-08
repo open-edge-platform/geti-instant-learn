@@ -9,7 +9,7 @@ from getiprompt.utils.decorators import time_call
 
 
 class Process(ABC):
-    """This is the base class of processes within pipelines.
+    """This is the base class of processes within models.
 
     Typically classes that inherit from this method implement a __call__ method that
     accepts lists of objects. Each index in the list represents the image that it came from,
@@ -32,7 +32,7 @@ class Process(ABC):
 
         It decorates the __call__ method of the subclass with the time_call decorator.
         This decorator times the execution of the __call__ method and stores the duration on the instance.
-        This is used to print the timing of the pipeline components.
+        This is used to print the timing of the model components.
         """
         super().__init_subclass__(**kwargs)
         if callable(cls) and cls.__call__ is not Process.__call__:

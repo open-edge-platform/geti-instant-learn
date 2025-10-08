@@ -14,7 +14,7 @@ from jsonargparse import ActionConfigFile, ArgumentParser, Namespace
 
 from getiprompt.benchmark import perform_benchmark_experiment
 from getiprompt.models.base import BaseModel
-from getiprompt.run import run_pipeline
+from getiprompt.run import run_model
 from getiprompt.utils.args import populate_benchmark_parser
 from getiprompt.utils.utils import setup_logger
 
@@ -61,7 +61,7 @@ class GetiPromptCLI:
             "--text",
             type=str,
             default=None,
-            help="Text prompt for grounding dino. If provided, pipeline is set to GroundingDinoSAM.",
+            help="Text prompt for grounding dino. If provided, model is set to GroundingDinoSAM.",
         )
         parser.add_argument("--output_location", type=str, default=None, help="Directory to save output.")
         parser.add_argument(
@@ -96,8 +96,8 @@ class GetiPromptCLI:
         """Returns the subcommands and help messages for each subcommand."""
         return {
             "run": "Perform both learning and inference steps.",
-            "benchmark": "Run benchmarking on the pipelines.",
-            "ui": "Run the UI for the pipelines.",
+            "benchmark": "Run benchmarking on the models.",
+            "ui": "Run the UI for the models.",
         }
 
     def _add_subcommands(self) -> None:
@@ -132,9 +132,9 @@ class GetiPromptCLI:
                     msg = "Either reference_images or reference_text_prompt must be provided."
                     raise ValueError(msg)
 
-                pipeline = config.run.pipeline
-                run_pipeline(
-                    pipeline=pipeline,
+                model = config.run.model
+                run_model(
+                    model=model,
                     target_images=config.run.target_images,
                     reference_images=config.run.reference_images,
                     reference_prompts=config.run.reference_prompts,

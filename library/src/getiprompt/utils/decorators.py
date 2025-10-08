@@ -30,7 +30,7 @@ def time_call(func: Callable[..., Any]) -> Callable[..., Any]:
 
 
 def track_duration(func: Callable[..., Any]) -> Callable[..., Any]:
-    """Decorator to reset durations, run the pipeline method, and log timing."""
+    """Decorator to reset durations, run the model method, and log timing."""
 
     @wraps(func)
     def wrapper(self, *args, **kwargs) -> Any:  # noqa: ANN001,ANN401

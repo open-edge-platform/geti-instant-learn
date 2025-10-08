@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""DINOv3 zero-shot classification pipeline."""
+"""DINOv3 zero-shot classification model."""
 
 import torch
 
@@ -13,7 +13,7 @@ from getiprompt.utils.constants import DINOv3BackboneSize
 
 
 class DinoTxtZeroShotClassification(BaseModel):
-    """DinoTxt pipeline.
+    """DinoTxt model.
 
     Args:
         pretrained: Whether to use pretrained weights.
@@ -23,7 +23,7 @@ class DinoTxtZeroShotClassification(BaseModel):
         image_size: The size of the image to use.
 
     Examples:
-        >>> from getiprompt.pipelines import DinoTxtZeroShotClassification
+        >>> from getiprompt.models import DinoTxtZeroShotClassification
         >>> from getiprompt.types import Image, Priors
         >>> from getiprompt.utils.constants import DINOv3BackboneSize
         >>>
@@ -74,7 +74,7 @@ class DinoTxtZeroShotClassification(BaseModel):
         Examples:
             >>> import torch
             >>> import numpy as np
-            >>> from getiprompt.pipelines import DINOTxt
+            >>> from getiprompt.models import DINOTxt
             >>> from getiprompt.types import Image, Priors
             >>> dinotxt = DINOTxt()
             >>> ref_priors = Priors(text={0: "cat", 1: "dog"})
@@ -102,7 +102,7 @@ class DinoTxtZeroShotClassification(BaseModel):
 
         Examples:
             >>> import torch
-            >>> from getiprompt.pipelines import DinoTxtZeroShotClassification
+            >>> from getiprompt.models import DinoTxtZeroShotClassification
             >>> from getiprompt.types import Image, Priors
             >>> dinotxt = DinoTxtZeroShotClassification()
             >>> ref_priors = Priors(text={0: "cat", 1: "dog"})

@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""PerDino pipeline."""
+"""PerDino model."""
 
 from typing import TYPE_CHECKING
 
@@ -25,14 +25,14 @@ if TYPE_CHECKING:
 
 
 class PerDino(BaseModel):
-    """This is the PerDino algorithm pipeline.
+    """This is the PerDino algorithm model.
 
-    It is very similar to the PerSam pipeline but uses DinoV2 for encoding the images.
+    It is very similar to the PerSam model but uses DinoV2 for encoding the images.
 
     Examples:
         >>> import torch
         >>> import numpy as np
-        >>> from getiprompt.pipelines import PerDino
+        >>> from getiprompt.models import PerDino
         >>> from getiprompt.types import Image, Priors, Results
         >>>
         >>> perdino = PerDino()
@@ -69,7 +69,7 @@ class PerDino(BaseModel):
         device: str = "cuda",
         image_size: int | tuple[int, int] | None = None,
     ) -> None:
-        """Initialize the PerDino pipeline.
+        """Initialize the PerDino model.
 
         Args:
             sam: The name of the SAM model to use.
@@ -124,7 +124,7 @@ class PerDino(BaseModel):
         reference_priors = self.prior_mask_from_points(reference_images, reference_priors)
         reference_priors = self.resize_masks(reference_priors)
 
-        # Start running the pipeline
+        # Start running the model
         reference_features, _ = self.encoder(
             reference_images,
             reference_priors,
@@ -136,7 +136,7 @@ class PerDino(BaseModel):
         """Perform inference step on the target images."""
         target_images = self.resize_images(target_images)
 
-        # Start running the pipeline
+        # Start running the model
         target_features, _ = self.encoder(target_images)
         similarities = self.similarity_matcher(self.reference_features, target_features, target_images)
         priors = self.prompt_generator(similarities, target_images)

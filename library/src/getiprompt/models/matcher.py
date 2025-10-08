@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Matcher pipeline, based on the paper 'Segment Anything with One Shot Using All-Purpose Feature Matching'."""
+"""Matcher model, based on the paper 'Segment Anything with One Shot Using All-Purpose Feature Matching'."""
 
 from typing import TYPE_CHECKING
 
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 
 class Matcher(BaseModel):
-    """This is the Matcher pipeline.
+    """This is the Matcher model.
 
     It's based on the paper "[ICLR'24] Matcher: Segment Anything with One Shot Using All-Purpose Feature Matching"
     https://arxiv.org/abs/2305.13310.
@@ -38,7 +38,7 @@ class Matcher(BaseModel):
     Examples:
         >>> import torch
         >>> import numpy as np
-        >>> from getiprompt.pipelines import Matcher
+        >>> from getiprompt.models import Matcher
         >>> from getiprompt.types import Image, Priors, Results
         >>>
         >>> matcher = Matcher()
@@ -71,7 +71,7 @@ class Matcher(BaseModel):
         device: str = "cuda",
         image_size: int | tuple[int, int] | None = None,
     ) -> None:
-        """Initialize the Matcher pipeline.
+        """Initialize the Matcher model.
 
         Args:
             sam: The name of the SAM model to use.
@@ -122,7 +122,7 @@ class Matcher(BaseModel):
         reference_priors = self.prior_mask_from_points(reference_images, reference_priors)
         reference_priors = self.resize_masks(reference_priors)
 
-        # Start running the pipeline
+        # Start running the model
         reference_features, self.reference_masks = self.encoder(reference_images, reference_priors)
         self.reference_features = self.feature_selector(reference_features)
 
@@ -131,7 +131,7 @@ class Matcher(BaseModel):
         """Perform inference step on the target images."""
         target_images = self.resize_images(target_images)
 
-        # Start running the pipeline
+        # Start running the model
         target_features, _ = self.encoder(target_images)
         priors, similarities = self.prompt_generator(
             self.reference_features,

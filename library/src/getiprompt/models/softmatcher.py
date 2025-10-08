@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""SoftMatcher pipeline."""
+"""SoftMatcher model."""
 
 from typing import TYPE_CHECKING
 
@@ -14,12 +14,12 @@ if TYPE_CHECKING:
 
 
 class SoftMatcher(Matcher):
-    """This is the SoftMatcher pipeline.
+    """This is the SoftMatcher model.
 
-    Instead of using a linear sum assignment, this pipeline uses a soft matching algorithm to generate prompts
+    Instead of using a linear sum assignment, this model uses a soft matching algorithm to generate prompts
     for the segmenter.
 
-    This pipeline is based on the paper:
+    This model is based on the paper:
     "Probabilistic Feature Matching for Fast Scalable Visual Prompting"
     https://www.ijcai.org/proceedings/2024/1000.pdf
 
@@ -27,10 +27,10 @@ class SoftMatcher(Matcher):
     - Replaces the bidirectional prompt generator with a soft matching algorithm, for very fast computation
     - Can use Random Fourier Features to approximate the similarity map to increase prompt generation speed
 
-    We have added several sampling techniques to increase the performance of the pipeline.
+    We have added several sampling techniques to increase the performance of the model.
 
     Examples:
-        >>> from getiprompt.pipelines.softmatcher import SoftMatcher
+        >>> from getiprompt.models.softmatcher import SoftMatcher
         >>> from getiprompt.types import Image, Priors, Results
         >>> import torch
         >>> import numpy as np
@@ -72,7 +72,7 @@ class SoftMatcher(Matcher):
         device: str = "cuda",
         image_size: int | tuple[int, int] | None = None,
     ) -> None:
-        """Initialize the SoftMatcher pipeline.
+        """Initialize the SoftMatcher model.
 
         Args:
             sam: The name of the SAM model to use.

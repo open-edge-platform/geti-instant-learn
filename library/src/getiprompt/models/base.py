@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Base class for all pipelines."""
+"""Base class for all models."""
 
 from abc import abstractmethod
 from logging import getLogger
@@ -15,11 +15,11 @@ logger = getLogger("Geti Prompt")
 
 
 class BaseModel(nn.Module):
-    """This class is the base class for all pipelines.
+    """This class is the base class for all models.
 
     Examples:
         >>> import numpy as np
-        >>> from getiprompt.pipelines import Pipeline
+        >>> from getiprompt.models import Model
         >>> from getiprompt.types import Image, Priors, Results
         >>>
         >>> class MyModel(BaseModel):
@@ -30,10 +30,10 @@ class BaseModel(nn.Module):
         ...         self.resize_images(images=target_images)
         ...         return Results()
         >>>
-        >>> my_pipeline = MyPipeline(image_size=512)
+        >>> my_model = MyModel(image_size=512)
         >>> sample_image = np.zeros((10, 10, 3), dtype=np.uint8)
-        >>> learn_results = my_pipeline.learn([Image(sample_image)], [Priors()])
-        >>> infer_results = my_pipeline.infer([Image(sample_image)])
+        >>> learn_results = my_model.learn([Image(sample_image)], [Priors()])
+        >>> infer_results = my_model.infer([Image(sample_image)])
         >>>
         >>> isinstance(learn_results, Results) and isinstance(infer_results, Results)
         True

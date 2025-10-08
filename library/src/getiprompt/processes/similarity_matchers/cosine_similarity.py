@@ -82,7 +82,7 @@ class CosineSimilarity(SimilarityMatcher):
                     similarities = self._resize_similarities_to_target_size(
                         similarities=similarities,
                         # scaling to 1024 can speed up prompt generation, however we can also resize the images at
-                        #   the start of the pipeline
+                        #   the start of the model
                         target_size=target_images[i].size,
                         unpadded_image_size=target_images[i].sam_preprocessed_size,
                     )

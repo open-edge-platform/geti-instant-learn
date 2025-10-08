@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""PerSam pipeline."""
+"""PerSam model."""
 
 from typing import TYPE_CHECKING
 
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 class PerSam(BaseModel):
-    """This is the PerSam algorithm pipeline.
+    """This is the PerSam algorithm model.
 
     It's based on the paper "Personalize Segment Anything Model with One Shot"
     https://arxiv.org/abs/2305.03048.
@@ -37,7 +37,7 @@ class PerSam(BaseModel):
     Examples:
         >>> import torch
         >>> import numpy as np
-        >>> from getiprompt.pipelines import PerSam
+        >>> from getiprompt.models import PerSam
         >>> from getiprompt.types import Image, Priors, Results
         >>>
         >>> persam = PerSam()
@@ -72,7 +72,7 @@ class PerSam(BaseModel):
         device: str = "cuda",
         image_size: int | tuple[int, int] | None = None,
     ) -> None:
-        """Initialize the PerSam pipeline.
+        """Initialize the PerSam model.
 
         Args:
             sam: The name of the SAM model to use.
@@ -122,7 +122,7 @@ class PerSam(BaseModel):
         reference_priors = self.prior_mask_from_points(reference_images, reference_priors)
         reference_priors = self.resize_masks(reference_priors)
 
-        # Start running the pipeline
+        # Start running the model
         reference_features, _ = self.encoder(
             reference_images,
             reference_priors,
@@ -134,7 +134,7 @@ class PerSam(BaseModel):
         """Perform inference step on the target images."""
         target_images = self.resize_images(target_images)
 
-        # Start running the pipeline
+        # Start running the model
         target_features, _ = self.encoder(target_images)
         similarities = self.similarity_matcher(
             self.reference_features,
