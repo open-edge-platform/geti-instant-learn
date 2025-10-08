@@ -29,7 +29,7 @@ docker-extra-args := registry_build_arg + \
 
 build-image:
     echo "Building docker image for component: {{COMPONENT_NAME}}"
-    docker buildx build \
+    docker build \
         {{docker-extra-args}} \
         {{docker-build-context}} \
         --label "org.opencontainers.image.description={{DOCKER_IMAGE_DESCRIPTION}}" \
