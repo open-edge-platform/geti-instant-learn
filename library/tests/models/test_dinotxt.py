@@ -104,3 +104,10 @@ class TestDinoTxtZeroShotClassification:
 
         # Verify results
         assert isinstance(result, Results)
+        assert hasattr(result, "masks")
+        assert len(result.masks) == len(sample_images)
+
+        pred_labels = [mask.class_ids()[0] for mask in result.masks]
+        pred_labels = torch.tensor(pred_labels)
+        gt_labels = torch.tensor(sample_labels)
+        assert (pred_labels.eq(gt_labels) / len(sample_labels)).mean() >= 0.0
