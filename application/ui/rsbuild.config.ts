@@ -11,10 +11,6 @@ import { pluginSvgr } from '@rsbuild/plugin-svgr';
 
 const { publicVars } = loadEnv();
 
-const outputConfig = process.env.STATIC_FILES_DIR
-  ? { assetPrefix: '/html', }
-  : {};
-
 export default defineConfig({
     plugins: [
         pluginReact(),
@@ -35,7 +31,9 @@ export default defineConfig({
             },
         }),
     ],
-    output: outputConfig,
+    output: {
+        assetPrefix: process.env.ASSET_PREFIX,
+    },
     source: {
         define: {
             ...publicVars,
