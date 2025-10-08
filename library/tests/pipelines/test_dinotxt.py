@@ -9,7 +9,7 @@ import torch
 from skimage.draw import random_shapes
 
 from getiprompt.pipelines.dinotxt import DinoTxtZeroShotClassification
-from getiprompt.types import Priors, Results
+from getiprompt.types import Image, Priors, Results
 
 
 @pytest.fixture
@@ -62,11 +62,11 @@ class TestDinoTxtZeroShotClassification:
             prompt_templates=custom_templates,
             precision="fp16",
             device="cpu",
-            image_size=512,
+            image_size=(512, 512),
         )
         assert pipeline.prompt_templates == custom_templates
         assert pipeline.precision == torch.float16
-        assert pipeline.resize_images.size == 512
+        assert pipeline.resize_images.size == (512, 512)
 
     @staticmethod
     def test_learn_with_empty_reference_priors(pipeline_instance: DinoTxtZeroShotClassification) -> None:
@@ -80,8 +80,10 @@ class TestDinoTxtZeroShotClassification:
     ) -> None:
         """Test that infer raises AttributeError when learn hasn't been called."""
         sample_images, _ = sample_dataset
+        # Convert numpy arrays to Image objects
+        image_objects = [Image(img) for img in sample_images]
         with pytest.raises(AttributeError):
-            pipeline_instance.infer(sample_images)
+            pipeline_instance.infer(image_objects)
 
     @staticmethod
     def test_infer(
@@ -95,8 +97,11 @@ class TestDinoTxtZeroShotClassification:
         # Learn first
         pipeline_instance.learn([], [sample_priors])
 
+        # Convert numpy arrays to Image objects
+        image_objects = [Image(img) for img in sample_images]
+
         # Then infer
-        result = pipeline_instance.infer(sample_images)
+        result = pipeline_instance.infer(image_objects)
 
         # Verify results
         assert isinstance(result, Results)
