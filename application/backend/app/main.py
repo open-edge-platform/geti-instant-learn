@@ -66,7 +66,7 @@ app.include_router(projects_router, prefix="/api/v1")
 if (
     settings.static_files_dir
     and os.path.isdir(settings.static_files_dir)
-    and bool(os.listdir(settings.static_files_dir))
+    and next(os.scandir(settings.static_files_dir), None) is not None
 ):
     app.mount("/html", StaticFiles(directory=settings.static_files_dir), name="static")
 

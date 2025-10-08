@@ -1,0 +1,9 @@
+*
+!backend/app
+!backend/uv.lock
+!backend/pyproject.toml
+!ui/src
+!ui/package.json
+!ui/package-lock.json
+!ui/tsconfig.json
+!ui/rsbuild.config.ts
