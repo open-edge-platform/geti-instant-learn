@@ -2,8 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Resize images."""
-from getiprompt.types import Image
+
 from torch import nn
+
+from getiprompt.types import Image
+
 
 class ResizeImages(nn.Module):
     """This process resizes the images to the given size.

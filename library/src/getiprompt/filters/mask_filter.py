@@ -5,14 +5,16 @@ from itertools import product
 
 import torch
 
-from getiprompt.filters.masks.mask_filter_base import MaskFilter
+from getiprompt.utils.utils import calculate_mask_iou
 from getiprompt.types import Masks, Points
 
+from torch import nn
 
-class ClassOverlapMaskFilter(MaskFilter):
+
+class ClassOverlapMaskFilter(nn.Module):
     """This filter inspects overlapping areas between different label masks."""
 
-    def __call__(  # noqa: C901
+    def forward(
         self,
         masks_per_image: list[Masks] | None = None,
         used_points_per_image: list[Points] | None = None,
@@ -44,7 +46,7 @@ class ClassOverlapMaskFilter(MaskFilter):
                 overlapped_label = []
                 overlapped_other_label = []
                 for (im, mask), (jm, other_mask) in product(enumerate(masks), enumerate(other_masks)):
-                    mask_iou, intersection = self._calculate_mask_iou(mask, other_mask)
+                    mask_iou, intersection = calculate_mask_iou(mask, other_mask)
                     if mask_iou > threshold_iou:
                         if foreground_point_scores[im] > other_foreground_point_scores[jm]:
                             overlapped_other_label.append(jm)

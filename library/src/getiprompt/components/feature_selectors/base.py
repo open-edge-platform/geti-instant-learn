@@ -2,9 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Base class for feature selectors."""
+
 import torch
-from getiprompt.types import Features
 from torch import nn
+
+from getiprompt.types import Features
 
 
 class FeatureSelector(nn.Module):
@@ -21,6 +23,7 @@ class FeatureSelector(nn.Module):
         >>> my_selector = MyFeatureSelector()
         >>> features = my_selector([Features()])
     """
+
     @staticmethod
     def get_all_local_class_features(
         features_per_image: list[Features],

@@ -4,11 +4,9 @@
 """Base class for similarity matchers."""
 
 import math
-from abc import abstractmethod
 
 import torch
 import torch.nn.functional as F
-from getiprompt.types import Features, Similarities
 from torch import nn
 
 

@@ -5,8 +5,8 @@
 
 from typing import TYPE_CHECKING
 
-from getiprompt.models import Matcher
 from getiprompt.components.prompt_generators.softmatcher import SoftmatcherPromptGenerator
+from getiprompt.models import Matcher
 from getiprompt.utils.constants import SAMModelName
 
 if TYPE_CHECKING:

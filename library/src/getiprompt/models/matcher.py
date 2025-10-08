@@ -5,20 +5,19 @@
 
 from typing import TYPE_CHECKING
 
-from getiprompt.filters.priors import MaxPointFilter, PriorFilter, PriorMaskFromPoints
-from getiprompt.foundation.models import load_sam_model
-from getiprompt.models.base import BaseModel
 from getiprompt.components.encoders import DinoEncoder, Encoder
 from getiprompt.components.feature_selectors import AllFeaturesSelector, FeatureSelector
 from getiprompt.components.mask_processors import MasksToPolygons
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.components.segmenters import SamDecoder
+from getiprompt.filters import MaskAdder, MaxPointFilter
+from getiprompt.foundation.models import load_sam_model
+from getiprompt.models.base import BaseModel
 from getiprompt.types import Image, Priors, Results
 from getiprompt.utils.constants import SAMModelName
 from getiprompt.utils.decorators import track_duration
 
 if TYPE_CHECKING:
-    from getiprompt.filters.priors.prior_filter_base import PriorFilter
     from getiprompt.components.prompt_generators.base import PromptGenerator
 
 
@@ -105,12 +104,12 @@ class Matcher(BaseModel):
             encoder_feature_size=self.encoder.feature_size,
             num_background_points=num_background_points,
         )
-        self.point_filter: PriorFilter = MaxPointFilter(max_num_points=num_foreground_points)
+        self.point_filter = MaxPointFilter(max_num_points=num_foreground_points)
         self.segmenter: SamDecoder = SamDecoder(
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
         )
-        self.prior_mask_from_points: PriorFilter = PriorMaskFromPoints(segmenter=self.segmenter)
+        self.mask_adder = MaskAdder(segmenter=self.segmenter)
         self.mask_processor = MasksToPolygons()
         self.reference_features = None
         self.reference_masks = None
@@ -119,7 +118,7 @@ class Matcher(BaseModel):
     def learn(self, reference_images: list[Image], reference_priors: list[Priors]) -> Results:
         """Perform learning step on the reference images and priors."""
         reference_images = self.resize_images(reference_images)
-        reference_priors = self.prior_mask_from_points(reference_images, reference_priors)
+        reference_priors = self.mask_adder(reference_images, reference_priors)
         reference_priors = self.resize_masks(reference_priors)
 
         # Start running the model

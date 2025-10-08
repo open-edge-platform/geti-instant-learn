@@ -3,7 +3,7 @@
 
 import torch
 
-from getiprompt.filters.priors import MultiInstancePriorFilter
+from getiprompt.filters import MultiInstancePriorFilter
 from getiprompt.types import Boxes, Priors
 
 

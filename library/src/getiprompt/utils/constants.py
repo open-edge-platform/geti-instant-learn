@@ -6,6 +6,8 @@ from pathlib import Path
 
 
 class Subset(Enum):
+    """Enum for dataset subsets."""
+
     TRAIN = "train"
     VAL = "val"
     TEST = "test"

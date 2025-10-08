@@ -59,8 +59,8 @@ class GridPromptGenerator(PromptGenerator):
         self.num_bg_points = num_bg_points
 
     def forward(
-        self, 
-        target_similarities: list[Similarities] | None = None, 
+        self,
+        target_similarities: list[Similarities] | None = None,
         target_images: list[Image] | None = None,
     ) -> list[Priors]:
         """This generates prompt candidates (or priors).

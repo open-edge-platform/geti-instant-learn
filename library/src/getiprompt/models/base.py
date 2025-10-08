@@ -6,9 +6,10 @@
 from abc import abstractmethod
 from logging import getLogger
 
+from torch import nn
+
 from getiprompt.components.preprocessors import ResizeImages, ResizeMasks
 from getiprompt.types import Image, Priors, Results
-from torch import nn
 
 logger = getLogger("Geti Prompt")
 

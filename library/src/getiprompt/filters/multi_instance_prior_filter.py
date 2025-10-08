@@ -3,12 +3,12 @@
 
 import torch
 
-from getiprompt.filters.priors.prior_filter_base import PriorFilter
 from getiprompt.types import Priors
 from getiprompt.types.boxes import Boxes
 
+from torch import nn
 
-class MultiInstancePriorFilter(PriorFilter):
+class MultiInstancePriorFilter(nn.Module):
     """Filter out large boxes that are mostly covered by smaller boxes.
 
     A box is filtered if the combined area of all smaller boxes fully contained
@@ -16,9 +16,10 @@ class MultiInstancePriorFilter(PriorFilter):
     """
 
     def __init__(self, threshold: float = 0.8) -> None:
+        super().__init__()
         self.threshold = threshold
 
-    def __call__(self, priors: list[Priors]) -> list[Priors]:
+    def forward(self, priors: list[Priors]) -> list[Priors]:
         """Filter the boxes based on containment and area ratio.
 
         Args:

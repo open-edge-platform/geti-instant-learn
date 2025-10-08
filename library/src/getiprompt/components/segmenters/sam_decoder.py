@@ -3,8 +3,8 @@
 
 """SAM decoder."""
 
-from logging import getLogger
 from itertools import zip_longest
+from logging import getLogger
 
 import torch
 from segment_anything_hq.predictor import SamPredictor as SamHQPredictor

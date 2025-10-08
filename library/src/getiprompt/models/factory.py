@@ -31,7 +31,7 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Bas
         The instantiated model.
     """
     # Lazy import to avoid circular dependencies during module import time.
-    from getiprompt.models import GroundedSAM, Matcher, PerDino, PerSam, SoftMatcher
+    from getiprompt.models import GroundedSAM, Matcher, PerDino, SoftMatcher
 
     logger.info("Constructing model: %s", model_name.value)
 

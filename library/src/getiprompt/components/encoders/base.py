@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Base class for encoders."""
+
 from torch import nn
+
 
 class Encoder(nn.Module):
     """This class is used to create feature embeddings from images.

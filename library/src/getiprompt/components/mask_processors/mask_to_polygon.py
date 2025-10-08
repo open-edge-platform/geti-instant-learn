@@ -5,8 +5,10 @@
 
 import cv2
 import numpy as np
-from getiprompt.types import Annotations, Masks
 from torch import nn
+
+from getiprompt.types import Annotations, Masks
+
 
 class MasksToPolygons(nn.Module):
     """This class converts a list of masks to a list of annotations (polygons).
@@ -39,7 +41,7 @@ class MasksToPolygons(nn.Module):
     def __init__(self) -> None:
         super().__init__()
 
-    def forward(self, masks: list[Masks] | None = None) -> list[Annotations]:
+    def forward(self, masks: list[Masks] | None = None) -> list[Annotations]:  # noqa: PLR6301
         """Convert a list of masks to a list of annotations (polygons)."""
         annotations_list = []
 

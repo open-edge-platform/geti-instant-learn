@@ -8,8 +8,9 @@ from typing import Any
 
 import numpy as np
 from sklearn.metrics import confusion_matrix
-from getiprompt.types import Masks
 from torch import nn
+
+from getiprompt.types import Masks
 
 logger = getLogger("Geti Prompt")
 

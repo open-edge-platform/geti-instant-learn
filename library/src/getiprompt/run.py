@@ -19,8 +19,8 @@ import numpy as np
 from PIL import Image as PILImage
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 
-from getiprompt.models import Matcher, BaseModel
 from getiprompt.components.visualizations import ExportMaskVisualization
+from getiprompt.models import BaseModel, Matcher
 from getiprompt.types import Image, Priors, Text
 from getiprompt.utils.constants import IMAGE_EXTENSIONS
 from getiprompt.utils.utils import setup_logger

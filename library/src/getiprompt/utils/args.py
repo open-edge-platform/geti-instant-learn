@@ -14,9 +14,13 @@ AVAILABLE_MODELS = ", ".join([p.value for p in ModelName])
 AVAILABLE_DATASETS = ", ".join([d.value for d in DatasetName])
 
 HELP_SAM_ARG_MSG = (
-    f"Backbone segmentation model name or comma-separated list. Use 'all' to run all. Available: [{AVAILABLE_SAM_MODELS}]"
+    f"Backbone segmentation model name or "
+    f"comma-separated list. Use 'all' to run all. Available: [{AVAILABLE_SAM_MODELS}]"
 )
+
+
 HELP_MODEL_ARG_MSG = f"Model name or comma-separated list. Use 'all' to run all. Available: [{AVAILABLE_MODELS}]"
+
 HELP_DATASET_ARG_MSG = f"Dataset name or comma-separated list. Use 'all' to run all. Available: [{AVAILABLE_DATASETS}]"
 
 

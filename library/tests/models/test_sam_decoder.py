@@ -10,7 +10,7 @@ import pytest
 import torch
 from segment_anything_hq.predictor import SamPredictor as SamHQPredictor
 
-from getiprompt.processes.segmenters.sam_decoder import SamDecoder
+from getiprompt.components.segmenters.sam_decoder import SamDecoder
 from getiprompt.types import Boxes, Image, Masks, Points, Priors, Similarities
 
 
@@ -390,7 +390,7 @@ class TestSamDecoderPointPreprocessing:
         final_coords, final_labels = SamDecoder.point_preprocess(points, labels, scores)
 
         # Should have 2 positive points, each with only themselves
-        assert final_coords.shape == (2, 1, 2) # [2_positive, 1_positive + 0_negative, 2_coords]
+        assert final_coords.shape == (2, 1, 2)  # [2_positive, 1_positive + 0_negative, 2_coords]
         assert final_labels.shape == (2, 1)  # [2_positive, 1_positive + 0_negative]
 
     @staticmethod

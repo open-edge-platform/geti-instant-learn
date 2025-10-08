@@ -3,10 +3,9 @@
 
 """Base classes for prompt generators."""
 
-from abc import abstractmethod
-
 import torch
 from torch import nn
+
 from getiprompt.types import Priors
 
 

@@ -96,6 +96,7 @@ class IndexIter(DatasetIter):
         """
         return self._parent.get_image_filename(indices[0])
 
+
 class BatchedSingleCategoryIter(DatasetIter):
     """This class iterates over batches of images and masks of a given category.
 

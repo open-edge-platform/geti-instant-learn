@@ -3,10 +3,10 @@
 
 """Init file for the prompt_generators module."""
 
+from .base import PromptGenerator
 from .bidirectional import BidirectionalPromptGenerator
 from .grid import GridPromptGenerator
 from .grounded import GroundedObjectDetector, GroundingModel
-from .base import PromptGenerator
 from .softmatcher import SoftmatcherPromptGenerator
 
 __all__ = [

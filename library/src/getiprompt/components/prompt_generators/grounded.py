@@ -9,8 +9,8 @@ import numpy as np
 import torch
 from transformers import AutoModelForZeroShotObjectDetection, AutoProcessor
 
-from getiprompt.foundation.model_optimizer import optimize_model
 from getiprompt.components.prompt_generators.base import PromptGenerator
+from getiprompt.foundation.model_optimizer import optimize_model
 from getiprompt.types import Boxes, Image, Priors, Text
 from getiprompt.utils import precision_to_torch_dtype
 

@@ -4,6 +4,7 @@
 """Resize masks."""
 
 from torch import nn
+
 from getiprompt.types import Priors
 
 
