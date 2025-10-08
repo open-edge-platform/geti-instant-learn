@@ -5,7 +5,13 @@
 
 import { path } from 'static-path';
 
+const projects = path('/projects');
+const welcome = path('/welcome');
+const project = projects.path('/:projectId');
+
 export const paths = {
     root: path('/'),
-    project: path('/projects/:projectId'),
+    welcome,
+    projects,
+    project,
 };

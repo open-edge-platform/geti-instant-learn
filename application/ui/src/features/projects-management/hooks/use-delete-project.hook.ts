@@ -1,0 +1,27 @@
+/**
+ * Copyright (C) 2025 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { $api } from '@geti-prompt/api';
+
+export const useDeleteProject = () => {
+    const deleteProjectMutation = $api.useMutation('delete', '/api/v1/projects/{project_id}');
+
+    const deleteProject = (id: string, onSuccess?: () => void): void => {
+        deleteProjectMutation.mutate(
+            {
+                params: {
+                    path: {
+                        project_id: id,
+                    },
+                },
+            },
+            {
+                onSuccess,
+            }
+        );
+    };
+
+    return deleteProject;
+};

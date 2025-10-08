@@ -645,7 +645,8 @@ class LVISDataset(Dataset):
             destination = self._subset_files["source_folders"][name]
 
             dst = Path(self._root_path / "downloads" / Path(source).name)
-            self._download(source, dst)
+            if not destination.exists():
+                self._download(source, dst)
             if dst.suffix == ".zip":
                 self._unzip(dst, destination)
             else:

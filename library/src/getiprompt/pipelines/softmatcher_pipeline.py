@@ -60,8 +60,6 @@ class SoftMatcher(Matcher):
         sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
         num_foreground_points: int = 40,
         num_background_points: int = 2,
-        apply_mask_refinement: bool = True,
-        skip_points_in_existing_masks: bool = True,
         mask_similarity_threshold: float | None = 0.42,
         use_sampling: bool = False,
         use_spatial_sampling: bool = False,
@@ -81,8 +79,6 @@ class SoftMatcher(Matcher):
             sam: The name of the SAM model to use.
             num_foreground_points: The number of foreground points to use.
             num_background_points: The number of background points to use.
-            apply_mask_refinement: Whether to apply mask refinement.
-            skip_points_in_existing_masks: Whether to skip points in existing masks.
             mask_similarity_threshold: The similarity threshold for the mask.
             use_sampling: Whether to use sampling.
             use_spatial_sampling: Whether to use spatial sampling.
@@ -100,8 +96,6 @@ class SoftMatcher(Matcher):
             sam=sam,
             num_foreground_points=num_foreground_points,
             num_background_points=num_background_points,
-            apply_mask_refinement=apply_mask_refinement,
-            skip_points_in_existing_masks=skip_points_in_existing_masks,
             mask_similarity_threshold=mask_similarity_threshold,
             encoder_model=encoder_model,
             precision=precision,

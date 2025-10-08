@@ -42,6 +42,7 @@ class TestSource:
         self.source.run()
 
         self.mock_stream_reader.__enter__.assert_called_once()
+        self.mock_stream_reader.connect.assert_called_once()
         self.mock_stream_reader.__exit__.assert_called_once()
 
         assert self.in_queue.qsize() == expected_qsize

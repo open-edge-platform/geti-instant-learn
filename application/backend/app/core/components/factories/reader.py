@@ -2,7 +2,9 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 from core.components.base import StreamReader
-from core.components.schemas.reader import ReaderConfig
+from core.components.readers.noop_reader import NoOpReader
+from core.components.readers.webcam_reader import WebCamReader
+from core.components.schemas.reader import ReaderConfig, WebCamConfig
 
 
 class StreamReaderFactory:
@@ -16,4 +18,8 @@ class StreamReaderFactory:
 
     @classmethod
     def create(cls, config: ReaderConfig) -> StreamReader:
-        pass
+        match config:
+            case WebCamConfig() as config:
+                return WebCamReader(config)
+            case _:
+                return NoOpReader()

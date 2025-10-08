@@ -1,9 +1,8 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
-from typing import Any
-
 from core.components.base import StreamReader
+from core.components.schemas.processor import InputData
 
 
 class NoOpReader(StreamReader):
@@ -14,5 +13,5 @@ class NoOpReader(StreamReader):
     pipeline but has not been configured. It consistently returns None.
     """
 
-    def read(self) -> Any | None:
+    def read(self) -> InputData | None:
         return None

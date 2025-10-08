@@ -26,7 +26,7 @@ class DinoTextEncoder(nn.Module):
     Usage of DINOv3 model is subject to Meta's terms of use.
 
     Please download the DINOv3 backbone and text encoder weights from
-    Meta’s official website (https://ai.meta.com/resources/models-and-libraries/dinov3-downloads)
+    Meta's official website (https://ai.meta.com/resources/models-and-libraries/dinov3-downloads)
     and save them to ~/data/dinov3_weights (or specify a different location with the weights_location argument).
 
     Args:

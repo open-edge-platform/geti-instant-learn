@@ -17,13 +17,20 @@ const useCheckIfProjectIsValid = () => {
 
     // Note: when the project is not found, the project query will throw an error and the parent error boundary with
     // ErrorPage will be rendered
-    $api.useSuspenseQuery('get', '/api/v1/projects/{project_id}', {
-        params: {
-            path: {
-                project_id: projectId,
+    $api.useSuspenseQuery(
+        'get',
+        '/api/v1/projects/{project_id}',
+        {
+            params: {
+                path: {
+                    project_id: projectId,
+                },
             },
         },
-    });
+        {
+            retry: 1,
+        }
+    );
 };
 
 export const ProjectLayout = () => {
