@@ -250,7 +250,7 @@ test.describe('Projects', () => {
 
             const projectPage = new ProjectPage(page);
 
-            await page.goto('/welcome');
+            await page.goto(paths.welcome({}));
 
             await expect(projectPage.welcomeHeader).toBeHidden();
             await expect(projectPage.getSelectedProject(projects[0].name)).toBeVisible();
