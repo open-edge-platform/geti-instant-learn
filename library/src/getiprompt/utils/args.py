@@ -5,7 +5,7 @@ import argparse
 from enum import Enum
 from typing import TypeVar
 
-from getiprompt.processes.encoders import AVAILABLE_VISION_ENCODERS
+from getiprompt.processes.encoders import AVAILABLE_IMAGE_ENCODERS
 from getiprompt.processes.prompt_generators import GroundingModel
 from getiprompt.utils.constants import DatasetName, PipelineName, SAMModelName
 
@@ -205,7 +205,7 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         "--encoder_model",
         type=str,
         default="dinov3_large",
-        choices=list(AVAILABLE_VISION_ENCODERS),
+        choices=list(AVAILABLE_IMAGE_ENCODERS),
         help="ImageEncoder model id",
     )
     parser.add_argument(

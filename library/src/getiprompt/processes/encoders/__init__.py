@@ -3,6 +3,6 @@
 
 """Encoders."""
 
-from getiprompt.processes.encoders.image_encoder import AVAILABLE_VISION_ENCODERS, ImageEncoder
+from getiprompt.processes.encoders.image_encoder import AVAILABLE_IMAGE_ENCODERS, ImageEncoder
 
-__all__ = ["ImageEncoder", "AVAILABLE_VISION_ENCODERS"]
+__all__ = ["ImageEncoder", "AVAILABLE_IMAGE_ENCODERS"]

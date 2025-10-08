@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 import torch
 
-from getiprompt.processes.encoders import AVAILABLE_VISION_ENCODERS, ImageEncoder
+from getiprompt.processes.encoders import AVAILABLE_IMAGE_ENCODERS, ImageEncoder
 from getiprompt.types import Features, Image, Masks, Priors
 
 
@@ -132,7 +132,7 @@ class TestEncoder:
     @staticmethod
     def test_valid_model_ids() -> None:
         """Test that all valid model IDs are accepted."""
-        for model_id in AVAILABLE_VISION_ENCODERS:
+        for model_id in AVAILABLE_IMAGE_ENCODERS:
             with (
                 patch("getiprompt.processes.encoders.image_encoder.optimize_model") as mock_optimize,
                 patch("getiprompt.processes.encoders.image_encoder.AutoModel") as mock_model,
