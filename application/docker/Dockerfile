@@ -52,7 +52,6 @@ COPY --link ui/src/ src/
 #############
 FROM ui_base AS web_ui
 
-ENV STATIC_FILES_DIR=/app/static
 ENV ASSET_PREFIX=/html
 RUN npm run build
 
