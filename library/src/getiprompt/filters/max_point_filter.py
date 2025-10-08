@@ -4,12 +4,12 @@
 """This module provides a filter that choces the top K foreground points."""
 
 import torch
+from torch import nn
 
-from getiprompt.filters.priors.prior_filter_base import PriorFilter
 from getiprompt.types import Priors
 
 
-class MaxPointFilter(PriorFilter):
+class MaxPointFilter(nn.Module):
     """Filter that reduces the number of points in priors to a maximum value.
 
     This selects the points with the highest scores.
@@ -52,7 +52,7 @@ class MaxPointFilter(PriorFilter):
         super().__init__()
         self.max_num_points = max_num_points
 
-    def __call__(self, priors: list[Priors]) -> list[Priors]:
+    def forward(self, priors: list[Priors]) -> list[Priors]:
         """Filter points in the priors, keeping the ones with the highest scores.
 
         Modifies the priors in-place to preserve all other information.

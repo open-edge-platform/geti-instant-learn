@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
+from torch import nn
 
 from getiprompt.types import Priors
 from getiprompt.types.boxes import Boxes
 
-from torch import nn
 
 class MultiInstancePriorFilter(nn.Module):
     """Filter out large boxes that are mostly covered by smaller boxes.

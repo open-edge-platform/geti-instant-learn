@@ -11,8 +11,7 @@ from getiprompt.components.mask_processors import MasksToPolygons
 from getiprompt.components.prompt_generators import GridPromptGenerator
 from getiprompt.components.segmenters import SamDecoder
 from getiprompt.components.similarity_matchers import CosineSimilarity, SimilarityMatcher
-from getiprompt.filters.masks import ClassOverlapMaskFilter
-from getiprompt.filters.priors import MaxPointFilter, PriorFilter, PriorMaskFromPoints
+from getiprompt.filters import ClassOverlapMaskFilter, MaxPointFilter, MaskAdder
 from getiprompt.foundation.models import load_sam_model
 from getiprompt.models.base import BaseModel
 from getiprompt.types import Image, Priors, Results
@@ -21,7 +20,6 @@ from getiprompt.utils.decorators import track_duration
 
 if TYPE_CHECKING:
     from getiprompt.components.prompt_generators.base import PromptGenerator
-    from getiprompt.filters.priors.prior_filter_base import PriorFilter
 
 
 class PerDino(BaseModel):
@@ -105,14 +103,14 @@ class PerDino(BaseModel):
             similarity_threshold=similarity_threshold,
             num_bg_points=num_background_points,
         )
-        self.point_filter: PriorFilter = MaxPointFilter(
+        self.point_filter = MaxPointFilter(
             max_num_points=num_foreground_points,
         )
         self.segmenter: SamDecoder = SamDecoder(
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
         )
-        self.prior_mask_from_points: PriorFilter = PriorMaskFromPoints(segmenter=self.segmenter)
+        self.prior_mask_from_points = MaskAdder(segmenter=self.segmenter)
         self.mask_processor = MasksToPolygons()
         self.class_overlap_mask_filter = ClassOverlapMaskFilter()
         self.reference_features = None

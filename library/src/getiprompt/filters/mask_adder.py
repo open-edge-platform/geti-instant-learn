@@ -3,9 +3,10 @@
 
 """Add masks to priors from points if masks are missing."""
 
+from torch import nn
+
 from getiprompt.components.segmenters import SamDecoder
 from getiprompt.types import Image, Priors
-from torch import nn
 
 
 class MaskAdder(nn.Module):

@@ -4,11 +4,10 @@
 from itertools import product
 
 import torch
-
-from getiprompt.utils.utils import calculate_mask_iou
-from getiprompt.types import Masks, Points
-
 from torch import nn
+
+from getiprompt.types import Masks, Points
+from getiprompt.utils.utils import calculate_mask_iou
 
 
 class ClassOverlapMaskFilter(nn.Module):
