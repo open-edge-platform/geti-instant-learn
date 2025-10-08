@@ -6,7 +6,7 @@
 from getiprompt.filters.masks import BoxAwareMaskFilter, MaskFilter
 from getiprompt.filters.priors import MultiInstancePriorFilter
 from getiprompt.foundation.models import load_sam_model
-from getiprompt.visual_prompting.base import BaseModel
+from getiprompt.models.base import BaseModel
 from getiprompt.processes.mask_processors import MasksToPolygons
 from getiprompt.processes.prompt_generators import GroundedObjectDetector, GroundingModel
 from getiprompt.processes.segmenters import SamDecoder, Segmenter

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from getiprompt.filters.masks import ClassOverlapMaskFilter, MaskFilter
 from getiprompt.filters.priors import MaxPointFilter, PriorFilter, PriorMaskFromPoints
 from getiprompt.foundation.models import load_sam_model
-from getiprompt.visual_prompting.base import BaseModel
+from getiprompt.models.base import BaseModel
 from getiprompt.processes.encoders import DinoEncoder, Encoder
 from getiprompt.processes.feature_selectors import AverageFeatures, FeatureSelector
 from getiprompt.processes.mask_processors import MasksToPolygons

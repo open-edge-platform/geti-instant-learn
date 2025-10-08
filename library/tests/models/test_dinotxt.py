@@ -8,12 +8,12 @@ import pytest
 import torch
 from skimage.draw import random_shapes
 
-from getiprompt.pipelines.dinotxt import DinoTxtZeroShotClassification
+from getiprompt.models.dinotxt import DinoTxtZeroShotClassification
 from getiprompt.types import Priors, Results
 
 
 @pytest.fixture
-def pipeline_instance() -> DinoTxtZeroShotClassification:
+def model_instance() -> DinoTxtZeroShotClassification:
     """Returns an instance of the DinoTxtZeroShotClassification pipeline."""
     return DinoTxtZeroShotClassification(
         device="cpu",  # Use CPU for testing
@@ -69,23 +69,23 @@ class TestDinoTxtZeroShotClassification:
         assert pipeline.resize_images.size == 512
 
     @staticmethod
-    def test_learn_with_empty_reference_priors(pipeline_instance: DinoTxtZeroShotClassification) -> None:
+    def test_learn_with_empty_reference_priors(model_instance: DinoTxtZeroShotClassification) -> None:
         """Test that learn raises ValueError when no reference priors are provided."""
         with pytest.raises(ValueError, match="reference_priors must be provided"):
-            pipeline_instance.learn([], [])
+            model_instance.learn([], [])
 
     @staticmethod
     def test_infer_without_learning(
-        pipeline_instance: DinoTxtZeroShotClassification, sample_dataset: tuple[list[np.ndarray], list[str]]
+        model_instance: DinoTxtZeroShotClassification, sample_dataset: tuple[list[np.ndarray], list[str]]
     ) -> None:
         """Test that infer raises AttributeError when learn hasn't been called."""
         sample_images, _ = sample_dataset
         with pytest.raises(AttributeError):
-            pipeline_instance.infer(sample_images)
+            model_instance.infer(sample_images)
 
     @staticmethod
     def test_infer(
-        pipeline_instance: DinoTxtZeroShotClassification,
+        model_instance: DinoTxtZeroShotClassification,
         sample_dataset: tuple[list[np.ndarray], list[str]],
         sample_priors: Priors,
     ) -> None:
@@ -93,10 +93,10 @@ class TestDinoTxtZeroShotClassification:
         sample_images, sample_labels = sample_dataset
 
         # Learn first
-        pipeline_instance.learn([], [sample_priors])
+        model_instance.learn([], [sample_priors])
 
         # Then infer
-        result = pipeline_instance.infer(sample_images)
+        result = model_instance.infer(sample_images)
 
         # Verify results
         assert isinstance(result, Results)

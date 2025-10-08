@@ -14,7 +14,7 @@ from getiprompt.utils.constants import ModelName, SAMModelName
 if TYPE_CHECKING:
     from argparse import Namespace
 
-    from getiprompt.visual_prompting.base import BaseModel
+    from getiprompt.models.base import BaseModel
 
 logger = logging.getLogger("Geti Prompt")
 
@@ -31,7 +31,7 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Bas
         The instantiated model.
     """
     # Lazy import to avoid circular dependencies during module import time.
-    from getiprompt.visual_prompting import GroundedSAM, Matcher, PerDino, PerSam, SoftMatcher
+    from getiprompt.models import GroundedSAM, Matcher, PerDino, PerSam, SoftMatcher
 
     logger.info("Constructing model: %s", model_name.value)
 

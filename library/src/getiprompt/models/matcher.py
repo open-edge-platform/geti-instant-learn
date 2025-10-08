@@ -1,20 +1,18 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""PerSam pipeline."""
+"""Matcher pipeline, based on the paper 'Segment Anything with One Shot Using All-Purpose Feature Matching'."""
 
 from typing import TYPE_CHECKING
 
-from getiprompt.filters.masks import ClassOverlapMaskFilter, MaskFilter
 from getiprompt.filters.priors import MaxPointFilter, PriorFilter, PriorMaskFromPoints
 from getiprompt.foundation.models import load_sam_model
-from getiprompt.visual_prompting.base import BaseModel
-from getiprompt.processes.encoders import Encoder, SamEncoder
-from getiprompt.processes.feature_selectors import AverageFeatures, FeatureSelector
+from getiprompt.models.base import BaseModel
+from getiprompt.processes.encoders import DinoEncoder, Encoder
+from getiprompt.processes.feature_selectors import AllFeaturesSelector, FeatureSelector
 from getiprompt.processes.mask_processors import MasksToPolygons
-from getiprompt.processes.prompt_generators import GridPromptGenerator
+from getiprompt.processes.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.processes.segmenters import SamDecoder, Segmenter
-from getiprompt.processes.similarity_matchers import CosineSimilarity, SimilarityMatcher
 from getiprompt.types import Image, Priors, Results
 from getiprompt.utils.constants import SAMModelName
 from getiprompt.utils.decorators import track_duration
@@ -24,23 +22,26 @@ if TYPE_CHECKING:
     from getiprompt.processes.prompt_generators.prompt_generator_base import PromptGenerator
 
 
-class PerSam(BaseModel):
-    """This is the PerSam algorithm pipeline.
+class Matcher(BaseModel):
+    """This is the Matcher pipeline.
 
-    It's based on the paper "Personalize Segment Anything Model with One Shot"
-    https://arxiv.org/abs/2305.03048.
+    It's based on the paper "[ICLR'24] Matcher: Segment Anything with One Shot Using All-Purpose Feature Matching"
+    https://arxiv.org/abs/2305.13310.
 
-    It matches reference objects to target images by comparing their features extracted by SAM
-    and using Cosine Similarity. A grid prompt generator is used to generate prompts for the
-    segmenter and to allow for multi object target images.
+    Main novelties:
+    - Uses DinoV2 patch encoding instead of SAM for encoding the images, resulting in a more robust feature extractor
+    - Uses a bidirectional prompt generator to generate prompts for the segmenter
+    - Has a more complex mask postprocessing step to remove and merge masks
+
+    Note that the post processing mask filtering techniques are different from that of the original paper.
 
     Examples:
         >>> import torch
         >>> import numpy as np
-        >>> from getiprompt.pipelines import PerSam
+        >>> from getiprompt.pipelines import Matcher
         >>> from getiprompt.types import Image, Priors, Results
         >>>
-        >>> persam = PerSam()
+        >>> matcher = Matcher()
         >>>
         >>> # Create mock inputs
         >>> ref_image = np.zeros((1024, 1024, 3), dtype=np.uint8)
@@ -49,8 +50,8 @@ class PerSam(BaseModel):
         >>> ref_priors.masks.add(torch.ones(30, 30, dtype=torch.bool), class_id=1)
         >>>
         >>> # Run learn and infer
-        >>> learn_results = persam.learn([Image(ref_image)], [ref_priors])
-        >>> infer_results = persam.infer([Image(target_image)])
+        >>> learn_results = matcher.learn([Image(ref_image)], [ref_priors])
+        >>> infer_results = matcher.infer([Image(target_image)])
         >>>
         >>> isinstance(learn_results, Results) and isinstance(infer_results, Results)
         True
@@ -63,23 +64,19 @@ class PerSam(BaseModel):
         sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
         num_foreground_points: int = 40,
         num_background_points: int = 2,
-        num_grid_cells: int = 16,
-        similarity_threshold: float = 0.65,
-        mask_similarity_threshold: float | None = 0.42,
+        mask_similarity_threshold: float | None = 0.38,
         precision: str = "bf16",
         compile_models: bool = False,
         benchmark_inference_speed: bool = False,
         device: str = "cuda",
         image_size: int | tuple[int, int] | None = None,
     ) -> None:
-        """Initialize the PerSam pipeline.
+        """Initialize the Matcher pipeline.
 
         Args:
             sam: The name of the SAM model to use.
             num_foreground_points: The number of foreground points to use.
             num_background_points: The number of background points to use.
-            num_grid_cells: The number of grid cells to use.
-            similarity_threshold: The similarity threshold for the similarity matcher.
             mask_similarity_threshold: The similarity threshold for the mask.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
@@ -95,25 +92,28 @@ class PerSam(BaseModel):
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
         )
-        self.encoder: Encoder = SamEncoder(sam_predictor=self.sam_predictor)
-        self.feature_selector: FeatureSelector = AverageFeatures()
-        self.similarity_matcher: SimilarityMatcher = CosineSimilarity()
-        self.prompt_generator: PromptGenerator = GridPromptGenerator(
-            num_grid_cells=num_grid_cells,
-            similarity_threshold=similarity_threshold,
-            num_bg_points=num_background_points,
+        self.encoder: Encoder = DinoEncoder(
+            precision=precision,
+            compile_models=compile_models,
+            benchmark_inference_speed=benchmark_inference_speed,
+            device=device,
         )
-        self.point_filter: PriorFilter = MaxPointFilter(
-            max_num_points=num_foreground_points,
+        self.feature_selector: FeatureSelector = AllFeaturesSelector()
+        self.prompt_generator: PromptGenerator = BidirectionalPromptGenerator(
+            encoder_input_size=self.encoder.encoder_input_size,
+            encoder_patch_size=self.encoder.patch_size,
+            encoder_feature_size=self.encoder.feature_size,
+            num_background_points=num_background_points,
         )
+        self.point_filter: PriorFilter = MaxPointFilter(max_num_points=num_foreground_points)
         self.segmenter: Segmenter = SamDecoder(
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
         )
-        self.mask_processor = MasksToPolygons()
-        self.class_overlap_mask_filter: MaskFilter = ClassOverlapMaskFilter()
-        self.reference_features = None
         self.prior_mask_from_points: PriorFilter = PriorMaskFromPoints(segmenter=self.segmenter)
+        self.mask_processor = MasksToPolygons()
+        self.reference_features = None
+        self.reference_masks = None
 
     @track_duration
     def learn(self, reference_images: list[Image], reference_priors: list[Priors]) -> Results:
@@ -123,10 +123,7 @@ class PerSam(BaseModel):
         reference_priors = self.resize_masks(reference_priors)
 
         # Start running the pipeline
-        reference_features, _ = self.encoder(
-            reference_images,
-            reference_priors,
-        )
+        reference_features, self.reference_masks = self.encoder(reference_images, reference_priors)
         self.reference_features = self.feature_selector(reference_features)
 
     @track_duration
@@ -136,15 +133,14 @@ class PerSam(BaseModel):
 
         # Start running the pipeline
         target_features, _ = self.encoder(target_images)
-        similarities = self.similarity_matcher(
+        priors, similarities = self.prompt_generator(
             self.reference_features,
             target_features,
+            self.reference_masks,
             target_images,
         )
-        priors = self.prompt_generator(similarities, target_images)
         priors = self.point_filter(priors)
-        masks, used_points, _ = self.segmenter(target_images, priors)
-        masks = self.class_overlap_mask_filter(masks, used_points)
+        masks, used_points, _ = self.segmenter(target_images, priors, similarities)
         annotations = self.mask_processor(masks)
 
         # write output
