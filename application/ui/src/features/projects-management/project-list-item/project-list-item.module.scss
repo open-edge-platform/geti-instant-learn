@@ -5,6 +5,11 @@
     &:has(.actionMenu[aria-expanded='true']) {
         background-color: var(--spectrum-global-color-gray-100);
     }
+
+    a {
+        color: var(--spectrum-global-color-gray-900);
+        text-decoration: none;
+    }
 }
 
 .actionMenu svg {

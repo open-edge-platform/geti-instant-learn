@@ -5,12 +5,11 @@
 
 import { Key, MouseEventHandler, useState } from 'react';
 
-import { $api } from '@geti-prompt/api';
+import { $api, type ProjectListItemType } from '@geti-prompt/api';
 import { ActionButton, Flex, Grid, Heading, PhotoPlaceholder, repeat, Text, View } from '@geti/ui';
 import { AddCircle } from '@geti/ui/icons';
-import { useNavigate } from 'react-router';
+import { Link } from 'react-router-dom';
 
-import { SchemaProjectListItem as Project } from '../../../api/openapi-spec';
 import { paths } from '../../../routes/paths';
 import { useCreateProject } from '../hooks/use-create-project.hook';
 import { useDeleteProject } from '../hooks/use-delete-project.hook';
@@ -53,19 +52,15 @@ const NewProjectCard = ({ projectsNames }: NewProjectCardProps) => {
 };
 
 interface ProjectCardProps {
-    project: Project;
+    project: ProjectListItemType;
+    projectNames: string[];
 }
 
-const ProjectCard = ({ project }: ProjectCardProps) => {
+const ProjectCard = ({ project, projectNames }: ProjectCardProps) => {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
     const [projectIDInEdition, setProjectIdInEdition] = useState<string | null>(null);
     const updateProjectName = useUpdateProject();
     const deleteProject = useDeleteProject();
-    const navigate = useNavigate();
-
-    const handleNavigateToProject = () => {
-        navigate(paths.project({ projectId: project.id }));
-    };
 
     const handleAction = (key: Key) => {
         if (key === PROJECT_ACTIONS.RENAME) {
@@ -92,23 +87,29 @@ const ProjectCard = ({ project }: ProjectCardProps) => {
         setProjectIdInEdition(null);
     };
 
-    const handleCardClick: MouseEventHandler<HTMLDivElement> = () => {
+    const handleCardClick: MouseEventHandler<HTMLAnchorElement> = (event) => {
         if (isInEditionState) {
-            handleResetProjectInEdition();
+            event.preventDefault();
 
             return;
         }
-        handleNavigateToProject();
     };
 
     return (
-        <div className={styles.projectCard} onClick={handleCardClick}>
+        <Link
+            to={paths.project({ projectId: project.id })}
+            className={styles.projectCard}
+            onClick={handleCardClick}
+            role={'listitem'}
+            aria-label={`Project ${project.name}`}
+        >
             <PhotoPlaceholder name={project.name} indicator={project.id} width={'size-800'} height={'size-800'} />
             <View flex={1} paddingStart={'size-200'} paddingEnd={'size-100'}>
                 <Flex justifyContent={'space-between'} alignItems={'center'}>
                     <Heading UNSAFE_className={styles.projectCardTitle}>
                         {isInEditionState ? (
                             <ProjectEdition
+                                projectNames={projectNames}
                                 onBlur={handleBlur}
                                 onResetProjectInEdition={handleResetProjectInEdition}
                                 name={project.name}
@@ -128,7 +129,7 @@ const ProjectCard = ({ project }: ProjectCardProps) => {
                     />
                 </Flex>
             </View>
-        </div>
+        </Link>
     );
 };
 
@@ -154,7 +155,11 @@ export const ProjectsListEntry = () => {
                     >
                         <NewProjectCard projectsNames={projectsNames} />
                         {data.projects.map((project) => (
-                            <ProjectCard project={project} key={project.id} />
+                            <ProjectCard
+                                project={project}
+                                key={project.id}
+                                projectNames={projectsNames.filter((name) => name !== project.name)}
+                            />
                         ))}
                     </Grid>
                 </Flex>

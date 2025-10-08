@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Project } from '@geti-prompt/api';
+import { ProjectListItemType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { isEmpty } from 'lodash-es';
 import { useNavigate } from 'react-router';
@@ -16,7 +16,7 @@ import { ProjectListItem } from './project-list-item/project-list-item.component
 import styles from './projects-list.module.scss';
 
 interface ProjectListProps {
-    projects: Project[];
+    projects: ProjectListItemType[];
     projectIdInEdition: string | null;
     setProjectInEdition: (projectId: string | null) => void;
 }
@@ -27,9 +27,11 @@ export const ProjectsList = ({ projects, setProjectInEdition, projectIdInEdition
     const { projectId } = useProjectIdentifier();
     const navigate = useNavigate();
 
+    const projectNames = projects.map((project) => project.name);
+
     const handleDelete = (id: string): void => {
         deleteProject(id, () => {
-            if (projectId === id && projects.length > 0) {
+            if (projects.length > 1 && id === projectId) {
                 navigate(paths.projects({}));
             } else if (projects.length === 1) {
                 navigate(paths.welcome({}));
@@ -47,7 +49,7 @@ export const ProjectsList = ({ projects, setProjectInEdition, projectIdInEdition
             return;
         }
 
-        updateProjectName(projectId, newName);
+        updateProjectName(id, newName);
     };
 
     const handleRename = (id: string) => {
@@ -63,6 +65,7 @@ export const ProjectsList = ({ projects, setProjectInEdition, projectIdInEdition
             {projects.map((project) => (
                 <ProjectListItem
                     key={project.id}
+                    projectNames={projectNames.filter((name) => name !== project.name)}
                     project={project}
                     onRename={handleRename}
                     onDelete={handleDelete}

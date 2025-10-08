@@ -31,7 +31,7 @@ def load_pipeline(sam: SAMModelName, pipeline_name: PipelineName, args: Namespac
         The instantiated pipeline.
     """
     # Lazy import to avoid circular dependencies during module import time.
-    from getiprompt.pipelines import GroundedSAM, Matcher, PerDino, PerSam, PerSamMAPI, SoftMatcher
+    from getiprompt.pipelines import GroundedSAM, Matcher, PerDino, PerSam, SoftMatcher
 
     logger.info("Constructing pipeline: %s", pipeline_name.value)
 
@@ -41,8 +41,6 @@ def load_pipeline(sam: SAMModelName, pipeline_name: PipelineName, args: Namespac
                 sam=sam,
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
-                apply_mask_refinement=args.apply_mask_refinement,
-                skip_points_in_existing_masks=args.skip_points_in_existing_masks,
                 num_grid_cells=args.num_grid_cells,
                 similarity_threshold=args.similarity_threshold,
                 mask_similarity_threshold=args.mask_similarity_threshold,
@@ -57,8 +55,6 @@ def load_pipeline(sam: SAMModelName, pipeline_name: PipelineName, args: Namespac
                 sam=sam,
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
-                apply_mask_refinement=args.apply_mask_refinement,
-                skip_points_in_existing_masks=args.skip_points_in_existing_masks,
                 num_grid_cells=args.num_grid_cells,
                 similarity_threshold=args.similarity_threshold,
                 mask_similarity_threshold=args.mask_similarity_threshold,
@@ -73,8 +69,6 @@ def load_pipeline(sam: SAMModelName, pipeline_name: PipelineName, args: Namespac
                 sam=sam,
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
-                apply_mask_refinement=args.apply_mask_refinement,
-                skip_points_in_existing_masks=args.skip_points_in_existing_masks,
                 mask_similarity_threshold=args.mask_similarity_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
@@ -82,15 +76,11 @@ def load_pipeline(sam: SAMModelName, pipeline_name: PipelineName, args: Namespac
                 image_size=args.image_size,
                 device=args.device,
             )
-        case PipelineName.PER_SAM_MAPI:
-            return PerSamMAPI()
         case PipelineName.SOFT_MATCHER:
             return SoftMatcher(
                 sam=sam,
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
-                apply_mask_refinement=args.apply_mask_refinement,
-                skip_points_in_existing_masks=args.skip_points_in_existing_masks,
                 mask_similarity_threshold=args.mask_similarity_threshold,
                 use_sampling=args.use_sampling,
                 use_spatial_sampling=args.use_spatial_sampling,
@@ -109,7 +99,6 @@ def load_pipeline(sam: SAMModelName, pipeline_name: PipelineName, args: Namespac
                 grounding_model=GroundingModel(args.grounding_model),
                 box_threshold=args.box_threshold,
                 text_threshold=args.text_threshold,
-                apply_mask_refinement=args.apply_mask_refinement,
                 precision=args.precision,
                 compile_models=args.compile_models,
                 benchmark_inference_speed=args.benchmark_inference_speed,

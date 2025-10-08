@@ -3,7 +3,7 @@
 
 """This Pipeline uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
 
-from getiprompt.filters.masks import BoxAwareMaskFilter, ClassOverlapMaskFilter, MaskFilter
+from getiprompt.filters.masks import BoxAwareMaskFilter, MaskFilter
 from getiprompt.filters.priors import MultiInstancePriorFilter
 from getiprompt.models.models import load_sam_model
 from getiprompt.pipelines.pipeline_base import Pipeline
@@ -22,7 +22,6 @@ class GroundedSAM(Pipeline):
         self,
         sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
         grounding_model: GroundingModel = GroundingModel.LLMDET_TINY,
-        apply_mask_refinement: bool = True,
         precision: str = "bf16",
         compile_models: bool = False,
         benchmark_inference_speed: bool = False,
@@ -36,7 +35,6 @@ class GroundedSAM(Pipeline):
         Args:
             sam: The SAM model name.
             grounding_model: The grounding model to use.
-            apply_mask_refinement: Whether to apply mask refinement.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
             benchmark_inference_speed: Whether to benchmark the inference speed.
@@ -65,13 +63,10 @@ class GroundedSAM(Pipeline):
         )
         self.segmenter: Segmenter = SamDecoder(
             sam_predictor=self.sam_predictor,
-            apply_mask_refinement=apply_mask_refinement,
-            skip_points_in_existing_masks=False,  # not relevant for boxes
         )
         self.box_aware_mask_filter: MaskFilter = BoxAwareMaskFilter()
         self.multi_instance_prior_filter: MultiInstancePriorFilter = MultiInstancePriorFilter()
         self.mask_processor: MaskProcessor = MasksToPolygons()
-        self.class_overlap_mask_filter: MaskFilter = ClassOverlapMaskFilter()
         self.text_priors: Text | None = None
 
     @track_duration

@@ -500,19 +500,12 @@ def _generate_experiment_plan(
     """
     all_combinations = list(itertools.product(datasets, pipelines, backbones))
     valid_configs = []
-    persam_mapi_done_for_dataset = set()
 
     for dataset, pipeline, backbone in all_combinations:
         # Skip unsupported combinations
         if pipeline == PipelineName.PER_SAM and backbone == SAMModelName.EFFICIENT_VIT_SAM:
             logger.info(f"Planning to skip {backbone.value} with {pipeline.value} (unsupported).")
             continue
-
-        # Run PerSAMMAPI only once per dataset (it's backbone-independent)
-        if pipeline == PipelineName.PER_SAM_MAPI:
-            if dataset in persam_mapi_done_for_dataset:
-                continue
-            persam_mapi_done_for_dataset.add(dataset)
 
         valid_configs.append((dataset, pipeline, backbone))
 

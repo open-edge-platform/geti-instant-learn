@@ -27,7 +27,6 @@ class PipelineName(Enum):
     MATCHER = "Matcher"
     PER_SAM = "PerSAM"
     PER_DINO = "PerDino"
-    PER_SAM_MAPI = "PerSAMMAPI"
     SOFT_MATCHER = "SoftMatcher"
 
 
@@ -128,10 +127,6 @@ MODEL_MAP = {
         "sha_sum": "a7bf3b02f3ebf1267aba913ff637d9a2d5c33d3173bb679e46d9f338c26f262e",
     },
 }
-
-
-MAPI_ENCODER_PATH = DATA_PATH.joinpath("otx_models", "sam_vit_b_zsl_encoder.xml")
-MAPI_DECODER_PATH = DATA_PATH.joinpath("otx_models", "sam_vit_b_zsl_decoder.xml")
 
 IMAGE_EXTENSIONS = ("*.jpg", "*.jpeg", "*.png", "*.webp")
 
