@@ -1,0 +1,37 @@
+
+COMPONENT_NAME := "geti-prompt"
+DOCKER_IMAGE_DESCRIPTION := COMPONENT_NAME
+
+images-registry := 'localhost:5000/open-edge-platform'
+PRODUCT_VERSION := '$(cat `pwd`/../VERSION)'
+TAG := PRODUCT_VERSION + "-" + `git rev-parse --short HEAD`
+
+docker-build-context := env("DOCKER_BUILD_CONTEXT", "")
+
+registry_build_arg := if env("REGISTRY", "") != "" { " --build-arg REGISTRY=" + env("REGISTRY") } else { "" }
+http_proxy_build_arg := if env("http_proxy", "") != "" { " --build-arg http_proxy=" + env("http_proxy") } else { "" }
+https_proxy_build_arg := if env("https_proxy", "") != "" { " --build-arg https_proxy=" + env("https_proxy") } else { "" }
+no_proxy_build_arg := if env("no_proxy", "") != "" { " --build-arg no_proxy=" + env("no_proxy") } else { "" }
+HTTP_PROXY_build_arg := if env("HTTP_PROXY", "") != "" { " --build-arg HTTP_PROXY=" + env("HTTP_PROXY") } else { "" }
+HTTPS_PROXY_build_arg := if env("HTTPS_PROXY", "") != "" { " --build-arg HTTPS_PROXY=" + env("HTTPS_PROXY") } else { "" }
+NO_PROXY_build_arg := if env("NO_PROXY", "") != "" { " --build-arg NO_PROXY=" + env("NO_PROXY") } else { "" }
+
+###
+# docker builder extra arguments
+###
+docker-extra-args := registry_build_arg + \
+    http_proxy_build_arg + \
+    https_proxy_build_arg + \
+    no_proxy_build_arg + \
+    HTTP_PROXY_build_arg + \
+    HTTPS_PROXY_build_arg + \
+    NO_PROXY_build_arg
+
+build-image:
+    echo "Building docker image for component: {{COMPONENT_NAME}}"
+    docker buildx build \
+        {{docker-extra-args}} \
+        {{docker-build-context}} \
+        --label "org.opencontainers.image.description={{DOCKER_IMAGE_DESCRIPTION}}" \
+        -t "{{images-registry}}/{{COMPONENT_NAME}}:{{TAG}}" \
+        -f docker/Dockerfile .

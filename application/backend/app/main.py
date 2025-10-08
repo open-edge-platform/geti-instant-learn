@@ -1,13 +1,15 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-
 import logging
+import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 import rest.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
 from dependencies import ensure_default_active_project, run_db_migrations
@@ -60,6 +62,19 @@ app.add_middleware(  # TODO restrict settings in production
 )
 
 app.include_router(projects_router, prefix="/api/v1")
+
+if settings.static_files_dir and bool(os.listdir(settings.static_files_dir)):
+    app.mount("/html", StaticFiles(directory=settings.static_files_dir), name="static")
+
+
+@app.get("/", include_in_schema=False)
+@app.get("/{full_path:path}", include_in_schema=False)
+async def serve_spa(full_path: str = "") -> FileResponse:  # noqa: ARG001
+    """
+    Serve the Single Page Application (SPA) index.html file for any path
+    """
+    index_path = os.path.join(settings.static_files_dir, "index.html")
+    return FileResponse(index_path)
 
 
 def main() -> None:
