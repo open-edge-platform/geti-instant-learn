@@ -5,14 +5,6 @@ from enum import Enum
 from pathlib import Path
 
 
-class Subset(Enum):
-    """Enum for dataset subsets."""
-
-    TRAIN = "train"
-    VAL = "val"
-    TEST = "test"
-
-
 class SAMModelName(Enum):
     """Enum for SAM model types."""
 
