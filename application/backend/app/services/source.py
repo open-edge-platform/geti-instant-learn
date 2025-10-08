@@ -41,13 +41,18 @@ class SourceService:
       - Raise domain-specific exceptions.
     """
 
-    def __init__(self, session: Session):
+    def __init__(
+        self,
+        session: Session,
+        source_repository: SourceRepository | None = None,
+        project_repository: ProjectRepository | None = None,
+    ):
         """
         Initialize the service with a SQLAlchemy session.
         """
         self.session = session
-        self.source_repository = SourceRepository(session=session)
-        self.project_repository = ProjectRepository(session=session)
+        self.source_repository = source_repository or SourceRepository(session=session)
+        self.project_repository = project_repository or ProjectRepository(session=session)
 
     def list_sources(self, project_id: UUID) -> SourcesListSchema:
         """
@@ -64,6 +69,10 @@ class SourceService:
         """
         self._ensure_project(project_id)
         db_sources = self.source_repository.get_all_by_project(project_id)
+        if not db_sources:
+            raise ResourceNotFoundError(
+                resource_type=ResourceType.SOURCE, message=f"Project {project_id} has no sources"
+            )
         return SourcesListSchema(sources=sources_db_to_schemas(db_sources))
 
     def get_source(self, project_id: UUID, source_id: UUID) -> SourceSchema:

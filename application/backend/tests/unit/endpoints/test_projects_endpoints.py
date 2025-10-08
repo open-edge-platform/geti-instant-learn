@@ -9,6 +9,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from core.components.schemas.reader import WebCamConfig
 from dependencies import SessionDep  # type: ignore
 from rest.endpoints import projects
 from routers import projects_router
@@ -30,9 +31,7 @@ SINK_ID = uuid4()
 @dataclass
 class FakeSource:
     id: UUID
-    type: str
-    name: str
-    config: dict
+    config: object
     connected: bool = False
 
 
@@ -62,9 +61,7 @@ class FakeProject:
 def make_source() -> FakeSource:
     return FakeSource(
         id=SOURCE_ID,
-        type="webcam",
-        name="src1",
-        config={"device_id": 12345},
+        config=WebCamConfig(device_id=12345, source_type="webcam"),
         connected=False,
     )
 
@@ -113,9 +110,8 @@ def assert_full_project_payload(data: dict):
     assert isinstance(data["sources"], list) and len(data["sources"]) == 1
     src = data["sources"][0]
     assert src["id"] == str(SOURCE_ID)
-    assert src["source_type"] == "webcam"
-    assert src["name"] == "src1"
-    assert src["device_id"] == 12345
+    assert src["config"]["source_type"] == "webcam"
+    assert src["config"]["device_id"] == 12345
     assert src["connected"] is False
     assert data["processor"] == {
         "id": str(PROCESSOR_ID),

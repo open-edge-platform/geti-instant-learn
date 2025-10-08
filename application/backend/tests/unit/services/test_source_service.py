@@ -7,204 +7,251 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from core.components.schemas.reader import SourceType
-from services.common import (
-    ResourceNotFoundError,
-    ResourceUpdateConflictError,
-)
-from services.schemas.source import WebcamSourcePayload
+from core.components.schemas.reader import SourceType, VideoFileConfig, WebCamConfig
+from services.common import ResourceNotFoundError, ResourceUpdateConflictError
+from services.schemas.source import SourceCreateSchema, SourceUpdateSchema
 from services.source import SourceService
 
 
-def make_project(project_id=None):
-    return SimpleNamespace(id=project_id or uuid.uuid4(), name="proj")
+def make_project(project_id=None, name="proj"):
+    return SimpleNamespace(id=project_id or uuid.uuid4(), name=name)
 
 
 def make_source(
     *,
     source_id=None,
     project_id=None,
-    name="cam",
-    source_type=SourceType.WEBCAM,
-    config=None,
-    connected=False,
+    source_type: SourceType = SourceType.WEBCAM,
+    config_extra: dict | None = None,
+    connected: bool = False,
 ):
+    base_cfg = {"source_type": source_type.value}
+    if source_type == SourceType.WEBCAM:
+        base_cfg |= {"device_id": 0}
+    elif source_type == SourceType.VIDEO_FILE:
+        base_cfg |= {"video_path": "/path/to/video.mp4"}
+    if config_extra:
+        base_cfg |= config_extra
     return SimpleNamespace(
         id=source_id or uuid.uuid4(),
         project_id=project_id or uuid.uuid4(),
-        name=name,
-        type=source_type,
-        config=config or {"device_id": 0},
+        config=base_cfg,
         connected=connected,
     )
 
 
 @pytest.fixture
-def session_mock():
-    return MagicMock(name="session")
+def service():
+    session = MagicMock(name="SessionMock")
+    project_repo = MagicMock(name="ProjectRepositoryMock")
+    source_repo = MagicMock(name="SourceRepositoryMock")
+    return SourceService(
+        session=session,
+        project_repository=project_repo,
+        source_repository=source_repo,
+    )
 
 
-@pytest.fixture
-def source_repo_mock():
-    return MagicMock(name="SourceRepositoryMock")
+def test_list_sources_success(service):
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    s1 = make_source(project_id=project_id)
+    s2 = make_source(project_id=project_id, source_type=SourceType.VIDEO_FILE)
+    service.source_repository.get_all_by_project.return_value = [s1, s2]
 
-
-@pytest.fixture
-def project_repo_mock():
-    return MagicMock(name="ProjectRepositoryMock")
-
-
-@pytest.fixture
-def service(session_mock, source_repo_mock, project_repo_mock):
-    svc = SourceService(session=session_mock)
-    svc.source_repository = source_repo_mock
-    svc.project_repository = project_repo_mock
-    return svc
-
-
-def test_list_sources_success(service, project_repo_mock, source_repo_mock):
-    pid = uuid.uuid4()
-    project_repo_mock.get_by_id.return_value = make_project(pid)
-    s1 = make_source(project_id=pid)
-    s2 = make_source(project_id=pid)
-    source_repo_mock.get_all_by_project.return_value = [s1, s2]
-
-    result = service.list_sources(pid)
+    result = service.list_sources(project_id)
 
     assert len(result.sources) == 2
-    project_repo_mock.get_by_id.assert_called_once_with(pid)
-    source_repo_mock.get_all_by_project.assert_called_once_with(pid)
+    service.project_repository.get_by_id.assert_called_once_with(project_id)
+    service.source_repository.get_all_by_project.assert_called_once_with(project_id)
 
 
-def test_list_sources_project_not_found(service, project_repo_mock):
-    project_repo_mock.get_by_id.return_value = None
+def test_get_source_success(service):
+    project_id = uuid.uuid4()
+    source = make_source(project_id=project_id)
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.source_repository.get_by_id_and_project.return_value = source
+
+    schema = service.get_source(project_id=project_id, source_id=source.id)
+
+    assert schema.id == source.id
+    assert schema.config.source_type == SourceType(source.config["source_type"])
+    service.source_repository.get_by_id_and_project.assert_called_once_with(source_id=source.id, project_id=project_id)
+
+
+def test_get_source_not_found(service):
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.source_repository.get_by_id_and_project.return_value = None
+
+    with pytest.raises(ResourceNotFoundError):
+        service.get_source(project_id=project_id, source_id=uuid.uuid4())
+
+
+def test_create_source_success(service):
+    new_id = uuid.uuid4()
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.source_repository.get_by_type_in_project.return_value = None
+    service.source_repository.get_connected_in_project.return_value = None
+    create_schema = SourceCreateSchema(
+        id=new_id,
+        connected=True,
+        config=WebCamConfig(source_type=SourceType.WEBCAM, name="Webcam A", device_id=2),
+    )
+
+    result = service.create_source(project_id=project_id, create_data=create_schema)
+
+    assert result.id == new_id
+    assert result.connected is True
+    assert result.config.device_id == 2
+    service.source_repository.add.assert_called_once()
+    service.session.commit.assert_called_once()
+    service.session.refresh.assert_called_once()
+    service.source_repository.get_by_type_in_project.assert_called_once_with(
+        project_id=project_id, source_type=SourceType.WEBCAM
+    )
+
+
+def test_create_source_type_conflict(service):
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    existing = make_source(project_id=project_id, source_type=SourceType.WEBCAM)
+    service.source_repository.get_by_type_in_project.return_value = existing
+    create_schema = SourceCreateSchema(
+        id=uuid.uuid4(),
+        connected=False,
+        config=WebCamConfig(source_type=SourceType.WEBCAM, name="Dup", device_id=0),
+    )
+
+    with pytest.raises(ResourceUpdateConflictError):
+        service.create_source(project_id=project_id, create_data=create_schema)
+
+
+def test_create_source_disconnects_previous_connected(service):
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.source_repository.get_by_type_in_project.return_value = None
+    prev_connected = make_source(project_id=project_id, connected=True)
+    service.source_repository.get_connected_in_project.return_value = prev_connected
+    create_schema = SourceCreateSchema(
+        id=uuid.uuid4(),
+        connected=True,
+        config=WebCamConfig(source_type=SourceType.WEBCAM, name="Primary", device_id=1),
+    )
+
+    service.create_source(project_id=project_id, create_data=create_schema)
+
+    assert prev_connected.connected is False
+
+
+def test_update_source_success(service):
+    project_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    existing = make_source(project_id=project_id, source_id=source_id, source_type=SourceType.WEBCAM, connected=False)
+    service.source_repository.get_by_id_and_project.return_value = existing
+    service.source_repository.get_connected_in_project.return_value = make_source(project_id=project_id, connected=True)
+    update_schema = SourceUpdateSchema(
+        connected=True,
+        config=WebCamConfig(source_type=SourceType.WEBCAM, name="Renamed", device_id=5),
+    )
+
+    result = service.update_source(project_id=project_id, source_id=source_id, update_data=update_schema)
+
+    assert result.id == source_id
+    assert existing.connected is True
+    assert existing.config["device_id"] == 5
+    service.session.commit.assert_called_once()
+    service.session.refresh.assert_called_once_with(existing)
+
+
+def test_update_source_type_change_conflict(service):
+    project_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    existing = make_source(project_id=project_id, source_id=source_id, source_type=SourceType.WEBCAM)
+    service.source_repository.get_by_id_and_project.return_value = existing
+    update_schema = SourceUpdateSchema(
+        connected=False,
+        config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path="/new/path/to/video.mp4"),
+    )
+
+    with pytest.raises(ResourceUpdateConflictError):
+        service.update_source(project_id=project_id, source_id=source_id, update_data=update_schema)
+
+    service.session.commit.assert_not_called()
+
+
+def test_update_source_not_found(service):
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.source_repository.get_by_id_and_project.return_value = None
+    update_schema = SourceUpdateSchema(
+        connected=False,
+        config=WebCamConfig(source_type=SourceType.WEBCAM, name="X", device_id=0),
+    )
+
+    with pytest.raises(ResourceNotFoundError):
+        service.update_source(project_id=project_id, source_id=uuid.uuid4(), update_data=update_schema)
+
+
+def test_delete_source_success(service):
+    project_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    existing = make_source(project_id=project_id, source_id=source_id)
+    service.source_repository.get_by_id_and_project.return_value = existing
+
+    service.delete_source(project_id=project_id, source_id=source_id)
+
+    service.source_repository.delete.assert_called_once_with(existing)
+    service.session.commit.assert_called_once()
+
+
+def test_delete_source_not_found(service):
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.source_repository.get_by_id_and_project.return_value = None
+
+    with pytest.raises(ResourceNotFoundError):
+        service.delete_source(project_id=project_id, source_id=uuid.uuid4())
+
+
+def test_list_sources_project_not_found(service):
+    service.project_repository.get_by_id.return_value = None
     with pytest.raises(ResourceNotFoundError):
         service.list_sources(uuid.uuid4())
 
 
-def test_get_by_id_found(service, source_repo_mock):
-    src = make_source()
-    source_repo_mock.get_by_id.return_value = src
-
-    schema = service.get_by_id(src.id)
-
-    assert schema is not None
-    assert schema.id == src.id
-    assert schema.name == src.name
-    source_repo_mock.get_by_id.assert_called_once_with(src.id)
+def test_get_source_project_not_found(service):
+    service.project_repository.get_by_id.return_value = None
+    with pytest.raises(ResourceNotFoundError):
+        service.get_source(uuid.uuid4(), uuid.uuid4())
 
 
-def test_get_by_id_not_found(service, source_repo_mock):
-    source_repo_mock.get_by_id.return_value = None
-    assert service.get_by_id(uuid.uuid4()) is None
-
-
-def test_get_by_id_and_project_found(service, source_repo_mock):
-    pid = uuid.uuid4()
-    src = make_source(project_id=pid)
-    source_repo_mock.get_by_id_and_project.return_value = src
-
-    schema = service.get_by_id_and_project(src.id, pid)
-
-    assert schema is not None
-    assert schema.id == src.id
-    source_repo_mock.get_by_id_and_project.assert_called_once_with(source_id=src.id, project_id=pid)
-
-
-def test_get_by_id_and_project_not_found(service, source_repo_mock):
-    source_repo_mock.get_by_id_and_project.return_value = None
-    assert service.get_by_id_and_project(uuid.uuid4(), uuid.uuid4()) is None
-
-
-def test_upsert_create_success(service, project_repo_mock, source_repo_mock, session_mock):
-    pid = uuid.uuid4()
-    sid = uuid.uuid4()
-    project_repo_mock.get_by_id.return_value = make_project(pid)
-    source_repo_mock.get_by_id_and_project.return_value = None
-    payload = WebcamSourcePayload(source_type=SourceType.WEBCAM, name="webcam0", device_id=3)
-
-    schema, created = service.upsert_source(project_id=pid, source_id=sid, payload=payload)
-
-    assert created is True
-    assert schema.id == sid
-    assert schema.name == "webcam0"
-    assert schema.device_id == 3
-    source_repo_mock.add.assert_called_once()
-    session_mock.commit.assert_called_once()
-    session_mock.refresh.assert_called_once()
-
-
-def test_upsert_update_success(service, project_repo_mock, source_repo_mock, session_mock):
-    pid = uuid.uuid4()
-    sid = uuid.uuid4()
-    project_repo_mock.get_by_id.return_value = make_project(pid)
-    existing = make_source(source_id=sid, project_id=pid, name="old", config={"device_id": 1})
-    source_repo_mock.get_by_id_and_project.return_value = existing
-    payload = WebcamSourcePayload(source_type=SourceType.WEBCAM, name="new", device_id=7)
-
-    schema, created = service.upsert_source(project_id=pid, source_id=sid, payload=payload)
-
-    assert created is False
-    assert existing.name == "new"
-    assert existing.config == {"device_id": 7}
-    assert schema.device_id == 7
-    source_repo_mock.add.assert_not_called()
-    session_mock.commit.assert_called_once()
-    session_mock.refresh.assert_called_once_with(existing)
-
-
-def test_upsert_update_type_conflict(service, project_repo_mock, source_repo_mock, session_mock):
-    pid = uuid.uuid4()
-    sid = uuid.uuid4()
-    project_repo_mock.get_by_id.return_value = make_project(pid)
-    existing = make_source(source_id=sid, project_id=pid, source_type=SourceType.WEBCAM)
-    source_repo_mock.get_by_id_and_project.return_value = existing
-    # fabricate a payload with a different type (simulate future type)
-    payload = SimpleNamespace(
-        source_type="ip_camera",  # different
-        name="cam",
-        device_id=0,
-        model_dump=lambda: {"source_type": "ip_camera", "name": "cam", "device_id": 0},
+def test_create_source_project_not_found(service):
+    service.project_repository.get_by_id.return_value = None
+    create_schema = SourceCreateSchema(
+        id=uuid.uuid4(),
+        connected=False,
+        config=WebCamConfig(source_type=SourceType.WEBCAM, device_id=0),
     )
-
-    with pytest.raises(ResourceUpdateConflictError):
-        service.upsert_source(project_id=pid, source_id=sid, payload=payload)
-
-    session_mock.commit.assert_not_called()
-
-
-def test_upsert_project_not_found(service, project_repo_mock):
-    project_repo_mock.get_by_id.return_value = None
     with pytest.raises(ResourceNotFoundError):
-        service.upsert_source(
-            project_id=uuid.uuid4(),
-            source_id=uuid.uuid4(),
-            payload=WebcamSourcePayload(source_type=SourceType.WEBCAM, name="x", device_id=0),
-        )
+        service.create_source(uuid.uuid4(), create_schema)
 
 
-def test_delete_source_success(service, project_repo_mock, source_repo_mock, session_mock):
-    pid = uuid.uuid4()
-    sid = uuid.uuid4()
-    project_repo_mock.get_by_id.return_value = make_project(pid)
-    src = make_source(source_id=sid, project_id=pid)
-    source_repo_mock.get_by_id_and_project.return_value = src
-
-    service.delete_source(project_id=pid, source_id=sid)
-
-    source_repo_mock.delete.assert_called_once_with(src)
-    session_mock.commit.assert_called_once()
-
-
-def test_delete_source_project_not_found(service, project_repo_mock):
-    project_repo_mock.get_by_id.return_value = None
+def test_update_source_project_not_found(service):
+    service.project_repository.get_by_id.return_value = None
+    update_schema = SourceUpdateSchema(
+        connected=False,
+        config=WebCamConfig(source_type=SourceType.WEBCAM, device_id=0),
+    )
     with pytest.raises(ResourceNotFoundError):
-        service.delete_source(project_id=uuid.uuid4(), source_id=uuid.uuid4())
+        service.update_source(uuid.uuid4(), uuid.uuid4(), update_schema)
 
 
-def test_delete_source_not_found(service, project_repo_mock, source_repo_mock):
-    pid = uuid.uuid4()
-    project_repo_mock.get_by_id.return_value = make_project(pid)
-    source_repo_mock.get_by_id_and_project.return_value = None
+def test_delete_source_project_not_found(service):
+    service.project_repository.get_by_id.return_value = None
     with pytest.raises(ResourceNotFoundError):
-        service.delete_source(project_id=pid, source_id=uuid.uuid4())
+        service.delete_source(uuid.uuid4(), uuid.uuid4())

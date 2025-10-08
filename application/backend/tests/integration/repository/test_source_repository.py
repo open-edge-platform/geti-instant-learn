@@ -4,6 +4,7 @@
 from uuid import uuid4
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from core.components.schemas.reader import SourceType
 from db.models import ProjectDB, SourceDB
@@ -11,139 +12,208 @@ from repositories.source import SourceRepository
 
 
 @pytest.fixture
-def repo(fxt_session):
+def source_repo(fxt_session):
     return SourceRepository(session=fxt_session)
 
 
 @pytest.fixture
 def clean_after(request, fxt_clean_table):
-    # ensure both tables are cleaned (sources depend on projects)
     request.addfinalizer(lambda: fxt_clean_table(SourceDB))
     request.addfinalizer(lambda: fxt_clean_table(ProjectDB))
 
 
-def _any_source_type():
-    # use first enum member to stay resilient to enum definition changes
+def any_source_type() -> SourceType:
     return list(SourceType)[0]
 
 
-def test_add_and_get_by_id(repo, fxt_session, clean_after):
+def make_source(project_id, source_type: SourceType | None = None, **extra_cfg) -> SourceDB:
+    st = source_type or any_source_type()
+    cfg = {"source_type": st, **extra_cfg}
+    return SourceDB(config=cfg, project_id=project_id)
+
+
+def test_add_and_get_by_id(source_repo, fxt_session, clean_after):
     project = ProjectDB(name="proj")
     fxt_session.add(project)
     fxt_session.commit()
 
-    src = SourceDB(name="camera-1", type=_any_source_type(), config={"url": "rtsp://x"}, project_id=project.id)
-    repo.add(src)
+    src = make_source(project.id, url="rtsp://cam/1")
+    source_repo.add(src)
     fxt_session.commit()
 
-    fetched = repo.get_by_id(src.id)
+    fetched = source_repo.get_by_id(src.id)
     assert fetched is not None
     assert fetched.id == src.id
     assert fetched.project_id == project.id
-    assert fetched.name == "camera-1"
+    assert fetched.config["url"] == "rtsp://cam/1"
+    assert fetched.config["source_type"] == src.config["source_type"]
 
 
-def test_get_by_id_not_found(repo, fxt_session, clean_after):
+def test_get_by_id_not_found(source_repo, fxt_session, clean_after):
     project = ProjectDB(name="proj")
     fxt_session.add(project)
     fxt_session.commit()
 
-    src = SourceDB(name="camera-1", type=_any_source_type(), config={"url": "rtsp://x"}, project_id=project.id)
-    repo.add(src)
+    src = make_source(project.id)
+    source_repo.add(src)
     fxt_session.commit()
 
-    assert repo.get_by_id(uuid4()) is None
+    assert source_repo.get_by_id(uuid4()) is None
 
 
-def test_get_by_id_and_project(repo, fxt_session, clean_after):
-    p1 = ProjectDB(name="p1")
-    p2 = ProjectDB(name="p2")
-    fxt_session.add_all([p1, p2])
+def test_get_by_id_and_project(source_repo, fxt_session, clean_after):
+    project_a = ProjectDB(name="A")
+    project_b = ProjectDB(name="B")
+    fxt_session.add_all([project_a, project_b])
     fxt_session.commit()
 
-    src_p1 = SourceDB(name="s1", type=_any_source_type(), config={"a": 1}, project_id=p1.id)
-    src_p2 = SourceDB(name="s2", type=_any_source_type(), config={"a": 2}, project_id=p2.id)
-    repo.add(src_p1)
-    repo.add(src_p2)
+    src_a = make_source(project_a.id)
+    src_b = make_source(project_b.id)
+    source_repo.add(src_a)
+    source_repo.add(src_b)
     fxt_session.commit()
 
-    assert repo.get_by_id_and_project(src_p1.id, p1.id) is not None
-    assert repo.get_by_id_and_project(src_p1.id, p2.id) is None  # wrong project scope
+    assert source_repo.get_by_id_and_project(src_a.id, project_a.id) is not None
+    assert source_repo.get_by_id_and_project(src_a.id, project_b.id) is None
 
 
-def test_get_all_by_project(repo, fxt_session, clean_after):
-    p1 = ProjectDB(name="p1")
-    p2 = ProjectDB(name="p2")
-    fxt_session.add_all([p1, p2])
+def test_get_all_by_project(source_repo, fxt_session, clean_after):
+    project_main = ProjectDB(name="main")
+    project_other = ProjectDB(name="other")
+    fxt_session.add_all([project_main, project_other])
     fxt_session.commit()
 
-    sources_names_p1 = {"s1", "s2", "s3"}
-    for n in sources_names_p1:
-        repo.add(SourceDB(name=n, type=_any_source_type(), config={"n": n}, project_id=p1.id))
-    # extra in other project
-    repo.add(SourceDB(name="other-source", type=_any_source_type(), config={}, project_id=p2.id))
+    # use distinct source types to satisfy uniqueness constraint.
+    all_types = list(SourceType)
+    added = []
+    for st in all_types[:3]:
+        s = make_source(project_main.id, source_type=st, idx=len(added))
+        source_repo.add(s)
+        added.append(s)
+
+    source_repo.add(make_source(project_other.id))
     fxt_session.commit()
 
-    result = repo.get_all_by_project(p1.id)
-    assert {s.name for s in result} == sources_names_p1
-    assert all(s.project_id == p1.id for s in result)
+    result = source_repo.get_all_by_project(project_main.id)
+    assert {s.id for s in result} == {s.id for s in added}
+    assert all(s.project_id == project_main.id for s in result)
 
 
-def test_delete_source(repo, fxt_session, clean_after):
-    p = ProjectDB(name="del-proj")
-    fxt_session.add(p)
+def test_delete_source(source_repo, fxt_session, clean_after):
+    project = ProjectDB(name="del")
+    fxt_session.add(project)
     fxt_session.commit()
 
-    s = SourceDB(name="todel", type=_any_source_type(), config={}, project_id=p.id)
-    repo.add(s)
+    src = make_source(project.id)
+    source_repo.add(src)
     fxt_session.commit()
 
-    fetched = repo.get_by_id(s.id)
-    assert fetched is not None
+    assert source_repo.get_by_id(src.id) is not None
+    source_repo.delete(src)
+    fxt_session.commit()
+    assert source_repo.get_by_id(src.id) is None
 
-    repo.delete(fetched)
+
+def test_get_connected_in_project(source_repo, fxt_session, clean_after):
+    project = ProjectDB(name="proj")
+    fxt_session.add(project)
     fxt_session.commit()
 
-    assert repo.get_by_id(s.id) is None
+    tlist = list(SourceType)
+    inactive_type = tlist[0]
+    active_type = tlist[1] if len(tlist) > 1 else tlist[0]
 
-
-def test_get_connected_in_project(repo, fxt_session, clean_after):
-    p = ProjectDB(name="proj")
-    fxt_session.add(p)
+    source_repo.add(make_source(project.id, source_type=inactive_type, label="inactive"))
+    active = SourceDB(
+        config={"source_type": active_type, "label": "active"},
+        project_id=project.id,
+        connected=True,
+    )
+    source_repo.add(active)
     fxt_session.commit()
 
-    repo.add(SourceDB(name="inactive", type=_any_source_type(), config={}, project_id=p.id, connected=False))
-    repo.add(SourceDB(name="active", type=_any_source_type(), config={}, project_id=p.id, connected=True))
-    fxt_session.commit()
-
-    connected = repo.get_connected_in_project(p.id)
+    connected = source_repo.get_connected_in_project(project.id)
     assert connected is not None
     assert connected.connected is True
-    assert connected.name == "active"
+    assert connected.config.get("label") == "active"
 
 
-def test_project_deletion_cascades_sources(repo, fxt_session, clean_after):
-    """
-    Ensure relationship cascade (all, delete-orphan) removes sources when their project is deleted.
-    """
+def test_get_by_type_in_project(source_repo, fxt_session, clean_after):
     project = ProjectDB(name="proj")
     fxt_session.add(project)
     fxt_session.commit()
 
-    src_ids = []
-    for i in range(3):
-        s = SourceDB(name=f"s{i}", type=_any_source_type(), config={"i": i}, project_id=project.id)
-        repo.add(s)
-        src_ids.append(s.id)
-    fxt_session.commit()
-    assert len(repo.get_all_by_project(project.id)) == 3
+    types = list(SourceType)
+    primary_type = types[0]
+    other_type = types[1] if len(types) > 1 else primary_type
 
-    # delete project -> should cascade to sources
+    primary_src = make_source(project.id, source_type=primary_type, tag="primary")
+    other_src = make_source(project.id, source_type=other_type, tag="other")
+    source_repo.add(primary_src)
+    source_repo.add(other_src)
+    fxt_session.commit()
+
+    fetched = source_repo.get_by_type_in_project(project.id, primary_type)
+    assert fetched is not None
+    assert fetched.config["source_type"] == primary_type
+    assert fetched.config.get("tag") == "primary"
+
+
+def test_project_deletion_cascades_sources(source_repo, fxt_session, clean_after):
+    project = ProjectDB(name="proj")
+    fxt_session.add(project)
+    fxt_session.commit()
+
+    created = []
+    types = list(SourceType)
+    for i, st in enumerate(types[:3]):
+        s = make_source(project.id, source_type=st, idx=i)
+        source_repo.add(s)
+        created.append(s)
+    fxt_session.commit()
+    assert len(source_repo.get_all_by_project(project.id)) == len(created)
+
+    created_ids = [s.id for s in created]
+
     fxt_session.delete(project)
     fxt_session.commit()
 
-    # all sources should be gone
-    for sid in src_ids:
-        assert repo.get_by_id(sid) is None
-    # get_all_by_project should return an empty list
-    assert repo.get_all_by_project(project.id) == []
+    for sid in created_ids:
+        assert source_repo.get_by_id(sid) is None
+    assert source_repo.get_all_by_project(project.id) == []
+
+
+def test_unique_source_type_per_project(source_repo, fxt_session, clean_after):
+    project = ProjectDB(name="unique")
+    fxt_session.add(project)
+    fxt_session.commit()
+
+    st = any_source_type()
+    first = make_source(project.id, source_type=st, label="first")
+    second = make_source(project.id, source_type=st, label="second")
+
+    source_repo.add(first)
+    fxt_session.commit()
+    source_repo.add(second)
+
+    with pytest.raises(IntegrityError):
+        fxt_session.commit()
+    fxt_session.rollback()
+
+    fetched = source_repo.get_by_type_in_project(project.id, st)
+    assert fetched is not None
+    assert fetched.config.get("label") == "first"
+
+
+def test_connected_default_false(source_repo, fxt_session, clean_after):
+    project = ProjectDB(name="defaults")
+    fxt_session.add(project)
+    fxt_session.commit()
+
+    src = make_source(project.id)
+    source_repo.add(src)
+    fxt_session.commit()
+
+    fetched = source_repo.get_by_id(src.id)
+    assert fetched is not None
+    assert fetched.connected is False
