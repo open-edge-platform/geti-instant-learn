@@ -8,7 +8,7 @@ from .matcher import Matcher
 from .perdino import PerDino
 from .persam import PerSam
 from .base import BaseModel
-from .factory import load_module
+from .factory import load_model
 from .softmatcher import SoftMatcher
 
 __all__ = [
@@ -18,5 +18,5 @@ __all__ = [
     "BaseModel",
     "SoftMatcher",
     "GroundedSAM",
-    "load_module",
+    "load_model",
 ]

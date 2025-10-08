@@ -2,8 +2,6 @@
 # All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-
-from .automatic_mask_generator import SamAutomaticMaskGenerator as SamAutomaticMaskGenerator
 from .build_sam import (
     build_sam as build_sam,
 )

@@ -9,13 +9,13 @@ from pathlib import Path
 import numpy as np
 from PIL import Image as PILImage
 
-from getiprompt.datasets.dataset_base import Annotation, Dataset, DatasetIter, Image
+from getiprompt.datasets.dataset_base import Dataset, DatasetIter, Image
 from getiprompt.datasets.dataset_iterators import IndexIter
 
 logger = getLogger("Geti Prompt")
 
 
-class PerSegAnnotation(Annotation):
+class PerSegAnnotation:
     """PerSeg annotation class.
 
     Args:
@@ -30,7 +30,6 @@ class PerSegAnnotation(Annotation):
     """
 
     def __init__(self, filename: str, category_id: int) -> None:
-        super().__init__(0, 0)
         self.category_id = category_id
         self.filename = filename
 
@@ -226,14 +225,6 @@ class PerSegDataset(Dataset):
                 self.instances_per_image[category] = self.instance_count[category] / self.image_count[category]
             else:
                 self.instances_per_image[category] = 0.0
-
-    def get_root_path(self) -> str:
-        """Get the root path.
-
-        Returns:
-            The root path
-        """
-        return self._root_path
 
     def get_categories(self) -> list[str]:
         """Get the categories.

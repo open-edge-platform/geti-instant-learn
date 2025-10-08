@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Models and pipelines can be constructed using the methods in this file."""
+"""Load SAM models."""
 
 from logging import getLogger
 from typing import TYPE_CHECKING
@@ -15,15 +15,15 @@ from segment_anything_fast.predictor import SamPredictor as SamFastPredictor
 from segment_anything_hq import sam_model_registry as sam_hq_model_registry
 from segment_anything_hq.predictor import SamPredictor as SamHQPredictor
 
-from getiprompt.models.model_optimizer import optimize_model
-from getiprompt.models.per_segment_anything import SamPredictor, sam_model_registry
+from getiprompt.foundation.model_optimizer import optimize_model
+from getiprompt.foundation.per_segment_anything import SamPredictor, sam_model_registry
 from getiprompt.utils import download_file, precision_to_torch_dtype
 from getiprompt.utils.constants import DATA_PATH, MODEL_MAP, SAMModelName
 
 if TYPE_CHECKING:
     from segment_anything_hq.modeling.sam import Sam as SamHQ
 
-    from getiprompt.models.per_segment_anything.modeling.sam import Sam
+    from getiprompt.foundation.per_segment_anything.modeling.sam import Sam
 
 logger = getLogger("Geti Prompt")
 

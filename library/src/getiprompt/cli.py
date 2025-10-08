@@ -13,7 +13,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 from jsonargparse import ActionConfigFile, ArgumentParser, Namespace
 
 from getiprompt.benchmark import perform_benchmark_experiment
-from getiprompt.pipelines.pipeline_base import Pipeline
+from getiprompt.visual_prompting.base import BaseModel
 from getiprompt.run import run_pipeline
 from getiprompt.utils.args import populate_benchmark_parser
 from getiprompt.utils.utils import setup_logger
@@ -33,13 +33,13 @@ class GetiPromptCLI:
     def add_run_arguments(parser: ArgumentParser) -> None:
         """Add arguments for the run subcommand."""
         # load datasets
-        pipeline_default = "Matcher"
+        default_model = "Matcher"
 
         # Use Grounding model when text is provided as input.
         if "--reference_text_prompt" in sys.argv or "--text" in sys.argv:
-            pipeline_default = "GroundedSAM"
+            default_model = "GroundedSAM"
 
-        parser.add_subclass_arguments(Pipeline, "pipeline", default=pipeline_default)
+        parser.add_subclass_arguments(BaseModel, "model", default=default_model)
         parser.add_argument(
             "--reference_images", "--ref", type=str, default=None, help="Directory with reference images."
         )

@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Pipeline factory module."""
+"""Model factory module."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from getiprompt.processes.prompt_generators import GroundingModel
-from getiprompt.utils.constants import PipelineName, SAMModelName
+from getiprompt.utils.constants import ModelName, SAMModelName
 
 if TYPE_CHECKING:
     from argparse import Namespace
@@ -19,24 +19,24 @@ if TYPE_CHECKING:
 logger = logging.getLogger("Geti Prompt")
 
 
-def load_module(sam: SAMModelName, pipeline_name: PipelineName, args: Namespace) -> BaseModel:
-    """Instantiate and return the requested pipeline.
+def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> BaseModel:
+    """Instantiate and return the requested model.
 
     Args:
         sam: The name of the SAM model.
-        pipeline_name: The name of the pipeline.
-        args: The arguments to the pipeline.
+        model_name: The name of the model.
+        args: The arguments to the model.
 
     Returns:
-        The instantiated pipeline.
+        The instantiated model.
     """
     # Lazy import to avoid circular dependencies during module import time.
     from getiprompt.visual_prompting import GroundedSAM, Matcher, PerDino, PerSam, SoftMatcher
 
-    logger.info("Constructing pipeline: %s", pipeline_name.value)
+    logger.info("Constructing model: %s", model_name.value)
 
-    match pipeline_name:
-        case PipelineName.PER_SAM:
+    match model_name:
+        case ModelName.PER_SAM:
             return PerSam(
                 sam=sam,
                 num_foreground_points=args.num_foreground_points,
@@ -50,7 +50,7 @@ def load_module(sam: SAMModelName, pipeline_name: PipelineName, args: Namespace)
                 image_size=args.image_size,
                 device=args.device,
             )
-        case PipelineName.PER_DINO:
+        case ModelName.PER_DINO:
             return PerDino(
                 sam=sam,
                 num_foreground_points=args.num_foreground_points,
@@ -64,7 +64,7 @@ def load_module(sam: SAMModelName, pipeline_name: PipelineName, args: Namespace)
                 image_size=args.image_size,
                 device=args.device,
             )
-        case PipelineName.MATCHER:
+        case ModelName.MATCHER:
             return Matcher(
                 sam=sam,
                 num_foreground_points=args.num_foreground_points,
@@ -76,7 +76,7 @@ def load_module(sam: SAMModelName, pipeline_name: PipelineName, args: Namespace)
                 image_size=args.image_size,
                 device=args.device,
             )
-        case PipelineName.SOFT_MATCHER:
+        case ModelName.SOFT_MATCHER:
             return SoftMatcher(
                 sam=sam,
                 num_foreground_points=args.num_foreground_points,
@@ -93,7 +93,7 @@ def load_module(sam: SAMModelName, pipeline_name: PipelineName, args: Namespace)
                 image_size=args.image_size,
                 device=args.device,
             )
-        case PipelineName.GROUNDED_SAM:
+        case ModelName.GROUNDED_SAM:
             return GroundedSAM(
                 sam=sam,
                 grounding_model=GroundingModel(args.grounding_model),
@@ -106,5 +106,5 @@ def load_module(sam: SAMModelName, pipeline_name: PipelineName, args: Namespace)
                 device=args.device,
             )
         case _:
-            msg = f"Algorithm {pipeline_name.value} not implemented yet"
+            msg = f"Algorithm {model_name.value} not implemented yet"
             raise NotImplementedError(msg)

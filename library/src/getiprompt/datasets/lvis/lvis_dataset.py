@@ -15,7 +15,7 @@ import pycocotools.mask as mask_utils
 import requests
 from PIL import Image as PILImage
 
-from getiprompt.datasets.dataset_base import Annotation, Dataset, DatasetIter, Image
+from getiprompt.datasets.dataset_base import Dataset, DatasetIter, Image
 from getiprompt.datasets.dataset_iterators import IndexIter
 
 logger = getLogger("Geti Prompt")
@@ -45,7 +45,7 @@ def segment_to_mask(segment: list[float], height: int, width: int) -> np.ndarray
     return mask_utils.decode(rle_segment)
 
 
-class LVISAnnotation(Annotation):
+class LVISAnnotation:
     """This class represents an annotation for the LVIS dataset.
 
     Args:
@@ -63,12 +63,9 @@ class LVISAnnotation(Annotation):
 
     def __init__(
         self,
-        height: int,
-        width: int,
         segments: list[float],
         category_id: int,
     ) -> None:
-        super().__init__(height, width)
         self.segments = segments
         self.category_id = category_id
 
@@ -152,6 +149,7 @@ class LVISImage(Image):
 
         pil_image = PILImage.open(image_filename).convert("RGB")
         return np.array(pil_image)
+
 
 
 class LVISDataset(Dataset):
@@ -583,8 +581,6 @@ class LVISDataset(Dataset):
                         annotation_info["category_id"],
                     )
                     a = LVISAnnotation(
-                        height=0,
-                        width=0,
                         segments=annotation_info["segmentation"],
                         category_id=category_id,
                     )

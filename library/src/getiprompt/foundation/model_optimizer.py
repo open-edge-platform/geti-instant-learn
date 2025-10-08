@@ -18,8 +18,8 @@ from segment_anything_hq.predictor import SamPredictor as SamHQPredictor
 from torch import nn
 from transformers import AutoModel
 
-from getiprompt.models.per_segment_anything import SamPredictor
-from getiprompt.models.per_segment_anything.modeling.tiny_vit_sam import Attention, TinyViT
+from getiprompt.foundation.per_segment_anything import SamPredictor
+from getiprompt.foundation.per_segment_anything.modeling.tiny_vit_sam import Attention, TinyViT
 
 logger = getLogger("Geti Prompt")
 

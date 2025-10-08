@@ -5,6 +5,12 @@ from enum import Enum
 from pathlib import Path
 
 
+class Subset(Enum):
+    TRAIN = "train"
+    VAL = "val"
+    TEST = "test"
+
+
 class SAMModelName(Enum):
     """Enum for SAM model types."""
 
@@ -20,7 +26,7 @@ class SAMModelName(Enum):
     SAM2_LARGE = "SAM2-large"
 
 
-class PipelineName(Enum):
+class ModelName(Enum):
     """Enum for pipeline types."""
 
     GROUNDED_SAM = "GroundedSAM"

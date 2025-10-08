@@ -19,7 +19,7 @@ import numpy as np
 from PIL import Image as PILImage
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 
-from getiprompt.pipelines import Matcher, Pipeline
+from getiprompt.visual_prompting import Matcher, BaseModel
 from getiprompt.processes.visualizations import ExportMaskVisualization
 from getiprompt.types import Image, Priors, Text
 from getiprompt.utils.constants import IMAGE_EXTENSIONS
@@ -30,7 +30,7 @@ setup_logger()
 
 
 def run_pipeline(
-    pipeline: Pipeline,
+    pipeline: BaseModel,
     target_images: str,
     reference_images: str | None = None,
     reference_prompts: str | None = None,
