@@ -17,7 +17,7 @@ from getiprompt.utils.utils import MaybeToTensor, precision_to_torch_dtype
 
 logger = getLogger("Geti Prompt")
 
-AVAILABLE_VISION_ENCODERS = {
+AVAILABLE_IMAGE_ENCODERS = {
     "dinov2_small": "facebook/dinov2-with-registers-small",
     "dinov2_base": "facebook/dinov2-with-registers-base",
     "dinov2_large": "facebook/dinov2-with-registers-large",
@@ -34,14 +34,14 @@ class ImageEncoder(nn.Module):
     """This encoder uses a model from HuggingFace to encode the images.
 
     Examples:
-        >>> from getiprompt.processes.encoders import ImageEncoder
+        >>> from getiprompt.processes.encoders import Encoder
         >>> from getiprompt.types import Image, Priors, Features
         >>> import torch
         >>> import numpy as np
         >>>
         >>> # Create a sample image
         >>> sample_image = np.zeros((518, 518, 3), dtype=np.uint8)
-        >>> encoder = ImageEncoder(model_id="dinov2_large")
+        >>> encoder = Encoder(model_id="dinov2_large")
         >>> features, masks = encoder([Image(sample_image)], priors_per_image=[Priors()])
         >>> len(features), len(masks)
         (1, 1)
@@ -75,8 +75,8 @@ class ImageEncoder(nn.Module):
         """
         super().__init__()
 
-        if model_id not in AVAILABLE_VISION_ENCODERS:
-            msg = f"Invalid model ID: {model_id}. Valid model IDs: {list(AVAILABLE_VISION_ENCODERS.keys())}"
+        if model_id not in AVAILABLE_IMAGE_ENCODERS:
+            msg = f"Invalid model ID: {model_id}. Valid model IDs: {list(AVAILABLE_IMAGE_ENCODERS.keys())}"
             raise ValueError(msg)
 
         self.model_id = model_id
@@ -84,7 +84,7 @@ class ImageEncoder(nn.Module):
         self.device = device
 
         logger.info(f"Loading DINO model {model_id}")
-        self.model, self.processor = self._load_hf_model(AVAILABLE_VISION_ENCODERS[model_id], input_size)
+        self.model, self.processor = self._load_hf_model(AVAILABLE_IMAGE_ENCODERS[model_id], input_size)
         self.model = self.model.to(device).eval()
         self.patch_size = self.model.config.patch_size
         self.feature_size = self.input_size // self.patch_size
