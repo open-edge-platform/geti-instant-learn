@@ -11,7 +11,7 @@ from getiprompt.components.mask_processors import MasksToPolygons
 from getiprompt.components.prompt_generators import GridPromptGenerator
 from getiprompt.components.segmenters import SamDecoder
 from getiprompt.components.similarity_matchers import CosineSimilarity, SimilarityMatcher
-from getiprompt.filters import ClassOverlapMaskFilter, MaxPointFilter, MaskAdder
+from getiprompt.filters import ClassOverlapMaskFilter, MaskAdder, MaxPointFilter
 from getiprompt.foundation.models import load_sam_model
 from getiprompt.models.base import BaseModel
 from getiprompt.types import Image, Priors, Results

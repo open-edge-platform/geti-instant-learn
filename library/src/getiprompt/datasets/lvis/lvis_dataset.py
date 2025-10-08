@@ -151,7 +151,6 @@ class LVISImage(Image):
         return np.array(pil_image)
 
 
-
 class LVISDataset(Dataset):
     """This class represents the LVIS dataset.
 

@@ -18,10 +18,10 @@ import numpy as np
 import pandas as pd
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 
-from getiprompt.datasets import BatchedSingleCategoryIter, Dataset
-from getiprompt.models import BaseModel, load_model
 from getiprompt.components.metrics import SegmentationMetrics
 from getiprompt.components.visualizations import ExportMaskVisualization
+from getiprompt.datasets import BatchedSingleCategoryIter, Dataset
+from getiprompt.models import BaseModel, load_model
 from getiprompt.types import Image, Masks, Priors, Text
 from getiprompt.utils import setup_logger
 from getiprompt.utils.args import get_arguments, parse_experiment_args
@@ -619,8 +619,8 @@ def perform_benchmark_experiment(args: argparse.Namespace | None = None) -> None
         all_metrics_df = predict_on_dataset(
             args,
             model,
-            priors_dataset=dataset, # why is this the same as the dataset?
-            dataset=dataset, # why is this the same as the priors dataset?
+            priors_dataset=dataset,
+            dataset=dataset,
             unique_output=unique_output_path,
             dataset_name=dataset_enum.value,
             model_name=model_enum.value,

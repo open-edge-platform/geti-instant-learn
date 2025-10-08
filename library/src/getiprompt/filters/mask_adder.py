@@ -21,6 +21,7 @@ class MaskAdder(nn.Module):
         Args:
             segmenter: SamDecoder to use to create masks from points
         """
+        super().__init__()
         self.segmenter = segmenter
 
     def forward(self, images: list[Image], priors: list[Priors]) -> list[Priors]:
