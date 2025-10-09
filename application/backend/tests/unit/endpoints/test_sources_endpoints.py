@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from core.components.schemas.reader import SourceType, WebCamConfig
 from dependencies import SessionDep
 from routers import projects_router
-from services.common import (
+from services.errors import (
     ResourceNotFoundError,
     ResourceType,
     ResourceUpdateConflictError,

@@ -5,7 +5,7 @@
 
 import { Key, MouseEventHandler, useState } from 'react';
 
-import { $api, type ProjectListItemType } from '@geti-prompt/api';
+import { $api, type ProjectSchemaType } from '@geti-prompt/api';
 import { ActionButton, Flex, Grid, Heading, PhotoPlaceholder, repeat, Text, View } from '@geti/ui';
 import { AddCircle } from '@geti/ui/icons';
 import { Link } from 'react-router-dom';
@@ -52,7 +52,7 @@ const NewProjectCard = ({ projectsNames }: NewProjectCardProps) => {
 };
 
 interface ProjectCardProps {
-    project: ProjectListItemType;
+    project: ProjectSchemaType;
     projectNames: string[];
 }
 

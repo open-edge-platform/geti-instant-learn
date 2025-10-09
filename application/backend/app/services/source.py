@@ -10,7 +10,7 @@ from core.components.schemas.reader import SourceType
 from db.models import ProjectDB, SourceDB
 from repositories.project import ProjectRepository
 from repositories.source import SourceRepository
-from services.common import (
+from services.errors import (
     ResourceNotFoundError,
     ResourceType,
     ResourceUpdateConflictError,

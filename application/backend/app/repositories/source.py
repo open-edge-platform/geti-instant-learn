@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from core.components.schemas.reader import SourceType
 from db.models import SourceDB
-from repositories.common import BaseRepository
+from repositories.base import BaseRepository
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class SourceRepository(BaseRepository):
 
     def __init__(self, session: Session):
         """Initialize the repository."""
-        self.session = session
+        super().__init__(session)
 
     def add(self, source: SourceDB) -> None:
         """

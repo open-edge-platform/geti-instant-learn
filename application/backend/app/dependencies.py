@@ -14,8 +14,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from alembic import command
 from alembic.config import Config
 from db.models import ProjectDB
-from services.common import ResourceNotFoundError
+from services.errors import ResourceNotFoundError
 from services.project import ProjectService
+from services.schemas.project import ProjectCreateSchema
 from settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -69,7 +70,7 @@ def ensure_default_active_project() -> None:
     with SessionLocal() as session:
         service = ProjectService(session)
         try:
-            service.get_active_project()
+            service.get_active_project_info()
             # if an active project exists, nothing to do
             return
         except ResourceNotFoundError:
@@ -82,7 +83,7 @@ def ensure_default_active_project() -> None:
                 service.set_active_project(existing.id)
             else:
                 logger.info(f"Creating and activating default project '{DEFAULT_PROJECT_NAME}'")
-                service.create_project(ProjectDB(name=DEFAULT_PROJECT_NAME))
+                service.create_project(ProjectCreateSchema(name=DEFAULT_PROJECT_NAME))
         except Exception:
             logger.exception("Failed to create default active project at the application startup")
             session.rollback()
