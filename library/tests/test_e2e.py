@@ -1,60 +1,54 @@
+import argparse
+
 import pytest
 
-import argparse
-from typing import List
-
-from getiprompt.utils.constants import PipelineName
-from getiprompt.models.factory import load_pipeline
-from getiprompt.utils.data import load_dataset
 from getiprompt.datasets import Dataset
-from getiprompt.datasets.dataset_iterators import BatchedSingleCategoryIter
-from getiprompt.utils.constants import SAMModelName
+from getiprompt.models.factory import load_model
 from getiprompt.types.image import Image
-from getiprompt.types.priors import Priors
 from getiprompt.types.masks import Masks
+from getiprompt.types.priors import Priors
 from getiprompt.types.text import Text
+from getiprompt.utils.constants import ModelName, SAMModelName
+from getiprompt.utils.data import load_dataset
 
 
 def get_priors_for_category(
-    dataset: Dataset, 
-    category_name: str, 
+    dataset: Dataset,
+    category_name: str,
     n_shot: int,
-) -> tuple[List[Image], List[Priors]]:
+) -> tuple[list[Image], list[Priors]]:
     """Get reference images and priors for a specific category."""
     # Get reference images and masks for the category
     ref_images_np = dataset.get_images_by_category(category_name, start=0, end=n_shot)
     ref_masks_np = dataset.get_masks_by_category(category_name, start=0, end=n_shot)
-    
+
     # Convert to required types
     ref_images = [Image(img) for img in ref_images_np]
     ref_priors = []
-    
+
     for mask_np in ref_masks_np:
         # Create mask object
         mask_obj = Masks()
         mask_np_3d = mask_np[:, :, None] if len(mask_np.shape) == 2 else mask_np
         mask_obj.add(mask_np_3d)
-        
+
         # Create text prior
         text_prior = Text()
         text_prior.add(category_name, class_id=0)
-        
+
         # Create priors object
         prior = Priors(masks=[mask_obj], text=text_prior)
         ref_priors.append(prior)
-    
+
     return ref_images, ref_priors
 
 
 @pytest.fixture
 def arg_fixture(
-    category_name: str = "cupcake",
-    n_shot: int = 1,
-    num_batches: int = 4,
-    device: str = "cuda"
+    category_name: str = "cupcake", n_shot: int = 1, num_batches: int = 4, device: str = "cuda"
 ) -> argparse.Namespace:
     args = argparse.Namespace()
-    
+
     # Required pipeline parameters
     args.grounding_model = "fushh7/llmdet_swin_tiny_hf"
     args.box_threshold = 0.4
@@ -72,7 +66,7 @@ def arg_fixture(
     args.n_shot = n_shot
     args.num_batches = num_batches
     args.class_name = category_name
-    
+
     # Additional args for SoftMatcher (in case it's used)
     args.use_sampling = False
     args.use_spatial_sampling = False
@@ -88,20 +82,20 @@ def lvis_dataset_fixture(arg_fixture: argparse.Namespace) -> Dataset:
 
 
 @pytest.mark.parametrize("sam_model_fixture", SAMModelName)
-@pytest.mark.parametrize("pipeline_name_fixture", PipelineName)
+@pytest.mark.parametrize("pipeline_name_fixture", ModelName)
 def test_e2e(
     arg_fixture: argparse.Namespace,
     lvis_dataset_fixture: Dataset,
     sam_model_fixture: SAMModelName,
-    pipeline_name_fixture: PipelineName,
+    pipeline_name_fixture: ModelName,
 ):
-    pipeline = load_pipeline(sam=sam_model_fixture, pipeline_name=pipeline_name_fixture, args=arg_fixture)
+    pipeline = load_model(sam=sam_model_fixture, model_name=pipeline_name_fixture, args=arg_fixture)
 
     ref_images, ref_priors = get_priors_for_category(
-        lvis_dataset_fixture, 
-        arg_fixture.class_name, 
+        lvis_dataset_fixture,
+        arg_fixture.class_name,
         arg_fixture.n_shot,
     )
-    
+
     pipeline.learn(reference_images=ref_images, reference_priors=ref_priors)
     pipeline.infer(target_images=ref_images)
