@@ -27,7 +27,7 @@ class Settings(BaseSettings):
         "and project components for finding and segmenting objects from just a few examples."
     )
     openapi_url: str = "/api/openapi.json"
-    debug: bool = Field(default=True, alias="DEBUG")
+    debug: bool = Field(default=False, alias="DEBUG")
     environment: Literal["dev", "prod"] = "dev"
     static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
 
@@ -36,16 +36,20 @@ class Settings(BaseSettings):
     port: int = Field(default=9100, alias="PORT")
 
     # Database
-    db_data_dir: str = os.getenv("DB_DATA_DIR", "")
-    database_url: str = Field(
-        default=(
-            f"sqlite:///{db_data_dir}/geti_prompt.db"
-            if db_data_dir and os.path.isdir(db_data_dir) and any(os.scandir(db_data_dir))
-            else "sqlite:///./geti_prompt.db"
-        ),
-        alias="DATABASE_URL",
-        description="Database connection URL",
-    )
+    db_data_dir: str = Field(default="", alias="DB_DATA_DIR")
+    db_filename: str = "geti_prompt.db"
+
+    @property
+    def database_url(self) -> str:
+        """Database connection URL"""
+        if (
+            self.db_data_dir
+            and os.path.isdir(self.db_data_dir)
+            and os.path.isfile(os.path.join(self.db_data_dir, self.db_filename))
+        ):
+            return f"sqlite:///{self.db_data_dir}/{self.db_filename}"
+        return f"sqlite:///./{self.db_filename}"
+
     db_echo: bool = Field(default=False, alias="DB_ECHO")
 
     # Alembic
