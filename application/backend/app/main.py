@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 import rest.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
-from dependencies import ensure_default_active_project, run_db_migrations
+from dependencies import run_db_migrations
 from routers import projects_router
 from settings import get_settings
 
@@ -30,10 +30,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:  # noqa: ARG001
     """FastAPI lifespan context manager"""
     # Startup actions
     logger.info(f"Starting {settings.app_name} application...")
-    run_db_migrations(settings)
-
-    # TODO remove later, we'll require explicit project creation via a UI form when no projects exist
-    ensure_default_active_project()
+    run_db_migrations()
 
     logger.info("Application startup completed")
     yield

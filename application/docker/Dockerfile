@@ -59,7 +59,12 @@ RUN npm run build
 # Server
 #############
 FROM backend_base AS geti-prompt
-ENV STATIC_FILES_DIR=/app/static
+
+# /app is the working directory
+ENV STATIC_FILES_DIR=/app/html
+ENV DB_DATA_DIR=/app/db_data
+
+VOLUME $DB_DATA_DIR
 
 COPY --from=web_ui /home/app/web_ui/dist/ $STATIC_FILES_DIR
 
