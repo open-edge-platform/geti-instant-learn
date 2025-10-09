@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ProjectSchemaType } from '@geti-prompt/api';
+import { ProjectListItemType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { isEmpty } from 'lodash-es';
 import { useNavigate } from 'react-router';
@@ -11,12 +11,12 @@ import { useNavigate } from 'react-router';
 import { paths } from '../../routes/paths';
 import { useDeleteProject } from './hooks/use-delete-project.hook';
 import { useUpdateProject } from './hooks/use-update-project.hook';
-import { ProjectSchema } from './project-list-item/project-list-item.component';
+import { ProjectListItem } from './project-list-item/project-list-item.component';
 
 import styles from './projects-list.module.scss';
 
 interface ProjectListProps {
-    projects: ProjectSchemaType[];
+    projects: ProjectListItemType[];
     projectIdInEdition: string | null;
     setProjectInEdition: (projectId: string | null) => void;
 }
@@ -63,7 +63,7 @@ export const ProjectsList = ({ projects, setProjectInEdition, projectIdInEdition
     return (
         <ul className={styles.projectList}>
             {projects.map((project) => (
-                <ProjectSchema
+                <ProjectListItem
                     key={project.id}
                     projectNames={projectNames.filter((name) => name !== project.name)}
                     project={project}

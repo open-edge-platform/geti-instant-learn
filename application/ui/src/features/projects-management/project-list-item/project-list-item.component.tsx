@@ -5,7 +5,7 @@
 
 import { Key, MouseEventHandler, useState } from 'react';
 
-import { type ProjectSchemaType } from '@geti-prompt/api';
+import { type ProjectListItemType } from '@geti-prompt/api';
 import { Flex, PhotoPlaceholder, Text } from '@geti/ui';
 import { Link } from 'react-router-dom';
 
@@ -14,8 +14,8 @@ import { DeleteProjectDialog, PROJECT_ACTIONS, ProjectActions, ProjectEdition } 
 
 import styles from './project-list-item.module.scss';
 
-interface ProjectSchemaProps {
-    project: ProjectSchemaType;
+interface ProjectListItemProps {
+    project: ProjectListItemType;
     isInEditMode: boolean;
     onBlur: (projectId: string, newName: string) => void;
     onRename: (projectId: string) => void;
@@ -24,7 +24,7 @@ interface ProjectSchemaProps {
     projectNames: string[];
 }
 
-export const ProjectSchema = ({
+export const ProjectListItem = ({
     project,
     isInEditMode,
     onBlur,
@@ -32,7 +32,7 @@ export const ProjectSchema = ({
     onDelete,
     onResetProjectInEdition,
     projectNames,
-}: ProjectSchemaProps) => {
+}: ProjectListItemProps) => {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
 
     const handleAction = (key: Key) => {
@@ -58,7 +58,7 @@ export const ProjectSchema = ({
     };
 
     return (
-        <li className={styles.ProjectSchema} aria-label={`Project ${project.name}`}>
+        <li className={styles.projectListItem} aria-label={`Project ${project.name}`}>
             <Link to={paths.project({ projectId: project.id })} onClick={handleItemClick}>
                 <Flex justifyContent='space-between' alignItems='center' marginX={'size-200'}>
                     {isInEditMode ? (
