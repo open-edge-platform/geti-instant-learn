@@ -14,10 +14,12 @@ from services.schemas.project import ProjectCreateSchema, ProjectSchema, Project
 
 def make_project(
     *,
-    project_id=uuid.uuid4(),
+    project_id=None,
     name="proj",
     active=False,
 ):
+    if project_id is None:
+        project_id = uuid.uuid4()
     return SimpleNamespace(id=project_id, name=name, active=active)
 
 
