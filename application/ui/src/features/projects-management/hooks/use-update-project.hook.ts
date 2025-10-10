@@ -3,16 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api } from '@geti-prompt/api';
+import { $api, type ProjectUpdateType } from '@geti-prompt/api';
 
 export const useUpdateProject = () => {
     const updateProjectMutation = $api.useMutation('put', '/api/v1/projects/{project_id}');
 
-    const updateProjectName = (id: string, name: string): void => {
+    const updateProjectName = (id: string, body: ProjectUpdateType): void => {
         updateProjectMutation.mutate({
-            body: {
-                name,
-            },
+            body,
             params: {
                 path: {
                     project_id: id,

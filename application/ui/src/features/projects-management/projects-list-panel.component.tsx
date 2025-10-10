@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 
-import { $api, type ProjectListItemType } from '@geti-prompt/api';
+import { $api, type ProjectType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import {
     ActionButton,
@@ -31,7 +31,7 @@ import { generateUniqueProjectName } from './utils';
 import styles from './projects-list.module.scss';
 
 interface SelectedProjectProps {
-    project: ProjectListItemType;
+    project: ProjectType;
 }
 
 const SelectedProjectButton = ({ project: { name, id } }: SelectedProjectProps) => {
