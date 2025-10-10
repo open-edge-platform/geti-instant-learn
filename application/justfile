@@ -32,6 +32,7 @@ docker-extra-args := registry_build_arg + \
 # Geti Prompt arguments
 ###
 docker-volume := if env("DOCKER_VOLUME", "") != "" { " -v " + env("DOCKER_VOLUME") + ":/app/db_data" } else { "" }
+geti-prompt-port := env("GETI_PROMPT_PORT")
 
 ###
 # Justfile targets
@@ -48,7 +49,8 @@ build-image:
 run-image: build-image
     echo "Running docker image for component: {{COMPONENT_NAME}}"
     docker run -it --rm \
-        -p 9100:9100 \
+        -p {{geti-prompt-port}}:{{geti-prompt-port}} \
+        -e PORT={{geti-prompt-port}} \
         {{docker-volume}} \
         --name "{{COMPONENT_NAME}}-{{TAG}}" \
         "{{images-registry}}/{{COMPONENT_NAME}}:{{TAG}}"

@@ -10,7 +10,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.7.13 /uv /bin/uv
 FROM base AS backend_base
 
 # Set working directory
-WORKDIR /app
+WORKDIR /geti_prompt
 
 ENV PYTHONPATH=/app
 
@@ -61,8 +61,8 @@ RUN npm run build
 FROM backend_base AS geti-prompt
 
 # /app is the working directory
-ENV STATIC_FILES_DIR=/app/html
-ENV DB_DATA_DIR=/app/db_data
+ENV STATIC_FILES_DIR=/geti_prompt/html
+ENV DB_DATA_DIR=/geti_prompt/data
 
 VOLUME $DB_DATA_DIR
 

@@ -36,19 +36,13 @@ class Settings(BaseSettings):
     port: int = Field(default=9100, alias="PORT")
 
     # Database
-    db_data_dir: str = Field(default="", alias="DB_DATA_DIR")
+    db_data_dir: Path  = Field(default=Path("data"), alias="DB_DATA_DIR")
     db_filename: str = "geti_prompt.db"
 
     @property
     def database_url(self) -> str:
         """Database connection URL"""
-        if (
-            self.db_data_dir
-            and os.path.isdir(self.db_data_dir)
-            and os.path.isfile(os.path.join(self.db_data_dir, self.db_filename))
-        ):
-            return f"sqlite:///{self.db_data_dir}/{self.db_filename}"
-        return f"sqlite:///./{self.db_filename}"
+        return f"sqlite:///{self.db_data_dir / self.db_filename}"
 
     db_echo: bool = Field(default=False, alias="DB_ECHO")
 
