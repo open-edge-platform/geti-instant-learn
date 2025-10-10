@@ -17,7 +17,7 @@ class TestResizeSimilarityMap:
         # 64x64 flattened to 4096
         similarities = torch.randn(1, 4096)
         resized = resize_similarity_map(similarities, target_size=(128, 128))
-        
+
         assert resized.shape == (128, 128)
 
     def test_resize_to_rectangular(self):
@@ -25,14 +25,14 @@ class TestResizeSimilarityMap:
         # 16x16 flattened to 256
         similarities = torch.randn(2, 256)
         resized = resize_similarity_map(similarities, target_size=(64, 128))
-        
+
         assert resized.shape == (2, 64, 128)
 
     def test_resize_with_single_int_target(self):
         """Test resize with single integer as target size."""
         similarities = torch.randn(1, 1024)  # 32x32
         resized = resize_similarity_map(similarities, target_size=256)
-        
+
         assert resized.shape == (256, 256)
 
     def test_unpadded_image_size_square(self):
@@ -44,7 +44,7 @@ class TestResizeSimilarityMap:
             target_size=(256, 256),
             unpadded_image_size=(240, 240),
         )
-        
+
         assert resized.shape == (256, 256)
 
     def test_unpadded_image_size_rectangular(self):
@@ -55,21 +55,21 @@ class TestResizeSimilarityMap:
             target_size=(200, 300),
             unpadded_image_size=(180, 280),
         )
-        
+
         assert resized.shape == (200, 300)
 
     def test_batch_size_greater_than_one(self):
         """Test with batch size > 1."""
         similarities = torch.randn(4, 1024)  # batch=4, 32x32
         resized = resize_similarity_map(similarities, target_size=(64, 64))
-        
+
         assert resized.shape == (4, 64, 64)
 
     def test_single_batch_gets_squeezed(self):
         """Test that single batch dimension gets squeezed."""
         similarities = torch.randn(1, 1024)  # 32x32
         resized = resize_similarity_map(similarities, target_size=(64, 64))
-        
+
         # Should squeeze to 2D if batch=1
         assert resized.ndim == 2
         assert resized.shape == (64, 64)
@@ -78,7 +78,7 @@ class TestResizeSimilarityMap:
         """Test that resizing preserves approximate value ranges."""
         similarities = torch.ones(1, 256) * 0.5  # 16x16, all 0.5
         resized = resize_similarity_map(similarities, target_size=(32, 32))
-        
+
         # Bilinear interpolation should preserve approximate values
         assert torch.allclose(resized, torch.ones(32, 32) * 0.5, atol=0.1)
 
@@ -101,9 +101,9 @@ class TestResizeSimilarityMap:
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
     def test_cuda_device(self):
         """Test with CUDA tensors."""
-        similarities = torch.randn(1, 1024, device='cuda')
+        similarities = torch.randn(1, 1024, device="cuda")
         resized = resize_similarity_map(similarities, target_size=(64, 64))
-        assert resized.device.type == 'cuda'
+        assert resized.device.type == "cuda"
         assert resized.shape == (64, 64)
 
     def test_zero_tensor(self):

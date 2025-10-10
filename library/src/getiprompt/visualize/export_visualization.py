@@ -9,9 +9,9 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from getiprompt.visualize.base import Visualization
 from getiprompt.types import Annotations, Boxes, Image, Masks, Points
 from getiprompt.utils import get_colors
+from getiprompt.visualize.base import Visualization
 
 
 class ExportMaskVisualization(Visualization):

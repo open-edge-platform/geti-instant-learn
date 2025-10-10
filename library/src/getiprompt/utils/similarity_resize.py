@@ -15,7 +15,7 @@ def resize_similarity_map(
     unpadded_image_size: tuple[int, int] | None = None,
 ) -> torch.Tensor:
     """Resize similarity maps to target image size while removing padding.
-    
+
     This function converts flat similarity tensors to square spatial grids,
     removes any padding (e.g., from SAM models), and resizes to the target dimensions.
 
@@ -38,10 +38,10 @@ def resize_similarity_map(
         >>> resized = resize_similarity_map(similarities, target_size=(256, 256))
         >>> resized.shape
         torch.Size([256, 256])
-        >>> 
+        >>>
         >>> # With padding removal (e.g., SAM models)
         >>> resized = resize_similarity_map(
-        ...     similarities, 
+        ...     similarities,
         ...     target_size=(256, 256),
         ...     unpadded_image_size=(240, 240)
         ... )
@@ -55,7 +55,7 @@ def resize_similarity_map(
         torch.Size([4, 128, 128])
     """
     square_size = int(math.sqrt(similarities.shape[-1]))
-    
+
     # Put in batched square shape
     similarities = similarities.reshape(
         similarities.shape[0],
@@ -63,7 +63,7 @@ def resize_similarity_map(
         square_size,
         square_size,
     )
-    
+
     # SAM models can in some cases add padding to the image, we need to remove it
     if unpadded_image_size is not None:
         similarities = F.interpolate(
@@ -85,7 +85,7 @@ def resize_similarity_map(
         mode="bilinear",
         align_corners=False,
     ).squeeze(1)
-    
+
     if similarities.ndim == 4:
         similarities = similarities.squeeze(0)
 

@@ -3,7 +3,7 @@
 
 """Visualizations."""
 
-from .export_visualization import ExportMaskVisualization
 from .base import Visualization
+from .export_visualization import ExportMaskVisualization
 
 __all__ = ["ExportMaskVisualization", "Visualization"]

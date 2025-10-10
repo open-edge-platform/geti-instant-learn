@@ -3,7 +3,6 @@
 
 """Cosine similarity matcher."""
 
-import torch
 import torch.nn.functional as F
 from torch import nn
 
@@ -13,7 +12,7 @@ from getiprompt.utils.similarity_resize import resize_similarity_map
 
 class CosineSimilarity(nn.Module):
     """Compute cosine similarity between reference and target features.
-    
+
     This class calculates cosine similarity scores between reference features
     and target features, then resizes the similarity maps to match the target image size.
     """
@@ -41,10 +40,10 @@ class CosineSimilarity(nn.Module):
             List of similarity maps for each target image.
         """
         all_similarities = []
-        
+
         for target_feat in target_features:
             similarities_per_target = []
-            
+
             for ref_feat in reference_features:
                 # Compute cosine similarity
                 similarities = F.cosine_similarity(
@@ -52,16 +51,16 @@ class CosineSimilarity(nn.Module):
                     target_feat.global_features,
                     dim=-1,
                 )
-                
+
                 # Resize similarity map
                 similarities = resize_similarity_map(
                     similarities,
                     target_size=target_size,
                     unpadded_image_size=unpadded_image_size,
                 )
-                
+
                 similarities_per_target.append(similarities)
-            
+
             all_similarities.append(Similarities(similarities=similarities_per_target))
-        
+
         return all_similarities
