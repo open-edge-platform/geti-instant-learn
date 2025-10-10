@@ -47,6 +47,9 @@ COPY --link ui/tsconfig.json ./
 COPY --link ui/rsbuild.config.ts ./
 COPY --link ui/src/ src/
 
+ARG PUBLIC_API_URL=""
+ENV PUBLIC_API_URL=${PUBLIC_API_URL}
+
 #############
 # web_ui build
 #############

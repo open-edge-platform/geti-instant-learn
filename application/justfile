@@ -31,8 +31,9 @@ docker-extra-args := registry_build_arg + \
 ###
 # Geti Prompt arguments
 ###
-docker-volume := if env("DOCKER_VOLUME", "") != "" { " -v " + env("DOCKER_VOLUME") + ":/app/db_data" } else { "" }
+docker-volume := if env("DOCKER_VOLUME", "") != "" { " -v " + env("DOCKER_VOLUME") + ":/geti_prompt/data" } else { "" }
 geti-prompt-port := env("GETI_PROMPT_PORT")
+user-port := env("USER_PORT", geti-prompt-port)
 
 ###
 # Justfile targets
@@ -42,6 +43,7 @@ build-image:
     docker build \
         {{docker-extra-args}} \
         {{docker-build-context}} \
+        --build-arg PUBLIC_API_URL=http://localhost:{{geti-prompt-port}} \
         --label "org.opencontainers.image.description={{DOCKER_IMAGE_DESCRIPTION}}" \
         -t "{{images-registry}}/{{COMPONENT_NAME}}:{{TAG}}" \
         -f docker/Dockerfile .
@@ -49,7 +51,7 @@ build-image:
 run-image: build-image
     echo "Running docker image for component: {{COMPONENT_NAME}}"
     docker run -it --rm \
-        -p {{geti-prompt-port}}:{{geti-prompt-port}} \
+        -p {{user-port}}:{{geti-prompt-port}} \
         -e PORT={{geti-prompt-port}} \
         {{docker-volume}} \
         --name "{{COMPONENT_NAME}}-{{TAG}}" \
