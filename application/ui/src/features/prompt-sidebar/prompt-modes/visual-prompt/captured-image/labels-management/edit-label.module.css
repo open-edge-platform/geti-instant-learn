@@ -1,0 +1,12 @@
+.plusButton {
+    &:not([class*='disabled']) {
+        background: var(--addButtonBgColor) !important;
+    }
+}
+
+.editLabelContainer {
+    border: 1px solid var(--spectrum-global-color-gray-300);
+    padding: var(--spectrum-global-dimension-size-25);
+    border-radius: var(--spectrum-alias-border-radius-regular);
+    background-color: var(--spectrum-global-color-gray-100);
+}

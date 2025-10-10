@@ -1,13 +1,3 @@
-.plusButton {
-    border: none;
-    background-color: var(--energy-blue);
-}
-
-.plusButton:hover {
-    border: none;
-    background-color: var(--energy-blue);
-}
-
 .addLabelButton {
     border: none;
     min-width: max-content;

@@ -25,7 +25,7 @@ export const LabelBadge = ({ label, isSelected, onClick, children: actionButtons
     });
 
     return (
-        <div {...hoverProps} style={{ height: 'min-content' }}>
+        <div {...hoverProps} className={classes.labelBadgeContainer}>
             <div
                 key={label.id}
                 {...pressProps}
@@ -34,7 +34,9 @@ export const LabelBadge = ({ label, isSelected, onClick, children: actionButtons
             >
                 <Text UNSAFE_className={classes.buttonText}>{label.name}</Text>
                 <Flex
-                    UNSAFE_className={clsx(classes.buttonsContainer, { [classes.buttonsContainerOpened]: isHovered })}
+                    UNSAFE_className={clsx(classes.buttonsContainer, {
+                        [classes.buttonsContainerOpened]: isHovered,
+                    })}
                 >
                     {actionButtons}
                 </Flex>
