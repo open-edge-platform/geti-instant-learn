@@ -42,7 +42,6 @@ def load_dataset(dataset_name: str, whitelist: list[str] | None = None, batch_si
             whitelist=whitelist,
             iterator_type=BatchedCategoryIter,
             iterator_kwargs={"batch_size": batch_size},
-            download_full_dataset=False,
         )
     if dataset_name == "lvis_validation":
         whitelist = whitelist if whitelist is not None else ("cupcake", "sheep", "pastry", "doughnut")
