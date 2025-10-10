@@ -8,10 +8,21 @@ from sqlalchemy.orm import Session
 
 from db.models import ProjectDB
 from repositories.project import ProjectRepository
-from services.common import (
+from services.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ResourceType,
+)
+from services.schemas.mappers.project import (
+    project_db_to_schema,
+    project_schema_to_db,
+    projects_db_to_list_items,
+)
+from services.schemas.project import (
+    ProjectCreateSchema,
+    ProjectSchema,
+    ProjectsListSchema,
+    ProjectUpdateSchema,
 )
 
 logger = logging.getLogger(__name__)
@@ -28,166 +39,168 @@ class ProjectService:
       - Coordinate cascading / related entity cleanup.
     """
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, project_repository: ProjectRepository | None = None):
         """
         Initialize the service with a SQLAlchemy session.
         """
         self.session = session
-        self.project_repository = ProjectRepository(session=session)
+        self.project_repository = project_repository or ProjectRepository(session=session)
 
-    def create_project(self, project: ProjectDB) -> ProjectDB:
+    def create_project(self, create_data: ProjectCreateSchema) -> ProjectSchema:
         """
         Persist and activate a new project.
-
-        Parameters:
-            project: Unpersisted ProjectDB instance (may have an explicit id).
-
-        Raises:
-            ResourceAlreadyExistsError: If name or explicit id already exists.
-
-        Returns:
-            The persisted and activated ProjectDB instance (session refreshed).
         """
-        logger.debug(f"Creating project candidate name={project.name} id={(project.id if project.id else 'AUTO')}")
-
-        if self.project_repository.exists_by_name(project.name):
-            logger.error(f"Project creation rejected (duplicate name={project.name})")
+        logger.debug(
+            "Project create requested: name=%s id=%s",
+            create_data.name,
+            create_data.id or "AUTO",
+        )
+        if self.project_repository.exists_by_name(create_data.name):
+            logger.error("Project creation rejected: duplicate name=%s", create_data.name)
             raise ResourceAlreadyExistsError(
                 resource_type=ResourceType.PROJECT,
-                resource_value=project.name,
+                resource_value=create_data.name,
                 raised_by="name",
             )
 
-        if project.id and self.project_repository.exists_by_id(project.id):
-            logger.error(f"Project creation rejected (duplicate id={project.id})")
+        if create_data.id and self.project_repository.exists_by_id(create_data.id):
+            logger.error("Project creation rejected: duplicate id=%s", create_data.id)
             raise ResourceAlreadyExistsError(
                 resource_type=ResourceType.PROJECT,
-                resource_value=str(project.id),
+                resource_value=str(create_data.id),
                 raised_by="id",
             )
 
+        project: ProjectDB = project_schema_to_db(create_data)
         self.project_repository.add(project)
-        self.session.flush()  # assigns id if not provided
+        self.session.flush()
         self._activate_project(project)
         self.session.commit()
         self.session.refresh(project)
+        logger.info(
+            "Project created: id=%s name=%s active=%s",
+            project.id,
+            project.name,
+            project.active,
+        )
+        return project_db_to_schema(project)
 
-        logger.info(f"Created project with id={project.id}, name={project.name} (active={project.active})")
-        return project
-
-    def get_project(self, project_id: UUID) -> ProjectDB:
+    def get_project(self, project_id: UUID) -> ProjectSchema:
         """
         Retrieve a project by ID.
-
-        Parameters:
-            project_id: UUID of the project.
-
-        Returns:
-            The located project.
-
-        Raises:
-            ResourceNotFoundError: If not present.
         """
-        logger.debug(f"Retrieving project id={project_id}")
+        logger.debug("Project retrieve requested: id=%s", project_id)
         project = self.project_repository.get_by_id(project_id)
         if not project:
-            logger.error(f"Project not found id={project_id}")
+            logger.error("Project not found: id=%s", project_id)
             raise ResourceNotFoundError(
                 resource_type=ResourceType.PROJECT,
                 resource_id=str(project_id),
             )
-        return project
+        return project_db_to_schema(project)
 
-    def list_projects(self) -> list[ProjectDB]:
+    def list_projects(self) -> ProjectsListSchema:
         """
         List all projects.
-
-        Returns:
-            List of `ProjectDB` entities.
         """
-        logger.debug("Listing all projects")
-        return list(self.project_repository.get_all())
+        logger.debug("Projects list requested")
+        items = projects_db_to_list_items(self.project_repository.get_all())
+        return ProjectsListSchema(projects=items)
 
-    def update_project(self, project_id: UUID, new_name: str) -> ProjectDB:
+    def update_project(self, project_id: UUID, update_data: ProjectUpdateSchema) -> ProjectSchema:
         """
-        Rename a project (enforces name uniqueness).
-
-        Parameters:
-            project_id: Target project id.
-            new_name: New unique name.
-
-        Returns:
-            Updated project.
-
-        Raises:
-            ResourceNotFoundError: If project absent.
-            ResourceAlreadyExistsError: If new name conflicts.
+        Update a project:
+          - Rename if `name` provided and different (enforces uniqueness).
+          - Apply desired activation state if it differs (may result in zero active projects).
         """
-        logger.debug(f"Updating project id={project_id} new_name={new_name}")
+        logger.debug(
+            "Project update requested: id=%s name=%s active=%s",
+            project_id,
+            update_data.name,
+            update_data.active,
+        )
         project = self.project_repository.get_by_id(project_id)
         if not project:
-            logger.error(f"Update failed; project not found id={project_id}")
-            raise ResourceNotFoundError(
-                resource_type=ResourceType.PROJECT,
-                resource_id=str(project_id),
-            )
-        if new_name != project.name and self.project_repository.exists_by_name(new_name):
-            logger.error(f"Update rejected; duplicate name={new_name} for project id={project_id}")
-            raise ResourceAlreadyExistsError(
-                resource_type=ResourceType.PROJECT,
-                resource_value=new_name,
-                raised_by="name",
-            )
+            logger.error("Update failed; project not found id=%s", project_id)
+            raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
+        changed = False
 
-        project.name = new_name
-        self.session.commit()
-        self.session.refresh(project)
-        logger.info(f"Updated project id={project.id} name={project.name}")
-        return project
+        if update_data.name is not None and update_data.name != project.name:
+            if self.project_repository.exists_by_name(update_data.name):
+                logger.error(
+                    "Update rejected; duplicate name=%s for project id=%s",
+                    update_data.name,
+                    project_id,
+                )
+                raise ResourceAlreadyExistsError(
+                    resource_type=ResourceType.PROJECT,
+                    resource_value=update_data.name,
+                    raised_by="name",
+                )
+            logger.debug("Renaming project id=%s from '%s' to '%s'", project_id, project.name, update_data.name)
+            project.name = update_data.name
+            changed = True
 
-    def set_active_project(self, project_id: UUID) -> ProjectDB:
+        if update_data.active is not None and project.active != update_data.active:
+            if update_data.active:
+                logger.debug("Activating project id=%s via update request", project_id)
+                self._activate_project(project)  # handles deactivation of previously active project
+            else:
+                logger.debug("Deactivating project id=%s via update request", project_id)
+                project.active = False
+                self.session.flush()
+            changed = True
+
+        if changed:
+            self.session.commit()
+            self.session.refresh(project)
+            logger.info(
+                "Project updated: id=%s name=%s active=%s",
+                project.id,
+                project.name,
+                project.active,
+            )
+        else:
+            logger.debug("No changes applied to project id=%s", project_id)
+        return project_db_to_schema(project)
+
+    def set_active_project(self, project_id: UUID) -> None:
         """
         Mark the specified project as active (deactivates previous active project).
 
         Parameters:
             project_id: Project to activate.
 
-        Returns:
-            Activated project.
-
         Raises:
             ResourceNotFoundError: If project not found.
         """
-        logger.debug(f"Activating project with id={project_id}")
+        logger.debug("Project activate requested: id=%s", project_id)
         project = self.project_repository.get_by_id(project_id)
         if not project:
-            logger.error(f"Activation failed: project with id={project_id} not found")
+            logger.error("Project activation failed: not found id=%s", project_id)
             raise ResourceNotFoundError(
                 resource_type=ResourceType.PROJECT,
                 resource_id=str(project_id),
             )
         self._activate_project(project)
         self.session.commit()
-        self.session.refresh(project)
-        logger.info(f"Activated project with id={project.id}")
-        return project
+        logger.info("Project activated: id=%s", project.id)
 
-    def get_active_project(self) -> ProjectDB:
+    def get_active_project_info(self) -> ProjectSchema:
         """
-        Retrieve the active project.
-
+        Retrieve active project info.
         Raises:
-            ResourceNotFoundError: If no active project is present.
+            ResourceNotFoundError
         """
-        logger.debug("Retrieving active project")
+        logger.debug("Active project retrieve requested")
         project = self.project_repository.get_active()
         if not project:
-            logger.error("No active project found")
+            logger.error("Active project not found")
             raise ResourceNotFoundError(
                 resource_type=ResourceType.PROJECT,
                 message="No active project found.",
             )
-        return project
+        return project_db_to_schema(project)
 
     def delete_project(self, project_id: UUID) -> None:
         """
@@ -199,10 +212,10 @@ class ProjectService:
         Raises:
             ResourceNotFoundError: If project not found.
         """
-        logger.debug(f"Deleting project with id={project_id}")
+        logger.debug("Project delete requested: id=%s", project_id)
         project = self.project_repository.get_by_id(project_id)
         if not project:
-            logger.error(f"Deletion failed; project with id={project_id} not found")
+            logger.error("Project deletion failed: not found id=%s", project_id)
             raise ResourceNotFoundError(
                 resource_type=ResourceType.PROJECT,
                 resource_id=str(project_id),
@@ -210,7 +223,7 @@ class ProjectService:
 
         self.project_repository.delete(project)
         self.session.commit()
-        logger.info(f"Deleted project with id={project_id}")
+        logger.info("Project deleted: id=%s", project_id)
 
     def _activate_project(self, project: ProjectDB) -> None:
         """
@@ -223,7 +236,11 @@ class ProjectService:
             return
 
         if current:
-            logger.debug(f"Deactivating project id={current.id} before activating id={project.id}")
+            logger.debug(
+                "Project deactivated prior to activation: deactivated id=%s, new active id=%s",
+                current.id,
+                project.id,
+            )
             current.active = False
             self.session.flush()
 

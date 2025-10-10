@@ -5,7 +5,7 @@
 
 import { Key, MouseEventHandler, useState } from 'react';
 
-import { type ProjectListItemType } from '@geti-prompt/api';
+import { type ProjectType } from '@geti-prompt/api';
 import { Flex, PhotoPlaceholder, Text } from '@geti/ui';
 import { Link } from 'react-router-dom';
 
@@ -15,7 +15,7 @@ import { DeleteProjectDialog, PROJECT_ACTIONS, ProjectActions, ProjectEdition } 
 import styles from './project-list-item.module.scss';
 
 interface ProjectListItemProps {
-    project: ProjectListItemType;
+    project: ProjectType;
     isInEditMode: boolean;
     onBlur: (projectId: string, newName: string) => void;
     onRename: (projectId: string) => void;

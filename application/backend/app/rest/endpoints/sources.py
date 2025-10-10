@@ -8,7 +8,7 @@ from fastapi import HTTPException, Response, status
 
 from dependencies import SessionDep
 from routers import projects_router
-from services.common import ResourceNotFoundError, ResourceUpdateConflictError
+from services.errors import ResourceNotFoundError, ResourceUpdateConflictError
 from services.schemas.source import SourceCreateSchema, SourceSchema, SourcesListSchema, SourceUpdateSchema
 from services.source import SourceService
 

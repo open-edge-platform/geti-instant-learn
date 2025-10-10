@@ -8,19 +8,14 @@ from uuid import UUID
 from fastapi import HTTPException, Query, Response, status
 
 from dependencies import SessionDep
-from rest.mappers.project import (
-    project_db_to_schema,
-    project_post_payload_to_db,
-    projects_db_to_list_items,
-)
 from routers import projects_router
-from services.common import ResourceAlreadyExistsError, ResourceNotFoundError
+from services.errors import ResourceAlreadyExistsError, ResourceNotFoundError
 from services.project import ProjectService
 from services.schemas.project import (
-    ProjectPostPayload,
-    ProjectPutPayload,
+    ProjectCreateSchema,
     ProjectSchema,
     ProjectsListSchema,
+    ProjectUpdateSchema,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,14 +36,13 @@ logger = logging.getLogger(__name__)
         },
     },
 )
-def create_project(payload: ProjectPostPayload, db_session: SessionDep) -> Response:
+def create_project(payload: ProjectCreateSchema, db_session: SessionDep) -> Response:
     """Create a new project with the given name."""
 
     logger.debug(f"Attempting to create project with name: {payload.name}")
     service = ProjectService(db_session)
-    project_entity = project_post_payload_to_db(payload)
     try:
-        project = service.create_project(project_entity)
+        project = service.create_project(payload)
         logger.info(f"Successfully created '{project.name}' project with id {project.id}")
     except ResourceAlreadyExistsError as e:
         logger.error(f"Project creation failed: {e}")
@@ -116,8 +110,7 @@ def get_active_project(db_session: SessionDep) -> ProjectSchema:
     logger.debug("Received GET active project request.")
     service = ProjectService(db_session)
     try:
-        project = service.get_active_project()
-        return project_db_to_schema(project)
+        return service.get_active_project_info()
     except ResourceNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -150,10 +143,7 @@ def get_projects_list(db_session: SessionDep) -> ProjectsListSchema:
     logger.debug("Received GET projects request.")
     service = ProjectService(db_session)
     try:
-        projects = service.list_projects()
-        items = projects_db_to_list_items(projects)
-        logger.debug(f"Returning {len(items)} projects")
-        return ProjectsListSchema(projects=items)
+        return service.list_projects()
     except Exception as e:
         logger.exception(f"Internal error listing projects: {e}")
         raise HTTPException(
@@ -182,8 +172,7 @@ def get_project(project_id: UUID, db_session: SessionDep) -> ProjectSchema:
     logger.debug(f"Received GET project {project_id} request.")
     service = ProjectService(db_session)
     try:
-        project = service.get_project(project_id)
-        return project_db_to_schema(project)
+        return service.get_project(project_id)
     except ResourceNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
@@ -208,15 +197,14 @@ def get_project(project_id: UUID, db_session: SessionDep) -> ProjectSchema:
         },
     },
 )
-def update_project(project_id: UUID, payload: ProjectPutPayload, db_session: SessionDep) -> ProjectSchema:
+def update_project(project_id: UUID, payload: ProjectUpdateSchema, db_session: SessionDep) -> ProjectSchema:
     """
     Update the project's configuration.
     """
     logger.debug(f"Received PUT project {project_id} request.")
     service = ProjectService(db_session)
     try:
-        project = service.update_project(project_id=project_id, new_name=payload.name)
-        return project_db_to_schema(project)
+        return service.update_project(project_id=project_id, update_data=payload)
     except ResourceNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except ResourceAlreadyExistsError as e:

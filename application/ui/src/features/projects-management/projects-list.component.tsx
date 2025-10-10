@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ProjectListItemType } from '@geti-prompt/api';
+import { ProjectType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { isEmpty } from 'lodash-es';
 import { useNavigate } from 'react-router';
@@ -16,7 +16,7 @@ import { ProjectListItem } from './project-list-item/project-list-item.component
 import styles from './projects-list.module.scss';
 
 interface ProjectListProps {
-    projects: ProjectListItemType[];
+    projects: ProjectType[];
     projectIdInEdition: string | null;
     setProjectInEdition: (projectId: string | null) => void;
 }
@@ -49,7 +49,7 @@ export const ProjectsList = ({ projects, setProjectInEdition, projectIdInEdition
             return;
         }
 
-        updateProjectName(id, newName);
+        updateProjectName(id, { name: newName });
     };
 
     const handleRename = (id: string) => {

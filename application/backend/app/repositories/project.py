@@ -9,7 +9,7 @@ from sqlalchemy import literal, select
 from sqlalchemy.orm import Session
 
 from db.models import ProjectDB
-from repositories.common import BaseRepository
+from repositories.base import BaseRepository
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class ProjectRepository(BaseRepository):
 
     def __init__(self, session: Session):
         """Initialize the repository."""
-        self.session = session
+        super().__init__(session)
 
     def add(self, project: ProjectDB) -> None:
         """Add a new project instance to the session (not committed)."""
