@@ -17,6 +17,7 @@ from getiprompt.types.text import Text
 
 __all__ = [
     "Annotations",
+    "Boxes",
     "Data",
     "Features",
     "Image",
@@ -24,8 +25,7 @@ __all__ = [
     "Points",
     "Priors",
     "Prompt",
-    "Similarities",
     "Results",
+    "Similarities",
     "Text",
-    "Boxes",
 ]

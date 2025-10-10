@@ -5,4 +5,4 @@
 
 from .image_encoder import AVAILABLE_IMAGE_ENCODERS, ImageEncoder
 
-__all__ = ["ImageEncoder", "AVAILABLE_IMAGE_ENCODERS"]
+__all__ = ["AVAILABLE_IMAGE_ENCODERS", "ImageEncoder"]

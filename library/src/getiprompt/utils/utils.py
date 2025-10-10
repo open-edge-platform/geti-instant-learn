@@ -6,6 +6,7 @@ import hashlib
 import logging
 import random
 import sys
+from itertools import starmap
 from pathlib import Path
 
 import cv2
@@ -157,7 +158,7 @@ def get_colors(n: int) -> np.ndarray:
         Colors for a mask
     """
     hsv_tuples = [(x / n, 0.5, 0.5) for x in range(n)]
-    rgb_tuples = (colorsys.hsv_to_rgb(*x) for x in hsv_tuples)
+    rgb_tuples = starmap(colorsys.hsv_to_rgb, hsv_tuples)
     return (np.array(list(rgb_tuples)) * 255).astype(np.uint8)
 
 
@@ -277,7 +278,7 @@ def gen_colors(n: int) -> np.ndarray:
         Colors for a mask
     """
     hsv_tuples = [(x / n, 0.5, 0.5) for x in range(n)]
-    rgb_tuples = (colorsys.hsv_to_rgb(*x) for x in hsv_tuples)
+    rgb_tuples = starmap(colorsys.hsv_to_rgb, hsv_tuples)
     colors = [(0, 0, 0), *list(rgb_tuples)]
     return (np.array(colors) * 255).astype(np.uint8)
 

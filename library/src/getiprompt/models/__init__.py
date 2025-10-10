@@ -13,11 +13,11 @@ from .perdino import PerDino
 from .softmatcher import SoftMatcher
 
 __all__ = [
-    "Matcher",
-    "PerDino",
-    "Model",
-    "SoftMatcher",
     "GroundedSAM",
+    "Matcher",
+    "Model",
+    "PerDino",
+    "SoftMatcher",
     "load_model",
     "load_sam_model",
     "optimize_model",

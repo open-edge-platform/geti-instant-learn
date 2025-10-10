@@ -138,7 +138,8 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
                     class_id,
                 )[0].mean(dim=0, keepdim=True)
                 local_mean_reference_feature = local_mean_reference_feature / local_mean_reference_feature.norm(
-                    dim=-1, keepdim=True
+                    dim=-1,
+                    keepdim=True,
                 )
                 local_similarity_map = local_mean_reference_feature @ target_features.global_features.T
                 local_similarity_map = self._resize_similarity_map(
@@ -279,7 +280,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
 
             # RFF approximation
             projection_matrix = (torch.randn(d, rff_dim // 2, device=ref_features.device) / rff_sigma).to(
-                ref_features.dtype
+                ref_features.dtype,
             )
             phi_ref = SoftmatcherPromptGenerator._apply_rff(masked_ref_features, projection_matrix)
             phi_target = SoftmatcherPromptGenerator._apply_rff(target_features, projection_matrix)
@@ -481,7 +482,8 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
             )
         else:
             log_soft_correspondence = SoftmatcherPromptGenerator._unidirectional_soft_matching(
-                forward_sim=forward_sim, reg=reg
+                forward_sim=forward_sim,
+                reg=reg,
             )
 
         soft_correspondence_scores = torch.exp(log_soft_correspondence)

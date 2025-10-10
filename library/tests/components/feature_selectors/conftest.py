@@ -9,7 +9,11 @@ from getiprompt.types import Features
 
 
 def sample_features() -> Features:
-    """Create sample features for testing."""
+    """Create sample features for testing.
+
+    Returns:
+        Features: A Features object with all zero values.
+    """
     features = Features()
     features.global_features = torch.randn(5, 4)
     features.local_features = {
@@ -20,7 +24,11 @@ def sample_features() -> Features:
 
 
 def sample_features_list() -> list[Features]:
-    """Create a list of sample features for testing."""
+    """Create a list of sample features for testing.
+
+    Returns:
+        list[Features]: A list of Features objects with all zero values.
+    """
     features1 = Features()
     features1.global_features = torch.randn(5, 4)
     features1.local_features = {
@@ -39,7 +47,11 @@ def sample_features_list() -> list[Features]:
 
 
 def empty_features() -> Features:
-    """Create empty features for testing."""
+    """Create empty features for testing.
+
+    Returns:
+        Features: A Features object with all zero values.
+    """
     features = Features()
     features.global_features = torch.randn(0, 4)
     features.local_features = {}
@@ -47,7 +59,11 @@ def empty_features() -> Features:
 
 
 def single_class_features() -> Features:
-    """Create features with single class for testing."""
+    """Create features with single class for testing.
+
+    Returns:
+        Features: A Features object with all zero values.
+    """
     features = Features()
     features.global_features = torch.randn(3, 4)
     features.local_features = {1: [torch.randn(2, 4), torch.randn(1, 4)]}
@@ -55,7 +71,11 @@ def single_class_features() -> Features:
 
 
 def multi_class_features() -> Features:
-    """Create features with multiple classes for testing."""
+    """Create features with multiple classes for testing.
+
+    Returns:
+        Features: A Features object with all zero values.
+    """
     features = Features()
     features.global_features = torch.randn(5, 4)
     features.local_features = {
@@ -67,7 +87,11 @@ def multi_class_features() -> Features:
 
 
 def cuda_features() -> Features:
-    """Create features on CUDA device for testing."""
+    """Create features on CUDA device for testing.
+
+    Returns:
+        Features: A Features object with all zero values.
+    """
     if not torch.cuda.is_available():
         return sample_features()
 
@@ -81,7 +105,11 @@ def cuda_features() -> Features:
 
 
 def large_features() -> Features:
-    """Create large features for performance testing."""
+    """Create large features for performance testing.
+
+    Returns:
+        Features: A Features object with all zero values.
+    """
     features = Features()
     features.global_features = torch.randn(100, 512)
     features.local_features = {
@@ -92,7 +120,11 @@ def large_features() -> Features:
 
 
 def zero_features() -> Features:
-    """Create features with zero values for testing."""
+    """Create features with zero values for testing.
+
+    Returns:
+        Features: A Features object with all zero values.
+    """
     features = Features()
     features.global_features = torch.zeros(3, 4)
     features.local_features = {

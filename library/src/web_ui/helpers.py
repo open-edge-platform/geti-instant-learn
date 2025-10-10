@@ -28,7 +28,17 @@ logger = logging.getLogger(__name__)
 
 
 def prepare_image_for_web(image_np: np.ndarray) -> str:
-    """Encodes an image (assumed RGB) as Base64 PNG data URI."""
+    """Encodes an image (assumed RGB) as Base64 PNG data URI.
+
+    Args:
+        image_np: RGB image array of shape (H, W, 3).
+
+    Returns:
+        str: Base64-encoded PNG data URI string.
+
+    Raises:
+        ValueError: If the image cannot be encoded to PNG.
+    """
     # Assuming input is a valid RGB image (H, W, 3) from a getiprompt.Image object
     image_bgr = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
 
@@ -45,7 +55,18 @@ def prepare_image_for_web(image_np: np.ndarray) -> str:
 
 
 def prepare_mask_for_web(mask_np: np.ndarray, color: str = "red") -> str:
-    """Encodes a single-channel mask as a transparent Base64 PNG data URI."""
+    """Encodes a single-channel mask as a transparent Base64 PNG data URI.
+
+    Args:
+        mask_np: Binary mask array of shape (H, W).
+        color: Color to use for the mask overlay. Either "red" or "green".
+
+    Returns:
+        str: Base64-encoded PNG data URI string with transparency.
+
+    Raises:
+        ValueError: If the color is invalid or the mask cannot be encoded.
+    """
     if mask_np.dtype != np.uint8:
         mask_np = mask_np.astype(np.uint8)
 
@@ -72,7 +93,14 @@ def prepare_mask_for_web(mask_np: np.ndarray, color: str = "red") -> str:
 
 
 def process_points_for_web(points_obj: Points) -> list[dict[str, Any]]:
-    """Converts Points object to a JSON-serializable list."""
+    """Converts Points object to a JSON-serializable list.
+
+    Args:
+        points_obj: Points object containing point data.
+
+    Returns:
+        list[dict[str, Any]]: List of dictionaries with point information.
+    """
     processed_points = []
     if not points_obj or not hasattr(points_obj, "data"):
         return processed_points
@@ -96,7 +124,14 @@ def process_points_for_web(points_obj: Points) -> list[dict[str, Any]]:
 def process_similarity_maps_for_web(
     similarities_obj: Similarities,
 ) -> list[dict[str, Any]]:
-    """Converts Similarity object maps to JSON-serializable list of data URIs."""
+    """Converts Similarity object maps to JSON-serializable list of data URIs.
+
+    Args:
+        similarities_obj: Similarities object containing similarity maps.
+
+    Returns:
+        list[dict[str, Any]]: List of dictionaries with similarity map data URIs.
+    """
     processed_maps = []
     if not similarities_obj or not hasattr(similarities_obj, "data") or not similarities_obj.data:
         return processed_maps
@@ -153,7 +188,15 @@ def prepare_reference_data(
     reference_images: list[Image],
     reference_priors: list[Priors],
 ) -> list[dict[str, str]]:
-    """Prepares reference images and masks for frontend display."""
+    """Prepares reference images and masks for frontend display.
+
+    Args:
+        reference_images: List of reference images.
+        reference_priors: List of reference priors containing masks.
+
+    Returns:
+        list[dict[str, str]]: List of dictionaries with image and mask data URIs.
+    """
     prepared_data = []
     for ref_img, ref_prior in zip(reference_images, reference_priors, strict=False):
         ref_img_uri = prepare_image_for_web(ref_img.data)
@@ -177,7 +220,19 @@ def parse_request_and_check_reload(
     current_pipeline_name: str,
     current_args: argparse.Namespace,
 ) -> tuple[bool, dict[str, Any], argparse.Namespace]:
-    """Parses request data and checks if a pipeline reload is needed."""
+    """Parses request data and checks if a pipeline reload is needed.
+
+    Args:
+        request_data: Dictionary containing request parameters.
+        current_pipeline_name: Name of the currently loaded pipeline.
+        current_args: Current argument namespace.
+
+    Returns:
+        tuple[bool, dict[str, Any], argparse.Namespace]: A tuple containing:
+            - reload_needed: Whether pipeline reload is required.
+            - requested_values: Dictionary of changed parameter values.
+            - new_args: Updated argument namespace.
+    """
     reload_needed = False
     requested_values = {}
     new_args = argparse.Namespace(**vars(current_args))
@@ -243,7 +298,23 @@ def reload_model_if_needed(
     current_args: argparse.Namespace,
     current_pipeline_instance: Model,
 ) -> tuple[Model, str, argparse.Namespace]:
-    """Reloads the pipeline if necessary based on changed critical parameters."""
+    """Reloads the pipeline if necessary based on changed critical parameters.
+
+    Args:
+        reload_needed: Whether a reload is required.
+        requested_values: Dictionary of changed parameter values.
+        current_args: Current argument namespace.
+        current_pipeline_instance: Current pipeline model instance.
+
+    Returns:
+        tuple[Model, str, argparse.Namespace]: A tuple containing:
+            - model_instance: The loaded or reloaded model instance.
+            - model_name: The name of the loaded model.
+            - current_args: Updated argument namespace.
+
+    Raises:
+        ValueError: If model reloading fails.
+    """
     model_instance = current_pipeline_instance
     model_name = current_args.model
 
@@ -258,7 +329,8 @@ def reload_model_if_needed(
             requested_values["encoder_model"] = current_args.encoder_model
 
     if reload_needed:
-        logger.info(f"Reloading model due to changes in: {list(requested_values.keys())}")
+        msg = f"Reloading model due to changes in: {list(requested_values.keys())}"
+        logger.info(msg)
         try:
             # Use the current model name if no model change was requested
             target_model_name = requested_values.get("model", model_name)
@@ -284,7 +356,25 @@ def load_and_prepare_data(
     num_target_images: int | None = None,
     random_prior: bool = False,
 ) -> tuple[list[Image], list[Priors], list[int], Dataset]:
-    """Loads dataset, validates parameters, and prepares reference/target data."""
+    """Loads dataset, validates parameters, and prepares reference/target data.
+
+    Args:
+        dataset_name: Name of the dataset to load.
+        class_name_filter: Class name to filter for.
+        n_shot: Number of reference shots to use.
+        num_target_images: Maximum number of target images to use, or None for all.
+        random_prior: Whether to randomly sample reference images.
+
+    Returns:
+        tuple[list[Image], list[Priors], list[int], Dataset]: A tuple containing:
+            - reference_images: List of reference images.
+            - reference_priors: List of reference priors with masks.
+            - target_indices: List of target image indices.
+            - full_dataset: The loaded dataset.
+
+    Raises:
+        ValueError: If dataset validation fails or insufficient samples exist.
+    """
     full_dataset = load_dataset(dataset_name)
     image_count_for_category = full_dataset.get_image_count_per_category(class_name_filter)
 
@@ -328,8 +418,19 @@ def load_and_prepare_data(
     return reference_images, reference_priors, target_indices, full_dataset
 
 
-def _normalize_mask(mask_np: np.ndarray, target_shape: tuple[int, int]) -> np.ndarray:
-    """Normalizes a mask tensor to a uint8 numpy array of the target shape."""
+def _normalize_mask(
+    mask_np: np.ndarray,
+    target_shape: tuple[int, int],
+) -> np.ndarray:
+    """Normalizes a mask tensor to a uint8 numpy array of the target shape.
+
+    Args:
+        mask_np: Input mask array.
+        target_shape: Target shape (H, W) for the mask.
+
+    Returns:
+        np.ndarray: Normalized uint8 mask array.
+    """
     if mask_np.ndim > 2:
         mask_np = np.squeeze(mask_np)
 
@@ -355,7 +456,20 @@ def process_inference_chunk(
     chunk_indices: list[int],
     class_name_filter: str,
 ) -> list[dict[str, Any]]:
-    """Processes a single chunk of target images for inference and returns serializable results."""
+    """Processes a single chunk of target images for inference and returns serializable results.
+
+    Args:
+        pipeline: Model pipeline for inference.
+        full_dataset: Dataset containing images and masks.
+        chunk_indices: List of image indices to process.
+        class_name_filter: Class name to filter for.
+
+    Returns:
+        list[dict[str, Any]]: List of dictionaries containing inference results.
+
+    Raises:
+        ValueError: If pipeline returns incomplete results.
+    """
     if not chunk_indices:
         return []
 
@@ -443,7 +557,21 @@ def stream_inference(
     prepared_reference_data: list[dict[str, str]],
     batch_size: int = 5,
 ) -> Generator[str, None, None]:
-    """Generator function to process targets in chunks and yield results as JSON strings."""
+    """Generator function to process targets in chunks and yield results as JSON strings.
+
+    Args:
+        pipeline: Model pipeline for inference.
+        full_dataset: Dataset containing images and masks.
+        target_indices: List of target image indices to process.
+        class_name_filter: Class name to filter for.
+        prepared_reference_data: List of prepared reference data dictionaries.
+        batch_size: Number of images to process per batch.
+
+    Yields:
+        str: JSON-encoded strings containing inference results or metadata.
+            First yield contains total_targets and reference_data.
+            Subsequent yields contain target_results or error messages.
+    """
     total_targets = len(target_indices)
 
     initial_message = {

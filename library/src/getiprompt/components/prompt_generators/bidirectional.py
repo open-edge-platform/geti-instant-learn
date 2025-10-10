@@ -114,7 +114,8 @@ class BidirectionalPromptGenerator(PromptGenerator):
                     class_id,
                 )[0].mean(dim=0, keepdim=True)
                 local_mean_reference_feature = local_mean_reference_feature / local_mean_reference_feature.norm(
-                    dim=-1, keepdim=True
+                    dim=-1,
+                    keepdim=True,
                 )
                 local_similarity_map = local_mean_reference_feature @ target_image_features.global_features.T
                 local_similarity_map = self._resize_similarity_map(

@@ -41,10 +41,18 @@ class GetiPromptCLI:
 
         parser.add_subclass_arguments(Model, "model", default=default_model)
         parser.add_argument(
-            "--reference_images", "--ref", type=str, default=None, help="Directory with reference images."
+            "--reference_images",
+            "--ref",
+            type=str,
+            default=None,
+            help="Directory with reference images.",
         )
         parser.add_argument(
-            "--target_images", "--target", type=str, required=True, help="Directory with target images."
+            "--target_images",
+            "--target",
+            type=str,
+            required=True,
+            help="Directory with target images.",
         )
         parser.add_argument(
             "--reference_prompts",
@@ -54,7 +62,10 @@ class GetiPromptCLI:
             help="Directory with reference prompts (masks or points).",
         )
         parser.add_argument(
-            "--points", type=str, default=None, help="Reference points as a string. e.g. [0:[640,640], -1:[200,200]]"
+            "--points",
+            type=str,
+            default=None,
+            help="Reference points as a string. e.g. [0:[640,640], -1:[200,200]]",
         )
         parser.add_argument(
             "--reference_text_prompt",
@@ -65,7 +76,10 @@ class GetiPromptCLI:
         )
         parser.add_argument("--output_location", type=str, default=None, help="Directory to save output.")
         parser.add_argument(
-            "--output_masks_only", action="store_true", default=False, help="Whether to save masks only."
+            "--output_masks_only",
+            action="store_true",
+            default=False,
+            help="Whether to save masks only.",
         )
         parser.add_argument("--batch_size", type=int, default=5, help="Batch size for processing target images.")
 

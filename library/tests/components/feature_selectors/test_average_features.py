@@ -16,17 +16,18 @@ class TestAverageFeatures:
     def test_init(self) -> None:
         """Test AverageFeatures initialization."""
         selector = AverageFeatures()
-        assert isinstance(selector, AverageFeatures)
+        pytest.assume(isinstance(selector, AverageFeatures))
 
     def test_call_empty_list(self) -> None:
         """Test AverageFeatures with empty input list."""
         selector = AverageFeatures()
         result = selector([])
 
-        assert isinstance(result, list)
-        assert len(result) == 1
-        assert isinstance(result[0], Features)
-        assert result[0].local_features == {}
+        expected_result_length = 1
+        pytest.assume(isinstance(result, list))
+        pytest.assume(len(result) == expected_result_length)
+        pytest.assume(isinstance(result[0], Features))
+        pytest.assume(result[0].local_features == {})
 
     def test_call_single_image_single_class(self) -> None:
         """Test AverageFeatures with single image and single class."""
@@ -37,10 +38,13 @@ class TestAverageFeatures:
 
         result = selector([features])
 
-        assert len(result) == 1
-        assert 1 in result[0].local_features
-        assert len(result[0].local_features[1]) == 1
-        assert result[0].local_features[1][0].shape == (1, 4)
+        expected_result_length = 1
+        expected_features_per_class = 1
+        expected_feature_shape = (1, 4)
+        pytest.assume(len(result) == expected_result_length)
+        pytest.assume(1 in result[0].local_features)
+        pytest.assume(len(result[0].local_features[1]) == expected_features_per_class)
+        pytest.assume(result[0].local_features[1][0].shape == expected_feature_shape)
 
     def test_call_multiple_images_single_class(self) -> None:
         """Test AverageFeatures with multiple images and single class."""
@@ -54,10 +58,13 @@ class TestAverageFeatures:
 
         result = selector([features1, features2])
 
-        assert len(result) == 1
-        assert 1 in result[0].local_features
-        assert len(result[0].local_features[1]) == 1
-        assert result[0].local_features[1][0].shape == (1, 4)
+        expected_result_length = 1
+        expected_features_per_class = 1
+        expected_feature_shape = (1, 4)
+        pytest.assume(len(result) == expected_result_length)
+        pytest.assume(1 in result[0].local_features)
+        pytest.assume(len(result[0].local_features[1]) == expected_features_per_class)
+        pytest.assume(result[0].local_features[1][0].shape == expected_feature_shape)
 
     def test_call_multiple_classes(self) -> None:
         """Test AverageFeatures with multiple classes."""
@@ -71,11 +78,14 @@ class TestAverageFeatures:
 
         result = selector([features])
 
-        assert len(result) == 1
+        expected_result_length = 1
+        expected_features_per_class = 1
+        expected_feature_shape = (1, 4)
+        pytest.assume(len(result) == expected_result_length)
         for class_id in [1, 2]:
-            assert class_id in result[0].local_features
-            assert len(result[0].local_features[class_id]) == 1
-            assert result[0].local_features[class_id][0].shape == (1, 4)
+            pytest.assume(class_id in result[0].local_features)
+            pytest.assume(len(result[0].local_features[class_id]) == expected_features_per_class)
+            pytest.assume(result[0].local_features[class_id][0].shape == expected_feature_shape)
 
     def test_call_normalization(self) -> None:
         """Test that AverageFeatures properly normalizes the averaged features."""
@@ -86,7 +96,7 @@ class TestAverageFeatures:
             1: [
                 torch.tensor([[2.0, 0.0, 0.0, 0.0]]),
                 torch.tensor([[0.0, 2.0, 0.0, 0.0]]),
-            ]
+            ],
         }
 
         result = selector([features])
@@ -94,7 +104,7 @@ class TestAverageFeatures:
         averaged = result[0].local_features[1][0]
         # Should be normalized to unit length
         norm = torch.norm(averaged, dim=-1)
-        assert torch.allclose(norm, torch.ones_like(norm))
+        pytest.assume(torch.allclose(norm, torch.ones_like(norm)))
 
     @pytest.mark.parametrize("feature_dims", [4, 8, 16, 32])
     def test_call_different_feature_sizes(self, feature_dims: int) -> None:
@@ -107,15 +117,18 @@ class TestAverageFeatures:
                 torch.ones(1, feature_dims),
                 torch.ones(2, feature_dims),
                 torch.ones(3, feature_dims),
-            ]
+            ],
         }
 
         result = selector([features])
 
-        assert len(result) == 1
-        assert 1 in result[0].local_features
-        assert len(result[0].local_features[1]) == 1
-        assert result[0].local_features[1][0].shape == (1, feature_dims)
+        expected_result_length = 1
+        expected_features_per_class = 1
+        expected_feature_shape = (1, feature_dims)
+        pytest.assume(len(result) == expected_result_length)
+        pytest.assume(1 in result[0].local_features)
+        pytest.assume(len(result[0].local_features[1]) == expected_features_per_class)
+        pytest.assume(result[0].local_features[1][0].shape == expected_feature_shape)
 
     def test_call_empty_class_features(self) -> None:
         """Test AverageFeatures with empty class features."""
@@ -141,11 +154,14 @@ class TestAverageFeatures:
 
         result = selector([features])
 
-        assert len(result) == 1
+        expected_result_length = 1
+        expected_features_per_class = 1
+        expected_feature_shape = (1, 4)
+        pytest.assume(len(result) == expected_result_length)
         for class_id in [1, 2, 3]:
-            assert class_id in result[0].local_features
-            assert len(result[0].local_features[class_id]) == 1
-            assert result[0].local_features[class_id][0].shape == (1, 4)
+            pytest.assume(class_id in result[0].local_features)
+            pytest.assume(len(result[0].local_features[class_id]) == expected_features_per_class)
+            pytest.assume(result[0].local_features[class_id][0].shape == expected_feature_shape)
 
     def test_call_multiple_images_multiple_classes(self) -> None:
         """Test AverageFeatures with multiple images and multiple classes."""
@@ -165,13 +181,15 @@ class TestAverageFeatures:
 
         result = selector([features1, features2])
 
-        assert len(result) == 1
-        assert 1 in result[0].local_features
-        assert 2 in result[0].local_features
-        assert 3 in result[0].local_features
-        assert len(result[0].local_features[1]) == 1
-        assert len(result[0].local_features[2]) == 1
-        assert len(result[0].local_features[3]) == 1
+        expected_result_length = 1
+        expected_features_per_class = 1
+        class_keys = [1, 2, 3]
+        pytest.assume(len(result) == expected_result_length)
+        for class_id in class_keys:
+            pytest.assume(class_id in result[0].local_features)
+            pytest.assume(len(result[0].local_features[class_id]) == expected_features_per_class)
+        pytest.assume(len(result[0].local_features[2]) == expected_features_per_class)
+        pytest.assume(len(result[0].local_features[3]) == expected_features_per_class)
 
     def test_call_different_devices(self) -> None:
         """Test AverageFeatures with tensors on different devices."""
@@ -194,19 +212,24 @@ class TestAverageFeatures:
         """Test AverageFeatures with large batch of features."""
         selector = AverageFeatures()
 
+        num_features_class_1 = 10
+        num_features_class_2 = 5
         features = Features()
         features.local_features = {
-            1: [torch.ones(1, 4) for _ in range(10)],
-            2: [torch.ones(1, 4) for _ in range(5)],
+            1: [torch.ones(1, 4) for _ in range(num_features_class_1)],
+            2: [torch.ones(1, 4) for _ in range(num_features_class_2)],
         }
 
         result = selector([features])
 
-        assert len(result) == 1
+        expected_result_length = 1
+        expected_features_per_class = 1
+        expected_feature_shape = (1, 4)
+        pytest.assume(len(result) == expected_result_length)
         for class_id in [1, 2]:
-            assert class_id in result[0].local_features
-            assert len(result[0].local_features[class_id]) == 1
-            assert result[0].local_features[class_id][0].shape == (1, 4)
+            pytest.assume(class_id in result[0].local_features)
+            pytest.assume(len(result[0].local_features[class_id]) == expected_features_per_class)
+            pytest.assume(result[0].local_features[class_id][0].shape == expected_feature_shape)
 
     def test_call_zero_features(self) -> None:
         """Test AverageFeatures with zero features."""
@@ -219,7 +242,7 @@ class TestAverageFeatures:
 
         averaged = result[0].local_features[1][0]
         # Zero features result in NaN after normalization
-        assert torch.isnan(averaged).all()
+        pytest.assume(torch.isnan(averaged).all())
 
     def test_call_returns_list(self) -> None:
         """Test that AverageFeatures returns a list."""
@@ -230,9 +253,10 @@ class TestAverageFeatures:
 
         result = selector([features])
 
-        assert isinstance(result, list)
-        assert len(result) == 1
-        assert isinstance(result[0], Features)
+        expected_result_length = 1
+        pytest.assume(isinstance(result, list))
+        pytest.assume(len(result) == expected_result_length)
+        pytest.assume(isinstance(result[0], Features))
 
     def test_call_preserves_feature_dimensions(self) -> None:
         """Test that AverageFeatures preserves feature dimensions."""
@@ -243,7 +267,8 @@ class TestAverageFeatures:
 
         result = selector([features])
 
-        assert result[0].local_features[1][0].shape == (1, 8)
+        expected_feature_shape = (1, 8)
+        pytest.assume(result[0].local_features[1][0].shape == expected_feature_shape)
 
     def test_call_handles_single_tensor_per_class(self) -> None:
         """Test AverageFeatures with single tensor per class."""
@@ -254,10 +279,13 @@ class TestAverageFeatures:
 
         result = selector([features])
 
-        assert len(result) == 1
-        assert 1 in result[0].local_features
-        assert len(result[0].local_features[1]) == 1
-        assert result[0].local_features[1][0].shape == (1, 4)
+        expected_result_length = 1
+        expected_features_per_class = 1
+        expected_feature_shape = (1, 4)
+        pytest.assume(len(result) == expected_result_length)
+        pytest.assume(1 in result[0].local_features)
+        pytest.assume(len(result[0].local_features[1]) == expected_features_per_class)
+        pytest.assume(result[0].local_features[1][0].shape == expected_feature_shape)
 
     def test_averaging_mathematical_correctness(self) -> None:
         """Test mathematical correctness of averaging."""
@@ -268,7 +296,7 @@ class TestAverageFeatures:
             1: [
                 torch.tensor([[1.0, 0.0, 0.0, 0.0]]),
                 torch.tensor([[0.0, 1.0, 0.0, 0.0]]),
-            ]
+            ],
         }
 
         result = selector([features])
@@ -277,7 +305,8 @@ class TestAverageFeatures:
         expected = torch.tensor([[0.5, 0.5, 0.0, 0.0]])
         expected_normalized = expected / torch.norm(expected, dim=-1, keepdim=True)
 
-        assert torch.allclose(averaged, expected_normalized, atol=1e-6)
+        tolerance = 1e-6
+        pytest.assume(torch.allclose(averaged, expected_normalized, atol=tolerance))
 
     def test_averaging_with_known_weights(self) -> None:
         """Test averaging with known feature weights."""
@@ -288,7 +317,7 @@ class TestAverageFeatures:
             1: [
                 torch.tensor([[2.0, 0.0, 0.0, 0.0]]),  # 1 feature
                 torch.tensor([[0.0, 1.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]]),  # 2 features
-            ]
+            ],
         }
 
         result = selector([features])
@@ -296,4 +325,4 @@ class TestAverageFeatures:
         averaged = result[0].local_features[1][0]
         # Should be normalized
         norm = torch.norm(averaged, dim=-1)
-        assert torch.allclose(norm, torch.ones_like(norm))
+        pytest.assume(torch.allclose(norm, torch.ones_like(norm)))

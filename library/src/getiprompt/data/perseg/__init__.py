@@ -5,4 +5,4 @@
 
 from .perseg_dataset import PerSegAnnotation, PerSegDataset, PerSegImage
 
-__all__ = ["PerSegDataset", "PerSegAnnotation", "PerSegImage"]
+__all__ = ["PerSegAnnotation", "PerSegDataset", "PerSegImage"]

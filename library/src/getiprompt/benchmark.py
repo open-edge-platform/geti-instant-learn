@@ -151,7 +151,7 @@ def infer_all_batches(
                 Path("predictions")
                 / f"priors_batch_{priors_batch_index}"
                 / category_name
-                / Path(batches.get_image_filename(batch_index, image_index)).name
+                / Path(batches.get_image_filename(batch_index, image_index)).name,
             )
             for image_index in range(len(images))
         ]
@@ -160,7 +160,7 @@ def infer_all_batches(
                 Path("predictions_debug")
                 / f"priors_batch_{priors_batch_index}"
                 / category_name
-                / Path(batches.get_image_filename(batch_index, image_index)).name
+                / Path(batches.get_image_filename(batch_index, image_index)).name,
             )
             for image_index in range(len(images))
         ]
@@ -169,7 +169,7 @@ def infer_all_batches(
                 Path("ground_truth")
                 / f"priors_batch_{priors_batch_index}"
                 / category_name
-                / Path(batches.get_image_filename(batch_index, image_index)).name
+                / Path(batches.get_image_filename(batch_index, image_index)).name,
             )
             for image_index in range(len(images))
         ]
@@ -255,7 +255,7 @@ def infer_all_images(
             Path("predictions")
             / f"priors_batch_{priors_batch_index}"
             / category_name
-            / Path(filenames[image_index]).name
+            / Path(filenames[image_index]).name,
         )
         for image_index in range(len(images))
     ]
@@ -264,7 +264,7 @@ def infer_all_images(
             Path("predictions_debug")
             / f"priors_batch_{priors_batch_index}"
             / category_name
-            / Path(filenames[image_index]).name
+            / Path(filenames[image_index]).name,
         )
         for image_index in range(len(images))
     ]
@@ -273,7 +273,7 @@ def infer_all_images(
             Path("ground_truth")
             / f"priors_batch_{priors_batch_index}"
             / category_name
-            / Path(filenames[image_index]).name
+            / Path(filenames[image_index]).name,
         )
         for image_index in range(len(images))
     ]
@@ -413,7 +413,7 @@ def predict_on_dataset(  # noqa: C901
                         Path("priors")
                         / f"priors_batch_{priors_batch_index}"
                         / category_name
-                        / f"prior_{image_index}.png"
+                        / f"prior_{image_index}.png",
                     )
                     for image_index in range(len(priors_images2))
                 ]

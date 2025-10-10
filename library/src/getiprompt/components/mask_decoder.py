@@ -142,10 +142,8 @@ class SamDecoder(nn.Module):
 
         # find unique labels
         unique_labels = set()
-        for class_id in class_points:
-            unique_labels.add(class_id)
-        for class_id in class_boxes:
-            unique_labels.add(class_id)
+        unique_labels.update(class_points)
+        unique_labels.update(class_boxes)
         unique_labels = sorted(unique_labels)
 
         return (
@@ -336,7 +334,11 @@ class SamDecoder(nn.Module):
         class_boxes_list = [class_boxes.get(label) for label in labels]
 
         for label, points_per_class, boxes_per_class, similarity_map in zip(
-            labels, class_points_list, class_boxes_list, similarity_maps, strict=True
+            labels,
+            class_points_list,
+            class_boxes_list,
+            similarity_maps,
+            strict=True,
         ):
             final_masks, final_points, final_boxes = self.predict(
                 points_per_class=points_per_class,  # Extract only x, y coordinates for SAM predictor

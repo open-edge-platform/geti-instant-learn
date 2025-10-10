@@ -1,9 +1,12 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import torch
-from getiprompt.filters import MultiInstancePriorFilter
+"""Unit tests for the MultiInstancePriorFilter."""
 
+import pytest
+import torch
+
+from getiprompt.components.filters import MultiInstancePriorFilter
 from getiprompt.types import Boxes, Priors
 
 
@@ -38,17 +41,19 @@ def test_multi_instance_prior_filter() -> None:
 
     # In the first case, only the 3 small boxes should remain.
     remaining_boxes1 = filtered_priors_list[0].boxes.get(0)[0]
-    assert remaining_boxes1.shape[0] == 3
+    expected_value = 3
+    pytest.assume(remaining_boxes1.shape[0] == expected_value)
     # Sort boxes before comparison to avoid order-related failures
     remaining_boxes1_sorted, _ = torch.sort(remaining_boxes1, dim=0)
     small_boxes1_sorted, _ = torch.sort(small_boxes1, dim=0)
-    assert torch.all(remaining_boxes1_sorted == small_boxes1_sorted)
+    pytest.assume(torch.all(remaining_boxes1_sorted == small_boxes1_sorted))
 
     # In the second case, both boxes should be kept.
     remaining_boxes2 = filtered_priors_list[1].boxes.get(0)[0]
     expected_boxes2 = torch.cat([large_box2, small_boxes2])
-    assert remaining_boxes2.shape[0] == 2
+    expected_value = 2
+    pytest.assume(remaining_boxes2.shape[0] == expected_value)
     # Sort boxes before comparison
     remaining_boxes2_sorted, _ = torch.sort(remaining_boxes2, dim=0)
     expected_boxes2_sorted, _ = torch.sort(expected_boxes2, dim=0)
-    assert torch.all(remaining_boxes2_sorted == expected_boxes2_sorted)
+    pytest.assume(torch.all(remaining_boxes2_sorted == expected_boxes2_sorted))

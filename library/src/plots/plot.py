@@ -10,7 +10,11 @@ import seaborn as sns
 
 
 def plot_priors_distrib(
-    df: pd.DataFrame, metric: str, swap_rc: bool = False, plot: str = "violinplot", height: int = 5
+    df: pd.DataFrame,
+    metric: str,
+    swap_rc: bool = False,
+    plot: str = "violinplot",
+    height: int = 5,
 ) -> None:
     """This method plots a distribution.
 
@@ -158,7 +162,11 @@ def main(args: Namespace) -> None:
 
     # Plot backbone metrics for the MatcherModular pipeline
     plot_backbone_distrib_melt(
-        dfm, metrics=["precision", "recall", "f1score"], plot="violin", height=5, pipeline_name="MatcherModular"
+        dfm,
+        metrics=["precision", "recall", "f1score"],
+        plot="violin",
+        height=5,
+        pipeline_name="MatcherModular",
     )
 
     # Show the distribution over the priors and the categories

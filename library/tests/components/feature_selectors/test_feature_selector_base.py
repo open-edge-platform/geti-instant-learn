@@ -26,8 +26,9 @@ class TestFeatureSelector:
         """Test get_all_local_class_features with empty list."""
         result = FeatureSelector.get_all_local_class_features([])
 
-        assert isinstance(result, dict)
-        assert len(result) == 0
+        pytest.assume(isinstance(result, dict))
+        expected_length = 0
+        pytest.assume(len(result) == expected_length)
 
     def test_get_all_local_class_features_single_image(self) -> None:
         """Test get_all_local_class_features with single image."""
@@ -39,12 +40,17 @@ class TestFeatureSelector:
 
         result = FeatureSelector.get_all_local_class_features([features])
 
-        assert isinstance(result, dict)
-        assert len(result) == 2
-        assert 1 in result
-        assert 2 in result
-        assert len(result[1]) == 2
-        assert len(result[2]) == 1
+        pytest.assume(isinstance(result, dict))
+        expected_num_classes = 2
+        expected_class_1_features = 2
+        expected_class_2_features = 1
+        pytest.assume(len(result) == expected_num_classes)
+        class_key_1 = 1
+        class_key_2 = 2
+        pytest.assume(class_key_1 in result)
+        pytest.assume(class_key_2 in result)
+        pytest.assume(len(result[class_key_1]) == expected_class_1_features)
+        pytest.assume(len(result[class_key_2]) == expected_class_2_features)
 
     def test_get_all_local_class_features_multiple_images(self) -> None:
         """Test get_all_local_class_features with multiple images."""
@@ -62,14 +68,21 @@ class TestFeatureSelector:
 
         result = FeatureSelector.get_all_local_class_features([features1, features2])
 
-        assert isinstance(result, dict)
-        assert len(result) == 3
-        assert 1 in result
-        assert 2 in result
-        assert 3 in result
-        assert len(result[1]) == 3  # 2 + 1
-        assert len(result[2]) == 1
-        assert len(result[3]) == 2  # 2 + 1
+        pytest.assume(isinstance(result, dict))
+        expected_num_classes = 3
+        expected_class_1_features = 3  # 2 + 1
+        expected_class_2_features = 1
+        expected_class_3_features = 2
+        pytest.assume(len(result) == expected_num_classes)
+        class_key_1 = 1
+        class_key_2 = 2
+        class_key_3 = 3
+        pytest.assume(class_key_1 in result)
+        pytest.assume(class_key_2 in result)
+        pytest.assume(class_key_3 in result)
+        pytest.assume(len(result[class_key_1]) == expected_class_1_features)
+        pytest.assume(len(result[class_key_2]) == expected_class_2_features)
+        pytest.assume(len(result[class_key_3]) == expected_class_3_features)
 
     def test_get_all_local_class_features_overlapping_classes(self) -> None:
         """Test get_all_local_class_features with overlapping classes."""
@@ -87,12 +100,17 @@ class TestFeatureSelector:
 
         result = FeatureSelector.get_all_local_class_features([features1, features2])
 
-        assert isinstance(result, dict)
-        assert len(result) == 2
-        assert 1 in result
-        assert 2 in result
-        assert len(result[1]) == 3  # 1 + 2
-        assert len(result[2]) == 2  # 1 + 1
+        pytest.assume(isinstance(result, dict))
+        expected_num_classes = 2
+        expected_class_1_features = 3  # 1 + 2
+        expected_class_2_features = 2  # 1 + 1
+        pytest.assume(len(result) == expected_num_classes)
+        class_key_1 = 1
+        class_key_2 = 2
+        pytest.assume(class_key_1 in result)
+        pytest.assume(class_key_2 in result)
+        pytest.assume(len(result[class_key_1]) == expected_class_1_features)
+        pytest.assume(len(result[class_key_2]) == expected_class_2_features)
 
     def test_get_all_local_class_features_preserves_tensors(self) -> None:
         """Test that get_all_local_class_features preserves tensor references."""
@@ -104,8 +122,8 @@ class TestFeatureSelector:
         result = FeatureSelector.get_all_local_class_features([features])
 
         # Check that tensors are the same objects (not copied)
-        assert result[1][0] is tensor1
-        assert result[1][1] is tensor2
+        pytest.assume(result[1][0] is tensor1)
+        pytest.assume(result[1][1] is tensor2)
 
     def test_get_all_local_class_features_different_devices(self) -> None:
         """Test get_all_local_class_features with tensors on different devices."""
@@ -120,15 +138,16 @@ class TestFeatureSelector:
 
         result = FeatureSelector.get_all_local_class_features([features1, features2])
 
-        assert isinstance(result, dict)
-        assert 1 in result
-        assert len(result[1]) == 2
+        pytest.assume(isinstance(result, dict))
+        expected_num_features = 2
+        pytest.assume(1 in result)
+        pytest.assume(len(result[1]) == expected_num_features)
 
     def test_inheritance_works_correctly(self) -> None:
         """Test that concrete classes inherit from FeatureSelector correctly."""
-        assert issubclass(AllFeaturesSelector, FeatureSelector)
-        assert issubclass(AverageFeatures, FeatureSelector)
-        assert issubclass(ClusterFeatures, FeatureSelector)
+        pytest.assume(issubclass(AllFeaturesSelector, FeatureSelector))
+        pytest.assume(issubclass(AverageFeatures, FeatureSelector))
+        pytest.assume(issubclass(ClusterFeatures, FeatureSelector))
 
     def test_get_all_local_class_features_with_none_features(self) -> None:
         """Test get_all_local_class_features with None features."""
@@ -146,8 +165,9 @@ class TestFeatureSelector:
 
         result = FeatureSelector.get_all_local_class_features([features])
 
-        assert isinstance(result, dict)
-        assert len(result) == 0
+        pytest.assume(isinstance(result, dict))
+        expected_length = 0
+        pytest.assume(len(result) == expected_length)
 
     def test_get_all_local_class_features_with_empty_feature_lists(self) -> None:
         """Test get_all_local_class_features with empty feature lists."""
@@ -156,9 +176,13 @@ class TestFeatureSelector:
 
         result = FeatureSelector.get_all_local_class_features([features])
 
-        assert isinstance(result, dict)
-        assert len(result) == 2
-        assert 1 in result
-        assert 2 in result
-        assert len(result[1]) == 0
-        assert len(result[2]) == 0
+        pytest.assume(isinstance(result, dict))
+        expected_num_classes = 2
+        expected_empty_list_length = 0
+        class_key_1 = 1
+        class_key_2 = 2
+        pytest.assume(len(result) == expected_num_classes)
+        pytest.assume(class_key_1 in result)
+        pytest.assume(class_key_2 in result)
+        pytest.assume(len(result[class_key_1]) == expected_empty_list_length)
+        pytest.assume(len(result[class_key_2]) == expected_empty_list_length)

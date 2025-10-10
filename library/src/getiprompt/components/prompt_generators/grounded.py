@@ -138,7 +138,11 @@ class TextToBoxPromptGenerator(PromptGenerator):
 
     @staticmethod
     def _load_grounding_model_and_processor(
-        model_id: str, precision: str, device: str, compile_models: bool, benchmark_inference_speed: bool
+        model_id: str,
+        precision: str,
+        device: str,
+        compile_models: bool,
+        benchmark_inference_speed: bool,
     ) -> tuple[AutoModelForZeroShotObjectDetection, AutoProcessor]:
         """Load the grounding model and processor.
 
@@ -155,11 +159,13 @@ class TextToBoxPromptGenerator(PromptGenerator):
             from getiprompt.models.foundation import GroundingDinoForObjectDetection
 
             model = GroundingDinoForObjectDetection.from_pretrained(
-                model_id, torch_dtype=precision_to_torch_dtype(precision)
+                model_id,
+                torch_dtype=precision_to_torch_dtype(precision),
             )
         else:
             model = AutoModelForZeroShotObjectDetection.from_pretrained(
-                model_id, torch_dtype=precision_to_torch_dtype(precision)
+                model_id,
+                torch_dtype=precision_to_torch_dtype(precision),
             )
         model = optimize_model(
             model=model.to(device).eval(),

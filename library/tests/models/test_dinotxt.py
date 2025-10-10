@@ -14,7 +14,11 @@ from getiprompt.types import Image, Priors, Results
 
 @pytest.fixture
 def model_instance() -> DinoTxtZeroShotClassification:
-    """Returns an instance of the DinoTxtZeroShotClassification pipeline."""
+    """Returns an instance of the DinoTxtZeroShotClassification pipeline.
+
+    Returns:
+        DinoTxtZeroShotClassification: An instance configured for CPU testing.
+    """
     return DinoTxtZeroShotClassification(
         device="cpu",  # Use CPU for testing
         image_size=(224, 224),  # Smaller size for faster testing
@@ -24,7 +28,11 @@ def model_instance() -> DinoTxtZeroShotClassification:
 
 @pytest.fixture
 def sample_dataset() -> tuple[list[np.ndarray], list[str]]:
-    """Create sample images using skimage.draw.random_shapes."""
+    """Create sample images using skimage.draw.random_shapes.
+
+    Returns:
+        tuple[list[np.ndarray], list[str]]: A tuple containing list of images and their labels.
+    """
     images = []
     labels = []
     label_names = ["circle", "rectangle", "triangle"]
@@ -47,7 +55,11 @@ def sample_dataset() -> tuple[list[np.ndarray], list[str]]:
 
 @pytest.fixture
 def sample_priors() -> Priors:
-    """Create sample text priors for classification."""
+    """Create sample text priors for classification.
+
+    Returns:
+        Priors: A Priors object containing text descriptions for each class.
+    """
     return Priors(text={0: "circle", 1: "rectangle", 2: "triangle"})
 
 
@@ -64,9 +76,9 @@ class TestDinoTxtZeroShotClassification:
             device="cpu",
             image_size=(512, 512),
         )
-        assert pipeline.prompt_templates == custom_templates
-        assert pipeline.precision == torch.float16
-        assert pipeline.resize_images.size == (512, 512)
+        pytest.assume(pipeline.prompt_templates == custom_templates)
+        pytest.assume(pipeline.precision == torch.float16)
+        pytest.assume(pipeline.resize_images.size == (512, 512))
 
     @staticmethod
     def test_learn_with_empty_reference_priors(model_instance: DinoTxtZeroShotClassification) -> None:
@@ -76,7 +88,8 @@ class TestDinoTxtZeroShotClassification:
 
     @staticmethod
     def test_infer_without_learning(
-        model_instance: DinoTxtZeroShotClassification, sample_dataset: tuple[list[np.ndarray], list[str]]
+        model_instance: DinoTxtZeroShotClassification,
+        sample_dataset: tuple[list[np.ndarray], list[str]],
     ) -> None:
         """Test that infer raises AttributeError when learn hasn't been called."""
         sample_images, _ = sample_dataset
@@ -103,11 +116,11 @@ class TestDinoTxtZeroShotClassification:
         result = model_instance.infer(image_objects)
 
         # Verify results
-        assert isinstance(result, Results)
-        assert hasattr(result, "masks")
-        assert len(result.masks) == len(sample_images)
+        pytest.assume(isinstance(result, Results))
+        pytest.assume(hasattr(result, "masks"))
+        pytest.assume(len(result.masks) == len(sample_images))
 
         pred_labels = [mask.class_ids()[0] for mask in result.masks]
         pred_labels = torch.tensor(pred_labels)
         gt_labels = torch.tensor(sample_labels)
-        assert (pred_labels.eq(gt_labels) / len(sample_labels)).mean() >= 0.0
+        pytest.assume((pred_labels.eq(gt_labels) / len(sample_labels)).mean() >= 0.0)

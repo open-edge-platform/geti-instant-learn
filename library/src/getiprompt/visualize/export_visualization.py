@@ -361,7 +361,15 @@ class ExportMaskVisualization(Visualization):
 
         for class_id in masks_per_class.class_ids():
             image_vis = self._process_class_masks(
-                image_vis, masks_per_class, class_id, points, boxes, annotations, i, class_colors, num_classes
+                image_vis,
+                masks_per_class,
+                class_id,
+                points,
+                boxes,
+                annotations,
+                i,
+                class_colors,
+                num_classes,
             )
 
         # Add legend if requested

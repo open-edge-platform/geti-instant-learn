@@ -87,7 +87,10 @@ def run_model(
     )
 
     reference_images, reference_priors, class_strings = parse_reference_data(
-        reference_images, reference_prompts, reference_points_str, reference_text_prompt
+        reference_images,
+        reference_prompts,
+        reference_points_str,
+        reference_text_prompt,
     )
     target_images, _ = parse_image_files(target_images)
 

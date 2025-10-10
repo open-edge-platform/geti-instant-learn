@@ -14,11 +14,11 @@ from .lvis import LVISDataset
 from .perseg import PerSegDataset
 
 __all__ = [
-    "Dataset",
-    "IndexIter",
-    "BatchedSingleCategoryIter",
     "BatchedCategoryIter",
+    "BatchedSingleCategoryIter",
+    "Dataset",
     "DatasetIter",
+    "IndexIter",
     "LVISDataset",
     "PerSegDataset",
 ]

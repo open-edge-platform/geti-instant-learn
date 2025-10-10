@@ -12,8 +12,8 @@ from .softmatcher import SoftmatcherPromptGenerator
 __all__ = [
     "BidirectionalPromptGenerator",
     "GridPromptGenerator",
+    "GroundingModel",
     "PromptGenerator",
     "SoftmatcherPromptGenerator",
     "TextToBoxPromptGenerator",
-    "GroundingModel",
 ]

@@ -5,4 +5,4 @@
 
 from .lvis_dataset import LVISAnnotation, LVISDataset, LVISImage
 
-__all__ = ["LVISDataset", "LVISAnnotation", "LVISImage"]
+__all__ = ["LVISAnnotation", "LVISDataset", "LVISImage"]

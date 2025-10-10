@@ -79,6 +79,12 @@ class ResizeLongestSide:
 
         This transformation may not exactly match apply_image. apply_image is
         the transformation expected by the model.
+
+        Args:
+            image: The image to resize.
+
+        Returns:
+            Resized image.
         """
         # Expects an image in BCHW format. May not exactly match apply_image.
         target_size = self.get_preprocess_shape(image.shape[2], image.shape[3], self.target_length)
@@ -111,8 +117,8 @@ class ResizeLongestSide:
             self.target_length,
         )
         coords = deepcopy(coords).to(torch.float)
-        coords[..., 0] = coords[..., 0] * (new_w / old_w)
-        coords[..., 1] = coords[..., 1] * (new_h / old_h)
+        coords[..., 0] *= new_w / old_w
+        coords[..., 1] *= new_h / old_h
         return coords
 
     def apply_boxes_torch(

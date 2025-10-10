@@ -32,7 +32,11 @@ class TestEncoder:
         self.mock_model.return_value.last_hidden_state = torch.randn(1, 197, 1024)  # [batch, seq_len, hidden_dim]
 
     def _setup_mock_model(self, mock_model: Mock, mock_processor: Mock) -> Mock:
-        """Helper method to setup mock model with proper structure."""
+        """Helper method to setup mock model with proper structure.
+
+        Returns:
+            The mock model instance.
+        """
         mock_model_instance = Mock()
         mock_model_instance.config.patch_size = 16
         mock_model_instance.config.num_register_tokens = 0
@@ -62,6 +66,8 @@ class TestEncoder:
     def test_encoder_initialization(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
         """Test that encoder initializes correctly."""
         # Setup mocks with proper structure
+        expected_input_size = 224
+        expected_patch_size = 16
         mock_model_instance = self._setup_mock_model(mock_model, mock_processor)
         mock_optimize.return_value = mock_model_instance
 
@@ -69,11 +75,11 @@ class TestEncoder:
         encoder = ImageEncoder(model_id="dinov2_small", device="cpu", input_size=224)
 
         # Test initialization
-        assert encoder.model == mock_model_instance
-        assert encoder.processor == self.mock_processor
-        assert encoder.input_size == 224
-        assert encoder.patch_size == 16
-        assert hasattr(encoder, "mask_transform")
+        pytest.assume(encoder.model == mock_model_instance)
+        pytest.assume(encoder.processor == self.mock_processor)
+        pytest.assume(encoder.input_size == expected_input_size)
+        pytest.assume(encoder.patch_size == expected_patch_size)
+        pytest.assume(hasattr(encoder, "mask_transform"))
 
     @patch("getiprompt.components.encoders.image_encoder.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
@@ -88,7 +94,7 @@ class TestEncoder:
         encoder = ImageEncoder(model_id="dinov2_small", device="cpu", input_size=224)
 
         # Test that mask transform is a Compose object
-        assert hasattr(encoder.mask_transform, "transforms")
+        pytest.assume(hasattr(encoder.mask_transform, "transforms"))
 
         # Test mask transform with dummy data
         dummy_mask = torch.randn(224, 224)
@@ -96,7 +102,7 @@ class TestEncoder:
 
         # Check that result has correct shape
         expected_shape = (1, 14, 14)  # (224/16, 224/16)
-        assert result.shape == expected_shape
+        pytest.assume(result.shape == expected_shape)
 
     @patch("getiprompt.components.encoders.image_encoder.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
@@ -117,11 +123,13 @@ class TestEncoder:
         features, masks = encoder(images, priors_per_image=None)
 
         # Check outputs
-        assert len(features) == 1
-        assert len(masks) == 1
-        assert isinstance(features[0], Features)
-        assert isinstance(masks[0], Masks)
-        assert len(masks[0].data) == 0  # Empty masks
+        expected_value = 1
+        pytest.assume(len(features) == expected_value)
+        pytest.assume(len(masks) == expected_value)
+        pytest.assume(isinstance(features[0], Features))
+        pytest.assume(isinstance(masks[0], Masks))
+        expected_value = 0
+        pytest.assume(len(masks[0].data) == expected_value)  # Empty masks
 
     @staticmethod
     def test_model_id_validation() -> None:
@@ -151,13 +159,16 @@ class TestEncoder:
                 mock_optimize.return_value = mock_model_instance
 
                 encoder = ImageEncoder(model_id=model_id, device="cpu")
-                assert encoder.model_id == model_id
+                pytest.assume(encoder.model_id == model_id)
 
     @patch("getiprompt.components.encoders.image_encoder.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_with_different_input_sizes(
-        self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock
+        self,
+        mock_processor: Mock,
+        mock_model: Mock,
+        mock_optimize: Mock,
     ) -> None:
         """Test encoder with different input sizes."""
         # Setup mocks with proper structure
@@ -167,13 +178,16 @@ class TestEncoder:
         # Test with different input sizes
         for input_size in [224, 384, 512]:
             encoder = ImageEncoder(model_id="dinov2_small", device="cpu", input_size=input_size)
-            assert encoder.input_size == input_size
+            pytest.assume(encoder.input_size == input_size)
 
     @patch("getiprompt.components.encoders.image_encoder.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_with_different_precisions(
-        self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock
+        self,
+        mock_processor: Mock,
+        mock_model: Mock,
+        mock_optimize: Mock,
     ) -> None:
         """Test encoder with different precision settings."""
         # Setup mocks with proper structure
@@ -184,7 +198,7 @@ class TestEncoder:
         precision_mapping = {"fp32": torch.float32, "fp16": torch.float16, "bf16": torch.bfloat16}
         for precision_str, expected_dtype in precision_mapping.items():
             encoder = ImageEncoder(model_id="dinov2_small", device="cpu", precision=precision_str, input_size=224)
-            assert encoder.precision == expected_dtype
+            pytest.assume(encoder.precision == expected_dtype)
 
     @patch("getiprompt.components.encoders.image_encoder.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
@@ -197,17 +211,20 @@ class TestEncoder:
 
         # Test with compile_models=True
         encoder = ImageEncoder(model_id="dinov2_small", device="cpu", compile_models=True, input_size=224)
-        assert encoder.model == mock_model_instance
+        pytest.assume(encoder.model == mock_model_instance)
         # Verify optimize_model was called with compile_models=True
         mock_optimize.assert_called_once()
         call_args = mock_optimize.call_args
-        assert call_args[1]["compile_models"] is True
+        pytest.assume(call_args[1]["compile_models"] is True)
 
     @patch("getiprompt.components.encoders.image_encoder.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_with_benchmark_inference_speed(
-        self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock
+        self,
+        mock_processor: Mock,
+        mock_model: Mock,
+        mock_optimize: Mock,
     ) -> None:
         """Test encoder with benchmark inference speed enabled."""
         # Setup mocks with proper structure
@@ -216,11 +233,11 @@ class TestEncoder:
 
         # Test with benchmark_inference_speed=True
         encoder = ImageEncoder(model_id="dinov2_small", device="cpu", benchmark_inference_speed=True, input_size=224)
-        assert encoder.model == mock_model_instance
+        pytest.assume(encoder.model == mock_model_instance)
         # Verify optimize_model was called with benchmark_inference_speed=True
         mock_optimize.assert_called_once()
         call_args = mock_optimize.call_args
-        assert call_args[1]["benchmark_inference_speed"] is True
+        pytest.assume(call_args[1]["benchmark_inference_speed"] is True)
 
     @patch("getiprompt.components.encoders.image_encoder.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
@@ -234,11 +251,11 @@ class TestEncoder:
         # Test with different devices
         for device in ["cpu", "cuda"]:
             encoder = ImageEncoder(model_id="dinov2_small", device=device, input_size=224)
-            assert encoder.device == device
+            pytest.assume(encoder.device == device)
             # Verify optimize_model was called with correct device
             mock_optimize.assert_called()
             call_args = mock_optimize.call_args
-            assert call_args[1]["device"] == device
+            pytest.assume(call_args[1]["device"] == device)
 
     @patch("getiprompt.components.encoders.image_encoder.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
@@ -249,6 +266,8 @@ class TestEncoder:
         mock_model_instance = self._setup_mock_model(mock_model, mock_processor)
         mock_optimize.return_value = mock_model_instance
 
+        expected_input_size = 384
+
         # Test with all parameters
         encoder = ImageEncoder(
             model_id="dinov2_base",
@@ -256,29 +275,32 @@ class TestEncoder:
             precision="fp16",
             compile_models=True,
             benchmark_inference_speed=True,
-            input_size=384,
+            input_size=expected_input_size,
         )
 
         # Verify all parameters are set correctly
-        assert encoder.model_id == "dinov2_base"
-        assert encoder.device == "cpu"
-        assert encoder.precision == torch.float16
-        assert encoder.input_size == 384
-        assert encoder.model == mock_model_instance
+        pytest.assume(encoder.model_id == "dinov2_base")
+        pytest.assume(encoder.device == "cpu")
+        pytest.assume(encoder.precision == torch.float16)
+        pytest.assume(encoder.input_size == expected_input_size)
+        pytest.assume(encoder.model == mock_model_instance)
 
         # Verify optimize_model was called with all parameters
         mock_optimize.assert_called_once()
         call_args = mock_optimize.call_args
-        assert call_args[1]["precision"] == torch.float16
-        assert call_args[1]["device"] == "cpu"
-        assert call_args[1]["compile_models"] is True
-        assert call_args[1]["benchmark_inference_speed"] is True
+        pytest.assume(call_args[1]["precision"] == torch.float16)
+        pytest.assume(call_args[1]["device"] == "cpu")
+        pytest.assume(call_args[1]["compile_models"] is True)
+        pytest.assume(call_args[1]["benchmark_inference_speed"] is True)
 
     @patch("getiprompt.components.encoders.image_encoder.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_mask_transform_with_different_sizes(
-        self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock
+        self,
+        mock_processor: Mock,
+        mock_model: Mock,
+        mock_optimize: Mock,
     ) -> None:
         """Test mask transform with different input sizes."""
         # Setup mocks with proper structure
@@ -295,7 +317,7 @@ class TestEncoder:
 
             # Check output shape
             expected_size = input_size // 16
-            assert result.shape == (1, expected_size, expected_size)
+            pytest.assume(result.shape == (1, expected_size, expected_size))
 
     @patch("getiprompt.components.encoders.image_encoder.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
@@ -322,11 +344,12 @@ class TestEncoder:
         features, masks = encoder(images, priors_per_image=priors)
 
         # Check outputs
-        assert len(features) == 1
-        assert len(masks) == 1
-        assert isinstance(features[0], Features)
-        assert isinstance(masks[0], Masks)
-        assert len(masks[0].data) > 0  # Should have masks
+        expected_value = 1
+        pytest.assume(len(features) == expected_value)
+        pytest.assume(len(masks) == expected_value)
+        pytest.assume(isinstance(features[0], Features))
+        pytest.assume(isinstance(masks[0], Masks))
+        pytest.assume(len(masks[0].data) > 0)  # Should have masks
 
     @patch("getiprompt.components.encoders.image_encoder.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
@@ -350,9 +373,11 @@ class TestEncoder:
         features = encoder._embed(test_tensors)  # noqa: SLF001
 
         # Check output
-        assert isinstance(features, torch.Tensor)
-        assert features.shape[0] == 1  # batch size
-        assert features.shape[-1] == 1024  # feature dimension
+        expected_bs = 1
+        expected_feature_dim = 1024
+        pytest.assume(isinstance(features, torch.Tensor))
+        pytest.assume(features.shape[0] == expected_bs)  # batch size
+        pytest.assume(features.shape[-1] == expected_feature_dim)  # feature dimension
 
     @staticmethod
     def test_error_handling_invalid_model_id() -> None:
@@ -389,20 +414,20 @@ class TestEncoderIntegration:
         features, masks = encoder.forward([test_image], priors_per_image=None)
 
         # Verify outputs
-        assert len(features) == 1
-        assert len(masks) == 1
-        assert isinstance(features[0], Features)
-        assert isinstance(masks[0], Masks)
+        pytest.assume(len(features) == 1)
+        pytest.assume(len(masks) == 1)
+        pytest.assume(isinstance(features[0], Features))
+        pytest.assume(isinstance(masks[0], Masks))
 
         # Verify feature shape and properties
         feature_tensor = features[0].global_features
         expected_patches = (224 // encoder.patch_size) ** 2
-        assert feature_tensor.shape == (expected_patches, 384)  # dinov2_small has 384 dims
+        pytest.assume(feature_tensor.shape == (expected_patches, 384))  # dinov2_small has 384 dims
 
         # Check L2 normalization
         feature_norms = torch.norm(feature_tensor.float(), dim=-1)
         expected_norms = torch.ones(expected_patches, dtype=torch.float32)
-        assert torch.allclose(feature_norms, expected_norms, atol=1e-2)
+        pytest.assume(torch.allclose(feature_norms, expected_norms, atol=1e-2))
 
         # Test 2: Forward method with priors
         priors = [Priors()]
@@ -413,18 +438,18 @@ class TestEncoderIntegration:
         features_with_priors, masks_with_priors = encoder.forward([test_image], priors_per_image=priors)
 
         # Verify outputs with priors
-        assert len(features_with_priors) == 1
-        assert len(masks_with_priors) == 1
-        assert isinstance(features_with_priors[0], Features)
-        assert isinstance(masks_with_priors[0], Masks)
+        pytest.assume(len(features_with_priors) == 1)
+        pytest.assume(len(masks_with_priors) == 1)
+        pytest.assume(isinstance(features_with_priors[0], Features))
+        pytest.assume(isinstance(masks_with_priors[0], Masks))
 
         # Verify that local features were extracted
-        assert len(features_with_priors[0].local_features) > 0
-        assert 1 in features_with_priors[0].local_features
+        pytest.assume(len(features_with_priors[0].local_features) > 0)
+        pytest.assume(1 in features_with_priors[0].local_features)
 
         # Verify mask was processed
-        assert len(masks_with_priors[0].data) > 0
-        assert 1 in masks_with_priors[0].data
+        pytest.assume(len(masks_with_priors[0].data) > 0)
+        pytest.assume(1 in masks_with_priors[0].data)
 
     @pytest.mark.slow
     @pytest.mark.integration
@@ -434,13 +459,17 @@ class TestEncoderIntegration:
         encoder = ImageEncoder(model_id="dinov2_small", device="cpu", input_size=224)
 
         # Verify model configuration
-        assert encoder.patch_size == 14  # DINOv2 small uses 14x14 patches
-        assert encoder.feature_size == 16  # 224 / 14 = 16
-        assert encoder.ignore_token_length == 5  # CLS token + 4 register tokens
+        expected_patch_size = 14  # DINOv2 small uses 14x14 patches
+        expected_feature_size = 16  # 224 / 14 = 16
+        expected_ignore_token_length = 5  # CLS token + 4 register tokens
+
+        pytest.assume(encoder.patch_size == expected_patch_size)
+        pytest.assume(encoder.feature_size == expected_feature_size)
+        pytest.assume(encoder.ignore_token_length == expected_ignore_token_length)
 
         # Test with different input size
         encoder_384 = ImageEncoder(model_id="dinov2_small", device="cpu", input_size=384)
-        assert encoder_384.feature_size == 384 // encoder_384.patch_size
+        pytest.assume(encoder_384.feature_size == 384 // encoder_384.patch_size)
 
     @pytest.mark.slow
     @pytest.mark.integration
@@ -460,12 +489,14 @@ class TestEncoderIntegration:
         features2, _ = encoder.forward([image2], priors_per_image=None)
 
         # Features should be identical for identical images
-        assert torch.allclose(features1[0].global_features, features2[0].global_features, atol=1e-6)
+        pytest.assume(torch.allclose(features1[0].global_features, features2[0].global_features, atol=1e-6))
 
         # Features should be normalized
         feature_norms = torch.norm(features1[0].global_features.float(), dim=-1)
         expected_norms = torch.ones_like(feature_norms, dtype=torch.float32)
-        assert torch.allclose(feature_norms, expected_norms, atol=1e-2)  # Relaxed tolerance for numerical precision
+        pytest.assume(
+            torch.allclose(feature_norms, expected_norms, atol=1e-2),
+        )  # Relaxed tolerance for numerical precision
 
     @pytest.mark.slow
     @pytest.mark.integration
@@ -485,7 +516,7 @@ class TestEncoderIntegration:
 
         # Verify feature dimension
         expected_patches = (224 // encoder_base.patch_size) ** 2
-        assert features[0].global_features.shape == (expected_patches, 768)  # patches, 768 dims
+        pytest.assume(features[0].global_features.shape == (expected_patches, 768))  # patches, 768 dims
 
     @pytest.mark.slow
     @pytest.mark.integration
@@ -507,7 +538,3 @@ class TestEncoderIntegration:
         # This should raise an error
         with pytest.raises(ValueError, match="The reference mask is too small to detect any features"):
             encoder.forward([test_image], priors_per_image=priors)
-
-
-if __name__ == "__main__":
-    pytest.main([__file__])

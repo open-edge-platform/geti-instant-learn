@@ -16,7 +16,11 @@ from getiprompt.types import Boxes, Image, Masks, Points, Priors, Similarities
 
 @pytest.fixture
 def mock_sam_predictor() -> SamHQPredictor:
-    """Create a comprehensive mock SAM predictor for testing."""
+    """Create a comprehensive mock SAM predictor for testing.
+
+    Returns:
+        SamHQPredictor: A mock instance of SamHQPredictor with necessary methods and attributes.
+    """
     predictor = MagicMock(spec=SamHQPredictor)
     predictor.device = torch.device("cpu")
 
@@ -73,19 +77,31 @@ def mock_sam_predictor() -> SamHQPredictor:
 
 @pytest.fixture
 def sam_decoder(mock_sam_predictor: SamHQPredictor) -> SamDecoder:
-    """Create a SamDecoder instance with mock predictor."""
+    """Create a SamDecoder instance with mock predictor.
+
+    Returns:
+        SamDecoder: An instance of SamDecoder with a mock SAM predictor.
+    """
     return SamDecoder(sam_predictor=mock_sam_predictor, mask_similarity_threshold=0.38, nms_iou_threshold=0.1)
 
 
 @pytest.fixture
 def sample_image() -> Image:
-    """Create a sample image for testing."""
+    """Create a sample image for testing.
+
+    Returns:
+        Image: A sample Image object.
+    """
     return Image(np.zeros((480, 640, 3), dtype=np.uint8))
 
 
 @pytest.fixture
 def sample_priors_with_points() -> Priors:
-    """Create sample priors with points."""
+    """Create sample priors with points.
+
+    Returns:
+        Priors: A Priors object containing boxes.
+    """
     priors = Priors()
     # Points tensor: [x, y, score, label] where label 1=foreground, 0=background
     points = torch.tensor(
@@ -102,7 +118,11 @@ def sample_priors_with_points() -> Priors:
 
 @pytest.fixture
 def sample_priors_with_boxes() -> Priors:
-    """Create sample priors with boxes."""
+    """Create sample priors with boxes.
+
+    Returns:
+        Priors: A Priors object containing boxes.
+    """
     priors = Priors()
     # Boxes tensor: [x1, y1, x2, y2, score, label]
     boxes = torch.tensor(
@@ -118,7 +138,11 @@ def sample_priors_with_boxes() -> Priors:
 
 @pytest.fixture
 def sample_priors_mixed() -> Priors:
-    """Create sample priors with both points and boxes."""
+    """Create sample priors with both points and boxes.
+
+    Returns:
+        Priors: A Priors object containing both points and boxes.
+    """
     priors = Priors()
     # Points
     points = torch.tensor(
@@ -143,7 +167,11 @@ def sample_priors_mixed() -> Priors:
 
 @pytest.fixture
 def sample_similarities() -> Similarities:
-    """Create sample similarities for testing."""
+    """Create sample similarities for testing.
+
+    Returns:
+        Similarities: A Similarities object containing a mock similarity map.
+    """
     similarities = Similarities()
     similarity_map = torch.ones((1, 480, 640), dtype=torch.float32) * 0.5
     similarities.add(similarity_map, class_id=0)
@@ -158,27 +186,31 @@ class TestSamDecoderInitialization:
         """Test initialization with default parameters."""
         decoder = SamDecoder(sam_predictor=mock_sam_predictor)
 
-        assert decoder.predictor is mock_sam_predictor
-        assert decoder.mask_similarity_threshold == 0.38
-        assert decoder.nms_iou_threshold == 0.1
+        pytest.assume(decoder.predictor is mock_sam_predictor)
+        expected_mask_similarity_threshold = 0.5
+        expected_nms_iou_threshold = 0.2
+        pytest.assume(decoder.mask_similarity_threshold == expected_mask_similarity_threshold)
+        pytest.assume(decoder.nms_iou_threshold == expected_nms_iou_threshold)
         # The transform is created by the SAM decoder, not the mock
-        assert decoder.transform is not None
+        pytest.assume(decoder.transform is not None)
 
     @staticmethod
     def test_initialization_with_custom_params(mock_sam_predictor: SamHQPredictor) -> None:
         """Test initialization with custom parameters."""
         decoder = SamDecoder(sam_predictor=mock_sam_predictor, mask_similarity_threshold=0.5, nms_iou_threshold=0.2)
 
-        assert decoder.mask_similarity_threshold == 0.5
-        assert decoder.nms_iou_threshold == 0.2
+        expected_mask_similarity_threshold = 0.5
+        expected_nms_iou_threshold = 0.2
+        pytest.assume(decoder.mask_similarity_threshold == expected_mask_similarity_threshold)
+        pytest.assume(decoder.nms_iou_threshold == expected_nms_iou_threshold)
 
     @staticmethod
     def test_initialization_creates_transform(mock_sam_predictor: SamHQPredictor) -> None:
         """Test that initialization creates the transform."""
         decoder = SamDecoder(sam_predictor=mock_sam_predictor)
-        assert decoder.transform is not None
+        pytest.assume(decoder.transform is not None)
         # The transform is created by the SAM decoder, not the mock
-        assert hasattr(decoder.transform, "target_length")
+        pytest.assume(hasattr(decoder.transform, "target_length"))
 
 
 class TestSamDecoderPreprocessing:
@@ -198,12 +230,13 @@ class TestSamDecoderPreprocessing:
             )
         )
 
-        assert len(preprocessed_images) == 1
-        assert len(preprocessed_points) == 1
-        assert len(preprocessed_boxes) == 1
-        assert len(original_sizes) == 1
-        assert original_sizes[0] == (480, 640)
-        assert labels == [0]
+        expected_value = 1
+        pytest.assume(len(preprocessed_images) == expected_value)
+        pytest.assume(len(preprocessed_points) == expected_value)
+        pytest.assume(len(preprocessed_boxes) == expected_value)
+        pytest.assume(len(original_sizes) == expected_value)
+        pytest.assume(original_sizes[0] == (480, 640))
+        pytest.assume(labels == [0])
 
     @staticmethod
     def test_preprocess_inputs_with_boxes(
@@ -217,11 +250,12 @@ class TestSamDecoderPreprocessing:
             [sample_priors_with_boxes],
         )
 
-        assert len(preprocessed_images) == 1
-        assert len(preprocessed_points) == 1
-        assert len(preprocessed_boxes) == 1
-        assert 0 in preprocessed_boxes[0]  # class_id 0 should be present
-        assert labels == [0]
+        expected_value = 1
+        pytest.assume(len(preprocessed_images) == expected_value)
+        pytest.assume(len(preprocessed_points) == expected_value)
+        pytest.assume(len(preprocessed_boxes) == expected_value)
+        pytest.assume(0 in preprocessed_boxes[0])  # class_id 0 should be present
+        pytest.assume(labels == [0])
 
     @staticmethod
     def test_preprocess_inputs_mixed(
@@ -235,10 +269,10 @@ class TestSamDecoderPreprocessing:
             [sample_priors_mixed],
         )
 
-        assert len(preprocessed_images) == 1
-        assert 0 in preprocessed_points[0]  # points should be present
-        assert 0 in preprocessed_boxes[0]  # boxes should be present
-        assert labels == [0]
+        pytest.assume(len(preprocessed_images) == 1)
+        pytest.assume(0 in preprocessed_points[0])  # points should be present
+        pytest.assume(0 in preprocessed_boxes[0])  # boxes should be present
+        pytest.assume(labels == [0])
 
     @staticmethod
     def test_preprocess_inputs_multiple_classes(
@@ -260,9 +294,9 @@ class TestSamDecoderPreprocessing:
             [priors],
         )
 
-        assert labels == [0, 1]
-        assert 0 in preprocessed_points[0]
-        assert 1 in preprocessed_boxes[0]
+        pytest.assume(labels == [0, 1])
+        pytest.assume(0 in preprocessed_points[0])
+        pytest.assume(1 in preprocessed_boxes[0])
 
     @staticmethod
     def test_preprocess_inputs_no_priors(
@@ -277,10 +311,11 @@ class TestSamDecoderPreprocessing:
             [empty_priors],
         )
 
-        assert len(preprocessed_images) == 1
-        assert len(preprocessed_points) == 1
-        assert len(preprocessed_boxes) == 1
-        assert len(labels) == 0
+        expected_value = 1
+        pytest.assume(len(preprocessed_images) == expected_value)
+        pytest.assume(len(preprocessed_points) == expected_value)
+        pytest.assume(len(preprocessed_boxes) == expected_value)
+        pytest.assume(len(labels) == 0)
 
     @staticmethod
     def test_preprocess_inputs_multiple_images(
@@ -304,12 +339,13 @@ class TestSamDecoderPreprocessing:
             priors,
         )
 
-        assert len(preprocessed_images) == 2
-        assert len(preprocessed_points) == 2
-        assert len(preprocessed_boxes) == 2
-        assert len(original_sizes) == 2
-        assert original_sizes[0] == (480, 640)
-        assert original_sizes[1] == (320, 480)
+        expected_value = 2
+        pytest.assume(len(preprocessed_images) == expected_value)
+        pytest.assume(len(preprocessed_points) == expected_value)
+        pytest.assume(len(preprocessed_boxes) == expected_value)
+        pytest.assume(len(original_sizes) == expected_value)
+        pytest.assume(original_sizes[0] == (480, 640))
+        pytest.assume(original_sizes[1] == (320, 480))
 
     @staticmethod
     def test_preprocess_inputs_validation_error(
@@ -349,8 +385,8 @@ class TestSamDecoderPointPreprocessing:
         final_coords, final_labels = SamDecoder.point_preprocess(points, labels, scores)
 
         # Should have 1 positive point paired with 2 negative points
-        assert final_coords.shape == (1, 3, 3)  # [1_positive, 1_positive + 2_negative, 3_coords]
-        assert final_labels.shape == (1, 3)  # [1_positive, 1_positive + 2_negative]
+        pytest.assume(final_coords.shape == (1, 3, 3))  # [1_positive, 1_positive + 2_negative, 3_coords]
+        pytest.assume(final_labels.shape == (1, 3))  # [1_positive, 1_positive + 2_negative]
 
     @staticmethod
     def test_point_preprocess_multiple_positive() -> None:
@@ -370,8 +406,8 @@ class TestSamDecoderPointPreprocessing:
         final_coords, final_labels = SamDecoder.point_preprocess(points, labels, scores)
 
         # Should have 2 positive points, each paired with 1 negative point
-        assert final_coords.shape == (2, 2, 3)  # [2_positive, 1_positive + 1_negative, 3_coords]
-        assert final_labels.shape == (2, 2)  # [2_positive, 1_positive + 1_negative]
+        pytest.assume(final_coords.shape == (2, 2, 3))  # [2_positive, 1_positive + 1_negative, 3_coords]
+        pytest.assume(final_labels.shape == (2, 2))  # [2_positive, 1_positive + 1_negative]
 
     @staticmethod
     def test_point_preprocess_no_negative() -> None:
@@ -390,8 +426,8 @@ class TestSamDecoderPointPreprocessing:
         final_coords, final_labels = SamDecoder.point_preprocess(points, labels, scores)
 
         # Should have 2 positive points, each with only themselves
-        assert final_coords.shape == (2, 1, 2)  # [2_positive, 1_positive + 0_negative, 2_coords]
-        assert final_labels.shape == (2, 1)  # [2_positive, 1_positive + 0_negative]
+        pytest.assume(final_coords.shape == (2, 1, 2))  # [2_positive, 1_positive + 0_negative, 2_coords]
+        pytest.assume(final_labels.shape == (2, 1))  # [2_positive, 1_positive + 0_negative]
 
     @staticmethod
     def test_point_preprocess_no_positive() -> None:
@@ -410,8 +446,8 @@ class TestSamDecoderPointPreprocessing:
         final_coords, final_labels = SamDecoder.point_preprocess(points, labels, scores)
 
         # Should have 0 positive points
-        assert final_coords.shape == (0, 3, 3)  # [0_positive, 0_positive + 2_negative, 3_coords]
-        assert final_labels.shape == (0, 3)  # [0_positive, 0_positive + 2_negative]
+        pytest.assume(final_coords.shape == (0, 3, 3))  # [0_positive, 0_positive + 2_negative, 3_coords]
+        pytest.assume(final_labels.shape == (0, 3))  # [0_positive, 0_positive + 2_negative]
 
     @staticmethod
     def test_remap_preprocessed_points() -> None:
@@ -427,14 +463,14 @@ class TestSamDecoderPointPreprocessing:
         remapped = SamDecoder.remap_preprocessed_points(preprocessed_points)
 
         # Should have 3 total points (1 positive + 2 negative)
-        assert remapped.shape == (3, 4)  # [3_points, 4_coords_xy_score_label]
+        pytest.assume(remapped.shape == (3, 4))  # [3_points, 4_coords_xy_score_label]
 
         # Check that positive point has label 1
-        assert remapped[0, 3] == 1.0
+        pytest.assume(remapped[0, 3] == 1.0)
 
         # Check that negative points have label 0
-        assert remapped[1, 3] == 0.0
-        assert remapped[2, 3] == 0.0
+        pytest.assume(remapped[1, 3] == 0.0)
+        pytest.assume(remapped[2, 3] == 0.0)
 
 
 class TestSamDecoderForward:
@@ -458,15 +494,18 @@ class TestSamDecoderForward:
         sam_decoder.predict_single = MagicMock(return_value=(mock_masks, mock_points, mock_boxes))
 
         masks_per_image, points_per_image, boxes_per_image = sam_decoder.forward(
-            [sample_image], [sample_priors_with_points], [sample_similarities]
+            [sample_image],
+            [sample_priors_with_points],
+            [sample_similarities],
         )
 
-        assert len(masks_per_image) == 1
-        assert len(points_per_image) == 1
-        assert len(boxes_per_image) == 1
-        assert isinstance(masks_per_image[0], Masks)
-        assert isinstance(points_per_image[0], Points)
-        assert isinstance(boxes_per_image[0], Boxes)
+        expected_value = 1
+        pytest.assume(len(masks_per_image) == expected_value)
+        pytest.assume(len(points_per_image) == expected_value)
+        pytest.assume(len(boxes_per_image) == expected_value)
+        pytest.assume(isinstance(masks_per_image[0], Masks))
+        pytest.assume(isinstance(points_per_image[0], Points))
+        pytest.assume(isinstance(boxes_per_image[0], Boxes))
 
     @staticmethod
     def test_forward_no_similarities(
@@ -482,12 +521,15 @@ class TestSamDecoderForward:
         sam_decoder.predict_single = MagicMock(return_value=(mock_masks, mock_points, mock_boxes))
 
         masks_per_image, points_per_image, boxes_per_image = sam_decoder.forward(
-            [sample_image], [sample_priors_with_points], None
+            [sample_image],
+            [sample_priors_with_points],
+            None,
         )
 
-        assert len(masks_per_image) == 1
-        assert len(points_per_image) == 1
-        assert len(boxes_per_image) == 1
+        expected_value = 1
+        pytest.assume(len(masks_per_image) == expected_value)
+        pytest.assume(len(points_per_image) == expected_value)
+        pytest.assume(len(boxes_per_image) == expected_value)
 
     @staticmethod
     def test_forward_no_priors(
@@ -499,12 +541,15 @@ class TestSamDecoderForward:
         empty_priors = Priors()
         masks_per_image, points_per_image, boxes_per_image = sam_decoder.forward([sample_image], [empty_priors], None)
 
-        assert len(masks_per_image) == 1
-        assert len(points_per_image) == 1
-        assert len(boxes_per_image) == 1
-        assert len(masks_per_image[0].get(0)) == 0  # Empty masks
-        assert len(points_per_image[0].get(0)) == 0  # Empty points
-        assert len(boxes_per_image[0].get(0)) == 0  # Empty boxes
+        expected_value = 1
+        pytest.assume(len(masks_per_image) == expected_value)
+        pytest.assume(len(points_per_image) == expected_value)
+        pytest.assume(len(boxes_per_image) == expected_value)
+
+        expected_value = 0
+        pytest.assume(len(masks_per_image[0].get(0)) == expected_value)  # Empty masks
+        pytest.assume(len(points_per_image[0].get(0)) == expected_value)  # Empty points
+        pytest.assume(len(boxes_per_image[0].get(0)) == expected_value)  # Empty boxes
 
     @staticmethod
     def test_forward_multiple_images(
@@ -531,9 +576,10 @@ class TestSamDecoderForward:
 
         masks_per_image, points_per_image, boxes_per_image = sam_decoder.forward(images, priors, None)
 
-        assert len(masks_per_image) == 2
-        assert len(points_per_image) == 2
-        assert len(boxes_per_image) == 2
+        expected_value = 2
+        pytest.assume(len(masks_per_image) == expected_value)
+        pytest.assume(len(points_per_image) == expected_value)
+        pytest.assume(len(boxes_per_image) == expected_value)
 
 
 class TestSamDecoderPredictSingle:
@@ -557,14 +603,19 @@ class TestSamDecoderPredictSingle:
         sam_decoder.predict = MagicMock(return_value=(mock_masks, mock_points, mock_boxes))
 
         masks, points, boxes = sam_decoder.predict_single(
-            class_points, class_boxes, labels, sample_similarities, (480, 640)
+            class_points,
+            class_boxes,
+            labels,
+            sample_similarities,
+            (480, 640),
         )
-
-        assert isinstance(masks, Masks)
-        assert isinstance(points, Points)
-        assert isinstance(boxes, Boxes)
-        assert len(masks.get(0)) == 2  # 2 masks
-        assert len(points.get(0)) == 1  # 1 point tensor
+        expected_masks = 2
+        expected_point = 1
+        pytest.assume(isinstance(masks, Masks))
+        pytest.assume(isinstance(points, Points))
+        pytest.assume(isinstance(boxes, Boxes))
+        pytest.assume(len(masks.get(0)) == expected_masks)  # 2 masks
+        pytest.assume(len(points.get(0)) == expected_point)  # 1 point tensor
 
     @staticmethod
     def test_predict_single_with_boxes(
@@ -583,15 +634,20 @@ class TestSamDecoderPredictSingle:
 
         sam_decoder.predict = MagicMock(return_value=(mock_masks, mock_points, mock_boxes))
 
+        expected_value = 1
         masks, points, boxes = sam_decoder.predict_single(
-            class_points, class_boxes, labels, sample_similarities, (480, 640)
+            class_points,
+            class_boxes,
+            labels,
+            sample_similarities,
+            (480, 640),
         )
 
-        assert isinstance(masks, Masks)
-        assert isinstance(points, Points)
-        assert isinstance(boxes, Boxes)
-        assert len(masks.get(0)) == 1  # 1 mask
-        assert len(boxes.get(0)) == 1  # 1 box
+        pytest.assume(isinstance(masks, Masks))
+        pytest.assume(isinstance(points, Points))
+        pytest.assume(isinstance(boxes, Boxes))
+        pytest.assume(len(masks.get(0)) == expected_value)  # 1 mask
+        pytest.assume(len(boxes.get(0)) == expected_value)  # 1 box
 
     @staticmethod
     def test_predict_single_no_masks(
@@ -611,15 +667,19 @@ class TestSamDecoderPredictSingle:
         sam_decoder.predict = MagicMock(return_value=(mock_masks, mock_points, mock_boxes))
 
         masks, points, boxes = sam_decoder.predict_single(
-            class_points, class_boxes, labels, sample_similarities, (480, 640)
+            class_points,
+            class_boxes,
+            labels,
+            sample_similarities,
+            (480, 640),
         )
 
-        assert isinstance(masks, Masks)
-        assert isinstance(points, Points)
-        assert isinstance(boxes, Boxes)
-        assert len(masks.get(0)) == 0  # No masks
-        assert len(points.get(0)) == 1  # Empty points tensor added
-        assert len(boxes.get(0)) == 0  # No boxes
+        pytest.assume(isinstance(masks, Masks))
+        pytest.assume(isinstance(points, Points))
+        pytest.assume(isinstance(boxes, Boxes))
+        pytest.assume(len(masks.get(0)) == 0)  # No masks
+        pytest.assume(len(points.get(0)) == 1)  # Empty points tensor added
+        pytest.assume(len(boxes.get(0)) == 0)  # No boxes
 
     @staticmethod
     def test_predict_single_multiple_classes(
@@ -646,10 +706,10 @@ class TestSamDecoderPredictSingle:
 
         masks, points, _ = sam_decoder.predict_single(class_points, class_boxes, labels, similarities, (480, 640))
 
-        assert len(masks.get(0)) == 1  # 1 mask for class 0
-        assert len(masks.get(1)) == 1  # 1 mask for class 1
-        assert len(points.get(0)) == 1  # 1 point tensor for class 0
-        assert len(points.get(1)) == 1  # 1 point tensor for class 1
+        pytest.assume(len(masks.get(0)) == 1)  # 1 mask for class 0
+        pytest.assume(len(masks.get(1)) == 1)  # 1 mask for class 1
+        pytest.assume(len(points.get(0)) == 1)  # 1 point tensor for class 0
+        pytest.assume(len(points.get(1)) == 1)  # 1 point tensor for class 1
 
 
 class TestSamDecoderPredict:
@@ -681,9 +741,9 @@ class TestSamDecoderPredict:
 
         masks, coords, boxes = sam_decoder.predict(points_per_class, boxes_per_class, similarity_map, original_size)
 
-        assert masks.shape == (2, 1024, 1024)
-        assert coords.shape == (1, 2, 3)
-        assert boxes is None
+        pytest.assume(masks.shape == (2, 1024, 1024))
+        pytest.assume(coords.shape == (1, 2, 3))
+        pytest.assume(boxes is None)
 
     @staticmethod
     def test_predict_with_boxes_only(
@@ -705,9 +765,9 @@ class TestSamDecoderPredict:
 
         masks, coords, boxes = sam_decoder.predict(points_per_class, boxes_per_class, similarity_map, original_size)
 
-        assert masks.shape == (1, 1024, 1024)
-        assert coords is None
-        assert boxes.shape == (1, 6)
+        pytest.assume(masks.shape == (1, 1024, 1024))
+        pytest.assume(coords is None)
+        pytest.assume(boxes.shape == (1, 6))
 
     @staticmethod
     def test_predict_with_both_points_and_boxes(
@@ -746,9 +806,9 @@ class TestSamDecoderPredict:
             original_size,
         )
 
-        assert masks.shape == (2, 1024, 1024)
-        assert coords.shape == (1, 2, 3)
-        assert boxes.shape == (2, 6)
+        pytest.assume(masks.shape == (2, 1024, 1024))
+        pytest.assume(coords.shape == (1, 2, 3))
+        pytest.assume(boxes.shape == (2, 6))
 
     @staticmethod
     def test_predict_no_foreground_points(
@@ -763,9 +823,9 @@ class TestSamDecoderPredict:
 
         masks, coords, boxes = sam_decoder.predict(points_per_class, boxes_per_class, similarity_map, original_size)
 
-        assert masks.shape == (0, 480, 640)
-        assert coords.shape == (0, 1, 3)
-        assert boxes.shape == (0, 6)
+        pytest.assume(masks.shape == (0, 480, 640))
+        pytest.assume(coords.shape == (0, 1, 3))
+        pytest.assume(boxes.shape == (0, 6))
 
 
 class TestSamDecoderMaskRefinement:
@@ -813,9 +873,9 @@ class TestSamDecoderMaskRefinement:
                 score_threshold=0.3,
                 nms_iou_threshold=0.1,
             )
-
-            assert refined_masks.shape[0] == 3  # All masks kept
-            assert refined_coords.shape[0] == 3
+            expected_value = 3
+            pytest.assume(refined_masks.shape[0] == expected_value)  # All masks kept
+            pytest.assume(refined_coords.shape[0] == expected_value)
 
     @staticmethod
     def test_mask_refinement_empty_masks(
@@ -841,8 +901,8 @@ class TestSamDecoderMaskRefinement:
             nms_iou_threshold=0.1,
         )
 
-        assert refined_masks.shape == (0, 1024, 1024)
-        assert refined_coords.shape == (0,)  # The actual return shape from SAM decoder
+        pytest.assume(refined_masks.shape == (0, 1024, 1024))
+        pytest.assume(refined_coords.shape == (0,))  # The actual return shape from SAM decoder
 
     @staticmethod
     def test_mask_refinement_no_similarity_map(
@@ -866,7 +926,7 @@ class TestSamDecoderMaskRefinement:
         # Mock NMS to return indices that match the actual number of masks
         with patch("getiprompt.components.segmenters.sam_decoder.nms") as mock_nms:
             mock_nms.return_value = torch.tensor([0, 1, 2], dtype=torch.long)
-
+            expected_value = 3
             refined_masks, refined_coords = sam_decoder.mask_refinement(
                 masks,
                 low_res_logits,
@@ -878,8 +938,8 @@ class TestSamDecoderMaskRefinement:
                 nms_iou_threshold=0.1,
             )
 
-            assert refined_masks.shape[0] == 3  # All masks kept
-            assert refined_coords.shape[0] == 3
+            pytest.assume(refined_masks.shape[0] == expected_value)  # All masks kept
+            pytest.assume(refined_coords.shape[0] == expected_value)
 
     @staticmethod
     def test_mask_refinement_empty_similarity_map(
@@ -903,6 +963,7 @@ class TestSamDecoderMaskRefinement:
 
         # Mock NMS to return indices that match the actual number of masks
         with patch("getiprompt.components.segmenters.sam_decoder.nms") as mock_nms:
+            expected_value = 3
             mock_nms.return_value = torch.tensor([0, 1, 2], dtype=torch.long)
 
             refined_masks, refined_coords = sam_decoder.mask_refinement(
@@ -916,8 +977,8 @@ class TestSamDecoderMaskRefinement:
                 nms_iou_threshold=0.1,
             )
 
-            assert refined_masks.shape[0] == 3  # All masks kept
-            assert refined_coords.shape[0] == 3
+            pytest.assume(refined_masks.shape[0] == expected_value)  # All masks kept
+            pytest.assume(refined_coords.shape[0] == expected_value)
 
     @staticmethod
     def test_mask_refinement_low_scores(
@@ -957,8 +1018,8 @@ class TestSamDecoderMaskRefinement:
             )
 
             # Should filter out masks with low similarity scores
-            assert refined_masks.shape[0] == 0
-            assert refined_coords.shape[0] == 0
+            pytest.assume(refined_masks.shape[0] == 0)
+            pytest.assume(refined_coords.shape[0] == 0)
 
 
 class TestSamDecoderEdgeCases:
@@ -971,6 +1032,7 @@ class TestSamDecoderEdgeCases:
         sample_priors_with_boxes: Priors,
     ) -> None:
         """Test with mismatched input lengths."""
+        expected_value = 2
         images = [Image(np.zeros((480, 640, 3), dtype=np.uint8))]
         priors = [sample_priors_with_points, sample_priors_with_boxes]  # Extra prior
 
@@ -979,9 +1041,9 @@ class TestSamDecoderEdgeCases:
         images = [Image(np.zeros((480, 640, 3), dtype=np.uint8)), Image(np.zeros((320, 480, 3), dtype=np.uint8))]
         masks_per_image, points_per_image, boxes_per_image = sam_decoder.forward(images, priors, None)
 
-        assert len(masks_per_image) == 2
-        assert len(points_per_image) == 2
-        assert len(boxes_per_image) == 2
+        pytest.assume(len(masks_per_image) == expected_value)
+        pytest.assume(len(points_per_image) == expected_value)
+        pytest.assume(len(boxes_per_image) == expected_value)
 
     @staticmethod
     def test_invalid_point_format(

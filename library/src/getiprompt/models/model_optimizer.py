@@ -95,7 +95,7 @@ def optimize_model(
                 compiled_inference_duration = benchmark_inference(model, precision)
                 logger.debug(
                     f"Quantization + Compilation speedup: "
-                    f"{initial_inference_duration / compiled_inference_duration:.2f}x"
+                    f"{initial_inference_duration / compiled_inference_duration:.2f}x",
                 )
         else:
             logger.warning("GPU is not NVIDIA V100, A100, or H100. Compilation will be skipped.")
@@ -152,7 +152,7 @@ def benchmark_inference(
         model_size = torch.cpu.memory_allocated() / 1e6
     logger.debug(
         f"Inference time: {avg_duration:.2f} seconds, FPS: {1 / avg_duration:.2f}, "
-        f"Memory allocated: {model_size:.2f} MB"
+        f"Memory allocated: {model_size:.2f} MB",
     )
     return avg_duration
 
@@ -288,7 +288,8 @@ def _monkey_patch_tinyvit_architecture(predictor: SamPredictor | SamHQPredictor,
         return original_forward(x_input_to_tinyvit, *args_tinyvit, **kwargs_tinyvit)
 
     predictor.model.image_encoder.forward = forward_dtype_wrapper.__get__(
-        predictor.model.image_encoder, predictor.model.image_encoder.__class__
+        predictor.model.image_encoder,
+        predictor.model.image_encoder.__class__,
     )
 
 

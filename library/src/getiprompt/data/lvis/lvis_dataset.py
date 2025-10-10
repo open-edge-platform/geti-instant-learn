@@ -224,7 +224,8 @@ class LVISDataset(Dataset):
         self._annotation_to_image: dict[str, dict[int, int]] = {}  # subset_name: [annotation_id: image_id]
         self._annotation_to_category: dict[str, dict[int, int]] = {}  # subset_name: [annotation_id: category_id]
         self._category_to_annotations: dict[
-            str, dict[int, list[int]]
+            str,
+            dict[int, list[int]],
         ] = {}  # subset_name: [category_id: [annotation_id]]
         self._image_to_annotations: dict[str, dict[int, list[int]]] = {}  # subset_name: [image_id: [annotation_id]]
 

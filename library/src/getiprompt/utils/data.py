@@ -56,7 +56,9 @@ def load_dataset(dataset_name: str, whitelist: list[str] | None = None, batch_si
 
 
 def get_image_and_mask_from_filename(
-    filename: str, dataset: Dataset, category_name: str
+    filename: str,
+    dataset: Dataset,
+    category_name: str,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Get the image and mask from using a base filename and dataset.
 

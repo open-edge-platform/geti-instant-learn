@@ -80,7 +80,7 @@ class SegmentationMetrics(nn.Module):
         for cat_name, confusion in self.confusion.items():
             if confusion.shape != (2, 2):
                 logger.warning(
-                    f"Warning: Confusion matrix for {cat_name} is not 2x2 ({confusion.shape}). Skipping metrics."
+                    f"Warning: Confusion matrix for {cat_name} is not 2x2 ({confusion.shape}). Skipping metrics.",
                 )
                 continue
 

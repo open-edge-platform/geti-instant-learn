@@ -17,14 +17,14 @@ from .utils import (
 )
 
 __all__ = [
+    "MaybeToTensor",
+    "ResizeLongestSide",
+    "calculate_mask_iou",
     "color_overlay",
     "download_file",
     "get_colors",
-    "prepare_target_guided_prompting",
-    "setup_logger",
-    "MaybeToTensor",
     "precision_to_torch_dtype",
-    "ResizeLongestSide",
-    "calculate_mask_iou",
+    "prepare_target_guided_prompting",
     "resize_similarity_map",
+    "setup_logger",
 ]

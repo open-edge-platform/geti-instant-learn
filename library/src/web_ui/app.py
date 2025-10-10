@@ -167,7 +167,7 @@ def run_processing() -> Response:
                     class_name_filter=class_name_filter,
                     prepared_reference_data=prepared_reference_data,
                     batch_size=BATCH_SIZE,
-                )
+                ),
             ),
             mimetype="application/json",
         )
