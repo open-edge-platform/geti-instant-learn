@@ -18,8 +18,6 @@ from settings import get_settings
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
-DEFAULT_PROJECT_NAME = "Project #1"
-
 logger.debug(f"Creating engine using SQLite DB: {settings.database_url}")
 engine = create_engine(url=settings.database_url, connect_args={"check_same_thread": False})
 
