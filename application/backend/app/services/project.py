@@ -141,7 +141,7 @@ class ProjectService:
             project.name = update_data.name
             changed = True
 
-        if project.active != update_data.active:
+        if update_data.active is not None and project.active != update_data.active:
             if update_data.active:
                 logger.debug("Activating project id=%s via update request", project_id)
                 self._activate_project(project)  # handles deactivation of previously active project

@@ -13,7 +13,7 @@ class ProjectCreateSchema(BaseIDPayload):
 
 class ProjectUpdateSchema(BaseModel):
     name: str | None = Field(max_length=80, min_length=1, default=None)
-    active: bool | None = False
+    active: bool | None = None
 
 
 class ProjectSchema(BaseIDSchema):
