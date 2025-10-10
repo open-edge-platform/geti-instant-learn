@@ -9,7 +9,7 @@ import { DisclosureGroup } from '../ui/disclosure-group/disclosure-group.compone
 import { IPCameraForm } from './ip-camera.component';
 import { WebcamSource } from './webcam/webcam-source.component';
 
-const inputs = [
+const sources = [
     { label: 'Webcam', value: 'webcam', content: <WebcamSource />, icon: <WebCam width={'24px'} />, isActive: true },
     {
         label: 'IP Camera',
@@ -29,8 +29,8 @@ const inputs = [
     },
 ];
 
-export const InputConfiguration = () => {
-    const activeInput = inputs.find((input) => input.isActive)?.value ?? null;
+export const SourcesConfiguration = () => {
+    const activeSource = sources.find((input) => input.isActive)?.value ?? null;
 
-    return <DisclosureGroup items={inputs} value={activeInput} />;
+    return <DisclosureGroup items={sources} value={activeSource} />;
 };
