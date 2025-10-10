@@ -3,7 +3,6 @@
 
 """Application configuration management"""
 
-import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -36,7 +35,7 @@ class Settings(BaseSettings):
     port: int = Field(default=9100, alias="PORT")
 
     # Database
-    db_data_dir: Path  = Field(default=Path("data"), alias="DB_DATA_DIR")
+    db_data_dir: Path = Field(default=Path("data"), alias="DB_DATA_DIR")
     db_filename: str = "geti_prompt.db"
 
     @property
