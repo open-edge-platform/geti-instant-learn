@@ -31,9 +31,14 @@ docker-extra-args := registry_build_arg + \
 ###
 # Geti Prompt arguments
 ###
-docker-volume := if env("DOCKER_VOLUME", "") != "" { " -v " + env("DOCKER_VOLUME") + ":/geti_prompt/data" } else { "" }
-geti-prompt-port := env("GETI_PROMPT_PORT")
-user-port := env("USER_PORT", geti-prompt-port)
+container-port := env("CONTAINER_PORT")
+host-port := env("HOST_PORT", container-port)
+workdir-path := env("WORKDIR_PATH")
+asset-prefix := env("ASSET_PREFIX")
+data-dir := "/data"
+docker-volume := if env("DOCKER_VOLUME", "") != "" { " -v " + env("DOCKER_VOLUME") + ":" + workdir-path + data-dir } else { "" }
+static-files-dir := workdir-path + asset-prefix
+db-data-dir := workdir-path + data-dir
 
 ###
 # Justfile targets
@@ -43,7 +48,11 @@ build-image:
     docker build \
         {{docker-extra-args}} \
         {{docker-build-context}} \
-        --build-arg PUBLIC_API_URL=http://localhost:{{geti-prompt-port}} \
+        --build-arg PUBLIC_API_URL=http://localhost:{{container-port}} \
+        --build-arg STATIC_FILES_DIR={{static-files-dir}} \
+        --build-arg DB_DATA_DIR={{db-data-dir}} \
+        --build-arg ASSET_PREFIX={{asset-prefix}} \
+        --build-arg WORKDIR_PATH={{workdir-path}} \
         --label "org.opencontainers.image.description={{DOCKER_IMAGE_DESCRIPTION}}" \
         -t "{{images-registry}}/{{COMPONENT_NAME}}:{{TAG}}" \
         -f docker/Dockerfile .
@@ -51,8 +60,8 @@ build-image:
 run-image: build-image
     echo "Running docker image for component: {{COMPONENT_NAME}}"
     docker run -it --rm \
-        -p {{user-port}}:{{geti-prompt-port}} \
-        -e PORT={{geti-prompt-port}} \
+        --publish {{host-port}}:{{container-port}} \
+        --env PORT={{container-port}} \
         {{docker-volume}} \
         --name "{{COMPONENT_NAME}}-{{TAG}}" \
         "{{images-registry}}/{{COMPONENT_NAME}}:{{TAG}}"

@@ -10,7 +10,8 @@ COPY --from=ghcr.io/astral-sh/uv:0.7.13 /uv /bin/uv
 FROM base AS backend_base
 
 # Set working directory
-WORKDIR /geti_prompt
+ARG WORKDIR_PATH=""
+WORKDIR ${WORKDIR_PATH}
 
 ENV PYTHONPATH=/app
 
@@ -34,7 +35,7 @@ RUN npm run clone-geti-ui-packages
 #############
 # web_ui deps
 #############
-FROM node:24.2-bookworm-slim@sha256:b30c143a092c7dced8e17ad67a8783c03234d4844ee84c39090c9780491aaf89 AS ui_base
+FROM node:24-alpine3.22@sha256:3e843c608bb5232f39ecb2b25e41214b958b0795914707374c8acc28487dea17 AS ui_base
 
 WORKDIR /home/app/web_ui/
 
@@ -55,7 +56,8 @@ ENV PUBLIC_API_URL=${PUBLIC_API_URL}
 #############
 FROM ui_base AS web_ui
 
-ENV ASSET_PREFIX=/html
+ARG ASSET_PREFIX=""
+ENV ASSET_PREFIX=${ASSET_PREFIX}
 RUN npm run build
 
 #############
@@ -63,12 +65,13 @@ RUN npm run build
 #############
 FROM backend_base AS geti-prompt
 
-# /app is the working directory
-ENV STATIC_FILES_DIR=/geti_prompt/html
-ENV DB_DATA_DIR=/geti_prompt/data
+ARG STATIC_FILES_DIR=""
+ENV STATIC_FILES_DIR=${STATIC_FILES_DIR}
+ARG DB_DATA_DIR=""
+ENV DB_DATA_DIR=${DB_DATA_DIR}
 
-VOLUME $DB_DATA_DIR
+VOLUME ${DB_DATA_DIR}
 
-COPY --from=web_ui /home/app/web_ui/dist/ $STATIC_FILES_DIR
+COPY --from=web_ui /home/app/web_ui/dist/ ${STATIC_FILES_DIR}
 
 CMD ["uv", "run", "app/main.py"]
