@@ -6,6 +6,7 @@
 from .transforms import ResizeLongestSide
 from .utils import (
     MaybeToTensor,
+    calculate_mask_iou,
     color_overlay,
     download_file,
     get_colors,
@@ -23,4 +24,5 @@ __all__ = [
     "MaybeToTensor",
     "precision_to_torch_dtype",
     "ResizeLongestSide",
+    "calculate_mask_iou",
 ]

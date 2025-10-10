@@ -14,7 +14,7 @@ import numpy as np
 import requests
 import torch
 
-from getiprompt.datasets.dataset_iterators import DatasetIter
+from getiprompt.data.dataset_iterators import DatasetIter
 
 
 class Image:

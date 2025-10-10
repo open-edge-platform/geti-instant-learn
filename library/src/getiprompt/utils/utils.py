@@ -492,15 +492,6 @@ def calculate_mask_iou(
     Returns:
         IoU between the two masks and the intersection
     """
-    """Calculate the IoU between two masks.
-
-    Args:
-        mask1: First mask
-        mask2: Second mask
-
-    Returns:
-        IoU between the two masks and the intersection
-    """
     assert mask1.dim() == 2
     assert mask2.dim() == 2
     # Avoid division by zero

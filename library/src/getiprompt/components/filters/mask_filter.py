@@ -7,7 +7,7 @@ import torch
 from torch import nn
 
 from getiprompt.types import Masks, Points
-from getiprompt.utils.utils import calculate_mask_iou
+from getiprompt.utils import calculate_mask_iou
 
 
 class ClassOverlapMaskFilter(nn.Module):

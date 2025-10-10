@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
-
 from getiprompt.filters import MultiInstancePriorFilter
+
 from getiprompt.types import Boxes, Priors
 
 

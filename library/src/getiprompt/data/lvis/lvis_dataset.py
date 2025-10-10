@@ -15,8 +15,8 @@ import pycocotools.mask as mask_utils
 import requests
 from PIL import Image as PILImage
 
-from getiprompt.datasets.dataset_base import Dataset, DatasetIter, Image
-from getiprompt.datasets.dataset_iterators import IndexIter
+from getiprompt.data.base import Dataset, DatasetIter, Image
+from getiprompt.data.dataset_iterators import IndexIter
 
 logger = getLogger("Geti Prompt")
 

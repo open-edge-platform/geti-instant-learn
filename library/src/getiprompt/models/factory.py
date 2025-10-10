@@ -14,12 +14,12 @@ from getiprompt.utils.constants import ModelName, SAMModelName
 if TYPE_CHECKING:
     from argparse import Namespace
 
-    from getiprompt.models.base import BaseModel
+    from getiprompt.models.base import Model
 
 logger = logging.getLogger("Geti Prompt")
 
 
-def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> BaseModel:
+def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Model:
     """Instantiate and return the requested model.
 
     Args:

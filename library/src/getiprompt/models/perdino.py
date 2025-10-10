@@ -5,15 +5,12 @@
 
 from typing import TYPE_CHECKING
 
+from getiprompt.components import CosineSimilarity, MaskAdder, MasksToPolygons, SamDecoder
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_selectors import AverageFeatures, FeatureSelector
-from getiprompt.components.mask_processors import MasksToPolygons
+from getiprompt.components.filters import ClassOverlapMaskFilter, MaxPointFilter
 from getiprompt.components.prompt_generators import GridPromptGenerator
-from getiprompt.components.segmenters import SamDecoder
-from getiprompt.components.similarity_matchers import CosineSimilarity, SimilarityMatcher
-from getiprompt.filters import ClassOverlapMaskFilter, MaskAdder, MaxPointFilter
-from getiprompt.foundation import load_sam_model
-from getiprompt.models.base import BaseModel
+from getiprompt.models import Model, load_sam_model
 from getiprompt.types import Image, Priors, Results
 from getiprompt.utils.constants import SAMModelName
 from getiprompt.utils.decorators import track_duration
@@ -22,7 +19,7 @@ if TYPE_CHECKING:
     from getiprompt.components.prompt_generators.base import PromptGenerator
 
 
-class PerDino(BaseModel):
+class PerDino(Model):
     """This is the PerDino algorithm model.
 
     It matches reference objects to target images by comparing their features extracted by Dino
@@ -103,7 +100,7 @@ class PerDino(BaseModel):
             benchmark_inference_speed=benchmark_inference_speed,
         )
         self.feature_selector: FeatureSelector = AverageFeatures()
-        self.similarity_matcher: SimilarityMatcher = CosineSimilarity()
+        self.similarity_matcher = CosineSimilarity()
         self.prompt_generator: PromptGenerator = GridPromptGenerator(
             num_grid_cells=num_grid_cells,
             similarity_threshold=similarity_threshold,

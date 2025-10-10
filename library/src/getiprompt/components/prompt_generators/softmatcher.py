@@ -8,7 +8,7 @@ from logging import getLogger
 import torch
 from torch.nn import functional as F
 
-from getiprompt.components.prompt_generators.bidirectional import BidirectionalPromptGenerator
+from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.types import Features, Masks, Priors, Similarities
 from getiprompt.types.image import Image
 

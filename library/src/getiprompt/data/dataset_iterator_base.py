@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, NoReturn
 if TYPE_CHECKING:
     import numpy as np
 
-    from getiprompt.datasets import Dataset
+    from getiprompt.data import Dataset
 
 
 class DatasetIter(Sized, Iterable):

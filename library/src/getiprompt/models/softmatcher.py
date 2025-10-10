@@ -5,12 +5,12 @@
 
 from typing import TYPE_CHECKING
 
-from getiprompt.components.prompt_generators.softmatcher import SoftmatcherPromptGenerator
+from getiprompt.components.prompt_generators import SoftmatcherPromptGenerator
 from getiprompt.models import Matcher
 from getiprompt.utils.constants import SAMModelName
 
 if TYPE_CHECKING:
-    from getiprompt.components.prompt_generators.base import PromptGenerator
+    from getiprompt.components.prompt_generators import PromptGenerator
 
 
 class SoftMatcher(Matcher):

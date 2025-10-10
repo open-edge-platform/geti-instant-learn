@@ -10,7 +10,7 @@ import pytest
 import torch
 from segment_anything_hq.predictor import SamPredictor as SamHQPredictor
 
-from getiprompt.components.segmenters.sam_decoder import SamDecoder
+from getiprompt.components.mask_decoder import SamDecoder
 from getiprompt.types import Boxes, Image, Masks, Points, Priors, Similarities
 
 

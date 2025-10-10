@@ -8,14 +8,14 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING
 
-from getiprompt.datasets.dataset_iterator_base import DatasetIter
+from getiprompt.data.dataset_iterator_base import DatasetIter
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
     import numpy as np
 
-    from getiprompt.datasets import Dataset
+    from getiprompt.data import Dataset
 
 
 class IndexIter(DatasetIter):

@@ -3,18 +3,16 @@
 
 """This model uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
 
-from getiprompt.components.mask_processors import MasksToPolygons
-from getiprompt.components.prompt_generators import GroundedObjectDetector, GroundingModel
-from getiprompt.components.segmenters import SamDecoder
-from getiprompt.filters import MultiInstancePriorFilter
-from getiprompt.foundation import load_sam_model
-from getiprompt.models.base import BaseModel
+from getiprompt.components import MasksToPolygons, SamDecoder
+from getiprompt.components.filters import MultiInstancePriorFilter
+from getiprompt.components.prompt_generators import GroundingModel, TextToBoxPromptGenerator
+from getiprompt.models import Model, load_sam_model
 from getiprompt.types import Image, Priors, Results, Text
 from getiprompt.utils.constants import SAMModelName
 from getiprompt.utils.decorators import track_duration
 
 
-class GroundedSAM(BaseModel):
+class GroundedSAM(Model):
     """This model uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
 
     def __init__(
@@ -50,12 +48,12 @@ class GroundedSAM(BaseModel):
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
         )
-        self.prompt_generator: GroundedObjectDetector = GroundedObjectDetector(
+        self.prompt_generator: TextToBoxPromptGenerator = TextToBoxPromptGenerator(
             device=device,
             box_threshold=box_threshold,
             text_threshold=text_threshold,
-            template=GroundedObjectDetector.Template.specific_object,
-            grounding_model=grounding_model,
+            template=TextToBoxPromptGenerator.Template.specific_object,
+            model_id=grounding_model,
             precision=precision,
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,

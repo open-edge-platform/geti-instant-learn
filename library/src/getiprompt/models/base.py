@@ -14,7 +14,7 @@ from getiprompt.types import Image, Priors, Results
 logger = getLogger("Geti Prompt")
 
 
-class BaseModel(nn.Module):
+class Model(nn.Module):
     """This class is the base class for all models.
 
     Examples:

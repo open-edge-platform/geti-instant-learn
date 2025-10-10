@@ -9,7 +9,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from getiprompt.components.visualizations.visualization_base import Visualization
+from getiprompt.visualize.base import Visualization
 from getiprompt.types import Annotations, Boxes, Image, Masks, Points
 from getiprompt.utils import get_colors
 

@@ -9,7 +9,7 @@ import torch
 from skimage.draw import random_shapes
 
 from getiprompt.models.dinotxt import DinoTxtZeroShotClassification
-from getiprompt.types import Priors, Results, Image
+from getiprompt.types import Image, Priors, Results
 
 
 @pytest.fixture

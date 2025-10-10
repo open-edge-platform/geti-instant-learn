@@ -3,7 +3,7 @@
 
 """Datasets."""
 
-from .dataset_base import Dataset
+from .base import Dataset
 from .dataset_iterator_base import DatasetIter
 from .dataset_iterators import (
     BatchedCategoryIter,

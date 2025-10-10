@@ -9,8 +9,8 @@ import numpy as np
 import torch
 from transformers import AutoModelForZeroShotObjectDetection, AutoProcessor
 
-from getiprompt.components.prompt_generators.base import PromptGenerator
-from getiprompt.foundation.model_optimizer import optimize_model
+from getiprompt.components.prompt_generators import PromptGenerator
+from getiprompt.models import optimize_model
 from getiprompt.types import Boxes, Image, Priors, Text
 from getiprompt.utils import precision_to_torch_dtype
 
@@ -25,11 +25,8 @@ class GroundingModel(Enum):
     LLMDET_LARGE = "fushh7/llmdet_swin_large_hf"
 
 
-class GroundedObjectDetector(PromptGenerator):
-    """This class generates prompts for the segmenter.
-
-    This class uses a zero-shot object detector from HuggingFace to produce bounding box priors.
-    """
+class TextToBoxPromptGenerator(PromptGenerator):
+    """This class generates text-to-box prompts for the segmenter."""
 
     class Template:
         """Template for object prompts."""
@@ -43,29 +40,35 @@ class GroundedObjectDetector(PromptGenerator):
         box_threshold: float,
         text_threshold: float,
         template: str,
-        grounding_model: GroundingModel = GroundingModel.LLMDET_TINY,
+        model_id: GroundingModel = GroundingModel.LLMDET_TINY,
         device: str = "cuda",
         precision: str = "bf16",
         compile_models: bool = False,
         benchmark_inference_speed: bool = False,
     ) -> None:
-        """Initialize the GroundedObjectDetector.
+        """Initialize the GroundingBoxGenerator.
+
+        Get bounding box prompts from a grounding model.
 
         Args:
             box_threshold: The box threshold.
             text_threshold: The text threshold.
             template: The template to use for the prompt
-            grounding_model: The grounding model to use.
+            model_id: The grounding model to use.
             device: The device to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
             benchmark_inference_speed: Whether to benchmark the inference speed.
         """
         super().__init__()
-        self.model_id = grounding_model.value
+        self.model_id = model_id.value
         self.device = device
         self.model, self.processor = self._load_grounding_model_and_processor(
-            self.model_id, precision, device, compile_models, benchmark_inference_speed
+            self.model_id,
+            precision,
+            device,
+            compile_models,
+            benchmark_inference_speed,
         )
         self.box_threshold = box_threshold
         self.text_threshold = text_threshold
@@ -149,7 +152,7 @@ class GroundedObjectDetector(PromptGenerator):
         processor = AutoProcessor.from_pretrained(model_id)
         if model_id.startswith("fushh7/llmdet_swin"):
             # LLMDET has a slightly different interface, use lazy import for efficiency
-            from getiprompt.foundation.grounding_dino import GroundingDinoForObjectDetection
+            from getiprompt.models.foundation import GroundingDinoForObjectDetection
 
             model = GroundingDinoForObjectDetection.from_pretrained(
                 model_id, torch_dtype=precision_to_torch_dtype(precision)

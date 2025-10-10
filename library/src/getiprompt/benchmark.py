@@ -20,7 +20,7 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeEl
 
 from getiprompt.components.metrics import SegmentationMetrics
 from getiprompt.components.visualizations import ExportMaskVisualization
-from getiprompt.datasets import BatchedSingleCategoryIter, Dataset
+from getiprompt.data import BatchedSingleCategoryIter, Dataset
 from getiprompt.models import BaseModel, load_model
 from getiprompt.types import Image, Masks, Priors, Text
 from getiprompt.utils import setup_logger
