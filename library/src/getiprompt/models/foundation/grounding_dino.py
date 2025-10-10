@@ -113,14 +113,14 @@ class MultiScaleDeformableAttentionFunction(Function):
 
     @staticmethod
     def forward(
-        context,
-        value,
-        value_spatial_shapes,
-        value_level_start_index,
-        sampling_locations,
-        attention_weights,
-        im2col_step,
-    ):
+        context: Any,
+        value: torch.Tensor,
+        value_spatial_shapes: torch.Tensor,
+        value_level_start_index: torch.Tensor,
+        sampling_locations: torch.Tensor,
+        attention_weights: torch.Tensor,
+        im2col_step: int,
+    ) -> torch.Tensor:
         """Forward Function."""
         context.im2col_step = im2col_step
         output = MultiScaleDeformableAttention.ms_deform_attn_forward(
@@ -138,7 +138,10 @@ class MultiScaleDeformableAttentionFunction(Function):
 
     @staticmethod
     @once_differentiable
-    def backward(context, grad_output):
+    def backward(
+        context: Any, 
+        grad_output: torch.Tensor,
+    ) -> tuple[torch.Tensor, None, None, torch.Tensor, torch.Tensor, None]:
         """Backward Function."""
         (
             value,
