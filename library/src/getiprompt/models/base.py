@@ -22,7 +22,7 @@ class Model(nn.Module):
         >>> from getiprompt.models import Model
         >>> from getiprompt.types import Image, Priors, Results
         >>>
-        >>> class MyModel(BaseModel):
+        >>> class MyModel(Model):
         ...     def learn(self, reference_images: list[Image], reference_priors: list[Priors]) -> Results:
         ...         self.resize_masks(reference_priors)
         ...         return Results()

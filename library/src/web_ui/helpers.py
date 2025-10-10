@@ -19,9 +19,9 @@ import numpy as np
 import torch
 
 from getiprompt.data.base import Dataset
-from getiprompt.models import BaseModel, load_model
+from getiprompt.models import Model, load_model
 from getiprompt.types import Image, Masks, Points, Priors, Similarities
-from getiprompt.utils.constants import PipelineName, SAMModelName
+from getiprompt.utils.constants import ModelName, SAMModelName
 from getiprompt.utils.data import load_dataset
 
 logger = logging.getLogger(__name__)
@@ -241,8 +241,8 @@ def reload_model_if_needed(
     reload_needed: bool,
     requested_values: dict[str, Any],
     current_args: argparse.Namespace,
-    current_pipeline_instance: BaseModel,
-) -> tuple[BaseModel, str, argparse.Namespace]:
+    current_pipeline_instance: Model,
+) -> tuple[Model, str, argparse.Namespace]:
     """Reloads the pipeline if necessary based on changed critical parameters."""
     model_instance = current_pipeline_instance
     model_name = current_args.model
@@ -264,7 +264,7 @@ def reload_model_if_needed(
             target_model_name = requested_values.get("model", model_name)
             model_instance = load_model(
                 sam=SAMModelName(current_args.sam),
-                model_name=PipelineName(target_model_name),
+                model_name=ModelName(target_model_name),
                 args=current_args,
             )
             model_name = target_model_name
@@ -350,7 +350,7 @@ def _normalize_mask(mask_np: np.ndarray, target_shape: tuple[int, int]) -> np.nd
 
 
 def process_inference_chunk(
-    pipeline: BaseModel,
+    pipeline: Model,
     full_dataset: Dataset,
     chunk_indices: list[int],
     class_name_filter: str,
@@ -436,7 +436,7 @@ def process_inference_chunk(
 
 
 def stream_inference(
-    pipeline: BaseModel,
+    pipeline: Model,
     full_dataset: Dataset,
     target_indices: list[int],
     class_name_filter: str,

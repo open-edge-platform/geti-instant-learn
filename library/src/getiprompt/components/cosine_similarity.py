@@ -3,64 +3,96 @@
 
 """Cosine similarity matcher."""
 
-import torch.nn.functional as F
 from torch import nn
 
-from getiprompt.types import Features, Similarities
-from getiprompt.utils.similarity_resize import resize_similarity_map
+from getiprompt.types import Features, Image, Similarities
+from getiprompt.utils import resize_similarity_map
 
 
 class CosineSimilarity(nn.Module):
-    """Compute cosine similarity between reference and target features.
+    """This class computes the cosine similarity.
 
-    This class calculates cosine similarity scores between reference features
-    and target features, then resizes the similarity maps to match the target image size.
+    Examples:
+        >>> from getiprompt.processes.similarity_matchers import CosineSimilarity
+        >>> from getiprompt.types import Features, Image, Similarities
+        >>> import torch
+        >>> import numpy as np
+        >>>
+        >>> similarity_matcher = CosineSimilarity()
+        >>> ref_features = Features()
+        >>> ref_features.local_features = {1: [torch.randn(1, 256)]}
+        >>> target_features = Features(global_features=torch.randn(64, 64, 256))
+        >>> target_image = Image(np.zeros((1024, 1024, 3), dtype=np.uint8))
+        >>>
+        >>> similarities = similarity_matcher(
+        ...     reference_features=[ref_features],
+        ...     target_features=[target_features],
+        ...     target_images=[target_image],
+        ... )
+        >>>
+        >>> isinstance(similarities[0], Similarities) and similarities[0]._data[1].shape == (1, 1024, 1024)
+        True
     """
 
     def __init__(self) -> None:
-        """Initialize the cosine similarity matcher."""
         super().__init__()
 
-    def __call__(
+    def forward(
         self,
         reference_features: list[Features],
         target_features: list[Features],
-        target_size: tuple[int, int],
-        unpadded_image_size: tuple[int, int] | None = None,
+        target_images: list[Image] | None = None,
     ) -> list[Similarities]:
-        """Compute cosine similarities between reference and target features.
+        """This function computes the cosine similarity between the reference features and the target features.
+
+        This similarity matcher expects the features of multiple reference images
+        to be reduced (averaged/clustered) into a single Features object.
 
         Args:
-            reference_features: List of reference features.
-            target_features: List of target features.
-            target_size: Target image size as (height, width).
-            unpadded_image_size: Original image size before padding as (height, width).
+            reference_features: List[Features] List of reference features, one per prior image instance
+            target_features: List[Features] List of target features, one per target image instance
+            target_images: List[Image] List of target images
 
         Returns:
-            List of similarity maps for each target image.
+            List[Similarities] List of similarities, one per target image instance which are resized to
+              the original image size
         """
-        all_similarities = []
+        reference_features = reference_features[0]
+        per_image_similarities: list[Similarities] = []
+        for i, target in enumerate(target_features):
+            normalized_target = target.global_features / target.global_features.norm(
+                dim=-1,
+                keepdim=True,
+            )
 
-        for target_feat in target_features:
-            similarities_per_target = []
-
-            for ref_feat in reference_features:
-                # Compute cosine similarity
-                similarities = F.cosine_similarity(
-                    ref_feat.global_features,
-                    target_feat.global_features,
-                    dim=-1,
+            # reshape from (encoder_shape, encoder_shape, embed_dim)
+            # to (encoder_shape*encoder_shape, embed_dim) if necessary
+            if normalized_target.dim() == 3:
+                normalized_target = normalized_target.reshape(
+                    normalized_target.shape[0] * normalized_target.shape[1],
+                    normalized_target.shape[2],
                 )
+            # compute cosine similarity of (1,1,embed_dim) and (encoder_shape*encoder_shape, embed_dim)
+            all_similarities = Similarities()
+            for (
+                class_id,
+                local_reference_features_per_mask,
+            ) in reference_features.local_features.items():
+                # Need to loop since number of reference features can differ per input mask.
+                for local_reference_features in local_reference_features_per_mask:
+                    similarities = local_reference_features @ normalized_target.T
+                    similarities = resize_similarity_map(
+                        similarities=similarities,
+                        # scaling to 1024 can speed up prompt generation, however we can also resize the images at
+                        #   the start of the model
+                        target_size=target_images[i].size,
+                        unpadded_image_size=target_images[i].sam_preprocessed_size,
+                    )
 
-                # Resize similarity map
-                similarities = resize_similarity_map(
-                    similarities,
-                    target_size=target_size,
-                    unpadded_image_size=unpadded_image_size,
-                )
+                    all_similarities.add(
+                        similarities=similarities,
+                        class_id=class_id,
+                    )
 
-                similarities_per_target.append(similarities)
-
-            all_similarities.append(Similarities(similarities=similarities_per_target))
-
-        return all_similarities
+            per_image_similarities.append(all_similarities)
+        return per_image_similarities

@@ -19,18 +19,18 @@ import numpy as np
 from PIL import Image as PILImage
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 
-from getiprompt.components.visualizations import ExportMaskVisualization
-from getiprompt.models import BaseModel, Matcher
+from getiprompt.models import Matcher, Model
 from getiprompt.types import Image, Priors, Text
 from getiprompt.utils.constants import IMAGE_EXTENSIONS
 from getiprompt.utils.utils import setup_logger
+from getiprompt.visualize import ExportMaskVisualization
 
 logger = getLogger("Geti Prompt")
 setup_logger()
 
 
 def run_model(
-    model: BaseModel,
+    model: Model,
     target_images: str,
     reference_images: str | None = None,
     reference_prompts: str | None = None,

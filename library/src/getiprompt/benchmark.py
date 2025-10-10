@@ -19,14 +19,14 @@ import pandas as pd
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 
 from getiprompt.components.metrics import SegmentationMetrics
-from getiprompt.components.visualizations import ExportMaskVisualization
 from getiprompt.data import BatchedSingleCategoryIter, Dataset
-from getiprompt.models import BaseModel, load_model
+from getiprompt.models import Model, load_model
 from getiprompt.types import Image, Masks, Priors, Text
 from getiprompt.utils import setup_logger
 from getiprompt.utils.args import get_arguments, parse_experiment_args
 from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
 from getiprompt.utils.data import get_filename_categories, get_image_and_mask_from_filename, load_dataset
+from getiprompt.visualize import ExportMaskVisualization
 
 logger = getLogger("Geti Prompt")
 
@@ -104,7 +104,7 @@ def save_priors(prior_images: list[Image], prior_masks: list[Masks], output_path
 
 def infer_all_batches(
     batches: BatchedSingleCategoryIter,
-    model: BaseModel,
+    model: Model,
     category_name: str,
     priors_batch_index: int,
     visualizer: ExportMaskVisualization,
@@ -210,7 +210,7 @@ def infer_all_batches(
 def infer_all_images(
     filenames: list[str],
     dataset: Dataset,
-    model: BaseModel,
+    model: Model,
     category_name: str,
     priors_batch_index: int,
     visualizer: ExportMaskVisualization,
@@ -310,7 +310,7 @@ def infer_all_images(
 
 def predict_on_dataset(  # noqa: C901
     args: argparse.Namespace,
-    model: BaseModel,
+    model: Model,
     priors_dataset: Dataset,
     dataset: Dataset,
     unique_output: Path,

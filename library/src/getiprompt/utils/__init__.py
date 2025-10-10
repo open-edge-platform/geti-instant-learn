@@ -3,6 +3,7 @@
 
 """Utils."""
 
+from .similarity_resize import resize_similarity_map
 from .transforms import ResizeLongestSide
 from .utils import (
     MaybeToTensor,
@@ -25,4 +26,5 @@ __all__ = [
     "precision_to_torch_dtype",
     "ResizeLongestSide",
     "calculate_mask_iou",
+    "resize_similarity_map",
 ]

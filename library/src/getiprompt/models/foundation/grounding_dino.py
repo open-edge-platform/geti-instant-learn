@@ -139,7 +139,7 @@ class MultiScaleDeformableAttentionFunction(Function):
     @staticmethod
     @once_differentiable
     def backward(
-        context: Any, 
+        context: Any,
         grad_output: torch.Tensor,
     ) -> tuple[torch.Tensor, None, None, torch.Tensor, torch.Tensor, None]:
         """Backward Function."""

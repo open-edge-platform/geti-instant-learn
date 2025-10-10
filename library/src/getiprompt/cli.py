@@ -13,7 +13,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 from jsonargparse import ActionConfigFile, ArgumentParser, Namespace
 
 from getiprompt.benchmark import perform_benchmark_experiment
-from getiprompt.models.base import BaseModel
+from getiprompt.models import Model
 from getiprompt.run import run_model
 from getiprompt.utils.args import populate_benchmark_parser
 from getiprompt.utils.utils import setup_logger
@@ -39,7 +39,7 @@ class GetiPromptCLI:
         if "--reference_text_prompt" in sys.argv or "--text" in sys.argv:
             default_model = "GroundedSAM"
 
-        parser.add_subclass_arguments(BaseModel, "model", default=default_model)
+        parser.add_subclass_arguments(Model, "model", default=default_model)
         parser.add_argument(
             "--reference_images", "--ref", type=str, default=None, help="Directory with reference images."
         )
