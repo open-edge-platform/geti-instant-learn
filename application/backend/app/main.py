@@ -65,7 +65,7 @@ if (
     and os.path.isdir(settings.static_files_dir)
     and next(os.scandir(settings.static_files_dir), None) is not None
 ):
-    app.mount("/html", StaticFiles(directory=settings.static_files_dir), name="static")
+    app.mount(os.getenv("ASSET_PREFIX", "/html"), StaticFiles(directory=settings.static_files_dir), name="static")
 
     @app.get("/", include_in_schema=False)
     @app.get("/{full_path:path}", include_in_schema=False)
