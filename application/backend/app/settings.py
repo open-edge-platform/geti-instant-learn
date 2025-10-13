@@ -35,9 +35,8 @@ class Settings(BaseSettings):
     port: int = Field(default=9100, alias="PORT")
 
     # Database
-    db_data: Path = Path("data")
-    db_data.mkdir(parents=True, exist_ok=True)
-    db_data_dir: Path = Field(default=db_data, alias="DB_DATA_DIR")
+    current_dir: Path = Path(__file__).parent.resolve()
+    db_data_dir: Path = Field(default=current_dir / "data", alias="DB_DATA_DIR")
     db_filename: str = "geti_prompt.db"
 
     @property
@@ -48,7 +47,6 @@ class Settings(BaseSettings):
     db_echo: bool = Field(default=False, alias="DB_ECHO")
 
     # Alembic
-    current_dir: Path = Path(__file__).parent.resolve()
     alembic_config_path: str = str(current_dir / "alembic.ini")
     alembic_script_location: str = str(current_dir / "alembic")
 
