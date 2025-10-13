@@ -11,7 +11,7 @@ import { clsx } from 'clsx';
 import styles from './disclosure-group.module.scss';
 
 interface DisclosureGroupProps<Value extends string> {
-    value: Value | null;
+    value: Value | null | undefined;
     onChange?: (value: Value) => void;
     items: { value: Value; label: string; icon: ReactNode; content?: ReactNode }[];
 }
@@ -19,7 +19,7 @@ interface DisclosureGroupProps<Value extends string> {
 interface DisclosureItemProps<Value extends string> {
     item: { value: Value; label: string; icon: ReactNode; content?: ReactNode };
     onChange?: (value: Value) => void;
-    value: Value | null;
+    value: Value | null | undefined;
 }
 
 const DisclosureItem = <Value extends string>({ item, value, onChange }: DisclosureItemProps<Value>) => {

@@ -6,12 +6,12 @@
 import { InputOutput } from '@geti-prompt/icons';
 import { Button, Content, Dialog, DialogTrigger, Flex, Item, TabList, TabPanels, Tabs, Text } from '@geti/ui';
 
-import { InputConfiguration } from './input-configuration/input-configuration.component';
+import { SourcesConfiguration } from './sources-configuration/sources-configuration.component';
 
 const ITEMS = [
     {
         label: 'Input Setup',
-        content: <InputConfiguration />,
+        content: <SourcesConfiguration />,
     },
 ];
 
@@ -28,7 +28,7 @@ const InputOutputTabs = () => {
     );
 };
 
-export const InputOutputConfiguration = () => {
+export const SourcesSinksConfiguration = () => {
     return (
         <DialogTrigger type={'popover'} hideArrow placement={'bottom right'}>
             <Button variant={'secondary'} style={'fill'}>
