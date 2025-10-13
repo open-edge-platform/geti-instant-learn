@@ -52,7 +52,9 @@ class TwoWayTransformer(nn.Module):
             )
 
         self.final_attn_token_to_image = Attention(
-            embedding_dim, num_heads, downsample_rate=attention_downsample_rate,
+            embedding_dim,
+            num_heads,
+            downsample_rate=attention_downsample_rate,
         )
         self.norm_final_attn = nn.LayerNorm(embedding_dim)
 
@@ -137,7 +139,9 @@ class TwoWayAttentionBlock(nn.Module):
         self.norm1 = nn.LayerNorm(embedding_dim)
 
         self.cross_attn_token_to_image = Attention(
-            embedding_dim, num_heads, downsample_rate=attention_downsample_rate,
+            embedding_dim,
+            num_heads,
+            downsample_rate=attention_downsample_rate,
         )
         self.norm2 = nn.LayerNorm(embedding_dim)
 
@@ -146,13 +150,20 @@ class TwoWayAttentionBlock(nn.Module):
 
         self.norm4 = nn.LayerNorm(embedding_dim)
         self.cross_attn_image_to_token = Attention(
-            embedding_dim, num_heads, downsample_rate=attention_downsample_rate,
+            embedding_dim,
+            num_heads,
+            downsample_rate=attention_downsample_rate,
         )
 
         self.skip_first_layer_pe = skip_first_layer_pe
 
     def forward(
-        self, queries: Tensor, keys: Tensor, query_pe: Tensor, key_pe: Tensor, attn_sim: Tensor,
+        self,
+        queries: Tensor,
+        keys: Tensor,
+        query_pe: Tensor,
+        key_pe: Tensor,
+        attn_sim: Tensor,
     ) -> tuple[Tensor, Tensor]:
         # Self attention block
         if self.skip_first_layer_pe:

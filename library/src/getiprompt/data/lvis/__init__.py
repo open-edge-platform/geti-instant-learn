@@ -3,6 +3,6 @@
 
 """LVIS dataset."""
 
-from .lvis_dataset import LVISAnnotation, LVISDataset, LVISImage
+from .dataset import LVISAnnotation, LVISDataset, LVISImage
 
 __all__ = ["LVISAnnotation", "LVISDataset", "LVISImage"]

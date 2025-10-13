@@ -18,8 +18,8 @@ import numpy as np
 import pandas as pd
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 
-from getiprompt.components.metrics import SegmentationMetrics
 from getiprompt.data import BatchedSingleCategoryIter, Dataset
+from getiprompt.metrics import SegmentationMetrics
 from getiprompt.models import Model, load_model
 from getiprompt.types import Image, Masks, Priors, Text
 from getiprompt.utils import setup_logger

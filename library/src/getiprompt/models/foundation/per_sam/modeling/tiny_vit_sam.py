@@ -20,11 +20,20 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 class Conv2d_BN(torch.nn.Sequential):
     def __init__(
-        self, a, b, ks=1, stride=1, pad=0, dilation=1, groups=1, bn_weight_init=1,
+        self,
+        a,
+        b,
+        ks=1,
+        stride=1,
+        pad=0,
+        dilation=1,
+        groups=1,
+        bn_weight_init=1,
     ):
         super().__init__()
         self.add_module(
-            "c", torch.nn.Conv2d(a, b, ks, stride, pad, dilation, groups, bias=False),
+            "c",
+            torch.nn.Conv2d(a, b, ks, stride, pad, dilation, groups, bias=False),
         )
         bn = torch.nn.BatchNorm2d(b)
         torch.nn.init.constant_(bn.weight, bn_weight_init)
@@ -193,7 +202,10 @@ class ConvLayer(nn.Module):
         # patch merging layer
         if downsample is not None:
             self.downsample = downsample(
-                input_resolution, dim=dim, out_dim=out_dim, activation=activation,
+                input_resolution,
+                dim=dim,
+                out_dim=out_dim,
+                activation=activation,
             )
         else:
             self.downsample = None
@@ -277,7 +289,9 @@ class Attention(torch.nn.Module):
             torch.zeros(num_heads, len(attention_offsets)),
         )
         self.register_buffer(
-            "attention_bias_idxs", torch.LongTensor(idxs).view(N, N), persistent=False,
+            "attention_bias_idxs",
+            torch.LongTensor(idxs).view(N, N),
+            persistent=False,
         )
 
     @torch.no_grad()
@@ -297,7 +311,8 @@ class Attention(torch.nn.Module):
         qkv = self.qkv(x)
         # (B, N, num_heads, d)
         q, k, v = qkv.view(B, N, self.num_heads, -1).split(
-            [self.key_dim, self.key_dim, self.d], dim=3,
+            [self.key_dim, self.key_dim, self.d],
+            dim=3,
         )
         # (B, num_heads, N, d)
         q = q.permute(0, 2, 1, 3)
@@ -305,9 +320,7 @@ class Attention(torch.nn.Module):
         v = v.permute(0, 2, 1, 3)
 
         attn = (q @ k.transpose(-2, -1)) * self.scale + (
-            self.attention_biases[:, self.attention_bias_idxs]
-            if self.training
-            else self.ab
+            self.attention_biases[:, self.attention_bias_idxs] if self.training else self.ab
         )
         attn = attn.softmax(dim=-1)
         x = (attn @ v).transpose(1, 2).reshape(B, N, self.dh)
@@ -358,7 +371,11 @@ class TinyViTBlock(nn.Module):
 
         window_resolution = (window_size, window_size)
         self.attn = Attention(
-            dim, head_dim, num_heads, attn_ratio=1, resolution=window_resolution,
+            dim,
+            head_dim,
+            num_heads,
+            attn_ratio=1,
+            resolution=window_resolution,
         )
 
         mlp_hidden_dim = int(dim * mlp_ratio)
@@ -372,7 +389,12 @@ class TinyViTBlock(nn.Module):
 
         pad = local_conv_size // 2
         self.local_conv = Conv2d_BN(
-            dim, dim, ks=local_conv_size, stride=1, pad=pad, groups=dim,
+            dim,
+            dim,
+            ks=local_conv_size,
+            stride=1,
+            pad=pad,
+            groups=dim,
         )
 
     def forward(self, x):
@@ -402,11 +424,7 @@ class TinyViTBlock(nn.Module):
             )
             x = self.attn(x)
             # window reverse
-            x = (
-                x.view(B, nH, nW, self.window_size, self.window_size, C)
-                .transpose(2, 3)
-                .reshape(B, pH, pW, C)
-            )
+            x = x.view(B, nH, nW, self.window_size, self.window_size, C).transpose(2, 3).reshape(B, pH, pW, C)
 
             if padding:
                 x = x[:, :H, :W].contiguous()
@@ -480,9 +498,7 @@ class BasicLayer(nn.Module):
                     window_size=window_size,
                     mlp_ratio=mlp_ratio,
                     drop=drop,
-                    drop_path=drop_path[i]
-                    if isinstance(drop_path, list)
-                    else drop_path,
+                    drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
                     local_conv_size=local_conv_size,
                     activation=activation,
                 )
@@ -493,7 +509,10 @@ class BasicLayer(nn.Module):
         # patch merging layer
         if downsample is not None:
             self.downsample = downsample(
-                input_resolution, dim=dim, out_dim=out_dim, activation=activation,
+                input_resolution,
+                dim=dim,
+                out_dim=out_dim,
+                activation=activation,
             )
         else:
             self.downsample = None
@@ -565,9 +584,7 @@ class TinyViT(nn.Module):
         self.patches_resolution = patches_resolution
 
         # stochastic depth
-        dpr = [
-            x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))
-        ]  # stochastic depth decay rule
+        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
 
         # build layers
         self.layers = nn.ModuleList()
@@ -575,10 +592,8 @@ class TinyViT(nn.Module):
             kwargs = dict(
                 dim=embed_dims[i_layer],
                 input_resolution=(
-                    patches_resolution[0]
-                    // (2 ** (i_layer - 1 if i_layer == 3 else i_layer)),
-                    patches_resolution[1]
-                    // (2 ** (i_layer - 1 if i_layer == 3 else i_layer)),
+                    patches_resolution[0] // (2 ** (i_layer - 1 if i_layer == 3 else i_layer)),
+                    patches_resolution[1] // (2 ** (i_layer - 1 if i_layer == 3 else i_layer)),
                 ),
                 #   input_resolution=(patches_resolution[0] // (2 ** i_layer),
                 #                     patches_resolution[1] // (2 ** i_layer)),
@@ -607,11 +622,7 @@ class TinyViT(nn.Module):
 
         # Classifier head
         self.norm_head = nn.LayerNorm(embed_dims[-1])
-        self.head = (
-            nn.Linear(embed_dims[-1], num_classes)
-            if num_classes > 0
-            else torch.nn.Identity()
-        )
+        self.head = nn.Linear(embed_dims[-1], num_classes) if num_classes > 0 else torch.nn.Identity()
 
         # init weights
         self.apply(self._init_weights)
@@ -703,9 +714,7 @@ class TinyViT(nn.Module):
         return x
 
 
-_checkpoint_url_format = (
-    "https://github.com/wkcn/TinyViT-model-zoo/releases/download/checkpoints/{}.pth"
-)
+_checkpoint_url_format = "https://github.com/wkcn/TinyViT-model-zoo/releases/download/checkpoints/{}.pth"
 _provided_checkpoints = {
     "tiny_vit_5m_224": "tiny_vit_5m_22kto1k_distill",
     "tiny_vit_11m_224": "tiny_vit_11m_22kto1k_distill",
@@ -724,9 +733,7 @@ def register_tiny_vit_model(fn):
         model = fn()
         if pretrained:
             model_name = fn.__name__
-            assert (
-                model_name in _provided_checkpoints
-            ), f"Sorry that the checkpoint `{model_name}` is not provided yet."
+            assert model_name in _provided_checkpoints, f"Sorry that the checkpoint `{model_name}` is not provided yet."
             url = _checkpoint_url_format.format(_provided_checkpoints[model_name])
             checkpoint = torch.hub.load_state_dict_from_url(
                 url=url,

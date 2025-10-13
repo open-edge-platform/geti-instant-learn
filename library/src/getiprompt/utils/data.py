@@ -8,8 +8,8 @@ import numpy as np
 
 from getiprompt.data.base import Dataset
 from getiprompt.data.dataset_iterators import BatchedCategoryIter
-from getiprompt.data.lvis.lvis_dataset import LVISDataset
-from getiprompt.data.perseg.perseg_dataset import PerSegDataset
+from getiprompt.data.lvis.dataset import LVISDataset
+from getiprompt.data.perseg.dataset import PerSegDataset
 
 logger = getLogger("Geti Prompt")
 

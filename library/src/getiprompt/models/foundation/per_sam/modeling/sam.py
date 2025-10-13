@@ -43,7 +43,9 @@ class Sam(nn.Module):
         self.prompt_encoder = prompt_encoder
         self.mask_decoder = mask_decoder
         self.register_buffer(
-            "pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1), False,
+            "pixel_mean",
+            torch.Tensor(pixel_mean).view(-1, 1, 1),
+            False,
         )
         self.register_buffer("pixel_std", torch.Tensor(pixel_std).view(-1, 1, 1), False)
 
@@ -95,7 +97,8 @@ class Sam(nn.Module):
                 to subsequent iterations of prediction.
         """
         input_images = torch.stack(
-            [self.preprocess(x["image"]) for x in batched_input], dim=0,
+            [self.preprocess(x["image"]) for x in batched_input],
+            dim=0,
         )
         image_embeddings = self.image_encoder(input_images)
 
@@ -160,7 +163,10 @@ class Sam(nn.Module):
         )
         masks = masks[..., : input_size[0], : input_size[1]]
         masks = F.interpolate(
-            masks, original_size, mode="bilinear", align_corners=False,
+            masks,
+            original_size,
+            mode="bilinear",
+            align_corners=False,
         )
         return masks
 

@@ -13,6 +13,9 @@ import torch
 from torch.nn import functional as F
 from torchvision.transforms.functional import resize, to_pil_image
 
+# TODO(Eugene): refactor ResizeLongestSide only keeping torch.Tensor implemenataion.
+# https://github.com/open-edge-platform/geti-prompt/issues/174
+
 
 class ResizeLongestSide:
     """Resizes images to the longest side 'target_length'.

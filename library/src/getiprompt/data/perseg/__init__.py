@@ -3,6 +3,6 @@
 
 """PerSeg dataset."""
 
-from .perseg_dataset import PerSegAnnotation, PerSegDataset, PerSegImage
+from .dataset import PerSegAnnotation, PerSegDataset, PerSegImage
 
 __all__ = ["PerSegAnnotation", "PerSegDataset", "PerSegImage"]

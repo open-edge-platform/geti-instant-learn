@@ -10,9 +10,9 @@ import torch
 from transformers import AutoModelForZeroShotObjectDetection, AutoProcessor
 
 from getiprompt.components.prompt_generators import PromptGenerator
-from getiprompt.utils.optimization import optimize_model
 from getiprompt.types import Boxes, Image, Priors, Text
 from getiprompt.utils import precision_to_torch_dtype
+from getiprompt.utils.optimization import optimize_model
 
 
 class GroundingModel(Enum):

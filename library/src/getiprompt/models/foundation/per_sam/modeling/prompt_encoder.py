@@ -107,8 +107,7 @@ class PromptEncoder(nn.Module):
         boxes: torch.Tensor | None,
         masks: torch.Tensor | None,
     ) -> int:
-        """Gets the batch size of the output given the batch size of the input prompts.
-        """
+        """Gets the batch size of the output given the batch size of the input prompts."""
         if points is not None:
             return points[0].shape[0]
         if boxes is not None:
@@ -156,15 +155,17 @@ class PromptEncoder(nn.Module):
             dense_embeddings = self._embed_masks(masks)
         else:
             dense_embeddings = self.no_mask_embed.weight.reshape(1, -1, 1, 1).expand(
-                bs, -1, self.image_embedding_size[0], self.image_embedding_size[1],
+                bs,
+                -1,
+                self.image_embedding_size[0],
+                self.image_embedding_size[1],
             )
 
         return sparse_embeddings, dense_embeddings
 
 
 class PositionEmbeddingRandom(nn.Module):
-    """Positional encoding using random spatial frequencies.
-    """
+    """Positional encoding using random spatial frequencies."""
 
     def __init__(self, num_pos_feats: int = 64, scale: float | None = None) -> None:
         super().__init__()
@@ -198,7 +199,9 @@ class PositionEmbeddingRandom(nn.Module):
         return pe.permute(2, 0, 1)  # C x H x W
 
     def forward_with_coords(
-        self, coords_input: torch.Tensor, image_size: tuple[int, int],
+        self,
+        coords_input: torch.Tensor,
+        image_size: tuple[int, int],
     ) -> torch.Tensor:
         """Positionally encode points that are not normalized to [0,1]."""
         coords = coords_input.clone()

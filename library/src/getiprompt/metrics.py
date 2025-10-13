@@ -15,6 +15,10 @@ from getiprompt.types import Masks
 logger = getLogger("Geti Prompt")
 
 
+# TODO(Eugene): replace it with torhmetrics implementation
+# https://github.com/open-edge-platform/geti-prompt/issues/174
+
+
 class SegmentationMetrics(nn.Module):
     """This class handles metrics calculations.
 
