@@ -25,7 +25,7 @@ export const Labels = () => {
 
     return (
         <Flex height={'100%'} alignItems={'center'} width={'100%'}>
-            <Flex gap='size-200' margin={'size-50'} wrap={'wrap'} width={'100%'} alignItems={'center'}>
+            <Flex margin={'size-50'} wrap={'wrap'} width={'100%'} alignItems={'center'}>
                 {labels.map((label) => (
                     <LabelListItem
                         key={label.id}

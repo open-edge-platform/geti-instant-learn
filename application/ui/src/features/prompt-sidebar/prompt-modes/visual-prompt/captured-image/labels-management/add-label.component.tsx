@@ -3,15 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
-
 import { Button, Content, Dialog, DialogTrigger } from '@geti/ui';
 import { isEmpty } from 'lodash-es';
-import { v4 as uuid } from 'uuid';
 
 import { EditLabel } from './edit-label.component';
 import { Label } from './label.interface';
-import { getDistinctColorBasedOnHash } from './utils-temp';
+import { useNewLabel } from './use-new-label.hook';
 
 import classes from './add-label.module.css';
 
@@ -20,21 +17,10 @@ interface AddLabelProps {
 }
 
 export const AddLabel = ({ addLabel }: AddLabelProps) => {
-    //TODO: hook???
-    const getBaseNewLabel = (): Label => {
-        const newId = uuid();
-        return { id: newId, name: '', color: getDistinctColorBasedOnHash(newId) };
-    };
+    const { label, resetState } = useNewLabel();
 
-    const [newLabel, setNewLabel] = useState<Label>(getBaseNewLabel());
-
-    const resetState = () => {
-        setNewLabel(getBaseNewLabel());
-    };
-
-    //-------------------------
     const handleAddingLabel = (editedLabel: Partial<Label>, closeDialog: () => void) => {
-        !isEmpty(editedLabel) && addLabel({ ...newLabel, ...editedLabel } as Label);
+        !isEmpty(editedLabel) && addLabel({ ...label, ...editedLabel } as Label);
         resetState();
         closeDialog();
     };
@@ -52,7 +38,7 @@ export const AddLabel = ({ addLabel }: AddLabelProps) => {
                 <Dialog>
                     <Content>
                         <EditLabel
-                            label={newLabel}
+                            label={label}
                             accept={(editedLabel: Partial<Label>) => handleAddingLabel(editedLabel, _close)}
                             cancel={_close}
                         />
