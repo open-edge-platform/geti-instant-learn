@@ -5,7 +5,7 @@
 
 import torch
 from scipy.optimize import linear_sum_assignment
-from torch.nn import functional as F
+from torch.nn import functional
 
 from getiprompt.components.prompt_generators.base import PromptGenerator
 from getiprompt.types import Features, Masks, Priors, Similarities
@@ -493,7 +493,7 @@ class BidirectionalPromptGenerator(PromptGenerator):
             .unsqueeze(0)
             .unsqueeze(0)
         )
-        return F.interpolate(
+        return functional.interpolate(
             similarity_map,
             size=original_image_size,
             mode="bilinear",

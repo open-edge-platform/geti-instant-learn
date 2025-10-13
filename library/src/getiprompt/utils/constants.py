@@ -1,6 +1,8 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+"""Constants used in Geti Prompt."""
+
 from enum import Enum
 from pathlib import Path
 

@@ -79,7 +79,6 @@ class TwoWayTransformer(nn.Module):
           torch.Tensor: the processed image_embedding
         """
         # BxCxHxW -> BxHWxC == B x N_image_tokens x C
-        bs, c, h, w = image_embedding.shape
         image_embedding = image_embedding.flatten(2).permute(0, 2, 1)
         image_pe = image_pe.flatten(2).permute(0, 2, 1)
 
@@ -106,7 +105,7 @@ class TwoWayTransformer(nn.Module):
         if target_embedding is not None:
             q += target_embedding
         attn_out = self.final_attn_token_to_image(q=q, k=k, v=keys)
-        queries = queries + attn_out
+        queries += attn_out
         queries = self.norm_final_attn(queries)
 
         return queries, keys
@@ -228,7 +227,7 @@ class Attention(nn.Module):
         x = x.transpose(1, 2)
         return x.reshape(b, n_tokens, n_heads * c_per_head)  # B x N_tokens x C
 
-    def forward(self, q: Tensor, k: Tensor, v: Tensor, attn_sim: Tensor = None) -> Tensor:
+    def forward(self, q: Tensor, k: Tensor, v: Tensor, attn_sim: Tensor | None = None) -> Tensor:
         # Input projections
         q = self.q_proj(q)
         k = self.k_proj(k)
@@ -246,12 +245,10 @@ class Attention(nn.Module):
         attn = torch.softmax(attn, dim=-1)
 
         if attn_sim is not None:
-            attn = attn + attn_sim
+            attn += attn_sim
             attn = torch.softmax(attn, dim=-1)
 
         # Get output
         out = attn @ v
         out = self._recombine_heads(out)
-        out = self.out_proj(out)
-
-        return out
+        return self.out_proj(out)

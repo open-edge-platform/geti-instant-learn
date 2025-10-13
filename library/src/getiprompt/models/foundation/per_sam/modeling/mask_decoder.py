@@ -7,7 +7,7 @@ from itertools import starmap
 
 import torch
 from torch import nn
-from torch.nn import functional as F
+from torch.nn import functional
 
 from .common import LayerNorm2d
 
@@ -116,8 +116,8 @@ class MaskDecoder(nn.Module):
         image_pe: torch.Tensor,
         sparse_prompt_embeddings: torch.Tensor,
         dense_prompt_embeddings: torch.Tensor,
-        attn_sim=None,
-        target_embedding=None,
+        attn_sim: torch.Tensor | None = None,
+        target_embedding: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Predicts masks. See 'forward' for more details."""
         # Concatenate output tokens
@@ -173,7 +173,7 @@ class MLP(nn.Module):
 
     def forward(self, x):
         for i, layer in enumerate(self.layers):
-            x = F.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
+            x = functional.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
         if self.sigmoid_output:
-            x = F.sigmoid(x)
+            x = functional.sigmoid(x)
         return x

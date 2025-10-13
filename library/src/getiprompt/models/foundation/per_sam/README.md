@@ -9,7 +9,7 @@ Official implementation of ['Personalize Segment Anything Model with One Shot'](
 
 🎉 Try out the [tutorial notebooks](https://github.com/NielsRogge/Transformers-Tutorials/tree/master/PerSAM) in colab for your own dataset. Great thanks to [@NielsRogge](https://github.com/NielsRogge)!
 
-🎆 Try out the online web demo of PerSAM in OpenXLab  : 
+🎆 Try out the online web demo of PerSAM in OpenXLab  :
         [![Open in OpenXLab](https://cdn-static.openxlab.org.cn/app-center/openxlab_app.svg)](https://openxlab.org.cn/apps/detail/RenRuiZhang/Personalize-SAM)
 
 
@@ -22,8 +22,8 @@ Official implementation of ['Personalize Segment Anything Model with One Shot'](
 ## Introduction
 *How to customize SAM to automatically segment your pet dog in a photo album?*
 
-In this project, we propose a training-free **Per**sonalization approach for [Segment Anything Model (SAM)](https://ai.facebook.com/research/publications/segment-anything/), termed as **PerSAM**. Given only a single image with a reference mask, PerSAM can segment specific visual concepts, e.g., your pet dog, within other images or videos without any training. 
-For better performance, we further present an efficient one-shot fine-tuning variant, **PerSAM-F**. We freeze the entire SAM and introduce two learnable mask weights, which only trains **2 parameters** within **10 seconds**. 
+In this project, we propose a training-free **Per**sonalization approach for [Segment Anything Model (SAM)](https://ai.facebook.com/research/publications/segment-anything/), termed as **PerSAM**. Given only a single image with a reference mask, PerSAM can segment specific visual concepts, e.g., your pet dog, within other images or videos without any training.
+For better performance, we further present an efficient one-shot fine-tuning variant, **PerSAM-F**. We freeze the entire SAM and introduce two learnable mask weights, which only trains **2 parameters** within **10 seconds**.
 
 <div align="center">
   <img src="figs/fig_persam.png"/ width="97%"> <br>
@@ -94,7 +94,7 @@ For **Multi-Object** segmentation of the same category by PerSAM-F (Great thanks
 python persam_f_multi_obj.py --sam_type <sam module type> --outdir <output filename>
 ```
 
-After running, the output masks and visualizations will be stored at `outputs/<output filename>`. 
+After running, the output masks and visualizations will be stored at `outputs/<output filename>`.
 
 ### Evaluation
 Then, for mIoU evaluation, please run:

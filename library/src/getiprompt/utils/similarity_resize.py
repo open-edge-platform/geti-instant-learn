@@ -6,7 +6,7 @@
 import math
 
 import torch
-import torch.nn.functional as F
+from torch.nn import functional
 
 
 def resize_similarity_map(
@@ -66,7 +66,7 @@ def resize_similarity_map(
 
     # SAM models can in some cases add padding to the image, we need to remove it
     if unpadded_image_size is not None:
-        similarities = F.interpolate(
+        similarities = functional.interpolate(
             similarities,
             size=max(unpadded_image_size),
             mode="bilinear",
@@ -79,7 +79,7 @@ def resize_similarity_map(
         ]
 
     # Resize to (original) target size
-    similarities = F.interpolate(
+    similarities = functional.interpolate(
         similarities,
         size=target_size,
         mode="bilinear",

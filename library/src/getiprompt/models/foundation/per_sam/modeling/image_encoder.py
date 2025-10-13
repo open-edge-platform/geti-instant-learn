@@ -4,8 +4,8 @@
 
 
 import torch
-import torch.nn.functional as F
 from torch import nn
+from torch.nn import functional
 
 from .common import LayerNorm2d, MLPBlock
 
@@ -248,7 +248,7 @@ def window_partition(x: torch.Tensor, window_size: int) -> tuple[torch.Tensor, t
     pad_h = (window_size - H % window_size) % window_size
     pad_w = (window_size - W % window_size) % window_size
     if pad_h > 0 or pad_w > 0:
-        x = F.pad(x, (0, 0, 0, pad_w, 0, pad_h))
+        x = functional.pad(x, (0, 0, 0, pad_w, 0, pad_h))
     Hp, Wp = H + pad_h, W + pad_w
 
     x = x.view(B, Hp // window_size, window_size, Wp // window_size, window_size, C)
@@ -300,7 +300,7 @@ def get_rel_pos(q_size: int, k_size: int, rel_pos: torch.Tensor) -> torch.Tensor
     # Interpolate rel pos if needed.
     if rel_pos.shape[0] != max_rel_dist:
         # Interpolate rel pos.
-        rel_pos_resized = F.interpolate(
+        rel_pos_resized = functional.interpolate(
             rel_pos.reshape(1, rel_pos.shape[0], -1).permute(0, 2, 1),
             size=max_rel_dist,
             mode="linear",
@@ -349,7 +349,9 @@ def add_decomposed_rel_pos(
     rel_w = torch.einsum("bhwc,wkc->bhwk", r_q, Rw)
 
     attn = (attn.view(B, q_h, q_w, k_h, k_w) + rel_h[:, :, :, :, None] + rel_w[:, :, :, None, :]).view(
-        B, q_h * q_w, k_h * k_w
+        B,
+        q_h * q_w,
+        k_h * k_w,
     )
 
     return attn

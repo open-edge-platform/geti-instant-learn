@@ -38,6 +38,7 @@ class ExportMaskVisualization(Visualization):
     """
 
     def __init__(self, output_folder: str) -> None:
+        """Initializes the visualization class."""
         super().__init__()
         self.output_folder = output_folder
 
@@ -484,6 +485,9 @@ class ExportMaskVisualization(Visualization):
     @staticmethod
     def _get_polygons(annotations_per_class: Annotations) -> list[np.ndarray]:
         """Get polygons for a specific class.
+
+        Raises:
+            RuntimeError: If multiple class annotations are provided.
 
         Args:
             annotations_per_class: Annotations to visualize

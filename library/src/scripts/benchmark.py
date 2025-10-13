@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # ruff: noqa: E402
 
+"""Geti Prompt Benchmark Script."""
+
 import argparse
 import shutil
 import warnings
@@ -37,6 +39,10 @@ def handle_output_path(output_path: str, overwrite: bool) -> Path:
     Args:
         output_path: The path to the output data
         overwrite: Whether to overwrite existing data
+
+    Raises:
+        ValueError: If the output path already exists and overwrite is False
+
     Returns:
         The path to the output data
     """
@@ -308,7 +314,7 @@ def infer_all_images(
     return time_sum, time_count
 
 
-def predict_on_dataset(  # noqa: C901
+def predict_on_dataset(  # noqa: C901, PLR0915
     args: argparse.Namespace,
     model: Model,
     priors_dataset: Dataset,
@@ -342,7 +348,8 @@ def predict_on_dataset(  # noqa: C901
 
     """
     unique_output_path = handle_output_path(unique_output, args.overwrite)
-    logger.info(f"Output path: {unique_output_path}")
+    msg = f"Output path: {unique_output_path}"
+    logger.info(msg)
 
     visualizer = ExportMaskVisualization(
         output_folder=str(unique_output_path),
@@ -554,7 +561,8 @@ def _save_results(all_results: list[pd.DataFrame], output_path: Path) -> None:
     all_results_dataframe_filename = output_path / "all_results.csv"
     all_results_dataframe_filename.parent.mkdir(parents=True, exist_ok=True)
     all_result_dataframe.to_csv(str(all_results_dataframe_filename))
-    logger.info(f"Saved all results to: {all_results_dataframe_filename}")
+    msg = f"Saved all results to: {all_results_dataframe_filename}"
+    logger.info()
 
     avg_results_dataframe_filename = output_path / "avg_results.csv"
     avg_results_dataframe_filename.parent.mkdir(parents=True, exist_ok=True)
@@ -562,8 +570,10 @@ def _save_results(all_results: list[pd.DataFrame], output_path: Path) -> None:
         ["dataset_name", "model_name", "backbone_name"],
     ).mean(numeric_only=True)
     avg_result_dataframe.to_csv(str(avg_results_dataframe_filename))
-    logger.info(f"Saved average results to: {avg_results_dataframe_filename}")
-    logger.info(f"\n\n Final Average Results:\n {avg_result_dataframe}")
+    msg = f"Saved average results to: {avg_results_dataframe_filename}"
+    logger.info(msg)
+    msg = f"\n\n Final Average Results:\n {avg_result_dataframe}"
+    logger.info(msg)
 
 
 def perform_benchmark_experiment(args: argparse.Namespace | None = None) -> None:
@@ -593,10 +603,11 @@ def perform_benchmark_experiment(args: argparse.Namespace | None = None) -> None
     # Execute experiments
     all_results = []
     for dataset_enum, model_enum, backbone_enum in experiment_plan:
-        logger.info(
-            f"Running experiment: Dataset={dataset_enum.value}, Model={model_enum.value}, "
-            f"Backbone={backbone_enum.value}",
+        msg = (
+            f"Starting experiment with Dataset={dataset_enum.value}, "
+            f"Model={model_enum.value}, Backbone={backbone_enum.value}",
         )
+        logger.info(msg)
 
         dataset = load_dataset(dataset_enum.value, whitelist=args.class_name, batch_size=args.batch_size)
         model = load_model(sam=backbone_enum, model_name=model_enum, args=args)

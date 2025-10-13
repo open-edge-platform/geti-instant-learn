@@ -7,7 +7,7 @@ from typing import Any
 
 import torch
 from torch import nn
-from torch.nn import functional as F
+from torch.nn import functional
 
 from .image_encoder import ImageEncoderViT
 from .mask_decoder import MaskDecoder
@@ -155,20 +155,19 @@ class Sam(nn.Module):
           (torch.Tensor): Batched masks in BxCxHxW format, where (H, W)
             is given by original_size.
         """
-        masks = F.interpolate(
+        masks = functional.interpolate(
             masks,
             (self.image_encoder.img_size, self.image_encoder.img_size),
             mode="bilinear",
             align_corners=False,
         )
         masks = masks[..., : input_size[0], : input_size[1]]
-        masks = F.interpolate(
+        return functional.interpolate(
             masks,
             original_size,
             mode="bilinear",
             align_corners=False,
         )
-        return masks
 
     def preprocess(self, x: torch.Tensor) -> torch.Tensor:
         """Normalize pixel values and pad to a square input."""
@@ -179,8 +178,7 @@ class Sam(nn.Module):
         h, w = x.shape[-2:]
         padh = self.image_encoder.img_size - h
         padw = self.image_encoder.img_size - w
-        x = F.pad(x, (0, padw, 0, padh))
-        return x
+        return functional.pad(x, (0, padw, 0, padh))
 
     def preprocess_mask(self, x: torch.Tensor) -> torch.Tensor:
         """Normalize pixel values and pad to a square input."""
@@ -188,5 +186,4 @@ class Sam(nn.Module):
         h, w = x.shape[-2:]
         padh = self.image_encoder.img_size - h
         padw = self.image_encoder.img_size - w
-        x = F.pad(x, (0, padw, 0, padh))
-        return x
+        return functional.pad(x, (0, padw, 0, padh))

@@ -1,6 +1,8 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+"""Geti Prompt Plotting functions."""
+
 import argparse
 from argparse import Namespace
 
@@ -17,6 +19,9 @@ def plot_priors_distrib(
     height: int = 5,
 ) -> None:
     """This method plots a distribution.
+
+    Raises:
+        ValueError: If an unknown metric or plot type is provided.
 
     Args:
         df: Dataframe containing the calculated metrics.
@@ -112,6 +117,9 @@ def plot_backbone_distrib_melt(
     pipeline_name: str = "MatcherModular",
 ) -> None:
     """This shows the metrics per backbone of a single pipeline.
+
+    Raises:
+        ValueError: If an unknown metric or plot type is provided.
 
     Args:
         dfm: A melted dataframe.

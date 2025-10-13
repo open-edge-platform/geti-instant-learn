@@ -138,7 +138,8 @@ def run_model(
                     show_legend=True,
                 )
             progress.update(task, advance=len(chunk))
-    logger.info(f"Ouput saved in {output_location}")
+    msg = f"Ouput saved in {output_location}"
+    logger.info(msg)
 
 
 def parse_reference_prompt_from_directory(reference_prompts: Path) -> dict[str, Priors]:
@@ -177,7 +178,6 @@ def parse_reference_prompt_from_directory(reference_prompts: Path) -> dict[str, 
                 pil_image = PILImage.open(prompt_file).convert("L")
                 mask_data = np.array(pil_image)
                 priors.masks.add(mask=mask_data, class_id=class_id)
-            # TODO(Daankrol): Handle other prompt types like .txt or .json  # noqa: TD003
 
     return priors_map
 
@@ -246,6 +246,9 @@ def parse_reference_data(
         reference_prompt_root: The root directory containing all reference prompt such as mask files or point files.
         reference_points_str: The string containing all reference points.
         reference_text_prompt: The string containing the text prompt.
+
+    Raises:
+        ValueError: reference_images must be provided with reference_prompts
 
     Returns:
         A tuple of lists of images and prompts, and the class strings.

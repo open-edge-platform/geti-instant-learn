@@ -2,17 +2,19 @@
 # All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+# ruff: noqa
+
 import itertools
 
 # Ignore warnings
 import warnings
 
 import torch
-import torch.nn.functional as F
 from timm.models.layers import DropPath as TimmDropPath
 from timm.models.layers import to_2tuple, trunc_normal_
 from timm.models.registry import register_model
 from torch import nn
+from torch.nn import functional
 from torch.utils import checkpoint
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -411,7 +413,7 @@ class TinyViTBlock(nn.Module):
             padding = pad_b > 0 or pad_r > 0
 
             if padding:
-                x = F.pad(x, (0, 0, 0, pad_r, 0, pad_b))
+                x = functional.pad(x, (0, 0, 0, pad_r, 0, pad_b))
 
             pH, pW = H + pad_b, W + pad_r
             nH = pH // self.window_size

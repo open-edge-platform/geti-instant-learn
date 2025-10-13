@@ -6,7 +6,7 @@
 from logging import getLogger
 
 import torch
-from torch.nn import functional as F
+from torch.nn import functional
 
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.types import Features, Masks, Priors, Similarities
@@ -167,7 +167,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
 
                 # add the soft map to the similarities
                 # this increases the mask filtering technique based on average similarity.
-                soft_sim_map = F.interpolate(
+                soft_sim_map = functional.interpolate(
                     soft_sim_map,
                     size=local_similarity_map.shape[-2:],
                     mode="bilinear",
@@ -228,7 +228,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
     @staticmethod
     def _unidirectional_soft_matching(forward_sim: torch.Tensor, reg: float) -> torch.Tensor:
         """Computes unidirectional soft correspondence scores."""
-        log_softmax_sim = F.log_softmax(forward_sim / reg, dim=1)
+        log_softmax_sim = functional.log_softmax(forward_sim / reg, dim=1)
         # The geometric mean in log-space is the arithmetic mean of logs.
         return log_softmax_sim.mean(dim=0)
 
@@ -241,10 +241,10 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
     ) -> torch.Tensor:
         """Computes bidirectional soft correspondence scores."""
         # Forward pass: P(target | masked_ref), softmax over targets
-        log_softmax_forward = F.log_softmax(forward_sim / reg, dim=1)
+        log_softmax_forward = functional.log_softmax(forward_sim / reg, dim=1)
 
         # Backward pass: P(masked_ref | target), softmax over all references
-        log_softmax_backward_full = F.log_softmax(similarity_map_for_backward / reg, dim=0)
+        log_softmax_backward_full = functional.log_softmax(similarity_map_for_backward / reg, dim=0)
         log_softmax_backward_masked = log_softmax_backward_full[masked_ref_indices, :]
 
         # Combine probabilities in log-space (equivalent to multiplication)
@@ -321,7 +321,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
             score_map = soft_correspondence_scores.reshape(1, 1, map_size, map_size)
 
             # Find local maxima using max pooling
-            pooled_map = F.max_pool2d(score_map, kernel_size=3, stride=1, padding=1)
+            pooled_map = functional.max_pool2d(score_map, kernel_size=3, stride=1, padding=1)
             local_maxima = score_map == pooled_map
 
             # Also apply the score threshold to the normalized scores

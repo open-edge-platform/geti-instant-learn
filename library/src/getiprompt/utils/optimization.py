@@ -3,6 +3,8 @@
 
 """This file contains several methods to optimize a model for inference."""
 
+# ruff: noqa: ANN002, ANN003
+
 import time
 from collections.abc import Callable
 from logging import getLogger
@@ -71,7 +73,8 @@ def optimize_model(
         if benchmark_inference_speed:
             logger.debug("Quantized inference:")
             quantized_inference_duration = benchmark_inference(model, precision)
-            logger.debug(f"Quantization speedup: {initial_inference_duration / quantized_inference_duration:.2f}x")
+            msg = f"Quantization speedup: {initial_inference_duration / quantized_inference_duration:.2f}x"
+            logger.debug(msg)
 
     # Compile
     if compile_models:
@@ -91,12 +94,14 @@ def optimize_model(
                 model = torch.compile(model, backend=compile_backend)
                 model(pixel_values=get_dummy_input(model, precision, device))  # Run one inference to compile
             if benchmark_inference_speed:
-                logger.debug("Compiled model inference:")
+                msg = "Compiled model inference:"
+                logger.debug(msg)
                 compiled_inference_duration = benchmark_inference(model, precision)
-                logger.debug(
+                msg = (
                     f"Quantization + Compilation speedup: "
                     f"{initial_inference_duration / compiled_inference_duration:.2f}x",
                 )
+                logger.debug(msg)
         else:
             logger.warning("GPU is not NVIDIA V100, A100, or H100. Compilation will be skipped.")
 
@@ -150,10 +155,11 @@ def benchmark_inference(
         model_size = torch.xpu.memory_allocated() / 1e6
     else:
         model_size = torch.cpu.memory_allocated() / 1e6
-    logger.debug(
+    msg = (
         f"Inference time: {avg_duration:.2f} seconds, FPS: {1 / avg_duration:.2f}, "
         f"Memory allocated: {model_size:.2f} MB",
     )
+    logger.debug(msg)
     return avg_duration
 
 

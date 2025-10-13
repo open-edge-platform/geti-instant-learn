@@ -1,6 +1,8 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+"""Utility functions for data handling in Geti Prompt."""
+
 from logging import getLogger
 from pathlib import Path
 
@@ -29,7 +31,8 @@ def load_dataset(dataset_name: str, whitelist: list[str] | None = None, batch_si
         ValueError: If the dataset name is not recognized
     """
     # add logging that we are loading the dataset
-    logger.info(f"Loading dataset: {dataset_name}")
+    msg = f"Loading dataset: {dataset_name}"
+    logger.info(msg)
     if dataset_name == "PerSeg":
         return PerSegDataset(
             whitelist=whitelist,

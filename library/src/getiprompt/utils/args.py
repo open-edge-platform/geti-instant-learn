@@ -1,6 +1,8 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+"""Argument parsing utilities for benchmark scripts."""
+
 import argparse
 from enum import Enum
 from typing import TypeVar
@@ -241,7 +243,19 @@ TEnum = TypeVar("TEnum", bound=Enum)
 
 
 def _parse_enum_list(arg_str: str, enum_cls: type[TEnum], arg_name: str) -> list[TEnum]:
-    """Parses a comma-separated string of enum values, returning a list of valid enum members."""
+    """Parses a comma-separated string of enum values, returning a list of valid enum members.
+
+    Args:
+        arg_str: Comma-separated string of enum values or "all"
+        enum_cls: The Enum class to parse against
+        arg_name: Name of the argument (for error messages)
+
+    Returns:
+        List of enum members corresponding to the provided values
+
+    Raises:
+        ValueError: If any provided value is not a valid enum member
+    """
     if arg_str == "all":
         return list(enum_cls)
 

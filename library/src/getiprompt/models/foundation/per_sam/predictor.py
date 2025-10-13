@@ -1,16 +1,23 @@
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+"""Predictor class for the Segment Anything Model (SAM)."""
 
 import numpy as np
 import torch
 
-from .modeling.sam import Sam
 from getiprompt.utils import ResizeLongestSide
+
+from .modeling.sam import Sam
 
 
 class SamPredictor:
+    """Sam Predictor. Uses a SAM model to predict masks for an image given input prompts."""
+
     def __init__(
         self,
         sam_model: Sam,
@@ -31,20 +38,23 @@ class SamPredictor:
         image: np.ndarray,
         mask: np.ndarray = None,
         image_format: str = "RGB",
-        cal_image=True,
+        cal_image: bool = True,  # noqa: ARG002
     ) -> torch.Tensor:
-        """Calculates the image embeddings for the provided image, allowing
-        masks to be predicted with the 'predict' method.
+        """Calculates the image embeddings for the provided image
+
+        Allowing masks to be predicted with the 'predict' method.
 
         Arguments:
           image (np.ndarray): The image for calculating masks. Expects an
             image in HWC uint8 format, with pixel values in [0, 255].
+          mask (np.ndarray, optional): The mask for the image, in HWC uint8 format.
           image_format (str): The color format of the image, in ['RGB', 'BGR'].
+          cal_image (bool): Whether to calculate the image embedding.
         """
-        assert image_format in [
+        assert image_format in (
             "RGB",
             "BGR",
-        ], f"image_format must be in ['RGB', 'BGR'], is {image_format}."
+        ), f"image_format must be in ['RGB', 'BGR'], is {image_format}."
         if image_format != self.model.image_format:
             image = image[..., ::-1]
 
@@ -52,7 +62,10 @@ class SamPredictor:
         input_image = self.transform.apply_image(image)
         input_image_torch = torch.as_tensor(input_image, device=self.device)
         input_image_torch = input_image_torch.permute(2, 0, 1).contiguous()[
-            None, :, :, :,
+            None,
+            :,
+            :,
+            :,
         ]
 
         # Transform the mask to the form expected by the model
@@ -63,13 +76,17 @@ class SamPredictor:
             )  # mask 720 1280 3 to  576, 1024, 3
             input_mask_torch = torch.as_tensor(input_mask, device=self.device)
             input_mask_torch = input_mask_torch.permute(2, 0, 1).contiguous()[
-                None, :, :, :,
+                None,
+                :,
+                :,
+                :,
             ]  # 1, 3, 576, 1024
 
-        input_mask = self.set_torch_image(
-            input_image_torch, image.shape[:2], transformed_mask=input_mask_torch,
+        return self.set_torch_image(
+            input_image_torch,
+            image.shape[:2],
+            transformed_mask=input_mask_torch,
         )
-        return input_mask
 
     @torch.no_grad()
     def set_torch_image(
@@ -77,10 +94,11 @@ class SamPredictor:
         transformed_image: torch.Tensor,
         original_image_size: tuple[int, ...],
         transformed_mask: torch.Tensor = None,
-        cal_image=True,
+        cal_image: bool = True,
     ) -> None:
-        """Calculates the image embeddings for the provided image, allowing
-        masks to be predicted with the 'predict' method. Expects the input
+        """Calculates the image embeddings for the provided image.
+
+        Allowing masks to be predicted with the 'predict' method. Expects the input
         image to be already transformed to the format expected by the model.
 
         Arguments:
@@ -88,6 +106,9 @@ class SamPredictor:
             1x3xHxW, which has been transformed with ResizeLongestSide.
           original_image_size (tuple(int, int)): The size of the image
             before transformation, in (H, W) format.
+          transformed_mask (torch.Tensor): The transformed mask, with shape
+            1x3xHxW, which has been transformed with ResizeLongestSide.
+          cal_image (bool): Whether to calculate the image embedding.
         """
         assert (
             len(transformed_image.shape) == 4
@@ -104,8 +125,7 @@ class SamPredictor:
             self.is_image_set = True
 
         if transformed_mask is not None:
-            input_mask = self.model.preprocess(transformed_mask)  # pad to 1024
-            return input_mask
+            return self.model.preprocess(transformed_mask)  # pad to 1024
 
     def predict(
         self,
@@ -115,8 +135,8 @@ class SamPredictor:
         mask_input: np.ndarray | None = None,
         multimask_output: bool = True,
         return_logits: bool = False,
-        attn_sim=None,
-        target_embedding=None,
+        attn_sim: torch.Tensor | None = None,
+        target_embedding: torch.Tensor | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Predict masks for the given input prompts, using the currently set image.
 
@@ -139,6 +159,11 @@ class SamPredictor:
             input prompts, multimask_output=False can give better results.
           return_logits (bool): If true, returns un-thresholded masks logits
             instead of a binary mask.
+          attn_sim (torch.Tensor | None): Attention similarity map, if available.
+          target_embedding (torch.Tensor | None): Target embedding, if available.
+
+        Raises:
+          RuntimeError: If no image has been set with 'set_image' prior to calling predict.
 
         Returns:
           (np.ndarray): The output masks in CxHxW format, where C is the
@@ -150,22 +175,23 @@ class SamPredictor:
             a subsequent iteration as mask input.
         """
         if not self.is_image_set:
-            raise RuntimeError(
-                "An image must be set with .set_image(...) before mask prediction.",
-            )
+            msg = "An image must be set with .set_image(...) before mask prediction."
+            raise RuntimeError(msg)
 
         # Transform input prompts
         coords_torch, labels_torch, box_torch, mask_input_torch = None, None, None, None
         if point_coords is not None:
-            assert (
-                point_labels is not None
-            ), "point_labels must be supplied if point_coords is supplied."
+            assert point_labels is not None, "point_labels must be supplied if point_coords is supplied."
             point_coords = self.transform.apply_coords(point_coords, self.original_size)
             coords_torch = torch.as_tensor(
-                point_coords, dtype=torch.float, device=self.device,
+                point_coords,
+                dtype=torch.float,
+                device=self.device,
             )
             labels_torch = torch.as_tensor(
-                point_labels, dtype=torch.int, device=self.device,
+                point_labels,
+                dtype=torch.int,
+                device=self.device,
             )
             coords_torch, labels_torch = coords_torch[None, :, :], labels_torch[None, :]
         if box is not None:
@@ -174,7 +200,9 @@ class SamPredictor:
             box_torch = box_torch[None, :]
         if mask_input is not None:
             mask_input_torch = torch.as_tensor(
-                mask_input, dtype=torch.float, device=self.device,
+                mask_input,
+                dtype=torch.float,
+                device=self.device,
             )
             mask_input_torch = mask_input_torch[None, :, :, :]
         masks, iou_predictions, low_res_masks, high_res_masks = self.predict_torch(
@@ -204,10 +232,11 @@ class SamPredictor:
         mask_input: torch.Tensor | None = None,
         multimask_output: bool = True,
         return_logits: bool = False,
-        attn_sim=None,
-        target_embedding=None,
+        attn_sim: torch.Tensor | None = None,
+        target_embedding: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Predict masks for the given input prompts, using the currently set image.
+
         Input prompts are batched torch tensors and are expected to already be
         transformed to the input frame using ResizeLongestSide.
 
@@ -231,6 +260,11 @@ class SamPredictor:
             input prompts, multimask_output=False can give better results.
           return_logits (bool): If true, returns un-thresholded masks logits
             instead of a binary mask.
+          attn_sim (torch.Tensor | None): Attention similarity map, if available.
+          target_embedding (torch.Tensor | None): Target embedding, if available.
+
+        RuntimeError:
+          If no image has been set with 'set_image' prior to calling predict.
 
         Returns:
           (torch.Tensor): The output masks in BxCxHxW format, where C is the
@@ -271,7 +305,9 @@ class SamPredictor:
 
         # Upscale the masks to the original image resolution
         high_res_masks = self.model.postprocess_masks(
-            low_res_masks, self.input_size, self.original_size,
+            low_res_masks,
+            self.input_size,
+            self.original_size,
         )
 
         if not return_logits:
@@ -288,9 +324,7 @@ class SamPredictor:
             raise RuntimeError(
                 "An image must be set with .set_image(...) to generate an embedding.",
             )
-        assert (
-            self.features is not None
-        ), "Features must exist if an image has been set."
+        assert self.features is not None, "Features must exist if an image has been set."
         return self.features
 
     @property
