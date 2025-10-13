@@ -4,17 +4,37 @@
  */
 
 import { type paths } from '@geti-prompt/api';
-import { matchQuery, MutationCache, QueryClient } from '@tanstack/react-query';
+import { matchQuery, MutationCache, QueryClient, type Query } from '@tanstack/react-query';
 import type { HttpMethod } from 'openapi-typescript-helpers';
 
-type PathsWithMethod<Paths extends paths, Method extends HttpMethod> = {
-    [P in keyof Paths]: Method extends keyof Paths[P] ? P : never;
+type OperationFor<Paths extends paths, P extends keyof Paths, Method extends HttpMethod> = Method extends keyof Paths[P]
+    ? Paths[P][Method]
+    : never;
+
+type PathParamsFor<Paths extends paths, P extends keyof Paths, Method extends HttpMethod> =
+    OperationFor<Paths, P, Method> extends { parameters: { path: infer PP } } ? PP : never;
+
+type MethodsForPath<Paths extends paths, P extends keyof Paths> = Extract<keyof Paths[P], HttpMethod>;
+
+export type QueryKey<Paths extends paths> = {
+    [P in keyof Paths]: {
+        [M in MethodsForPath<Paths, P>]: PathParamsFor<Paths, P, M> extends never
+            ? [M, P]
+            : [
+                  M,
+                  P,
+                  {
+                      params: {
+                          path: PathParamsFor<Paths, P, M>;
+                      };
+                  },
+              ];
+    }[MethodsForPath<Paths, P>];
 }[keyof Paths];
 
-export type QueryKey<Paths extends paths, Method extends HttpMethod> = [HttpMethod, PathsWithMethod<Paths, Method>];
-
 type MutationMeta = {
-    invalidates?: QueryKey<paths, HttpMethod>[];
+    invalidates?: QueryKey<paths>[];
+    awaits?: QueryKey<paths>[];
 };
 
 declare module '@tanstack/react-query' {
@@ -23,14 +43,33 @@ declare module '@tanstack/react-query' {
     }
 }
 
-export const queryClient = new QueryClient({
+export const queryClient: QueryClient = new QueryClient({
     mutationCache: new MutationCache({
-        onSuccess: (_data, _variables, _context, mutation) => {
+        onSuccess: (
+            _data,
+            _variables,
+            _context,
+            mutation
+        ): void | Promise<void[]> => {
+            // Fire-and-forget invalidation (all if no meta.invalidates provided)
             queryClient.invalidateQueries({
-                predicate: (query) => {
-                    return mutation.meta?.invalidates?.some((queryKey) => matchQuery({ queryKey }, query)) ?? true;
+                predicate: (query: Query): boolean => {
+                    return (
+                        mutation.meta?.invalidates?.some((queryKey) => {
+                            return matchQuery({ queryKey }, query);
+                        }) ?? true
+                    );
                 },
             });
+
+            // Optionally await specific query invalidations
+            if (mutation.meta?.awaits && mutation.meta.awaits.length > 0) {
+                return Promise.all(
+                    mutation.meta.awaits.map((queryKey) =>
+                        queryClient.invalidateQueries({ queryKey }, { cancelRefetch: false })
+                    )
+                );
+            }
         },
     }),
 });
