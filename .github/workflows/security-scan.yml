@@ -57,7 +57,7 @@ jobs:
           severity-level: "LOW"
           confidence-level: "LOW"
           fail-on-findings: false # reports only
-          output-format: "plain"
+          output-format: "plain" # Use plain text output format to ommit uploading code scanning results to Security tab
 
   bandit-scan:
     runs-on: ubuntu-latest
@@ -76,7 +76,7 @@ jobs:
           confidence-level: "LOW"
           config_file: ".ci/ipas_default.config"
           fail-on-findings: false # reports only
-          output-format: "plain"
+          output-format: "plain" # Use plain text output format to ommit uploading code scanning results to Security tab
 
   trivy-scan:
     runs-on: ubuntu-latest
@@ -95,7 +95,7 @@ jobs:
           scan-scope: all
           severity: LOW
           scanners: "vuln,secret,config"
-          format: "table"
+          format: "table" # Use plain text output format to ommit uploading code scanning results to Security tab
           timeout: "15m"
           ignore_unfixed: "false"
 
@@ -115,4 +115,4 @@ jobs:
           severity: "LOW"
           fail-on-findings: false # reports only
           config: "p/ci" # Use CI ruleset
-          output-format: "plain"
+          output-format: "plain" # Use plain text output format to ommit uploading code scanning results to Security tab
