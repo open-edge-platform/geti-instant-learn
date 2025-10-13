@@ -6,14 +6,14 @@
 from .base import PromptGenerator
 from .bidirectional import BidirectionalPromptGenerator
 from .grid import GridPromptGenerator
-from .grounded import GroundedObjectDetector, GroundingModel
-from .softmatcher import SoftmatcherPromptGenerator
+from .grounded import GroundingModel, TextToBoxPromptGenerator
+from .soft_matcher import SoftmatcherPromptGenerator
 
 __all__ = [
     "BidirectionalPromptGenerator",
     "GridPromptGenerator",
+    "GroundingModel",
     "PromptGenerator",
     "SoftmatcherPromptGenerator",
-    "GroundedObjectDetector",
-    "GroundingModel",
+    "TextToBoxPromptGenerator",
 ]

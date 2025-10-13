@@ -1,6 +1,8 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+"""Prompt type for Geti Prompt."""
+
 import numpy as np
 import torch
 
@@ -14,6 +16,7 @@ class Prompt(Data):
     """
 
     def __init__(self, data: dict[int, torch.Tensor | np.ndarray] | None = None) -> None:
+        """Initializes the Prompt."""
         self._data: dict[int, torch.Tensor | np.ndarray] = data if data is not None else {}
 
     def add(self, data: torch.Tensor | np.ndarray, class_id: int = 0) -> None:

@@ -7,9 +7,7 @@ import numpy as np
 import torch
 from sklearn.cluster import KMeans
 
-from getiprompt.components.feature_selectors.base import (
-    FeatureSelector,
-)
+from getiprompt.components.feature_selectors.base import FeatureSelector
 from getiprompt.types import Features
 
 

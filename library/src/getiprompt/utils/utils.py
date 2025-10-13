@@ -1,11 +1,14 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+"""Utility functions for Geti Prompt."""
+
 import colorsys
 import hashlib
 import logging
 import random
 import sys
+from itertools import starmap
 from pathlib import Path
 
 import cv2
@@ -18,7 +21,7 @@ from matplotlib import pyplot as plt
 from rich.progress import BarColumn, DownloadColumn, Progress, TextColumn, TimeRemainingColumn, TransferSpeedColumn
 from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
-from torch.nn import functional as F
+from torch.nn import functional
 from torchvision import transforms
 
 logger = logging.getLogger("Geti Prompt")
@@ -85,7 +88,8 @@ def download_file(url: str, target_path: Path, sha_sum: str | None = None) -> No
         with requests.get(url, stream=True, timeout=10) as r:
             r.raise_for_status()
             total_size = int(r.headers.get("content-length", 0))
-            logger.info(f"Downloading {target_path.name} ({total_size / (1024 * 1024):.2f} MB) from {url}...")
+            msg = f"Downloading {target_path.name} ({total_size / (1024 * 1024):.2f} MB) from {url}..."
+            logger.info(msg)
 
             with progress:
                 task_id = progress.add_task("download", total=total_size, filename=target_path.name)
@@ -101,26 +105,28 @@ def download_file(url: str, target_path: Path, sha_sum: str | None = None) -> No
         if sha_sum:
             check_file_hash(target_path, sha_sum)
 
-        logger.info(f"Downloaded model weights successfully to {target_path}")
+        msg = f"Downloaded model weights successfully to {target_path}"
+        logger.info(msg)
     except Exception:
         logger.exception("An unexpected error occurred during download.")
         if target_path.exists():
             try:
                 target_path.unlink()
             except OSError:
-                logger.exception(f"Error removing file {target_path} after error")
+                msg = f"Error removing file {target_path} after error"
+                logger.exception(msg)
         raise
 
 
-def check_file_hash(file_path: Path, expected_hash: str) -> bool:
+def check_file_hash(file_path: Path, expected_hash: str) -> None:
     """Check if the file hash matches the expected hash.
 
     Args:
         file_path: Path to the file to check the hash of
         expected_hash: Expected SHA-256 hash of the file
 
-    Returns:
-        True if the file hash matches the expected hash, False otherwise
+    Raises:
+        ValueError: If the file hash does not match the expected hash
     """
     file_hash = hashlib.sha256(file_path.read_bytes()).hexdigest()
     if file_hash != expected_hash:
@@ -133,6 +139,9 @@ def compute_file_hash(file_path: Path) -> str:
 
     Args:
         file_path: Path to the file to compute the hash of
+
+    Raises:
+        ValueError: If the file does not exist
 
     Returns:
         SHA-256 hash of the file
@@ -157,7 +166,7 @@ def get_colors(n: int) -> np.ndarray:
         Colors for a mask
     """
     hsv_tuples = [(x / n, 0.5, 0.5) for x in range(n)]
-    rgb_tuples = (colorsys.hsv_to_rgb(*x) for x in hsv_tuples)
+    rgb_tuples = starmap(colorsys.hsv_to_rgb, hsv_tuples)
     return (np.array(list(rgb_tuples)) * 255).astype(np.uint8)
 
 
@@ -185,7 +194,7 @@ def prepare_target_guided_prompting(
         sim = sim.mean(dim=0)
 
     sim = (sim - sim.mean()) / torch.std(sim)
-    sim = F.interpolate(sim.unsqueeze(0).unsqueeze(0), size=(64, 64), mode="bilinear")
+    sim = functional.interpolate(sim.unsqueeze(0).unsqueeze(0), size=(64, 64), mode="bilinear")
     attention_similarity = sim.sigmoid_().unsqueeze(0).flatten(3)
 
     # For multiple reference features (e.g. Part-level features), we take the mean of the reference features
@@ -215,7 +224,7 @@ def cluster_features(
     """
     if n_clusters == 1:
         part_level_features = reference_features.mean(0).unsqueeze(0)
-        part_level_features = part_level_features / part_level_features.norm(
+        part_level_features /= part_level_features.norm(
             dim=-1,
             keepdim=True,
         )
@@ -229,7 +238,7 @@ def cluster_features(
     for c in range(n_clusters):
         # use centroid of cluster as prototype
         part_level_feature = features_np[cluster == c].mean(axis=0)
-        part_level_feature = part_level_feature / np.linalg.norm(
+        part_level_feature /= np.linalg.norm(
             part_level_feature,
             axis=-1,
             keepdims=True,
@@ -277,7 +286,7 @@ def gen_colors(n: int) -> np.ndarray:
         Colors for a mask
     """
     hsv_tuples = [(x / n, 0.5, 0.5) for x in range(n)]
-    rgb_tuples = (colorsys.hsv_to_rgb(*x) for x in hsv_tuples)
+    rgb_tuples = starmap(colorsys.hsv_to_rgb, hsv_tuples)
     colors = [(0, 0, 0), *list(rgb_tuples)]
     return (np.array(colors) * 255).astype(np.uint8)
 
@@ -483,15 +492,6 @@ def calculate_mask_iou(
     mask1: torch.Tensor,
     mask2: torch.Tensor,
 ) -> tuple[float, torch.Tensor | None]:
-    """Calculate the IoU between two masks.
-
-    Args:
-        mask1: First mask
-        mask2: Second mask
-
-    Returns:
-        IoU between the two masks and the intersection
-    """
     """Calculate the IoU between two masks.
 
     Args:

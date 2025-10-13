@@ -7,7 +7,7 @@ import torch
 from torch import nn
 
 from getiprompt.types import Masks, Points
-from getiprompt.utils.utils import calculate_mask_iou
+from getiprompt.utils import calculate_mask_iou
 
 
 class ClassOverlapMaskFilter(nn.Module):
@@ -35,7 +35,8 @@ class ClassOverlapMaskFilter(nn.Module):
             masks_per_image = []
         for image_masks, image_used_points in zip(masks_per_image, used_points_per_image, strict=False):
             for (label, masks), (other_label, other_masks) in product(
-                image_masks.data.items(), image_masks.data.items()
+                image_masks.data.items(),
+                image_masks.data.items(),
             ):
                 if other_label <= label:
                     continue

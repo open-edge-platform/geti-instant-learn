@@ -1,6 +1,8 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+"""Similarities prompt type for Geti Prompt."""
+
 import torch
 
 from getiprompt.types.data import Data
@@ -14,6 +16,7 @@ class Similarities(Data):
     """
 
     def __init__(self) -> None:
+        """Initializes the Similarities prompt."""
         self._data: dict[int, torch.Tensor] = {}
 
     def add(

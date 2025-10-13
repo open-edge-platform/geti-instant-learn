@@ -875,9 +875,7 @@ dependencies = [
     { name = "efficientvit" },
     { name = "flask" },
     { name = "ftfy" },
-    { name = "ipykernel" },
     { name = "jsonargparse" },
-    { name = "jupyter" },
     { name = "markupsafe" },
     { name = "matplotlib" },
     { name = "numpy" },
@@ -886,6 +884,7 @@ dependencies = [
     { name = "pandas" },
     { name = "pot" },
     { name = "pycocotools" },
+    { name = "pytest-assume" },
     { name = "requests" },
     { name = "rich" },
     { name = "sam-2" },
@@ -904,6 +903,7 @@ dev = [
     { name = "build" },
     { name = "pre-commit" },
     { name = "pytest" },
+    { name = "pytest-assume" },
     { name = "ruff" },
     { name = "twine" },
 ]
@@ -912,11 +912,18 @@ extras = [
 ]
 full = [
     { name = "build" },
+    { name = "ipykernel" },
+    { name = "jupyter" },
     { name = "pre-commit" },
     { name = "pytest" },
+    { name = "pytest-assume" },
     { name = "ruff" },
     { name = "twine" },
     { name = "xformers" },
+]
+notebook = [
+    { name = "ipykernel" },
+    { name = "jupyter" },
 ]
 
 [package.metadata]
@@ -925,10 +932,10 @@ requires-dist = [
     { name = "efficientvit", git = "https://github.com/mit-han-lab/efficientvit.git?rev=71b35be" },
     { name = "flask", specifier = "==3.1.1" },
     { name = "ftfy" },
-    { name = "getiprompt", extras = ["dev", "extras"], marker = "extra == 'full'" },
-    { name = "ipykernel", specifier = "==6.30.1" },
+    { name = "getiprompt", extras = ["dev", "extras", "notebook"], marker = "extra == 'full'" },
+    { name = "ipykernel", marker = "extra == 'notebook'", specifier = "==6.30.1" },
     { name = "jsonargparse" },
-    { name = "jupyter", specifier = "==1.1.1" },
+    { name = "jupyter", marker = "extra == 'notebook'", specifier = "==1.1.1" },
     { name = "markupsafe", specifier = "==3.0.2", index = "https://pypi.org/simple" },
     { name = "matplotlib", specifier = "==3.10.3" },
     { name = "numpy", specifier = "==1.26.4" },
@@ -939,6 +946,8 @@ requires-dist = [
     { name = "pre-commit", marker = "extra == 'dev'", specifier = "==4.2.0" },
     { name = "pycocotools", specifier = "==2.0.9" },
     { name = "pytest", marker = "extra == 'dev'", specifier = "==8.4.0" },
+    { name = "pytest-assume", specifier = ">=2.4.3" },
+    { name = "pytest-assume", marker = "extra == 'dev'" },
     { name = "requests", specifier = "==2.32.4" },
     { name = "rich", specifier = "==14.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.11.12" },
@@ -954,7 +963,7 @@ requires-dist = [
     { name = "umap", specifier = "==0.1.1" },
     { name = "xformers", marker = "extra == 'extras'", specifier = "==0.0.30", index = "https://download.pytorch.org/whl/cu126" },
 ]
-provides-extras = ["extras", "dev", "full"]
+provides-extras = ["extras", "notebook", "dev", "full"]
 
 [[package]]
 name = "gitdb"
@@ -3074,6 +3083,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/fb/aa/405082ce2749be5398045152251ac69c0f3578c7077efc53431303af97ce/pytest-8.4.0.tar.gz", hash = "sha256:14d920b48472ea0dbf68e45b96cd1ffda4705f33307dcc86c676c1b5104838a6", size = 1515232, upload-time = "2025-06-02T17:36:30.03Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2f/de/afa024cbe022b1b318a3d224125aa24939e99b4ff6f22e0ba639a2eaee47/pytest-8.4.0-py3-none-any.whl", hash = "sha256:f40f825768ad76c0977cbacdf1fd37c6f7a468e460ea6a0636078f8972d4517e", size = 363797, upload-time = "2025-06-02T17:36:27.859Z" },
+]
+
+[[package]]
+name = "pytest-assume"
+version = "2.4.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4a/95/28dcc584679367b15360e1b7b3167311f80cc735b8b2f5ecfa89b7319d10/pytest-assume-2.4.3.tar.gz", hash = "sha256:983e90537660fd7aa18bb554693523020272e7edeee3e40435593297bcc6347e", size = 8695, upload-time = "2021-06-24T17:13:00.321Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e8/5d/ecd54af3d3dc3f69e9cf527449a51bd5ca39cd47aaeab9a74e55603a9ce1/pytest_assume-2.4.3-py3-none-any.whl", hash = "sha256:09074220213b87cf1f400609701a44b75078b4e69588c7227e061ff9b3ecf54b", size = 5980, upload-time = "2021-06-24T17:12:59.186Z" },
 ]
 
 [[package]]

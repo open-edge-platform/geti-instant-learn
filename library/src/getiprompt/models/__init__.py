@@ -3,18 +3,20 @@
 
 """Models."""
 
-from .base import BaseModel
+from .base import Model
 from .factory import load_model
+from .foundation import load_sam_model
 from .grounded_sam import GroundedSAM
 from .matcher import Matcher
-from .perdino import PerDino
-from .softmatcher import SoftMatcher
+from .per_dino import PerDino
+from .soft_matcher import SoftMatcher
 
 __all__ = [
-    "Matcher",
-    "PerDino",
-    "BaseModel",
-    "SoftMatcher",
     "GroundedSAM",
+    "Matcher",
+    "Model",
+    "PerDino",
+    "SoftMatcher",
     "load_model",
+    "load_sam_model",
 ]

@@ -1,6 +1,8 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+"""Text prompt type for Geti Prompt."""
+
 from difflib import SequenceMatcher
 
 from getiprompt.types.prompts import Prompt
@@ -13,6 +15,7 @@ class Text(Prompt):
         self,
         data: dict[int, str] | None = None,
     ) -> None:
+        """Initializes the Text prompt."""
         self._data = data if data is not None else {}
 
     def add(self, data: str, class_id: int = 0) -> None:

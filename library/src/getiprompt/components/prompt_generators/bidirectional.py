@@ -5,7 +5,7 @@
 
 import torch
 from scipy.optimize import linear_sum_assignment
-from torch.nn import functional as F
+from torch.nn import functional
 
 from getiprompt.components.prompt_generators.base import PromptGenerator
 from getiprompt.types import Features, Masks, Priors, Similarities
@@ -114,7 +114,8 @@ class BidirectionalPromptGenerator(PromptGenerator):
                     class_id,
                 )[0].mean(dim=0, keepdim=True)
                 local_mean_reference_feature = local_mean_reference_feature / local_mean_reference_feature.norm(
-                    dim=-1, keepdim=True
+                    dim=-1,
+                    keepdim=True,
                 )
                 local_similarity_map = local_mean_reference_feature @ target_image_features.global_features.T
                 local_similarity_map = self._resize_similarity_map(
@@ -492,7 +493,7 @@ class BidirectionalPromptGenerator(PromptGenerator):
             .unsqueeze(0)
             .unsqueeze(0)
         )
-        return F.interpolate(
+        return functional.interpolate(
             similarity_map,
             size=original_image_size,
             mode="bilinear",

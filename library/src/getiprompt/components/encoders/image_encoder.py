@@ -7,13 +7,12 @@ from logging import getLogger
 
 import torch
 from torch import nn
-from torch.nn import functional as F
+from torch.nn import functional
 from torchvision import transforms
 from transformers import AutoImageProcessor, AutoModel
 
-from getiprompt.foundation.model_optimizer import optimize_model
 from getiprompt.types import Features, Image, Masks, Priors
-from getiprompt.utils.utils import MaybeToTensor, precision_to_torch_dtype
+from getiprompt.utils import MaybeToTensor, precision_to_torch_dtype
 
 logger = getLogger("Geti Prompt")
 
@@ -73,6 +72,8 @@ class ImageEncoder(nn.Module):
             benchmark_inference_speed: Whether to benchmark the inference speed.
             input_size: The input size to use.
         """
+        from getiprompt.utils.optimization import optimize_model
+
         super().__init__()
 
         if model_id not in AVAILABLE_IMAGE_ENCODERS:
@@ -129,7 +130,7 @@ class ImageEncoder(nn.Module):
         inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
         last_hidden_state = self.model(**inputs).last_hidden_state
         features = last_hidden_state[:, self.ignore_token_length :, :]  # Remove CLS token (and register tokens if used)
-        return F.normalize(features, p=2, dim=-1)
+        return functional.normalize(features, p=2, dim=-1)
 
     def forward(
         self,

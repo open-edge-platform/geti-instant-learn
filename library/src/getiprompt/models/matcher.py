@@ -5,14 +5,13 @@
 
 from typing import TYPE_CHECKING
 
+from getiprompt.components import MaskAdder, MasksToPolygons, SamDecoder
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_selectors import AllFeaturesSelector, FeatureSelector
-from getiprompt.components.mask_processors import MasksToPolygons
+from getiprompt.components.filters import MaxPointFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
-from getiprompt.components.segmenters import SamDecoder
-from getiprompt.filters import MaskAdder, MaxPointFilter
-from getiprompt.foundation import load_sam_model
-from getiprompt.models.base import BaseModel
+from getiprompt.models import Model
+from getiprompt.models.foundation import load_sam_model
 from getiprompt.types import Image, Priors, Results
 from getiprompt.utils.constants import SAMModelName
 from getiprompt.utils.decorators import track_duration
@@ -21,7 +20,7 @@ if TYPE_CHECKING:
     from getiprompt.components.prompt_generators.base import PromptGenerator
 
 
-class Matcher(BaseModel):
+class Matcher(Model):
     """This is the Matcher model.
 
     It's based on the paper "[ICLR'24] Matcher: Segment Anything with One Shot Using All-Purpose Feature Matching"

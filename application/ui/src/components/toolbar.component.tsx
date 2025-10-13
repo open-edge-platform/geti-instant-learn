@@ -5,7 +5,7 @@
 
 import { Flex, View } from '@geti/ui';
 
-import { InputOutputConfiguration } from '../features/input-output-configuration/input-output-configuration.component';
+import { SourcesSinksConfiguration } from '../features/sources-sinks-configuration/sources-sinks-configuration.component';
 
 export const Toolbar = () => {
     return (
@@ -17,7 +17,7 @@ export const Toolbar = () => {
             backgroundColor={'gray-100'}
         >
             <Flex justifyContent={'end'} alignItems={'center'} height={'100%'}>
-                <InputOutputConfiguration />
+                <SourcesSinksConfiguration />
             </Flex>
         </View>
     );

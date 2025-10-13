@@ -1,6 +1,8 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+"""Results type for Geti Prompt."""
+
 from getiprompt.types.annotations import Annotations
 from getiprompt.types.boxes import Boxes
 from getiprompt.types.masks import Masks
@@ -13,6 +15,7 @@ class Results:
     """The class containing results from models."""
 
     def __init__(self) -> None:
+        """Initializes the Results."""
         self._masks: list[Masks] | None = None
         self._priors: list[Priors] | None = None
         self._annotations: list[Annotations] | None = None

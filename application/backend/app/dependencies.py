@@ -3,6 +3,8 @@
 
 import logging
 from collections.abc import Generator
+from functools import lru_cache
+from pathlib import Path
 from sqlite3 import Connection
 from typing import Annotated, Any
 
@@ -15,13 +17,33 @@ from alembic import command
 from alembic.config import Config
 from settings import get_settings
 
-settings = get_settings()
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
-logger.debug(f"Creating engine using SQLite DB: {settings.database_url}")
-engine = create_engine(url=settings.database_url, connect_args={"check_same_thread": False})
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def ensure_data_dir() -> Path:
+    """Ensure the database parent directory exists (idempotent)."""
+    try:
+        settings.db_data_dir.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Ensured data directory exists at {settings.db_data_dir}")
+    except Exception:
+        logger.exception(f"Failed to create data directory at {settings.db_data_dir}")
+        raise
+    return settings.db_data_dir
+
+
+@lru_cache
+def get_engine() -> Engine:
+    """Lazily create SQLAlchemy engine after ensuring directory."""
+    ensure_data_dir()
+    logger.debug(f"Creating engine using SQLite DB: {settings.database_url}")
+    return create_engine(url=settings.database_url, connect_args={"check_same_thread": False})
+
+
+@lru_cache
+def get_session_factory() -> sessionmaker[Session]:
+    """Session factory (cached)."""
+    return sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
 
 
 @event.listens_for(Engine, "connect")
@@ -34,7 +56,8 @@ def set_sqlite_pragma(dbapi_connection: Connection, _: Any) -> None:
 
 
 def get_session() -> Generator[Session, Any]:
-    """Creates and returns database connection session"""
+    """Dependency that yields a DB session."""
+    SessionLocal = get_session_factory()
     with SessionLocal() as session:
         yield session
 
@@ -44,6 +67,7 @@ SessionDep = Annotated[Session, Depends(get_session)]
 
 def run_db_migrations() -> None:
     """Run database migrations using Alembic."""
+    ensure_data_dir()
     try:
         logger.info("Running database migrations...")
         alembic_cfg = Config(settings.alembic_config_path)
@@ -53,3 +77,4 @@ def run_db_migrations() -> None:
         logger.info("✓ Database migrations completed successfully")
     except Exception:
         logger.exception("✗ Database migration failed")
+        raise

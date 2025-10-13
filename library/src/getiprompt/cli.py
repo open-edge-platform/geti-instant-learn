@@ -12,9 +12,9 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 from jsonargparse import ActionConfigFile, ArgumentParser, Namespace
 
-from getiprompt.benchmark import perform_benchmark_experiment
-from getiprompt.models.base import BaseModel
-from getiprompt.run import run_model
+from getiprompt.models import Model
+from getiprompt.scripts.benchmark import perform_benchmark_experiment
+from getiprompt.scripts.run import run_model
 from getiprompt.utils.args import populate_benchmark_parser
 from getiprompt.utils.utils import setup_logger
 
@@ -39,12 +39,20 @@ class GetiPromptCLI:
         if "--reference_text_prompt" in sys.argv or "--text" in sys.argv:
             default_model = "GroundedSAM"
 
-        parser.add_subclass_arguments(BaseModel, "model", default=default_model)
+        parser.add_subclass_arguments(Model, "model", default=default_model)
         parser.add_argument(
-            "--reference_images", "--ref", type=str, default=None, help="Directory with reference images."
+            "--reference_images",
+            "--ref",
+            type=str,
+            default=None,
+            help="Directory with reference images.",
         )
         parser.add_argument(
-            "--target_images", "--target", type=str, required=True, help="Directory with target images."
+            "--target_images",
+            "--target",
+            type=str,
+            required=True,
+            help="Directory with target images.",
         )
         parser.add_argument(
             "--reference_prompts",
@@ -54,7 +62,10 @@ class GetiPromptCLI:
             help="Directory with reference prompts (masks or points).",
         )
         parser.add_argument(
-            "--points", type=str, default=None, help="Reference points as a string. e.g. [0:[640,640], -1:[200,200]]"
+            "--points",
+            type=str,
+            default=None,
+            help="Reference points as a string. e.g. [0:[640,640], -1:[200,200]]",
         )
         parser.add_argument(
             "--reference_text_prompt",
@@ -65,7 +76,10 @@ class GetiPromptCLI:
         )
         parser.add_argument("--output_location", type=str, default=None, help="Directory to save output.")
         parser.add_argument(
-            "--output_masks_only", action="store_true", default=False, help="Whether to save masks only."
+            "--output_masks_only",
+            action="store_true",
+            default=False,
+            help="Whether to save masks only.",
         )
         parser.add_argument("--batch_size", type=int, default=5, help="Batch size for processing target images.")
 
@@ -146,10 +160,6 @@ class GetiPromptCLI:
                 )
             case "benchmark":
                 perform_benchmark_experiment(config.benchmark)
-            case "ui":
-                from web_ui.app import app
-
-                app.run(host=config.ui.host, debug=config.ui.debug, port=config.ui.port)
             case _:
                 msg = f"Invalid subcommand: {subcommand}"
                 raise ValueError(msg)

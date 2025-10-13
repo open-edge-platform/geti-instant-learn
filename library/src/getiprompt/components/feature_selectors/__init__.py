@@ -9,8 +9,8 @@ from .base import FeatureSelector
 from .cluster_features import ClusterFeatures
 
 __all__ = [
+    "AllFeaturesSelector",
     "AverageFeatures",
     "ClusterFeatures",
     "FeatureSelector",
-    "AllFeaturesSelector",
 ]

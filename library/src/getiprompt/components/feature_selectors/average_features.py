@@ -5,9 +5,7 @@
 
 import torch
 
-from getiprompt.components.feature_selectors.base import (
-    FeatureSelector,
-)
+from getiprompt.components.feature_selectors.base import FeatureSelector
 from getiprompt.types import Features
 
 

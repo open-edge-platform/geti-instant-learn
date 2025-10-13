@@ -1,15 +1,17 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+"""Utility functions for data handling in Geti Prompt."""
+
 from logging import getLogger
 from pathlib import Path
 
 import numpy as np
 
-from getiprompt.datasets.dataset_base import Dataset
-from getiprompt.datasets.dataset_iterators import BatchedCategoryIter
-from getiprompt.datasets.lvis.lvis_dataset import LVISDataset
-from getiprompt.datasets.perseg.perseg_dataset import PerSegDataset
+from getiprompt.data.base import Dataset
+from getiprompt.data.dataset_iterators import BatchedCategoryIter
+from getiprompt.data.lvis.dataset import LVISDataset
+from getiprompt.data.per_seg.dataset import PerSegDataset
 
 logger = getLogger("Geti Prompt")
 
@@ -29,7 +31,8 @@ def load_dataset(dataset_name: str, whitelist: list[str] | None = None, batch_si
         ValueError: If the dataset name is not recognized
     """
     # add logging that we are loading the dataset
-    logger.info(f"Loading dataset: {dataset_name}")
+    msg = f"Loading dataset: {dataset_name}"
+    logger.info(msg)
     if dataset_name == "PerSeg":
         return PerSegDataset(
             whitelist=whitelist,
@@ -56,7 +59,9 @@ def load_dataset(dataset_name: str, whitelist: list[str] | None = None, batch_si
 
 
 def get_image_and_mask_from_filename(
-    filename: str, dataset: Dataset, category_name: str
+    filename: str,
+    dataset: Dataset,
+    category_name: str,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Get the image and mask from using a base filename and dataset.
 

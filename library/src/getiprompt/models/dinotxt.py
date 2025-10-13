@@ -5,14 +5,14 @@
 
 import torch
 
-from getiprompt.foundation.dinotxt import IMAGENET_TEMPLATES, DinoTextEncoder
-from getiprompt.models.base import BaseModel
+from getiprompt.models.base import Model
+from getiprompt.models.foundation.dinotxt import IMAGENET_TEMPLATES, DinoTextEncoder
 from getiprompt.types import Image, Masks, Priors, Results
 from getiprompt.utils import precision_to_torch_dtype
 from getiprompt.utils.constants import DINOv3BackboneSize
 
 
-class DinoTxtZeroShotClassification(BaseModel):
+class DinoTxtZeroShotClassification(Model):
     """DinoTxt model.
 
     Args:

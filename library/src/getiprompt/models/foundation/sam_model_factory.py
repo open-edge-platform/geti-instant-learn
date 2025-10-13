@@ -13,15 +13,14 @@ from sam2.sam2_image_predictor import SAM2ImagePredictor
 from segment_anything_hq import sam_model_registry as sam_hq_model_registry
 from segment_anything_hq.predictor import SamPredictor as SamHQPredictor
 
-from getiprompt.foundation.model_optimizer import optimize_model
-from getiprompt.foundation.per_segment_anything import SamPredictor, sam_model_registry
-from getiprompt.utils import download_file, precision_to_torch_dtype
+from getiprompt.models.foundation.per_sam import SamPredictor, sam_model_registry
 from getiprompt.utils.constants import DATA_PATH, MODEL_MAP, SAMModelName
+from getiprompt.utils.utils import download_file, precision_to_torch_dtype
 
 if TYPE_CHECKING:
     from segment_anything_hq.modeling.sam import Sam as SamHQ
 
-    from getiprompt.foundation.per_segment_anything.modeling.sam import Sam
+    from getiprompt.models.foundation.per_sam.modeling import Sam
 
 logger = getLogger("Geti Prompt")
 
@@ -45,6 +44,8 @@ def load_sam_model(
     Returns:
         The loaded model.
     """
+    from getiprompt.utils.optimization import optimize_model
+
     if sam not in MODEL_MAP:
         msg = f"Invalid model type: {sam}"
         raise ValueError(msg)

@@ -3,9 +3,10 @@
 
 """Utils."""
 
-from .transforms import ResizeLongestSide
+from .similarity_resize import resize_similarity_map
 from .utils import (
     MaybeToTensor,
+    calculate_mask_iou,
     color_overlay,
     download_file,
     get_colors,
@@ -15,12 +16,13 @@ from .utils import (
 )
 
 __all__ = [
+    "MaybeToTensor",
+    "calculate_mask_iou",
     "color_overlay",
     "download_file",
     "get_colors",
-    "prepare_target_guided_prompting",
-    "setup_logger",
-    "MaybeToTensor",
     "precision_to_torch_dtype",
-    "ResizeLongestSide",
+    "prepare_target_guided_prompting",
+    "resize_similarity_map",
+    "setup_logger",
 ]
