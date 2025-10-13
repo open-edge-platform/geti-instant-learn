@@ -3,16 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useState } from 'react';
 
 import { $api, WebcamConfig } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
-import { Button, Content, Flex, Heading, InlineAlert, Loading, Radio, RadioGroup, Text, View } from '@geti/ui';
+import { Button, TextField, View } from '@geti/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { isEqual } from 'lodash-es';
+import { isEqual, isInteger } from 'lodash-es';
 import { v4 as uuid } from 'uuid';
-
-import { CameraPermissionStatus, getAvailableVideoDevices, getVideoUserMedia } from './camera-utils';
 
 interface WebcamSourceProps {
     source: WebcamConfig | undefined;
@@ -126,9 +124,9 @@ const useUpdateWebcamSource = () => {
 };
 
 export const WebcamSource = ({ source }: WebcamSourceProps) => {
-    const [availableVideoDevices, setAvailableVideoDevices] = useState<MediaDeviceInfo[] | null>(null);
-    const [cameraPermission, setCameraPermission] = useState<CameraPermissionStatus>('pending');
-    const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>(source?.config?.device_id?.toString());
+    const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>(
+        source?.config?.device_id?.toString() ?? '0'
+    );
     const createWebcamSource = useCreateWebcamSource();
     const updateWebcamSource = useUpdateWebcamSource();
 
@@ -152,59 +150,16 @@ export const WebcamSource = ({ source }: WebcamSourceProps) => {
         createWebcamSource.mutate(parseInt(selectedDeviceId));
     };
 
-    const changeSelectedDevice = async (deviceId: string) => {
-        setSelectedDeviceId(deviceId);
-        await getVideoUserMedia({
-            video: {
-                deviceId: { exact: deviceId },
-            },
-        });
-    };
-
-    useEffect(() => {
-        const updateDevices = async () => {
-            const { devices, permission } = await getAvailableVideoDevices();
-            setAvailableVideoDevices(devices);
-            setCameraPermission(permission);
-
-            if (devices?.length) setSelectedDeviceId(devices[0].deviceId);
-        };
-
-        updateDevices();
-
-        navigator.mediaDevices.addEventListener('devicechange', updateDevices);
-        return () => navigator.mediaDevices.removeEventListener('devicechange', updateDevices);
-    }, []);
-
-    if (cameraPermission === 'pending') {
-        return (
-            <View>
-                <Flex alignItems={'center'} gap={'size-100'}>
-                    <Loading mode={'inline'} size={'S'} />
-                    <Text>Checking browser camera permission...</Text>
-                </Flex>
-            </View>
-        );
-    }
-
-    if (cameraPermission === 'denied' || availableVideoDevices === null) {
-        return (
-            <InlineAlert variant='notice'>
-                <Heading>Update camera permission</Heading>
-                <Content>Please grant camera permission to be able to use webcam as input source.</Content>
-            </InlineAlert>
-        );
-    }
-
     return (
         <form onSubmit={handleApply}>
-            <RadioGroup isEmphasized value={selectedDeviceId} onChange={changeSelectedDevice}>
-                {availableVideoDevices.map((device) => (
-                    <Radio key={device.deviceId} value={device.deviceId}>
-                        {device.label || `Camera ${device.deviceId}`}
-                    </Radio>
-                ))}
-            </RadioGroup>
+            <View>
+                <TextField
+                    label={'Device ID'}
+                    value={selectedDeviceId}
+                    onChange={setSelectedDeviceId}
+                    validate={(value) => (isInteger(Number(value)) ? true : 'Device ID must be an integer')}
+                />
+            </View>
 
             <Button marginTop={'size-200'} type={'submit'} isPending={isApplyPending} isDisabled={isApplyDisabled}>
                 Apply
