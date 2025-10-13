@@ -12,9 +12,9 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 from jsonargparse import ActionConfigFile, ArgumentParser, Namespace
 
-from getiprompt.benchmark import perform_benchmark_experiment
 from getiprompt.models import Model
-from getiprompt.run import run_model
+from getiprompt.scripts.benchmark import perform_benchmark_experiment
+from getiprompt.scripts.run import run_model
 from getiprompt.utils.args import populate_benchmark_parser
 from getiprompt.utils.utils import setup_logger
 
@@ -160,10 +160,6 @@ class GetiPromptCLI:
                 )
             case "benchmark":
                 perform_benchmark_experiment(config.benchmark)
-            case "ui":
-                from web_ui.app import app
-
-                app.run(host=config.ui.host, debug=config.ui.debug, port=config.ui.port)
             case _:
                 msg = f"Invalid subcommand: {subcommand}"
                 raise ValueError(msg)
