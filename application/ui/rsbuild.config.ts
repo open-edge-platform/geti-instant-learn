@@ -31,7 +31,9 @@ export default defineConfig({
             },
         }),
     ],
-
+    output: {
+        assetPrefix: process.env.ASSET_PREFIX,
+    },
     source: {
         define: {
             ...publicVars,

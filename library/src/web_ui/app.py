@@ -19,14 +19,15 @@ warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 from flask import Flask, Response, jsonify, render_template, request, stream_with_context
 
+from getiprompt.components.encoders import AVAILABLE_IMAGE_ENCODERS
 from getiprompt.utils.args import get_arguments
-from getiprompt.utils.constants import DatasetName, PipelineName, SAMModelName
+from getiprompt.utils.constants import DatasetName, SAMModelName
 from getiprompt.utils.data import load_dataset
 from web_ui.helpers import (
     load_and_prepare_data,
     parse_request_and_check_reload,
     prepare_reference_data,
-    reload_pipeline_if_needed,
+    reload_model_if_needed,
     stream_inference,
 )
 
@@ -55,8 +56,10 @@ def index() -> str:
         sam_names=[model.value for model in SAMModelName],
         pipelines=ui_pipelines,
         datasets=ui_datasets,
+        encoder_models=list(AVAILABLE_IMAGE_ENCODERS.keys()),
         compile_models=initial_default_args.compile_models,
         default_sam_name=initial_default_args.sam,
+        default_encoder_model=initial_default_args.encoder_model,
         precision=initial_default_args.precision,
     )
 
@@ -120,7 +123,7 @@ def run_processing() -> Response:
             current_pipeline_args,
         )
 
-        current_pipeline_instance, current_pipeline_name, current_pipeline_args = reload_pipeline_if_needed(
+        current_pipeline_instance, current_pipeline_name, current_pipeline_args = reload_model_if_needed(
             reload_needed,
             requested_values,
             parsed_args,

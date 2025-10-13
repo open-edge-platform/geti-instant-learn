@@ -3,7 +3,7 @@
 
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from alembic import command
@@ -35,6 +35,14 @@ def fxt_migrated_db(fxt_db_url: str):
 @pytest.fixture(scope="session")
 def fxt_engine(fxt_db_url: str):
     engine = create_engine(fxt_db_url, connect_args={"check_same_thread": False})
+
+    # ensure foreign key constraint enforcement in SQLite test database
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, _):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
     try:
         yield engine
     finally:

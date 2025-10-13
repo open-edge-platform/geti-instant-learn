@@ -7,6 +7,8 @@ from multiprocessing import Event
 from types import TracebackType
 from typing import Any, TypeVar
 
+from core.components.schemas.processor import InputData
+
 IN = TypeVar("IN")
 OUT = TypeVar("OUT")
 
@@ -40,8 +42,11 @@ class PipelineComponent(ABC):
 class StreamReader(AbstractContextManager, ABC):
     """An abstract interface for reading frames from various sources."""
 
+    def connect(self) -> None:
+        pass
+
     @abstractmethod
-    def read(self) -> Any | None:
+    def read(self) -> InputData | None:
         pass
 
     def close(self) -> None:

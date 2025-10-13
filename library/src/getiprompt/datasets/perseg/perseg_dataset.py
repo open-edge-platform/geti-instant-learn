@@ -6,18 +6,16 @@
 from logging import getLogger
 from pathlib import Path
 
-import cv2
 import numpy as np
 from PIL import Image as PILImage
 
-from getiprompt.datasets.dataset_base import Annotation, Dataset, DatasetIter, Image
-from getiprompt.datasets.dataset_iterators import CategoryIter, IndexIter
-from getiprompt.utils import color_overlay
+from getiprompt.datasets.dataset_base import Dataset, DatasetIter, Image
+from getiprompt.datasets.dataset_iterators import IndexIter
 
 logger = getLogger("Geti Prompt")
 
 
-class PerSegAnnotation(Annotation):
+class PerSegAnnotation:
     """PerSeg annotation class.
 
     Args:
@@ -32,7 +30,6 @@ class PerSegAnnotation(Annotation):
     """
 
     def __init__(self, filename: str, category_id: int) -> None:
-        super().__init__(0, 0)
         self.category_id = category_id
         self.filename = filename
 
@@ -228,14 +225,6 @@ class PerSegDataset(Dataset):
                 self.instances_per_image[category] = self.instance_count[category] / self.image_count[category]
             else:
                 self.instances_per_image[category] = 0.0
-
-    def get_root_path(self) -> str:
-        """Get the root path.
-
-        Returns:
-            The root path
-        """
-        return self._root_path
 
     def get_categories(self) -> list[str]:
         """Get the categories.
@@ -463,47 +452,3 @@ class PerSegDataset(Dataset):
         if not unzip_dest.exists():
             msg = f"Failed to produce {unzip_dest}"
             raise RuntimeError(msg)
-
-
-def test_index_iter() -> None:
-    """Test the index iterator."""
-    # Use default index iterator (PyTorch style)
-    dataset = PerSegDataset()
-
-    for image_index, (image, masks) in enumerate(dataset):
-        # Generate and save overlays
-        for category_id, mask in masks.items():
-            overlay = color_overlay(image, mask)
-            cat = dataset.get_categories()[category_id]
-            output_folder = Path(dataset.get_root_path()) / "overlays" / cat
-            orig_filename = Path(Path(dataset.get_image_filename(image_index)).name).stem
-            Path.mkdir(output_folder, parents=True)
-            cv2.imwrite(str(Path(output_folder / f"{orig_filename}_{cat}.jpg")), overlay)
-
-
-def test_category_iter() -> None:
-    """Test the category iterator."""
-    # Use category iterator
-    dataset = PerSegDataset(iterator_type=CategoryIter)
-
-    for category_index, (images, masks) in enumerate(dataset):
-        for image_index, (image, mask) in enumerate(zip(images, masks, strict=False)):
-            # Generate and save overlays
-            overlay = color_overlay(image, mask)
-            cat = dataset.get_categories()[category_index]
-            output_folder = Path(dataset.get_root_path()) / "overlays" / cat
-            orig_filename = Path(
-                Path(
-                    dataset.get_image_filename_in_category(category_index, image_index),
-                ).name
-            ).stem
-            Path.mkdir(output_folder, parents=True)
-            cv2.imwrite(
-                str(Path(output_folder) / f"{orig_filename}_{cat}.jpg"),
-                overlay,
-            )
-
-
-if __name__ == "__main__":
-    test_index_iter()
-    test_category_iter()

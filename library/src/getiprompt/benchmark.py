@@ -18,14 +18,14 @@ import numpy as np
 import pandas as pd
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 
+from getiprompt.components.metrics import SegmentationMetrics
+from getiprompt.components.visualizations import ExportMaskVisualization
 from getiprompt.datasets import BatchedSingleCategoryIter, Dataset
-from getiprompt.pipelines import Pipeline, load_pipeline
-from getiprompt.processes.calculators import SegmentationMetrics
-from getiprompt.processes.visualizations import ExportMaskVisualization
+from getiprompt.models import BaseModel, load_model
 from getiprompt.types import Image, Masks, Priors, Text
 from getiprompt.utils import setup_logger
 from getiprompt.utils.args import get_arguments, parse_experiment_args
-from getiprompt.utils.constants import DatasetName, PipelineName, SAMModelName
+from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
 from getiprompt.utils.data import get_filename_categories, get_image_and_mask_from_filename, load_dataset
 
 logger = getLogger("Geti Prompt")
@@ -104,7 +104,7 @@ def save_priors(prior_images: list[Image], prior_masks: list[Masks], output_path
 
 def infer_all_batches(
     batches: BatchedSingleCategoryIter,
-    pipeline: Pipeline,
+    model: BaseModel,
     category_name: str,
     priors_batch_index: int,
     visualizer: ExportMaskVisualization,
@@ -117,7 +117,7 @@ def infer_all_batches(
 
     Args:
         batches: An iterable of batches that return numpy images and masks
-        pipeline: The pipeline to run
+        model: The model to run
         category_name: The current category
         priors_batch_index: The current prior batch
         visualizer: The visualizer for exporting
@@ -141,7 +141,7 @@ def infer_all_batches(
     time_count = 0
     for batch_index, (images, masks) in enumerate(batches):
         target_images = [Image(image) for image in images]
-        results = pipeline.infer(target_images=target_images)
+        results = model.infer(target_images=target_images)
         time_sum += results.duration
         time_count += len(images)
 
@@ -210,7 +210,7 @@ def infer_all_batches(
 def infer_all_images(
     filenames: list[str],
     dataset: Dataset,
-    pipeline: Pipeline,
+    model: BaseModel,
     category_name: str,
     priors_batch_index: int,
     visualizer: ExportMaskVisualization,
@@ -222,7 +222,7 @@ def infer_all_images(
     Args:
         filenames: A list of filenames
         dataset: The dataset containing the images
-        pipeline: The pipeline to run
+        model: The model to run
         category_name: The current category
         priors_batch_index: The current prior batch
         visualizer: The visualizer for exporting
@@ -245,7 +245,7 @@ def infer_all_images(
         masks.append(mask)
 
     target_images = [Image(image) for image in images]
-    results = pipeline.infer(target_images=target_images)
+    results = model.infer(target_images=target_images)
     time_sum += results.duration
     time_count += len(images)
 
@@ -310,12 +310,12 @@ def infer_all_images(
 
 def predict_on_dataset(  # noqa: C901
     args: argparse.Namespace,
-    pipeline: Pipeline,
+    model: BaseModel,
     priors_dataset: Dataset,
     dataset: Dataset,
     unique_output: Path,
     dataset_name: str,
-    pipeline_name: str,
+    model_name: str,
     backbone_name: str,
     number_of_priors_tests: int,
     number_of_batches: int | None,
@@ -326,12 +326,12 @@ def predict_on_dataset(  # noqa: C901
 
     Args:
         args: Args from the argparser.
-        pipeline: The pipeline to use.
+        model: The model to use.
         priors_dataset: The training set that is used for priors
         dataset: The validation set that is processed
         unique_output: Unique output name
         dataset_name: The dataset name
-        pipeline_name: The algorithm namen
+        model_name: The algorithm name
         backbone_name: The model name
         number_of_priors_tests: The number of priors to try
         number_of_batches: The number of batches per class to process (limited testing)
@@ -397,7 +397,7 @@ def predict_on_dataset(  # noqa: C901
                 text_prior.add(category_name, class_id=0)
                 reference_priors = [Priors(masks=priors_masks2[i], text=text_prior) for i in range(len(priors_masks2))]
                 try:
-                    pipeline.learn(
+                    model.learn(
                         reference_images=priors_images2,
                         reference_priors=reference_priors,
                     )
@@ -429,7 +429,7 @@ def predict_on_dataset(  # noqa: C901
                     # Iterate over all batches
                     ts, tc = infer_all_batches(
                         batches=batches,
-                        pipeline=pipeline,
+                        model=model,
                         category_name=category_name,
                         priors_batch_index=priors_batch_index,
                         visualizer=visualizer,
@@ -443,7 +443,7 @@ def predict_on_dataset(  # noqa: C901
                     ts, tc = infer_all_images(
                         filenames=dataset_filenames,
                         dataset=dataset,
-                        pipeline=pipeline,
+                        model=model,
                         category_name=category_name,
                         priors_batch_index=priors_batch_index,
                         visualizer=visualizer,
@@ -473,7 +473,7 @@ def predict_on_dataset(  # noqa: C901
             dataset.get_instance_count_per_category(cat_name) for cat_name in metrics["category"]
         ]
         metrics["dataset_name"] = [dataset_name] * ln
-        metrics["pipeline_name"] = [pipeline_name] * ln
+        metrics["model_name"] = [model_name] * ln
         metrics["backbone_name"] = [backbone_name] * ln
         if all_metrics is None:
             all_metrics = metrics
@@ -486,34 +486,22 @@ def predict_on_dataset(  # noqa: C901
 
 def _generate_experiment_plan(
     datasets: list[DatasetName],
-    pipelines: list[PipelineName],
+    models: list[ModelName],
     backbones: list[SAMModelName],
-) -> list[tuple[DatasetName, PipelineName, SAMModelName]]:
+) -> list[tuple[DatasetName, ModelName, SAMModelName]]:
     """Generate a list of valid experiment configurations to run.
 
     Args:
         datasets: The datasets to run
-        pipelines: The pipelines to run
+        models: The models to run
         backbones: The backbones to run
 
     Returns: A list of valid experiment configurations
     """
-    all_combinations = list(itertools.product(datasets, pipelines, backbones))
+    all_combinations = list(itertools.product(datasets, models, backbones))
     valid_configs = []
-    persam_mapi_done_for_dataset = set()
 
     for dataset, pipeline, backbone in all_combinations:
-        # Skip unsupported combinations
-        if pipeline == PipelineName.PER_SAM and backbone == SAMModelName.EFFICIENT_VIT_SAM:
-            logger.info(f"Planning to skip {backbone.value} with {pipeline.value} (unsupported).")
-            continue
-
-        # Run PerSAMMAPI only once per dataset (it's backbone-independent)
-        if pipeline == PipelineName.PER_SAM_MAPI:
-            if dataset in persam_mapi_done_for_dataset:
-                continue
-            persam_mapi_done_for_dataset.add(dataset)
-
         valid_configs.append((dataset, pipeline, backbone))
 
     return valid_configs
@@ -523,7 +511,7 @@ def _get_output_path_for_experiment(
     output_path: Path,
     experiment_name: str | None,
     dataset: DatasetName,
-    pipeline: PipelineName,
+    model: ModelName,
     backbone: SAMModelName,
     dataset_filenames: str | None,
 ) -> Path:
@@ -533,13 +521,13 @@ def _get_output_path_for_experiment(
         output_path: The path to save the results
         experiment_name: The name of the experiment
         dataset: The dataset to run
-        pipeline: The pipeline to run
+        model: The model to run
         backbone: The backbone to run
         dataset_filenames: The filenames to run
 
     Returns: The path to save the results
     """
-    combo_str = f"{dataset.value}_{backbone.value}_{pipeline.value}"
+    combo_str = f"{dataset.value}_{backbone.value}_{model.value}"
 
     if experiment_name:
         return output_path / experiment_name / combo_str
@@ -571,7 +559,7 @@ def _save_results(all_results: list[pd.DataFrame], output_path: Path) -> None:
     avg_results_dataframe_filename = output_path / "avg_results.csv"
     avg_results_dataframe_filename.parent.mkdir(parents=True, exist_ok=True)
     avg_result_dataframe = all_result_dataframe.groupby(
-        ["dataset_name", "pipeline_name", "backbone_name"],
+        ["dataset_name", "model_name", "backbone_name"],
     ).mean(numeric_only=True)
     avg_result_dataframe.to_csv(str(avg_results_dataframe_filename))
     logger.info(f"Saved average results to: {avg_results_dataframe_filename}")
@@ -581,7 +569,7 @@ def _save_results(all_results: list[pd.DataFrame], output_path: Path) -> None:
 def perform_benchmark_experiment(args: argparse.Namespace | None = None) -> None:
     """Main function to run the experiments.
 
-    This function initializes the arguments, determines which models, datasets, and pipelines to process,
+    This function initializes the arguments, determines which models, datasets, and models to process,
     and then iterates over all combinations to run the predictions and evaluate them.
 
     Args:
@@ -599,38 +587,38 @@ def perform_benchmark_experiment(args: argparse.Namespace | None = None) -> None
     final_results_path.mkdir(parents=True, exist_ok=True)
 
     # Get experiment lists and generate a plan
-    datasets_to_run, pipelines_to_run, backbones_to_run = parse_experiment_args(args)
-    experiment_plan = _generate_experiment_plan(datasets_to_run, pipelines_to_run, backbones_to_run)
+    datasets_to_run, models_to_run, backbones_to_run = parse_experiment_args(args)
+    experiment_plan = _generate_experiment_plan(datasets_to_run, models_to_run, backbones_to_run)
 
     # Execute experiments
     all_results = []
-    for dataset_enum, pipeline_enum, backbone_enum in experiment_plan:
+    for dataset_enum, model_enum, backbone_enum in experiment_plan:
         logger.info(
-            f"Running experiment: Dataset={dataset_enum.value}, Pipeline={pipeline_enum.value}, "
+            f"Running experiment: Dataset={dataset_enum.value}, Model={model_enum.value}, "
             f"Backbone={backbone_enum.value}",
         )
 
         dataset = load_dataset(dataset_enum.value, whitelist=args.class_name, batch_size=args.batch_size)
-        pipeline = load_pipeline(sam=backbone_enum, pipeline_name=pipeline_enum, args=args)
+        model = load_model(sam=backbone_enum, model_name=model_enum, args=args)
 
         # Individual experiment artifacts are saved in a path derived from the base path.
         unique_output_path = _get_output_path_for_experiment(
             base_output_path,
             args.experiment_name,
             dataset_enum,
-            pipeline_enum,
+            model_enum,
             backbone_enum,
             args.dataset_filenames,
         )
 
         all_metrics_df = predict_on_dataset(
             args,
-            pipeline,
+            model,
             priors_dataset=dataset,
             dataset=dataset,
             unique_output=unique_output_path,
             dataset_name=dataset_enum.value,
-            pipeline_name=pipeline_enum.value,
+            model_name=model_enum.value,
             backbone_name=backbone_enum.value,
             number_of_priors_tests=args.num_priors,
             number_of_batches=args.num_batches,

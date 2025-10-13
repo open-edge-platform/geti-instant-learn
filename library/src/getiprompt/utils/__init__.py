@@ -3,7 +3,8 @@
 
 """Utils."""
 
-from getiprompt.utils.utils import (
+from .transforms import ResizeLongestSide
+from .utils import (
     MaybeToTensor,
     color_overlay,
     download_file,
@@ -21,4 +22,5 @@ __all__ = [
     "setup_logger",
     "MaybeToTensor",
     "precision_to_torch_dtype",
+    "ResizeLongestSide",
 ]

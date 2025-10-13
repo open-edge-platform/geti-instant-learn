@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # ruff: noqa: E402
 
-"""This module contains functionality for running the pipeline on custom data."""
+"""This module contains functionality for running the model on custom data."""
 
 import warnings
 
@@ -19,8 +19,8 @@ import numpy as np
 from PIL import Image as PILImage
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 
-from getiprompt.pipelines import Matcher, Pipeline
-from getiprompt.processes.visualizations import ExportMaskVisualization
+from getiprompt.components.visualizations import ExportMaskVisualization
+from getiprompt.models import BaseModel, Matcher
 from getiprompt.types import Image, Priors, Text
 from getiprompt.utils.constants import IMAGE_EXTENSIONS
 from getiprompt.utils.utils import setup_logger
@@ -29,8 +29,8 @@ logger = getLogger("Geti Prompt")
 setup_logger()
 
 
-def run_pipeline(
-    pipeline: Pipeline,
+def run_model(
+    model: BaseModel,
     target_images: str,
     reference_images: str | None = None,
     reference_prompts: str | None = None,
@@ -40,7 +40,7 @@ def run_pipeline(
     output_masks_only: bool = False,
     batch_size: int = 5,
 ) -> None:
-    """Loads reference data (images and prompts) and target images and runs the pipeline.
+    """Loads reference data (images and prompts) and target images and runs the model.
 
     User can provide a reference image directory with or without a reference prompt directory.
     Reference prompt directory can contain multiple directories, each containing the prompts for a single class.
@@ -67,7 +67,7 @@ def run_pipeline(
         reference_points_str: "[-1:[50, 50], 0:[200, 320], 0:[100, 100], ...], [-1:[100, 100], 1:[100, 100], ...], ..."
 
     Args:
-        pipeline: The pipeline to run.
+        model: The model to run.
         target_images: The directory containing all target images.
         reference_images: The directory containing all reference images.
         reference_prompts: The directory containing all reference prompt such as mask files or point files.
@@ -91,7 +91,7 @@ def run_pipeline(
     )
     target_images, _ = parse_image_files(target_images)
 
-    pipeline.learn(reference_images, reference_priors)
+    model.learn(reference_images, reference_priors)
 
     if reference_images:
         for image, prior in zip(reference_images, reference_priors, strict=False):
@@ -115,7 +115,7 @@ def run_pipeline(
         task = progress.add_task("[cyan]Inference", total=len(target_images))
         for i in range(0, len(target_images), batch_size):
             chunk = target_images[i : i + batch_size]
-            results = pipeline.infer(chunk)
+            results = model.infer(chunk)
             if output_masks_only:
                 for target_image in chunk:
                     target_image.data = np.zeros(target_image.data.shape, dtype=np.uint8)
@@ -320,8 +320,8 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=5)
     args = parser.parse_args()
 
-    run_pipeline(
-        pipeline=Matcher(sam="MobileSAM"),
+    run_model(
+        model=Matcher(sam="MobileSAM"),
         target_images=args.target_images,
         reference_images=args.reference_images,
         reference_prompts=args.reference_prompts,

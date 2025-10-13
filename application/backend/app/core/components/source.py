@@ -21,6 +21,7 @@ class Source(PipelineComponent):
     def run(self) -> None:
         logger.debug("Starting a source loop")
         with self._reader:
+            self._reader.connect()
             while not self._stop_event.is_set():
                 try:
                     data = self._reader.read()

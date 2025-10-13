@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 
-import { $api } from '@geti-prompt/api';
+import { $api, type ProjectType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import {
     ActionButton,
@@ -24,13 +24,14 @@ import {
 import { AddCircle } from '@geti/ui/icons';
 import { v4 as uuid } from 'uuid';
 
-import type { Project } from './project-list-item/project-list-item.component';
+import { useCreateProject } from './hooks/use-create-project.hook';
 import { ProjectsList } from './projects-list.component';
+import { generateUniqueProjectName } from './utils';
 
 import styles from './projects-list.module.scss';
 
 interface SelectedProjectProps {
-    project: Project;
+    project: ProjectType;
 }
 
 const SelectedProjectButton = ({ project: { name, id } }: SelectedProjectProps) => {
@@ -46,22 +47,17 @@ const SelectedProjectButton = ({ project: { name, id } }: SelectedProjectProps) 
 
 interface AddProjectProps {
     onSetProjectInEdition: (projectId: string) => void;
-    projectsCount: number;
+    projectsNames: string[];
 }
 
-const AddProjectButton = ({ onSetProjectInEdition, projectsCount }: AddProjectProps) => {
-    const addProjectMutation = $api.useMutation('post', '/api/v1/projects');
+const CreateProjectButton = ({ onSetProjectInEdition, projectsNames }: AddProjectProps) => {
+    const createProject = useCreateProject();
 
-    const addProject = () => {
+    const handleCreateProject = () => {
         const newProjectId = uuid();
-        const newProjectName = `Project #${projectsCount + 1}`;
+        const newProjectName = generateUniqueProjectName(projectsNames);
 
-        addProjectMutation.mutate({
-            body: {
-                id: newProjectId,
-                name: newProjectName,
-            },
-        });
+        createProject(newProjectName, newProjectId);
 
         onSetProjectInEdition(newProjectId);
     };
@@ -72,11 +68,11 @@ const AddProjectButton = ({ onSetProjectInEdition, projectsCount }: AddProjectPr
             width={'100%'}
             marginStart={'size-100'}
             marginEnd={'size-350'}
-            UNSAFE_className={styles.addProjectButton}
-            onPress={addProject}
+            UNSAFE_className={styles.createProjectButton}
+            onPress={handleCreateProject}
         >
             <AddCircle />
-            <Text marginX='size-50'>Add project</Text>
+            <Text marginX='size-50'>Create project</Text>
         </ActionButton>
     );
 };
@@ -91,6 +87,8 @@ export const ProjectsListPanel = () => {
     if (!selectedProject) {
         return <div>No project found</div>;
     }
+
+    const projectsNames = data.projects.map((project) => project.name);
 
     return (
         <DialogTrigger type='popover' hideArrow>
@@ -121,10 +119,7 @@ export const ProjectsListPanel = () => {
                 </Content>
 
                 <ButtonGroup UNSAFE_className={styles.panelButtons}>
-                    <AddProjectButton
-                        onSetProjectInEdition={setProjectInEdition}
-                        projectsCount={data.projects.length}
-                    />
+                    <CreateProjectButton onSetProjectInEdition={setProjectInEdition} projectsNames={projectsNames} />
                 </ButtonGroup>
             </Dialog>
         </DialogTrigger>

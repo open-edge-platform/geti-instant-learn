@@ -3,29 +3,34 @@
 
 import logging
 from collections.abc import Generator
+from sqlite3 import Connection
 from typing import Annotated, Any
 
 from fastapi import Depends
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from alembic import command
 from alembic.config import Config
-from db.models import ProjectDB
-from services.common import ResourceNotFoundError
-from services.project import ProjectService
-from settings import Settings
+from settings import get_settings
 
+settings = get_settings()
 logger = logging.getLogger(__name__)
 
-DEFAULT_PROJECT_NAME = "Project #1"
-DATABASE_URL = "sqlite:///./geti_prompt.db"  # SQLite file-based DB in project directory
-
-
-logger.debug(f"Creating engine using SQLite DB: {DATABASE_URL}")
-engine = create_engine(url=DATABASE_URL, connect_args={"check_same_thread": False})
+logger.debug(f"Creating engine using SQLite DB: {settings.database_url}")
+engine = create_engine(url=settings.database_url, connect_args={"check_same_thread": False})
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection: Connection, _: Any) -> None:
+    """Enable foreign key support for SQLite."""
+    # https://docs.sqlalchemy.org/en/20/dialects/sqlite.html#foreign-key-support
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 
 
 def get_session() -> Generator[Session, Any]:
@@ -37,7 +42,7 @@ def get_session() -> Generator[Session, Any]:
 SessionDep = Annotated[Session, Depends(get_session)]
 
 
-def run_db_migrations(settings: Settings) -> None:
+def run_db_migrations() -> None:
     """Run database migrations using Alembic."""
     try:
         logger.info("Running database migrations...")
@@ -48,30 +53,3 @@ def run_db_migrations(settings: Settings) -> None:
         logger.info("✓ Database migrations completed successfully")
     except Exception:
         logger.exception("✗ Database migration failed")
-
-
-def ensure_default_active_project() -> None:
-    """
-    Ensure there is exactly one active project.
-    Create or activate the default one if missing.
-    """
-    with SessionLocal() as session:
-        service = ProjectService(session)
-        try:
-            service.get_active_project()
-            # if an active project exists, nothing to do
-            return
-        except ResourceNotFoundError:
-            pass  # proceed to create / activate
-
-        try:
-            existing = session.query(ProjectDB).filter_by(name=DEFAULT_PROJECT_NAME).one_or_none()
-            if existing:
-                logger.info(f"Activating existing default project '{DEFAULT_PROJECT_NAME}'")
-                service.set_active_project(existing.id)
-            else:
-                logger.info(f"Creating and activating default project '{DEFAULT_PROJECT_NAME}'")
-                service.create_project(ProjectDB(name=DEFAULT_PROJECT_NAME))
-        except Exception:
-            logger.exception("Failed to create default active project at the application startup")
-            session.rollback()

@@ -17,39 +17,6 @@ import torch
 from getiprompt.datasets.dataset_iterators import DatasetIter
 
 
-class Annotation:
-    """Annotation class.
-
-    Args:
-        height: Height of the annotation
-        width: Width of the annotation
-
-    Examples:
-        >>> from getiprompt.datasets.dataset_base import Annotation
-        >>>
-        >>> class MyAnnotation(Annotation):
-        ...     def get_mask(self) -> np.ndarray:
-        ...         return np.zeros((self.height, self.width))
-        >>>
-        >>> annotation = MyAnnotation(height=10, width=10)
-        >>> mask = annotation.get_mask()
-        >>> isinstance(mask, np.ndarray)
-        True
-    """
-
-    def __init__(self, height: int, width: int) -> None:
-        self.height = height
-        self.width = width
-
-    def get_mask(self) -> np.ndarray:
-        """Get the mask.
-
-        Returns:
-            Mask
-        """
-        raise NotImplementedError
-
-
 class Image:
     """Image class.
 

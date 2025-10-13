@@ -28,15 +28,21 @@ class Settings(BaseSettings):
     openapi_url: str = "/api/openapi.json"
     debug: bool = Field(default=False, alias="DEBUG")
     environment: Literal["dev", "prod"] = "dev"
+    static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
 
     # Server
     host: str = Field(default="0.0.0.0", alias="HOST")  # noqa: S104
     port: int = Field(default=9100, alias="PORT")
 
     # Database
-    database_url: str = Field(
-        default="sqlite:///./geti_prompt.db", alias="DATABASE_URL", description="Database connection URL"
-    )
+    db_data_dir: Path = Field(default=Path("data"), alias="DB_DATA_DIR")
+    db_filename: str = "geti_prompt.db"
+
+    @property
+    def database_url(self) -> str:
+        """Database connection URL"""
+        return f"sqlite:///{self.db_data_dir / self.db_filename}"
+
     db_echo: bool = Field(default=False, alias="DB_ECHO")
 
     # Alembic

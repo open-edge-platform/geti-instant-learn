@@ -13,8 +13,8 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 from jsonargparse import ActionConfigFile, ArgumentParser, Namespace
 
 from getiprompt.benchmark import perform_benchmark_experiment
-from getiprompt.pipelines.pipeline_base import Pipeline
-from getiprompt.run import run_pipeline
+from getiprompt.models.base import BaseModel
+from getiprompt.run import run_model
 from getiprompt.utils.args import populate_benchmark_parser
 from getiprompt.utils.utils import setup_logger
 
@@ -33,13 +33,13 @@ class GetiPromptCLI:
     def add_run_arguments(parser: ArgumentParser) -> None:
         """Add arguments for the run subcommand."""
         # load datasets
-        pipeline_default = "Matcher"
+        default_model = "Matcher"
 
         # Use Grounding model when text is provided as input.
         if "--reference_text_prompt" in sys.argv or "--text" in sys.argv:
-            pipeline_default = "GroundedSAM"
+            default_model = "GroundedSAM"
 
-        parser.add_subclass_arguments(Pipeline, "pipeline", default=pipeline_default)
+        parser.add_subclass_arguments(BaseModel, "model", default=default_model)
         parser.add_argument(
             "--reference_images", "--ref", type=str, default=None, help="Directory with reference images."
         )
@@ -61,7 +61,7 @@ class GetiPromptCLI:
             "--text",
             type=str,
             default=None,
-            help="Text prompt for grounding dino. If provided, pipeline is set to GroundingDinoSAM.",
+            help="Text prompt for grounding dino. If provided, model is set to GroundingDinoSAM.",
         )
         parser.add_argument("--output_location", type=str, default=None, help="Directory to save output.")
         parser.add_argument(
@@ -96,8 +96,8 @@ class GetiPromptCLI:
         """Returns the subcommands and help messages for each subcommand."""
         return {
             "run": "Perform both learning and inference steps.",
-            "benchmark": "Run benchmarking on the pipelines.",
-            "ui": "Run the UI for the pipelines.",
+            "benchmark": "Run benchmarking on the models.",
+            "ui": "Run the UI for the models.",
         }
 
     def _add_subcommands(self) -> None:
@@ -132,9 +132,9 @@ class GetiPromptCLI:
                     msg = "Either reference_images or reference_text_prompt must be provided."
                     raise ValueError(msg)
 
-                pipeline = config.run.pipeline
-                run_pipeline(
-                    pipeline=pipeline,
+                model = config.run.model
+                run_model(
+                    model=model,
                     target_images=config.run.target_images,
                     reference_images=config.run.reference_images,
                     reference_prompts=config.run.reference_prompts,

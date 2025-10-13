@@ -10,7 +10,7 @@ from getiprompt.types.similarities import Similarities
 
 
 class Results:
-    """The class containing results from pipelines."""
+    """The class containing results from models."""
 
     def __init__(self) -> None:
         self._masks: list[Masks] | None = None
@@ -23,7 +23,7 @@ class Results:
 
     @property
     def masks(self) -> list[Masks]:
-        """Returns masks produced by the latest run of pipeline."""
+        """Returns masks produced by the latest run of model."""
         return self._masks if self._masks is not None else []
 
     @masks.setter
@@ -33,7 +33,7 @@ class Results:
 
     @property
     def priors(self) -> list[Priors]:
-        """Returns priors produced by the latest run of pipeline."""
+        """Returns priors produced by the latest run of model."""
         return self._priors if self._priors is not None else []
 
     @priors.setter
@@ -43,7 +43,7 @@ class Results:
 
     @property
     def used_points(self) -> list[Points]:
-        """Returns used points produced by the latest run of pipeline."""
+        """Returns used points produced by the latest run of model."""
         return self._used_points if self._used_points is not None else []
 
     @used_points.setter
@@ -53,7 +53,7 @@ class Results:
 
     @property
     def used_boxes(self) -> list[Boxes]:
-        """Returns used boxes produced by the latest run of pipeline."""
+        """Returns used boxes produced by the latest run of model."""
         return self._used_boxes if self._used_boxes is not None else []
 
     @used_boxes.setter
@@ -63,7 +63,7 @@ class Results:
 
     @property
     def annotations(self) -> list[Annotations]:
-        """Returns annotations produced by the latest run of pipeline."""
+        """Returns annotations produced by the latest run of model."""
         return self._annotations if self._annotations is not None else []
 
     @annotations.setter
@@ -73,7 +73,7 @@ class Results:
 
     @property
     def similarities(self) -> list[Similarities]:
-        """Returns similarities produced by the latest run of pipeline."""
+        """Returns similarities produced by the latest run of model."""
         return self._similarities if self._similarities is not None else []
 
     @similarities.setter
@@ -83,7 +83,7 @@ class Results:
 
     @property
     def duration(self) -> float:
-        """Returns the duration of the latest run of pipeline."""
+        """Returns the duration of the latest run of model."""
         return self._duration if self._duration is not None else 0.0
 
     @duration.setter
