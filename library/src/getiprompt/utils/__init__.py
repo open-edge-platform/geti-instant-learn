@@ -3,8 +3,8 @@
 
 """Utils."""
 
+from .optimization import optimize_model
 from .similarity_resize import resize_similarity_map
-from .transforms import ResizeLongestSide
 from .utils import (
     MaybeToTensor,
     calculate_mask_iou,
@@ -18,11 +18,11 @@ from .utils import (
 
 __all__ = [
     "MaybeToTensor",
-    "ResizeLongestSide",
     "calculate_mask_iou",
     "color_overlay",
     "download_file",
     "get_colors",
+    "optimize_model",
     "precision_to_torch_dtype",
     "prepare_target_guided_prompting",
     "resize_similarity_map",

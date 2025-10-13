@@ -11,7 +11,8 @@ from .dataset_iterators import (
     IndexIter,
 )
 from .lvis import LVISDataset
-from .perseg import PerSegDataset
+from .per_seg import PerSegDataset
+from .transforms import ResizeLongestSide
 
 __all__ = [
     "BatchedCategoryIter",
@@ -21,4 +22,5 @@ __all__ = [
     "IndexIter",
     "LVISDataset",
     "PerSegDataset",
+    "ResizeLongestSide",
 ]

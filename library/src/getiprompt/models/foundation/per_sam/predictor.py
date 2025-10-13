@@ -10,7 +10,7 @@
 import numpy as np
 import torch
 
-from getiprompt.utils import ResizeLongestSide
+from getiprompt.data import ResizeLongestSide
 
 from .modeling.sam import Sam
 

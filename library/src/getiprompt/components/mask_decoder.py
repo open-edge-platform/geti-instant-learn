@@ -11,8 +11,8 @@ from segment_anything_hq.predictor import SamPredictor as SamHQPredictor
 from torch import nn
 from torchvision.ops import masks_to_boxes, nms
 
+from getiprompt.data import ResizeLongestSide
 from getiprompt.types import Boxes, Image, Masks, Points, Priors, Similarities
-from getiprompt.utils import ResizeLongestSide
 
 logger = getLogger("Geti Prompt")
 

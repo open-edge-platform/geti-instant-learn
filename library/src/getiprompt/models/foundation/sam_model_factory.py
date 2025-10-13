@@ -14,7 +14,7 @@ from segment_anything_hq import sam_model_registry as sam_hq_model_registry
 from segment_anything_hq.predictor import SamPredictor as SamHQPredictor
 
 from getiprompt.models.foundation.per_sam import SamPredictor, sam_model_registry
-from getiprompt.utils import download_file, precision_to_torch_dtype
+from getiprompt.utils.utils import download_file, precision_to_torch_dtype
 from getiprompt.utils.constants import DATA_PATH, MODEL_MAP, SAMModelName
 
 if TYPE_CHECKING:
@@ -44,7 +44,7 @@ def load_sam_model(
     Returns:
         The loaded model.
     """
-    from getiprompt.models import optimize_model
+    from getiprompt.utils import optimize_model
 
     if sam not in MODEL_MAP:
         msg = f"Invalid model type: {sam}"

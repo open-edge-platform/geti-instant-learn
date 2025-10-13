@@ -12,8 +12,7 @@ from torchvision import transforms
 from transformers import AutoImageProcessor, AutoModel
 
 from getiprompt.types import Features, Image, Masks, Priors
-from getiprompt.utils.optimization import optimize_model
-from getiprompt.utils.utils import MaybeToTensor, precision_to_torch_dtype
+from getiprompt.utils import MaybeToTensor, optimize_model, precision_to_torch_dtype
 
 logger = getLogger("Geti Prompt")
 

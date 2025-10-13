@@ -11,7 +11,7 @@ import numpy as np
 from getiprompt.data.base import Dataset
 from getiprompt.data.dataset_iterators import BatchedCategoryIter
 from getiprompt.data.lvis.dataset import LVISDataset
-from getiprompt.data.perseg.dataset import PerSegDataset
+from getiprompt.data.per_seg.dataset import PerSegDataset
 
 logger = getLogger("Geti Prompt")
 
