@@ -31,11 +31,11 @@ on:
     - cron: "0 2 * * *"
   push:
     branches:
-      - develop
+      - main
       - releases/**
   pull_request:
     branches:
-      - develop
+      - main
       - releases/**
 
 permissions: {} # No permissions by default
