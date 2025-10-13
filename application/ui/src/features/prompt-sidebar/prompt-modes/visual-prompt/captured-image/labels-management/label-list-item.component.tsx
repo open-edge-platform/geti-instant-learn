@@ -17,17 +17,17 @@ import classes from './label-list-item.module.css';
 interface LabelListItemProps {
     label: Label;
     deleteLabel: () => void;
-    select: () => void;
+    onSelect: () => void;
     isSelected: boolean;
-    updateLabel: (edited: Label) => void;
+    onUpdate: (edited: Label) => void;
 }
 
-export const LabelListItem = ({ label, deleteLabel, select, isSelected, updateLabel }: LabelListItemProps) => {
+export const LabelListItem = ({ label, deleteLabel, onSelect, isSelected, onUpdate }: LabelListItemProps) => {
     const [isInEdition, setIsInEdition] = useState<boolean>(false);
 
     if (!isInEdition) {
         return (
-            <LabelBadge onClick={select} key={label.id} label={label} isSelected={isSelected}>
+            <LabelBadge onClick={onSelect} key={label.id} label={label} isSelected={isSelected}>
                 <TooltipTrigger placement={'bottom'}>
                     <ActionButton
                         aria-label={`Edit ${label.name} label`}
@@ -55,10 +55,9 @@ export const LabelListItem = ({ label, deleteLabel, select, isSelected, updateLa
     } else {
         return (
             <EditLabel
-                onAccept={updateLabel}
+                onAccept={onUpdate}
                 onCancel={() => setIsInEdition(false)}
                 label={label}
-                key={label.id}
                 isQuiet
                 width={'size-2400'}
             />

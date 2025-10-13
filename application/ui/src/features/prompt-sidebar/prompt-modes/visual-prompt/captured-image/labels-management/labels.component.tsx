@@ -31,9 +31,9 @@ export const Labels = () => {
                         key={label.id}
                         label={label}
                         deleteLabel={() => deleteLabel(label.id)}
-                        select={() => setSelectedLabelId(label.id)}
+                        onSelect={() => setSelectedLabelId(label.id)}
                         isSelected={selectedLabelId === label.id}
-                        updateLabel={(edited: Label) =>
+                        onUpdate={(edited: Label) =>
                             setLabels(labels.map((item) => (item.id === label.id ? edited : item)))
                         }
                     />

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CSSProperties, useState } from 'react';
+import { CSSProperties, KeyboardEvent, useState } from 'react';
 
 import { ActionButton, ColorPickerDialog, DimensionValue, Flex, TextField } from '@geti/ui';
 import { clsx } from 'clsx';
@@ -25,7 +25,7 @@ export const EditLabel = ({ label, onAccept, onCancel, isQuiet, width }: EditLab
     const [color, setColor] = useState<string>(label.color);
     const [name, setName] = useState<string>(label.name);
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Enter') {
             onAccept({ color, name, id: label.id });
             onCancel();

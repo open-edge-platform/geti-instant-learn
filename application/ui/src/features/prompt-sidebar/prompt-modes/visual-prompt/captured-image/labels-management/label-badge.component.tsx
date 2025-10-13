@@ -29,7 +29,6 @@ export const LabelBadge = ({ label, isSelected, onClick, children: actionButtons
     return (
         <div {...hoverProps} className={classes.labelBadgeContainer}>
             <div
-                key={label.id}
                 {...pressProps}
                 style={{ '--labelBgColor': label.color } as CSSProperties}
                 className={clsx(classes.badge, { [classes.selected]: isSelected })}

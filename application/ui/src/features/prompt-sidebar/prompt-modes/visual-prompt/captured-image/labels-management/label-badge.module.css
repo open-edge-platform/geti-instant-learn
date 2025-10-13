@@ -24,7 +24,7 @@
 }
 
 .buttonsContainerOpened {
-    width: 60px;
+    width: var(--spectrum-global-dimension-size-700);
     & > button {
         opacity: 1;
     }
