@@ -6,7 +6,7 @@
 from torch import nn
 
 from getiprompt.types import Features, Image, Similarities
-from getiprompt.utils import resize_similarity_map
+from getiprompt.utils.similarity_resize import resize_similarity_map
 
 
 class CosineSimilarity(nn.Module):

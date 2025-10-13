@@ -12,7 +12,7 @@ from torchvision import transforms
 from transformers import AutoImageProcessor, AutoModel
 
 from getiprompt.types import Features, Image, Masks, Priors
-from getiprompt.utils import MaybeToTensor, optimize_model, precision_to_torch_dtype
+from getiprompt.utils import MaybeToTensor, precision_to_torch_dtype
 
 logger = getLogger("Geti Prompt")
 
@@ -72,6 +72,8 @@ class ImageEncoder(nn.Module):
             benchmark_inference_speed: Whether to benchmark the inference speed.
             input_size: The input size to use.
         """
+        from getiprompt.utils.optimization import optimize_model
+
         super().__init__()
 
         if model_id not in AVAILABLE_IMAGE_ENCODERS:

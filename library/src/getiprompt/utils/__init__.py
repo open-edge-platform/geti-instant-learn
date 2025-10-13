@@ -3,7 +3,6 @@
 
 """Utils."""
 
-from .optimization import optimize_model
 from .similarity_resize import resize_similarity_map
 from .utils import (
     MaybeToTensor,
@@ -22,7 +21,6 @@ __all__ = [
     "color_overlay",
     "download_file",
     "get_colors",
-    "optimize_model",
     "precision_to_torch_dtype",
     "prepare_target_guided_prompting",
     "resize_similarity_map",

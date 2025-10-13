@@ -47,6 +47,7 @@ dependencies = [
     "jsonargparse",
     "sam-2",
     "ftfy",
+    "pytest-assume>=2.4.3",
 ]
 
 [tool.uv.sources]
@@ -84,6 +85,7 @@ dev = [
     "ruff==0.11.12",
     "pre-commit==4.2.0",
     "pytest==8.4.0",
+    "pytest-assume",
     "build>=1.2.2.post1",
     "twine>=6.1.0",
 ]
