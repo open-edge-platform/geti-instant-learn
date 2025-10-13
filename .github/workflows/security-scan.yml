@@ -57,6 +57,7 @@ jobs:
           severity-level: "LOW"
           confidence-level: "LOW"
           fail-on-findings: false # reports only
+          output-format: "plain"
 
   bandit-scan:
     runs-on: ubuntu-latest
@@ -75,6 +76,7 @@ jobs:
           confidence-level: "LOW"
           config_file: ".ci/ipas_default.config"
           fail-on-findings: false # reports only
+          output-format: "plain"
 
   trivy-scan:
     runs-on: ubuntu-latest
@@ -93,7 +95,7 @@ jobs:
           scan-scope: all
           severity: LOW
           scanners: "vuln,secret,config"
-          format: "sarif"
+          format: "table"
           timeout: "15m"
           ignore_unfixed: "false"
 
@@ -113,3 +115,4 @@ jobs:
           severity: "LOW"
           fail-on-findings: false # reports only
           config: "p/ci" # Use CI ruleset
+          output-format: "plain"
