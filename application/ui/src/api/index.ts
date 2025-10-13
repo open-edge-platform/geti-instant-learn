@@ -19,4 +19,5 @@ export {
     type SchemaProjectSchema as ProjectType,
     type SchemaProjectUpdateSchema as ProjectUpdateType,
     type SchemaSourceSchema as SourceConfig,
+    type paths,
 } from './openapi-spec';

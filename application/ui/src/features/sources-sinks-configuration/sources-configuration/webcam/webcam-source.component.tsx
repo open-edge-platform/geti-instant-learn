@@ -18,7 +18,11 @@ interface WebcamSourceProps {
 
 const useCreateWebcamSource = () => {
     const { projectId } = useProjectIdentifier();
-    const createWebcamSourceMutation = $api.useMutation('post', '/api/v1/projects/{project_id}/sources');
+    const createWebcamSourceMutation = $api.useMutation('post', '/api/v1/projects/{project_id}/sources', {
+        meta: {
+            invalidates: [['get', '/api/v1/projects/{project_id}/sources']],
+        },
+    });
     const queryClient = useQueryClient();
 
     const createWebcamSource = (deviceId: number) => {
