@@ -6,7 +6,11 @@
 import { $api, type ProjectUpdateType } from '@geti-prompt/api';
 
 export const useUpdateProject = () => {
-    const updateProjectMutation = $api.useMutation('put', '/api/v1/projects/{project_id}');
+    const updateProjectMutation = $api.useMutation('put', '/api/v1/projects/{project_id}', {
+        meta: {
+            invalidates: [['get', '/api/v1/projects']],
+        },
+    });
 
     const updateProjectName = (id: string, body: ProjectUpdateType): void => {
         updateProjectMutation.mutate({

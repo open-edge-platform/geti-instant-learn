@@ -4,7 +4,6 @@
  */
 
 import { $api } from '@geti-prompt/api';
-import { useQueryClient } from '@tanstack/react-query';
 
 export const useDeleteProject = () => {
     const deleteProjectMutation = $api.useMutation('delete', '/api/v1/projects/{project_id}', {

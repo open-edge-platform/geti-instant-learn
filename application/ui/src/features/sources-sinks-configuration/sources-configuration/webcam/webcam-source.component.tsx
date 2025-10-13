@@ -79,7 +79,6 @@ const useUpdateWebcamSource = () => {
             ],
         },
     });
-    const queryClient = useQueryClient();
 
     const updateWebcamSource = (sourceId: string, deviceId: number) => {
         updateWebcamSourceMutation.mutate({
