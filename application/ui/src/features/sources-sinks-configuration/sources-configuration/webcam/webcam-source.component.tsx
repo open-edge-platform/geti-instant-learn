@@ -135,7 +135,7 @@ export const WebcamSource = ({ source }: WebcamSourceProps) => {
     const isApplyDisabled =
         createWebcamSource.isPending ||
         updateWebcamSource.isPending ||
-        (selectedDeviceId === source?.config?.device_id && source?.connected);
+        (selectedDeviceId == source?.config?.device_id && source?.connected);
 
     const handleApply = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
