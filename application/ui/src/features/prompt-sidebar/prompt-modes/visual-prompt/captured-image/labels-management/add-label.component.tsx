@@ -17,7 +17,7 @@ interface AddLabelProps {
 export const AddLabel = ({ onAddLabel }: AddLabelProps) => {
     return (
         <DialogTrigger type={'popover'} hideArrow placement={'bottom right'}>
-            <Button variant={'secondary'} UNSAFE_style={{ border: 'none' }} UNSAFE_className={classes.addLabelButton}>
+            <Button variant={'secondary'} UNSAFE_className={classes.addLabelButton}>
                 Add label
             </Button>
             {(close) => <AddLabelDialog onAction={onAddLabel} closeDialog={close} />}
