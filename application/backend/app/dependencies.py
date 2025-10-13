@@ -53,3 +53,4 @@ def run_db_migrations() -> None:
         logger.info("✓ Database migrations completed successfully")
     except Exception:
         logger.exception("✗ Database migration failed")
+        raise

@@ -35,7 +35,9 @@ class Settings(BaseSettings):
     port: int = Field(default=9100, alias="PORT")
 
     # Database
-    db_data_dir: Path = Field(default=Path("data"), alias="DB_DATA_DIR")
+    db_data: Path = Path("data")
+    db_data.mkdir(parents=True, exist_ok=True)
+    db_data_dir: Path = Field(default=db_data, alias="DB_DATA_DIR")
     db_filename: str = "geti_prompt.db"
 
     @property
