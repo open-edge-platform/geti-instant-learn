@@ -33,13 +33,13 @@ export const Labels = () => {
                         deleteLabel={() => deleteLabel(label.id)}
                         select={() => setSelectedLabelId(label.id)}
                         isSelected={selectedLabelId === label.id}
-                        updateLabel={(edited: Partial<Label>) =>
-                            setLabels(labels.map((item) => (item.id === label.id ? { ...item, ...edited } : item)))
+                        updateLabel={(edited: Label) =>
+                            setLabels(labels.map((item) => (item.id === label.id ? edited : item)))
                         }
                     />
                 ))}
                 <Flex alignSelf={'flex-end'} flex={1} justifyContent={'end'} alignItems={'center'}>
-                    <AddLabel addLabel={(label) => setLabels([...labels, label])} />
+                    <AddLabel onAddLabel={(label) => setLabels([...labels, label])} />
                 </Flex>
             </Flex>
         </Flex>

@@ -19,16 +19,11 @@ interface LabelListItemProps {
     deleteLabel: () => void;
     select: () => void;
     isSelected: boolean;
-    updateLabel: (edited: Partial<Label>) => void;
+    updateLabel: (edited: Label) => void;
 }
 
 export const LabelListItem = ({ label, deleteLabel, select, isSelected, updateLabel }: LabelListItemProps) => {
     const [isInEdition, setIsInEdition] = useState<boolean>(false);
-
-    const accept = (editedLabel: Partial<Label>) => {
-        updateLabel(editedLabel);
-        setIsInEdition(false);
-    };
 
     if (!isInEdition) {
         return (
@@ -60,8 +55,8 @@ export const LabelListItem = ({ label, deleteLabel, select, isSelected, updateLa
     } else {
         return (
             <EditLabel
-                accept={accept}
-                cancel={() => setIsInEdition(false)}
+                onAccept={updateLabel}
+                onCancel={() => setIsInEdition(false)}
                 label={label}
                 key={label.id}
                 isQuiet

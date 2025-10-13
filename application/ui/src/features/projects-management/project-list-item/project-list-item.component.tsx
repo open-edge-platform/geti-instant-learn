@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Key, useEffect, useRef, useState } from 'react';
+import { Key, KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 import {
     ActionMenu,
@@ -40,7 +40,7 @@ const ProjectEdition = ({ name, onBlur }: ProjectEditionProps) => {
         onBlur(newName);
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Enter') {
             e.preventDefault();
             onBlur(newName);

@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { CSSProperties, ReactNode } from 'react';
+
 import { Flex, Text } from '@geti/ui';
 import { clsx } from 'clsx';
 import { useHover, usePress } from 'react-aria';
@@ -15,7 +17,7 @@ interface LabelIndicatorProps {
     label: Label;
     isSelected: boolean;
     onClick: () => void;
-    children: React.ReactNode;
+    children: ReactNode;
 }
 
 export const LabelBadge = ({ label, isSelected, onClick, children: actionButtons }: LabelIndicatorProps) => {
@@ -29,7 +31,7 @@ export const LabelBadge = ({ label, isSelected, onClick, children: actionButtons
             <div
                 key={label.id}
                 {...pressProps}
-                style={{ '--labelBgColor': label.color } as React.CSSProperties}
+                style={{ '--labelBgColor': label.color } as CSSProperties}
                 className={clsx(classes.badge, { [classes.selected]: isSelected })}
             >
                 <Text UNSAFE_className={classes.buttonText}>{label.name}</Text>

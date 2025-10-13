@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { CSSProperties, useState } from 'react';
 
 import { ActionButton, ColorPickerDialog, DimensionValue, Flex, TextField } from '@geti/ui';
 import { clsx } from 'clsx';
@@ -14,22 +14,23 @@ import classes from './edit-label.module.css';
 
 interface EditLabelProps {
     label: Label;
-    accept: (editedLabel: Partial<Label>) => void;
-    cancel: () => void;
+    onAccept: (editedLabel: Label) => void;
+    onCancel: () => void;
     isQuiet?: boolean;
     width?: DimensionValue;
 }
 
-export const EditLabel = ({ label, accept, cancel, isQuiet, width }: EditLabelProps) => {
+export const EditLabel = ({ label, onAccept, onCancel, isQuiet, width }: EditLabelProps) => {
     const MAX_NAME_LENGTH = 100;
     const [color, setColor] = useState<string>(label.color);
     const [name, setName] = useState<string>(label.name);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter') {
-            accept({ color, name });
+            onAccept({ color, name, id: label.id });
+            onCancel();
         } else if (e.key === 'Escape') {
-            cancel();
+            onCancel();
         }
     };
 
@@ -62,16 +63,16 @@ export const EditLabel = ({ label, accept, cancel, isQuiet, width }: EditLabelPr
                 onKeyDown={(e) => handleKeyDown(e)}
                 // eslint-disable-next-line jsx-a11y/no-autofocus
                 autoFocus
-            ></TextField>
+            />
             <ActionButton
                 isQuiet={isQuiet}
                 aria-label={'Confirm label'}
-                onPress={() => accept({ color, name })}
+                onPress={() => onAccept({ color, name, id: label.id })}
                 isDisabled={!name.trim()}
                 UNSAFE_style={
                     {
                         '--addButtonBgColor': isQuiet ? 'var(--spectrum-global-color-gray-200)' : 'var(--energy-blue)',
-                    } as React.CSSProperties
+                    } as CSSProperties
                 }
                 UNSAFE_className={classes.plusButton}
             >
