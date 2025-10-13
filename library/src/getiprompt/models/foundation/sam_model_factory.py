@@ -44,7 +44,7 @@ def load_sam_model(
     Returns:
         The loaded model.
     """
-    from getiprompt.utils import optimize_model
+    from getiprompt.utils.optimization import optimize_model
 
     if sam not in MODEL_MAP:
         msg = f"Invalid model type: {sam}"
