@@ -18,21 +18,20 @@ interface WebcamSourceProps {
     source: WebcamConfig | undefined;
 }
 
-const useUpdateWebcamSource = () => {
+const useCreateWebcamSource = () => {
     const { projectId } = useProjectIdentifier();
-    const updateWebcamSourceMutation = $api.useMutation('post', '/api/v1/projects/{project_id}/sources');
+    const createWebcamSourceMutation = $api.useMutation('post', '/api/v1/projects/{project_id}/sources');
     const queryClient = useQueryClient();
 
-    const updateWebcamSource = (deviceId: string) => {
-        updateWebcamSourceMutation.mutate(
+    const createWebcamSource = (deviceId: number) => {
+        createWebcamSourceMutation.mutate(
             {
                 body: {
                     id: uuid(),
                     connected: true,
                     config: {
                         source_type: 'webcam',
-                        // TODO: Double check if parseInt is needed when we get the available sources from the server
-                        device_id: parseInt(deviceId),
+                        device_id: deviceId,
                     },
                 },
                 params: {
@@ -67,6 +66,60 @@ const useUpdateWebcamSource = () => {
     };
 
     return {
+        mutate: createWebcamSource,
+        isPending: createWebcamSourceMutation.isPending,
+    };
+};
+
+const useUpdateWebcamSource = () => {
+    const { projectId } = useProjectIdentifier();
+    const updateWebcamSourceMutation = $api.useMutation('put', '/api/v1/projects/{project_id}/sources/{source_id}');
+    const queryClient = useQueryClient();
+
+    const updateWebcamSource = (sourceId: string, deviceId: number) => {
+        updateWebcamSourceMutation.mutate(
+            {
+                body: {
+                    connected: true,
+                    config: {
+                        source_type: 'webcam',
+                        device_id: deviceId,
+                    },
+                },
+                params: {
+                    path: {
+                        project_id: projectId,
+                        source_id: sourceId,
+                    },
+                },
+            },
+            {
+                onSuccess: async () => {
+                    await queryClient.invalidateQueries({
+                        predicate: (query) => {
+                            return (
+                                Array.isArray(query.queryKey) &&
+                                isEqual(query.queryKey, [
+                                    'put',
+                                    `/api/v1/projects/{project_id}/sources/{source_id}`,
+                                    {
+                                        params: {
+                                            path: {
+                                                project_id: projectId,
+                                                source_id: sourceId,
+                                            },
+                                        },
+                                    },
+                                ])
+                            );
+                        },
+                    });
+                },
+            }
+        );
+    };
+
+    return {
         mutate: updateWebcamSource,
         isPending: updateWebcamSourceMutation.isPending,
     };
@@ -76,15 +129,27 @@ export const WebcamSource = ({ source }: WebcamSourceProps) => {
     const [availableVideoDevices, setAvailableVideoDevices] = useState<MediaDeviceInfo[] | null>(null);
     const [cameraPermission, setCameraPermission] = useState<CameraPermissionStatus>('pending');
     const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>(source?.config?.device_id?.toString());
+    const createWebcamSource = useCreateWebcamSource();
     const updateWebcamSource = useUpdateWebcamSource();
-    const isApplyDisabled = updateWebcamSource.isPending || selectedDeviceId === source?.config?.device_id;
+
+    const isApplyPending = createWebcamSource.isPending || updateWebcamSource.isPending;
+
+    const isApplyDisabled =
+        createWebcamSource.isPending ||
+        updateWebcamSource.isPending ||
+        (selectedDeviceId === source?.config?.device_id && source?.connected);
 
     const handleApply = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
         if (selectedDeviceId === undefined) return;
 
-        updateWebcamSource.mutate(selectedDeviceId);
+        if (source !== undefined) {
+            updateWebcamSource.mutate(source.id, parseInt(selectedDeviceId));
+            return;
+        }
+
+        createWebcamSource.mutate(parseInt(selectedDeviceId));
     };
 
     const changeSelectedDevice = async (deviceId: string) => {
@@ -141,12 +206,7 @@ export const WebcamSource = ({ source }: WebcamSourceProps) => {
                 ))}
             </RadioGroup>
 
-            <Button
-                marginTop={'size-200'}
-                type={'submit'}
-                isPending={updateWebcamSource.isPending}
-                isDisabled={isApplyDisabled}
-            >
+            <Button marginTop={'size-200'} type={'submit'} isPending={isApplyPending} isDisabled={isApplyDisabled}>
                 Apply
             </Button>
         </form>
