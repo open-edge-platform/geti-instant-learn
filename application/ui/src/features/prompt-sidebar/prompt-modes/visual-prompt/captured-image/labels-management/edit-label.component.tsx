@@ -28,7 +28,9 @@ export const EditLabel = ({ label, accept, cancel, isQuiet, width }: EditLabelPr
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter') {
             accept({ color, name });
-        } else e.key === 'Escape' && cancel();
+        } else if (e.key === 'Escape') {
+            cancel();
+        }
     };
 
     return (

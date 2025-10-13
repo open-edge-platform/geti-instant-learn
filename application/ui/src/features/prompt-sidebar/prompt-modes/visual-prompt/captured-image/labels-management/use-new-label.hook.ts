@@ -10,10 +10,6 @@ import { v4 as uuid } from 'uuid';
 
 import { Label } from './label.interface';
 
-/**
- * Copyright (C) 2025 Intel Corporation
- * SPDX-License-Identifier: Apache-2.0
- */
 export const useNewLabel = () => {
     const getBaseNewLabel = (): Label => {
         const newId = uuid();
