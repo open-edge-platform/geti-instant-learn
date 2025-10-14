@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""This file contains helper functions for the web UI.
+"""This file contains helper functions for the Development UI.
 
 It includes functions for image preparation, data processing, and pipeline management.
 """
@@ -238,57 +238,63 @@ def parse_request_and_check_reload(
     new_args = argparse.Namespace(**vars(current_args))
 
     # Pipeline
-    if (new_pipeline_name := request_data.get("pipeline", new_args.pipeline)) != current_pipeline_name:
+    if (new_pipeline_name := request_data.get("pipeline", new_args.model)) != current_pipeline_name:
         reload_needed = True
         requested_values["pipeline"] = new_pipeline_name
 
     # SAM Model
-    if (new_sam_name := request_data.get("sam", new_args.sam)) != new_args.sam:
+    current_sam = getattr(new_args, "sam", "SAM-HQ-tiny")
+    if (new_sam_name := request_data.get("sam", current_sam)) != current_sam:
         reload_needed = True
         requested_values["sam"] = new_sam_name
         new_args.sam = new_sam_name
 
     # ImageEncoder Model
-    if (new_encoder_model := request_data.get("encoder_model", new_args.encoder_model)) != new_args.encoder_model:
+    current_encoder = getattr(new_args, "encoder_model", "dinov3_large")
+    if (new_encoder_model := request_data.get("encoder_model", current_encoder)) != current_encoder:
         reload_needed = True
         requested_values["encoder_model"] = new_encoder_model
         new_args.encoder_model = new_encoder_model
 
     # Precision
-    new_precision_str = request_data.get("precision", new_args.precision)
-    if new_precision_str != new_args.precision:
+    current_precision = getattr(new_args, "precision", "bf16")
+    new_precision_str = request_data.get("precision", current_precision)
+    if new_precision_str != current_precision:
         reload_needed = True
         requested_values["precision"] = new_precision_str
         new_args.precision = new_precision_str
 
     # Compile Models
-    new_compile_models = request_data.get("compile_models", new_args.compile_models)
+    current_compile = getattr(new_args, "compile_models", False)
+    new_compile_models = request_data.get("compile_models", current_compile)
     if isinstance(new_compile_models, str):
         new_compile_models = new_compile_models.lower() == "true"
-    if new_compile_models != new_args.compile_models:
+    if new_compile_models != current_compile:
         reload_needed = True
         requested_values["compile_models"] = new_compile_models
         new_args.compile_models = new_compile_models
 
-    # Other parameters
+    # Other parameters - only those actually sent by the UI
     params_to_update = {
         "n_shot": int,
         "num_background_points": int,
         "similarity_threshold": float,
         "mask_similarity_threshold": float,
-        "skip_points_in_existing_masks": lambda x: str(x).lower() == "true",
     }
     for key, cast_type in params_to_update.items():
         if key in request_data:
             new_val = cast_type(request_data[key])
-            if getattr(new_args, key) != new_val:
+            # Use getattr with None default to handle missing attributes
+            old_val = getattr(new_args, key, None)
+            if old_val != new_val:
                 setattr(new_args, key, new_val)
                 # Some parameter changes might not require a full pipeline reload
                 # For now, we assume these do, but this can be refined.
                 reload_needed = True
                 requested_values[key] = new_val
 
-    new_args.dataset_name = request_data.get("dataset_name", new_args.dataset_name)
+    current_dataset = getattr(new_args, "dataset_name", "lvis")
+    new_args.dataset_name = request_data.get("dataset_name", current_dataset)
     return reload_needed, requested_values, new_args
 
 

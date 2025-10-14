@@ -91,7 +91,8 @@
           </select>
         </div>
         <div class="control-item flex flex-col">
-          <label for="encoderModelSelect" class="block text-sm font-medium text-gray-700 mb-1">ImageEncoder Model:</label>
+          <label for="encoderModelSelect" class="block text-sm font-medium text-gray-700 mb-1">ImageEncoder
+            Model:</label>
           <select id="encoderModelSelect"
             class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
             {% for model in encoder_models %}
@@ -167,13 +168,6 @@
               class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" {% if compile_models %}checked{%
               endif %}>
             <label for="compileModelsCheckbox" class="font-medium text-gray-700">Compile models</label>
-          </div>
-        </div>
-        <div class="control-item flex flex-col">
-          <div class="flex items-center space-x-2 pt-5">
-            <input type="checkbox" id="skipPointsInExistingMasks" name="skipPointsInExistingMasks"
-              class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" checked>
-            <label for="skipPointsInExistingMasks" class="font-medium text-gray-700">Skip covered points</label>
           </div>
         </div>
         <div class="control-item flex flex-col">

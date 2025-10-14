@@ -111,17 +111,28 @@ getiprompt benchmark --pipeline all --dataset_name all
 
 See [`src/getiprompt/utils/args.py`](src/getiprompt/utils/args.py) or run `getiprompt benchmark --help` for all available command-line options. Results (metrics and visualizations) are typically saved to `~/outputs/`.
 
-### Launch the Web UI
+### Development UI (Optional)
 
-An interactive web UI is available for qualitative analysis.
+An interactive web-based development UI is available as a separate application for visual debugging and qualitative analysis. The UI allows you to select different pipelines, datasets, and images to inspect outputs like similarity maps, masks, and points.
+
+To use the Development UI, first install the optional dev_ui dependencies:
 
 ```bash
-getiprompt ui
+# Install with dev_ui support
+uv sync --extra dev_ui
+
+# Or install all optional dependencies
+uv sync --extra full
 ```
 
-The UI allows you to select different pipelines, datasets, and images to inspect outputs like similarity maps, masks, and points. By default, it runs on `http://0.0.0.0:5050`. You can change this with `--host` and `--port` arguments.
+Then navigate to the `dev_ui` directory and run it independently:
 
-[Geti Prompt UI](../docs/figs/Geti-Prompt-Library-UI.png)
+```bash
+cd dev_ui
+python app.py
+```
+
+By default, it runs on `http://127.0.0.1:5050`. For detailed usage instructions and configuration options, see [`dev_ui/README.md`](dev_ui/README.md)
 
 ## Modular Pipeline Example
 

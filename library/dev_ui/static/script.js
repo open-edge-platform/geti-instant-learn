@@ -40,7 +40,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const referenceContainer = document.getElementById("reference-container");
 
-  const skipPointsCheckbox = document.getElementById("skipPointsInExistingMasks");
   const randomPriorCheckbox = document.getElementById("randomPriorCheckbox");
   const compileModelsCheckbox = document.getElementById("compileModelsCheckbox");
   const precisionSelect = document.getElementById("precisionSelect");
@@ -213,7 +212,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const numBackgroundPoints = parseInt(numBackgroundPointsInput.value, 10);
     const similarityThreshold = parseFloat(similarityThresholdInput.value);
     const maskSimilarityThreshold = parseFloat(maskSimilarityThresholdInput.value);
-    const skipPoints = skipPointsCheckbox?.checked ?? false;
     const useRandomPrior = randomPriorCheckbox?.checked ?? false;
     const compileModels = compileModelsCheckbox?.checked ?? true;
     const precision = precisionSelect.value;
@@ -271,7 +269,6 @@ document.addEventListener("DOMContentLoaded", () => {
           encoder_model: encoderModel,
           similarity_threshold: similarityThreshold,
           mask_similarity_threshold: maskSimilarityThreshold,
-          skip_points_in_existing_masks: skipPoints,
           random_prior: useRandomPrior,
           compile_models: compileModels,
           precision: precision,

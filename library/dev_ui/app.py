@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # ruff: noqa: E402
 
-"""This is the main file for the web UI.
+"""This is the main file for the Development UI.
 
 It is a Flask application that allows you to run several Visual Prompting pipelines and see the results.
-The web UI is served at http://127.0.0.1:5050
+The Development UI is served at http://127.0.0.1:5050
 
-The web UI can be started by running:
+The Development UI can be started by running:
 getiprompt ui
 """
 
@@ -19,17 +19,17 @@ warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 from flask import Flask, Response, jsonify, render_template, request, stream_with_context
 
-from getiprompt.components.encoders import AVAILABLE_IMAGE_ENCODERS
-from getiprompt.utils.args import get_arguments
-from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
-from getiprompt.utils.data import load_dataset
-from web_ui.helpers import (
+from helpers import (
     load_and_prepare_data,
     parse_request_and_check_reload,
     prepare_reference_data,
     reload_model_if_needed,
     stream_inference,
 )
+from getiprompt.components.encoders import AVAILABLE_IMAGE_ENCODERS
+from getiprompt.utils.args import get_arguments
+from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
+from getiprompt.utils.data import load_dataset
 
 BATCH_SIZE = 5
 
@@ -43,7 +43,7 @@ current_pipeline_args = argparse.Namespace(**vars(initial_default_args))
 
 app.logger.info("Deferring pipeline loading until first request.")
 current_pipeline_instance = None
-current_pipeline_name = initial_default_args.pipeline
+current_pipeline_name = initial_default_args.model
 
 
 @app.route("/")

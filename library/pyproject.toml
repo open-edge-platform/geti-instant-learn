@@ -27,7 +27,6 @@ dependencies = [
     "matplotlib==3.10.3",
     "numpy==1.26.4",
     "opencv-python==4.11.0.86",
-    "flask==3.1.1",
     "rich==14.0.0",
     "requests==2.32.4",
     "pycocotools==2.0.9",
@@ -71,7 +70,7 @@ name = "pytorch"
 url = "https://download.pytorch.org/whl/cu126"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/getiprompt", "src/web_ui"]
+packages = ["src/getiprompt"]
 
 [project.optional-dependencies]
 extras = [
@@ -89,9 +88,12 @@ dev = [
     "build>=1.2.2.post1",
     "twine>=6.1.0",
 ]
+dev_ui = [
+    "flask==3.1.1",
+]
 
 full = [
-    "getiprompt[dev, extras, notebook]",
+    "getiprompt[dev, extras, notebook, dev_ui]",
 ]
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #

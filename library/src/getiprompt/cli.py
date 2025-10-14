@@ -89,13 +89,6 @@ class GetiPromptCLI:
         # TODO(Daankrol): rewrite benchmark script into a class and add arguments here  # noqa: TD003
         populate_benchmark_parser(parser)
 
-    @staticmethod
-    def add_ui_arguments(parser: ArgumentParser) -> None:
-        """Add arguments for the ui subcommand."""
-        parser.add_argument("--host", type=str, default="127.0.0.1", help="Host to run the UI on.")
-        parser.add_argument("--debug", type=bool, default=True, help="Whether to run the UI in debug mode.")
-        parser.add_argument("--port", type=int, default=5050, help="Port to run the UI on.")
-
     def execute(self) -> None:
         """Execute the CLI."""
         cfg = self.parser.parse_args()
@@ -111,7 +104,6 @@ class GetiPromptCLI:
         return {
             "run": "Perform both learning and inference steps.",
             "benchmark": "Run benchmarking on the models.",
-            "ui": "Run the UI for the models.",
         }
 
     def _add_subcommands(self) -> None:
