@@ -562,7 +562,7 @@ def _save_results(all_results: list[pd.DataFrame], output_path: Path) -> None:
     all_results_dataframe_filename.parent.mkdir(parents=True, exist_ok=True)
     all_result_dataframe.to_csv(str(all_results_dataframe_filename))
     msg = f"Saved all results to: {all_results_dataframe_filename}"
-    logger.info()
+    logger.info(msg)
 
     avg_results_dataframe_filename = output_path / "avg_results.csv"
     avg_results_dataframe_filename.parent.mkdir(parents=True, exist_ok=True)
