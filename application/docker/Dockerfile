@@ -58,6 +58,7 @@ FROM ui_base AS web_ui
 
 ARG ASSET_PREFIX=""
 ENV ASSET_PREFIX=${ASSET_PREFIX}
+# build with --no-cache in case of sub-dependency changes (from geti)
 RUN npm run build
 
 #############

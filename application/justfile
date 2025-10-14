@@ -1,5 +1,3 @@
-set dotenv-load
-
 COMPONENT_NAME := "geti-prompt"
 DOCKER_IMAGE_DESCRIPTION := COMPONENT_NAME
 
@@ -31,10 +29,10 @@ docker-extra-args := registry_build_arg + \
 ###
 # Geti Prompt arguments
 ###
-container-port := env("CONTAINER_PORT")
+container-port := env("CONTAINER_PORT", "9100")
 host-port := env("HOST_PORT", container-port)
-workdir-path := env("WORKDIR_PATH")
-asset-prefix := env("ASSET_PREFIX")
+workdir-path := env("WORKDIR_PATH", "/geti_prompt")
+asset-prefix := env("ASSET_PREFIX", "/html")
 data-dir := "/data"
 docker-volume := if env("DOCKER_VOLUME", "") != "" { " -v " + env("DOCKER_VOLUME") + ":" + workdir-path + data-dir } else { "" }
 static-files-dir := workdir-path + asset-prefix
@@ -59,7 +57,7 @@ build-image:
 
 run-image: build-image
     echo "Running docker image for component: {{COMPONENT_NAME}}"
-    docker run -it --rm \
+    docker run --rm \
         --publish {{host-port}}:{{container-port}} \
         --env PORT={{container-port}} \
         {{docker-volume}} \
