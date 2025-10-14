@@ -11,7 +11,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { RenderOptions, render as rtlRender } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 
-import { queryClient } from '../query-client';
+import { queryClient } from '../query-client/query-client';
 import { paths } from '../routes/paths';
 
 interface Options extends RenderOptions {
