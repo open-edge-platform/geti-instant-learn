@@ -45,7 +45,7 @@ declare module '@tanstack/react-query' {
 
 export const queryClient: QueryClient = new QueryClient({
     mutationCache: new MutationCache({
-        onSuccess: (_data, _variables, _context, mutation): void | Promise<void[]> => {
+        onSuccess: (_data, _variables, _context, mutation): void | Promise<void> => {
             // Fire-and-forget invalidation
             queryClient.invalidateQueries({
                 predicate: (query: Query): boolean => {
@@ -59,10 +59,15 @@ export const queryClient: QueryClient = new QueryClient({
 
             // Optionally await specific query invalidations
             if (mutation.meta?.awaits && mutation.meta.awaits.length > 0) {
-                return Promise.all(
-                    mutation.meta.awaits.map((queryKey) =>
-                        queryClient.invalidateQueries({ queryKey }, { cancelRefetch: false })
-                    )
+                return queryClient.invalidateQueries(
+                    {
+                        predicate: (query) => {
+                            return (
+                                mutation.meta?.awaits?.some((queryKey) => matchQuery({ queryKey }, query), {}) ?? false
+                            );
+                        },
+                    },
+                    { cancelRefetch: false }
                 );
             }
         },
