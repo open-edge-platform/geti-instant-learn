@@ -8,8 +8,7 @@ import { FormEvent, useState } from 'react';
 import { $api, WebcamConfig } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Button, TextField, View } from '@geti/ui';
-import { useQueryClient } from '@tanstack/react-query';
-import { isEqual, isInteger } from 'lodash-es';
+import { isInteger } from 'lodash-es';
 import { v4 as uuid } from 'uuid';
 
 interface WebcamSourceProps {
