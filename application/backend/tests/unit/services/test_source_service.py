@@ -73,7 +73,6 @@ def test_list_sources_empty_list(service):
 
     result = service.list_sources(project_id)
 
-    assert len(result.sources) == 0
     assert result.sources == []
     service.project_repository.get_by_id.assert_called_once_with(project_id)
     service.source_repository.get_all_by_project.assert_called_once_with(project_id)
