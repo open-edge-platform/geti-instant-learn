@@ -45,19 +45,14 @@ declare module '@tanstack/react-query' {
 
 export const queryClient: QueryClient = new QueryClient({
     mutationCache: new MutationCache({
-        onSuccess: (
-            _data,
-            _variables,
-            _context,
-            mutation
-        ): void | Promise<void[]> => {
-            // Fire-and-forget invalidation (all if no meta.invalidates provided)
+        onSuccess: (_data, _variables, _context, mutation): void | Promise<void[]> => {
+            // Fire-and-forget invalidation
             queryClient.invalidateQueries({
                 predicate: (query: Query): boolean => {
                     return (
                         mutation.meta?.invalidates?.some((queryKey) => {
                             return matchQuery({ queryKey }, query);
-                        }) ?? true
+                        }) ?? false
                     );
                 },
             });
