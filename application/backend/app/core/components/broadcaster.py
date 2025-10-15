@@ -29,7 +29,7 @@ class FrameBroadcaster[T]:
         with self._lock:
             queue: Queue[T] = Queue(maxsize=2)
             self.queues.append(queue)
-            logging.info("Registered new consumer. Total consumers: %", len(self.queues))
+            logging.info("FrameBroadcaster registered a new consumer. Total consumers: %d", len(self.queues))
             return queue
 
     def unregister(self, queue: Queue[T]) -> None:
@@ -37,7 +37,7 @@ class FrameBroadcaster[T]:
         with self._lock:
             try:
                 self.queues.remove(queue)
-                logging.info("Unregistered consumer. Total consumers:%", len(self.queues))
+                logging.info("FrameBroadcaster unregistered a consumer. Total consumers:%d", len(self.queues))
             except ValueError:
                 # if a client unregisters twice.
                 pass

@@ -4,10 +4,9 @@
 import logging
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, Response, status
+from fastapi import HTTPException, Response, status
 
-from core.runtime.dispatcher import ConfigChangeDispatcher
-from dependencies import SessionDep, ConfigChangeDispatcherDep
+from dependencies import ConfigChangeDispatcherDep, SessionDep
 from routers import projects_router
 from services.errors import ResourceNotFoundError, ResourceUpdateConflictError
 from services.schemas.source import SourceCreateSchema, SourceSchema, SourcesListSchema, SourceUpdateSchema

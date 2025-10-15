@@ -4,16 +4,16 @@
 import logging
 from uuid import UUID
 
+from pydantic import TypeAdapter
 from sqlalchemy.orm import Session
 
-from core.components.schemas.processor import ModelConfig
 from core.components.schemas.reader import ReaderConfig
-from core.components.schemas.writer import WriterConfig
 from core.runtime.dispatcher import (
     ConfigChangeDispatcher,
     ProjectActivationEvent,
     ProjectDeactivationEvent,
 )
+from core.runtime.schemas.pipeline import PipelineConfig
 from db.models import ProjectDB
 from repositories.project import ProjectRepository
 from services.errors import (
@@ -28,11 +28,9 @@ from services.schemas.mappers.project import (
 )
 from services.schemas.project import (
     ProjectCreateSchema,
-    ProjectRuntimeConfig,
     ProjectSchema,
     ProjectsListSchema,
     ProjectUpdateSchema,
-    SourceSchema,
 )
 
 logger = logging.getLogger(__name__)
@@ -223,45 +221,46 @@ class ProjectService:
             )
         return project_db_to_schema(project)
 
-    def get_project_runtime_config(self, project_id: UUID) -> ProjectRuntimeConfig:  # TODO return PipelineConfig
+    def get_pipeline_config(self, project_id: UUID) -> PipelineConfig:
         """
-        Return full runtime configuration (project + all sources, processors, sinks).
+        Build and return the PipelineConfig for a specific project.
+
+        Rules:
+          - Reader: first connected source's ReaderConfig (if any), else None (NoOpReader).
+          - Processor / Writer: placeholders (None) until implemented.
+
+        Raises:
+            ResourceNotFoundError: if project does not exist.
         """
         project = self.project_repository.get_by_id(project_id)
         if not project:
             raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
 
-        sources: list[SourceSchema] = []
-        for s in project.sources:  # TODO only connected source
+        connected_source = next((s for s in project.sources if s.connected), None)
+        reader_cfg: ReaderConfig | None = None
+        if connected_source:
             try:
-                reader_cfg = ReaderConfig.model_validate(s.config)
-                sources.append(SourceSchema(id=s.id, connected=s.connected, config=reader_cfg))
+                reader_cfg = TypeAdapter(ReaderConfig).validate_python(connected_source.config)
             except Exception as exc:
-                logger.error("Invalid source config skipped: source_id=%s err=%s", s.id, exc)
+                logger.exception(
+                    "Invalid connected source config ignored: source_id=%s err=%s", connected_source.id, exc
+                )
 
-        processors: list[ModelConfig] = []  # TODO update later with actual processor configs
-        sinks: list[WriterConfig] = []  # TODO update later with actual sink configs
-
-        return ProjectRuntimeConfig(
-            id=project.id,
-            name=project.name,
-            active=project.active,
-            sources=sources,
-            processors=processors,
-            sinks=sinks,
+        return PipelineConfig(
+            project_id=project.id,
+            reader=reader_cfg,
+            processor=None,  # TODO: populate from future processor configs
+            writer=None,  # TODO: populate from future sink/writer configs
         )
 
-    def get_active_project_runtime_config(self) -> ProjectRuntimeConfig:
+    def get_active_pipeline_config(self) -> PipelineConfig | None:
         """
-        Convenience wrapper returning runtime config of the active project.
+        Return PipelineConfig for the active project, or None if there's no active project.
         """
         project = self.project_repository.get_active()
         if not project:
-            raise ResourceNotFoundError(
-                resource_type=ResourceType.PROJECT,
-                message="No active project found.",
-            )
-        return self.get_project_runtime_config(project.id)
+            return None
+        return self.get_pipeline_config(project.id)
 
     def delete_project(self, project_id: UUID) -> None:
         """

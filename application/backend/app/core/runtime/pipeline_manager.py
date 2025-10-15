@@ -7,13 +7,6 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from core.components.schemas.processor import ModelConfig
-from core.components.schemas.reader import (
-    ReaderConfig,
-    SourceType,
-    WebCamConfig,
-)
-from core.components.schemas.writer import WriterConfig
 from core.runtime.dispatcher import (
     ComponentConfigChangeEvent,
     ConfigChangeDispatcher,
@@ -22,10 +15,7 @@ from core.runtime.dispatcher import (
     ProjectDeactivationEvent,
 )
 from core.runtime.pipeline import Pipeline
-from core.runtime.schemas.pipeline import PipelineConfig
-from services.errors import ResourceNotFoundError
 from services.project import ProjectService
-from services.schemas.project import ProjectRuntimeConfig
 
 logger = logging.getLogger(__name__)
 
@@ -57,13 +47,14 @@ class PipelineManager:
         """
         Start pipeline for active project if present; subscribe to config events.
         """
-        cfg = self._get_active_pipeline_config()
+        with self._project_service() as svc:
+            cfg = svc.get_active_pipeline_config()
         if cfg:
             self._pipeline = Pipeline(pipeline_conf=cfg)
             self._pipeline.start()
             logger.info("Pipeline started: project_id=%s", cfg.project_id)
         else:
-            logger.info("No active project at startup.")
+            logger.info("No active project found at startup.")
         self._event_dispatcher.subscribe(self.on_config_change)
 
     def stop(self) -> None:
@@ -76,12 +67,13 @@ class PipelineManager:
 
     def on_config_change(self, event: ConfigChangeEvent) -> None:
         """
-        Dispatch incoming config change events to lifecycle / update handlers.
+        React to configuration change events.
         """
         match event:
             case ProjectActivationEvent() as e:
                 project_id = UUID(e.project_id)
-                cfg = self._get_pipeline_config(project_id)
+                with self._project_service() as svc:
+                    cfg = svc.get_pipeline_config(project_id)
                 if self._pipeline:
                     self._pipeline.stop()
                 self._pipeline = Pipeline(pipeline_conf=cfg)
@@ -96,53 +88,7 @@ class PipelineManager:
 
             case ComponentConfigChangeEvent() as e:
                 if self._pipeline and str(self._pipeline.config.project_id) == e.project_id:
-                    new_cfg = self._get_pipeline_config(self._pipeline.config.project_id)
+                    with self._project_service() as svc:
+                        new_cfg = svc.get_pipeline_config(self._pipeline.config.project_id)
                     self._pipeline.update_config(new_cfg)
                     logger.info("Pipeline config updated for project %s", e.project_id)
-
-    def _get_active_pipeline_config(self) -> PipelineConfig | None:
-        """
-        Build config for the currently active project in a single service call.
-        Returns None if no active project.
-        """
-        with self._project_service() as svc:
-            try:
-                runtime_cfg = svc.get_active_project_runtime_config()
-            except ResourceNotFoundError:
-                return None
-        return self._assemble_pipeline_config(runtime_cfg)
-
-    def _get_pipeline_config(self, project_id: UUID) -> PipelineConfig:
-        """
-        Build config for a specific project.
-        """
-        with self._project_service() as svc:
-            runtime_cfg = svc.get_project_runtime_config(project_id)
-        return self._assemble_pipeline_config(runtime_cfg)
-
-    def _assemble_pipeline_config(self, runtime_cfg: ProjectRuntimeConfig) -> PipelineConfig:
-        """
-        Convert full runtime project config into a PipelineConfig.
-        """
-        reader = self._select_reader(runtime_cfg)
-        # processor = self._select_processor(runtime_cfg)
-        # writer = self._select_writer(runtime_cfg)
-        return PipelineConfig(
-            project_id=runtime_cfg.id,
-            reader=reader,
-            processor=None,
-            writer=None,
-        )
-
-    def _select_reader(self, runtime_cfg: ProjectRuntimeConfig) -> ReaderConfig | None:
-        connected = next((src.config for src in runtime_cfg.sources if src.connected), None)
-        if connected:
-            return connected
-        return None # TODO -> ensure factory will create NoOpReader in this case
-
-
-    def _select_processor(self, runtime_cfg: ProjectRuntimeConfig) -> ModelConfig | None:
-        return runtime_cfg.processors[0] if runtime_cfg.processors else None
-
-    def _select_writer(self, runtime_cfg: ProjectRuntimeConfig) -> WriterConfig | None:
-        return runtime_cfg.sinks[0] if runtime_cfg.sinks else None

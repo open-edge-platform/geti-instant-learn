@@ -87,4 +87,3 @@ def get_config_dispatcher(request: Request) -> ConfigChangeDispatcher:
 
 
 ConfigChangeDispatcherDep = Annotated[ConfigChangeDispatcher, Depends(get_config_dispatcher)]
-

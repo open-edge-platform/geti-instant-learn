@@ -36,8 +36,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     run_db_migrations()
 
     app.state.config_dispatcher = ConfigChangeDispatcher()
-    app.state.pipeline_manager = PipelineManager(event_dispatcher=app.state.config_dispatcher,
-                                                 session_factory=get_session_factory())
+    app.state.pipeline_manager = PipelineManager(
+        event_dispatcher=app.state.config_dispatcher, session_factory=get_session_factory()
+    )
     app.state.pipeline_manager.start()
 
     logger.info("Application startup completed")

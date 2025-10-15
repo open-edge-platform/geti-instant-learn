@@ -5,10 +5,9 @@ import logging
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, Query, Response, status
+from fastapi import HTTPException, Query, Response, status
 
-from core.runtime.dispatcher import ConfigChangeDispatcher
-from dependencies import SessionDep, ConfigChangeDispatcherDep
+from dependencies import ConfigChangeDispatcherDep, SessionDep
 from routers import projects_router
 from services.errors import ResourceAlreadyExistsError, ResourceNotFoundError
 from services.project import ProjectService
