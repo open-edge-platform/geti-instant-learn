@@ -41,7 +41,9 @@ class PipelineManager:
 
     def start(self) -> None:
         project_id = self._project_repo.get_active_project()
+        print(project_id)
         project_config = self._project_repo.get_project_configuration(project_id)
+        print(project_config)
         pipeline = Pipeline(project_config)
         pipeline.start()
         self._pipeline = pipeline

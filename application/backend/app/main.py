@@ -16,6 +16,7 @@ import rest.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing 
 from dependencies import run_db_migrations
 from routers import projects_router
 from settings import get_settings
+from webrtc.manager import WebRTCManager
 
 settings = get_settings()
 
@@ -27,11 +28,15 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None]:  # noqa: ARG001
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """FastAPI lifespan context manager"""
     # Startup actions
     logger.info(f"Starting {settings.app_name} application...")
     run_db_migrations()
+
+    # Initialize WebRTC Manager
+    webrtc_manager = WebRTCManager()
+    app.state.webrtc_manager = webrtc_manager
 
     logger.info("Application startup completed")
     yield
