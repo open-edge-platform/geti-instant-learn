@@ -34,11 +34,10 @@ class WebRTCManager:
         self._pcs[offer.webrtc_id] = pc
 
         # use PipelineManager to get active pipeline and get queue
-        if self.pm._pipeline is None:
-            self.pm.start()
-        self.queue = self.pm._pipeline.register_webrtc()
+        pipeline = self.pm.get_or_start_pipeline()
+        self.queue = pipeline.register_webrtc()
         # compare projects_id from request with active pipeline project_id
-        if str(project_id) != str(self.pm._pipeline.config.project_id):
+        if str(project_id) != str(pipeline.config.project_id):
             raise ValueError("Project ID does not match the active pipeline's project ID.")
 
         # Add video track
@@ -49,7 +48,7 @@ class WebRTCManager:
         async def connection_state_change() -> None:
             if pc.connectionState in ["failed", "closed"]:
                 await self.cleanup_connection(offer.webrtc_id)
-                self.pm._pipeline.unregister_webrtc(self.queue)
+                pipeline.unregister_webrtc(self.queue)
 
         # Set remote description from client's offer
         await pc.setRemoteDescription(RTCSessionDescription(sdp=offer.sdp, type=offer.type))

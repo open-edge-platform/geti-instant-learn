@@ -29,7 +29,12 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    """FastAPI lifespan context manager"""
+    """
+    FastAPI lifespan context manager
+
+    The `app` parameter is used to initialize and store the WebRTC manager
+    instance in `app.state` for use throughout the application lifecycle.
+    """
     # Startup actions
     logger.info(f"Starting {settings.app_name} application...")
     run_db_migrations()

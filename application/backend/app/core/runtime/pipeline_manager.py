@@ -41,9 +41,7 @@ class PipelineManager:
 
     def start(self) -> None:
         project_id = self._project_repo.get_active_project()
-        print(project_id)
         project_config = self._project_repo.get_project_configuration(project_id)
-        print(project_config)
         pipeline = Pipeline(project_config)
         pipeline.start()
         self._pipeline = pipeline
@@ -70,3 +68,9 @@ class PipelineManager:
         # gracefully stop the running pipeline
         if self._pipeline:
             self._pipeline.stop()
+
+    def get_or_start_pipeline(self) -> Pipeline:
+        """Get active pipeline or start a new one if none exists."""
+        if self._pipeline is None:
+            self.start()
+        return self._pipeline
