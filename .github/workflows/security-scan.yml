@@ -1,6 +1,6 @@
 # Security scan workflow for the Geti project
 
-# This workflow is triggered on schedule, pull requests, and pushes to develop and release branches.
+# This workflow is triggered on schedule, workflow_dispatch, and pushes to develop and release branches.
 # It performs comprehensive security scanning using multiple tools to identify vulnerabilities,
 # secrets, configuration issues, and code quality problems across the entire codebase.
 # It also scans GitHub Actions workflows for potential security issues.
@@ -29,11 +29,8 @@ on:
   schedule:
     # Run security checks every day at 2 AM UTC
     - cron: "0 2 * * *"
+  workflow_dispatch:
   push:
-    branches:
-      - main
-      - releases/**
-  pull_request:
     branches:
       - main
       - releases/**
