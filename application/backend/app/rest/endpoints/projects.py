@@ -4,7 +4,7 @@
 import logging
 from typing import Annotated
 from uuid import UUID
-
+from main import app
 from fastapi import HTTPException, Query, Response, status
 
 from dependencies import SessionDep
@@ -40,7 +40,7 @@ def create_project(payload: ProjectCreateSchema, db_session: SessionDep) -> Resp
     """Create a new project with the given name."""
 
     logger.debug(f"Attempting to create project with name: {payload.name}")
-    service = ProjectService(db_session)
+    service = ProjectService(session=db_session, config_change_dispatcher=app.state.config_dispatcher)
     try:
         project = service.create_project(payload)
         logger.info(f"Successfully created '{project.name}' project with id {project.id}")
@@ -74,7 +74,7 @@ def delete_project(project_id: UUID, db_session: SessionDep) -> Response:
     Delete the specified project.
     """
     logger.debug(f"Received DELETE project {project_id} request.")
-    service = ProjectService(db_session)
+    service = ProjectService(session=db_session, config_change_dispatcher=app.state.config_dispatcher)
     try:
         service.delete_project(project_id)
     except ResourceNotFoundError:
@@ -108,7 +108,7 @@ def get_active_project(db_session: SessionDep) -> ProjectSchema:
     Retrieve the configuration of the currently active project.
     """
     logger.debug("Received GET active project request.")
-    service = ProjectService(db_session)
+    service = ProjectService(session=db_session, config_change_dispatcher=app.state.config_dispatcher)
     try:
         return service.get_active_project_info()
     except ResourceNotFoundError:
@@ -141,7 +141,7 @@ def get_projects_list(db_session: SessionDep) -> ProjectsListSchema:
     Retrieve a list of all available project configurations.
     """
     logger.debug("Received GET projects request.")
-    service = ProjectService(db_session)
+    service = ProjectService(session=db_session, config_change_dispatcher=app.state.config_dispatcher)
     try:
         return service.list_projects()
     except Exception as e:
@@ -170,7 +170,7 @@ def get_project(project_id: UUID, db_session: SessionDep) -> ProjectSchema:
     Retrieve the project's configuration.
     """
     logger.debug(f"Received GET project {project_id} request.")
-    service = ProjectService(db_session)
+    service = ProjectService(session=db_session, config_change_dispatcher=app.state.config_dispatcher)
     try:
         return service.get_project(project_id)
     except ResourceNotFoundError as e:
@@ -202,7 +202,7 @@ def update_project(project_id: UUID, payload: ProjectUpdateSchema, db_session: S
     Update the project's configuration.
     """
     logger.debug(f"Received PUT project {project_id} request.")
-    service = ProjectService(db_session)
+    service = ProjectService(session=db_session, config_change_dispatcher=app.state.config_dispatcher)
     try:
         return service.update_project(project_id=project_id, update_data=payload)
     except ResourceNotFoundError as e:

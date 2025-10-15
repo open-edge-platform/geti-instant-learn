@@ -12,6 +12,12 @@ class ProjectActivationEvent(BaseModel):
     project_id: str
 
 
+class ProjectDeactivationEvent(BaseModel):
+    """Event fired when the current pipeline should be deactivated."""
+
+    project_id: str
+
+
 class ComponentConfigChangeEvent(BaseModel):
     """Event fired when a component of the active pipeline changes."""
 
@@ -20,7 +26,7 @@ class ComponentConfigChangeEvent(BaseModel):
     component_id: str
 
 
-ConfigChangeEvent = ProjectActivationEvent | ComponentConfigChangeEvent
+ConfigChangeEvent = ProjectActivationEvent | ProjectDeactivationEvent | ComponentConfigChangeEvent
 
 
 class ConfigChangeListener(Protocol):
@@ -43,7 +49,8 @@ class ConfigChangeDispatcher:
         self._listeners: list[ConfigChangeListener] = []
 
     def subscribe(self, listener: ConfigChangeListener) -> None:
-        self._listeners.append(listener)
+        if listener not in self._listeners:
+            self._listeners.append(listener)
 
     def dispatch(self, event: ConfigChangeEvent) -> None:
         for listener in self._listeners:

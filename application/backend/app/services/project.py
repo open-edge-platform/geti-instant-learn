@@ -5,7 +5,11 @@ import logging
 from uuid import UUID
 
 from sqlalchemy.orm import Session
-
+from core.runtime.dispatcher import (
+    ConfigChangeDispatcher,
+    ProjectActivationEvent,
+    ProjectDeactivationEvent,
+)
 from db.models import ProjectDB
 from repositories.project import ProjectRepository
 from services.errors import (
@@ -23,7 +27,12 @@ from services.schemas.project import (
     ProjectSchema,
     ProjectsListSchema,
     ProjectUpdateSchema,
+    ProjectRuntimeConfig,
+    SourceSchema
 )
+from core.components.schemas.reader import ReaderConfig
+from core.components.schemas.processor import ModelConfig
+from core.components.schemas.writer import WriterConfig
 
 logger = logging.getLogger(__name__)
 
@@ -39,12 +48,14 @@ class ProjectService:
       - Coordinate cascading / related entity cleanup.
     """
 
-    def __init__(self, session: Session, project_repository: ProjectRepository | None = None):
+    def __init__(self, session: Session, project_repository: ProjectRepository | None = None,
+                 config_change_dispatcher: ConfigChangeDispatcher | None = None):
         """
         Initialize the service with a SQLAlchemy session.
         """
         self.session = session
         self.project_repository = project_repository or ProjectRepository(session=session)
+        self._dispatcher = config_change_dispatcher
 
     def create_project(self, create_data: ProjectCreateSchema) -> ProjectSchema:
         """
@@ -149,6 +160,7 @@ class ProjectService:
                 logger.debug("Deactivating project id=%s via update request", project_id)
                 project.active = False
                 self.session.flush()
+                self._emit_deactivation(project.id)
             changed = True
 
         if changed:
@@ -202,6 +214,58 @@ class ProjectService:
             )
         return project_db_to_schema(project)
 
+
+    def get_project_runtime_config(self, project_id: UUID) -> ProjectRuntimeConfig:
+        """
+        Return full runtime configuration (project + all sources, processors, sinks).
+        """
+        project = self.project_repository.get_by_id(project_id)
+        if not project:
+            raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
+
+        sources: list[SourceSchema] = []
+        for s in project.sources:
+            try:
+                reader_cfg = ReaderConfig.model_validate(s.config)
+                sources.append(SourceSchema(id=s.id, connected=s.connected, config=reader_cfg))
+            except Exception as exc:
+                logger.error("Invalid source config skipped: source_id=%s err=%s", s.id, exc)
+
+        processors: list[ModelConfig] = []  # TODO update later with actual processor configs
+        for p in project.processors:
+            try:
+                processors.append(ModelConfig.model_validate(p.config))
+            except Exception as exc:
+                logger.error("Invalid processor config skipped: processor_id=%s err=%s", p.id, exc)
+
+        sinks: list[WriterConfig] = []  # TODO update later with actual sink configs
+        for s in project.sinks:
+            try:
+                sinks.append(WriterConfig.model_validate(s.config))
+            except Exception as exc:
+                logger.error("Invalid sink config skipped: sink_id=%s err=%s", w.id, exc)
+
+        return ProjectRuntimeConfig(
+            id=project.id,
+            name=project.name,
+            active=project.active,
+            sources=sources,
+            processors=processors,
+            sinks=sinks,
+        )
+
+    def get_active_project_runtime_config(self) -> ProjectRuntimeConfig:
+        """
+        Convenience wrapper returning runtime config of the active project.
+        """
+        project = self.project_repository.get_active()
+        if not project:
+            raise ResourceNotFoundError(
+                resource_type=ResourceType.PROJECT,
+                message="No active project found.",
+            )
+        return self.get_project_runtime_config(project.id)
+
     def delete_project(self, project_id: UUID) -> None:
         """
         Delete a project and related non-cascaded single-relations.
@@ -221,6 +285,8 @@ class ProjectService:
                 resource_id=str(project_id),
             )
 
+        if project.active:
+            self._emit_deactivation(project.id)
         self.project_repository.delete(project)
         self.session.commit()
         logger.info("Project deleted: id=%s", project_id)
@@ -243,6 +309,23 @@ class ProjectService:
             )
             current.active = False
             self.session.flush()
+            self._emit_deactivation(current.id)
 
         project.active = True
         self.session.flush()
+        self._emit_activation(project.id)
+
+
+    def _emit_activation(self, project_id: UUID) -> None:
+        """
+        Emit project activation event.
+        """
+        if self._dispatcher:
+            self._dispatcher.dispatch(ProjectActivationEvent(project_id=str(project_id)))
+
+    def _emit_deactivation(self, project_id: UUID) -> None:
+        """
+        Emit project deactivation event.
+        """
+        if self._dispatcher:
+            self._dispatcher.dispatch(ProjectDeactivationEvent(project_id=str(project_id)))

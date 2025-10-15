@@ -24,15 +24,15 @@ class FrameBroadcaster[T]:
         self.queues: list[Queue[T]] = []
         self._lock = Lock()
 
-    def register(self) -> Queue:
+    def register(self) -> Queue[T]:
         """Register a new consumer and return its personal queue."""
         with self._lock:
-            queue = Queue[T](maxsize=2)
+            queue: Queue[T] = Queue(maxsize=2)
             self.queues.append(queue)
             logging.info("Registered new consumer. Total consumers: %", len(self.queues))
             return queue
 
-    def unregister(self, queue: Queue) -> None:
+    def unregister(self, queue: Queue[T]) -> None:
         """Unregister a consumer by its queue."""
         with self._lock:
             try:

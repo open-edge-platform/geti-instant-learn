@@ -6,6 +6,9 @@ import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+from core.runtime.dispatcher import ConfigChangeDispatcher
+from core.runtime.pipeline_manager import PipelineManager
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,7 +16,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 import rest.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
-from dependencies import run_db_migrations
+from dependencies import run_db_migrations, get_session_factory
 from routers import projects_router
 from settings import get_settings
 
@@ -33,11 +36,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:  # noqa: ARG001
     logger.info(f"Starting {settings.app_name} application...")
     run_db_migrations()
 
+    dispatcher = ConfigChangeDispatcher()
+    app.state.config_dispatcher = dispatcher
+    pipeline_manager = PipelineManager(event_dispatcher=dispatcher, session_factory=get_session_factory())
+    app.state.pipeline_manager = pipeline_manager
+    app.state.pipeline_manager.start()
+
     logger.info("Application startup completed")
     yield
 
     # Shutdown actions
     logger.info(f"Shutting down {settings.app_name} application...")
+    app.state.pipeline_manager.stop()
 
 
 app = FastAPI(

@@ -5,6 +5,10 @@
 from pydantic import BaseModel, Field
 
 from services.schemas.base import BaseIDPayload, BaseIDSchema
+from services.schemas.source import SourceSchema
+from core.components.schemas.reader import ReaderConfig
+from core.components.schemas.processor import ModelConfig
+from core.components.schemas.writer import WriterConfig
 
 
 class ProjectCreateSchema(BaseIDPayload):
@@ -22,3 +26,11 @@ class ProjectSchema(BaseIDSchema):
 
 class ProjectsListSchema(BaseModel):
     projects: list[ProjectSchema]
+
+
+class ProjectRuntimeConfig(BaseIDSchema):
+    name: str
+    active: bool
+    sources: list[SourceSchema]
+    processors: list[ModelConfig]
+    sinks: list[WriterConfig]
