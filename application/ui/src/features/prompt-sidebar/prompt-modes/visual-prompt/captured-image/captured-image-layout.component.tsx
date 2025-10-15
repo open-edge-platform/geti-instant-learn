@@ -8,12 +8,19 @@ import { Grid, minmax, View } from '@geti/ui';
 import { type CapturedImageType } from '../types';
 import { CapturedImageActions } from './captured-image-actions.component';
 import { Labels } from './labels-management/labels.component';
+import { ZoomTransform } from './zoom/zoom-transform';
+import { ZoomProvider } from './zoom/zoom.provider';
 
 interface CapturedImageLayoutProps {
     image: CapturedImageType;
 }
 
 export const CapturedImageLayout = ({ image }: CapturedImageLayoutProps) => {
+    const size = {
+        width: 500,
+        height: 500,
+    };
+
     return (
         <Grid
             width={'100%'}
@@ -25,11 +32,17 @@ export const CapturedImageLayout = ({ image }: CapturedImageLayoutProps) => {
                 <Labels />
             </View>
             <View gridArea={'image'} backgroundColor={'gray-50'}>
-                <img
-                    src={image}
-                    alt={image.toString()}
-                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                />
+                <ZoomProvider>
+                    <ZoomTransform target={size}>
+                        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                            <img
+                                src={image}
+                                alt={image.toString()}
+                                style={{ width: '100%', height: '100%', objectFit: 'fill' }}
+                            />
+                        </div>
+                    </ZoomTransform>
+                </ZoomProvider>
             </View>
             <View gridArea={'actions'} backgroundColor={'gray-200'} padding={'size-100'}>
                 <CapturedImageActions />
