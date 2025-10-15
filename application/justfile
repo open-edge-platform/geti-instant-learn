@@ -63,3 +63,6 @@ run-image: build-image
         {{docker-volume}} \
         --name "{{COMPONENT_NAME}}-{{TAG}}" \
         "{{images-registry}}/{{COMPONENT_NAME}}:{{TAG}}"
+
+show-size:
+    @docker image inspect "{{images-registry}}/{{COMPONENT_NAME}}:{{TAG}}" --format='{{{{.Size}}' | numfmt --to=iec
