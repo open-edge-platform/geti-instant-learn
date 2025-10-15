@@ -28,6 +28,8 @@ jobs:
 
       - name: Build docker image
         working-directory: application
+        env:
+          DOCKER_BUILD_CONTEXT: "--no-cache"
         run: |
           just build-image
 
