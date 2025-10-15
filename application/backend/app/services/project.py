@@ -61,6 +61,7 @@ class ProjectService:
         self.session = session
         self.project_repository = project_repository or ProjectRepository(session=session)
         self._dispatcher = config_change_dispatcher
+        self._pending_events: list[ProjectActivationEvent | ProjectDeactivationEvent] = []
 
     def create_project(self, create_data: ProjectCreateSchema) -> ProjectSchema:
         """
@@ -93,6 +94,7 @@ class ProjectService:
         self._activate_project(project)
         self.session.commit()
         self.session.refresh(project)
+        self._dispatch_pending_events()
         logger.info(
             "Project created: id=%s name=%s active=%s",
             project.id,
@@ -160,7 +162,7 @@ class ProjectService:
         if update_data.active is not None and project.active != update_data.active:
             if update_data.active:
                 logger.debug("Activating project id=%s via update request", project_id)
-                self._activate_project(project)  # handles deactivation of previously active project
+                self._activate_project(project)
             else:
                 logger.debug("Deactivating project id=%s via update request", project_id)
                 project.active = False
@@ -171,6 +173,7 @@ class ProjectService:
         if changed:
             self.session.commit()
             self.session.refresh(project)
+            self._dispatch_pending_events()
             logger.info(
                 "Project updated: id=%s name=%s active=%s",
                 project.id,
@@ -201,6 +204,7 @@ class ProjectService:
             )
         self._activate_project(project)
         self.session.commit()
+        self._dispatch_pending_events()
         logger.info("Project activated: id=%s", project.id)
 
     def get_active_project_info(self) -> ProjectSchema:
@@ -219,7 +223,7 @@ class ProjectService:
             )
         return project_db_to_schema(project)
 
-    def get_project_runtime_config(self, project_id: UUID) -> ProjectRuntimeConfig:
+    def get_project_runtime_config(self, project_id: UUID) -> ProjectRuntimeConfig:  # TODO return PipelineConfig
         """
         Return full runtime configuration (project + all sources, processors, sinks).
         """
@@ -228,7 +232,7 @@ class ProjectService:
             raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
 
         sources: list[SourceSchema] = []
-        for s in project.sources:
+        for s in project.sources:  # TODO only connected source
             try:
                 reader_cfg = ReaderConfig.model_validate(s.config)
                 sources.append(SourceSchema(id=s.id, connected=s.connected, config=reader_cfg))
@@ -236,18 +240,7 @@ class ProjectService:
                 logger.error("Invalid source config skipped: source_id=%s err=%s", s.id, exc)
 
         processors: list[ModelConfig] = []  # TODO update later with actual processor configs
-        for p in project.processors:
-            try:
-                processors.append(ModelConfig.model_validate(p.config))
-            except Exception as exc:
-                logger.error("Invalid processor config skipped: processor_id=%s err=%s", p.id, exc)
-
         sinks: list[WriterConfig] = []  # TODO update later with actual sink configs
-        for s in project.sinks:
-            try:
-                sinks.append(WriterConfig.model_validate(s.config))
-            except Exception as exc:
-                logger.error("Invalid sink config skipped: sink_id=%s err=%s", s.id, exc)
 
         return ProjectRuntimeConfig(
             id=project.id,
@@ -293,6 +286,7 @@ class ProjectService:
             self._emit_deactivation(project.id)
         self.project_repository.delete(project)
         self.session.commit()
+        self._dispatch_pending_events()
         logger.info("Project deleted: id=%s", project_id)
 
     def _activate_project(self, project: ProjectDB) -> None:
@@ -321,14 +315,23 @@ class ProjectService:
 
     def _emit_activation(self, project_id: UUID) -> None:
         """
-        Emit project activation event.
+        Queue project activation event (dispatched after commit).
         """
         if self._dispatcher:
-            self._dispatcher.dispatch(ProjectActivationEvent(project_id=str(project_id)))
+            self._pending_events.append(ProjectActivationEvent(project_id=str(project_id)))
 
     def _emit_deactivation(self, project_id: UUID) -> None:
         """
-        Emit project deactivation event.
+        Queue project deactivation event (dispatched after commit).
         """
         if self._dispatcher:
-            self._dispatcher.dispatch(ProjectDeactivationEvent(project_id=str(project_id)))
+            self._pending_events.append(ProjectDeactivationEvent(project_id=str(project_id)))
+
+    def _dispatch_pending_events(self) -> None:
+        """
+        Dispatch and clear queued events (call only after a successful commit).
+        """
+        if self._dispatcher and self._pending_events:
+            for ev in self._pending_events:
+                self._dispatcher.dispatch(ev)
+        self._pending_events.clear()

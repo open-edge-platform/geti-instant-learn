@@ -12,6 +12,6 @@ from core.components.schemas.writer import WriterConfig
 
 class PipelineConfig(BaseModel):
     project_id: UUID
-    reader: ReaderConfig
-    writer: WriterConfig
-    processor: ModelConfig
+    reader: ReaderConfig | None = None
+    writer: WriterConfig | None = None
+    processor: ModelConfig | None = None

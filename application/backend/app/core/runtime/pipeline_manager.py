@@ -47,8 +47,7 @@ class PipelineManager:
     @contextmanager
     def _project_service(self):
         """
-        Context manager yielding a short-lived ProjectService.
-        Ensures session cleanup without callback indirection.
+        Context manager yielding a short-lived ProjectService, ensures session cleanup.
         """
         with self._session_factory() as session:
             svc = ProjectService(session=session, config_change_dispatcher=self._event_dispatcher)
@@ -126,25 +125,24 @@ class PipelineManager:
         Convert full runtime project config into a PipelineConfig.
         """
         reader = self._select_reader(runtime_cfg)
-        processor = self._select_processor(runtime_cfg)
-        writer = self._select_writer(runtime_cfg)
+        # processor = self._select_processor(runtime_cfg)
+        # writer = self._select_writer(runtime_cfg)
         return PipelineConfig(
             project_id=runtime_cfg.id,
             reader=reader,
-            processor=processor,
-            writer=writer,
+            processor=None,
+            writer=None,
         )
 
-    def _select_reader(self, runtime_cfg: ProjectRuntimeConfig) -> ReaderConfig:
+    def _select_reader(self, runtime_cfg: ProjectRuntimeConfig) -> ReaderConfig | None:
         connected = next((src.config for src in runtime_cfg.sources if src.connected), None)
         if connected:
             return connected
-        if runtime_cfg.sources:
-            return runtime_cfg.sources[0].config
-        return WebCamConfig(source_type=SourceType.WEBCAM, device_id=0)
+        return None # TODO -> ensure factory will create NoOpReader in this case
 
-    def _select_processor(self, runtime_cfg: ProjectRuntimeConfig) -> ModelConfig:
-        return runtime_cfg.processors[0] if runtime_cfg.processors else ModelConfig()
 
-    def _select_writer(self, runtime_cfg: ProjectRuntimeConfig) -> WriterConfig:
-        return runtime_cfg.sinks[0] if runtime_cfg.sinks else WriterConfig()
+    def _select_processor(self, runtime_cfg: ProjectRuntimeConfig) -> ModelConfig | None:
+        return runtime_cfg.processors[0] if runtime_cfg.processors else None
+
+    def _select_writer(self, runtime_cfg: ProjectRuntimeConfig) -> WriterConfig | None:
+        return runtime_cfg.sinks[0] if runtime_cfg.sinks else None

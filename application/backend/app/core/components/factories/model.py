@@ -12,5 +12,6 @@ class ModelFactory:
 
     @classmethod
     def create(cls, config: ModelConfig) -> Any:
-        # Any here is a placeholder for a vision prompt model instance
-        pass
+        match config:
+            case _:
+                return None
