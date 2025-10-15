@@ -5,6 +5,10 @@ import logging
 from uuid import UUID
 
 from sqlalchemy.orm import Session
+
+from core.components.schemas.processor import ModelConfig
+from core.components.schemas.reader import ReaderConfig
+from core.components.schemas.writer import WriterConfig
 from core.runtime.dispatcher import (
     ConfigChangeDispatcher,
     ProjectActivationEvent,
@@ -24,15 +28,12 @@ from services.schemas.mappers.project import (
 )
 from services.schemas.project import (
     ProjectCreateSchema,
+    ProjectRuntimeConfig,
     ProjectSchema,
     ProjectsListSchema,
     ProjectUpdateSchema,
-    ProjectRuntimeConfig,
-    SourceSchema
+    SourceSchema,
 )
-from core.components.schemas.reader import ReaderConfig
-from core.components.schemas.processor import ModelConfig
-from core.components.schemas.writer import WriterConfig
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +49,12 @@ class ProjectService:
       - Coordinate cascading / related entity cleanup.
     """
 
-    def __init__(self, session: Session, project_repository: ProjectRepository | None = None,
-                 config_change_dispatcher: ConfigChangeDispatcher | None = None):
+    def __init__(
+        self,
+        session: Session,
+        project_repository: ProjectRepository | None = None,
+        config_change_dispatcher: ConfigChangeDispatcher | None = None,
+    ):
         """
         Initialize the service with a SQLAlchemy session.
         """
@@ -214,7 +219,6 @@ class ProjectService:
             )
         return project_db_to_schema(project)
 
-
     def get_project_runtime_config(self, project_id: UUID) -> ProjectRuntimeConfig:
         """
         Return full runtime configuration (project + all sources, processors, sinks).
@@ -243,7 +247,7 @@ class ProjectService:
             try:
                 sinks.append(WriterConfig.model_validate(s.config))
             except Exception as exc:
-                logger.error("Invalid sink config skipped: sink_id=%s err=%s", w.id, exc)
+                logger.error("Invalid sink config skipped: sink_id=%s err=%s", s.id, exc)
 
         return ProjectRuntimeConfig(
             id=project.id,
@@ -314,7 +318,6 @@ class ProjectService:
         project.active = True
         self.session.flush()
         self._emit_activation(project.id)
-
 
     def _emit_activation(self, project_id: UUID) -> None:
         """

@@ -4,11 +4,10 @@
 
 from pydantic import BaseModel, Field
 
-from services.schemas.base import BaseIDPayload, BaseIDSchema
-from services.schemas.source import SourceSchema
-from core.components.schemas.reader import ReaderConfig
 from core.components.schemas.processor import ModelConfig
 from core.components.schemas.writer import WriterConfig
+from services.schemas.base import BaseIDPayload, BaseIDSchema
+from services.schemas.source import SourceSchema
 
 
 class ProjectCreateSchema(BaseIDPayload):

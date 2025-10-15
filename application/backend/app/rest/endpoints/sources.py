@@ -7,6 +7,7 @@ from uuid import UUID
 from fastapi import HTTPException, Response, status
 
 from dependencies import SessionDep
+from main import app
 from routers import projects_router
 from services.errors import ResourceNotFoundError, ResourceUpdateConflictError
 from services.schemas.source import SourceCreateSchema, SourceSchema, SourcesListSchema, SourceUpdateSchema
@@ -29,7 +30,7 @@ def get_sources(project_id: UUID, db_session: SessionDep) -> SourcesListSchema:
     Retrieve the source configuration of the project.
     """
     logger.debug(f"Received GET project {project_id} sources request.")
-    service = SourceService(db_session)
+    service = SourceService(session=db_session, config_change_dispatcher=app.state.config_dispatcher)
     try:
         return service.list_sources(project_id)
     except ResourceNotFoundError as e:
@@ -54,7 +55,7 @@ def create_source(project_id: UUID, payload: SourceCreateSchema, db_session: Ses
     Create a new source configuration for the project.
     """
     logger.debug(f"Received POST source request for project {project_id} with payload: {payload}.")
-    service = SourceService(db_session)
+    service = SourceService(session=db_session, config_change_dispatcher=app.state.config_dispatcher)
     try:
         return service.create_source(project_id=project_id, create_data=payload)
     except ResourceUpdateConflictError as e:
@@ -83,7 +84,7 @@ def update_source(
     Update the project's source configuration.
     """
     logger.debug(f"Received PUT source {source_id} request for project {project_id}.")
-    service = SourceService(db_session)
+    service = SourceService(session=db_session, config_change_dispatcher=app.state.config_dispatcher)
     try:
         return service.update_source(project_id=project_id, source_id=source_id, update_data=payload)
     except ResourceUpdateConflictError as e:
@@ -112,7 +113,7 @@ def delete_source(project_id: UUID, source_id: UUID, db_session: SessionDep) -> 
     Delete the specified project's source configuration.
     """
     logger.debug(f"Received DELETE source {source_id} request for project {project_id}.")
-    service = SourceService(db_session)
+    service = SourceService(session=db_session, config_change_dispatcher=app.state.config_dispatcher)
     try:
         service.delete_source(project_id=project_id, source_id=source_id)
     except ResourceNotFoundError:

@@ -12,19 +12,13 @@ from fastapi import Depends
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
-from core.runtime.dispatcher import ConfigChangeDispatcher
-from core.runtime.pipeline_manager import PipelineManager
+
 from alembic import command
 from alembic.config import Config
-
-from services.project import ProjectService
 from settings import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
-
-
-
 
 
 def ensure_data_dir() -> Path:
@@ -84,5 +78,3 @@ def run_db_migrations() -> None:
     except Exception:
         logger.exception("✗ Database migration failed")
         raise
-
-

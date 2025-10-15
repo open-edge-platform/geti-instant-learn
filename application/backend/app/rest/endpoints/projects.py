@@ -4,10 +4,11 @@
 import logging
 from typing import Annotated
 from uuid import UUID
-from main import app
+
 from fastapi import HTTPException, Query, Response, status
 
 from dependencies import SessionDep
+from main import app
 from routers import projects_router
 from services.errors import ResourceAlreadyExistsError, ResourceNotFoundError
 from services.project import ProjectService

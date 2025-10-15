@@ -80,7 +80,6 @@ class PromptDB(Base):
     )
 
 
-
 class ProcessorDB(Base):
     __tablename__ = "Processor"
     name: Mapped[str | None] = mapped_column(nullable=True)

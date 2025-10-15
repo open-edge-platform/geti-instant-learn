@@ -6,9 +6,6 @@ import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from core.runtime.dispatcher import ConfigChangeDispatcher
-from core.runtime.pipeline_manager import PipelineManager
-
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,7 +13,9 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 import rest.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
-from dependencies import run_db_migrations, get_session_factory
+from core.runtime.dispatcher import ConfigChangeDispatcher
+from core.runtime.pipeline_manager import PipelineManager
+from dependencies import get_session_factory, run_db_migrations
 from routers import projects_router
 from settings import get_settings
 
@@ -30,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None]:  # noqa: ARG001
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """FastAPI lifespan context manager"""
     # Startup actions
     logger.info(f"Starting {settings.app_name} application...")

@@ -3,14 +3,15 @@
 
 import logging
 from contextlib import contextmanager
-from typing import Callable
 from uuid import UUID
+
 from sqlalchemy.orm import Session, sessionmaker
+
 from core.components.schemas.processor import ModelConfig
 from core.components.schemas.reader import (
+    ReaderConfig,
     SourceType,
     WebCamConfig,
-    ReaderConfig,
 )
 from core.components.schemas.writer import WriterConfig
 from core.runtime.dispatcher import (
@@ -22,16 +23,11 @@ from core.runtime.dispatcher import (
 )
 from core.runtime.pipeline import Pipeline
 from core.runtime.schemas.pipeline import PipelineConfig
-from services.project import ProjectService
 from services.errors import ResourceNotFoundError
+from services.project import ProjectService
 from services.schemas.project import ProjectRuntimeConfig
 
-
-
-
 logger = logging.getLogger(__name__)
-
-
 
 
 class PipelineManager:
@@ -48,19 +44,16 @@ class PipelineManager:
         self._session_factory = session_factory
         self._pipeline: Pipeline | None = None
 
-
-
     @contextmanager
     def _project_service(self):
         """
-        Context manager yielding a short‑lived ProjectService.
+        Context manager yielding a short-lived ProjectService.
         Ensures session cleanup without callback indirection.
         """
         with self._session_factory() as session:
             svc = ProjectService(session=session, config_change_dispatcher=self._event_dispatcher)
             yield svc
-    
-    
+
     def start(self) -> None:
         """
         Start pipeline for active project if present; subscribe to config events.
@@ -107,7 +100,6 @@ class PipelineManager:
                     new_cfg = self._get_pipeline_config(self._pipeline.config.project_id)
                     self._pipeline.update_config(new_cfg)
                     logger.info("Pipeline config updated for project %s", e.project_id)
-
 
     def _get_active_pipeline_config(self) -> PipelineConfig | None:
         """
