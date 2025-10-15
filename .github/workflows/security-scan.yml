@@ -74,9 +74,9 @@ jobs:
           scan-scope: "all"
           severity-level: "LOW"
           confidence-level: "LOW"
-          config_file: ".ci/ipas_default.config"
+          config_file: ".github/bandit_config.yml"
           fail-on-findings: false # reports only
-          output-format: "plain" # Use plain text output format to omit uploading code scanning results to Security tab
+          output-format: "txt" # Use plain text output format to omit uploading code scanning results to Security tab
 
   trivy-scan:
     runs-on: ubuntu-latest
@@ -114,5 +114,5 @@ jobs:
           scan-scope: "all"
           severity: "LOW"
           fail-on-findings: false # reports only
-          config: "p/ci" # Use CI ruleset
-          output-format: "plain" # Use plain text output format to omit uploading code scanning results to Security tab
+          config: "p/ci p/default p/cwe-top-25 p/trailofbits p/owasp-top-ten"
+          output-format: "text" # Use plain text output format to omit uploading code scanning results to Security tab
