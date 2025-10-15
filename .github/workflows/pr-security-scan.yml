@@ -31,6 +31,10 @@ on:
 
 permissions: {} # No permissions by default
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
 jobs:
   zizmor-scan:
     runs-on: ubuntu-latest
@@ -40,7 +44,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
-          persist-credentials: false
+          persist-credentials: true
       - name: Run Zizmor scan
         uses: open-edge-platform/geti-ci/actions/zizmor@60c5b06ac4b2c056f3567e84aa7fa06930cdc4e4
         with:
@@ -58,7 +62,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
-          persist-credentials: false
+          persist-credentials: true
       - name: Run Bandit scan
         uses: open-edge-platform/geti-ci/actions/bandit@60c5b06ac4b2c056f3567e84aa7fa06930cdc4e4
         with:
@@ -77,7 +81,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
-          persist-credentials: false
+          persist-credentials: true
       - name: Run Semgrep scan
         uses: open-edge-platform/geti-ci/actions/semgrep@60c5b06ac4b2c056f3567e84aa7fa06930cdc4e4
         with:
