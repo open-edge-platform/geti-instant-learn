@@ -25,10 +25,14 @@ export const EditLabel = ({ label, onAccept, onCancel, isQuiet, width }: EditLab
     const [color, setColor] = useState<string>(label.color);
     const [name, setName] = useState<string>(label.name);
 
+    const handleAccept = () => {
+        onAccept({ color, name, id: label.id });
+        onCancel();
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Enter') {
-            onAccept({ color, name, id: label.id });
-            onCancel();
+            handleAccept();
         } else if (e.key === 'Escape') {
             onCancel();
         }
@@ -67,7 +71,7 @@ export const EditLabel = ({ label, onAccept, onCancel, isQuiet, width }: EditLab
             <ActionButton
                 isQuiet={isQuiet}
                 aria-label={'Confirm label'}
-                onPress={() => onAccept({ color, name, id: label.id })}
+                onPress={handleAccept}
                 isDisabled={!name.trim()}
                 UNSAFE_style={
                     {
