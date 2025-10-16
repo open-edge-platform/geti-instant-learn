@@ -41,7 +41,6 @@
         "react-router": "^6.30.1",
         "react-router-dom": "^6.30.1",
         "static-path": "^0.0.4",
-        "tiged": "^2.12.7",
         "uuid": "^13.0.0"
     },
     "devDependencies": {
@@ -85,6 +84,7 @@
         "node-fetch": "^3.3.2",
         "openapi-msw": "^2.0.0",
         "prettier": "^3.6.2",
+        "tiged": "^2.12.7",
         "typescript": "^5.9.2",
         "typescript-eslint": "^8.35.1",
         "vite-plugin-svgr": "^4.5.0",
