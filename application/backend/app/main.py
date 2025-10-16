@@ -34,13 +34,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """
     FastAPI lifespan context manager
 
-    The `app` parameter is used to initialize and store the WebRTC manager
+    The `app` parameter is used to initialize and store the WebRTC manager and Pipeline manager
     instance in `app.state` for use throughout the application lifecycle.
     """
     # Startup actions
     logger.info(f"Starting {settings.app_name} application...")
     run_db_migrations()
 
+    # Initialize Pipeline Manager
     pipeline_manager = PipelineManager(event_dispatcher=ConfigChangeDispatcher(), project_repo=DummyProjectRepo())
     app.state.pipeline_manager = pipeline_manager
 
@@ -53,6 +54,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     # Shutdown actions
     logger.info(f"Shutting down {settings.app_name} application...")
+    await webrtc_manager.cleanup()
+    pipeline_manager.stop()
+    logger.info("Application shutdown completed")
 
 
 app = FastAPI(
