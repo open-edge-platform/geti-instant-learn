@@ -3,7 +3,6 @@
 
 import logging
 from contextlib import contextmanager
-from uuid import UUID
 
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -71,9 +70,8 @@ class PipelineManager:
         """
         match event:
             case ProjectActivationEvent() as e:
-                project_id = UUID(e.project_id)
                 with self._project_service() as svc:
-                    cfg = svc.get_pipeline_config(project_id)
+                    cfg = svc.get_pipeline_config(e.project_id)
                 if self._pipeline:
                     self._pipeline.stop()
                 self._pipeline = Pipeline(pipeline_conf=cfg)
@@ -81,13 +79,13 @@ class PipelineManager:
                 logger.info("Pipeline started for activated project %s", e.project_id)
 
             case ProjectDeactivationEvent() as e:
-                if self._pipeline and str(self._pipeline.config.project_id) == e.project_id:
+                if self._pipeline and self._pipeline.config.project_id == e.project_id:
                     self._pipeline.stop()
                     self._pipeline = None
                     logger.info("Pipeline stopped due to project deactivation %s", e.project_id)
 
             case ComponentConfigChangeEvent() as e:
-                if self._pipeline and str(self._pipeline.config.project_id) == e.project_id:
+                if self._pipeline and self._pipeline.config.project_id == e.project_id:
                     with self._project_service() as svc:
                         new_cfg = svc.get_pipeline_config(self._pipeline.config.project_id)
                     self._pipeline.update_config(new_cfg)

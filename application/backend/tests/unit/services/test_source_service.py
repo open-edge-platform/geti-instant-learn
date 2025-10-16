@@ -133,7 +133,7 @@ def test_create_source_success(service, dispatcher_mock):
     dispatcher_mock.dispatch.assert_called_once()
     ev = dispatcher_mock.dispatch.call_args_list[0].args[0]
     assert isinstance(ev, ComponentConfigChangeEvent)
-    assert ev.project_id == str(project_id)
+    assert ev.project_id == project_id
     assert ev.component_type == "source"
     assert ev.component_id == str(new_id)
 
@@ -192,7 +192,7 @@ def test_update_source_success(service, dispatcher_mock):
     dispatcher_mock.dispatch.assert_called_once()
     ev = dispatcher_mock.dispatch.call_args_list[0].args[0]
     assert isinstance(ev, ComponentConfigChangeEvent)
-    assert ev.project_id == str(project_id)
+    assert ev.project_id == project_id
     assert ev.component_type == "source"
     assert ev.component_id == str(source_id)
 
@@ -305,7 +305,7 @@ def test_create_source_emits_event_when_connected_false(service, dispatcher_mock
     dispatcher_mock.dispatch.assert_called_once()
     ev = dispatcher_mock.dispatch.call_args_list[0].args[0]
     assert isinstance(ev, ComponentConfigChangeEvent)
-    assert ev.project_id == str(project_id)
+    assert ev.project_id == project_id
     assert ev.component_type == "source"
     assert ev.component_id == str(new_id)
 
@@ -327,4 +327,5 @@ def test_update_source_emits_event_when_no_connection_change(service, dispatcher
     dispatcher_mock.dispatch.assert_called_once()
     ev = dispatcher_mock.dispatch.call_args_list[0].args[0]
     assert isinstance(ev, ComponentConfigChangeEvent)
+    assert ev.project_id == project_id
     assert ev.component_id == str(source_id)

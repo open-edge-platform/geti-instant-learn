@@ -240,7 +240,7 @@ class SourceService:
         if self._dispatcher:
             self._dispatcher.dispatch(
                 ComponentConfigChangeEvent(
-                    project_id=str(project_id),
+                    project_id=project_id,
                     component_type="source",
                     component_id=str(source_id),
                 )

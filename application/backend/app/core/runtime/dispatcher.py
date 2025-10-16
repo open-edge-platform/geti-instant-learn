@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from typing import Protocol
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -9,19 +10,19 @@ from pydantic import BaseModel
 class ProjectActivationEvent(BaseModel):
     """Event fired when a new pipeline should be activated."""
 
-    project_id: str
+    project_id: UUID
 
 
 class ProjectDeactivationEvent(BaseModel):
     """Event fired when the current pipeline should be deactivated."""
 
-    project_id: str
+    project_id: UUID
 
 
 class ComponentConfigChangeEvent(BaseModel):
     """Event fired when a component of the active pipeline changes."""
 
-    project_id: str
+    project_id: UUID
     component_type: str
     component_id: str
 

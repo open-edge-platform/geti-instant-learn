@@ -317,14 +317,14 @@ class ProjectService:
         Queue project activation event (dispatched after commit).
         """
         if self._dispatcher:
-            self._pending_events.append(ProjectActivationEvent(project_id=str(project_id)))
+            self._pending_events.append(ProjectActivationEvent(project_id=project_id))
 
     def _emit_deactivation(self, project_id: UUID) -> None:
         """
         Queue project deactivation event (dispatched after commit).
         """
         if self._dispatcher:
-            self._pending_events.append(ProjectDeactivationEvent(project_id=str(project_id)))
+            self._pending_events.append(ProjectDeactivationEvent(project_id=project_id))
 
     def _dispatch_pending_events(self) -> None:
         """

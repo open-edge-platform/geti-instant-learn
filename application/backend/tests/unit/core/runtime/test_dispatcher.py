@@ -3,6 +3,7 @@
 
 
 from unittest.mock import Mock
+from uuid import uuid4
 
 import pytest
 
@@ -21,7 +22,7 @@ def mock_listener():
 
 @pytest.fixture
 def config_change_event():
-    return ComponentConfigChangeEvent(project_id="project-beta", component_type="source", component_id="camera-01")
+    return ComponentConfigChangeEvent(project_id=uuid4(), component_type="source", component_id="camera-01")
 
 
 class TestConfigChangeDispatcher:

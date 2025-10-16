@@ -105,7 +105,7 @@ class TestPipelineManager:
             svc_inst.get_pipeline_config.return_value = cfg
 
             mgr = PipelineManager(dispatcher, session_factory)
-            ev = ProjectActivationEvent(project_id=str(pid))
+            ev = ProjectActivationEvent(project_id=pid)  # removed str()
             mgr.on_config_change(ev)
 
             svc_inst.get_pipeline_config.assert_called_once_with(pid)
@@ -129,7 +129,7 @@ class TestPipelineManager:
             mgr = PipelineManager(dispatcher, session_factory)
             mgr._pipeline = old_pipeline
 
-            ev = ProjectActivationEvent(project_id=str(pid_new))
+            ev = ProjectActivationEvent(project_id=pid_new)
             mgr.on_config_change(ev)
 
             old_pipeline.stop.assert_called_once()
@@ -146,7 +146,7 @@ class TestPipelineManager:
             mgr = PipelineManager(dispatcher, session_factory)
             mgr._pipeline = running
 
-            ev = ProjectDeactivationEvent(project_id=str(pid))
+            ev = ProjectDeactivationEvent(project_id=pid)
             mgr.on_config_change(ev)
 
             running.stop.assert_called_once()
@@ -159,7 +159,7 @@ class TestPipelineManager:
             mgr = PipelineManager(dispatcher, session_factory)
             mgr._pipeline = running
 
-            ev = ProjectDeactivationEvent(project_id=str(uuid4()))
+            ev = ProjectDeactivationEvent(project_id=uuid4())
             mgr.on_config_change(ev)
 
             running.stop.assert_not_called()
@@ -177,7 +177,7 @@ class TestPipelineManager:
             mgr = PipelineManager(dispatcher, session_factory)
             mgr._pipeline = running
 
-            ev = ComponentConfigChangeEvent(project_id=str(pid), component_type="source", component_id="abc")
+            ev = ComponentConfigChangeEvent(project_id=pid, component_type="source", component_id="abc")
             mgr.on_config_change(ev)
 
             svc_cls.return_value.get_pipeline_config.assert_called_once_with(pid)
@@ -193,7 +193,7 @@ class TestPipelineManager:
             mgr = PipelineManager(dispatcher, session_factory)
             mgr._pipeline = running
 
-            ev = ComponentConfigChangeEvent(project_id=str(pid_event), component_type="source", component_id="abc")
+            ev = ComponentConfigChangeEvent(project_id=pid_event, component_type="source", component_id="abc")
             mgr.on_config_change(ev)
 
             svc_cls.return_value.get_pipeline_config.assert_not_called()

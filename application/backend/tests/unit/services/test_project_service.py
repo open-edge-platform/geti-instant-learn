@@ -304,9 +304,9 @@ def test_set_active_emits_activation_and_deactivation_events(service, repo_mock,
     event_1 = dispatcher_mock.dispatch.call_args_list[0].args[0]
     event_2 = dispatcher_mock.dispatch.call_args_list[1].args[0]
     assert isinstance(event_1, ProjectDeactivationEvent)
-    assert event_1.project_id == str(project_previous_active.id)
+    assert event_1.project_id == project_previous_active.id
     assert isinstance(event_2, ProjectActivationEvent)
-    assert event_2.project_id == str(project_target.id)
+    assert event_2.project_id == project_target.id
 
 
 def test_delete_active_emits_deactivation_event(service, repo_mock, dispatcher_mock):
@@ -318,7 +318,7 @@ def test_delete_active_emits_deactivation_event(service, repo_mock, dispatcher_m
     assert dispatcher_mock.dispatch.call_count == 1
     ev = dispatcher_mock.dispatch.call_args_list[0].args[0]
     assert isinstance(ev, ProjectDeactivationEvent)
-    assert ev.project_id == str(project_active.id)
+    assert ev.project_id == project_active.id
 
 
 def test_delete_inactive_emits_no_event(service, repo_mock, dispatcher_mock):
@@ -341,7 +341,7 @@ def test_update_activate_emits_activation_event(service, repo_mock, dispatcher_m
     assert dispatcher_mock.dispatch.call_count == 1
     ev = dispatcher_mock.dispatch.call_args_list[0].args[0]
     assert isinstance(ev, ProjectActivationEvent)
-    assert ev.project_id == str(project_inactive.id)
+    assert ev.project_id == project_inactive.id
 
 
 def test_update_deactivate_emits_deactivation_event(service, repo_mock, dispatcher_mock):
@@ -354,7 +354,7 @@ def test_update_deactivate_emits_deactivation_event(service, repo_mock, dispatch
     assert dispatcher_mock.dispatch.call_count == 1
     ev = dispatcher_mock.dispatch.call_args_list[0].args[0]
     assert isinstance(ev, ProjectDeactivationEvent)
-    assert ev.project_id == str(project_active.id)
+    assert ev.project_id == project_active.id
 
 
 def test_update_activate_replaces_existing_active_emits_two_events(service, repo_mock, dispatcher_mock):
@@ -370,6 +370,6 @@ def test_update_activate_replaces_existing_active_emits_two_events(service, repo
     event_1 = dispatcher_mock.dispatch.call_args_list[0].args[0]
     event_2 = dispatcher_mock.dispatch.call_args_list[1].args[0]
     assert isinstance(event_1, ProjectDeactivationEvent)
-    assert event_1.project_id == str(project_current_active.id)
+    assert event_1.project_id == project_current_active.id
     assert isinstance(event_2, ProjectActivationEvent)
-    assert event_2.project_id == str(project_target.id)
+    assert event_2.project_id == project_target.id
