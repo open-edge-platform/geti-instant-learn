@@ -16,7 +16,7 @@ PROJECT_ID = uuid4()
 def mock_pipeline_manager():
     """Create a mock PipelineManager."""
     pm = Mock(spec=PipelineManager)
-    pm.get_project_id.return_value = PROJECT_ID
+    pm.get_active_project_id.return_value = PROJECT_ID
     pm.register_webrtc.return_value = queue.Queue()
     pm.unregister_webrtc.return_value = None
     return pm

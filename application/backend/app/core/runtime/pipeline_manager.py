@@ -84,7 +84,7 @@ class PipelineManager:
             raise RuntimeError("No active pipeline to unregister from")
         return self._pipeline.unregister_webrtc(queue=target_queue)
 
-    def get_project_id(self) -> str:
+    def get_active_project_id(self) -> str:
         """Get the active pipeline's project ID, if any."""
         if self._pipeline is None:
             self.start()
