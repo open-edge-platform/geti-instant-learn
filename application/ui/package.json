@@ -21,7 +21,7 @@
         "lint": "eslint ./src ./tests --max-warnings 0",
         "lint:fix": "eslint --fix ./src ./tests",
         "preview": "rsbuild preview",
-        "clone-geti-ui-packages": "npx degit git@github.com:open-edge-platform/geti.git/web_ui/packages/config#e84dbb794fc7ce836ee4b58674baec8e5db8c5fd packages/config --force && npx degit git@github.com:open-edge-platform/geti.git/web_ui/packages/ui#e84dbb794fc7ce836ee4b58674baec8e5db8c5fd packages/ui --force",
+        "clone-geti-ui-packages": "npx degit git@github.com:open-edge-platform/geti.git/web_ui/packages/config packages/config --force && npx degit git@github.com:open-edge-platform/geti.git/web_ui/packages/ui packages/ui --force",
         "preinstall": "npm run clone-geti-ui-packages",
         "type-check": "tsc --noEmit",
         "test:unit": "vitest",
