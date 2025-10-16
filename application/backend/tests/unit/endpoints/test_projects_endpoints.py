@@ -7,7 +7,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from dependencies import SessionDep  # type: ignore
+from dependencies import SessionDep, get_config_dispatcher  # type: ignore
 from rest.endpoints import projects
 from routers import projects_router
 from services.errors import (
@@ -33,6 +33,12 @@ def app():
     app = FastAPI()
     app.include_router(projects_router, prefix="/api/v1")
     app.dependency_overrides[SessionDep] = lambda: object()
+
+    class DummyDispatcher:
+        def dispatch(self, event):  # noqa: D401
+            pass
+
+    app.dependency_overrides[get_config_dispatcher] = lambda: DummyDispatcher()
     return app
 
 
@@ -51,7 +57,7 @@ def client(app):
 )
 def test_create_project(client, monkeypatch, behavior, expected_status, expect_location, expect_conflict_substring):
     class FakeService:
-        def __init__(self, session):  # noqa: D401
+        def __init__(self, session, config_change_dispatcher):  # noqa: D401
             pass
 
         def create_project(self, payload):
@@ -97,7 +103,7 @@ def test_delete_project(client, monkeypatch, behavior, expected_status, expect_d
     from rest.endpoints import projects as ep_mod
 
     class FakeService:
-        def __init__(self, session):
+        def __init__(self, session, config_change_dispatcher):
             pass
 
         def delete_project(self, project_id: UUID):
@@ -135,7 +141,7 @@ def test_get_active_project(client, monkeypatch, behavior, expected_status, expe
     from rest.endpoints import projects as ep_mod
 
     class FakeService:
-        def __init__(self, session):
+        def __init__(self, session, config_change_dispatcher):
             pass
 
         def get_active_project_info(self):
@@ -168,7 +174,7 @@ def test_get_projects_list(client, monkeypatch, behavior, expected_status, expec
     from rest.endpoints import projects as ep_mod
 
     class FakeService:
-        def __init__(self, session):
+        def __init__(self, session, config_change_dispatcher):
             pass
 
         def list_projects(self):
@@ -211,7 +217,7 @@ def test_get_project(client, monkeypatch, behavior, expected_status, expect_payl
     from rest.endpoints import projects as ep_mod
 
     class FakeService:
-        def __init__(self, session):
+        def __init__(self, session, config_change_dispatcher):
             pass
 
         def get_project(self, project_id: UUID):
@@ -248,7 +254,7 @@ def test_update_project(client, monkeypatch, behavior, expected_status, expect_d
     NEW_NAME = "renamed"
 
     class FakeService:
-        def __init__(self, session):
+        def __init__(self, session, config_change_dispatcher):
             pass
 
         def update_project(self, project_id: UUID, update_data):

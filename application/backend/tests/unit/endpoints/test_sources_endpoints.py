@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from core.components.schemas.reader import SourceType, WebCamConfig
-from dependencies import SessionDep
+from dependencies import SessionDep, get_config_dispatcher
 from routers import projects_router
 from services.errors import (
     ResourceNotFoundError,
@@ -42,6 +42,12 @@ def app():
     app = FastAPI()
     app.include_router(projects_router, prefix="/api/v1")
     app.dependency_overrides[SessionDep] = lambda: object()
+
+    class DummyDispatcher:
+        def dispatch(self, event):  # noqa: D401
+            pass
+
+    app.dependency_overrides[get_config_dispatcher] = lambda: DummyDispatcher()
     return app
 
 
@@ -62,7 +68,7 @@ def test_get_sources(client, monkeypatch, behavior, expected_status, expected_le
     from rest.endpoints import sources as ep_mod
 
     class FakeService:
-        def __init__(self, session):
+        def __init__(self, session, config_change_dispatcher):
             pass
 
         def list_sources(self, project_id: UUID):
@@ -117,7 +123,7 @@ def test_create_source(client, monkeypatch, behavior, expected_status, expect_de
     CREATED_ID = uuid4()
 
     class FakeService:
-        def __init__(self, session):
+        def __init__(self, session, config_change_dispatcher):
             pass
 
         def create_source(self, project_id: UUID, create_data):
@@ -168,7 +174,7 @@ def test_update_source(client, monkeypatch, behavior, expected_status, expect_de
     from rest.endpoints import sources as ep_mod
 
     class FakeService:
-        def __init__(self, session):
+        def __init__(self, session, config_change_dispatcher):
             pass
 
         def update_source(self, project_id: UUID, source_id: UUID, update_data):
@@ -217,7 +223,7 @@ def test_delete_source(client, monkeypatch, behavior, expected_status, expect_de
     from rest.endpoints import sources as ep_mod
 
     class FakeService:
-        def __init__(self, session):
+        def __init__(self, session, config_change_dispatcher):
             pass
 
         def delete_source(self, project_id: UUID, source_id: UUID):

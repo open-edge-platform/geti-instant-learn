@@ -7,11 +7,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from core.runtime.dispatcher import ProjectActivationEvent, ProjectDeactivationEvent
+from core.runtime.schemas.pipeline import PipelineConfig
 from services.errors import ResourceAlreadyExistsError, ResourceNotFoundError
 from services.project import ProjectService
 from services.schemas.project import ProjectCreateSchema, ProjectSchema, ProjectUpdateSchema
-from core.runtime.schemas.pipeline import PipelineConfig
-from core.runtime.dispatcher import ProjectActivationEvent, ProjectDeactivationEvent
 
 
 def make_connected_source(device_id: int = 0):
