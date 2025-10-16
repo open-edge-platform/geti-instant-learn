@@ -56,7 +56,7 @@ export const LabelListItem = ({ label, deleteLabel, onSelect, isSelected, onUpda
         return (
             <EditLabel
                 onAccept={onUpdate}
-                onCancel={() => setIsInEdition(false)}
+                onClose={() => setIsInEdition(false)}
                 label={label}
                 isQuiet
                 width={'size-2400'}
