@@ -199,6 +199,7 @@ class SourceService:
         self.source_repository.delete(source)
         self.session.commit()
         logger.info("Source deleted: source_id=%s project_id=%s", source_id, project_id)
+        self._emit_component_change(project_id=project_id, source_id=source_id)
 
     def _ensure_project(self, project_id: UUID) -> ProjectDB:
         """

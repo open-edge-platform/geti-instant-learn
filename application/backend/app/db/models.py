@@ -95,8 +95,8 @@ class ProjectDB(Base):
     sources: Mapped[list[SourceDB]] = relationship(
         back_populates="project", cascade="all, delete-orphan", passive_deletes=True
     )
-    processors: Mapped[ProcessorDB] = relationship(back_populates="project")
-    sinks: Mapped[SinkDB] = relationship(back_populates="project")
+    processors: Mapped[list[ProcessorDB]] = relationship(back_populates="project")
+    sinks: Mapped[list[SinkDB]] = relationship(back_populates="project")
 
     prompts: Mapped[list[PromptDB]] = relationship(
         back_populates="project", cascade="all, delete-orphan", passive_deletes=True
