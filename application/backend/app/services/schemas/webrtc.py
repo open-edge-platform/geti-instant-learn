@@ -1,15 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from uuid import UUID
-
-from pydantic import BaseModel, Field
-
-
-class InputData(BaseModel):
-    project_id: UUID
-    webrtc_id: str
-    conf_threshold: float = Field(ge=0, le=1)
+from pydantic import BaseModel
 
 
 class Offer(BaseModel):

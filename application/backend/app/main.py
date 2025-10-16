@@ -13,6 +13,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 import rest.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
+from core.runtime.dispatcher import ConfigChangeDispatcher
+from core.runtime.pipeline_manager import DummyProjectRepo, PipelineManager
 from dependencies import run_db_migrations
 from routers import projects_router
 from settings import get_settings
@@ -39,8 +41,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     logger.info(f"Starting {settings.app_name} application...")
     run_db_migrations()
 
+    pipeline_manager = PipelineManager(event_dispatcher=ConfigChangeDispatcher(), project_repo=DummyProjectRepo())
+    app.state.pipeline_manager = pipeline_manager
+
     # Initialize WebRTC Manager
-    webrtc_manager = WebRTCManager()
+    webrtc_manager = WebRTCManager(pipeline_manager=pipeline_manager)
     app.state.webrtc_manager = webrtc_manager
 
     logger.info("Application startup completed")

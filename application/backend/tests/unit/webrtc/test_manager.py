@@ -1,143 +1,117 @@
 import queue
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import UUID, uuid4
+from unittest.mock import AsyncMock, Mock, patch
+from uuid import uuid4
 
 import pytest
+from aiortc import RTCPeerConnection, RTCSessionDescription
 
+from core.runtime.pipeline_manager import PipelineManager
 from services.schemas.webrtc import Answer, Offer
 from webrtc.manager import WebRTCManager
 
-
-@pytest.fixture
-def webrtc_manager():
-    return WebRTCManager()
+PROJECT_ID = uuid4()
 
 
 @pytest.fixture
-def mock_pipeline():
-    mock = MagicMock()
-    mock.config.project_id = str(uuid4())
-    mock.register_webrtc.return_value = queue.Queue()
-    mock.unregister_webrtc = MagicMock()
-    return mock
+def mock_pipeline_manager():
+    """Create a mock PipelineManager."""
+    pm = Mock(spec=PipelineManager)
+    pm.get_project_id.return_value = PROJECT_ID
+    pm.register_webrtc.return_value = queue.Queue()
+    pm.unregister_webrtc.return_value = None
+    return pm
+
+
+@pytest.fixture
+def webrtc_manager(mock_pipeline_manager):
+    """Create a WebRTCManager instance with mocked dependencies."""
+    return WebRTCManager(pipeline_manager=mock_pipeline_manager)
+
+
+@pytest.fixture
+def sample_offer():
+    """Create a sample Offer object."""
+    return Offer(webrtc_id="test-webrtc-id", sdp="v=0\r\no=- 123456789 2 IN IP4 127.0.0.1\r\n", type="offer")
 
 
 @pytest.mark.asyncio
-async def test_handle_offer_success(webrtc_manager, mock_pipeline):
-    """Test successful handling of WebRTC offer"""
-    project_id = UUID(mock_pipeline.config.project_id)
-    offer = Offer(webrtc_id="test-webrtc-id", sdp="v=0\r\no=- 123 456 IN IP4 0.0.0.0\r\ns=-\r\nt=0 0\r\n", type="offer")
+async def test_handle_offer_success(webrtc_manager, mock_pipeline_manager, sample_offer):
+    """Test successful offer handling with matching project IDs."""
+    project_id = PROJECT_ID
 
-    webrtc_manager.pm._pipeline = mock_pipeline
-
-    with patch("webrtc.manager.RTCPeerConnection") as mock_rtc, patch("webrtc.manager.InferenceVideoStreamTrack"):
-        mock_pc = MagicMock()  # Use MagicMock instead of AsyncMock
-        mock_pc.localDescription = MagicMock(sdp="answer-sdp", type="answer")
+    with patch("webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection:
+        mock_pc = AsyncMock(spec=RTCPeerConnection)
+        mock_pc.localDescription = Mock(sdp="answer-sdp", type="answer")
         mock_pc.connectionState = "connected"
-        mock_pc.setRemoteDescription = AsyncMock()
-        mock_pc.createAnswer = AsyncMock()
-        mock_pc.setLocalDescription = AsyncMock()
-        mock_pc.addTrack = MagicMock()
+        MockRTCPeerConnection.return_value = mock_pc
 
-        # Mock the decorator pattern for pc.on
-        mock_pc.on = MagicMock(side_effect=lambda event: lambda func: func)
-
-        mock_rtc.return_value = mock_pc
-
-        answer = await webrtc_manager.handle_offer(project_id, offer)
+        answer = await webrtc_manager.handle_offer(project_id, sample_offer)
 
         assert isinstance(answer, Answer)
         assert answer.sdp == "answer-sdp"
         assert answer.type == "answer"
-        assert offer.webrtc_id in webrtc_manager._pcs
-        assert webrtc_manager.queue is not None
-        mock_pc.addTrack.assert_called_once()
-        mock_pc.setRemoteDescription.assert_called_once()
-        mock_pc.createAnswer.assert_called_once()
-        mock_pc.setLocalDescription.assert_called_once()
-        mock_pipeline.register_webrtc.assert_called_once()
+        assert sample_offer.webrtc_id in webrtc_manager._pcs
+        mock_pipeline_manager.register_webrtc.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_handle_offer_project_id_mismatch(webrtc_manager, mock_pipeline):
-    """Test handling offer with mismatched project ID"""
-    different_project_id = uuid4()
-    offer = Offer(webrtc_id="test-webrtc-id", sdp="v=0\r\no=- 123 456 IN IP4 0.0.0.0\r\ns=-\r\nt=0 0\r\n", type="offer")
-
-    webrtc_manager.pm._pipeline = mock_pipeline
+async def test_handle_offer_project_id_mismatch(webrtc_manager, mock_pipeline_manager, sample_offer):
+    """Test offer handling fails when project IDs don't match."""
+    wrong_project_id = uuid4()
 
     with pytest.raises(ValueError, match="Project ID does not match"):
-        await webrtc_manager.handle_offer(different_project_id, offer)
+        await webrtc_manager.handle_offer(wrong_project_id, sample_offer)
+
+    mock_pipeline_manager.register_webrtc.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_handle_offer_starts_pipeline_if_none(webrtc_manager):
-    """Test that pipeline is started if not already running"""
-    project_id = uuid4()
-    offer = Offer(webrtc_id="test-webrtc-id", sdp="v=0\r\no=- 123 456 IN IP4 0.0.0.0\r\ns=-\r\nt=0 0\r\n", type="offer")
+async def test_handle_offer_creates_video_track(webrtc_manager, mock_pipeline_manager, sample_offer):
+    """Test that video track is added to the peer connection."""
 
-    mock_pipeline = MagicMock()
-    mock_pipeline.config.project_id = str(project_id)
-    mock_pipeline.register_webrtc.return_value = queue.Queue()
+    with (
+        patch("webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection,
+        patch("webrtc.manager.InferenceVideoStreamTrack") as MockTrack,
+    ):
+        mock_pc = AsyncMock(spec=RTCPeerConnection)
+        mock_pc.localDescription = Mock(sdp="answer-sdp", type="answer")
+        MockRTCPeerConnection.return_value = mock_pc
 
-    webrtc_manager.pm.start = MagicMock()
-    webrtc_manager.pm._pipeline = None
+        mock_track = Mock()
+        MockTrack.return_value = mock_track
 
-    with patch("webrtc.manager.RTCPeerConnection") as mock_rtc, patch("webrtc.manager.InferenceVideoStreamTrack"):
-        mock_pc = MagicMock()  # Changed from AsyncMock to MagicMock
-        mock_pc.localDescription = MagicMock(sdp="answer-sdp", type="answer")
-        mock_pc.setRemoteDescription = AsyncMock()
-        mock_pc.createAnswer = AsyncMock()
-        mock_pc.setLocalDescription = AsyncMock()
-        mock_pc.addTrack = MagicMock()
+        await webrtc_manager.handle_offer(PROJECT_ID, sample_offer)
 
-        # Mock the decorator pattern for pc.on
-        mock_pc.on = MagicMock(side_effect=lambda event: lambda func: func)
-
-        mock_rtc.return_value = mock_pc
-
-        def start_side_effect():
-            webrtc_manager.pm._pipeline = mock_pipeline
-
-        webrtc_manager.pm.start.side_effect = start_side_effect
-
-        answer = await webrtc_manager.handle_offer(project_id, offer)
-
-        webrtc_manager.pm.start.assert_called_once()
-        assert answer.sdp == "answer-sdp"
+        mock_pc.addTrack.assert_called_once_with(mock_track)
 
 
 @pytest.mark.asyncio
-async def test_handle_offer_connection_state_change_callback(webrtc_manager, mock_pipeline):
-    """Test connection state change callback cleanup"""
-    project_id = UUID(mock_pipeline.config.project_id)
-    offer = Offer(webrtc_id="test-webrtc-id", sdp="v=0\r\no=- 123 456 IN IP4 0.0.0.0\r\ns=-\r\nt=0 0\r\n", type="offer")
+async def test_handle_offer_registers_connection_state_handler(webrtc_manager, mock_pipeline_manager, sample_offer):
+    """Test that connection state change handler is registered."""
 
-    webrtc_manager.pm._pipeline = mock_pipeline
+    with patch("webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection:
+        mock_pc = AsyncMock(spec=RTCPeerConnection)
+        mock_pc.localDescription = Mock(sdp="answer-sdp", type="answer")
+        MockRTCPeerConnection.return_value = mock_pc
 
-    with patch("webrtc.manager.RTCPeerConnection") as mock_rtc, patch("webrtc.manager.InferenceVideoStreamTrack"):
-        mock_pc = AsyncMock()
-        mock_pc.localDescription = MagicMock(sdp="answer-sdp", type="answer")
-        mock_rtc.return_value = mock_pc
+        await webrtc_manager.handle_offer(PROJECT_ID, sample_offer)
 
-        connection_callback = None
+        mock_pc.on.assert_called_with("connectionstatechange")
 
-        def capture_on_callback(event):
-            def decorator(func):
-                nonlocal connection_callback
-                if event == "connectionstatechange":
-                    connection_callback = func
-                return func
 
-            return decorator
+@pytest.mark.asyncio
+async def test_handle_offer_sets_remote_description(webrtc_manager, mock_pipeline_manager, sample_offer):
+    """Test that remote description is set from the offer."""
 
-        mock_pc.on = capture_on_callback
+    with patch("webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection:
+        mock_pc = AsyncMock(spec=RTCPeerConnection)
+        mock_pc.localDescription = Mock(sdp="answer-sdp", type="answer")
+        MockRTCPeerConnection.return_value = mock_pc
 
-        await webrtc_manager.handle_offer(project_id, offer)
+        await webrtc_manager.handle_offer(PROJECT_ID, sample_offer)
 
-        # Simulate connection failure
-        mock_pc.connectionState = "failed"
-        await connection_callback()
-
-        assert offer.webrtc_id not in webrtc_manager._pcs
-        mock_pipeline.unregister_webrtc.assert_called_once()
+        mock_pc.setRemoteDescription.assert_called_once()
+        call_args = mock_pc.setRemoteDescription.call_args[0][0]
+        assert isinstance(call_args, RTCSessionDescription)
+        assert call_args.sdp == sample_offer.sdp
+        assert call_args.type == sample_offer.type

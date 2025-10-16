@@ -12,7 +12,7 @@ from fastapi.exceptions import HTTPException
 
 from rest.dependencies import get_webrtc_manager as get_webrtc
 from routers import projects_router
-from services.schemas.webrtc import Answer, InputData, Offer
+from services.schemas.webrtc import Answer, Offer
 from webrtc.manager import WebRTCManager
 
 logger = logging.getLogger(__name__)
@@ -35,16 +35,3 @@ async def create_webrtc_offer(
     except Exception as e:
         logger.error("Error processing WebRTC offer: %s", e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-
-
-@projects_router.post(
-    path="/{project_id}/input_hook",
-    responses={
-        status.HTTP_200_OK: {"description": "WebRTC input data updated"},
-    },
-)
-async def webrtc_input_hook(
-    project_id: UUID, data: InputData, webrtc_manager: Annotated[WebRTCManager, Depends(get_webrtc)]
-) -> None:
-    """Update webrtc input with user data"""
-    webrtc_manager.set_input(project_id=project_id, data=data)

@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from main import app
 from rest.dependencies import get_webrtc_manager
-from services.schemas.webrtc import Answer, InputData, Offer
+from services.schemas.webrtc import Answer, Offer
 from webrtc.manager import WebRTCManager
 
 PROJECT_ID = uuid4()
@@ -37,11 +37,6 @@ def fxt_answer() -> Answer:
     return Answer(sdp="test_sdp", type="answer")
 
 
-@pytest.fixture
-def fxt_input_data() -> InputData:
-    return InputData(webrtc_id="test_id", conf_threshold=0.5, project_id=PROJECT_ID)
-
-
 class TestWebRTCEndpoints:
     def test_create_webrtc_offer_success(self, fxt_client, fxt_webrtc_manager, fxt_offer, fxt_answer):
         fxt_webrtc_manager.handle_offer.return_value = fxt_answer
@@ -59,13 +54,4 @@ class TestWebRTCEndpoints:
 
     def test_create_webrtc_offer_invalid_payload(self, fxt_client):
         resp = fxt_client.post(f"/api/v1/projects/{PROJECT_ID}/offer", json={"sdp": 123})
-        assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-
-    def test_webrtc_input_hook_success(self, fxt_client, fxt_webrtc_manager, fxt_input_data):
-        resp = fxt_client.post(f"/api/v1/projects/{PROJECT_ID}/input_hook", json=fxt_input_data.model_dump(mode="json"))
-        assert resp.status_code == status.HTTP_200_OK
-        fxt_webrtc_manager.set_input.assert_called_once()
-
-    def test_webrtc_input_hook_invalid_payload(self, fxt_client, fxt_webrtc_manager):
-        resp = fxt_client.post(f"/api/v1/projects/{PROJECT_ID}/input_hook", json={"wrong": "field"})
         assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
