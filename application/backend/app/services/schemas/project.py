@@ -27,9 +27,3 @@ class ProjectsListSchema(BaseModel):
     projects: list[ProjectSchema]
 
 
-class ProjectRuntimeConfig(BaseIDSchema):
-    name: str
-    active: bool
-    sources: list[SourceSchema]
-    processors: list[ModelConfig]
-    sinks: list[WriterConfig]
