@@ -4,21 +4,42 @@
 from collections.abc import Iterable
 
 from db.models import ProjectDB
-from services.schemas.project import ProjectCreateSchema, ProjectSchema
+from services.schemas.base import Pagination
+from services.schemas.project import ProjectCreateSchema, ProjectSchema, ProjectsListSchema
 
 
 def project_db_to_schema(project: ProjectDB) -> ProjectSchema:
     """
     Map a ProjectDB ORM instance to a ProjectSchema.
     """
-    return ProjectSchema(id=project.id, name=project.name)
+    return ProjectSchema(id=project.id, name=project.name, active=project.active)
 
 
-def projects_db_to_list_items(projects: Iterable[ProjectDB]) -> list[ProjectSchema]:
+def projects_db_to_list_items(
+    projects: Iterable[ProjectDB], total: int, offset: int = 0, limit: int = 20
+) -> ProjectsListSchema:
     """
-    Bulk map an iterable of ProjectDB entities to list item schemas.
+    Map an iterable of ProjectDB entities to ProjectsListSchema with pagination metadata.
+
+    Parameters:
+        projects: Iterable of ProjectDB entities to map
+        total: Total number of projects available
+        offset: Starting index of the returned items
+        limit: Maximum number of items requested
+
+    Returns:
+        ProjectsListSchema with mapped projects and pagination metadata
     """
-    return [project_db_to_schema(p) for p in projects]
+    items = [project_db_to_schema(p) for p in projects]
+
+    pagination = Pagination(
+        count=len(items),
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
+
+    return ProjectsListSchema(projects=items, pagination=pagination)
 
 
 def project_schema_to_db(payload: ProjectCreateSchema) -> ProjectDB:

@@ -72,6 +72,7 @@ def test_create_project_success(service, repo_mock, session_mock, explicit_id):
 
     assert isinstance(result, ProjectSchema)
     assert result.name == "alpha"
+    assert result.active is True
     repo_mock.add.assert_called_once()
     assert session_mock.flush.call_count == 2  # flushes: initial add + activation
     session_mock.commit.assert_called_once()
@@ -112,6 +113,7 @@ def test_get_project_success(service, repo_mock):
     result = service.get_project(pid)
     assert isinstance(result, ProjectSchema)
     assert result.id == pid
+    assert result.active is False
     repo_mock.get_by_id.assert_called_once_with(pid)
 
 
@@ -124,13 +126,46 @@ def test_get_project_not_found(service, repo_mock):
 
 def test_list_projects(service, repo_mock):
     p1, p2 = make_project(), make_project()
-    repo_mock.get_all.return_value = [p1, p2]
+    repo_mock.get_paginated.return_value = ([p1, p2], 2)
 
-    result = service.list_projects()
+    result = service.list_projects(offset=0, limit=20)
+
     assert len(result.projects) == 2
     ids = {p.id for p in result.projects}
     assert ids == {p1.id, p2.id}
-    repo_mock.get_all.assert_called_once()
+    assert result.pagination.count == 2
+    assert result.pagination.total == 2
+    assert result.pagination.offset == 0
+    assert result.pagination.limit == 20
+    repo_mock.get_paginated.assert_called_once_with(offset=0, limit=20)
+
+
+def test_list_projects_with_pagination(service, repo_mock):
+    p1 = make_project(name="project_1")
+    repo_mock.get_paginated.return_value = ([p1], 10)
+
+    result = service.list_projects(offset=5, limit=1)
+
+    assert len(result.projects) == 1
+    assert result.projects[0].id == p1.id
+    assert result.pagination.count == 1
+    assert result.pagination.total == 10
+    assert result.pagination.offset == 5
+    assert result.pagination.limit == 1
+    repo_mock.get_paginated.assert_called_once_with(offset=5, limit=1)
+
+
+def test_list_projects_empty(service, repo_mock):
+    repo_mock.get_paginated.return_value = ([], 0)
+
+    result = service.list_projects()
+
+    assert len(result.projects) == 0
+    assert result.pagination.count == 0
+    assert result.pagination.total == 0
+    assert result.pagination.offset == 0
+    assert result.pagination.limit == 20
+    repo_mock.get_paginated.assert_called_once_with(offset=0, limit=20)
 
 
 def test_update_project_success(service, repo_mock, session_mock):
@@ -143,6 +178,7 @@ def test_update_project_success(service, repo_mock, session_mock):
     updated = service.update_project(pid, data)
 
     assert updated.name == "new"
+    assert updated.active is False
     session_mock.commit.assert_called_once()
     session_mock.refresh.assert_called_once()
 
@@ -191,6 +227,7 @@ def test_get_active_project_success(service, repo_mock):
     result = service.get_active_project_info()
     assert result.id == active.id
     assert result.name == active.name
+    assert result.active is True
 
 
 def test_get_active_project_not_found(service, repo_mock):
