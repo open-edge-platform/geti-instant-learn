@@ -18,7 +18,17 @@
     }
 }
 
+.dialogContent {
+    padding-inline: var(--spectrum-global-dimension-size-250);
+}
+
 .projectList {
     list-style: none;
     padding-inline-start: 0;
+}
+
+.currentProject {
+    background-color: var(--spectrum-global-color-gray-100);
+    margin-inline: var(--spectrum-global-dimension-size-250);
+    padding: var(--spectrum-global-dimension-size-200);
 }

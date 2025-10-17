@@ -15,7 +15,8 @@ import { DeleteProjectDialog, PROJECT_ACTIONS, ProjectActions, ProjectEdition } 
 import styles from './project-list-item.module.scss';
 
 interface ProjectListItemProps {
-    project: ProjectType;
+    project: ProjectWithActiveStatus;
+    activeProject: ProjectType | undefined;
     isInEditMode: boolean;
     onBlur: (projectId: string, newName: string) => void;
     onRename: (projectId: string) => void;
@@ -60,7 +61,7 @@ export const ProjectListItem = ({
     return (
         <li className={styles.projectListItem} aria-label={`Project ${project.name}`}>
             <Link to={paths.project({ projectId: project.id })} onClick={handleItemClick}>
-                <Flex justifyContent='space-between' alignItems='center' marginX={'size-200'}>
+                <Flex justifyContent='space-between' alignItems='center'>
                     {isInEditMode ? (
                         <ProjectEdition
                             name={project.name}
