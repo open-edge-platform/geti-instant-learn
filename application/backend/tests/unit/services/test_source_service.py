@@ -66,6 +66,18 @@ def test_list_sources_success(service):
     service.source_repository.get_all_by_project.assert_called_once_with(project_id)
 
 
+def test_list_sources_empty_list(service):
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.source_repository.get_all_by_project.return_value = []
+
+    result = service.list_sources(project_id)
+
+    assert result.sources == []
+    service.project_repository.get_by_id.assert_called_once_with(project_id)
+    service.source_repository.get_all_by_project.assert_called_once_with(project_id)
+
+
 def test_get_source_success(service):
     project_id = uuid.uuid4()
     source = make_source(project_id=project_id)

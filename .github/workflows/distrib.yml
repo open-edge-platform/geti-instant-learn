@@ -22,5 +22,7 @@ jobs:
           persist-credentials: false
 
       - name: lint
+        env:
+          BUILD_VERSION: ${{ inputs.build_version }}
         run: |
-          echo "A placeholder for ci steps, version: ${{ inputs.build_version }}"
+          echo "A placeholder for ci steps, version: $BUILD_VERSION"
