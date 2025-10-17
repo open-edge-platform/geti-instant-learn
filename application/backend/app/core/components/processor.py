@@ -36,6 +36,6 @@ class Processor(PipelineComponent):
             except Empty:
                 continue
             except Exception as e:
-                logger.exception("Error in pipeline runner loop %", e)
+                logger.exception("Error in pipeline runner loop: %s", e)
 
         logger.debug("Stopping the pipeline runner loop")

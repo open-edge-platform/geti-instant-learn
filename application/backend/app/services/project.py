@@ -4,8 +4,16 @@
 import logging
 from uuid import UUID
 
+from pydantic import TypeAdapter
 from sqlalchemy.orm import Session
 
+from core.components.schemas.reader import ReaderConfig
+from core.runtime.dispatcher import (
+    ConfigChangeDispatcher,
+    ProjectActivationEvent,
+    ProjectDeactivationEvent,
+)
+from core.runtime.schemas.pipeline import PipelineConfig
 from db.models import ProjectDB
 from repositories.project import ProjectRepository
 from services.errors import (
@@ -39,12 +47,19 @@ class ProjectService:
       - Coordinate cascading / related entity cleanup.
     """
 
-    def __init__(self, session: Session, project_repository: ProjectRepository | None = None):
+    def __init__(
+        self,
+        session: Session,
+        project_repository: ProjectRepository | None = None,
+        config_change_dispatcher: ConfigChangeDispatcher | None = None,
+    ):
         """
         Initialize the service with a SQLAlchemy session.
         """
         self.session = session
         self.project_repository = project_repository or ProjectRepository(session=session)
+        self._dispatcher = config_change_dispatcher
+        self._pending_events: list[ProjectActivationEvent | ProjectDeactivationEvent] = []
 
     def create_project(self, create_data: ProjectCreateSchema) -> ProjectSchema:
         """
@@ -77,6 +92,7 @@ class ProjectService:
         self._activate_project(project)
         self.session.commit()
         self.session.refresh(project)
+        self._dispatch_pending_events()
         logger.info(
             "Project created: id=%s name=%s active=%s",
             project.id,
@@ -144,16 +160,18 @@ class ProjectService:
         if update_data.active is not None and project.active != update_data.active:
             if update_data.active:
                 logger.debug("Activating project id=%s via update request", project_id)
-                self._activate_project(project)  # handles deactivation of previously active project
+                self._activate_project(project)
             else:
                 logger.debug("Deactivating project id=%s via update request", project_id)
                 project.active = False
                 self.session.flush()
+                self._emit_deactivation(project.id)
             changed = True
 
         if changed:
             self.session.commit()
             self.session.refresh(project)
+            self._dispatch_pending_events()
             logger.info(
                 "Project updated: id=%s name=%s active=%s",
                 project.id,
@@ -184,6 +202,7 @@ class ProjectService:
             )
         self._activate_project(project)
         self.session.commit()
+        self._dispatch_pending_events()
         logger.info("Project activated: id=%s", project.id)
 
     def get_active_project_info(self) -> ProjectSchema:
@@ -201,6 +220,47 @@ class ProjectService:
                 message="No active project found.",
             )
         return project_db_to_schema(project)
+
+    def get_pipeline_config(self, project_id: UUID) -> PipelineConfig:
+        """
+        Build and return the PipelineConfig for a specific project.
+
+        Rules:
+          - Reader: first connected source's ReaderConfig (if any), else None (NoOpReader).
+          - Processor / Writer: placeholders (None) until implemented.
+
+        Raises:
+            ResourceNotFoundError: if project does not exist.
+        """
+        project = self.project_repository.get_by_id(project_id)
+        if not project:
+            raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
+
+        connected_source = next((s for s in project.sources if s.connected), None)
+        reader_cfg: ReaderConfig | None = None
+        if connected_source:
+            try:
+                reader_cfg = TypeAdapter(ReaderConfig).validate_python(connected_source.config)
+            except Exception as exc:
+                logger.exception(
+                    "Invalid connected source config ignored: source_id=%s err=%s", connected_source.id, exc
+                )
+
+        return PipelineConfig(
+            project_id=project.id,
+            reader=reader_cfg,
+            processor=None,  # TODO: populate from future processor configs
+            writer=None,  # TODO: populate from future sink/writer configs
+        )
+
+    def get_active_pipeline_config(self) -> PipelineConfig | None:
+        """
+        Return PipelineConfig for the active project, or None if there's no active project.
+        """
+        project = self.project_repository.get_active()
+        if not project:
+            return None
+        return self.get_pipeline_config(project.id)
 
     def delete_project(self, project_id: UUID) -> None:
         """
@@ -221,8 +281,11 @@ class ProjectService:
                 resource_id=str(project_id),
             )
 
+        if project.active:
+            self._emit_deactivation(project.id)
         self.project_repository.delete(project)
         self.session.commit()
+        self._dispatch_pending_events()
         logger.info("Project deleted: id=%s", project_id)
 
     def _activate_project(self, project: ProjectDB) -> None:
@@ -243,6 +306,31 @@ class ProjectService:
             )
             current.active = False
             self.session.flush()
+            self._emit_deactivation(current.id)
 
         project.active = True
         self.session.flush()
+        self._emit_activation(project.id)
+
+    def _emit_activation(self, project_id: UUID) -> None:
+        """
+        Queue project activation event (dispatched after commit).
+        """
+        if self._dispatcher:
+            self._pending_events.append(ProjectActivationEvent(project_id=project_id))
+
+    def _emit_deactivation(self, project_id: UUID) -> None:
+        """
+        Queue project deactivation event (dispatched after commit).
+        """
+        if self._dispatcher:
+            self._pending_events.append(ProjectDeactivationEvent(project_id=project_id))
+
+    def _dispatch_pending_events(self) -> None:
+        """
+        Dispatch and clear queued events (call only after a successful commit).
+        """
+        if self._dispatcher and self._pending_events:
+            for ev in self._pending_events:
+                self._dispatcher.dispatch(ev)
+        self._pending_events.clear()

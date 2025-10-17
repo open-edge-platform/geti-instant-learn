@@ -54,8 +54,7 @@ class SinkDB(Base):
     __tablename__ = "Sink"
     config: Mapped[dict] = mapped_column(JSON, nullable=False)
     project_id: Mapped[UUID] = mapped_column(ForeignKey("Project.id", ondelete="CASCADE"))
-    project: Mapped["ProjectDB"] = relationship(back_populates="sink", single_parent=True)
-    __table_args__ = (UniqueConstraint("project_id"),)
+    project: Mapped["ProjectDB"] = relationship(back_populates="sinks", single_parent=True)
 
 
 class PromptType(StrEnum):
@@ -81,21 +80,12 @@ class PromptDB(Base):
     )
 
 
-class ProcessorType(StrEnum):
-    """Enum for different types of processing projects from the library."""
-
-    # TODO update with actual processor types from Daan
-    DUMMY = "DUMMY"
-
-
 class ProcessorDB(Base):
     __tablename__ = "Processor"
     name: Mapped[str | None] = mapped_column(nullable=True)
-    type: Mapped[ProcessorType] = mapped_column(nullable=False)
     config: Mapped[dict] = mapped_column(JSON, nullable=False)
     project_id: Mapped[UUID] = mapped_column(ForeignKey("Project.id", ondelete="CASCADE"))
-    project: Mapped["ProjectDB"] = relationship(back_populates="processor", single_parent=True)
-    __table_args__ = (UniqueConstraint("project_id"),)
+    project: Mapped["ProjectDB"] = relationship(back_populates="processors", single_parent=True)
 
 
 class ProjectDB(Base):
@@ -105,8 +95,8 @@ class ProjectDB(Base):
     sources: Mapped[list[SourceDB]] = relationship(
         back_populates="project", cascade="all, delete-orphan", passive_deletes=True
     )
-    processor: Mapped[ProcessorDB] = relationship(back_populates="project")
-    sink: Mapped[SinkDB] = relationship(back_populates="project")
+    processors: Mapped[list[ProcessorDB]] = relationship(back_populates="project")
+    sinks: Mapped[list[SinkDB]] = relationship(back_populates="project")
 
     prompts: Mapped[list[PromptDB]] = relationship(
         back_populates="project", cascade="all, delete-orphan", passive_deletes=True

@@ -23,6 +23,11 @@ export const Labels = () => {
 
     const deleteLabel = (id: string) => setLabels(labels.filter((item) => item.id !== id));
 
+    const updateLabel = (edited: Label) => {
+        const updatedLabels = labels.map((label) => (edited.id === label.id ? edited : label));
+        setLabels(updatedLabels);
+    };
+
     return (
         <Flex height={'100%'} alignItems={'center'} width={'100%'}>
             <Flex margin={'size-50'} wrap={'wrap'} width={'100%'} alignItems={'center'}>
@@ -33,9 +38,7 @@ export const Labels = () => {
                         deleteLabel={() => deleteLabel(label.id)}
                         onSelect={() => setSelectedLabelId(label.id)}
                         isSelected={selectedLabelId === label.id}
-                        onUpdate={(edited: Label) =>
-                            setLabels(labels.map((item) => (item.id === label.id ? edited : item)))
-                        }
+                        onUpdate={updateLabel}
                     />
                 ))}
                 <Flex alignSelf={'flex-end'} flex={1} justifyContent={'end'} alignItems={'center'}>

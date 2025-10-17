@@ -15,22 +15,26 @@ import classes from './edit-label.module.css';
 interface EditLabelProps {
     label: Label;
     onAccept: (editedLabel: Label) => void;
-    onCancel: () => void;
+    onClose: () => void;
     isQuiet?: boolean;
     width?: DimensionValue;
 }
 
-export const EditLabel = ({ label, onAccept, onCancel, isQuiet, width }: EditLabelProps) => {
+export const EditLabel = ({ label, onAccept, onClose, isQuiet, width }: EditLabelProps) => {
     const MAX_NAME_LENGTH = 100;
     const [color, setColor] = useState<string>(label.color);
     const [name, setName] = useState<string>(label.name);
 
+    const handleAccept = () => {
+        onAccept({ color, name, id: label.id });
+        onClose();
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Enter') {
-            onAccept({ color, name, id: label.id });
-            onCancel();
+            handleAccept();
         } else if (e.key === 'Escape') {
-            onCancel();
+            onClose();
         }
     };
 
@@ -67,7 +71,7 @@ export const EditLabel = ({ label, onAccept, onCancel, isQuiet, width }: EditLab
             <ActionButton
                 isQuiet={isQuiet}
                 aria-label={'Confirm label'}
-                onPress={() => onAccept({ color, name, id: label.id })}
+                onPress={handleAccept}
                 isDisabled={!name.trim()}
                 UNSAFE_style={
                     {

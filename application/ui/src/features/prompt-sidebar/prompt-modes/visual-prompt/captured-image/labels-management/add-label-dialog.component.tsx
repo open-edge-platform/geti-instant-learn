@@ -22,7 +22,7 @@ export const AddLabelDialog = ({ onAction, closeDialog }: AddLabelDialogProps) =
     return (
         <Dialog>
             <Content>
-                <EditLabel label={defaultLabel} onAccept={onAction} onCancel={closeDialog} />
+                <EditLabel label={defaultLabel} onAccept={onAction} onClose={closeDialog} />
             </Content>
         </Dialog>
     );

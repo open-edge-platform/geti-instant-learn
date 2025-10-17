@@ -14,8 +14,8 @@ from fastapi.staticfiles import StaticFiles
 
 import rest.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
 from core.runtime.dispatcher import ConfigChangeDispatcher
-from core.runtime.pipeline_manager import DummyProjectRepo, PipelineManager
-from dependencies import run_db_migrations
+from core.runtime.pipeline_manager import PipelineManager
+from dependencies import get_session_factory, run_db_migrations
 from routers import projects_router
 from settings import get_settings
 from webrtc.manager import WebRTCManager
@@ -31,22 +31,19 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    """
-    FastAPI lifespan context manager
-
-    The `app` parameter is used to initialize and store the WebRTC manager and Pipeline manager
-    instance in `app.state` for use throughout the application lifecycle.
-    """
+    """FastAPI lifespan context manager"""
     # Startup actions
     logger.info(f"Starting {settings.app_name} application...")
     run_db_migrations()
 
-    # Initialize Pipeline Manager
-    pipeline_manager = PipelineManager(event_dispatcher=ConfigChangeDispatcher(), project_repo=DummyProjectRepo())
-    app.state.pipeline_manager = pipeline_manager
+    app.state.config_dispatcher = ConfigChangeDispatcher()
+    app.state.pipeline_manager = PipelineManager(
+        event_dispatcher=app.state.config_dispatcher, session_factory=get_session_factory()
+    )
+    app.state.pipeline_manager.start()
 
     # Initialize WebRTC Manager
-    webrtc_manager = WebRTCManager(pipeline_manager=pipeline_manager)
+    webrtc_manager = WebRTCManager(pipeline_manager=app.state.pipeline_manager)
     app.state.webrtc_manager = webrtc_manager
 
     logger.info("Application startup completed")
@@ -69,9 +66,11 @@ app = FastAPI(
     # TODO add license
 )
 
+raw = os.getenv("CORS_ORIGINS", "http://localhost:3000")
+allowed_origins = [o.strip() for o in raw.split(",") if o.strip()]
 app.add_middleware(  # TODO restrict settings in production
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
