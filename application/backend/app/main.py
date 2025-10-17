@@ -43,8 +43,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.pipeline_manager.start()
 
     # Initialize WebRTC Manager
-    webrtc_manager = WebRTCManager(pipeline_manager=app.state.pipeline_manager)
-    app.state.webrtc_manager = webrtc_manager
+    app.state.webrtc_manager = WebRTCManager(pipeline_manager=app.state.pipeline_manager)
 
     logger.info("Application startup completed")
     yield

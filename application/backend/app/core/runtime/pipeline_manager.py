@@ -1,10 +1,9 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
-import queue
-from uuid import UUID
-
 import logging
+import queue
 from contextlib import contextmanager
+from uuid import UUID
 
 from sqlalchemy.orm import Session, sessionmaker
 
