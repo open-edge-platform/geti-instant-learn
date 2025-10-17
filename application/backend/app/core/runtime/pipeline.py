@@ -60,10 +60,10 @@ class Pipeline:
         }
         logger.debug(f"A streaming job created for a project config: {pipeline_conf}")
 
-    def _register_webrtc(self) -> Queue:
+    def register_webrtc(self) -> Queue:
         return self._broadcaster.register()
 
-    def _unregister_webrtc(self, queue: Queue) -> None:
+    def unregister_webrtc(self, queue: Queue) -> None:
         return self._broadcaster.unregister(queue=queue)
 
     @property

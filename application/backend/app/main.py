@@ -65,7 +65,7 @@ app = FastAPI(
     # TODO add license
 )
 
-raw = os.getenv("CORS_ORIGINS", "http://localhost:3000")
+raw = os.getenv("CORS_ORIGINS", "http://localhost:3000, http://localhost:9100")
 allowed_origins = [o.strip() for o in raw.split(",") if o.strip()]
 app.add_middleware(  # TODO restrict settings in production
     CORSMiddleware,

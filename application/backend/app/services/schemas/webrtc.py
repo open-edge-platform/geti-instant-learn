@@ -2,14 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pydantic import BaseModel
+from typing import Literal
 
 
 class Offer(BaseModel):
     webrtc_id: str
     sdp: str
-    type: str
+    type: Literal["offer", "pranswer", "answer", "rollback"] = "offer"
 
 
 class Answer(BaseModel):
     sdp: str
-    type: str
+    type: str  # default is answer

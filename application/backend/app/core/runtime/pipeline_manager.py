@@ -94,12 +94,12 @@ class PipelineManager:
                     logger.info("Pipeline config updated for project %s", e.project_id)
 
     def register_webrtc(self, project_id: UUID) -> queue.Queue:
-        """Register webRTC in pipeline or start a new one if none exists."""
+        """Register webRTC in pipeline."""
         if self._pipeline is None:
             raise PipelineNotActiveError("No active pipeline to register to.")
         if project_id != self._pipeline.config.project_id:
             raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
-        return self._pipeline._register_webrtc()
+        return self._pipeline.register_webrtc()
 
     def unregister_webrtc(self, target_queue: queue.Queue, project_id: UUID) -> None:
         """Unregister webRTC in pipeline."""
@@ -107,4 +107,4 @@ class PipelineManager:
             raise PipelineNotActiveError("No active pipeline to unregister from.")
         if project_id != self._pipeline.config.project_id:
             raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
-        return self._pipeline._unregister_webrtc(queue=target_queue)
+        return self._pipeline.unregister_webrtc(queue=target_queue)
