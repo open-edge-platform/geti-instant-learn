@@ -9,6 +9,8 @@ import numpy as np
 from aiortc import VideoStreamTrack
 from av import VideoFrame
 
+from core.components.schemas.processor import InputData
+
 logger = logging.getLogger(__name__)
 
 FALLBACK_FRAME = np.full((64, 64, 3), 16, dtype=np.uint8)
@@ -17,7 +19,7 @@ FALLBACK_FRAME = np.full((64, 64, 3), 16, dtype=np.uint8)
 class InferenceVideoStreamTrack(VideoStreamTrack):
     """A video stream track that provides frames with inference results over WebRTC."""
 
-    def __init__(self, stream_queue: queue.Queue[np.ndarray]):
+    def __init__(self, stream_queue: queue.Queue[InputData]):
         super().__init__()
         self._stream_queue = stream_queue
         self._last_frame: np.ndarray | None = None
@@ -60,24 +62,22 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         pts, time_base = await self.next_timestamp()
 
         try:
-            try:
-                logger.debug("Getting the frame from the stream_queue...")
-                frame_data = await asyncio.to_thread(self._stream_queue.get, True, 0.5)  # wait for 500ms
-                self._last_frame = frame_data  # cache the successful frame
-            except queue.Empty:
-                logger.debug("Empty queue. Using the last frame...")
-                if self._last_frame is None:
-                    frame_data = FALLBACK_FRAME
-                else:
-                    frame_data = self._last_frame
-
-            logger.debug("Received the frame from the stream_queue.")
-
-            # Convert numpy array to VideoFrame
-            frame = VideoFrame.from_ndarray(frame_data.frame, format="bgr24")
-            frame.pts = pts
-            frame.time_base = time_base
-            return frame
+            logger.debug("Getting the frame from the stream_queue...")
+            input_data = await asyncio.to_thread(self._stream_queue.get, True, 0.5)
+            np_frame = input_data.frame
+            self._last_frame = np_frame
+        except queue.Empty:
+            logger.debug("Empty queue. Using the last frame...")
+            if self._last_frame is not None:
+                np_frame = self._last_frame
+            else:
+                np_frame = FALLBACK_FRAME
         except Exception as e:
             logger.error("Error in recv: %s", e)
             raise
+
+        logger.debug("Received the frame from the stream_queue.")
+        frame = VideoFrame.from_ndarray(np_frame, format="bgr24")
+        frame.pts = pts
+        frame.time_base = time_base
+        return frame

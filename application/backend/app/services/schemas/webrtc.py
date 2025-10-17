@@ -1,8 +1,9 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from pydantic import BaseModel
 from typing import Literal
+
+from pydantic import BaseModel
 
 
 class Offer(BaseModel):
