@@ -74,7 +74,7 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
             logger.debug("Received the frame from the stream_queue.")
 
             # Convert numpy array to VideoFrame
-            frame = VideoFrame.from_ndarray(frame_data, format="bgr24")
+            frame = VideoFrame.from_ndarray(frame_data.frame, format="bgr24")
             frame.pts = pts
             frame.time_base = time_base
             return frame
