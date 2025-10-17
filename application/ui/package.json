@@ -84,7 +84,6 @@
         "node-fetch": "^3.3.2",
         "openapi-msw": "^2.0.0",
         "prettier": "^3.6.2",
-        "tiged": "^2.12.7",
         "typescript": "^5.9.2",
         "typescript-eslint": "^8.35.1",
         "vite-plugin-svgr": "^4.5.0",
