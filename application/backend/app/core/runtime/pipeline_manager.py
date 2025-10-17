@@ -1,6 +1,7 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 import queue
+from uuid import UUID
 
 from core.components.schemas.processor import ModelConfig
 from core.components.schemas.reader import ReaderConfig
@@ -11,6 +12,7 @@ from core.runtime.dispatcher import (
     ConfigChangeEvent,
     ProjectActivationEvent,
 )
+from core.runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 from core.runtime.pipeline import Pipeline
 from core.runtime.schemas.pipeline import PipelineConfig
 
@@ -70,24 +72,18 @@ class PipelineManager:
         if self._pipeline:
             self._pipeline.stop()
 
-    def register_webrtc(self) -> queue.Queue:
+    def register_webrtc(self, project_id: UUID) -> queue.Queue:
         """Register webRTC in pipeline or start a new one if none exists."""
         if self._pipeline is None:
-            self.start()
-        if self._pipeline is None:
-            raise RuntimeError("Failed to start pipeline")
-        return self._pipeline.register_webrtc()
+            raise PipelineNotActiveError("No active pipeline to register to.")
+        if project_id != self._pipeline.config.project_id:
+            raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
+        return self._pipeline._register_webrtc()
 
-    def unregister_webrtc(self, target_queue: queue.Queue) -> None:
-        """unregister webRTC in pipeline."""
+    def unregister_webrtc(self, target_queue: queue.Queue, project_id: UUID) -> None:
+        """Unregister webRTC in pipeline."""
         if self._pipeline is None:
-            raise RuntimeError("No active pipeline to unregister from")
-        return self._pipeline.unregister_webrtc(queue=target_queue)
-
-    def get_active_project_id(self) -> str:
-        """Get the active pipeline's project ID, if any."""
-        if self._pipeline is None:
-            self.start()
-        if self._pipeline is None:
-            raise RuntimeError("No active pipeline")
-        return self._pipeline.config.project_id
+            raise PipelineNotActiveError("No active pipeline to unregister from.")
+        if project_id != self._pipeline.config.project_id:
+            raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
+        return self._pipeline._unregister_webrtc(queue=target_queue)

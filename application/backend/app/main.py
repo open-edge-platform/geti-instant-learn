@@ -54,9 +54,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     # Shutdown actions
     logger.info(f"Shutting down {settings.app_name} application...")
-    await webrtc_manager.cleanup()
-    pipeline_manager.stop()
-    logger.info("Application shutdown completed")
+    await app.state.webrtc_manager.cleanup()
+    app.state.pipeline_manager.stop()
 
 
 app = FastAPI(

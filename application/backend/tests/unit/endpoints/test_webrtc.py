@@ -7,8 +7,9 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from core.runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
+from dependencies import get_webrtc_manager
 from main import app
-from rest.dependencies import get_webrtc_manager
 from services.schemas.webrtc import Answer, Offer
 from webrtc.manager import WebRTCManager
 
@@ -45,10 +46,17 @@ class TestWebRTCEndpoints:
         assert resp.json() == fxt_answer.model_dump()
         fxt_webrtc_manager.handle_offer.assert_called_once()
 
-    def test_create_webrtc_offer_failure(self, fxt_client, fxt_webrtc_manager, fxt_offer):
-        fxt_webrtc_manager.handle_offer.side_effect = Exception("fail")
+    def test_create_webrtc_offer_incorrect_project(self, fxt_client, fxt_webrtc_manager, fxt_offer):
+        fxt_webrtc_manager.handle_offer.side_effect = PipelineProjectMismatchError("fail")
         resp = fxt_client.post(f"/api/v1/projects/{PROJECT_ID}/offer", json=fxt_offer.model_dump(mode="json"))
-        assert resp.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        assert "fail" in resp.json()["detail"]
+        fxt_webrtc_manager.handle_offer.assert_called_once()
+
+    def test_create_webrtc_offer_not_active_project(self, fxt_client, fxt_webrtc_manager, fxt_offer):
+        fxt_webrtc_manager.handle_offer.side_effect = PipelineNotActiveError("fail")
+        resp = fxt_client.post(f"/api/v1/projects/{PROJECT_ID}/offer", json=fxt_offer.model_dump(mode="json"))
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
         assert "fail" in resp.json()["detail"]
         fxt_webrtc_manager.handle_offer.assert_called_once()
 

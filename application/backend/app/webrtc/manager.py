@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-import queue
+from dataclasses import dataclass
+from queue import Queue
 from uuid import UUID
 
 from aiortc import RTCPeerConnection, RTCSessionDescription
 
+from core.runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 from core.runtime.pipeline_manager import PipelineManager
 from services.schemas.webrtc import Answer, Offer
 from webrtc.stream import InferenceVideoStreamTrack
@@ -14,26 +16,35 @@ from webrtc.stream import InferenceVideoStreamTrack
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class ConnectionData:
+    connection: RTCPeerConnection
+    queue: Queue
+
+
 class WebRTCManager:
     """Manager for handling WebRTC connections."""
 
     def __init__(self, pipeline_manager: PipelineManager) -> None:
-        self._pcs: dict[str, dict[str, RTCPeerConnection | queue.Queue]] = {}
+        self._pcs: dict[str, ConnectionData] = {}
         self.pipeline_manager = pipeline_manager
 
     async def handle_offer(self, project_id: UUID, offer: Offer) -> Answer:
         """Create an SDP offer for a new WebRTC connection."""
         pc = RTCPeerConnection()
 
-        # compare projects_id from request with active pipeline project_id
-        if str(project_id) != str(self.pipeline_manager.get_active_project_id()):
-            raise ValueError("Project ID does not match the active pipeline's project ID.")
-
         # use PipelineManager to get queue
-        rtc_queue = self.pipeline_manager.register_webrtc()
+        try:
+            rtc_queue = self.pipeline_manager.register_webrtc(project_id=project_id)
+        except PipelineProjectMismatchError:
+            logger.exception(f"Failed to register WebRTC for project {project_id}")
+            raise
+        except PipelineNotActiveError as e:
+            logger.exception(f"Pipeline not active for project {project_id}: {e}")
+            raise
 
         # Store both connection and queue together
-        self._pcs[offer.webrtc_id] = {"connection": pc, "queue": rtc_queue}
+        self._pcs[offer.webrtc_id] = ConnectionData(connection=pc, queue=rtc_queue)
 
         # Add video track
         track = InferenceVideoStreamTrack(rtc_queue)
@@ -43,7 +54,14 @@ class WebRTCManager:
         async def connection_state_change() -> None:
             if pc.connectionState in ["failed", "closed"]:
                 await self.cleanup_connection(offer.webrtc_id)
-                self.pipeline_manager.unregister_webrtc(rtc_queue)
+                try:
+                    self.pipeline_manager.unregister_webrtc(rtc_queue, project_id=project_id)
+                except PipelineProjectMismatchError as e:
+                    logger.exception(f"Failed to unregister WebRTC for project {project_id}: {e}")
+                    raise
+                except PipelineNotActiveError as e:
+                    logger.exception(f"Pipeline not active for project {project_id}: {e}")
+                    raise
 
         # Set remote description from client's offer
         await pc.setRemoteDescription(RTCSessionDescription(sdp=offer.sdp, type=offer.type))
@@ -55,15 +73,13 @@ class WebRTCManager:
         return Answer(sdp=pc.localDescription.sdp, type=pc.localDescription.type)
 
     @staticmethod
-    async def _cleanup_pc_data(pc_data: dict[str, RTCPeerConnection | queue.Queue]) -> None:
+    async def _cleanup_pc_data(pc_data: ConnectionData) -> None:
         """Helper method to clean up a single connection's data."""
-        queue_obj = pc_data.get("queue")
-        if isinstance(queue_obj, queue.Queue):
-            queue_obj.shutdown()
+        if isinstance(pc_data.queue, Queue):
+            pc_data.queue.shutdown()
 
-        connection_obj = pc_data.get("connection")
-        if isinstance(connection_obj, RTCPeerConnection):
-            await connection_obj.close()
+        if isinstance(pc_data.connection, RTCPeerConnection):
+            await pc_data.connection.close()
 
     async def cleanup_connection(self, webrtc_id: str) -> None:
         """Clean up a specific WebRTC connection by its ID."""
