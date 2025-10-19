@@ -10,8 +10,7 @@ import { useSetZoom, useZoom } from './zoom/zoom.provider';
 
 export const ZoomManagement = () => {
     const zoom = useZoom();
-    const { onZoomChange } = useSetZoom();
-    const { fitToScreen } = useSetZoom();
+    const { onZoomChange, fitToScreen } = useSetZoom();
 
     return (
         <Flex alignItems={'center'} gap={'size-50'}>
