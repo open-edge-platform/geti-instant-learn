@@ -70,14 +70,21 @@ def handle_output_path(output_path: str, overwrite: bool) -> Path:
     return output_path_obj
 
 
-def get_all_instances_from_sample(sample: GetiPromptSample) -> tuple[Image, Masks]:
-    """Convert a GetiPromptSample to legacy Image and Masks format.
+def sample_to_image_and_priors(
+    sample: GetiPromptSample,
+    category_name: str,
+) -> tuple[Image, Priors]:
+    """Convert a GetiPromptSample to legacy Image and Priors format.
+
+    This centralizes the conversion logic from the new sample format to the
+    legacy format used by models.
 
     Args:
         sample: GetiPromptSample with image and masks
+        category_name: Category name for the text prior
 
     Returns:
-        Tuple of (Image, Masks) in legacy format
+        Tuple of (Image, Priors) ready for model.learn()
     """
     # Convert image to Image type
     image = Image(sample.image if isinstance(sample.image, np.ndarray) else sample.image.cpu().numpy())
@@ -85,21 +92,20 @@ def get_all_instances_from_sample(sample: GetiPromptSample) -> tuple[Image, Mask
     # Convert masks to Masks type
     masks_obj = Masks()
     if sample.masks is not None:
-        # masks shape: (N, H, W) - merge all instances into one mask
         mask_np = sample.masks if isinstance(sample.masks, np.ndarray) else sample.masks.cpu().numpy()
+        category_ids = sample.category_ids if isinstance(sample.category_ids, np.ndarray) else sample.category_ids.cpu().numpy()
         
-        # For multiple instances, merge them
-        if mask_np.shape[0] > 1:
-            merged_mask = np.max(mask_np, axis=0)  # Max to merge overlapping instances
-        else:
-            merged_mask = mask_np[0]  # Single instance
-        
-        # Keep all instances (set to 1)
-        merged_mask[merged_mask > 1] = 1
-        merged_mask = merged_mask[:, :, None]  # Add channel dimension
-        masks_obj.add(merged_mask)
+        for mask, category_id in zip(mask_np, category_ids, strict=True):
+            masks_obj.add(mask, class_id=int(category_id))
     
-    return image, masks_obj
+    # Create text prior
+    text_prior = Text()
+    text_prior.add(category_name, class_id=0)
+    
+    # Create priors object
+    priors = Priors(masks=masks_obj, text=text_prior)
+    
+    return image, priors
 
 
 def save_priors(prior_images: list[Image], prior_masks: list[Masks], output_path: str) -> None:
@@ -122,12 +128,14 @@ def save_priors(prior_images: list[Image], prior_masks: list[Masks], output_path
         cv2.imwrite(str(output_path_obj / f"prior_{i}.png"), overlay)
 
 
-def get_category_subset(
+def get_category_dataset(
     dataset: GetiPromptDataset, 
     category: str, 
     is_reference: bool = False,
-) -> Subset:
-    """Get a subset of the dataset for a specific category.
+) -> GetiPromptDataset:
+    """Get a filtered dataset for a specific category.
+
+    This is a convenience wrapper around the base class methods.
 
     Args:
         dataset: The GetiPromptDataset
@@ -135,20 +143,11 @@ def get_category_subset(
         is_reference: If True, get only reference samples; if False, get only target samples
 
     Returns:
-        Subset of the dataset for the category
+        Filtered GetiPromptDataset for the category
     """
-    # Find indices that match the category and reference status
-    indices = []
-    for idx in range(len(dataset)):
-        raw_sample = dataset.df.row(idx, named=True)
-        # Check if category is in the sample's categories list
-        if category in raw_sample["categories"]:
-            # Check reference status
-            sample_is_ref = any(raw_sample["is_reference"])  # True if any instance is reference
-            if is_reference == sample_is_ref:
-                indices.append(idx)
-    
-    return Subset(dataset, indices)
+    if is_reference:
+        return dataset.get_reference_dataset(category=category)
+    return dataset.get_target_dataset(category=category)
 
 
 def infer_on_category(
@@ -181,18 +180,18 @@ def infer_on_category(
         The number of samples that were processed and the total time it took.
     """
     # Get target samples for this category
-    target_subset = get_category_subset(dataset, category_name, is_reference=False)
+    target_dataset = get_category_dataset(dataset, category_name, is_reference=False)
     
-    if len(target_subset) == 0:
+    if len(target_dataset) == 0:
         logger.warning(f"No target samples found for category: {category_name}")
         return 0, 0
     
     # Create DataLoader
     dataloader = DataLoader(
-        target_subset,
+        target_dataset,
         batch_size=batch_size,
         shuffle=False,
-        collate_fn=dataset.collate_fn
+        collate_fn=target_dataset.collate_fn
     )
     
     # Task for batches for the current category and prior (transient)
@@ -294,7 +293,7 @@ def learn_from_category(
     n_shot: int,
     visualizer: ExportMaskVisualization,
     priors_batch_index: int,
-) -> tuple[list[Image], list[Masks]]:
+) -> tuple[list[Image], list[Priors]]:
     """Learn from reference samples of a category.
 
     Args:
@@ -306,35 +305,30 @@ def learn_from_category(
         priors_batch_index: The current prior batch index
 
     Returns:
-        Tuple of (reference_images, reference_masks) used for learning
+        Tuple of (reference_images, reference_priors) used for learning
     """
     # Get reference samples for this category
-    reference_subset = get_category_subset(
+    reference_dataset = get_category_dataset(
         dataset, 
         category_name, 
         is_reference=True
     )
     
-    if len(reference_subset) == 0:
+    if len(reference_dataset) == 0:
         raise ValueError(f"No reference samples found for category: {category_name}")
     
     # Limit to n_shot samples
-    n_samples = min(n_shot, len(reference_subset))
+    n_samples = min(n_shot, len(reference_dataset))
     
-    # Get samples
+    # Convert samples to legacy format (Image, Priors)
     reference_images = []
-    reference_masks = []
+    reference_priors = []
     
     for i in range(n_samples):
-        sample = reference_subset[i]
-        image, masks = get_all_instances_from_sample(sample)
+        sample = reference_dataset[i]
+        image, priors = sample_to_image_and_priors(sample, category_name)
         reference_images.append(image)
-        reference_masks.append(masks)
-    
-    # Create text prior
-    text_prior = Text()
-    text_prior.add(category_name, class_id=0)
-    reference_priors = [Priors(masks=reference_masks[i], text=text_prior) for i in range(len(reference_masks))]
+        reference_priors.append(priors)
     
     # Learn
     model.learn(
@@ -359,7 +353,7 @@ def learn_from_category(
         names=priors_export_paths,
     )
     
-    return reference_images, reference_masks
+    return reference_images, reference_priors
 
 
 def predict_on_dataset(  # noqa: C901, PLR0915
