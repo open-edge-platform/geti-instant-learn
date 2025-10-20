@@ -18,7 +18,7 @@ interface NoActiveProjectProps {
 
 export const NoActiveProject = ({ project }: NoActiveProjectProps) => {
     const { data } = $api.useSuspenseQuery('get', '/api/v1/projects');
-    const activeProject = data.projects.find(({ id }) => id === project.id);
+    const activeProject = data.projects.find(({ active }) => active);
 
     const { isVisible, activate, close, isPending, activateConfirmation } = useProjectActivityManagement(
         project.id,

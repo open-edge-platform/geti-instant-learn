@@ -6,7 +6,6 @@
 import { useState } from 'react';
 
 import { $api, type ProjectType } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
 import {
     ActionButton,
     Button,
@@ -27,6 +26,7 @@ import { v4 as uuid } from 'uuid';
 
 import { ActivateProjectDialog } from './activate-project-dialog/activate-project-dialog.component';
 import { useCreateProject } from './hooks/use-create-project.hook';
+import { useCurrentProject } from './hooks/use-current-project.hook';
 import { useProjectActivityManagement } from './hooks/use-project-activity-management.hook';
 import { ProjectActivityStatus } from './project-activity-status/project-activity-status.component';
 import { ProjectsList } from './projects-list.component';
@@ -155,12 +155,8 @@ const CurrentProjectCard = ({ selectedProject, activeProject }: CurrentProjectCa
 };
 
 export const ProjectsListPanel = () => {
-    const { projectId } = useProjectIdentifier();
     const { data } = $api.useSuspenseQuery('get', '/api/v1/projects');
-    const { data: currentProject } = $api.useSuspenseQuery('get', '/api/v1/projects/{project_id}', {
-        params: { path: { project_id: projectId } },
-    });
-
+    const { data: currentProject } = useCurrentProject();
     const [projectInEdition, setProjectInEdition] = useState<string | null>(null);
 
     const activeProject = data.projects.find((project) => project.active);

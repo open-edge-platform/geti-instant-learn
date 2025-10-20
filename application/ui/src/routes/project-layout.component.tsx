@@ -3,34 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Grid, minmax, View } from '@geti/ui';
 import { Outlet } from 'react-router';
 
 import { Header } from '../components/header.component';
 import { Sidebar } from '../components/sidebar/sidebar.component';
 import { Toolbar } from '../components/toolbar.component';
+import { useCurrentProject } from '../features/projects-management/hooks/use-current-project.hook';
 
 const useCheckIfProjectIsValid = () => {
-    const { projectId } = useProjectIdentifier();
-
-    // Note: when the project is not found, the project query will throw an error and the parent error boundary with
-    // ErrorPage will be rendered
-    $api.useSuspenseQuery(
-        'get',
-        '/api/v1/projects/{project_id}',
-        {
-            params: {
-                path: {
-                    project_id: projectId,
-                },
-            },
-        },
-        {
-            retry: 1,
-        }
-    );
+    useCurrentProject({
+        retry: 1,
+    });
 };
 
 export const ProjectLayout = () => {

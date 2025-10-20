@@ -5,11 +5,10 @@
 
 import { ReactNode, useState } from 'react';
 
-import { $api } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Wand } from '@geti-prompt/icons';
 import { Flex, Grid, ToggleButton, View } from '@geti/ui';
 
+import { useCurrentProject } from '../../features/projects-management/hooks/use-current-project.hook';
 import { PromptSidebar } from '../../features/prompt-sidebar/prompt-sidebar.component';
 
 import styles from './sidebar.module.scss';
@@ -60,20 +59,13 @@ const SidebarTabs = ({ tabs, selectedTab }: TabProps) => {
 };
 
 export const Sidebar = () => {
-    const { projectId } = useProjectIdentifier();
-    const { data } = $api.useSuspenseQuery('get', '/api/v1/projects/{project_id}', {
-        params: {
-            path: {
-                project_id: projectId,
-            },
-        },
-    });
+    const { data } = useCurrentProject();
 
     const TABS: TabItem[] = [{ label: 'Prompt', icon: <Wand />, content: <PromptSidebar />, isDisabled: !data.active }];
 
     return (
         // When the project activity status changes (e.g. from active to inactive, we want to toggle and disable
         // sidebar).
-        <SidebarTabs key={`${projectId}-${data.active}`} tabs={TABS} selectedTab={data.active ? TABS[0].label : null} />
+        <SidebarTabs key={`${data.id}-${data.active}`} tabs={TABS} selectedTab={data.active ? TABS[0].label : null} />
     );
 };
