@@ -21,7 +21,7 @@
         "lint": "eslint ./src ./tests --max-warnings 0",
         "lint:fix": "eslint --fix ./src ./tests",
         "preview": "rsbuild preview",
-        "clone-geti-ui-packages": "npx tiged --force --mode=git https://github.com/open-edge-platform/geti.git/web_ui/packages/config#e84dbb794fc7ce836ee4b58674baec8e5db8c5fd packages/config && npx tiged --force --mode=git https://github.com/open-edge-platform/geti.git/web_ui/packages/ui#e84dbb794fc7ce836ee4b58674baec8e5db8c5fd packages/ui && npx tiged --force --mode=git https://github.com/open-edge-platform/geti.git/web_ui/packages/smart-tools#e53eefba96756fba53c64b3b9146f079d7695a09 packages/smart-tools --force",
+        "clone-geti-ui-packages": "npx tiged --force --mode=git https://github.com/open-edge-platform/geti.git/web_ui/packages/config#e84dbb794fc7ce836ee4b58674baec8e5db8c5fd packages/config && npx tiged --force --mode=git https://github.com/open-edge-platform/geti.git/web_ui/packages/ui#e84dbb794fc7ce836ee4b58674baec8e5db8c5fd packages/ui && npx tiged --force --mode=git https://github.com/open-edge-platform/geti.git/web_ui/packages/smart-tools#e84dbb794fc7ce836ee4b58674baec8e5db8c5fd packages/smart-tools --force",
         "preinstall": "npm run clone-geti-ui-packages",
         "type-check": "tsc --noEmit",
         "test:unit": "vitest",
@@ -32,6 +32,7 @@
     },
     "dependencies": {
         "@geti/ui": "*",
+        "@geti/smart-tools": "*",
         "@tanstack/react-query": "^5.87.0",
         "@use-gesture/react": "^10.3.1",
         "lodash-es": "^4.17.21",
