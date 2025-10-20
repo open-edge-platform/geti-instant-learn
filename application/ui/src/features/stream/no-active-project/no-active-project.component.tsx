@@ -57,7 +57,12 @@ export const NoActiveProject = ({ project }: NoActiveProjectProps) => {
                             </Text>
                         </Flex>
 
-                        <Button variant={'primary'} isPending={isPending} onPress={handleActivate}>
+                        <Button
+                            variant={'primary'}
+                            isPending={isPending}
+                            onPress={handleActivate}
+                            aria-label={'Activate current project'}
+                        >
                             Activate project
                         </Button>
                     </Flex>
