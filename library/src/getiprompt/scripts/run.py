@@ -92,7 +92,7 @@ def run_model(
         reference_points_str,
         reference_text_prompt,
     )
-    target_images, _ = parse_image_files(target_images)
+    target_images, _, _ = parse_image_files(target_images)
 
     model.learn(reference_images, reference_priors)
 
@@ -256,7 +256,7 @@ def parse_reference_data(
     class_strings = [""]
     reference_images: list[Image] = []
     if reference_image_root:
-        reference_images, class_strings = parse_image_files(reference_image_root)
+        reference_images, class_strings, class_ids = parse_image_files(reference_image_root)
 
     reference_prompts: list[Priors] = []
     if reference_prompt_root is not None:
@@ -266,7 +266,8 @@ def parse_reference_data(
         prior_map = parse_reference_prompt_from_directory(reference_prompt_root)
         # sort the prompts by the reference image filenames
         reference_prompts = [
-            prior_map[str(class_id) + "_" + image.image_path.stem] for class_id, image in enumerate(reference_images)
+            prior_map[str(class_id) + "_" + image.image_path.stem]
+            for class_id, image in zip(class_ids, reference_images, strict=False)
         ]
 
     if reference_points_str is not None:
@@ -296,13 +297,18 @@ def parse_image_files(root_dir: str) -> tuple[list[Image], list[str]]:
     """
     root_dir = pathlib.Path(root_dir)
     class_dirs = [d for d in root_dir.iterdir() if d.is_dir()]
+    class_ids = []
 
     image_files = []
     if class_dirs:
         # Root directory contains class directories
-        for class_dir in class_dirs:
+        for class_id, class_dir in enumerate(class_dirs):
             for ext in IMAGE_EXTENSIONS:
-                image_files.extend(class_dir.glob(ext))
+                list_of_images = list(class_dir.glob(ext))
+                if len(list_of_images):
+                    for image_file in list_of_images:
+                        image_files.append(image_file)
+                        class_ids.append(class_id)
         class_names = [class_dir.name for class_dir in class_dirs]
     else:
         # Root directory contains images
@@ -310,7 +316,7 @@ def parse_image_files(root_dir: str) -> tuple[list[Image], list[str]]:
             image_files.extend(root_dir.glob(ext))
         class_names = [""]
 
-    return [Image(image_path=f) for f in image_files], class_names
+    return [Image(image_path=f) for f in image_files], class_names, class_ids
 
 
 if __name__ == "__main__":

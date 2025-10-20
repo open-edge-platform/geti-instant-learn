@@ -3,23 +3,13 @@
 
 """Datasets."""
 
-from .base import Dataset
-from .dataset_iterator_base import DatasetIter
-from .dataset_iterators import (
-    BatchedCategoryIter,
-    BatchedSingleCategoryIter,
-    IndexIter,
-)
-from .lvis import LVISDataset
-from .per_seg import PerSegDataset
+from .datasets.base import GetiPromptDataset
+from .datasets.lvis import LVISDataset
+from .datasets.per_seg import PerSegDataset
 from .transforms import ResizeLongestSide
 
 __all__ = [
-    "BatchedCategoryIter",
-    "BatchedSingleCategoryIter",
-    "Dataset",
-    "DatasetIter",
-    "IndexIter",
+    "GetiPromptDataset",
     "LVISDataset",
     "PerSegDataset",
     "ResizeLongestSide",
