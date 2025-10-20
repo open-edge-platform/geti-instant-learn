@@ -12,22 +12,6 @@ from webrtc.manager import WebRTCManager
 
 PROJECT_ID = uuid4()
 
-VALID_SDP = (
-    "v=0\n"
-    "o=- 0 0 IN IP4 127.0.0.1\n"
-    "s=-\n"
-    "t=0 0\n"
-    "m=video 9 UDP/TLS/RTP/SAVPF 96\n"
-    "c=IN IP4 0.0.0.0\n"
-    "a=rtpmap:96 VP8/90000\n"
-    "a=ice-ufrag:someufrag\n"
-    "a=ice-pwd:somepassword\n"
-    "a=setup:actpass\n"
-    "a=mid:0\n"
-    "a=rtcp-mux\n"
-    "a=recvonly\n"
-)
-
 
 @pytest.fixture
 def mock_pipeline_manager():
@@ -47,7 +31,7 @@ def webrtc_manager(mock_pipeline_manager):
 @pytest.fixture
 def sample_offer():
     """Create a sample Offer object."""
-    return Offer(webrtc_id="test-webrtc-id", sdp=VALID_SDP, type="offer")
+    return Offer(webrtc_id="test-webrtc-id", sdp="v=0\r\n", type="offer")
 
 
 @pytest.mark.asyncio
