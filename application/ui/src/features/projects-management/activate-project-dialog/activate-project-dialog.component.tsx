@@ -31,7 +31,7 @@ export const ActivateProjectDialog = ({
                     <Content>
                         <Text UNSAFE_className={styles.text}>
                             You are about to activate the{' '}
-                            <Text UNSAFE_className={styles.emphasizedText}>{inactiveProjectName}</Text>, which is
+                            <Text UNSAFE_className={styles.emphasizedText}>{inactiveProjectName}</Text> which is
                             currently inactive. <br />
                             Activating the{' '}
                             <Text UNSAFE_className={styles.emphasizedText}>
