@@ -11,22 +11,27 @@
     --foregroundColor: lch(from var(--labelBgColor) calc((50 - l) * infinity) 0 0);
     --spectrum-high-contrast-button-text: var(--foregroundColor);
     display: flex;
-}
 
-.buttonsContainer {
-    color: var(--foregroundColor);
-    transition: width 0.6s;
-    width: 0;
-    & > button {
-        opacity: 0;
-        transition: opacity 0.6s;
+    .buttonsContainer {
+        color: var(--foregroundColor);
+        transition: width 0.6s;
+        width: 0;
+        & > button {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.6s;
+        }
     }
 }
 
-.buttonsContainerOpened {
-    width: var(--spectrum-global-dimension-size-700);
-    & > button {
-        opacity: 1;
+.badge:hover {
+    .buttonsContainer {
+        position: relative;
+        width: var(--spectrum-global-dimension-size-675);
+        & > button {
+            display: block;
+            opacity: 1;
+        }
     }
 }
 

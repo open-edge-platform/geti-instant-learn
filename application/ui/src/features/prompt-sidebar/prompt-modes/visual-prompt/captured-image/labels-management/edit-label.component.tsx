@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CSSProperties, KeyboardEvent, useState } from 'react';
+import { CSSProperties, KeyboardEvent, useRef, useState } from 'react';
 
 import { ActionButton, ColorPickerDialog, DimensionValue, Flex, TextField } from '@geti/ui';
 import { clsx } from 'clsx';
+import { useOnOutsideClick } from 'src/hooks/use-on-click-outside.hook';
 
 import { Label } from './label.interface';
 
@@ -22,6 +23,7 @@ interface EditLabelProps {
 
 export const EditLabel = ({ label, onAccept, onClose, isQuiet, width }: EditLabelProps) => {
     const MAX_NAME_LENGTH = 100;
+    const containerRef = useRef(null);
     const [color, setColor] = useState<string>(label.color);
     const [name, setName] = useState<string>(label.name);
 
@@ -38,12 +40,19 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width }: EditLabe
         }
     };
 
+    const handleClickOutside = () => {
+        handleAccept();
+    };
+
+    //   useOnOutsideClick(containerRef, handleClickOutside);
+
     return (
         <Flex
             gap={'size-50'}
             width={width}
             justifyContent={'center'}
             alignItems={'center'}
+            ref={containerRef}
             UNSAFE_className={clsx({ [classes.editLabelContainer]: isQuiet })}
         >
             <ColorPickerDialog
@@ -53,6 +62,7 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width }: EditLabe
                 onColorChange={setColor}
                 size={'M'}
                 ariaLabelPrefix={'New label'}
+                ono
             />
 
             <TextField
