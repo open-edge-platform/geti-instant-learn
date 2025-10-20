@@ -159,33 +159,26 @@ export const ProjectsListPanel = () => {
     const { data: currentProject } = $api.useSuspenseQuery('get', '/api/v1/projects/{project_id}', {
         params: { path: { project_id: projectId } },
     });
-    const { data: activeProjectResponse, isError } = $api.useQuery('get', '/api/v1/projects/active', undefined, {
-        retry: false,
-    });
+
     const [projectInEdition, setProjectInEdition] = useState<string | null>(null);
 
-    const activeProject = isError ? undefined : activeProjectResponse;
-    const selectedProject = { ...currentProject, isActive: activeProject?.id === currentProject.id };
+    const activeProject = data.projects.find((project) => project.active);
 
     const projectsNames = data.projects.map((project) => project.name);
-    const projects = data.projects.map((project) => ({
-        ...project,
-        isActive: project.id === activeProject?.id,
-    }));
 
     return (
         <>
             <DialogTrigger type='popover' hideArrow>
-                <SelectedProjectButton project={selectedProject} />
+                <SelectedProjectButton project={currentProject} />
 
                 <Dialog width={'size-4600'} UNSAFE_className={styles.dialog}>
-                    <CurrentProjectCard selectedProject={selectedProject} activeProject={activeProject} />
+                    <CurrentProjectCard selectedProject={currentProject} activeProject={activeProject} />
 
                     <Content UNSAFE_className={styles.dialogContent}>
                         <Divider size={'S'} marginY={'size-200'} />
 
                         <ProjectsList
-                            projects={projects}
+                            projects={data.projects}
                             activeProject={activeProject}
                             projectIdInEdition={projectInEdition}
                             setProjectInEdition={setProjectInEdition}
