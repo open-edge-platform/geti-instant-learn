@@ -12,12 +12,11 @@ import { paths } from '../../routes/paths';
 import { useDeleteProject } from './hooks/use-delete-project.hook';
 import { useUpdateProject } from './hooks/use-update-project.hook';
 import { ProjectListItem } from './project-list-item/project-list-item.component';
-import { ProjectWithActiveStatus } from './type';
 
 import styles from './projects-list.module.scss';
 
 interface ProjectListProps {
-    projects: ProjectWithActiveStatus[];
+    projects: ProjectType[];
     projectIdInEdition: string | null;
     setProjectInEdition: (projectId: string | null) => void;
     activeProject: ProjectType | undefined;

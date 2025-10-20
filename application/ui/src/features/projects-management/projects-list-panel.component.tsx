@@ -30,23 +30,22 @@ import { useCreateProject } from './hooks/use-create-project.hook';
 import { useProjectActivityManagement } from './hooks/use-project-activity-management.hook';
 import { ProjectActivityStatus } from './project-activity-status/project-activity-status.component';
 import { ProjectsList } from './projects-list.component';
-import { ProjectWithActiveStatus } from './type';
 import { generateUniqueProjectName } from './utils';
 
 import styles from './projects-list.module.scss';
 
 interface SelectedProjectProps {
-    project: ProjectWithActiveStatus;
+    project: ProjectType;
 }
 
-const SelectedProjectButton = ({ project: { name, id, isActive } }: SelectedProjectProps) => {
+const SelectedProjectButton = ({ project: { name, id, active } }: SelectedProjectProps) => {
     return (
         <ActionButton aria-label={`Selected project ${name}`} isQuiet height={'max-content'} staticColor='white'>
             <View margin={'size-50'}>
                 <Flex direction={'column'} gap={'size-50'}>
                     <Text UNSAFE_className={styles.currentProjectHeaderText}>{name}</Text>
                     <View alignSelf={'end'}>
-                        <ProjectActivityStatus isActive={isActive} />
+                        <ProjectActivityStatus isActive={active} />
                     </View>
                 </Flex>
             </View>
@@ -90,7 +89,7 @@ const CreateProjectButton = ({ onSetProjectInEdition, projectsNames }: AddProjec
 };
 
 interface CurrentProjectCardProps {
-    selectedProject: ProjectWithActiveStatus;
+    selectedProject: ProjectType;
     activeProject: ProjectType | undefined;
 }
 
@@ -105,7 +104,7 @@ const CurrentProjectCard = ({ selectedProject, activeProject }: CurrentProjectCa
             return;
         }
 
-        if (!selectedProject.isActive) {
+        if (!selectedProject.active) {
             onShowActivateProjectDialog();
 
             return;
@@ -139,7 +138,7 @@ const CurrentProjectCard = ({ selectedProject, activeProject }: CurrentProjectCa
                     </Flex>
 
                     <Button variant={'primary'} onPress={handleClick} isPending={isPending}>
-                        {activeProject === undefined || !selectedProject.isActive ? 'Activate' : 'Deactivate'}
+                        {activeProject === undefined || !selectedProject.active ? 'Activate' : 'Deactivate'}
                     </Button>
                 </Flex>
             </Header>

@@ -5,20 +5,19 @@
 
 import { Key, MouseEventHandler, useState } from 'react';
 
-import { ProjectType } from '@geti-prompt/api';
+import { type ProjectType } from '@geti-prompt/api';
 import { Flex, PhotoPlaceholder, Text } from '@geti/ui';
 import { Link } from 'react-router-dom';
 
 import { paths } from '../../../routes/paths';
 import { ActivateProjectDialog } from '../activate-project-dialog/activate-project-dialog.component';
 import { useProjectActivityManagement } from '../hooks/use-project-activity-management.hook';
-import { ProjectWithActiveStatus } from '../type';
 import { DeleteProjectDialog, PROJECT_ACTIONS, ProjectActions, ProjectEdition } from './project-actions.component';
 
 import styles from './project-list-item.module.scss';
 
 interface ProjectListItemProps {
-    project: ProjectWithActiveStatus;
+    project: ProjectType;
     activeProject: ProjectType | undefined;
     isInEditMode: boolean;
     onBlur: (projectId: string, newName: string) => void;
@@ -78,7 +77,7 @@ export const ProjectListItem = ({
     const projectActions = [
         PROJECT_ACTIONS.RENAME,
         PROJECT_ACTIONS.DELETE,
-        project.isActive ? PROJECT_ACTIONS.DEACTIVATE : PROJECT_ACTIONS.ACTIVATE,
+        project.active ? PROJECT_ACTIONS.DEACTIVATE : PROJECT_ACTIONS.ACTIVATE,
     ];
 
     return (
