@@ -1,0 +1,14 @@
+.container {
+    border: var(--spectrum-alias-border-size-thin) dashed var(--spectrum-global-color-gray-700);
+    border-radius: var(--spectrum-alias-border-radius-regular);
+}
+
+.activateQuestion {
+    font-size: var(--spectrum-global-dimension-font-size-200);
+}
+
+.inactiveDescription {
+    font-size: var(--spectrum-global-dimension-font-size-75);
+    color: var(--spectrum-global-color-gray-700);
+    text-align: center;
+}

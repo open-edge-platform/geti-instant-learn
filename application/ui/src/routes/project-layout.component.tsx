@@ -5,7 +5,7 @@
 
 import { $api } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
-import { Grid, minmax } from '@geti/ui';
+import { Grid, minmax, View } from '@geti/ui';
 import { Outlet } from 'react-router';
 
 import { Header } from '../components/header.component';
@@ -39,7 +39,7 @@ export const ProjectLayout = () => {
     return (
         <Grid
             areas={['header header header', 'toolbar prompt-sidebar sidebar', 'main prompt-sidebar sidebar']}
-            rows={['size-800', 'size-700', '1fr']}
+            rows={['size-800', 'size-700', minmax(0, '1fr')]}
             columns={[minmax('50%', '1fr'), 'auto']}
             height={'100vh'}
         >
@@ -47,7 +47,9 @@ export const ProjectLayout = () => {
 
             <Toolbar />
 
-            <Outlet />
+            <View backgroundColor={'gray-50'} gridArea={'main'}>
+                <Outlet />
+            </View>
 
             <Sidebar />
         </Grid>
