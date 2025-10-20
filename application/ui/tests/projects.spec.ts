@@ -23,6 +23,12 @@ const registerApiProjects = ({
         http.get('/api/v1/projects', ({ response }) =>
             response(200).json({
                 projects,
+                pagination: {
+                    count: projects.length,
+                    total: projects.length,
+                    offset: 0,
+                    limit: 10,
+                },
             })
         ),
         http.get('/api/v1/projects/{project_id}', ({ response, request }) => {
@@ -51,7 +57,9 @@ const registerApiProjects = ({
             const body = await request.json();
             const id = request.url.split('/').at(-1);
 
-            projects = projects.map((project) => (project.id === id ? { ...project, ...body } : project));
+            projects = projects.map((project) =>
+                project.id === id ? ({ ...project, ...body } as ProjectType) : project
+            );
 
             // @ts-expect-error We don't rely on the update response in the UI
             return response(200).json({ ...body });
@@ -132,6 +140,7 @@ test.describe('Projects', () => {
             const project: ProjectType = {
                 id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                 name: 'Cool project',
+                active: true,
             };
 
             const projectPage = new ProjectPage(page);
@@ -147,6 +156,7 @@ test.describe('Projects', () => {
             const project: ProjectType = {
                 id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                 name: 'Cool project',
+                active: true,
             };
 
             registerApiProjects({ network, defaultProjects: [project] });
@@ -182,16 +192,18 @@ test.describe('Projects', () => {
 
         test(
             'Navigates to the projects list page when the URL does not contain project ID and there are ' +
-                'at least two projects',
+                'at least two projects, none of them are active',
             async ({ page, network }) => {
                 const projects: ProjectType[] = [
                     {
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
+                        active: false,
                     },
                     {
                         id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #2',
+                        active: false,
                     },
                 ];
 
@@ -214,6 +226,33 @@ test.describe('Projects', () => {
         );
 
         test(
+            'Navigates to the project details page of the active project when the URL does not contain project ' +
+                'ID and there are at least two projects, one of them is active',
+            async ({ page, network }) => {
+                const projects: ProjectType[] = [
+                    {
+                        id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #1',
+                        active: true,
+                    },
+                    {
+                        id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #2',
+                        active: false,
+                    },
+                ];
+
+                registerApiProjects({ network, defaultProjects: projects });
+                const projectPage = new ProjectPage(page);
+
+                await page.goto(paths.root({}));
+
+                await expect(projectPage.getSelectedProject(projects[0].name)).toBeVisible();
+                await expect(page).toHaveURL(new RegExp(paths.project({ projectId: projects[0].id })));
+            }
+        );
+
+        test(
             "Navigates to the project's details page when the URL does not contain project ID and there is " +
                 'only one project',
             async ({ network, page }) => {
@@ -221,6 +260,7 @@ test.describe('Projects', () => {
                     {
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
+                        active: true,
                     },
                 ];
 
@@ -243,6 +283,7 @@ test.describe('Projects', () => {
                 {
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
+                    active: true,
                 },
             ];
 
@@ -266,10 +307,12 @@ test.describe('Projects', () => {
                     {
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
+                        active: true,
                     },
                     {
                         id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #2',
+                        active: true,
                     },
                 ],
             });
@@ -291,6 +334,7 @@ test.describe('Projects', () => {
                     {
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
+                        active: true,
                     },
                 ],
             });
@@ -318,10 +362,12 @@ test.describe('Projects', () => {
                 {
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
+                    active: true,
                 },
                 {
                     id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #2',
+                    active: false,
                 },
             ],
         });
@@ -348,10 +394,12 @@ test.describe('Projects', () => {
                 {
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
+                    active: true,
                 },
                 {
                     id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #2',
+                    active: false,
                 },
             ],
         });
@@ -380,10 +428,12 @@ test.describe('Projects', () => {
                 {
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
+                    active: true,
                 },
                 {
                     id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #2',
+                    active: false,
                 },
             ],
         });
@@ -409,10 +459,12 @@ test.describe('Projects', () => {
                 {
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
+                    active: true,
                 },
                 {
                     id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #2',
+                    active: false,
                 },
             ],
         });
@@ -441,10 +493,12 @@ test.describe('Projects', () => {
                 {
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
+                    active: true,
                 },
                 {
                     id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #2',
+                    active: false,
                 },
             ],
         });
@@ -473,6 +527,7 @@ test.describe('Projects', () => {
                 {
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
+                    active: true,
                 },
             ],
         });
