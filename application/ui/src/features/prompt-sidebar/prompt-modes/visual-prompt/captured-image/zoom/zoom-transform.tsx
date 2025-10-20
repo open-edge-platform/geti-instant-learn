@@ -98,12 +98,14 @@ export const ZoomTransform = ({ children, target, zoomInMultiplier = 10, zoomOut
         <div
             ref={containerRef}
             className={classes.wrapper}
-            style={{
-                cursor: cursorIcon,
-                touchAction: 'none',
-                transform: 'translate3d(0, 0, 0)',
-                '--zoom-scale': zoom.scale,
-            }}
+            style={
+                {
+                    cursor: cursorIcon,
+                    touchAction: 'none',
+                    transform: 'translate3d(0, 0, 0)',
+                    '--zoom-scale': zoom.scale,
+                } as React.CSSProperties
+            }
             onPointerMove={onPointerMove(handleTranslateUpdate)}
             onPointerDown={onPointerDown}
             onPointerUp={onPointerUp}
