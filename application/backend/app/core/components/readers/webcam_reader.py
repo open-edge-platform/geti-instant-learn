@@ -19,9 +19,6 @@ class WebCamReader(BaseOpenCVReader):
             raise RuntimeError(f"Could not open video source: {self._config.device_id}")
 
         # Set MJPEG codec for cross-platform compatibility
-        cap.set(
-            cv2.CAP_PROP_FOURCC,
-            cv2.VideoWriter_fourcc("M", "J", "P", "G"),  # type: ignore[attr-defined]
-        )
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("M", "J", "P", "G"))
 
         return cap
