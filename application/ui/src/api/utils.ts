@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { ProjectsListType, ProjectType } from '@geti-prompt/api';
 import { fromOpenApi } from '@mswjs/source/open-api';
 import { HttpResponse } from 'msw';
 import { createOpenApiHttp, OpenApiHttpHandlers } from 'openapi-msw';
@@ -31,25 +32,23 @@ const http = getOpenApiHttp();
 
 const openApiHandlers = await fromOpenApi(JSON.stringify(spec).replace(/}:/g, '}//:'));
 
+const MOCKED_PROJECT: ProjectType = {
+    id: '1',
+    name: 'Project #1',
+    active: true,
+};
+const MOCKED_PROJECTS_LIST: ProjectsListType = {
+    projects: [MOCKED_PROJECT],
+    pagination: { total: 1, count: 1, offset: 0, limit: 10 },
+};
+
 const initialHandlers = [
     http.get('/api/v1/projects', () => {
-        return HttpResponse.json({
-            projects: [
-                {
-                    id: '1',
-                    name: 'Project #1',
-                    active: true,
-                },
-            ],
-        });
+        return HttpResponse.json(MOCKED_PROJECTS_LIST);
     }),
 
     http.get('/api/v1/projects/{project_id}', () => {
-        return HttpResponse.json({
-            id: '1',
-            name: 'Project #1',
-            active: true,
-        });
+        return HttpResponse.json(MOCKED_PROJECT);
     }),
 ];
 
