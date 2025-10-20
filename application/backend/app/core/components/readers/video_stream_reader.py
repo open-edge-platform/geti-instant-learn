@@ -15,17 +15,6 @@ class BaseOpenCVReader(StreamReader, ABC):
     This abstract class provides a template for reading video frames from various
     sources using OpenCV. Subclasses must implement the _connect() method to
     handle source-specific connection logic.
-
-    Example:
-        class MyReader(BaseOpenCVReader):
-            def _connect(self) -> cv2.VideoCapture:
-                cap = cv2.VideoCapture(self.source)
-                if not cap.isOpened():
-                    raise RuntimeError(f"Failed to open: {self.source}")
-                return cap
-
-        with MyReader() as reader:
-            data = reader.read()
     """
 
     def __init__(self) -> None:
@@ -61,15 +50,6 @@ class BaseOpenCVReader(StreamReader, ABC):
         """
 
     def read(self) -> InputData | None:
-        """Read a single frame from the video source.
-
-        Returns:
-            InputData containing the frame, timestamp, and context, or None if
-            the stream has ended gracefully.
-
-        Raises:
-            RuntimeError: If the capture is not initialized or frame reading fails.
-        """
         if self._cap is None:
             raise RuntimeError(f"{self.__class__.__name__}: Video capture not initialized")
 
