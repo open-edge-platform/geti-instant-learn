@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { ReactNode, useState } from 'react';
 
+import { $api } from '@geti-prompt/api';
+import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Wand } from '@geti-prompt/icons';
 import { Flex, Grid, ToggleButton, View } from '@geti/ui';
 
@@ -12,11 +14,11 @@ import { PromptSidebar } from '../../features/prompt-sidebar/prompt-sidebar.comp
 
 import styles from './sidebar.module.scss';
 
-const TABS = [{ label: 'Prompt', icon: <Wand />, content: <PromptSidebar /> }];
+type TabItem = { label: string; icon: ReactNode; content: ReactNode; isDisabled?: boolean };
 
 interface TabProps {
-    tabs: (typeof TABS)[number][];
-    selectedTab: string;
+    tabs: TabItem[];
+    selectedTab: string | null;
 }
 
 const SidebarTabs = ({ tabs, selectedTab }: TabProps) => {
@@ -38,7 +40,7 @@ const SidebarTabs = ({ tabs, selectedTab }: TabProps) => {
             </View>
             <View gridColumn={'2/3'} backgroundColor={'gray-200'} padding={'size-100'}>
                 <Flex direction={'column'} height={'100%'} alignItems={'center'} gap={'size-100'}>
-                    {tabs.map(({ label, icon }) => (
+                    {tabs.map(({ label, icon, isDisabled }) => (
                         <ToggleButton
                             key={label}
                             isQuiet
@@ -46,6 +48,7 @@ const SidebarTabs = ({ tabs, selectedTab }: TabProps) => {
                             onChange={() => setTab(label === tab ? null : label)}
                             UNSAFE_className={styles.toggleButton}
                             aria-label={`Toggle ${label} tab`}
+                            isDisabled={isDisabled}
                         >
                             {icon}
                         </ToggleButton>
@@ -57,5 +60,20 @@ const SidebarTabs = ({ tabs, selectedTab }: TabProps) => {
 };
 
 export const Sidebar = () => {
-    return <SidebarTabs tabs={TABS} selectedTab={TABS[0].label} />;
+    const { projectId } = useProjectIdentifier();
+    const { data } = $api.useSuspenseQuery('get', '/api/v1/projects/{project_id}', {
+        params: {
+            path: {
+                project_id: projectId,
+            },
+        },
+    });
+
+    const TABS: TabItem[] = [{ label: 'Prompt', icon: <Wand />, content: <PromptSidebar />, isDisabled: !data.active }];
+
+    return (
+        // When the project activity status changes (e.g. from active to inactive, we want to toggle and disable
+        // sidebar).
+        <SidebarTabs key={`${projectId}-${data.active}`} tabs={TABS} selectedTab={data.active ? TABS[0].label : null} />
+    );
 };
