@@ -29,6 +29,7 @@ class BaseOpenCVReader(StreamReader, ABC):
     def connect(self) -> None:
         if not self.connected:
             self._cap = cv2.VideoCapture(self.source)
+            self._cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
             if not self._cap.isOpened():
                 raise RuntimeError(f"Could not open video source: {self.source}")
             self.connected = True
