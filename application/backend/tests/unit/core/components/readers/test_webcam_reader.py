@@ -1,5 +1,4 @@
 # test_webcam_reader.py
-from uuid import uuid4
 
 import cv2
 import numpy as np
@@ -29,7 +28,7 @@ def test_video_path(tmp_path):
 
 @pytest.fixture
 def webcam_config(test_video_path):
-    return WebCamConfig(source_type=SourceType.WEBCAM, id=uuid4(), device_id=0, name="Test Webcam")
+    return WebCamConfig(source_type=SourceType.WEBCAM, device_id=0)
 
 
 class TestWebCamReader:
