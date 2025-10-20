@@ -13,7 +13,8 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 from jsonargparse import ActionConfigFile, ArgumentParser, Namespace
 
 from getiprompt.models import Model
-from getiprompt.scripts.benchmark import perform_benchmark_experiment
+# from getiprompt.scripts.benchmark import perform_benchmark_experiment
+from getiprompt.scripts.benchmark_refactored import perform_benchmark_experiment
 from getiprompt.scripts.run import run_model
 from getiprompt.utils.args import populate_benchmark_parser
 from getiprompt.utils.utils import setup_logger
