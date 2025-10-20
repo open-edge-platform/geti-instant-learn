@@ -95,6 +95,8 @@ const ProjectCard = ({ project, projectNames }: ProjectCardProps) => {
         }
     };
 
+    const actions = [PROJECT_ACTIONS.RENAME, PROJECT_ACTIONS.DELETE];
+
     return (
         <Link
             to={paths.project({ projectId: project.id })}
@@ -119,7 +121,7 @@ const ProjectCard = ({ project, projectNames }: ProjectCardProps) => {
                         )}
                     </Heading>
 
-                    <ProjectActions onAction={handleAction} />
+                    <ProjectActions actions={actions} onAction={handleAction} />
 
                     <DeleteProjectDialog
                         isOpen={isDeleteDialogOpen}

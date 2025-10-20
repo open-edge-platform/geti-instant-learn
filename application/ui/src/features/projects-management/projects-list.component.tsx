@@ -12,16 +12,23 @@ import { paths } from '../../routes/paths';
 import { useDeleteProject } from './hooks/use-delete-project.hook';
 import { useUpdateProject } from './hooks/use-update-project.hook';
 import { ProjectListItem } from './project-list-item/project-list-item.component';
+import { ProjectWithActiveStatus } from './type';
 
 import styles from './projects-list.module.scss';
 
 interface ProjectListProps {
-    projects: ProjectType[];
+    projects: ProjectWithActiveStatus[];
     projectIdInEdition: string | null;
     setProjectInEdition: (projectId: string | null) => void;
+    activeProject: ProjectType | undefined;
 }
 
-export const ProjectsList = ({ projects, setProjectInEdition, projectIdInEdition }: ProjectListProps) => {
+export const ProjectsList = ({
+    projects,
+    activeProject,
+    setProjectInEdition,
+    projectIdInEdition,
+}: ProjectListProps) => {
     const updateProjectName = useUpdateProject();
     const deleteProject = useDeleteProject();
     const { projectId } = useProjectIdentifier();
@@ -65,6 +72,7 @@ export const ProjectsList = ({ projects, setProjectInEdition, projectIdInEdition
             {projects.map((project) => (
                 <ProjectListItem
                     key={project.id}
+                    activeProject={activeProject}
                     projectNames={projectNames.filter((name) => name !== project.name)}
                     project={project}
                     onRename={handleRename}

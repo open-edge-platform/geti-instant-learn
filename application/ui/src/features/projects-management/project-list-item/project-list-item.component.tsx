@@ -5,11 +5,14 @@
 
 import { Key, MouseEventHandler, useState } from 'react';
 
-import { type ProjectType } from '@geti-prompt/api';
+import { ProjectType } from '@geti-prompt/api';
 import { Flex, PhotoPlaceholder, Text } from '@geti/ui';
 import { Link } from 'react-router-dom';
 
 import { paths } from '../../../routes/paths';
+import { ActivateProjectDialog } from '../activate-project-dialog/activate-project-dialog.component';
+import { useProjectActivityManagement } from '../hooks/use-project-activity-management.hook';
+import { ProjectWithActiveStatus } from '../type';
 import { DeleteProjectDialog, PROJECT_ACTIONS, ProjectActions, ProjectEdition } from './project-actions.component';
 
 import styles from './project-list-item.module.scss';
@@ -33,7 +36,12 @@ export const ProjectListItem = ({
     onDelete,
     onResetProjectInEdition,
     projectNames,
+    activeProject,
 }: ProjectListItemProps) => {
+    const { isVisible, onClose, onActivate, onShowActivateProjectDialog, onDeactivate } = useProjectActivityManagement(
+        project.id
+    );
+
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
 
     const handleAction = (key: Key) => {
@@ -41,6 +49,15 @@ export const ProjectListItem = ({
             onRename(project.id);
         } else if (key === PROJECT_ACTIONS.DELETE) {
             setIsDeleteDialogOpen(true);
+        } else if (key === PROJECT_ACTIONS.ACTIVATE) {
+            // If there is no active project, we just activate the selected project directly.
+            if (activeProject === undefined) {
+                onActivate();
+                return;
+            }
+            onShowActivateProjectDialog();
+        } else if (key === PROJECT_ACTIONS.DEACTIVATE) {
+            onDeactivate();
         }
     };
 
@@ -57,6 +74,12 @@ export const ProjectListItem = ({
             event.preventDefault();
         }
     };
+
+    const projectActions = [
+        PROJECT_ACTIONS.RENAME,
+        PROJECT_ACTIONS.DELETE,
+        project.isActive ? PROJECT_ACTIONS.DEACTIVATE : PROJECT_ACTIONS.ACTIVATE,
+    ];
 
     return (
         <li className={styles.projectListItem} aria-label={`Project ${project.name}`}>
@@ -80,7 +103,7 @@ export const ProjectListItem = ({
                             <Text>{project.name}</Text>
                         </Flex>
                     )}
-                    <ProjectActions onAction={handleAction} />
+                    <ProjectActions actions={projectActions} onAction={handleAction} />
                 </Flex>
             </Link>
             <DeleteProjectDialog
@@ -88,6 +111,18 @@ export const ProjectListItem = ({
                 onDismiss={() => setIsDeleteDialogOpen(false)}
                 onDelete={handleDelete}
                 projectName={project.name}
+            />
+            {/*
+                Activate Project Dialog is only visible when there is already an active project.
+                When there is no active project, the dialog is not visible; we just activate the selected project
+                directly.
+            */}
+            <ActivateProjectDialog
+                isVisible={isVisible}
+                onClose={onClose}
+                activeProjectName={activeProject?.name ?? ''}
+                inactiveProjectName={project.name}
+                onActivate={onActivate}
             />
         </li>
     );

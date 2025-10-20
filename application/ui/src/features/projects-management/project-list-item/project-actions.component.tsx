@@ -123,10 +123,13 @@ export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition, projectN
 export const PROJECT_ACTIONS = {
     RENAME: 'Rename',
     DELETE: 'Delete',
+    ACTIVATE: 'Activate',
+    DEACTIVATE: 'Deactivate',
 };
 
 interface ProjectActionsProps {
     onAction: (key: Key) => void;
+    actions: string[];
 }
 
 interface DeleteProjectDialogProps {
@@ -154,10 +157,10 @@ export const DeleteProjectDialog = ({ isOpen, onDismiss, projectName, onDelete }
     );
 };
 
-export const ProjectActions = ({ onAction }: ProjectActionsProps) => {
+export const ProjectActions = ({ onAction, actions }: ProjectActionsProps) => {
     return (
         <ActionMenu isQuiet onAction={onAction} aria-label={'Project actions'} UNSAFE_className={styles.actionMenu}>
-            {[PROJECT_ACTIONS.RENAME, PROJECT_ACTIONS.DELETE].map((action) => (
+            {actions.map((action) => (
                 <Item key={action}>{action}</Item>
             ))}
         </ActionMenu>

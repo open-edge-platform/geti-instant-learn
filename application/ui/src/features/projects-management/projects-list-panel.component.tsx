@@ -25,8 +25,10 @@ import {
 import { AddCircle } from '@geti/ui/icons';
 import { v4 as uuid } from 'uuid';
 
+import { ActivateProjectDialog } from './activate-project-dialog/activate-project-dialog.component';
 import { useCreateProject } from './hooks/use-create-project.hook';
-import { ActivateProjectDialog } from './project-activity/activate-project-dialog.component';
+import { useProjectActivityManagement } from './hooks/use-project-activity-management.hook';
+import { ProjectActivityStatus } from './project-activity-status/project-activity-status.component';
 import { ProjectsList } from './projects-list.component';
 import { ProjectWithActiveStatus } from './type';
 import { generateUniqueProjectName } from './utils';
@@ -34,13 +36,20 @@ import { generateUniqueProjectName } from './utils';
 import styles from './projects-list.module.scss';
 
 interface SelectedProjectProps {
-    project: ProjectType;
+    project: ProjectWithActiveStatus;
 }
 
-const SelectedProjectButton = ({ project: { name, id } }: SelectedProjectProps) => {
+const SelectedProjectButton = ({ project: { name, id, isActive } }: SelectedProjectProps) => {
     return (
         <ActionButton aria-label={`Selected project ${name}`} isQuiet height={'max-content'} staticColor='white'>
-            <View margin={'size-50'}>{name}</View>
+            <View margin={'size-50'}>
+                <Flex direction={'column'} gap={'size-50'}>
+                    <Text UNSAFE_className={styles.currentProjectHeaderText}>{name}</Text>
+                    <View alignSelf={'end'}>
+                        <ProjectActivityStatus isActive={isActive} />
+                    </View>
+                </Flex>
+            </View>
             <View margin='size-50'>
                 <PhotoPlaceholder name={name} indicator={id} height={'size-400'} width={'size-400'} />
             </View>
@@ -85,106 +94,24 @@ interface CurrentProjectCardProps {
     activeProject: ProjectType | undefined;
 }
 
-const useProjectActivityManagement = (projectId: string) => {
-    const [isProjectActiveDialogOpen, setIsProjectActiveDialogOpen] = useState<boolean>(false);
-
-    const updateProjectMutation = $api.useMutation('put', '/api/v1/projects/{project_id}', {
-        meta: {
-            invalidates: [
-                ['get', '/api/v1/projects'],
-                ['get', '/api/v1/projects/active'],
-                ['get', '/api/v1/projects/{project_id}', { params: { path: { project_id: projectId } } }],
-            ],
-        },
-        onSuccess: () => {
-            handleCloseProjectActiveDialog();
-        },
-    });
-
-    const handleCloseProjectActiveDialog = () => {
-        setIsProjectActiveDialogOpen(false);
-    };
-
-    const handleUpdateProjectActivityStatus = (isGoingToBeActive: boolean) => {
-        updateProjectMutation.mutate({
-            body: {
-                active: isGoingToBeActive,
-            },
-            params: {
-                path: {
-                    project_id: projectId,
-                },
-            },
-        });
-    };
-
-    const handleDeactivateProject = () => {
-        handleUpdateProjectActivityStatus(false);
-    };
-
-    const handleActivateProject = () => {
-        handleUpdateProjectActivityStatus(true);
-    };
-
-    const handleShowActivateProjectDialog = () => {
-        setIsProjectActiveDialogOpen(true);
-    };
-
-    return {
-        isVisible: isProjectActiveDialogOpen,
-        onClose: handleCloseProjectActiveDialog,
-        onDeactivate: handleDeactivateProject,
-        onActivate: handleActivateProject,
-        onShowActivateProjectDialog: handleShowActivateProjectDialog,
-        isPending: updateProjectMutation.isPending,
-    };
-};
-
 const CurrentProjectCard = ({ selectedProject, activeProject }: CurrentProjectCardProps) => {
-    const updateProjectMutation = $api.useMutation('put', '/api/v1/projects/{project_id}', {
-        meta: {
-            invalidates: [
-                ['get', '/api/v1/projects'],
-                ['get', '/api/v1/projects/active'],
-                ['get', '/api/v1/projects/{project_id}', { params: { path: { project_id: selectedProject.id } } }],
-            ],
-        },
-    });
-
-    const [isProjectActiveDialogOpen, setIsProjectActiveDialogOpen] = useState<boolean>(false);
-
-    const handleCloseProjectActiveDialog = () => {
-        setIsProjectActiveDialogOpen(false);
-    };
-
-    const handleUpdateProjectActiveStatus = () => {
-        updateProjectMutation.mutate(
-            {
-                body: {
-                    active: !selectedProject.isActive,
-                },
-                params: {
-                    path: {
-                        project_id: selectedProject.id,
-                    },
-                },
-            },
-            {
-                onSuccess: () => {
-                    handleCloseProjectActiveDialog();
-                },
-            }
-        );
-    };
+    const { isVisible, onClose, onActivate, onDeactivate, onShowActivateProjectDialog, isPending } =
+        useProjectActivityManagement(selectedProject.id);
 
     const handleClick = () => {
-        if (!selectedProject.isActive && activeProject !== undefined) {
-            setIsProjectActiveDialogOpen(true);
+        if (activeProject === undefined) {
+            onActivate();
 
             return;
         }
 
-        handleUpdateProjectActiveStatus();
+        if (!selectedProject.isActive) {
+            onShowActivateProjectDialog();
+
+            return;
+        }
+
+        onDeactivate();
     };
 
     return (
@@ -211,17 +138,17 @@ const CurrentProjectCard = ({ selectedProject, activeProject }: CurrentProjectCa
                         </Heading>
                     </Flex>
 
-                    <Button variant={'primary'} onPress={handleClick} isPending={updateProjectMutation.isPending}>
+                    <Button variant={'primary'} onPress={handleClick} isPending={isPending}>
                         {activeProject === undefined || !selectedProject.isActive ? 'Activate' : 'Deactivate'}
                     </Button>
                 </Flex>
             </Header>
             <ActivateProjectDialog
-                isVisible={isProjectActiveDialogOpen}
-                onClose={handleCloseProjectActiveDialog}
+                isVisible={isVisible}
+                onClose={onClose}
                 activeProjectName={activeProject?.name ?? ''}
                 inactiveProjectName={selectedProject.name}
-                onActivate={handleUpdateProjectActiveStatus}
+                onActivate={onActivate}
             />
         </>
     );
