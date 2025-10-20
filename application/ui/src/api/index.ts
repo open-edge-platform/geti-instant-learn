@@ -17,6 +17,7 @@ export type ImagesFolderConfig = SourceWithoutConfig & { config: components['sch
 export { $api, client } from './client';
 export {
     type SchemaProjectSchema as ProjectType,
+    type SchemaProjectsListSchema as ProjectsListType,
     type SchemaProjectUpdateSchema as ProjectUpdateType,
     type SchemaSourceSchema as SourceConfig,
     type paths,
