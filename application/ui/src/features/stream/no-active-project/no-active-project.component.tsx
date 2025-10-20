@@ -20,19 +20,10 @@ export const NoActiveProject = ({ project }: NoActiveProjectProps) => {
     const { data } = $api.useSuspenseQuery('get', '/api/v1/projects');
     const activeProject = data.projects.find(({ id }) => id === project.id);
 
-    const { isVisible, onActivate, onShowActivateProjectDialog, onClose, isPending } = useProjectActivityManagement(
+    const { isVisible, activate, close, isPending, activateConfirmation } = useProjectActivityManagement(
         project.id,
         activeProject?.id
     );
-
-    const handleActivate = () => {
-        if (activeProject === undefined) {
-            onActivate();
-            return;
-        }
-
-        onShowActivateProjectDialog();
-    };
 
     return (
         <>
@@ -60,7 +51,7 @@ export const NoActiveProject = ({ project }: NoActiveProjectProps) => {
                         <Button
                             variant={'primary'}
                             isPending={isPending}
-                            onPress={handleActivate}
+                            onPress={activate}
                             aria-label={'Activate current project'}
                         >
                             Activate project
@@ -70,10 +61,10 @@ export const NoActiveProject = ({ project }: NoActiveProjectProps) => {
             </View>
             <ActivateProjectDialog
                 isVisible={isVisible}
-                onClose={onClose}
+                onClose={close}
                 activeProjectName={activeProject?.name ?? ''}
                 inactiveProjectName={project.name}
-                onActivate={onActivate}
+                onActivate={activateConfirmation}
             />
         </>
     );

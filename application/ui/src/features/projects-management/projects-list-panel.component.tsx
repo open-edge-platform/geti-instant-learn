@@ -94,23 +94,17 @@ interface CurrentProjectCardProps {
 }
 
 const CurrentProjectCard = ({ selectedProject, activeProject }: CurrentProjectCardProps) => {
-    const { isVisible, onClose, onActivate, onDeactivate, onShowActivateProjectDialog, isPending } =
-        useProjectActivityManagement(selectedProject.id, activeProject?.id);
+    const { isVisible, close, activate, deactivate, isPending, activateConfirmation } = useProjectActivityManagement(
+        selectedProject.id,
+        activeProject?.id
+    );
 
     const handleClick = () => {
-        if (activeProject === undefined) {
-            onActivate();
-
-            return;
+        if (selectedProject.active) {
+            deactivate();
+        } else {
+            activate();
         }
-
-        if (!selectedProject.active) {
-            onShowActivateProjectDialog();
-
-            return;
-        }
-
-        onDeactivate();
     };
 
     const buttonText = activeProject === undefined || !selectedProject.active ? 'Activate' : 'Deactivate';
@@ -151,10 +145,10 @@ const CurrentProjectCard = ({ selectedProject, activeProject }: CurrentProjectCa
             </Header>
             <ActivateProjectDialog
                 isVisible={isVisible}
-                onClose={onClose}
+                onClose={close}
                 activeProjectName={activeProject?.name ?? ''}
                 inactiveProjectName={selectedProject.name}
-                onActivate={onActivate}
+                onActivate={activateConfirmation}
             />
         </>
     );

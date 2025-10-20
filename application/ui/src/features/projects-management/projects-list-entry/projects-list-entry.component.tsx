@@ -65,7 +65,7 @@ const ProjectCard = ({ project, activeProject, projectNames }: ProjectCardProps)
     const [projectIDInEdition, setProjectIdInEdition] = useState<string | null>(null);
     const updateProjectName = useUpdateProject();
     const deleteProject = useDeleteProject();
-    const { isVisible, onClose, onShowActivateProjectDialog, onActivate, onDeactivate } = useProjectActivityManagement(
+    const { isVisible, close, activate, activateConfirmation, deactivate } = useProjectActivityManagement(
         project.id,
         activeProject?.id
     );
@@ -76,14 +76,9 @@ const ProjectCard = ({ project, activeProject, projectNames }: ProjectCardProps)
         } else if (key === PROJECT_ACTIONS.DELETE) {
             setIsDeleteDialogOpen(true);
         } else if (key === PROJECT_ACTIONS.ACTIVATE) {
-            if (activeProject === undefined) {
-                onActivate();
-                return;
-            }
-
-            onShowActivateProjectDialog();
+            activate();
         } else if (key === PROJECT_ACTIONS.DEACTIVATE) {
-            onDeactivate();
+            deactivate();
         }
     };
 
@@ -162,10 +157,10 @@ const ProjectCard = ({ project, activeProject, projectNames }: ProjectCardProps)
                     */}
                     <ActivateProjectDialog
                         isVisible={isVisible}
-                        onClose={onClose}
+                        onClose={close}
                         activeProjectName={activeProject?.name ?? ''}
                         inactiveProjectName={project.name}
-                        onActivate={onActivate}
+                        onActivate={activateConfirmation}
                     />
                 </Flex>
             </View>

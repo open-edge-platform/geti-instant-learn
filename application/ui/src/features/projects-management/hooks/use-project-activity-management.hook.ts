@@ -9,15 +9,13 @@ import { $api } from '@geti-prompt/api';
 
 import { MutationMeta } from '../../../query-client/query-client.interface';
 
-export const useProjectActivityManagement = (newProjectActiveId: string, currentActiveProjectId?: string) => {
-    const [isProjectActiveDialogOpen, setIsProjectActiveDialogOpen] = useState<boolean>(false);
-
+export const useProjectActivationMutation = (projectId: string, currentActiveProjectId: string | undefined) => {
     const invalidates: MutationMeta['invalidates'] =
         currentActiveProjectId === undefined
             ? [
                   ['get', '/api/v1/projects'],
                   ['get', '/api/v1/projects/active'],
-                  ['get', '/api/v1/projects/{project_id}', { params: { path: { project_id: newProjectActiveId } } }],
+                  ['get', '/api/v1/projects/{project_id}', { params: { path: { project_id: projectId } } }],
               ]
             : [
                   ['get', '/api/v1/projects'],
@@ -27,53 +25,69 @@ export const useProjectActivityManagement = (newProjectActiveId: string, current
                       '/api/v1/projects/{project_id}',
                       { params: { path: { project_id: currentActiveProjectId } } },
                   ],
-                  ['get', '/api/v1/projects/{project_id}', { params: { path: { project_id: newProjectActiveId } } }],
+                  ['get', '/api/v1/projects/{project_id}', { params: { path: { project_id: projectId } } }],
               ];
 
-    const updateProjectMutation = $api.useMutation('put', '/api/v1/projects/{project_id}', {
-        meta: {
-            invalidates,
-        },
-        onSuccess: () => {
-            handleCloseProjectActiveDialog();
-        },
+    return $api.useMutation('put', '/api/v1/projects/{project_id}', {
+        meta: { invalidates },
     });
+};
 
-    const handleCloseProjectActiveDialog = () => {
+export const useProjectActivityManagement = (
+    newActiveProjectId: string,
+    currentActiveProjectId: string | undefined
+) => {
+    const [isProjectActiveDialogOpen, setIsProjectActiveDialogOpen] = useState<boolean>(false);
+
+    const updateProjectMutation = useProjectActivationMutation(newActiveProjectId, currentActiveProjectId);
+
+    const closeProjectActiveDialog = () => {
         setIsProjectActiveDialogOpen(false);
     };
 
-    const handleUpdateProjectActivityStatus = (isGoingToBeActive: boolean) => {
-        updateProjectMutation.mutate({
-            body: {
-                active: isGoingToBeActive,
-            },
-            params: {
-                path: {
-                    project_id: newProjectActiveId,
+    const updateProjectActivityStatus = (isGoingToBeActive: boolean) => {
+        updateProjectMutation.mutate(
+            {
+                body: {
+                    active: isGoingToBeActive,
+                },
+                params: {
+                    path: {
+                        project_id: newActiveProjectId,
+                    },
                 },
             },
-        });
+            {
+                onSuccess: () => {
+                    closeProjectActiveDialog();
+                },
+            }
+        );
     };
 
-    const handleDeactivateProject = () => {
-        handleUpdateProjectActivityStatus(false);
+    const deactivateProject = () => {
+        updateProjectActivityStatus(false);
     };
 
-    const handleActivateProject = () => {
-        handleUpdateProjectActivityStatus(true);
+    const activateProject = () => {
+        // If there is no active project, we just activate the selected project directly.
+        if (currentActiveProjectId === undefined) {
+            updateProjectActivityStatus(true);
+        } else {
+            showActivateProjectDialog();
+        }
     };
 
-    const handleShowActivateProjectDialog = () => {
+    const showActivateProjectDialog = () => {
         setIsProjectActiveDialogOpen(true);
     };
 
     return {
         isVisible: isProjectActiveDialogOpen,
-        onClose: handleCloseProjectActiveDialog,
-        onDeactivate: handleDeactivateProject,
-        onActivate: handleActivateProject,
-        onShowActivateProjectDialog: handleShowActivateProjectDialog,
+        close: closeProjectActiveDialog,
+        deactivate: deactivateProject,
+        activate: activateProject,
+        activateConfirmation: () => updateProjectActivityStatus(true),
         isPending: updateProjectMutation.isPending,
     };
 };

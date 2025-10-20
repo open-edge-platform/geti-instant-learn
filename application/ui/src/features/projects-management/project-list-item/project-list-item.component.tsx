@@ -37,7 +37,7 @@ export const ProjectListItem = ({
     projectNames,
     activeProject,
 }: ProjectListItemProps) => {
-    const { isVisible, onClose, onActivate, onShowActivateProjectDialog, onDeactivate } = useProjectActivityManagement(
+    const { isVisible, close, activate, deactivate, activateConfirmation } = useProjectActivityManagement(
         project.id,
         activeProject?.id
     );
@@ -50,14 +50,9 @@ export const ProjectListItem = ({
         } else if (key === PROJECT_ACTIONS.DELETE) {
             setIsDeleteDialogOpen(true);
         } else if (key === PROJECT_ACTIONS.ACTIVATE) {
-            // If there is no active project, we just activate the selected project directly.
-            if (activeProject === undefined) {
-                onActivate();
-                return;
-            }
-            onShowActivateProjectDialog();
+            activate();
         } else if (key === PROJECT_ACTIONS.DEACTIVATE) {
-            onDeactivate();
+            deactivate();
         }
     };
 
@@ -119,10 +114,10 @@ export const ProjectListItem = ({
             */}
             <ActivateProjectDialog
                 isVisible={isVisible}
-                onClose={onClose}
+                onClose={close}
                 activeProjectName={activeProject?.name ?? ''}
                 inactiveProjectName={project.name}
-                onActivate={onActivate}
+                onActivate={activateConfirmation}
             />
         </li>
     );
