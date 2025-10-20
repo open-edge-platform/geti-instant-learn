@@ -17,6 +17,7 @@ from alembic import command
 from alembic.config import Config
 from core.runtime.dispatcher import ConfigChangeDispatcher
 from settings import get_settings
+from webrtc.manager import WebRTCManager
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -79,6 +80,11 @@ def run_db_migrations() -> None:
     except Exception:
         logger.exception("✗ Database migration failed")
         raise
+
+
+def get_webrtc_manager(request: Request) -> WebRTCManager:
+    """Provides the global WebRTCManager instance from FastAPI application's state."""
+    return request.app.state.webrtc_manager
 
 
 def get_config_dispatcher(request: Request) -> ConfigChangeDispatcher:
