@@ -5,10 +5,8 @@
 
 import { createContext, Dispatch, ReactNode, SetStateAction, useContext, useState } from 'react';
 
-
-
 import { ZoomState } from './types';
-import { getZoomState, ZOOM_STEP_DIVISOR, clampBetween } from './utils';
+import { clampBetween, getZoomState, ZOOM_STEP_DIVISOR } from './utils';
 
 const Zoom = createContext<ZoomState>({
     scale: 1.0,
