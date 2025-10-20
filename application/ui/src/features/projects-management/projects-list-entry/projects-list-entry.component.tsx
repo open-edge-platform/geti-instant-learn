@@ -11,9 +11,12 @@ import { AddCircle } from '@geti/ui/icons';
 import { Link } from 'react-router-dom';
 
 import { paths } from '../../../routes/paths';
+import { ActivateProjectDialog } from '../activate-project-dialog/activate-project-dialog.component';
 import { useCreateProject } from '../hooks/use-create-project.hook';
 import { useDeleteProject } from '../hooks/use-delete-project.hook';
+import { useProjectActivityManagement } from '../hooks/use-project-activity-management.hook';
 import { useUpdateProject } from '../hooks/use-update-project.hook';
+import { ProjectActivityStatus } from '../project-activity-status/project-activity-status.component';
 import {
     DeleteProjectDialog,
     PROJECT_ACTIONS,
@@ -53,20 +56,33 @@ const NewProjectCard = ({ projectsNames }: NewProjectCardProps) => {
 
 interface ProjectCardProps {
     project: ProjectType;
+    activedProject: ProjectType | undefined;
     projectNames: string[];
 }
 
-const ProjectCard = ({ project, projectNames }: ProjectCardProps) => {
+const ProjectCard = ({ project, activedProject, projectNames }: ProjectCardProps) => {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
     const [projectIDInEdition, setProjectIdInEdition] = useState<string | null>(null);
     const updateProjectName = useUpdateProject();
     const deleteProject = useDeleteProject();
+    const { isVisible, onClose, onShowActivateProjectDialog, onActivate, onDeactivate } = useProjectActivityManagement(
+        project.id
+    );
 
     const handleAction = (key: Key) => {
         if (key === PROJECT_ACTIONS.RENAME) {
             setProjectIdInEdition(project.id);
         } else if (key === PROJECT_ACTIONS.DELETE) {
             setIsDeleteDialogOpen(true);
+        } else if (key === PROJECT_ACTIONS.ACTIVATE) {
+            if (activedProject === undefined) {
+                onActivate();
+                return;
+            }
+
+            onShowActivateProjectDialog();
+        } else if (key === PROJECT_ACTIONS.DEACTIVATE) {
+            onDeactivate();
         }
     };
 
@@ -95,7 +111,11 @@ const ProjectCard = ({ project, projectNames }: ProjectCardProps) => {
         }
     };
 
-    const actions = [PROJECT_ACTIONS.RENAME, PROJECT_ACTIONS.DELETE];
+    const actions = [
+        PROJECT_ACTIONS.RENAME,
+        PROJECT_ACTIONS.DELETE,
+        project.active ? PROJECT_ACTIONS.DEACTIVATE : PROJECT_ACTIONS.ACTIVATE,
+    ];
 
     return (
         <Link
@@ -119,6 +139,7 @@ const ProjectCard = ({ project, projectNames }: ProjectCardProps) => {
                         ) : (
                             project.name
                         )}
+                        <ProjectActivityStatus isActive={project.active} />
                     </Heading>
 
                     <ProjectActions actions={actions} onAction={handleAction} />
@@ -128,6 +149,18 @@ const ProjectCard = ({ project, projectNames }: ProjectCardProps) => {
                         onDismiss={() => setIsDeleteDialogOpen(false)}
                         onDelete={handleDelete}
                         projectName={project.name}
+                    />
+                    {/*
+                        Activate Project Dialog is only visible when there is already an active project.
+                        When there is no active project, the dialog is not visible; we just activate the selected
+                        project directly.
+                    */}
+                    <ActivateProjectDialog
+                        isVisible={isVisible}
+                        onClose={onClose}
+                        activeProjectName={activedProject?.name ?? ''}
+                        inactiveProjectName={project.name}
+                        onActivate={onActivate}
                     />
                 </Flex>
             </View>
@@ -139,6 +172,7 @@ export const ProjectsListEntry = () => {
     const { data } = $api.useSuspenseQuery('get', '/api/v1/projects');
 
     const projectsNames = data.projects.map((project) => project.name);
+    const activeProject = data.projects.find((project) => project.active);
 
     return (
         <Layout>
@@ -161,6 +195,7 @@ export const ProjectsListEntry = () => {
                                 project={project}
                                 key={project.id}
                                 projectNames={projectsNames.filter((name) => name !== project.name)}
+                                activedProject={activeProject}
                             />
                         ))}
                     </Grid>

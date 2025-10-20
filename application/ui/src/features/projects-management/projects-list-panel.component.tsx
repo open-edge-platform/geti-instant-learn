@@ -40,7 +40,7 @@ interface SelectedProjectProps {
 
 const SelectedProjectButton = ({ project: { name, id, active } }: SelectedProjectProps) => {
     return (
-        <ActionButton aria-label={`Selected project ${name}`} isQuiet height={'max-content'} staticColor='white'>
+        <ActionButton aria-label={`Selected project ${name}`} isQuiet height={'max-content'}>
             <View margin={'size-50'}>
                 <Flex direction={'column'} gap={'size-50'}>
                     <Text UNSAFE_className={styles.currentProjectHeaderText}>{name}</Text>

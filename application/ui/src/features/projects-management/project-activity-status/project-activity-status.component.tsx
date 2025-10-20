@@ -16,7 +16,7 @@ interface ProjectActivityStatusProps {
 const ProjectActivityStatusWrapper = ({ children }: { children: ReactNode }) => {
     return (
         <View
-            backgroundColor={'gray-50'}
+            backgroundColor={'gray-75'}
             borderWidth={'thin'}
             borderColor={'transparent'}
             borderRadius={'regular'}
