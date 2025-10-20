@@ -21,3 +21,11 @@ interface ImportMetaEnv {
 interface ImportMeta {
     readonly env: ImportMetaEnv;
 }
+
+declare module 'polylabel' {
+    type Polygon = number[][][];
+
+    function polylabel(polygon: Polygon, precision?: number): [number, number];
+
+    export default polylabel;
+}

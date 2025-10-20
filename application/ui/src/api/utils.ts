@@ -38,6 +38,7 @@ const initialHandlers = [
                 {
                     id: '1',
                     name: 'Project #1',
+                    active: true,
                 },
             ],
         });
@@ -47,6 +48,7 @@ const initialHandlers = [
         return HttpResponse.json({
             id: '1',
             name: 'Project #1',
+            active: true,
         });
     }),
 ];
