@@ -10,3 +10,6 @@ backend:
 ui:
   - application/ui/**
   - .github/workflows/**
+
+distrib:
+  - application/docker/**

@@ -150,6 +150,8 @@ def get_active_project(
 def get_projects_list(
     db_session: SessionDep,
     config_dispatcher: ConfigChangeDispatcherDep,
+    offset: Annotated[int, Query(ge=0, le=1000)] = 0,
+    limit: Annotated[int, Query(ge=0, le=1000)] = 20,
 ) -> ProjectsListSchema:
     """
     Retrieve a list of all available project configurations.
@@ -157,7 +159,7 @@ def get_projects_list(
     logger.debug("Received GET projects request.")
     service = ProjectService(session=db_session, config_change_dispatcher=config_dispatcher)
     try:
-        return service.list_projects()
+        return service.list_projects(offset=offset, limit=limit)
     except Exception as e:
         logger.exception(f"Internal error listing projects: {e}")
         raise HTTPException(

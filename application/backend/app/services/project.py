@@ -115,13 +115,20 @@ class ProjectService:
             )
         return project_db_to_schema(project)
 
-    def list_projects(self) -> ProjectsListSchema:
+    def list_projects(self, offset: int = 0, limit: int = 20) -> ProjectsListSchema:
         """
-        List all projects.
+        List projects with pagination.
+
+        Parameters:
+            offset: Starting index (0-based)
+            limit: Maximum number of items to return
+
+        Returns:
+            ProjectsListSchema with paginated results and metadata
         """
-        logger.debug("Projects list requested")
-        items = projects_db_to_list_items(self.project_repository.get_all())
-        return ProjectsListSchema(projects=items)
+        logger.debug(f"Projects list requested with offset={offset}, limit={limit}")
+        projects, total = self.project_repository.get_paginated(offset=offset, limit=limit)
+        return projects_db_to_list_items(projects, total=total, offset=offset, limit=limit)
 
     def update_project(self, project_id: UUID, update_data: ProjectUpdateSchema) -> ProjectSchema:
         """
