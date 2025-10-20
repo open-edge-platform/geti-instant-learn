@@ -3,7 +3,9 @@ DOCKER_IMAGE_DESCRIPTION := COMPONENT_NAME
 
 images-registry := 'localhost:5000/open-edge-platform'
 PRODUCT_VERSION := '$(cat `pwd`/../VERSION)'
-TAG := PRODUCT_VERSION + "-" + `git rev-parse --short HEAD`
+default_tag := PRODUCT_VERSION + "-" + `git rev-parse --short HEAD`
+
+TAG := env("TAG", default_tag)
 
 docker-build-context := env("DOCKER_BUILD_CONTEXT", "")
 
@@ -63,3 +65,6 @@ run-image: build-image
         {{docker-volume}} \
         --name "{{COMPONENT_NAME}}-{{TAG}}" \
         "{{images-registry}}/{{COMPONENT_NAME}}:{{TAG}}"
+
+show-size:
+    @docker image inspect "{{images-registry}}/{{COMPONENT_NAME}}:{{TAG}}" --format='{{{{.Size}}' | numfmt --to=iec

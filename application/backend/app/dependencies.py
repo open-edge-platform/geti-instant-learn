@@ -8,13 +8,14 @@ from pathlib import Path
 from sqlite3 import Connection
 from typing import Annotated, Any
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from alembic import command
 from alembic.config import Config
+from core.runtime.dispatcher import ConfigChangeDispatcher
 from settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -78,3 +79,11 @@ def run_db_migrations() -> None:
     except Exception:
         logger.exception("✗ Database migration failed")
         raise
+
+
+def get_config_dispatcher(request: Request) -> ConfigChangeDispatcher:
+    """Dependency that provides access to the ConfigChangeDispatcher."""
+    return request.app.state.config_dispatcher
+
+
+ConfigChangeDispatcherDep = Annotated[ConfigChangeDispatcher, Depends(get_config_dispatcher)]

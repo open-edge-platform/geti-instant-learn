@@ -73,9 +73,10 @@ jobs:
 
   distrib:
     name: Distrib build
-    needs: [ library, backend, ui ]
+    needs: build-parameters
     permissions:
       contents: read
+    if: needs.build-parameters.outputs.components-list
     uses: ./.github/workflows/distrib.yml
     with:
       build_version: ${{ needs.build-parameters.outputs.build_version }}
@@ -97,5 +98,3 @@ jobs:
               exit 1
             fi
           done
-
-

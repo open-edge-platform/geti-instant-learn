@@ -21,8 +21,22 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: lint
-        env:
-          BUILD_VERSION: ${{ inputs.build_version }}
+      - name: Install dependencies
         run: |
-          echo "A placeholder for ci steps, version: $BUILD_VERSION"
+          sudo apt-get update
+          sudo apt-get install -y just
+
+      - name: Build docker image
+        working-directory: application
+        env:
+          DOCKER_BUILD_CONTEXT: "--no-cache"
+          TAG: ${{ inputs.build_version }}
+        run: |
+          just build-image
+
+      - name: Show size of the image
+        working-directory: application
+        env:
+          TAG: ${{ inputs.build_version }}
+        run: |
+          just show-size
