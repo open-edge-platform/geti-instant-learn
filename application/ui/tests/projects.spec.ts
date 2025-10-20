@@ -57,12 +57,26 @@ const registerApiProjects = ({
             const body = await request.json();
             const id = request.url.split('/').at(-1);
 
-            projects = projects.map((project) =>
-                project.id === id ? ({ ...project, ...body } as ProjectType) : project
-            );
+            projects = projects.map((project) => {
+                if (project.id === id) {
+                    return {
+                        ...project,
+                        ...body,
+                    } as ProjectType;
+                }
+
+                if (body.active != null) {
+                    return {
+                        ...project,
+                        active: false,
+                    };
+                }
+
+                return project;
+            });
 
             // @ts-expect-error We don't rely on the update response in the UI
-            return response(200).json({ ...body });
+            return response(200).json(body);
         }),
 
         http.delete('/api/v1/projects/{project_id}', async ({ request, response }) => {
@@ -117,7 +131,7 @@ class ProjectPage {
         await this.page.getByLabel(`Project ${projectName}`).getByRole('button', { name: 'Project actions' }).click();
     }
 
-    async selectMenuItem(itemName: 'Rename' | 'Delete') {
+    async selectMenuItem(itemName: 'Rename' | 'Delete' | 'Activate' | 'Deactivate') {
         await this.page.getByRole('menuitem', { name: itemName }).click();
     }
 
@@ -128,6 +142,38 @@ class ProjectPage {
 
     async delete() {
         await this.page.getByRole('button', { name: 'Delete' }).click();
+    }
+
+    async activate() {
+        await this.page.getByRole('button', { name: 'Activate' }).click();
+    }
+
+    async activateCurrentProject() {
+        await this.page.getByRole('button', { name: 'Activate current project' }).click();
+    }
+
+    async deactivateCurrentProject() {
+        await this.page.getByRole('button', { name: 'Deactivate current project' }).click();
+    }
+
+    get inactiveStatus() {
+        return this.page.getByLabel('Inactive project');
+    }
+
+    get activeStatus() {
+        return this.page.getByLabel('Active project');
+    }
+
+    getActiveProjectInTheList(projectName: string) {
+        return this.page.getByRole('listitem', { name: `Project ${projectName}` }).getByLabel('Active project');
+    }
+
+    getInactiveProjectInTheList(projectName: string) {
+        return this.page.getByRole('listitem', { name: `Project ${projectName}` }).getByLabel('Inactive project');
+    }
+
+    get activateProjectDialogHeading() {
+        return this.page.getByTestId('modal').getByRole('heading', { name: 'Activate project' });
     }
 }
 
@@ -548,5 +594,263 @@ test.describe('Projects', () => {
 
         await expect(projectPage.welcomeHeader).toBeVisible();
         await expect(page).toHaveURL(paths.welcome({}));
+    });
+
+    test(
+        'Activates an inactive project when there is already an active project using a project menu in the ' +
+            'details page',
+        async ({ network, page }) => {
+            const projects = registerApiProjects({
+                network,
+                defaultProjects: [
+                    {
+                        id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #1',
+                        active: true,
+                    },
+                    {
+                        id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #2',
+                        active: false,
+                    },
+                ],
+            });
+
+            const projectPage = new ProjectPage(page);
+
+            const [firstProject, secondProject] = projects;
+
+            await projectPage.goto(firstProject.id);
+
+            await expect(projectPage.activeStatus).toBeVisible();
+            await projectPage.openProjectManagementPanel();
+            await projectPage.openProjectMenu(secondProject.name);
+            await projectPage.selectMenuItem('Activate');
+
+            await expect(projectPage.activateProjectDialogHeading).toBeVisible();
+            await projectPage.activate();
+
+            await expect(projectPage.inactiveStatus).toBeVisible();
+
+            await projectPage.goto(secondProject.id);
+            await expect(projectPage.activeStatus).toBeVisible();
+        }
+    );
+
+    test(
+        'Activates an inactive project when there is no active project using a project menu in the details ' + 'page',
+        async ({ network, page }) => {
+            const projects = registerApiProjects({
+                network,
+                defaultProjects: [
+                    {
+                        id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #1',
+                        active: false,
+                    },
+                    {
+                        id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #2',
+                        active: false,
+                    },
+                ],
+            });
+
+            const projectPage = new ProjectPage(page);
+
+            const [firstProject, secondProject] = projects;
+
+            await projectPage.goto(firstProject.id);
+
+            await expect(projectPage.activeStatus).toBeVisible();
+            await projectPage.openProjectManagementPanel();
+            await projectPage.openProjectMenu(secondProject.name);
+            await projectPage.selectMenuItem('Activate');
+
+            await expect(projectPage.activateProjectDialogHeading).toBeHidden();
+
+            await expect(projectPage.inactiveStatus).toBeVisible();
+
+            await projectPage.goto(secondProject.id);
+            await expect(projectPage.activeStatus).toBeVisible();
+        }
+    );
+
+    test(
+        'Activates an inactive project when there is no active project using the activate button in the ' +
+            'current project',
+        async ({ network, page }) => {
+            const projects = registerApiProjects({
+                network,
+                defaultProjects: [
+                    {
+                        id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #1',
+                        active: false,
+                    },
+                    {
+                        id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #2',
+                        active: true,
+                    },
+                ],
+            });
+
+            const projectPage = new ProjectPage(page);
+
+            const [firstProject, secondProject] = projects;
+
+            await projectPage.goto(firstProject.id);
+
+            await expect(projectPage.inactiveStatus).toBeVisible();
+            await projectPage.openProjectManagementPanel();
+
+            await projectPage.activateCurrentProject();
+
+            await expect(projectPage.activateProjectDialogHeading).toBeVisible();
+
+            await projectPage.activate();
+
+            await expect(projectPage.activeStatus).toBeVisible();
+
+            await projectPage.goto(secondProject.id);
+            await expect(projectPage.inactiveStatus).toBeVisible();
+        }
+    );
+
+    test('Activates an inactive project in the project list', async ({ network, page }) => {
+        const projects = registerApiProjects({
+            network,
+            defaultProjects: [
+                {
+                    id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                    name: 'Cool project #1',
+                    active: false,
+                },
+                {
+                    id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
+                    name: 'Cool project #2',
+                    active: false,
+                },
+            ],
+        });
+
+        const projectPage = new ProjectPage(page);
+
+        const [firstProject, secondProject] = projects;
+
+        await projectPage.goto(paths.root({}));
+
+        await expect(projectPage.projectsHeader).toBeVisible();
+
+        await expect(projectPage.getInactiveProjectInTheList(firstProject.name)).toBeVisible();
+        await expect(projectPage.getInactiveProjectInTheList(secondProject.name)).toBeVisible();
+
+        await projectPage.openProjectMenu(firstProject.name);
+        await projectPage.selectMenuItem('Activate');
+
+        await expect(projectPage.activateProjectDialogHeading).toBeHidden();
+        await expect(projectPage.getActiveProjectInTheList(firstProject.name)).toBeVisible();
+        await expect(projectPage.getInactiveProjectInTheList(secondProject.name)).toBeVisible();
+    });
+
+    test('Deactivates an active project using a project menu in the details page', async ({ network, page }) => {
+        const projects = registerApiProjects({
+            network,
+            defaultProjects: [
+                {
+                    id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                    name: 'Cool project #1',
+                    active: true,
+                },
+                {
+                    id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
+                    name: 'Cool project #2',
+                    active: false,
+                },
+            ],
+        });
+
+        const projectPage = new ProjectPage(page);
+
+        const [firstProject] = projects;
+
+        await projectPage.goto(firstProject.id);
+
+        await expect(projectPage.activeStatus).toBeVisible();
+        await projectPage.openProjectManagementPanel();
+        await projectPage.openProjectMenu(firstProject.name);
+        await projectPage.selectMenuItem('Deactivate');
+
+        await expect(projectPage.inactiveStatus).toBeVisible();
+    });
+
+    test(
+        'Deactivates an active project in the details page using the deactivate button in the current' + ' project',
+        async ({ network, page }) => {
+            const projects = registerApiProjects({
+                network,
+                defaultProjects: [
+                    {
+                        id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #1',
+                        active: true,
+                    },
+                    {
+                        id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #2',
+                        active: false,
+                    },
+                ],
+            });
+
+            const projectPage = new ProjectPage(page);
+
+            const [firstProject] = projects;
+
+            await projectPage.goto(firstProject.id);
+
+            await expect(projectPage.activeStatus).toBeVisible();
+            await projectPage.openProjectManagementPanel();
+
+            await projectPage.deactivateCurrentProject();
+
+            await expect(projectPage.inactiveStatus).toBeVisible();
+        }
+    );
+
+    test('Deactivates an active project in the project list', async ({ network, page }) => {
+        const projects = registerApiProjects({
+            network,
+            defaultProjects: [
+                {
+                    id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                    name: 'Cool project #1',
+                    active: true,
+                },
+                {
+                    id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
+                    name: 'Cool project #2',
+                    active: false,
+                },
+            ],
+        });
+
+        const projectPage = new ProjectPage(page);
+
+        const [firstProject, secondProject] = projects;
+
+        await projectPage.gotoProjects();
+
+        await expect(projectPage.projectsHeader).toBeVisible();
+
+        await expect(projectPage.getActiveProjectInTheList(firstProject.name)).toBeVisible();
+        await expect(projectPage.getInactiveProjectInTheList(secondProject.name)).toBeVisible();
+
+        await projectPage.openProjectMenu(firstProject.name);
+        await projectPage.selectMenuItem('Deactivate');
+
+        await expect(projectPage.getInactiveProjectInTheList(firstProject.name)).toBeVisible();
+        await expect(projectPage.getInactiveProjectInTheList(secondProject.name)).toBeVisible();
     });
 });

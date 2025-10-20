@@ -56,17 +56,18 @@ const NewProjectCard = ({ projectsNames }: NewProjectCardProps) => {
 
 interface ProjectCardProps {
     project: ProjectType;
-    activedProject: ProjectType | undefined;
+    activeProject: ProjectType | undefined;
     projectNames: string[];
 }
 
-const ProjectCard = ({ project, activedProject, projectNames }: ProjectCardProps) => {
+const ProjectCard = ({ project, activeProject, projectNames }: ProjectCardProps) => {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
     const [projectIDInEdition, setProjectIdInEdition] = useState<string | null>(null);
     const updateProjectName = useUpdateProject();
     const deleteProject = useDeleteProject();
     const { isVisible, onClose, onShowActivateProjectDialog, onActivate, onDeactivate } = useProjectActivityManagement(
-        project.id
+        project.id,
+        activeProject?.id
     );
 
     const handleAction = (key: Key) => {
@@ -75,7 +76,7 @@ const ProjectCard = ({ project, activedProject, projectNames }: ProjectCardProps
         } else if (key === PROJECT_ACTIONS.DELETE) {
             setIsDeleteDialogOpen(true);
         } else if (key === PROJECT_ACTIONS.ACTIVATE) {
-            if (activedProject === undefined) {
+            if (activeProject === undefined) {
                 onActivate();
                 return;
             }
@@ -128,19 +129,23 @@ const ProjectCard = ({ project, activedProject, projectNames }: ProjectCardProps
             <PhotoPlaceholder name={project.name} indicator={project.id} width={'size-800'} height={'size-800'} />
             <View flex={1} paddingStart={'size-200'} paddingEnd={'size-100'}>
                 <Flex justifyContent={'space-between'} alignItems={'center'}>
-                    <Heading UNSAFE_className={styles.projectCardTitle}>
-                        {isInEditionState ? (
-                            <ProjectEdition
-                                projectNames={projectNames}
-                                onBlur={handleBlur}
-                                onResetProjectInEdition={handleResetProjectInEdition}
-                                name={project.name}
-                            />
-                        ) : (
-                            project.name
-                        )}
-                        <ProjectActivityStatus isActive={project.active} />
-                    </Heading>
+                    <Flex direction={'column'}>
+                        <Heading UNSAFE_className={styles.projectCardTitle} marginTop={'size-100'} marginBottom={0}>
+                            {isInEditionState ? (
+                                <ProjectEdition
+                                    projectNames={projectNames}
+                                    onBlur={handleBlur}
+                                    onResetProjectInEdition={handleResetProjectInEdition}
+                                    name={project.name}
+                                />
+                            ) : (
+                                project.name
+                            )}
+                        </Heading>
+                        <View alignSelf={'start'}>
+                            <ProjectActivityStatus isActive={project.active} />
+                        </View>
+                    </Flex>
 
                     <ProjectActions actions={actions} onAction={handleAction} />
 
@@ -158,7 +163,7 @@ const ProjectCard = ({ project, activedProject, projectNames }: ProjectCardProps
                     <ActivateProjectDialog
                         isVisible={isVisible}
                         onClose={onClose}
-                        activeProjectName={activedProject?.name ?? ''}
+                        activeProjectName={activeProject?.name ?? ''}
                         inactiveProjectName={project.name}
                         onActivate={onActivate}
                     />
@@ -195,7 +200,7 @@ export const ProjectsListEntry = () => {
                                 project={project}
                                 key={project.id}
                                 projectNames={projectsNames.filter((name) => name !== project.name)}
-                                activedProject={activeProject}
+                                activeProject={activeProject}
                             />
                         ))}
                     </Grid>

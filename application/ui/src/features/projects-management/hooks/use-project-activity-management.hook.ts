@@ -7,16 +7,32 @@ import { useState } from 'react';
 
 import { $api } from '@geti-prompt/api';
 
-export const useProjectActivityManagement = (projectId: string) => {
+import { MutationMeta } from '../../../query-client/query-client.interface';
+
+export const useProjectActivityManagement = (newProjectActiveId: string, currentActiveProjectId?: string) => {
     const [isProjectActiveDialogOpen, setIsProjectActiveDialogOpen] = useState<boolean>(false);
+
+    const invalidates: MutationMeta['invalidates'] =
+        currentActiveProjectId === undefined
+            ? [
+                  ['get', '/api/v1/projects'],
+                  ['get', '/api/v1/projects/active'],
+                  ['get', '/api/v1/projects/{project_id}', { params: { path: { project_id: newProjectActiveId } } }],
+              ]
+            : [
+                  ['get', '/api/v1/projects'],
+                  ['get', '/api/v1/projects/active'],
+                  [
+                      'get',
+                      '/api/v1/projects/{project_id}',
+                      { params: { path: { project_id: currentActiveProjectId } } },
+                  ],
+                  ['get', '/api/v1/projects/{project_id}', { params: { path: { project_id: newProjectActiveId } } }],
+              ];
 
     const updateProjectMutation = $api.useMutation('put', '/api/v1/projects/{project_id}', {
         meta: {
-            invalidates: [
-                ['get', '/api/v1/projects'],
-                ['get', '/api/v1/projects/active'],
-                ['get', '/api/v1/projects/{project_id}', { params: { path: { project_id: projectId } } }],
-            ],
+            invalidates,
         },
         onSuccess: () => {
             handleCloseProjectActiveDialog();
@@ -34,7 +50,7 @@ export const useProjectActivityManagement = (projectId: string) => {
             },
             params: {
                 path: {
-                    project_id: projectId,
+                    project_id: newProjectActiveId,
                 },
             },
         });

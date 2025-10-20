@@ -5,7 +5,7 @@
 
 import { ReactNode } from 'react';
 
-import { Flex, Text, View } from '@geti/ui';
+import { Flex, View } from '@geti/ui';
 
 import styles from './project-activity-status.module.scss';
 
@@ -33,7 +33,9 @@ export const ProjectActivityStatus = ({ isActive }: ProjectActivityStatusProps) 
             <ProjectActivityStatusWrapper>
                 <Flex alignItems={'center'} gap={'size-50'}>
                     <View UNSAFE_className={styles.activityStatusIndicator} />
-                    <Text UNSAFE_className={styles.activityStatusText}>Active</Text>
+                    <span className={styles.activityStatusText} aria-label={'Active project'}>
+                        Active
+                    </span>
                 </Flex>
             </ProjectActivityStatusWrapper>
         );
@@ -42,7 +44,9 @@ export const ProjectActivityStatus = ({ isActive }: ProjectActivityStatusProps) 
     return (
         <ProjectActivityStatusWrapper>
             <Flex>
-                <Text UNSAFE_className={styles.activityStatusText}>Inactive</Text>
+                <span className={styles.activityStatusText} aria-label={'Inactive project'}>
+                    Inactive
+                </span>
             </Flex>
         </ProjectActivityStatusWrapper>
     );

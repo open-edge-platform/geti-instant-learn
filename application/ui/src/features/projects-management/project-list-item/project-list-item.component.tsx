@@ -38,7 +38,8 @@ export const ProjectListItem = ({
     activeProject,
 }: ProjectListItemProps) => {
     const { isVisible, onClose, onActivate, onShowActivateProjectDialog, onDeactivate } = useProjectActivityManagement(
-        project.id
+        project.id,
+        activeProject?.id
     );
 
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);

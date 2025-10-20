@@ -95,7 +95,7 @@ interface CurrentProjectCardProps {
 
 const CurrentProjectCard = ({ selectedProject, activeProject }: CurrentProjectCardProps) => {
     const { isVisible, onClose, onActivate, onDeactivate, onShowActivateProjectDialog, isPending } =
-        useProjectActivityManagement(selectedProject.id);
+        useProjectActivityManagement(selectedProject.id, activeProject?.id);
 
     const handleClick = () => {
         if (activeProject === undefined) {
@@ -112,6 +112,8 @@ const CurrentProjectCard = ({ selectedProject, activeProject }: CurrentProjectCa
 
         onDeactivate();
     };
+
+    const buttonText = activeProject === undefined || !selectedProject.active ? 'Activate' : 'Deactivate';
 
     return (
         <>
@@ -137,8 +139,13 @@ const CurrentProjectCard = ({ selectedProject, activeProject }: CurrentProjectCa
                         </Heading>
                     </Flex>
 
-                    <Button variant={'primary'} onPress={handleClick} isPending={isPending}>
-                        {activeProject === undefined || !selectedProject.active ? 'Activate' : 'Deactivate'}
+                    <Button
+                        variant={'primary'}
+                        onPress={handleClick}
+                        isPending={isPending}
+                        aria-label={`${buttonText} current project`}
+                    >
+                        {buttonText}
                     </Button>
                 </Flex>
             </Header>
