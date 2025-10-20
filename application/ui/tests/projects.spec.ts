@@ -267,7 +267,7 @@ test.describe('Projects', () => {
                 await projectPage.getProjectInTheList(projects[0].name).click();
 
                 await expect(projectPage.getSelectedProject(projects[0].name)).toBeVisible();
-                await expect(page).toHaveURL(new RegExp(paths.project({ projectId: projects[0].id })));
+                expect(page.url()).toContain(paths.project({ projectId: projects[0].id }));
             }
         );
 
@@ -294,7 +294,7 @@ test.describe('Projects', () => {
                 await page.goto(paths.root({}));
 
                 await expect(projectPage.getSelectedProject(projects[0].name)).toBeVisible();
-                await expect(page).toHaveURL(new RegExp(paths.project({ projectId: projects[0].id })));
+                expect(page.url()).toContain(paths.project({ projectId: projects[0].id }));
             }
         );
 
@@ -317,7 +317,7 @@ test.describe('Projects', () => {
                 await page.goto(paths.root({}));
 
                 await expect(projectPage.getSelectedProject(projects[0].name)).toBeVisible();
-                await expect(page).toHaveURL(new RegExp(paths.project({ projectId: projects[0].id })));
+                expect(page.url()).toContain(paths.project({ projectId: projects[0].id }));
             }
         );
 
@@ -341,7 +341,8 @@ test.describe('Projects', () => {
 
             await expect(projectPage.welcomeHeader).toBeHidden();
             await expect(projectPage.getSelectedProject(projects[0].name)).toBeVisible();
-            await expect(page).toHaveURL(new RegExp(paths.project({ projectId: projects[0].id })));
+
+            expect(page.url()).toContain(paths.project({ projectId: projects[0].id }));
         });
     });
 
@@ -370,7 +371,8 @@ test.describe('Projects', () => {
             await projectPage.create();
 
             await expect(projectPage.getSelectedProject('Project #1')).toBeVisible();
-            await expect(page).toHaveURL(new RegExp(`/projects/${projects.at(-1)?.id}`));
+
+            expect(page.url()).toContain(paths.project({ projectId: projects[projects.length - 1].id }));
         });
 
         test('Creates a new project via the project details page', async ({ network, page }) => {
@@ -397,7 +399,8 @@ test.describe('Projects', () => {
 
             await expect(page.getByRole('heading', { name: 'Project #1' })).toBeVisible();
             await expect(page.getByRole('listitem')).toHaveCount(projects.length);
-            await expect(page).toHaveURL(new RegExp(`/projects/${projects.at(-1)?.id}`));
+
+            expect(page.url()).toContain(paths.project({ projectId: projects[projects.length - 1].id }));
         });
     });
 
@@ -563,7 +566,8 @@ test.describe('Projects', () => {
         await expect(projectPage.getProjectInTheList(secondProject.name)).toBeHidden();
 
         await expect(projectPage.projectsHeader).toBeHidden();
-        await expect(page).toHaveURL(new RegExp(paths.project({ projectId: project.id })));
+
+        expect(page.url()).toContain(paths.project({ projectId: project.id }));
     });
 
     test('Deletes a project via the project details page (the last project)', async ({ network, page }) => {
