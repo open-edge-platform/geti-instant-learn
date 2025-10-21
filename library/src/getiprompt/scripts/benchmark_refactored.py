@@ -163,6 +163,8 @@ def infer_on_category(
         logger.warning(f"No target samples found for category: {category_name}")
         return 0, 0
     
+    category = target_dataset.category_ids[0]
+
     # Create DataLoader
     dataloader = DataLoader(
         target_dataset,
@@ -240,7 +242,10 @@ def infer_on_category(
         )
         
         # Visualize ground truth
-        gt_masks = visualizer.binary_masks_to_masks(batch.masks_np)
+        gt_masks = visualizer.binary_masks_to_masks(
+            batch.masks_np,
+            class_id=category,
+        )
         if image_size is not None:
             gt_masks = [mask.resize(image_size) for mask in gt_masks]
         
@@ -254,7 +259,7 @@ def infer_on_category(
         metrics_calculators[priors_batch_index](
             predictions=results.masks,
             references=gt_masks,
-            mapping={0: category_name},
+            mapping={category: category_name},
         )
         
         progress.update(batches_task, advance=1)

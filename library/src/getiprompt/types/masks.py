@@ -113,5 +113,10 @@ class Masks(Prompt):
 
     @property
     def mask_shape(self) -> tuple[int, int]:
-        """Get the shape of a mask."""
-        return self._data[0].shape[1:]
+        """Get the shape of a mask."""        
+        # # CODE WILL BE REMOVED, TEMPORARY FIX: 
+        #   find the first non-empty mask and return its shape
+        for mask in self._data.values():
+            if mask.numel() > 0:
+                return mask.shape[1:]
+        return (0, 0)
