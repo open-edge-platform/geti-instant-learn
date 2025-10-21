@@ -99,7 +99,7 @@ class TestPerSegDatasetSampling:
         # Check image properties
         assert isinstance(sample.image, np.ndarray)
         assert sample.image.ndim == 3
-        assert sample.image.shape[0] == 3  # CHW format
+        assert sample.image.shape[2] == 3  # HWC format (H, W, C)
         print(f"\nSample image shape: {sample.image.shape}")
     
     def test_sample_has_mask(self, perseg_dataset):
@@ -108,7 +108,8 @@ class TestPerSegDatasetSampling:
         
         assert sample.masks is not None
         assert isinstance(sample.masks, np.ndarray)
-        assert sample.masks.ndim == 2  # Single mask (H, W) for PerSeg
+        assert sample.masks.ndim == 3  # Multi-instance format (N, H, W)
+        assert sample.masks.shape[0] == 1  # PerSeg has 1 instance
         print(f"\nSample mask shape: {sample.masks.shape}")
     
     def test_sample_metadata(self, perseg_dataset):
@@ -118,8 +119,13 @@ class TestPerSegDatasetSampling:
         # Check metadata exists
         assert sample.categories is not None
         assert sample.category_ids is not None
-        assert isinstance(sample.is_reference, bool)
-        assert isinstance(sample.n_shot, int)
+        # PerSeg is single-instance, so lists have length 1
+        assert isinstance(sample.is_reference, list)
+        assert len(sample.is_reference) == 1
+        assert isinstance(sample.is_reference[0], bool)
+        assert isinstance(sample.n_shot, list)
+        assert len(sample.n_shot) == 1
+        assert isinstance(sample.n_shot[0], int)
         
         print(f"\nSample metadata:")
         print(f"  Category: {sample.categories}")
@@ -134,26 +140,26 @@ class TestPerSegDatasetSampling:
         for i in range(num_samples):
             sample = perseg_dataset[i]
             assert isinstance(sample, GetiPromptSample)
-            assert sample.image.shape[0] == 3
+            assert sample.image.shape[2] == 3  # HWC format
     
     def test_reference_vs_target_samples(self, perseg_dataset):
         """Test that reference and target samples are correctly labeled."""
         # Get all samples
         all_samples = [perseg_dataset[i] for i in range(len(perseg_dataset))]
         
-        # Check reference samples
-        reference_samples = [s for s in all_samples if s.is_reference]
-        target_samples = [s for s in all_samples if not s.is_reference]
+        # Check reference samples (for single-instance, check first element)
+        reference_samples = [s for s in all_samples if s.is_reference[0]]
+        target_samples = [s for s in all_samples if not s.is_reference[0]]
         
         assert len(reference_samples) > 0
         assert len(target_samples) > 0
         
         # Check n_shot values
         for sample in reference_samples:
-            assert sample.n_shot >= 0  # Reference samples have n_shot >= 0
+            assert sample.n_shot[0] >= 0  # Reference samples have n_shot >= 0
         
         for sample in target_samples:
-            assert sample.n_shot == -1  # Target samples have n_shot = -1
+            assert sample.n_shot[0] == -1  # Target samples have n_shot = -1
         
         print(f"\nReference samples: {len(reference_samples)}")
         print(f"Target samples: {len(target_samples)}")
@@ -181,8 +187,8 @@ class TestPerSegDatasetFiltering:
         # Check all samples are reference samples
         for i in range(len(ref_dataset)):
             sample = ref_dataset[i]
-            assert sample.is_reference is True
-            assert sample.n_shot >= 0
+            assert any(sample.is_reference)  # At least one instance is reference
+            assert sample.n_shot[0] >= 0  # Check first instance
         
         print(f"\nReference dataset size: {len(ref_dataset)}")
     
@@ -196,8 +202,8 @@ class TestPerSegDatasetFiltering:
         # Check all samples are target samples
         for i in range(min(5, len(target_dataset))):
             sample = target_dataset[i]
-            assert sample.is_reference is False
-            assert sample.n_shot == -1
+            assert not any(sample.is_reference)  # No instance is reference
+            assert sample.n_shot[0] == -1  # Check first instance
         
         print(f"\nTarget dataset size: {len(target_dataset)}")
     
@@ -211,7 +217,7 @@ class TestPerSegDatasetFiltering:
         # Check all samples are reference samples of the correct category
         for i in range(len(ref_dataset)):
             sample = ref_dataset[i]
-            assert sample.is_reference is True
+            assert any(sample.is_reference)  # At least one instance is reference
             assert category in sample.categories
         
         print(f"\nReference samples for '{category}': {len(ref_dataset)}")
@@ -390,8 +396,8 @@ class TestPerSegDatasetDataFrame:
         assert df is not None
         assert len(df) == len(perseg_dataset)
         
-        # Check required columns
-        required_cols = {"category", "category_id", "image_path", "mask_path", "is_reference", "n_shot"}
+        # Check required columns (updated for multi-instance schema)
+        required_cols = {"categories", "category_ids", "image_path", "mask_paths", "is_reference", "n_shot"}
         assert required_cols.issubset(set(df.columns))
         
         print(f"\nDataFrame shape: {df.shape}")
@@ -404,8 +410,8 @@ class TestPerSegDatasetDataFrame:
         assert ref_df is not None
         assert len(ref_df) > 0
         
-        # Check all are reference samples
-        assert ref_df["is_reference"].all()
+        # Check all are reference samples (is_reference is list[bool])
+        assert all(any(row) for row in ref_df["is_reference"])
         
         print(f"\nReference DataFrame shape: {ref_df.shape}")
     
@@ -416,8 +422,8 @@ class TestPerSegDatasetDataFrame:
         assert target_df is not None
         assert len(target_df) > 0
         
-        # Check all are target samples
-        assert not target_df["is_reference"].any()
+        # Check all are target samples (is_reference is list[bool])
+        assert all(not any(row) for row in target_df["is_reference"])
         
         print(f"\nTarget DataFrame shape: {target_df.shape}")
 
@@ -441,7 +447,8 @@ class TestPerSegDatasetPaths:
         num_samples_to_check = min(5, len(df))
         
         for i in range(num_samples_to_check):
-            mask_path = Path(df["mask_path"][i])
+            mask_paths = df["mask_paths"][i]  # Get list of paths
+            mask_path = Path(mask_paths[0])  # Get first path
             assert mask_path.exists(), f"Mask not found: {mask_path}"
     
     def test_paths_match_category(self, perseg_dataset):
