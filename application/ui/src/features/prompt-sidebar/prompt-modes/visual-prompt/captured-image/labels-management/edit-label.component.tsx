@@ -7,7 +7,6 @@ import { CSSProperties, KeyboardEvent, useRef, useState } from 'react';
 
 import { ActionButton, ColorPickerDialog, DimensionValue, Flex, TextField } from '@geti/ui';
 import { clsx } from 'clsx';
-import { useOnOutsideClick } from 'src/hooks/use-on-click-outside.hook';
 
 import { Label } from './label.interface';
 
@@ -40,12 +39,6 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width }: EditLabe
         }
     };
 
-    const handleClickOutside = () => {
-        handleAccept();
-    };
-
-    //   useOnOutsideClick(containerRef, handleClickOutside);
-
     return (
         <Flex
             gap={'size-50'}
@@ -62,7 +55,6 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width }: EditLabe
                 onColorChange={setColor}
                 size={'M'}
                 ariaLabelPrefix={'New label'}
-                ono
             />
 
             <TextField
