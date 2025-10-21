@@ -5,7 +5,7 @@ import logging
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import literal, select
+from sqlalchemy import func, literal, select
 from sqlalchemy.orm import Session
 
 from db.models import ProjectDB
@@ -64,3 +64,20 @@ class ProjectRepository(BaseRepository):
         """Mark a project entity for deletion (not committed)."""
         logger.debug(f"Deleting project id={project.id} name={project.name}")
         self.session.delete(project)
+
+    def get_paginated(self, offset: int = 0, limit: int = 20) -> tuple[Sequence[ProjectDB], int]:
+        """
+        Retrieve projects with pagination.
+
+        Returns:
+            A tuple of (projects, total_count)
+        """
+        logger.debug(f"Fetching projects with offset={offset}, limit={limit}")
+
+        # Get total count
+        total_count = self.session.scalar(select(func.count()).select_from(ProjectDB)) or 0
+
+        # Get paginated results
+        projects = self.session.scalars(select(ProjectDB).order_by(ProjectDB.name).offset(offset).limit(limit)).all()
+
+        return projects, total_count

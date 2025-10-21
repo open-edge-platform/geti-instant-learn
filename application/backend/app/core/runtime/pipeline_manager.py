@@ -1,8 +1,9 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
-
 import logging
+import queue
 from contextlib import contextmanager
+from uuid import UUID
 
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -13,6 +14,7 @@ from core.runtime.dispatcher import (
     ProjectActivationEvent,
     ProjectDeactivationEvent,
 )
+from core.runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 from core.runtime.pipeline import Pipeline
 from services.project import ProjectService
 
@@ -90,3 +92,19 @@ class PipelineManager:
                         new_cfg = svc.get_pipeline_config(self._pipeline.config.project_id)
                     self._pipeline.update_config(new_cfg)
                     logger.info("Pipeline config updated for project %s", e.project_id)
+
+    def register_webrtc(self, project_id: UUID) -> queue.Queue:
+        """Register webRTC in pipeline."""
+        if self._pipeline is None:
+            raise PipelineNotActiveError("No active pipeline to register to.")
+        if project_id != self._pipeline.config.project_id:
+            raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
+        return self._pipeline.register_webrtc()
+
+    def unregister_webrtc(self, target_queue: queue.Queue, project_id: UUID) -> None:
+        """Unregister webRTC in pipeline."""
+        if self._pipeline is None:
+            raise PipelineNotActiveError("No active pipeline to unregister from.")
+        if project_id != self._pipeline.config.project_id:
+            raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
+        return self._pipeline.unregister_webrtc(queue=target_queue)

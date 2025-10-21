@@ -15,6 +15,7 @@ from services.errors import (
     ResourceNotFoundError,
     ResourceType,
 )
+from services.schemas.base import Pagination
 from services.schemas.project import ProjectSchema, ProjectsListSchema
 
 PROJECT_ID = uuid4()
@@ -23,9 +24,10 @@ SECOND_PROJECT_ID = uuid4()
 SECOND_PROJECT_ID_STR = str(SECOND_PROJECT_ID)
 
 
-def assert_project_schema(data: dict, project_id: str, name: str):
+def assert_project_schema(data: dict, project_id: str, name: str, active: bool = False):
     assert data["id"] == project_id
     assert data["name"] == name
+    assert data["active"] == active
 
 
 @pytest.fixture
@@ -63,7 +65,7 @@ def test_create_project(client, monkeypatch, behavior, expected_status, expect_l
         def create_project(self, payload):
             assert payload.name == "myproj"
             if behavior == "success":
-                return ProjectSchema(id=PROJECT_ID, name="myproj")
+                return ProjectSchema(id=PROJECT_ID, name="myproj", active=True)
             if behavior == "conflict":
                 raise ResourceAlreadyExistsError(
                     resource_type=ResourceType.PROJECT,
@@ -146,7 +148,7 @@ def test_get_active_project(client, monkeypatch, behavior, expected_status, expe
 
         def get_active_project_info(self):
             if behavior == "success":
-                return ProjectSchema(id=PROJECT_ID, name="activeproj")
+                return ProjectSchema(id=PROJECT_ID, name="activeproj", active=True)
             if behavior == "notfound":
                 raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id="active")
             if behavior == "error":
@@ -159,7 +161,7 @@ def test_get_active_project(client, monkeypatch, behavior, expected_status, expe
     if expected_detail:
         assert resp.json()["detail"] == expected_detail
     elif behavior == "success":
-        assert_project_schema(resp.json(), PROJECT_ID_STR, "activeproj")
+        assert_project_schema(resp.json(), PROJECT_ID_STR, "activeproj", active=True)
 
 
 @pytest.mark.parametrize(
@@ -177,15 +179,18 @@ def test_get_projects_list(client, monkeypatch, behavior, expected_status, expec
         def __init__(self, session, config_change_dispatcher):
             pass
 
-        def list_projects(self):
+        def list_projects(self, offset=0, limit=20):
             if behavior == "no_projects":
-                return ProjectsListSchema(projects=[])
-            if behavior == "some_projects":
                 return ProjectsListSchema(
-                    projects=[
-                        ProjectSchema(id=PROJECT_ID, name="proj1"),
-                        ProjectSchema(id=SECOND_PROJECT_ID, name="proj2"),
-                    ]
+                    projects=[], pagination=Pagination(count=0, total=0, offset=offset, limit=limit)
+                )
+            if behavior == "some_projects":
+                projects = [
+                    ProjectSchema(id=PROJECT_ID, name="proj1", active=False),
+                    ProjectSchema(id=SECOND_PROJECT_ID, name="proj2", active=False),
+                ]
+                return ProjectsListSchema(
+                    projects=projects, pagination=Pagination(count=2, total=2, offset=offset, limit=limit)
                 )
             if behavior == "error":
                 raise RuntimeError("boom")
@@ -200,9 +205,39 @@ def test_get_projects_list(client, monkeypatch, behavior, expected_status, expec
     data = resp.json()
     projects_list = data["projects"]
     assert len(projects_list) == expected_count
+    assert "pagination" in data
+    pagination = data["pagination"]
+    assert pagination["count"] == expected_count
+    assert pagination["offset"] == 0
+    assert pagination["limit"] == 20
     if behavior == "some_projects":
         ids = {p["id"] for p in projects_list}
         assert ids == {PROJECT_ID_STR, SECOND_PROJECT_ID_STR}
+
+
+def test_get_projects_list_with_pagination_params(client, monkeypatch):
+    from rest.endpoints import projects as ep_mod
+
+    class FakeService:
+        def __init__(self, session, config_change_dispatcher):
+            pass
+
+        def list_projects(self, offset=0, limit=20):
+            assert offset == 10
+            assert limit == 5
+            projects = [ProjectSchema(id=PROJECT_ID, name="proj1", active=False)]
+            return ProjectsListSchema(projects=projects, pagination=Pagination(count=1, total=15, offset=10, limit=5))
+
+    monkeypatch.setattr(ep_mod, "ProjectService", FakeService)
+    resp = client.get("/api/v1/projects?offset=10&limit=5")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["projects"]) == 1
+    pagination = data["pagination"]
+    assert pagination["count"] == 1
+    assert pagination["total"] == 15
+    assert pagination["offset"] == 10
+    assert pagination["limit"] == 5
 
 
 @pytest.mark.parametrize(
@@ -223,7 +258,7 @@ def test_get_project(client, monkeypatch, behavior, expected_status, expect_payl
         def get_project(self, project_id: UUID):
             assert project_id == PROJECT_ID
             if behavior == "minimal":
-                return ProjectSchema(id=PROJECT_ID, name="minproj")
+                return ProjectSchema(id=PROJECT_ID, name="minproj", active=False)
             if behavior == "notfound":
                 raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
             if behavior == "error":
@@ -234,7 +269,7 @@ def test_get_project(client, monkeypatch, behavior, expected_status, expect_payl
     resp = client.get(f"/api/v1/projects/{PROJECT_ID_STR}")
     assert resp.status_code == expected_status
     if expect_payload:
-        assert_project_schema(resp.json(), PROJECT_ID_STR, "minproj")
+        assert_project_schema(resp.json(), PROJECT_ID_STR, "minproj", active=False)
     else:
         if behavior == "error":
             assert resp.json()["detail"] == "Failed to retrieve project."
@@ -261,7 +296,7 @@ def test_update_project(client, monkeypatch, behavior, expected_status, expect_d
             assert project_id == PROJECT_ID
             assert update_data.name == NEW_NAME
             if behavior == "success":
-                return ProjectSchema(id=PROJECT_ID, name=NEW_NAME)
+                return ProjectSchema(id=PROJECT_ID, name=NEW_NAME, active=False)
             if behavior == "notfound":
                 raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
             if behavior == "error":
@@ -272,7 +307,7 @@ def test_update_project(client, monkeypatch, behavior, expected_status, expect_d
     resp = client.put(f"/api/v1/projects/{PROJECT_ID_STR}", json={"name": NEW_NAME})
     assert resp.status_code == expected_status
     if behavior == "success":
-        assert_project_schema(resp.json(), PROJECT_ID_STR, NEW_NAME)
+        assert_project_schema(resp.json(), PROJECT_ID_STR, NEW_NAME, active=False)
     elif behavior == "error":
         assert resp.json()["detail"] == expect_detail
     elif behavior == "notfound":

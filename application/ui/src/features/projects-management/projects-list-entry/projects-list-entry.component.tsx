@@ -11,9 +11,12 @@ import { AddCircle } from '@geti/ui/icons';
 import { Link } from 'react-router-dom';
 
 import { paths } from '../../../routes/paths';
+import { ActivateProjectDialog } from '../activate-project-dialog/activate-project-dialog.component';
 import { useCreateProject } from '../hooks/use-create-project.hook';
 import { useDeleteProject } from '../hooks/use-delete-project.hook';
+import { useProjectActivityManagement } from '../hooks/use-project-activity-management.hook';
 import { useUpdateProject } from '../hooks/use-update-project.hook';
+import { ProjectActivityStatus } from '../project-activity-status/project-activity-status.component';
 import {
     DeleteProjectDialog,
     PROJECT_ACTIONS,
@@ -53,20 +56,29 @@ const NewProjectCard = ({ projectsNames }: NewProjectCardProps) => {
 
 interface ProjectCardProps {
     project: ProjectType;
+    activeProject: ProjectType | undefined;
     projectNames: string[];
 }
 
-const ProjectCard = ({ project, projectNames }: ProjectCardProps) => {
+const ProjectCard = ({ project, activeProject, projectNames }: ProjectCardProps) => {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
     const [projectIDInEdition, setProjectIdInEdition] = useState<string | null>(null);
     const updateProjectName = useUpdateProject();
     const deleteProject = useDeleteProject();
+    const { isVisible, close, activate, activateConfirmation, deactivate } = useProjectActivityManagement(
+        project.id,
+        activeProject?.id
+    );
 
     const handleAction = (key: Key) => {
         if (key === PROJECT_ACTIONS.RENAME) {
             setProjectIdInEdition(project.id);
         } else if (key === PROJECT_ACTIONS.DELETE) {
             setIsDeleteDialogOpen(true);
+        } else if (key === PROJECT_ACTIONS.ACTIVATE) {
+            activate();
+        } else if (key === PROJECT_ACTIONS.DEACTIVATE) {
+            deactivate();
         }
     };
 
@@ -95,6 +107,12 @@ const ProjectCard = ({ project, projectNames }: ProjectCardProps) => {
         }
     };
 
+    const actions = [
+        PROJECT_ACTIONS.RENAME,
+        PROJECT_ACTIONS.DELETE,
+        project.active ? PROJECT_ACTIONS.DEACTIVATE : PROJECT_ACTIONS.ACTIVATE,
+    ];
+
     return (
         <Link
             to={paths.project({ projectId: project.id })}
@@ -106,26 +124,43 @@ const ProjectCard = ({ project, projectNames }: ProjectCardProps) => {
             <PhotoPlaceholder name={project.name} indicator={project.id} width={'size-800'} height={'size-800'} />
             <View flex={1} paddingStart={'size-200'} paddingEnd={'size-100'}>
                 <Flex justifyContent={'space-between'} alignItems={'center'}>
-                    <Heading UNSAFE_className={styles.projectCardTitle}>
-                        {isInEditionState ? (
-                            <ProjectEdition
-                                projectNames={projectNames}
-                                onBlur={handleBlur}
-                                onResetProjectInEdition={handleResetProjectInEdition}
-                                name={project.name}
-                            />
-                        ) : (
-                            project.name
-                        )}
-                    </Heading>
+                    <Flex direction={'column'}>
+                        <Heading UNSAFE_className={styles.projectCardTitle} marginTop={'size-100'} marginBottom={0}>
+                            {isInEditionState ? (
+                                <ProjectEdition
+                                    projectNames={projectNames}
+                                    onBlur={handleBlur}
+                                    onResetProjectInEdition={handleResetProjectInEdition}
+                                    name={project.name}
+                                />
+                            ) : (
+                                project.name
+                            )}
+                        </Heading>
+                        <View alignSelf={'start'}>
+                            <ProjectActivityStatus isActive={project.active} />
+                        </View>
+                    </Flex>
 
-                    <ProjectActions onAction={handleAction} />
+                    <ProjectActions actions={actions} onAction={handleAction} />
 
                     <DeleteProjectDialog
                         isOpen={isDeleteDialogOpen}
                         onDismiss={() => setIsDeleteDialogOpen(false)}
                         onDelete={handleDelete}
                         projectName={project.name}
+                    />
+                    {/*
+                        Activate Project Dialog is only visible when there is already an active project.
+                        When there is no active project, the dialog is not visible; we just activate the selected
+                        project directly.
+                    */}
+                    <ActivateProjectDialog
+                        isVisible={isVisible}
+                        onClose={close}
+                        activeProjectName={activeProject?.name ?? ''}
+                        inactiveProjectName={project.name}
+                        onActivate={activateConfirmation}
                     />
                 </Flex>
             </View>
@@ -137,6 +172,7 @@ export const ProjectsListEntry = () => {
     const { data } = $api.useSuspenseQuery('get', '/api/v1/projects');
 
     const projectsNames = data.projects.map((project) => project.name);
+    const activeProject = data.projects.find((project) => project.active);
 
     return (
         <Layout>
@@ -159,6 +195,7 @@ export const ProjectsListEntry = () => {
                                 project={project}
                                 key={project.id}
                                 projectNames={projectsNames.filter((name) => name !== project.name)}
+                                activeProject={activeProject}
                             />
                         ))}
                     </Grid>

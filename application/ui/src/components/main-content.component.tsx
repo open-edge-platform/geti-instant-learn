@@ -5,6 +5,8 @@
 
 import { View } from '@geti/ui';
 
+import { useCurrentProject } from '../features/projects-management/hooks/use-current-project.hook';
+import { NotActiveProject } from '../features/stream/not-active-project/not-active-project.component';
 import { NoMediaPlaceholder } from './no-media-placeholder/no-media-placeholder.component';
 
 const NoSourcePlaceholder = () => {
@@ -16,9 +18,11 @@ const NoSourcePlaceholder = () => {
 };
 
 export const MainContent = () => {
-    return (
-        <View gridArea={'main'} backgroundColor={'gray-50'}>
-            <NoSourcePlaceholder />
-        </View>
-    );
+    const { data } = useCurrentProject();
+
+    if (!data.active) {
+        return <NotActiveProject project={data} />;
+    }
+
+    return <NoSourcePlaceholder />;
 };

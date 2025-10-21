@@ -10,12 +10,15 @@ import { Flex, PhotoPlaceholder, Text } from '@geti/ui';
 import { Link } from 'react-router-dom';
 
 import { paths } from '../../../routes/paths';
+import { ActivateProjectDialog } from '../activate-project-dialog/activate-project-dialog.component';
+import { useProjectActivityManagement } from '../hooks/use-project-activity-management.hook';
 import { DeleteProjectDialog, PROJECT_ACTIONS, ProjectActions, ProjectEdition } from './project-actions.component';
 
 import styles from './project-list-item.module.scss';
 
 interface ProjectListItemProps {
     project: ProjectType;
+    activeProject: ProjectType | undefined;
     isInEditMode: boolean;
     onBlur: (projectId: string, newName: string) => void;
     onRename: (projectId: string) => void;
@@ -32,7 +35,13 @@ export const ProjectListItem = ({
     onDelete,
     onResetProjectInEdition,
     projectNames,
+    activeProject,
 }: ProjectListItemProps) => {
+    const { isVisible, close, activate, deactivate, activateConfirmation } = useProjectActivityManagement(
+        project.id,
+        activeProject?.id
+    );
+
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
 
     const handleAction = (key: Key) => {
@@ -40,6 +49,10 @@ export const ProjectListItem = ({
             onRename(project.id);
         } else if (key === PROJECT_ACTIONS.DELETE) {
             setIsDeleteDialogOpen(true);
+        } else if (key === PROJECT_ACTIONS.ACTIVATE) {
+            activate();
+        } else if (key === PROJECT_ACTIONS.DEACTIVATE) {
+            deactivate();
         }
     };
 
@@ -57,10 +70,16 @@ export const ProjectListItem = ({
         }
     };
 
+    const projectActions = [
+        PROJECT_ACTIONS.RENAME,
+        PROJECT_ACTIONS.DELETE,
+        project.active ? PROJECT_ACTIONS.DEACTIVATE : PROJECT_ACTIONS.ACTIVATE,
+    ];
+
     return (
         <li className={styles.projectListItem} aria-label={`Project ${project.name}`}>
             <Link to={paths.project({ projectId: project.id })} onClick={handleItemClick}>
-                <Flex justifyContent='space-between' alignItems='center' marginX={'size-200'}>
+                <Flex justifyContent='space-between' alignItems='center'>
                     {isInEditMode ? (
                         <ProjectEdition
                             name={project.name}
@@ -79,7 +98,7 @@ export const ProjectListItem = ({
                             <Text>{project.name}</Text>
                         </Flex>
                     )}
-                    <ProjectActions onAction={handleAction} />
+                    <ProjectActions actions={projectActions} onAction={handleAction} />
                 </Flex>
             </Link>
             <DeleteProjectDialog
@@ -87,6 +106,18 @@ export const ProjectListItem = ({
                 onDismiss={() => setIsDeleteDialogOpen(false)}
                 onDelete={handleDelete}
                 projectName={project.name}
+            />
+            {/*
+                Activate Project Dialog is only visible when there is already an active project.
+                When there is no active project, the dialog is not visible; we just activate the selected project
+                directly.
+            */}
+            <ActivateProjectDialog
+                isVisible={isVisible}
+                onClose={close}
+                activeProjectName={activeProject?.name ?? ''}
+                inactiveProjectName={project.name}
+                onActivate={activateConfirmation}
             />
         </li>
     );
