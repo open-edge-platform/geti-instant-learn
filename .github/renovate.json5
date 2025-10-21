@@ -91,7 +91,7 @@
       matchManagers: ["dockerfile"],
       matchDatasources: ["docker"],
       matchPackageNames: ["ubuntu", "debian", "alpine"],
-      schedule: ["0 0 1 */3 *"], // every 3 months
+      schedule: ["* 0 1 */3 *"], // every 3 months
       separateMajorMinor: true,
     },
   ],
