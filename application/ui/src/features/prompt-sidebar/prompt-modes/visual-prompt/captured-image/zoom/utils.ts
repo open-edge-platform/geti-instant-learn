@@ -54,9 +54,3 @@ export const getZoomState =
             translate: { x: newTranslateX, y: newTranslateY },
         };
     };
-
-//TODO: smart-tools/utils package will be added in separate pr
-// after that this functions will be removed and used from there
-export function clampBetween(min: number, value: number, max: number): number {
-    return Math.max(min, Math.min(max, value));
-}

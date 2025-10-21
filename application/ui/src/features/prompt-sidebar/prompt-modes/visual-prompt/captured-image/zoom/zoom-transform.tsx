@@ -5,11 +5,12 @@
 
 import { ReactNode, useRef } from 'react';
 
+import { clampBetween } from '@geti/smart-tools/utils';
 import { createUseGesture, dragAction, pinchAction, wheelAction } from '@use-gesture/react';
 
 import { useContainerSize, usePanning, useSyncZoom, useWheelPanning } from './hooks';
 import { Point, Size } from './types';
-import { clampBetween, getZoomState } from './utils';
+import { getZoomState } from './utils';
 import { useSetZoom, useZoom } from './zoom.provider';
 
 import classes from './zoom.module.scss';
