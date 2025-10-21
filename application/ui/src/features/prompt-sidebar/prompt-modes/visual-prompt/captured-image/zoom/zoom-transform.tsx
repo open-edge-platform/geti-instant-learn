@@ -17,13 +17,12 @@ import classes from './zoom.module.scss';
 type ZoomTransformProps = {
     target: Size;
     children: ReactNode;
-    zoomOutDivisor?: number;
     zoomInMultiplier?: number;
 };
 
 const useGesture = createUseGesture([wheelAction, pinchAction, dragAction]);
 
-export const ZoomTransform = ({ children, target, zoomInMultiplier = 10, zoomOutDivisor = 2 }: ZoomTransformProps) => {
+export const ZoomTransform = ({ children, target, zoomInMultiplier = 10 }: ZoomTransformProps) => {
     const zoom = useZoom();
     const { setZoom } = useSetZoom();
     const { isPanning, setIsPanning } = usePanning();
@@ -31,7 +30,7 @@ export const ZoomTransform = ({ children, target, zoomInMultiplier = 10, zoomOut
     const containerSize = useContainerSize(containerRef);
     const { onPointerDown, onPointerUp, onPointerMove, onMouseLeave, isGrabbing } = useWheelPanning(setIsPanning);
 
-    useSyncZoom({ container: containerSize, zoomInMultiplier, zoomOutDivisor, target });
+    useSyncZoom({ container: containerSize, zoomInMultiplier, target });
 
     const cursorIcon = isPanning && isGrabbing ? 'grabbing' : isPanning ? 'grab' : 'default';
 
