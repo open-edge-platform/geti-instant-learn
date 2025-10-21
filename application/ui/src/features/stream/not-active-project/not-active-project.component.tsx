@@ -10,13 +10,13 @@ import { Button, Flex, Text, View } from '@geti/ui';
 import { ActivateProjectDialog } from '../../projects-management/activate-project-dialog/activate-project-dialog.component';
 import { useProjectActivityManagement } from '../../projects-management/hooks/use-project-activity-management.hook';
 
-import styles from './no-active-project.module.scss';
+import styles from './not-active-project.module.scss';
 
-interface NoActiveProjectProps {
+interface NotActiveProjectProps {
     project: ProjectType;
 }
 
-export const NoActiveProject = ({ project }: NoActiveProjectProps) => {
+export const NotActiveProject = ({ project }: NotActiveProjectProps) => {
     const { data } = $api.useSuspenseQuery('get', '/api/v1/projects');
     const activeProject = data.projects.find(({ active }) => active);
 

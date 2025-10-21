@@ -6,7 +6,7 @@
 import { View } from '@geti/ui';
 
 import { useCurrentProject } from '../features/projects-management/hooks/use-current-project.hook';
-import { NoActiveProject } from '../features/stream/no-active-project/no-active-project.component';
+import { NotActiveProject } from '../features/stream/not-active-project/not-active-project.component';
 import { NoMediaPlaceholder } from './no-media-placeholder/no-media-placeholder.component';
 
 const NoSourcePlaceholder = () => {
@@ -21,7 +21,7 @@ export const MainContent = () => {
     const { data } = useCurrentProject();
 
     if (!data.active) {
-        return <NoActiveProject project={data} />;
+        return <NotActiveProject project={data} />;
     }
 
     return <NoSourcePlaceholder />;
