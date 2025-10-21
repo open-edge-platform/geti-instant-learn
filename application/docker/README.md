@@ -30,7 +30,7 @@ The `CONTAINER_PORT` environment variable defines the port inside the container 
 
 ### Docker volume for persistent storage
 Environment variable `DOCKER_VOLUME` is used to tell Docker volume name for persistent storage. Default is empty string (no volume).
-If specified, the volume will be mounted to `/app/data` inside the container. 
+If specified, the volume will be mounted to `WORKDIR_PATH/data` inside the container. 
 
 ### Webcam access
 Environment variable `WEBCAM_DEVICE` is used to tell location of webcam device on host machine. Default is `/dev/video0`.
