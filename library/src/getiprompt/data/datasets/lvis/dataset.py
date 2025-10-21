@@ -45,7 +45,7 @@ class LVISDataset(GetiPromptDataset):
         ... )
         >>> sample = dataset[0]
         >>> sample.image.shape
-        (3, 480, 640)
+        (480, 640, 3)  # HWC format for model preprocessors
         >>> sample.masks.shape
         (3, 480, 640)  # 3 instances in this image
         >>> sample.categories

@@ -22,7 +22,10 @@ class GetiPromptSample:
     One sample = one image with N instances.
     
     Attributes:
-        image (np.ndarray | torch.Tensor): Input image tensor with shape (C, H, W). Required.
+        image (np.ndarray | torch.Tensor): Input image with shape:
+            - numpy: (H, W, C) - Channel-last format for model preprocessors
+            - torch: (C, H, W) - Channel-first format
+            Required.
         image_path (str): Path to the source image file. Required.
         masks (np.ndarray | torch.Tensor | None): N masks with shape (N, H, W) - all same H×W. Defaults to None.
         bboxes (np.ndarray | torch.Tensor | None): Bounding boxes with shape (N, 4). Defaults to None.
@@ -32,6 +35,10 @@ class GetiPromptSample:
         mask_paths (list[str] | None): List of N paths to mask files. Defaults to None.
         is_reference (list[bool]): Reference flag(s) for each instance. Defaults to [False].
         n_shot (list[int]): Shot number(s) for each instance. Defaults to [-1].
+    
+    Note:
+        Images are stored in HWC format (numpy) for compatibility with model preprocessors
+        (HuggingFace, SAM transforms). Future refactoring may move preprocessing to dataset.
     
     Note:
         - For single-instance (PerSeg): N=1
@@ -45,7 +52,7 @@ class GetiPromptSample:
         >>> import numpy as np
         >>> from getiprompt.data.sample import GetiPromptSample
         >>> sample = GetiPromptSample(
-        ...     image=np.random.randint(0, 255, (3, 224, 224), dtype=np.uint8),
+        ...     image=np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8),  # HWC format
         ...     image_path="path/to/image.jpg",
         ...     masks=np.random.randint(0, 2, (1, 224, 224), dtype=np.uint8),
         ...     bboxes=np.array([[10, 20, 100, 120]], dtype=np.float32),
@@ -57,7 +64,7 @@ class GetiPromptSample:
         ...     mask_paths=["path/to/mask.png"]
         ... )
         >>> sample.image.shape
-        (3, 224, 224)
+        (224, 224, 3)  # HWC format
         >>> sample.masks.shape
         (1, 224, 224)
         >>> sample.is_reference
@@ -67,7 +74,7 @@ class GetiPromptSample:
         
         Multi-instance (LVIS with 3 sheep):
         >>> sample = GetiPromptSample(
-        ...     image=np.random.randint(0, 255, (3, 512, 512), dtype=np.uint8),
+        ...     image=np.random.randint(0, 255, (512, 512, 3), dtype=np.uint8),  # HWC format
         ...     image_path="path/to/lvis_image.jpg",
         ...     masks=np.random.randint(0, 2, (3, 512, 512), dtype=np.uint8),
         ...     bboxes=np.array([[10, 20, 110, 120], [200, 150, 350, 270], [400, 300, 480, 390]], dtype=np.float32),
@@ -77,7 +84,7 @@ class GetiPromptSample:
         ...     n_shot=[-1, -1, -1]
         ... )
         >>> sample.image.shape
-        (3, 512, 512)
+        (512, 512, 3)  # HWC format
         >>> sample.masks.shape
         (3, 512, 512)
         >>> sample.is_reference
@@ -85,7 +92,7 @@ class GetiPromptSample:
         
         Only bboxes (no masks - generate masks later with SAM):
         >>> sample = GetiPromptSample(
-        ...     image=np.random.randint(0, 255, (3, 512, 512), dtype=np.uint8),
+        ...     image=np.random.randint(0, 255, (512, 512, 3), dtype=np.uint8),  # HWC format
         ...     image_path="path/to/image.jpg",
         ...     bboxes=np.array([[10, 20, 110, 120], [200, 150, 350, 270]], dtype=np.float32),
         ...     categories=["cat", "dog"],
@@ -102,7 +109,7 @@ class GetiPromptSample:
         
         Only points (no masks or bboxes):
         >>> sample = GetiPromptSample(
-        ...     image=np.random.randint(0, 255, (3, 512, 512), dtype=np.uint8),
+        ...     image=np.random.randint(0, 255, (512, 512, 3), dtype=np.uint8),  # HWC format
         ...     image_path="path/to/target.jpg",
         ...     points=np.array([[100, 150], [300, 400]], dtype=np.float32),
         ...     categories=["person", "person"],

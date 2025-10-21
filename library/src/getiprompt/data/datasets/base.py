@@ -37,7 +37,7 @@ class GetiPromptDataset(TorchDataset, ABC):
         100
         >>> sample = dataset[0]  # Get first sample (GetiPromptSample)
         >>> sample.image.shape
-        (3, 224, 224)
+        (224, 224, 3)  # HWC format for model preprocessors
     """
     
     def __init__(self, n_shots: int = 1) -> None:
@@ -96,12 +96,26 @@ class GetiPromptDataset(TorchDataset, ABC):
         
         Loads the image and masks from disk and returns a GetiPromptSample.
         Supports both single-instance (PerSeg) and multi-instance (LVIS) datasets.
+        
+        TODO: Move image preprocessing (resize, normalize) to dataset level
+              Currently models handle preprocessing (HuggingFace, SAM transforms).
+              Future refactoring should:
+              1. Add optional transform parameter to __init__
+              2. Apply transforms here in __getitem__
+              3. Return images in CHW format consistently
+              4. Remove preprocessing logic from model code
+              This would improve:
+              - Consistency across models
+              - Testability (can test transforms separately)
+              - Performance (preprocessing once vs. per-batch)
+              - Clarity (separation of concerns)
         """
         # Get raw sample from DataFrame
         raw_sample = self.df.row(index, named=True)
         
         # Load image (once per sample!)
-        image = read_image(raw_sample["image_path"], as_tensor=False)  # numpy array
+        # Returns HWC format for model preprocessors (HuggingFace, SAM)
+        image = read_image(raw_sample["image_path"], as_tensor=False)  # numpy array, (H, W, C)
         
         # Load masks using dataset-specific implementation
         masks = self._load_masks(raw_sample)  # (N, H, W) or None

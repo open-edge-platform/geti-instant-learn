@@ -45,7 +45,7 @@ class PerSegDataset(GetiPromptDataset):
         ... )
         >>> sample = dataset[0]
         >>> sample.image.shape
-        (3, 256, 256)
+        (256, 256, 3)  # HWC format for model preprocessors
         >>> sample.masks.shape
         (1, 256, 256)  # Single instance
         >>> sample.categories
