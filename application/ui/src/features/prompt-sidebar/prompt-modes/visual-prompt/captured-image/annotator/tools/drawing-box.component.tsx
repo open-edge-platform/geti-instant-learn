@@ -2,13 +2,31 @@
  * Copyright (C) 2025 Intel Corporation
  * SPDX-License-Identifier: Apache-2.0
  */
+
+import { PointerEvent, useEffect, useRef, useState } from 'react';
+
+import { type KeyboardEvent as ReactKeyboardEvent } from '@geti/ui';
+
+import { DEFAULT_ANNOTATION_STYLES, isLeftButton } from '../../utils';
+import {
+    clampBox,
+    clampPointBetweenImage,
+    Point,
+    pointsToRect,
+    Rect as RectInterface,
+    RegionOfInterest,
+} from '../../zoom/utils';
+import { Crosshair } from './drawing-box-tool/crosshair/crosshair.component';
+import { useCrosshair } from './drawing-box-tool/crosshair/use-crosshair.hook';
+import { getRelativePoint } from './drawing-box-tool/crosshair/utils';
+import { SvgToolCanvas } from './svg-tool-canvas.component';
+
 enum PointerType {
     Mouse = 'mouse',
     Pen = 'pen',
     Touch = 'touch',
 }
 
-const CURSOR_OFFSET = '7 8';
 interface DrawingBoxInterface {
     onComplete: (shapes: RectInterface[]) => void;
     roi: RegionOfInterest;
@@ -16,6 +34,7 @@ interface DrawingBoxInterface {
     zoom: number;
 }
 
+//TODO: add selectionCursor
 export const DrawingBox = ({ roi, zoom, image, onComplete }: DrawingBoxInterface) => {
     const [startPoint, setStartPoint] = useState<Point | null>(null);
     const [boundingBox, setBoundingBox] = useState<RectInterface | null>(null);
@@ -106,9 +125,6 @@ export const DrawingBox = ({ roi, zoom, image, onComplete }: DrawingBoxInterface
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerDown={onPointerDown}
-            style={{
-                cursor: `url(${selectionCursor}) ${CURSOR_OFFSET}, auto`,
-            }}
         >
             {boundingBox ? (
                 <Rectangle

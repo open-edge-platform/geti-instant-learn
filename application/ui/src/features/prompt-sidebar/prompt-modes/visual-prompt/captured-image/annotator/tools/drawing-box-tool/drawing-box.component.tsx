@@ -8,10 +8,10 @@ import { PointerEvent, useEffect, useRef, useState } from 'react';
 import { clampBox, clampPointBetweenImage, pointsToRect } from '@geti/smart-tools/utils';
 import { type KeyboardEvent as ReactKeyboardEvent } from '@geti/ui';
 
-import selectionCursor from '../../../../assets/icons/selection.svg?url';
+// import selectionCursor from '../../../../assets/icons/selection.svg?url';
+import { DEFAULT_ANNOTATION_STYLES, isLeftButton } from '../../../utils';
 import { Rectangle } from '../../shapes/rectangle.component';
 import { Point, Rect as RectInterface, RegionOfInterest } from '../../types';
-import { DEFAULT_ANNOTATION_STYLES, isLeftButton } from '../../utils';
 import { SvgToolCanvas } from '../svg-tool-canvas.component';
 import { getRelativePoint } from '../utils';
 import { Crosshair } from './crosshair/crosshair.component';
@@ -114,6 +114,10 @@ export const DrawingBox = ({ roi, zoom, image, onComplete }: DrawingBoxInterface
         };
     }, []);
 
+    //  style={{
+    //     cursor: `url(${selectionCursor}) ${CURSOR_OFFSET}, auto`,
+    // }}
+
     return (
         <SvgToolCanvas
             image={image}
@@ -121,9 +125,6 @@ export const DrawingBox = ({ roi, zoom, image, onComplete }: DrawingBoxInterface
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerDown={onPointerDown}
-            style={{
-                cursor: `url(${selectionCursor}) ${CURSOR_OFFSET}, auto`,
-            }}
         >
             {boundingBox ? (
                 <Rectangle

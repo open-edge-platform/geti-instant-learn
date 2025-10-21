@@ -30,7 +30,7 @@ export const CapturedImageLayout = ({ image }: CapturedImageLayoutProps) => {
             rows={[minmax('size-500', 'auto'), '1fr', 'size-500']}
             height={'100%'}
         >
-            <AnnotatorProvider>
+            <AnnotatorProvider size={size} image={image}>
                 <ZoomProvider>
                     <View gridArea={'labels'} backgroundColor={'gray-200'} paddingX={'size-100'} paddingY={'size-50'}>
                         <Labels />

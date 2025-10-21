@@ -12,6 +12,7 @@ import { ZoomManagement } from './zoom-management.component';
 export const CapturedImageActions = () => {
     return (
         <Flex height={'100%'} alignItems={'center'} justifyContent={'end'} gap={'size-100'}>
+            <AnnotatorTools />
             <ToggleAnnotationsVisibility />
             <CanvasAdjustments />
             <ZoomManagement />

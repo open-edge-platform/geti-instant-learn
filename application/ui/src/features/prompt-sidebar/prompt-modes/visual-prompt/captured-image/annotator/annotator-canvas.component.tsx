@@ -5,6 +5,7 @@
 
 import { CapturedImageType } from '../../types';
 import { ZoomTransform } from '../zoom/zoom-transform';
+import { ToolManager } from './tools/tool-manager.component';
 
 interface AnnotatorCanvasProps {
     image: CapturedImageType;
@@ -20,6 +21,7 @@ export const AnnotatorCanvas = ({ image, size }: AnnotatorCanvasProps) => {
                     alt={image.toString()}
                     style={{ height: '100%', width: '100%', objectFit: 'contain' }}
                 />
+                <ToolManager />
             </div>
         </ZoomTransform>
     );
