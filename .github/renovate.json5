@@ -72,28 +72,6 @@
       schedule: ["* * 1 * *"], // monthly, 1st day of month
       separateMajorMinor: true, // separate PRs for major updates
     },
-
-    // Dockerfile - Python images (if used)
-    {
-      enabled: true,
-      groupName: "Python Docker images",
-      matchManagers: ["dockerfile"],
-      matchDatasources: ["docker"],
-      matchPackageNames: ["python", "python/python"],
-      schedule: ["* * * * 0"], // weekly (Sunday)
-      separateMajorMinor: false,
-    },
-
-    // Dockerfile - Ubuntu/Debian images (stable, less frequent)
-    {
-      enabled: true,
-      groupName: "OS base images",
-      matchManagers: ["dockerfile"],
-      matchDatasources: ["docker"],
-      matchPackageNames: ["ubuntu", "debian", "alpine"],
-      schedule: ["* 0 1 */3 *"], // every 3 months
-      separateMajorMinor: true,
-    },
   ],
 
   // Enable security upgrades
