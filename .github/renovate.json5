@@ -31,7 +31,7 @@
   // `matchBaseBranches` in specific rule
   baseBranches: ["main"],
 
-  enabledManagers: ["github-actions", "pep621", "dockerfile"],
+  enabledManagers: ["github-actions", "pep621", "dockerfile", "npm"],
 
   // Set limit to 10
   ignorePresets: [":prHourlyLimit2"],
@@ -71,6 +71,25 @@
       matchPackagePatterns: ["*"],
       schedule: ["* * 1 * *"], // monthly, 1st day of month
       separateMajorMinor: true, // separate PRs for major updates
+    },
+    // NPM - production dependencies
+    {
+      enabled: true,
+      groupName: "NPM production dependencies",
+      matchManagers: ["npm"],
+      matchDepTypes: ["dependencies"],
+      schedule: ["* * * * 0"], // weekly (Sunday)
+      separateMajorMinor: true, // separate PRs for major updates
+    },
+
+    // NPM - development dependencies (less critical)
+    {
+      enabled: true,
+      groupName: "NPM dev dependencies",
+      matchManagers: ["npm"],
+      matchDepTypes: ["devDependencies"],
+      schedule: ["* * 15 * *"], // 15th day of month
+      separateMajorMinor: false, // group all dev updates together
     },
   ],
 
