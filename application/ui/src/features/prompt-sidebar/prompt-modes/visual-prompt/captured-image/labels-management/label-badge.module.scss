@@ -6,7 +6,6 @@
 .badge {
     background-color: var(--labelBgColor);
     border-radius: var(--spectrum-alias-border-radius-regular);
-    min-width: 0;
     padding: var(--spectrum-global-dimension-size-50) var(--spectrum-global-dimension-size-100);
     --foregroundColor: lch(from var(--labelBgColor) calc((50 - l) * infinity) 0 0);
     --spectrum-high-contrast-button-text: var(--foregroundColor);
@@ -43,11 +42,11 @@
 
 .buttonText {
     color: var(--foregroundColor);
-    text-align: center;
-    width: min-content;
+    text-align: left;
     text-wrap: nowrap;
     text-overflow: ellipsis;
     white-space: nowrap;
     overflow: hidden;
-    max-width: var(--spectrum-global-dimension-size-1200);
+    min-width: var(--spectrum-global-dimension-size-400);
+    max-width: var(--spectrum-global-dimension-size-1000);
 }
