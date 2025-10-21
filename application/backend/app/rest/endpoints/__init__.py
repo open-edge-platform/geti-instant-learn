@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from . import projects, prompts, sinks, sources, webrtc
+from . import projects, prompts, sinks, sources, webrtc, frames
 
-__all__ = ["projects", "prompts", "sinks", "sources", "webrtc"]
+__all__ = ["frames", "projects", "prompts", "sinks", "sources", "webrtc"]

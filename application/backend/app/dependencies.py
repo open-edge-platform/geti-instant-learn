@@ -18,6 +18,11 @@ from alembic.config import Config
 from core.runtime.dispatcher import ConfigChangeDispatcher
 from settings import get_settings
 from webrtc.manager import WebRTCManager
+from repositories.frame import FrameRepository
+from services.frame import FrameService
+from core.runtime.pipeline_manager import PipelineManager
+
+
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -82,6 +87,11 @@ def run_db_migrations() -> None:
         raise
 
 
+def get_pipeline_manager(request: Request) -> PipelineManager:
+    """Dependency that provides access to the PipelineManager."""
+    return request.app.state.pipeline_manager
+
+
 def get_webrtc_manager(request: Request) -> WebRTCManager:
     """Provides the global WebRTCManager instance from FastAPI application's state."""
     return request.app.state.webrtc_manager
@@ -92,4 +102,17 @@ def get_config_dispatcher(request: Request) -> ConfigChangeDispatcher:
     return request.app.state.config_dispatcher
 
 
+
 ConfigChangeDispatcherDep = Annotated[ConfigChangeDispatcher, Depends(get_config_dispatcher)]
+
+
+def get_frame_repository() -> FrameRepository:
+    """Dependency that provides a FrameRepository instance."""
+    return FrameRepository()
+
+def get_frame_service(
+    pipeline_manager: Annotated[PipelineManager, Depends(get_pipeline_manager)],
+    frame_repo: Annotated[FrameRepository, Depends(get_frame_repository)]
+) -> FrameService:
+    """Dependency that provides a FrameService instance."""
+    return FrameService(pipeline_manager, frame_repo)

@@ -16,7 +16,12 @@ class ResourceType(str, Enum):
     PROJECT = "Project"
 
 
-class ResourceError(Exception):
+class ServiceError(Exception):
+    """Base exception for service-related errors."""
+    pass
+
+
+class ResourceError(ServiceError):
     """Base exception for resource-related errors."""
 
     def __init__(self, resource_type: ResourceType, resource_id: str | None, message: str):
