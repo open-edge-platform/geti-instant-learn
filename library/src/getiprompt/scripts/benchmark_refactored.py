@@ -127,29 +127,6 @@ def save_priors(prior_images: list[Image], prior_masks: list[Masks], output_path
         overlay = cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR)
         cv2.imwrite(str(output_path_obj / f"prior_{i}.png"), overlay)
 
-
-def get_category_dataset(
-    dataset: GetiPromptDataset, 
-    category: str, 
-    is_reference: bool = False,
-) -> GetiPromptDataset:
-    """Get a filtered dataset for a specific category.
-
-    This is a convenience wrapper around the base class methods.
-
-    Args:
-        dataset: The GetiPromptDataset
-        category: Category name to filter
-        is_reference: If True, get only reference samples; if False, get only target samples
-
-    Returns:
-        Filtered GetiPromptDataset for the category
-    """
-    if is_reference:
-        return dataset.get_reference_dataset(category=category)
-    return dataset.get_target_dataset(category=category)
-
-
 def infer_on_category(
     dataset: GetiPromptDataset,
     model: Model,
@@ -180,7 +157,7 @@ def infer_on_category(
         The number of samples that were processed and the total time it took.
     """
     # Get target samples for this category
-    target_dataset = get_category_dataset(dataset, category_name, is_reference=False)
+    target_dataset = dataset.get_target_dataset(category=category_name)
     
     if len(target_dataset) == 0:
         logger.warning(f"No target samples found for category: {category_name}")
@@ -263,7 +240,7 @@ def infer_on_category(
         )
         
         # Visualize ground truth
-        gt_masks = visualizer.arrays_to_masks(batch.masks_np)
+        gt_masks = visualizer.binary_masks_to_masks(batch.masks_np)
         if image_size is not None:
             gt_masks = [mask.resize(image_size) for mask in gt_masks]
         
@@ -308,12 +285,7 @@ def learn_from_category(
         Tuple of (reference_images, reference_priors) used for learning
     """
     # Get reference samples for this category
-    reference_dataset = get_category_dataset(
-        dataset, 
-        category_name, 
-        is_reference=True
-    )
-    
+    reference_dataset = dataset.get_reference_dataset(category=category_name)
     if len(reference_dataset) == 0:
         raise ValueError(f"No reference samples found for category: {category_name}")
     
