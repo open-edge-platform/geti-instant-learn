@@ -398,6 +398,7 @@ test.describe('Projects', () => {
             await projectPage.create();
 
             await expect(page.getByRole('heading', { name: 'Project #1' })).toBeVisible();
+            await projectPage.openProjectManagementPanel();
             await expect(page.getByRole('listitem')).toHaveCount(projects.length);
 
             expect(page.url()).toContain(paths.project({ projectId: projects[projects.length - 1].id }));
