@@ -20,10 +20,72 @@ logger = logging.getLogger(__name__)
     path="/{project_id}/frames:capture",
     status_code=status.HTTP_201_CREATED,
     responses={
-        status.HTTP_201_CREATED: {"description": "Frame captured successfully"},
-        status.HTTP_404_NOT_FOUND: {"description": "Project not found or no connected source"},
-        status.HTTP_400_BAD_REQUEST: {"description": "Project is not active or frame capture failed"},
-        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Internal server error"},
+        status.HTTP_201_CREATED: {
+            "description": "Frame captured successfully",
+            "headers": {
+                "Location": {
+                    "description": "Relative URL to retrieve the captured frame",
+                    "schema": {"type": "string"},
+                    "example": "/projects/123e4567-e89b-12d3-a456-426614174000/"
+                    "frames/550e8400-e29b-41d4-a716-446655440000",
+                }
+            },
+            "content": {
+                "application/json": {"example": {"message": "Frame captured. See Location header for retrieval URL."}}
+            },
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Project not found or no connected source",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "project_missing": {
+                            "summary": "Project not found",
+                            "value": {
+                                "detail": "Resource PROJECT with id 123e4567-e89b-12d3-a456-426614174000 not found"
+                            },
+                        },
+                        "source_missing": {
+                            "summary": "No connected source",
+                            "value": {
+                                "detail": "Project 123e4567-e89b-12d3-a456-426614174000 has no connected source. "
+                                "Please connect a source before capturing frames."
+                            },
+                        },
+                    }
+                }
+            },
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Project is not active or frame capture failed",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "inactive": {
+                            "summary": "Inactive project",
+                            "value": {
+                                "detail": "Cannot capture frame: project 123e4567-e89b-12d3-a456-426614174000 is "
+                                "not active. Please activate the project before capturing frames."
+                            },
+                        },
+                        "timeout": {
+                            "summary": "Capture timeout",
+                            "value": {"detail": "No frame received within 5.0 seconds. Pipeline may not be running."},
+                        },
+                        "generic_failure": {
+                            "summary": "Other failure",
+                            "value": {"detail": "Frame capture failed: internal processing error"},
+                        },
+                    }
+                }
+            },
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "Internal server error",
+            "content": {
+                "application/json": {"example": {"detail": "An unexpected error occurred while capturing the frame"}}
+            },
+        },
     },
 )
 def capture_frame(project_id: UUID, frame_service: Annotated[FrameService, Depends(get_frame_service)]) -> Response:
@@ -56,8 +118,30 @@ def capture_frame(project_id: UUID, frame_service: Annotated[FrameService, Depen
     path="/{project_id}/frames/{frame_id}",
     status_code=status.HTTP_200_OK,
     responses={
-        status.HTTP_200_OK: {"description": "Frame retrieved successfully", "content": {"image/jpeg": {}}},
-        status.HTTP_404_NOT_FOUND: {"description": "Frame or project not found"},
+        status.HTTP_200_OK: {
+            "description": "Frame retrieved successfully",
+            "content": {
+                "image/jpeg": {
+                    "examples": {
+                        "sample": {
+                            "summary": "Example JPEG (truncated)",
+                            "value": "FFD8FFE000104A46494600010100000100010000FFDB...",
+                        }
+                    }
+                }
+            },
+            "headers": {
+                "Content-Type": {
+                    "description": "MIME type of the returned frame",
+                    "schema": {"type": "string"},
+                    "example": "image/jpeg",
+                }
+            },
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Frame or project not found",
+            "content": {"application/json": {"example": {"detail": "Frame not found"}}},
+        },
     },
 )
 def get_frame(
