@@ -7,6 +7,7 @@ import pytest
 from core.components.broadcaster import FrameBroadcaster
 from core.components.factories.components import ComponentFactory
 from core.components.processor import Processor
+from core.components.schemas.processor import InputData
 from core.components.sink import Sink
 from core.components.source import Source
 from core.runtime.pipeline import Pipeline
@@ -21,10 +22,12 @@ class MockComponentFactory(ComponentFactory):
         self.created_processors = []
         self.created_sinks = []
 
-    def create_source(self, in_queue: Queue, source_config: Any) -> Mock:
+    def create_source(
+        self, in_queue: Queue, source_config: Any, inbound_broadcaster: FrameBroadcaster[InputData] | None = None
+    ) -> Mock:
         mock_source = Mock(spec=Source)
         mock_source.stop = Mock()
-        self.created_sources.append((mock_source, in_queue, source_config))
+        self.created_sources.append((mock_source, in_queue, source_config, inbound_broadcaster))
         return mock_source
 
     def create_processor(self, in_queue: Queue, broadcaster: FrameBroadcaster, model_config: Any) -> Mock:
@@ -67,9 +70,22 @@ class TestPipeline:
         assert len(mock_factory.created_processors) == 1
         assert len(mock_factory.created_sinks) == 1
 
-        _, _, source_config = mock_factory.created_sources[0]
+        _, _, source_config, inbound_broadcaster = mock_factory.created_sources[0]
 
         assert source_config == mock_config.reader
+        assert inbound_broadcaster is not None
+
+    def test_pipeline_registers_and_unregisters_inbound_consumer(self, mock_config, mock_factory):
+        pipeline = Pipeline(mock_config, component_factory=mock_factory)
+
+        # Register a consumer
+        consumer_queue = pipeline.register_inbound_consumer()
+        assert isinstance(consumer_queue, Queue)
+
+        # Unregister the consumer
+        pipeline.unregister_inbound_consumer(consumer_queue)
+
+        pipeline.stop()
 
     def test_pipeline_start_creates_threads_for_all_components(self, mock_config, mock_factory):
         pipelines = Pipeline(mock_config, component_factory=mock_factory)
@@ -117,6 +133,11 @@ class TestPipeline:
 
             # Should create one new source, adding 1 to a created source when the job started.
             assert len(mock_factory.created_sources) == 2
+
+            # Verify the new source receives the same inbound broadcaster
+            _, _, _, first_broadcaster = mock_factory.created_sources[0]
+            _, _, _, second_broadcaster = mock_factory.created_sources[1]
+            assert first_broadcaster is second_broadcaster
 
             # Should not create new pipeline or sink:
             assert len(mock_factory.created_processors) == 1
