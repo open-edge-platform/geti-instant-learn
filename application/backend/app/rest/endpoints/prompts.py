@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 @projects_router.post(
     path="/{project_id}/prompts",
+    tags=["Prompts"],
     status_code=status.HTTP_201_CREATED,
     responses={
         status.HTTP_201_CREATED: {
@@ -41,6 +42,7 @@ def create_prompt(
 
 @projects_router.delete(
     path="/{project_id}/prompts/{prompt_id}",
+    tags=["Prompts"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {
@@ -62,6 +64,7 @@ def delete_prompt(project_id: UUID, prompt_id: UUID) -> Response:
 
 @projects_router.get(
     path="/{project_id}/prompts/{prompt_id}",
+    tags=["Prompts"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {
@@ -83,6 +86,7 @@ def get_prompt(project_id: UUID, prompt_id: UUID) -> Response:
 
 @projects_router.get(
     path="/{project_id}/prompts",
+    tags=["Prompts"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {
@@ -104,6 +108,7 @@ def get_all_prompts(project_id: UUID) -> Response:
 
 @projects_router.put(
     path="/{project_id}/prompts/{prompt_id}",
+    tags=["Prompts"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {

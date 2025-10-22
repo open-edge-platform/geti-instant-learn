@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 @projects_router.post(
     path="",
+    tags=["Projects"],
     status_code=status.HTTP_201_CREATED,
     responses={
         status.HTTP_201_CREATED: {
@@ -84,6 +85,7 @@ def create_project(
 
 @projects_router.delete(
     path="/{project_id}",
+    tags=["Projects"],
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
         status.HTTP_204_NO_CONTENT: {
@@ -119,6 +121,7 @@ def delete_project(
 
 @projects_router.get(
     path="/active",
+    tags=["Projects"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {
@@ -158,6 +161,7 @@ def get_active_project(
 
 @projects_router.get(
     path="",
+    tags=["Projects"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {
@@ -191,6 +195,7 @@ def get_projects_list(
 
 @projects_router.get(
     path="/{project_id}",
+    tags=["Projects"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {
@@ -226,6 +231,7 @@ def get_project(
 
 @projects_router.put(
     path="/{project_id}",
+    tags=["Projects"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {
@@ -265,6 +271,7 @@ def update_project(
 
 @projects_router.get(
     path="/export",
+    tags=["Projects"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {
@@ -294,6 +301,7 @@ def export_projects(names: Annotated[list[str] | None, Query()] = None) -> Respo
 
 @projects_router.post(
     path="/import",
+    tags=["Projects"],
     status_code=status.HTTP_201_CREATED,
     responses={
         status.HTTP_201_CREATED: {

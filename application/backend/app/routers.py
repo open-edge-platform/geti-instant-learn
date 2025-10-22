@@ -3,4 +3,4 @@
 
 from fastapi import APIRouter
 
-projects_router = APIRouter(prefix="/projects", tags=["Projects"])
+projects_router = APIRouter(prefix="/projects")

@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 @projects_router.get(
     path="/{project_id}/sink",
+    tags=["Sinks"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {
@@ -33,6 +34,7 @@ def get_sink(project_id: UUID) -> Response:
 
 @projects_router.put(
     path="/{project_id}/sink",
+    tags=["Sinks"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_201_CREATED: {
@@ -56,6 +58,7 @@ def update_sink(project_id: UUID) -> Response:
 
 @projects_router.delete(
     path="/{project_id}/sink",
+    tags=["Sinks"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {

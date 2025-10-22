@@ -25,6 +25,7 @@ class FrameCaptureResponse(BaseModel):
 
 @projects_router.post(
     path="/{project_id}/frames",
+    tags=["Frames"],
     status_code=status.HTTP_201_CREATED,
     responses={
         status.HTTP_201_CREATED: {
@@ -127,6 +128,7 @@ def capture_frame(project_id: UUID, frame_service: Annotated[FrameService, Depen
 
 @projects_router.get(
     path="/{project_id}/frames/{frame_id}",
+    tags=["Frames"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {
