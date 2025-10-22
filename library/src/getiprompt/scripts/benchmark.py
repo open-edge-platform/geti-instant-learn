@@ -86,7 +86,7 @@ def infer_on_category(
     metrics_calculators: dict[int, SegmentationMetrics],
     progress: Progress,
     batch_size: int = 4,
-    visualize: bool = True,
+    visualize: bool = False,
 ) -> tuple[int, int]:
     """Perform inference on all samples of a category.
 
@@ -148,7 +148,7 @@ def infer_on_category(
         # Calculate metrics
         metrics_calculators[priors_batch_index](
             predictions=results.masks,
-            references=gt_masks,
+            ground_truths=gt_masks,
             mapping={category: category_name},
         )
 

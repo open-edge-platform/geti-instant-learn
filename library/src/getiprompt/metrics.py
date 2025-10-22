@@ -7,6 +7,7 @@ from logging import getLogger
 from typing import Any
 
 import numpy as np
+import torch
 from sklearn.metrics import confusion_matrix
 from torch import nn
 
@@ -32,14 +33,14 @@ class SegmentationMetrics(nn.Module):
         >>> # Create a perfect match scenario for prediction and reference masks.
         >>> mask_tensor = torch.zeros((1, 10, 10), dtype=torch.bool)
         >>> mask_tensor[0, 2:8, 2:8] = True
-        >>> reference = Masks()
-        >>> reference.add(mask_tensor, class_id=0)
+        >>> ground_truth = Masks()
+        >>> ground_truth.add(mask_tensor, class_id=0)
         >>> prediction = Masks()
         >>> prediction.add(mask_tensor.clone(), class_id=0)
         >>>
         >>> calculator(
         ...     predictions=[prediction],
-        ...     references=[reference],
+        ...     ground_truths=[ground_truth],
         ...     mapping={0: "car"},
         ... )
         >>> metrics = calculator.get_metrics()
@@ -127,7 +128,7 @@ class SegmentationMetrics(nn.Module):
     def forward(
         self,
         predictions: list[Masks] | None = None,
-        references: list[Masks] | None = None,
+        ground_truths: list[Masks] | None = None,
         mapping: dict[int, str] | None = None,
     ) -> None:
         """This class compares predicted and reference masks.
@@ -143,8 +144,8 @@ class SegmentationMetrics(nn.Module):
         """
         if mapping is None:
             mapping = {}
-        if references is None:
-            references = []
+        if ground_truths is None:
+            ground_truths = []
         if predictions is None:
             predictions = []
         if mapping is None:
@@ -160,29 +161,31 @@ class SegmentationMetrics(nn.Module):
         class_name = mapping[class_ids[-1]]
 
         # Start metric calculation
-        for prediction, reference in zip(predictions, references, strict=False):
-            # Create a mask where each pixel value represents the class id
-            pred_mask = np.zeros([*reference.mask_shape])  # pred shape can be empty
-            ref_mask = np.zeros([*reference.mask_shape])
+        for prediction, gt in zip(predictions, ground_truths, strict=False):
+            # use gt shape to create a mask, as prediction mask shape can be empty
+            pred_mask = torch.zeros([*gt.mask_shape])
+            gt_mask = torch.zeros([*gt.mask_shape])
             for class_id in class_ids:
-                if (
-                    class_id - 1 not in reference.class_ids() and class_id - 1 not in prediction.class_ids()
-                ) or class_id == 0:
+                if (class_id - 1 not in prediction.class_ids() and class_id - 1 not in gt.class_ids()) or class_id == 0:
                     continue
-                if class_id - 1 in reference.class_ids():
-                    ref = reference.to_numpy(class_id - 1)
-                    if len(ref) > 0:
-                        ref_mask[np.max(ref, axis=0) > 0] = class_id
 
                 if class_id - 1 in prediction.class_ids():
-                    pred = prediction.to_numpy(class_id - 1)
-                    pred_mask[np.max(pred, axis=0) > 0] = class_id
+                    pred = prediction.data[class_id - 1]
+                    pred_mask, _ = torch.max(pred, axis=0)
+                    if pred_mask.device != torch.device("cpu"):
+                        pred_mask = pred_mask.detach().cpu()
+
+                if class_id - 1 in gt.class_ids():
+                    gt_masks = gt.data[class_id - 1]
+                    if len(gt_masks) > 0:
+                        gt_mask, _ = torch.max(gt_masks, axis=0)
+                        if gt_mask.device != torch.device("cpu"):
+                            gt_mask = gt_mask.detach().cpu()
 
             # Calculate confusion matrix of this image
             conf = confusion_matrix(
-                y_true=ref_mask.flatten(),
+                y_true=gt_mask.flatten(),
                 y_pred=pred_mask.flatten(),
-                labels=class_ids,
             )
             if class_name in self.confusion:
                 self.confusion[class_name] = self.confusion[class_name] + conf
