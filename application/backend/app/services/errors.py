@@ -18,7 +18,6 @@ class ResourceType(str, Enum):
 
 class ServiceError(Exception):
     """Base exception for service-related errors."""
-    pass
 
 
 class ResourceError(ServiceError):

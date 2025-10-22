@@ -6,17 +6,25 @@ import time
 from queue import Full, Queue
 
 from core.components.base import PipelineComponent, StreamReader
+from core.components.broadcaster import FrameBroadcaster
+from core.components.schemas.processor import InputData
 
 logger = logging.getLogger(__name__)
 
 
 class Source(PipelineComponent):
-    """Reads from a StreamReader and puts raw frames into the provided inbound queue."""
+    """Reads from a StreamReader and puts raw frames into the provided inbound queue and broadcasts to consumers."""
 
-    def __init__(self, in_queue: Queue, stream_reader: StreamReader):
+    def __init__(
+        self,
+        in_queue: Queue,
+        stream_reader: StreamReader,
+        inbound_broadcaster: FrameBroadcaster[InputData] | None = None,
+    ):
         super().__init__()
         self._reader = stream_reader
         self._in_queue = in_queue
+        self._inbound_broadcaster = inbound_broadcaster
 
     def run(self) -> None:
         logger.debug("Starting a source loop")
@@ -28,8 +36,12 @@ class Source(PipelineComponent):
                     if data is None:
                         time.sleep(0.01)
                         continue
+
+                    if self._inbound_broadcaster:
+                        self._inbound_broadcaster.broadcast(data)  # broadcast to inbound consumers (e.g. frame capture)
+
                     try:
-                        self._in_queue.put_nowait(data)
+                        self._in_queue.put_nowait(data)  # send to processor queue (with backpressure handling)
                     except Full:
                         try:
                             self._in_queue.get_nowait()

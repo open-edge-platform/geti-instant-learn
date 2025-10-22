@@ -9,13 +9,16 @@ from core.components.factories.model import ModelFactory
 from core.components.factories.reader import StreamReaderFactory
 from core.components.factories.writer import StreamWriterFactory
 from core.components.processor import Processor
+from core.components.schemas.processor import InputData
 from core.components.sink import Sink
 from core.components.source import Source
 
 
 class ComponentFactory(ABC):
     @abstractmethod
-    def create_source(self, in_queue: Queue, reader_conf: Any) -> Source: ...
+    def create_source(
+        self, in_queue: Queue, reader_conf: Any, inbound_broadcaster: FrameBroadcaster[InputData] | None = None
+    ) -> Source: ...
 
     @abstractmethod
     def create_processor(self, in_queue: Queue, broadcaster: FrameBroadcaster, model_config: Any) -> Processor: ...
@@ -25,8 +28,10 @@ class ComponentFactory(ABC):
 
 
 class DefaultComponentFactory(ComponentFactory):
-    def create_source(self, in_queue: Queue, reader_conf: Any) -> Source:
-        return Source(in_queue, StreamReaderFactory.create(reader_conf))
+    def create_source(
+        self, in_queue: Queue, reader_conf: Any, inbound_broadcaster: FrameBroadcaster[InputData] | None = None
+    ) -> Source:
+        return Source(in_queue, StreamReaderFactory.create(reader_conf), inbound_broadcaster)
 
     def create_processor(self, in_queue: Queue, broadcaster: FrameBroadcaster, model_config: Any) -> Processor:
         return Processor(in_queue, broadcaster, ModelFactory.create(model_config))

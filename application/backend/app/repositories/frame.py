@@ -3,21 +3,22 @@
 
 from pathlib import Path
 from uuid import UUID
-from typing import Optional
+
 import cv2
 import numpy as np
-from settings import get_settings
 
+from settings import get_settings
 
 settings = get_settings()
 
 
 class FrameRepository:
     def __init__(self, base_dir: Path | None = None):
-        self._base = base_dir or Path(settings.db_data_dir) / "projects"
+        self._base_dir = base_dir or Path(settings.db_data_dir) / "tmp" / "projects"
 
     def _frame_path(self, project_id: UUID, frame_id: UUID) -> Path:
-        return self._base / str(project_id) / "frames" / f"{frame_id}.jpg"
+        """Construct the filesystem path for a given frame."""
+        return self._base_dir / str(project_id) / "frames" / f"{frame_id}.jpg"
 
     def save_frame(self, project_id: UUID, frame_id: UUID, frame: np.ndarray) -> Path:
         """Save a frame as JPEG to the filesystem."""
@@ -31,12 +32,10 @@ class FrameRepository:
         path.write_bytes(buffer.tobytes())
         return path
 
-    def load_frame(self, project_id: UUID, frame_id: UUID) -> Optional[bytes]:
-        """Load a frame's JPEG bytes from the filesystem."""
+    def get_frame_path(self, project_id: UUID, frame_id: UUID) -> Path | None:
+        """Get the filesystem path for a frame if it exists."""
         path = self._frame_path(project_id, frame_id)
-        if not path.exists():
-            return None
-        return path.read_bytes()
+        return path if path.exists() else None
 
     def delete_frame(self, project_id: UUID, frame_id: UUID) -> bool:
         """Delete a frame file."""
