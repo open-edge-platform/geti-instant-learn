@@ -8,8 +8,8 @@ from getiprompt.components.filters import MultiInstancePriorFilter
 from getiprompt.components.prompt_generators import GroundingModel, TextToBoxPromptGenerator
 from getiprompt.models import Model, load_sam_model
 from getiprompt.types import Image, Priors, Results, Text
+from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
-from getiprompt.utils.decorators import track_duration
 
 
 class GroundedSAM(Model):

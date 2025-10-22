@@ -1,16 +1,21 @@
+import itertools
 import shutil
+import time
 import warnings
+from collections.abc import Callable
+from functools import wraps
+from logging import getLogger
 from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
+from getiprompt.types.results import Results
+from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
 
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-import itertools
-from logging import getLogger
-
-import pandas as pd
-
-from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
 
 logger = getLogger("Geti Prompt")
 
@@ -117,3 +122,17 @@ def _save_results(all_results: list[pd.DataFrame], output_path: Path) -> None:
     logger.info(msg)
     msg = f"\n\n Final Average Results:\n {avg_result_dataframe}"
     logger.info(msg)
+
+
+def track_duration(func: Callable[..., Results]) -> Callable[..., Results]:
+    """Decorator to track the duration of a method."""
+
+    @wraps(func)
+    def wrapper(self, *args, **kwargs) -> Any:  # noqa: ANN001,ANN401, ANN003, ANN002
+        start_time = time.perf_counter()
+        result = func(self, *args, **kwargs)
+        if isinstance(result, Results):
+            result.duration = time.perf_counter() - start_time
+        return result
+
+    return wrapper

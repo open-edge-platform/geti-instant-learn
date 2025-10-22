@@ -133,17 +133,16 @@ def infer_on_category(
         transient=True,
     )
 
-    time_sum = 0
-    time_count = 0
-
+    total_time = 0
+    n_samples = 0
     for batch in dataloader:
         # Convert batch to Image objects
         target_images = [Image(img_np) for img_np in batch.images_np]
 
         # Run inference
         results = model.infer(target_images=target_images)
-        time_sum += results.duration
-        time_count += len(batch)
+        total_time += results.duration
+        n_samples += len(batch)
 
         # Generate export paths
         export_paths = [
@@ -203,7 +202,7 @@ def infer_on_category(
         progress.update(batches_task, advance=1)
 
     progress.remove_task(batches_task)
-    return time_sum, time_count
+    return total_time, n_samples
 
 
 def learn_from_category(
@@ -345,7 +344,7 @@ def predict_on_dataset(
                 progress.update(priors_task, advance=1)
 
                 # Infer on target samples
-                ts, tc = infer_on_category(
+                total_time, n_samples = infer_on_category(
                     dataset=dataset,
                     model=model,
                     category_name=category_name,
@@ -356,8 +355,8 @@ def predict_on_dataset(
                     batch_size=args.batch_size,
                 )
 
-                time_sum += ts
-                time_count += tc
+                time_sum += total_time
+                time_count += n_samples
 
             progress.remove_task(priors_task)
             progress.update(categories_task, advance=1)

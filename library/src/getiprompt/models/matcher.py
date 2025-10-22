@@ -13,8 +13,8 @@ from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.models import Model
 from getiprompt.models.foundation import load_sam_model
 from getiprompt.types import Image, Priors, Results
+from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
-from getiprompt.utils.decorators import track_duration
 
 if TYPE_CHECKING:
     from getiprompt.components.prompt_generators.base import PromptGenerator
