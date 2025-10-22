@@ -32,7 +32,6 @@ const CLOSE_CONNECTION_DELAY = 500;
 
 export class WebRTCConnection {
     private peerConnection: RTCPeerConnection | null;
-    private dataChannel: RTCDataChannel | null;
     private webRTCId: string;
     private status: WebRTCConnectionStatus = 'idle';
     private listeners: Listener[] = [];
@@ -40,7 +39,6 @@ export class WebRTCConnection {
 
     constructor() {
         this.peerConnection = null;
-        this.dataChannel = null;
         this.webRTCId = uuid();
     }
 
@@ -52,6 +50,27 @@ export class WebRTCConnection {
         this.status = status;
 
         this.emit({ type: 'status_change', status });
+    }
+
+    private async handleOfferResponse(data: SessionData | undefined): Promise<void> {
+        if (data === undefined) {
+            this.updateStatus('failed');
+            return;
+        }
+
+        if ('status' in data && data.status === 'failed') {
+            const errorMessage =
+                data.meta.error === 'concurrency_limit_reached'
+                    ? `Too many connections. Maximum limit is ${data.meta.limit}`
+                    : data.meta.error;
+
+            this.updateStatus('failed');
+            this.emit({ type: 'error', error: new Error(errorMessage) });
+        }
+
+        if (this.peerConnection) {
+            await this.peerConnection.setRemoteDescription(data as RTCSessionDescriptionInit);
+        }
     }
 
     public async start(projectId: string): Promise<void> {
@@ -66,10 +85,6 @@ export class WebRTCConnection {
 
             // setup peer connection
             this.peerConnection.addTransceiver('video', { direction: 'recvonly' });
-            this.dataChannel = this.peerConnection.createDataChannel('text');
-            this.dataChannel.onopen = () => {
-                this.dataChannel?.send('handshake');
-            };
 
             // create an offer
             const offer = await this.peerConnection.createOffer();
@@ -80,16 +95,11 @@ export class WebRTCConnection {
 
             const offerResponse = await this.sendOffer(projectId);
 
-            if (offerResponse === undefined) {
-                console.error('Failed to send offer');
-                return;
-            }
-
-            await this.peerConnection.setRemoteDescription(offerResponse as RTCSessionDescriptionInit);
+            await this.handleOfferResponse(offerResponse);
 
             this.setupConnectionStateListener();
         } catch (error) {
-            /*clearTimeout(this.timeoutId);*/
+            clearTimeout(this.timeoutId);
             this.updateStatus('failed');
 
             this.emit({ type: 'error', error: error as Error });
