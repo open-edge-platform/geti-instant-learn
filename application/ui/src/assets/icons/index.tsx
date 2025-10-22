@@ -13,3 +13,4 @@ export { ReactComponent as WebCam } from './webcam.svg';
 export { ReactComponent as Image } from './image.svg';
 export { ReactComponent as Wand } from './wand.svg';
 export { ReactComponent as Fireworks } from './fire-works.svg';
+export { ReactComponent as NoActiveProject } from './no-active-project.svg';

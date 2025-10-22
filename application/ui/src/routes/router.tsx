@@ -28,7 +28,13 @@ const Redirect = () => {
         return <Navigate to={paths.project({ projectId: data.projects[0].id })} replace />;
     }
 
-    return <Navigate to={paths.projects({})} replace />;
+    const activeProject = projects.find((project) => project.active);
+
+    if (activeProject === undefined) {
+        return <Navigate to={paths.projects({})} replace />;
+    }
+
+    return <Navigate to={paths.project({ projectId: activeProject.id })} replace />;
 };
 
 export const router = createBrowserRouter([

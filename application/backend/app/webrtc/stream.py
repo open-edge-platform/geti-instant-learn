@@ -1,0 +1,83 @@
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+import asyncio
+import logging
+import queue
+
+import numpy as np
+from aiortc import VideoStreamTrack
+from av import VideoFrame
+
+from core.components.schemas.processor import InputData
+
+logger = logging.getLogger(__name__)
+
+FALLBACK_FRAME = np.full((64, 64, 3), 16, dtype=np.uint8)
+
+
+class InferenceVideoStreamTrack(VideoStreamTrack):
+    """A video stream track that provides frames with inference results over WebRTC."""
+
+    def __init__(self, stream_queue: queue.Queue[InputData]):
+        super().__init__()
+        self._stream_queue = stream_queue
+        self._last_frame: np.ndarray | None = None
+
+    async def recv(self) -> VideoFrame:
+        """
+        Asynchronously receive the next video frame from the internal queue.
+
+        This coroutine attempts to obtain a frame from ``self._stream_queue`` with a
+        500ms timeout. If a new frame is received, it is cached in ``self._last_frame``.
+        If the queue is empty and no cached frame exists, the method uses the
+        ``FALLBACK_FRAME``, a small, 64 x 64, dark gray numpy array
+        representing a video frame.
+
+        The received or fallback frame is wrapped in a ``VideoFrame`` object, with
+        its presentation timestamp (``pts``) and time base attached.
+
+        Behavior:
+            - Pulls frames from ``_stream_queue`` using ``asyncio.to_thread`` (timeout: 500ms).
+            - On timeout, returns last cached frame if available.
+            - If no cached frame exists, returns ``FALLBACK_FRAME``.
+            - Ensures robust streaming when new frames are intermittently missing.
+
+        Returns:
+            aiortc.VideoFrame:
+                Video frame object containing image data, presentation timestamp (``pts``),
+                and time base.
+
+        Raises:
+            Exception:
+                Logs and propagates any errors during retrieval or conversion.
+
+        Notes:
+            - Uses ``asyncio.to_thread`` to prevent blocking the event loop
+              when calling the synchronous ``queue.Queue.get`` method.
+            - Ensures resilience of streaming by falling back to cached or
+              dummy frames in case of delayed or missing input.
+
+        """
+        pts, time_base = await self.next_timestamp()
+
+        try:
+            logger.debug("Getting the frame from the stream_queue...")
+            input_data = await asyncio.to_thread(self._stream_queue.get, True, 0.5)
+            np_frame = input_data.frame
+            self._last_frame = np_frame
+        except queue.Empty:
+            logger.debug("Empty queue. Using the last frame...")
+            if self._last_frame is not None:
+                np_frame = self._last_frame
+            else:
+                np_frame = FALLBACK_FRAME
+        except Exception as e:
+            logger.error("Error in recv: %s", e)
+            raise
+
+        logger.debug("Received the frame from the stream_queue.")
+        frame = VideoFrame.from_ndarray(np_frame, format="bgr24")
+        frame.pts = pts
+        frame.time_base = time_base
+        return frame

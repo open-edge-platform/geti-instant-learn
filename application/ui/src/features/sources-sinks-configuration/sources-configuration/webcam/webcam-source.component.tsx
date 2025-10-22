@@ -11,6 +11,8 @@ import { Button, TextField, View } from '@geti/ui';
 import { isInteger } from 'lodash-es';
 import { v4 as uuid } from 'uuid';
 
+import { useCurrentProject } from '../../../projects-management/hooks/use-current-project.hook';
+
 interface WebcamSourceProps {
     source: WebcamConfig | undefined;
 }
@@ -109,6 +111,7 @@ export const WebcamSource = ({ source }: WebcamSourceProps) => {
     );
     const createWebcamSource = useCreateWebcamSource();
     const updateWebcamSource = useUpdateWebcamSource();
+    const { data } = useCurrentProject();
 
     const isApplyPending = createWebcamSource.isPending || updateWebcamSource.isPending;
 
@@ -129,6 +132,10 @@ export const WebcamSource = ({ source }: WebcamSourceProps) => {
 
         createWebcamSource.mutate(parseInt(selectedDeviceId));
     };
+
+    if (!data.active) {
+        return <TextField label={'Device ID'} value={selectedDeviceId} isReadOnly />;
+    }
 
     return (
         <form onSubmit={handleApply}>

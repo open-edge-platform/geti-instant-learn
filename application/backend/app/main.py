@@ -18,6 +18,7 @@ from core.runtime.pipeline_manager import PipelineManager
 from dependencies import get_session_factory, run_db_migrations
 from routers import projects_router
 from settings import get_settings
+from webrtc.manager import WebRTCManager
 
 settings = get_settings()
 
@@ -41,11 +42,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     )
     app.state.pipeline_manager.start()
 
+    # Initialize WebRTC Manager
+    app.state.webrtc_manager = WebRTCManager(pipeline_manager=app.state.pipeline_manager)
+
     logger.info("Application startup completed")
     yield
 
     # Shutdown actions
     logger.info(f"Shutting down {settings.app_name} application...")
+    await app.state.webrtc_manager.cleanup()
     app.state.pipeline_manager.stop()
 
 
@@ -60,7 +65,7 @@ app = FastAPI(
     # TODO add license
 )
 
-raw = os.getenv("CORS_ORIGINS", "http://localhost:3000")
+raw = os.getenv("CORS_ORIGINS", "http://localhost:3000, http://localhost:9100")
 allowed_origins = [o.strip() for o in raw.split(",") if o.strip()]
 app.add_middleware(  # TODO restrict settings in production
     CORSMiddleware,

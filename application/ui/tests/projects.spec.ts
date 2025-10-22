@@ -23,6 +23,12 @@ const registerApiProjects = ({
         http.get('/api/v1/projects', ({ response }) =>
             response(200).json({
                 projects,
+                pagination: {
+                    count: projects.length,
+                    total: projects.length,
+                    offset: 0,
+                    limit: 10,
+                },
             })
         ),
         http.get('/api/v1/projects/{project_id}', ({ response, request }) => {
@@ -51,10 +57,26 @@ const registerApiProjects = ({
             const body = await request.json();
             const id = request.url.split('/').at(-1);
 
-            projects = projects.map((project) => (project.id === id ? { ...project, ...body } : project));
+            projects = projects.map((project) => {
+                if (project.id === id) {
+                    return {
+                        ...project,
+                        ...body,
+                    } as ProjectType;
+                }
+
+                if (body.active != null) {
+                    return {
+                        ...project,
+                        active: false,
+                    };
+                }
+
+                return project;
+            });
 
             // @ts-expect-error We don't rely on the update response in the UI
-            return response(200).json({ ...body });
+            return response(200).json(body);
         }),
 
         http.delete('/api/v1/projects/{project_id}', async ({ request, response }) => {
@@ -109,7 +131,7 @@ class ProjectPage {
         await this.page.getByLabel(`Project ${projectName}`).getByRole('button', { name: 'Project actions' }).click();
     }
 
-    async selectMenuItem(itemName: 'Rename' | 'Delete') {
+    async selectMenuItem(itemName: 'Rename' | 'Delete' | 'Activate' | 'Deactivate') {
         await this.page.getByRole('menuitem', { name: itemName }).click();
     }
 
@@ -120,6 +142,38 @@ class ProjectPage {
 
     async delete() {
         await this.page.getByRole('button', { name: 'Delete' }).click();
+    }
+
+    async activate() {
+        await this.page.getByRole('button', { name: 'Activate' }).click();
+    }
+
+    async activateCurrentProject() {
+        await this.page.getByRole('button', { name: 'Activate current project' }).click();
+    }
+
+    async deactivateCurrentProject() {
+        await this.page.getByRole('button', { name: 'Deactivate current project' }).click();
+    }
+
+    get inactiveStatus() {
+        return this.page.getByLabel('Inactive project');
+    }
+
+    get activeStatus() {
+        return this.page.getByLabel('Active project');
+    }
+
+    getActiveProjectInTheList(projectName: string) {
+        return this.page.getByRole('listitem', { name: `Project ${projectName}` }).getByLabel('Active project');
+    }
+
+    getInactiveProjectInTheList(projectName: string) {
+        return this.page.getByRole('listitem', { name: `Project ${projectName}` }).getByLabel('Inactive project');
+    }
+
+    get activateProjectDialogHeading() {
+        return this.page.getByTestId('modal').getByRole('heading', { name: 'Activate project' });
     }
 }
 
@@ -132,6 +186,7 @@ test.describe('Projects', () => {
             const project: ProjectType = {
                 id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                 name: 'Cool project',
+                active: true,
             };
 
             const projectPage = new ProjectPage(page);
@@ -147,6 +202,7 @@ test.describe('Projects', () => {
             const project: ProjectType = {
                 id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                 name: 'Cool project',
+                active: true,
             };
 
             registerApiProjects({ network, defaultProjects: [project] });
@@ -182,16 +238,18 @@ test.describe('Projects', () => {
 
         test(
             'Navigates to the projects list page when the URL does not contain project ID and there are ' +
-                'at least two projects',
+                'at least two projects, none of them are active',
             async ({ page, network }) => {
                 const projects: ProjectType[] = [
                     {
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
+                        active: false,
                     },
                     {
                         id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #2',
+                        active: false,
                     },
                 ];
 
@@ -209,7 +267,34 @@ test.describe('Projects', () => {
                 await projectPage.getProjectInTheList(projects[0].name).click();
 
                 await expect(projectPage.getSelectedProject(projects[0].name)).toBeVisible();
-                await expect(page).toHaveURL(new RegExp(paths.project({ projectId: projects[0].id })));
+                expect(page.url()).toContain(paths.project({ projectId: projects[0].id }));
+            }
+        );
+
+        test(
+            'Navigates to the project details page of the active project when the URL does not contain project ' +
+                'ID and there are at least two projects, one of them is active',
+            async ({ page, network }) => {
+                const projects: ProjectType[] = [
+                    {
+                        id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #1',
+                        active: true,
+                    },
+                    {
+                        id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #2',
+                        active: false,
+                    },
+                ];
+
+                registerApiProjects({ network, defaultProjects: projects });
+                const projectPage = new ProjectPage(page);
+
+                await page.goto(paths.root({}));
+
+                await expect(projectPage.getSelectedProject(projects[0].name)).toBeVisible();
+                expect(page.url()).toContain(paths.project({ projectId: projects[0].id }));
             }
         );
 
@@ -221,6 +306,7 @@ test.describe('Projects', () => {
                     {
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
+                        active: true,
                     },
                 ];
 
@@ -231,7 +317,7 @@ test.describe('Projects', () => {
                 await page.goto(paths.root({}));
 
                 await expect(projectPage.getSelectedProject(projects[0].name)).toBeVisible();
-                await expect(page).toHaveURL(new RegExp(paths.project({ projectId: projects[0].id })));
+                expect(page.url()).toContain(paths.project({ projectId: projects[0].id }));
             }
         );
 
@@ -243,6 +329,7 @@ test.describe('Projects', () => {
                 {
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
+                    active: true,
                 },
             ];
 
@@ -254,7 +341,8 @@ test.describe('Projects', () => {
 
             await expect(projectPage.welcomeHeader).toBeHidden();
             await expect(projectPage.getSelectedProject(projects[0].name)).toBeVisible();
-            await expect(page).toHaveURL(new RegExp(paths.project({ projectId: projects[0].id })));
+
+            expect(page.url()).toContain(paths.project({ projectId: projects[0].id }));
         });
     });
 
@@ -266,10 +354,12 @@ test.describe('Projects', () => {
                     {
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
+                        active: true,
                     },
                     {
                         id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #2',
+                        active: true,
                     },
                 ],
             });
@@ -281,7 +371,8 @@ test.describe('Projects', () => {
             await projectPage.create();
 
             await expect(projectPage.getSelectedProject('Project #1')).toBeVisible();
-            await expect(page).toHaveURL(new RegExp(`/projects/${projects.at(-1)?.id}`));
+
+            expect(page.url()).toContain(paths.project({ projectId: projects[projects.length - 1].id }));
         });
 
         test('Creates a new project via the project details page', async ({ network, page }) => {
@@ -291,6 +382,7 @@ test.describe('Projects', () => {
                     {
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
+                        active: true,
                     },
                 ],
             });
@@ -307,7 +399,8 @@ test.describe('Projects', () => {
 
             await expect(page.getByRole('heading', { name: 'Project #1' })).toBeVisible();
             await expect(page.getByRole('listitem')).toHaveCount(projects.length);
-            await expect(page).toHaveURL(new RegExp(`/projects/${projects.at(-1)?.id}`));
+
+            expect(page.url()).toContain(paths.project({ projectId: projects[projects.length - 1].id }));
         });
     });
 
@@ -318,10 +411,12 @@ test.describe('Projects', () => {
                 {
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
+                    active: true,
                 },
                 {
                     id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #2',
+                    active: false,
                 },
             ],
         });
@@ -348,10 +443,12 @@ test.describe('Projects', () => {
                 {
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
+                    active: true,
                 },
                 {
                     id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #2',
+                    active: false,
                 },
             ],
         });
@@ -380,10 +477,12 @@ test.describe('Projects', () => {
                 {
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
+                    active: true,
                 },
                 {
                     id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #2',
+                    active: false,
                 },
             ],
         });
@@ -409,10 +508,12 @@ test.describe('Projects', () => {
                 {
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
+                    active: true,
                 },
                 {
                     id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #2',
+                    active: false,
                 },
             ],
         });
@@ -441,10 +542,12 @@ test.describe('Projects', () => {
                 {
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
+                    active: true,
                 },
                 {
                     id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #2',
+                    active: false,
                 },
             ],
         });
@@ -463,7 +566,8 @@ test.describe('Projects', () => {
         await expect(projectPage.getProjectInTheList(secondProject.name)).toBeHidden();
 
         await expect(projectPage.projectsHeader).toBeHidden();
-        await expect(page).toHaveURL(new RegExp(paths.project({ projectId: project.id })));
+
+        expect(page.url()).toContain(paths.project({ projectId: project.id }));
     });
 
     test('Deletes a project via the project details page (the last project)', async ({ network, page }) => {
@@ -473,6 +577,7 @@ test.describe('Projects', () => {
                 {
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
+                    active: true,
                 },
             ],
         });
@@ -493,5 +598,300 @@ test.describe('Projects', () => {
 
         await expect(projectPage.welcomeHeader).toBeVisible();
         await expect(page).toHaveURL(paths.welcome({}));
+    });
+
+    test(
+        'Activates an inactive project when there is already an active project using a project menu in the ' +
+            'details page',
+        async ({ network, page }) => {
+            const projects = registerApiProjects({
+                network,
+                defaultProjects: [
+                    {
+                        id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #1',
+                        active: true,
+                    },
+                    {
+                        id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #2',
+                        active: false,
+                    },
+                ],
+            });
+
+            const projectPage = new ProjectPage(page);
+
+            const [firstProject, secondProject] = projects;
+
+            await projectPage.goto(firstProject.id);
+
+            await expect(projectPage.activeStatus).toBeVisible();
+            await projectPage.openProjectManagementPanel();
+            await projectPage.openProjectMenu(secondProject.name);
+            await projectPage.selectMenuItem('Activate');
+
+            await expect(projectPage.activateProjectDialogHeading).toBeVisible();
+            await projectPage.activate();
+
+            await expect(projectPage.inactiveStatus).toBeVisible();
+
+            await projectPage.goto(secondProject.id);
+            await expect(projectPage.activeStatus).toBeVisible();
+        }
+    );
+
+    test(
+        'Activates an inactive project when there is no active project using a project menu in the details ' + 'page',
+        async ({ network, page }) => {
+            const projects = registerApiProjects({
+                network,
+                defaultProjects: [
+                    {
+                        id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #1',
+                        active: false,
+                    },
+                    {
+                        id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #2',
+                        active: false,
+                    },
+                ],
+            });
+
+            const projectPage = new ProjectPage(page);
+
+            const [firstProject, secondProject] = projects;
+
+            await projectPage.goto(firstProject.id);
+
+            await expect(projectPage.activeStatus).toBeVisible();
+            await projectPage.openProjectManagementPanel();
+            await projectPage.openProjectMenu(secondProject.name);
+            await projectPage.selectMenuItem('Activate');
+
+            await expect(projectPage.activateProjectDialogHeading).toBeHidden();
+
+            await expect(projectPage.inactiveStatus).toBeVisible();
+
+            await projectPage.goto(secondProject.id);
+            await expect(projectPage.activeStatus).toBeVisible();
+        }
+    );
+
+    test(
+        'Activates an inactive project when there is no active project using the activate button in the ' +
+            'current project',
+        async ({ network, page }) => {
+            const projects = registerApiProjects({
+                network,
+                defaultProjects: [
+                    {
+                        id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #1',
+                        active: false,
+                    },
+                    {
+                        id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #2',
+                        active: true,
+                    },
+                ],
+            });
+
+            const projectPage = new ProjectPage(page);
+
+            const [firstProject, secondProject] = projects;
+
+            await projectPage.goto(firstProject.id);
+
+            await expect(projectPage.inactiveStatus).toBeVisible();
+            await projectPage.openProjectManagementPanel();
+
+            await projectPage.activateCurrentProject();
+
+            await expect(projectPage.activateProjectDialogHeading).toBeVisible();
+
+            await projectPage.activate();
+
+            await expect(projectPage.activeStatus).toBeVisible();
+
+            await projectPage.goto(secondProject.id);
+            await expect(projectPage.inactiveStatus).toBeVisible();
+        }
+    );
+
+    test('Activates an inactive project in the project list', async ({ network, page }) => {
+        const projects = registerApiProjects({
+            network,
+            defaultProjects: [
+                {
+                    id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                    name: 'Cool project #1',
+                    active: false,
+                },
+                {
+                    id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
+                    name: 'Cool project #2',
+                    active: false,
+                },
+            ],
+        });
+
+        const projectPage = new ProjectPage(page);
+
+        const [firstProject, secondProject] = projects;
+
+        await projectPage.gotoProjects();
+
+        await expect(projectPage.projectsHeader).toBeVisible();
+
+        await expect(projectPage.getInactiveProjectInTheList(firstProject.name)).toBeVisible();
+        await expect(projectPage.getInactiveProjectInTheList(secondProject.name)).toBeVisible();
+
+        await projectPage.openProjectMenu(firstProject.name);
+        await projectPage.selectMenuItem('Activate');
+
+        await expect(projectPage.activateProjectDialogHeading).toBeHidden();
+        await expect(projectPage.getActiveProjectInTheList(firstProject.name)).toBeVisible();
+        await expect(projectPage.getInactiveProjectInTheList(secondProject.name)).toBeVisible();
+    });
+
+    test('Activates an inactive project using activate in the main content', async ({ network, page }) => {
+        const projects = registerApiProjects({
+            network,
+            defaultProjects: [
+                {
+                    id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                    name: 'Cool project #1',
+                    active: true,
+                },
+                {
+                    id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
+                    name: 'Cool project #2',
+                    active: false,
+                },
+            ],
+        });
+
+        const projectPage = new ProjectPage(page);
+        const [firstProject, secondProject] = projects;
+
+        await projectPage.goto(secondProject.id);
+
+        await expect(projectPage.inactiveStatus).toBeVisible();
+        await expect(page.getByText('Would you like to activate this project?')).toBeVisible();
+
+        await projectPage.activateCurrentProject();
+
+        await expect(projectPage.activateProjectDialogHeading).toBeVisible();
+
+        await projectPage.activate();
+
+        await expect(projectPage.activeStatus).toBeVisible();
+
+        await projectPage.goto(firstProject.id);
+        await expect(projectPage.inactiveStatus).toBeVisible();
+    });
+
+    test('Deactivates an active project using a project menu in the details page', async ({ network, page }) => {
+        const projects = registerApiProjects({
+            network,
+            defaultProjects: [
+                {
+                    id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                    name: 'Cool project #1',
+                    active: true,
+                },
+                {
+                    id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
+                    name: 'Cool project #2',
+                    active: false,
+                },
+            ],
+        });
+
+        const projectPage = new ProjectPage(page);
+
+        const [firstProject] = projects;
+
+        await projectPage.goto(firstProject.id);
+
+        await expect(projectPage.activeStatus).toBeVisible();
+        await projectPage.openProjectManagementPanel();
+        await projectPage.openProjectMenu(firstProject.name);
+        await projectPage.selectMenuItem('Deactivate');
+
+        await expect(projectPage.inactiveStatus).toBeVisible();
+    });
+
+    test(
+        'Deactivates an active project in the details page using the deactivate button in the current' + ' project',
+        async ({ network, page }) => {
+            const projects = registerApiProjects({
+                network,
+                defaultProjects: [
+                    {
+                        id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #1',
+                        active: true,
+                    },
+                    {
+                        id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #2',
+                        active: false,
+                    },
+                ],
+            });
+
+            const projectPage = new ProjectPage(page);
+
+            const [firstProject] = projects;
+
+            await projectPage.goto(firstProject.id);
+
+            await expect(projectPage.activeStatus).toBeVisible();
+            await projectPage.openProjectManagementPanel();
+
+            await projectPage.deactivateCurrentProject();
+
+            await expect(projectPage.inactiveStatus).toBeVisible();
+        }
+    );
+
+    test('Deactivates an active project in the project list', async ({ network, page }) => {
+        const projects = registerApiProjects({
+            network,
+            defaultProjects: [
+                {
+                    id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                    name: 'Cool project #1',
+                    active: true,
+                },
+                {
+                    id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
+                    name: 'Cool project #2',
+                    active: false,
+                },
+            ],
+        });
+
+        const projectPage = new ProjectPage(page);
+
+        const [firstProject, secondProject] = projects;
+
+        await projectPage.gotoProjects();
+
+        await expect(projectPage.projectsHeader).toBeVisible();
+
+        await expect(projectPage.getActiveProjectInTheList(firstProject.name)).toBeVisible();
+        await expect(projectPage.getInactiveProjectInTheList(secondProject.name)).toBeVisible();
+
+        await projectPage.openProjectMenu(firstProject.name);
+        await projectPage.selectMenuItem('Deactivate');
+
+        await expect(projectPage.getInactiveProjectInTheList(firstProject.name)).toBeVisible();
+        await expect(projectPage.getInactiveProjectInTheList(secondProject.name)).toBeVisible();
     });
 });
