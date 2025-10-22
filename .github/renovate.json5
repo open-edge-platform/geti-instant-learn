@@ -80,7 +80,7 @@
       matchManagers: ["dockerfile"],
       matchDatasources: ["docker"],
       // Group all base images into one PR
-      matchPackagePatterns: ["*"],
+      matchPackagePatterns: ["node", "uv"],
 
       enabled: true,
       schedule: ["* * 1 * *"], // monthly, 1st day of month
