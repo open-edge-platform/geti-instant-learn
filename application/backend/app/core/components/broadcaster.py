@@ -59,9 +59,9 @@ class FrameBroadcaster[T]:
                         queue.get_nowait()
                         queue.put_nowait(frame)
                     except Exception as e:
-                        logger.exception(f"Error replacing frame in full queue: {e}")
+                        logger.error(f"Error replacing frame in full queue: {e}")
                 except Exception as e:
-                    logger.exception(f"Error broadcasting to queue: {e}")
+                    logger.error(f"Error broadcasting to queue: {e}")
 
             # Remove shut-down queues from the list
             for queue in queues_to_remove:
