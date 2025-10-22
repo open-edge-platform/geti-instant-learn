@@ -73,7 +73,16 @@ export class WebRTCConnection {
         }
     }
 
+    private hasActiveConnection(): boolean {
+        return this.peerConnection !== undefined && this.status !== 'idle' && this.status !== 'disconnected';
+    }
+
     public async start(projectId: string): Promise<void> {
+        if (this.hasActiveConnection()) {
+            console.warn('WebRTC connection is already active or in progress.');
+            return;
+        }
+
         try {
             this.updateStatus('connecting');
 
