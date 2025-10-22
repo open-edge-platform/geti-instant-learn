@@ -18,6 +18,8 @@ from alembic.config import Config
 from core.runtime.dispatcher import ConfigChangeDispatcher
 from core.runtime.pipeline_manager import PipelineManager
 from repositories.frame import FrameRepository
+from repositories.project import ProjectRepository
+from repositories.source import SourceRepository
 from services.frame import FrameService
 from settings import get_settings
 from webrtc.manager import WebRTCManager
@@ -108,9 +110,21 @@ def get_frame_repository() -> FrameRepository:
     return FrameRepository()
 
 
+def get_project_repository(session: SessionDep) -> ProjectRepository:
+    """Dependency that provides a ProjectRepository instance."""
+    return ProjectRepository(session)
+
+
+def get_source_repository(session: SessionDep) -> SourceRepository:
+    """Dependency that provides a SourceRepository instance."""
+    return SourceRepository(session)
+
+
 def get_frame_service(
     pipeline_manager: Annotated[PipelineManager, Depends(get_pipeline_manager)],
     frame_repo: Annotated[FrameRepository, Depends(get_frame_repository)],
+    project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
+    source_repo: Annotated[SourceRepository, Depends(get_source_repository)],
 ) -> FrameService:
     """Dependency that provides a FrameService instance."""
-    return FrameService(pipeline_manager, frame_repo)
+    return FrameService(pipeline_manager, frame_repo, project_repo, source_repo)

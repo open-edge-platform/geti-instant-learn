@@ -13,13 +13,11 @@ import numpy as np
 from core.components.schemas.processor import InputData
 from core.runtime.pipeline_manager import PipelineManager
 from repositories.frame import FrameRepository
-from services.errors import ServiceError
+from repositories.project import ProjectRepository
+from repositories.source import SourceRepository
+from services.errors import ResourceNotFoundError, ResourceType, ServiceError
 
 logger = logging.getLogger(__name__)
-
-
-class FrameCaptureError(ServiceError):
-    """Raised when frame capture fails."""
 
 
 class FrameCapture:
@@ -43,10 +41,10 @@ class FrameCapture:
         Returns:
             The captured frame as numpy array.
         Raises:
-            FrameCaptureError: If no frame is received within timeout or queue not set.
+            ServiceError: If no frame is received within timeout or queue not set.
         """
         if self._queue is None:
-            raise FrameCaptureError("Queue not set. Call set_queue() first.")
+            raise ServiceError("Queue not set. Call set_queue() first.")
 
         try:
             input_data = self._queue.get(timeout=timeout)
@@ -54,13 +52,21 @@ class FrameCapture:
             self._event.set()
             return self._frame
         except Empty:
-            raise FrameCaptureError(f"No frame received within {timeout} seconds")
+            raise ServiceError(f"No frame received within {timeout} seconds. Pipeline may not be running.")
 
 
 class FrameService:
-    def __init__(self, pipeline_manager: PipelineManager, frame_repo: FrameRepository):
+    def __init__(
+        self,
+        pipeline_manager: PipelineManager,
+        frame_repo: FrameRepository,
+        project_repo: ProjectRepository,
+        source_repo: SourceRepository,
+    ):
         self._pipeline_manager = pipeline_manager
         self._frame_repo = frame_repo
+        self._project_repo = project_repo
+        self._source_repo = source_repo
 
     def capture_frame(self, project_id: UUID) -> UUID:
         """
@@ -71,8 +77,31 @@ class FrameService:
         Returns:
             The UUID of the saved frame.
         Raises:
-            FrameCaptureError: If frame capture or saving fails.
+            ResourceNotFoundError: If project not found or has no connected source.
+            ServiceError: If project is not active or frame capture fails.
         """
+        project = self._project_repo.get_by_id(project_id)
+        if not project:
+            raise ResourceNotFoundError(
+                resource_type=ResourceType.PROJECT,
+                resource_id=str(project_id),
+            )
+
+        if not project.active:
+            raise ServiceError(
+                f"Cannot capture frame: project {project_id} is not active. "
+                "Please activate the project before capturing frames."
+            )
+
+        connected_source = self._source_repo.get_connected_in_project(project_id)
+        if not connected_source:
+            raise ResourceNotFoundError(
+                resource_type=ResourceType.SOURCE,
+                resource_id=None,
+                message=f"Project {project_id} has no connected source. "
+                "Please connect a source before capturing frames.",
+            )
+
         capture = FrameCapture()
         consumer_queue: Queue[InputData] | None = None
 
@@ -88,9 +117,11 @@ class FrameService:
 
             return frame_id
 
+        except ServiceError:
+            raise
         except Exception as e:
-            logger.error(f"Failed to capture frame for project {project_id}: {e}")
-            raise FrameCaptureError(f"Frame capture failed: {e}")
+            logger.exception(f"Failed to capture frame for project {project_id}.")
+            raise ServiceError(f"Frame capture failed: {str(e)}")
         finally:
             if consumer_queue is not None:
                 try:

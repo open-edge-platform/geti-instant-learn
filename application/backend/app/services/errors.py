@@ -14,6 +14,7 @@ class ResourceType(str, Enum):
     PROCESSOR = "Processor"
     SINK = "Sink"
     PROJECT = "Project"
+    FRAME = "Frame"
 
 
 class ServiceError(Exception):
