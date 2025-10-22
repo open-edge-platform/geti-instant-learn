@@ -83,7 +83,7 @@ export const AnnotationActionsProvider = ({ children }: AnnotationActionsProvide
     };
 
     const submitAnnotations = async () => {
-        if (!isDirty) return;
+        if (!isDirty.current) return;
 
         // TODO: implement saving annotations
         // const serverFormattedAnnotations = mapLocalAnnotationsToServer(localAnnotations);
