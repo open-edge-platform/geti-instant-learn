@@ -39,55 +39,74 @@
 
   packageRules: [
     {
-      enabled: true,
       matchManagers: ["pep621"],
+
+      enabled: true,
       schedule: ["* * * * 0"], // weekly
     },
 
-    // Disable ultralytics notifications (based on previous Dependabot config)
+    // Disable non-security upgrades for pypi, except lock file update
     {
-      enabled: false,
       matchDatasources: ["pypi"],
-      matchDepNames: ["ultralytics"],
+
+      enabled: false,
+    },
+
+    // Python version in TOML is updated manually
+    {
+      matchDatasources: ["python-version"],
+      matchDepTypes: ["requires-python"],
+      matchDepNames: ["python"],
+
+      enabled: false,
     },
 
     // Group GitHub Actions updates
     {
-      enabled: true,
-      separateMajorMinor: false,
       groupName: "GitHub Actions",
+
       matchManagers: ["github-actions"],
       matchPackagePatterns: ["*"],
+
+      enabled: true,
+      separateMajorMinor: false,
       schedule: ["* * 1 * *"], // every month
     },
 
     // Dockerfile - base image updates
     {
-      enabled: true,
       groupName: "Docker base images",
+
       matchManagers: ["dockerfile"],
       matchDatasources: ["docker"],
       // Group all base images into one PR
       matchPackagePatterns: ["*"],
+
+      enabled: true,
       schedule: ["* * 1 * *"], // monthly, 1st day of month
       separateMajorMinor: true, // separate PRs for major updates
     },
+
     // NPM - production dependencies
     {
-      enabled: true,
       groupName: "NPM production dependencies",
+
       matchManagers: ["npm"],
       matchDepTypes: ["dependencies"],
+
+      enabled: true,
       schedule: ["* * * * 0"], // weekly (Sunday)
       separateMajorMinor: true, // separate PRs for major updates
     },
 
     // NPM - development dependencies (less critical)
     {
-      enabled: true,
       groupName: "NPM dev dependencies",
+
       matchManagers: ["npm"],
       matchDepTypes: ["devDependencies"],
+
+      enabled: true,
       schedule: ["* * 15 * *"], // 15th day of month
       separateMajorMinor: false, // group all dev updates together
     },
