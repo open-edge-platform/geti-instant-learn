@@ -24,7 +24,7 @@ class FrameCaptureResponse(BaseModel):
 
 
 @projects_router.post(
-    path="/{project_id}/frames:capture",
+    path="/{project_id}/frames",
     status_code=status.HTTP_201_CREATED,
     responses={
         status.HTTP_201_CREATED: {

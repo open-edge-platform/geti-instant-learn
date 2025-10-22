@@ -97,7 +97,7 @@ def test_capture_frame(client, monkeypatch, behavior, expected_status, expect_lo
     app = client.app
     app.dependency_overrides[get_frame_service] = lambda: FakeFrameService(None, None, None, None)
 
-    resp = client.post(f"/api/v1/projects/{PROJECT_ID_STR}/frames:capture")
+    resp = client.post(f"/api/v1/projects/{PROJECT_ID_STR}/frames")
 
     assert resp.status_code == expected_status
 
@@ -123,7 +123,7 @@ def test_capture_frame_service_error_details(client, monkeypatch):
     app = client.app
     app.dependency_overrides[get_frame_service] = lambda: FakeFrameService(None, None, None, None)
 
-    resp = client.post(f"/api/v1/projects/{PROJECT_ID_STR}/frames:capture")
+    resp = client.post(f"/api/v1/projects/{PROJECT_ID_STR}/frames")
 
     assert resp.status_code == 400
     assert "Frame capture failed: encoding error" in resp.json()["detail"]
@@ -200,7 +200,7 @@ def test_get_frame_with_invalid_frame_id(client, monkeypatch):
 
 
 def test_capture_frame_with_invalid_project_id(client):
-    resp = client.post("/api/v1/projects/not-a-uuid/frames:capture")
+    resp = client.post("/api/v1/projects/not-a-uuid/frames")
     assert resp.status_code == 422
 
 
@@ -221,12 +221,12 @@ def test_capture_multiple_frames_returns_different_ids(client, monkeypatch):
     app = client.app
     app.dependency_overrides[get_frame_service] = lambda: FakeFrameService(None, None, None, None)
 
-    resp1 = client.post(f"/api/v1/projects/{PROJECT_ID_STR}/frames:capture")
+    resp1 = client.post(f"/api/v1/projects/{PROJECT_ID_STR}/frames")
     assert resp1.status_code == 201
     assert resp1.headers["Location"] == f"/projects/{PROJECT_ID_STR}/frames/{FRAME_ID_STR}"
     assert resp1.json()["frame_id"] == FRAME_ID_STR
 
-    resp2 = client.post(f"/api/v1/projects/{PROJECT_ID_STR}/frames:capture")
+    resp2 = client.post(f"/api/v1/projects/{PROJECT_ID_STR}/frames")
     assert resp2.status_code == 201
     assert resp2.headers["Location"] == f"/projects/{PROJECT_ID_STR}/frames/{SECOND_FRAME_ID_STR}"
     assert resp2.json()["frame_id"] == SECOND_FRAME_ID_STR
