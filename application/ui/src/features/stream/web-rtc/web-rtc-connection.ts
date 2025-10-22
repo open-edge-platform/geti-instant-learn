@@ -74,7 +74,7 @@ export class WebRTCConnection {
     }
 
     private hasActiveConnection(): boolean {
-        return this.peerConnection !== undefined && this.status !== 'idle' && this.status !== 'disconnected';
+        return this.peerConnection !== null && this.status !== 'idle' && this.status !== 'disconnected';
     }
 
     public async start(projectId: string): Promise<void> {
