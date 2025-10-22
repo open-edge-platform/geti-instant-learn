@@ -151,26 +151,20 @@ export class WebRTCConnection {
             throw new Error('Local description is not set');
         }
 
-        try {
-            const { data } = await client.POST('/api/v1/projects/{project_id}/offer', {
-                body: {
-                    webrtc_id: this.webRTCId,
-                    type: this.peerConnection.localDescription.type,
-                    sdp: this.peerConnection.localDescription.sdp,
+        const { data } = await client.POST('/api/v1/projects/{project_id}/offer', {
+            body: {
+                webrtc_id: this.webRTCId,
+                type: this.peerConnection.localDescription.type,
+                sdp: this.peerConnection.localDescription.sdp,
+            },
+            params: {
+                path: {
+                    project_id: projectId,
                 },
-                params: {
-                    path: {
-                        project_id: projectId,
-                    },
-                },
-            });
+            },
+        });
 
-            console.info('Offer sent successfully:', { data });
-
-            return data as SessionData;
-        } catch (error) {
-            console.error('Error sending offer:', error);
-        }
+        return data as SessionData;
     }
 
     private setupConnectionStateListener() {
