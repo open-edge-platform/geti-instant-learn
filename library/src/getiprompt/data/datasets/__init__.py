@@ -7,11 +7,11 @@ This module provides dataset classes for GetiPrompt tasks.
 """
 
 from .base import GetiPromptDataset
-from .per_seg import PerSegDataset
 from .lvis import LVISDataset
+from .per_seg import PerSegDataset
 
 __all__ = [
     "GetiPromptDataset",
     "LVISDataset",
-    "PerSegDataset", 
+    "PerSegDataset",
 ]

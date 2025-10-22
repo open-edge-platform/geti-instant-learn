@@ -25,7 +25,6 @@ class GroundedSAM(Model):
         box_threshold: float = 0.4,
         text_threshold: float = 0.3,
         device: str = "cuda",
-        image_size: int | tuple[int, int] | None = None,
     ) -> None:
         """Initialize the model.
 
@@ -38,9 +37,8 @@ class GroundedSAM(Model):
             box_threshold: The box threshold.
             text_threshold: The text threshold.
             device: The device to use.
-            image_size: The size of the image to use, if None, the image will not be resized.
         """
-        super().__init__(image_size=image_size)
+        super().__init__()
         self.sam_predictor = load_sam_model(
             sam,
             device,
@@ -82,7 +80,6 @@ class GroundedSAM(Model):
     def infer(self, target_images: list[Image]) -> Results:
         """Perform inference step on the target images."""
         # Start running the model
-        target_images = self.resize_images(target_images)
         priors = self.prompt_generator(target_images, [self.text_priors] * len(target_images))
         priors = self.multi_instance_prior_filter(priors)
         masks, _, used_boxes = self.segmenter(target_images, priors)

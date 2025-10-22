@@ -45,7 +45,7 @@ class DinoTxtZeroShotClassification(Model):
         image_size: tuple[int, int] | None = (512, 512),
         backbone_size: DINOv3BackboneSize = DINOv3BackboneSize.LARGE,
     ) -> None:
-        super().__init__(image_size=image_size)
+        super().__init__()
         self.precision = precision = precision_to_torch_dtype(precision)
         self.dino_encoder = DinoTextEncoder(
             device=device,

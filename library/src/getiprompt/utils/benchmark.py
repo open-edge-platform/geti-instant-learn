@@ -1,0 +1,119 @@
+import shutil
+import warnings
+from pathlib import Path
+
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+
+import itertools
+from logging import getLogger
+
+import pandas as pd
+
+from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
+
+logger = getLogger("Geti Prompt")
+
+
+def handle_output_path(output_path: str, overwrite: bool) -> Path:
+    """Handle output path to avoid overwriting existing data.
+
+    Args:
+        output_path: The path to the output data
+        overwrite: Whether to overwrite existing data
+
+    Raises:
+        ValueError: If the output path already exists and overwrite is False
+
+    Returns:
+        The path to the output data
+    """
+    output_path_obj = Path(output_path)
+    if output_path_obj.exists():
+        if overwrite:
+            shutil.rmtree(output_path_obj)
+        else:
+            msg = (
+                f"Output path {output_path_obj} already exists. "
+                "Set overwrite=True to overwrite it or change the output path."
+            )
+            raise ValueError(msg)
+
+    output_path_obj.mkdir(parents=True, exist_ok=True)
+    return output_path_obj
+
+
+def _generate_experiment_plan(
+    datasets: list[DatasetName],
+    models: list[ModelName],
+    backbones: list[SAMModelName],
+) -> list[tuple[DatasetName, ModelName, SAMModelName]]:
+    """Generate a list of valid experiment configurations to run.
+
+    Args:
+        datasets: The datasets to run
+        models: The models to run
+        backbones: The backbones to run
+
+    Returns:
+        A list of valid experiment configurations
+    """
+    all_combinations = list(itertools.product(datasets, models, backbones))
+    return all_combinations
+
+
+def _get_output_path_for_experiment(
+    output_path: Path,
+    experiment_name: str | None,
+    dataset: DatasetName,
+    model: ModelName,
+    backbone: SAMModelName,
+) -> Path:
+    """Construct a unique output path for an experiment.
+
+    Args:
+        output_path: The path to save the results
+        experiment_name: The name of the experiment
+        dataset: The dataset to run
+        model: The model to run
+        backbone: The backbone to run
+
+    Returns:
+        The path to save the results
+    """
+    combo_str = f"{dataset.value}_{backbone.value}_{model.value}"
+
+    if experiment_name:
+        return output_path / experiment_name / combo_str
+
+    return output_path / combo_str
+
+
+def _save_results(all_results: list[pd.DataFrame], output_path: Path) -> None:
+    """Concatenate and save all experiment results.
+
+    Args:
+        all_results: The results to save
+        output_path: The path to save the results
+    """
+    if not all_results:
+        logger.warning("No experiments were run. Check your arguments.")
+        return
+
+    all_result_dataframe = pd.concat(all_results, ignore_index=True)
+    all_results_dataframe_filename = output_path / "all_results.csv"
+    all_results_dataframe_filename.parent.mkdir(parents=True, exist_ok=True)
+    all_result_dataframe.to_csv(str(all_results_dataframe_filename))
+    msg = f"Saved all results to: {all_results_dataframe_filename}"
+    logger.info(msg)
+
+    avg_results_dataframe_filename = output_path / "avg_results.csv"
+    avg_results_dataframe_filename.parent.mkdir(parents=True, exist_ok=True)
+    avg_result_dataframe = all_result_dataframe.groupby(
+        ["dataset_name", "model_name", "backbone_name"],
+    ).mean(numeric_only=True)
+    avg_result_dataframe.to_csv(str(avg_results_dataframe_filename))
+    msg = f"Saved average results to: {avg_results_dataframe_filename}"
+    logger.info(msg)
+    msg = f"\n\n Final Average Results:\n {avg_result_dataframe}"
+    logger.info(msg)

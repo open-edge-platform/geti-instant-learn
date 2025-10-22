@@ -78,15 +78,6 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         help="Number of grid cells to use for the grid prompt generator",
     )
     parser.add_argument(
-        "--image_size",
-        type=int,
-        default=None,
-        help="Size of the image to use for inference. If not provided, the original size will be used. "
-        "If provided, the image will be resized to the given size, maintaining aspect ratio. "
-        "Note: images are always resized to 1024x1024 for SAM and to 518x518 for DINO. "
-        "This will mainly influence the UI rendering.",
-    )
-    parser.add_argument(
         "--overwrite",
         action="store_true",
         help="Overwrite existing output data",
@@ -164,13 +155,6 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         type=int,
         default=5,
         help="The maximum batch size used during inference.",
-    )
-    parser.add_argument(
-        "--num_batches",
-        type=int,
-        help="The maximum number of batches per class to process. "
-        "This can be used to limit the amount images that are processed. "
-        "The number of processed images will not exceed num_classes * num_batches * batch_size",
     )
     parser.add_argument(
         "--precision",

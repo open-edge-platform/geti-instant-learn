@@ -8,48 +8,13 @@ from logging import getLogger
 
 from torch import nn
 
-from getiprompt.components.preprocessors import ResizeImages, ResizeMasks
 from getiprompt.types import Image, Priors, Results
 
 logger = getLogger("Geti Prompt")
 
 
 class Model(nn.Module):
-    """This class is the base class for all models.
-
-    Examples:
-        >>> import numpy as np
-        >>> from getiprompt.models import Model
-        >>> from getiprompt.types import Image, Priors, Results
-        >>>
-        >>> class MyModel(Model):
-        ...     def learn(self, reference_images: list[Image], reference_priors: list[Priors]) -> Results:
-        ...         self.resize_masks(reference_priors)
-        ...         return Results()
-        ...     def infer(self, target_images: list[Image]) -> Results:
-        ...         self.resize_images(images=target_images)
-        ...         return Results()
-        >>> my_model = MyModel(image_size=512)
-        >>> sample_image = np.zeros((10, 10, 3), dtype=np.uint8)
-        >>> learn_results = my_model.learn([Image(sample_image)], [Priors()])
-        >>> infer_results = my_model.infer([Image(sample_image)])
-        >>>
-        >>> isinstance(learn_results, Results) and isinstance(infer_results, Results)
-        True
-    """
-
-    def __init__(
-        self,
-        image_size: int | tuple[int, int] | None = None,
-    ) -> None:
-        """Initialization method that caches all parameters.
-
-        Args:
-            image_size: The size of the image to use, if None, the image will not be resized.
-        """
-        super().__init__()
-        self.resize_images = ResizeImages(size=image_size)
-        self.resize_masks = ResizeMasks(size=image_size)
+    """This class is the base class for all models."""
 
     @abstractmethod
     def learn(self, reference_images: list[Image], reference_priors: list[Priors]) -> None:
@@ -58,7 +23,6 @@ class Model(nn.Module):
         Args:
             reference_images: A list of images ot learn from.
             reference_priors: A list of priors associated with the image.
-
         """
 
     @abstractmethod

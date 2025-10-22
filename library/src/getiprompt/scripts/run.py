@@ -305,7 +305,7 @@ def parse_image_files(root_dir: str) -> tuple[list[Image], list[str]]:
         for class_id, class_dir in enumerate(class_dirs):
             for ext in IMAGE_EXTENSIONS:
                 list_of_images = list(class_dir.glob(ext))
-                if len(list_of_images):
+                if list_of_images:
                     for image_file in list_of_images:
                         image_files.append(image_file)
                         class_ids.append(class_id)

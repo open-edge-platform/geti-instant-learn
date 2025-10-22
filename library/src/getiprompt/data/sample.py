@@ -17,10 +17,10 @@ import torch
 @dataclass
 class GetiPromptSample:
     """Sample class for GetiPrompt few-shot segmentation datasets.
-    
+
     Supports both single-instance (N=1, PerSeg) and multi-instance (N>1, LVIS/COCO) scenarios.
     One sample = one image with N instances.
-    
+
     Attributes:
         image (np.ndarray | torch.Tensor): Input image with shape:
             - numpy: (H, W, C) - Channel-last format for model preprocessors
@@ -35,18 +35,18 @@ class GetiPromptSample:
         mask_paths (list[str] | None): List of N paths to mask files. Defaults to None.
         is_reference (list[bool]): Reference flag(s) for each instance. Defaults to [False].
         n_shot (list[int]): Shot number(s) for each instance. Defaults to [-1].
-    
+
     Note:
         Images are stored in HWC format (numpy) for compatibility with model preprocessors
         (HuggingFace, SAM transforms). Future refactoring may move preprocessing to dataset.
-    
+
     Note:
         - For single-instance (PerSeg): N=1
         - For multi-instance (LVIS): N>1
         - All masks (if provided) must have the same H×W (typically the image size)
         - At least one of masks, bboxes, or points should be provided for meaningful segmentation tasks
         - If masks not provided, you can use bboxes or points to generate masks later (e.g., with SAM)
-    
+
     Examples:
         Single instance (PerSeg):
         >>> import numpy as np
@@ -71,7 +71,7 @@ class GetiPromptSample:
         [True]
         >>> sample.n_shot
         [0]
-        
+
         Multi-instance (LVIS with 3 sheep):
         >>> sample = GetiPromptSample(
         ...     image=np.random.randint(0, 255, (512, 512, 3), dtype=np.uint8),  # HWC format
@@ -89,7 +89,7 @@ class GetiPromptSample:
         (3, 512, 512)
         >>> sample.is_reference
         [False, False, False]
-        
+
         Only bboxes (no masks - generate masks later with SAM):
         >>> sample = GetiPromptSample(
         ...     image=np.random.randint(0, 255, (512, 512, 3), dtype=np.uint8),  # HWC format
@@ -106,7 +106,7 @@ class GetiPromptSample:
         (2, 4)
         >>> sample.is_reference
         [True, True]
-        
+
         Only points (no masks or bboxes):
         >>> sample = GetiPromptSample(
         ...     image=np.random.randint(0, 255, (512, 512, 3), dtype=np.uint8),  # HWC format
@@ -128,21 +128,21 @@ class GetiPromptSample:
         >>> sample.n_shot
         [-1, -1]
     """
-    
+
     # Required fields
     image: np.ndarray | torch.Tensor
     image_path: str | None = None
-    
+
     # Optional annotation fields (defaults to None)
     masks: np.ndarray | torch.Tensor | None = None
     bboxes: np.ndarray | torch.Tensor | None = None
     points: np.ndarray | torch.Tensor | None = None
-    
+
     # Optional metadata fields (defaults to None)
     categories: list[str] | None = None
     category_ids: np.ndarray | torch.Tensor | None = None
     mask_paths: list[str] | None = None
-    
+
     # Optional task-specific fields (with sensible defaults)
     # Always lists to maintain consistency between single and multi-instance
     is_reference: list[bool] = field(default_factory=lambda: [False])
@@ -150,7 +150,7 @@ class GetiPromptSample:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert sample to dictionary (without loading images).
-        
+
         Returns:
             dict: Dictionary containing all non-cached fields.
         """
@@ -166,4 +166,3 @@ class GetiPromptSample:
             "is_reference": self.is_reference,
             "n_shot": self.n_shot,
         }
-

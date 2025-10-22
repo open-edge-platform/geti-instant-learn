@@ -65,7 +65,6 @@ class PerDino(Model):
         compile_models: bool = False,
         benchmark_inference_speed: bool = False,
         device: str = "cuda",
-        image_size: int | tuple[int, int] | None = None,
     ) -> None:
         """Initialize the PerDino model.
 
@@ -81,9 +80,8 @@ class PerDino(Model):
             compile_models: Whether to compile the models.
             benchmark_inference_speed: Whether to benchmark the inference speed.
             device: The device to use for the model.
-            image_size: The size of the image to use, if None, the image will not be resized.
         """
-        super().__init__(image_size=image_size)
+        super().__init__()
         self.sam_predictor = load_sam_model(
             sam,
             device,
@@ -121,9 +119,7 @@ class PerDino(Model):
     @track_duration
     def learn(self, reference_images: list[Image], reference_priors: list[Priors]) -> Results:
         """Perform learning step on the reference images and priors."""
-        reference_images = self.resize_images(reference_images)
         reference_priors = self.prior_mask_from_points(reference_images, reference_priors)
-        reference_priors = self.resize_masks(reference_priors)
 
         # Start running the model
         reference_features, _ = self.encoder(
@@ -135,8 +131,6 @@ class PerDino(Model):
     @track_duration
     def infer(self, target_images: list[Image]) -> Results:
         """Perform inference step on the target images."""
-        target_images = self.resize_images(target_images)
-
         # Start running the model
         target_features, _ = self.encoder(target_images)
         similarities = self.similarity_matcher(self.reference_features, target_features, target_images)

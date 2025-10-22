@@ -48,7 +48,6 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 precision=args.precision,
                 compile_models=args.compile_models,
                 benchmark_inference_speed=args.benchmark_inference_speed,
-                image_size=args.image_size,
                 device=args.device,
             )
         case ModelName.MATCHER:
@@ -61,7 +60,6 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 precision=args.precision,
                 compile_models=args.compile_models,
                 benchmark_inference_speed=args.benchmark_inference_speed,
-                image_size=args.image_size,
                 device=args.device,
             )
         case ModelName.SOFT_MATCHER:
@@ -79,7 +77,6 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 precision=args.precision,
                 compile_models=args.compile_models,
                 benchmark_inference_speed=args.benchmark_inference_speed,
-                image_size=args.image_size,
                 device=args.device,
             )
         case ModelName.GROUNDED_SAM:
@@ -91,7 +88,6 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 precision=args.precision,
                 compile_models=args.compile_models,
                 benchmark_inference_speed=args.benchmark_inference_speed,
-                image_size=args.image_size,
                 device=args.device,
             )
         case _:

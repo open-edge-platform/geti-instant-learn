@@ -71,7 +71,6 @@ class SoftMatcher(Matcher):
         compile_models: bool = False,
         benchmark_inference_speed: bool = False,
         device: str = "cuda",
-        image_size: int | tuple[int, int] | None = None,
     ) -> None:
         """Initialize the SoftMatcher model.
 
@@ -90,7 +89,6 @@ class SoftMatcher(Matcher):
             compile_models: Whether to compile the models.
             benchmark_inference_speed: Whether to benchmark the inference speed.
             device: The device to use for the model.
-            image_size: The size of the image to use, if None, the image will not be resized.
         """
         super().__init__(
             sam=sam,
@@ -102,7 +100,6 @@ class SoftMatcher(Matcher):
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
             device=device,
-            image_size=image_size,
         )
         self.prompt_generator: PromptGenerator = SoftmatcherPromptGenerator(
             encoder_input_size=self.encoder.input_size,

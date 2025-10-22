@@ -2,183 +2,170 @@
 # SPDX-License-Identifier: Apache-2.0
 # ruff: noqa: E402
 
-"""Geti Prompt Benchmark Script."""
+"""Refactored Geti Prompt Benchmark Script using new dataset design.
+
+This benchmark script uses:
+- GetiPromptDataset (PerSegDataset/LVISDataset)
+- GetiPromptSample
+- GetiPromptBatch
+- PyTorch DataLoader
+"""
 
 import argparse
-import shutil
 import warnings
 from pathlib import Path
 
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-import itertools
 from logging import getLogger
 
-import cv2
 import numpy as np
 import pandas as pd
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
+from torch.utils.data import DataLoader
 
-from getiprompt.data import BatchedSingleCategoryIter, Dataset
+from getiprompt.data import GetiPromptDataset, PerSegDataset
+from getiprompt.data.sample import GetiPromptSample
 from getiprompt.metrics import SegmentationMetrics
 from getiprompt.models import Model, load_model
 from getiprompt.types import Image, Masks, Priors, Text
 from getiprompt.utils import setup_logger
 from getiprompt.utils.args import get_arguments, parse_experiment_args
-from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
-from getiprompt.utils.data import get_filename_categories, get_image_and_mask_from_filename, load_dataset
+from getiprompt.utils.benchmark import (
+    _generate_experiment_plan,
+    _get_output_path_for_experiment,
+    _save_results,
+    handle_output_path,
+)
 from getiprompt.visualize import ExportMaskVisualization
 
 logger = getLogger("Geti Prompt")
 
 
-def handle_output_path(output_path: str, overwrite: bool) -> Path:
-    """Handle output path to avoid overwriting existing data.
+def sample_to_image_and_priors(
+    sample: GetiPromptSample,
+    category_name: str,
+) -> tuple[Image, Priors]:
+    """Convert a GetiPromptSample to legacy Image and Priors format.
+
+    This centralizes the conversion logic from the new sample format to the
+    legacy format used by models.
 
     Args:
-        output_path: The path to the output data
-        overwrite: Whether to overwrite existing data
-
-    Raises:
-        ValueError: If the output path already exists and overwrite is False
+        sample: GetiPromptSample with image and masks
+        category_name: Category name for the text prior
 
     Returns:
-        The path to the output data
+        Tuple of (Image, Priors) ready for model.learn()
     """
-    output_path_obj = Path(output_path)
-    if output_path_obj.exists():
-        if overwrite:
-            shutil.rmtree(output_path_obj)
-        else:
-            msg = (
-                f"Output path {output_path_obj} already exists. "
-                "Set overwrite=True to overwrite it or change the output path."
-            )
-            raise ValueError(msg)
+    # Convert image to Image type
+    image = Image(sample.image if isinstance(sample.image, np.ndarray) else sample.image.cpu().numpy())
 
-    output_path_obj.mkdir(parents=True, exist_ok=True)
-    return output_path_obj
+    # Convert masks to Masks type
+    masks_obj = Masks()
+    if sample.masks is not None:
+        mask_np = sample.masks if isinstance(sample.masks, np.ndarray) else sample.masks.cpu().numpy()
+        category_ids = (
+            sample.category_ids if isinstance(sample.category_ids, np.ndarray) else sample.category_ids.cpu().numpy()
+        )
 
+        for mask, category_id in zip(mask_np, category_ids, strict=True):
+            masks_obj.add(mask, class_id=int(category_id))
 
-def get_all_instances(images: list[np.ndarray], masks: list[np.ndarray], count: int) -> tuple[list[Image], list[Masks]]:
-    """This method returns priors including masks.
+    # Create text prior
+    text_prior = Text()
+    text_prior.add(category_name, class_id=0)
 
-    Args:
-        images: The list of images of a certain category
-        masks: The list of masks of a certain category
-        count: The number of image masks to return
+    # Create priors object
+    priors = Priors(masks=masks_obj, text=text_prior)
 
-    Returns:
-        List of images and masks
-    """
-    # Load all prior images and masks
-    prior_images = []
-    prior_masks = []
-    for i, (image, mask) in enumerate(zip(images, masks, strict=False)):
-        prior_images.append(Image(image))
-        mask2 = mask
-        mask2[mask2 > 1] = 1  # Keep all instances
-        mask2 = mask2[:, :, None]
-        masks = Masks()
-        masks.add(mask2)
-        prior_masks.append(masks)
-        if i >= count - 1:
-            break
-    return prior_images, prior_masks
+    return image, priors
 
 
-def save_priors(prior_images: list[Image], prior_masks: list[Masks], output_path: str) -> None:
-    """This method saves the priors to disk.
-
-    Args:
-        prior_images: The list of prior images
-        prior_masks: The list of prior masks
-        output_path: The path to save the priors
-    """
-    output_path_obj = Path(output_path)
-    output_path_obj.mkdir(parents=True, exist_ok=True)
-    for i, (image, mask) in enumerate(zip(prior_images, prior_masks, strict=False)):
-        mask_np = mask.to_numpy()[0]  # Mask is CHW
-        image_np = image.to_numpy()
-        mask_np[mask_np > 0] = 255
-        mask_np = cv2.cvtColor(mask_np.astype(np.uint8), cv2.COLOR_GRAY2BGR)
-        overlay = cv2.addWeighted(image_np, 0.7, mask_np, 0.3, 0)
-        overlay = cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR)
-        cv2.imwrite(str(output_path_obj / f"prior_{i}.png"), overlay)
-
-
-def infer_all_batches(
-    batches: BatchedSingleCategoryIter,
+def infer_on_category(
+    dataset: GetiPromptDataset,
     model: Model,
     category_name: str,
     priors_batch_index: int,
     visualizer: ExportMaskVisualization,
     metrics_calculators: dict[int, SegmentationMetrics],
-    number_of_batches: int,
     progress: Progress,
-    image_size: tuple[int, int] | None = None,
+    batch_size: int = 4,
 ) -> tuple[int, int]:
-    """This performs an inference run on all batches.
+    """Perform inference on all samples of a category.
 
     Args:
-        batches: An iterable of batches that return numpy images and masks
+        dataset: The dataset containing target samples
         model: The model to run
         category_name: The current category
         priors_batch_index: The current prior batch
         visualizer: The visualizer for exporting
         metrics_calculators: The calculator for the metrics
-        number_of_batches: The number of batches.
         progress: The progress bar
-        image_size: The size of the images to resize to
+        batch_size: Batch size for DataLoader
+        number_of_batches: The number of batches to process (None = all)
 
     Returns:
         The number of samples that were processed and the total time it took.
     """
+    # Get target samples for this category
+    target_dataset = dataset.get_target_dataset(category=category_name)
+
+    if len(target_dataset) == 0:
+        logger.warning(f"No target samples found for category: {category_name}")
+        return 0, 0
+
+    category = target_dataset.category_ids[0]
+
+    # Create DataLoader
+    dataloader = DataLoader(
+        target_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        collate_fn=target_dataset.collate_fn,
+    )
+
     # Task for batches for the current category and prior (transient)
-    batches.reset()  # reset batch iterator because it was consumed
-    num_batches_to_process = len(batches) if number_of_batches is None else min(len(batches), number_of_batches + 1)
     batches_task = progress.add_task(
         f"[magenta]Infer step: {category_name}",
-        total=num_batches_to_process,
+        total=len(dataloader),
         transient=True,
     )
+
     time_sum = 0
     time_count = 0
-    for batch_index, (images, masks) in enumerate(batches):
-        target_images = [Image(image) for image in images]
+
+    for batch in dataloader:
+        # Convert batch to Image objects
+        target_images = [Image(img_np) for img_np in batch.images_np]
+
+        # Run inference
         results = model.infer(target_images=target_images)
         time_sum += results.duration
-        time_count += len(images)
+        time_count += len(batch)
 
-        # Generate names for exported files and export them
+        # Generate export paths
         export_paths = [
             str(
-                Path("predictions")
-                / f"priors_batch_{priors_batch_index}"
-                / category_name
-                / Path(batches.get_image_filename(batch_index, image_index)).name,
+                Path("predictions") / f"priors_batch_{priors_batch_index}" / category_name / Path(img_path).name,
             )
-            for image_index in range(len(images))
+            for img_path in batch.image_paths
         ]
-        export_paths_all_points = [
+        export_paths_debug = [
             str(
-                Path("predictions_debug")
-                / f"priors_batch_{priors_batch_index}"
-                / category_name
-                / Path(batches.get_image_filename(batch_index, image_index)).name,
+                Path("predictions_debug") / f"priors_batch_{priors_batch_index}" / category_name / Path(img_path).name,
             )
-            for image_index in range(len(images))
+            for img_path in batch.image_paths
         ]
         export_paths_gt = [
             str(
-                Path("ground_truth")
-                / f"priors_batch_{priors_batch_index}"
-                / category_name
-                / Path(batches.get_image_filename(batch_index, image_index)).name,
+                Path("ground_truth") / f"priors_batch_{priors_batch_index}" / category_name / Path(img_path).name,
             )
-            for image_index in range(len(images))
+            for img_path in batch.image_paths
         ]
+
+        # Visualize predictions
         visualizer(
             images=target_images,
             masks=results.masks,
@@ -189,163 +176,122 @@ def infer_all_batches(
         visualizer(
             images=target_images,
             masks=results.masks,
-            names=export_paths_all_points,
+            names=export_paths_debug,
             points=visualizer.points_from_priors(results.priors),
             boxes=visualizer.boxes_from_priors(results.priors),
         )
-        gt_masks = visualizer.arrays_to_masks(masks)
-        # resize masks to target image size
-        gt_masks = [mask.resize(image_size) for mask in gt_masks]
+
+        # Visualize ground truth
+        gt_masks = visualizer.binary_masks_to_masks(
+            batch.masks_np,
+            class_id=category,
+        )
+
         visualizer(
             images=target_images,
             masks=gt_masks,
             names=export_paths_gt,
         )
+
+        # Calculate metrics
         metrics_calculators[priors_batch_index](
             predictions=results.masks,
             references=gt_masks,
-            mapping={0: category_name},
+            mapping={category: category_name},
         )
+
         progress.update(batches_task, advance=1)
-        if number_of_batches is not None and batch_index >= number_of_batches:  # Adjusted condition
-            break
+
     progress.remove_task(batches_task)
     return time_sum, time_count
 
 
-def infer_all_images(
-    filenames: list[str],
-    dataset: Dataset,
+def learn_from_category(
+    dataset: GetiPromptDataset,
     model: Model,
     category_name: str,
-    priors_batch_index: int,
+    n_shot: int,
     visualizer: ExportMaskVisualization,
-    metrics_calculators: dict[int, SegmentationMetrics],
-    progress: Progress,
-) -> tuple[int, int]:
-    """This performs an inference run on all batches.
+    priors_batch_index: int,
+) -> tuple[list[Image], list[Priors]]:
+    """Learn from reference samples of a category.
 
     Args:
-        filenames: A list of filenames
-        dataset: The dataset containing the images
-        model: The model to run
-        category_name: The current category
-        priors_batch_index: The current prior batch
+        dataset: The dataset containing reference samples
+        model: The model to train
+        category_name: The category to learn from
+        n_shot: Number of reference shots to use
         visualizer: The visualizer for exporting
-        metrics_calculators: The calculator for the metrics
-        progress: The progress bar
+        priors_batch_index: The current prior batch index
 
     Returns:
-        The number of samples that were processed and the total time it took.
+        Tuple of (reference_images, reference_priors) used for learning
     """
-    # Task for batches for the current category and prior (transient)
-    batches_task = progress.add_task(f"[magenta]Infer step: {category_name}", total=1, transient=True)
-    time_sum = 0
-    time_count = 0
+    # Get reference samples for this category
+    reference_dataset = dataset.get_reference_dataset(category=category_name)
+    if len(reference_dataset) == 0:
+        raise ValueError(f"No reference samples found for category: {category_name}")
 
-    images = []
-    masks = []
-    for filename in filenames:
-        image, mask = get_image_and_mask_from_filename(filename, dataset, category_name)
-        images.append(image)
-        masks.append(mask)
+    # Limit to n_shot samples
+    n_samples = min(n_shot, len(reference_dataset))
 
-    target_images = [Image(image) for image in images]
-    results = model.infer(target_images=target_images)
-    time_sum += results.duration
-    time_count += len(images)
+    # Convert samples to legacy format (Image, Priors)
+    reference_images = []
+    reference_priors = []
 
-    # Generate names for exported files and export them
-    export_paths = [
+    for i in range(n_samples):
+        sample = reference_dataset[i]
+        image, priors = sample_to_image_and_priors(sample, category_name)
+        reference_images.append(image)
+        reference_priors.append(priors)
+
+    # Learn
+    model.learn(
+        reference_images=reference_images,
+        reference_priors=reference_priors,
+    )
+
+    # Save priors visualization
+    priors_export_paths = [
         str(
-            Path("predictions")
-            / f"priors_batch_{priors_batch_index}"
-            / category_name
-            / Path(filenames[image_index]).name,
+            Path("priors") / f"priors_batch_{priors_batch_index}" / category_name / f"prior_{image_index}.png",
         )
-        for image_index in range(len(images))
+        for image_index in range(len(reference_images))
     ]
-    export_paths_all_points = [
-        str(
-            Path("predictions_debug")
-            / f"priors_batch_{priors_batch_index}"
-            / category_name
-            / Path(filenames[image_index]).name,
-        )
-        for image_index in range(len(images))
-    ]
-    export_paths_gt = [
-        str(
-            Path("ground_truth")
-            / f"priors_batch_{priors_batch_index}"
-            / category_name
-            / Path(filenames[image_index]).name,
-        )
-        for image_index in range(len(images))
-    ]
+    masks_priors = visualizer.masks_from_priors(reference_priors)
     visualizer(
-        images=target_images,
-        masks=results.masks,
-        names=export_paths,
-        points=results.used_points,
-        boxes=visualizer.boxes_from_priors(results.priors),
+        images=reference_images,
+        masks=masks_priors,
+        names=priors_export_paths,
     )
-    visualizer(
-        images=target_images,
-        masks=results.masks,
-        names=export_paths_all_points,
-        points=visualizer.points_from_priors(results.priors),
-        annotations=results.annotations,
-        boxes=visualizer.boxes_from_priors(results.priors),
-    )
-    gt_masks = visualizer.arrays_to_masks(masks)
-    visualizer(
-        images=target_images,
-        masks=gt_masks,
-        names=export_paths_gt,
-    )
-    metrics_calculators[priors_batch_index](
-        predictions=results.masks,
-        references=gt_masks,
-        mapping={0: category_name},
-    )
-    progress.update(batches_task, advance=1)
-    progress.remove_task(batches_task)
-    return time_sum, time_count
+
+    return reference_images, reference_priors
 
 
-def predict_on_dataset(  # noqa: C901, PLR0915
+def predict_on_dataset(
     args: argparse.Namespace,
     model: Model,
-    priors_dataset: Dataset,
-    dataset: Dataset,
+    dataset: GetiPromptDataset,
     unique_output: Path,
     dataset_name: str,
     model_name: str,
     backbone_name: str,
     number_of_priors_tests: int,
-    number_of_batches: int | None,
-    dataset_filenames: list[str] | None,
-    image_size: tuple[int, int] | None = None,
 ) -> pd.DataFrame:
-    """This runs predictions on the dataset and evaluates them.
+    """Run predictions on the dataset and evaluate them.
 
     Args:
         args: Args from the argparser.
         model: The model to use.
-        priors_dataset: The training set that is used for priors
-        dataset: The validation set that is processed
+        dataset: The dataset (contains both reference and target samples)
         unique_output: Unique output name
         dataset_name: The dataset name
         model_name: The algorithm name
         backbone_name: The model name
         number_of_priors_tests: The number of priors to try
-        number_of_batches: The number of batches per class to process (limited testing)
-            pass None to process all data
-        dataset_filenames: Only do inference on these images
-        image_size: The size of the images to resize to
-    Returns: The timing
 
+    Returns:
+        The timing DataFrame
     """
     unique_output_path = handle_output_path(unique_output, args.overwrite)
     msg = f"Output path: {unique_output_path}"
@@ -368,101 +314,51 @@ def predict_on_dataset(  # noqa: C901, PLR0915
         TimeRemainingColumn(),
         TimeElapsedColumn(),
     )
-    cat_filter = get_filename_categories(dataset_filenames, dataset)
+
+    # Get all unique categories
+    categories = dataset.categories
 
     with progress:
         # Main task for categories (persistent)
-        categories_task = progress.add_task(f"[cyan]Processing {dataset_name}", total=dataset.get_category_count())
+        categories_task = progress.add_task(f"[cyan]Processing {dataset_name}", total=len(categories))
 
         # Iterate over all categories in the dataset
-        for category_index, batches in enumerate(dataset):
-            category_name = dataset.category_index_to_name(category_index)
-            if cat_filter is not None and category_name not in cat_filter:
-                continue  # skip this category because it is filtered
-
-            priors_cat_index = priors_dataset.category_name_to_index(category_name)
-
+        for category_name in categories:
             # Task for priors for the current category (transient)
-            priors_iter = BatchedSingleCategoryIter(priors_dataset, args.n_shot, priors_cat_index)
             priors_task = progress.add_task(f"[green]Learn step: {category_name}", total=1, transient=True)
 
-            # Iterate over all priors in the batch (break after number_of_prior_test iterations)
-            for priors_batch_index, (priors_images, priors_masks) in enumerate(priors_iter):
+            # For now, only use 1 prior batch (can be extended for multiple prior batches)
+            for priors_batch_index in range(number_of_priors_tests):
                 # Add a new metrics calculator if needed
                 if priors_batch_index not in metrics_calculators:
-                    metrics_calculators[priors_batch_index] = SegmentationMetrics(categories=dataset.get_categories())
+                    metrics_calculators[priors_batch_index] = SegmentationMetrics(categories=categories)
 
-                # Select priors
-                priors_images2, priors_masks2 = get_all_instances(
-                    priors_images,
-                    priors_masks,
-                    args.n_shot,
+                # Learn from reference samples
+                learn_from_category(
+                    dataset=dataset,
+                    model=model,
+                    category_name=category_name,
+                    n_shot=args.n_shot,
+                    visualizer=visualizer,
+                    priors_batch_index=priors_batch_index,
                 )
+                progress.update(priors_task, advance=1)
 
-                # Learn using the priors
-                text_prior = Text()
-                text_prior.add(category_name, class_id=0)
-                reference_priors = [Priors(masks=priors_masks2[i], text=text_prior) for i in range(len(priors_masks2))]
-                try:
-                    model.learn(
-                        reference_images=priors_images2,
-                        reference_priors=reference_priors,
-                    )
-                    progress.update(priors_task, advance=1)
-                except ValueError:
-                    logger.exception("Failed to learn from priors.")
-                    progress.update(priors_task, advance=1)
-                    continue
-
-                # Save priors
-                priors_export_paths = [
-                    str(
-                        Path("priors")
-                        / f"priors_batch_{priors_batch_index}"
-                        / category_name
-                        / f"prior_{image_index}.png",
-                    )
-                    for image_index in range(len(priors_images2))
-                ]
-                masks_priors = visualizer.masks_from_priors(
-                    reference_priors,
+                # Infer on target samples
+                ts, tc = infer_on_category(
+                    dataset=dataset,
+                    model=model,
+                    category_name=category_name,
+                    priors_batch_index=priors_batch_index,
+                    visualizer=visualizer,
+                    metrics_calculators=metrics_calculators,
+                    progress=progress,
+                    batch_size=args.batch_size,
                 )
-                visualizer(
-                    images=priors_images2,
-                    masks=masks_priors,
-                    names=priors_export_paths,
-                )
-                if dataset_filenames is None:
-                    # Iterate over all batches
-                    ts, tc = infer_all_batches(
-                        batches=batches,
-                        model=model,
-                        category_name=category_name,
-                        priors_batch_index=priors_batch_index,
-                        visualizer=visualizer,
-                        metrics_calculators=metrics_calculators,
-                        number_of_batches=number_of_batches,
-                        progress=progress,
-                        image_size=image_size,
-                    )
-                else:
-                    # Infer on a single image
-                    ts, tc = infer_all_images(
-                        filenames=dataset_filenames,
-                        dataset=dataset,
-                        model=model,
-                        category_name=category_name,
-                        priors_batch_index=priors_batch_index,
-                        visualizer=visualizer,
-                        metrics_calculators=metrics_calculators,
-                        progress=progress,
-                    )
 
                 time_sum += ts
                 time_count += tc
 
-                if priors_batch_index >= number_of_priors_tests - 1:
-                    break  # Do not proceed with the next batch of priors
             progress.remove_task(priors_task)
             progress.update(categories_task, advance=1)
 
@@ -472,13 +368,7 @@ def predict_on_dataset(  # noqa: C901, PLR0915
         metrics = calculator.get_metrics()
         ln = len(metrics["category"])
         metrics["prior_index"] = [prior_index] * ln
-        metrics["inference_time"] = [time_sum / time_count] * ln
-        metrics["images_per_category"] = [
-            dataset.get_image_count_per_category(cat_name) for cat_name in metrics["category"]
-        ]
-        metrics["instances_per_category"] = [
-            dataset.get_instance_count_per_category(cat_name) for cat_name in metrics["category"]
-        ]
+        metrics["inference_time"] = [time_sum / time_count if time_count > 0 else 0] * ln
         metrics["dataset_name"] = [dataset_name] * ln
         metrics["model_name"] = [model_name] * ln
         metrics["backbone_name"] = [backbone_name] * ln
@@ -491,89 +381,26 @@ def predict_on_dataset(  # noqa: C901, PLR0915
     return pd.DataFrame.from_dict(all_metrics)
 
 
-def _generate_experiment_plan(
-    datasets: list[DatasetName],
-    models: list[ModelName],
-    backbones: list[SAMModelName],
-) -> list[tuple[DatasetName, ModelName, SAMModelName]]:
-    """Generate a list of valid experiment configurations to run.
+def load_dataset_by_name(dataset_name: str, categories: list[str] | None = None, n_shots: int = 1) -> GetiPromptDataset:
+    """Load a dataset by name.
 
     Args:
-        datasets: The datasets to run
-        models: The models to run
-        backbones: The backbones to run
+        dataset_name: Name of the dataset (e.g., "PerSeg", "LVIS")
+        categories: Optional list of categories to filter
+        n_shots: Number of reference shots per category
 
-    Returns: A list of valid experiment configurations
+    Returns:
+        GetiPromptDataset instance
     """
-    all_combinations = list(itertools.product(datasets, models, backbones))
-    valid_configs = []
-
-    for dataset, pipeline, backbone in all_combinations:
-        valid_configs.append((dataset, pipeline, backbone))
-
-    return valid_configs
-
-
-def _get_output_path_for_experiment(
-    output_path: Path,
-    experiment_name: str | None,
-    dataset: DatasetName,
-    model: ModelName,
-    backbone: SAMModelName,
-    dataset_filenames: str | None,
-) -> Path:
-    """Construct a unique output path for an experiment.
-
-    Args:
-        output_path: The path to save the results
-        experiment_name: The name of the experiment
-        dataset: The dataset to run
-        model: The model to run
-        backbone: The backbone to run
-        dataset_filenames: The filenames to run
-
-    Returns: The path to save the results
-    """
-    combo_str = f"{dataset.value}_{backbone.value}_{model.value}"
-
-    if experiment_name:
-        return output_path / experiment_name / combo_str
-
-    if dataset_filenames:
-        fn_str = dataset_filenames.replace("/", "_")
-        return output_path / f"{combo_str}_{fn_str}"
-
-    return output_path / combo_str
-
-
-def _save_results(all_results: list[pd.DataFrame], output_path: Path) -> None:
-    """Concatenate and save all experiment results.
-
-    Args:
-        all_results: The results to save
-        output_path: The path to save the results
-    """
-    if not all_results:
-        logger.warning("No experiments were run. Check your arguments.")
-        return
-
-    all_result_dataframe = pd.concat(all_results, ignore_index=True)
-    all_results_dataframe_filename = output_path / "all_results.csv"
-    all_results_dataframe_filename.parent.mkdir(parents=True, exist_ok=True)
-    all_result_dataframe.to_csv(str(all_results_dataframe_filename))
-    msg = f"Saved all results to: {all_results_dataframe_filename}"
-    logger.info(msg)
-
-    avg_results_dataframe_filename = output_path / "avg_results.csv"
-    avg_results_dataframe_filename.parent.mkdir(parents=True, exist_ok=True)
-    avg_result_dataframe = all_result_dataframe.groupby(
-        ["dataset_name", "model_name", "backbone_name"],
-    ).mean(numeric_only=True)
-    avg_result_dataframe.to_csv(str(avg_results_dataframe_filename))
-    msg = f"Saved average results to: {avg_results_dataframe_filename}"
-    logger.info(msg)
-    msg = f"\n\n Final Average Results:\n {avg_result_dataframe}"
-    logger.info(msg)
+    # Map dataset names to dataset classes
+    # You'll need to implement this mapping based on your dataset structure
+    if dataset_name.lower() == "perseg":
+        return PerSegDataset(
+            root=Path("~/datasets/PerSeg").expanduser(),
+            categories=categories,
+            n_shots=n_shots,
+        )
+    raise ValueError(f"Unknown dataset: {dataset_name}")
 
 
 def perform_benchmark_experiment(args: argparse.Namespace | None = None) -> None:
@@ -609,7 +436,13 @@ def perform_benchmark_experiment(args: argparse.Namespace | None = None) -> None
         )
         logger.info(msg)
 
-        dataset = load_dataset(dataset_enum.value, whitelist=args.class_name, batch_size=args.batch_size)
+        # Load dataset using new API
+        dataset = load_dataset_by_name(
+            dataset_enum.value,
+            categories=args.class_name.split(",") if args.class_name else None,
+            n_shots=args.n_shot,
+        )
+
         model = load_model(sam=backbone_enum, model_name=model_enum, args=args)
 
         # Individual experiment artifacts are saved in a path derived from the base path.
@@ -619,28 +452,19 @@ def perform_benchmark_experiment(args: argparse.Namespace | None = None) -> None
             dataset_enum,
             model_enum,
             backbone_enum,
-            args.dataset_filenames,
         )
 
         all_metrics_df = predict_on_dataset(
             args,
             model,
-            priors_dataset=dataset,
             dataset=dataset,
             unique_output=unique_output_path,
             dataset_name=dataset_enum.value,
             model_name=model_enum.value,
             backbone_name=backbone_enum.value,
             number_of_priors_tests=args.num_priors,
-            number_of_batches=args.num_batches,
-            dataset_filenames=args.dataset_filenames.split(",") if args.dataset_filenames else None,
-            image_size=args.image_size,
         )
         all_results.append(all_metrics_df)
 
     # Save aggregated results to the final results path
     _save_results(all_results, final_results_path)
-
-
-if __name__ == "__main__":
-    perform_benchmark_experiment()

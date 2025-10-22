@@ -4,7 +4,6 @@
 """Base class for visualization processes."""
 
 import numpy as np
-import torch
 
 from getiprompt.types import Boxes, Masks, Points, Priors
 
