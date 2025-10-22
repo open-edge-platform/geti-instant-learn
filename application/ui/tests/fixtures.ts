@@ -20,16 +20,24 @@ const test = testBase.extend<Fixtures>({
                 return response(200).json({
                     projects: [
                         {
-                            id: '12',
-                            name: 'Project #12',
+                            id: '1',
+                            name: 'Project #1',
+                            active: true,
                         },
                     ],
+                    pagination: { total: 1, count: 1, offset: 0, limit: 10 },
                 });
             }),
             http.get('/api/v1/projects/{project_id}', ({ response }) => {
                 return response(200).json({
                     id: '1',
                     name: 'Project #1',
+                    active: true,
+                });
+            }),
+            http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {
+                return response(200).json({
+                    sources: [],
                 });
             }),
         ],
