@@ -93,6 +93,14 @@
 
       enabled: false,
     },
+
+    // NPM version in pacakge.json is updated manually
+    {
+      matchDatasources: ["node-version"],
+      matchDepNames: ["node"],
+
+      enabled: false,
+    },
   ],
 
   // Enable security upgrades
