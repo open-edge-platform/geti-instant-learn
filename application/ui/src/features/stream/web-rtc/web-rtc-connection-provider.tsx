@@ -6,7 +6,6 @@
 import { createContext, ReactNode, RefObject, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 import { useProjectIdentifier } from '@geti-prompt/hooks';
-import { useMutation } from '@tanstack/react-query';
 
 import { WebRTCConnection, type WebRTCConnectionStatus } from './web-rtc-connection';
 
@@ -22,17 +21,7 @@ const WebRTCConnectionContext = createContext<WebRTCConnectionContextProps | nul
 const useWebRTCConnectionState = () => {
     const webRTCConnectionRef = useRef<WebRTCConnection>(null);
     const [status, setStatus] = useState<WebRTCConnectionStatus>('idle');
-    /*const webRTCConnectionMutation = useMutation<unknown, Error, { projectId: string }>({
-        mutationFn: async ({ projectId }) => {
-            webRTCConnectionRef.current?.start(projectId);
-        },
-        onError: (error) => {
-            console.error('WebRTC connection error:', error);
-        },
-    });
-*/
 
-    console.log({ status });
     const { projectId } = useProjectIdentifier();
 
     const start = useCallback(async () => {
@@ -52,7 +41,6 @@ const useWebRTCConnectionState = () => {
         webRTCConnectionRef.current = webRTCConnection;
 
         const unsubscribe = webRTCConnection.subscribe((event) => {
-            console.log('WebRTC event:', event);
             if (event.type === 'status_change') {
                 setStatus(event.status);
             } else if (event.type === 'error') {
@@ -61,7 +49,6 @@ const useWebRTCConnectionState = () => {
         });
 
         return () => {
-            console.log('unmounts');
             unsubscribe();
             webRTCConnection.stop();
             webRTCConnectionRef.current = null;

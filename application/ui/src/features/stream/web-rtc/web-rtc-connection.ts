@@ -51,7 +51,6 @@ export class WebRTCConnection {
     private updateStatus(status: WebRTCConnectionStatus): void {
         this.status = status;
 
-        // check if needed
         this.emit({ type: 'status_change', status });
     }
 
@@ -61,10 +60,9 @@ export class WebRTCConnection {
 
             this.peerConnection = new RTCPeerConnection();
 
-            // check if we need this
-            /*this.timeoutId = setTimeout(() => {
+            this.timeoutId = setTimeout(() => {
                 console.warn('Connection is taking longer than usual. Are you on a VPN?');
-            }, CONNECTION_TIMEOUT);*/
+            }, CONNECTION_TIMEOUT);
 
             // setup peer connection
             this.peerConnection.addTransceiver('video', { direction: 'recvonly' });
