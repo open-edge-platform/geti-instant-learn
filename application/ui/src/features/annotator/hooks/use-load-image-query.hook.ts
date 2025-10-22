@@ -6,7 +6,6 @@
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { useSuspenseQuery, UseSuspenseQueryResult } from '@tanstack/react-query';
 
-import { API_BASE_URL } from '../../../api/client';
 import { getImageData, loadImage } from '../tools/utils';
 import { MediaItem } from '../types';
 
@@ -20,7 +19,7 @@ export const useLoadImageQuery = (mediaItem: MediaItem | undefined): UseSuspense
                 throw new Error("Can't fetch undefined media item");
             }
 
-            const imageUrl = `${API_BASE_URL}/api/projects/${projectId}/dataset/items/${mediaItem.id}/binary`;
+            const imageUrl = `/api/v1/projects/${projectId}/dataset/items/${mediaItem.id}/binary`;
             const image = await loadImage(imageUrl);
 
             return getImageData(image);

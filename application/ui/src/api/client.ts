@@ -8,7 +8,7 @@ import createClient from 'openapi-react-query';
 
 import type { paths } from './openapi-spec';
 
-export const API_BASE_URL = import.meta.env.PUBLIC_API_BASE_URL || 'http://localhost:9100';
+const API_BASE_URL = import.meta.env.PUBLIC_API_BASE_URL || 'http://localhost:9100';
 
 export const client = createFetchClient<paths>({ baseUrl: API_BASE_URL });
 
