@@ -80,11 +80,21 @@
       matchManagers: ["dockerfile"],
       matchDatasources: ["docker"],
       // Group all base images into one PR
-      matchPackagePatterns: ["node", "uv"],
+      matchPackagePatterns: ["*"],
 
       enabled: true,
       schedule: ["* * 1 * *"], // monthly, 1st day of month
       separateMajorMinor: true, // separate PRs for major updates
+    },
+
+    // Dockerfile - disable update of python base image
+    {
+      matchManagers: ["dockerfile"],
+      matchDatasources: ["docker"],
+      // Group all base images into one PR
+      matchPackagePatterns: ["pyton"],
+
+      enabled: false,
     },
 
     // Disable non-security upgrades for npm, except lock file update
