@@ -1,6 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
 from pathlib import Path
 from uuid import UUID
 
@@ -8,6 +9,8 @@ import cv2
 import numpy as np
 
 from settings import get_settings
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
@@ -25,9 +28,14 @@ class FrameRepository:
         path = self._frame_path(project_id, frame_id)
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        success, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
-        if not success:
-            raise RuntimeError(f"Failed to encode frame {frame_id}")
+        try:
+            success, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
+            if not success:
+                logger.error(f"Failed to encode frame {frame_id} for project {project_id}")
+                raise RuntimeError(f"Failed to encode frame {frame_id}")
+        except cv2.error as e:
+            logger.exception(f"OpenCV error while encoding frame {frame_id} for project {project_id}.")
+            raise RuntimeError(f"Failed to encode frame {frame_id}: {str(e)}")
 
         path.write_bytes(buffer.tobytes())
         return path
@@ -42,5 +50,6 @@ class FrameRepository:
         path = self._frame_path(project_id, frame_id)
         if path.exists():
             path.unlink()
+            logger.debug(f"Deleted frame {frame_id} from project {project_id}")
             return True
         return False

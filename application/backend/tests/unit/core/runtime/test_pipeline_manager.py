@@ -218,9 +218,7 @@ class TestPipelineManager:
         assert mgr._pipeline is None
 
     def test_register_inbound_consumer_success(self, dispatcher, session_factory):
-        with patch("core.runtime.pipeline_manager.ProjectService"), patch(
-            "core.runtime.pipeline_manager.Pipeline"
-        ) as pipeline_cls:
+        with patch("core.runtime.pipeline_manager.ProjectService"), patch("core.runtime.pipeline_manager.Pipeline"):
             pid = uuid4()
             mock_pipeline = Mock()
             mock_pipeline.config.project_id = pid
@@ -243,9 +241,7 @@ class TestPipelineManager:
             mgr.register_inbound_consumer(uuid4())
 
     def test_register_inbound_consumer_project_mismatch(self, dispatcher, session_factory):
-        with patch("core.runtime.pipeline_manager.ProjectService"), patch(
-            "core.runtime.pipeline_manager.Pipeline"
-        ):
+        with patch("core.runtime.pipeline_manager.ProjectService"), patch("core.runtime.pipeline_manager.Pipeline"):
             pid_running = uuid4()
             pid_requested = uuid4()
 
@@ -255,15 +251,11 @@ class TestPipelineManager:
             mgr = PipelineManager(dispatcher, session_factory)
             mgr._pipeline = mock_pipeline
 
-            with pytest.raises(
-                PipelineProjectMismatchError, match="does not match the active pipeline's project ID"
-            ):
+            with pytest.raises(PipelineProjectMismatchError, match="does not match the active pipeline's project ID"):
                 mgr.register_inbound_consumer(pid_requested)
 
     def test_unregister_inbound_consumer_success(self, dispatcher, session_factory):
-        with patch("core.runtime.pipeline_manager.ProjectService"), patch(
-            "core.runtime.pipeline_manager.Pipeline"
-        ):
+        with patch("core.runtime.pipeline_manager.ProjectService"), patch("core.runtime.pipeline_manager.Pipeline"):
             pid = uuid4()
             mock_pipeline = Mock()
             mock_pipeline.config.project_id = pid
@@ -284,9 +276,7 @@ class TestPipelineManager:
             mgr.unregister_inbound_consumer(uuid4(), Queue())
 
     def test_unregister_inbound_consumer_project_mismatch(self, dispatcher, session_factory):
-        with patch("core.runtime.pipeline_manager.ProjectService"), patch(
-            "core.runtime.pipeline_manager.Pipeline"
-        ):
+        with patch("core.runtime.pipeline_manager.ProjectService"), patch("core.runtime.pipeline_manager.Pipeline"):
             pid_running = uuid4()
             pid_requested = uuid4()
 
@@ -296,7 +286,5 @@ class TestPipelineManager:
             mgr = PipelineManager(dispatcher, session_factory)
             mgr._pipeline = mock_pipeline
 
-            with pytest.raises(
-                PipelineProjectMismatchError, match="does not match the active pipeline's project ID"
-            ):
+            with pytest.raises(PipelineProjectMismatchError, match="does not match the active pipeline's project ID"):
                 mgr.unregister_inbound_consumer(pid_requested, Queue())
