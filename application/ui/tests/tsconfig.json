@@ -3,6 +3,7 @@
     "compilerOptions": {
         "baseUrl": ".",
         "paths": {
+            "@geti-prompt/api": ["../src/api"],
             "@geti-prompt/test-fixtures": ["./fixtures"]
         }
     },
