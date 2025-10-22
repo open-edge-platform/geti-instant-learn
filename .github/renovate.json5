@@ -92,7 +92,7 @@
       matchManagers: ["dockerfile"],
       matchDatasources: ["docker"],
       // Group all base images into one PR
-      matchPackagePatterns: ["pyton"],
+      matchPackagePatterns: ["python"],
 
       enabled: false,
     },
