@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useMemo } from 'react';
+import { SVGProps, useMemo } from 'react';
 
 import type { Point, Polygon as PolygonInterface } from '../types';
 
@@ -11,7 +11,7 @@ const getFormattedPoints = (points: Point[]): string => points.map(({ x, y }) =>
 
 interface PolygonProps {
     polygon: PolygonInterface;
-    styles: React.SVGProps<SVGPolygonElement>;
+    styles: SVGProps<SVGPolygonElement>;
     ariaLabel: string;
 }
 

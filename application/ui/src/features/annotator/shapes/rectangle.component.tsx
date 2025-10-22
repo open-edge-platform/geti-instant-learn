@@ -3,11 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { SVGProps } from 'react';
+
 import type { Rect as RectInterface } from '../types';
 
 interface RectangleProps {
     rect: RectInterface;
-    styles: React.SVGProps<SVGRectElement>;
+    styles: SVGProps<SVGRectElement>;
     ariaLabel: string;
 }
 export const Rectangle = ({ rect, styles, ariaLabel }: RectangleProps) => {
