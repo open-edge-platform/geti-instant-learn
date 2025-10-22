@@ -46,7 +46,7 @@ class ExportMaskVisualization(Visualization):
         self,
         images: list[Image] | None = None,
         masks: list[Masks] | None = None,
-        names: list[str] | None = None,
+        file_names: list[str] | None = None,
         points: list[Points] | None = None,
         boxes: list[Boxes] | None = None,
         annotations: list[Annotations] | None = None,
@@ -59,7 +59,7 @@ class ExportMaskVisualization(Visualization):
         Args:
             images: List of images to visualize
             masks: List of masks to visualize
-            names: List of names to visualize
+            file_names: List of file names to visualize
             points: List of points to visualize
             boxes: List of boxes to visualize
             annotations: List of annotations to visualize
@@ -68,7 +68,7 @@ class ExportMaskVisualization(Visualization):
             legend_position: Position of the legend
         """
         # Initialize defaults
-        names = names or []
+        file_names = file_names or []
         masks = masks or []
         images = images or []
 
@@ -80,7 +80,7 @@ class ExportMaskVisualization(Visualization):
                 i,
                 images,
                 masks,
-                names,
+                file_names,
                 points,
                 boxes,
                 annotations,
@@ -325,7 +325,7 @@ class ExportMaskVisualization(Visualization):
         i: int,
         images: list[Image],
         masks: list[Masks],
-        names: list[str],
+        file_names: list[str],
         points: list[Points] | None,
         boxes: list[Boxes] | None,
         annotations: list[Annotations] | None,
@@ -341,7 +341,7 @@ class ExportMaskVisualization(Visualization):
             i: Index of the image
             images: List of images to visualize
             masks: List of masks to visualize
-            names: List of names to visualize
+            file_names: List of file names to visualize
             points: List of points to visualize
             boxes: List of boxes to visualize
             annotations: List of annotations to visualize
@@ -353,9 +353,9 @@ class ExportMaskVisualization(Visualization):
         """
         masks_per_class = masks[i]
         image_np = images[i].to_numpy()
-        name = names[i]
+        file_name = file_names[i]
 
-        output_filename = Path(self.output_folder) / name
+        output_filename = Path(self.output_folder) / file_name
         Path.mkdir(Path(output_filename, parents=True).parent, exist_ok=True, parents=True)
 
         image_vis = image_np

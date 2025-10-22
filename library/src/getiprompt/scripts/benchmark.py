@@ -2,14 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # ruff: noqa: E402
 
-"""Refactored Geti Prompt Benchmark Script using new dataset design.
-
-This benchmark script uses:
-- GetiPromptDataset (PerSegDataset/LVISDataset)
-- GetiPromptSample
-- GetiPromptBatch
-- PyTorch DataLoader
-"""
+"""Geti Prompt Benchmark Script."""
 
 import argparse
 import warnings
@@ -38,6 +31,7 @@ from getiprompt.utils.benchmark import (
     _save_results,
     handle_output_path,
 )
+from getiprompt.utils.utils import np_masks_to_custom_masks
 from getiprompt.visualize import ExportMaskVisualization
 
 logger = getLogger("Geti Prompt")
@@ -92,6 +86,7 @@ def infer_on_category(
     metrics_calculators: dict[int, SegmentationMetrics],
     progress: Progress,
     batch_size: int = 4,
+    visualize: bool = True,
 ) -> tuple[int, int]:
     """Perform inference on all samples of a category.
 
@@ -104,7 +99,7 @@ def infer_on_category(
         metrics_calculators: The calculator for the metrics
         progress: The progress bar
         batch_size: Batch size for DataLoader
-        number_of_batches: The number of batches to process (None = all)
+        visualize: Whether to visualize the results
 
     Returns:
         The number of samples that were processed and the total time it took.
@@ -144,52 +139,10 @@ def infer_on_category(
         total_time += results.duration
         n_samples += len(batch)
 
-        # Generate export paths
-        export_paths = [
-            str(
-                Path("predictions") / f"priors_batch_{priors_batch_index}" / category_name / Path(img_path).name,
-            )
-            for img_path in batch.image_paths
-        ]
-        export_paths_debug = [
-            str(
-                Path("predictions_debug") / f"priors_batch_{priors_batch_index}" / category_name / Path(img_path).name,
-            )
-            for img_path in batch.image_paths
-        ]
-        export_paths_gt = [
-            str(
-                Path("ground_truth") / f"priors_batch_{priors_batch_index}" / category_name / Path(img_path).name,
-            )
-            for img_path in batch.image_paths
-        ]
-
-        # Visualize predictions
-        visualizer(
-            images=target_images,
-            masks=results.masks,
-            names=export_paths,
-            points=results.used_points,
-            boxes=visualizer.boxes_from_priors(results.priors),
-        )
-        visualizer(
-            images=target_images,
-            masks=results.masks,
-            names=export_paths_debug,
-            points=visualizer.points_from_priors(results.priors),
-            boxes=visualizer.boxes_from_priors(results.priors),
-        )
-
-        # Visualize ground truth
-        gt_masks = visualizer.binary_masks_to_masks(
+        # Convert ground truth masks to Masks objects
+        gt_masks = np_masks_to_custom_masks(
             batch.masks_np,
             class_id=category,
-        )
-
-        visualizer(
-            images=target_images,
-            masks=gt_masks,
-            names=export_paths_gt,
         )
 
         # Calculate metrics
@@ -198,6 +151,51 @@ def infer_on_category(
             references=gt_masks,
             mapping={category: category_name},
         )
+
+        if visualize:
+            # Generate export paths
+            file_names = [
+                str(
+                    Path("predictions") / f"priors_batch_{priors_batch_index}" / category_name / Path(img_path).name,
+                )
+                for img_path in batch.image_paths
+            ]
+            file_names_debug = [
+                str(
+                    Path("predictions_debug")
+                    / f"priors_batch_{priors_batch_index}"
+                    / category_name
+                    / Path(img_path).name,
+                )
+                for img_path in batch.image_paths
+            ]
+            file_names_gt = [
+                str(
+                    Path("ground_truth") / f"priors_batch_{priors_batch_index}" / category_name / Path(img_path).name,
+                )
+                for img_path in batch.image_paths
+            ]
+
+            # Visualize predictions and ground truth
+            visualizer(
+                images=target_images,
+                masks=results.masks,
+                file_names=file_names,
+                points=results.used_points,
+                boxes=visualizer.boxes_from_priors(results.priors),
+            )
+            visualizer(
+                images=target_images,
+                masks=results.masks,
+                file_names=file_names_debug,
+                points=visualizer.points_from_priors(results.priors),
+                boxes=visualizer.boxes_from_priors(results.priors),
+            )
+            visualizer(
+                images=target_images,
+                masks=gt_masks,
+                file_names=file_names_gt,
+            )
 
         progress.update(batches_task, advance=1)
 
@@ -229,7 +227,8 @@ def learn_from_category(
     # Get reference samples for this category
     reference_dataset = dataset.get_reference_dataset(category=category_name)
     if len(reference_dataset) == 0:
-        raise ValueError(f"No reference samples found for category: {category_name}")
+        msg = f"No reference samples found for category: {category_name}"
+        raise ValueError(msg)
 
     # Limit to n_shot samples
     n_samples = min(n_shot, len(reference_dataset))
@@ -251,7 +250,7 @@ def learn_from_category(
     )
 
     # Save priors visualization
-    priors_export_paths = [
+    priors_file_names = [
         str(
             Path("priors") / f"priors_batch_{priors_batch_index}" / category_name / f"prior_{image_index}.png",
         )
@@ -261,7 +260,7 @@ def learn_from_category(
     visualizer(
         images=reference_images,
         masks=masks_priors,
-        names=priors_export_paths,
+        file_names=priors_file_names,
     )
 
     return reference_images, reference_priors
@@ -271,7 +270,7 @@ def predict_on_dataset(
     args: argparse.Namespace,
     model: Model,
     dataset: GetiPromptDataset,
-    unique_output: Path,
+    output_path: Path,
     dataset_name: str,
     model_name: str,
     backbone_name: str,
@@ -283,7 +282,7 @@ def predict_on_dataset(
         args: Args from the argparser.
         model: The model to use.
         dataset: The dataset (contains both reference and target samples)
-        unique_output: Unique output name
+        output_path: Output path
         dataset_name: The dataset name
         model_name: The algorithm name
         backbone_name: The model name
@@ -292,12 +291,12 @@ def predict_on_dataset(
     Returns:
         The timing DataFrame
     """
-    unique_output_path = handle_output_path(unique_output, args.overwrite)
-    msg = f"Output path: {unique_output_path}"
+    output_path = handle_output_path(output_path, args.overwrite)
+    msg = f"Output path: {output_path}"
     logger.info(msg)
 
     visualizer = ExportMaskVisualization(
-        output_folder=str(unique_output_path),
+        output_folder=str(output_path),
     )
     metrics_calculators: dict[int, SegmentationMetrics] = {}  # keep metrics per prior
 
@@ -399,6 +398,12 @@ def load_dataset_by_name(dataset_name: str, categories: list[str] | None = None,
             categories=categories,
             n_shots=n_shots,
         )
+    if dataset_name.lower() == "lvis":
+        return LVISDataset(
+            root=Path("~/datasets/LVIS").expanduser(),
+            categories=categories,
+            n_shots=n_shots,
+        )
     raise ValueError(f"Unknown dataset: {dataset_name}")
 
 
@@ -445,7 +450,7 @@ def perform_benchmark_experiment(args: argparse.Namespace | None = None) -> None
         model = load_model(sam=backbone_enum, model_name=model_enum, args=args)
 
         # Individual experiment artifacts are saved in a path derived from the base path.
-        unique_output_path = _get_output_path_for_experiment(
+        output_path = _get_output_path_for_experiment(
             base_output_path,
             args.experiment_name,
             dataset_enum,
@@ -457,7 +462,7 @@ def perform_benchmark_experiment(args: argparse.Namespace | None = None) -> None
             args,
             model,
             dataset=dataset,
-            unique_output=unique_output_path,
+            output_path=output_path,
             dataset_name=dataset_enum.value,
             model_name=model_enum.value,
             backbone_name=backbone_enum.value,
