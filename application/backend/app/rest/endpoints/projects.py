@@ -27,6 +27,22 @@ logger = logging.getLogger(__name__)
     responses={
         status.HTTP_201_CREATED: {
             "description": "Successfully created a new project.",
+            "headers": {
+                "Location": {
+                    "description": "Relative URL to retrieve the created project",
+                    "schema": {"type": "string"},
+                    "example": "/projects/123e4567-e89b-12d3-a456-426614174000",
+                }
+            },
+            "content": {
+                "application/json": {
+                    "example": {
+                        "id": "123e4567-e89b-12d3-a456-426614174000",
+                        "name": "My Project",
+                        "active": True,
+                    }
+                }
+            },
         },
         status.HTTP_409_CONFLICT: {
             "description": "Project with this name already exists.",
@@ -58,7 +74,12 @@ def create_project(
             detail="Failed to create a project due to internal server error.",
         )
 
-    return Response(status_code=status.HTTP_201_CREATED, headers={"Location": f"/projects/{project.id}"})
+    return Response(
+        status_code=status.HTTP_201_CREATED,
+        headers={"Location": f"/projects/{project.id}"},
+        content=project.model_dump_json(),
+        media_type="application/json",
+    )
 
 
 @projects_router.delete(

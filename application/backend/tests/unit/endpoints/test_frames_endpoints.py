@@ -49,7 +49,6 @@ def client(app):
 
 
 def _get_capture_frame_exception(behavior, project_id):
-    """Helper to determine which exception to raise based on behavior."""
     if behavior == "project_not_found":
         return ResourceNotFoundError(
             resource_type=ResourceType.PROJECT,
@@ -104,7 +103,7 @@ def test_capture_frame(client, monkeypatch, behavior, expected_status, expect_lo
 
     if expect_location:
         assert resp.headers.get("Location") == f"/projects/{PROJECT_ID_STR}/frames/{FRAME_ID_STR}"
-        assert resp.text == ""
+        assert resp.json()["frame_id"] == FRAME_ID_STR
     else:
         assert "Location" not in resp.headers
         if expected_detail:
@@ -139,8 +138,6 @@ def test_capture_frame_service_error_details(client, monkeypatch):
     ],
 )
 def test_get_frame(client, monkeypatch, frame_exists, path_exists, expected_status, tmp_path):
-    """Test frame retrieval endpoint with various scenarios."""
-
     test_frame_path = tmp_path / "test_frame.jpg"
     if path_exists:
         test_frame_path.write_bytes(b"\xff\xd8\xff\xe0")  # minimal JPEG header
@@ -193,26 +190,21 @@ def test_get_frame_returns_file_content(client, monkeypatch, tmp_path):
 
 
 def test_get_frame_with_invalid_project_id(client, monkeypatch):
-    """Test get_frame with invalid UUID format."""
     resp = client.get(f"/api/v1/projects/not-a-uuid/frames/{FRAME_ID_STR}")
     assert resp.status_code == 422
 
 
 def test_get_frame_with_invalid_frame_id(client, monkeypatch):
-    """Test get_frame with invalid frame UUID format."""
     resp = client.get(f"/api/v1/projects/{PROJECT_ID_STR}/frames/not-a-uuid")
     assert resp.status_code == 422
 
 
 def test_capture_frame_with_invalid_project_id(client):
-    """Test capture_frame with invalid UUID format."""
     resp = client.post("/api/v1/projects/not-a-uuid/frames:capture")
     assert resp.status_code == 422
 
 
 def test_capture_multiple_frames_returns_different_ids(client, monkeypatch):
-    """Test that capturing multiple frames returns different frame IDs."""
-
     frame_ids = [FRAME_ID, SECOND_FRAME_ID]
     call_count = 0
 
@@ -232,9 +224,12 @@ def test_capture_multiple_frames_returns_different_ids(client, monkeypatch):
     resp1 = client.post(f"/api/v1/projects/{PROJECT_ID_STR}/frames:capture")
     assert resp1.status_code == 201
     assert resp1.headers["Location"] == f"/projects/{PROJECT_ID_STR}/frames/{FRAME_ID_STR}"
+    assert resp1.json()["frame_id"] == FRAME_ID_STR
 
     resp2 = client.post(f"/api/v1/projects/{PROJECT_ID_STR}/frames:capture")
     assert resp2.status_code == 201
     assert resp2.headers["Location"] == f"/projects/{PROJECT_ID_STR}/frames/{SECOND_FRAME_ID_STR}"
+    assert resp2.json()["frame_id"] == SECOND_FRAME_ID_STR
 
     assert resp1.headers["Location"] != resp2.headers["Location"]
+    assert resp1.json()["frame_id"] != resp2.json()["frame_id"]

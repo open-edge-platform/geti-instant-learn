@@ -84,7 +84,8 @@ def test_create_project(client, monkeypatch, behavior, expected_status, expect_l
     assert resp.status_code == expected_status
     if expect_location:
         assert resp.headers.get("Location") == f"/projects/{PROJECT_ID_STR}"
-        assert resp.text == ""
+        response_data = resp.json()
+        assert_project_schema(response_data, PROJECT_ID_STR, "myproj", active=True)
     else:
         assert "Location" not in resp.headers
         if behavior == "conflict":

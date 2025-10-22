@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException, Response, status
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
 from dependencies import get_frame_service
 from routers import projects_router
@@ -14,6 +15,12 @@ from services.errors import ResourceNotFoundError, ServiceError
 from services.frame import FrameService
 
 logger = logging.getLogger(__name__)
+
+
+class FrameCaptureResponse(BaseModel):
+    """Response schema for frame capture endpoint."""
+
+    frame_id: UUID
 
 
 @projects_router.post(
@@ -30,9 +37,7 @@ logger = logging.getLogger(__name__)
                     "frames/550e8400-e29b-41d4-a716-446655440000",
                 }
             },
-            "content": {
-                "application/json": {"example": {"message": "Frame captured. See Location header for retrieval URL."}}
-            },
+            "content": {"application/json": {"example": {"frame_id": "550e8400-e29b-41d4-a716-446655440000"}}},
         },
         status.HTTP_404_NOT_FOUND: {
             "description": "Project not found or no connected source",
@@ -91,14 +96,20 @@ logger = logging.getLogger(__name__)
 def capture_frame(project_id: UUID, frame_service: Annotated[FrameService, Depends(get_frame_service)]) -> Response:
     """
     Capture the latest frame from the video stream of the active project.
-    Returns a response with a Location header pointing to the captured frame.
+    Returns the frame ID in the response body and a Location header pointing to the captured frame.
     """
     logger.debug(f"Received POST capture frame for project {project_id} request.")
 
     try:
         frame_id = frame_service.capture_frame(project_id)
+
+        response = FrameCaptureResponse(frame_id=frame_id)
+
         return Response(
-            status_code=status.HTTP_201_CREATED, headers={"Location": f"/projects/{project_id}/frames/{frame_id}"}
+            status_code=status.HTTP_201_CREATED,
+            headers={"Location": f"/projects/{project_id}/frames/{frame_id}"},
+            content=response.model_dump_json(),
+            media_type="application/json",
         )
     except ResourceNotFoundError as e:
         logger.warning(f"Resource not found during frame capture: {e}")
