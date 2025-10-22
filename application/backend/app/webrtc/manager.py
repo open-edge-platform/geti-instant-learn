@@ -58,8 +58,10 @@ class WebRTCManager:
                     self.pipeline_manager.unregister_webrtc(rtc_queue, project_id=project_id)
                 except PipelineProjectMismatchError:
                     logger.exception(f"Failed to unregister WebRTC for project {project_id}")
+                    raise
                 except PipelineNotActiveError:
                     logger.exception(f"Pipeline not active for project {project_id}")
+                    raise
                 finally:
                     # Then cleanup the connection (shuts down the queue)
                     await self.cleanup_connection(offer.webrtc_id)
