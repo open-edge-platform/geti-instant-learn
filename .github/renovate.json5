@@ -87,28 +87,11 @@
       separateMajorMinor: true, // separate PRs for major updates
     },
 
-    // NPM - production dependencies
+    // Disable non-security upgrades for npm, except lock file update
     {
-      groupName: "NPM production dependencies",
+      matchDatasources: ["npm"],
 
-      matchManagers: ["npm"],
-      matchDepTypes: ["dependencies"],
-
-      enabled: true,
-      schedule: ["* * * * 0"], // weekly (Sunday)
-      separateMajorMinor: true, // separate PRs for major updates
-    },
-
-    // NPM - development dependencies (less critical)
-    {
-      groupName: "NPM dev dependencies",
-
-      matchManagers: ["npm"],
-      matchDepTypes: ["devDependencies"],
-
-      enabled: true,
-      schedule: ["* * 15 * *"], // 15th day of month
-      separateMajorMinor: false, // group all dev updates together
+      enabled: false,
     },
   ],
 
