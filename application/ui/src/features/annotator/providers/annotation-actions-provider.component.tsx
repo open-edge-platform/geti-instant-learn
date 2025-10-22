@@ -5,9 +5,8 @@
 
 import { createContext, ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { get, isEmpty } from 'lodash-es';
-import { $api } from 'src/api/client';
+import { useCurrentProject } from 'src/features/projects-management/hooks/use-current-project.hook';
 import { v4 as uuid } from 'uuid';
 
 import type { Annotation, Shape } from '../types';
@@ -42,14 +41,10 @@ type AnnotationActionsProviderProps = {
 };
 
 export const AnnotationActionsProvider = ({ children }: AnnotationActionsProviderProps) => {
-    const { projectId } = useProjectIdentifier();
-
     const serverAnnotations: Annotation[] = useMemo(() => [], []);
     const fetchError = null;
 
-    const { data: project } = $api.useSuspenseQuery('get', '/api/v1/projects/{project_id}', {
-        params: { path: { project_id: projectId } },
-    });
+    const { data: project } = useCurrentProject();
 
     const [localAnnotations, setLocalAnnotations] = useState<Annotation[]>([]);
     const isDirty = useRef<boolean>(false);
@@ -99,7 +94,7 @@ export const AnnotationActionsProvider = ({ children }: AnnotationActionsProvide
     useEffect(() => {
         if (!project || !serverAnnotations) return;
 
-        const annotations = get(serverAnnotations, 'annotations', []);
+        const annotations = serverAnnotations ?? [];
 
         if (annotations.length > 0) {
             const localFormattedAnnotations = mapServerAnnotationsToLocal(annotations);
