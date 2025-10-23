@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Intel Corporation
-# LIMITED EDGE SOFTWARE DISTRIBUTION LICENSE
+# SPDX-License-Identifier: Apache-2.0
 
 from collections.abc import Iterable
 

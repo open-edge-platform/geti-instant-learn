@@ -130,7 +130,7 @@ class TestGetLabelById:
 class TestGetAllLabels:
     def test_get_all_labels_success(self, fxt_client, mock_label_service, project_id):
         label_1 = LabelSchema(id=uuid4(), name="test_label", color="#000000")
-        label_2 = LabelSchema(id=uuid4(), name="test_label", color="#FF0000")
+        label_2 = LabelSchema(id=uuid4(), name="test_label_2", color="#FF0000")
         mock_labels = LabelsListSchema(
             labels=[label_1, label_2],
             pagination=Pagination(

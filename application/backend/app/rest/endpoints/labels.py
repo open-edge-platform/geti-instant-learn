@@ -119,11 +119,11 @@ def get_all_labels(
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
         status.HTTP_204_NO_CONTENT: {
-            "description": "Successfully deleted the project's source configuration.",
+            "description": "Successfully deleted the label.",
         },
         status.HTTP_404_NOT_FOUND: {"description": "Project not found."},
         status.HTTP_500_INTERNAL_SERVER_ERROR: {
-            "description": "Unexpected error occurred while deleting the project's source configuration.",
+            "description": "Unexpected error occurred while deleting the label.",
         },
     },
 )
