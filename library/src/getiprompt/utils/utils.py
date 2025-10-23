@@ -490,29 +490,6 @@ def sample_points(
     return sample_list, label_list
 
 
-def calculate_mask_iou(
-    mask1: torch.Tensor,
-    mask2: torch.Tensor,
-) -> tuple[float, torch.Tensor | None]:
-    """Calculate the IoU between two masks.
-
-    Args:
-        mask1: First mask
-        mask2: Second mask
-
-    Returns:
-        IoU between the two masks and the intersection
-    """
-    assert mask1.dim() == 2
-    assert mask2.dim() == 2
-    # Avoid division by zero
-    union = (mask1 | mask2).sum().item()
-    if union == 0:
-        return 0.0, None
-    intersection = mask1 & mask2
-    return intersection.sum().item() / union, intersection
-
-
 def np_masks_to_custom_masks(
     arrays: list[np.ndarray | None],
     class_id: int = 0,

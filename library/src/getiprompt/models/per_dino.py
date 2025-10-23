@@ -137,7 +137,7 @@ class PerDino(Model):
         priors = self.prompt_generator(similarities, target_images)
         priors = self.point_filter(priors)
         masks, used_points, _ = self.segmenter(target_images, priors, similarities)
-        masks = self.class_overlap_mask_filter(masks, used_points)
+        masks, used_points = self.class_overlap_mask_filter(masks, used_points)
         annotations = self.mask_processor(masks)
 
         # write output

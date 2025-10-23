@@ -21,6 +21,15 @@ class Masks(Prompt):
         if mask.dtype != torch.bool:
             mask = (mask > 0).bool()
 
+        # Handle empty tensors - just store them as-is
+        if mask.numel() == 0:
+            if class_id not in self._data:
+                self._data[class_id] = mask
+            else:
+                # For empty tensors, we can't concatenate, so replace
+                self._data[class_id] = mask
+            return
+
         if mask.ndim == 3 and mask.shape[0] != 1:  # HWC format
             max_channel = 0 if mask.shape[-1] == 1 else torch.argmax(mask.sum(dim=(0, 1)))
             mask = mask[:, :, max_channel].unsqueeze(0)

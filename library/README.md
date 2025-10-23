@@ -132,18 +132,30 @@ getiprompt benchmark --dataset_root /path/to/datasets
 #### Basic Usage
 
 ```bash
-# Evaluate the default pipeline on LVIS with default categories (quick test)
+# Evaluate the default model on LVIS with default categories (quick test)
 getiprompt benchmark
 
-# Specify dataset and pipeline
-getiprompt benchmark --dataset_name PerSeg --pipeline Matcher
+# Specify dataset and model
+getiprompt benchmark --dataset_name PerSeg --model Matcher
 
 # Change number of reference shots
 getiprompt benchmark --n_shot 3
 
 # Select a different backbone
 getiprompt benchmark --sam MobileSAM
+
+# Run all available models
+getiprompt benchmark --model all
+
+# Run all datasets
+getiprompt benchmark --dataset_name all
 ```
+
+> **Available Models:** `Matcher`, `SoftMatcher`, `PerDino`, `GroundedSAM`
+> **Available SAM Backbones:** `SAM`, `MobileSAM`, `EfficientViT-SAM`, `SAM-HQ`, `SAM-HQ-tiny`, `SAM2-tiny`, `SAM2-small`, `SAM2-base`, `SAM2-large`
+> **Available Datasets:** `PerSeg`, `lvis`
+
+> **Tip:** Use `all` with `--model`, `--sam`, or `--dataset_name` to run all available options. These can be combined for comprehensive benchmarking.
 
 #### Category Filtering
 
@@ -176,13 +188,16 @@ The benchmark supports three ways to filter categories:
 
 ```bash
 # Combine multiple arguments
-getiprompt benchmark --dataset_name PerSeg --pipeline MatcherModular --n_shot 3 --sam MobileSAM --class_name backpack,dog
+getiprompt benchmark --dataset_name PerSeg --model SoftMatcher --n_shot 3 --sam MobileSAM --class_name backpack,dog
 
 # Run comprehensive benchmark on LVIS
 getiprompt benchmark --dataset_name lvis --class_name benchmark --n_shot 1
 
-# Run all pipelines on all datasets with default categories
-getiprompt benchmark --pipeline all --dataset_name all
+# Run all models on all datasets with default categories
+getiprompt benchmark --model all --dataset_name all
+
+# Run all models on all datasets with all categories (full benchmark)
+getiprompt benchmark --model all --dataset_name all --class_name all
 
 # Custom dataset location with benchmark categories
 getiprompt benchmark --dataset_root /custom/path --class_name benchmark

@@ -359,6 +359,9 @@ class SamDecoder(nn.Module):
                     )
                     # Remap from [total_points, 3] to [total_points, 4] where last dim is [x, y, score, label]
                     remapped_points = self.remap_preprocessed_points(final_points)
+                    assert len(final_masks) == remapped_points[:, -1].sum(), (
+                        "The number of masks and points do not match"
+                    )
                     all_used_points.add(remapped_points, label)
 
                 if final_boxes is not None and len(final_boxes) > 0:
@@ -368,12 +371,9 @@ class SamDecoder(nn.Module):
                     )
                     all_used_boxes.add(final_boxes, label)
             else:
-                # TODO(Eugene): This part feels inconsistent.
-                # It only adds empty points, but not empty masks or boxes.
-                # As a result, len(all_masks), len(all_used_points), and len(all_used_boxes) end up mismatched.
-                # Returning variables with inconsistent lengths is undesirable.
-                # https://github.com/open-edge-platform/geti-prompt/issues/174
-                all_used_points.add(torch.tensor([]), label)
+                all_used_points.add(torch.empty((0, 4)), label)
+                all_used_boxes.add(torch.empty((0, 6)), label)
+                all_masks.add(torch.empty((0, *original_size)), label)
 
         return all_masks, all_used_points, all_used_boxes
 

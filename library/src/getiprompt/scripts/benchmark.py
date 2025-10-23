@@ -101,7 +101,7 @@ def infer_on_category(
     metrics_calculators: dict[int, SegmentationMetrics],
     progress: Progress,
     batch_size: int = 4,
-    visualize: bool = False,
+    visualize: bool = True,
 ) -> tuple[int, int]:
     """Perform inference on all samples of a category.
 

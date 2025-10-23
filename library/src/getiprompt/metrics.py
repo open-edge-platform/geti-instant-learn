@@ -171,9 +171,10 @@ class SegmentationMetrics(nn.Module):
 
                 if class_id - 1 in prediction.class_ids():
                     pred = prediction.data[class_id - 1]
-                    pred_mask, _ = torch.max(pred, axis=0)
-                    if pred_mask.device != torch.device("cpu"):
-                        pred_mask = pred_mask.detach().cpu()
+                    if len(pred):
+                        pred_mask, _ = torch.max(pred, axis=0)
+                        if pred_mask.device != torch.device("cpu"):
+                            pred_mask = pred_mask.detach().cpu()
 
                 if class_id - 1 in gt.class_ids():
                     gt_masks = gt.data[class_id - 1]
