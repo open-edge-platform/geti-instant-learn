@@ -7,7 +7,7 @@ import { createContext, useContext } from 'react';
 
 import type { Annotation as AnnotationType } from '../types';
 
-const AnnotationContext = createContext<AnnotationType | null>(null);
+export const AnnotationContext = createContext<AnnotationType | null>(null);
 
 export const useAnnotation = () => {
     const ctx = useContext(AnnotationContext);
@@ -18,5 +18,3 @@ export const useAnnotation = () => {
 
     return ctx;
 };
-
-export { AnnotationContext };
