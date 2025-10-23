@@ -12,7 +12,8 @@ import { Link } from 'react-router-dom';
 
 import { paths } from '../../../routes/paths';
 import { ActivateProjectDialog } from '../activate-project-dialog/activate-project-dialog.component';
-import { useCreateProject } from '../hooks/use-create-project.hook';
+import { CreateProjectConfirmDialog } from '../create-project-confirm-dialog.component';
+import { useCreateProjectWithConfirmation } from '../hooks/use-create-project-with-confirmation.hook';
 import { useDeleteProject } from '../hooks/use-delete-project.hook';
 import { useProjectActivityManagement } from '../hooks/use-project-activity-management.hook';
 import { useUpdateProject } from '../hooks/use-update-project.hook';
@@ -23,34 +24,48 @@ import {
     ProjectActions,
     ProjectEdition,
 } from '../project-list-item/project-actions.component';
-import { generateUniqueProjectName } from '../utils';
 import { Layout } from './layout.component';
 
 import styles from './projects-list-entry.module.scss';
 
 interface NewProjectCardProps {
     projectsNames: string[];
+    activeProject: ProjectType | undefined;
 }
 
-const NewProjectCard = ({ projectsNames }: NewProjectCardProps) => {
-    const createProject = useCreateProject();
-
-    const handleCreateProject = () => {
-        const projectName = generateUniqueProjectName(projectsNames);
-        createProject(projectName);
-    };
+const NewProjectCard = ({ projectsNames, activeProject }: NewProjectCardProps) => {
+    const { isVisible, createProjectConfirmation, close, createProject, isPending, newProjectName } =
+        useCreateProjectWithConfirmation({
+            activeProject,
+            projectsNames,
+        });
 
     return (
-        <View UNSAFE_className={styles.newProjectCard} width={'100%'} height={'100%'}>
-            <Flex width={'100%'} height={'100%'} alignItems={'center'}>
-                <ActionButton width={'100%'} height={'100%'} onPress={handleCreateProject}>
-                    <Flex gap={'size-50'} alignItems={'center'}>
-                        <AddCircle />
-                        <Text>Create project</Text>
-                    </Flex>
-                </ActionButton>
-            </Flex>
-        </View>
+        <>
+            <View UNSAFE_className={styles.newProjectCard} width={'100%'} height={'100%'}>
+                <Flex width={'100%'} height={'100%'} alignItems={'center'}>
+                    <ActionButton
+                        width={'100%'}
+                        height={'100%'}
+                        onPress={createProjectConfirmation}
+                        isDisabled={isPending}
+                    >
+                        <Flex gap={'size-50'} alignItems={'center'}>
+                            <AddCircle />
+                            <Text>Create project</Text>
+                        </Flex>
+                    </ActionButton>
+                </Flex>
+            </View>
+            <CreateProjectConfirmDialog
+                isVisible={isVisible}
+                onClose={close}
+                onCreate={createProject}
+                projectName={newProjectName}
+                activeProjectName={activeProject?.name ?? ''}
+                isPending={isPending}
+            />
+        </>
     );
 };
 
@@ -189,7 +204,7 @@ export const ProjectsListEntry = () => {
                         alignContent={'start'}
                         UNSAFE_className={styles.projectsList}
                     >
-                        <NewProjectCard projectsNames={projectsNames} />
+                        <NewProjectCard projectsNames={projectsNames} activeProject={activeProject} />
                         {data.projects.map((project) => (
                             <ProjectCard
                                 project={project}

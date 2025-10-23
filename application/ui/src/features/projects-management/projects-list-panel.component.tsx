@@ -22,15 +22,14 @@ import {
     View,
 } from '@geti/ui';
 import { AddCircle } from '@geti/ui/icons';
-import { v4 as uuid } from 'uuid';
 
 import { ActivateProjectDialog } from './activate-project-dialog/activate-project-dialog.component';
-import { useCreateProject } from './hooks/use-create-project.hook';
+import { CreateProjectConfirmDialog } from './create-project-confirm-dialog.component';
+import { useCreateProjectWithConfirmation } from './hooks/use-create-project-with-confirmation.hook';
 import { useCurrentProject } from './hooks/use-current-project.hook';
 import { useProjectActivityManagement } from './hooks/use-project-activity-management.hook';
 import { ProjectActivityStatus } from './project-activity-status/project-activity-status.component';
 import { ProjectsList } from './projects-list.component';
-import { generateUniqueProjectName } from './utils';
 
 import styles from './projects-list.module.scss';
 
@@ -57,34 +56,45 @@ const SelectedProjectButton = ({ project: { name, id, active } }: SelectedProjec
 };
 
 interface AddProjectProps {
-    onSetProjectInEdition: (projectId: string) => void;
     projectsNames: string[];
+    activeProject: ProjectType | undefined;
 }
 
-const CreateProjectButton = ({ onSetProjectInEdition, projectsNames }: AddProjectProps) => {
-    const createProject = useCreateProject();
+const CreateProjectButton = ({ projectsNames, activeProject }: AddProjectProps) => {
+    const { isPending, createProjectConfirmation, createProject, isVisible, close, newProjectName } =
+        useCreateProjectWithConfirmation({ activeProject, projectsNames });
 
     const handleCreateProject = () => {
-        const newProjectId = uuid();
-        const newProjectName = generateUniqueProjectName(projectsNames);
+        createProject();
+    };
 
-        createProject(newProjectName, newProjectId);
-
-        onSetProjectInEdition(newProjectId);
+    const handleCreateProjectConfirmation = () => {
+        createProjectConfirmation();
     };
 
     return (
-        <ActionButton
-            isQuiet
-            width={'100%'}
-            marginStart={'size-100'}
-            marginEnd={'size-350'}
-            UNSAFE_className={styles.createProjectButton}
-            onPress={handleCreateProject}
-        >
-            <AddCircle />
-            <Text marginX='size-50'>Create project</Text>
-        </ActionButton>
+        <>
+            <ActionButton
+                isQuiet
+                width={'100%'}
+                marginStart={'size-100'}
+                marginEnd={'size-350'}
+                UNSAFE_className={styles.createProjectButton}
+                isDisabled={isPending}
+                onPress={handleCreateProjectConfirmation}
+            >
+                <AddCircle />
+                <Text marginX='size-50'>Create project</Text>
+            </ActionButton>
+            <CreateProjectConfirmDialog
+                isVisible={isVisible}
+                onClose={close}
+                onCreate={handleCreateProject}
+                projectName={newProjectName}
+                activeProjectName={activeProject?.name ?? ''}
+                isPending={isPending}
+            />
+        </>
     );
 };
 
@@ -184,10 +194,7 @@ export const ProjectsListPanel = () => {
                     </Content>
 
                     <ButtonGroup UNSAFE_className={styles.panelButtons}>
-                        <CreateProjectButton
-                            onSetProjectInEdition={setProjectInEdition}
-                            projectsNames={projectsNames}
-                        />
+                        <CreateProjectButton projectsNames={projectsNames} activeProject={activeProject} />
                     </ButtonGroup>
                 </Dialog>
             </DialogTrigger>

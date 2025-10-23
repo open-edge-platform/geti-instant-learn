@@ -6,11 +6,38 @@
 import { $api } from '@geti-prompt/api';
 import { Fireworks } from '@geti-prompt/icons';
 import { Button, Content, Flex, Heading, IllustratedMessage, Text } from '@geti/ui';
-import { Navigate } from 'react-router';
+import { Navigate, useNavigate } from 'react-router';
+import { v4 as uuid } from 'uuid';
 
 import { paths } from '../../../routes/paths';
-import { useCreateProject } from '../hooks/use-create-project.hook';
 import { Layout } from './layout.component';
+
+const useCreateProject = () => {
+    const createProjectMutation = $api.useMutation('post', '/api/v1/projects', {
+        meta: {
+            invalidates: [['get', '/api/v1/projects']],
+        },
+    });
+    const navigate = useNavigate();
+
+    const createProject = (projectName: string, projectId: string = uuid()) => {
+        createProjectMutation.mutate(
+            {
+                body: {
+                    id: projectId,
+                    name: projectName,
+                },
+            },
+            {
+                onSuccess: () => {
+                    navigate(paths.project({ projectId }));
+                },
+            }
+        );
+    };
+
+    return createProject;
+};
 
 export const Welcome = () => {
     const createProject = useCreateProject();
