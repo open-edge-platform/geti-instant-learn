@@ -75,10 +75,10 @@
 
     // Github Actions remove mcr.microsoft.com/playwright from update
     {
-      matchManagers: ["github-actions"]
-      matchDepNames: ["mcr.microsoft.com/playwright"]
+      matchManagers: ["github-actions"],
+      matchDepNames: ["mcr.microsoft.com/playwright"],
 
-      enable: false
+      enabled: false,
     },
 
     // Dockerfile - base image updates
