@@ -16,6 +16,7 @@ export type Point = {
 };
 
 export type Rect = {
+    type: 'rectangle';
     x: number;
     y: number;
     width: number;
@@ -23,6 +24,7 @@ export type Rect = {
 };
 
 export type Polygon = {
+    type: 'polygon';
     points: Point[];
 };
 
@@ -48,10 +50,18 @@ export type MediaItem = {
     height: number;
 };
 
+// TODO: There is already a label type deep into prompt-sidebar feature. We need a single source of truth.
+export type Label = {
+    id: string;
+    name: string;
+    color: string;
+    hotkey?: string;
+};
+
 // TODO: update this once we have the final type
 export type Annotation = {
     id: string;
-    labels: string[];
+    labels: Label[];
     shape: Shape;
     confidence?: number | null;
 };
