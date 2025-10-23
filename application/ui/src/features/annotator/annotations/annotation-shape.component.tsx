@@ -12,7 +12,7 @@ type AnnotationShapeProps = {
 
 export const AnnotationShape = ({ annotation }: AnnotationShapeProps) => {
     const { shape, labels } = annotation;
-    const color = labels.length ? labels[0].color : '--annotation-fill';
+    const color = labels.length ? labels[0].color : 'var(--annotation-fill)';
 
     if (shape.type === 'rectangle') {
         return (
