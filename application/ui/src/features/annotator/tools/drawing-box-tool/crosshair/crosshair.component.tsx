@@ -13,7 +13,7 @@ interface CrosshairProps {
 
 export const Crosshair = ({ location, zoom }: CrosshairProps) => {
     if (location === null) {
-        return <g></g>;
+        return <g />;
     }
 
     return (

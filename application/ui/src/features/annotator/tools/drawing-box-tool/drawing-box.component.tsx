@@ -103,14 +103,16 @@ export const DrawingBox = ({ roi, zoom, image, onComplete }: DrawingBoxInterface
     };
 
     useEffect(() => {
-        window.addEventListener('keydown', ({ key }: KeyboardEvent | ReactKeyboardEvent) => {
+        const handleKeyDown = ({ key }: KeyboardEvent | ReactKeyboardEvent) => {
             if (key === 'Escape') {
                 setCleanState();
             }
-        });
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
 
         return () => {
-            window.removeEventListener('keydown', () => null);
+            window.removeEventListener('keydown', handleKeyDown);
         };
     }, []);
 
