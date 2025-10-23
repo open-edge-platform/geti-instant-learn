@@ -160,8 +160,8 @@ def random_color() -> str:
     Generate random color.
     """
     red, green, blue = (
-        secrets.randbelow(255),
-        secrets.randbelow(255),
-        secrets.randbelow(255),
+        secrets.randbelow(256),
+        secrets.randbelow(256),
+        secrets.randbelow(256),
     )
     return f"#{red:02x}{green:02x}{blue:02x}"
