@@ -23,9 +23,9 @@ class Pipeline:
 
     This class wires together the core components of a processing job: a Source,
     a Processor, and a Sink. Each component runs in a separate thread,
-    communicating through queues to form a processing pipeline:
+    communicating through broadcasters to form a processing pipeline:
 
-    Source -> Queue -> Processor -> Broadcaster -> Sink
+    Source -> InboundBroadcaster -> Processor -> OutboundBroadcaster -> Sink
 
     The Pipeline class is responsible for starting, stopping, and gracefully shutting
     down all components. It also handles dynamic configuration updates by
@@ -53,14 +53,13 @@ class Pipeline:
         self._outbound_broadcaster = outbound_broadcaster or FrameBroadcaster[OutputData]()
         self._inbound_broadcaster = inbound_broadcaster or FrameBroadcaster[InputData]()
         self._factory = component_factory or DefaultComponentFactory()
-        self._in_queue = Queue[InputData](maxsize=5)
         self._config = pipeline_conf
         self._threads: dict[type, Thread] = {}
 
         self._components: dict[type[PipelineComponent], PipelineComponent] = {
-            Source: self._factory.create_source(self._in_queue, pipeline_conf.reader, self._inbound_broadcaster),
+            Source: self._factory.create_source(pipeline_conf.reader, self._inbound_broadcaster),
             Processor: self._factory.create_processor(
-                self._in_queue, self._outbound_broadcaster, pipeline_conf.processor
+                self._inbound_broadcaster, self._outbound_broadcaster, pipeline_conf.processor
             ),
             Sink: self._factory.create_sink(self._outbound_broadcaster, pipeline_conf.writer),
         }
@@ -115,7 +114,7 @@ class Pipeline:
                 f"old config: {self._config.reader}, new config: {new_config.reader}. "
                 f"Restarting component."
             )
-            new_source = self._factory.create_source(self._in_queue, new_config.reader, self._inbound_broadcaster)
+            new_source = self._factory.create_source(new_config.reader, self._inbound_broadcaster)
             self._restart_component(Source, new_source)
             logger.info(f"Source configuration has been refreshed for project_id {self._config.project_id}.")
 
@@ -126,7 +125,7 @@ class Pipeline:
                 f"Restarting component."
             )
             new_runner = self._factory.create_processor(
-                self._in_queue, self._outbound_broadcaster, new_config.processor
+                self._inbound_broadcaster, self._outbound_broadcaster, new_config.processor
             )
             self._restart_component(Processor, new_runner)
             logger.info(f"Processor configuration has been refreshed for project_id {self._config.project_id}.")

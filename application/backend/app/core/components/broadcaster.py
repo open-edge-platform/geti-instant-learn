@@ -27,7 +27,7 @@ class FrameBroadcaster[T]:
     def register(self) -> Queue[T]:
         """Register a new consumer and return its personal queue."""
         with self._lock:
-            queue: Queue[T] = Queue(maxsize=2)
+            queue: Queue[T] = Queue(maxsize=5)
             self.queues.append(queue)
             logging.info("FrameBroadcaster registered a new consumer. Total consumers: %d", len(self.queues))
             return queue

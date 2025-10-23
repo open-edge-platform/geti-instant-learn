@@ -5,10 +5,7 @@ import logging
 import uuid
 from pathlib import Path
 from queue import Empty, Queue
-from threading import Event
 from uuid import UUID
-
-import numpy as np
 
 from core.components.schemas.processor import InputData
 from core.runtime.pipeline_manager import PipelineManager
@@ -18,41 +15,6 @@ from repositories.source import SourceRepository
 from services.errors import ResourceNotFoundError, ResourceType, ServiceError
 
 logger = logging.getLogger(__name__)
-
-
-class FrameCapture:
-    """Temporary consumer to capture a single frame from the inbound broadcaster."""
-
-    def __init__(self):
-        self._queue: Queue[InputData] | None = None
-        self._frame: np.ndarray | None = None
-        self._event = Event()
-
-    def set_queue(self, queue: Queue[InputData]) -> None:
-        """Set the queue for receiving frames."""
-        self._queue = queue
-
-    def wait(self, timeout: float = 5.0) -> np.ndarray:
-        """
-        Wait for and return a captured frame.
-
-        Args:
-            timeout: Maximum time to wait for a frame in seconds.
-        Returns:
-            The captured frame as numpy array.
-        Raises:
-            ServiceError: If no frame is received within timeout or queue not set.
-        """
-        if self._queue is None:
-            raise ServiceError("Queue not set. Call set_queue() first.")
-
-        try:
-            input_data = self._queue.get(timeout=timeout)
-            self._frame = input_data.frame
-            self._event.set()
-            return self._frame
-        except Empty:
-            raise ServiceError(f"No frame received within {timeout} seconds. Pipeline may not be running.")
 
 
 class FrameService:
@@ -102,14 +64,14 @@ class FrameService:
                 "Please connect a source before capturing frames.",
             )
 
-        capture = FrameCapture()
         consumer_queue: Queue[InputData] | None = None
 
         try:
             consumer_queue = self._pipeline_manager.register_inbound_consumer(project_id)
-            capture.set_queue(consumer_queue)
 
-            frame = capture.wait(timeout=5.0)
+            # wait for a frame from the pipeline
+            input_data = consumer_queue.get(timeout=5.0)
+            frame = input_data.frame
 
             frame_id = uuid.uuid4()
             self._frame_repo.save_frame(project_id, frame_id, frame)
@@ -117,8 +79,8 @@ class FrameService:
 
             return frame_id
 
-        except ServiceError:
-            raise
+        except Empty:
+            raise ServiceError("No frame received within 5 seconds timeout. Pipeline may not be running.")
         except Exception as e:
             logger.exception(f"Failed to capture frame for project {project_id}.")
             raise ServiceError(f"Frame capture failed: {str(e)}")
