@@ -98,7 +98,7 @@
       matchPackagePatterns: ["*"],
 
       enabled: true,
-    }
+    },
 
     // Disable docker.io/astral/uv image upgrades, except digital pinning,
     {
