@@ -73,6 +73,14 @@
       schedule: ["* * 1 * *"], // every month
     },
 
+    // Github Actions remove mcr.microsoft.com/playwright from update
+    {
+      matchManagers: ["github-actions"]
+      matchDepNames: ["mcr.microsoft.com/playwright"]
+
+      enable: false
+    },
+
     // Dockerfile - base image updates
     {
       groupName: "Docker base images",
