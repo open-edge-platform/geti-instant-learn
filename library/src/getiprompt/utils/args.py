@@ -206,6 +206,12 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         default=0.3,
         help="The text threshold for the grounding model",
     )
+    parser.add_argument(
+        "--dataset_root",
+        type=str,
+        default=None,
+        help="Root directory where datasets are stored. If not provided, defaults to ~/datasets for PerSeg and ~/data/lvis for LVIS",
+    )
 
 
 def get_arguments(arg_list: list[str] | None = None) -> argparse.Namespace:

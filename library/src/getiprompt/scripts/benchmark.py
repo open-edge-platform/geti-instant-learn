@@ -386,13 +386,19 @@ def predict_on_dataset(
     return pd.DataFrame.from_dict(all_metrics)
 
 
-def load_dataset_by_name(dataset_name: str, categories: list[str] | None = None, n_shots: int = 1) -> GetiPromptDataset:
+def load_dataset_by_name(
+    dataset_name: str,
+    categories: list[str] | None = None,
+    n_shots: int = 1,
+    dataset_root: str | Path | None = None,
+) -> GetiPromptDataset:
     """Load a dataset by name.
 
     Args:
         dataset_name: Name of the dataset (e.g., "PerSeg", "LVIS")
         categories: Optional list of categories to filter
         n_shots: Number of reference shots per category
+        dataset_root: Root directory where datasets are stored. If None, uses defaults.
 
     Raises:
         ValueError: If the dataset name is unknown.
@@ -401,14 +407,24 @@ def load_dataset_by_name(dataset_name: str, categories: list[str] | None = None,
         GetiPromptDataset instance
     """
     if dataset_name.lower() == "perseg":
+        root = (
+            Path(dataset_root).expanduser() / "PerSeg"
+            if dataset_root is not None
+            else Path("~/datasets/PerSeg").expanduser()
+        )
         return PerSegDataset(
-            root=Path("~/datasets/PerSeg").expanduser(),
+            root=root,
             categories=categories,
             n_shots=n_shots,
         )
     if dataset_name.lower() == "lvis":
+        root = (
+            Path(dataset_root).expanduser() / "lvis"
+            if dataset_root is not None
+            else Path("~/datasets/lvis").expanduser()
+        )
         return LVISDataset(
-            root=Path("~/data/lvis").expanduser(),
+            root=root,
             categories=categories,
             n_shots=n_shots,
         )
@@ -454,6 +470,7 @@ def perform_benchmark_experiment(args: argparse.Namespace | None = None) -> None
             dataset_enum.value,
             categories=args.class_name.split(",") if args.class_name else None,
             n_shots=args.n_shot,
+            dataset_root=args.dataset_root,
         )
 
         model = load_model(sam=backbone_enum, model_name=model_enum, args=args)
