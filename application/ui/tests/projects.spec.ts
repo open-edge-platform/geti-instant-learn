@@ -115,6 +115,14 @@ class ProjectPage {
         await this.page.getByRole('button', { name: 'Create project' }).click();
     }
 
+    get createProjectConfirmationDialogHeading() {
+        return this.page.getByRole('heading', { name: 'Create project' });
+    }
+
+    async createConfirmation() {
+        await this.page.getByRole('button', { name: 'Create' }).click();
+    }
+
     getProjectInTheList(projectName: string) {
         return this.page.getByRole('listitem', { name: `Project ${projectName}` });
     }
@@ -157,11 +165,11 @@ class ProjectPage {
     }
 
     get inactiveStatus() {
-        return this.page.getByLabel('Inactive project');
+        return this.page.getByLabel(/Selected project/).getByLabel('Inactive project');
     }
 
     get activeStatus() {
-        return this.page.getByLabel('Active project');
+        return this.page.getByLabel(/Selected project/).getByLabel('Active project');
     }
 
     getActiveProjectInTheList(projectName: string) {
@@ -347,7 +355,7 @@ test.describe('Projects', () => {
     });
 
     test.describe('Project management', () => {
-        test('Creates a new project via the project list page', async ({ network, page }) => {
+        test('Creates a new project via the project list page with active project', async ({ network, page }) => {
             const projects = registerApiProjects({
                 network,
                 defaultProjects: [
@@ -359,7 +367,39 @@ test.describe('Projects', () => {
                     {
                         id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #2',
-                        active: true,
+                        active: false,
+                    },
+                ],
+            });
+
+            const projectPage = new ProjectPage(page);
+
+            await projectPage.gotoProjects();
+
+            await projectPage.create();
+
+            await expect(projectPage.createProjectConfirmationDialogHeading).toBeVisible();
+
+            await projectPage.createConfirmation();
+
+            await expect(projectPage.getSelectedProject('Project #1')).toBeVisible();
+
+            expect(page.url()).toContain(paths.project({ projectId: projects[projects.length - 1].id }));
+        });
+
+        test('Creates a new project via the project list page with no active project', async ({ network, page }) => {
+            const projects = registerApiProjects({
+                network,
+                defaultProjects: [
+                    {
+                        id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #1',
+                        active: false,
+                    },
+                    {
+                        id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #2',
+                        active: false,
                     },
                 ],
             });
@@ -375,7 +415,7 @@ test.describe('Projects', () => {
             expect(page.url()).toContain(paths.project({ projectId: projects[projects.length - 1].id }));
         });
 
-        test('Creates a new project via the project details page', async ({ network, page }) => {
+        test('Creates a new project via the project details page with active project', async ({ network, page }) => {
             const projects = registerApiProjects({
                 network,
                 defaultProjects: [
@@ -397,7 +437,40 @@ test.describe('Projects', () => {
 
             await projectPage.create();
 
-            await expect(page.getByRole('heading', { name: 'Project #1' })).toBeVisible();
+            await expect(projectPage.createProjectConfirmationDialogHeading).toBeVisible();
+
+            await projectPage.createConfirmation();
+
+            await expect(projectPage.getSelectedProject('Project #1')).toBeVisible();
+            await projectPage.openProjectManagementPanel();
+            await expect(page.getByRole('listitem')).toHaveCount(projects.length);
+
+            expect(page.url()).toContain(paths.project({ projectId: projects[projects.length - 1].id }));
+        });
+
+        test('Creates a new project via the project details page with no active project', async ({ network, page }) => {
+            const projects = registerApiProjects({
+                network,
+                defaultProjects: [
+                    {
+                        id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #1',
+                        active: false,
+                    },
+                ],
+            });
+
+            const projectPage = new ProjectPage(page);
+
+            await projectPage.goto(projects[0].id);
+
+            await projectPage.openProjectManagementPanel();
+
+            await expect(page.getByRole('listitem')).toHaveCount(projects.length);
+
+            await projectPage.create();
+
+            await expect(projectPage.getSelectedProject('Project #1')).toBeVisible();
             await projectPage.openProjectManagementPanel();
             await expect(page.getByRole('listitem')).toHaveCount(projects.length);
 
