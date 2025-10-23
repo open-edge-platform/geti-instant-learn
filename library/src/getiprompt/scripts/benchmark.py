@@ -84,7 +84,7 @@ def sample_to_image_and_priors(
 
     # Create text prior
     text_prior = Text()
-    text_prior.add(category_name, class_id=0)
+    text_prior.add(category_name, class_id=int(category_id))
 
     # Create priors object
     priors = Priors(masks=masks_obj, text=text_prior)
