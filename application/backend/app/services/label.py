@@ -30,13 +30,12 @@ logger = logging.getLogger(__name__)
 
 class LabelService:
     """
-    Service layer orchestrating project configs use cases.
-
+    Service layer orchestrating label operations within a project.
     Responsibilities:
-      - Enforce business rules (uniqueness, activation semantics).
+      - Enforce business rules for labels (e.g., uniqueness, activation semantics).
       - Define transaction boundaries (commit / rollback).
       - Raise domain-specific exceptions.
-      - Coordinate cascading / related entity cleanup.
+      - Coordinate cascading or related entity cleanup for labels.
     """
 
     def __init__(
@@ -92,9 +91,9 @@ class LabelService:
             )
 
         if create_data.id and self.label_repository.exists_by_id(create_data.id):
-            logger.error("Project creation rejected: duplicate id=%s", create_data.id)
+            logger.error("Label creation rejected: duplicate id=%s", create_data.id)
             raise ResourceAlreadyExistsError(
-                resource_type=ResourceType.PROJECT,
+                resource_type=ResourceType.LABEL,
                 resource_value=str(create_data.id),
                 raised_by="id",
             )

@@ -10,7 +10,7 @@ from services.schemas.label import LabelCreateSchema, LabelSchema, LabelsListSch
 
 def label_db_to_schema(label: LabelDB) -> LabelSchema:
     """
-    Map a LabelDB ORM instance to a ProjectSchema.
+    Map a LabelDB ORM instance to a LabelSchema.
     """
     return LabelSchema(id=label.id, name=label.name, color=label.color)
 
@@ -23,7 +23,7 @@ def labels_db_to_list_items(
 
     Parameters:
         labels: Iterable of LabelDB entities to map
-        total: Total number of projects available
+        total: Total number of labels available
         offset: Starting index of the returned items
         limit: Maximum number of items requested
 

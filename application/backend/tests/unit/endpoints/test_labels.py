@@ -83,10 +83,10 @@ class TestCreateLabel:
             resource_type=ResourceType.PROJECT, resource_id=str(project_id)
         )
 
-        response = fxt_client.post(f"/projects/{project_id}/labels", json=label_data)
+        response = fxt_client.post(f"/api/v1/projects/{project_id}/labels", json=label_data)
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
-        assert "Not Found" in response.json()["detail"]
+        assert f"Project with ID {project_id} not found" in response.json()["detail"]
 
     def test_create_label_internal_error(self, fxt_client, mock_label_service, project_id):
         label_data = {"name": "test_label"}

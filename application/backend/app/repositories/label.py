@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class LabelRepository(BaseRepository):
     """
-    Repository responsible for low-level persistence of `ProjectDB` entities.
+    Repository responsible for low-level persistence of `LabelDB` entities.
 
     Responsibilities:
       - Build and execute SQLAlchemy queries.

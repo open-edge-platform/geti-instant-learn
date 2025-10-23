@@ -140,6 +140,6 @@ def delete_label_by_id(
     except ResourceNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception:
-        logger.exception(f"Error deleting source {label_id} for project {project_id}")
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete source.")
+        logger.exception(f"Error deleting label {label_id} for project {project_id}")
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete label.")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
