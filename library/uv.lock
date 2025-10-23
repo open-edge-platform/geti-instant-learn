@@ -873,7 +873,6 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "efficientvit" },
-    { name = "flask" },
     { name = "ftfy" },
     { name = "jsonargparse" },
     { name = "markupsafe" },
@@ -907,11 +906,15 @@ dev = [
     { name = "ruff" },
     { name = "twine" },
 ]
+dev-ui = [
+    { name = "flask" },
+]
 extras = [
     { name = "xformers" },
 ]
 full = [
     { name = "build" },
+    { name = "flask" },
     { name = "ipykernel" },
     { name = "jupyter" },
     { name = "pre-commit" },
@@ -930,9 +933,9 @@ notebook = [
 requires-dist = [
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.2.2.post1" },
     { name = "efficientvit", git = "https://github.com/mit-han-lab/efficientvit.git?rev=71b35be" },
-    { name = "flask", specifier = "==3.1.1" },
+    { name = "flask", marker = "extra == 'dev-ui'", specifier = "==3.1.1" },
     { name = "ftfy" },
-    { name = "getiprompt", extras = ["dev", "extras", "notebook"], marker = "extra == 'full'" },
+    { name = "getiprompt", extras = ["dev", "extras", "notebook", "dev-ui"], marker = "extra == 'full'" },
     { name = "ipykernel", marker = "extra == 'notebook'", specifier = "==6.30.1" },
     { name = "jsonargparse" },
     { name = "jupyter", marker = "extra == 'notebook'", specifier = "==1.1.1" },
@@ -963,7 +966,7 @@ requires-dist = [
     { name = "umap", specifier = "==0.1.1" },
     { name = "xformers", marker = "extra == 'extras'", specifier = "==0.0.30", index = "https://download.pytorch.org/whl/cu126" },
 ]
-provides-extras = ["extras", "notebook", "dev", "full"]
+provides-extras = ["extras", "notebook", "dev", "dev-ui", "full"]
 
 [[package]]
 name = "gitdb"

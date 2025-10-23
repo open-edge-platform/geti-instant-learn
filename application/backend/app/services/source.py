@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from core.components.schemas.reader import SourceType
+from core.runtime.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher
 from db.models import ProjectDB, SourceDB
 from repositories.project import ProjectRepository
 from repositories.source import SourceRepository
@@ -46,6 +47,7 @@ class SourceService:
         session: Session,
         source_repository: SourceRepository | None = None,
         project_repository: ProjectRepository | None = None,
+        config_change_dispatcher: ConfigChangeDispatcher | None = None,
     ):
         """
         Initialize the service with a SQLAlchemy session.
@@ -53,6 +55,7 @@ class SourceService:
         self.session = session
         self.source_repository = source_repository or SourceRepository(session=session)
         self.project_repository = project_repository or ProjectRepository(session=session)
+        self._dispatcher = config_change_dispatcher
 
     def list_sources(self, project_id: UUID) -> SourcesListSchema:
         """
@@ -69,10 +72,6 @@ class SourceService:
         """
         self._ensure_project(project_id)
         db_sources = self.source_repository.get_all_by_project(project_id)
-        if not db_sources:
-            raise ResourceNotFoundError(
-                resource_type=ResourceType.SOURCE, message=f"Project {project_id} has no sources"
-            )
         return SourcesListSchema(sources=sources_db_to_schemas(db_sources))
 
     def get_source(self, project_id: UUID, source_id: UUID) -> SourceSchema:
@@ -128,6 +127,7 @@ class SourceService:
             new_source.connected,
             new_source.config,
         )
+        self._emit_component_change(project_id=project_id, source_id=new_source.id)
         return source_db_to_schema(new_source)
 
     def update_source(
@@ -177,6 +177,7 @@ class SourceService:
             source.connected,
             source.config,
         )
+        self._emit_component_change(project_id=project_id, source_id=source.id)
         return source_db_to_schema(source)
 
     def delete_source(self, project_id: UUID, source_id: UUID) -> None:
@@ -198,6 +199,7 @@ class SourceService:
         self.source_repository.delete(source)
         self.session.commit()
         logger.info("Source deleted: source_id=%s project_id=%s", source_id, project_id)
+        self._emit_component_change(project_id=project_id, source_id=source_id)
 
     def _ensure_project(self, project_id: UUID) -> ProjectDB:
         """
@@ -231,3 +233,16 @@ class SourceService:
                 project_id,
             )
             connected_source.connected = False
+
+    def _emit_component_change(self, project_id: UUID, source_id: UUID) -> None:
+        """
+        Emit a component configuration change event for sources to trigger pipeline updates.
+        """
+        if self._dispatcher:
+            self._dispatcher.dispatch(
+                ComponentConfigChangeEvent(
+                    project_id=project_id,
+                    component_type="source",
+                    component_id=str(source_id),
+                )
+            )

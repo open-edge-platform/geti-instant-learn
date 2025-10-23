@@ -42,9 +42,14 @@
     }
 
     &[class*='is-selected'],
-    &[class*='is-active'] {
+    &[class*='is-active'],
+    &[class*='is-disabled'] {
         border: var(--spectrum-alias-border-size-thin) solid var(--spectrum-global-color-gray-400) !important;
         background-color: var(--spectrum-global-color-gray-400) !important;
         border-radius: var(--spectrum-alias-border-radius-regular) !important;
+    }
+
+    &[class*='is-disabled'] {
+        opacity: 0.5;
     }
 }

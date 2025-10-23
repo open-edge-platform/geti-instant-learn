@@ -1,0 +1,13 @@
+/**
+ * Copyright (C) 2025 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import type { ComponentType, SVGProps } from 'react';
+
+export type ToolType = 'selection' | 'bounding-box' | 'sam';
+
+export interface ToolConfig {
+    type: ToolType;
+    icon: ComponentType<SVGProps<SVGSVGElement>>;
+}

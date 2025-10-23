@@ -13,9 +13,12 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 import rest.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
-from dependencies import run_db_migrations
+from core.runtime.dispatcher import ConfigChangeDispatcher
+from core.runtime.pipeline_manager import PipelineManager
+from dependencies import get_session_factory, run_db_migrations
 from routers import projects_router
 from settings import get_settings
+from webrtc.manager import WebRTCManager
 
 settings = get_settings()
 
@@ -27,17 +30,28 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None]:  # noqa: ARG001
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """FastAPI lifespan context manager"""
     # Startup actions
     logger.info(f"Starting {settings.app_name} application...")
     run_db_migrations()
+
+    app.state.config_dispatcher = ConfigChangeDispatcher()
+    app.state.pipeline_manager = PipelineManager(
+        event_dispatcher=app.state.config_dispatcher, session_factory=get_session_factory()
+    )
+    app.state.pipeline_manager.start()
+
+    # Initialize WebRTC Manager
+    app.state.webrtc_manager = WebRTCManager(pipeline_manager=app.state.pipeline_manager)
 
     logger.info("Application startup completed")
     yield
 
     # Shutdown actions
     logger.info(f"Shutting down {settings.app_name} application...")
+    await app.state.webrtc_manager.cleanup()
+    app.state.pipeline_manager.stop()
 
 
 app = FastAPI(
@@ -51,9 +65,11 @@ app = FastAPI(
     # TODO add license
 )
 
+raw = os.getenv("CORS_ORIGINS", "http://localhost:3000, http://localhost:9100")
+allowed_origins = [o.strip() for o in raw.split(",") if o.strip()]
 app.add_middleware(  # TODO restrict settings in production
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

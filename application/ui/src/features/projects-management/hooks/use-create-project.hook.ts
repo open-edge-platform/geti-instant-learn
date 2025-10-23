@@ -10,7 +10,11 @@ import { v4 as uuid } from 'uuid';
 import { paths } from '../../../routes/paths';
 
 export const useCreateProject = () => {
-    const createProjectMutation = $api.useMutation('post', '/api/v1/projects');
+    const createProjectMutation = $api.useMutation('post', '/api/v1/projects', {
+        meta: {
+            invalidates: [['get', '/api/v1/projects']],
+        },
+    });
     const navigate = useNavigate();
 
     const createProject = (projectName: string, projectId: string = uuid()) => {

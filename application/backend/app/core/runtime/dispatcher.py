@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from typing import Protocol
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -9,18 +10,24 @@ from pydantic import BaseModel
 class ProjectActivationEvent(BaseModel):
     """Event fired when a new pipeline should be activated."""
 
-    project_id: str
+    project_id: UUID
+
+
+class ProjectDeactivationEvent(BaseModel):
+    """Event fired when the current pipeline should be deactivated."""
+
+    project_id: UUID
 
 
 class ComponentConfigChangeEvent(BaseModel):
     """Event fired when a component of the active pipeline changes."""
 
-    project_id: str
+    project_id: UUID
     component_type: str
     component_id: str
 
 
-ConfigChangeEvent = ProjectActivationEvent | ComponentConfigChangeEvent
+ConfigChangeEvent = ProjectActivationEvent | ProjectDeactivationEvent | ComponentConfigChangeEvent
 
 
 class ConfigChangeListener(Protocol):
@@ -43,7 +50,8 @@ class ConfigChangeDispatcher:
         self._listeners: list[ConfigChangeListener] = []
 
     def subscribe(self, listener: ConfigChangeListener) -> None:
-        self._listeners.append(listener)
+        if listener not in self._listeners:
+            self._listeners.append(listener)
 
     def dispatch(self, event: ConfigChangeEvent) -> None:
         for listener in self._listeners:

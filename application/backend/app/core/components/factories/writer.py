@@ -3,6 +3,7 @@
 
 from core.components.base import StreamWriter
 from core.components.schemas.writer import WriterConfig
+from core.components.writers.noop_writer import NoOpWriter
 
 
 class StreamWriterFactory:
@@ -16,4 +17,6 @@ class StreamWriterFactory:
 
     @classmethod
     def create(cls, config: WriterConfig) -> StreamWriter:
-        pass
+        match config:
+            case _:
+                return NoOpWriter()

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { FormEvent, useState } from 'react';
 
 import { Button, Flex, Form, Item, Picker, TextField } from '@geti/ui';
 import { isNull } from 'lodash-es';
@@ -16,7 +16,7 @@ export const IPCameraForm = () => {
     const [streamPath, setStreamPath] = useState('');
     const [selectedProtocol, setSelectedProtocol] = useState(protocols[0]);
 
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
     };
 

@@ -5,13 +5,14 @@
 
 import { Suspense } from 'react';
 
-import { IntelBrandedLoading } from '@geti/ui';
+import { IntelBrandedLoading, Toast } from '@geti/ui';
 import { Outlet } from 'react-router';
 
 export const RootLayout = () => {
     return (
         <Suspense fallback={<IntelBrandedLoading />}>
             <Outlet />
+            <Toast />
         </Suspense>
     );
 };

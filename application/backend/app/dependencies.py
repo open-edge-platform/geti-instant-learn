@@ -8,14 +8,16 @@ from pathlib import Path
 from sqlite3 import Connection
 from typing import Annotated, Any
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from alembic import command
 from alembic.config import Config
+from core.runtime.dispatcher import ConfigChangeDispatcher
 from settings import get_settings
+from webrtc.manager import WebRTCManager
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -78,3 +80,16 @@ def run_db_migrations() -> None:
     except Exception:
         logger.exception("✗ Database migration failed")
         raise
+
+
+def get_webrtc_manager(request: Request) -> WebRTCManager:
+    """Provides the global WebRTCManager instance from FastAPI application's state."""
+    return request.app.state.webrtc_manager
+
+
+def get_config_dispatcher(request: Request) -> ConfigChangeDispatcher:
+    """Dependency that provides access to the ConfigChangeDispatcher."""
+    return request.app.state.config_dispatcher
+
+
+ConfigChangeDispatcherDep = Annotated[ConfigChangeDispatcher, Depends(get_config_dispatcher)]

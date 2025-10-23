@@ -3,36 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Key, KeyboardEvent, RefObject, useEffect, useRef, useState } from 'react';
+import { Key, KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 import { ActionMenu, AlertDialog, DialogContainer, Item, TextField, TextFieldRef } from '@geti/ui';
+import { useOnOutsideClick } from 'src/hooks/use-on-click-outside.hook';
 
 import styles from './project-list-item.module.scss';
-
-const useOnOutsideClick = (textFieldRef: RefObject<TextFieldRef | null>, onClickOutside: () => void) => {
-    const resetProjectInEditionRef = useRef(onClickOutside);
-
-    useEffect(() => {
-        resetProjectInEditionRef.current = onClickOutside;
-    }, [onClickOutside]);
-
-    useEffect(() => {
-        const abortController = new AbortController();
-
-        document.addEventListener(
-            'click',
-            (event) => {
-                if (!textFieldRef.current?.UNSAFE_getDOMNode()?.contains(event.target as Node)) {
-                    resetProjectInEditionRef.current();
-                }
-            },
-            { signal: abortController.signal }
-        );
-        return () => {
-            abortController.abort();
-        };
-    }, [textFieldRef]);
-};
 
 interface ProjectEditionProps {
     onBlur: (newName: string) => void;
@@ -123,10 +99,13 @@ export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition, projectN
 export const PROJECT_ACTIONS = {
     RENAME: 'Rename',
     DELETE: 'Delete',
+    ACTIVATE: 'Activate',
+    DEACTIVATE: 'Deactivate',
 };
 
 interface ProjectActionsProps {
     onAction: (key: Key) => void;
+    actions: string[];
 }
 
 interface DeleteProjectDialogProps {
@@ -154,10 +133,10 @@ export const DeleteProjectDialog = ({ isOpen, onDismiss, projectName, onDelete }
     );
 };
 
-export const ProjectActions = ({ onAction }: ProjectActionsProps) => {
+export const ProjectActions = ({ onAction, actions }: ProjectActionsProps) => {
     return (
         <ActionMenu isQuiet onAction={onAction} aria-label={'Project actions'} UNSAFE_className={styles.actionMenu}>
-            {[PROJECT_ACTIONS.RENAME, PROJECT_ACTIONS.DELETE].map((action) => (
+            {actions.map((action) => (
                 <Item key={action}>{action}</Item>
             ))}
         </ActionMenu>

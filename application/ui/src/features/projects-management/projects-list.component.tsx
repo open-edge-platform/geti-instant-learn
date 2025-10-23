@@ -19,9 +19,15 @@ interface ProjectListProps {
     projects: ProjectType[];
     projectIdInEdition: string | null;
     setProjectInEdition: (projectId: string | null) => void;
+    activeProject: ProjectType | undefined;
 }
 
-export const ProjectsList = ({ projects, setProjectInEdition, projectIdInEdition }: ProjectListProps) => {
+export const ProjectsList = ({
+    projects,
+    activeProject,
+    setProjectInEdition,
+    projectIdInEdition,
+}: ProjectListProps) => {
     const updateProjectName = useUpdateProject();
     const deleteProject = useDeleteProject();
     const { projectId } = useProjectIdentifier();
@@ -65,6 +71,7 @@ export const ProjectsList = ({ projects, setProjectInEdition, projectIdInEdition
             {projects.map((project) => (
                 <ProjectListItem
                     key={project.id}
+                    activeProject={activeProject}
                     projectNames={projectNames.filter((name) => name !== project.name)}
                     project={project}
                     onRename={handleRename}

@@ -1,5 +1,4 @@
 # test_webcam_reader.py
-from uuid import uuid4
 
 import cv2
 import numpy as np
@@ -29,17 +28,17 @@ def test_video_path(tmp_path):
 
 @pytest.fixture
 def webcam_config(test_video_path):
-    return WebCamConfig(source_type=SourceType.WEBCAM, id=uuid4(), device_id=0, name="Test Webcam")
+    return WebCamConfig(source_type=SourceType.WEBCAM, device_id=0)
 
 
 class TestWebCamReader:
     def test_webcam_reader_connect(self, webcam_config, test_video_path, monkeypatch):
         reader = WebCamReader(config=webcam_config)
-        monkeypatch.setattr(reader, "source", str(test_video_path))
+        monkeypatch.setattr(reader._config, "device_id", str(test_video_path))
 
         reader.connect()
 
-        assert reader.connected is True
+        assert reader._connected is True
         assert reader._cap is not None
         assert reader._cap.isOpened()
 
@@ -47,7 +46,7 @@ class TestWebCamReader:
 
     def test_webcam_reader_read_frame(self, webcam_config, test_video_path, monkeypatch):
         reader = WebCamReader(config=webcam_config)
-        monkeypatch.setattr(reader, "source", str(test_video_path))
+        monkeypatch.setattr(reader._config, "device_id", str(test_video_path))
 
         reader.connect()
 
@@ -63,7 +62,7 @@ class TestWebCamReader:
 
     def test_webcam_reader_end_of_stream(self, webcam_config, test_video_path, monkeypatch):
         reader = WebCamReader(config=webcam_config)
-        monkeypatch.setattr(reader, "source", str(test_video_path))
+        monkeypatch.setattr(reader._config, "device_id", str(test_video_path))
 
         reader.connect()
 
@@ -79,7 +78,7 @@ class TestWebCamReader:
 
     def test_webcam_reader_connect_invalid_source(self, webcam_config, monkeypatch):
         reader = WebCamReader(config=webcam_config)
-        monkeypatch.setattr(reader, "source", "/nonexistent/video.mp4")
+        monkeypatch.setattr(reader._config, "device_id", "/nonexistent/video.mp4")
 
         with pytest.raises(RuntimeError, match="Could not open video source"):
             reader.connect()

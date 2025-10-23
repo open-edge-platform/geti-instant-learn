@@ -7,7 +7,6 @@ import { $api } from '@geti-prompt/api';
 import { Navigate } from 'react-router';
 import { createBrowserRouter } from 'react-router-dom';
 
-import { MainContent } from '../components/main-content.component';
 import { ProjectsListEntry } from '../features/projects-management/projects-list-entry/projects-list-entry.component';
 import { Welcome } from '../features/projects-management/projects-list-entry/welcome.component';
 import { ErrorPage } from './error-page.component';
@@ -28,7 +27,13 @@ const Redirect = () => {
         return <Navigate to={paths.project({ projectId: data.projects[0].id })} replace />;
     }
 
-    return <Navigate to={paths.projects({})} replace />;
+    const activeProject = projects.find((project) => project.active);
+
+    if (activeProject === undefined) {
+        return <Navigate to={paths.projects({})} replace />;
+    }
+
+    return <Navigate to={paths.project({ projectId: activeProject.id })} replace />;
 };
 
 export const router = createBrowserRouter([
@@ -52,12 +57,6 @@ export const router = createBrowserRouter([
             {
                 path: paths.project.pattern,
                 element: <ProjectLayout />,
-                children: [
-                    {
-                        index: true,
-                        element: <MainContent />,
-                    },
-                ],
             },
             {
                 path: '*',

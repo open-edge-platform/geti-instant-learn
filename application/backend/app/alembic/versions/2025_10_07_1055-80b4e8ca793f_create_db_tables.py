@@ -35,13 +35,11 @@ def upgrade() -> None:
 
     op.create_table('Processor',
     sa.Column('name', sa.String(), nullable=True),
-    sa.Column('type', sa.Enum('DUMMY', name='processortype'), nullable=False),
     sa.Column('config', sqlite.JSON(), nullable=False),
     sa.Column('project_id', sa.Uuid(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.ForeignKeyConstraint(['project_id'], ['Project.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('project_id')
+    sa.PrimaryKeyConstraint('id')
     )
 
     op.create_table('Prompt',
@@ -60,8 +58,7 @@ def upgrade() -> None:
     sa.Column('project_id', sa.Uuid(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.ForeignKeyConstraint(['project_id'], ['Project.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('project_id')
+    sa.PrimaryKeyConstraint('id')
     )
 
     op.create_table('Source',

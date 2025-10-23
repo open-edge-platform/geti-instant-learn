@@ -8,9 +8,10 @@ import { FormEvent, useState } from 'react';
 import { $api, WebcamConfig } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Button, TextField, View } from '@geti/ui';
-import { useQueryClient } from '@tanstack/react-query';
-import { isEqual, isInteger } from 'lodash-es';
+import { isInteger } from 'lodash-es';
 import { v4 as uuid } from 'uuid';
+
+import { useCurrentProject } from '../../../projects-management/hooks/use-current-project.hook';
 
 interface WebcamSourceProps {
     source: WebcamConfig | undefined;
@@ -18,49 +19,40 @@ interface WebcamSourceProps {
 
 const useCreateWebcamSource = () => {
     const { projectId } = useProjectIdentifier();
-    const createWebcamSourceMutation = $api.useMutation('post', '/api/v1/projects/{project_id}/sources');
-    const queryClient = useQueryClient();
+    const createWebcamSourceMutation = $api.useMutation('post', '/api/v1/projects/{project_id}/sources', {
+        meta: {
+            invalidates: [
+                [
+                    'get',
+                    '/api/v1/projects/{project_id}/sources',
+                    {
+                        params: {
+                            path: {
+                                project_id: projectId,
+                            },
+                        },
+                    },
+                ],
+            ],
+        },
+    });
 
     const createWebcamSource = (deviceId: number) => {
-        createWebcamSourceMutation.mutate(
-            {
-                body: {
-                    id: uuid(),
-                    connected: true,
-                    config: {
-                        source_type: 'webcam',
-                        device_id: deviceId,
-                    },
-                },
-                params: {
-                    path: {
-                        project_id: projectId,
-                    },
+        createWebcamSourceMutation.mutate({
+            body: {
+                id: uuid(),
+                connected: true,
+                config: {
+                    source_type: 'webcam',
+                    device_id: deviceId,
                 },
             },
-            {
-                onSuccess: async () => {
-                    await queryClient.invalidateQueries({
-                        predicate: (query) => {
-                            return (
-                                Array.isArray(query.queryKey) &&
-                                isEqual(query.queryKey, [
-                                    'get',
-                                    `/api/v1/projects/{project_id}/sources`,
-                                    {
-                                        params: {
-                                            path: {
-                                                project_id: projectId,
-                                            },
-                                        },
-                                    },
-                                ])
-                            );
-                        },
-                    });
+            params: {
+                path: {
+                    project_id: projectId,
                 },
-            }
-        );
+            },
+        });
     };
 
     return {
@@ -71,50 +63,40 @@ const useCreateWebcamSource = () => {
 
 const useUpdateWebcamSource = () => {
     const { projectId } = useProjectIdentifier();
-    const updateWebcamSourceMutation = $api.useMutation('put', '/api/v1/projects/{project_id}/sources/{source_id}');
-    const queryClient = useQueryClient();
+    const updateWebcamSourceMutation = $api.useMutation('put', '/api/v1/projects/{project_id}/sources/{source_id}', {
+        meta: {
+            invalidates: [
+                [
+                    'get',
+                    '/api/v1/projects/{project_id}/sources',
+                    {
+                        params: {
+                            path: {
+                                project_id: projectId,
+                            },
+                        },
+                    },
+                ],
+            ],
+        },
+    });
 
     const updateWebcamSource = (sourceId: string, deviceId: number) => {
-        updateWebcamSourceMutation.mutate(
-            {
-                body: {
-                    connected: true,
-                    config: {
-                        source_type: 'webcam',
-                        device_id: deviceId,
-                    },
-                },
-                params: {
-                    path: {
-                        project_id: projectId,
-                        source_id: sourceId,
-                    },
+        updateWebcamSourceMutation.mutate({
+            body: {
+                connected: true,
+                config: {
+                    source_type: 'webcam',
+                    device_id: deviceId,
                 },
             },
-            {
-                onSuccess: async () => {
-                    await queryClient.invalidateQueries({
-                        predicate: (query) => {
-                            return (
-                                Array.isArray(query.queryKey) &&
-                                isEqual(query.queryKey, [
-                                    'put',
-                                    `/api/v1/projects/{project_id}/sources/{source_id}`,
-                                    {
-                                        params: {
-                                            path: {
-                                                project_id: projectId,
-                                                source_id: sourceId,
-                                            },
-                                        },
-                                    },
-                                ])
-                            );
-                        },
-                    });
+            params: {
+                path: {
+                    project_id: projectId,
+                    source_id: sourceId,
                 },
-            }
-        );
+            },
+        });
     };
 
     return {
@@ -129,6 +111,7 @@ export const WebcamSource = ({ source }: WebcamSourceProps) => {
     );
     const createWebcamSource = useCreateWebcamSource();
     const updateWebcamSource = useUpdateWebcamSource();
+    const { data } = useCurrentProject();
 
     const isApplyPending = createWebcamSource.isPending || updateWebcamSource.isPending;
 
@@ -149,6 +132,10 @@ export const WebcamSource = ({ source }: WebcamSourceProps) => {
 
         createWebcamSource.mutate(parseInt(selectedDeviceId));
     };
+
+    if (!data.active) {
+        return <TextField label={'Device ID'} value={selectedDeviceId} isReadOnly />;
+    }
 
     return (
         <form onSubmit={handleApply}>
