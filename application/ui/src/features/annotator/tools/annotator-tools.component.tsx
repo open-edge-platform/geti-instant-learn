@@ -4,17 +4,13 @@
  */
 
 import { Divider } from '@geti/ui';
-import { BoundingBox, SegmentAnythingIcon, Selector } from '@geti/ui/icons';
+import { SegmentAnythingIcon } from '@geti/ui/icons';
 
 import { useAnnotator } from '../providers/annotator-provider.component';
 import { ToolConfig } from './interface';
 import { Tools } from './tools.component';
 
-const TOOLS: ToolConfig[] = [
-    { type: 'selection', icon: Selector },
-    { type: 'bounding-box', icon: BoundingBox },
-    { type: 'sam', icon: SegmentAnythingIcon },
-];
+const TOOLS: ToolConfig[] = [{ type: 'sam', icon: SegmentAnythingIcon }];
 
 export const AnnotatorTools = () => {
     const { activeTool, setActiveTool } = useAnnotator();

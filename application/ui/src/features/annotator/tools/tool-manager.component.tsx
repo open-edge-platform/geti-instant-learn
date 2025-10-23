@@ -8,11 +8,6 @@ import { useAnnotator } from '../providers/annotator-provider.component';
 export const ToolManager = () => {
     const { activeTool } = useAnnotator();
 
-    if (activeTool === 'bounding-box') {
-        // TODO: Import the actual tool
-        // return <BoundingBoxTool />;
-    }
-
     if (activeTool === 'sam') {
         // TODO: Import the actual tool
         // return <SegmentAnythingTool />;

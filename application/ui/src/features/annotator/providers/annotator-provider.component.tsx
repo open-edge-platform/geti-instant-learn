@@ -23,7 +23,7 @@ type AnnotatorContext = {
 export const AnnotatorProviderContext = createContext<AnnotatorContext | null>(null);
 
 export const AnnotatorProvider = ({ mediaItem, children }: { mediaItem: MediaItem; children: ReactNode }) => {
-    const [activeTool, setActiveTool] = useState<ToolType>('selection');
+    const [activeTool, setActiveTool] = useState<ToolType>('sam');
 
     const imageQuery = useLoadImageQuery(mediaItem);
 
