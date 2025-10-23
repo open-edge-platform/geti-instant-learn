@@ -1,0 +1,17 @@
+# Default for anything not covered by one of the more specific rules below
+* @Daankrol @mpryahin @LenaRudaya @piotrgrubicki
+
+# Backend
+application/backend/ @mpryahin @LenaRudaya @piotrgrubicki
+
+# Frontend
+application/ui/ @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura @romanowska
+
+# Deploy
+deploy/ @mpryahin @LenaRudaya @piotrgrubicki
+
+# Docs
+docs/ @Daankrol @mpryahin @LenaRudaya @eugene123tw @dwesolow @pplaskie @samet-akcay
+
+# Lib
+library/ @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay
