@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom';
 import { paths } from '../../../routes/paths';
 import { ActivateProjectDialog } from '../activate-project-dialog/activate-project-dialog.component';
 import { useProjectActivityManagement } from '../hooks/use-project-activity-management.hook';
+import { ProjectActivityStatus } from '../project-activity-status/project-activity-status.component';
 import { DeleteProjectDialog, PROJECT_ACTIONS, ProjectActions, ProjectEdition } from './project-actions.component';
 
 import styles from './project-list-item.module.scss';
@@ -96,6 +97,7 @@ export const ProjectListItem = ({
                                 width={'size-300'}
                             />
                             <Text>{project.name}</Text>
+                            <ProjectActivityStatus isActive={project.active} />
                         </Flex>
                     )}
                     <ProjectActions actions={projectActions} onAction={handleAction} />
