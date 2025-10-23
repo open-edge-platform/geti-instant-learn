@@ -37,3 +37,9 @@
         transform: scale(1.05);
     }
 }
+
+@media (prefers-reduced-motion: reduce) {
+    .playButton {
+        animation: none;
+    }
+}
