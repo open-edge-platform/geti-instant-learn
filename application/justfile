@@ -1,48 +1,39 @@
 ###
-# Variables used in the Justfile
+# Common variables used in the Justfile
 ###
 
-component-name := "geti-prompt"
-docker-image-description := component-name
-images-registry := 'localhost:5000/open-edge-platform'
 product-version := '$(cat `pwd`/../VERSION)'
-default-tag := product-version + "-" + `git rev-parse --short HEAD`
+component-name := "geti-prompt"
+images-registry := 'localhost:5000/open-edge-platform'
+default-tag := product-version
 tag := env("TAG", default-tag)
-webcam-device := env("WEBCAM_DEVICE", "/dev/video0")
-docker-build-context := env("DOCKER_BUILD_CONTEXT", "")
 docker-image := images-registry + "/" + component-name + ":" + tag
+container-port := env("CONTAINER_PORT", "9100")
+host-port := env("HOST_PORT", container-port)
 
 ###
-# Docker build arguments
+# Variables used in the Justfile to build in Docker image for Geti Prompt
 ###
 
+docker-image-description := component-name
+docker-build-context := env("DOCKER_BUILD_CONTEXT", "")
 http-proxy-build-arg := if env("http_proxy", "") != "" { " --build-arg http_proxy=" + env("http_proxy") } else { "" }
 https-proxy-build-arg := if env("https_proxy", "") != "" { " --build-arg https_proxy=" + env("https_proxy") } else { "" }
 no-proxy-build-arg := if env("no_proxy", "") != "" { " --build-arg no_proxy=" + env("no_proxy") } else { "" }
 HTTP-PROXY-build-arg := if env("HTTP_PROXY", "") != "" { " --build-arg HTTP_PROXY=" + env("HTTP_PROXY") } else { "" }
 HTTPS-PROXY-build-arg := if env("HTTPS_PROXY", "") != "" { " --build-arg HTTPS_PROXY=" + env("HTTPS_PROXY") } else { "" }
 NO-PROXY-build-arg := if env("NO_PROXY", "") != "" { " --build-arg NO_PROXY=" + env("NO_PROXY") } else { "" }
-
-###
-# docker builder extra arguments
-###
-
 docker-extra-args := http-proxy-build-arg + https-proxy-build-arg + no-proxy-build-arg + HTTP-PROXY-build-arg + HTTPS-PROXY-build-arg + NO-PROXY-build-arg
-
-###
-# Geti Prompt arguments
-###
-
-container-port := env("CONTAINER_PORT", "9100")
-host-port := env("HOST_PORT", container-port)
 workdir-path := env("WORKDIR_PATH", "/geti_prompt")
 asset-prefix := env("ASSET_PREFIX", "/html")
 data-dir := "/data"
 static-files-dir := workdir-path + asset-prefix
 db-data-dir := workdir-path + data-dir
 
-# Optional host integrations
-
+###
+# Variables used in the Justfile to run docker image for Geti Prompt
+###
+webcam-device := env("WEBCAM_DEVICE", "/dev/video0")
 docker-webcam := if path_exists(webcam-device) == "true" { " --device " + webcam-device + ":" + webcam-device } else { "" }
 docker-volume := if env("DOCKER_VOLUME", "") != "" { " --volume " + env("DOCKER_VOLUME") + ":" + workdir-path + data-dir } else { "" }
 
