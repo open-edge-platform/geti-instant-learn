@@ -3,10 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { $api } from '@geti-prompt/api';
 import { View } from '@geti/ui';
 
 import { useCurrentProject } from '../features/projects-management/hooks/use-current-project.hook';
 import { NotActiveProject } from '../features/stream/not-active-project/not-active-project.component';
+import { StreamContainer } from '../features/stream/stream.component';
 import { NoMediaPlaceholder } from './no-media-placeholder/no-media-placeholder.component';
 
 const NoSourcePlaceholder = () => {
@@ -19,10 +21,21 @@ const NoSourcePlaceholder = () => {
 
 export const MainContent = () => {
     const { data } = useCurrentProject();
+    const { data: sourcesData } = $api.useSuspenseQuery('get', '/api/v1/projects/{project_id}/sources', {
+        params: {
+            path: {
+                project_id: data.id,
+            },
+        },
+    });
 
     if (!data.active) {
         return <NotActiveProject project={data} />;
     }
 
-    return <NoSourcePlaceholder />;
+    if (sourcesData.sources.length === 0) {
+        return <NoSourcePlaceholder />;
+    }
+
+    return <StreamContainer />;
 };

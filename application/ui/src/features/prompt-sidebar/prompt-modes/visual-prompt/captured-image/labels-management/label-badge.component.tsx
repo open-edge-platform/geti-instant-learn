@@ -7,11 +7,11 @@ import { CSSProperties, ReactNode } from 'react';
 
 import { Flex, Text } from '@geti/ui';
 import { clsx } from 'clsx';
-import { useHover, usePress } from 'react-aria';
+import { usePress } from 'react-aria';
 
 import { Label } from './label.interface';
 
-import classes from './label-badge.module.css';
+import classes from './label-badge.module.scss';
 
 interface LabelIndicatorProps {
     label: Label;
@@ -21,27 +21,18 @@ interface LabelIndicatorProps {
 }
 
 export const LabelBadge = ({ label, isSelected, onClick, children: actionButtons }: LabelIndicatorProps) => {
-    const { hoverProps, isHovered } = useHover({});
     const { pressProps } = usePress({
         onPress: onClick,
     });
 
     return (
-        <div {...hoverProps} className={classes.labelBadgeContainer}>
-            <div
-                {...pressProps}
-                style={{ '--labelBgColor': label.color } as CSSProperties}
-                className={clsx(classes.badge, { [classes.selected]: isSelected })}
-            >
-                <Text UNSAFE_className={classes.buttonText}>{label.name}</Text>
-                <Flex
-                    UNSAFE_className={clsx(classes.buttonsContainer, {
-                        [classes.buttonsContainerOpened]: isHovered,
-                    })}
-                >
-                    {actionButtons}
-                </Flex>
-            </div>
+        <div
+            {...pressProps}
+            style={{ '--labelBgColor': label.color } as CSSProperties}
+            className={clsx(classes.badge, { [classes.selected]: isSelected })}
+        >
+            <Text UNSAFE_className={classes.buttonText}>{label.name}</Text>
+            <Flex UNSAFE_className={classes.buttonsContainer}>{actionButtons}</Flex>
         </div>
     );
 };

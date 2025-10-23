@@ -40,3 +40,18 @@ export type ClipperPoint = {
     X: number;
     Y: number;
 };
+
+// TODO: update this once we have the final type
+export type MediaItem = {
+    id: string;
+    width: number;
+    height: number;
+};
+
+// TODO: update this once we have the final type
+export type Annotation = {
+    id: string;
+    labels: string[];
+    shape: Shape;
+    confidence?: number | null;
+};
