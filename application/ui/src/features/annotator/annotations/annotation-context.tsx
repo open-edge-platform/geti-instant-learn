@@ -12,7 +12,11 @@ const AnnotationContext = createContext<AnnotationType | null>(null);
 export const useAnnotation = () => {
     const ctx = useContext(AnnotationContext);
 
-    return ctx!;
+    if (ctx === null) {
+        throw new Error('useAnnotation must be used within an AnnotationContext.Provider');
+    }
+
+    return ctx;
 };
 
 export { AnnotationContext };
