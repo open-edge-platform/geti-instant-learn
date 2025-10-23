@@ -61,17 +61,23 @@ class TestFrameBroadcaster:
         fast_consumer_q = broadcaster.register()
         slow_consumer_q = broadcaster.register()
 
-        # Simulate a slow consumer by filling its queue to capacity.
+        # Simulate a slow consumer by filling its queue to capacity (maxsize=5).
         slow_consumer_q.put_nowait("frame0")
         slow_consumer_q.put_nowait("frame1")
+        slow_consumer_q.put_nowait("frame2")
+        slow_consumer_q.put_nowait("frame3")
+        slow_consumer_q.put_nowait("frame4")
         assert slow_consumer_q.full()
 
-        broadcaster.broadcast("frame2")
+        broadcaster.broadcast("frame5")
 
         assert fast_consumer_q.qsize() == 1
-        assert fast_consumer_q.get_nowait() == "frame2"
+        assert fast_consumer_q.get_nowait() == "frame5"
 
         # The slow consumer's queue has dropped the oldest frame ("frame0")
         assert slow_consumer_q.full()
         assert slow_consumer_q.get_nowait() == "frame1"
         assert slow_consumer_q.get_nowait() == "frame2"
+        assert slow_consumer_q.get_nowait() == "frame3"
+        assert slow_consumer_q.get_nowait() == "frame4"
+        assert slow_consumer_q.get_nowait() == "frame5"

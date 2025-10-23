@@ -5,14 +5,14 @@ import uuid
 from pathlib import Path
 from queue import Queue
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
 
 from core.components.schemas.processor import InputData
 from services.errors import ResourceNotFoundError, ResourceType, ServiceError
-from services.frame import FrameCapture, FrameService
+from services.frame import FrameService
 
 
 @pytest.fixture
@@ -29,43 +29,6 @@ def sample_input_data(sample_frame):
         frame=sample_frame,
         context={"source": "test_camera"},
     )
-
-
-def test_frame_capture_set_queue():
-    frame_capture = FrameCapture()
-    test_queue = Queue()
-
-    frame_capture.set_queue(test_queue)
-
-    assert frame_capture._queue is test_queue
-
-
-def test_frame_capture_wait_returns_frame(sample_input_data):
-    frame_capture = FrameCapture()
-    test_queue = Queue()
-    test_queue.put(sample_input_data)
-    frame_capture.set_queue(test_queue)
-
-    retrieved_frame = frame_capture.wait(timeout=1.0)
-
-    assert isinstance(retrieved_frame, np.ndarray)
-    np.testing.assert_array_equal(retrieved_frame, sample_input_data.frame)
-
-
-def test_frame_capture_wait_without_queue_raises_error():
-    frame_capture = FrameCapture()
-
-    with pytest.raises(ServiceError, match="Queue not set"):
-        frame_capture.wait()
-
-
-def test_frame_capture_wait_timeout_raises_error():
-    frame_capture = FrameCapture()
-    empty_queue = Queue()
-    frame_capture.set_queue(empty_queue)
-
-    with pytest.raises(ServiceError, match="No frame received within .* seconds"):
-        frame_capture.wait(timeout=0.1)
 
 
 @pytest.fixture
@@ -131,19 +94,25 @@ def test_capture_frame_success(
     expected_project = make_project(project_id=project_id, active=True)
     expected_source = make_source(connected=True)
     consumer_queue = Queue()
+    consumer_queue.put(sample_input_data)
 
     project_repository_mock.get_by_id.return_value = expected_project
     source_repository_mock.get_connected_in_project.return_value = expected_source
     pipeline_manager_mock.register_inbound_consumer.return_value = consumer_queue
 
-    with patch.object(FrameCapture, "wait", return_value=sample_input_data.frame):
-        captured_frame_id = frame_service.capture_frame(project_id)
+    captured_frame_id = frame_service.capture_frame(project_id)
 
     assert isinstance(captured_frame_id, uuid.UUID)
     project_repository_mock.get_by_id.assert_called_once_with(project_id)
     source_repository_mock.get_connected_in_project.assert_called_once_with(project_id)
     pipeline_manager_mock.register_inbound_consumer.assert_called_once_with(project_id)
     frame_repository_mock.save_frame.assert_called_once()
+
+    call_args = frame_repository_mock.save_frame.call_args
+    assert call_args[0][0] == project_id
+    assert isinstance(call_args[0][1], uuid.UUID)
+    np.testing.assert_array_equal(call_args[0][2], sample_input_data.frame)
+
     pipeline_manager_mock.unregister_inbound_consumer.assert_called_once_with(project_id, consumer_queue)
 
 
@@ -190,7 +159,7 @@ def test_capture_frame_no_connected_source(
     assert "no connected source" in str(exc_info.value).lower()
 
 
-def test_capture_frame_capture_timeout(
+def test_capture_frame_timeout(
     frame_service,
     pipeline_manager_mock,
     project_repository_mock,
@@ -199,17 +168,16 @@ def test_capture_frame_capture_timeout(
     project_id = uuid.uuid4()
     active_project = make_project(project_id=project_id, active=True)
     connected_source = make_source(connected=True)
-    consumer_queue = Queue()
+    empty_queue = Queue()
 
     project_repository_mock.get_by_id.return_value = active_project
     source_repository_mock.get_connected_in_project.return_value = connected_source
-    pipeline_manager_mock.register_inbound_consumer.return_value = consumer_queue
+    pipeline_manager_mock.register_inbound_consumer.return_value = empty_queue
 
-    with patch.object(FrameCapture, "wait", side_effect=ServiceError("No frame received within 5.0 seconds")):
-        with pytest.raises(ServiceError, match="No frame received"):
-            frame_service.capture_frame(project_id)
+    with pytest.raises(ServiceError, match="No frame received within 5 seconds"):
+        frame_service.capture_frame(project_id)
 
-    pipeline_manager_mock.unregister_inbound_consumer.assert_called_once_with(project_id, consumer_queue)
+    pipeline_manager_mock.unregister_inbound_consumer.assert_called_once_with(project_id, empty_queue)
 
 
 def test_capture_frame_save_failure(
@@ -224,15 +192,15 @@ def test_capture_frame_save_failure(
     active_project = make_project(project_id=project_id, active=True)
     connected_source = make_source(connected=True)
     consumer_queue = Queue()
+    consumer_queue.put(sample_input_data)
 
     project_repository_mock.get_by_id.return_value = active_project
     source_repository_mock.get_connected_in_project.return_value = connected_source
     pipeline_manager_mock.register_inbound_consumer.return_value = consumer_queue
     frame_repository_mock.save_frame.side_effect = RuntimeError("Disk full")
 
-    with patch.object(FrameCapture, "wait", return_value=sample_input_data.frame):
-        with pytest.raises(ServiceError, match="Frame capture failed"):
-            frame_service.capture_frame(project_id)
+    with pytest.raises(ServiceError, match="Frame capture failed"):
+        frame_service.capture_frame(project_id)
 
     pipeline_manager_mock.unregister_inbound_consumer.assert_called_once_with(project_id, consumer_queue)
 
@@ -240,6 +208,7 @@ def test_capture_frame_save_failure(
 def test_capture_frame_unregister_failure_is_logged(
     frame_service,
     pipeline_manager_mock,
+    frame_repository_mock,
     project_repository_mock,
     source_repository_mock,
     sample_input_data,
@@ -249,17 +218,39 @@ def test_capture_frame_unregister_failure_is_logged(
     active_project = make_project(project_id=project_id, active=True)
     connected_source = make_source(connected=True)
     consumer_queue = Queue()
+    consumer_queue.put(sample_input_data)
 
     project_repository_mock.get_by_id.return_value = active_project
     source_repository_mock.get_connected_in_project.return_value = connected_source
     pipeline_manager_mock.register_inbound_consumer.return_value = consumer_queue
     pipeline_manager_mock.unregister_inbound_consumer.side_effect = Exception("Unregister failed")
 
-    with patch.object(FrameCapture, "wait", return_value=sample_input_data.frame):
-        captured_frame_id = frame_service.capture_frame(project_id)
+    captured_frame_id = frame_service.capture_frame(project_id)
 
     assert isinstance(captured_frame_id, uuid.UUID)
     assert "Failed to unregister consumer" in caplog.text
+
+
+def test_capture_frame_queue_get_exception(
+    frame_service,
+    pipeline_manager_mock,
+    project_repository_mock,
+    source_repository_mock,
+):
+    project_id = uuid.uuid4()
+    active_project = make_project(project_id=project_id, active=True)
+    connected_source = make_source(connected=True)
+    consumer_queue = MagicMock(spec=Queue)
+    consumer_queue.get.side_effect = RuntimeError("Queue error")
+
+    project_repository_mock.get_by_id.return_value = active_project
+    source_repository_mock.get_connected_in_project.return_value = connected_source
+    pipeline_manager_mock.register_inbound_consumer.return_value = consumer_queue
+
+    with pytest.raises(ServiceError, match="Frame capture failed"):
+        frame_service.capture_frame(project_id)
+
+    pipeline_manager_mock.unregister_inbound_consumer.assert_called_once_with(project_id, consumer_queue)
 
 
 def test_get_frame_path_returns_path(
