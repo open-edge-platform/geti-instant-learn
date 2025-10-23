@@ -5,9 +5,9 @@
 
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Grid, minmax, View } from '@geti/ui';
-import { Outlet } from 'react-router';
 
 import { Header } from '../components/header.component';
+import { MainContent } from '../components/main-content.component';
 import { Sidebar } from '../components/sidebar/sidebar.component';
 import { Toolbar } from '../components/toolbar.component';
 import { useCurrentProject } from '../features/projects-management/hooks/use-current-project.hook';
@@ -37,7 +37,7 @@ export const ProjectLayout = () => {
                 <Toolbar />
 
                 <View backgroundColor={'gray-50'} gridArea={'main'}>
-                    <Outlet />
+                    <MainContent />
                 </View>
 
                 <Sidebar />
