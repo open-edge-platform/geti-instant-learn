@@ -12,7 +12,7 @@ import { EditLabel } from './edit-label.component';
 import { LabelBadge } from './label-badge.component';
 import { Label } from './label.interface';
 
-import classes from './label-list-item.module.css';
+import classes from './label-list-item.module.scss';
 
 interface LabelListItemProps {
     label: Label;

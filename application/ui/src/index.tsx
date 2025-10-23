@@ -9,7 +9,7 @@ import { createRoot } from 'react-dom/client';
 
 import { Providers } from './providers';
 
-import './css/index.scss';
+import './index.scss';
 
 const rootEl = document.getElementById('root');
 
