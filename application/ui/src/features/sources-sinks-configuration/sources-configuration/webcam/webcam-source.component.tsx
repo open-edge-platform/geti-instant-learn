@@ -5,105 +5,17 @@
 
 import { FormEvent, useState } from 'react';
 
-import { $api, WebcamConfig } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { WebcamConfig } from '@geti-prompt/api';
 import { Button, TextField, View } from '@geti/ui';
 import { isInteger } from 'lodash-es';
-import { v4 as uuid } from 'uuid';
 
 import { useCurrentProject } from '../../../projects-management/hooks/use-current-project.hook';
+import { useCreateWebcamSource } from '../hooks/use-create-webcam-source';
+import { useUpdateWebcamSource } from '../hooks/use-update-webcam-source';
 
 interface WebcamSourceProps {
     source: WebcamConfig | undefined;
 }
-
-const useCreateWebcamSource = () => {
-    const { projectId } = useProjectIdentifier();
-    const createWebcamSourceMutation = $api.useMutation('post', '/api/v1/projects/{project_id}/sources', {
-        meta: {
-            invalidates: [
-                [
-                    'get',
-                    '/api/v1/projects/{project_id}/sources',
-                    {
-                        params: {
-                            path: {
-                                project_id: projectId,
-                            },
-                        },
-                    },
-                ],
-            ],
-        },
-    });
-
-    const createWebcamSource = (deviceId: number) => {
-        createWebcamSourceMutation.mutate({
-            body: {
-                id: uuid(),
-                connected: true,
-                config: {
-                    source_type: 'webcam',
-                    device_id: deviceId,
-                },
-            },
-            params: {
-                path: {
-                    project_id: projectId,
-                },
-            },
-        });
-    };
-
-    return {
-        mutate: createWebcamSource,
-        isPending: createWebcamSourceMutation.isPending,
-    };
-};
-
-const useUpdateWebcamSource = () => {
-    const { projectId } = useProjectIdentifier();
-    const updateWebcamSourceMutation = $api.useMutation('put', '/api/v1/projects/{project_id}/sources/{source_id}', {
-        meta: {
-            invalidates: [
-                [
-                    'get',
-                    '/api/v1/projects/{project_id}/sources',
-                    {
-                        params: {
-                            path: {
-                                project_id: projectId,
-                            },
-                        },
-                    },
-                ],
-            ],
-        },
-    });
-
-    const updateWebcamSource = (sourceId: string, deviceId: number) => {
-        updateWebcamSourceMutation.mutate({
-            body: {
-                connected: true,
-                config: {
-                    source_type: 'webcam',
-                    device_id: deviceId,
-                },
-            },
-            params: {
-                path: {
-                    project_id: projectId,
-                    source_id: sourceId,
-                },
-            },
-        });
-    };
-
-    return {
-        mutate: updateWebcamSource,
-        isPending: updateWebcamSourceMutation.isPending,
-    };
-};
 
 export const WebcamSource = ({ source }: WebcamSourceProps) => {
     const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>(

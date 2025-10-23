@@ -7,7 +7,7 @@ import { $api } from '@geti-prompt/api';
 import { View } from '@geti/ui';
 
 import { useCurrentProject } from '../features/projects-management/hooks/use-current-project.hook';
-import { NotActiveProject } from '../features/stream/not-active-project/not-active-project.component';
+import { NotActiveProject } from '../features/projects-management/not-active-project/not-active-project.component';
 import { StreamContainer } from '../features/stream/stream.component';
 import { NoMediaPlaceholder } from './no-media-placeholder/no-media-placeholder.component';
 

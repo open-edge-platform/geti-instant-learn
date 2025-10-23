@@ -7,8 +7,8 @@ import { $api, ProjectType } from '@geti-prompt/api';
 import { NoActiveProject as NoActiveProjectIcon } from '@geti-prompt/icons';
 import { Button, Flex, Text, View } from '@geti/ui';
 
-import { ActivateProjectDialog } from '../../projects-management/activate-project-dialog/activate-project-dialog.component';
-import { useProjectActivityManagement } from '../../projects-management/hooks/use-project-activity-management.hook';
+import { ActivateProjectDialog } from '../activate-project-dialog/activate-project-dialog.component';
+import { useProjectActivityManagement } from '../hooks/use-project-activity-management.hook';
 
 import styles from './not-active-project.module.scss';
 

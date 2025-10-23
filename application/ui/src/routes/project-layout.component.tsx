@@ -6,7 +6,7 @@
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Grid, minmax, View } from '@geti/ui';
 
-import { Header } from '../components/header.component';
+import { Header } from '../components/header/header.component';
 import { MainContent } from '../components/main-content.component';
 import { Sidebar } from '../components/sidebar/sidebar.component';
 import { Toolbar } from '../components/toolbar.component';
