@@ -3,9 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Flex, Heading, View } from '@geti/ui';
-
-import IntelBrandedLoadingGif from '../../assets/intel-loading.webp';
+import { Flex, Heading, IntelBrandedLoading, View } from '@geti/ui';
 
 export const AnnotatorLoading = ({ isLoading }: { isLoading: boolean }) => {
     return (
@@ -21,17 +19,7 @@ export const AnnotatorLoading = ({ isLoading }: { isLoading: boolean }) => {
             }}
         >
             <Flex direction={'column'} alignItems={'center'} justifyContent={'center'} height='100%' gap='size-100'>
-                {/*  eslint-disable-next-line jsx-a11y/img-redundant-alt */}
-                <img
-                    src={IntelBrandedLoadingGif}
-                    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role
-                    role='progressbar'
-                    alt='Processing image'
-                    style={{
-                        width: 300,
-                        height: 300,
-                    }}
-                />
+                <IntelBrandedLoading />
                 <Heading
                     level={1}
                     UNSAFE_style={{
