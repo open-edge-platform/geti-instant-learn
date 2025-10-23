@@ -130,7 +130,7 @@ def infer_on_category(
         logger.warning(msg)
         raise ValueError(msg)
 
-    category = target_dataset.category_ids[0]
+    category_id = target_dataset.get_category_id(category_name)
 
     # Create DataLoader
     dataloader = DataLoader(
@@ -161,14 +161,14 @@ def infer_on_category(
         # Convert ground truth masks to Masks objects
         gt_masks = np_masks_to_custom_masks(
             batch.masks_np,
-            class_id=category,
+            class_id=category_id,
         )
 
         # Calculate metrics
         metrics_calculators[priors_batch_index](
             predictions=results.masks,
             ground_truths=gt_masks,
-            mapping={category: category_name},
+            mapping={category_id: category_name},
         )
 
         if visualize:
