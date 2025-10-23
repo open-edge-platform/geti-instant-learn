@@ -56,6 +56,7 @@ export type Label = {
     name: string;
     color: string;
     hotkey?: string;
+    isPrediction?: boolean;
 };
 
 // TODO: update this once we have the final type
