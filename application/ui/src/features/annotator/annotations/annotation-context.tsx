@@ -7,14 +7,12 @@ import { createContext, useContext } from 'react';
 
 import type { Annotation as AnnotationType } from '../types';
 
-export const AnnotationContext = createContext<AnnotationType | null>(null);
+const AnnotationContext = createContext<AnnotationType | null>(null);
 
 export const useAnnotation = () => {
     const ctx = useContext(AnnotationContext);
 
-    if (ctx === null) {
-        throw new Error('useAnnotation must be used within an AnnotationContext.Provider');
-    }
-
-    return ctx;
+    return ctx!;
 };
+
+export { AnnotationContext };

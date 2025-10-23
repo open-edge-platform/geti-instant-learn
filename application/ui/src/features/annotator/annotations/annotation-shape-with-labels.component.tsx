@@ -9,7 +9,7 @@ import polylabel from 'polylabel';
 
 import { useAnnotationActions } from '../providers/annotation-actions-provider.component';
 import { useAnnotationVisibility } from '../providers/annotation-visibility-provider.component';
-import type { Annotation, Polygon } from '../types';
+import type { Annotation, Label, Polygon } from '../types';
 import { AnnotationLabels } from './annotation-labels.component';
 import { AnnotationShape } from './annotation-shape.component';
 
@@ -25,7 +25,7 @@ export const AnnotationShapeWithLabels = ({ annotation }: AnnotationShapeProps) 
     const removeLabels = (labelId: Key | null) => {
         const updatedAnnotation = {
             ...annotation,
-            labels: annotation.labels.filter((label) => label.id !== labelId),
+            labels: annotation.labels.filter((label) => label.id !== labelId) as Label[],
         };
 
         updateAnnotations([updatedAnnotation]);
