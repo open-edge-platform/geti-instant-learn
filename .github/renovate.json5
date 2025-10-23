@@ -38,13 +38,6 @@
   prHourlyLimit: 10,
 
   packageRules: [
-    {
-      matchManagers: ["pep621"],
-
-      enabled: true,
-      schedule: ["* * * * 0"], // weekly
-    },
-
     // Disable non-security upgrades for pypi, except lock file update
     {
       matchDatasources: ["pypi"],
@@ -63,25 +56,39 @@
 
     // Group GitHub Actions updates
     {
-      groupName: "GitHub Actions",
-
-      matchManagers: ["github-actions"],
-      matchPackagePatterns: ["*"],
-
       enabled: true,
       separateMajorMinor: false,
-      schedule: ["* * 1 * *"], // every month
-    },
-
-    // Github Actions remove mcr.microsoft.com/playwright from update
-    {
+      groupName: "GitHub Actions",
       matchManagers: ["github-actions"],
-      matchDepNames: ["mcr.microsoft.com/playwright"],
-
-      enabled: false,
+      matchPackagePatterns: ["*"],
     },
 
-    // Dockerfile - base image updates
+    // uv version used in GitHub Actions is updated manually
+    {
+      enabled: false,
+      matchDatasources: ["github-releases"],
+      matchDepNames: ["astral-sh/uv"],
+      matchDepTypes: ["uses-with"],
+    },
+
+    // python version used in GitHub Actions is updated manually
+    {
+      enabled: false,
+      matchDatasources: ["github-releases"],
+      matchDepNames: ["python"],
+      matchDepTypes: ["uses-with"],
+    },
+
+    // Disable mcr.microsoft.com/playwright image upgrades, except digital pinning, 
+    {
+      enabled: false,
+      matchManagers: ["github-actions"],
+      matchDepTypes: ["container"],
+      matchDepNames: ["mcr.microsoft.com/playwright"],
+      matchUpdateTypes: ["major", "minor", "patch"],
+    },
+
+    // Group Docker base images updates
     {
       groupName: "Docker base images",
 
@@ -91,18 +98,22 @@
       matchPackagePatterns: ["*"],
 
       enabled: true,
-      schedule: ["* * 1 * *"], // monthly, 1st day of month
-      separateMajorMinor: true, // separate PRs for major updates
+    }
+
+    // Disable docker.io/astral/uv image upgrades, except digital pinning,
+    {
+      enabled: false,
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/astral-sh"],
+      matchUpdateTypes: ["major", "minor", "patch"],
     },
 
-    // Dockerfile - disable update of python base image
+    // Disable python base image upgrades, except patch and digital pinning
     {
-      matchManagers: ["dockerfile"],
-      matchDatasources: ["docker"],
-      // Group all base images into one PR
-      matchPackagePatterns: ["python"],
-
       enabled: false,
+      matchDatasources: ["docker"],
+      matchPackageNames: ["python"],
+      matchUpdateTypes: ["major", "minor"],
     },
 
     // Disable non-security upgrades for npm, except lock file update
@@ -112,7 +123,7 @@
       enabled: false,
     },
 
-    // NPM version in pacakge.json is updated manually
+    // NPM version in package.json is updated manually
     {
       matchDatasources: ["node-version"],
       matchDepNames: ["node"],
