@@ -69,7 +69,10 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         "--class_name",
         type=str,
         default=None,
-        help="Filter on class name",
+        help="Filter categories. Can be: "
+        "(1) preset name ('default', 'benchmark', 'all'), "
+        "(2) comma-separated list (e.g., 'cat,dog,bird'), "
+        "(3) None (uses 'default' preset)",
     )
     parser.add_argument(
         "--num_grid_cells",

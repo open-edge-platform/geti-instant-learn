@@ -84,10 +84,55 @@ You can configure the pipeline's parameters using dot notation (e.g., `--pipelin
 
 The `benchmark` subcommand is used to evaluate pipeline performance on various datasets. It can be used to test multiple pipelines, datasets, and hyperparameters all in one experiment.
 
-**Basic Usage:**
+#### Dataset Setup
+
+Before running benchmarks, ensure your datasets are properly structured. By default, datasets are expected in `~/datasets/`.
+
+**PerSeg Dataset Structure:**
+```
+~/datasets/PerSeg/
+├── Images/
+│   ├── backpack/
+│   │   ├── 00.jpg
+│   │   ├── 01.jpg
+│   │   └── ...
+│   ├── dog/
+│   │   └── ...
+│   └── [other_categories]/
+└── Annotations/
+    ├── backpack/
+    │   ├── 00.png
+    │   ├── 01.png
+    │   └── ...
+    ├── dog/
+    │   └── ...
+    └── [other_categories]/
+```
+
+**LVIS Dataset Structure:**
+```
+~/datasets/lvis/
+├── train2017/          # COCO train images
+│   ├── 000000000001.jpg
+│   └── ...
+├── val2017/            # COCO val images
+│   ├── 000000000001.jpg
+│   └── ...
+├── lvis_v1_train.json  # LVIS annotations
+└── lvis_v1_val.json    # LVIS annotations
+```
+
+> **Note:** LVIS uses COCO images. Download from [COCO](https://cocodataset.org/#download) and [LVIS](https://www.lvisdataset.org/dataset).
+
+You can specify a custom dataset root using `--dataset_root`:
+```bash
+getiprompt benchmark --dataset_root /path/to/datasets
+```
+
+#### Basic Usage
 
 ```bash
-# Evaluate the default pipeline on LVIS dataset with 1-shot
+# Evaluate the default pipeline on LVIS with default categories (quick test)
 getiprompt benchmark
 
 # Specify dataset and pipeline
@@ -98,18 +143,52 @@ getiprompt benchmark --n_shot 3
 
 # Select a different backbone
 getiprompt benchmark --sam MobileSAM
-
-# Filter evaluation to a specific class
-getiprompt benchmark --class_name cat
-
-# Combine arguments
-getiprompt benchmark --dataset_name PerSeg --pipeline MatcherModular --n_shot 3 --sam MobileSAM --class_name can
-
-# Run all pipelines on all datasets
-getiprompt benchmark --pipeline all --dataset_name all
 ```
 
-See [`src/getiprompt/utils/args.py`](src/getiprompt/utils/args.py) or run `getiprompt benchmark --help` for all available command-line options. Results (metrics and visualizations) are typically saved to `~/outputs/`.
+#### Category Filtering
+
+The benchmark supports three ways to filter categories:
+
+1. **Preset modes** - Predefined category sets for different use cases:
+   ```bash
+   # Quick testing with default categories (4 categories for LVIS)
+   getiprompt benchmark --class_name default
+
+   # Comprehensive benchmark (~100 categories for LVIS)
+   getiprompt benchmark --class_name benchmark
+
+   # All available categories in the dataset
+   getiprompt benchmark --class_name all
+   ```
+
+2. **Explicit category list** - Specify categories directly:
+   ```bash
+   # Single category
+   getiprompt benchmark --class_name cat
+
+   # Multiple categories (comma-separated)
+   getiprompt benchmark --class_name cat,dog,bird
+   ```
+
+3. **Default behavior** - If `--class_name` is not specified, uses the "default" preset (4 categories for LVIS, all categories for PerSeg).
+
+#### Complete Examples
+
+```bash
+# Combine multiple arguments
+getiprompt benchmark --dataset_name PerSeg --pipeline MatcherModular --n_shot 3 --sam MobileSAM --class_name backpack,dog
+
+# Run comprehensive benchmark on LVIS
+getiprompt benchmark --dataset_name lvis --class_name benchmark --n_shot 1
+
+# Run all pipelines on all datasets with default categories
+getiprompt benchmark --pipeline all --dataset_name all
+
+# Custom dataset location with benchmark categories
+getiprompt benchmark --dataset_root /custom/path --class_name benchmark
+```
+
+See [`src/getiprompt/utils/args.py`](src/getiprompt/utils/args.py) or run `getiprompt benchmark --help` for all available command-line options. Results (metrics and visualizations) are saved to `~/outputs/` by default.
 
 ### Development UI (Optional)
 

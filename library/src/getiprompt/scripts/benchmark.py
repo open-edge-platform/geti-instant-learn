@@ -1,8 +1,9 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-# ruff: noqa: E402
 
 """Geti Prompt Benchmark Script."""
+
+from __future__ import annotations
 
 import argparse
 import itertools
@@ -31,10 +32,24 @@ from getiprompt.utils.benchmark import (
     _save_results,
     handle_output_path,
 )
+from getiprompt.utils.constants import LVIS_92_BENCHMARK_CATEGORIES, LVIS_DEFAULT_CATEGORIES
 from getiprompt.utils.utils import np_masks_to_custom_masks
 from getiprompt.visualize import ExportMaskVisualization
 
 logger = getLogger("Geti Prompt")
+
+# Category presets for different datasets
+# These can be imported and customized by users
+
+CATEGORY_PRESETS = {
+    "lvis": {
+        "default": LVIS_DEFAULT_CATEGORIES,
+        "benchmark": LVIS_92_BENCHMARK_CATEGORIES["fold_0"],  # Fold 0 is the default fold
+    },
+    "perseg": {
+        "default": None,  # Uses all available categories
+    },
+}
 
 
 def sample_to_image_and_priors(
@@ -388,7 +403,7 @@ def predict_on_dataset(
 
 def load_dataset_by_name(
     dataset_name: str,
-    categories: list[str] | None = None,
+    categories: list[str] | str | None = None,
     n_shots: int = 1,
     dataset_root: str | Path | None = None,
 ) -> GetiPromptDataset:
@@ -396,16 +411,76 @@ def load_dataset_by_name(
 
     Args:
         dataset_name: Name of the dataset (e.g., "PerSeg", "LVIS")
-        categories: Optional list of categories to filter
+        categories: Categories to filter. Can be:
+            - None: uses "default" preset if available, else all categories
+            - "all": uses all available categories
+            - "default": uses default preset (quick testing)
+            - "benchmark": uses benchmark preset (comprehensive testing)
+            - list[str]: explicit list of category names
         n_shots: Number of reference shots per category
         dataset_root: Root directory where datasets are stored. If None, uses defaults.
 
     Raises:
-        ValueError: If the dataset name is unknown.
+        ValueError: If the dataset name is unknown or preset is invalid.
 
     Returns:
         GetiPromptDataset instance
+
+    Example:
+        Load dataset with different category configurations:
+
+        >>> # Use default preset (quick testing, 4 categories for LVIS)
+        >>> dataset = load_dataset_by_name("lvis")
+        >>> # Or explicitly:
+        >>> dataset = load_dataset_by_name("lvis", categories="default")
+        >>>
+        >>> # Use benchmark preset (comprehensive testing, 92 categories on LVIS-92 fold 0)
+        >>> dataset = load_dataset_by_name("lvis", categories="benchmark")
+        >>>
+        >>> # Use all available categories in the dataset
+        >>> dataset = load_dataset_by_name("lvis", categories="all")
+        >>>
+        >>> # Use explicit category list
+        >>> dataset = load_dataset_by_name("lvis", categories=["cat", "dog", "bird"])
+        >>>
+        >>> # Extend a preset by importing constants
+        >>> from getiprompt.utils.constants import LVIS_DEFAULT_CATEGORIES
+        >>> custom_categories = list(LVIS_DEFAULT_CATEGORIES) + ["tiger", "lion"]
+        >>> dataset = load_dataset_by_name("lvis", categories=custom_categories)
+        >>>
+        >>> # Use benchmark categories from a specific fold
+        >>> from getiprompt.utils.constants import LVIS_BENCHMARK_CATEGORIES
+        >>> dataset = load_dataset_by_name("lvis", categories=LVIS_BENCHMARK_CATEGORIES["fold_1"])
+        >>>
+        >>> # Configure n_shots and custom dataset root
+        >>> dataset = load_dataset_by_name(
+        ...     "lvis",
+        ...     categories="benchmark",
+        ...     n_shots=3,
+        ...     dataset_root="~/my_datasets"
+        ... )
     """
+    # Resolve category presets
+    if categories is None:
+        categories = "default"
+
+    if isinstance(categories, str):
+        preset_key = categories.lower()
+        if preset_key == "all":
+            resolved_categories = None  # Dataset will use all available categories
+        elif dataset_name.lower() in CATEGORY_PRESETS:
+            if preset_key in CATEGORY_PRESETS[dataset_name.lower()]:
+                resolved_categories = CATEGORY_PRESETS[dataset_name.lower()][preset_key]
+            else:
+                available_presets = list(CATEGORY_PRESETS[dataset_name.lower()].keys())
+                msg = f"Unknown preset '{categories}' for dataset '{dataset_name}'. Available: {available_presets}"
+                raise ValueError(msg)
+        else:
+            msg = f"No presets defined for dataset '{dataset_name}'"
+            raise ValueError(msg)
+    else:
+        resolved_categories = categories
+
     if dataset_name.lower() == "perseg":
         root = (
             Path(dataset_root).expanduser() / "PerSeg"
@@ -414,7 +489,7 @@ def load_dataset_by_name(
         )
         return PerSegDataset(
             root=root,
-            categories=categories,
+            categories=resolved_categories,
             n_shots=n_shots,
         )
     if dataset_name.lower() == "lvis":
@@ -425,7 +500,7 @@ def load_dataset_by_name(
         )
         return LVISDataset(
             root=root,
-            categories=categories,
+            categories=resolved_categories,
             n_shots=n_shots,
         )
     msg = f"Unknown dataset: {dataset_name}"
@@ -465,10 +540,21 @@ def perform_benchmark_experiment(args: argparse.Namespace | None = None) -> None
         )
         logger.info(msg)
 
+        # Parse categories from CLI argument
+        # Support both presets (e.g., "default", "benchmark", "all") and explicit lists (e.g., "cat,dog,bird")
+        if args.class_name:
+            # Check if it's a preset or a comma-separated list
+            if "," not in args.class_name and args.class_name.lower() in ("default", "benchmark", "all"):
+                categories_arg = args.class_name  # Pass preset string directly
+            else:
+                categories_arg = [c.strip() for c in args.class_name.split(",")]  # Split comma-separated list
+        else:
+            categories_arg = None  # Will default to "default" preset
+
         # Load dataset using new API
         dataset = load_dataset_by_name(
             dataset_enum.value,
-            categories=args.class_name.split(",") if args.class_name else None,
+            categories=categories_arg,
             n_shots=args.n_shot,
             dataset_root=args.dataset_root,
         )
