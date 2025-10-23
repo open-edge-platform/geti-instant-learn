@@ -35,7 +35,6 @@ class DatasetName(Enum):
 
     PERSEG = "PerSeg"
     LVIS = "lvis"
-    LVIS_VALIDATION = "lvis_validation"
 
 
 class DINOv3BackboneSize(Enum):

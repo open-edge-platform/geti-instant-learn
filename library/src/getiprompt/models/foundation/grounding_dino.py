@@ -1880,20 +1880,21 @@ class GroundingDinoEncoder(GroundingDinoPreTrainedModel):
 
 
 class GroundingDinoDecoder(GroundingDinoPreTrainedModel):
-    """Transformer decoder consisting of *config.decoder_layers* layers. Each layer is a [`GroundingDinoDecoderLayer`].
-
-    The decoder updates the query embeddings through multiple self-attention and cross-attention layers.
-
-    Some tweaks for Grounding DINO:
-
-    - `position_embeddings`, `reference_points`, `spatial_shapes` and `valid_ratios` are added to the forward pass.
-    - it also returns a stack of intermediate outputs and reference points from all decoding layers.
-
-    Args:
-        config: GroundingDinoConfig
-    """
+    """Grounding DINO Decoder."""
 
     def __init__(self, config: GroundingDinoConfig) -> None:
+        """Transformer decoder consisting of *config.decoder_layers* layers. Each layer is a [`GroundingDinoDecoderLayer`].
+
+        The decoder updates the query embeddings through multiple self-attention and cross-attention layers.
+
+        Some tweaks for Grounding DINO:
+
+        - `position_embeddings`, `reference_points`, `spatial_shapes` and `valid_ratios` are added to the forward pass.
+        - it also returns a stack of intermediate outputs and reference points from all decoding layers.
+
+        Args:
+            config: GroundingDinoConfig
+        """
         super().__init__(config)
 
         self.dropout = config.dropout
@@ -1957,6 +1958,13 @@ class GroundingDinoDecoder(GroundingDinoPreTrainedModel):
             output_hidden_states: Whether or not to return the hidden states of all layers.
                 See `hidden_states` under returned tensors for more detail.
             return_dict: Whether or not to return a [`~file_utils.ModelOutput`] instead of a plain tuple.
+
+        Returns:
+            tuple: A tuple containing the hidden states, intermediate hidden states, intermediate reference points,
+                all hidden states, and all attentions.
+
+        Raises:
+            ValueError: If the reference points are not in [x0, y0, x1, y1] (corner) format.
         """
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
@@ -1987,7 +1995,7 @@ class GroundingDinoDecoder(GroundingDinoPreTrainedModel):
                 1,
             )
             text_encoder_attention_mask = text_encoder_attention_mask.to(dtype=dtype)
-            text_encoder_attention_mask = text_encoder_attention_mask * torch.finfo(dtype).min
+            text_encoder_attention_mask *= torch.finfo(dtype).min
 
         for idx, decoder_layer in enumerate(self.layers):
             num_coordinates = reference_points.shape[-1]
@@ -2014,7 +2022,7 @@ class GroundingDinoDecoder(GroundingDinoPreTrainedModel):
                 def create_custom_forward(module: nn.Module) -> Callable[..., Any]:
                     """Custom Forward Wrapper."""
 
-                    def custom_forward(*inputs) -> tuple:
+                    def custom_forward(*inputs: Any) -> tuple:
                         return module(*inputs, output_attentions)
 
                     return custom_forward
@@ -2157,6 +2165,11 @@ class GroundingDinoModel(GroundingDinoPreTrainedModel):
     """The bare Grounding DINO Model  outputting raw hidden-states without any specific head on top."""
 
     def __init__(self, config: GroundingDinoConfig) -> None:
+        """Initialize Grounding DINO Model.
+
+        Args:
+            config (GroundingDinoConfig): The configuration of the model.
+        """
         super().__init__(config)
 
         # Create backbone + positional encoding
@@ -2534,13 +2547,20 @@ class GroundingDinoModel(GroundingDinoPreTrainedModel):
 
 
 class GroundingDinoMLPPredictionHead(nn.Module):
-    """Very simple multi-layer perceptron (MLP, also called FFN).
-
-    Used to predict the normalized center coordinates, height and width of a bounding box w.r.t. an image.
-    Copied from https://github.com/facebookresearch/detr/blob/master/models/detr.py
-    """
+    """Grounding Dino MLP Prediction Head."""
 
     def __init__(self, input_dim: int, hidden_dim: int, output_dim: int, num_layers: int) -> None:
+        """Very simple multi-layer perceptron (MLP, also called FFN).
+
+        Used to predict the normalized center coordinates, height and width of a bounding box w.r.t. an image.
+        Copied from https://github.com/facebookresearch/detr/blob/master/models/detr.py
+
+        Args:
+            input_dim (int): The dimension of the input.
+            hidden_dim (int): The dimension of the hidden layers.
+            output_dim (int): The dimension of the output.
+            num_layers (int): The number of layers.
+        """
         super().__init__()
         self.num_layers = num_layers
         h = [hidden_dim] * (num_layers - 1)
@@ -2598,6 +2618,14 @@ def generalized_box_iou(boxes1: torch.Tensor, boxes2: torch.Tensor) -> torch.Ten
 
     Returns:
         `torch.FloatTensor`: a [N, M] pairwise matrix, where N = len(boxes1) and M = len(boxes2)
+
+    Args:
+        boxes1 (torch.Tensor): The first set of boxes.
+        boxes2 (torch.Tensor): The second set of boxes.
+
+    Raises:
+        ValueError: If boxes1 is not in [x0, y0, x1, y1] (corner) format.
+        ValueError: If boxes2 is not in [x0, y0, x1, y1] (corner) format.
     """
     # degenerate boxes gives inf / nan results
     # so do an early check
@@ -2729,7 +2757,17 @@ class NestedTensor:
 
 
 def nested_tensor_from_tensor_list(tensor_list: list[Tensor]) -> NestedTensor:
-    """Create a nested tensor from a list of tensors."""
+    """Create a nested tensor from a list of tensors.
+
+    Args:
+        tensor_list (list[Tensor]): The list of tensors to create a nested tensor from.
+
+    Returns:
+        NestedTensor: The nested tensor.
+
+    Raises:
+        ValueError: If the tensor list contains tensors with the wrong number of dimensions.
+    """
     if tensor_list[0].ndim == 3:
         max_size = _max_by_axis([list(img.shape) for img in tensor_list])
         batch_shape = [len(tensor_list), *max_size]
@@ -2748,22 +2786,26 @@ def nested_tensor_from_tensor_list(tensor_list: list[Tensor]) -> NestedTensor:
 
 
 class GroundingDinoHungarianMatcher(nn.Module):
-    """This class computes an assignment between the targets and the predictions of the network.
-
-    For efficiency reasons, the targets don't include the no_object. Because of this, in general, there are more
-    predictions than targets. In this case, we do a 1-to-1 matching of the best predictions, while the others are
-    un-matched (and thus treated as non-objects).
-
-    Args:
-        class_cost:
-            The relative weight of the classification error in the matching cost.
-        bbox_cost:
-            The relative weight of the L1 error of the bounding box coordinates in the matching cost.
-        giou_cost:
-            The relative weight of the giou loss of the bounding box in the matching cost.
-    """
+    """Grounding Dino Hungarian Matcher."""
 
     def __init__(self, class_cost: float = 1, bbox_cost: float = 1, giou_cost: float = 1) -> None:
+        """This class computes an assignment between the targets and the predictions of the network.
+
+        For efficiency reasons, the targets don't include the no_object. Because of this, in general, there are more
+        predictions than targets. In this case, we do a 1-to-1 matching of the best predictions, while the others are
+        un-matched (and thus treated as non-objects).
+
+        Args:
+            class_cost:
+                The relative weight of the classification error in the matching cost.
+            bbox_cost:
+                The relative weight of the L1 error of the bounding box coordinates in the matching cost.
+            giou_cost:
+                The relative weight of the giou loss of the bounding box in the matching cost.
+
+        Raises:
+            ValueError: If all costs of the Matcher can't be 0.
+        """
         super().__init__()
         requires_backends(self, ["scipy"])
 
@@ -2829,22 +2871,7 @@ class GroundingDinoHungarianMatcher(nn.Module):
 
 
 class GroundingDinoLoss(nn.Module):
-    """This class computes the losses for `GroundingDinoForObjectDetection`.
-
-    The process happens in two steps:
-    1) we compute hungarian assignment between ground truth boxes and the outputs of the model
-    2) we supervise each pair of matched ground-truth / prediction (supervise class and box).
-
-    Args:
-        matcher (`GroundingDinoHungarianMatcher`):
-            Module able to compute a matching between targets and proposals.
-        num_classes (`int`):
-            Number of object categories, omitting the special no-object category.
-        focal_alpha (`float`):
-            Alpha parameter in focal loss.
-        losses (`List[str]`):
-            List of all the losses to be applied. See `get_loss` for a list of all available losses.
-    """
+    """Grounding Dino Loss."""
 
     def __init__(
         self,
@@ -2853,6 +2880,22 @@ class GroundingDinoLoss(nn.Module):
         focal_alpha: float,
         losses: list[str],
     ) -> None:
+        """This class computes the losses for `GroundingDinoForObjectDetection`.
+
+        The process happens in two steps:
+        1) we compute hungarian assignment between ground truth boxes and the outputs of the model
+        2) we supervise each pair of matched ground-truth / prediction (supervise class and box).
+
+        Args:
+            matcher (`GroundingDinoHungarianMatcher`):
+                Module able to compute a matching between targets and proposals.
+            num_classes (`int`):
+                Number of object categories, omitting the special no-object category.
+            focal_alpha (`float`):
+                Alpha parameter in focal loss.
+            losses (`List[str]`):
+                List of all the losses to be applied. See `get_loss` for a list of all available losses.
+        """
         super().__init__()
         self.matcher = matcher
         self.num_classes = num_classes
@@ -2869,6 +2912,18 @@ class GroundingDinoLoss(nn.Module):
         """Classification loss (Binary focal loss).
 
         Targets dicts must contain the key "class_labels" containing a tensor of dim [nb_target_boxes].
+
+        Args:
+            outputs (dict): The outputs of the model.
+            targets (list): The targets of the model.
+            indices (list): The indices of the targets.
+            num_boxes (int): The number of boxes.
+
+        Returns:
+            dict: A dictionary containing the losses.
+
+        Raises:
+            KeyError: If "logits" is not found in the outputs.
         """
         if "logits" not in outputs:
             msg = "No logits were found in the outputs"
@@ -2931,6 +2986,18 @@ class GroundingDinoLoss(nn.Module):
 
         Targets dicts must contain the key "boxes" containing a tensor of dim [nb_target_boxes, 4]. The target boxes
         are expected in format (center_x, center_y, w, h), normalized by the image size.
+
+        Args:
+            outputs (dict): The outputs of the model.
+            targets (list): The targets of the model.
+            indices (list): The indices of the targets.
+            num_boxes (int): The number of boxes.
+
+        Returns:
+            dict: A dictionary containing the losses.
+
+        Raises:
+            KeyError: If "pred_boxes" is not found in the outputs.
         """
         # Copied from transformers.models.detr.modeling_detr.DetrLoss.loss_boxes
         if "pred_boxes" not in outputs:
@@ -2975,7 +3042,21 @@ class GroundingDinoLoss(nn.Module):
         indices: list[tuple[Tensor, Tensor]],
         num_boxes: int,
     ) -> dict[str, Tensor]:
-        """Get the loss function corresponding to `loss`."""
+        """Get the loss function corresponding to `loss`.
+
+        Args:
+            loss (str): The loss to get.
+            outputs (dict): The outputs of the model.
+            targets (list): The targets of the model.
+            indices (list): The indices of the targets.
+            num_boxes (int): The number of boxes.
+
+        Returns:
+            dict: A dictionary containing the losses.
+
+        Raises:
+            ValueError: If the loss is not supported.
+        """
         loss_map = {
             "labels": self.loss_labels,
             "cardinality": self.loss_cardinality,
@@ -3044,6 +3125,7 @@ class GroundingDinoForObjectDetection(GroundingDinoPreTrainedModel):
     _tied_weights_keys: ClassVar = [r"bbox_embed\.[1-9]\d*", r"model\.decoder\.bbox_embed\.[0-9]\d*"]
 
     def __init__(self, config: GroundingDinoConfig) -> None:
+        """Initialize Grounding DINO for object detection."""
         super().__init__(config)
 
         self.model = GroundingDinoModel(config)
@@ -3106,6 +3188,9 @@ class GroundingDinoForObjectDetection(GroundingDinoPreTrainedModel):
 
         Returns:
             An instance of `GroundingDinoObjectDetectionOutput` if `return_dict=True`. Otherwise, a tuple of tensors
+
+        Raises:
+            ValueError: If `return_dict` is not a boolean.
 
         Examples:
         ```python

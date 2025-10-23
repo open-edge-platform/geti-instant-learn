@@ -2,6 +2,7 @@
 # All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+"""Transformer decoder for the TwoWayTransformer."""
 
 import math
 
@@ -21,8 +22,7 @@ class TwoWayTransformer(nn.Module):
         activation: type[nn.Module] = nn.ReLU,
         attention_downsample_rate: int = 2,
     ) -> None:
-        """A transformer decoder that attends to an input image using
-        queries whose positional embedding is supplied.
+        """A transformer decoder that attends to an input image using queries whose positional embedding is supplied.
 
         Args:
           depth (int): number of layers in the transformer
@@ -66,7 +66,9 @@ class TwoWayTransformer(nn.Module):
         attn_sim: Tensor,
         target_embedding=None,
     ) -> tuple[Tensor, Tensor]:
-        """Args:
+        """Forward pass for the TwoWayTransformer.
+
+        Args:
           image_embedding (torch.Tensor): image to attend to. Should be shape
             B x embedding_dim x h x w for any h and w.
           image_pe (torch.Tensor): the positional encoding to add to the image. Must
@@ -112,6 +114,8 @@ class TwoWayTransformer(nn.Module):
 
 
 class TwoWayAttentionBlock(nn.Module):
+    """Two-way attention block for the TwoWayTransformer."""
+
     def __init__(
         self,
         embedding_dim: int,

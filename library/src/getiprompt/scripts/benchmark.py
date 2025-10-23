@@ -5,6 +5,7 @@
 """Geti Prompt Benchmark Script."""
 
 import argparse
+import itertools
 import warnings
 from pathlib import Path
 
@@ -18,7 +19,7 @@ import pandas as pd
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from torch.utils.data import DataLoader
 
-from getiprompt.data import GetiPromptDataset, PerSegDataset
+from getiprompt.data import GetiPromptDataset, LVISDataset, PerSegDataset
 from getiprompt.data.sample import GetiPromptSample
 from getiprompt.metrics import SegmentationMetrics
 from getiprompt.models import Model, load_model
@@ -26,7 +27,6 @@ from getiprompt.types import Image, Masks, Priors, Text
 from getiprompt.utils import setup_logger
 from getiprompt.utils.args import get_arguments, parse_experiment_args
 from getiprompt.utils.benchmark import (
-    _generate_experiment_plan,
     _get_output_path_for_experiment,
     _save_results,
     handle_output_path,
@@ -103,13 +103,17 @@ def infer_on_category(
 
     Returns:
         The number of samples that were processed and the total time it took.
+
+    Raises:
+        ValueError: If no target samples are found for the category.
     """
     # Get target samples for this category
     target_dataset = dataset.get_target_dataset(category=category_name)
 
     if len(target_dataset) == 0:
-        logger.warning(f"No target samples found for category: {category_name}")
-        return 0, 0
+        msg = f"No target samples found for category: {category_name}"
+        logger.warning(msg)
+        raise ValueError(msg)
 
     category = target_dataset.category_ids[0]
 
@@ -223,6 +227,9 @@ def learn_from_category(
 
     Returns:
         Tuple of (reference_images, reference_priors) used for learning
+
+    Raises:
+        ValueError: If no reference samples are found for the category.
     """
     # Get reference samples for this category
     reference_dataset = dataset.get_reference_dataset(category=category_name)
@@ -387,11 +394,12 @@ def load_dataset_by_name(dataset_name: str, categories: list[str] | None = None,
         categories: Optional list of categories to filter
         n_shots: Number of reference shots per category
 
+    Raises:
+        ValueError: If the dataset name is unknown.
+
     Returns:
         GetiPromptDataset instance
     """
-    # Map dataset names to dataset classes
-    # You'll need to implement this mapping based on your dataset structure
     if dataset_name.lower() == "perseg":
         return PerSegDataset(
             root=Path("~/datasets/PerSeg").expanduser(),
@@ -400,11 +408,12 @@ def load_dataset_by_name(dataset_name: str, categories: list[str] | None = None,
         )
     if dataset_name.lower() == "lvis":
         return LVISDataset(
-            root=Path("~/datasets/LVIS").expanduser(),
+            root=Path("~/data/lvis").expanduser(),
             categories=categories,
             n_shots=n_shots,
         )
-    raise ValueError(f"Unknown dataset: {dataset_name}")
+    msg = f"Unknown dataset: {dataset_name}"
+    raise ValueError(msg)
 
 
 def perform_benchmark_experiment(args: argparse.Namespace | None = None) -> None:
@@ -429,11 +438,11 @@ def perform_benchmark_experiment(args: argparse.Namespace | None = None) -> None
 
     # Get experiment lists and generate a plan
     datasets_to_run, models_to_run, backbones_to_run = parse_experiment_args(args)
-    experiment_plan = _generate_experiment_plan(datasets_to_run, models_to_run, backbones_to_run)
+    experiments = list(itertools.product(datasets_to_run, models_to_run, backbones_to_run))
 
     # Execute experiments
     all_results = []
-    for dataset_enum, model_enum, backbone_enum in experiment_plan:
+    for dataset_enum, model_enum, backbone_enum in experiments:
         msg = (
             f"Starting experiment with Dataset={dataset_enum.value}, "
             f"Model={model_enum.value}, Backbone={backbone_enum.value}",

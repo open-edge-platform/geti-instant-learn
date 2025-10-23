@@ -41,6 +41,10 @@ def load_sam_model(
         compile_models: Whether to compile the model.
         benchmark_inference_speed: Whether to benchmark the inference speed.
 
+    Raises:
+        ValueError: If the model is not implemented yet.
+        NotImplementedError: If the model is not implemented yet.
+
     Returns:
         The loaded model.
     """
@@ -57,7 +61,8 @@ def load_sam_model(
     local_filename = model_info["local_filename"]
     checkpoint_path = DATA_PATH.joinpath(local_filename)
 
-    logger.info(f"Loading segmentation model: {sam} from {checkpoint_path}")
+    msg = f"Loading segmentation model: {sam} from {checkpoint_path}"
+    logger.info(msg)
 
     if sam in {SAMModelName.SAM, SAMModelName.MOBILE_SAM}:
         model: Sam = sam_model_registry[registry_name](checkpoint=str(checkpoint_path)).to(device).eval()
@@ -97,6 +102,10 @@ def check_model_weights(model_name: SAMModelName) -> None:
 
     Args:
         model_name: The name of the model.
+
+    Raises:
+        ValueError: If the model is not found in MODEL_MAP.
+        ValueError: If the model weights are missing.
     """
     if model_name not in MODEL_MAP:
         msg = f"Model '{model_name.value}' not found in MODEL_MAP for weight checking."
@@ -114,5 +123,6 @@ def check_model_weights(model_name: SAMModelName) -> None:
     target_path = DATA_PATH.joinpath(local_filename)
 
     if not target_path.exists():
-        logger.info(f"Model weights for {model_name.value} not found at {target_path}, downloading...")
+        msg = f"Model weights for {model_name.value} not found at {target_path}, downloading..."
+        logger.info(msg)
         download_file(download_url, target_path, sha_sum)

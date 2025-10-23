@@ -65,7 +65,15 @@ class GroundedSAM(Model):
 
     @track_duration
     def learn(self, reference_images: list[Image], reference_priors: list[Priors]) -> Results:  # noqa: ARG002
-        """Perform learning step on the reference images and priors."""
+        """Perform learning step on the reference images and priors.
+
+        Args:
+            reference_images: The reference images.
+            reference_priors: The reference priors.
+
+        Raises:
+            ValueError: If the reference priors do not have all text types.
+        """
         if not all(p.text is not None for p in reference_priors):
             msg = "reference_priors must have all text types"
             raise ValueError(msg)

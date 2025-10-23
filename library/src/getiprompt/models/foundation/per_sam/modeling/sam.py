@@ -51,6 +51,7 @@ class Sam(nn.Module):
 
     @property
     def device(self) -> Any:
+        """Get the device of the model."""
         return self.pixel_mean.device
 
     @torch.no_grad()
@@ -60,6 +61,7 @@ class Sam(nn.Module):
         multimask_output: bool,
     ) -> list[dict[str, torch.Tensor]]:
         """Predicts masks end-to-end from provided images and prompts.
+
         If prompts are not known in advance, using SamPredictor is
         recommended over calling the model directly.
 

@@ -7,13 +7,14 @@ This module provides the LVIS dataset implementation that supports
 multi-instance images (multiple objects per image with different categories).
 """
 
-import json
 from collections import defaultdict
 from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
 import polars as pl
+from lvis import LVIS
+from pycocotools import mask as mask_utils
 
 from getiprompt.data.datasets.base import GetiPromptDataset
 
@@ -21,11 +22,11 @@ __all__ = ["LVISDataset", "make_lvis_dataframe"]
 
 
 class LVISDataset(GetiPromptDataset):
-    """LVIS dataset class for few-shot segmentation.
+    """LVIS dataset class for semantic few-shot segmentation.
 
-    Dataset class for loading and processing LVIS dataset images for few-shot
-    segmentation tasks. LVIS uses COCO format and supports multi-instance images
-    (multiple objects with potentially different categories in one image).
+    Dataset class for loading and processing LVIS dataset images for semantic
+    few-shot segmentation tasks. Unlike traditional instance segmentation,
+    this class merges instances of the same category into semantic masks.
 
     Args:
         root (Path | str): Path to root directory containing the dataset.
@@ -47,9 +48,11 @@ class LVISDataset(GetiPromptDataset):
         >>> sample.image.shape
         (480, 640, 3)  # HWC format for model preprocessors
         >>> sample.masks.shape
-        (3, 480, 640)  # 3 instances in this image
+        (2, 480, 640)  # 2 semantic masks (person and car categories)
         >>> sample.categories
-        ['person', 'person', 'car']  # 2 persons and 1 car
+        ['car', 'person']  # Unique categories only
+        >>> sample.bboxes is None
+        True  # No bboxes for semantic masks
     """
 
     def __init__(
@@ -69,55 +72,57 @@ class LVISDataset(GetiPromptDataset):
         self.df = self._load_dataframe()
 
     def _load_masks(self, raw_sample: dict) -> np.ndarray | None:
-        """Decode masks from COCO RLE format.
+        """Decode and merge masks from COCO RLE format into semantic masks.
 
         Args:
             raw_sample: Dictionary from DataFrame row.
 
         Returns:
-            np.ndarray with shape (N, H, W) where N is the number of instances,
-            or None if no segmentations are available.
+            np.ndarray with shape (N_categories, H, W) where N_categories is the
+            number of unique categories, or None if no segmentations are available.
         """
         segmentations = raw_sample.get("segmentations")
         if not segmentations:
             return None
 
-        try:
-            from pycocotools import mask as mask_utils
-        except ImportError:
-            raise ImportError(
-                "pycocotools is required for LVIS dataset. Install it with: pip install pycocotools",
-            )
+        # Get image dimensions
+        h, w = raw_sample.get("img_dim")
 
-        # Get image dimensions from first segmentation (they're all the same size)
-        if isinstance(segmentations[0], dict) and "size" in segmentations[0]:
-            h, w = segmentations[0]["size"]
-        else:
-            # If size not available, we need to infer from bboxes or load the image
-            # For now, raise an error
-            raise ValueError("Cannot determine image size from segmentations")
+        # In semantic version, segmentations is a list of lists:
+        # Each inner list contains all segmentations for one category
+        semantic_masks = []
 
-        masks = []
-        for seg in segmentations:
-            if isinstance(seg, dict):  # RLE format
-                mask = mask_utils.decode(seg)  # (H, W)
-            elif isinstance(seg, list):  # Polygon format
-                # Convert polygon to RLE then decode
-                rle = mask_utils.frPyObjects([seg], h, w)
-                mask = mask_utils.decode(rle[0]) if isinstance(rle, list) else mask_utils.decode(rle)
-            else:
-                raise ValueError(f"Unknown segmentation format: {type(seg)}")
-            masks.append(mask)
+        for category_segmentations in segmentations:
+            # Decode all masks for this category
+            category_mask = np.zeros((h, w), dtype=bool)
 
-        return np.stack(masks, axis=0)  # (N, H, W)
+            for seg in category_segmentations:
+                if isinstance(seg, dict):  # RLE format
+                    mask = mask_utils.decode(seg)  # (H, W)
+                elif isinstance(seg, list):  # Polygon format
+                    # Convert polygon to RLE then decode
+                    rles = mask_utils.frPyObjects(seg, h, w)
+                    mask = mask_utils.decode(rles)
+                else:
+                    raise ValueError(f"Unknown segmentation format: {type(seg)}")
+
+                # Handle potential 3D masks from polygon conversion
+                mask = np.max(mask, axis=-1) if mask.ndim > 2 else mask
+
+                # Merge with category mask using logical OR
+                category_mask = category_mask | (mask > 0)
+
+            semantic_masks.append(category_mask.astype(np.uint8))
+
+        return np.stack(semantic_masks, axis=0)  # (N_categories, H, W)
 
     def _load_dataframe(self) -> pl.DataFrame:
-        """Load LVIS samples into Polars DataFrame."""
+        """Load LVIS samples into Polars DataFrame with semantic mask structure."""
+        images_dir = self.root / self.split
         annotations_file = self.root / f"lvis_v1_{self.split}.json"
-        images_dir = self.root / self.split  # Assuming images are in split subdirectory
-
+        _lvis_api = LVIS(str(annotations_file))
         return make_lvis_dataframe(
-            annotations_file=annotations_file,
+            lvis_api=_lvis_api,
             images_dir=images_dir,
             categories=self.categories_filter,
             n_shots=self.n_shots,
@@ -125,54 +130,48 @@ class LVISDataset(GetiPromptDataset):
 
 
 def make_lvis_dataframe(
-    annotations_file: Path,
+    lvis_api: LVIS,
     images_dir: Path,
     categories: Sequence[str] | None = None,
     n_shots: int = 1,
 ) -> pl.DataFrame:
-    """Create a Polars DataFrame for LVIS dataset.
+    """Create a Polars DataFrame for LVIS dataset with semantic masks.
+
+    This function creates a DataFrame where instances of the same category
+    are merged into semantic masks. Each row represents one image with
+    unique categories only.
 
     Args:
-        annotations_file (Path): Path to LVIS annotations JSON file (COCO format).
+        lvis_api (LVIS): LVIS API instance.
         images_dir (Path): Directory containing the images.
         categories (Sequence[str] | None, optional): Categories to include.
             If None, includes all. Defaults to None.
         n_shots (int, optional): Number of reference shots per category. Defaults to 1.
 
     Returns:
-        pl.DataFrame: DataFrame containing sample metadata with multi-instance support.
+        pl.DataFrame: DataFrame containing sample metadata with semantic mask support.
 
     Raises:
-        FileNotFoundError: If annotations file doesn't exist.
         ValueError: If no matching annotations are found.
     """
-    if not annotations_file.exists():
-        raise FileNotFoundError(f"Annotations file not found: {annotations_file}")
-
-    # Load COCO format annotations
-    with open(annotations_file) as f:
-        coco_data = json.load(f)
-
-    # Build mappings
-    images_dict = {img["id"]: img for img in coco_data["images"]}
-    categories_dict = {cat["id"]: cat["name"] for cat in coco_data["categories"]}
-
-    # Filter categories if specified
+    # Get category filtering
     if categories is not None:
-        category_name_to_id = {cat["name"]: cat["id"] for cat in coco_data["categories"]}
-        valid_category_ids = {category_name_to_id[cat] for cat in categories if cat in category_name_to_id}
+        all_cats = lvis_api.load_cats(lvis_api.get_cat_ids())
+        category_name_to_id = {cat["name"]: cat["id"] for cat in all_cats}
+        valid_category_ids = [category_name_to_id[cat] for cat in categories if cat in category_name_to_id]
     else:
         valid_category_ids = None
 
+    # Get filtered annotation IDs using LVIS API
+    ann_ids = lvis_api.get_ann_ids(cat_ids=valid_category_ids)
+    annotations = lvis_api.load_anns(ann_ids)
+
     # Group annotations by image_id
     image_annotations = defaultdict(list)
-    for ann in coco_data["annotations"]:
-        # Skip if category filtering is enabled and this category is not in the filter
-        if valid_category_ids is not None and ann["category_id"] not in valid_category_ids:
-            continue
+    for ann in annotations:
         image_annotations[ann["image_id"]].append(ann)
 
-    # Build samples (one row per image with all instances)
+    # Build samples (one row per image with semantic structure)
     samples_data = []
     category_shot_counts = defaultdict(int)  # Track n_shots per category
 
@@ -180,23 +179,40 @@ def make_lvis_dataframe(
         if not anns:  # Skip images with no annotations after filtering
             continue
 
-        img_info = images_dict[image_id]
-        image_path = str(images_dir / img_info["file_name"])
+        img_info = lvis_api.imgs[image_id]
+        # Extract the COCO subfolder (train2017/val2017) from the coco_url
+        # LVIS val set can contain images from both COCO train2017 and val2017
+        coco_url_path = Path(img_info["coco_url"])
+        coco_subset = coco_url_path.parent.name  # e.g., "train2017" or "val2017"
+        image_filename = coco_url_path.name
+        # Build path using the actual COCO subfolder
+        image_path = images_dir.parent / coco_subset / image_filename
+        if not image_path.exists():
+            raise FileNotFoundError(f"Image file not found: {image_path}")
 
-        # Collect all instances in this image
+        img_h, img_w = img_info["height"], img_info["width"]
+
+        # Group annotations by category
+        category_annotations = defaultdict(list)
+        for ann in anns:
+            cat_id = ann["category_id"]
+            cat_name = lvis_api.cats[cat_id]["name"]
+            category_annotations[cat_name].append(ann)
+
+        # Build semantic structure (one entry per unique category)
         categories_list = []
         category_ids_list = []
-        annotation_ids_list = []
-        bboxes_list = []
         segmentations_list = []
         is_reference_list = []
         n_shot_list = []
 
-        for ann in anns:
-            cat_id = ann["category_id"]
-            cat_name = categories_dict[cat_id]
+        for cat_name in sorted(category_annotations.keys()):
+            cat_anns = category_annotations[cat_name]
 
-            # Determine if this is a reference sample
+            # Use the first annotation's category_id (all should be the same)
+            cat_id = cat_anns[0]["category_id"]
+
+            # Determine reference status: category is reference if ANY instance is reference
             current_shot_count = category_shot_counts[cat_name]
             is_ref = current_shot_count < n_shots
             shot_num = current_shot_count if is_ref else -1
@@ -204,11 +220,12 @@ def make_lvis_dataframe(
             if is_ref:
                 category_shot_counts[cat_name] += 1
 
+            # Collect all segmentations for this category
+            cat_segmentations = [ann["segmentation"] for ann in cat_anns]
+
             categories_list.append(cat_name)
             category_ids_list.append(cat_id)
-            annotation_ids_list.append(ann["id"])
-            bboxes_list.append(ann["bbox"])  # [x, y, w, h]
-            segmentations_list.append(ann["segmentation"])  # RLE or polygon
+            segmentations_list.append(cat_segmentations)  # List of segmentations for this category
             is_reference_list.append(is_ref)
             n_shot_list.append(shot_num)
 
@@ -217,12 +234,10 @@ def make_lvis_dataframe(
             "image_path": image_path,
             "categories": categories_list,
             "category_ids": category_ids_list,
-            "annotation_ids": annotation_ids_list,
-            "mask_paths": None,  # LVIS doesn't use mask files
-            "bboxes": bboxes_list,
-            "segmentations": segmentations_list,
+            "segmentations": segmentations_list,  # List of lists: one list per category
             "is_reference": is_reference_list,
             "n_shot": n_shot_list,
+            "img_dim": (img_h, img_w),
         })
 
     if not samples_data:

@@ -1,4 +1,8 @@
-import itertools
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+"""Benchmark utilities."""
+
 import shutil
 import time
 import warnings
@@ -46,25 +50,6 @@ def handle_output_path(output_path: str, overwrite: bool) -> Path:
 
     output_path_obj.mkdir(parents=True, exist_ok=True)
     return output_path_obj
-
-
-def _generate_experiment_plan(
-    datasets: list[DatasetName],
-    models: list[ModelName],
-    backbones: list[SAMModelName],
-) -> list[tuple[DatasetName, ModelName, SAMModelName]]:
-    """Generate a list of valid experiment configurations to run.
-
-    Args:
-        datasets: The datasets to run
-        models: The models to run
-        backbones: The backbones to run
-
-    Returns:
-        A list of valid experiment configurations
-    """
-    all_combinations = list(itertools.product(datasets, models, backbones))
-    return all_combinations
 
 
 def _get_output_path_for_experiment(

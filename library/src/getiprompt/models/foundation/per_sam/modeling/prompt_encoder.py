@@ -89,7 +89,7 @@ class PromptEncoder(nn.Module):
 
     def _embed_boxes(self, boxes: torch.Tensor) -> torch.Tensor:
         """Embeds box prompts."""
-        boxes = boxes + 0.5  # Shift to center of pixel
+        boxes += 0.5  # Shift to center of pixel
         coords = boxes.reshape(-1, 2, 2)
         corner_embedding = self.pe_layer.forward_with_coords(coords, self.input_image_size)
         corner_embedding[:, 0, :] += self.point_embeddings[2].weight
@@ -125,8 +125,7 @@ class PromptEncoder(nn.Module):
         boxes: torch.Tensor | None,
         masks: torch.Tensor | None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Embeds different types of prompts, returning both sparse and dense
-        embeddings.
+        """Embeds different types of prompts, returning both sparse and dense embeddings.
 
         Arguments:
           points (tuple(torch.Tensor, torch.Tensor) or none): point coordinates
@@ -168,6 +167,7 @@ class PositionEmbeddingRandom(nn.Module):
     """Positional encoding using random spatial frequencies."""
 
     def __init__(self, num_pos_feats: int = 64, scale: float | None = None) -> None:
+        """Positional encoding using random spatial frequencies."""
         super().__init__()
         if scale is None or scale <= 0.0:
             scale = 1.0

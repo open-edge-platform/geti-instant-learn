@@ -18,19 +18,19 @@ PERSEG_ROOT = Path("/home/yuchunli/datasets/PerSeg")
 
 
 @pytest.fixture
-def perseg_dataset():
+def perseg_dataset() -> PerSegDataset:
     """Create a PerSeg dataset with 1 shot."""
     return PerSegDataset(root=PERSEG_ROOT, n_shots=1)
 
 
 @pytest.fixture
-def perseg_dataset_2_shots():
+def perseg_dataset_2_shots() -> PerSegDataset:
     """Create a PerSeg dataset with 2 shots."""
     return PerSegDataset(root=PERSEG_ROOT, n_shots=2)
 
 
 @pytest.fixture
-def perseg_dataset_filtered():
+def perseg_dataset_filtered() -> PerSegDataset:
     """Create a PerSeg dataset with filtered categories."""
     return PerSegDataset(
         root=PERSEG_ROOT,
@@ -42,30 +42,28 @@ def perseg_dataset_filtered():
 class TestPerSegDatasetBasics:
     """Test basic dataset functionality."""
 
-    def test_dataset_creation(self, perseg_dataset):
+    def test_dataset_creation(self, perseg_dataset: PerSegDataset) -> None:
         """Test that dataset can be created."""
         assert perseg_dataset is not None
         assert isinstance(perseg_dataset, PerSegDataset)
 
-    def test_dataset_length(self, perseg_dataset):
+    def test_dataset_length(self, perseg_dataset: PerSegDataset) -> None:
         """Test dataset length."""
         length = len(perseg_dataset)
         assert length > 0
-        print(f"\nDataset has {length} samples")
 
-    def test_dataset_name(self, perseg_dataset):
+    def test_dataset_name(self, perseg_dataset: PerSegDataset) -> None:
         """Test dataset name property."""
         assert perseg_dataset.name == "PerSeg"
 
-    def test_categories(self, perseg_dataset):
+    def test_categories(self, perseg_dataset: PerSegDataset) -> None:
         """Test categories property."""
         categories = perseg_dataset.categories
         assert isinstance(categories, list)
         assert len(categories) > 0
         assert all(isinstance(cat, str) for cat in categories)
-        print(f"\nFound {len(categories)} categories: {categories[:5]}...")
 
-    def test_category_ids(self, perseg_dataset):
+    def test_category_ids(self, perseg_dataset: PerSegDataset) -> None:
         """Test category_ids property."""
         category_ids = perseg_dataset.category_ids
         assert isinstance(category_ids, list)
@@ -73,17 +71,16 @@ class TestPerSegDatasetBasics:
         assert all(isinstance(cid, int) for cid in category_ids)
         assert category_ids == sorted(category_ids)  # Should be sorted
 
-    def test_num_categories(self, perseg_dataset):
+    def test_num_categories(self, perseg_dataset: PerSegDataset) -> None:
         """Test num_categories property."""
         num_cats = perseg_dataset.num_categories
         assert num_cats == len(perseg_dataset.categories)
-        print(f"\nNumber of categories: {num_cats}")
 
 
 class TestPerSegDatasetSampling:
     """Test dataset sampling and item retrieval."""
 
-    def test_getitem_single_sample(self, perseg_dataset):
+    def test_getitem_single_sample(self, perseg_dataset: PerSegDataset) -> None:
         """Test retrieving a single sample."""
         sample = perseg_dataset[0]
 
@@ -98,9 +95,8 @@ class TestPerSegDatasetSampling:
         assert isinstance(sample.image, np.ndarray)
         assert sample.image.ndim == 3
         assert sample.image.shape[2] == 3  # HWC format (H, W, C)
-        print(f"\nSample image shape: {sample.image.shape}")
 
-    def test_sample_has_mask(self, perseg_dataset):
+    def test_sample_has_mask(self, perseg_dataset: PerSegDataset) -> None:
         """Test that samples have masks."""
         sample = perseg_dataset[0]
 
@@ -108,9 +104,8 @@ class TestPerSegDatasetSampling:
         assert isinstance(sample.masks, np.ndarray)
         assert sample.masks.ndim == 3  # Multi-instance format (N, H, W)
         assert sample.masks.shape[0] == 1  # PerSeg has 1 instance
-        print(f"\nSample mask shape: {sample.masks.shape}")
 
-    def test_sample_metadata(self, perseg_dataset):
+    def test_sample_metadata(self, perseg_dataset: PerSegDataset) -> None:
         """Test sample metadata fields."""
         sample = perseg_dataset[0]
 
@@ -125,13 +120,7 @@ class TestPerSegDatasetSampling:
         assert len(sample.n_shot) == 1
         assert isinstance(sample.n_shot[0], int)
 
-        print("\nSample metadata:")
-        print(f"  Category: {sample.categories}")
-        print(f"  Category ID: {sample.category_ids}")
-        print(f"  Is reference: {sample.is_reference}")
-        print(f"  N-shot: {sample.n_shot}")
-
-    def test_multiple_samples(self, perseg_dataset):
+    def test_multiple_samples(self, perseg_dataset: PerSegDataset) -> None:
         """Test retrieving multiple samples."""
         num_samples = min(5, len(perseg_dataset))
 
@@ -140,7 +129,7 @@ class TestPerSegDatasetSampling:
             assert isinstance(sample, GetiPromptSample)
             assert sample.image.shape[2] == 3  # HWC format
 
-    def test_reference_vs_target_samples(self, perseg_dataset):
+    def test_reference_vs_target_samples(self, perseg_dataset: PerSegDataset) -> None:
         """Test that reference and target samples are correctly labeled."""
         # Get all samples
         all_samples = [perseg_dataset[i] for i in range(len(perseg_dataset))]
@@ -159,14 +148,11 @@ class TestPerSegDatasetSampling:
         for sample in target_samples:
             assert sample.n_shot[0] == -1  # Target samples have n_shot = -1
 
-        print(f"\nReference samples: {len(reference_samples)}")
-        print(f"Target samples: {len(target_samples)}")
-
 
 class TestPerSegDatasetFiltering:
     """Test dataset filtering and subsetting."""
 
-    def test_filtered_categories(self, perseg_dataset_filtered):
+    def test_filtered_categories(self, perseg_dataset_filtered: PerSegDataset) -> None:
         """Test dataset with filtered categories."""
         categories = perseg_dataset_filtered.categories
 
@@ -175,7 +161,7 @@ class TestPerSegDatasetFiltering:
         assert "dog" in categories
         assert "cat" in categories
 
-    def test_get_reference_dataset(self, perseg_dataset):
+    def test_get_reference_dataset(self, perseg_dataset: PerSegDataset) -> None:
         """Test getting reference samples only."""
         ref_dataset = perseg_dataset.get_reference_dataset()
 
@@ -188,9 +174,7 @@ class TestPerSegDatasetFiltering:
             assert any(sample.is_reference)  # At least one instance is reference
             assert sample.n_shot[0] >= 0  # Check first instance
 
-        print(f"\nReference dataset size: {len(ref_dataset)}")
-
-    def test_get_target_dataset(self, perseg_dataset):
+    def test_get_target_dataset(self, perseg_dataset: PerSegDataset) -> None:
         """Test getting target samples only."""
         target_dataset = perseg_dataset.get_target_dataset()
 
@@ -203,9 +187,7 @@ class TestPerSegDatasetFiltering:
             assert not any(sample.is_reference)  # No instance is reference
             assert sample.n_shot[0] == -1  # Check first instance
 
-        print(f"\nTarget dataset size: {len(target_dataset)}")
-
-    def test_get_reference_dataset_by_category(self, perseg_dataset):
+    def test_get_reference_dataset_by_category(self, perseg_dataset: PerSegDataset) -> None:
         """Test getting reference samples for a specific category."""
         category = perseg_dataset.categories[0]
         ref_dataset = perseg_dataset.get_reference_dataset(category=category)
@@ -218,9 +200,7 @@ class TestPerSegDatasetFiltering:
             assert any(sample.is_reference)  # At least one instance is reference
             assert category in sample.categories
 
-        print(f"\nReference samples for '{category}': {len(ref_dataset)}")
-
-    def test_subsample(self, perseg_dataset):
+    def test_subsample(self, perseg_dataset: PerSegDataset) -> None:
         """Test subsampling the dataset."""
         # Get a subset of indices
         indices = [0, 2, 4, 6, 8]
@@ -234,7 +214,7 @@ class TestPerSegDatasetFiltering:
             subset_sample = subset[i]
             assert original_sample.image_path == subset_sample.image_path
 
-    def test_dataset_concatenation(self, perseg_dataset):
+    def test_dataset_concatenation(self, perseg_dataset: PerSegDataset) -> None:
         """Test concatenating datasets."""
         # Get two subsets
         subset1 = perseg_dataset.subsample([0, 1, 2])
@@ -249,7 +229,7 @@ class TestPerSegDatasetFiltering:
 class TestPerSegDatasetNShots:
     """Test n_shots functionality."""
 
-    def test_n_shots_1(self, perseg_dataset):
+    def test_n_shots_1(self, perseg_dataset: PerSegDataset) -> None:
         """Test with 1 reference shot per category."""
         ref_dataset = perseg_dataset.get_reference_dataset()
 
@@ -264,7 +244,7 @@ class TestPerSegDatasetNShots:
         for cat, count in category_counts.items():
             assert count == 1, f"Category {cat} has {count} reference samples, expected 1"
 
-    def test_n_shots_2(self, perseg_dataset_2_shots):
+    def test_n_shots_2(self, perseg_dataset_2_shots: PerSegDataset) -> None:
         """Test with 2 reference shots per category."""
         ref_dataset = perseg_dataset_2_shots.get_reference_dataset()
 
@@ -279,31 +259,27 @@ class TestPerSegDatasetNShots:
         for cat, count in category_counts.items():
             assert count <= 2, f"Category {cat} has {count} reference samples, expected <= 2"
 
-        print(f"\nCategory reference counts (2 shots): {category_counts}")
-
 
 class TestPerSegDatasetCategoryMapping:
     """Test category name/ID mapping."""
 
-    def test_get_category_name(self, perseg_dataset):
+    def test_get_category_name(self, perseg_dataset: PerSegDataset) -> None:
         """Test getting category name from ID."""
         category_id = perseg_dataset.category_ids[0]
         category_name = perseg_dataset.get_category_name(category_id)
 
         assert isinstance(category_name, str)
         assert category_name in perseg_dataset.categories
-        print(f"\nCategory ID {category_id} -> {category_name}")
 
-    def test_get_category_id(self, perseg_dataset):
+    def test_get_category_id(self, perseg_dataset: PerSegDataset) -> None:
         """Test getting category ID from name."""
         category_name = perseg_dataset.categories[0]
         category_id = perseg_dataset.get_category_id(category_name)
 
         assert isinstance(category_id, int)
         assert category_id in perseg_dataset.category_ids
-        print(f"\nCategory '{category_name}' -> ID {category_id}")
 
-    def test_category_roundtrip(self, perseg_dataset):
+    def test_category_roundtrip(self, perseg_dataset: PerSegDataset) -> None:
         """Test category name <-> ID roundtrip conversion."""
         original_name = perseg_dataset.categories[0]
 
@@ -313,21 +289,21 @@ class TestPerSegDatasetCategoryMapping:
 
         assert original_name == recovered_name
 
-    def test_invalid_category_id(self, perseg_dataset):
+    def test_invalid_category_id(self, perseg_dataset: PerSegDataset) -> None:
         """Test error handling for invalid category ID."""
-        with pytest.raises(ValueError, match="Category ID .* not found"):
+        with pytest.raises(ValueError, match=r"Category ID .* not found"):
             perseg_dataset.get_category_name(99999)
 
-    def test_invalid_category_name(self, perseg_dataset):
+    def test_invalid_category_name(self, perseg_dataset: PerSegDataset) -> None:
         """Test error handling for invalid category name."""
-        with pytest.raises(ValueError, match="Category .* not found"):
+        with pytest.raises(ValueError, match=r"Category .* not found"):
             perseg_dataset.get_category_id("nonexistent_category")
 
 
 class TestPerSegDatasetDataLoader:
     """Test PyTorch DataLoader integration."""
 
-    def test_dataloader_creation(self, perseg_dataset):
+    def test_dataloader_creation(self, perseg_dataset: PerSegDataset) -> None:
         """Test creating a DataLoader."""
         dataloader = DataLoader(
             perseg_dataset,
@@ -338,7 +314,7 @@ class TestPerSegDatasetDataLoader:
 
         assert dataloader is not None
 
-    def test_dataloader_iteration(self, perseg_dataset):
+    def test_dataloader_iteration(self, perseg_dataset: PerSegDataset) -> None:
         """Test iterating through DataLoader."""
         dataloader = DataLoader(
             perseg_dataset,
@@ -358,10 +334,7 @@ class TestPerSegDatasetDataLoader:
         assert hasattr(batch, "masks")
         assert hasattr(batch, "categories")
 
-        print(f"\nBatch images shape: {batch.images.shape if hasattr(batch.images, 'shape') else 'N/A'}")
-        print(f"Batch size: {len(batch.images) if isinstance(batch.images, list) else batch.images.shape[0]}")
-
-    def test_dataloader_multiple_batches(self, perseg_dataset):
+    def test_dataloader_multiple_batches(self, perseg_dataset: PerSegDataset) -> None:
         """Test iterating through multiple batches."""
         batch_size = 4
         dataloader = DataLoader(
@@ -381,27 +354,23 @@ class TestPerSegDatasetDataLoader:
             assert isinstance(batch, GetiPromptBatch)
 
         assert len(batches) == num_batches
-        print(f"\nProcessed {num_batches} batches successfully")
 
 
 class TestPerSegDatasetDataFrame:
     """Test underlying Polars DataFrame."""
 
-    def test_df_property(self, perseg_dataset):
+    def test_df_property(self, perseg_dataset: PerSegDataset) -> None:
         """Test accessing the DataFrame property."""
-        df = perseg_dataset.df
+        dataframe = perseg_dataset.df
 
-        assert df is not None
-        assert len(df) == len(perseg_dataset)
+        assert dataframe is not None
+        assert len(dataframe) == len(perseg_dataset)
 
         # Check required columns (updated for multi-instance schema)
         required_cols = {"categories", "category_ids", "image_path", "mask_paths", "is_reference", "n_shot"}
-        assert required_cols.issubset(set(df.columns))
+        assert required_cols.issubset(set(dataframe.columns))
 
-        print(f"\nDataFrame shape: {df.shape}")
-        print(f"Columns: {df.columns}")
-
-    def test_get_reference_samples_df(self, perseg_dataset):
+    def test_get_reference_samples_df(self, perseg_dataset: PerSegDataset) -> None:
         """Test getting reference samples DataFrame."""
         ref_df = perseg_dataset.get_reference_samples_df()
 
@@ -411,9 +380,7 @@ class TestPerSegDatasetDataFrame:
         # Check all are reference samples (is_reference is list[bool])
         assert all(any(row) for row in ref_df["is_reference"])
 
-        print(f"\nReference DataFrame shape: {ref_df.shape}")
-
-    def test_get_target_samples_df(self, perseg_dataset):
+    def test_get_target_samples_df(self, perseg_dataset: PerSegDataset) -> None:
         """Test getting target samples DataFrame."""
         target_df = perseg_dataset.get_target_samples_df()
 
@@ -423,13 +390,11 @@ class TestPerSegDatasetDataFrame:
         # Check all are target samples (is_reference is list[bool])
         assert all(not any(row) for row in target_df["is_reference"])
 
-        print(f"\nTarget DataFrame shape: {target_df.shape}")
-
 
 class TestPerSegDatasetPaths:
     """Test file path handling."""
 
-    def test_image_paths_exist(self, perseg_dataset):
+    def test_image_paths_exist(self, perseg_dataset: PerSegDataset) -> None:
         """Test that image paths exist."""
         num_samples_to_check = min(5, len(perseg_dataset))
 
@@ -438,18 +403,18 @@ class TestPerSegDatasetPaths:
             image_path = Path(sample.image_path)
             assert image_path.exists(), f"Image not found: {image_path}"
 
-    def test_mask_paths_exist(self, perseg_dataset):
+    def test_mask_paths_exist(self, perseg_dataset: PerSegDataset) -> None:
         """Test that mask paths exist."""
         # Check from DataFrame
-        df = perseg_dataset.df
-        num_samples_to_check = min(5, len(df))
+        dataframe = perseg_dataset.df
+        num_samples_to_check = min(5, len(dataframe))
 
         for i in range(num_samples_to_check):
-            mask_paths = df["mask_paths"][i]  # Get list of paths
+            mask_paths = dataframe["mask_paths"][i]  # Get list of paths
             mask_path = Path(mask_paths[0])  # Get first path
             assert mask_path.exists(), f"Mask not found: {mask_path}"
 
-    def test_paths_match_category(self, perseg_dataset):
+    def test_paths_match_category(self, perseg_dataset: PerSegDataset) -> None:
         """Test that paths contain the correct category name."""
         sample = perseg_dataset[0]
         category = sample.categories[0] if isinstance(sample.categories, list) else sample.categories
@@ -461,25 +426,25 @@ class TestPerSegDatasetPaths:
 class TestPerSegDatasetEdgeCases:
     """Test edge cases and error handling."""
 
-    def test_invalid_root_path(self):
+    def test_invalid_root_path(self) -> None:
         """Test error handling for invalid root path."""
         with pytest.raises(FileNotFoundError):
             PerSegDataset(root="/nonexistent/path")
 
-    def test_invalid_categories(self):
+    def test_invalid_categories(self) -> None:
         """Test error handling for invalid categories."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"No valid categories found"):
             PerSegDataset(
                 root=PERSEG_ROOT,
                 categories=["nonexistent_category"],
             )
 
-    def test_invalid_index(self, perseg_dataset):
+    def test_invalid_index(self, perseg_dataset: PerSegDataset) -> None:
         """Test error handling for invalid index."""
         with pytest.raises((IndexError, Exception)):
             _ = perseg_dataset[len(perseg_dataset) + 100]
 
-    def test_negative_index(self, perseg_dataset):
+    def test_negative_index(self, perseg_dataset: PerSegDataset) -> None:
         """Test negative indexing."""
         sample = perseg_dataset[-1]
         assert isinstance(sample, GetiPromptSample)
