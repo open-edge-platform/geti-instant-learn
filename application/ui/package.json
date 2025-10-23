@@ -37,6 +37,7 @@
         "@geti/ui": "*",
         "@tanstack/react-query": "^5.87.0",
         "@use-gesture/react": "^10.3.1",
+        "comlink": "~4.4.2",
         "lodash-es": "^4.17.21",
         "openapi-fetch": "^0.14.0",
         "openapi-react-query": "^0.5.0",
