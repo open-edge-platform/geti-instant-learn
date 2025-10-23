@@ -6,6 +6,7 @@
 import { createContext, ReactNode, RefObject, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { toast } from '@geti/ui';
 
 import { WebRTCConnection, type WebRTCConnectionStatus } from './web-rtc-connection';
 
@@ -43,6 +44,13 @@ const useWebRTCConnectionState = () => {
         const unsubscribe = webRTCConnection.subscribe((event) => {
             if (event.type === 'status_change') {
                 setStatus(event.status);
+
+                if (event.status === 'failed') {
+                    toast({
+                        type: 'error',
+                        message: 'Failed to connect to the stream. Please try restarting the connection.',
+                    });
+                }
             } else if (event.type === 'error') {
                 console.error('WebRTC error:', event.error);
             }

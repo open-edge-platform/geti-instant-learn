@@ -5,7 +5,7 @@
 
 import { Suspense } from 'react';
 
-import { IntelBrandedLoading } from '@geti/ui';
+import { IntelBrandedLoading, Toast } from '@geti/ui';
 import { ThemeProvider } from '@geti/ui/theme';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from 'react-router';
@@ -19,6 +19,7 @@ export const Providers = () => {
             <ThemeProvider router={router}>
                 <Suspense fallback={<IntelBrandedLoading />}>
                     <RouterProvider router={router} />
+                    <Toast />
                 </Suspense>
             </ThemeProvider>
         </QueryClientProvider>
