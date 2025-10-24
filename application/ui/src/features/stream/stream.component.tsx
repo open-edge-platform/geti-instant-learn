@@ -5,6 +5,8 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 
+import { $api } from '@geti-prompt/api';
+import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Button, Flex } from '@geti/ui';
 
 import { usePromptMode } from '../prompt-sidebar/prompt-modes/prompt-modes.component';
@@ -56,9 +58,43 @@ const useStreamToVideo = () => {
     return videoRef;
 };
 
+const useCaptureFrameMutation = () => {
+    return $api.useMutation('post', '/api/v1/projects/{project_id}/frames');
+};
+
+const useCaptureFrame = () => {
+    const { projectId } = useProjectIdentifier();
+    const captureFrameMutation = useCaptureFrameMutation();
+    const { setSelectedFrameId } = useSelectedFrame();
+
+    const captureFrame = async () => {
+        captureFrameMutation.mutate({
+            params: {
+                path: {
+                    project_id: projectId,
+                },
+            },
+        });
+    };
+
+    return {
+        captureFrame,
+        isPending: captureFrameMutation.isPending,
+    };
+};
+
 const CaptureForVisualPrompt = () => {
+    const { captureFrame, isPending } = useCaptureFrame();
+
     return (
-        <Button variant={'primary'} staticColor={'white'} alignSelf={'center'} style={'fill'}>
+        <Button
+            variant={'primary'}
+            staticColor={'white'}
+            alignSelf={'center'}
+            style={'fill'}
+            onPress={captureFrame}
+            isPending={isPending}
+        >
             Capture for visual prompt
         </Button>
     );
