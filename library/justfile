@@ -1,0 +1,62 @@
+#!/usr/bin/env just --justfile
+
+set shell := ["bash", "-cu"]
+
+py_path := "tests:src"
+python_version := "python3.13"
+# Ensure version in GHA workflow matches uv version here
+uv_version := "0.7.13"
+
+default:
+    @just --list
+
+# -------------------------------------------------------------------------------------------------
+# Environment
+# -------------------------------------------------------------------------------------------------
+pre-venv:
+    if ! uv self version | grep {{uv_version}} >/dev/null; then \
+        curl --proto '=https' --tlsv1.2 -LsSf "https://github.com/astral-sh/uv/releases/download/{{uv_version}}/uv-installer.sh" | sh; \
+    fi
+
+venv: pre-venv
+    uv lock --check
+    uv sync --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
+
+venv-lock: pre-venv
+    uv lock
+
+# -------------------------------------------------------------------------------------------------
+# Tests
+# -------------------------------------------------------------------------------------------------
+test-unit: venv
+    if [ -d "./tests/unit" ]; then \
+        PYTHONPATH={{py_path}} uv run pytest ./tests/unit -v; \
+    else \
+        echo "./tests/unit directory not found - skipping unit tests"; \
+    fi
+
+test-integration: venv
+    if [ -d "./tests/integration" ]; then \
+        PYTHONPATH={{py_path}} uv run pytest ./tests/integration -v; \
+    else \
+        echo "./tests/integration directory not found - skipping integration tests"; \
+    fi
+
+tests: test-unit test-integration
+
+# -------------------------------------------------------------------------------------------------
+# Static analysis / style
+# -------------------------------------------------------------------------------------------------
+
+style-fix: venv
+    uv run ruff check --config pyproject.toml --fix
+    uv run ruff format --config pyproject.toml
+
+lint: venv _ruff _mypy
+
+_ruff:
+    uv run ruff check --config pyproject.toml --output-format=github .
+    uv run ruff format --check --config pyproject.toml .
+
+_mypy:
+    uv run mypy . --config-file=pyproject.toml
