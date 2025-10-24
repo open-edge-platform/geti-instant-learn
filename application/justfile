@@ -2,11 +2,9 @@
 # Common variables used in the Justfile
 ###
 
-product-version := '$(cat `pwd`/../VERSION)'
 component-name := "geti-prompt"
 images-registry := 'localhost:5000/open-edge-platform'
-default-tag := product-version
-tag := env("TAG", default-tag)
+tag := env("TAG", `cat ../VERSION`)
 docker-image := images-registry + "/" + component-name + ":" + tag
 container-port := env("CONTAINER_PORT", "9100")
 host-port := env("HOST_PORT", container-port)
