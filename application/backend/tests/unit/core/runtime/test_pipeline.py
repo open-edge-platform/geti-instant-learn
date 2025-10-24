@@ -7,6 +7,7 @@ import pytest
 from core.components.broadcaster import FrameBroadcaster
 from core.components.factories.components import ComponentFactory
 from core.components.processor import Processor
+from core.components.schemas.processor import InputData, OutputData
 from core.components.sink import Sink
 from core.components.source import Source
 from core.runtime.pipeline import Pipeline
@@ -21,22 +22,27 @@ class MockComponentFactory(ComponentFactory):
         self.created_processors = []
         self.created_sinks = []
 
-    def create_source(self, in_queue: Queue, source_config: Any) -> Mock:
+    def create_source(self, reader_conf: Any, inbound_broadcaster: FrameBroadcaster[InputData]) -> Mock:
         mock_source = Mock(spec=Source)
         mock_source.stop = Mock()
-        self.created_sources.append((mock_source, in_queue, source_config))
+        self.created_sources.append((mock_source, reader_conf, inbound_broadcaster))
         return mock_source
 
-    def create_processor(self, in_queue: Queue, broadcaster: FrameBroadcaster, model_config: Any) -> Mock:
+    def create_processor(
+        self,
+        inbound_broadcaster: FrameBroadcaster[InputData],
+        outbound_broadcaster: FrameBroadcaster[OutputData],
+        model_config: Any,
+    ) -> Mock:
         mock_processor = Mock(spec=Processor)
         mock_processor.stop = Mock()
-        self.created_processors.append((mock_processor, in_queue, broadcaster, model_config))
+        self.created_processors.append((mock_processor, inbound_broadcaster, outbound_broadcaster, model_config))
         return mock_processor
 
-    def create_sink(self, broadcaster: FrameBroadcaster, sink_config: Any) -> Mock:
+    def create_sink(self, outbound_broadcaster: FrameBroadcaster[OutputData], writer_conf: Any) -> Mock:
         mock_sink = Mock(spec=Sink)
         mock_sink.stop = Mock()
-        self.created_sinks.append((mock_sink, broadcaster, sink_config))
+        self.created_sinks.append((mock_sink, outbound_broadcaster, writer_conf))
         return mock_sink
 
 
@@ -50,7 +56,7 @@ def mock_config():
 
     mock_config.model_copy.return_value = mock_config
 
-    return Mock()
+    return mock_config
 
 
 @pytest.fixture
@@ -63,13 +69,27 @@ class TestPipeline:
         pipeline = Pipeline(mock_config, component_factory=mock_factory)
         pipeline.stop()
         assert len(mock_factory.created_sources) == 1
-
         assert len(mock_factory.created_processors) == 1
         assert len(mock_factory.created_sinks) == 1
 
-        _, _, source_config = mock_factory.created_sources[0]
+        _, reader_conf, inbound_broadcaster = mock_factory.created_sources[0]
 
-        assert source_config == mock_config.reader
+        assert reader_conf == mock_config.reader
+        assert inbound_broadcaster is not None
+
+        _, proc_inbound, proc_outbound, _ = mock_factory.created_processors[0]
+        assert proc_inbound is inbound_broadcaster
+        assert proc_outbound is not None
+
+    def test_pipeline_registers_and_unregisters_inbound_consumer(self, mock_config, mock_factory):
+        pipeline = Pipeline(mock_config, component_factory=mock_factory)
+
+        consumer_queue = pipeline.register_inbound_consumer()
+        assert isinstance(consumer_queue, Queue)
+
+        pipeline.unregister_inbound_consumer(consumer_queue)
+
+        pipeline.stop()
 
     def test_pipeline_start_creates_threads_for_all_components(self, mock_config, mock_factory):
         pipelines = Pipeline(mock_config, component_factory=mock_factory)
@@ -118,6 +138,11 @@ class TestPipeline:
             # Should create one new source, adding 1 to a created source when the job started.
             assert len(mock_factory.created_sources) == 2
 
+            # Verify the new source receives the same inbound broadcaster
+            _, _, first_broadcaster = mock_factory.created_sources[0]
+            _, _, second_broadcaster = mock_factory.created_sources[1]
+            assert first_broadcaster is second_broadcaster
+
             # Should not create new pipeline or sink:
             assert len(mock_factory.created_processors) == 1
             assert len(mock_factory.created_sinks) == 1
@@ -165,7 +190,7 @@ class TestPipeline:
         new_config.project_id = mock_config.project_id
         new_config.reader = {"type": "new_source"}  # Different
         new_config.processor = {"type": "new_pipeline"}  # Different
-        new_config.writer = {"type": "new_sink"}  # Same
+        new_config.writer = {"type": "new_sink"}  # Different
 
         with patch("core.runtime.pipeline.Thread"):
             pipeline.start()

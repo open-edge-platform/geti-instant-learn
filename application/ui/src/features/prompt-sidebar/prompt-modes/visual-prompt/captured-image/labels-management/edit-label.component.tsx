@@ -10,7 +10,7 @@ import { clsx } from 'clsx';
 
 import { Label } from './label.interface';
 
-import classes from './edit-label.module.css';
+import classes from './edit-label.module.scss';
 
 interface EditLabelProps {
     label: Label;

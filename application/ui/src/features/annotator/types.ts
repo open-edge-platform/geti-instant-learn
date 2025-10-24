@@ -1,0 +1,67 @@
+/**
+ * Copyright (C) 2025 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+export interface RegionOfInterest {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
+export type Point = {
+    x: number;
+    y: number;
+};
+
+export type Rect = {
+    type: 'rectangle';
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+};
+
+export type Polygon = {
+    type: 'polygon';
+    points: Point[];
+};
+
+export type Shape = Rect | Polygon;
+
+// Circle is only used for visual purposes on segment-anything tool
+export type Circle = {
+    readonly type: 'circle';
+    readonly x: number;
+    readonly y: number;
+    readonly r: number;
+};
+
+export type ClipperPoint = {
+    X: number;
+    Y: number;
+};
+
+// TODO: update this once we have the final type
+export type MediaItem = {
+    id: string;
+    width: number;
+    height: number;
+};
+
+// TODO: There is already a label type deep into prompt-sidebar feature. We need a single source of truth.
+export type Label = {
+    id: string;
+    name: string;
+    color: string;
+    hotkey?: string;
+};
+
+// TODO: update this once we have the final type
+export type Annotation = {
+    id: string;
+    labels: Label[];
+    shape: Shape;
+    confidence?: number | null;
+};

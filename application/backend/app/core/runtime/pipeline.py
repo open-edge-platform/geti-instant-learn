@@ -19,13 +19,13 @@ logger = logging.getLogger(__name__)
 
 class Pipeline:
     """
-    Orchestrates a multi-threaded streaming pipeline and manages its lifecycle.
+    Orchestrates a multithreaded streaming pipeline and manages its lifecycle.
 
     This class wires together the core components of a processing job: a Source,
     a Processor, and a Sink. Each component runs in a separate thread,
-    communicating through queues to form a processing pipeline:
+    communicating through broadcasters to form a processing pipeline:
 
-    Source -> Queue -> Processor -> Broadcaster -> Sink
+    Source -> InboundBroadcaster -> Processor -> OutboundBroadcaster -> Sink
 
     The Pipeline class is responsible for starting, stopping, and gracefully shutting
     down all components. It also handles dynamic configuration updates by
@@ -34,7 +34,9 @@ class Pipeline:
     Args:
         pipeline_conf (PipelineConfig): The initial configuration for the job's
             components (reader, processor, and writer).
-        broadcaster (FrameBroadcaster, optional): The broadcaster to distribute
+        inbound_broadcaster (FrameBroadcaster, optional): The broadcaster to distribute
+            raw input frames. Defaults to a new FrameBroadcaster instance.
+        outbound_broadcaster (FrameBroadcaster, optional): The broadcaster to distribute
             processed frames to sinks. Defaults to a new FrameBroadcaster instance.
         component_factory (DefaultComponentFactory, optional): The factory used
             to create the job's components. Defaults to a new
@@ -44,27 +46,38 @@ class Pipeline:
     def __init__(
         self,
         pipeline_conf: PipelineConfig,
-        broadcaster: FrameBroadcaster[OutputData] = FrameBroadcaster[OutputData](),
-        component_factory: ComponentFactory = DefaultComponentFactory(),
+        inbound_broadcaster: FrameBroadcaster[InputData] | None = None,
+        outbound_broadcaster: FrameBroadcaster[OutputData] | None = None,
+        component_factory: ComponentFactory | None = None,
     ):
-        self._broadcaster = broadcaster
-        self._factory = component_factory
-        self._in_queue = Queue[InputData](maxsize=5)
+        self._outbound_broadcaster = outbound_broadcaster or FrameBroadcaster[OutputData]()
+        self._inbound_broadcaster = inbound_broadcaster or FrameBroadcaster[InputData]()
+        self._factory = component_factory or DefaultComponentFactory()
         self._config = pipeline_conf
         self._threads: dict[type, Thread] = {}
 
         self._components: dict[type[PipelineComponent], PipelineComponent] = {
-            Source: self._factory.create_source(self._in_queue, pipeline_conf.reader),
-            Processor: self._factory.create_processor(self._in_queue, self._broadcaster, pipeline_conf.processor),
-            Sink: self._factory.create_sink(self._broadcaster, pipeline_conf.writer),
+            Source: self._factory.create_source(pipeline_conf.reader, self._inbound_broadcaster),
+            Processor: self._factory.create_processor(
+                self._inbound_broadcaster, self._outbound_broadcaster, pipeline_conf.processor
+            ),
+            Sink: self._factory.create_sink(self._outbound_broadcaster, pipeline_conf.writer),
         }
         logger.debug(f"A streaming job created for a project config: {pipeline_conf}")
 
     def register_webrtc(self) -> Queue:
-        return self._broadcaster.register()
+        return self._outbound_broadcaster.register()
 
     def unregister_webrtc(self, queue: Queue) -> None:
-        return self._broadcaster.unregister(queue=queue)
+        return self._outbound_broadcaster.unregister(queue=queue)
+
+    def register_inbound_consumer(self) -> Queue[InputData]:
+        """Register a consumer for raw input frames from the source."""
+        return self._inbound_broadcaster.register()
+
+    def unregister_inbound_consumer(self, queue: Queue[InputData]) -> None:
+        """Unregister a consumer for raw input frames."""
+        self._inbound_broadcaster.unregister(queue)
 
     @property
     def config(self) -> PipelineConfig:
@@ -101,7 +114,7 @@ class Pipeline:
                 f"old config: {self._config.reader}, new config: {new_config.reader}. "
                 f"Restarting component."
             )
-            new_source = self._factory.create_source(self._in_queue, new_config.reader)
+            new_source = self._factory.create_source(new_config.reader, self._inbound_broadcaster)
             self._restart_component(Source, new_source)
             logger.info(f"Source configuration has been refreshed for project_id {self._config.project_id}.")
 
@@ -111,7 +124,9 @@ class Pipeline:
                 f"old config: {self._config.processor}, new config: {new_config.processor}. "
                 f"Restarting component."
             )
-            new_runner = self._factory.create_processor(self._in_queue, self._broadcaster, new_config.processor)
+            new_runner = self._factory.create_processor(
+                self._inbound_broadcaster, self._outbound_broadcaster, new_config.processor
+            )
             self._restart_component(Processor, new_runner)
             logger.info(f"Processor configuration has been refreshed for project_id {self._config.project_id}.")
 
@@ -121,7 +136,7 @@ class Pipeline:
                 f"old config: {self._config.writer}, new config: {new_config.writer}. "
                 f"Restarting component."
             )
-            new_sink = self._factory.create_sink(self._broadcaster, new_config.writer)
+            new_sink = self._factory.create_sink(self._outbound_broadcaster, new_config.writer)
             self._restart_component(Sink, new_sink)
             logger.info(f"Sink configuration has been refreshed for project_id {self._config.project_id}.")
 

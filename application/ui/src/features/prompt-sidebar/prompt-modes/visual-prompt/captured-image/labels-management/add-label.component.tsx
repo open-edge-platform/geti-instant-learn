@@ -8,7 +8,7 @@ import { Button, DialogTrigger } from '@geti/ui';
 import { AddLabelDialog } from './add-label-dialog.component';
 import { Label } from './label.interface';
 
-import classes from './add-label.module.css';
+import classes from './add-label.module.scss';
 
 interface AddLabelProps {
     onAddLabel: (label: Label) => void;

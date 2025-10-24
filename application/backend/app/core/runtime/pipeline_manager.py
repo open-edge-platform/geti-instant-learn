@@ -7,6 +7,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from core.components.schemas.processor import InputData
 from core.runtime.dispatcher import (
     ComponentConfigChangeEvent,
     ConfigChangeDispatcher,
@@ -108,3 +109,47 @@ class PipelineManager:
         if project_id != self._pipeline.config.project_id:
             raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
         return self._pipeline.unregister_webrtc(queue=target_queue)
+
+    def register_inbound_consumer(self, project_id: UUID) -> queue.Queue[InputData]:
+        """
+        Register a consumer for raw input frames from the source.
+
+        Args:
+            project_id: The project ID to verify against the active pipeline.
+
+        Returns:
+            A queue that will receive raw input frames.
+
+        Raises:
+            PipelineNotActiveError: If no pipeline is running.
+            PipelineProjectMismatchError: If project_id doesn't match the active pipeline.
+        """
+        if self._pipeline is None:
+            raise PipelineNotActiveError("No active pipeline to register inbound consumer.")
+        if project_id != self._pipeline.config.project_id:
+            raise PipelineProjectMismatchError(
+                f"Project ID {project_id} does not match the active pipeline's project ID "
+                f"{self._pipeline.config.project_id}."
+            )
+        return self._pipeline.register_inbound_consumer()
+
+    def unregister_inbound_consumer(self, project_id: UUID, target_queue: queue.Queue[InputData]) -> None:
+        """
+        Unregister a consumer for raw input frames.
+
+        Args:
+            project_id: The project ID to verify against the active pipeline.
+            target_queue: The queue to unregister.
+
+        Raises:
+            PipelineNotActiveError: If no pipeline is running.
+            PipelineProjectMismatchError: If project_id doesn't match the active pipeline.
+        """
+        if self._pipeline is None:
+            raise PipelineNotActiveError("No active pipeline to unregister inbound consumer from.")
+        if project_id != self._pipeline.config.project_id:
+            raise PipelineProjectMismatchError(
+                f"Project ID {project_id} does not match the active pipeline's project ID "
+                f"{self._pipeline.config.project_id}."
+            )
+        self._pipeline.unregister_inbound_consumer(target_queue)

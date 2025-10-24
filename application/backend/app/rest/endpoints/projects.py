@@ -23,10 +23,27 @@ logger = logging.getLogger(__name__)
 
 @projects_router.post(
     path="",
+    tags=["Projects"],
     status_code=status.HTTP_201_CREATED,
     responses={
         status.HTTP_201_CREATED: {
             "description": "Successfully created a new project.",
+            "headers": {
+                "Location": {
+                    "description": "Relative URL to retrieve the created project",
+                    "schema": {"type": "string"},
+                    "example": "/projects/123e4567-e89b-12d3-a456-426614174000",
+                }
+            },
+            "content": {
+                "application/json": {
+                    "example": {
+                        "id": "123e4567-e89b-12d3-a456-426614174000",
+                        "name": "My Project",
+                        "active": True,
+                    }
+                }
+            },
         },
         status.HTTP_409_CONFLICT: {
             "description": "Project with this name already exists.",
@@ -58,11 +75,17 @@ def create_project(
             detail="Failed to create a project due to internal server error.",
         )
 
-    return Response(status_code=status.HTTP_201_CREATED, headers={"Location": f"/projects/{project.id}"})
+    return Response(
+        status_code=status.HTTP_201_CREATED,
+        headers={"Location": f"/projects/{project.id}"},
+        content=project.model_dump_json(),
+        media_type="application/json",
+    )
 
 
 @projects_router.delete(
     path="/{project_id}",
+    tags=["Projects"],
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
         status.HTTP_204_NO_CONTENT: {
@@ -98,6 +121,7 @@ def delete_project(
 
 @projects_router.get(
     path="/active",
+    tags=["Projects"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {
@@ -137,6 +161,7 @@ def get_active_project(
 
 @projects_router.get(
     path="",
+    tags=["Projects"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {
@@ -170,6 +195,7 @@ def get_projects_list(
 
 @projects_router.get(
     path="/{project_id}",
+    tags=["Projects"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {
@@ -205,6 +231,7 @@ def get_project(
 
 @projects_router.put(
     path="/{project_id}",
+    tags=["Projects"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {
@@ -244,6 +271,7 @@ def update_project(
 
 @projects_router.get(
     path="/export",
+    tags=["Projects"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {
@@ -273,6 +301,7 @@ def export_projects(names: Annotated[list[str] | None, Query()] = None) -> Respo
 
 @projects_router.post(
     path="/import",
+    tags=["Projects"],
     status_code=status.HTTP_201_CREATED,
     responses={
         status.HTTP_201_CREATED: {

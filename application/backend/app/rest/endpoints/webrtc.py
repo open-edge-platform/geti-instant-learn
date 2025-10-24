@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 @projects_router.post(
     path="/{project_id}/offer",
+    tags=["WebRTC"],
     response_model=Answer,
     responses={
         status.HTTP_200_OK: {"description": "WebRTC Answer"},

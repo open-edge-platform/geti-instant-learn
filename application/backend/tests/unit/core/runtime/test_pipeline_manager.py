@@ -1,6 +1,7 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
+from queue import Queue
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
@@ -12,6 +13,7 @@ from core.runtime.dispatcher import (
     ProjectActivationEvent,
     ProjectDeactivationEvent,
 )
+from core.runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 from core.runtime.pipeline_manager import PipelineManager
 from core.runtime.schemas.pipeline import PipelineConfig
 
@@ -214,3 +216,75 @@ class TestPipelineManager:
         mgr._pipeline = None
         mgr.stop()
         assert mgr._pipeline is None
+
+    def test_register_inbound_consumer_success(self, dispatcher, session_factory):
+        with patch("core.runtime.pipeline_manager.ProjectService"), patch("core.runtime.pipeline_manager.Pipeline"):
+            pid = uuid4()
+            mock_pipeline = Mock()
+            mock_pipeline.config.project_id = pid
+            mock_queue = Queue()
+            mock_pipeline.register_inbound_consumer.return_value = mock_queue
+
+            mgr = PipelineManager(dispatcher, session_factory)
+            mgr._pipeline = mock_pipeline
+
+            result = mgr.register_inbound_consumer(pid)
+
+            assert result == mock_queue
+            mock_pipeline.register_inbound_consumer.assert_called_once()
+
+    def test_register_inbound_consumer_no_pipeline(self, dispatcher, session_factory):
+        mgr = PipelineManager(dispatcher, session_factory)
+        mgr._pipeline = None
+
+        with pytest.raises(PipelineNotActiveError, match="No active pipeline to register inbound consumer"):
+            mgr.register_inbound_consumer(uuid4())
+
+    def test_register_inbound_consumer_project_mismatch(self, dispatcher, session_factory):
+        with patch("core.runtime.pipeline_manager.ProjectService"), patch("core.runtime.pipeline_manager.Pipeline"):
+            pid_running = uuid4()
+            pid_requested = uuid4()
+
+            mock_pipeline = Mock()
+            mock_pipeline.config.project_id = pid_running
+
+            mgr = PipelineManager(dispatcher, session_factory)
+            mgr._pipeline = mock_pipeline
+
+            with pytest.raises(PipelineProjectMismatchError, match="does not match the active pipeline's project ID"):
+                mgr.register_inbound_consumer(pid_requested)
+
+    def test_unregister_inbound_consumer_success(self, dispatcher, session_factory):
+        with patch("core.runtime.pipeline_manager.ProjectService"), patch("core.runtime.pipeline_manager.Pipeline"):
+            pid = uuid4()
+            mock_pipeline = Mock()
+            mock_pipeline.config.project_id = pid
+            mock_queue = Queue()
+
+            mgr = PipelineManager(dispatcher, session_factory)
+            mgr._pipeline = mock_pipeline
+
+            mgr.unregister_inbound_consumer(pid, mock_queue)
+
+            mock_pipeline.unregister_inbound_consumer.assert_called_once_with(mock_queue)
+
+    def test_unregister_inbound_consumer_no_pipeline(self, dispatcher, session_factory):
+        mgr = PipelineManager(dispatcher, session_factory)
+        mgr._pipeline = None
+
+        with pytest.raises(PipelineNotActiveError, match="No active pipeline to unregister inbound consumer from"):
+            mgr.unregister_inbound_consumer(uuid4(), Queue())
+
+    def test_unregister_inbound_consumer_project_mismatch(self, dispatcher, session_factory):
+        with patch("core.runtime.pipeline_manager.ProjectService"), patch("core.runtime.pipeline_manager.Pipeline"):
+            pid_running = uuid4()
+            pid_requested = uuid4()
+
+            mock_pipeline = Mock()
+            mock_pipeline.config.project_id = pid_running
+
+            mgr = PipelineManager(dispatcher, session_factory)
+            mgr._pipeline = mock_pipeline
+
+            with pytest.raises(PipelineProjectMismatchError, match="does not match the active pipeline's project ID"):
+                mgr.unregister_inbound_consumer(pid_requested, Queue())

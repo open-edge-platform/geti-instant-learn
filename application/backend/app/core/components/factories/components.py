@@ -1,7 +1,7 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
+
 from abc import ABC, abstractmethod
-from queue import Queue
 from typing import Any
 
 from core.components.broadcaster import FrameBroadcaster
@@ -9,27 +9,38 @@ from core.components.factories.model import ModelFactory
 from core.components.factories.reader import StreamReaderFactory
 from core.components.factories.writer import StreamWriterFactory
 from core.components.processor import Processor
+from core.components.schemas.processor import InputData, OutputData
 from core.components.sink import Sink
 from core.components.source import Source
 
 
 class ComponentFactory(ABC):
     @abstractmethod
-    def create_source(self, in_queue: Queue, reader_conf: Any) -> Source: ...
+    def create_source(self, reader_conf: Any, inbound_broadcaster: FrameBroadcaster[InputData]) -> Source: ...
 
     @abstractmethod
-    def create_processor(self, in_queue: Queue, broadcaster: FrameBroadcaster, model_config: Any) -> Processor: ...
+    def create_processor(
+        self,
+        inbound_broadcaster: FrameBroadcaster[InputData],
+        outbound_broadcaster: FrameBroadcaster[OutputData],
+        model_config: Any,
+    ) -> Processor: ...
 
     @abstractmethod
-    def create_sink(self, broadcaster: FrameBroadcaster, writer_conf: Any) -> Sink: ...
+    def create_sink(self, outbound_broadcaster: FrameBroadcaster[OutputData], writer_conf: Any) -> Sink: ...
 
 
 class DefaultComponentFactory(ComponentFactory):
-    def create_source(self, in_queue: Queue, reader_conf: Any) -> Source:
-        return Source(in_queue, StreamReaderFactory.create(reader_conf))
+    def create_source(self, reader_conf: Any, inbound_broadcaster: FrameBroadcaster[InputData]) -> Source:
+        return Source(StreamReaderFactory.create(reader_conf), inbound_broadcaster)
 
-    def create_processor(self, in_queue: Queue, broadcaster: FrameBroadcaster, model_config: Any) -> Processor:
-        return Processor(in_queue, broadcaster, ModelFactory.create(model_config))
+    def create_processor(
+        self,
+        inbound_broadcaster: FrameBroadcaster[InputData],
+        outbound_broadcaster: FrameBroadcaster[OutputData],
+        model_config: Any,
+    ) -> Processor:
+        return Processor(inbound_broadcaster, outbound_broadcaster, ModelFactory.create(model_config))
 
-    def create_sink(self, broadcaster: FrameBroadcaster, writer_conf: Any) -> Sink:
-        return Sink(broadcaster, StreamWriterFactory.create(writer_conf))
+    def create_sink(self, outbound_broadcaster: FrameBroadcaster[OutputData], writer_conf: Any) -> Sink:
+        return Sink(outbound_broadcaster, StreamWriterFactory.create(writer_conf))

@@ -1,6 +1,6 @@
-@import '../assets/fonts/intel-one-display/intel-one-display.css';
-@import '../assets/fonts/intel-one-text/intel-one-text.css';
-@import '../assets/fonts/intel-one-mono/intel-one-mono.css';
+@import './intel-one-display/intel-one-display.css';
+@import './intel-one-text/intel-one-text.css';
+@import './intel-one-mono/intel-one-mono.css';
 
 :root {
     --spectrum-global-font-family-monospace: 'IntelOne Mono', 'Courier New', monospace;

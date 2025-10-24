@@ -9,7 +9,7 @@ import { $api, SourceType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { ImagesFolder, VideoFile, WebCam } from '@geti-prompt/icons';
 
-import { DisclosureGroup } from '../ui/disclosure-group/disclosure-group.component';
+import { DisclosureGroup } from '../../../components/disclosure-group/disclosure-group.component';
 import { getWebcamSource } from './utils';
 import { WebcamSource } from './webcam/webcam-source.component';
 

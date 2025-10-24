@@ -53,15 +53,18 @@ class WebRTCManager:
         @pc.on("connectionstatechange")
         async def connection_state_change() -> None:
             if pc.connectionState in ["failed", "closed"]:
-                await self.cleanup_connection(offer.webrtc_id)
                 try:
+                    # First unregister from pipeline manager (stops broadcasting to this queue)
                     self.pipeline_manager.unregister_webrtc(rtc_queue, project_id=project_id)
-                except PipelineProjectMismatchError as e:
-                    logger.exception(f"Failed to unregister WebRTC for project {project_id}: {e}")
+                except PipelineProjectMismatchError:
+                    logger.exception(f"Failed to unregister WebRTC for project {project_id}")
                     raise
-                except PipelineNotActiveError as e:
-                    logger.exception(f"Pipeline not active for project {project_id}: {e}")
+                except PipelineNotActiveError:
+                    logger.exception(f"Pipeline not active for project {project_id}")
                     raise
+                finally:
+                    # Then cleanup the connection (shuts down the queue)
+                    await self.cleanup_connection(offer.webrtc_id)
 
         # Set remote description from client's offer
         await pc.setRemoteDescription(RTCSessionDescription(sdp=offer.sdp, type=offer.type))

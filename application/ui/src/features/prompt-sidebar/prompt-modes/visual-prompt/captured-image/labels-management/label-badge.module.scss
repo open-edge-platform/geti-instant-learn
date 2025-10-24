@@ -1,3 +1,8 @@
+:root {
+    --default-label-width-percentage: 13%;
+    --maximum-label-width-percentage: 25%;
+}
+
 .labelBadgeContainer {
     height: min-content;
     padding: var(--spectrum-global-dimension-size-50);
@@ -6,26 +11,23 @@
 .badge {
     background-color: var(--labelBgColor);
     border-radius: var(--spectrum-alias-border-radius-regular);
-    min-width: 0;
     padding: var(--spectrum-global-dimension-size-50) var(--spectrum-global-dimension-size-100);
     --foregroundColor: lch(from var(--labelBgColor) calc((50 - l) * infinity) 0 0);
     --spectrum-high-contrast-button-text: var(--foregroundColor);
     display: flex;
-}
-
-.buttonsContainer {
-    color: var(--foregroundColor);
-    transition: width 0.6s;
-    width: 0;
-    & > button {
+    width: var(--default-label-width-percentage);
+    & button {
+        display: none;
         opacity: 0;
-        transition: opacity 0.6s;
+        transition: opacity 0.3s;
     }
 }
 
-.buttonsContainerOpened {
-    width: var(--spectrum-global-dimension-size-700);
-    & > button {
+.badge:hover {
+    width: var(--maximum-label-width-percentage);
+    transition: width 0.3s;
+    & button {
+        display: block;
         opacity: 1;
     }
 }
@@ -38,11 +40,10 @@
 
 .buttonText {
     color: var(--foregroundColor);
-    text-align: center;
-    width: min-content;
+    text-align: left;
     text-wrap: nowrap;
     text-overflow: ellipsis;
     white-space: nowrap;
     overflow: hidden;
-    max-width: var(--spectrum-global-dimension-size-1200);
+    max-width: var(--spectrum-global-dimension-size-1000);
 }

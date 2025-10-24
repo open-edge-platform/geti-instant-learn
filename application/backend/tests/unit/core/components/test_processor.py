@@ -28,9 +28,11 @@ runner_test_cases = [
 
 class TestProcessor:
     def setup_method(self, method):
+        self.mock_inbound_broadcaster = MagicMock(spec=FrameBroadcaster)
         self.mock_in_queue = MagicMock(spec=Queue)
-        self.mock_broadcaster = MagicMock(spec=FrameBroadcaster)
-        self.runner = Processor(self.mock_in_queue, self.mock_broadcaster, None)
+        self.mock_inbound_broadcaster.register.return_value = self.mock_in_queue
+        self.mock_outbound_broadcaster = MagicMock(spec=FrameBroadcaster)
+        self.runner = Processor(self.mock_inbound_broadcaster, self.mock_outbound_broadcaster, None)
 
     @pytest.mark.parametrize(
         "test_id, queue_effects, expected_broadcasts",
@@ -52,8 +54,14 @@ class TestProcessor:
 
         self.mock_in_queue.get.side_effect = mock_get
 
+        # Verify that register was called during __init__
+        self.mock_inbound_broadcaster.register.assert_called_once()
+
         self.runner.run()
 
         # Check that the broadcaster was called with the correct processed data.
         expected_broadcast_calls = [call(item) for item in expected_broadcasts]
-        assert self.mock_broadcaster.broadcast.call_args_list == expected_broadcast_calls
+        assert self.mock_outbound_broadcaster.broadcast.call_args_list == expected_broadcast_calls
+
+        # Verify that unregister was called during stop
+        self.mock_inbound_broadcaster.unregister.assert_called_once_with(self.mock_in_queue)
