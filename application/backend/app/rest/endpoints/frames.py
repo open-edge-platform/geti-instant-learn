@@ -44,9 +44,9 @@ class FrameCaptureResponse(BaseModel):
                         "type": "object",
                         "properties": {"frame_id": {"type": "string"}},
                         "required": ["frame_id"],
-                        "description": "Response schema for frame capture endpoint."
+                        "description": "Response schema for frame capture endpoint.",
                     },
-                    "example": {"frame_id": "550e8400-e29b-41d4-a716-446655440000"}
+                    "example": {"frame_id": "550e8400-e29b-41d4-a716-446655440000"},
                 }
             },
         },
