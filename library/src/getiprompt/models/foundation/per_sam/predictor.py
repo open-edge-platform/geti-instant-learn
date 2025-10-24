@@ -12,7 +12,7 @@ import torch
 
 from getiprompt.data import ResizeLongestSide
 
-from .modeling.sam import Sam
+from .modeling.sam import SAM
 
 
 class SamPredictor:
@@ -20,7 +20,7 @@ class SamPredictor:
 
     def __init__(
         self,
-        sam_model: Sam,
+        sam_model: SAM,
     ) -> None:
         """Uses SAM to calculate the image embedding for an image, and then
         allow repeated, efficient mask prediction given prompts.
@@ -29,7 +29,7 @@ class SamPredictor:
           sam_model (Sam): The model to use for mask prediction.
         """
         super().__init__()
-        self.model: Sam = sam_model
+        self.model: SAM = sam_model
         self.transform = ResizeLongestSide(sam_model.image_encoder.img_size)
         self.reset_image()
 
@@ -322,7 +322,7 @@ class SamPredictor:
             AssertionError: If features do not exist if an image has been set.
         """
         if not self.is_image_set:
-            msg = ("An image must be set with .set_image(...) to generate an embedding.",)
+            msg = "An image must be set with .set_image(...) to generate an embedding."
             raise RuntimeError(msg)
         assert self.features is not None, "Features must exist if an image has been set."
         return self.features

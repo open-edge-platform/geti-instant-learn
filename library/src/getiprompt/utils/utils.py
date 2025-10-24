@@ -490,30 +490,30 @@ def sample_points(
     return sample_list, label_list
 
 
-def np_masks_to_custom_masks(
-    arrays: list[np.ndarray | None],
+def masks_to_custom_masks(
+    masks: list[torch.Tensor | None],
     class_id: int = 0,
 ) -> list[Masks]:
-    """Converts numpy mask arrays to Masks objects.
+    """Converts torch masks to Masks objects.
 
     Args:
-        arrays: List of numpy arrays with shape (N, H, W) containing masks,
+        masks: List of torch tensors with shape (N, H, W) containing masks,
                 or None for samples without masks
         class_id: The class id to use for all masks
 
     Returns:
         List of Masks objects
     """
-    masks_list = []
-    for mask_array in arrays:
-        if mask_array is None:
+    mask_list = []
+    for mask in masks:
+        if mask is None:
             # Create empty Masks object for samples without masks
-            masks_list.append(Masks())
+            mask_list.append(Masks())
         else:
             # mask_array has shape (N, H, W) - already binary masks per instance
             masks_obj = Masks()
-            for instance_idx in range(mask_array.shape[0]):
+            for instance_idx in range(mask.shape[0]):
                 # Add each instance mask with the same class_id
-                masks_obj.add(mask_array[instance_idx], class_id=class_id)
-            masks_list.append(masks_obj)
-    return masks_list
+                masks_obj.add(mask[instance_idx], class_id=class_id)
+            mask_list.append(masks_obj)
+    return mask_list

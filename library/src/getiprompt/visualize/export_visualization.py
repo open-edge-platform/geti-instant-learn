@@ -355,8 +355,8 @@ class ExportMaskVisualization(Visualization):
         image_np = images[i].to_numpy()
         file_name = file_names[i]
 
-        output_filename = Path(self.output_folder) / file_name
-        Path.mkdir(Path(output_filename, parents=True).parent, exist_ok=True, parents=True)
+        output_path = Path(self.output_folder) / file_name
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
         image_vis = image_np
 
@@ -383,7 +383,7 @@ class ExportMaskVisualization(Visualization):
             image_vis = self.add_legend(image_vis, legend_class_names, class_colors, legend_position)
 
         # Save visualization
-        cv2.imwrite(output_filename, cv2.cvtColor(image_vis, cv2.COLOR_RGB2BGR))
+        cv2.imwrite(output_path, cv2.cvtColor(image_vis, cv2.COLOR_RGB2BGR))
 
     def _process_class_masks(
         self,

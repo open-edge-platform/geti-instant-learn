@@ -15,7 +15,7 @@ from .prompt_encoder import PromptEncoder
 from .tiny_vit_sam import TinyViT
 
 
-class Sam(nn.Module):
+class SAM(nn.Module):
     mask_threshold: float = 0.0
     image_format: str = "RGB"
 

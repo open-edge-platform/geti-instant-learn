@@ -15,7 +15,7 @@ import torch
 
 
 @dataclass
-class GetiPromptSample:
+class Sample:
     """Sample class for GetiPrompt few-shot segmentation datasets.
 
     Supports both single-instance (N=1, PerSeg) and multi-instance (N>1, LVIS/COCO) scenarios.
@@ -50,8 +50,9 @@ class GetiPromptSample:
     Examples:
         Single instance (PerSeg):
         >>> import numpy as np
-        >>> from getiprompt.data.sample import GetiPromptSample
-        >>> sample = GetiPromptSample(
+        >>> from getiprompt.data.sample import Sample
+
+        >>> sample = Sample(
         ...     image=np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8),  # HWC format
         ...     image_path="path/to/image.jpg",
         ...     masks=np.random.randint(0, 2, (1, 224, 224), dtype=np.uint8),
@@ -63,6 +64,7 @@ class GetiPromptSample:
         ...     n_shot=[0],
         ...     mask_paths=["path/to/mask.png"]
         ... )
+
         >>> sample.image.shape
         (224, 224, 3)  # HWC format
         >>> sample.masks.shape
@@ -72,26 +74,8 @@ class GetiPromptSample:
         >>> sample.n_shot
         [0]
 
-        Multi-instance (LVIS with 3 sheep):
-        >>> sample = GetiPromptSample(
-        ...     image=np.random.randint(0, 255, (512, 512, 3), dtype=np.uint8),  # HWC format
-        ...     image_path="path/to/lvis_image.jpg",
-        ...     masks=np.random.randint(0, 2, (3, 512, 512), dtype=np.uint8),
-        ...     bboxes=np.array([[10, 20, 110, 120], [200, 150, 350, 270], [400, 300, 480, 390]], dtype=np.float32),
-        ...     categories=["sheep", "sheep", "sheep"],
-        ...     category_ids=np.array([45, 45, 45], dtype=np.int32),
-        ...     is_reference=[False, False, False],
-        ...     n_shot=[-1, -1, -1]
-        ... )
-        >>> sample.image.shape
-        (512, 512, 3)  # HWC format
-        >>> sample.masks.shape
-        (3, 512, 512)
-        >>> sample.is_reference
-        [False, False, False]
-
         Only bboxes (no masks - generate masks later with SAM):
-        >>> sample = GetiPromptSample(
+        >>> sample = Sample(
         ...     image=np.random.randint(0, 255, (512, 512, 3), dtype=np.uint8),  # HWC format
         ...     image_path="path/to/image.jpg",
         ...     bboxes=np.array([[10, 20, 110, 120], [200, 150, 350, 270]], dtype=np.float32),
@@ -100,6 +84,7 @@ class GetiPromptSample:
         ...     is_reference=[True, True],
         ...     n_shot=[0, 0]
         ... )
+
         >>> sample.masks is None
         True
         >>> sample.bboxes.shape
@@ -108,7 +93,7 @@ class GetiPromptSample:
         [True, True]
 
         Only points (no masks or bboxes):
-        >>> sample = GetiPromptSample(
+        >>> sample = Sample(
         ...     image=np.random.randint(0, 255, (512, 512, 3), dtype=np.uint8),  # HWC format
         ...     image_path="path/to/target.jpg",
         ...     points=np.array([[100, 150], [300, 400]], dtype=np.float32),
@@ -117,6 +102,7 @@ class GetiPromptSample:
         ...     is_reference=[False, False],
         ...     n_shot=[-1, -1]
         ... )
+
         >>> sample.points.shape
         (2, 2)
         >>> sample.masks is None
@@ -147,22 +133,3 @@ class GetiPromptSample:
     # Always lists to maintain consistency between single and multi-instance
     is_reference: list[bool] = field(default_factory=lambda: [False])
     n_shot: list[int] = field(default_factory=lambda: [-1])
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert sample to dictionary (without loading images).
-
-        Returns:
-            dict: Dictionary containing all non-cached fields.
-        """
-        return {
-            "image": self.image,
-            "image_path": self.image_path,
-            "masks": self.masks,
-            "bboxes": self.bboxes,
-            "points": self.points,
-            "categories": self.categories,
-            "category_ids": self.category_ids,
-            "mask_paths": self.mask_paths,
-            "is_reference": self.is_reference,
-            "n_shot": self.n_shot,
-        }

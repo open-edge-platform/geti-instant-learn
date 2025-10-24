@@ -9,7 +9,7 @@ import math
 import torch
 from torch import Tensor, nn
 
-from .common import MLPBlock
+from getiprompt.models.foundation.per_sam.modeling.modules import MLPBlock
 
 
 class TwoWayTransformer(nn.Module):

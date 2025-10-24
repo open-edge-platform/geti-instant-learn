@@ -8,18 +8,23 @@ Datumaro's Sample class for type-safe data structures.
 """
 
 from collections.abc import Sequence
+from logging import getLogger
 from pathlib import Path
 
-import numpy as np
 import polars as pl
+import torch
 
-from getiprompt.data.datasets.base import GetiPromptDataset
+from getiprompt.data.base import GetiPromptDataset
+from getiprompt.data.utils.image import read_mask
 
 # File extensions
 IMG_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif")
 MASK_EXTENSIONS = (".png", ".bmp", ".tiff", ".tif")
 
 __all__ = ["PerSegDataset", "make_perseg_dataframe"]
+
+
+logger = getLogger("Geti Prompt")
 
 
 class PerSegDataset(GetiPromptDataset):
@@ -38,16 +43,20 @@ class PerSegDataset(GetiPromptDataset):
     Example:
         >>> from pathlib import Path
         >>> from getiprompt.data.datasets import PerSegDataset
+
         >>> dataset = PerSegDataset(
         ...     root=Path("./datasets/PerSeg"),
         ...     categories=["backpack", "dog"],
         ...     n_shots=1
         ... )
+
         >>> sample = dataset[0]
         >>> sample.image.shape
         (256, 256, 3)  # HWC format for model preprocessors
+
         >>> sample.masks.shape
         (1, 256, 256)  # Single instance
+
         >>> sample.categories
         ['backpack']  # List with one element
     """
@@ -66,27 +75,24 @@ class PerSegDataset(GetiPromptDataset):
         # Load the DataFrame
         self.df = self._load_dataframe()
 
-    def _load_masks(self, raw_sample: dict) -> np.ndarray | None:
+    def _load_masks(self, raw_sample: dict) -> torch.Tensor | None:
         """Load single mask from file path.
 
         Args:
             raw_sample: Dictionary from DataFrame row.
 
         Returns:
-            np.ndarray with shape (1, H, W) for single-instance PerSeg mask,
-            or None if no mask path is available.
+            torch.Tensor with shape (1, H, W) for single-instance PerSeg mask,
+            and dtype torch.bool, or None if no mask path is available.
         """
-        from ...utils.image import read_mask
-
         mask_paths = raw_sample.get("mask_paths")
         if not mask_paths or mask_paths[0] is None:
             return None
 
         # Load single mask for PerSeg
-        mask = read_mask(mask_paths[0], as_tensor=False)  # (H, W)
-
+        mask = read_mask(mask_paths[0], as_tensor=True)  # (H, W)
         # Add instance dimension: (1, H, W) for consistency
-        return mask[np.newaxis, ...]
+        return mask[None, ...].to(torch.bool)
 
     def _load_dataframe(self) -> pl.DataFrame:
         """Load PerSeg samples into Polars DataFrame."""
@@ -174,10 +180,10 @@ def make_perseg_dataframe(
                 valid_pairs.append((img_file, mask_file))
 
         if len(valid_pairs) < n_shots:
-            print(
-                f"Warning: Category '{category}' has only {len(valid_pairs)} samples, "
-                f"but {n_shots} reference shots requested",
+            msg = (
+                f"Category '{category}' has only {len(valid_pairs)} samples, but {n_shots} reference shots requested",
             )
+            logger.warning(msg)
 
         # Assign reference and target samples
         for i, (img_file, mask_file) in enumerate(valid_pairs):

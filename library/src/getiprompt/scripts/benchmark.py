@@ -16,12 +16,12 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 from logging import getLogger
 
 import numpy as np
-import pandas as pd
+import polars as pl
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from torch.utils.data import DataLoader
 
 from getiprompt.data import GetiPromptDataset, LVISDataset, PerSegDataset
-from getiprompt.data.sample import GetiPromptSample
+from getiprompt.data.base import Sample
 from getiprompt.metrics import SegmentationMetrics
 from getiprompt.models import Model, load_model
 from getiprompt.types import Image, Masks, Priors, Text
@@ -33,7 +33,7 @@ from getiprompt.utils.benchmark import (
     handle_output_path,
 )
 from getiprompt.utils.constants import LVIS_92_BENCHMARK_CATEGORIES, LVIS_DEFAULT_CATEGORIES
-from getiprompt.utils.utils import np_masks_to_custom_masks
+from getiprompt.utils.utils import masks_to_custom_masks
 from getiprompt.visualize import ExportMaskVisualization
 
 logger = getLogger("Geti Prompt")
@@ -53,16 +53,16 @@ CATEGORY_PRESETS = {
 
 
 def sample_to_image_and_priors(
-    sample: GetiPromptSample,
+    sample: Sample,
     category_name: str,
 ) -> tuple[Image, Priors]:
-    """Convert a GetiPromptSample to legacy Image and Priors format.
+    """Convert a Sample to legacy Image and Priors format.
 
     This centralizes the conversion logic from the new sample format to the
     legacy format used by models.
 
     Args:
-        sample: GetiPromptSample with image and masks
+        sample: Sample with image and masks
         category_name: Category name for the text prior
 
     Returns:
@@ -151,7 +151,7 @@ def infer_on_category(
     n_samples = 0
     for batch in dataloader:
         # Convert batch to Image objects
-        target_images = [Image(img_np) for img_np in batch.images_np]
+        target_images = [Image(img) for img in batch.images]
 
         # Run inference
         results = model.infer(target_images=target_images)
@@ -159,8 +159,8 @@ def infer_on_category(
         n_samples += len(batch)
 
         # Convert ground truth masks to Masks objects
-        gt_masks = np_masks_to_custom_masks(
-            batch.masks_np,
+        gt_masks = masks_to_custom_masks(
+            batch.masks,
             class_id=category_id,
         )
 
@@ -297,7 +297,7 @@ def predict_on_dataset(
     model_name: str,
     backbone_name: str,
     number_of_priors_tests: int,
-) -> pd.DataFrame:
+) -> pl.DataFrame:
     """Run predictions on the dataset and evaluate them.
 
     Args:
@@ -398,7 +398,7 @@ def predict_on_dataset(
             for key in all_metrics:
                 all_metrics[key].extend(metrics[key])
 
-    return pd.DataFrame.from_dict(all_metrics)
+    return pl.DataFrame(all_metrics)
 
 
 def load_dataset_by_name(

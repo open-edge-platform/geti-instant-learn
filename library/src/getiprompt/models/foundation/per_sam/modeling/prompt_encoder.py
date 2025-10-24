@@ -9,7 +9,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from .common import LayerNorm2d
+from getiprompt.models.foundation.per_sam.modeling.modules import LayerNorm2d
 
 
 class PromptEncoder(nn.Module):

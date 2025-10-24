@@ -213,7 +213,11 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         "--dataset_root",
         type=str,
         default=None,
-        help="Root directory where datasets are stored. If not provided, defaults to ~/datasets for PerSeg and ~/data/lvis for LVIS",
+        help=(
+            "Root directory where datasets are stored. "
+            "If not provided, defaults to ~/datasets for PerSeg "
+            "and ~/data/lvis for LVIS."
+        ),
     )
 
 

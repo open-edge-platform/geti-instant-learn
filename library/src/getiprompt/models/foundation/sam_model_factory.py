@@ -20,7 +20,7 @@ from getiprompt.utils.utils import download_file, precision_to_torch_dtype
 if TYPE_CHECKING:
     from segment_anything_hq.modeling.sam import Sam as SamHQ
 
-    from getiprompt.models.foundation.per_sam.modeling import Sam
+    from getiprompt.models.foundation.per_sam.modeling import SAM
 
 logger = getLogger("Geti Prompt")
 
@@ -65,7 +65,7 @@ def load_sam_model(
     logger.info(msg)
 
     if sam in {SAMModelName.SAM, SAMModelName.MOBILE_SAM}:
-        model: Sam = sam_model_registry[registry_name](checkpoint=str(checkpoint_path)).to(device).eval()
+        model: SAM = sam_model_registry[registry_name](checkpoint=str(checkpoint_path)).to(device).eval()
         predictor = SamPredictor(model)
     elif sam in {SAMModelName.SAM2_TINY, SAMModelName.SAM2_SMALL, SAMModelName.SAM2_BASE, SAMModelName.SAM2_LARGE}:
         config_path = "configs/sam2.1/" + model_info["config_filename"]

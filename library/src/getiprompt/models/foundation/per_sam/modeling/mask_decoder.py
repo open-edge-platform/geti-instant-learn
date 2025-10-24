@@ -14,7 +14,7 @@ import torch
 from torch import nn
 from torch.nn import functional
 
-from .common import LayerNorm2d
+from getiprompt.models.foundation.per_sam.modeling.modules import LayerNorm2d
 
 
 class MaskDecoder(nn.Module):

@@ -33,7 +33,7 @@ dependencies = [
     "scipy==1.15.3",
     "pot==0.9.5",
     "umap==0.1.1",
-    "pandas==2.2.3",
+    "polars>=1.31.0,<2.0.0",
     "scikit-learn==1.6.1",
     "scikit-image==0.24.0",
     "openvino-model-api==0.3.0.2",

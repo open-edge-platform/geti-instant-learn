@@ -12,7 +12,7 @@ from logging import getLogger
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
+import polars as pl
 
 from getiprompt.types.results import Results
 from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
@@ -79,7 +79,7 @@ def _get_output_path_for_experiment(
     return output_path / combo_str
 
 
-def _save_results(all_results: list[pd.DataFrame], output_path: Path) -> None:
+def _save_results(all_results: list[pl.DataFrame], output_path: Path) -> None:
     """Concatenate and save all experiment results.
 
     Args:
@@ -90,19 +90,19 @@ def _save_results(all_results: list[pd.DataFrame], output_path: Path) -> None:
         logger.warning("No experiments were run. Check your arguments.")
         return
 
-    all_result_dataframe = pd.concat(all_results, ignore_index=True)
+    all_result_dataframe = pl.concat(all_results)
     all_results_dataframe_filename = output_path / "all_results.csv"
     all_results_dataframe_filename.parent.mkdir(parents=True, exist_ok=True)
-    all_result_dataframe.to_csv(str(all_results_dataframe_filename))
+    all_result_dataframe.write_csv(str(all_results_dataframe_filename))
     msg = f"Saved all results to: {all_results_dataframe_filename}"
     logger.info(msg)
 
     avg_results_dataframe_filename = output_path / "avg_results.csv"
     avg_results_dataframe_filename.parent.mkdir(parents=True, exist_ok=True)
-    avg_result_dataframe = all_result_dataframe.groupby(
+    avg_result_dataframe = all_result_dataframe.group_by(
         ["dataset_name", "model_name", "backbone_name"],
-    ).mean(numeric_only=True)
-    avg_result_dataframe.to_csv(str(avg_results_dataframe_filename))
+    ).mean()
+    avg_result_dataframe.write_csv(str(avg_results_dataframe_filename))
     msg = f"Saved average results to: {avg_results_dataframe_filename}"
     logger.info(msg)
     msg = f"\n\n Final Average Results:\n {avg_result_dataframe}"

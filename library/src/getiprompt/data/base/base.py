@@ -8,6 +8,7 @@ Sample class for type-safe schema, with manual DataFrame management.
 """
 
 import copy
+import torch
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 
@@ -15,9 +16,9 @@ import numpy as np
 import polars as pl
 from torch.utils.data import Dataset as TorchDataset
 
-from getiprompt.data.sample import GetiPromptSample
-
-from ..utils.image import read_image
+from getiprompt.data.base.sample import Sample
+from getiprompt.data.base.batch import Batch
+from getiprompt.data.utils.image import read_image
 
 
 class GetiPromptDataset(TorchDataset, ABC):
@@ -36,7 +37,7 @@ class GetiPromptDataset(TorchDataset, ABC):
         >>> dataset = PerSegDataset(n_shots=1)
         >>> len(dataset)  # Get dataset length
         100
-        >>> sample = dataset[0]  # Get first sample (GetiPromptSample)
+        >>> sample = dataset[0]  # Get first sample (Sample)
         >>> sample.image.shape
         (224, 224, 3)  # HWC format for model preprocessors
     """
@@ -91,10 +92,10 @@ class GetiPromptDataset(TorchDataset, ABC):
         """Get the number of samples in the dataset."""
         return len(self.df)
 
-    def __getitem__(self, index: int) -> GetiPromptSample:
+    def __getitem__(self, index: int) -> Sample:
         """Get a sample by index.
 
-        Loads the image and masks from disk and returns a GetiPromptSample.
+        Loads the image and masks from disk and returns a Sample.
         Supports both single-instance (PerSeg) and multi-instance (LVIS) datasets.
 
         TODO: Move image preprocessing (resize, normalize) to dataset level
@@ -129,8 +130,8 @@ class GetiPromptDataset(TorchDataset, ABC):
         is_reference = raw_sample["is_reference"]
         n_shot = raw_sample["n_shot"]
 
-        # Create and return GetiPromptSample
-        return GetiPromptSample(
+        # Create and return Sample
+        return Sample(
             image=image,
             masks=masks,  # (N, H, W) or None
             bboxes=bboxes,  # (N, 4) or None
@@ -260,12 +261,10 @@ class GetiPromptDataset(TorchDataset, ABC):
     @property
     def collate_fn(self) -> Callable:
         """Get the collate function for batching dataset items."""
-        from ..batch import GetiPromptBatch
-
-        return GetiPromptBatch.collate
+        return Batch.collate
 
     @abstractmethod
-    def _load_masks(self, raw_sample: dict) -> np.ndarray | None:
+    def _load_masks(self, raw_sample: dict) -> torch.Tensor | None:
         """Load masks for a sample.
 
         This method should be implemented by subclasses to load masks in their
@@ -275,8 +274,8 @@ class GetiPromptDataset(TorchDataset, ABC):
             raw_sample: Dictionary from DataFrame row containing sample metadata.
 
         Returns:
-            np.ndarray with shape (N, H, W) where N is the number of instances,
-            or None if no masks are available.
+            torch.Tensor with shape (N, H, W) where N is the number of instances,
+            and dtype torch.bool, or None if no masks are available.
         """
 
     @abstractmethod

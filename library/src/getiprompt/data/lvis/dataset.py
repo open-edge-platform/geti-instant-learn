@@ -11,14 +11,13 @@ from collections import defaultdict
 from collections.abc import Sequence
 from pathlib import Path
 
-import numpy as np
 import polars as pl
+import torch
 from lvis import LVIS
 from pycocotools import mask as mask_utils
 
-from getiprompt.data.datasets.base import GetiPromptDataset
+from getiprompt.data.base import GetiPromptDataset
 
-__all__ = ["LVISDataset", "make_lvis_dataframe"]
 
 
 class LVISDataset(GetiPromptDataset):
@@ -38,19 +37,25 @@ class LVISDataset(GetiPromptDataset):
     Example:
         >>> from pathlib import Path
         >>> from getiprompt.data.datasets import LVISDataset
+
         >>> dataset = LVISDataset(
         ...     root=Path("./datasets/LVIS"),
         ...     split="val",
         ...     categories=["person", "car", "dog"],
         ...     n_shots=1
         ... )
+
         >>> sample = dataset[0]
+
         >>> sample.image.shape
         (480, 640, 3)  # HWC format for model preprocessors
+
         >>> sample.masks.shape
         (2, 480, 640)  # 2 semantic masks (person and car categories)
+
         >>> sample.categories
         ['car', 'person']  # Unique categories only
+
         >>> sample.bboxes is None
         True  # No bboxes for semantic masks
     """
@@ -71,15 +76,15 @@ class LVISDataset(GetiPromptDataset):
         # Load the DataFrame
         self.df = self._load_dataframe()
 
-    def _load_masks(self, raw_sample: dict) -> np.ndarray | None:
+    def _load_masks(self, raw_sample: dict) -> torch.Tensor | None:
         """Decode and merge masks from COCO RLE format into semantic masks.
 
         Args:
             raw_sample: Dictionary from DataFrame row.
 
         Returns:
-            np.ndarray with shape (N_categories, H, W) where N_categories is the
-            number of unique categories, or None if no segmentations are available.
+            torch.Tensor with shape (N_categories, H, W) where N_categories is the
+            number of unique categories, and dtype torch.bool, or None if no segmentations are available.
         """
         segmentations = raw_sample.get("segmentations")
         if not segmentations:
@@ -94,7 +99,7 @@ class LVISDataset(GetiPromptDataset):
 
         for category_segmentations in segmentations:
             # Decode all masks for this category
-            category_mask = np.zeros((h, w), dtype=bool)
+            category_mask = torch.zeros((h, w), dtype=torch.bool)
 
             for seg in category_segmentations:
                 if isinstance(seg, dict):  # RLE format
@@ -107,14 +112,13 @@ class LVISDataset(GetiPromptDataset):
                     raise ValueError(f"Unknown segmentation format: {type(seg)}")
 
                 # Handle potential 3D masks from polygon conversion
-                mask = np.max(mask, axis=-1) if mask.ndim > 2 else mask
-
+                mask = torch.from_numpy(mask)
+                mask = torch.max(mask, dim=-1).values
                 # Merge with category mask using logical OR
-                category_mask = category_mask | (mask > 0)
+                category_mask = category_mask | mask
+            semantic_masks.append(category_mask)
 
-            semantic_masks.append(category_mask.astype(np.uint8))
-
-        return np.stack(semantic_masks, axis=0)  # (N_categories, H, W)
+        return torch.stack(semantic_masks, dim=0)  # (N_categories, H, W)
 
     def _load_dataframe(self) -> pl.DataFrame:
         """Load LVIS samples into Polars DataFrame with semantic mask structure."""
