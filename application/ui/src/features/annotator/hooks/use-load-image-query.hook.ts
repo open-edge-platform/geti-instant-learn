@@ -26,6 +26,5 @@ export const useLoadImageQuery = (mediaItem: MediaItem | undefined): UseSuspense
         },
         // The image of a media item never changes so we don't want to refetch stale data
         staleTime: Infinity,
-        retry: 0,
     });
 };

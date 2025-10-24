@@ -6,19 +6,14 @@
 import { $api } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 
-export const useCurrentProject = (options?: { retry?: number | boolean }) => {
+export const useCurrentProject = () => {
     const { projectId } = useProjectIdentifier();
 
-    return $api.useSuspenseQuery(
-        'get',
-        '/api/v1/projects/{project_id}',
-        {
-            params: {
-                path: {
-                    project_id: projectId,
-                },
+    return $api.useSuspenseQuery('get', '/api/v1/projects/{project_id}', {
+        params: {
+            path: {
+                project_id: projectId,
             },
         },
-        options
-    );
+    });
 };
