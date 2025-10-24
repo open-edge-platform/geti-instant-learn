@@ -19,7 +19,6 @@ from pycocotools import mask as mask_utils
 from getiprompt.data.base import GetiPromptDataset
 
 
-
 class LVISDataset(GetiPromptDataset):
     """LVIS dataset class for semantic few-shot segmentation.
 

@@ -3,13 +3,15 @@
 
 """Base class for feature selectors."""
 
+from abc import ABC, abstractmethod
+
 import torch
 from torch import nn
 
 from getiprompt.types import Features
 
 
-class FeatureSelector(nn.Module):
+class FeatureSelector(nn.Module, ABC):
     """This is the base class for feature selectors.
 
     Examples:
@@ -70,3 +72,14 @@ class FeatureSelector(nn.Module):
                 all_features_per_class[class_id].extend(local_features_list)
 
         return all_features_per_class
+
+    @abstractmethod
+    def forward(self, features_per_image: list[Features]) -> list[Features]:
+        """Forward method that must be implemented by subclasses.
+
+        Args:
+            features_per_image: A list of features for each reference image.
+
+        Returns:
+            A list of processed features.
+        """

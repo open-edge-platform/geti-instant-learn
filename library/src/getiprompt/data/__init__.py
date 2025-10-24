@@ -3,14 +3,16 @@
 
 """Datasets."""
 
-from .datasets.base import GetiPromptDataset
-from .datasets.lvis import LVISDataset
-from .datasets.per_seg import PerSegDataset
+from .base import Batch, GetiPromptDataset, Sample
+from .lvis import LVISDataset
+from .per_seg import PerSegDataset
 from .transforms import ResizeLongestSide
 
 __all__ = [
+    "Batch",
     "GetiPromptDataset",
     "LVISDataset",
     "PerSegDataset",
     "ResizeLongestSide",
+    "Sample",
 ]

@@ -86,7 +86,8 @@ def resize_similarity_map(
         align_corners=False,
     ).squeeze(1)
 
-    if similarities.ndim == 4:
+    # Squeeze batch dimension if batch size is 1
+    if similarities.shape[0] == 1:
         similarities = similarities.squeeze(0)
 
     return similarities

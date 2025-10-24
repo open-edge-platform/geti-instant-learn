@@ -8,7 +8,7 @@ from .batch import Batch
 from .sample import Sample
 
 __all__ = [
-    "GetiPromptDataset",
     "Batch",
+    "GetiPromptDataset",
     "Sample",
 ]

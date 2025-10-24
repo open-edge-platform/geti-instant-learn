@@ -8,7 +8,6 @@ using Python's built-in @dataclass for simplicity.
 """
 
 from dataclasses import dataclass, field
-from typing import Any
 
 import numpy as np
 import torch

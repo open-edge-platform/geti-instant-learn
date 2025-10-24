@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import torch
 
-from .sample import Sample
+from getiprompt.data.base.sample import Sample
 
 
 @dataclass

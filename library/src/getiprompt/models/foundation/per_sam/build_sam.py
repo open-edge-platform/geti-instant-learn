@@ -11,7 +11,14 @@ from functools import partial
 
 import torch
 
-from .modeling import SAM, ImageEncoderViT, MaskDecoder, PromptEncoder, TinyViT, TwoWayTransformer
+from getiprompt.models.foundation.per_sam.modeling import (
+    SAM,
+    ImageEncoderViT,
+    MaskDecoder,
+    PromptEncoder,
+    TinyViT,
+    TwoWayTransformer,
+)
 
 
 def build_sam_vit_h(checkpoint: str | None = None) -> SAM:

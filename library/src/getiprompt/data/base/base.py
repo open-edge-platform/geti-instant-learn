@@ -8,16 +8,16 @@ Sample class for type-safe schema, with manual DataFrame management.
 """
 
 import copy
-import torch
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 
 import numpy as np
 import polars as pl
+import torch
 from torch.utils.data import Dataset as TorchDataset
 
-from getiprompt.data.base.sample import Sample
 from getiprompt.data.base.batch import Batch
+from getiprompt.data.base.sample import Sample
 from getiprompt.data.utils.image import read_image
 
 

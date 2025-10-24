@@ -17,9 +17,9 @@ from typing import Any
 import cv2
 import numpy as np
 import torch
-from getiprompt.data.base import Dataset
 from getiprompt.utils.data import load_dataset
 
+from getiprompt.data.base import Dataset
 from getiprompt.models import Model, load_model
 from getiprompt.types import Image, Masks, Points, Priors, Similarities
 from getiprompt.utils.constants import ModelName, SAMModelName
