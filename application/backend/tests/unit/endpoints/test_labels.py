@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -62,12 +62,9 @@ def red_color():
 
 
 class TestCreateLabel:
-    def test_create_label_success(self, fxt_client, mock_label_service, project_id, label_id):
+    def test_create_label_success(self, fxt_client, mock_label_service, project_id, label_id, black_color):
         label_data = {"name": "test_label"}
-        mock_label = MagicMock(spec=LabelSchema)
-        mock_label.id = label_id
-        mock_label.name = "test_label"
-        mock_label.color = "#000000"
+        mock_label = LabelSchema(id=label_id, name="test_label", color=black_color)
         mock_label_service.return_value.create_label.return_value = mock_label
 
         response = fxt_client.post(f"/api/v1/projects/{project_id}/labels", json=label_data)
@@ -75,6 +72,9 @@ class TestCreateLabel:
         assert response.status_code == status.HTTP_201_CREATED
         assert "Location" in response.headers
         assert f"/projects/{project_id}/labels/{mock_label.id}" in response.headers["Location"]
+        assert response.json()["id"] == str(label_id)
+        assert response.json()["name"] == "test_label"
+        assert response.json()["color"] == black_color.as_named()
 
     def test_create_label_already_exists(self, fxt_client, mock_label_service, project_id):
         label_data = {"name": "existing_label"}

@@ -47,12 +47,11 @@ def create_label(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create a label due to internal server error.",
         )
-    response = LabelSchema(id=label.id, name=label.name, color=label.color)
 
     return Response(
         status_code=status.HTTP_201_CREATED,
         headers={"Location": f"/projects/{project_id}/labels/{label.id}"},
-        content=response.model_dump_json(),
+        content=label.model_dump_json(),
         media_type="application/json",
     )
 
