@@ -5,8 +5,10 @@
 
 import { createContext, Dispatch, ReactNode, SetStateAction, useContext, useState } from 'react';
 
+import { clampBetween } from '@geti/smart-tools/utils';
+
 import { ZoomState } from './types';
-import { clampBetween, getZoomState, ZOOM_STEP_DIVISOR } from './utils';
+import { getZoomState, ZOOM_STEP_DIVISOR } from './utils';
 
 const Zoom = createContext<ZoomState>({
     scale: 1.0,
