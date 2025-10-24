@@ -10,17 +10,16 @@ import { Navigate, useNavigate } from 'react-router';
 import { v4 as uuid } from 'uuid';
 
 import { paths } from '../../../routes/paths';
+import { useCreateProjectMutation } from '../hooks/use-create-project-mutation.hook';
 import { Layout } from './layout.component';
 
 const useCreateProject = () => {
-    const createProjectMutation = $api.useMutation('post', '/api/v1/projects', {
-        meta: {
-            invalidates: [['get', '/api/v1/projects']],
-        },
-    });
+    const createProjectMutation = useCreateProjectMutation();
     const navigate = useNavigate();
 
-    const createProject = (projectName: string, projectId: string = uuid()) => {
+    const createProject = (projectName: string) => {
+        const projectId = uuid();
+
         createProjectMutation.mutate(
             {
                 body: {
