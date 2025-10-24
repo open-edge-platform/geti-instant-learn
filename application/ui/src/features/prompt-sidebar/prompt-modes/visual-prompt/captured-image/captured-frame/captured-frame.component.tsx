@@ -7,7 +7,7 @@ import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Image } from '@geti-prompt/icons';
 import { Content, Flex, View } from '@geti/ui';
 
-import { ZoomTransform } from '../zoom/zoom-transform';
+import { ZoomTransform } from '../../../../../../components/zoom/zoom-transform';
 
 import styles from './captured-frame.module.scss';
 

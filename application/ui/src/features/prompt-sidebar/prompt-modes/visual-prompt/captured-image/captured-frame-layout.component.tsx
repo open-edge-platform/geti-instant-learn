@@ -7,11 +7,11 @@ import { CSSProperties } from 'react';
 
 import { Grid, minmax, View } from '@geti/ui';
 
+import { ZoomProvider } from '../../../../../components/zoom/zoom.provider';
 import { useSelectedFrame } from '../../../../stream/selected-frame-provider.component';
 import { CapturedFrameActions } from './captured-frame-actions.component';
 import { CapturedFrame } from './captured-frame/captured-frame.component';
 import { Labels } from './labels-management/labels.component';
-import { ZoomProvider } from './zoom/zoom.provider';
 
 export const CapturedFrameLayout = () => {
     const { selectedFrameId } = useSelectedFrame();
