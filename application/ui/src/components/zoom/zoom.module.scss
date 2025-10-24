@@ -13,4 +13,5 @@
     flex-wrap: wrap;
     width: fit-content;
     height: fit-content;
+    transform: translate(var(--zoom-translate-x, 0px), var(--zoom-translate-y, 0px)) scale(var(--zoom-scale, 1));
 }

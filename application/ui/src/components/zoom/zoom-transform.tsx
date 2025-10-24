@@ -104,6 +104,8 @@ export const ZoomTransform = ({ children, target, zoomInMultiplier = 10 }: ZoomT
                     touchAction: 'none',
                     transform: 'translate3d(0, 0, 0)',
                     '--zoom-scale': zoom.scale,
+                    '--zoom-translate-x': `${zoom.translate.x}px`,
+                    '--zoom-translate-y': `${zoom.translate.y}px`,
                 } as React.CSSProperties
             }
             onPointerMove={onPointerMove(handleTranslateUpdate)}
@@ -117,7 +119,6 @@ export const ZoomTransform = ({ children, target, zoomInMultiplier = 10 }: ZoomT
                 style={{
                     transformOrigin: '0 0',
                     transition: zoom.hasAnimation ? 'transform 0.2s ease' : 'none',
-                    transform: `translate(${zoom.translate.x}px, ${zoom.translate.y}px) scale(${zoom.scale})`,
                 }}
             >
                 {children}
