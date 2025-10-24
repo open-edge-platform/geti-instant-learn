@@ -5,14 +5,14 @@
 
 import { Button, Flex, View } from '@geti/ui';
 
-import { CapturedFrameLayout } from './captured-image/captured-frame-layout.component';
+import { CapturedFrame } from './captured-frame/captured-frame.component';
 import { ReferencedImages } from './referenced-images.component';
 
 export const VisualPrompt = () => {
     return (
         <Flex height={'100%'} direction={'column'} gap={'size-300'}>
             <View flex={1}>
-                <CapturedFrameLayout />
+                <CapturedFrame />
             </View>
             <Button alignSelf={'end'} variant={'secondary'}>
                 Save prompt

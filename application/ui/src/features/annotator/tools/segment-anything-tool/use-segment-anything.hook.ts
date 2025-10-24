@@ -55,9 +55,9 @@ const useSegmentAnythingWorker = (algorithmType: 'SEGMENT_ANYTHING_DECODER' | 'S
     return modelRef.current;
 };
 
-const useEncodingQuery = (model: Remote<SegmentAnythingModel> | undefined, mediaItem: MediaItem, image: ImageData) => {
+const useEncodingQuery = (model: Remote<SegmentAnythingModel> | undefined, frameId: string, image: ImageData) => {
     return useQuery({
-        queryKey: ['segment-anything-model', 'encoding', mediaItem?.id],
+        queryKey: ['segment-anything-model', 'encoding', frameId],
         queryFn: async () => {
             if (model === undefined) {
                 throw new Error('Model not yet initialized');
@@ -71,7 +71,7 @@ const useEncodingQuery = (model: Remote<SegmentAnythingModel> | undefined, media
         },
         staleTime: Infinity,
         gcTime: 3600 * 15,
-        enabled: model !== undefined && mediaItem !== undefined,
+        enabled: model !== undefined,
     });
 };
 
@@ -109,8 +109,8 @@ export const useSegmentAnythingModel = () => {
     const decoderModel = useSegmentAnythingWorker('SEGMENT_ANYTHING_DECODER');
     const isLoadingWorkers = encoderModel === undefined || decoderModel === undefined;
 
-    const { mediaItem, image } = useAnnotator();
-    const encodingQuery = useEncodingQuery(encoderModel, mediaItem, image);
+    const { frameId, image } = useAnnotator();
+    const encodingQuery = useEncodingQuery(encoderModel, frameId, image);
     const decodingQueryFn = useDecodingFn(decoderModel, encodingQuery.data);
 
     const isLoading = isLoadingWorkers || encodingQuery.isLoading;

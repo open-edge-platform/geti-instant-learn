@@ -3,28 +3,33 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useRef } from 'react';
+
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { View } from '@geti/ui';
 
 import { ZoomTransform } from '../../components/zoom/zoom-transform';
 import { Annotations } from './annotations/annotations.component';
 import { useAnnotationActions } from './providers/annotation-actions-provider.component';
+import { useAnnotator } from './providers/annotator-provider.component';
 import { useSelectedAnnotations } from './providers/select-annotation-provider.component';
 import { ToolManager } from './tools/tool-manager.component';
+import { getImageData } from './tools/utils';
 import { MediaItem } from './types';
 
-const getImageUrl = (projectId: string, itemId: string) => {
-    return `/api/v1/projects/${projectId}/dataset/items/${itemId}/binary`;
+const getImageUrl = (projectId: string, frameId: string) => {
+    return `http://localhost:9100/api/v1/projects/${projectId}/frames/${frameId}`;
 };
 
 type AnnotatorCanvasProps = {
-    mediaItem: MediaItem;
+    frameId: string;
 };
 
-export const AnnotatorCanvas = ({ mediaItem }: AnnotatorCanvasProps) => {
+export const AnnotatorCanvas = ({ frameId }: AnnotatorCanvasProps) => {
     const { projectId } = useProjectIdentifier();
     const { annotations } = useAnnotationActions();
     const { selectedAnnotations } = useSelectedAnnotations();
+    const { roi } = useAnnotator();
 
     // Order annotations by selection. Selected annotation should always be on top.
     const orderedAnnotations = [
@@ -32,15 +37,14 @@ export const AnnotatorCanvas = ({ mediaItem }: AnnotatorCanvasProps) => {
         ...annotations.filter((a) => selectedAnnotations.has(a.id)),
     ];
 
-    const size = { width: mediaItem.width, height: mediaItem.height };
-    const imageUrl = mediaItem.url ?? getImageUrl(projectId, String(mediaItem.id));
+    const imageUrl = getImageUrl(projectId, frameId);
 
     return (
-        <ZoomTransform target={size}>
-            <View position={'relative'} width={size.width} height={size.height}>
-                <img src={imageUrl} alt='Collected data' width={size.width} height={size.height} />
+        <ZoomTransform target={roi}>
+            <View position={'relative'} width={roi.width} height={roi.height}>
+                <img src={imageUrl} alt='Collected data' />
 
-                <Annotations annotations={orderedAnnotations} width={size.width} height={size.height} />
+                <Annotations annotations={orderedAnnotations} width={roi.width} height={roi.height} />
                 <ToolManager />
             </View>
         </ZoomTransform>

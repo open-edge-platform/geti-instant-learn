@@ -20,10 +20,8 @@ interface EditBoundingBoxProps {
 
 export const EditBoundingBox = ({ annotation, zoom }: EditBoundingBoxProps) => {
     const [shape, setShape] = useState(annotation.shape);
-    const { mediaItem } = useAnnotator();
+    const { roi } = useAnnotator();
     const { updateAnnotations } = useAnnotationActions();
-
-    const roi = { x: 0, y: 0, width: mediaItem.width, height: mediaItem.height };
 
     const onComplete = () => {
         updateAnnotations([{ ...annotation, shape }]);

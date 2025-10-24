@@ -21,13 +21,13 @@ export const useDecodingQueryOptions = (
     points: InteractiveAnnotationPoint[],
     queryFn: (points: InteractiveAnnotationPoint[]) => Promise<Shape[]>
 ) => {
-    const { mediaItem, roi } = useAnnotator();
+    const { frameId, roi } = useAnnotator();
     // Round points so that when the user slightly moves their mouse we do not
     // immediately recompute the decoding
     const roundedPoints = points.map(roundPoint);
 
     return queryOptions({
-        queryKey: ['segment-anything-model', 'decoding', mediaItem?.id, roundedPoints, roi],
+        queryKey: ['segment-anything-model', 'decoding', frameId, roundedPoints, roi],
         queryFn: async () => {
             const shapes = await queryFn(roundedPoints);
 

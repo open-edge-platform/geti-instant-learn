@@ -5,9 +5,8 @@
 
 import { createContext, ReactNode, useContext, useState, type Dispatch, type SetStateAction } from 'react';
 
-import { useLoadImageQuery } from '../hooks/use-load-image-query.hook';
 import { ToolType } from '../tools/interface';
-import type { MediaItem, RegionOfInterest } from '../types';
+import type { RegionOfInterest } from '../types';
 
 type AnnotatorContext = {
     // Tools
@@ -15,17 +14,18 @@ type AnnotatorContext = {
     setActiveTool: Dispatch<SetStateAction<ToolType | null>>;
 
     // Media item
-    mediaItem: MediaItem;
-    image: ImageData;
+    // mediaItem: MediaItem;
     roi: RegionOfInterest;
+    frameId: string;
 };
 
 export const AnnotatorProviderContext = createContext<AnnotatorContext | null>(null);
 
-export const AnnotatorProvider = ({ mediaItem, children }: { mediaItem: MediaItem; children: ReactNode }) => {
+export const AnnotatorProvider = ({ frameId, children }: { frameId: string; children: ReactNode }) => {
     const [activeTool, setActiveTool] = useState<ToolType | null>(null);
 
-    const imageQuery = useLoadImageQuery(mediaItem);
+    // TODO: Use image query dimensions
+    // const imageQuery = useLoadImageQuery(frameId);
 
     return (
         <AnnotatorProviderContext.Provider
@@ -33,9 +33,8 @@ export const AnnotatorProvider = ({ mediaItem, children }: { mediaItem: MediaIte
                 activeTool,
                 setActiveTool,
 
-                mediaItem,
-                image: imageQuery.data,
-                roi: { x: 0, y: 0, width: mediaItem.width, height: mediaItem.height },
+                frameId,
+                roi: { x: 0, y: 0, width: 300, height: 300 },
             }}
         >
             {children}
