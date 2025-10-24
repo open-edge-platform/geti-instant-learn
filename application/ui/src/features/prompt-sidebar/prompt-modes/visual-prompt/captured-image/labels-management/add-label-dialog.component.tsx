@@ -5,10 +5,10 @@
 
 import { Content, Dialog } from '@geti/ui';
 import { getDistinctColorBasedOnHash } from '@geti/ui/utils';
+import { Label } from 'src/features/annotator/types';
 import { v4 as uuid } from 'uuid';
 
 import { EditLabel } from './edit-label.component';
-import { Label } from './label.interface';
 
 interface AddLabelDialogProps {
     onAction: (label: Label) => void;

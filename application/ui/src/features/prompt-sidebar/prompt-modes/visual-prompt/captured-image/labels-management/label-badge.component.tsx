@@ -8,8 +8,7 @@ import { CSSProperties, ReactNode } from 'react';
 import { Flex, Text } from '@geti/ui';
 import { clsx } from 'clsx';
 import { usePress } from 'react-aria';
-
-import { Label } from './label.interface';
+import { Label } from 'src/features/annotator/types';
 
 import classes from './label-badge.module.scss';
 

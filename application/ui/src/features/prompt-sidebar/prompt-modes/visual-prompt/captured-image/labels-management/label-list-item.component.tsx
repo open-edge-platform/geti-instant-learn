@@ -7,10 +7,10 @@ import { useState } from 'react';
 
 import { ActionButton, Tooltip, TooltipTrigger } from '@geti/ui';
 import { Close, Edit } from '@geti/ui/icons';
+import { Label } from 'src/features/annotator/types';
 
 import { EditLabel } from './edit-label.component';
 import { LabelBadge } from './label-badge.component';
-import { Label } from './label.interface';
 
 import classes from './label-list-item.module.scss';
 

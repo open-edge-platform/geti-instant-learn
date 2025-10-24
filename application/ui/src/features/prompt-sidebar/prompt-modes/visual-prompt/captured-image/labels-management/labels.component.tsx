@@ -6,11 +6,11 @@
 import { useState } from 'react';
 
 import { Flex } from '@geti/ui';
+import { Label } from 'src/features/annotator/types';
 import { v4 as uuid } from 'uuid';
 
 import { AddLabel } from './add-label.component';
 import { LabelListItem } from './label-list-item.component';
-import { Label } from './label.interface';
 
 export const Labels = () => {
     const [labels, setLabels] = useState<Array<Label>>([

@@ -50,7 +50,6 @@ export type MediaItem = {
     height: number;
 };
 
-// TODO: There is already a label type deep into prompt-sidebar feature. We need a single source of truth.
 export type Label = {
     id: string;
     name: string;
