@@ -8,6 +8,7 @@ import { ReactNode, useCallback, useEffect, useRef } from 'react';
 import { Button, Flex, Loading } from '@geti/ui';
 import { Play } from '@geti/ui/icons';
 
+import { usePromptMode } from '../prompt-sidebar/prompt-modes/prompt-modes.component';
 import { useWebRTCConnection } from './web-rtc/web-rtc-connection-provider';
 
 import styles from './stream.module.scss';
@@ -58,7 +59,7 @@ const useStreamToVideo = () => {
     return videoRef;
 };
 
-const Container = ({ children }: { children: ReactNode }) => {
+const Container = ({ children, withBackground = false }: { children: ReactNode; withBackground?: boolean }) => {
     return (
         <Flex width={'100%'} height={'100%'} alignItems={'center'} justifyContent={'center'}>
             <Flex
@@ -66,7 +67,7 @@ const Container = ({ children }: { children: ReactNode }) => {
                 width={'90%'}
                 alignItems={'center'}
                 justifyContent={'center'}
-                UNSAFE_className={styles.streamContainer}
+                UNSAFE_className={withBackground ? styles.streamContainer : undefined}
             >
                 {children}
             </Flex>
@@ -74,11 +75,20 @@ const Container = ({ children }: { children: ReactNode }) => {
     );
 };
 
+const CaptureForVisualPrompt = () => {
+    return (
+        <Button variant={'primary'} staticColor={'white'} alignSelf={'center'} style={'fill'}>
+            Capture for visual prompt
+        </Button>
+    );
+};
+
 const Stream = () => {
     const videoRef = useStreamToVideo();
+    const promptMode = usePromptMode();
 
     return (
-        <>
+        <Flex width={'100%'} height={'100%'} direction={'column'}>
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
             <video
                 ref={videoRef}
@@ -88,8 +98,10 @@ const Stream = () => {
                 width={'100%'}
                 height={'100%'}
                 className={styles.videoStream}
+                style={{ flex: 1 }}
             />
-        </>
+            {promptMode === 'visual' && <CaptureForVisualPrompt />}
+        </Flex>
     );
 };
 
@@ -106,7 +118,7 @@ export const StreamContainer = () => {
 
     if (status === 'connecting') {
         return (
-            <Container>
+            <Container withBackground>
                 <Loading mode='inline' />
             </Container>
         );
@@ -114,7 +126,7 @@ export const StreamContainer = () => {
 
     if (status === 'idle') {
         return (
-            <Container>
+            <Container withBackground>
                 <Button onPress={start} UNSAFE_className={styles.playButton} aria-label={'Start stream'}>
                     <Play width='128px' height='128px' />
                 </Button>
