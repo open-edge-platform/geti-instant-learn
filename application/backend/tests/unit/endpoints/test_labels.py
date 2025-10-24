@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
+from pydantic_extra_types.color import Color
 
 from dependencies import SessionDep, get_config_dispatcher
 from routers import projects_router
@@ -48,6 +49,16 @@ def project_id():
 @pytest.fixture
 def label_id():
     return uuid4()
+
+
+@pytest.fixture
+def black_color():
+    return Color("#000000")
+
+
+@pytest.fixture
+def red_color():
+    return Color("#FF0000")
 
 
 class TestCreateLabel:
@@ -99,8 +110,8 @@ class TestCreateLabel:
 
 
 class TestGetLabelById:
-    def test_get_label_success(self, fxt_client, mock_label_service, project_id, label_id):
-        mock_label = LabelSchema(id=label_id, name="test_label", color="#000000")
+    def test_get_label_success(self, fxt_client, mock_label_service, project_id, label_id, black_color):
+        mock_label = LabelSchema(id=label_id, name="test_label", color=black_color)
         mock_label_service.return_value.get_label_by_id.return_value = mock_label
 
         response = fxt_client.get(f"/api/v1/projects/{project_id}/labels/{label_id}")
@@ -108,7 +119,7 @@ class TestGetLabelById:
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["id"] == str(label_id)
         assert response.json()["name"] == "test_label"
-        assert response.json()["color"] == "#000000"
+        assert response.json()["color"] == black_color.as_named()
 
     def test_get_label_not_found(self, fxt_client, mock_label_service, project_id, label_id):
         mock_label_service.return_value.get_label_by_id.side_effect = ResourceNotFoundError(
@@ -128,9 +139,9 @@ class TestGetLabelById:
 
 
 class TestGetAllLabels:
-    def test_get_all_labels_success(self, fxt_client, mock_label_service, project_id):
-        label_1 = LabelSchema(id=uuid4(), name="test_label", color="#000000")
-        label_2 = LabelSchema(id=uuid4(), name="test_label_2", color="#FF0000")
+    def test_get_all_labels_success(self, fxt_client, mock_label_service, project_id, black_color, red_color):
+        label_1 = LabelSchema(id=uuid4(), name="test_label", color=black_color)
+        label_2 = LabelSchema(id=uuid4(), name="test_label_2", color=red_color)
         mock_labels = LabelsListSchema(
             labels=[label_1, label_2],
             pagination=Pagination(

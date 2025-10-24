@@ -5,6 +5,8 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import HTTPException, Query, Response, status
+from pydantic import BaseModel
+from pydantic_extra_types.color import Color
 
 from dependencies import ConfigChangeDispatcherDep, SessionDep
 from routers import projects_router
@@ -13,6 +15,14 @@ from services.label import LabelService
 from services.schemas.label import LabelCreateSchema, LabelSchema, LabelsListSchema
 
 logger = logging.getLogger(__name__)
+
+
+class LabelCreateResponse(BaseModel):
+    id: UUID
+    name: str
+    color: Color
+    project_id: UUID
+    prompt_id: UUID | None = None
 
 
 @projects_router.post(
@@ -47,9 +57,13 @@ def create_label(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create a label due to internal server error.",
         )
+    response = LabelCreateResponse(id=label.id, name=label.name, color=label.color, project_id=project_id)
 
     return Response(
-        status_code=status.HTTP_201_CREATED, headers={"Location": f"/projects/{project_id}/labels/{label.id}"}
+        status_code=status.HTTP_201_CREATED,
+        headers={"Location": f"/projects/{project_id}/labels/{label.id}"},
+        content=response.model_dump_json(),
+        media_type="application/json",
     )
 
 

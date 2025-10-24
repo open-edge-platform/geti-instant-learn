@@ -22,7 +22,10 @@ class LabelDB(Base):
     prompt_id: Mapped[UUID | None] = mapped_column(ForeignKey("Prompt.id", ondelete="CASCADE"))
     prompt: Mapped["PromptDB"] = relationship(back_populates="labels")
     project: Mapped["ProjectDB"] = relationship(back_populates="labels")
-    __table_args__ = (CheckConstraint("project_id IS NOT NULL OR prompt_id IS NOT NULL", name="label_parent_check"),)
+    __table_args__ = (
+        CheckConstraint("project_id IS NOT NULL OR prompt_id IS NOT NULL", name="label_parent_check"),
+        Index("label_name_project_unique", "name", "project_id", unique=True),
+    )
 
 
 class AnnotationDB(Base):

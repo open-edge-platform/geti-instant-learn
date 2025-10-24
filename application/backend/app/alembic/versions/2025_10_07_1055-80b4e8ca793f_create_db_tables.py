@@ -94,9 +94,11 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['prompt_id'], ['Prompt.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index('label_name_project_unique', 'Label', ['name', 'project_id'], unique=True)
 
 
 def downgrade() -> None:
+    op.drop_index('label_name_project_unique', table_name='Label')
     op.drop_table('Label')
     op.drop_table('Annotation')
     op.execute("DROP INDEX IF EXISTS uq_source_type_per_project")

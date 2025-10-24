@@ -5,6 +5,7 @@ import logging
 import secrets
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from core.runtime.dispatcher import (
@@ -32,10 +33,9 @@ class LabelService:
     """
     Service layer orchestrating label operations within a project.
     Responsibilities:
-      - Enforce business rules for labels (e.g., uniqueness, activation semantics).
+      - Enforce business rules for labels (e.g., uniqueness).
       - Define transaction boundaries (commit / rollback).
       - Raise domain-specific exceptions.
-      - Coordinate cascading or related entity cleanup for labels.
     """
 
     def __init__(
@@ -82,35 +82,39 @@ class LabelService:
             create_data.name,
             create_data.id or "AUTO",
         )
-        if self.label_repository.exists_by_name(create_data.name):
-            logger.error("Label creation rejected: duplicate name=%s", create_data.name)
-            raise ResourceAlreadyExistsError(
-                resource_type=ResourceType.LABEL,
-                resource_value=create_data.name,
-                raised_by="name",
-            )
-
-        if create_data.id and self.label_repository.exists_by_id(create_data.id):
-            logger.error("Label creation rejected: duplicate id=%s", create_data.id)
-            raise ResourceAlreadyExistsError(
-                resource_type=ResourceType.LABEL,
-                resource_value=str(create_data.id),
-                raised_by="id",
-            )
 
         label: LabelDB = label_schema_to_db(create_data)
         if not label.color:
             label.color = random_color()
         label.project_id = project_id
-        self.label_repository.add(label=label)
-        self.session.commit()
-        self.session.refresh(label)
-        logger.info(
-            "Label created: id=%s name=%s",
-            label.id,
-            label.name,
-        )
-        return label_db_to_schema(label=label)
+
+        try:
+            self.label_repository.add(label=label)
+            self.session.commit()
+            self.session.refresh(label)
+            logger.info(
+                "Label created: id=%s name=%s",
+                label.id,
+                label.name,
+            )
+            return label_db_to_schema(label=label)
+        except IntegrityError as e:
+            self.session.rollback()
+            if "label_name_project_unique" in str(e.orig) or "name" in str(e.orig).lower():
+                logger.error("Label creation rejected: duplicate name=%s", create_data.name)
+                raise ResourceAlreadyExistsError(
+                    resource_type=ResourceType.LABEL,
+                    resource_value=create_data.name,
+                    raised_by="name",
+                )
+            if "primary key" in str(e.orig).lower() or "id" in str(e.orig).lower():
+                logger.error("Label creation rejected: duplicate id=%s", create_data.id)
+                raise ResourceAlreadyExistsError(
+                    resource_type=ResourceType.LABEL,
+                    resource_value=str(create_data.id),
+                    raised_by="id",
+                )
+            raise
 
     def get_label_by_id(self, project_id: UUID, label_id: UUID) -> LabelSchema:
         """
