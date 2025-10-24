@@ -3,15 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ReactNode, useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
-import { Button, Flex, Loading } from '@geti/ui';
-import { Play } from '@geti/ui/icons';
+import { Button, Flex } from '@geti/ui';
 
 import { usePromptMode } from '../prompt-sidebar/prompt-modes/prompt-modes.component';
 import { useWebRTCConnection } from './web-rtc/web-rtc-connection-provider';
-
-import styles from './stream.module.scss';
 
 const useStreamToVideo = () => {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -59,22 +56,6 @@ const useStreamToVideo = () => {
     return videoRef;
 };
 
-const Container = ({ children, withBackground = false }: { children: ReactNode; withBackground?: boolean }) => {
-    return (
-        <Flex width={'100%'} height={'100%'} alignItems={'center'} justifyContent={'center'}>
-            <Flex
-                height={'90%'}
-                width={'90%'}
-                alignItems={'center'}
-                justifyContent={'center'}
-                UNSAFE_className={withBackground ? styles.streamContainer : undefined}
-            >
-                {children}
-            </Flex>
-        </Flex>
-    );
-};
-
 const CaptureForVisualPrompt = () => {
     return (
         <Button variant={'primary'} staticColor={'white'} alignSelf={'center'} style={'fill'}>
@@ -83,7 +64,7 @@ const CaptureForVisualPrompt = () => {
     );
 };
 
-const Stream = () => {
+export const Stream = () => {
     const videoRef = useStreamToVideo();
     const promptMode = usePromptMode();
 
@@ -97,40 +78,9 @@ const Stream = () => {
                 controls={false}
                 width={'100%'}
                 height={'100%'}
-                className={styles.videoStream}
                 style={{ flex: 1 }}
             />
             {promptMode === 'visual' && <CaptureForVisualPrompt />}
         </Flex>
     );
-};
-
-export const StreamContainer = () => {
-    const { status, start } = useWebRTCConnection();
-
-    if (status === 'connected') {
-        return (
-            <Container>
-                <Stream />
-            </Container>
-        );
-    }
-
-    if (status === 'connecting') {
-        return (
-            <Container withBackground>
-                <Loading mode='inline' />
-            </Container>
-        );
-    }
-
-    if (status === 'idle') {
-        return (
-            <Container withBackground>
-                <Button onPress={start} UNSAFE_className={styles.playButton} aria-label={'Start stream'}>
-                    <Play width='128px' height='128px' />
-                </Button>
-            </Container>
-        );
-    }
 };
