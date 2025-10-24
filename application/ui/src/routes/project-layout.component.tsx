@@ -14,9 +14,7 @@ import { useCurrentProject } from '../features/projects-management/hooks/use-cur
 import { WebRTCConnectionProvider } from '../features/stream/web-rtc/web-rtc-connection-provider';
 
 const useCheckIfProjectIsValid = () => {
-    useCurrentProject({
-        retry: 1,
-    });
+    useCurrentProject();
 };
 
 export const ProjectLayout = () => {
