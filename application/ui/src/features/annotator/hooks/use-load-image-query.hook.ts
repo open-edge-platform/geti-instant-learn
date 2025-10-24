@@ -7,7 +7,6 @@ import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { useSuspenseQuery, UseSuspenseQueryResult } from '@tanstack/react-query';
 
 import { getImageData, loadImage } from '../tools/utils';
-import { MediaItem } from '../types';
 
 export const useLoadImageQuery = (frameId: string): UseSuspenseQueryResult<ImageData, unknown> => {
     const { projectId } = useProjectIdentifier();

@@ -42,7 +42,7 @@ export const SegmentAnythingTool = () => {
     const [previewShapes, setPreviewShapes] = useState<Shape[]>([]);
 
     const zoom = useZoom();
-    const { mediaItem, roi, image } = useAnnotator();
+    const { roi, image } = useAnnotator();
     const { isLoading, decodingQueryFn } = useSegmentAnythingModel();
     const throttledDecodingQueryFn = useSingleStackFn(decodingQueryFn);
     const decodingMutation = useDecodingMutation(decodingQueryFn);
@@ -124,7 +124,7 @@ export const SegmentAnythingTool = () => {
                 cursor: `url("/icons/selection.svg") 8 8, auto`,
             }}
         >
-            <MaskAnnotations isEnabled annotations={annotations} width={mediaItem.width} height={mediaItem.height}>
+            <MaskAnnotations isEnabled annotations={annotations} width={image.width} height={image.height}>
                 <></>
             </MaskAnnotations>
 

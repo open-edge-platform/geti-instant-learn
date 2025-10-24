@@ -10,7 +10,6 @@ import { useQuery } from '@tanstack/react-query';
 import { Remote, wrap } from 'comlink';
 
 import { useAnnotator } from '../../providers/annotator-provider.component';
-import { MediaItem } from '../../types';
 import { convertToolShapeToGetiShape } from '../utils';
 import { InteractiveAnnotationPoint } from './segment-anything.interface';
 

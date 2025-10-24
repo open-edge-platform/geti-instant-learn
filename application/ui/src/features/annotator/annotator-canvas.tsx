@@ -3,8 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useRef } from 'react';
-
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { View } from '@geti/ui';
 
@@ -14,8 +12,6 @@ import { useAnnotationActions } from './providers/annotation-actions-provider.co
 import { useAnnotator } from './providers/annotator-provider.component';
 import { useSelectedAnnotations } from './providers/select-annotation-provider.component';
 import { ToolManager } from './tools/tool-manager.component';
-import { getImageData } from './tools/utils';
-import { MediaItem } from './types';
 
 const getImageUrl = (projectId: string, frameId: string) => {
     return `http://localhost:9100/api/v1/projects/${projectId}/frames/${frameId}`;
