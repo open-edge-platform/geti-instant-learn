@@ -10,6 +10,7 @@ import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Button, Flex } from '@geti/ui';
 
 import { usePromptMode } from '../prompt-sidebar/prompt-modes/prompt-modes.component';
+import { useSelectedFrame } from './selected-frame-provider.component';
 import { useWebRTCConnection } from './web-rtc/web-rtc-connection-provider';
 
 const useStreamToVideo = () => {
@@ -68,13 +69,20 @@ const useCaptureFrame = () => {
     const { setSelectedFrameId } = useSelectedFrame();
 
     const captureFrame = async () => {
-        captureFrameMutation.mutate({
-            params: {
-                path: {
-                    project_id: projectId,
+        captureFrameMutation.mutate(
+            {
+                params: {
+                    path: {
+                        project_id: projectId,
+                    },
                 },
             },
-        });
+            {
+                onSuccess: ({ frame_id }) => {
+                    setSelectedFrameId(frame_id);
+                },
+            }
+        );
     };
 
     return {
@@ -83,7 +91,7 @@ const useCaptureFrame = () => {
     };
 };
 
-const CaptureForVisualPrompt = () => {
+const CaptureFrameButton = () => {
     const { captureFrame, isPending } = useCaptureFrame();
 
     return (
@@ -95,7 +103,7 @@ const CaptureForVisualPrompt = () => {
             onPress={captureFrame}
             isPending={isPending}
         >
-            Capture for visual prompt
+            Capture frame
         </Button>
     );
 };
@@ -116,7 +124,7 @@ export const Stream = () => {
                 height={'100%'}
                 style={{ flex: 1 }}
             />
-            {promptMode === 'visual' && <CaptureForVisualPrompt />}
+            {promptMode === 'visual' && <CaptureFrameButton />}
         </Flex>
     );
 };

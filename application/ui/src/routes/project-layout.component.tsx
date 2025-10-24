@@ -11,6 +11,7 @@ import { MainContent } from '../components/main-content.component';
 import { Sidebar } from '../components/sidebar/sidebar.component';
 import { Toolbar } from '../components/toolbar.component';
 import { useCurrentProject } from '../features/projects-management/hooks/use-current-project.hook';
+import { SelectedFrameProvider } from '../features/stream/selected-frame-provider.component';
 import { WebRTCConnectionProvider } from '../features/stream/web-rtc/web-rtc-connection-provider';
 
 const useCheckIfProjectIsValid = () => {
@@ -34,11 +35,13 @@ export const ProjectLayout = () => {
 
                 <Toolbar />
 
-                <View backgroundColor={'gray-50'} gridArea={'main'}>
-                    <MainContent />
-                </View>
+                <SelectedFrameProvider>
+                    <View backgroundColor={'gray-50'} gridArea={'main'}>
+                        <MainContent />
+                    </View>
 
-                <Sidebar />
+                    <Sidebar />
+                </SelectedFrameProvider>
             </Grid>
         </WebRTCConnectionProvider>
     );
