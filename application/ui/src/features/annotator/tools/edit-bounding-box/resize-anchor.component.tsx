@@ -33,7 +33,7 @@ export const ResizeAnchor = ({
     moveAnchorTo,
     label,
     fill = 'white',
-    cursor = 'all-scroll',
+    cursor = 'default',
     stroke = 'var(--energy-blue)',
     strokeWidth = 1,
 }: ResizeAnchorProps) => {
@@ -55,7 +55,7 @@ export const ResizeAnchor = ({
             y={y}
             zoom={zoom}
             fill={fill}
-            cursor={cursor ? cursor : 'default'}
+            cursor={cursor}
             onStart={onStart}
             onComplete={onComplete}
             moveAnchorTo={moveAnchorTo}

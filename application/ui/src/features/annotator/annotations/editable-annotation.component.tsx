@@ -5,8 +5,8 @@
 
 import { ReactNode } from 'react';
 
+import { useZoom } from '../../../components/zoom/zoom.provider';
 import { useSelectedAnnotations } from '../providers/select-annotation-provider.component';
-import { useZoom } from '../providers/zoom/zoom.provider';
 import { EditBoundingBox } from '../tools/edit-bounding-box/edit-bounding-box.component';
 import type { Annotation, Rect } from '../types';
 import { useAnnotation } from './annotation-context';

@@ -8,7 +8,7 @@ import { PointerEvent, useCallback } from 'react';
 import { isEmpty } from 'lodash-es';
 import { v4 as uuid } from 'uuid';
 
-import { useZoom } from '../providers/zoom/zoom.provider';
+import { useZoom } from '../../../components/zoom/zoom.provider';
 import type { Label } from '../types';
 
 const labelStyles = (scale: number) => {

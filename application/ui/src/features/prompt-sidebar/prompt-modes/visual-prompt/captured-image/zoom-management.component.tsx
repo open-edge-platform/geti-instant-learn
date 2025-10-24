@@ -5,7 +5,7 @@
 
 import { ActionButton, Flex, Text } from '@geti/ui';
 import { Add, FitScreen, Remove } from '@geti/ui/icons';
-import { useSetZoom, useZoom } from 'src/features/annotator/providers/zoom/zoom.provider';
+import { useSetZoom, useZoom } from 'src/components/zoom/zoom.provider';
 
 export const ZoomManagement = () => {
     const zoom = useZoom();
