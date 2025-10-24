@@ -12,7 +12,7 @@ import type { MediaItem, RegionOfInterest } from '../types';
 type AnnotatorContext = {
     // Tools
     activeTool: ToolType | null;
-    setActiveTool: Dispatch<SetStateAction<ToolType>>;
+    setActiveTool: Dispatch<SetStateAction<ToolType | null>>;
 
     // Media item
     mediaItem: MediaItem;
@@ -23,7 +23,7 @@ type AnnotatorContext = {
 export const AnnotatorProviderContext = createContext<AnnotatorContext | null>(null);
 
 export const AnnotatorProvider = ({ mediaItem, children }: { mediaItem: MediaItem; children: ReactNode }) => {
-    const [activeTool, setActiveTool] = useState<ToolType>('sam');
+    const [activeTool, setActiveTool] = useState<ToolType | null>(null);
 
     const imageQuery = useLoadImageQuery(mediaItem);
 
