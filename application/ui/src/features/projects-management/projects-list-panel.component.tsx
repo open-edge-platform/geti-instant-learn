@@ -64,14 +64,6 @@ const CreateProjectButton = ({ projectsNames, activeProject }: AddProjectProps) 
     const { isPending, createProjectConfirmation, createProject, isVisible, close, newProjectName } =
         useCreateProjectWithConfirmation({ activeProject, projectsNames });
 
-    const handleCreateProject = () => {
-        createProject();
-    };
-
-    const handleCreateProjectConfirmation = () => {
-        createProjectConfirmation();
-    };
-
     return (
         <>
             <ActionButton
@@ -81,7 +73,7 @@ const CreateProjectButton = ({ projectsNames, activeProject }: AddProjectProps) 
                 marginEnd={'size-350'}
                 UNSAFE_className={styles.createProjectButton}
                 isDisabled={isPending}
-                onPress={handleCreateProjectConfirmation}
+                onPress={createProjectConfirmation}
             >
                 <AddCircle />
                 <Text marginX='size-50'>Create project</Text>
@@ -89,7 +81,7 @@ const CreateProjectButton = ({ projectsNames, activeProject }: AddProjectProps) 
             <CreateProjectConfirmDialog
                 isVisible={isVisible}
                 onClose={close}
-                onCreate={handleCreateProject}
+                onCreate={createProject}
                 projectName={newProjectName}
                 activeProjectName={activeProject?.name ?? ''}
                 isPending={isPending}
