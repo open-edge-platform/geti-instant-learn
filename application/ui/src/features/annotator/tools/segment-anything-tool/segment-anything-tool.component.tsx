@@ -6,13 +6,13 @@
 import { PointerEvent, useEffect, useRef, useState } from 'react';
 
 import { clampPointBetweenImage } from '@geti/smart-tools/utils';
-import { useZoom } from 'src/features/prompt-sidebar/prompt-modes/visual-prompt/captured-image/zoom/zoom.provider';
 
 import { AnnotationShapeWithLabels } from '../../annotations/annotation-shape-with-labels.component';
 import { MaskAnnotations } from '../../annotations/mask-annotations.component';
 import { AnnotatorLoading } from '../../annotator-loading.component';
 import { useAnnotator } from '../../providers/annotator-provider.component';
-import type { Annotation, Shape } from '../../types';
+import { useZoom } from '../../providers/zoom/zoom.provider';
+import { type Annotation, type Shape } from '../../types';
 import { SvgToolCanvas } from '../svg-tool-canvas.component';
 import { getRelativePoint, removeOffLimitPoints } from '../utils';
 import { InteractiveAnnotationPoint } from './segment-anything.interface';

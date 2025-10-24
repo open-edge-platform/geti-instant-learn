@@ -4,12 +4,12 @@
  */
 
 import { Grid, minmax, View } from '@geti/ui';
+import { ZoomTransform } from 'src/features/annotator/providers/zoom/zoom-transform';
+import { ZoomProvider } from 'src/features/annotator/providers/zoom/zoom.provider';
 
 import { type CapturedImageType } from '../types';
 import { CapturedImageActions } from './captured-image-actions.component';
 import { Labels } from './labels-management/labels.component';
-import { ZoomTransform } from './zoom/zoom-transform';
-import { ZoomProvider } from './zoom/zoom.provider';
 
 interface CapturedImageLayoutProps {
     image: CapturedImageType;

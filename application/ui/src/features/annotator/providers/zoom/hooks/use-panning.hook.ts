@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 
-import { useEventListener } from './event-listener.hook';
+import { useEventListener } from '@geti-prompt/hooks';
 
 export const usePanning = () => {
     const [isPanning, setIsPanning] = useState(false);
