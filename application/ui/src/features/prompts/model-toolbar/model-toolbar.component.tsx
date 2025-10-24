@@ -5,9 +5,9 @@
 
 import { Flex, Text } from '@geti/ui';
 
-import styles from './prompt-toolbar.module.scss';
+import styles from './model-toolbar.module.scss';
 
-export const PromptToolbar = () => {
+export const ModelToolbar = () => {
     return (
         <Flex alignItems={'baseline'} justifyContent={'space-between'}>
             <Text>DINO v2</Text>

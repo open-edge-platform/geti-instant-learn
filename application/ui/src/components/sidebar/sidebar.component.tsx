@@ -8,8 +8,8 @@ import { ReactNode, useState } from 'react';
 import { Wand } from '@geti-prompt/icons';
 import { Flex, Grid, ToggleButton, View } from '@geti/ui';
 
-import { useCurrentProject } from '../../features/projects-management/hooks/use-current-project.hook';
-import { PromptSidebar } from '../../features/prompt-sidebar/prompt-sidebar.component';
+import { useCurrentProject } from '../../features/project/hooks/use-current-project.hook';
+import { Prompt } from '../../features/prompts/prompt.component';
 
 import styles from './sidebar.module.scss';
 
@@ -61,7 +61,7 @@ const SidebarTabs = ({ tabs, selectedTab }: TabProps) => {
 export const Sidebar = () => {
     const { data } = useCurrentProject();
 
-    const TABS: TabItem[] = [{ label: 'Prompt', icon: <Wand />, content: <PromptSidebar />, isDisabled: !data.active }];
+    const TABS: TabItem[] = [{ label: 'Prompt', icon: <Wand />, content: <Prompt />, isDisabled: !data.active }];
 
     return (
         // When the project activity status changes (e.g. from active to inactive, we want to toggle and disable

@@ -4,8 +4,8 @@
  */
 
 import { Button, DialogTrigger } from '@geti/ui';
-import { Label } from 'src/features/annotator/types';
 
+import { Label } from '../../../../annotator/types';
 import { AddLabelDialog } from './add-label-dialog.component';
 
 import classes from './add-label.module.scss';

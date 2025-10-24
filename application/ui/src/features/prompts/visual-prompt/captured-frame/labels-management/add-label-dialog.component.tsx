@@ -5,9 +5,9 @@
 
 import { Content, Dialog } from '@geti/ui';
 import { getDistinctColorBasedOnHash } from '@geti/ui/utils';
-import { Label } from 'src/features/annotator/types';
 import { v4 as uuid } from 'uuid';
 
+import { Label } from '../../../../annotator/types';
 import { EditLabel } from './edit-label.component';
 
 interface AddLabelDialogProps {

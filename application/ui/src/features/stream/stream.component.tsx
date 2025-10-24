@@ -9,7 +9,7 @@ import { $api } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Button, Flex } from '@geti/ui';
 
-import { usePromptMode } from '../prompt-sidebar/prompt-modes/prompt-modes.component';
+import { usePromptMode } from '../prompts/prompt-modes/prompt-modes.component';
 import { useSelectedFrame } from './selected-frame-provider.component';
 import { useWebRTCConnection } from './web-rtc/web-rtc-connection-provider';
 

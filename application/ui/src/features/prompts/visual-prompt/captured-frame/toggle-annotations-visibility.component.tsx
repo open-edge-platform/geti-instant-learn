@@ -4,8 +4,9 @@
  */
 
 import { Invisible, Visible } from '@geti/ui/icons';
-import { IconWrapper } from 'src/components/icon-wrapper/icon-wrapper.component';
-import { useAnnotationVisibility } from 'src/features/annotator/providers/annotation-visibility-provider.component';
+
+import { IconWrapper } from '../../../../components/icon-wrapper/icon-wrapper.component';
+import { useAnnotationVisibility } from '../../../annotator/providers/annotation-visibility-provider.component';
 
 export const ToggleAnnotationsVisibility = () => {
     const { isVisible, toggleVisibility } = useAnnotationVisibility();

@@ -5,8 +5,9 @@
 
 import { ActionButton, Flex, Text } from '@geti/ui';
 import { Add, FitScreen, Remove } from '@geti/ui/icons';
-import { IconWrapper } from 'src/components/icon-wrapper/icon-wrapper.component';
-import { useSetZoom, useZoom } from 'src/components/zoom/zoom.provider';
+
+import { IconWrapper } from '../../../../components/icon-wrapper/icon-wrapper.component';
+import { useSetZoom, useZoom } from '../../../../components/zoom/zoom.provider';
 
 export const ZoomManagement = () => {
     const zoom = useZoom();

@@ -8,13 +8,13 @@ import { CSSProperties, ReactNode, Suspense } from 'react';
 import { Image } from '@geti-prompt/icons';
 import { Content, Flex, Grid, IntelBrandedLoading, minmax, View } from '@geti/ui';
 
-import { ZoomProvider } from '../../../../../components/zoom/zoom.provider';
-import { AnnotatorCanvas } from '../../../../annotator/annotator-canvas';
-import { AnnotationActionsProvider } from '../../../../annotator/providers/annotation-actions-provider.component';
-import { AnnotationVisibilityProvider } from '../../../../annotator/providers/annotation-visibility-provider.component';
-import { AnnotatorProvider } from '../../../../annotator/providers/annotator-provider.component';
-import { SelectAnnotationProvider } from '../../../../annotator/providers/select-annotation-provider.component';
-import { useSelectedFrame } from '../../../../stream/selected-frame-provider.component';
+import { ZoomProvider } from '../../../../components/zoom/zoom.provider';
+import { AnnotatorCanvas } from '../../../annotator/annotator-canvas';
+import { AnnotationActionsProvider } from '../../../annotator/providers/annotation-actions-provider.component';
+import { AnnotationVisibilityProvider } from '../../../annotator/providers/annotation-visibility-provider.component';
+import { AnnotatorProvider } from '../../../annotator/providers/annotator-provider.component';
+import { SelectAnnotationProvider } from '../../../annotator/providers/select-annotation-provider.component';
+import { useSelectedFrame } from '../../../stream/selected-frame-provider.component';
 import { CapturedFrameActions } from './captured-frame-actions.component';
 import { Labels } from './labels-management/labels.component';
 

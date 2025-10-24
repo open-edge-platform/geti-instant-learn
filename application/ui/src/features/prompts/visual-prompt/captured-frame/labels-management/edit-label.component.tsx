@@ -7,7 +7,8 @@ import { CSSProperties, KeyboardEvent, useState } from 'react';
 
 import { ActionButton, ColorPickerDialog, DimensionValue, Flex, TextField } from '@geti/ui';
 import { clsx } from 'clsx';
-import { Label } from 'src/features/annotator/types';
+
+import { Label } from '../../../../annotator/types';
 
 import classes from './edit-label.module.scss';
 

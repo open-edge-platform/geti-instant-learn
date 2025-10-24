@@ -6,7 +6,7 @@
 import { createContext, ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { get, isEmpty } from 'lodash-es';
-import { useCurrentProject } from 'src/features/projects-management/hooks/use-current-project.hook';
+import { useCurrentProject } from 'src/features/project/hooks/use-current-project.hook';
 import { v4 as uuid } from 'uuid';
 
 import type { Annotation, Shape } from '../types';

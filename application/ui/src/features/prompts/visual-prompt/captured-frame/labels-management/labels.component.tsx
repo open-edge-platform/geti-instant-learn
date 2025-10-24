@@ -6,9 +6,9 @@
 import { useState } from 'react';
 
 import { Flex } from '@geti/ui';
-import { Label } from 'src/features/annotator/types';
 import { v4 as uuid } from 'uuid';
 
+import { Label } from '../../../../annotator/types';
 import { AddLabel } from './add-label.component';
 import { LabelListItem } from './label-list-item.component';
 

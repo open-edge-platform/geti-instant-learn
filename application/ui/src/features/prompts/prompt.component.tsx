@@ -5,11 +5,11 @@
 
 import { Divider, Flex, Heading, View } from '@geti/ui';
 
+import { ModelToolbar } from './model-toolbar/model-toolbar.component';
 import { PromptMode } from './prompt-modes/prompt-mode.component';
 import { PromptModes } from './prompt-modes/prompt-modes.component';
-import { PromptToolbar } from './prompt-modes/prompt-toolbar/prompt-toolbar.component';
 
-export const PromptSidebar = () => {
+export const Prompt = () => {
     return (
         <View
             minWidth={'size-4600'}
@@ -28,7 +28,7 @@ export const PromptSidebar = () => {
                         <Divider size={'S'} />
 
                         <Flex flex={1} direction={'column'} gap={'size-200'}>
-                            <PromptToolbar />
+                            <ModelToolbar />
                             <View flex={1}>
                                 <PromptMode />
                             </View>
