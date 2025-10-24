@@ -38,7 +38,17 @@ class FrameCaptureResponse(BaseModel):
                     "frames/550e8400-e29b-41d4-a716-446655440000",
                 }
             },
-            "content": {"application/json": {"example": {"frame_id": "550e8400-e29b-41d4-a716-446655440000"}}},
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {"frame_id": {"type": "string"}},
+                        "required": ["frame_id"],
+                        "description": "Response schema for frame capture endpoint."
+                    },
+                    "example": {"frame_id": "550e8400-e29b-41d4-a716-446655440000"}
+                }
+            },
         },
         status.HTTP_404_NOT_FOUND: {
             "description": "Project not found or no connected source",
