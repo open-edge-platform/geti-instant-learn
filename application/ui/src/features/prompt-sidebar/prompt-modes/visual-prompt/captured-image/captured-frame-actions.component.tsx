@@ -13,7 +13,9 @@ export const CapturedFrameActions = () => {
     return (
         <Flex height={'100%'} alignItems={'center'} justifyContent={'end'} gap={'size-100'}>
             <ToggleAnnotationsVisibility />
+
             <CanvasAdjustments />
+
             <ZoomManagement />
         </Flex>
     );

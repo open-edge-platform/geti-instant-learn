@@ -5,6 +5,7 @@
 
 import { ActionButton, Flex, Text } from '@geti/ui';
 import { Add, FitScreen, Remove } from '@geti/ui/icons';
+import { IconWrapper } from 'src/components/icon-wrapper/icon-wrapper.component';
 import { useSetZoom, useZoom } from 'src/components/zoom/zoom.provider';
 
 export const ZoomManagement = () => {
@@ -30,8 +31,10 @@ export const ZoomManagement = () => {
             >
                 <Remove />
             </ActionButton>
-            <ActionButton aria-label={'Fit image to screen'} onPress={fitToScreen} isQuiet>
-                <FitScreen />
+            <ActionButton isQuiet onPress={fitToScreen} aria-label='Fit image to screen'>
+                <IconWrapper>
+                    <FitScreen />
+                </IconWrapper>
             </ActionButton>
         </Flex>
     );

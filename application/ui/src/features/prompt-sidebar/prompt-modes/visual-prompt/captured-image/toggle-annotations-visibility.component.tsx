@@ -3,21 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
-
-import { ActionButton } from '@geti/ui';
 import { Invisible, Visible } from '@geti/ui/icons';
+import { IconWrapper } from 'src/components/icon-wrapper/icon-wrapper.component';
+import { useAnnotationVisibility } from 'src/features/annotator/providers/annotation-visibility-provider.component';
 
 export const ToggleAnnotationsVisibility = () => {
-    const [isVisible, setIsVisible] = useState<boolean>(true);
+    const { isVisible, toggleVisibility } = useAnnotationVisibility();
 
-    return (
-        <ActionButton
-            aria-label={isVisible ? 'Hide annotations' : 'Show annotations'}
-            onPress={() => setIsVisible((prev) => !prev)}
-            isQuiet
-        >
-            {isVisible ? <Visible /> : <Invisible />}
-        </ActionButton>
-    );
+    return <IconWrapper onPress={toggleVisibility}>{isVisible ? <Visible /> : <Invisible />}</IconWrapper>;
 };
