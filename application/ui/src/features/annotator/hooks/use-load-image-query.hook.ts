@@ -10,7 +10,7 @@ import { getImageData, loadImage } from '../tools/utils';
 import { MediaItem } from '../types';
 
 export const useLoadImageQuery = (mediaItem: MediaItem | undefined): UseSuspenseQueryResult<ImageData, unknown> => {
-    const projectId = useProjectIdentifier();
+    const { projectId } = useProjectIdentifier();
 
     return useSuspenseQuery({
         queryKey: ['mediaItem', mediaItem?.id, projectId],
@@ -19,7 +19,7 @@ export const useLoadImageQuery = (mediaItem: MediaItem | undefined): UseSuspense
                 throw new Error("Can't fetch undefined media item");
             }
 
-            const imageUrl = `/api/v1/projects/${projectId}/dataset/items/${mediaItem.id}/binary`;
+            const imageUrl = mediaItem.url ?? `/api/v1/projects/${projectId}/dataset/items/${mediaItem.id}/binary`;
             const image = await loadImage(imageUrl);
 
             return getImageData(image);

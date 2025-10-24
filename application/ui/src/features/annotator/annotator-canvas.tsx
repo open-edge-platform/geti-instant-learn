@@ -37,8 +37,8 @@ export const AnnotatorCanvas = ({ mediaItem }: AnnotatorCanvasProps) => {
 
     return (
         <ZoomTransform target={size}>
-            <View position={'relative'} width={'100%'} height={'100%'}>
-                <img src={imageUrl} alt='Collected data' />
+            <View position={'relative'} width={size.width} height={size.height}>
+                <img src={imageUrl} alt='Collected data' width={size.width} height={size.height} />
 
                 <Annotations annotations={orderedAnnotations} width={size.width} height={size.height} />
                 <ToolManager />

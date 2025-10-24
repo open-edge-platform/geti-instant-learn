@@ -17,10 +17,9 @@ type AnnotationsProps = {
     annotations: AnnotationType[];
     width: number;
     height: number;
-    isFocussed: boolean;
 };
 
-export const Annotations = ({ annotations, width, height, isFocussed }: AnnotationsProps) => {
+export const Annotations = ({ annotations, width, height }: AnnotationsProps) => {
     const { setSelectedAnnotations } = useSelectedAnnotations();
 
     // If the user clicks on an empty spot on the canvas, we want to deselect
@@ -47,7 +46,7 @@ export const Annotations = ({ annotations, width, height, isFocussed }: Annotati
             }}
         >
             {!isEmpty(annotations) && (
-                <MaskAnnotations annotations={annotations} width={width} height={height} isEnabled={isFocussed}>
+                <MaskAnnotations annotations={annotations} width={width} height={height} isEnabled={false}>
                     {annotations.map((annotation) => (
                         <Annotation annotation={annotation} key={annotation.id} />
                     ))}

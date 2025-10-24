@@ -48,6 +48,7 @@ export type MediaItem = {
     id: string;
     width: number;
     height: number;
+    url?: string;
 };
 
 export type Label = {
