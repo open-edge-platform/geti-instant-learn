@@ -37,6 +37,11 @@ class Batch:
         >>> len(batch)
         3
 
+        Direct constructor usage:
+        >>> batch = Batch(samples=[sample1, sample2, sample3])
+        >>> len(batch)
+        3
+
         Accessing individual samples:
         >>> first_sample = batch[0]  # Sample
         >>> for sample in batch:

@@ -72,6 +72,14 @@ class TestBatchBasic:
         assert len(batch) == 2
         assert batch.samples == samples
 
+    def test_batch_direct_constructor(self, sample_single_instance: Sample, sample_multi_instance: Sample) -> None:
+        """Test batch creation using direct constructor."""
+        samples = [sample_single_instance, sample_multi_instance]
+        batch = Batch(samples=samples)
+
+        assert len(batch) == 2
+        assert batch.samples == samples
+
     def test_batch_collate_empty_list(self) -> None:
         """Test that collating empty list raises ValueError."""
         with pytest.raises(ValueError, match="Cannot collate empty list of samples"):
