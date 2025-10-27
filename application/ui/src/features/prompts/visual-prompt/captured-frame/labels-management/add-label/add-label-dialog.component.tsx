@@ -11,7 +11,7 @@ import { Content, Dialog } from '@geti/ui';
 import { getDistinctColorBasedOnHash } from '@geti/ui/utils';
 import { v4 as uuid } from 'uuid';
 
-import { EditLabel } from './edit-label.component';
+import { EditLabel } from '../edit-label/edit-label.component';
 
 interface AddLabelDialogProps {
     closeDialog: () => void;

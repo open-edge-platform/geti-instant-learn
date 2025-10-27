@@ -10,8 +10,8 @@ import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { ActionButton, Tooltip, TooltipTrigger } from '@geti/ui';
 import { Close } from '@geti/ui/icons';
 
-import { EditLabel } from './edit-label.component';
-import { LabelBadge } from './label-badge.component';
+import { EditLabel } from '../edit-label/edit-label.component';
+import { LabelBadge } from '../label-badge/label-badge.component';
 
 import classes from './label-list-item.module.scss';
 

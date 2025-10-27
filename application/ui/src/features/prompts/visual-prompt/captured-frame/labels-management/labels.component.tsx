@@ -9,8 +9,8 @@ import { $api, LabelType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Flex } from '@geti/ui';
 
-import { AddLabel } from './add-label.component';
-import { LabelListItem } from './label-list-item.component';
+import { AddLabel } from './add-label/add-label.component';
+import { LabelListItem } from './label-list-item/label-list-item.component';
 
 const useLabelsQuery = () => {
     const { projectId } = useProjectIdentifier();
