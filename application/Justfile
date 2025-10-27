@@ -1,20 +1,36 @@
-###
+# -------------------------------------------------------------------------------------------------
+# Runtime variables
+# -------------------------------------------------------------------------------------------------
+
+container-port := "9100"
+host-port := container-port
+webcam-device := "/dev/video0"
+docker-volume := ""
+
+# -------------------------------------------------------------------------------------------------
 # Common variables used in the Justfile
-###
+# -------------------------------------------------------------------------------------------------
 
 component-name := "geti-prompt"
 images-registry := 'localhost:5000/open-edge-platform'
-tag := env("TAG", `cat ../VERSION`)
-docker-image := images-registry + "/" + component-name + ":" + tag
-container-port := env("CONTAINER_PORT", "9100")
-host-port := env("HOST_PORT", container-port)
+version := `cat ../VERSION`
+docker-image := images-registry / component-name + ":" + version
 
-###
+# -------------------------------------------------------------------------------------------------
 # Variables used in the Justfile to build in Docker image for Geti Prompt
-###
+# -------------------------------------------------------------------------------------------------
 
-docker-image-description := component-name
-docker-build-context := env("DOCKER_BUILD_CONTEXT", "")
+docker-build-context := ""
+workdir-path := "/geti_prompt"
+asset-prefix := "/html"
+data-dir := "/data"
+static-files-dir := workdir-path + asset-prefix
+db-data-dir := workdir-path + data-dir
+
+# -------------------------------------------------------------------------------------------------
+# Proxy settings
+# -------------------------------------------------------------------------------------------------
+
 http-proxy-build-arg := if env("http_proxy", "") != "" { " --build-arg http_proxy=" + env("http_proxy") } else { "" }
 https-proxy-build-arg := if env("https_proxy", "") != "" { " --build-arg https_proxy=" + env("https_proxy") } else { "" }
 no-proxy-build-arg := if env("no_proxy", "") != "" { " --build-arg no_proxy=" + env("no_proxy") } else { "" }
@@ -22,23 +38,12 @@ HTTP-PROXY-build-arg := if env("HTTP_PROXY", "") != "" { " --build-arg HTTP_PROX
 HTTPS-PROXY-build-arg := if env("HTTPS_PROXY", "") != "" { " --build-arg HTTPS_PROXY=" + env("HTTPS_PROXY") } else { "" }
 NO-PROXY-build-arg := if env("NO_PROXY", "") != "" { " --build-arg NO_PROXY=" + env("NO_PROXY") } else { "" }
 docker-extra-args := http-proxy-build-arg + https-proxy-build-arg + no-proxy-build-arg + HTTP-PROXY-build-arg + HTTPS-PROXY-build-arg + NO-PROXY-build-arg
-workdir-path := env("WORKDIR_PATH", "/geti_prompt")
-asset-prefix := env("ASSET_PREFIX", "/html")
-data-dir := "/data"
-static-files-dir := workdir-path + asset-prefix
-db-data-dir := workdir-path + data-dir
 
-###
-# Variables used in the Justfile to run docker image for Geti Prompt
-###
-webcam-device := env("WEBCAM_DEVICE", "/dev/video0")
-docker-webcam := if path_exists(webcam-device) == "true" { " --device " + webcam-device + ":" + webcam-device } else { "" }
-docker-volume := if env("DOCKER_VOLUME", "") != "" { " --volume " + env("DOCKER_VOLUME") + ":" + workdir-path + data-dir } else { "" }
+# -------------------------------------------------------------------------------------------------
+# Justfile recipes
+# -------------------------------------------------------------------------------------------------
 
-###
-# Justfile targets
-###
-
+# build geti prompt with optional port mapping
 build-image:
     @echo "Building docker image for component: {{ component-name }}"
     @docker build \
@@ -49,20 +54,21 @@ build-image:
         --build-arg DB_DATA_DIR={{ db-data-dir }} \
         --build-arg ASSET_PREFIX={{ asset-prefix }} \
         --build-arg WORKDIR_PATH={{ workdir-path }} \
-        --label "org.opencontainers.image.description={{ docker-image-description }}" \
         --tag "{{ docker-image }}" \
         --file docker/Dockerfile .
 
+# launch geti prompt with optional webcam, volume and port mapping
 run-image: build-image
     @echo "Running docker image for component: {{ component-name }}"
     @docker run --rm \
         --publish {{ host-port }}:{{ container-port }} \
         --env PORT={{ container-port }} \
-        {{ docker-volume }} \
-        {{ docker-webcam }} \
-        --name "{{ component-name }}-{{ tag }}" \
+        {{ if docker-volume != "" { " --volume " + docker-volume + ":" + workdir-path + data-dir } else { "" } }} \
+        {{ if path_exists(webcam-device) == "true" { " --device " + webcam-device + ":" + webcam-device } else { "" } }} \
+        --name "{{ component-name }}-{{ version }}" \
         "{{ docker-image }}"
 
+# show size of the built docker image
 show-size:
     # https://github.com/casey/just?tab=readme-ov-file#escaping-
     @docker image inspect "{{ docker-image }}" --format='{{{{.Size}}' | numfmt --to=iec
