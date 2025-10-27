@@ -30,26 +30,13 @@ from getiprompt.utils.args import get_arguments, parse_experiment_args
 from getiprompt.utils.benchmark import (
     _get_output_path_for_experiment,
     _save_results,
-    handle_output_path,
+    prepare_output_directory,
 )
-from getiprompt.utils.constants import LVIS_92_BENCHMARK_CATEGORIES, LVIS_DEFAULT_CATEGORIES
+from getiprompt.utils.constants import get_category_presets
 from getiprompt.utils.utils import masks_to_custom_masks
 from getiprompt.visualize import ExportMaskVisualization
 
 logger = getLogger("Geti Prompt")
-
-# Category presets for different datasets
-# These can be imported and customized by users
-
-CATEGORY_PRESETS = {
-    "lvis": {
-        "default": LVIS_DEFAULT_CATEGORIES,
-        "benchmark": LVIS_92_BENCHMARK_CATEGORIES["fold_0"],  # Fold 0 is the default fold
-    },
-    "perseg": {
-        "default": None,  # Uses all available categories
-    },
-}
 
 
 def sample_to_image_and_priors(
@@ -313,7 +300,7 @@ def predict_on_dataset(
     Returns:
         The timing DataFrame
     """
-    output_path = handle_output_path(output_path, args.overwrite)
+    output_path = prepare_output_directory(output_path, args.overwrite)
     msg = f"Output path: {output_path}"
     logger.info(msg)
 
@@ -468,16 +455,18 @@ def load_dataset_by_name(
         preset_key = categories.lower()
         if preset_key == "all":
             resolved_categories = None  # Dataset will use all available categories
-        elif dataset_name.lower() in CATEGORY_PRESETS:
-            if preset_key in CATEGORY_PRESETS[dataset_name.lower()]:
-                resolved_categories = CATEGORY_PRESETS[dataset_name.lower()][preset_key]
-            else:
-                available_presets = list(CATEGORY_PRESETS[dataset_name.lower()].keys())
-                msg = f"Unknown preset '{categories}' for dataset '{dataset_name}'. Available: {available_presets}"
-                raise ValueError(msg)
         else:
-            msg = f"No presets defined for dataset '{dataset_name}'"
-            raise ValueError(msg)
+            category_presets = get_category_presets()
+            if dataset_name.lower() in category_presets:
+                if preset_key in category_presets[dataset_name.lower()]:
+                    resolved_categories = category_presets[dataset_name.lower()][preset_key]
+                else:
+                    available_presets = list(category_presets[dataset_name.lower()].keys())
+                    msg = f"Unknown preset '{categories}' for dataset '{dataset_name}'. Available: {available_presets}"
+                    raise ValueError(msg)
+            else:
+                msg = f"No presets defined for dataset '{dataset_name}'"
+                raise ValueError(msg)
     else:
         resolved_categories = categories
 

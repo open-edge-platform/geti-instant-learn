@@ -212,7 +212,25 @@ IMAGENET_TEMPLATES = [
 ]
 
 
+def get_category_presets():
+    """Get category presets for different datasets.
+
+    Returns:
+        dict: Category presets that can be imported and customized by users.
+    """
+    return {
+        "lvis": {
+            "default": LVIS_DEFAULT_CATEGORIES,
+            "benchmark": LVIS_92_BENCHMARK_CATEGORIES["fold_0"],  # Fold 0 is the default fold
+        },
+        "perseg": {
+            "default": None,  # Uses all available categories
+        },
+    }
+
+
 LVIS_DEFAULT_CATEGORIES = ["cupcake", "sheep", "pastry", "doughnut"]
+
 LVIS_92_BENCHMARK_CATEGORIES = {
     "fold_0": [
         "aerosol_can",

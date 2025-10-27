@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 logger = getLogger("Geti Prompt")
 
 
-def handle_output_path(output_path: str, overwrite: bool) -> Path:
+def prepare_output_directory(output_path: str, overwrite: bool) -> Path:
     """Handle output path to avoid overwriting existing data.
 
     Args:

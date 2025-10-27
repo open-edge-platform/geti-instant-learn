@@ -105,7 +105,7 @@ class TestBenchmarkModelHandling:
             patch("getiprompt.scripts.benchmark.SegmentationMetrics") as mock_metrics,
             patch("getiprompt.scripts.benchmark.learn_from_category") as mock_learn,
             patch("getiprompt.scripts.benchmark.infer_on_category") as mock_infer,
-            patch("getiprompt.scripts.benchmark.handle_output_path") as mock_handle_path,
+            patch("getiprompt.scripts.benchmark.prepare_output_directory") as mock_handle_path,
         ):
             mock_model = MagicMock()
             mock_load_model.return_value = mock_model
