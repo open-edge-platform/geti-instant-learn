@@ -7,9 +7,6 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from core.runtime.dispatcher import (
-    ConfigChangeDispatcher,
-)
 from db.models import LabelDB, ProjectDB
 from repositories.label import LabelRepository
 from repositories.project import ProjectRepository
@@ -43,7 +40,6 @@ class LabelService:
         session: Session,
         label_repository: LabelRepository | None = None,
         project_repository: ProjectRepository | None = None,
-        config_change_dispatcher: ConfigChangeDispatcher | None = None,
     ):
         """
         Initialize the service with a SQLAlchemy session.
@@ -51,7 +47,6 @@ class LabelService:
         self.session = session
         self.label_repository = label_repository or LabelRepository(session=session)
         self.project_repository = project_repository or ProjectRepository(session=session)
-        self._dispatcher = config_change_dispatcher
 
     def _ensure_project(self, project_id: UUID) -> ProjectDB:
         """

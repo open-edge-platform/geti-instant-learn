@@ -2,17 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, Response, status
+from fastapi import HTTPException, Response, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from dependencies import get_frame_service
+from dependencies import FrameServiceDep
 from routers import projects_router
 from services.errors import ResourceNotFoundError, ServiceError
-from services.frame import FrameService
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +102,7 @@ class FrameCaptureResponse(BaseModel):
         },
     },
 )
-def capture_frame(project_id: UUID, frame_service: Annotated[FrameService, Depends(get_frame_service)]) -> Response:
+def capture_frame(project_id: UUID, frame_service: FrameServiceDep) -> Response:
     """
     Capture the latest frame from the video stream of the active project.
     Returns the frame ID in the response body and a Location header pointing to the captured frame.
@@ -167,9 +165,7 @@ def capture_frame(project_id: UUID, frame_service: Annotated[FrameService, Depen
         },
     },
 )
-def get_frame(
-    project_id: UUID, frame_id: UUID, frame_service: Annotated[FrameService, Depends(get_frame_service)]
-) -> Response:
+def get_frame(project_id: UUID, frame_id: UUID, frame_service: FrameServiceDep) -> Response:
     """
     Retrieve a captured frame as JPEG.
     """

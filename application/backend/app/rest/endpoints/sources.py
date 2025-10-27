@@ -6,11 +6,10 @@ from uuid import UUID
 
 from fastapi import HTTPException, Response, status
 
-from dependencies import ConfigChangeDispatcherDep, SessionDep
+from dependencies import SourceServiceDep
 from routers import projects_router
 from services.errors import ResourceNotFoundError, ResourceUpdateConflictError
 from services.schemas.source import SourceCreateSchema, SourceSchema, SourcesListSchema, SourceUpdateSchema
-from services.source import SourceService
 
 logger = logging.getLogger(__name__)
 
@@ -25,16 +24,13 @@ logger = logging.getLogger(__name__)
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
     },
 )
-def get_sources(
-    project_id: UUID, db_session: SessionDep, config_dispatcher: ConfigChangeDispatcherDep
-) -> SourcesListSchema:
+def get_sources(project_id: UUID, source_service: SourceServiceDep) -> SourcesListSchema:
     """
     Retrieve the source configuration of the project.
     """
     logger.debug(f"Received GET project {project_id} sources request.")
-    service = SourceService(session=db_session, config_change_dispatcher=config_dispatcher)
     try:
-        return service.list_sources(project_id)
+        return source_service.list_sources(project_id)
     except ResourceNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
@@ -56,16 +52,14 @@ def get_sources(
 def create_source(
     project_id: UUID,
     payload: SourceCreateSchema,
-    db_session: SessionDep,
-    config_dispatcher: ConfigChangeDispatcherDep,
+    source_service: SourceServiceDep,
 ) -> SourceSchema:
     """
     Create a new source configuration for the project.
     """
     logger.debug(f"Received POST source request for project {project_id} with payload: {payload}.")
-    service = SourceService(session=db_session, config_change_dispatcher=config_dispatcher)
     try:
-        return service.create_source(project_id=project_id, create_data=payload)
+        return source_service.create_source(project_id=project_id, create_data=payload)
     except ResourceUpdateConflictError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except ResourceNotFoundError as e:
@@ -90,16 +84,14 @@ def update_source(
     project_id: UUID,
     source_id: UUID,
     payload: SourceUpdateSchema,
-    db_session: SessionDep,
-    config_dispatcher: ConfigChangeDispatcherDep,
+    source_service: SourceServiceDep,
 ) -> SourceSchema:
     """
     Update the project's source configuration.
     """
     logger.debug(f"Received PUT source {source_id} request for project {project_id}.")
-    service = SourceService(session=db_session, config_change_dispatcher=config_dispatcher)
     try:
-        return service.update_source(project_id=project_id, source_id=source_id, update_data=payload)
+        return source_service.update_source(project_id=project_id, source_id=source_id, update_data=payload)
     except ResourceUpdateConflictError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except ResourceNotFoundError as e:
@@ -125,16 +117,14 @@ def update_source(
 def delete_source(
     project_id: UUID,
     source_id: UUID,
-    db_session: SessionDep,
-    config_dispatcher: ConfigChangeDispatcherDep,
+    source_service: SourceServiceDep,
 ) -> Response:
     """
     Delete the specified project's source configuration.
     """
     logger.debug(f"Received DELETE source {source_id} request for project {project_id}.")
-    service = SourceService(session=db_session, config_change_dispatcher=config_dispatcher)
     try:
-        service.delete_source(project_id=project_id, source_id=source_id)
+        source_service.delete_source(project_id=project_id, source_id=source_id)
     except ResourceNotFoundError:
         logger.warning(f"Source with id {source_id} not found during delete operation.")
     except Exception as e:

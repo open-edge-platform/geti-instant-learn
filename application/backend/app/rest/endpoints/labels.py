@@ -1,16 +1,18 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
 import logging
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import HTTPException, Query, Response, status
 
-from dependencies import ConfigChangeDispatcherDep, SessionDep
+from dependencies import LabelServiceDep
 from routers import projects_router
 from services.errors import ResourceAlreadyExistsError, ResourceNotFoundError
 from services.label import LabelService
 from services.schemas.label import LabelCreateSchema, LabelSchema, LabelsListSchema, LabelUpdateSchema
+from services.schemas.label import LabelCreateSchema, LabelSchema, LabelsListSchema
 
 logger = logging.getLogger(__name__)
 
@@ -28,15 +30,13 @@ logger = logging.getLogger(__name__)
 def create_label(
     project_id: UUID,
     payload: LabelCreateSchema,
-    db_session: SessionDep,
-    config_dispatcher: ConfigChangeDispatcherDep,
+    label_service: LabelServiceDep,
 ) -> Response:
     """Create a new label with the given name."""
 
     logger.debug(f"Attempting to create label with name: {payload.name}")
-    service = LabelService(session=db_session, config_change_dispatcher=config_dispatcher)
     try:
-        label = service.create_label(project_id=project_id, create_data=payload)
+        label = label_service.create_label(project_id=project_id, create_data=payload)
         logger.info(f"Successfully created '{label.name}' label with id {label.id}")
     except ResourceAlreadyExistsError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
@@ -70,13 +70,11 @@ def create_label(
 def get_label_by_id(
     project_id: UUID,
     label_id: UUID,
-    db_session: SessionDep,
-    config_dispatcher: ConfigChangeDispatcherDep,
+    label_service: LabelServiceDep,
 ) -> LabelSchema:
     """Get a label by its ID for selected project."""
-    service = LabelService(session=db_session, config_change_dispatcher=config_dispatcher)
     try:
-        return service.get_label_by_id(project_id=project_id, label_id=label_id)
+        return label_service.get_label_by_id(project_id=project_id, label_id=label_id)
     except ResourceNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception:
@@ -103,15 +101,13 @@ def get_label_by_id(
 )
 def get_all_labels(
     project_id: UUID,
-    db_session: SessionDep,
-    config_dispatcher: ConfigChangeDispatcherDep,
+    label_service: LabelServiceDep,
     offset: Annotated[int, Query(ge=0, le=1000)] = 0,
     limit: Annotated[int, Query(ge=0, le=1000)] = 20,
 ) -> LabelsListSchema:
     """Get all labels for selected project"""
-    service = LabelService(session=db_session, config_change_dispatcher=config_dispatcher)
     try:
-        return service.get_all_labels(project_id=project_id, offset=offset, limit=limit)
+        return label_service.get_all_labels(project_id=project_id, offset=offset, limit=limit)
     except Exception:
         logger.exception(f"Internal error listing labels for project id {project_id}")
         raise HTTPException(
@@ -137,13 +133,11 @@ def get_all_labels(
 def delete_label_by_id(
     project_id: UUID,
     label_id: UUID,
-    db_session: SessionDep,
-    config_dispatcher: ConfigChangeDispatcherDep,
+    label_service: LabelServiceDep,
 ) -> Response:
     """Delete a label by its ID for selected project."""
-    service = LabelService(session=db_session, config_change_dispatcher=config_dispatcher)
     try:
-        service.delete_label(project_id=project_id, label_id=label_id)
+        label_service.delete_label(project_id=project_id, label_id=label_id)
     except ResourceNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception:

@@ -7,10 +7,9 @@ from uuid import UUID
 
 from fastapi import HTTPException, Query, Response, status
 
-from dependencies import ConfigChangeDispatcherDep, SessionDep
+from dependencies import ProjectServiceDep
 from routers import projects_router
 from services.errors import ResourceAlreadyExistsError, ResourceNotFoundError
-from services.project import ProjectService
 from services.schemas.project import (
     ProjectCreateSchema,
     ProjectSchema,
@@ -55,15 +54,13 @@ logger = logging.getLogger(__name__)
 )
 def create_project(
     payload: ProjectCreateSchema,
-    db_session: SessionDep,
-    config_dispatcher: ConfigChangeDispatcherDep,
+    project_service: ProjectServiceDep,
 ) -> Response:
     """Create a new project with the given name."""
 
     logger.debug(f"Attempting to create project with name: {payload.name}")
-    service = ProjectService(session=db_session, config_change_dispatcher=config_dispatcher)
     try:
-        project = service.create_project(payload)
+        project = project_service.create_project(payload)
         logger.info(f"Successfully created '{project.name}' project with id {project.id}")
     except ResourceAlreadyExistsError as e:
         logger.error(f"Project creation failed: {e}")
@@ -98,16 +95,12 @@ def create_project(
 )
 def delete_project(
     project_id: UUID,
-    db_session: SessionDep,
-    config_dispatcher: ConfigChangeDispatcherDep,
+    project_service: ProjectServiceDep,
 ) -> Response:
-    """
-    Delete the specified project.
-    """
+    """Delete the specified project."""
     logger.debug(f"Received DELETE project {project_id} request.")
-    service = ProjectService(session=db_session, config_change_dispatcher=config_dispatcher)
     try:
-        service.delete_project(project_id)
+        project_service.delete_project(project_id)
     except ResourceNotFoundError:
         logger.warning(f"Project with id {project_id} not found during delete operation.")
     except Exception as e:
@@ -136,16 +129,12 @@ def delete_project(
     },
 )
 def get_active_project(
-    db_session: SessionDep,
-    config_dispatcher: ConfigChangeDispatcherDep,
+    project_service: ProjectServiceDep,
 ) -> ProjectSchema:
-    """
-    Retrieve the configuration of the currently active project.
-    """
+    """Retrieve the configuration of the currently active project."""
     logger.debug("Received GET active project request.")
-    service = ProjectService(session=db_session, config_change_dispatcher=config_dispatcher)
     try:
-        return service.get_active_project_info()
+        return project_service.get_active_project_info()
     except ResourceNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -173,18 +162,14 @@ def get_active_project(
     },
 )
 def get_projects_list(
-    db_session: SessionDep,
-    config_dispatcher: ConfigChangeDispatcherDep,
+    project_service: ProjectServiceDep,
     offset: Annotated[int, Query(ge=0, le=1000)] = 0,
     limit: Annotated[int, Query(ge=0, le=1000)] = 20,
 ) -> ProjectsListSchema:
-    """
-    Retrieve a list of all available project configurations.
-    """
+    """Retrieve a list of all available project configurations."""
     logger.debug("Received GET projects request.")
-    service = ProjectService(session=db_session, config_change_dispatcher=config_dispatcher)
     try:
-        return service.list_projects(offset=offset, limit=limit)
+        return project_service.list_projects(offset=offset, limit=limit)
     except Exception as e:
         logger.exception(f"Internal error listing projects: {e}")
         raise HTTPException(
@@ -209,16 +194,12 @@ def get_projects_list(
 )
 def get_project(
     project_id: UUID,
-    db_session: SessionDep,
-    config_dispatcher: ConfigChangeDispatcherDep,
+    project_service: ProjectServiceDep,
 ) -> ProjectSchema:
-    """
-    Retrieve the project's configuration.
-    """
+    """Retrieve the project's configuration."""
     logger.debug(f"Received GET project {project_id} request.")
-    service = ProjectService(session=db_session, config_change_dispatcher=config_dispatcher)
     try:
-        return service.get_project(project_id)
+        return project_service.get_project(project_id)
     except ResourceNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
@@ -247,16 +228,12 @@ def get_project(
 def update_project(
     project_id: UUID,
     payload: ProjectUpdateSchema,
-    db_session: SessionDep,
-    config_dispatcher: ConfigChangeDispatcherDep,
+    project_service: ProjectServiceDep,
 ) -> ProjectSchema:
-    """
-    Update the project's configuration.
-    """
+    """Update the project's configuration."""
     logger.debug(f"Received PUT project {project_id} request.")
-    service = ProjectService(session=db_session, config_change_dispatcher=config_dispatcher)
     try:
-        return service.update_project(project_id=project_id, update_data=payload)
+        return project_service.update_project(project_id=project_id, update_data=payload)
     except ResourceNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except ResourceAlreadyExistsError as e:
