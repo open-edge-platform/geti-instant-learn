@@ -28,6 +28,8 @@ export const AnnotatorProvider = ({ frameId, children }: { frameId: string; chil
 
     const imageQuery = useLoadImageQuery(frameId);
 
+    console.log({ data: imageQuery.data });
+
     return (
         <AnnotatorProviderContext.Provider
             value={{
@@ -36,7 +38,7 @@ export const AnnotatorProvider = ({ frameId, children }: { frameId: string; chil
 
                 image: imageQuery.data,
                 frameId,
-                roi: { x: 0, y: 0, width: 300, height: 300 },
+                roi: { x: 0, y: 0, width: imageQuery.data.width, height: imageQuery.data.height },
             }}
         >
             {children}
