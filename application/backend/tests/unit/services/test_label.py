@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from services.errors import ResourceAlreadyExistsError, ResourceNotFoundError
-from services.label import LabelService, random_color
+from services.label import LabelService
 from services.schemas.label import LabelCreateSchema, LabelSchema, LabelsListSchema
 
 
@@ -105,7 +105,7 @@ def test_get_label_by_id(label_service, mock_label_repository, mock_project_repo
 
     assert result.name == "Test Label"
     assert result.id == label_id
-    assert result.color.as_hex(format="long").upper() == "#FFFFFF"
+    assert result.color.upper() == "#FFFFFF"
     mock_label_repository.get_by_id.assert_called_once_with(project_id=project_id, label_id=label_id)
 
 
@@ -171,9 +171,3 @@ def test_delete_label_not_found(label_service, mock_label_repository, mock_proje
 
     with pytest.raises(ResourceNotFoundError):
         label_service.delete_label(project_id, label_id)
-
-
-def test_random_color():
-    color = random_color()
-    assert color.startswith("#")
-    assert len(color) == 7

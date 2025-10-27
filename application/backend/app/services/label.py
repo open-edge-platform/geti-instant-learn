@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-import secrets
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -84,8 +83,6 @@ class LabelService:
         )
 
         label: LabelDB = label_schema_to_db(create_data)
-        if not label.color:
-            label.color = random_color()
         label.project_id = project_id
 
         try:
@@ -157,15 +154,3 @@ class LabelService:
         self.label_repository.delete(project_id=project_id, label=label)
         self.session.commit()
         logger.info("Label deleted id=%s", label_id)
-
-
-def random_color() -> str:
-    """
-    Generate random color.
-    """
-    red, green, blue = (
-        secrets.randbelow(256),
-        secrets.randbelow(256),
-        secrets.randbelow(256),
-    )
-    return f"#{red:02x}{green:02x}{blue:02x}"

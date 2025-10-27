@@ -15,7 +15,7 @@ class LabelCreateSchema(BaseIDPayload):
 
 class LabelSchema(BaseIDSchema):
     name: str = Field("", min_length=1, max_length=50, description="Label name")
-    color: Color | None = Field(None, description="New hex color code, e.g. #RRGGBB or #RGB")
+    color: str = Field("", description="New hex color code, e.g. #RRGGBB or #RGB")
 
 
 class LabelsListSchema(BaseModel):

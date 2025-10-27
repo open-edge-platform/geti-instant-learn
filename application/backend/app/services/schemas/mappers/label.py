@@ -1,6 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import secrets
 from collections.abc import Iterable
 
 from db.models import LabelDB
@@ -48,4 +49,21 @@ def label_schema_to_db(payload: LabelCreateSchema) -> LabelDB:
     The caller (service layer) is responsible for adding it to the session,
     flushing, activation handling, and committing.
     """
-    return LabelDB(id=payload.id, name=payload.name, color=payload.color)
+    if payload.color is None:
+        color_hex = random_color()
+    else:
+        color_hex = payload.color.as_hex("long")
+
+    return LabelDB(id=payload.id, name=payload.name, color=color_hex)
+
+
+def random_color() -> str:
+    """
+    Generate random color.
+    """
+    red, green, blue = (
+        secrets.randbelow(256),
+        secrets.randbelow(256),
+        secrets.randbelow(256),
+    )
+    return f"#{red:02x}{green:02x}{blue:02x}"
