@@ -10,12 +10,12 @@ from services.schemas.base import BaseIDPayload, BaseIDSchema, Pagination
 
 class LabelCreateSchema(BaseIDPayload):
     name: str = Field("", min_length=1, max_length=50, description="Label name")
-    color: Color | None = Field(None, description="New hex color code, e.g. #RRGGBB or #RGB")
+    color: Color | None = Field(None, description="New hex color code, e.g. #RRGGBB")
 
 
 class LabelSchema(BaseIDSchema):
     name: str = Field("", min_length=1, max_length=50, description="Label name")
-    color: str = Field("", description="New hex color code, e.g. #RRGGBB or #RGB")
+    color: str = Field("", description="New hex color code, e.g. #RRGGBB")
 
 
 class LabelsListSchema(BaseModel):
