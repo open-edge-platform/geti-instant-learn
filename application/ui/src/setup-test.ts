@@ -5,13 +5,12 @@
 
 import '@testing-library/jest-dom/vitest';
 
+import { ProjectsListType, ProjectType } from '@geti-prompt/api';
 import { HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import fetchPolyfill, { Request as RequestPolyfill } from 'node-fetch';
-import { afterAll, afterEach, beforeAll } from 'vitest';
 
-import { ProjectsListType, ProjectType } from './api';
-import { http } from './api/utils';
+import { handlers, http } from './api/utils';
 import { queryClient } from './query-client/query-client';
 
 const MOCKED_PROJECT_RESPONSE: ProjectType = {
@@ -34,7 +33,7 @@ const initialHandlers = [
     }),
 ];
 
-const server = setupServer(...initialHandlers);
+const server = setupServer(...handlers, ...initialHandlers);
 export { http, server };
 
 beforeAll(() => {
@@ -42,7 +41,7 @@ beforeAll(() => {
 });
 
 afterEach(() => {
-    server.resetHandlers(...initialHandlers);
+    server.resetHandlers();
     queryClient.clear();
 });
 

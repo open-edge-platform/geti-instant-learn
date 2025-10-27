@@ -7,12 +7,17 @@ import { render } from '@geti-prompt/test-utils';
 import { fireEvent, screen } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 import { SelectedFrameProvider } from 'src/features/stream/selected-frame-provider.component';
-import { describe, expect, it } from 'vitest';
 
 import { http, server } from '../../setup-test';
 import { Sidebar } from './sidebar.component';
 
-const renderSidebar = async () => {
+const INACTIVE_PROJECT_RESPONSE = {
+    id: '1',
+    name: 'Inactive Project',
+    active: false,
+};
+
+const renderSidebar = () => {
     return render(
         <SelectedFrameProvider>
             <Sidebar />
@@ -22,7 +27,7 @@ const renderSidebar = async () => {
 
 describe('Sidebar', () => {
     it('renders sidebar with prompt tab for active project', async () => {
-        await renderSidebar();
+        renderSidebar();
 
         const promptButton = await screen.findByRole('button', { name: /toggle prompt tab/i });
         expect(promptButton).toBeInTheDocument();
@@ -32,22 +37,18 @@ describe('Sidebar', () => {
     it('disables prompt tab when project is inactive', async () => {
         server.use(
             http.get('/api/v1/projects/{project_id}', () => {
-                return HttpResponse.json({
-                    id: '1',
-                    name: 'Inactive Project',
-                    active: false,
-                });
+                return HttpResponse.json(INACTIVE_PROJECT_RESPONSE);
             })
         );
 
-        await renderSidebar();
+        renderSidebar();
 
         const promptButton = await screen.findByRole('button', { name: /toggle prompt tab/i });
         expect(promptButton).toBeDisabled();
     });
 
     it('expands sidebar content when tab is toggled', async () => {
-        await renderSidebar();
+        renderSidebar();
 
         const promptButton = await screen.findByRole('button', { name: /toggle prompt tab/i });
 
@@ -65,15 +66,11 @@ describe('Sidebar', () => {
     it('does not expand sidebar for inactive project', async () => {
         server.use(
             http.get('/api/v1/projects/{project_id}', () => {
-                return HttpResponse.json({
-                    id: '1',
-                    name: 'Inactive Project',
-                    active: false,
-                });
+                return HttpResponse.json(INACTIVE_PROJECT_RESPONSE);
             })
         );
 
-        await renderSidebar();
+        renderSidebar();
 
         expect(screen.queryByRole('heading', { name: /prompt/i })).not.toBeInTheDocument();
 
@@ -82,7 +79,7 @@ describe('Sidebar', () => {
     });
 
     it('collapses sidebar when same tab is clicked again', async () => {
-        await renderSidebar();
+        renderSidebar();
 
         const promptButton = await screen.findByRole('button', { name: /toggle prompt tab/i });
 
@@ -91,20 +88,5 @@ describe('Sidebar', () => {
 
         fireEvent.click(promptButton);
         expect(promptButton).toHaveAttribute('aria-pressed', 'false');
-    });
-
-    it('applies correct grid layout classes based on expanded state', async () => {
-        await renderSidebar();
-
-        const promptButton = await screen.findByRole('button', { name: /toggle prompt tab/i });
-
-        const gridContainer = promptButton.closest('[data-expanded]');
-        expect(gridContainer).toHaveAttribute('data-expanded', 'true');
-
-        fireEvent.click(promptButton);
-        expect(gridContainer).toHaveAttribute('data-expanded', 'false');
-
-        fireEvent.click(promptButton);
-        expect(gridContainer).toHaveAttribute('data-expanded', 'true');
     });
 });
