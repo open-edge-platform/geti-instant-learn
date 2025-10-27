@@ -18,14 +18,27 @@ interface EditLabelProps {
     isQuiet?: boolean;
     width?: DimensionValue;
     isDisabled?: boolean;
+    existingLabelsNames: string[];
 }
 
-export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled }: EditLabelProps) => {
+const isUniqueName = (name: string, existingLabelsNames: string[]) => {
+    return !existingLabelsNames.includes(name);
+};
+
+export const EditLabel = ({
+    label,
+    onAccept,
+    onClose,
+    isQuiet,
+    width,
+    isDisabled,
+    existingLabelsNames,
+}: EditLabelProps) => {
     const MAX_NAME_LENGTH = 100;
-    const [color, setColor] = useState<string | undefined>(label.color ?? undefined);
+    const [color, setColor] = useState<string>(label.color);
     const [name, setName] = useState<string>(label.name);
 
-    const isEditDisabled = !name.trim() || isDisabled;
+    const isEditDisabled = !isUniqueName(name, existingLabelsNames) || !name.trim() || isDisabled;
 
     const handleAccept = () => {
         onAccept({ color, name, id: label.id });
@@ -45,7 +58,6 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled
             gap={'size-50'}
             width={width}
             justifyContent={'center'}
-            alignItems={'center'}
             UNSAFE_className={clsx({ [classes.editLabelContainer]: isQuiet })}
         >
             <ColorPickerDialog
@@ -69,6 +81,7 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled
                 onKeyDown={(e) => handleKeyDown(e)}
                 // eslint-disable-next-line jsx-a11y/no-autofocus
                 autoFocus
+                validate={(newName) => isUniqueName(newName, existingLabelsNames) || "Label's name must be unique."}
             />
             <ActionButton
                 isQuiet={isQuiet}

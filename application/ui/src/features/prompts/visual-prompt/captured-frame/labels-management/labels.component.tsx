@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 
-import { $api } from '@geti-prompt/api';
+import { $api, LabelType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Flex } from '@geti/ui';
 
@@ -14,6 +14,7 @@ import { LabelListItem } from './label-list-item.component';
 
 const useLabelsQuery = () => {
     const { projectId } = useProjectIdentifier();
+
     return $api.useSuspenseQuery('get', '/api/v1/projects/{project_id}/labels', {
         params: {
             path: {
@@ -23,19 +24,22 @@ const useLabelsQuery = () => {
     });
 };
 
-const LabelsList = () => {
-    const { data } = useLabelsQuery();
+interface LabelsListProps {
+    labels: LabelType[];
+}
 
+const LabelsList = ({ labels }: LabelsListProps) => {
     const [selectedLabelId, setSelectedLabelId] = useState<string | null>(null);
 
     return (
         <>
-            {data.labels.map((label) => (
+            {labels.map((label) => (
                 <LabelListItem
                     key={label.id}
                     label={label}
                     onSelect={() => setSelectedLabelId(label.id)}
                     isSelected={selectedLabelId === label.id}
+                    existingLabelsNames={labels.filter(({ id }) => id !== label.id).map(({ name }) => name)}
                 />
             ))}
         </>
@@ -43,12 +47,16 @@ const LabelsList = () => {
 };
 
 export const Labels = () => {
+    const { data } = useLabelsQuery();
+
+    const existingLabelsNames = data.labels.map((label) => label.name);
+
     return (
         <Flex height={'100%'} alignItems={'center'} width={'100%'}>
             <Flex margin={'size-50'} wrap={'wrap'} width={'100%'} alignItems={'center'} gap={'size-100'}>
-                <LabelsList />
+                <LabelsList labels={data.labels} />
                 <Flex alignSelf={'flex-end'} flex={1} justifyContent={'end'} alignItems={'center'}>
-                    <AddLabel />
+                    <AddLabel existingLabelsNames={existingLabelsNames} />
                 </Flex>
             </Flex>
         </Flex>

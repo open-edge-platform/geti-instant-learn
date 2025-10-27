@@ -81,9 +81,10 @@ interface LabelListItemProps {
     label: LabelType;
     onSelect: () => void;
     isSelected: boolean;
+    existingLabelsNames: string[];
 }
 
-export const LabelListItem = ({ label, onSelect, isSelected }: LabelListItemProps) => {
+export const LabelListItem = ({ label, onSelect, isSelected, existingLabelsNames }: LabelListItemProps) => {
     const [isInEdition, setIsInEdition] = useState<boolean>(false);
 
     if (isInEdition) {
@@ -94,6 +95,7 @@ export const LabelListItem = ({ label, onSelect, isSelected }: LabelListItemProp
                 label={label}
                 isQuiet
                 width={'size-2400'}
+                existingLabelsNames={existingLabelsNames}
             />
         );
     }

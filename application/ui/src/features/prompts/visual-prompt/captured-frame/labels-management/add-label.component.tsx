@@ -9,13 +9,17 @@ import { AddLabelDialog } from './add-label-dialog.component';
 
 import classes from './add-label.module.scss';
 
-export const AddLabel = () => {
+interface AddLabelProps {
+    existingLabelsNames: string[];
+}
+
+export const AddLabel = ({ existingLabelsNames }: AddLabelProps) => {
     return (
         <DialogTrigger type={'popover'} hideArrow placement={'bottom right'}>
             <Button variant={'secondary'} UNSAFE_className={classes.addLabelButton}>
                 Add label
             </Button>
-            {(close) => <AddLabelDialog closeDialog={close} />}
+            {(close) => <AddLabelDialog closeDialog={close} existingLabelsNames={existingLabelsNames} />}
         </DialogTrigger>
     );
 };
