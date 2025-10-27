@@ -5,16 +5,15 @@
 
 import { CSSProperties, KeyboardEvent, useState } from 'react';
 
+import { LabelType } from '@geti-prompt/api';
 import { ActionButton, ColorPickerDialog, DimensionValue, Flex, TextField } from '@geti/ui';
 import { clsx } from 'clsx';
-
-import { Label } from '../../../../annotator/types';
 
 import classes from './edit-label.module.scss';
 
 interface EditLabelProps {
-    label: Label;
-    onAccept: (editedLabel: Label) => void;
+    label: LabelType;
+    onAccept: (editedLabel: LabelType) => void;
     onClose: () => void;
     isQuiet?: boolean;
     width?: DimensionValue;
@@ -22,7 +21,7 @@ interface EditLabelProps {
 
 export const EditLabel = ({ label, onAccept, onClose, isQuiet, width }: EditLabelProps) => {
     const MAX_NAME_LENGTH = 100;
-    const [color, setColor] = useState<string>(label.color);
+    const [color, setColor] = useState<string | undefined>(label.color ?? undefined);
     const [name, setName] = useState<string>(label.name);
 
     const handleAccept = () => {

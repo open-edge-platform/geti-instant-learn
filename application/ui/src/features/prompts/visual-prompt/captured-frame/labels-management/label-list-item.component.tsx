@@ -5,57 +5,91 @@
 
 import { useState } from 'react';
 
+import { $api, LabelType } from '@geti-prompt/api';
+import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { ActionButton, Tooltip, TooltipTrigger } from '@geti/ui';
-import { Close, Edit } from '@geti/ui/icons';
+import { Close } from '@geti/ui/icons';
 
-import { Label } from '../../../../annotator/types';
 import { EditLabel } from './edit-label.component';
 import { LabelBadge } from './label-badge.component';
 
 import classes from './label-list-item.module.scss';
 
-interface LabelListItemProps {
-    label: Label;
-    deleteLabel: () => void;
+interface LabelListItemViewProps {
+    label: LabelType;
     onSelect: () => void;
     isSelected: boolean;
-    onUpdate: (edited: Label) => void;
 }
 
-export const LabelListItem = ({ label, deleteLabel, onSelect, isSelected, onUpdate }: LabelListItemProps) => {
+const useDeleteLabelMutation = () => {
+    const { projectId } = useProjectIdentifier();
+
+    return $api.useMutation('delete', '/api/v1/projects/{project_id}/labels/{label_id}', {
+        meta: {
+            invalidates: [
+                ['get', '/api/v1/projects/{project_id}/labels', { params: { path: { project_id: projectId } } }],
+            ],
+        },
+    });
+};
+
+const LabelListItemView = ({ label, onSelect, isSelected }: LabelListItemViewProps) => {
+    const { projectId } = useProjectIdentifier();
+    const deleteLabelMutation = useDeleteLabelMutation();
+
+    const deleteLabel = () => {
+        deleteLabelMutation.mutate({
+            params: {
+                path: {
+                    project_id: projectId,
+                    label_id: label.id,
+                },
+            },
+        });
+    };
+
+    return (
+        <LabelBadge onClick={onSelect} key={label.id} label={label} isSelected={isSelected}>
+            {/* TODO: API does not support editing label name yet
+            <TooltipTrigger placement={'bottom'}>
+                <ActionButton
+                    aria-label={`Edit ${label.name} label`}
+                    isQuiet
+                    UNSAFE_className={classes.iconButton}
+                    onPress={onEdit}
+                >
+                    <Edit />
+                </ActionButton>
+                <Tooltip>Edit label name</Tooltip>
+            </TooltipTrigger>*/}
+            <TooltipTrigger placement={'bottom'}>
+                <ActionButton
+                    aria-label={`Delete ${label.name} label`}
+                    isQuiet
+                    UNSAFE_className={classes.iconButton}
+                    onPress={deleteLabel}
+                >
+                    <Close />
+                </ActionButton>
+                <Tooltip>Delete label</Tooltip>
+            </TooltipTrigger>
+        </LabelBadge>
+    );
+};
+
+interface LabelListItemProps {
+    label: LabelType;
+    onSelect: () => void;
+    isSelected: boolean;
+}
+
+export const LabelListItem = ({ label, onSelect, isSelected }: LabelListItemProps) => {
     const [isInEdition, setIsInEdition] = useState<boolean>(false);
 
-    if (!isInEdition) {
-        return (
-            <LabelBadge onClick={onSelect} key={label.id} label={label} isSelected={isSelected}>
-                <TooltipTrigger placement={'bottom'}>
-                    <ActionButton
-                        aria-label={`Edit ${label.name} label`}
-                        isQuiet
-                        UNSAFE_className={classes.iconButton}
-                        onPress={() => setIsInEdition(true)}
-                    >
-                        <Edit />
-                    </ActionButton>
-                    <Tooltip>Edit label name</Tooltip>
-                </TooltipTrigger>
-                <TooltipTrigger placement={'bottom'}>
-                    <ActionButton
-                        aria-label={`Delete ${label.name} label`}
-                        isQuiet
-                        UNSAFE_className={classes.iconButton}
-                        onPress={deleteLabel}
-                    >
-                        <Close />
-                    </ActionButton>
-                    <Tooltip>Delete label</Tooltip>
-                </TooltipTrigger>
-            </LabelBadge>
-        );
-    } else {
+    if (isInEdition) {
         return (
             <EditLabel
-                onAccept={onUpdate}
+                onAccept={() => {}}
                 onClose={() => setIsInEdition(false)}
                 label={label}
                 isQuiet
@@ -63,4 +97,6 @@ export const LabelListItem = ({ label, deleteLabel, onSelect, isSelected, onUpda
             />
         );
     }
+
+    return <LabelListItemView label={label} onSelect={onSelect} isSelected={isSelected} />;
 };

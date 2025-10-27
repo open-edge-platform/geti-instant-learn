@@ -5,16 +5,15 @@
 
 import { CSSProperties, ReactNode } from 'react';
 
+import { LabelType } from '@geti-prompt/api';
 import { Flex, Text } from '@geti/ui';
 import { clsx } from 'clsx';
 import { usePress } from 'react-aria';
 
-import { Label } from '../../../../annotator/types';
-
 import classes from './label-badge.module.scss';
 
 interface LabelIndicatorProps {
-    label: Label;
+    label: LabelType;
     isSelected: boolean;
     onClick: () => void;
     children: ReactNode;
