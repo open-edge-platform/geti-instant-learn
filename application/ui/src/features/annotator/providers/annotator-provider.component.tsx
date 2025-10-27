@@ -15,7 +15,6 @@ type AnnotatorContext = {
     setActiveTool: Dispatch<SetStateAction<ToolType | null>>;
 
     // Media item
-    // mediaItem: MediaItem;
     roi: RegionOfInterest;
     frameId: string;
     image: ImageData;
@@ -27,8 +26,6 @@ export const AnnotatorProvider = ({ frameId, children }: { frameId: string; chil
     const [activeTool, setActiveTool] = useState<ToolType | null>(null);
 
     const imageQuery = useLoadImageQuery(frameId);
-
-    console.log({ data: imageQuery.data });
 
     return (
         <AnnotatorProviderContext.Provider

@@ -12,7 +12,6 @@ const DEFAULT_SCREEN_ZOOM = 1;
 const getCenterCoordinates = (container: Size, target: Size): ZoomState['initialCoordinates'] => {
     // Scale image so that it fits perfectly in the container
     const scale = DEFAULT_SCREEN_ZOOM * Math.min(container.width / target.width, container.height / target.height);
-    //debugger;
 
     return {
         scale,
@@ -33,12 +32,6 @@ export const useSyncZoom = ({ container, target, zoomInMultiplier }: useSyncZoom
         if (container.width === undefined || container.height === undefined) {
             return INITIAL_ZOOM;
         }
-
-        const a = getCenterCoordinates({ width: container.width, height: container.height }, target);
-
-        // debugger;
-
-        return a;
 
         return getCenterCoordinates({ width: container.width, height: container.height }, target);
     }, [container, target]);

@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CSSProperties, ReactNode, Suspense } from 'react';
+import { ReactNode, Suspense } from 'react';
 
 import { Image } from '@geti-prompt/icons';
-import { Content, Flex, Grid, Loading, minmax, View } from '@geti/ui';
+import { Content, Flex, Grid, Loading, View } from '@geti/ui';
 
 import { ZoomProvider } from '../../../../components/zoom/zoom.provider';
 import { AnnotatorCanvas } from '../../../annotator/annotator-canvas';
@@ -20,21 +20,34 @@ import { Labels } from './labels-management/labels.component';
 
 import styles from './captured-frame.module.scss';
 
+const FallbackComponent = () => {
+    return (
+        <View minHeight={'size-6000'}>
+            <View
+                gridArea={'labels'}
+                height={'size-500'}
+                backgroundColor={'gray-200'}
+                paddingX={'size-100'}
+                paddingY={'size-50'}
+            />
+            <View gridArea={'image'} backgroundColor={'gray-50'} height={'100%'}>
+                <Flex width={'100%'} height={'100%'} justifyContent={'center'} alignItems={'center'}>
+                    <Loading mode={'inline'} />
+                </Flex>
+            </View>
+            <View gridArea={'actions'} backgroundColor={'gray-200'} padding={'size-100'} height={'size-500'} />
+        </View>
+    );
+};
+
 interface CapturedFrameAnnotatorProps {
     children: ReactNode;
     frameId: string;
 }
-
 const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorProps) => {
     return (
         <ZoomProvider>
-            <Suspense
-                fallback={
-                    <View gridRow={'1/-1'} alignSelf={'center'}>
-                        <Loading mode={'inline'} />
-                    </View>
-                }
-            >
+            <Suspense fallback={<FallbackComponent />}>
                 <AnnotatorProvider frameId={frameId}>
                     <SelectAnnotationProvider>
                         <AnnotationActionsProvider>
@@ -52,9 +65,7 @@ const NoCapturedFramePlaceholder = () => {
         <View backgroundColor={'gray-300'} height={'100%'}>
             <Flex height={'100%'} width={'100%'} justifyContent={'center'} alignItems={'center'}>
                 <Flex direction={'column'} gap={'size-100'} alignItems={'center'}>
-                    <View>
-                        <Image />
-                    </View>
+                    <Image />
                     <Content UNSAFE_className={styles.noFramePlaceholder}>Capture frames for visual prompt</Content>
                 </Flex>
             </Flex>
@@ -72,12 +83,11 @@ export const CapturedFrame = () => {
     return (
         <Grid
             width={'100%'}
+            height={'100%'}
             areas={['labels', 'image', 'actions']}
-            rows={[minmax('size-500', 'auto'), minmax(0, '1fr'), 'size-500']}
-            //height={'100%'}
+            rows={['size-500', 'auto', 'size-500']}
             UNSAFE_style={{
                 backgroundColor: 'var(--spectrum-global-color-gray-200)',
-                overflow: 'hidden',
             }}
         >
             <CapturedFrameProviders frameId={selectedFrameId}>
@@ -85,7 +95,7 @@ export const CapturedFrame = () => {
                     <Labels />
                 </View>
 
-                <View gridArea={'image'} backgroundColor={'gray-50'} overflow={'hidden'}>
+                <View gridArea={'image'} backgroundColor={'gray-50'} overflow={'hidden'} maxHeight={'size-6000'}>
                     <AnnotatorCanvas frameId={selectedFrameId} />
                 </View>
                 <View gridArea={'actions'} backgroundColor={'gray-200'} padding={'size-100'}>

@@ -37,7 +37,7 @@ export const AnnotatorCanvas = ({ frameId }: AnnotatorCanvasProps) => {
 
     return (
         <ZoomTransform target={image}>
-            <View position={'relative'} width={'100%'} height={'100%'}>
+            <View position={'relative'}>
                 <img src={imageUrl} alt='Collected data' />
 
                 <Annotations annotations={orderedAnnotations} width={roi.width} height={roi.height} />
