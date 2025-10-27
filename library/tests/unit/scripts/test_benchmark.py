@@ -3,6 +3,7 @@
 
 """Unit tests for benchmark script including CLI options and dataset handling."""
 
+import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -15,17 +16,17 @@ from getiprompt.utils.args import get_arguments
 class TestBenchmarkCLI:
     """Test CLI options in benchmark script."""
 
-    def test_get_arguments_default_values(self):
+    def test_get_arguments_default_values(self) -> None:
         """Test that default values are correctly parsed."""
         # Test that get_arguments function exists and can be imported
         assert callable(get_arguments)
 
-    def test_get_arguments_custom_values(self):
+    def test_get_arguments_custom_values(self) -> None:
         """Test parsing custom values."""
         # Test that get_arguments function exists and can be imported
         assert callable(get_arguments)
 
-    def test_get_arguments_attributes(self):
+    def test_get_arguments_attributes(self) -> None:
         """Test that get_arguments returns expected attributes."""
         # Test that get_arguments function exists and can be imported
         assert callable(get_arguments)
@@ -35,7 +36,7 @@ class TestBenchmarkDatasetHandling:
     """Test dataset handling in benchmark script."""
 
     @patch("getiprompt.scripts.benchmark.Path")
-    def test_load_dataset_by_name_lvis(self, mock_path):
+    def test_load_dataset_by_name_lvis(self, mock_path: Path) -> None:
         """Test dataset loading with LVIS dataset."""
         mock_path.return_value = Path("/home/user/datasets")
 
@@ -43,12 +44,12 @@ class TestBenchmarkDatasetHandling:
         with patch("getiprompt.scripts.benchmark.LVISDataset") as mock_lvis:
             mock_lvis.return_value = MagicMock()
 
-            dataset = load_dataset_by_name("lvis", categories="default")
+            load_dataset_by_name("lvis", categories="default")
 
             mock_lvis.assert_called_once()
 
     @patch("getiprompt.scripts.benchmark.Path")
-    def test_load_dataset_by_name_perseg(self, mock_path):
+    def test_load_dataset_by_name_perseg(self, mock_path: Path) -> None:
         """Test dataset loading with PerSeg dataset."""
         custom_path = "/custom/datasets"
         mock_path.return_value = Path(custom_path)
@@ -57,36 +58,36 @@ class TestBenchmarkDatasetHandling:
         with patch("getiprompt.scripts.benchmark.PerSegDataset") as mock_perseg:
             mock_perseg.return_value = MagicMock()
 
-            dataset = load_dataset_by_name("perseg", categories="default", dataset_root=custom_path)
+            load_dataset_by_name("perseg", categories="default", dataset_root=custom_path)
 
             mock_perseg.assert_called_once()
 
-    def test_load_dataset_by_name_all_categories(self):
+    def test_load_dataset_by_name_all_categories(self) -> None:
         """Test dataset loading with all categories."""
         with patch("getiprompt.scripts.benchmark.LVISDataset") as mock_lvis:
             mock_lvis.return_value = MagicMock()
 
-            dataset = load_dataset_by_name("lvis", categories="all")
+            load_dataset_by_name("lvis", categories="all")
 
             mock_lvis.assert_called_once()
 
-    def test_load_dataset_by_name_category_filtering(self):
+    def test_load_dataset_by_name_category_filtering(self) -> None:
         """Test dataset loading with category filtering."""
         with patch("getiprompt.scripts.benchmark.LVISDataset") as mock_lvis:
             mock_lvis.return_value = MagicMock()
 
             # Test with specific category
-            dataset = load_dataset_by_name("lvis", categories=["cat"])
+            load_dataset_by_name("lvis", categories=["cat"])
             mock_lvis.assert_called_once()
 
             # Reset mock for second test
             mock_lvis.reset_mock()
 
             # Test with benchmark categories
-            dataset = load_dataset_by_name("lvis", categories="benchmark")
+            load_dataset_by_name("lvis", categories="benchmark")
             mock_lvis.assert_called_once()
 
-    def test_load_dataset_by_name_error_handling(self):
+    def test_load_dataset_by_name_error_handling(self) -> None:
         """Test error handling in dataset loading."""
         with patch("getiprompt.scripts.benchmark.LVISDataset") as mock_lvis:
             mock_lvis.side_effect = FileNotFoundError("Dataset not found")
@@ -98,7 +99,7 @@ class TestBenchmarkDatasetHandling:
 class TestBenchmarkModelHandling:
     """Test model handling in benchmark script."""
 
-    def test_predict_on_dataset_single_model(self):
+    def test_predict_on_dataset_single_model(self) -> None:
         """Test running prediction on dataset with single model."""
         with (
             patch("getiprompt.scripts.benchmark.load_model") as mock_load_model,
@@ -109,7 +110,7 @@ class TestBenchmarkModelHandling:
         ):
             mock_model = MagicMock()
             mock_load_model.return_value = mock_model
-            mock_handle_path.return_value = Path("/tmp/output")
+            mock_handle_path.return_value = Path(tempfile.mkdtemp())
 
             # Create mock metrics that returns a proper dict
             mock_metrics_instance = MagicMock()
@@ -143,7 +144,7 @@ class TestBenchmarkModelHandling:
                 args=mock_args,
                 model=mock_model,
                 dataset=mock_dataset,
-                output_path=Path("/tmp/output"),
+                output_path=Path(tempfile.mkdtemp()),
                 dataset_name="lvis",
                 model_name="Matcher",
                 backbone_name="SAM-HQ-tiny",
@@ -153,7 +154,7 @@ class TestBenchmarkModelHandling:
             # Should return a DataFrame
             assert result is not None
 
-    def test_predict_on_dataset_error_handling(self):
+    def test_predict_on_dataset_error_handling(self) -> None:
         """Test error handling in dataset prediction."""
         with patch("getiprompt.scripts.benchmark.load_model") as mock_load_model:
             mock_load_model.side_effect = RuntimeError("Model loading failed")
@@ -166,7 +167,7 @@ class TestBenchmarkModelHandling:
                     args=mock_args,
                     model=mock_load_model(),
                     dataset=mock_dataset,
-                    output_path=Path("/tmp/output"),
+                    output_path=Path(tempfile.mkdtemp()),
                     dataset_name="lvis",
                     model_name="Matcher",
                     backbone_name="SAM-HQ-tiny",
@@ -177,7 +178,7 @@ class TestBenchmarkModelHandling:
 class TestBenchmarkOutputHandling:
     """Test output handling in benchmark script."""
 
-    def test_output_directory_creation(self):
+    def test_output_directory_creation(self) -> None:
         """Test output directory creation."""
         with (
             patch("getiprompt.scripts.benchmark.Path.mkdir") as mock_mkdir,
@@ -206,11 +207,11 @@ class TestBenchmarkOutputHandling:
             mock_setup_logger.return_value = None
 
             # Test with custom output directory
-            result = perform_benchmark_experiment()
+            perform_benchmark_experiment()
 
             mock_mkdir.assert_called()
 
-    def test_results_saving(self):
+    def test_results_saving(self) -> None:
         """Test saving benchmark results."""
         with (
             patch("getiprompt.scripts.benchmark.get_arguments") as mock_get_args,
@@ -235,11 +236,11 @@ class TestBenchmarkOutputHandling:
             mock_save.return_value = None
             mock_setup_logger.return_value = None
 
-            result = perform_benchmark_experiment()
+            perform_benchmark_experiment()
 
             mock_save.assert_called()
 
-    def test_results_formatting(self):
+    def test_results_formatting(self) -> None:
         """Test results formatting."""
         with (
             patch("getiprompt.scripts.benchmark.get_arguments") as mock_get_args,
@@ -264,7 +265,7 @@ class TestBenchmarkOutputHandling:
             mock_save.return_value = None
             mock_setup_logger.return_value = None
 
-            result = perform_benchmark_experiment()
+            perform_benchmark_experiment()
 
             # Should call predict_on_dataset
             mock_predict.assert_called()
@@ -273,7 +274,7 @@ class TestBenchmarkOutputHandling:
 class TestBenchmarkIntegration:
     """Test integration of benchmark functionality."""
 
-    def test_perform_benchmark_experiment_integration(self):
+    def test_perform_benchmark_experiment_integration(self) -> None:
         """Test benchmark experiment integration."""
         with (
             patch("getiprompt.scripts.benchmark.get_arguments") as mock_get_args,
@@ -299,13 +300,13 @@ class TestBenchmarkIntegration:
             mock_setup_logger.return_value = None
 
             # Test with default arguments
-            result = perform_benchmark_experiment()
+            perform_benchmark_experiment()
 
             mock_load_dataset.assert_called()
             mock_predict.assert_called()
             mock_save.assert_called()
 
-    def test_perform_benchmark_experiment_with_custom_args(self):
+    def test_perform_benchmark_experiment_with_custom_args(self) -> None:
         """Test benchmark experiment with custom arguments."""
         with (
             patch("getiprompt.scripts.benchmark.parse_experiment_args") as mock_parse_args,
@@ -334,13 +335,13 @@ class TestBenchmarkIntegration:
             custom_args.dataset_root = "/custom/path"
             custom_args.log_level = "INFO"
 
-            result = perform_benchmark_experiment(custom_args)
+            perform_benchmark_experiment(custom_args)
 
             mock_load_dataset.assert_called()
             mock_predict.assert_called()
             mock_save.assert_called()
 
-    def test_perform_benchmark_experiment_error_handling(self):
+    def test_perform_benchmark_experiment_error_handling(self) -> None:
         """Test error handling in benchmark experiment."""
         with (
             patch("getiprompt.scripts.benchmark.get_arguments") as mock_get_args,
@@ -362,7 +363,7 @@ class TestBenchmarkIntegration:
             with pytest.raises(FileNotFoundError):
                 perform_benchmark_experiment()
 
-    def test_perform_benchmark_experiment_performance_tracking(self):
+    def test_perform_benchmark_experiment_performance_tracking(self) -> None:
         """Test performance tracking in benchmark experiment."""
         with (
             patch("getiprompt.scripts.benchmark.get_arguments") as mock_get_args,
@@ -387,7 +388,7 @@ class TestBenchmarkIntegration:
             mock_save.return_value = None
             mock_setup_logger.return_value = None
 
-            result = perform_benchmark_experiment()
+            perform_benchmark_experiment()
 
             # Verify that the functions are called
             mock_load_dataset.assert_called()
@@ -398,7 +399,7 @@ class TestBenchmarkIntegration:
 class TestBenchmarkCLIValidation:
     """Test CLI validation in benchmark script."""
 
-    def test_validate_dataset_name(self):
+    def test_validate_dataset_name(self) -> None:
         """Test dataset name validation."""
         valid_datasets = ["lvis", "perseg", "all"]
 
@@ -412,28 +413,28 @@ class TestBenchmarkCLIValidation:
                 mock_perseg.return_value = MagicMock()
 
                 if dataset == "lvis":
-                    result = load_dataset_by_name(dataset, categories="default")
+                    load_dataset_by_name(dataset, categories="default")
                     mock_lvis.assert_called_once()
                 elif dataset == "perseg":
-                    result = load_dataset_by_name(dataset, categories="default")
+                    load_dataset_by_name(dataset, categories="default")
                     mock_perseg.assert_called_once()
 
-    def test_validate_model_name(self):
+    def test_validate_model_name(self) -> None:
         """Test model name validation."""
         # Test that get_arguments function exists and can be imported
         assert callable(get_arguments)
 
-    def test_validate_sam_backbone(self):
+    def test_validate_sam_backbone(self) -> None:
         """Test SAM backbone validation."""
         # Test that get_arguments function exists and can be imported
         assert callable(get_arguments)
 
-    def test_validate_n_shot(self):
+    def test_validate_n_shot(self) -> None:
         """Test n_shot validation."""
         # Test that get_arguments function exists and can be imported
         assert callable(get_arguments)
 
-    def test_validate_class_name(self):
+    def test_validate_class_name(self) -> None:
         """Test class name validation."""
         # Test that get_arguments function exists and can be imported
         assert callable(get_arguments)

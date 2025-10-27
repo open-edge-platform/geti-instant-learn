@@ -212,7 +212,7 @@ IMAGENET_TEMPLATES = [
 ]
 
 
-def get_category_presets():
+def get_category_presets() -> dict[str, dict[str, list[str]]]:
     """Get category presets for different datasets.
 
     Returns:
