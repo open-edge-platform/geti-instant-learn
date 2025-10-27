@@ -17,12 +17,15 @@ interface EditLabelProps {
     onClose: () => void;
     isQuiet?: boolean;
     width?: DimensionValue;
+    isDisabled?: boolean;
 }
 
-export const EditLabel = ({ label, onAccept, onClose, isQuiet, width }: EditLabelProps) => {
+export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled }: EditLabelProps) => {
     const MAX_NAME_LENGTH = 100;
     const [color, setColor] = useState<string | undefined>(label.color ?? undefined);
     const [name, setName] = useState<string>(label.name);
+
+    const isEditDisabled = !name.trim() || isDisabled;
 
     const handleAccept = () => {
         onAccept({ color, name, id: label.id });
@@ -30,7 +33,7 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width }: EditLabe
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !isEditDisabled) {
             handleAccept();
         } else if (e.key === 'Escape') {
             onClose();
@@ -71,7 +74,7 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width }: EditLabe
                 isQuiet={isQuiet}
                 aria-label={'Confirm label'}
                 onPress={handleAccept}
-                isDisabled={!name.trim()}
+                isDisabled={isEditDisabled}
                 UNSAFE_style={
                     {
                         '--addButtonBgColor': isQuiet ? 'var(--spectrum-global-color-gray-200)' : 'var(--energy-blue)',

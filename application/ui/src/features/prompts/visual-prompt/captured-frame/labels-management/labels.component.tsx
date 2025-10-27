@@ -23,24 +23,32 @@ const useLabelsQuery = () => {
     });
 };
 
-export const Labels = () => {
+const LabelsList = () => {
     const { data } = useLabelsQuery();
 
     const [selectedLabelId, setSelectedLabelId] = useState<string | null>(null);
 
     return (
+        <>
+            {data.labels.map((label) => (
+                <LabelListItem
+                    key={label.id}
+                    label={label}
+                    onSelect={() => setSelectedLabelId(label.id)}
+                    isSelected={selectedLabelId === label.id}
+                />
+            ))}
+        </>
+    );
+};
+
+export const Labels = () => {
+    return (
         <Flex height={'100%'} alignItems={'center'} width={'100%'}>
             <Flex margin={'size-50'} wrap={'wrap'} width={'100%'} alignItems={'center'} gap={'size-100'}>
-                {data.labels.map((label) => (
-                    <LabelListItem
-                        key={label.id}
-                        label={label}
-                        onSelect={() => setSelectedLabelId(label.id)}
-                        isSelected={selectedLabelId === label.id}
-                    />
-                ))}
+                <LabelsList />
                 <Flex alignSelf={'flex-end'} flex={1} justifyContent={'end'} alignItems={'center'}>
-                    <AddLabel onAddLabel={() => {}} />
+                    <AddLabel />
                 </Flex>
             </Flex>
         </Flex>

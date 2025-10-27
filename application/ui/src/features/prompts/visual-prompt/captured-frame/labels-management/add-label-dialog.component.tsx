@@ -3,26 +3,73 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useMemo } from 'react';
+
+import { $api, LabelType } from '@geti-prompt/api';
+import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Content, Dialog } from '@geti/ui';
 import { getDistinctColorBasedOnHash } from '@geti/ui/utils';
 import { v4 as uuid } from 'uuid';
 
-import { Label } from '../../../../annotator/types';
 import { EditLabel } from './edit-label.component';
 
 interface AddLabelDialogProps {
-    onAction: (label: Label) => void;
     closeDialog: () => void;
 }
 
-export const AddLabelDialog = ({ onAction, closeDialog }: AddLabelDialogProps) => {
+const useAddLabel = () => {
+    const { projectId } = useProjectIdentifier();
+
+    return $api.useMutation('post', '/api/v1/projects/{project_id}/labels', {
+        meta: {
+            invalidates: [
+                ['get', '/api/v1/projects/{project_id}/labels', { params: { path: { project_id: projectId } } }],
+            ],
+        },
+    });
+};
+
+const getDefaultLabel = (): LabelType => {
     const id = uuid();
-    const defaultLabel = { id, name: '', color: getDistinctColorBasedOnHash(id) };
+
+    return {
+        id,
+        name: '',
+        color: getDistinctColorBasedOnHash(id),
+    };
+};
+
+export const AddLabelDialog = ({ closeDialog }: AddLabelDialogProps) => {
+    const { projectId } = useProjectIdentifier();
+
+    const defaultLabel = useMemo(getDefaultLabel, []);
+
+    const addLabelMutation = useAddLabel();
+
+    const addLabel = (label: LabelType) => {
+        addLabelMutation.mutate({
+            body: {
+                id: label.id,
+                name: label.name,
+                color: label.color,
+            },
+            params: {
+                path: {
+                    project_id: projectId,
+                },
+            },
+        });
+    };
 
     return (
         <Dialog>
             <Content>
-                <EditLabel label={defaultLabel} onAccept={onAction} onClose={closeDialog} />
+                <EditLabel
+                    label={defaultLabel}
+                    onAccept={addLabel}
+                    onClose={closeDialog}
+                    isDisabled={addLabelMutation.isPending}
+                />
             </Content>
         </Dialog>
     );
