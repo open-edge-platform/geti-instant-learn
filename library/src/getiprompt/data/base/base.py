@@ -1,10 +1,10 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Base dataset classes using Datumaro Sample for GetiPrompt.
+"""Base dataset classes using custom Sample dataclass for GetiPrompt.
 
-This module provides dataset implementations that leverage Datumaro's
-Sample class for type-safe schema, with manual DataFrame management.
+This module provides dataset implementations that leverage a custom
+Sample dataclass with manual DataFrame management.
 """
 
 import copy
@@ -21,14 +21,27 @@ from getiprompt.data.base.sample import Sample
 from getiprompt.data.utils.image import read_image
 
 
-class GetiPromptDataset(TorchDataset, ABC):
-    """Base class for GetiPrompt datasets using Datumaro Sample.
+class Dataset(TorchDataset, ABC):
+    """Base class for datasets using Sample.
 
     This class provides a PyTorch-compatible interface while leveraging
-    Datumaro's Sample class for type-safe data structures.
+    Sample class for type-safe data structures. Supports both single-instance
+    (PerSeg) and multi-instance (LVIS) datasets.
 
     Subclasses should implement `_load_dataframe()` to return a Polars DataFrame
-    with columns: category, category_id, image_path, mask_path, is_reference, n_shot
+    with required columns:
+    - image_id: str/int - Unique image identifier
+    - image_path: str - Path to image file
+    - categories: list[str] - List of category names (per instance)
+    - category_ids: list[int] - List of category IDs (per instance)
+    - is_reference: list[bool] - Reference flags (per instance)
+    - n_shot: list[int] - Shot numbers (per instance)
+
+    Optional columns:
+    - annotation_ids: list[int] - Annotation IDs
+    - mask_paths: list[str] - Paths to mask files (PerSeg)
+    - bboxes: list[list[float]] - Bounding boxes [[x,y,w,h], ...]
+    - segmentations: list[dict] - COCO RLE/polygon (LVIS)
 
     Args:
         n_shots (int, optional): Number of reference shots per category. Defaults to 1.
@@ -216,7 +229,7 @@ class GetiPromptDataset(TorchDataset, ABC):
 
         return target_df
 
-    def get_reference_dataset(self, category: str | None = None) -> "GetiPromptDataset":
+    def get_reference_dataset(self, category: str | None = None) -> "Dataset":
         """Create a new dataset containing only reference samples."""
         reference_df = self.get_reference_samples_df(category)
 
@@ -225,7 +238,7 @@ class GetiPromptDataset(TorchDataset, ABC):
         new_dataset._df = reference_df
         return new_dataset
 
-    def get_target_dataset(self, category: str | None = None) -> "GetiPromptDataset":
+    def get_target_dataset(self, category: str | None = None) -> "Dataset":
         """Create a new dataset containing only target samples."""
         target_df = self.get_target_samples_df(category)
 
@@ -234,7 +247,7 @@ class GetiPromptDataset(TorchDataset, ABC):
         new_dataset._df = target_df
         return new_dataset
 
-    def subsample(self, indices: Sequence[int], inplace: bool = False) -> "GetiPromptDataset":
+    def subsample(self, indices: Sequence[int], inplace: bool = False) -> "Dataset":
         """Create a subset of the dataset using the provided indices."""
         if len(set(indices)) != len(indices):
             raise ValueError("No duplicates allowed in indices.")
@@ -246,7 +259,7 @@ class GetiPromptDataset(TorchDataset, ABC):
         dataset._df = subset_df
         return dataset
 
-    def __add__(self, other_dataset: "GetiPromptDataset") -> "GetiPromptDataset":
+    def __add__(self, other_dataset: "Dataset") -> "Dataset":
         """Concatenate this dataset with another dataset."""
         if not isinstance(other_dataset, self.__class__):
             raise TypeError("Cannot concatenate datasets that are not of the same type.")

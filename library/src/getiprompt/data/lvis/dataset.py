@@ -16,10 +16,10 @@ import torch
 from lvis import LVIS
 from pycocotools import mask as mask_utils
 
-from getiprompt.data.base import GetiPromptDataset
+from getiprompt.data.base import Dataset
 
 
-class LVISDataset(GetiPromptDataset):
+class LVISDataset(Dataset):
     """LVIS dataset class for semantic few-shot segmentation.
 
     Dataset class for loading and processing LVIS dataset images for semantic

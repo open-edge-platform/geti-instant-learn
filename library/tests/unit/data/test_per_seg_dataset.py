@@ -10,7 +10,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from getiprompt.data.base import Batch, GetiPromptDataset, Sample
+from getiprompt.data.base import Batch, Dataset, Sample
 
 
 class TestPerSegDataset:
@@ -34,10 +34,10 @@ class TestPerSegDataset:
         })
 
     @pytest.fixture
-    def mock_perseg_dataset(self, mock_perseg_dataframe: pl.DataFrame) -> GetiPromptDataset:
+    def mock_perseg_dataset(self, mock_perseg_dataframe: pl.DataFrame) -> Dataset:
         """Create a mock PerSeg dataset."""
 
-        class MockPerSegDataset(GetiPromptDataset):
+        class MockPerSegDataset(Dataset):
             def _load_dataframe(self) -> pl.DataFrame:
                 return mock_perseg_dataframe
 
@@ -59,7 +59,7 @@ class TestPerSegDataset:
     def test_perseg_sample_creation(
         self,
         mock_read_image: MagicMock,
-        mock_perseg_dataset: GetiPromptDataset,
+        mock_perseg_dataset: Dataset,
     ) -> None:
         """Test PerSeg sample creation with single-instance data."""
         # Mock image reading
@@ -82,7 +82,7 @@ class TestPerSegDataset:
     def test_perseg_batch_creation(
         self,
         mock_read_image: MagicMock,
-        mock_perseg_dataset: GetiPromptDataset,
+        mock_perseg_dataset: Dataset,
     ) -> None:
         """Test PerSeg batch creation with single-instance data."""
         # Mock image reading
@@ -105,7 +105,7 @@ class TestPerSegDataset:
         assert len(batch.categories[1]) == 1  # Second image has 1 instance
         assert len(batch.categories[2]) == 1  # Third image has 1 instance
 
-    def test_perseg_reference_filtering(self, mock_perseg_dataset: GetiPromptDataset) -> None:
+    def test_perseg_reference_filtering(self, mock_perseg_dataset: Dataset) -> None:
         """Test PerSeg reference filtering with single-instance data."""
         # Test get_reference_samples_df
         ref_df = mock_perseg_dataset.get_reference_samples_df()
@@ -115,7 +115,7 @@ class TestPerSegDataset:
         target_df = mock_perseg_dataset.get_target_samples_df()
         assert len(target_df) == 1  # One image has only target instances
 
-    def test_perseg_category_filtering(self, mock_perseg_dataset: GetiPromptDataset) -> None:
+    def test_perseg_category_filtering(self, mock_perseg_dataset: Dataset) -> None:
         """Test PerSeg category filtering with single-instance data."""
         # Test filtering by category
         person_df = mock_perseg_dataset.get_reference_samples_df(category="person")
@@ -132,7 +132,7 @@ class TestPerSegDataset:
     def test_perseg_sample_metadata(
         self,
         mock_read_image: MagicMock,
-        mock_perseg_dataset: GetiPromptDataset,
+        mock_perseg_dataset: Dataset,
     ) -> None:
         """Test PerSeg sample metadata with single-instance data."""
         # Mock image reading
@@ -150,7 +150,7 @@ class TestPerSegDataset:
     def test_perseg_batch_properties(
         self,
         mock_read_image: MagicMock,
-        mock_perseg_dataset: GetiPromptDataset,
+        mock_perseg_dataset: Dataset,
     ) -> None:
         """Test PerSeg batch properties with single-instance data."""
         # Mock image reading
@@ -170,7 +170,7 @@ class TestPerSegDataset:
     def test_perseg_data_consistency(
         self,
         mock_read_image: MagicMock,
-        mock_perseg_dataset: GetiPromptDataset,
+        mock_perseg_dataset: Dataset,
     ) -> None:
         """Test PerSeg data consistency for single-instance handling."""
         # Mock image reading
@@ -195,7 +195,7 @@ class TestPerSegDataset:
     def test_perseg_batch_tensor_conversion(
         self,
         mock_read_image: MagicMock,
-        mock_perseg_dataset: GetiPromptDataset,
+        mock_perseg_dataset: Dataset,
     ) -> None:
         """Test PerSeg tensor conversion in batches with single-instance data."""
         # Mock image reading
@@ -217,7 +217,7 @@ class TestPerSegDataset:
     def test_perseg_sample_loading(
         self,
         mock_read_image: MagicMock,
-        mock_perseg_dataset: GetiPromptDataset,
+        mock_perseg_dataset: Dataset,
     ) -> None:
         """Test PerSeg sample loading with single-instance data."""
         # Mock image reading
@@ -244,7 +244,7 @@ class TestPerSegDataset:
             "mask_paths": [],
         })
 
-        class MockEmptyDataset(GetiPromptDataset):
+        class MockEmptyDataset(Dataset):
             def _load_dataframe(self) -> pl.DataFrame:
                 return empty_df
 

@@ -3,12 +3,12 @@
 
 """Base classes for datasets."""
 
-from .base import GetiPromptDataset
+from .base import Dataset
 from .batch import Batch
 from .sample import Sample
 
 __all__ = [
     "Batch",
-    "GetiPromptDataset",
+    "Dataset",
     "Sample",
 ]

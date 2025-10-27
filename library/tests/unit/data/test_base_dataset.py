@@ -11,10 +11,10 @@ import polars as pl
 import pytest
 import torch
 
-from getiprompt.data.base import Batch, GetiPromptDataset, Sample
+from getiprompt.data.base import Batch, Dataset, Sample
 
 
-class MockDataset(GetiPromptDataset):
+class MockDataset(Dataset):
     """Mock dataset for testing GetiPromptDataset base class."""
 
     def _load_dataframe(self) -> pl.DataFrame:
@@ -324,7 +324,7 @@ class TestGetiPromptDatasetOperations:
         dataset1 = MockDataset()
         dataset1.df = dataset1.load_test_dataframe()
 
-        class DifferentDataset(GetiPromptDataset):
+        class DifferentDataset(Dataset):
             def _load_dataframe(self) -> pl.DataFrame:
                 return pl.DataFrame()
 
@@ -385,7 +385,7 @@ class TestGetiPromptDatasetAdvanced:
     def test_dataset_abstract_methods(self) -> None:
         """Test that abstract methods must be implemented."""
 
-        class IncompleteDataset(GetiPromptDataset):
+        class IncompleteDataset(Dataset):
             pass
 
         # Should raise error when trying to instantiate

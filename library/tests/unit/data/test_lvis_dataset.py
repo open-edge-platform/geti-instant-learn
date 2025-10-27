@@ -10,7 +10,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from getiprompt.data.base import Batch, GetiPromptDataset, Sample
+from getiprompt.data.base import Batch, Dataset, Sample
 
 
 class TestLVISDataset:
@@ -38,10 +38,10 @@ class TestLVISDataset:
         })
 
     @pytest.fixture
-    def mock_lvis_dataset(self, mock_lvis_dataframe: pl.DataFrame) -> GetiPromptDataset:
+    def mock_lvis_dataset(self, mock_lvis_dataframe: pl.DataFrame) -> Dataset:
         """Create a mock LVIS dataset."""
 
-        class MockLVISDataset(GetiPromptDataset):
+        class MockLVISDataset(Dataset):
             def _load_dataframe(self) -> pl.DataFrame:
                 return mock_lvis_dataframe
 
@@ -63,7 +63,7 @@ class TestLVISDataset:
     def test_lvis_sample_creation(
         self,
         mock_read_image: MagicMock,
-        mock_lvis_dataset: GetiPromptDataset,
+        mock_lvis_dataset: Dataset,
     ) -> None:
         """Test LVIS sample creation with multi-instance data."""
         # Mock image reading
@@ -86,7 +86,7 @@ class TestLVISDataset:
     def test_lvis_batch_creation(
         self,
         mock_read_image: MagicMock,
-        mock_lvis_dataset: GetiPromptDataset,
+        mock_lvis_dataset: Dataset,
     ) -> None:
         """Test LVIS batch creation with multi-instance data."""
         # Mock image reading
@@ -109,7 +109,7 @@ class TestLVISDataset:
         assert len(batch.categories[1]) == 1  # Second image has 1 instance
         assert len(batch.categories[2]) == 3  # Third image has 3 instances
 
-    def test_lvis_reference_filtering(self, mock_lvis_dataset: GetiPromptDataset) -> None:
+    def test_lvis_reference_filtering(self, mock_lvis_dataset: Dataset) -> None:
         """Test LVIS reference filtering with multi-instance data."""
         # Test get_reference_samples_df
         ref_df = mock_lvis_dataset.get_reference_samples_df()
@@ -119,7 +119,7 @@ class TestLVISDataset:
         target_df = mock_lvis_dataset.get_target_samples_df()
         assert len(target_df) == 1  # One image has only target instances
 
-    def test_lvis_category_filtering(self, mock_lvis_dataset: GetiPromptDataset) -> None:
+    def test_lvis_category_filtering(self, mock_lvis_dataset: Dataset) -> None:
         """Test LVIS category filtering with multi-instance data."""
         # Test filtering by category
         person_df = mock_lvis_dataset.get_reference_samples_df(category="person")
@@ -132,7 +132,7 @@ class TestLVISDataset:
     def test_lvis_sample_metadata(
         self,
         mock_read_image: MagicMock,
-        mock_lvis_dataset: GetiPromptDataset,
+        mock_lvis_dataset: Dataset,
     ) -> None:
         """Test LVIS sample metadata with multi-instance data."""
         # Mock image reading
@@ -150,7 +150,7 @@ class TestLVISDataset:
     def test_lvis_batch_properties(
         self,
         mock_read_image: MagicMock,
-        mock_lvis_dataset: GetiPromptDataset,
+        mock_lvis_dataset: Dataset,
     ) -> None:
         """Test LVIS batch properties with multi-instance data."""
         # Mock image reading
@@ -170,7 +170,7 @@ class TestLVISDataset:
     def test_lvis_data_consistency(
         self,
         mock_read_image: MagicMock,
-        mock_lvis_dataset: GetiPromptDataset,
+        mock_lvis_dataset: Dataset,
     ) -> None:
         """Test LVIS data consistency for multi-instance handling."""
         # Mock image reading
@@ -195,7 +195,7 @@ class TestLVISDataset:
     def test_lvis_batch_tensor_conversion(
         self,
         mock_read_image: MagicMock,
-        mock_lvis_dataset: GetiPromptDataset,
+        mock_lvis_dataset: Dataset,
     ) -> None:
         """Test LVIS tensor conversion in batches with multi-instance data."""
         # Mock image reading
@@ -217,7 +217,7 @@ class TestLVISDataset:
     def test_lvis_sample_loading(
         self,
         mock_read_image: MagicMock,
-        mock_lvis_dataset: GetiPromptDataset,
+        mock_lvis_dataset: Dataset,
     ) -> None:
         """Test LVIS sample loading with multi-instance data."""
         # Mock image reading

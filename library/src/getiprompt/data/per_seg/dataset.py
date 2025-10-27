@@ -1,11 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""PerSeg dataset implementation using Datumaro Sample.
-
-This module provides the PerSeg dataset implementation that leverages
-Datumaro's Sample class for type-safe data structures.
-"""
+"""PerSeg dataset implementation."""
 
 from collections.abc import Sequence
 from logging import getLogger
@@ -14,7 +10,7 @@ from pathlib import Path
 import polars as pl
 import torch
 
-from getiprompt.data.base import GetiPromptDataset
+from getiprompt.data.base import Dataset
 from getiprompt.data.utils.image import read_mask
 
 # File extensions
@@ -27,7 +23,7 @@ __all__ = ["PerSegDataset", "make_perseg_dataframe"]
 logger = getLogger("Geti Prompt")
 
 
-class PerSegDataset(GetiPromptDataset):
+class PerSegDataset(Dataset):
     """PerSeg dataset class for few-shot segmentation.
 
     Dataset class for loading and processing PerSeg dataset images for few-shot

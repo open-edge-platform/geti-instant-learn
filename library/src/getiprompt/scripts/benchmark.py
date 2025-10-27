@@ -20,7 +20,7 @@ import polars as pl
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from torch.utils.data import DataLoader
 
-from getiprompt.data import GetiPromptDataset, LVISDataset, PerSegDataset
+from getiprompt.data import Dataset, LVISDataset, PerSegDataset
 from getiprompt.data.base import Sample
 from getiprompt.metrics import SegmentationMetrics
 from getiprompt.models import Model, load_model
@@ -93,7 +93,7 @@ def sample_to_image_and_priors(
 
 
 def infer_on_category(
-    dataset: GetiPromptDataset,
+    dataset: Dataset,
     model: Model,
     category_name: str,
     priors_batch_index: int,
@@ -223,7 +223,7 @@ def infer_on_category(
 
 
 def learn_from_category(
-    dataset: GetiPromptDataset,
+    dataset: Dataset,
     model: Model,
     category_name: str,
     n_shot: int,
@@ -291,7 +291,7 @@ def learn_from_category(
 def predict_on_dataset(
     args: argparse.Namespace,
     model: Model,
-    dataset: GetiPromptDataset,
+    dataset: Dataset,
     output_path: Path,
     dataset_name: str,
     model_name: str,
@@ -406,7 +406,7 @@ def load_dataset_by_name(
     categories: list[str] | str | None = None,
     n_shots: int = 1,
     dataset_root: str | Path | None = None,
-) -> GetiPromptDataset:
+) -> Dataset:
     """Load a dataset by name.
 
     Args:
