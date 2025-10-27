@@ -55,6 +55,7 @@ export const WebcamSource = ({ source }: WebcamSourceProps) => {
                 <TextField
                     label={'Device ID'}
                     value={selectedDeviceId}
+                    name='device-id'
                     onChange={setSelectedDeviceId}
                     validate={(value) => (isInteger(Number(value)) ? true : 'Device ID must be an integer')}
                 />
