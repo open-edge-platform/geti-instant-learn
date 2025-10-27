@@ -20,26 +20,6 @@ import { Labels } from './labels-management/labels.component';
 
 import styles from './captured-frame.module.scss';
 
-const FallbackComponent = () => {
-    return (
-        <View minHeight={'size-6000'}>
-            <View
-                gridArea={'labels'}
-                height={'size-500'}
-                backgroundColor={'gray-200'}
-                paddingX={'size-100'}
-                paddingY={'size-50'}
-            />
-            <View gridArea={'image'} backgroundColor={'gray-50'} height={'100%'}>
-                <Flex width={'100%'} height={'100%'} justifyContent={'center'} alignItems={'center'}>
-                    <Loading mode={'inline'} />
-                </Flex>
-            </View>
-            <View gridArea={'actions'} backgroundColor={'gray-200'} padding={'size-100'} height={'size-500'} />
-        </View>
-    );
-};
-
 interface CapturedFrameAnnotatorProps {
     children: ReactNode;
     frameId: string;
@@ -47,7 +27,13 @@ interface CapturedFrameAnnotatorProps {
 const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorProps) => {
     return (
         <ZoomProvider>
-            <Suspense fallback={<FallbackComponent />}>
+            <Suspense
+                fallback={
+                    <View gridRow={'1/-1'} alignSelf={'center'}>
+                        <Loading mode={'inline'} />
+                    </View>
+                }
+            >
                 <AnnotatorProvider frameId={frameId}>
                     <SelectAnnotationProvider>
                         <AnnotationActionsProvider>
