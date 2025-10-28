@@ -46,9 +46,9 @@ test('Prompt flow', async ({ network, page, context }) => {
         http.post('/api/v1/projects/{project_id}/frames', ({ response }) => response(201).json({ frame_id: FRAME_ID })),
         http.get('/api/v1/projects/{project_id}/frames/{frame_id}', () => {
             // Return a 1x1 red pixel JPEG image (image/jpeg content type)
-            const { buffer } = Buffer.from(MOCK_FRAME_JPEG_BASE64, 'base64');
+            const buffer = Buffer.from(MOCK_FRAME_JPEG_BASE64, 'base64');
 
-            return HttpResponse.arrayBuffer(buffer, {
+            return new HttpResponse(buffer, {
                 status: 200,
                 headers: {
                     'Content-Type': 'image/jpeg',
