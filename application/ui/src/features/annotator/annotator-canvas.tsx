@@ -14,7 +14,7 @@ import { useSelectedAnnotations } from './providers/select-annotation-provider.c
 import { ToolManager } from './tools/tool-manager.component';
 
 const getImageUrl = (projectId: string, frameId: string) => {
-    return `${process.env.PUBLIC_API_URL}/api/v1/projects/${projectId}/frames/${frameId}`;
+    return `${import.meta.env.PUBLIC_API_URL}/api/v1/projects/${projectId}/frames/${frameId}`;
 };
 
 type AnnotatorCanvasProps = {
