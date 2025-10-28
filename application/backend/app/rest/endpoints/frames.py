@@ -10,7 +10,6 @@ from pydantic import BaseModel
 
 from dependencies import FrameServiceDep
 from routers import projects_router
-from services.errors import ResourceNotFoundError, ServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -109,29 +108,16 @@ def capture_frame(project_id: UUID, frame_service: FrameServiceDep) -> Response:
     """
     logger.debug(f"Received POST capture frame for project {project_id} request.")
 
-    try:
-        frame_id = frame_service.capture_frame(project_id)
+    frame_id = frame_service.capture_frame(project_id)
 
-        response = FrameCaptureResponse(frame_id=frame_id)
+    response = FrameCaptureResponse(frame_id=frame_id)
 
-        return Response(
-            status_code=status.HTTP_201_CREATED,
-            headers={"Location": f"/projects/{project_id}/frames/{frame_id}"},
-            content=response.model_dump_json(),
-            media_type="application/json",
-        )
-    except ResourceNotFoundError as e:
-        logger.warning(f"Resource not found during frame capture: {e}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except ServiceError as e:
-        logger.warning(f"Service error during frame capture: {e}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        logger.exception(f"Unexpected error capturing frame: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred while capturing the frame",
-        )
+    return Response(
+        status_code=status.HTTP_201_CREATED,
+        headers={"Location": f"/projects/{project_id}/frames/{frame_id}"},
+        content=response.model_dump_json(),
+        media_type="application/json",
+    )
 
 
 @projects_router.get(

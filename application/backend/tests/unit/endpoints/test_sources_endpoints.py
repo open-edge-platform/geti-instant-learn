@@ -9,12 +9,12 @@ from fastapi.testclient import TestClient
 
 from core.components.schemas.reader import SourceType, WebCamConfig
 from dependencies import SessionDep, get_config_dispatcher
-from routers import projects_router
-from services.errors import (
+from exceptions.custom_errors import (
     ResourceNotFoundError,
     ResourceType,
     ResourceUpdateConflictError,
 )
+from routers import projects_router
 from services.schemas.source import SourceSchema, SourcesListSchema
 
 PROJECT_ID = uuid4()

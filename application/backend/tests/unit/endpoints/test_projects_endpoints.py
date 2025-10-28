@@ -8,13 +8,13 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from dependencies import SessionDep, get_config_dispatcher  # type: ignore
-from rest.endpoints import projects
-from routers import projects_router
-from services.errors import (
+from exceptions.custom_errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ResourceType,
 )
+from rest.endpoints import projects
+from routers import projects_router
 from services.schemas.base import Pagination
 from services.schemas.project import ProjectSchema, ProjectsListSchema
 

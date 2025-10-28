@@ -5,7 +5,7 @@ import logging
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import HTTPException, Query, Response, status
+from fastapi import Query, Response, status
 
 from dependencies import LabelServiceDep
 from routers import projects_router
@@ -33,21 +33,9 @@ def create_label(
     label_service: LabelServiceDep,
 ) -> Response:
     """Create a new label with the given name."""
-
     logger.debug(f"Attempting to create label with name: {payload.name}")
-    try:
-        label = label_service.create_label(project_id=project_id, create_data=payload)
-        logger.info(f"Successfully created '{label.name}' label with id {label.id}")
-    except ResourceAlreadyExistsError as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
-    except ResourceNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception as e:
-        logger.exception(f"Unexpected error during label creation: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create a label due to internal server error.",
-        )
+    label = label_service.create_label(project_id=project_id, create_data=payload)
+    logger.info(f"Successfully created '{label.name}' label with id {label.id}")
 
     return Response(
         status_code=status.HTTP_201_CREATED,
@@ -73,16 +61,7 @@ def get_label_by_id(
     label_service: LabelServiceDep,
 ) -> LabelSchema:
     """Get a label by its ID for selected project."""
-    try:
-        return label_service.get_label_by_id(project_id=project_id, label_id=label_id)
-    except ResourceNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception:
-        logger.exception(f"Internal error retrieving label id={label_id} for project id {project_id}")
-        raise HTTPException(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve label due to internal server error.",
-        )
+    return label_service.get_label_by_id(project_id=project_id, label_id=label_id)
 
 
 @projects_router.get(
@@ -106,14 +85,7 @@ def get_all_labels(
     limit: Annotated[int, Query(ge=0, le=1000)] = 20,
 ) -> LabelsListSchema:
     """Get all labels for selected project"""
-    try:
-        return label_service.get_all_labels(project_id=project_id, offset=offset, limit=limit)
-    except Exception:
-        logger.exception(f"Internal error listing labels for project id {project_id}")
-        raise HTTPException(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to list labels due to internal server error.",
-        )
+    return label_service.get_all_labels(project_id=project_id, offset=offset, limit=limit)
 
 
 @projects_router.delete(
@@ -136,13 +108,7 @@ def delete_label_by_id(
     label_service: LabelServiceDep,
 ) -> Response:
     """Delete a label by its ID for selected project."""
-    try:
-        label_service.delete_label(project_id=project_id, label_id=label_id)
-    except ResourceNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception:
-        logger.exception(f"Error deleting label {label_id} for project {project_id}")
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete label.")
+    label_service.delete_label(project_id=project_id, label_id=label_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

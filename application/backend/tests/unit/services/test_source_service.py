@@ -9,7 +9,7 @@ import pytest
 
 from core.components.schemas.reader import SourceType, VideoFileConfig, WebCamConfig
 from core.runtime.dispatcher import ComponentConfigChangeEvent
-from services.errors import ResourceNotFoundError, ResourceUpdateConflictError
+from exceptions.custom_errors import ResourceNotFoundError, ResourceUpdateConflictError
 from services.schemas.source import SourceCreateSchema, SourceUpdateSchema
 from services.source import SourceService
 

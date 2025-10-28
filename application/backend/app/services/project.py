@@ -15,12 +15,12 @@ from core.runtime.dispatcher import (
 )
 from core.runtime.schemas.pipeline import PipelineConfig
 from db.models import ProjectDB
-from repositories.project import ProjectRepository
-from services.errors import (
+from exceptions.custom_errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ResourceType,
 )
+from repositories.project import ProjectRepository
 from services.schemas.mappers.project import (
     project_db_to_schema,
     project_schema_to_db,

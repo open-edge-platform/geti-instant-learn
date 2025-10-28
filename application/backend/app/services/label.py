@@ -8,13 +8,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from db.models import LabelDB, ProjectDB
-from repositories.label import LabelRepository
-from repositories.project import ProjectRepository
-from services.errors import (
+from exceptions.custom_errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ResourceType,
 )
+from repositories.label import LabelRepository
+from repositories.project import ProjectRepository
 from services.schemas.label import (
     LabelCreateSchema,
     LabelSchema,

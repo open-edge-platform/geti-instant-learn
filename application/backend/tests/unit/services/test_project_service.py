@@ -9,7 +9,7 @@ import pytest
 
 from core.runtime.dispatcher import ProjectActivationEvent, ProjectDeactivationEvent
 from core.runtime.schemas.pipeline import PipelineConfig
-from services.errors import ResourceAlreadyExistsError, ResourceNotFoundError
+from exceptions.custom_errors import ResourceAlreadyExistsError, ResourceNotFoundError
 from services.project import ProjectService
 from services.schemas.project import ProjectCreateSchema, ProjectSchema, ProjectUpdateSchema
 

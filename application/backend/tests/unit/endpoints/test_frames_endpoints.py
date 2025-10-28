@@ -15,8 +15,8 @@ from dependencies import (
     get_project_repository,
     get_source_repository,
 )
+from exceptions.custom_errors import ResourceNotFoundError, ResourceType, ServiceError
 from routers import projects_router
-from services.errors import ResourceNotFoundError, ResourceType, ServiceError
 
 PROJECT_ID = uuid4()
 PROJECT_ID_STR = str(PROJECT_ID)

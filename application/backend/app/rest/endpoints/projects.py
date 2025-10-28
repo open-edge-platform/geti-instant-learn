@@ -5,11 +5,10 @@ import logging
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import HTTPException, Query, Response, status
+from fastapi import Query, Response, status
 
 from dependencies import ProjectServiceDep
 from routers import projects_router
-from services.errors import ResourceAlreadyExistsError, ResourceNotFoundError
 from services.schemas.project import (
     ProjectCreateSchema,
     ProjectSchema,
@@ -59,18 +58,8 @@ def create_project(
     """Create a new project with the given name."""
 
     logger.debug(f"Attempting to create project with name: {payload.name}")
-    try:
-        project = project_service.create_project(payload)
-        logger.info(f"Successfully created '{project.name}' project with id {project.id}")
-    except ResourceAlreadyExistsError as e:
-        logger.error(f"Project creation failed: {e}")
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
-    except Exception as e:
-        logger.exception(f"Unexpected error during project creation: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create a project due to internal server error.",
-        )
+    project = project_service.create_project(payload)
+    logger.info(f"Successfully created '{project.name}' project with id {project.id}")
 
     return Response(
         status_code=status.HTTP_201_CREATED,
@@ -99,16 +88,7 @@ def delete_project(
 ) -> Response:
     """Delete the specified project."""
     logger.debug(f"Received DELETE project {project_id} request.")
-    try:
-        project_service.delete_project(project_id)
-    except ResourceNotFoundError:
-        logger.warning(f"Project with id {project_id} not found during delete operation.")
-    except Exception as e:
-        logger.exception(f"Error occurred while deleting project with id {project_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete project with id {project_id} due to an internal error.",
-        )
+    project_service.delete_project(project_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -133,19 +113,7 @@ def get_active_project(
 ) -> ProjectSchema:
     """Retrieve the configuration of the currently active project."""
     logger.debug("Received GET active project request.")
-    try:
-        return project_service.get_active_project_info()
-    except ResourceNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No active project found.",
-        )
-    except Exception as e:
-        logger.exception(f"Internal error fetching active project: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve active project.",
-        )
+    return project_service.get_active_project_info()
 
 
 @projects_router.get(
@@ -168,14 +136,7 @@ def get_projects_list(
 ) -> ProjectsListSchema:
     """Retrieve a list of all available project configurations."""
     logger.debug("Received GET projects request.")
-    try:
-        return project_service.list_projects(offset=offset, limit=limit)
-    except Exception as e:
-        logger.exception(f"Internal error listing projects: {e}")
-        raise HTTPException(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to list projects.",
-        )
+    return project_service.list_projects(offset=offset, limit=limit)
 
 
 @projects_router.get(
@@ -198,16 +159,7 @@ def get_project(
 ) -> ProjectSchema:
     """Retrieve the project's configuration."""
     logger.debug(f"Received GET project {project_id} request.")
-    try:
-        return project_service.get_project(project_id)
-    except ResourceNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception as e:
-        logger.exception(f"Internal error retrieving project id={project_id}: {e}")
-        raise HTTPException(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve project.",
-        )
+    return project_service.get_project(project_id)
 
 
 @projects_router.put(
@@ -232,18 +184,7 @@ def update_project(
 ) -> ProjectSchema:
     """Update the project's configuration."""
     logger.debug(f"Received PUT project {project_id} request.")
-    try:
-        return project_service.update_project(project_id=project_id, update_data=payload)
-    except ResourceNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except ResourceAlreadyExistsError as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
-    except Exception as e:
-        logger.exception(f"Internal error updating project with id={project_id}: {e}")
-        raise HTTPException(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update project due to internal server error.",
-        )
+    return project_service.update_project(project_id=project_id, update_data=payload)
 
 
 @projects_router.get(

@@ -2,13 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
 from core.runtime.dispatcher import ConfigChangeDispatcher
-from core.runtime.pipeline_manager import PipelineManager
 from db.engine import get_session
 from repositories.frame import FrameRepository
 from repositories.project import ProjectRepository
@@ -17,12 +16,15 @@ from services import FrameService, LabelService, ProjectService, SourceService
 from settings import get_settings
 from webrtc.manager import WebRTCManager
 
+if TYPE_CHECKING:
+    from core.runtime.pipeline_manager import PipelineManager
+
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
 # --- Core singletons ---
-def get_pipeline_manager(request: Request) -> PipelineManager:
+def get_pipeline_manager(request: Request) -> "PipelineManager":
     """Dependency that provides access to the PipelineManager."""
     return request.app.state.pipeline_manager
 
@@ -75,7 +77,7 @@ def get_source_service(
 
 
 def get_frame_service(
-    pipeline_manager: Annotated[PipelineManager, Depends(get_pipeline_manager)],
+    pipeline_manager: Annotated["PipelineManager", Depends(get_pipeline_manager)],
     frame_repo: Annotated[FrameRepository, Depends(get_frame_repository)],
     project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
     source_repo: Annotated[SourceRepository, Depends(get_source_repository)],

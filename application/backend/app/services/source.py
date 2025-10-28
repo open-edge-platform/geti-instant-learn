@@ -9,13 +9,13 @@ from sqlalchemy.orm import Session
 from core.components.schemas.reader import SourceType
 from core.runtime.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher
 from db.models import ProjectDB, SourceDB
-from repositories.project import ProjectRepository
-from repositories.source import SourceRepository
-from services.errors import (
+from exceptions.custom_errors import (
     ResourceNotFoundError,
     ResourceType,
     ResourceUpdateConflictError,
 )
+from repositories.project import ProjectRepository
+from repositories.source import SourceRepository
 from services.schemas.mappers.source import (
     source_db_to_schema,
     source_schema_to_db,

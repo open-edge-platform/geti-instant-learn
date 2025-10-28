@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 
 from core.components.schemas.processor import InputData
-from services.errors import ResourceNotFoundError, ResourceType, ServiceError
+from exceptions.custom_errors import ResourceNotFoundError, ResourceType, ServiceError
 from services.frame import FrameService
 
 

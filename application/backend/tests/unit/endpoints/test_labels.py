@@ -10,8 +10,8 @@ from fastapi.testclient import TestClient
 from pydantic_extra_types.color import Color
 
 from dependencies import SessionDep, get_config_dispatcher
+from exceptions.custom_errors import ResourceAlreadyExistsError, ResourceNotFoundError, ResourceType
 from routers import projects_router
-from services.errors import ResourceAlreadyExistsError, ResourceNotFoundError, ResourceType
 from services.schemas.base import Pagination
 from services.schemas.label import LabelSchema, LabelsListSchema
 

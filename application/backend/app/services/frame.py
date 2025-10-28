@@ -5,14 +5,17 @@ import logging
 import uuid
 from pathlib import Path
 from queue import Empty, Queue
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from core.components.schemas.processor import InputData
-from core.runtime.pipeline_manager import PipelineManager
+from exceptions.custom_errors import ResourceNotFoundError, ResourceType, ServiceError
 from repositories.frame import FrameRepository
 from repositories.project import ProjectRepository
 from repositories.source import SourceRepository
-from services.errors import ResourceNotFoundError, ResourceType, ServiceError
+
+if TYPE_CHECKING:
+    from core.runtime.pipeline_manager import PipelineManager
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +23,7 @@ logger = logging.getLogger(__name__)
 class FrameService:
     def __init__(
         self,
-        pipeline_manager: PipelineManager,
+        pipeline_manager: "PipelineManager",
         frame_repo: FrameRepository,
         project_repo: ProjectRepository,
         source_repo: SourceRepository,
