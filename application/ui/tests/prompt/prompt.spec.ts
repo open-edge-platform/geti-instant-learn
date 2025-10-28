@@ -5,6 +5,7 @@
 
 import { WebcamConfig } from '@geti-prompt/api';
 import { expect, http, test } from '@geti-prompt/test-fixtures';
+import { HttpResponse } from 'msw';
 
 import { MOCK_FRAME_JPEG_BASE64, mockRTCPeerConnectionScript } from './mocks';
 
@@ -45,14 +46,14 @@ test('Prompt flow', async ({ network, page, context }) => {
         http.post('/api/v1/projects/{project_id}/frames', ({ response }) => response(201).json({ frame_id: FRAME_ID })),
         http.get('/api/v1/projects/{project_id}/frames/{frame_id}', () => {
             // Return a 1x1 red pixel JPEG image (image/jpeg content type)
-            const buffer = Buffer.from(MOCK_FRAME_JPEG_BASE64, 'base64');
+            const { buffer } = Buffer.from(MOCK_FRAME_JPEG_BASE64, 'base64');
 
-            return new Response(buffer, {
+            return HttpResponse.arrayBuffer(buffer, {
                 status: 200,
                 headers: {
                     'Content-Type': 'image/jpeg',
                 },
-            }) as never;
+            });
         }),
         http.post('/api/v1/projects/{project_id}/offer', ({ response }) =>
             response(200).json({
