@@ -40,6 +40,17 @@ const test = testBase.extend<Fixtures>({
                     sources: [],
                 });
             }),
+            http.get('/api/v1/projects/{project_id}/labels', ({ response }) => {
+                return response(200).json({
+                    labels: [],
+                    pagination: {
+                        total: 0,
+                        count: 0,
+                        offset: 0,
+                        limit: 10,
+                    },
+                });
+            }),
         ],
     }),
 });
