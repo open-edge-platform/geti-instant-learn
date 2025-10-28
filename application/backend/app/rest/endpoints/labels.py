@@ -10,13 +10,14 @@ from dependencies import ConfigChangeDispatcherDep, SessionDep
 from routers import projects_router
 from services.errors import ResourceAlreadyExistsError, ResourceNotFoundError
 from services.label import LabelService
-from services.schemas.label import LabelCreateSchema, LabelSchema, LabelsListSchema
+from services.schemas.label import LabelCreateSchema, LabelSchema, LabelsListSchema, LabelUpdateSchema
 
 logger = logging.getLogger(__name__)
 
 
 @projects_router.post(
     path="/{project_id}/labels",
+    tags=["Labels"],
     responses={
         status.HTTP_201_CREATED: {"description": "Successfully created a new label."},
         status.HTTP_404_NOT_FOUND: {"description": "Project not found."},
@@ -58,6 +59,7 @@ def create_label(
 
 @projects_router.get(
     path="/{project_id}/labels/{label_id}",
+    tags=["Labels"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {"description": "Successfully retrieved the details of label."},
@@ -87,6 +89,7 @@ def get_label_by_id(
 
 @projects_router.get(
     path="/{project_id}/labels",
+    tags=["Labels"],
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {
@@ -119,6 +122,7 @@ def get_all_labels(
 
 @projects_router.delete(
     path="/{project_id}/labels/{label_id}",
+    tags=["Labels"],
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
         status.HTTP_204_NO_CONTENT: {
@@ -146,3 +150,44 @@ def delete_label_by_id(
         logger.exception(f"Error deleting label {label_id} for project {project_id}")
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete label.")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@projects_router.put(
+    path="/{project_id}/labels/{label_id}",
+    tags=["Labels"],
+    status_code=status.HTTP_200_OK,
+    responses={
+        status.HTTP_200_OK: {
+            "description": "Successfully updated the label.",
+        },
+        status.HTTP_404_NOT_FOUND: {"description": "Project not found."},
+        status.HTTP_409_CONFLICT: {"description": "Label name already exists."},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "Unexpected error occurred while updating the configuration of the project.",
+        },
+    },
+)
+def update_label(
+    project_id: UUID,
+    label_id: UUID,
+    payload: LabelUpdateSchema,
+    db_session: SessionDep,
+    config_dispatcher: ConfigChangeDispatcherDep,
+) -> LabelSchema:
+    """
+    Update the label.
+    """
+    logger.debug(f"Received PUT label {label_id} for {project_id} request.")
+    service = LabelService(session=db_session, config_change_dispatcher=config_dispatcher)
+    try:
+        return service.update_label(project_id=project_id, label_id=label_id, update_data=payload)
+    except ResourceNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ResourceAlreadyExistsError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except Exception:
+        logger.exception(f"Internal error updating label with id={label_id} for project id {project_id}")
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update label due to internal server error.",
+        )

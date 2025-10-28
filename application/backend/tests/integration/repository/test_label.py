@@ -114,22 +114,22 @@ class TestLabelRepository:
         label_repository.add(sample_label)
         fxt_session.commit()
 
-        assert label_repository.exists_by_name("test_label") is True
+        assert label_repository.exists_by_name(project_id=PROJECT_ID, name="test_label") is True
 
     def test_exists_by_name_false(self, label_repository, clean_after):
         """Test checking existence by name when label doesn't exist."""
-        assert label_repository.exists_by_name("nonexistent") is False
+        assert label_repository.exists_by_name(project_id=PROJECT_ID, name="nonexistent") is False
 
     def test_exists_by_id_true(self, label_repository, sample_label, fxt_session, clean_after):
         """Test checking existence by ID when label exists."""
         label_repository.add(sample_label)
         fxt_session.commit()
 
-        assert label_repository.exists_by_id(sample_label.id) is True
+        assert label_repository.exists_by_id(project_id=PROJECT_ID, label_id=sample_label.id) is True
 
     def test_exists_by_id_false(self, label_repository, clean_after):
         """Test checking existence by ID when label doesn't exist."""
-        assert label_repository.exists_by_id(uuid4()) is False
+        assert label_repository.exists_by_id(project_id=PROJECT_ID, label_id=uuid4()) is False
 
     def test_delete_label(self, label_repository, sample_label, project_id, fxt_session, clean_after):
         """Test deleting a label."""

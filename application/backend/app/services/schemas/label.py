@@ -18,6 +18,11 @@ class LabelSchema(BaseIDSchema):
     color: str = Field("", description="New hex color code, e.g. #RRGGBB")
 
 
+class LabelUpdateSchema(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=50, description="Label name")
+    color: Color | None = Field(None, description="New hex color code, e.g. #RRGGBB")
+
+
 class LabelsListSchema(BaseModel):
     labels: list[LabelSchema]
     pagination: Pagination

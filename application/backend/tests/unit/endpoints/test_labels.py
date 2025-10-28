@@ -227,3 +227,81 @@ class TestDeleteLabelById:
         response = fxt_client.delete(f"/api/v1/projects/{project_id}/labels/{label_id}")
 
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+class TestUpdateLabel:
+    def test_update_label_name_success(self, fxt_client, mock_label_service, project_id, label_id, black_color):
+        update_data = {"name": "updated_label"}
+        mock_label = LabelSchema(id=label_id, name="updated_label", color=black_color.as_hex(format="long"))
+        mock_label_service.return_value.update_label.return_value = mock_label
+
+        response = fxt_client.put(f"/api/v1/projects/{project_id}/labels/{label_id}", json=update_data)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["id"] == str(label_id)
+        assert response.json()["name"] == "updated_label"
+        assert response.json()["color"] == black_color.as_hex(format="long")
+
+    def test_update_label_color_success(self, fxt_client, mock_label_service, project_id, label_id, red_color):
+        update_data = {"color": red_color.as_hex(format="long")}
+        mock_label = LabelSchema(id=label_id, name="test_label", color=red_color.as_hex(format="long"))
+        mock_label_service.return_value.update_label.return_value = mock_label
+
+        response = fxt_client.put(f"/api/v1/projects/{project_id}/labels/{label_id}", json=update_data)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["color"] == red_color.as_hex(format="long")
+
+    def test_update_label_both_name_and_color(self, fxt_client, mock_label_service, project_id, label_id, red_color):
+        update_data = {"name": "updated_label", "color": red_color.as_hex(format="long")}
+        mock_label = LabelSchema(id=label_id, name="updated_label", color=red_color.as_hex(format="long"))
+        mock_label_service.return_value.update_label.return_value = mock_label
+
+        response = fxt_client.put(f"/api/v1/projects/{project_id}/labels/{label_id}", json=update_data)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["name"] == "updated_label"
+        assert response.json()["color"] == red_color.as_hex(format="long")
+
+    def test_update_label_project_not_found(self, fxt_client, mock_label_service, project_id, label_id):
+        update_data = {"name": "updated_label"}
+        mock_label_service.return_value.update_label.side_effect = ResourceNotFoundError(
+            resource_type=ResourceType.PROJECT, resource_id=str(project_id)
+        )
+
+        response = fxt_client.put(f"/api/v1/projects/{project_id}/labels/{label_id}", json=update_data)
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert f"Project with ID {project_id} not found" in response.json()["detail"]
+
+    def test_update_label_label_not_found(self, fxt_client, mock_label_service, project_id, label_id):
+        update_data = {"name": "updated_label"}
+        mock_label_service.return_value.update_label.side_effect = ResourceNotFoundError(
+            resource_type=ResourceType.LABEL, resource_id=str(label_id)
+        )
+
+        response = fxt_client.put(f"/api/v1/projects/{project_id}/labels/{label_id}", json=update_data)
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert f"Label with ID {label_id} not found" in response.json()["detail"]
+
+    def test_update_label_name_already_exists(self, fxt_client, mock_label_service, project_id, label_id):
+        update_data = {"name": "existing_label"}
+        mock_label_service.return_value.update_label.side_effect = ResourceAlreadyExistsError(
+            resource_type=ResourceType.LABEL,
+            resource_value="existing_label",
+        )
+
+        response = fxt_client.put(f"/api/v1/projects/{project_id}/labels/{label_id}", json=update_data)
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert "existing_label" in response.json()["detail"]
+
+    def test_update_label_internal_error(self, fxt_client, mock_label_service, project_id, label_id):
+        update_data = {"name": "updated_label"}
+        mock_label_service.return_value.update_label.side_effect = Exception("Database error")
+
+        response = fxt_client.put(f"/api/v1/projects/{project_id}/labels/{label_id}", json=update_data)
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert "internal server error" in response.json()["detail"].lower()

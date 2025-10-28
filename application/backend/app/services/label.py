@@ -22,6 +22,7 @@ from services.schemas.label import (
     LabelCreateSchema,
     LabelSchema,
     LabelsListSchema,
+    LabelUpdateSchema,
 )
 from services.schemas.mappers.label import label_db_to_schema, label_schema_to_db, labels_db_to_list_items
 
@@ -154,3 +155,55 @@ class LabelService:
         self.label_repository.delete(project_id=project_id, label=label)
         self.session.commit()
         logger.info("Label deleted id=%s", label_id)
+
+    def update_label(self, project_id: UUID, label_id: UUID, update_data: LabelUpdateSchema) -> LabelSchema:
+        """
+        Update a label:
+          - Rename if `name` provided and different (enforces uniqueness).
+          - Change color if `color` provided and different.
+        """
+        logger.debug(
+            f"Label update requested for project: {project_id} for label id={label_id} name={update_data.name}",
+        )
+        self._ensure_project(project_id)
+        label = self.label_repository.get_by_id(project_id=project_id, label_id=label_id)
+
+        if not label:
+            logger.error(f"Update failed; label not found id={label_id} in project={project_id}")
+            raise ResourceNotFoundError(resource_type=ResourceType.LABEL, resource_id=str(label_id))
+        changed = False
+
+        # Check for name uniqueness
+        if update_data.name is not None and update_data.name != label.name:
+            if self.label_repository.exists_by_name(project_id=project_id, name=update_data.name):
+                logger.error(
+                    "Update rejected; duplicate name=%s for project id=%s",
+                    update_data.name,
+                    project_id,
+                )
+                raise ResourceAlreadyExistsError(
+                    resource_type=ResourceType.LABEL,
+                    resource_value=update_data.name,
+                    raised_by="name",
+                )
+            logger.debug(
+                f"Renaming label with id={label_id} "
+                f"for project_id={project_id} from '{label.name}' to '{update_data.name}'"
+            )
+            label.name = update_data.name
+            changed = True
+
+        # Update color if provided and different
+        if update_data.color is not None:
+            color = update_data.color.as_hex(format="long").lower()
+            if label.color != color:
+                label.color = color
+                changed = True
+
+        if changed:
+            self.session.commit()
+            self.session.refresh(label)
+            logger.info(f"Label updated in project={project_id} label_id={label.id} name={label.name}")
+        else:
+            logger.debug(f"No changes applied to label id={label_id} in project={project_id}")
+        return label_db_to_schema(label)
