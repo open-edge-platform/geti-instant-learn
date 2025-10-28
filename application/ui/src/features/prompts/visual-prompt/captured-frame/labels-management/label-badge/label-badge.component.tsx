@@ -29,6 +29,8 @@ export const LabelBadge = ({ label, isSelected, onClick, children: actionButtons
             {...pressProps}
             style={{ '--labelBgColor': label.color } as CSSProperties}
             className={clsx(classes.badge, { [classes.selected]: isSelected })}
+            aria-selected={isSelected}
+            aria-label={`Label ${label.name}`}
         >
             <Text UNSAFE_className={classes.buttonText}>{label.name}</Text>
             <Flex UNSAFE_className={classes.buttonsContainer}>{actionButtons}</Flex>
