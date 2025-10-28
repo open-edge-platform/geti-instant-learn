@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { $api, LabelType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { ActionButton, Tooltip, TooltipTrigger } from '@geti/ui';
-import { Close } from '@geti/ui/icons';
+import { Close, Edit } from '@geti/ui/icons';
 
 import { EditLabel } from '../edit-label/edit-label.component';
 import { LabelBadge } from '../label-badge/label-badge.component';
@@ -19,6 +19,7 @@ interface LabelListItemViewProps {
     label: LabelType;
     onSelect: () => void;
     isSelected: boolean;
+    onEdit: () => void;
 }
 
 const useDeleteLabelMutation = () => {
@@ -33,7 +34,19 @@ const useDeleteLabelMutation = () => {
     });
 };
 
-const LabelListItemView = ({ label, onSelect, isSelected }: LabelListItemViewProps) => {
+const useUpdateLabelMutation = () => {
+    const { projectId } = useProjectIdentifier();
+
+    return $api.useMutation('put', '/api/v1/projects/{project_id}/labels/{label_id}', {
+        meta: {
+            invalidates: [
+                ['get', '/api/v1/projects/{project_id}/labels', { params: { path: { project_id: projectId } } }],
+            ],
+        },
+    });
+};
+
+const LabelListItemView = ({ label, onSelect, isSelected, onEdit }: LabelListItemViewProps) => {
     const { projectId } = useProjectIdentifier();
     const deleteLabelMutation = useDeleteLabelMutation();
 
@@ -50,7 +63,6 @@ const LabelListItemView = ({ label, onSelect, isSelected }: LabelListItemViewPro
 
     return (
         <LabelBadge onClick={onSelect} key={label.id} label={label} isSelected={isSelected}>
-            {/* TODO: API does not support editing label name yet
             <TooltipTrigger placement={'bottom'}>
                 <ActionButton
                     aria-label={`Edit ${label.name} label`}
@@ -61,7 +73,7 @@ const LabelListItemView = ({ label, onSelect, isSelected }: LabelListItemViewPro
                     <Edit />
                 </ActionButton>
                 <Tooltip>Edit label name</Tooltip>
-            </TooltipTrigger>*/}
+            </TooltipTrigger>
             <TooltipTrigger placement={'bottom'}>
                 <ActionButton
                     aria-label={`Delete ${label.name} label`}
@@ -86,19 +98,44 @@ interface LabelListItemProps {
 
 export const LabelListItem = ({ label, onSelect, isSelected, existingLabelsNames }: LabelListItemProps) => {
     const [isInEdition, setIsInEdition] = useState<boolean>(false);
+    const { projectId } = useProjectIdentifier();
+
+    const updateLabelMutation = useUpdateLabelMutation();
+    const updateLabel = (newLabel: LabelType) => {
+        updateLabelMutation.mutate({
+            body: {
+                color: newLabel.color,
+                name: newLabel.name,
+            },
+            params: {
+                path: {
+                    project_id: projectId,
+                    label_id: label.id,
+                },
+            },
+        });
+    };
 
     if (isInEdition) {
         return (
             <EditLabel
-                onAccept={() => {}}
+                onAccept={updateLabel}
                 onClose={() => setIsInEdition(false)}
                 label={label}
                 isQuiet
                 width={'size-2400'}
                 existingLabelsNames={existingLabelsNames}
+                isDisabled={updateLabelMutation.isPending}
             />
         );
     }
 
-    return <LabelListItemView label={label} onSelect={onSelect} isSelected={isSelected} />;
+    return (
+        <LabelListItemView
+            label={label}
+            onSelect={onSelect}
+            isSelected={isSelected}
+            onEdit={() => setIsInEdition(true)}
+        />
+    );
 };
