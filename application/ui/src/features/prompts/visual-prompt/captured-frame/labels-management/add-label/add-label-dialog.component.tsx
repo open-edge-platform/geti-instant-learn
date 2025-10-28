@@ -48,18 +48,23 @@ export const AddLabelDialog = ({ existingLabelsNames, closeDialog }: AddLabelDia
     const addLabelMutation = useAddLabel();
 
     const addLabel = (label: LabelType) => {
-        addLabelMutation.mutate({
-            body: {
-                id: label.id,
-                name: label.name,
-                color: label.color,
-            },
-            params: {
-                path: {
-                    project_id: projectId,
+        addLabelMutation.mutate(
+            {
+                body: {
+                    id: label.id,
+                    name: label.name,
+                    color: label.color,
+                },
+                params: {
+                    path: {
+                        project_id: projectId,
+                    },
                 },
             },
-        });
+            {
+                onSuccess: closeDialog,
+            }
+        );
     };
 
     return (

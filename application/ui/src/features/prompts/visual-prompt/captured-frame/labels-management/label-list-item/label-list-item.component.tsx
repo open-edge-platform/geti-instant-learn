@@ -113,6 +113,10 @@ export const LabelListItem = ({ label, onSelect, isSelected, existingLabelsNames
                     label_id: label.id,
                 },
             },
+        }, {
+            onSuccess: () => {
+                setIsInEdition(false);
+            }
         });
     };
 

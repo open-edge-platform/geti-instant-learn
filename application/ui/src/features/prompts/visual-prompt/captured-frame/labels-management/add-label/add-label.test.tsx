@@ -17,55 +17,54 @@ class AddLabelPageObject {
         fireEvent.click(screen.getByRole('button', { name: /add label/i }));
     }
 
-    async getDialog() {
-        return screen.findByRole('dialog');
+    getDialog() {
+        return screen.queryByRole('dialog');
     }
 
     getNameInput() {
         return screen.queryByLabelText(/new label name/i);
     }
 
-    focusNameInput() {
-        const input = this.getNameInput();
-        input != null && fireEvent.click(input);
-    }
-
-    getConfirmButton() {
-        return screen.queryByLabelText(/confirm label/i);
-    }
-
     getConfirmLabelButton() {
         return screen.getByRole('button', { name: /confirm label/i });
     }
 
-    getColorButton() {
-        return screen.queryByTestId('change-color-button');
-    }
-
     async typeInNameInput(text: string) {
         const input = this.getNameInput();
-        input != null && (await userEvent.type(input, text));
+
+        if (input === null) {
+            return;
+        }
+
+        await userEvent.type(input, text);
     }
 
     async clickConfirmButton() {
         fireEvent.click(this.getConfirmLabelButton());
     }
 
-    async closeDialog() {
-        await userEvent.keyboard('{escape}');
+    async closeDialogWithKeyboard() {
+        const input = this.getNameInput();
+
+        if (input === null) {
+            return;
+        }
+
+        await userEvent.type(input, '{Escape}');
     }
 
-    async pressKey(key: string) {
-        await userEvent.keyboard(`{${key}}`);
+    async confirmLabelWithKeyboard() {
+        const input = this.getNameInput();
+
+        if (input === null) {
+            return;
+        }
+
+        await userEvent.type(input, '{Enter}');
     }
 
-    async getValidationError() {
-        return screen.findByText(/label's name must be unique/i);
-    }
-
-    isConfirmButtonDisabled() {
-        const confirmButton = this.getConfirmButton();
-        return confirmButton?.hasAttribute('disabled');
+    getValidationError() {
+        return screen.getByText(/label name must be unique/i);
     }
 }
 
@@ -112,22 +111,86 @@ describe('AddLabel', () => {
 
         await waitFor(() => {
             expect(newLabelBody).not.toBeNull();
-        });
 
-        await waitFor(() => {
             expect(newLabelBody?.name).toBe('New Label');
             expect(newLabelBody?.id).toBeTruthy();
             expect(newLabelBody?.color).toBeTruthy();
         });
+
+        await waitFor(() => {
+            expect(addLabelPage.getDialog()).not.toBeInTheDocument();
+        });
+    });
+
+    it('creates a new label when valid name is entered and confirmed using enter key', async () => {
+        const projectId = 'test-project-id';
+        let newLabelBody: { id?: string; name: string; color?: string | null } | null = null;
+
+        server.use(
+            http.post('/api/v1/projects/{project_id}/labels', async ({ request, params }) => {
+                expect(params.project_id).toBe(projectId);
+
+                newLabelBody = await request.clone().json();
+
+                return HttpResponse.json(newLabelBody, { status: 201 });
+            })
+        );
+
+        const { addLabelPage } = renderAddLabel({
+            options: {
+                route: paths.project({ projectId }),
+                path: paths.project.pattern,
+            },
+        });
+
+        addLabelPage.showDialog();
+        await addLabelPage.typeInNameInput('New Label');
+
+        expect(addLabelPage.getConfirmLabelButton()).toBeEnabled();
+
+        await addLabelPage.confirmLabelWithKeyboard();
+
+        await waitFor(() => {
+            expect(newLabelBody).not.toBeNull();
+            expect(newLabelBody?.name).toBe('New Label');
+            expect(newLabelBody?.id).toBeTruthy();
+            expect(newLabelBody?.color).toBeTruthy();
+        });
+
+        await waitFor(() => {
+            expect(addLabelPage.getDialog()).not.toBeInTheDocument();
+        });
+    });
+
+    it('does not creates a new label when Enter is pressed with duplicate name', async () => {
+        const existingLabelsNames = ['Duplicate'];
+        let requestReceived = false;
+
+        server.use(
+            http.post('/api/v1/projects/{project_id}/labels', async () => {
+                requestReceived = true;
+                return HttpResponse.json({}, { status: 201 });
+            })
+        );
+
+        const { addLabelPage } = renderAddLabel({ existingLabelsNames });
+
+        addLabelPage.showDialog();
+        await addLabelPage.typeInNameInput(existingLabelsNames[0]);
+        await addLabelPage.confirmLabelWithKeyboard();
+
+        // Wait a bit to ensure no request was made
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        expect(requestReceived).toBe(false);
     });
 
     it('closes dialog when Escape key is pressed', async () => {
         const { addLabelPage } = renderAddLabel();
 
         addLabelPage.showDialog();
-        addLabelPage.focusNameInput();
 
-        await addLabelPage.closeDialog();
+        await addLabelPage.closeDialogWithKeyboard();
 
         await waitFor(() => {
             expect(addLabelPage.getNameInput()).not.toBeInTheDocument();
@@ -145,273 +208,46 @@ describe('AddLabel', () => {
         });
     });
 
-    /*describe('Label Creation - Happy Path', () => {
-        it('creates label when Enter key is pressed', async () => {
-            const projectId = 'test-project-id';
-            let requestReceived = false;
+    it('disables confirm button when name is empty', async () => {
+        const { addLabelPage } = renderAddLabel();
 
-            server.use(
-                http.post(
-                    '/api/v1/projects/{project_id}/labels',
-                    async ({ request }: { request: StrictRequest<DefaultBodyType> }) => {
-                        const body = await request.json();
-                        requestReceived = true;
-                        return HttpResponse.json(body, { status: 201 });
-                    }
-                )
-            );
+        addLabelPage.showDialog();
 
-            const { addLabelPage } = renderAddLabel({ projectId });
-
-            await addLabelPage.showDialog();
-            await addLabelPage.typeInNameInput('Quick Label');
-            await addLabelPage.pressKey('Enter');
-
-            await waitFor(() => {
-                expect(requestReceived).toBe(true);
-            });
-        });
-
-        it('closes dialog after successful label creation', async () => {
-            server.use(
-                http.post(
-                    '/api/v1/projects/{project_id}/labels',
-                    async ({ request }: { request: StrictRequest<DefaultBodyType> }) => {
-                        const body = await request.json();
-                        return HttpResponse.json(body, { status: 201 });
-                    }
-                )
-            );
-
-            const { addLabelPage } = renderAddLabel();
-
-            await addLabelPage.showDialog();
-            await addLabelPage.typeInNameInput('New Label');
-            await addLabelPage.clickConfirmButton();
-
-            await waitFor(() => {
-                expect(addLabelPage.getNameInput()).not.toBeInTheDocument();
-            });
-        });
+        expect(addLabelPage.getNameInput()).toHaveValue('');
+        expect(addLabelPage.getConfirmLabelButton()).toBeDisabled();
     });
 
-    describe('Validation - Edge Cases', () => {
-        it('disables confirm button when name is empty', async () => {
-            const { addLabelPage } = renderAddLabel();
+    it('disables confirm button when name contains only whitespace', async () => {
+        const emptyName = '   ';
 
-            await addLabelPage.showDialog();
-            await addLabelPage.findNameInput();
+        const { addLabelPage } = renderAddLabel();
 
-            expect(addLabelPage.isConfirmButtonDisabled()).toBe(true);
-        });
+        addLabelPage.showDialog();
+        await addLabelPage.typeInNameInput(emptyName);
 
-        it('disables confirm button when name contains only whitespace', async () => {
-            const { addLabelPage } = renderAddLabel();
-
-            await addLabelPage.showDialog();
-            await addLabelPage.typeInNameInput('   ');
-
-            expect(addLabelPage.isConfirmButtonDisabled()).toBe(true);
-        });
-
-        it('shows validation error for duplicate label name', async () => {
-            const existingLabelsNames = ['Existing Label', 'Another Label'];
-            const { addLabelPage } = renderAddLabel({ existingLabelsNames });
-
-            await addLabelPage.showDialog();
-            await addLabelPage.typeInNameInput('Existing Label');
-
-            const error = await addLabelPage.getValidationError();
-            expect(error).toBeInTheDocument();
-        });
-
-        it('disables confirm button for duplicate label name', async () => {
-            const existingLabelsNames = ['Existing Label'];
-            const { addLabelPage } = renderAddLabel({ existingLabelsNames });
-
-            await addLabelPage.showDialog();
-            await addLabelPage.typeInNameInput('Existing Label');
-
-            expect(addLabelPage.isConfirmButtonDisabled()).toBe(true);
-        });
-
-        it('does not submit when Enter is pressed with duplicate name', async () => {
-            const existingLabelsNames = ['Duplicate'];
-            let requestReceived = false;
-
-            server.use(
-                http.post('/api/v1/projects/{project_id}/labels', async () => {
-                    requestReceived = true;
-                    return HttpResponse.json({}, { status: 201 });
-                })
-            );
-
-            const { addLabelPage } = renderAddLabel({ existingLabelsNames });
-
-            await addLabelPage.showDialog();
-            await addLabelPage.typeInNameInput('Duplicate');
-            await addLabelPage.pressKey('Enter');
-
-            // Wait a bit to ensure no request was made
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
-            expect(requestReceived).toBe(false);
-        });
-
-        it('allows label creation with unique name', async () => {
-            const existingLabelsNames = ['Existing Label'];
-            let capturedRequest: { id: string; name: string; color: string } | null = null;
-
-            server.use(
-                http.post(
-                    '/api/v1/projects/{project_id}/labels',
-                    async ({ request }: { request: StrictRequest<DefaultBodyType> }) => {
-                        capturedRequest = (await request.json()) as { id: string; name: string; color: string };
-                        return HttpResponse.json(capturedRequest, { status: 201 });
-                    }
-                )
-            );
-
-            const { addLabelPage } = renderAddLabel({ existingLabelsNames });
-
-            await addLabelPage.showDialog();
-            await addLabelPage.typeInNameInput('Unique Label');
-            await addLabelPage.clickConfirmButton();
-
-            await waitFor(() => {
-                expect(capturedRequest).toBeTruthy();
-                expect(capturedRequest?.name).toBe('Unique Label');
-            });
-        });
-
-        it('respects maximum name length', async () => {
-            const { addLabelPage } = renderAddLabel();
-
-            await addLabelPage.showDialog();
-
-            const longName = 'a'.repeat(150); // Exceeds the 100 character limit
-            await addLabelPage.typeInNameInput(longName);
-
-            const input = await addLabelPage.findNameInput();
-            expect((input as HTMLInputElement).value.length).toBeLessThanOrEqual(100);
-        });
+        expect(addLabelPage.getNameInput()).toHaveValue(emptyName);
+        expect(addLabelPage.getConfirmLabelButton()).toBeDisabled();
     });
 
-    describe('Color Selection', () => {
-        it('includes a color in the created label', async () => {
-            let capturedRequest: { id: string; name: string; color: string } | null = null;
+    it('disables confirm button for duplicate label name', async () => {
+        const existingLabelsNames = ['Existing Label', 'Another Label'];
+        const { addLabelPage } = renderAddLabel({ existingLabelsNames });
 
-            server.use(
-                http.post(
-                    '/api/v1/projects/{project_id}/labels',
-                    async ({ request }: { request: StrictRequest<DefaultBodyType> }) => {
-                        capturedRequest = (await request.json()) as { id: string; name: string; color: string };
-                        return HttpResponse.json(capturedRequest, { status: 201 });
-                    }
-                )
-            );
+        addLabelPage.showDialog();
+        await addLabelPage.typeInNameInput(existingLabelsNames[0]);
 
-            const { addLabelPage } = renderAddLabel();
-
-            await addLabelPage.showDialog();
-            await addLabelPage.typeInNameInput('Colored Label');
-            await addLabelPage.clickConfirmButton();
-
-            await waitFor(() => {
-                expect(capturedRequest).toBeTruthy();
-                expect(capturedRequest?.color).toBeTruthy();
-                expect(typeof capturedRequest?.color).toBe('string');
-            });
-        });
-
-        it('renders color picker button in dialog', async () => {
-            const { addLabelPage } = renderAddLabel();
-
-            await addLabelPage.showDialog();
-
-            expect(addLabelPage.getColorButton()).toBeInTheDocument();
-        });
+        expect(addLabelPage.getNameInput()).toHaveValue(existingLabelsNames[0]);
+        expect(addLabelPage.getConfirmLabelButton()).toBeDisabled();
     });
 
-    describe('Pending State', () => {
-        it('disables confirm button while mutation is pending', async () => {
-            let resolveRequest: ((value: unknown) => void) | undefined;
-            const requestPromise = new Promise((resolve) => {
-                resolveRequest = resolve;
-            });
+    it('shows validation error for duplicate label name', async () => {
+        const existingLabelsNames = ['Existing Label', 'Another Label'];
+        const { addLabelPage } = renderAddLabel({ existingLabelsNames });
 
-            server.use(
-                http.post(
-                    '/api/v1/projects/{project_id}/labels',
-                    async ({ request }: { request: StrictRequest<DefaultBodyType> }) => {
-                        const body = await request.json();
-                        await requestPromise;
-                        return HttpResponse.json(body, { status: 201 });
-                    }
-                )
-            );
+        addLabelPage.showDialog();
+        await addLabelPage.typeInNameInput(existingLabelsNames[0]);
 
-            const { addLabelPage } = renderAddLabel();
-
-            await addLabelPage.showDialog();
-            await addLabelPage.typeInNameInput('Test Label');
-            await addLabelPage.clickConfirmButton();
-
-            // Button should be disabled while request is pending
-            await waitFor(() => {
-                expect(addLabelPage.isConfirmButtonDisabled()).toBe(true);
-            });
-
-            // Resolve the request
-            if (resolveRequest) {
-                resolveRequest(null);
-            }
-
-            // Dialog should eventually close
-            await waitFor(() => {
-                expect(addLabelPage.getNameInput()).not.toBeInTheDocument();
-            });
-        });
+        expect(addLabelPage.getNameInput()).toHaveValue(existingLabelsNames[0]);
+        expect(addLabelPage.getValidationError()).toBeInTheDocument();
     });
-
-    describe('API Error Handling', () => {
-        it('handles API errors gracefully', async () => {
-            server.use(
-                http.post('/api/v1/projects/{project_id}/labels', () => {
-                    return HttpResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-                })
-            );
-
-            const { addLabelPage } = renderAddLabel();
-
-            await addLabelPage.showDialog();
-            await addLabelPage.typeInNameInput('Test Label');
-            await addLabelPage.clickConfirmButton();
-
-            // Dialog should remain open on error
-            await waitFor(() => {
-                expect(addLabelPage.getNameInput()).toBeInTheDocument();
-            });
-        });
-    });
-
-    describe('Multiple Labels', () => {
-        it('handles multiple existing labels correctly', async () => {
-            const existingLabelsNames = ['Label 1', 'Label 2', 'Label 3', 'Label 4'];
-            const { addLabelPage } = renderAddLabel({ existingLabelsNames });
-
-            await addLabelPage.showDialog();
-
-            // Should not allow any of the existing names
-            for (const existingName of existingLabelsNames) {
-                await addLabelPage.typeInNameInput(existingName);
-                expect(addLabelPage.isConfirmButtonDisabled()).toBe(true);
-                await userEvent.clear(await addLabelPage.findNameInput());
-            }
-
-            // Should allow a new unique name
-            await addLabelPage.typeInNameInput('Label 5');
-            expect(addLabelPage.isConfirmButtonDisabled()).toBe(false);
-        });
-    });*/
 });

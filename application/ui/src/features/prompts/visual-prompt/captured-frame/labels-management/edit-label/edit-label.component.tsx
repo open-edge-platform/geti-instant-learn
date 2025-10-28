@@ -42,7 +42,6 @@ export const EditLabel = ({
 
     const handleAccept = () => {
         onAccept({ color, name, id: label.id });
-        onClose();
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
