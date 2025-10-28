@@ -29,7 +29,7 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         Asynchronously receive the next video frame from the internal queue.
 
         This coroutine attempts to obtain a frame from ``self._stream_queue`` with a
-        500ms timeout. If a new frame is received, it is cached in ``self._last_frame``.
+        100ms timeout. If a new frame is received, it is cached in ``self._last_frame``.
         If the queue is empty and no cached frame exists, the method uses the
         ``FALLBACK_FRAME``, a small, 64 x 64, dark gray numpy array
         representing a video frame.
@@ -38,7 +38,7 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         its presentation timestamp (``pts``) and time base attached.
 
         Behavior:
-            - Pulls frames from ``_stream_queue`` using ``asyncio.to_thread`` (timeout: 500ms).
+            - Pulls frames from ``_stream_queue`` using ``asyncio.to_thread`` (timeout: 100ms).
             - On timeout, returns last cached frame if available.
             - If no cached frame exists, returns ``FALLBACK_FRAME``.
             - Ensures robust streaming when new frames are intermittently missing.
@@ -62,12 +62,11 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         pts, time_base = await self.next_timestamp()
 
         try:
-            logger.debug("Getting the frame from the stream_queue...")
-            input_data = await asyncio.to_thread(self._stream_queue.get, True, 0.5)
+            # Reduced timeout from 0.5s to 0.1s for lower latency
+            input_data = await asyncio.to_thread(self._stream_queue.get, True, 0.1)
             np_frame = input_data.frame
             self._last_frame = np_frame
         except queue.Empty:
-            logger.debug("Empty queue. Using the last frame...")
             if self._last_frame is not None:
                 np_frame = self._last_frame
             else:
@@ -76,7 +75,6 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
             logger.error("Error in recv: %s", e)
             raise
 
-        logger.debug("Received the frame from the stream_queue.")
         frame = VideoFrame.from_ndarray(np_frame, format="bgr24")
         frame.pts = pts
         frame.time_base = time_base
