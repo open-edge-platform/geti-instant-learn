@@ -163,7 +163,7 @@ def delete_label_by_id(
         status.HTTP_404_NOT_FOUND: {"description": "Project not found."},
         status.HTTP_409_CONFLICT: {"description": "Label name already exists."},
         status.HTTP_500_INTERNAL_SERVER_ERROR: {
-            "description": "Unexpected error occurred while updating the configuration of the project.",
+            "description": "Unexpected error occurred while updating the label.",
         },
     },
 )
