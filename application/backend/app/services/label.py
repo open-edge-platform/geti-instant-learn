@@ -173,23 +173,8 @@ class LabelService:
             raise ResourceNotFoundError(resource_type=ResourceType.LABEL, resource_id=str(label_id))
         changed = False
 
-        # Check for name uniqueness
-        if update_data.name is not None and update_data.name != label.name:
-            if self.label_repository.exists_by_name(project_id=project_id, name=update_data.name):
-                logger.error(
-                    "Update rejected; duplicate name=%s for project id=%s",
-                    update_data.name,
-                    project_id,
-                )
-                raise ResourceAlreadyExistsError(
-                    resource_type=ResourceType.LABEL,
-                    resource_value=update_data.name,
-                    raised_by="name",
-                )
-            logger.debug(
-                f"Renaming label with id={label_id} "
-                f"for project_id={project_id} from '{label.name}' to '{update_data.name}'"
-            )
+        # Update name if provided and different
+        if update_data.name is not None and label.name != update_data.name:
             label.name = update_data.name
             changed = True
 
@@ -200,10 +185,22 @@ class LabelService:
                 label.color = color
                 changed = True
 
-        if changed:
-            self.session.commit()
-            self.session.refresh(label)
-            logger.info(f"Label updated in project={project_id} label_id={label.id} name={label.name}")
-        else:
-            logger.debug(f"No changes applied to label id={label_id} in project={project_id}")
-        return label_db_to_schema(label)
+        try:
+            if changed:
+                self.session.commit()
+                self.session.refresh(label)
+                logger.info(f"Label updated in project={project_id} label_id={label.id} name={label.name}")
+            else:
+                logger.debug(f"No changes detected for label id={label.id} in project={project_id}")
+            return label_db_to_schema(label=label)
+
+        except IntegrityError as e:
+            self.session.rollback()
+            if "label_name_project_unique" in str(e.orig) or "name" in str(e.orig).lower():
+                logger.error("Label update rejected: duplicate name=%s", update_data.name)
+                raise ResourceAlreadyExistsError(
+                    resource_type=ResourceType.LABEL,
+                    resource_value=update_data.name,
+                    raised_by="name",
+                )
+            raise

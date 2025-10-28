@@ -5,7 +5,7 @@ import logging
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import delete, func, literal, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from db.models import LabelDB
@@ -42,26 +42,6 @@ class LabelRepository(BaseRepository):
         """Retrieve all labels."""
         logger.debug("Fetching all labels")
         return self.session.scalars(select(LabelDB).where(LabelDB.project_id == project_id)).all()
-
-    def exists_by_name(self, project_id: UUID, name: str) -> bool:
-        """Check whether a label with the given name exists."""
-        logger.debug(f"Checking existence by name={name} in project_id={project_id}")
-        return (
-            self.session.scalars(
-                select(literal(True)).where(LabelDB.name == name, LabelDB.project_id == project_id).limit(1)
-            ).first()
-            is not None
-        )
-
-    def exists_by_id(self, project_id: UUID, label_id: UUID) -> bool:
-        """Check whether a label with the given ID exists."""
-        logger.debug(f"Checking existence by id={label_id} in project_id={project_id}")
-        return (
-            self.session.scalars(
-                select(literal(True)).where(LabelDB.id == label_id, LabelDB.project_id == project_id).limit(1)
-            ).first()
-            is not None
-        )
 
     def delete(self, project_id: UUID, label: LabelDB) -> None:
         """Mark a label entity for deletion (not committed)."""

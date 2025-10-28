@@ -271,10 +271,17 @@ def test_update_label_duplicate_name(label_service, mock_label_repository, mock_
     mock_label_repository.get_by_id.return_value = mock_label
     mock_label_repository.exists_by_name.return_value = True
     update_data = LabelUpdateSchema(name="Duplicate Name", color=None)
+    # Mock IntegrityError for duplicate name constraint
+    mock_error = IntegrityError("statement", "params", "orig")
+    mock_error.orig = Exception("UNIQUE constraint failed: label_name_project_unique")
+    label_service.session.commit.side_effect = mock_error
 
-    # Act & Assert
     with pytest.raises(ResourceAlreadyExistsError) as exc_info:
         label_service.update_label(PROJECT_ID, LABEL_ID, update_data)
+
+    label_service.session.rollback.assert_called_once()
+
+    # Act & Assert
     assert exc_info.value.resource_type == ResourceType.LABEL
     assert exc_info.value.resource_id == "Duplicate Name"
 
