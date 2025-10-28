@@ -62,7 +62,6 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         pts, time_base = await self.next_timestamp()
 
         try:
-            # Reduced timeout from 0.5s to 0.1s for lower latency
             input_data = await asyncio.to_thread(self._stream_queue.get, True, 0.1)
             np_frame = input_data.frame
             self._last_frame = np_frame
