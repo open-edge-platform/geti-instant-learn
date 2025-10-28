@@ -35,30 +35,12 @@ interface AnnotationsContextValue {
 
 const AnnotationsContext = createContext<AnnotationsContextValue | null>(null);
 
-const mockAnnotation: Annotation = {
-    id: 'annotation-1',
-    shape: {
-        type: 'rectangle',
-        x: 10,
-        y: 20,
-        width: 100,
-        height: 50,
-    },
-    labels: [
-        {
-            color: 'red',
-            id: 'label-1',
-            name: 'label-1',
-        },
-    ],
-};
-
 type AnnotationActionsProviderProps = {
     children: ReactNode;
     // mediaItem?: MediaItem;
 };
 export const AnnotationActionsProvider = ({ children }: AnnotationActionsProviderProps) => {
-    const serverAnnotations: Annotation[] = useMemo(() => [mockAnnotation], []);
+    const serverAnnotations: Annotation[] = useMemo(() => [], []);
     const fetchError = null;
 
     const { data: project } = useCurrentProject();

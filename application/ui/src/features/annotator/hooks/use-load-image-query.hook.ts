@@ -18,7 +18,7 @@ export const useLoadImageQuery = (frameId: string): UseSuspenseQueryResult<Image
                 throw new Error("Can't fetch undefined media item");
             }
 
-            const imageUrl = `http://localhost:9100/api/v1/projects/${projectId}/frames/${frameId}`;
+            const imageUrl = `${process.env.PUBLIC_API_URL}/api/v1/projects/${projectId}/frames/${frameId}`;
             const image = await loadImage(imageUrl);
 
             return getImageData(image);
