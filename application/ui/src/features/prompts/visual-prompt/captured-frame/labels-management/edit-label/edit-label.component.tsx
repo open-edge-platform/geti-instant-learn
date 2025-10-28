@@ -81,7 +81,7 @@ export const EditLabel = ({
                 onKeyDown={(e) => handleKeyDown(e)}
                 // eslint-disable-next-line jsx-a11y/no-autofocus
                 autoFocus
-                validate={(newName) => isUniqueName(newName, existingLabelsNames) || "Label's name must be unique."}
+                validate={(newName) => isUniqueName(newName, existingLabelsNames) || 'Label name must be unique.'}
             />
             <ActionButton
                 isQuiet={isQuiet}
