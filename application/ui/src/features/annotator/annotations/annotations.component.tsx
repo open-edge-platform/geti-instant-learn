@@ -43,6 +43,9 @@ export const Annotations = ({ annotations, width, height }: AnnotationsProps) =>
                 outline: 'none',
                 overflow: 'visible',
                 ...DEFAULT_ANNOTATION_STYLES,
+                ['--annotation-stroke' as string]: '1px solid var(--energy-blue)',
+                ['--annotation-fill' as string]: 'rgba(0, 199, 253, 0.2)',
+                ['--annotation-border-opacity' as string]: '1',
             }}
         >
             {!isEmpty(annotations) && (
