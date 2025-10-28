@@ -51,7 +51,7 @@ export const StreamContainer = () => {
     if (status === 'idle') {
         return (
             <Container withBackground>
-                <Button onPress={start} aria-label={'Start stream'}>
+                <Button onPress={start} UNSAFE_className={styles.playButton} aria-label={'Start stream'}>
                     <Play width='128px' height='128px' />
                 </Button>
             </Container>
