@@ -104,6 +104,9 @@ export class WebRTCConnection {
             const offer = await this.peerConnection.createOffer();
             await this.peerConnection.setLocalDescription(offer);
 
+            // wait for ice gathering
+            await this.waitForIceGathering();
+
             const offerResponse = await this.sendOffer(projectId);
 
             await this.handleOfferResponse(offerResponse);
@@ -195,6 +198,29 @@ export class WebRTCConnection {
                     break;
             }
         });
+    }
+
+    private async waitForIceGathering(): Promise<void> {
+        await Promise.race([
+            new Promise<void>((resolve) => {
+                if (!this.peerConnection || this.peerConnection.iceGatheringState === 'complete') {
+                    resolve();
+                    return;
+                }
+
+                const checkState = () => {
+                    if (this.peerConnection && this.peerConnection.iceGatheringState === 'complete') {
+                        this.peerConnection.removeEventListener('icegatheringstatechange', checkState);
+                        resolve();
+                    }
+                };
+
+                this.peerConnection?.addEventListener('icegatheringstatechange', checkState);
+            }),
+            new Promise<void>((_, reject) =>
+                setTimeout(() => reject(new Error('ICE gathering timed out')), CONNECTION_TIMEOUT)
+            ),
+        ]);
     }
 
     public subscribe(listener: Listener): () => void {
