@@ -12,7 +12,7 @@ import { AnnotationShapeWithLabels } from '../../annotations/annotation-shape-wi
 import { MaskAnnotations } from '../../annotations/mask-annotations.component';
 import { AnnotatorLoading } from '../../annotator-loading.component';
 import { useAnnotator } from '../../providers/annotator-provider.component';
-import { type Annotation, type Shape } from '../../types';
+import { Annotation, type Shape } from '../../types';
 import { SvgToolCanvas } from '../svg-tool-canvas.component';
 import { getRelativePoint, removeOffLimitPoints } from '../utils';
 import { InteractiveAnnotationPoint } from './segment-anything.interface';
@@ -94,7 +94,15 @@ export const SegmentAnythingTool = () => {
 
         const point = clampPoint(getRelativePoint(ref.current, { x: event.clientX, y: event.clientY }, zoom.scale));
 
-        decodingMutation.mutate([{ ...point, positive: true }]);
+        decodingMutation.mutate([{ ...point, positive: true }], {
+            onSuccess: () => {
+                setMousePosition(undefined);
+                setPreviewShapes([]);
+            },
+            onError: (error) => {
+                console.error('Failed to create annotation:', error);
+            },
+        });
     };
 
     const annotations = previewShapes.map((shape, idx): Annotation => {
