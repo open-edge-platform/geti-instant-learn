@@ -38,7 +38,8 @@ export const EditLabel = ({
     const [color, setColor] = useState<string>(label.color);
     const [name, setName] = useState<string>(label.name);
 
-    const isEditDisabled = !isUniqueName(name, existingLabelsNames) || !name.trim() || isDisabled;
+    const isEditDisabled =
+        !isUniqueName(name, existingLabelsNames) || !name.trim() || name === label.name || isDisabled;
 
     const handleAccept = () => {
         onAccept({ color, name, id: label.id });
