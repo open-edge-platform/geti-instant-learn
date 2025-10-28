@@ -34,7 +34,6 @@ const useDeleteLabelMutation = () => {
     });
 };
 
-/*
 const useUpdateLabelMutation = () => {
     const { projectId } = useProjectIdentifier();
 
@@ -46,7 +45,6 @@ const useUpdateLabelMutation = () => {
         },
     });
 };
-*/
 
 const LabelListItemView = ({ label, onSelect, isSelected, onEdit }: LabelListItemViewProps) => {
     const { projectId } = useProjectIdentifier();
@@ -100,7 +98,7 @@ interface LabelListItemProps {
 
 export const LabelListItem = ({ label, onSelect, isSelected, existingLabelsNames }: LabelListItemProps) => {
     const [isInEdition, setIsInEdition] = useState<boolean>(false);
-    /*const { projectId } = useProjectIdentifier();
+    const { projectId } = useProjectIdentifier();
 
     const updateLabelMutation = useUpdateLabelMutation();
     const updateLabel = (newLabel: LabelType) => {
@@ -116,19 +114,18 @@ export const LabelListItem = ({ label, onSelect, isSelected, existingLabelsNames
                 },
             },
         });
-    };*/
+    };
 
     if (isInEdition) {
         return (
             <EditLabel
-                //onAccept={updateLabel}
-                onAccept={() => {}}
+                onAccept={updateLabel}
                 onClose={() => setIsInEdition(false)}
                 label={label}
                 isQuiet
                 width={'size-2400'}
                 existingLabelsNames={existingLabelsNames}
-                //isDisabled={updateLabelMutation.isPending}
+                isDisabled={updateLabelMutation.isPending}
             />
         );
     }
