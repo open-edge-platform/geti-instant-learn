@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { MouseEvent } from 'react';
+import { CSSProperties, MouseEvent } from 'react';
 
 import { isEmpty } from 'lodash-es';
 
@@ -37,16 +37,18 @@ export const Annotations = ({ annotations, width, height }: AnnotationsProps) =>
             height={height}
             tabIndex={-1}
             onClick={handleBackgroundClick}
-            style={{
-                position: 'absolute',
-                inset: 0,
-                outline: 'none',
-                overflow: 'visible',
-                ...DEFAULT_ANNOTATION_STYLES,
-                ['--annotation-stroke' as string]: '1px solid var(--energy-blue)',
-                ['--annotation-fill' as string]: 'rgba(0, 199, 253, 0.2)',
-                ['--annotation-border-opacity' as string]: '1',
-            }}
+            style={
+                {
+                    ['--annotation-stroke']: '1px solid var(--energy-blue)',
+                    ['--annotation-fill']: 'rgba(0, 199, 253, 0.2)',
+                    ['--annotation-border-opacity']: '1',
+                    position: 'absolute',
+                    inset: 0,
+                    outline: 'none',
+                    overflow: 'visible',
+                    ...DEFAULT_ANNOTATION_STYLES,
+                } as CSSProperties
+            }
         >
             {!isEmpty(annotations) && (
                 <MaskAnnotations annotations={annotations} width={width} height={height} isEnabled={false}>
