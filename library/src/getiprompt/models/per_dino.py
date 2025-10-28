@@ -5,13 +5,15 @@
 
 from typing import TYPE_CHECKING
 
-from getiprompt.components import CosineSimilarity, MaskAdder, MasksToPolygons, SamDecoder
+import torch
+
+from getiprompt.components import CosineSimilarity, MasksToPolygons, SamDecoder
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_selectors import AverageFeatures, FeatureSelector
 from getiprompt.components.filters import ClassOverlapMaskFilter, MaxPointFilter
 from getiprompt.components.prompt_generators import GridPromptGenerator
 from getiprompt.models import Model, load_sam_model
-from getiprompt.types import Image, Priors, Results
+from getiprompt.types import Priors, Results
 from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
 
@@ -111,16 +113,13 @@ class PerDino(Model):
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
         )
-        self.prior_mask_from_points = MaskAdder(segmenter=self.segmenter)
         self.mask_processor = MasksToPolygons()
         self.class_overlap_mask_filter = ClassOverlapMaskFilter()
         self.reference_features = None
 
     @track_duration
-    def learn(self, reference_images: list[Image], reference_priors: list[Priors]) -> Results:
+    def learn(self, reference_images: list[torch.Tensor], reference_priors: list[Priors]) -> None:
         """Perform learning step on the reference images and priors."""
-        reference_priors = self.prior_mask_from_points(reference_images, reference_priors)
-
         # Start running the model
         reference_features, _ = self.encoder(
             reference_images,
@@ -129,7 +128,7 @@ class PerDino(Model):
         self.reference_features = self.feature_selector(reference_features)
 
     @track_duration
-    def infer(self, target_images: list[Image]) -> Results:
+    def infer(self, target_images: list[torch.Tensor]) -> Results:
         """Perform inference step on the target images."""
         # Start running the model
         target_features, _ = self.encoder(target_images)

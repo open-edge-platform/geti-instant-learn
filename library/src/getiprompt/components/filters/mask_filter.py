@@ -49,7 +49,11 @@ class ClassOverlapMaskFilter(nn.Module):
         result_masks = []
         result_points = []
 
-        for pred_masks, pred_points in zip(all_pred_masks, all_pred_points, strict=True):
+        for pred_masks, pred_points in zip(
+            all_pred_masks,
+            all_pred_points,
+            strict=True,
+        ):
             if not pred_masks.data:
                 # If no masks, return empty results for this image
                 result_masks.append(Masks())
@@ -95,7 +99,7 @@ class ClassOverlapMaskFilter(nn.Module):
             _masks = torch.stack(_masks)
             _boxes = masks_to_boxes(_masks).to(torch.float32)
             _scores = torch.tensor(_scores, device=_masks.device, dtype=torch.float32)
-            _foreground_points = torch.cat(_foreground_points, dim=0)
+            _foreground_points = torch.stack(_foreground_points)
             _labels = torch.stack(_labels).to(torch.long)
 
             keep_indices = batched_nms(_boxes, _scores, _labels, threshold_iou)
@@ -105,9 +109,14 @@ class ClassOverlapMaskFilter(nn.Module):
 
             image_masks = Masks()
             image_points = Points()
-            for mask, foreground_point, label in zip(_masks, _foreground_points, _labels, strict=True):
-                image_masks.add(mask, label.item())
-                image_points.add(foreground_point, label.item())
+            for mask, foreground_point, label in zip(
+                _masks,
+                _foreground_points,
+                _labels,
+                strict=True,
+            ):
+                image_masks.add(mask.unsqueeze(0), label.item())
+                image_points.add(foreground_point.unsqueeze(0), label.item())
 
             result_masks.append(image_masks)
             result_points.append(image_points)

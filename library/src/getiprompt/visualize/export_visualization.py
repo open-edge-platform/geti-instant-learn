@@ -8,8 +8,9 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from torchvision import tv_tensors
 
-from getiprompt.types import Annotations, Boxes, Image, Masks, Points
+from getiprompt.types import Annotations, Boxes, Masks, Points
 from getiprompt.utils import get_colors
 from getiprompt.visualize.base import Visualization
 
@@ -44,7 +45,7 @@ class ExportMaskVisualization(Visualization):
 
     def __call__(
         self,
-        images: list[Image] | None = None,
+        images: list[tv_tensors.Image] | None = None,
         masks: list[Masks] | None = None,
         file_names: list[str] | None = None,
         points: list[Points] | None = None,
@@ -323,7 +324,7 @@ class ExportMaskVisualization(Visualization):
     def _process_single_image(
         self,
         i: int,
-        images: list[Image],
+        images: list[tv_tensors.Image],
         masks: list[Masks],
         file_names: list[str],
         points: list[Points] | None,
@@ -352,7 +353,7 @@ class ExportMaskVisualization(Visualization):
             class_names: List of class names to visualize
         """
         masks_per_class = masks[i]
-        image_np = images[i].to_numpy()
+        image_np = images[i].permute(1, 2, 0).numpy()
         file_name = file_names[i]
 
         output_path = Path(self.output_folder) / file_name

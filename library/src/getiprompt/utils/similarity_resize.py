@@ -12,7 +12,6 @@ from torch.nn import functional
 def resize_similarity_map(
     similarities: torch.Tensor,
     target_size: tuple[int, int] | int,
-    unpadded_image_size: tuple[int, int] | None = None,
 ) -> torch.Tensor:
     """Resize similarity maps to target image size while removing padding.
 
@@ -24,8 +23,6 @@ def resize_similarity_map(
             If 2D with shape (batch, N), it will be reshaped to square spatial dimensions
             where N = H * W and H = W = sqrt(N).
         target_size: Target image size as (height, width) tuple or single int for square.
-        unpadded_image_size: Original image size before padding as (height, width).
-            If provided, padding will be removed before final resize.
 
     Returns:
         Resized similarity tensor of shape (batch, height, width) or (height, width)
@@ -36,15 +33,6 @@ def resize_similarity_map(
         >>> # Flat similarities from 64x64 feature map
         >>> similarities = torch.randn(1, 4096)  # 64*64=4096
         >>> resized = resize_similarity_map(similarities, target_size=(256, 256))
-        >>> resized.shape
-        torch.Size([256, 256])
-        >>>
-        >>> # With padding removal (e.g., SAM models)
-        >>> resized = resize_similarity_map(
-        ...     similarities,
-        ...     target_size=(256, 256),
-        ...     unpadded_image_size=(240, 240)
-        ... )
         >>> resized.shape
         torch.Size([256, 256])
         >>>
@@ -64,20 +52,6 @@ def resize_similarity_map(
         square_size,
     )
 
-    # SAM models can in some cases add padding to the image, we need to remove it
-    if unpadded_image_size is not None:
-        similarities = functional.interpolate(
-            similarities,
-            size=max(unpadded_image_size),
-            mode="bilinear",
-            align_corners=False,
-        )
-        similarities = similarities[
-            ...,
-            : unpadded_image_size[0],
-            : unpadded_image_size[1],
-        ]
-
     # Resize to (original) target size
     similarities = functional.interpolate(
         similarities,
@@ -87,7 +61,7 @@ def resize_similarity_map(
     ).squeeze(1)
 
     # Squeeze batch dimension if batch size is 1
-    if similarities.shape[0] == 1:
+    if similarities.ndim == 4:
         similarities = similarities.squeeze(0)
 
     return similarities

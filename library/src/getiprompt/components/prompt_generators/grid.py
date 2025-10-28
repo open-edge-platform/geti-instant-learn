@@ -4,10 +4,10 @@
 """Grid-based prompt generator."""
 
 import torch
+from torchvision import tv_tensors
 
 from getiprompt.components.prompt_generators.base import PromptGenerator
 from getiprompt.types import Priors, Similarities
-from getiprompt.types.image import Image
 
 
 class GridPromptGenerator(PromptGenerator):
@@ -61,7 +61,7 @@ class GridPromptGenerator(PromptGenerator):
     def forward(
         self,
         target_similarities: list[Similarities] | None = None,
-        target_images: list[Image] | None = None,
+        target_images: list[tv_tensors.Image] | None = None,
     ) -> list[Priors]:
         """This generates prompt candidates (or priors).
 
@@ -83,10 +83,14 @@ class GridPromptGenerator(PromptGenerator):
         if target_similarities is None:
             target_similarities = [Similarities()]
         if target_images is None:
-            target_images = [Image()]
-        for i, similarities_per_image in enumerate(target_similarities):
+            target_images = [tv_tensors.Image()]
+        for similarities_per_image, target_image in zip(
+            target_similarities,
+            target_images,
+            strict=True,
+        ):
             priors = Priors()
-            original_image_shape = target_images[i].size  # (width, height)
+            original_image_shape = target_image.shape[-2:]  # (width, height)
 
             for class_id, class_similarity_maps in similarities_per_image.data.items():
                 background_points_enc = self._get_background_points(class_similarity_maps)  # Operates on (H_enc, W_enc)

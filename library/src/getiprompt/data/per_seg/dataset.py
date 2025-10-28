@@ -17,8 +17,6 @@ from getiprompt.data.utils.image import read_mask
 IMG_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif")
 MASK_EXTENSIONS = (".png", ".bmp", ".tiff", ".tif")
 
-__all__ = ["PerSegDataset", "make_perseg_dataframe"]
-
 
 logger = getLogger("Geti Prompt")
 

@@ -13,8 +13,8 @@ from collections.abc import Callable, Sequence
 
 import numpy as np
 import polars as pl
-import torch
 from torch.utils.data import Dataset as TorchDataset
+from torchvision import tv_tensors
 
 from getiprompt.data.base.batch import Batch
 from getiprompt.data.base.sample import Sample
@@ -129,7 +129,7 @@ class Dataset(TorchDataset, ABC):
 
         # Load image (once per sample!)
         # Returns HWC format for model preprocessors (HuggingFace, SAM)
-        image = read_image(raw_sample["image_path"], as_tensor=False)  # numpy array, (H, W, C)
+        image = read_image(raw_sample["image_path"], as_tensor=True)  # torch.Tensor, (C, H, W)
 
         # Load masks using dataset-specific implementation
         masks = self._load_masks(raw_sample)  # (N, H, W) or None
@@ -145,7 +145,7 @@ class Dataset(TorchDataset, ABC):
 
         # Create and return Sample
         return Sample(
-            image=image,
+            image=image,  # torch.Tensor, (C, H, W)
             masks=masks,  # (N, H, W) or None
             bboxes=bboxes,  # (N, 4) or None
             categories=raw_sample["categories"],  # list[str]
@@ -277,7 +277,7 @@ class Dataset(TorchDataset, ABC):
         return Batch.collate
 
     @abstractmethod
-    def _load_masks(self, raw_sample: dict) -> torch.Tensor | None:
+    def _load_masks(self, raw_sample: dict) -> tv_tensors.Mask | None:
         """Load masks for a sample.
 
         This method should be implemented by subclasses to load masks in their

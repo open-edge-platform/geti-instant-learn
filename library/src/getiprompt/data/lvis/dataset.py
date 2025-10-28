@@ -15,6 +15,7 @@ import polars as pl
 import torch
 from lvis import LVIS
 from pycocotools import mask as mask_utils
+from torchvision import tv_tensors
 
 from getiprompt.data.base import Dataset
 
@@ -75,14 +76,14 @@ class LVISDataset(Dataset):
         # Load the DataFrame
         self.df = self._load_dataframe()
 
-    def _load_masks(self, raw_sample: dict) -> torch.Tensor | None:
+    def _load_masks(self, raw_sample: dict) -> tv_tensors.Mask | None:
         """Decode and merge masks from COCO RLE format into semantic masks.
 
         Args:
             raw_sample: Dictionary from DataFrame row.
 
         Returns:
-            torch.Tensor with shape (N_categories, H, W) where N_categories is the
+            tv_tensors.Mask with shape (N_categories, H, W) where N_categories is the
             number of unique categories, and dtype torch.bool, or None if no segmentations are available.
         """
         segmentations = raw_sample.get("segmentations")
@@ -117,7 +118,7 @@ class LVISDataset(Dataset):
                 category_mask = category_mask | mask
             semantic_masks.append(category_mask)
 
-        return torch.stack(semantic_masks, dim=0)  # (N_categories, H, W)
+        return tv_tensors.Mask(torch.stack(semantic_masks, dim=0))  # (N_categories, H, W)
 
     def _load_dataframe(self) -> pl.DataFrame:
         """Load LVIS samples into Polars DataFrame with semantic mask structure."""

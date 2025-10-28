@@ -18,9 +18,11 @@ from pathlib import Path
 import numpy as np
 from PIL import Image as PILImage
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
+from torchvision import tv_tensors
 
+from getiprompt.data.utils.image import read_image
 from getiprompt.models import Matcher, Model
-from getiprompt.types import Image, Priors, Text
+from getiprompt.types import Priors, Text
 from getiprompt.utils.constants import IMAGE_EXTENSIONS
 from getiprompt.utils.utils import setup_logger
 from getiprompt.visualize import ExportMaskVisualization
@@ -238,7 +240,7 @@ def parse_reference_data(
     reference_prompt_root: str | None = None,
     reference_points_str: str | None = None,
     reference_text_prompt: str | None = None,
-) -> tuple[list[Image], list[Priors], int]:
+) -> tuple[list[tv_tensors.Image], list[Priors], int]:
     """Parse the reference data.
 
     Args:
@@ -254,7 +256,7 @@ def parse_reference_data(
         A tuple of lists of images and prompts, and the class strings.
     """
     class_strings = [""]
-    reference_images: list[Image] = []
+    reference_images: list[tv_tensors.Image] = []
     if reference_image_root:
         reference_images, class_strings, class_ids = parse_image_files(reference_image_root)
 
@@ -285,7 +287,7 @@ def parse_reference_data(
     return reference_images, reference_prompts, class_strings
 
 
-def parse_image_files(root_dir: str) -> tuple[list[Image], list[str]]:
+def parse_image_files(root_dir: str) -> tuple[list[tv_tensors.Image], list[str]]:
     """Parse the image files from a directory.
 
     Args:
@@ -316,7 +318,7 @@ def parse_image_files(root_dir: str) -> tuple[list[Image], list[str]]:
             image_files.extend(root_dir.glob(ext))
         class_names = [""]
 
-    return [Image(image_path=f) for f in image_files], class_names, class_ids
+    return [read_image(f) for f in image_files], class_names, class_ids
 
 
 if __name__ == "__main__":

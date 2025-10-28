@@ -6,10 +6,10 @@
 import torch
 from scipy.optimize import linear_sum_assignment
 from torch.nn import functional
+from torchvision import tv_tensors
 
 from getiprompt.components.prompt_generators.base import PromptGenerator
 from getiprompt.types import Features, Masks, Priors, Similarities
-from getiprompt.types.image import Image
 
 
 class BidirectionalPromptGenerator(PromptGenerator):
@@ -76,7 +76,7 @@ class BidirectionalPromptGenerator(PromptGenerator):
         reference_features: Features,
         target_features: list[Features],
         reference_masks: list[Masks],
-        target_images: list[Image],
+        target_images: list[tv_tensors.Image],
     ) -> tuple[list[Priors], list[Similarities]]:
         """This generates prompt candidates (or priors) based on the similarities.
 
@@ -103,6 +103,7 @@ class BidirectionalPromptGenerator(PromptGenerator):
 
         similarities_per_images = []
 
+        # TODO(Eugene): Unncessary to pass target_images as tensor is not used but only shape is needed
         for target_image_features, target_image in zip(target_features, target_images, strict=False):
             priors = Priors()
             similarities = Similarities()
@@ -120,7 +121,7 @@ class BidirectionalPromptGenerator(PromptGenerator):
                 local_similarity_map = local_mean_reference_feature @ target_image_features.global_features.T
                 local_similarity_map = self._resize_similarity_map(
                     local_similarity_map,
-                    target_image.size,
+                    target_image.shape[-2:],
                 )
                 similarities.add(local_similarity_map, class_id)
 
@@ -141,7 +142,7 @@ class BidirectionalPromptGenerator(PromptGenerator):
                     )
                     image_level_fg_points = self._transform_to_image_coordinates(
                         fg_points,
-                        original_image_size=target_image.size,
+                        original_image_size=target_image.shape[-2:],
                     )
                     fg_point_labels = torch.ones(
                         (len(image_level_fg_points), 1),
@@ -163,7 +164,7 @@ class BidirectionalPromptGenerator(PromptGenerator):
                     )
                     image_level_bg_points = self._transform_to_image_coordinates(
                         bg_points,
-                        original_image_size=target_image.size,
+                        original_image_size=target_image.shape[-2:],
                     )
                     bg_point_labels = torch.zeros(
                         (len(image_level_bg_points), 1),

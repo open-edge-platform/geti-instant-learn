@@ -9,10 +9,11 @@ from logging import getLogger
 import torch
 from segment_anything_hq.predictor import SamPredictor as SamHQPredictor
 from torch import nn
+from torchvision import tv_tensors
 from torchvision.ops import masks_to_boxes, nms
 
 from getiprompt.data import ResizeLongestSide
-from getiprompt.types import Boxes, Image, Masks, Points, Priors, Similarities
+from getiprompt.types import Boxes, Masks, Points, Priors, Similarities
 
 logger = getLogger("Geti Prompt")
 
@@ -76,19 +77,19 @@ class SamDecoder(nn.Module):
 
     def preprocess_inputs(
         self,
-        images: list[Image],
+        images: list[tv_tensors.Image],
         priors: list[Priors] | None = None,
     ) -> tuple[list[torch.Tensor], list[dict[int, torch.Tensor]], list[tuple[int, int]]]:
         """Preprocess the inputs.
 
         Args:
-            images: The images to preprocess.
-            priors: The priors to preprocess.
+            images: list[tv_tensors.Image] - The images to preprocess.
+            priors: list[Priors] - The priors to preprocess.
 
         Returns:
             A tuple of preprocessed images, preprocessed points, and original sizes.
 
-        TODO(Eugene): Unwrap getiprompt.Priors and getiprompt.Image into pure tensors for the SAM predictor.
+        TODO(Eugene): Unwrap getiprompt.Priors into pure tensors for the SAM predictor.
         Consider moving this to a dedicated preprocessing module once the data flow is finalized.
         https://github.com/open-edge-platform/geti-prompt/issues/174
 
@@ -101,11 +102,9 @@ class SamDecoder(nn.Module):
 
         for image, priors_per_image in zip_longest(images, priors, fillvalue=None):
             # Preprocess image using SamPredictor transform
-            input_image = self.transform.apply_image(image.data)
-            input_image_torch = torch.as_tensor(input_image, device=device)
-            input_image_torch = input_image_torch.permute(2, 0, 1).contiguous()[None, :, :, :]
-            ori_size = image.data.shape[:2]
-            preprocessed_images.append(input_image_torch)
+            input_image = self.transform.apply_image_torch(image).to(device)
+            ori_size = image.shape[-2:]
+            preprocessed_images.append(input_image)
             original_sizes.append(ori_size)
             class_points = {}
             class_boxes = {}
@@ -157,16 +156,16 @@ class SamDecoder(nn.Module):
     @torch.inference_mode()
     def forward(
         self,
-        images: list[Image],
+        images: list[tv_tensors.Image],
         priors: list[Priors] | None = None,
         similarities: list[Similarities] | None = None,
     ) -> tuple[list[Masks], list[Points], list[Boxes]]:
         """Forward pass.
 
         Args:
-            images: The images to predict masks from.
-            priors: The priors to predict masks from.
-            similarities: The similarities to predict masks from.
+            images: list[tv_tensors.Image] - The images to predict masks from.
+            priors: list[Priors] - The priors to predict masks from.
+            similarities: list[Similarities] - The similarities to predict masks from.
         """
         if similarities is None:
             similarities = []

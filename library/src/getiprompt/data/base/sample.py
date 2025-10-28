@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 import torch
+from torchvision import tv_tensors
 
 
 @dataclass
@@ -115,11 +116,11 @@ class Sample:
     """
 
     # Required fields
-    image: np.ndarray | torch.Tensor
+    image: tv_tensors.Image | np.ndarray
     image_path: str | None = None
 
     # Optional annotation fields (defaults to None)
-    masks: np.ndarray | torch.Tensor | None = None
+    masks: tv_tensors.Mask | np.ndarray | None = None
     bboxes: np.ndarray | torch.Tensor | None = None
     points: np.ndarray | torch.Tensor | None = None
 

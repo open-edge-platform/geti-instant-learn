@@ -5,14 +5,16 @@
 
 from typing import TYPE_CHECKING
 
-from getiprompt.components import MaskAdder, MasksToPolygons, SamDecoder
+from torchvision import tv_tensors
+
+from getiprompt.components import MasksToPolygons, SamDecoder
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_selectors import AllFeaturesSelector, FeatureSelector
 from getiprompt.components.filters import MaxPointFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.models import Model
 from getiprompt.models.foundation import load_sam_model
-from getiprompt.types import Image, Priors, Results
+from getiprompt.types import Priors, Results
 from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
 
@@ -109,32 +111,41 @@ class Matcher(Model):
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
         )
-        self.mask_adder = MaskAdder(segmenter=self.segmenter)
         self.mask_processor = MasksToPolygons()
         self.reference_features = None
         self.reference_masks = None
 
     @track_duration
-    def learn(self, reference_images: list[Image], reference_priors: list[Priors]) -> Results:
+    def learn(
+        self,
+        reference_images: list[tv_tensors.Image],
+        reference_priors: list[Priors],
+    ) -> Results:
         """Perform learning step on the reference images and priors."""
-        reference_priors = self.mask_adder(reference_images, reference_priors)
-
         # Start running the model
-        reference_features, self.reference_masks = self.encoder(reference_images, reference_priors)
+        reference_features, self.reference_masks = self.encoder(reference_images, reference_priors)  # ov
         self.reference_features = self.feature_selector(reference_features)
 
     @track_duration
-    def infer(self, target_images: list[Image]) -> Results:
+    def infer(
+        self,
+        target_images: list[tv_tensors.Image],
+    ) -> Results:
         """Perform inference step on the target images."""
         # Start running the model
+        # ov: self.extractor -> self.encoder
         target_features, _ = self.encoder(target_images)
+
+        # as it is
         priors, similarities = self.prompt_generator(
             self.reference_features,
             target_features,
             self.reference_masks,
             target_images,
         )
+        # as it is
         priors = self.point_filter(priors)
+        # ov: self.predictor -> self.segmenter
         masks, used_points, _ = self.segmenter(target_images, priors, similarities)
         annotations = self.mask_processor(masks)
 

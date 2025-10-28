@@ -5,11 +5,11 @@
 
 import pytest
 import torch
+from getiprompt.components.feature_selectors.cluster_features import ClusterFeatures
 
 from getiprompt.components.feature_selectors.all_features import AllFeaturesSelector
 from getiprompt.components.feature_selectors.average_features import AverageFeatures
 from getiprompt.components.feature_selectors.base import FeatureSelector
-from getiprompt.components.feature_selectors.cluster_features import ClusterFeatures
 from getiprompt.types import Features
 
 
