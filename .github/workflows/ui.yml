@@ -29,6 +29,17 @@ jobs:
         uses: astral-sh/setup-uv@a02a550bdd3185dba2ebb6aa98d77047ce54ad21 # v6.2.1
         with:
           version: "0.8.8"
+          enable-cache: true
+
+      - name: Cache uv dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            application/backend/.venv
+          key: ${{ runner.os }}-uv-openapi-${{ hashFiles('application/backend/uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-openapi-
 
       - name: Install dependencies
         run: |
@@ -94,6 +105,8 @@ jobs:
         id: setup-node
         with:
           node-version-file: application/ui/.nvmrc
+          cache: 'npm'
+          cache-dependency-path: application/ui/package-lock.json
 
       - name: Install dependencies
         working-directory: "application/ui"
@@ -144,6 +157,8 @@ jobs:
         id: setup-node
         with:
           node-version-file: application/ui/.nvmrc
+          cache: 'npm'
+          cache-dependency-path: application/ui/package-lock.json
 
       - name: Install dependencies
         working-directory: "application/ui"
@@ -252,6 +267,8 @@ jobs:
         id: setup-node
         with:
           node-version-file: application/ui/.nvmrc
+          cache: 'npm'
+          cache-dependency-path: application/ui/package-lock.json
 
       - name: Install dependencies
         working-directory: "application/ui"
