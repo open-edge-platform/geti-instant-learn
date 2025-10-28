@@ -6,6 +6,7 @@
 /**
  * Mock RTCPeerConnection implementation for testing WebRTC connections
  * without requiring actual peer-to-peer networking.
+ *
  */
 export const mockRTCPeerConnectionScript = () => {
     class MockRTCPeerConnection extends EventTarget {
@@ -31,25 +32,11 @@ export const mockRTCPeerConnectionScript = () => {
         async setRemoteDescription(desc: RTCSessionDescriptionInit) {
             this.remoteDescription = desc as RTCSessionDescription;
 
-            // Create fake video stream
+            // Simulate connection state progression
             setTimeout(() => {
-                const canvas = document.createElement('canvas');
-                canvas.width = 640;
-                canvas.height = 480;
-                const ctx = canvas.getContext('2d');
-                if (ctx) {
-                    ctx.fillStyle = '#404040';
-                    ctx.fillRect(0, 0, 640, 480);
-                }
-                const stream = canvas.captureStream(30);
-                const track = stream.getVideoTracks()[0];
+                this.connectionState = 'connecting';
+                this.dispatchEvent(new Event('connectionstatechange'));
 
-                const trackEvent = new Event('track') as RTCTrackEvent;
-                Object.defineProperty(trackEvent, 'streams', { value: [stream] });
-                Object.defineProperty(trackEvent, 'track', { value: track });
-                this.dispatchEvent(trackEvent);
-
-                // Simulate connected state
                 setTimeout(() => {
                     this.connectionState = 'connected';
                     this.dispatchEvent(new Event('connectionstatechange'));
