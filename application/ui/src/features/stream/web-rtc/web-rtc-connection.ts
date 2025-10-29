@@ -4,6 +4,7 @@
  */
 
 import { client } from '@geti-prompt/api';
+import { isFirefox } from '@react-aria/utils';
 import { v4 as uuid } from 'uuid';
 
 export type WebRTCConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'failed';
@@ -87,9 +88,7 @@ export class WebRTCConnection {
             this.updateStatus('connecting');
 
             // Only set ICE server config if browser is Firefox
-            const isFirefox = typeof navigator !== 'undefined' && /firefox/i.test(navigator.userAgent);
-
-            if (isFirefox) {
+            if (isFirefox()) {
                 const config: RTCConfiguration = {
                     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
                 };
