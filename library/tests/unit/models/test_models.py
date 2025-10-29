@@ -8,12 +8,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
+from torchvision.tv_tensors import Image
 
 from getiprompt.models.grounded_sam import GroundedSAM
 from getiprompt.models.matcher import Matcher
 from getiprompt.models.per_dino import PerDino
 from getiprompt.models.soft_matcher import SoftMatcher
-from getiprompt.types import Image, Results
+from getiprompt.types import Results
 
 
 class TestPerDino:

@@ -81,6 +81,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         softmatching_score_threshold: float = 0.4,
         softmatching_bidirectional: bool = False,
     ) -> None:
+        """Initialize the SoftmatcherPromptGenerator."""
         super().__init__(
             encoder_input_size=encoder_input_size,
             encoder_patch_size=encoder_patch_size,

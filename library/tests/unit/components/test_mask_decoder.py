@@ -7,9 +7,10 @@ from unittest.mock import MagicMock
 
 import pytest
 import torch
+from torchvision.tv_tensors import Image
 
 from getiprompt.components.mask_decoder import SamDecoder
-from getiprompt.types import Boxes, Image, Masks, Points
+from getiprompt.types import Boxes, Masks, Points
 
 
 class TestSamDecoderValidation:
@@ -53,7 +54,7 @@ class TestSamDecoderValidation:
     def test_assertion_matching_masks_and_points(self, sam_decoder: SamDecoder) -> None:
         """Test that assertion passes when mask and point counts match."""
         # Create sample data
-        image = Image(torch.zeros((480, 640, 3), dtype=torch.uint8))
+        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
         priors = MagicMock()
         priors.points.data = {0: [torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32)]}
         priors.boxes.data = {}
@@ -78,7 +79,7 @@ class TestSamDecoderValidation:
     def test_assertion_mismatched_masks_and_points(self, sam_decoder: SamDecoder) -> None:
         """Test that assertion fails when mask and point counts don't match."""
         # Create sample data
-        image = Image(torch.zeros((480, 640, 3), dtype=torch.uint8))
+        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
         priors = MagicMock()
         priors.points.data = {0: [torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32)]}
         priors.boxes.data = {}
@@ -97,7 +98,7 @@ class TestSamDecoderValidation:
     def test_assertion_with_zero_masks_and_points(self, sam_decoder: SamDecoder) -> None:
         """Test that assertion passes with zero masks and points."""
         # Create sample data
-        image = Image(torch.zeros((480, 640, 3), dtype=torch.uint8))
+        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
         priors = MagicMock()
         priors.points.data = {0: [torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32)]}
         priors.boxes.data = {}
@@ -120,7 +121,7 @@ class TestSamDecoderValidation:
     def test_assertion_with_multiple_classes(self, sam_decoder: SamDecoder) -> None:
         """Test assertion with multiple classes."""
         # Create sample data with multiple classes
-        image = Image(torch.zeros((480, 640, 3), dtype=torch.uint8))
+        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
         priors = MagicMock()
         priors.points.data = {
             0: [torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32)],
@@ -200,7 +201,7 @@ class TestSamDecoderEmptyTensorHandling:
     def test_empty_tensor_handling_for_empty_masks(self, sam_decoder: SamDecoder) -> None:
         """Test that empty tensors are properly handled when no masks are found."""
         # Create sample data
-        image = Image(torch.zeros((480, 640, 3), dtype=torch.uint8))
+        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
         priors = MagicMock()
         priors.points.data = {0: [torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32)]}
         priors.boxes.data = {}
@@ -237,7 +238,7 @@ class TestSamDecoderEmptyTensorHandling:
     def test_empty_tensor_handling_consistency(self, sam_decoder: SamDecoder) -> None:
         """Test that empty tensor handling maintains consistency across all outputs."""
         # Create sample data
-        image = Image(torch.zeros((480, 640, 3), dtype=torch.uint8))
+        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
         priors = MagicMock()
         priors.points.data = {0: [torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32)]}
         priors.boxes.data = {}
@@ -267,7 +268,7 @@ class TestSamDecoderEmptyTensorHandling:
     def test_empty_tensor_handling_with_original_size(self, sam_decoder: SamDecoder) -> None:
         """Test that empty tensors are created with correct original size."""
         # Create sample data
-        image = Image(torch.zeros((480, 640, 3), dtype=torch.uint8))
+        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
         priors = MagicMock()
         priors.points.data = {0: [torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32)]}
         priors.boxes.data = {}
@@ -291,7 +292,7 @@ class TestSamDecoderEmptyTensorHandling:
     def test_empty_tensor_handling_with_multiple_classes(self, sam_decoder: SamDecoder) -> None:
         """Test empty tensor handling with multiple classes."""
         # Create sample data with multiple classes
-        image = Image(torch.zeros((480, 640, 3), dtype=torch.uint8))
+        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
         priors = MagicMock()
         priors.points.data = {
             0: [torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32)],
@@ -327,7 +328,7 @@ class TestSamDecoderEmptyTensorHandling:
     def test_empty_tensor_handling_edge_cases(self, sam_decoder: SamDecoder) -> None:
         """Test edge cases in empty tensor handling."""
         # Create sample data
-        image = Image(torch.zeros((480, 640, 3), dtype=torch.uint8))
+        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
         priors = MagicMock()
         priors.points.data = {0: [torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32)]}
         priors.boxes.data = {}
@@ -356,7 +357,7 @@ class TestSamDecoderEmptyTensorHandling:
     def test_empty_tensor_handling_with_different_sizes(self, sam_decoder: SamDecoder) -> None:
         """Test empty tensor handling with different image sizes."""
         # Create sample data with different image size
-        image = Image(torch.zeros((320, 480, 3), dtype=torch.uint8))
+        image = Image(torch.zeros((3, 320, 480), dtype=torch.uint8))
         priors = MagicMock()
         priors.points.data = {0: [torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32)]}
         priors.boxes.data = {}

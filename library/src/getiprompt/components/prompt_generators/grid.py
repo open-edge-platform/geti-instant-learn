@@ -49,6 +49,9 @@ class GridPromptGenerator(PromptGenerator):
                                 For example, 16 means a 16x16 grid.
             similarity_threshold: float the threshold for the similarity mask
             num_bg_points: int the number of background points to sample
+
+        Raises:
+            ValueError: If num_grid_cells is not positive.
         """
         super().__init__()
         if num_grid_cells <= 0:

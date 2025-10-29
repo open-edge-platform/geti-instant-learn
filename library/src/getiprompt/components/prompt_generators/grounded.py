@@ -87,6 +87,9 @@ class TextToBoxPromptGenerator(PromptGenerator):
 
         Returns:
             List[Priors] List of priors, one per target image instance
+
+        Raises:
+            ValueError: If the number of text priors is not equal to the number of target images.
         """
         if len(text_priors) != len(target_images):
             msg = "Need one text prior per image"

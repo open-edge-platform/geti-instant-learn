@@ -8,9 +8,10 @@ from unittest.mock import Mock, patch
 import numpy as np
 import pytest
 import torch
+from torchvision.tv_tensors import Image
 
 from getiprompt.components.encoders import AVAILABLE_IMAGE_ENCODERS, ImageEncoder
-from getiprompt.types import Features, Image, Masks, Priors
+from getiprompt.types import Features, Masks, Priors
 
 
 class TestEncoder:
@@ -354,8 +355,8 @@ class TestEncoder:
     @patch("getiprompt.utils.optimization.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
-    def test_embed_method(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
-        """Test the _embed method."""
+    def test_extract_embeddings_method(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
+        """Test the _extract_embeddings method."""
         # Setup mocks with proper structure
         mock_model_instance = self._setup_mock_model(mock_model, mock_processor)
         mock_optimize.return_value = mock_model_instance
@@ -369,15 +370,15 @@ class TestEncoder:
         # Mock processor output
         mock_processor.return_value = {"pixel_values": torch.randn(1, 3, 224, 224)}
 
-        # Test _embed method
-        features = encoder._embed(test_tensors)  # noqa: SLF001
+        # Test _extract_embeddings method
+        features = encoder._extract_embeddings(test_tensors)  # noqa: SLF001
 
         # Check output
         expected_bs = 1
         expected_feature_dim = 1024
-        pytest.assume(isinstance(features, torch.Tensor))
-        pytest.assume(features.shape[0] == expected_bs)  # batch size
-        pytest.assume(features.shape[-1] == expected_feature_dim)  # feature dimension
+        pytest.assume(isinstance(features, list))
+        pytest.assume(len(features) == expected_bs)  # batch size
+        pytest.assume(features[0].global_features.shape[-1] == expected_feature_dim)  # feature dimension
 
     @staticmethod
     def test_error_handling_invalid_model_id() -> None:

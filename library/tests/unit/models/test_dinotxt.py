@@ -9,9 +9,10 @@ import numpy as np
 import pytest
 import torch
 from skimage.draw import random_shapes
+from torchvision.tv_tensors import Image
 
 from getiprompt.models.dinotxt import DinoTxtZeroShotClassification
-from getiprompt.types import Image, Priors, Results
+from getiprompt.types import Priors, Results
 
 
 @pytest.fixture

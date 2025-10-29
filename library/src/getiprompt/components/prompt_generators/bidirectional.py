@@ -3,6 +3,8 @@
 
 """Bidirectional prompt generator."""
 
+from logging import getLogger
+
 import torch
 from scipy.optimize import linear_sum_assignment
 from torch.nn import functional
@@ -10,6 +12,8 @@ from torchvision import tv_tensors
 
 from getiprompt.components.prompt_generators.base import PromptGenerator
 from getiprompt.types import Features, Masks, Priors, Similarities
+
+logger = getLogger("Geti Prompt")
 
 
 class BidirectionalPromptGenerator(PromptGenerator):
@@ -176,7 +180,7 @@ class BidirectionalPromptGenerator(PromptGenerator):
                     )
                     fg_bg_points = torch.cat([fg_bg_points, image_level_bg_points])
                 else:
-                    print(f"No BG points found for class {class_id}")
+                    logger.warning(f"No BG points found for class {class_id}")
 
                 priors.points.add(fg_bg_points, class_id)
             priors_per_image.append(priors)
@@ -418,8 +422,8 @@ class BidirectionalPromptGenerator(PromptGenerator):
         scale_w = original_image_size[1] / encoder_input_size
         scale_h = original_image_size[0] / encoder_input_size
 
-        x_image = x_image * scale_w
-        y_image = y_image * scale_h
+        x_image *= scale_w
+        y_image *= scale_h
 
         # Combine with similarity scores and round coordinates to nearest integer
         return torch.stack(

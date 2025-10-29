@@ -92,12 +92,6 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         help="If passed, will save all",
     )
     parser.add_argument(
-        "--num_clusters",
-        type=int,
-        default=3,
-        help="Number of clusters of features to create, if using the ClusterFeatures module",
-    )
-    parser.add_argument(
         "--similarity_threshold",
         type=float,
         default=0.65,

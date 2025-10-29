@@ -1368,6 +1368,7 @@ class GroundingDinoDecoderLayer(nn.Module):
     """GroundingDINO Deformable Transformer Decoder Layer."""
 
     def __init__(self, config: GroundingDinoConfig) -> None:
+        """Initialize the GroundingDinoDecoderLayer."""
         super().__init__()
         self.embed_dim = config.d_model
 
@@ -1487,9 +1488,10 @@ class GroundingDinoDecoderLayer(nn.Module):
 
 
 class GroundingDinoContrastiveEmbedding(nn.Module):
-    """text visual ContrastiveEmbed layer."""
+    """Text visual ContrastiveEmbed layer."""
 
     def __init__(self, config: GroundingDinoConfig) -> None:
+        """Initialize the GroundingDinoContrastiveEmbedding."""
         super().__init__()
         self.max_text_len = config.max_text_len
         self.log_scale = "auto"
@@ -1518,12 +1520,12 @@ class GroundingDinoContrastiveEmbedding(nn.Module):
         y = text_hidden_state
         res = vision_hidden_state @ y.transpose(-1, -2)
         if isinstance(self.log_scale, nn.Parameter):
-            res = res * self.log_scale.exp()
+            res *= self.log_scale.exp()
         elif self.log_scale == "auto":
             # NOTE: similar to the normalizer in self-attention
-            res = res / math.sqrt(vision_hidden_state.shape[-1])
+            res /= math.sqrt(vision_hidden_state.shape[-1])
         if self.bias is not None:
-            res = res + self.bias
+            res += self.bias
         res.masked_fill_(~text_token_mask[:, None, :], float("-inf"))
 
         new_res = torch.full((*res.shape[:-1], self.max_text_len), float("-inf"), device=res.device)

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from torchvision import tv_tensors
 
-from getiprompt.components import MasksToPolygons, SamDecoder
+from getiprompt.components import MaskAdder, MasksToPolygons, SamDecoder
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_selectors import AllFeaturesSelector, FeatureSelector
 from getiprompt.components.filters import MaxPointFilter
@@ -113,6 +113,7 @@ class Matcher(Model):
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
         )
+        self.mask_adder = MaskAdder(segmenter=self.segmenter)
         self.mask_processor = MasksToPolygons()
         self.reference_features = None
         self.reference_masks = None
@@ -125,7 +126,11 @@ class Matcher(Model):
     ) -> Results:
         """Perform learning step on the reference images and priors."""
         # Start running the model
-        reference_features, self.reference_masks = self.encoder(reference_images, reference_priors)  # ov
+        reference_priors = self.mask_adder(reference_images, reference_priors)
+        reference_features, self.reference_masks = self.encoder(
+            reference_images,
+            reference_priors,
+        )
         self.reference_features = self.feature_selector(reference_features)
 
     @track_duration
@@ -134,20 +139,14 @@ class Matcher(Model):
         target_images: list[tv_tensors.Image],
     ) -> Results:
         """Perform inference step on the target images."""
-        # Start running the model
-        # ov: self.extractor -> self.encoder
         target_features, _ = self.encoder(target_images)
-
-        # as it is
         priors, similarities = self.prompt_generator(
             self.reference_features,
             target_features,
             self.reference_masks,
             target_images,
         )
-        # as it is
         priors = self.point_filter(priors)
-        # ov: self.predictor -> self.segmenter
         masks, used_points, _ = self.segmenter(target_images, priors, similarities)
         annotations = self.mask_processor(masks)
 

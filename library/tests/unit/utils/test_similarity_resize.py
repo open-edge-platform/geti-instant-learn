@@ -18,7 +18,7 @@ class TestResizeSimilarityMapBasic:
         similarities = torch.randn(1, 4096)
         resized = resize_similarity_map(similarities, target_size=(128, 128))
 
-        expected_shape = (128, 128)
+        expected_shape = (1, 128, 128)
         actual_shape = resized.shape
         pytest.assume(actual_shape == expected_shape)
 
@@ -37,7 +37,7 @@ class TestResizeSimilarityMapBasic:
         similarities = torch.randn(1, 1024)  # 32x32
         resized = resize_similarity_map(similarities, target_size=256)
 
-        expected_shape = (256, 256)
+        expected_shape = (1, 256, 256)
         actual_shape = resized.shape
         pytest.assume(actual_shape == expected_shape)
 
@@ -45,66 +45,25 @@ class TestResizeSimilarityMapBasic:
         """Test resizing non-square input to square output."""
         similarities = torch.randn(1, 3600)  # 60x60
         resized = resize_similarity_map(similarities, target_size=(100, 100))
-        pytest.assume(resized.shape == (100, 100))
+        pytest.assume(resized.shape == (1, 100, 100))
 
     def test_upscaling(self) -> None:
         """Test upscaling from smaller to larger size."""
         similarities = torch.randn(1, 64)  # 8x8
         resized = resize_similarity_map(similarities, target_size=(256, 256))
-        pytest.assume(resized.shape == (256, 256))
+        pytest.assume(resized.shape == (1, 256, 256))
 
     def test_downscaling(self) -> None:
         """Test downscaling from larger to smaller size."""
         similarities = torch.randn(1, 16384)  # 128x128
         resized = resize_similarity_map(similarities, target_size=(32, 32))
-        pytest.assume(resized.shape == (32, 32))
+        pytest.assume(resized.shape == (1, 32, 32))
 
     def test_identical_input_output_size(self) -> None:
         """Test when input and output sizes are identical."""
         similarities = torch.randn(1, 4096)  # 64x64
         resized = resize_similarity_map(similarities, target_size=(64, 64))
-        pytest.assume(resized.shape == (64, 64))
-
-
-class TestResizeSimilarityMapPadding:
-    """Test padding removal functionality."""
-
-    def test_unpadded_image_size_square(self) -> None:
-        """Test padding removal with square unpadded_image_size."""
-        # 64x64 flattened
-        similarities = torch.randn(1, 4096)
-        resized = resize_similarity_map(
-            similarities,
-            target_size=(256, 256),
-            unpadded_image_size=(240, 240),
-        )
-
-        expected_shape = (256, 256)
-        actual_shape = resized.shape
-        pytest.assume(actual_shape == expected_shape)
-
-    def test_unpadded_image_size_rectangular(self) -> None:
-        """Test padding removal with non-square unpadded size."""
-        similarities = torch.randn(1, 4096)  # 64x64
-        resized = resize_similarity_map(
-            similarities,
-            target_size=(200, 300),
-            unpadded_image_size=(180, 280),
-        )
-
-        expected_shape = (200, 300)
-        actual_shape = resized.shape
-        pytest.assume(actual_shape == expected_shape)
-
-    def test_unpadded_image_size_asymmetric(self) -> None:
-        """Test padding removal with highly asymmetric unpadded size."""
-        similarities = torch.randn(1, 10000)  # 100x100
-        resized = resize_similarity_map(
-            similarities,
-            target_size=(200, 400),
-            unpadded_image_size=(150, 390),
-        )
-        pytest.assume(resized.shape == (200, 400))
+        pytest.assume(resized.shape == (1, 64, 64))
 
 
 class TestResizeSimilarityMapBatching:
@@ -125,25 +84,15 @@ class TestResizeSimilarityMapBatching:
         resized = resize_similarity_map(similarities, target_size=(64, 64))
 
         # Should squeeze to 2D if batch=1
-        expected_dim = 2
+        expected_dim = 3
         pytest.assume(resized.ndim == expected_dim)
-        pytest.assume(resized.shape == (64, 64))
+        pytest.assume(resized.shape == (1, 64, 64))
 
     def test_large_batch(self) -> None:
         """Test with large batch size."""
         similarities = torch.randn(16, 256)  # batch=16, 16x16
         resized = resize_similarity_map(similarities, target_size=(32, 32))
         pytest.assume(resized.shape == (16, 32, 32))
-
-    def test_batch_with_unpadded_image_size(self) -> None:
-        """Test batch processing with padding removal."""
-        similarities = torch.randn(3, 1024)  # batch=3, 32x32
-        resized = resize_similarity_map(
-            similarities,
-            target_size=(100, 100),
-            unpadded_image_size=(90, 90),
-        )
-        pytest.assume(resized.shape == (3, 100, 100))
 
 
 class TestResizeSimilarityMapDataTypes:
@@ -177,7 +126,7 @@ class TestResizeSimilarityMapDataTypes:
         similarities = torch.randn(1, 1024, device="cuda")
         resized = resize_similarity_map(similarities, target_size=(64, 64))
         pytest.assume(resized.device.type == "cuda")
-        pytest.assume(resized.shape == (64, 64))
+        pytest.assume(resized[0].shape == (64, 64))
 
 
 class TestResizeSimilarityMapValuePreservation:
@@ -213,16 +162,16 @@ class TestResizeSimilarityMapEdgeCases:
         """Test extreme upscaling factor."""
         similarities = torch.randn(1, 16)  # 4x4
         resized = resize_similarity_map(similarities, target_size=(512, 512))
-        pytest.assume(resized.shape == (512, 512))
+        pytest.assume(resized.shape == (1, 512, 512))
 
     def test_extreme_downscaling(self) -> None:
         """Test extreme downscaling factor."""
         similarities = torch.randn(1, 65536)  # 256x256
         resized = resize_similarity_map(similarities, target_size=(16, 16))
-        pytest.assume(resized.shape == (16, 16))
+        pytest.assume(resized.shape == (1, 16, 16))
 
     def test_single_pixel_target(self) -> None:
         """Test resize to single pixel."""
         similarities = torch.randn(1, 1024)  # 32x32
         resized = resize_similarity_map(similarities, target_size=(1, 1))
-        pytest.assume(resized.shape == (1, 1))
+        pytest.assume(resized.shape == (1, 1, 1))
