@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { createContext, ReactNode, Suspense, use, useState } from 'react';
+import { ReactNode, Suspense, useState } from 'react';
 
 import { Image } from '@geti-prompt/icons';
 import { Content, Flex, Grid, Loading, minmax, View } from '@geti/ui';
@@ -16,6 +16,7 @@ import { AnnotatorProvider } from '../../../annotator/providers/annotator-provid
 import { SelectAnnotationProvider } from '../../../annotator/providers/select-annotation-provider.component';
 import { useSelectedFrame } from '../../../stream/selected-frame-provider.component';
 import { CapturedFrameActions } from './captured-frame-actions.component';
+import { CapturedFrameFullScreen } from './captured-frame-full-screen.component';
 import { Labels } from './labels-management/labels.component';
 
 import styles from './captured-frame.module.scss';
@@ -24,25 +25,6 @@ interface CapturedFrameAnnotatorProps {
     children: ReactNode;
     frameId: string;
 }
-
-const FullScreenModeContext = createContext<{
-    isFullScreenMode: boolean;
-    setIsFullScreenMode: (isFullScreenMode: boolean) => void;
-} | null>(null);
-
-const FullScreenModeProvider = ({ children }: { children: ReactNode }) => {
-    const [isFullScreenMode, setIsFullScreenMode] = useState<boolean>(false);
-
-    return <FullScreenModeContext value={{ isFullScreenMode, setIsFullScreenMode }}>{children}</FullScreenModeContext>;
-};
-
-export const useFullScreenMode = () => {
-    const context = use(FullScreenModeContext);
-    if (context === null) {
-        throw new Error('useFullScreenMode must be used within a FullScreenModeProvider');
-    }
-    return context;
-};
 
 const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorProps) => {
     return (
@@ -68,7 +50,7 @@ const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorPro
 
 const NoCapturedFramePlaceholder = () => {
     return (
-        <View backgroundColor={'gray-300'} height={'100%'}>
+        <View backgroundColor={'gray-300'} height={'size-6000'}>
             <Flex height={'100%'} width={'100%'} justifyContent={'center'} alignItems={'center'}>
                 <Flex direction={'column'} gap={'size-100'} alignItems={'center'}>
                     <Image />
@@ -81,10 +63,15 @@ const NoCapturedFramePlaceholder = () => {
 
 interface CapturedFrameContentProps {
     frameId: string;
-    actions: ReactNode;
+    isFullScreenMode: boolean;
+    onFullScreenModeChange: (isFullScreenMode: boolean) => void;
 }
 
-export const CapturedFrameContent = ({ frameId, actions }: CapturedFrameContentProps) => {
+export const CapturedFrameContent = ({
+    frameId,
+    isFullScreenMode,
+    onFullScreenModeChange,
+}: CapturedFrameContentProps) => {
     return (
         <CapturedFrameProviders frameId={frameId}>
             <View gridArea={'labels'} backgroundColor={'gray-200'} paddingX={'size-100'} paddingY={'size-50'}>
@@ -95,7 +82,10 @@ export const CapturedFrameContent = ({ frameId, actions }: CapturedFrameContentP
                 <AnnotatorCanvas frameId={frameId} />
             </View>
             <View gridArea={'actions'} backgroundColor={'gray-200'} padding={'size-100'}>
-                {actions}
+                <CapturedFrameActions
+                    isFullScreenMode={isFullScreenMode}
+                    onFullScreenModeChange={onFullScreenModeChange}
+                />
             </View>
         </CapturedFrameProviders>
     );
@@ -103,23 +93,33 @@ export const CapturedFrameContent = ({ frameId, actions }: CapturedFrameContentP
 
 export const CapturedFrame = () => {
     const { selectedFrameId } = useSelectedFrame();
+    const [isFullScreenMode, setIsFullScreenMode] = useState<boolean>(false);
 
     if (selectedFrameId === null) {
         return <NoCapturedFramePlaceholder />;
     }
 
     return (
-        <Grid
-            width={'100%'}
-            areas={['labels', 'image', 'actions']}
-            rows={[minmax('size-500', 'auto'), 'size-6000', 'size-500']}
-            UNSAFE_style={{
-                backgroundColor: 'var(--spectrum-global-color-gray-200)',
-            }}
-        >
-            <FullScreenModeProvider>
-                <CapturedFrameContent frameId={selectedFrameId} actions={<CapturedFrameActions />} />
-            </FullScreenModeProvider>
-        </Grid>
+        <>
+            <Grid
+                width={'100%'}
+                areas={['labels', 'image', 'actions']}
+                rows={[minmax('size-500', 'auto'), 'size-6000', 'size-500']}
+                UNSAFE_style={{
+                    backgroundColor: 'var(--spectrum-global-color-gray-200)',
+                }}
+            >
+                <CapturedFrameContent
+                    frameId={selectedFrameId}
+                    isFullScreenMode={isFullScreenMode}
+                    onFullScreenModeChange={setIsFullScreenMode}
+                />
+            </Grid>
+            <CapturedFrameFullScreen
+                isFullScreenMode={isFullScreenMode}
+                onFullScreenModeChange={setIsFullScreenMode}
+                frameId={selectedFrameId}
+            />
+        </>
     );
 };
