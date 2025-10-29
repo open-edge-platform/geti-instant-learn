@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ReactNode, Suspense } from 'react';
+import { createContext, ReactNode, Suspense, use, useState } from 'react';
 
 import { Image } from '@geti-prompt/icons';
 import { Content, Flex, Grid, Loading, minmax, View } from '@geti/ui';
@@ -24,6 +24,25 @@ interface CapturedFrameAnnotatorProps {
     children: ReactNode;
     frameId: string;
 }
+
+const FullScreenModeContext = createContext<{
+    isFullScreenMode: boolean;
+    setIsFullScreenMode: (isFullScreenMode: boolean) => void;
+} | null>(null);
+
+const FullScreenModeProvider = ({ children }: { children: ReactNode }) => {
+    const [isFullScreenMode, setIsFullScreenMode] = useState<boolean>(false);
+
+    return <FullScreenModeContext value={{ isFullScreenMode, setIsFullScreenMode }}>{children}</FullScreenModeContext>;
+};
+
+export const useFullScreenMode = () => {
+    const context = use(FullScreenModeContext);
+    if (context === null) {
+        throw new Error('useFullScreenMode must be used within a FullScreenModeProvider');
+    }
+    return context;
+};
 
 const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorProps) => {
     return (
@@ -98,7 +117,9 @@ export const CapturedFrame = () => {
                 backgroundColor: 'var(--spectrum-global-color-gray-200)',
             }}
         >
-            <CapturedFrameContent frameId={selectedFrameId} actions={<CapturedFrameActions />} />
+            <FullScreenModeProvider>
+                <CapturedFrameContent frameId={selectedFrameId} actions={<CapturedFrameActions />} />
+            </FullScreenModeProvider>
         </Grid>
     );
 };

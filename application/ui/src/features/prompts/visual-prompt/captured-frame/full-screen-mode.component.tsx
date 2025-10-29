@@ -3,16 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Flex, FullscreenAction, Grid, minmax } from '@geti/ui';
+import { ActionButton, Content, Dialog, DialogTrigger, Divider, Flex, Grid, Heading, minmax } from '@geti/ui';
+import { Collapse, Expand } from '@geti/ui/icons';
 
 import { AnnotatorTools } from '../../../annotator/tools/annotator-tools.component';
 import { useSelectedFrame } from '../../../stream/selected-frame-provider.component';
 import { CanvasAdjustments } from './canvas-adjustments.component';
-import { CapturedFrameContent } from './captured-frame.component';
+import { CapturedFrameContent, useFullScreenMode } from './captured-frame.component';
 import { ToggleAnnotationsVisibility } from './toggle-annotations-visibility.component';
 import { ZoomManagement } from './zoom-management.component';
 
 const CapturedFrameActionsFullScreen = () => {
+    const { setIsFullScreenMode, isFullScreenMode } = useFullScreenMode();
+
     return (
         <Flex height={'100%'} alignItems={'center'} justifyContent={'end'} gap={'size-50'}>
             <AnnotatorTools />
@@ -22,6 +25,10 @@ const CapturedFrameActionsFullScreen = () => {
             <CanvasAdjustments />
 
             <ZoomManagement />
+
+            <ActionButton isQuiet onPress={() => setIsFullScreenMode(!isFullScreenMode)}>
+                <Collapse />
+            </ActionButton>
         </Flex>
     );
 };
@@ -50,9 +57,20 @@ const CapturedFrameFullScreen = () => {
 };
 
 export const FullScreenMode = () => {
+    const { isFullScreenMode, setIsFullScreenMode } = useFullScreenMode();
+
     return (
-        <FullscreenAction title={'Annotate frame'}>
-            <CapturedFrameFullScreen />
-        </FullscreenAction>
+        <DialogTrigger isOpen={isFullScreenMode} type={'fullscreenTakeover'}>
+            <ActionButton isQuiet onPress={() => setIsFullScreenMode(!isFullScreenMode)}>
+                <Expand />
+            </ActionButton>
+            <Dialog>
+                <Heading>Annotate frame</Heading>
+                <Divider />
+                <Content>
+                    <CapturedFrameFullScreen />
+                </Content>
+            </Dialog>
+        </DialogTrigger>
     );
 };
