@@ -39,7 +39,7 @@ const LabelsList = ({ labels }: LabelsListProps) => {
                     label={label}
                     onSelect={() => setSelectedLabelId(label.id)}
                     isSelected={selectedLabelId === label.id}
-                    existingLabelsNames={labels.filter(({ id }) => id !== label.id).map(({ name }) => name)}
+                    existingLabels={labels}
                 />
             ))}
         </>
@@ -49,14 +49,12 @@ const LabelsList = ({ labels }: LabelsListProps) => {
 export const Labels = () => {
     const { data } = useLabelsQuery();
 
-    const existingLabelsNames = data.labels.map((label) => label.name);
-
     return (
         <Flex height={'100%'} alignItems={'center'} width={'100%'}>
             <Flex margin={'size-50'} wrap={'wrap'} width={'100%'} alignItems={'center'} gap={'size-100'}>
                 <LabelsList labels={data.labels} />
                 <Flex alignSelf={'flex-end'} flex={1} justifyContent={'end'} alignItems={'center'}>
-                    <AddLabel existingLabelsNames={existingLabelsNames} />
+                    <AddLabel existingLabels={data.labels} />
                 </Flex>
             </Flex>
         </Flex>

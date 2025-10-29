@@ -15,7 +15,7 @@ import { EditLabel } from '../edit-label/edit-label.component';
 
 interface AddLabelDialogProps {
     closeDialog: () => void;
-    existingLabelsNames: string[];
+    existingLabels: LabelType[];
 }
 
 const useAddLabel = () => {
@@ -40,7 +40,7 @@ const getDefaultLabel = (): LabelType => {
     };
 };
 
-export const AddLabelDialog = ({ existingLabelsNames, closeDialog }: AddLabelDialogProps) => {
+export const AddLabelDialog = ({ existingLabels, closeDialog }: AddLabelDialogProps) => {
     const { projectId } = useProjectIdentifier();
 
     const defaultLabel = useMemo(getDefaultLabel, []);
@@ -75,7 +75,7 @@ export const AddLabelDialog = ({ existingLabelsNames, closeDialog }: AddLabelDia
                     onAccept={addLabel}
                     onClose={closeDialog}
                     isDisabled={addLabelMutation.isPending}
-                    existingLabelsNames={existingLabelsNames}
+                    existingLabels={existingLabels}
                 />
             </Content>
         </Dialog>

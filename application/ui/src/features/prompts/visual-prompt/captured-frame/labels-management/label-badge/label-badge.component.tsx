@@ -6,7 +6,7 @@
 import { CSSProperties, ReactNode } from 'react';
 
 import { LabelType } from '@geti-prompt/api';
-import { Flex, Text } from '@geti/ui';
+import { Text } from '@geti/ui';
 import { clsx } from 'clsx';
 import { usePress } from 'react-aria';
 
@@ -33,7 +33,7 @@ export const LabelBadge = ({ label, isSelected, onClick, children: actionButtons
             aria-label={`Label ${label.name}`}
         >
             <Text UNSAFE_className={classes.buttonText}>{label.name}</Text>
-            <Flex UNSAFE_className={classes.buttonsContainer}>{actionButtons}</Flex>
+            {actionButtons}
         </div>
     );
 };

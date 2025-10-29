@@ -9,6 +9,8 @@ import { LabelType } from '@geti-prompt/api';
 import { ActionButton, ColorPickerDialog, DimensionValue, Flex, TextField } from '@geti/ui';
 import { clsx } from 'clsx';
 
+import { LABEL_CONSTANTS, validateLabelName } from '../utils';
+
 import classes from './edit-label.module.scss';
 
 interface EditLabelProps {
@@ -18,30 +20,19 @@ interface EditLabelProps {
     isQuiet?: boolean;
     width?: DimensionValue;
     isDisabled?: boolean;
-    existingLabelsNames: string[];
+    existingLabels: LabelType[];
 }
 
-const isUniqueName = (name: string, existingLabelsNames: string[]) => {
-    return !existingLabelsNames.includes(name);
-};
-
-export const EditLabel = ({
-    label,
-    onAccept,
-    onClose,
-    isQuiet,
-    width,
-    isDisabled,
-    existingLabelsNames,
-}: EditLabelProps) => {
-    const MAX_NAME_LENGTH = 100;
+export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled, existingLabels }: EditLabelProps) => {
     const [color, setColor] = useState<string>(label.color);
     const [name, setName] = useState<string>(label.name);
 
-    const isEditDisabled =
-        !isUniqueName(name, existingLabelsNames) || !name.trim() || name === label.name || isDisabled;
+    const validationError = validateLabelName(name, existingLabels, label.id);
+    const isEditDisabled = !!validationError || isDisabled;
 
     const handleAccept = () => {
+        if (isEditDisabled) return;
+
         onAccept({ color, name, id: label.id });
     };
 
@@ -77,11 +68,12 @@ export const EditLabel = ({
                 data-testid={'new-label-name-input'}
                 value={name}
                 onChange={setName}
-                maxLength={MAX_NAME_LENGTH}
+                maxLength={LABEL_CONSTANTS.MAX_NAME_LENGTH}
                 onKeyDown={(e) => handleKeyDown(e)}
                 // eslint-disable-next-line jsx-a11y/no-autofocus
                 autoFocus
-                validate={(newName) => isUniqueName(newName, existingLabelsNames) || 'Label name must be unique.'}
+                validationState={validationError ? 'invalid' : 'valid'}
+                errorMessage={validationError}
             />
             <ActionButton
                 isQuiet={isQuiet}

@@ -93,10 +93,10 @@ interface LabelListItemProps {
     label: LabelType;
     onSelect: () => void;
     isSelected: boolean;
-    existingLabelsNames: string[];
+    existingLabels: LabelType[];
 }
 
-export const LabelListItem = ({ label, onSelect, isSelected, existingLabelsNames }: LabelListItemProps) => {
+export const LabelListItem = ({ label, onSelect, isSelected, existingLabels }: LabelListItemProps) => {
     const [isInEdition, setIsInEdition] = useState<boolean>(false);
     const { projectId } = useProjectIdentifier();
 
@@ -131,7 +131,7 @@ export const LabelListItem = ({ label, onSelect, isSelected, existingLabelsNames
                 label={label}
                 isQuiet
                 width={'size-2400'}
-                existingLabelsNames={existingLabelsNames}
+                existingLabels={existingLabels}
                 isDisabled={updateLabelMutation.isPending}
             />
         );
