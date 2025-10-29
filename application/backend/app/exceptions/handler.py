@@ -11,13 +11,13 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
 from db.constraints import CheckConstraintName, UniqueConstraintName
+from core.runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 from exceptions.custom_errors import (
-    PipelineNotActiveError,
-    PipelineProjectMismatchError,
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ResourceType,
     ResourceUpdateConflictError,
+    ServiceError,
 )
 
 logger = logging.getLogger(__name__)

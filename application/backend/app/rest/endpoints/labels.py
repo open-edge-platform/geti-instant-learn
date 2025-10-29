@@ -9,10 +9,7 @@ from fastapi import Query, Response, status
 
 from dependencies import LabelServiceDep
 from routers import projects_router
-from services.errors import ResourceAlreadyExistsError, ResourceNotFoundError
-from services.label import LabelService
 from services.schemas.label import LabelCreateSchema, LabelSchema, LabelsListSchema, LabelUpdateSchema
-from services.schemas.label import LabelCreateSchema, LabelSchema, LabelsListSchema
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +30,9 @@ def create_label(
     label_service: LabelServiceDep,
 ) -> Response:
     """Create a new label with the given name."""
-    logger.debug(f"Attempting to create label with name: {payload.name}")
+    logger.debug("Attempting to create label with name: %s", payload.name)
     label = label_service.create_label(project_id=project_id, create_data=payload)
-    logger.info(f"Successfully created '{label.name}' label with id {label.id}")
+    logger.info("Successfully created '%s' label with id %s", label.name, label.id)
 
     return Response(
         status_code=status.HTTP_201_CREATED,
@@ -51,7 +48,7 @@ def create_label(
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {"description": "Successfully retrieved the details of label."},
-        status.HTTP_404_NOT_FOUND: {"description": "Project not found."},
+        status.HTTP_404_NOT_FOUND: {"description": "Project or label not found."},
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
     },
 )
@@ -61,6 +58,7 @@ def get_label_by_id(
     label_service: LabelServiceDep,
 ) -> LabelSchema:
     """Get a label by its ID for selected project."""
+    logger.debug("Received GET label %s request for project %s.", label_id, project_id)
     return label_service.get_label_by_id(project_id=project_id, label_id=label_id)
 
 
@@ -85,6 +83,7 @@ def get_all_labels(
     limit: Annotated[int, Query(ge=0, le=1000)] = 20,
 ) -> LabelsListSchema:
     """Get all labels for selected project"""
+    logger.debug("Received GET labels request for project %s.", project_id)
     return label_service.get_all_labels(project_id=project_id, offset=offset, limit=limit)
 
 
@@ -96,7 +95,7 @@ def get_all_labels(
         status.HTTP_204_NO_CONTENT: {
             "description": "Successfully deleted the label.",
         },
-        status.HTTP_404_NOT_FOUND: {"description": "Project not found."},
+        status.HTTP_404_NOT_FOUND: {"description": "Project or label not found."},
         status.HTTP_500_INTERNAL_SERVER_ERROR: {
             "description": "Unexpected error occurred while deleting the label.",
         },
@@ -108,6 +107,7 @@ def delete_label_by_id(
     label_service: LabelServiceDep,
 ) -> Response:
     """Delete a label by its ID for selected project."""
+    logger.debug("Received DELETE label %s request for project %s.", label_id, project_id)
     label_service.delete_label(project_id=project_id, label_id=label_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -120,7 +120,7 @@ def delete_label_by_id(
         status.HTTP_200_OK: {
             "description": "Successfully updated the label.",
         },
-        status.HTTP_404_NOT_FOUND: {"description": "Project not found."},
+        status.HTTP_404_NOT_FOUND: {"description": "Project or label not found."},
         status.HTTP_409_CONFLICT: {"description": "Label name already exists."},
         status.HTTP_500_INTERNAL_SERVER_ERROR: {
             "description": "Unexpected error occurred while updating the label.",
@@ -131,23 +131,10 @@ def update_label(
     project_id: UUID,
     label_id: UUID,
     payload: LabelUpdateSchema,
-    db_session: SessionDep,
-    config_dispatcher: ConfigChangeDispatcherDep,
+    label_service: LabelServiceDep,
 ) -> LabelSchema:
     """
     Update the label.
     """
-    logger.debug(f"Received PUT label {label_id} for {project_id} request.")
-    service = LabelService(session=db_session, config_change_dispatcher=config_dispatcher)
-    try:
-        return service.update_label(project_id=project_id, label_id=label_id, update_data=payload)
-    except ResourceNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except ResourceAlreadyExistsError as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
-    except Exception:
-        logger.exception(f"Internal error updating label with id={label_id} for project id {project_id}")
-        raise HTTPException(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update label due to internal server error.",
-        )
+    logger.debug("Received PUT label %s for %s request.", label_id, project_id)
+    return label_service.update_label(project_id=project_id, label_id=label_id, update_data=payload)

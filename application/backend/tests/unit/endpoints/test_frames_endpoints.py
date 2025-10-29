@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 
+from core.runtime.errors import PipelineNotActiveError
 from dependencies import (
     SessionDep,
     get_frame_repository,
@@ -16,7 +17,7 @@ from dependencies import (
     get_project_repository,
     get_source_repository,
 )
-from exceptions.custom_errors import PipelineNotActiveError, ResourceNotFoundError, ResourceType, ServiceError
+from exceptions.custom_errors import ResourceNotFoundError, ResourceType, ServiceError
 from exceptions.handler import custom_exception_handler
 from routers import projects_router
 
@@ -81,7 +82,7 @@ def _get_capture_frame_exception(behavior, project_id):
         ("project_not_found", 404, False),
         ("source_not_found", 404, False),
         ("project_not_active", 400, False),
-        ("capture_timeout", 500, False),
+        ("capture_timeout", 400, False),
         ("unexpected_error", 500, False),
     ],
 )

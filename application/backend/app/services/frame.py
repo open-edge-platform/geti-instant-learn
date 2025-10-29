@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from core.components.schemas.processor import InputData
+from core.runtime.errors import PipelineNotActiveError
 from exceptions.custom_errors import ResourceNotFoundError, ResourceType, ServiceError
 from repositories.frame import FrameRepository
 from repositories.project import ProjectRepository
@@ -43,7 +44,8 @@ class FrameService:
             The UUID of the saved frame.
         Raises:
             ResourceNotFoundError: If project not found or has no connected source.
-            ServiceError: If project is not active or frame capture fails.
+            PipelineNotActiveError: If project is not active.
+            ServiceError: If frame capture fails.
         """
         project = self._project_repo.get_by_id(project_id)
         if not project:
@@ -53,7 +55,7 @@ class FrameService:
             )
 
         if not project.active:
-            raise ServiceError(
+            raise PipelineNotActiveError(
                 f"Cannot capture frame: project {project_id} is not active. "
                 "Please activate the project before capturing frames."
             )
