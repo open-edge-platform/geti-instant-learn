@@ -112,7 +112,7 @@ describe('EditLabel', () => {
     it('does not invoke onAccept when new name is the same as the old one', async () => {
         const onAccept = vi.fn();
         const labelName = 'Existing Label';
-        const existingLabels: LabelType[] = [{ id: '1', name: labelName, color: '#000000' }];
+        const existingLabels: LabelType[] = [{ id: '2', name: labelName, color: '#000000' }];
 
         const { editLabelPage } = renderEditLabel({
             existingLabels,

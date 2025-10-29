@@ -31,7 +31,7 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled
     const isEditDisabled = !!validationError || isDisabled;
 
     const handleAccept = () => {
-        if (isEditDisabled) return;
+        if (isEditDisabled || label.name === name) return;
 
         onAccept({ color, name, id: label.id });
     };
