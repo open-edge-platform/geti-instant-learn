@@ -10,7 +10,7 @@ import type { paths } from './openapi-spec';
 
 export const client = createFetchClient<paths>({
     baseUrl: import.meta.env.PUBLIC_API_URL ?? 'http://localhost:9100',
-    fetch: (options) => fetch(options),
+    fetch,
 });
 
 export const $api = createClient(client);
