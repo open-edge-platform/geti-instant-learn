@@ -3,7 +3,7 @@
 
 """Batch handling for GetiPrompt datasets.
 
-This module provides batch collation functionality for `Sample`s.
+This module provides batch collation functionality for Geti Prompt `Sample` object.
 The batch is a thin wrapper around list[Sample] with convenient
 properties for batch-level access to tensors.
 """

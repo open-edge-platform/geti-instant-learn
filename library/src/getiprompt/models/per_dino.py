@@ -124,10 +124,7 @@ class PerDino(Model):
     def learn(self, reference_images: list[torch.Tensor], reference_priors: list[Priors]) -> None:
         """Perform learning step on the reference images and priors."""
         # Start running the model
-        reference_features, _ = self.encoder(
-            reference_images,
-            reference_priors,
-        )
+        reference_features, _ = self.encoder(reference_images, reference_priors)
         self.reference_features = self.feature_selector(reference_features)
 
     @track_duration

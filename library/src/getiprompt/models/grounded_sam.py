@@ -68,11 +68,7 @@ class GroundedSAM(Model):
         self.text_priors: Text | None = None
 
     @track_duration
-    def learn(
-        self,
-        reference_images: list[tv_tensors.Image],
-        reference_priors: list[Priors],
-    ) -> None:
+    def learn(self, reference_images: list[tv_tensors.Image], reference_priors: list[Priors]) -> None:
         """Perform learning step on the reference images and priors.
 
         Args:
@@ -93,10 +89,7 @@ class GroundedSAM(Model):
         self.text_priors = reference_priors[0].text
 
     @track_duration
-    def infer(
-        self,
-        target_images: list[tv_tensors.Image],
-    ) -> Results:
+    def infer(self, target_images: list[tv_tensors.Image]) -> Results:
         """Perform inference step on the target images.
 
         Args:

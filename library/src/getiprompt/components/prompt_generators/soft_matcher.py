@@ -127,11 +127,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         )
 
         reference_masks = self._merge_masks(reference_masks)
-        for target_image, target_features in zip(
-            target_images,
-            target_features_list,
-            strict=True,
-        ):
+        for target_image, target_features in zip(target_images, target_features_list, strict=True):
             priors = Priors()
             similarities = Similarities()
             similarity_map = flattened_global_features @ target_features.global_features.T

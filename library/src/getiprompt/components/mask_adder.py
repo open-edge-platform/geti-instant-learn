@@ -25,11 +25,7 @@ class MaskAdder(nn.Module):
         super().__init__()
         self.segmenter = segmenter
 
-    def forward(
-        self,
-        images: list[tv_tensors.Image],
-        priors: list[Priors],
-    ) -> list[Priors]:
+    def forward(self, images: list[tv_tensors.Image], priors: list[Priors]) -> list[Priors]:
         """Create masks from points in the priors.
 
         Args:

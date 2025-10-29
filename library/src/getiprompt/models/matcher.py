@@ -119,25 +119,15 @@ class Matcher(Model):
         self.reference_masks = None
 
     @track_duration
-    def learn(
-        self,
-        reference_images: list[tv_tensors.Image],
-        reference_priors: list[Priors],
-    ) -> Results:
+    def learn(self, reference_images: list[tv_tensors.Image], reference_priors: list[Priors]) -> Results:
         """Perform learning step on the reference images and priors."""
         # Start running the model
         reference_priors = self.mask_adder(reference_images, reference_priors)
-        reference_features, self.reference_masks = self.encoder(
-            reference_images,
-            reference_priors,
-        )
+        reference_features, self.reference_masks = self.encoder(reference_images, reference_priors)
         self.reference_features = self.feature_selector(reference_features)
 
     @track_duration
-    def infer(
-        self,
-        target_images: list[tv_tensors.Image],
-    ) -> Results:
+    def infer(self, target_images: list[tv_tensors.Image]) -> Results:
         """Perform inference step on the target images."""
         target_features, _ = self.encoder(target_images)
         priors, similarities = self.prompt_generator(

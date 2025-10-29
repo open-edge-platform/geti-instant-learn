@@ -49,11 +49,7 @@ class ClassOverlapMaskFilter(nn.Module):
         result_masks = []
         result_points = []
 
-        for pred_masks, pred_points in zip(
-            all_pred_masks,
-            all_pred_points,
-            strict=True,
-        ):
+        for pred_masks, pred_points in zip(all_pred_masks, all_pred_points, strict=True):
             if not pred_masks.data:
                 # If no masks, return empty results for this image
                 result_masks.append(Masks())
@@ -109,12 +105,7 @@ class ClassOverlapMaskFilter(nn.Module):
 
             image_masks = Masks()
             image_points = Points()
-            for mask, foreground_point, label in zip(
-                _masks,
-                _foreground_points,
-                _labels,
-                strict=True,
-            ):
+            for mask, foreground_point, label in zip(_masks, _foreground_points, _labels, strict=True):
                 image_masks.add(mask.unsqueeze(0), label.item())
                 image_points.add(foreground_point.unsqueeze(0), label.item())
 
