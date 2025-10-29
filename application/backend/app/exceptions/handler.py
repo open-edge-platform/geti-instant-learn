@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import re
 from uuid import UUID
 
 from fastapi import Request, status
@@ -9,12 +10,14 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
+from db.constraints import CheckConstraintName, UniqueConstraintName
 from exceptions.custom_errors import (
     PipelineNotActiveError,
     PipelineProjectMismatchError,
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
-    ResourceUpdateConflictError, ResourceType,
+    ResourceType,
+    ResourceUpdateConflictError,
 )
 
 logger = logging.getLogger(__name__)
@@ -32,7 +35,6 @@ async def custom_exception_handler(request: Request, exc: Exception) -> JSONResp
     Returns:
         JSONResponse with appropriate status code and error message.
     """
-    # Map specific exceptions to status codes
     if isinstance(exc, ResourceNotFoundError):
         return await _handle_exception(request, exc, status.HTTP_404_NOT_FOUND)
 
@@ -47,7 +49,14 @@ async def custom_exception_handler(request: Request, exc: Exception) -> JSONResp
     if isinstance(exc, RequestValidationError):
         return await _handle_validation_error(request, exc)
 
-    # unknown exceptions
+    if isinstance(exc, IntegrityError):
+        logger.error(f"Unhandled IntegrityError in endpoint: {exc}", exc_info=exc)
+        return await _handle_exception(
+            request,
+            ValueError("Database constraint violation. Please check your input."),
+            status.HTTP_400_BAD_REQUEST,
+        )
+
     return await _handle_exception(request, exc, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -64,7 +73,7 @@ async def _handle_exception(request: Request, exc: Exception, status_code: int) 
         JSONResponse with error details.
     """
     try:
-        body = await request.body()  # read request body for logging (if available)
+        body = await request.body()
         body_str = body.decode("utf-8") if body else ""
     except Exception:
         body_str = "<unable to read body>"
@@ -132,9 +141,10 @@ async def _handle_validation_error(request: Request, exc: RequestValidationError
     return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"detail": detail})
 
 
-def handle_integrity_error(exc: IntegrityError, resource_type: ResourceType, resource_id: UUID | None) -> None:
+def handle_integrity_error(exc: IntegrityError, resource_type: ResourceType, resource_id: UUID | None = None) -> None:
     """
     Map SQLAlchemy IntegrityError to appropriate custom exception.
+    This function should be called in service layer try-except blocks.
 
     Args:
         exc: The IntegrityError exception
@@ -146,26 +156,80 @@ def handle_integrity_error(exc: IntegrityError, resource_type: ResourceType, res
         ResourceNotFoundError: For FOREIGN KEY constraint violations
         ValueError: For CHECK or NOT NULL constraint violations
     """
-    error_msg = str(exc.orig).lower()
+    error_msg = str(exc.orig).lower()  # the original database exception object
 
     if "unique constraint failed" in error_msg:
-        field_match = error_msg.split(":")[-1].strip() if ":" in error_msg else None  # todo that's not needed here maybe??
-        raise ResourceAlreadyExistsError(
-            resource_type=resource_type,
-            resource_value=str(resource_id) if resource_id else "unknown",
-            raised_by="id",
-            message=f"{resource_type.value} with ID {resource_id} already exists."
-        )
-
-    if "foreign key constraint failed" in error_msg:
+        _handle_unique_constraint(error_msg, resource_type)
+    elif "foreign key constraint failed" in error_msg:
         raise ResourceNotFoundError(
             resource_type=resource_type,
             resource_id=str(resource_id) if resource_id else None,
-            message=f"Referenced resource does not exist."
+            message="Referenced resource does not exist.",
         )
+    elif "check constraint failed" in error_msg:
+        _handle_check_constraint(error_msg)
+    elif "not null constraint failed" in error_msg:
+        _handle_not_null_constraint(error_msg)
+    else:
+        logger.error(f"Unmapped IntegrityError: {error_msg}", exc_info=exc)
+        raise ValueError(f"Database constraint violation for {resource_type.value}.")
 
-    if "check constraint failed" in error_msg or "not null constraint failed" in error_msg:
-        raise ValueError(f"Invalid data: {error_msg}")
 
-    logger.error(f"Unmapped integrity error: {exc}", exc_info=exc)
-    raise
+def _handle_unique_constraint(error_msg: str, resource_type: ResourceType) -> None:
+    """Handle UNIQUE constraint violations."""
+    constraint_messages = {
+        UniqueConstraintName.PROJECT_NAME: ("name", "A project with this name already exists."),
+        UniqueConstraintName.PROMPT_NAME_PER_PROJECT: (
+            "name",
+            "A prompt with this name already exists in the project.",
+        ),
+        UniqueConstraintName.PROCESSOR_NAME_PER_PROJECT: (
+            "name",
+            "A processor with this name already exists in the project.",
+        ),
+        UniqueConstraintName.SOURCE_NAME_PER_PROJECT: (
+            "name",
+            "A source with this name already exists in the project.",
+        ),
+        UniqueConstraintName.SOURCE_TYPE_PER_PROJECT: (
+            "source_type",
+            "A source with this type already exists in the project.",
+        ),
+        UniqueConstraintName.LABEL_NAME_PER_PROJECT: ("name", "A label with this name already exists in the project."),
+        UniqueConstraintName.SINGLE_ACTIVE_PROJECT: ("active", "Only one project can be active at a time."),
+    }
+
+    for constraint, (field_name, message) in constraint_messages.items():
+        if constraint in error_msg or constraint.value.replace("uq_", "").replace("_", "") in error_msg:
+            raise ResourceAlreadyExistsError(
+                resource_type=resource_type,
+                resource_value=field_name,
+                raised_by="name",
+                message=message,
+            )
+
+    logger.warning(f"Unmapped unique constraint violation: {error_msg}")
+    raise ResourceAlreadyExistsError(
+        resource_type=resource_type,
+        resource_value="unknown",
+        raised_by="name",
+        message=f"{resource_type.value} already exists.",
+    )
+
+
+def _handle_check_constraint(error_msg: str) -> None:
+    """Handle CHECK constraint violations using constraint name enums."""
+    if CheckConstraintName.LABEL_PARENT in error_msg:
+        raise ValueError("Label must belong to either a project or a prompt.")
+
+    constraint_match = re.search(r"check constraint failed:\s*(\w+)", error_msg)
+    constraint_name = constraint_match.group(1) if constraint_match else "unknown"
+    logger.warning(f"Unmapped check constraint violation: {constraint_name}")
+    raise ValueError(f"Validation failed: {constraint_name}")
+
+
+def _handle_not_null_constraint(error_msg: str) -> None:
+    """Handle NOT NULL constraint violations."""
+    column_match = re.search(r"not null constraint failed:\s*\w+\.(\w+)", error_msg)
+    column_name = column_match.group(1) if column_match else "unknown field"
+    raise ValueError(f"Required field '{column_name}' cannot be null.")

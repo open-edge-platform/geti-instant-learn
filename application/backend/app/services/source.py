@@ -4,9 +4,9 @@
 import logging
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from core.components.schemas.reader import SourceType
 from core.runtime.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher
 from db.models import ProjectDB, SourceDB
 from exceptions.custom_errors import (
@@ -14,6 +14,7 @@ from exceptions.custom_errors import (
     ResourceType,
     ResourceUpdateConflictError,
 )
+from exceptions.handler import handle_integrity_error
 from repositories.project import ProjectRepository
 from repositories.source import SourceRepository
 from services.schemas.mappers.source import (
@@ -37,7 +38,7 @@ class SourceService:
 
     Responsibilities:
       - Enforce business rules.
-      - Enforce invariants (single source per type per project, immutable source_type on update).
+      - Enforce invariants (single source per type per project via DB constraints, immutable source_type on update).
       - Transaction boundaries (commit).
       - Raise domain-specific exceptions.
     """
@@ -93,37 +94,29 @@ class SourceService:
     def create_source(self, project_id: UUID, create_data: SourceCreateSchema) -> SourceSchema:
         """
         Create a new source.
-        Raise an exception if a source with same source_type already exists in the project.
+        Database constraints enforce uniqueness of source_type and name per project.
         """
         self._ensure_project(project_id)
-        source_type_value: SourceType = create_data.config.source_type
-        existing_same_type = self.source_repository.get_by_type_in_project(
-            project_id=project_id, source_type=source_type_value
-        )
-        if existing_same_type:
-            logger.error(
-                "Cannot create source: project_id=%s already has source_type=%s (existing source_id=%s)",
-                project_id,
-                source_type_value,
-                existing_same_type.id,
-            )
-            raise ResourceUpdateConflictError(
-                resource_type=ResourceType.SOURCE,
-                resource_id=str(existing_same_type.id),
-                field="source_type",
-                message=f"Project {project_id} already has a source of type {source_type_value}",
-            )
+
         if create_data.connected:
             self._disconnect_existing_connected_source(project_id=project_id)
+
         new_source: SourceDB = source_schema_to_db(schema=create_data, project_id=project_id)
         self.source_repository.add(new_source)
-        self.session.commit()
+
+        try:
+            self.session.commit()
+        except IntegrityError as exc:
+            self.session.rollback()
+            logger.error("Source creation failed due to constraint violation: %s", exc)
+            handle_integrity_error(exc, ResourceType.SOURCE, new_source.id)
+
         self.session.refresh(new_source)
         logger.info(
             "Source created: source_id=%s project_id=%s source_type=%s connected=%s config=%s",
             new_source.id,
             project_id,
-            source_type_value,
+            new_source.config.get("source_type"),
             new_source.connected,
             new_source.config,
         )
@@ -167,7 +160,13 @@ class SourceService:
         source.connected = update_data.connected
         source.config = update_data.config.model_dump()
 
-        self.session.commit()
+        try:
+            self.session.commit()
+        except IntegrityError as exc:
+            self.session.rollback()
+            logger.error("Source update failed due to constraint violation: %s", exc)
+            handle_integrity_error(exc, ResourceType.SOURCE, source.id)
+
         self.session.refresh(source)
         logger.info(
             "Source updated: source_id=%s project_id=%s source_type=%s connected=%s config=%s",
@@ -222,7 +221,7 @@ class SourceService:
 
     def _disconnect_existing_connected_source(self, project_id: UUID) -> None:
         """
-        Disconnect any currently connected source in the project, except the one with exclude_id.
+        Disconnect any currently connected source in the project.
         Does not commit by itself; caller commits.
         """
         connected_source = self.source_repository.get_connected_in_project(project_id)

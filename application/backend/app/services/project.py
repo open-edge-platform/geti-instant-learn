@@ -5,6 +5,7 @@ import logging
 from uuid import UUID
 
 from pydantic import TypeAdapter
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from core.components.schemas.reader import ReaderConfig
@@ -16,10 +17,10 @@ from core.runtime.dispatcher import (
 from core.runtime.schemas.pipeline import PipelineConfig
 from db.models import ProjectDB
 from exceptions.custom_errors import (
-    ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ResourceType,
 )
+from exceptions.handler import handle_integrity_error
 from repositories.project import ProjectRepository
 from services.schemas.mappers.project import (
     project_db_to_schema,
@@ -64,33 +65,26 @@ class ProjectService:
     def create_project(self, create_data: ProjectCreateSchema) -> ProjectSchema:
         """
         Persist and activate a new project.
+        Database constraints enforce name and ID uniqueness.
         """
         logger.debug(
             "Project create requested: name=%s id=%s",
             create_data.name,
             create_data.id or "AUTO",
         )
-        if self.project_repository.exists_by_name(create_data.name):
-            logger.error("Project creation rejected: duplicate name=%s", create_data.name)
-            raise ResourceAlreadyExistsError(
-                resource_type=ResourceType.PROJECT,
-                resource_value=create_data.name,
-                raised_by="name",
-            )
-
-        if create_data.id and self.project_repository.exists_by_id(create_data.id):
-            logger.error("Project creation rejected: duplicate id=%s", create_data.id)
-            raise ResourceAlreadyExistsError(
-                resource_type=ResourceType.PROJECT,
-                resource_value=str(create_data.id),
-                raised_by="id",
-            )
 
         project: ProjectDB = project_schema_to_db(create_data)
         self.project_repository.add(project)
-        self.session.flush()
-        self._activate_project(project)
-        self.session.commit()
+
+        try:
+            self.session.flush()
+            self._activate_project(project)
+            self.session.commit()
+        except IntegrityError as exc:
+            self.session.rollback()
+            logger.error("Project creation failed due to constraint violation: %s", exc)
+            handle_integrity_error(exc, ResourceType.PROJECT, project.id)
+
         self.session.refresh(project)
         self._dispatch_pending_events()
         logger.info(
@@ -133,8 +127,8 @@ class ProjectService:
     def update_project(self, project_id: UUID, update_data: ProjectUpdateSchema) -> ProjectSchema:
         """
         Update a project:
-          - Rename if `name` provided and different (enforces uniqueness).
-          - Apply desired activation state if it differs (may result in zero active projects).
+          - Rename if `name` provided and different (enforces uniqueness via DB constraint).
+          - Apply desired activation state if it differs.
         """
         logger.debug(
             "Project update requested: id=%s name=%s active=%s",
@@ -146,20 +140,10 @@ class ProjectService:
         if not project:
             logger.error("Update failed; project not found id=%s", project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
+
         changed = False
 
         if update_data.name is not None and update_data.name != project.name:
-            if self.project_repository.exists_by_name(update_data.name):
-                logger.error(
-                    "Update rejected; duplicate name=%s for project id=%s",
-                    update_data.name,
-                    project_id,
-                )
-                raise ResourceAlreadyExistsError(
-                    resource_type=ResourceType.PROJECT,
-                    resource_value=update_data.name,
-                    raised_by="name",
-                )
             logger.debug("Renaming project id=%s from '%s' to '%s'", project_id, project.name, update_data.name)
             project.name = update_data.name
             changed = True
@@ -176,7 +160,13 @@ class ProjectService:
             changed = True
 
         if changed:
-            self.session.commit()
+            try:
+                self.session.commit()
+            except IntegrityError as exc:
+                self.session.rollback()
+                logger.error("Project update failed due to constraint violation: %s", exc)
+                handle_integrity_error(exc, ResourceType.PROJECT, project.id)
+
             self.session.refresh(project)
             self._dispatch_pending_events()
             logger.info(
