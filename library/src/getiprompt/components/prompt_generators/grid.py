@@ -87,11 +87,7 @@ class GridPromptGenerator(PromptGenerator):
             target_similarities = [Similarities()]
         if target_images is None:
             target_images = [tv_tensors.Image()]
-        for similarities_per_image, target_image in zip(
-            target_similarities,
-            target_images,
-            strict=True,
-        ):
+for similarities_per_image, target_image in zip(target_similarities, target_images, strict=True):
             priors = Priors()
             original_image_shape = target_image.shape[-2:]  # (width, height)
 
