@@ -6,20 +6,17 @@
 import { Content, Dialog, DialogContainer, Divider, Grid, Heading, minmax } from '@geti/ui';
 
 import { CapturedFrameContent } from './captured-frame.component';
+import { useFullScreenMode } from './full-screen-mode.component';
 
 interface CapturedFrameFullScreenProps {
-    isFullScreenMode: boolean;
-    onFullScreenModeChange: (isFullScreenMode: boolean) => void;
     frameId: string;
 }
 
-export const CapturedFrameFullScreen = ({
-    isFullScreenMode,
-    onFullScreenModeChange,
-    frameId,
-}: CapturedFrameFullScreenProps) => {
+export const CapturedFrameFullScreen = ({ frameId }: CapturedFrameFullScreenProps) => {
+    const { isFullScreenMode, setIsFullScreenMode } = useFullScreenMode();
+
     return (
-        <DialogContainer type={'fullscreenTakeover'} onDismiss={() => onFullScreenModeChange(false)}>
+        <DialogContainer type={'fullscreenTakeover'} onDismiss={() => setIsFullScreenMode(false)}>
             {isFullScreenMode && (
                 <Dialog>
                     <Heading>Annotate frame</Heading>
@@ -34,11 +31,7 @@ export const CapturedFrameFullScreen = ({
                                 backgroundColor: 'var(--spectrum-global-color-gray-200)',
                             }}
                         >
-                            <CapturedFrameContent
-                                frameId={frameId}
-                                isFullScreenMode={isFullScreenMode}
-                                onFullScreenModeChange={onFullScreenModeChange}
-                            />
+                            <CapturedFrameContent frameId={frameId} />
                         </Grid>
                     </Content>
                 </Dialog>

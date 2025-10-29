@@ -11,12 +11,7 @@ import { FullScreenMode } from './full-screen-mode.component';
 import { ToggleAnnotationsVisibility } from './toggle-annotations-visibility.component';
 import { ZoomManagement } from './zoom-management.component';
 
-interface CapturedFrameActionsProps {
-    isFullScreenMode: boolean;
-    onFullScreenModeChange: (isFullScreenMode: boolean) => void;
-}
-
-export const CapturedFrameActions = ({ isFullScreenMode, onFullScreenModeChange }: CapturedFrameActionsProps) => {
+export const CapturedFrameActions = () => {
     return (
         <Flex height={'100%'} alignItems={'center'} justifyContent={'end'} gap={'size-50'}>
             <AnnotatorTools />
@@ -27,7 +22,7 @@ export const CapturedFrameActions = ({ isFullScreenMode, onFullScreenModeChange 
 
             <ZoomManagement />
 
-            <FullScreenMode isFullScreenMode={isFullScreenMode} onFullScreenModeChange={onFullScreenModeChange} />
+            <FullScreenMode />
         </Flex>
     );
 };
