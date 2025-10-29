@@ -28,7 +28,7 @@ describe('LabelListItem', () => {
             color: '#000000',
         };
 
-        render(<LabelListItem label={label} onSelect={vi.fn()} isSelected existingLabelsNames={[]} />);
+        render(<LabelListItem label={label} onSelect={vi.fn()} isSelected existingLabels={[]} />);
 
         await userEvent.hover(screen.getByLabelText(`Label ${label.name}`));
 
@@ -46,7 +46,7 @@ describe('LabelListItem', () => {
             color: '#000000',
         };
 
-        render(<LabelListItem label={label} onSelect={vi.fn()} isSelected existingLabelsNames={[]} />);
+        render(<LabelListItem label={label} onSelect={vi.fn()} isSelected existingLabels={[]} />);
 
         expect(screen.getByLabelText(`Label ${label.name}`)).toHaveAttribute('aria-selected', 'true');
         expect(screen.getByLabelText(`Label ${label.name}`)).toHaveClass(/selected/);
@@ -59,7 +59,7 @@ describe('LabelListItem', () => {
             color: '#000000',
         };
 
-        render(<LabelListItem label={label} onSelect={vi.fn()} isSelected={false} existingLabelsNames={[]} />);
+        render(<LabelListItem label={label} onSelect={vi.fn()} isSelected={false} existingLabels={[]} />);
 
         expect(screen.getByLabelText(`Label ${label.name}`)).toHaveAttribute('aria-selected', 'false');
         expect(screen.getByLabelText(`Label ${label.name}`)).not.toHaveClass(/selected/);

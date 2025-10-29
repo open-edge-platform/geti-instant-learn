@@ -62,7 +62,7 @@ class EditLabelPageObject {
 
 const renderEditLabel = ({
     label = { id: '1', name: 'Existing Label', color: '#000000' },
-    existingLabelsNames = [],
+    existingLabels = [],
     onAccept = () => {},
     onClose = () => {},
     isDisabled = false,
@@ -70,7 +70,7 @@ const renderEditLabel = ({
     label?: LabelType;
     onAccept?: (label: LabelType) => void;
     onClose?: () => void;
-    existingLabelsNames?: string[];
+    existingLabels?: LabelType[];
     isDisabled?: boolean;
 } = {}) => {
     const result = render(
@@ -78,7 +78,7 @@ const renderEditLabel = ({
             label={label}
             onAccept={onAccept}
             onClose={onClose}
-            existingLabelsNames={existingLabelsNames}
+            existingLabels={existingLabels}
             isDisabled={isDisabled}
         />
     );
@@ -100,23 +100,29 @@ describe('EditLabel', () => {
     });
 
     it('disables confirm button when the name is duplicate', async () => {
-        const existingLabelsNames = ['Another Label'];
-        const { editLabelPage } = renderEditLabel({ existingLabelsNames });
+        const existingLabels: LabelType[] = [{ id: '2', name: 'Another Label', color: '#000000' }];
+        const { editLabelPage } = renderEditLabel({ existingLabels });
 
-        await editLabelPage.typeInNameInput(existingLabelsNames[0]);
+        await editLabelPage.typeInNameInput(existingLabels[0].name);
 
-        expect(editLabelPage.getNameInput()).toHaveValue(existingLabelsNames[0]);
+        expect(editLabelPage.getNameInput()).toHaveValue(existingLabels[0].name);
         expect(editLabelPage.getConfirmLabelButton()).toBeDisabled();
     });
 
-    it('disables confirm button when new name is the same as the old one', async () => {
+    it('does not invoke onAccept when new name is the same as the old one', async () => {
+        const onAccept = vi.fn();
         const labelName = 'Existing Label';
-        const { editLabelPage } = renderEditLabel({ label: { id: '1', name: labelName, color: '#000000' } });
+        const existingLabels: LabelType[] = [{ id: '1', name: labelName, color: '#000000' }];
+
+        const { editLabelPage } = renderEditLabel({
+            existingLabels,
+            onAccept,
+        });
 
         await editLabelPage.typeInNameInput(labelName);
 
         expect(editLabelPage.getNameInput()).toHaveValue(labelName);
-        expect(editLabelPage.getConfirmLabelButton()).toBeDisabled();
+        expect(onAccept).not.toHaveBeenCalled();
     });
 
     it('disables confirm button when isDisabled is true', async () => {
@@ -126,12 +132,12 @@ describe('EditLabel', () => {
     });
 
     it('shows an error message when the name is duplicate', async () => {
-        const existingLabelsNames = ['Another Label'];
-        const { editLabelPage } = renderEditLabel({ existingLabelsNames });
+        const existingLabels: LabelType[] = [{ id: '2', name: 'Another Label', color: '#000000' }];
+        const { editLabelPage } = renderEditLabel({ existingLabels });
 
-        await editLabelPage.typeInNameInput(existingLabelsNames[0]);
+        await editLabelPage.typeInNameInput(existingLabels[0].name);
 
-        expect(editLabelPage.getNameInput()).toHaveValue(existingLabelsNames[0]);
+        expect(editLabelPage.getNameInput()).toHaveValue(existingLabels[0].name);
         expect(editLabelPage.getValidationError()).toBeInTheDocument();
     });
 

@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { LabelType } from '@geti-prompt/api';
 import { render, type RenderOptions } from '@geti-prompt/test-utils';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -69,10 +70,10 @@ class AddLabelPageObject {
 }
 
 const renderAddLabel = ({
-    existingLabelsNames = [],
+    existingLabels = [],
     options,
-}: { existingLabelsNames?: string[]; options?: RenderOptions } = {}) => {
-    const result = render(<AddLabel existingLabelsNames={existingLabelsNames} />, options);
+}: { existingLabels?: LabelType[]; options?: RenderOptions } = {}) => {
+    const result = render(<AddLabel existingLabels={existingLabels} />, options);
 
     return {
         result,
@@ -163,7 +164,7 @@ describe('AddLabel', () => {
     });
 
     it('does not creates a new label when Enter is pressed with duplicate name', async () => {
-        const existingLabelsNames = ['Duplicate'];
+        const existingLabels: LabelType[] = [{ id: '1', name: 'Duplicate', color: '#000000' }];
         let requestReceived = false;
 
         server.use(
@@ -173,10 +174,10 @@ describe('AddLabel', () => {
             })
         );
 
-        const { addLabelPage } = renderAddLabel({ existingLabelsNames });
+        const { addLabelPage } = renderAddLabel({ existingLabels });
 
         addLabelPage.showDialog();
-        await addLabelPage.typeInNameInput(existingLabelsNames[0]);
+        await addLabelPage.typeInNameInput(existingLabels[0].name);
         await addLabelPage.confirmLabelWithKeyboard();
 
         // Wait a bit to ensure no request was made
@@ -230,24 +231,30 @@ describe('AddLabel', () => {
     });
 
     it('disables confirm button for duplicate label name', async () => {
-        const existingLabelsNames = ['Existing Label', 'Another Label'];
-        const { addLabelPage } = renderAddLabel({ existingLabelsNames });
+        const existingLabels: LabelType[] = [
+            { id: '1', name: 'Existing label', color: '#000000' },
+            { id: '2', name: 'Another label', color: '#FFFFFF' },
+        ];
+        const { addLabelPage } = renderAddLabel({ existingLabels });
 
         addLabelPage.showDialog();
-        await addLabelPage.typeInNameInput(existingLabelsNames[0]);
+        await addLabelPage.typeInNameInput(existingLabels[0].name);
 
-        expect(addLabelPage.getNameInput()).toHaveValue(existingLabelsNames[0]);
+        expect(addLabelPage.getNameInput()).toHaveValue(existingLabels[0].name);
         expect(addLabelPage.getConfirmLabelButton()).toBeDisabled();
     });
 
     it('shows validation error for duplicate label name', async () => {
-        const existingLabelsNames = ['Existing Label', 'Another Label'];
-        const { addLabelPage } = renderAddLabel({ existingLabelsNames });
+        const existingLabels: LabelType[] = [
+            { id: '1', name: 'Existing Label', color: '#000000' },
+            { id: '2', name: 'Another Label', color: '#FFFFFF' },
+        ];
+        const { addLabelPage } = renderAddLabel({ existingLabels });
 
         addLabelPage.showDialog();
-        await addLabelPage.typeInNameInput(existingLabelsNames[0]);
+        await addLabelPage.typeInNameInput(existingLabels[0].name);
 
-        expect(addLabelPage.getNameInput()).toHaveValue(existingLabelsNames[0]);
+        expect(addLabelPage.getNameInput()).toHaveValue(existingLabels[0].name);
         expect(addLabelPage.getValidationError()).toBeInTheDocument();
     });
 });
