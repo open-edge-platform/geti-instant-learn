@@ -86,12 +86,17 @@ export class WebRTCConnection {
         try {
             this.updateStatus('connecting');
 
-            // Firefox requires ICE server configuration for WebRTC connections
-            const config: RTCConfiguration = {
-                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-            };
+            // Only set ICE server config if browser is Firefox
+            const isFirefox = typeof navigator !== 'undefined' && /firefox/i.test(navigator.userAgent);
 
-            this.peerConnection = new RTCPeerConnection(config);
+            if (isFirefox) {
+                const config: RTCConfiguration = {
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+                };
+                this.peerConnection = new RTCPeerConnection(config);
+            } else {
+                this.peerConnection = new RTCPeerConnection();
+            }
 
             this.timeoutId = setTimeout(() => {
                 console.warn('Connection is taking longer than usual. Are you on a VPN?');
