@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 
 from core.components.schemas.processor import InputData
+from core.runtime.errors import PipelineNotActiveError
 from exceptions.custom_errors import ResourceNotFoundError, ResourceType, ServiceError
 from services.frame import FrameService
 
@@ -138,7 +139,7 @@ def test_capture_frame_project_not_active(
     inactive_project = make_project(project_id=project_id, active=False)
     project_repository_mock.get_by_id.return_value = inactive_project
 
-    with pytest.raises(ServiceError, match="project .* is not active"):
+    with pytest.raises(PipelineNotActiveError, match="project .* is not active"):
         frame_service.capture_frame(project_id)
 
 

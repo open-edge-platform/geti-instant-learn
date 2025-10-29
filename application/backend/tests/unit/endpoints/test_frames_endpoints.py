@@ -82,7 +82,7 @@ def _get_capture_frame_exception(behavior, project_id):
         ("project_not_found", 404, False),
         ("source_not_found", 404, False),
         ("project_not_active", 400, False),
-        ("capture_timeout", 400, False),
+        ("capture_timeout", 500, False),
         ("unexpected_error", 500, False),
     ],
 )
