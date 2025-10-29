@@ -24,6 +24,7 @@ interface CapturedFrameAnnotatorProps {
     children: ReactNode;
     frameId: string;
 }
+
 const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorProps) => {
     return (
         <ZoomProvider>
@@ -59,6 +60,28 @@ const NoCapturedFramePlaceholder = () => {
     );
 };
 
+interface CapturedFrameContentProps {
+    frameId: string;
+    actions: ReactNode;
+}
+
+export const CapturedFrameContent = ({ frameId, actions }: CapturedFrameContentProps) => {
+    return (
+        <CapturedFrameProviders frameId={frameId}>
+            <View gridArea={'labels'} backgroundColor={'gray-200'} paddingX={'size-100'} paddingY={'size-50'}>
+                <Labels />
+            </View>
+
+            <View gridArea={'image'} backgroundColor={'gray-50'} overflow={'hidden'}>
+                <AnnotatorCanvas frameId={frameId} />
+            </View>
+            <View gridArea={'actions'} backgroundColor={'gray-200'} padding={'size-100'}>
+                {actions}
+            </View>
+        </CapturedFrameProviders>
+    );
+};
+
 export const CapturedFrame = () => {
     const { selectedFrameId } = useSelectedFrame();
 
@@ -75,18 +98,7 @@ export const CapturedFrame = () => {
                 backgroundColor: 'var(--spectrum-global-color-gray-200)',
             }}
         >
-            <CapturedFrameProviders frameId={selectedFrameId}>
-                <View gridArea={'labels'} backgroundColor={'gray-200'} paddingX={'size-100'} paddingY={'size-50'}>
-                    <Labels />
-                </View>
-
-                <View gridArea={'image'} backgroundColor={'gray-50'} overflow={'hidden'}>
-                    <AnnotatorCanvas frameId={selectedFrameId} />
-                </View>
-                <View gridArea={'actions'} backgroundColor={'gray-200'} padding={'size-100'}>
-                    <CapturedFrameActions />
-                </View>
-            </CapturedFrameProviders>
+            <CapturedFrameContent frameId={selectedFrameId} actions={<CapturedFrameActions />} />
         </Grid>
     );
 };

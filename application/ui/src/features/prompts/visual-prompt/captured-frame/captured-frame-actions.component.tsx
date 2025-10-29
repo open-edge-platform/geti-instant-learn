@@ -7,6 +7,7 @@ import { Flex } from '@geti/ui';
 
 import { AnnotatorTools } from '../../../annotator/tools/annotator-tools.component';
 import { CanvasAdjustments } from './canvas-adjustments.component';
+import { FullScreenMode } from './full-screen-mode.component';
 import { ToggleAnnotationsVisibility } from './toggle-annotations-visibility.component';
 import { ZoomManagement } from './zoom-management.component';
 
@@ -20,6 +21,8 @@ export const CapturedFrameActions = () => {
             <CanvasAdjustments />
 
             <ZoomManagement />
+
+            <FullScreenMode />
         </Flex>
     );
 };
