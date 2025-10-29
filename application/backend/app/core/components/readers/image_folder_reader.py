@@ -43,7 +43,12 @@ class ImageFolderReader(StreamReader, ABC):
         self._current_index = 0
 
     def seek(self, index: int) -> None:
-        """Set the current position to a specific image index."""
+        """
+        Set the current position to a specific image index.
+
+        Args:
+            index (int): The target frame position to seek to.
+        """
         if not self._image_paths:
             raise ValueError("No images loaded. Call connect() first.")
 
@@ -61,7 +66,22 @@ class ImageFolderReader(StreamReader, ABC):
         return self._current_index
 
     def list_frames(self, page: int = 1, page_size: int = 30) -> dict:
-        """Return a paginated list of image paths."""
+        """
+        Return a paginated list of image paths.
+
+        Args:
+            page (int): The page number to retrieve (1-based).
+            page_size (int): The number of frames per page.
+
+        Returns:
+            dict: A dictionary with the following structure:
+                {
+                    "frames": list,  # List of frame metadata or identifiers
+                    "page": int,     # Current page number
+                    "page_size": int,# Number of frames per page
+                    "total": int     # Total number of frames available
+                }
+        """
         start_idx = (page - 1) * page_size
         end_idx = start_idx + page_size
 
@@ -74,24 +94,19 @@ class ImageFolderReader(StreamReader, ABC):
 
     def read(self) -> InputData | None:
         """Read the current image and advance to the next."""
-        if not self._image_paths or self._current_index >= len(self._image_paths):
-            return None
-
-        image_path = self._image_paths[self._current_index]
-        image = cv2.imread(str(image_path))
-
-        if image is None:
+        while self._image_paths and self._current_index < len(self._image_paths):
+            image_path = self._image_paths[self._current_index]
+            image = cv2.imread(str(image_path))
+            if image is not None:
+                current_idx = self._current_index
+                self._current_index += 1
+                return InputData(
+                    timestamp=int(time.time() * 1000),  # Current time in milliseconds
+                    frame=image,
+                    context={"path": str(image_path), "index": current_idx},
+                )
             self._current_index += 1
-            return self.read()  # Skip corrupted images
-
-        current_idx = self._current_index
-        self._current_index += 1
-
-        return InputData(
-            timestamp=int(time.time() * 1000),  # Current time in milliseconds
-            frame=image,
-            context={"path": str(image_path), "index": current_idx},
-        )
+        return None
 
     def close(self) -> None:
         """Clean up resources."""
