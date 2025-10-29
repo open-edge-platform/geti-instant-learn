@@ -95,6 +95,13 @@ def upgrade() -> None:
         "ON Source (project_id, json_extract(config, '$.name')) "
         "WHERE json_extract(config, '$.name') IS NOT NULL"
     )
+    op.create_index(
+        UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT,
+        'Source',
+        ['project_id', 'connected'],
+        unique=True,
+        sqlite_where=sa.text('connected IS 1')
+    )
 
     op.create_table('Annotation',
     sa.Column('config', sqlite.JSON(), nullable=False),
@@ -133,6 +140,11 @@ def downgrade() -> None:
     op.drop_table('Annotation')
     op.execute(f"DROP INDEX IF EXISTS {UniqueConstraintName.SOURCE_NAME_PER_PROJECT}")
     op.execute(f"DROP INDEX IF EXISTS {UniqueConstraintName.SOURCE_TYPE_PER_PROJECT}")
+    op.drop_index(
+        UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT,
+        table_name='Source',
+        sqlite_where=sa.text('connected IS 1')
+    )
     op.drop_table('Source')
     op.drop_table('Sink')
     op.drop_table('Prompt')

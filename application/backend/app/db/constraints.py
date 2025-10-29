@@ -14,6 +14,7 @@ class UniqueConstraintName(StrEnum):
     SOURCE_TYPE_PER_PROJECT = "uq_source_type_per_project"
     LABEL_NAME_PER_PROJECT = "uq_label_name_per_project"
     SINGLE_ACTIVE_PROJECT = "uq_single_active_project"
+    SINGLE_CONNECTED_SOURCE_PER_PROJECT = "uq_single_connected_source_per_project"
 
 
 class CheckConstraintName(StrEnum):

@@ -66,6 +66,13 @@ class SourceDB(Base):
             unique=True,
             sqlite_where=text("json_extract(config, '$.name') IS NOT NULL"),
         ),
+        Index(
+            UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT,
+            "project_id",
+            "connected",
+            unique=True,
+            sqlite_where=text("connected IS 1"),
+        ),
     )
 
 
@@ -144,6 +151,6 @@ class ProjectDB(Base):
             UniqueConstraintName.SINGLE_ACTIVE_PROJECT,
             "active",
             unique=True,
-            sqlite_where=active.is_(True),
+            sqlite_where=text("active IS 1"),
         ),
     )

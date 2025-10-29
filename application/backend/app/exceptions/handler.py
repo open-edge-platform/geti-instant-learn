@@ -197,6 +197,10 @@ def _handle_unique_constraint(error_msg: str, resource_type: ResourceType) -> No
         ),
         UniqueConstraintName.LABEL_NAME_PER_PROJECT: ("name", "A label with this name already exists in the project."),
         UniqueConstraintName.SINGLE_ACTIVE_PROJECT: ("active", "Only one project can be active at a time."),
+        UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT: (
+            "connected",
+            "Only one source can be connected per project at a time.",
+        ),
     }
 
     for constraint, (field_name, message) in constraint_messages.items():
