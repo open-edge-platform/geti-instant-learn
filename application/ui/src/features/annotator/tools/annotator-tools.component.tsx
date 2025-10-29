@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Divider } from '@geti/ui';
+import { Divider, Flex } from '@geti/ui';
 import { SegmentAnythingIcon } from '@geti/ui/icons';
 
 import { useAnnotator } from '../providers/annotator-provider.component';
@@ -16,9 +16,9 @@ export const AnnotatorTools = () => {
     const { activeTool, setActiveTool } = useAnnotator();
 
     return (
-        <>
+        <Flex alignItems={'center'} marginEnd={'auto'}>
             <Tools tools={TOOLS} activeTool={activeTool} setActiveTool={setActiveTool} />
             <Divider size='S' />
-        </>
+        </Flex>
     );
 };

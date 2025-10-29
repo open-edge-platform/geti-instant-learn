@@ -12,7 +12,7 @@ import { ZoomManagement } from './zoom-management.component';
 
 export const CapturedFrameActions = () => {
     return (
-        <Flex height={'100%'} alignItems={'center'} justifyContent={'end'} gap={'size-100'}>
+        <Flex height={'100%'} alignItems={'center'} justifyContent={'end'} gap={'size-50'}>
             <AnnotatorTools />
 
             <ToggleAnnotationsVisibility />
