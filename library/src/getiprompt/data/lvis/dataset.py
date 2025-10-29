@@ -119,7 +119,7 @@ class LVISDataset(Dataset):
                 mask = torch.from_numpy(mask)
                 mask = torch.max(mask, dim=-1).values
                 # Merge with category mask using logical OR
-                category_mask |= mask
+                category_mask = category_mask | mask
             semantic_masks.append(category_mask)
 
         return torch.stack(semantic_masks, dim=0)  # (N_categories, H, W)

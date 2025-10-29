@@ -30,7 +30,7 @@ class SamDecoder(nn.Module):
         >>> import numpy as np
         >>> sam_predictor = load_sam_model(backbone_name="MobileSAM")
         >>> segmenter = SamDecoder(sam_predictor=sam_predictor)
-        >>> image = tv_tensors.Image(np.zeros((1024, 1024, 3), dtype=np.uint8))
+        >>> image = tv_tensors.Image(np.zeros((3, 1024, 1024), dtype=np.uint8))
         >>> priors = Priors()
         >>> points = torch.tensor([[512, 512, 0.9, 1], [100, 100, 0.8, 0]]) # fg, bg
         >>> priors.points.add(points, class_id=1)
@@ -84,8 +84,8 @@ class SamDecoder(nn.Module):
         """Preprocess the inputs.
 
         Args:
-            images: list[tv_tensors.Image] - The images to preprocess.
-            priors: list[Priors] - The priors to preprocess.
+            images(list[tv_tensors.Image]): The images to preprocess.
+            priors(list[Priors]): The priors to preprocess.
 
         Returns:
             A tuple of preprocessed images, preprocessed points, and original sizes.
@@ -164,9 +164,9 @@ class SamDecoder(nn.Module):
         """Forward pass.
 
         Args:
-            images: list[tv_tensors.Image] - The images to predict masks from.
-            priors: list[Priors] - The priors to predict masks from.
-            similarities: list[Similarities] - The similarities to predict masks from.
+            images(list[tv_tensors.Image]): The images to predict masks from.
+            priors(list[Priors]): The priors to predict masks from.
+            similarities(list[Similarities]): The similarities to predict masks from.
         """
         if similarities is None:
             similarities = []

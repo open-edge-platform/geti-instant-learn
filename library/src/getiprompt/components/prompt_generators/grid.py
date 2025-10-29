@@ -26,7 +26,7 @@ class GridPromptGenerator(PromptGenerator):
         >>> sim_map = torch.zeros(1, 10, 10)
         >>> sim_map[0, 2:4, 2:4] = 0.8
         >>> similarities.add(sim_map, class_id=1)
-        >>> image = tv_tensors.Image(torch.zeros(20, 20, 3))
+        >>> image = tv_tensors.Image(torch.zeros(3, 20, 20))
         >>> image.add_local_features(image.global_features[:6], 1)
         >>> priors = prompt_generator(target_similarities=[similarities], target_images=[image])
         >>> isinstance(priors[0], Priors) and priors[0].points.get(1) is not None

@@ -26,7 +26,7 @@ class ExportMaskVisualization(Visualization):
         >>> from torchvision import tv_tensors
         >>>
         >>> visualizer = ExportMaskVisualization(output_folder="visualizations")
-        >>> sample_image = tv_tensors.Image(np.zeros((10, 10, 3), dtype=np.uint8))
+        >>> sample_image = tv_tensors.Image(np.zeros((3, 10, 10), dtype=np.uint8))
         >>> visualizer(
         ...     images=[sample_image],
         ...     masks=[Masks()],

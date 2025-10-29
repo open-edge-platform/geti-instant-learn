@@ -49,12 +49,12 @@ class CosineSimilarity(nn.Module):
         to be reduced (averaged/clustered) into a single Features object.
 
         Args:
-            reference_features: List[Features] List of reference features, one per prior image instance
-            target_features: List[Features] List of target features, one per target image instance
-                target_images: List[tv_tensors.Image] List of target images
+            reference_features (list[Features]): List of reference features, one per prior image instance
+            target_features (list[Features]): List of target features, one per target image instance
+            target_images (list[tv_tensors.Image]): List of target images
 
         Returns:
-            List[Similarities] List of similarities, one per target image instance which are resized to
+            list[Similarities]: List of similarities, one per target image instance which are resized to
               the original image size
         """
         reference_features = reference_features[0]
