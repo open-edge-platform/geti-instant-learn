@@ -28,10 +28,11 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled
     const [name, setName] = useState<string>(label.name);
 
     const validationError = validateLabelName(name, existingLabels, label.id);
+    const hasSameName = name.trim() === label.name.trim();
     const isEditDisabled = !!validationError || isDisabled;
 
     const handleAccept = () => {
-        if (isEditDisabled || label.name === name) return;
+        if (isEditDisabled) return;
 
         onAccept({ color, name, id: label.id });
     };
@@ -79,7 +80,7 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled
                 isQuiet={isQuiet}
                 aria-label={'Confirm label'}
                 onPress={handleAccept}
-                isDisabled={isEditDisabled}
+                isDisabled={isEditDisabled || hasSameName}
                 UNSAFE_style={
                     {
                         '--addButtonBgColor': isQuiet ? 'var(--spectrum-global-color-gray-200)' : 'var(--energy-blue)',

@@ -6,7 +6,7 @@
 import { ReactNode, Suspense } from 'react';
 
 import { Image } from '@geti-prompt/icons';
-import { Content, Flex, Grid, Loading, View } from '@geti/ui';
+import { Content, Flex, Grid, Loading, minmax, View } from '@geti/ui';
 
 import { ZoomProvider } from '../../../../components/zoom/zoom.provider';
 import { AnnotatorCanvas } from '../../../annotator/annotator-canvas';
@@ -70,7 +70,7 @@ export const CapturedFrame = () => {
         <Grid
             width={'100%'}
             areas={['labels', 'image', 'actions']}
-            rows={['size-500', 'size-6000', 'size-500']}
+            rows={[minmax('size-500', 'auto'), 'size-6000', 'size-500']}
             UNSAFE_style={{
                 backgroundColor: 'var(--spectrum-global-color-gray-200)',
             }}

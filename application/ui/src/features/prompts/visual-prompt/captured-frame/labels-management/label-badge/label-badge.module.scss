@@ -35,8 +35,8 @@
 
 .selected,
 .selected:focus {
-    outline-offset: var(--spectrum-global-dimension-size-50);
-    outline: var(--spectrum-global-dimension-size-50) solid var(--labelBgColor);
+    outline-offset: var(--spectrum-global-dimension-size-25);
+    outline: var(--spectrum-global-dimension-size-25) solid var(--labelBgColor);
 }
 
 .buttonText {
