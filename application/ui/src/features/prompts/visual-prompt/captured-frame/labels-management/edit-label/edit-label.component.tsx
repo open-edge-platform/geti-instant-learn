@@ -9,7 +9,7 @@ import { LabelType } from '@geti-prompt/api';
 import { ActionButton, ColorPickerDialog, DimensionValue, Flex, TextField } from '@geti/ui';
 import { clsx } from 'clsx';
 
-import { LABEL_CONSTANTS, validateLabelName } from '../utils';
+import { MAX_LABEL_NAME_LENGTH, validateLabelName } from '../utils';
 
 import classes from './edit-label.module.scss';
 
@@ -68,7 +68,7 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled
                 data-testid={'new-label-name-input'}
                 value={name}
                 onChange={setName}
-                maxLength={LABEL_CONSTANTS.MAX_NAME_LENGTH}
+                maxLength={MAX_LABEL_NAME_LENGTH}
                 onKeyDown={(e) => handleKeyDown(e)}
                 // eslint-disable-next-line jsx-a11y/no-autofocus
                 autoFocus
