@@ -26,7 +26,7 @@ export const CapturedFrameFullScreen = ({ frameId }: CapturedFrameFullScreenProp
                             height={'100%'}
                             width={'100%'}
                             areas={['labels', 'image', 'actions']}
-                            rows={['size-500', minmax(0, '1fr'), 'size-500']}
+                            rows={[minmax('size-500', 'auto'), minmax(0, '1fr'), 'size-500']}
                             UNSAFE_style={{
                                 backgroundColor: 'var(--spectrum-global-color-gray-200)',
                             }}
