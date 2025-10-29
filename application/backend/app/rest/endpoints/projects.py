@@ -56,8 +56,6 @@ def create_project(
     project_service: ProjectServiceDep,
 ) -> Response:
     """Create a new project with the given name."""
-
-    logger.debug(f"Attempting to create project with name: {payload.name}")
     project = project_service.create_project(payload)
     logger.info(f"Successfully created '{project.name}' project with id {project.id}")
 
@@ -87,7 +85,6 @@ def delete_project(
     project_service: ProjectServiceDep,
 ) -> Response:
     """Delete the specified project."""
-    logger.debug(f"Received DELETE project {project_id} request.")
     project_service.delete_project(project_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -112,7 +109,6 @@ def get_active_project(
     project_service: ProjectServiceDep,
 ) -> ProjectSchema:
     """Retrieve the configuration of the currently active project."""
-    logger.debug("Received GET active project request.")
     return project_service.get_active_project_info()
 
 
@@ -135,7 +131,6 @@ def get_projects_list(
     limit: Annotated[int, Query(ge=0, le=1000)] = 20,
 ) -> ProjectsListSchema:
     """Retrieve a list of all available project configurations."""
-    logger.debug("Received GET projects request.")
     return project_service.list_projects(offset=offset, limit=limit)
 
 
@@ -158,7 +153,6 @@ def get_project(
     project_service: ProjectServiceDep,
 ) -> ProjectSchema:
     """Retrieve the project's configuration."""
-    logger.debug(f"Received GET project {project_id} request.")
     return project_service.get_project(project_id)
 
 
@@ -183,7 +177,6 @@ def update_project(
     project_service: ProjectServiceDep,
 ) -> ProjectSchema:
     """Update the project's configuration."""
-    logger.debug(f"Received PUT project {project_id} request.")
     return project_service.update_project(project_id=project_id, update_data=payload)
 
 
@@ -208,7 +201,6 @@ def export_projects(names: Annotated[list[str] | None, Query()] = None) -> Respo
     Returns:
         Response: A .zip file containing the selected project directories (e.g., {p1_name}/configuration.yaml).
     """
-    logger.debug("Received GET export projects request.")
     if names:
         logger.debug(f"Exporting projects with names: {names}")
 
@@ -237,8 +229,6 @@ def import_projects() -> Response:
     If a project with the same name already exists, the import for that specific project
     will be rejected with an error to prevent accidental overwrites.
     """
-    logger.debug("Received POST import project request.")
-
     # Placeholder for future service integration.
 
     return Response(status_code=status.HTTP_201_CREATED)

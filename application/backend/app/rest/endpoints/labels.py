@@ -30,7 +30,6 @@ def create_label(
     label_service: LabelServiceDep,
 ) -> Response:
     """Create a new label with the given name."""
-    logger.debug("Attempting to create label with name: %s", payload.name)
     label = label_service.create_label(project_id=project_id, create_data=payload)
     logger.info("Successfully created '%s' label with id %s", label.name, label.id)
 
@@ -58,7 +57,6 @@ def get_label_by_id(
     label_service: LabelServiceDep,
 ) -> LabelSchema:
     """Get a label by its ID for selected project."""
-    logger.debug("Received GET label %s request for project %s.", label_id, project_id)
     return label_service.get_label_by_id(project_id=project_id, label_id=label_id)
 
 
@@ -83,7 +81,6 @@ def get_all_labels(
     limit: Annotated[int, Query(ge=0, le=1000)] = 20,
 ) -> LabelsListSchema:
     """Get all labels for selected project"""
-    logger.debug("Received GET labels request for project %s.", project_id)
     return label_service.get_all_labels(project_id=project_id, offset=offset, limit=limit)
 
 
@@ -107,7 +104,6 @@ def delete_label_by_id(
     label_service: LabelServiceDep,
 ) -> Response:
     """Delete a label by its ID for selected project."""
-    logger.debug("Received DELETE label %s request for project %s.", label_id, project_id)
     label_service.delete_label(project_id=project_id, label_id=label_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -136,5 +132,4 @@ def update_label(
     """
     Update the label.
     """
-    logger.debug("Received PUT label %s for %s request.", label_id, project_id)
     return label_service.update_label(project_id=project_id, label_id=label_id, update_data=payload)

@@ -27,7 +27,6 @@ def get_sources(project_id: UUID, source_service: SourceServiceDep) -> SourcesLi
     """
     Retrieve the source configuration of the project.
     """
-    logger.debug(f"Received GET project {project_id} sources request.")
     return source_service.list_sources(project_id)
 
 
@@ -50,7 +49,6 @@ def create_source(
     """
     Create a new source configuration for the project.
     """
-    logger.debug(f"Received POST source request for project {project_id} with payload: {payload}.")
     return source_service.create_source(project_id=project_id, create_data=payload)
 
 
@@ -74,7 +72,6 @@ def update_source(
     """
     Update the project's source configuration.
     """
-    logger.debug(f"Received PUT source {source_id} request for project {project_id}.")
     return source_service.update_source(project_id=project_id, source_id=source_id, update_data=payload)
 
 
@@ -99,6 +96,5 @@ def delete_source(
     """
     Delete the specified project's source configuration.
     """
-    logger.debug(f"Received DELETE source {source_id} request for project {project_id}.")
     source_service.delete_source(project_id=project_id, source_id=source_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

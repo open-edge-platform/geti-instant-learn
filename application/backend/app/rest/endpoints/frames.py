@@ -106,8 +106,6 @@ def capture_frame(project_id: UUID, frame_service: FrameServiceDep) -> Response:
     Capture the latest frame from the video stream of the active project.
     Returns the frame ID in the response body and a Location header pointing to the captured frame.
     """
-    logger.debug(f"Received POST capture frame for project {project_id} request.")
-
     frame_id = frame_service.capture_frame(project_id)
 
     response = FrameCaptureResponse(frame_id=frame_id)
@@ -155,8 +153,6 @@ def get_frame(project_id: UUID, frame_id: UUID, frame_service: FrameServiceDep) 
     """
     Retrieve a captured frame as JPEG.
     """
-    logger.debug(f"Received GET project {project_id} frame {frame_id} request.")
-
     frame_path = frame_service.get_frame_path(project_id, frame_id)
     if frame_path is None or not frame_path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Frame not found")

@@ -28,7 +28,6 @@ def get_sink(project_id: UUID) -> Response:
     """
     Retrieve the sink configuration of the project.
     """
-    logger.debug(f"Received GET project {project_id} sink request.")
     return Response(status_code=status.HTTP_200_OK, content={"project_sink": {}})
 
 
@@ -52,7 +51,6 @@ def update_sink(project_id: UUID) -> Response:
     """
     Update the project's configuration.
     """
-    logger.debug(f"Received PUT project {project_id} sink request.")
     return Response(status_code=status.HTTP_200_OK, content={"project_sink": {}})
 
 
@@ -73,5 +71,4 @@ def delete_sink(project_id: UUID) -> Response:
     """
     Delete the specified project's sink configuration.
     """
-    logger.debug(f"Received DELETE project {project_id} sink request.")
     return Response(status_code=status.HTTP_200_OK, content=f"Sink for the project {project_id} deleted successfully.")
