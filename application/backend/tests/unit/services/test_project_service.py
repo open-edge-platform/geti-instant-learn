@@ -83,9 +83,7 @@ def test_create_project_duplicate_name_raises_integrity_error(service, repo_mock
     repo_mock.get_active.return_value = None
 
     session_mock.flush.side_effect = IntegrityError(
-        "UNIQUE constraint failed: Project.name",
-        params=None,
-        orig=Exception("UNIQUE constraint failed: Project.name")
+        "UNIQUE constraint failed: Project.name", params=None, orig=Exception("UNIQUE constraint failed: Project.name")
     )
 
     with pytest.raises(ResourceAlreadyExistsError) as exc_info:
@@ -193,9 +191,7 @@ def test_update_project_duplicate_name_raises_integrity_error(service, repo_mock
     repo_mock.get_by_id.return_value = existing
 
     session_mock.commit.side_effect = IntegrityError(
-        "UNIQUE constraint failed: Project.name",
-        params=None,
-        orig=Exception("UNIQUE constraint failed: Project.name")
+        "UNIQUE constraint failed: Project.name", params=None, orig=Exception("UNIQUE constraint failed: Project.name")
     )
 
     with pytest.raises(ResourceAlreadyExistsError):

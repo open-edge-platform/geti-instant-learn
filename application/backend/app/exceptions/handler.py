@@ -219,7 +219,6 @@ def _handle_unique_constraint(error_msg: str, resource_type: ResourceType) -> No
                 message=message,
             )
 
-
     table_column_match = re.search(r"(\w+)\.(\w+)", error_msg)
     if table_column_match:
         table_name = table_column_match.group(1).lower()

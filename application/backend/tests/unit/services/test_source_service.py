@@ -149,7 +149,7 @@ def test_create_source_type_conflict_raises_integrity_error(service):
     service.session.commit.side_effect = IntegrityError(
         "UNIQUE constraint failed: uq_source_type_per_project",
         params=None,
-        orig=Exception("UNIQUE constraint failed: uq_source_type_per_project")
+        orig=Exception("UNIQUE constraint failed: uq_source_type_per_project"),
     )
 
     with pytest.raises(ResourceAlreadyExistsError) as exc_info:
@@ -173,7 +173,7 @@ def test_create_source_name_conflict_raises_integrity_error(service):
     service.session.commit.side_effect = IntegrityError(
         "UNIQUE constraint failed: uq_source_name_per_project",
         params=None,
-        orig=Exception("UNIQUE constraint failed: uq_source_name_per_project")
+        orig=Exception("UNIQUE constraint failed: uq_source_name_per_project"),
     )
 
     with pytest.raises(ResourceAlreadyExistsError) as exc_info:
@@ -215,7 +215,7 @@ def test_create_connected_source_violates_single_connected_constraint(service):
     service.session.commit.side_effect = IntegrityError(
         "UNIQUE constraint failed: uq_single_connected_source_per_project",
         params=None,
-        orig=Exception("UNIQUE constraint failed: uq_single_connected_source_per_project")
+        orig=Exception("UNIQUE constraint failed: uq_single_connected_source_per_project"),
     )
 
     with pytest.raises(ResourceAlreadyExistsError) as exc_info:

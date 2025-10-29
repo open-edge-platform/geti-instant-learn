@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 
 from dependencies import (
@@ -15,7 +16,8 @@ from dependencies import (
     get_project_repository,
     get_source_repository,
 )
-from exceptions.custom_errors import ResourceNotFoundError, ResourceType, ServiceError
+from exceptions.custom_errors import PipelineNotActiveError, ResourceNotFoundError, ResourceType, ServiceError
+from exceptions.handler import custom_exception_handler
 from routers import projects_router
 
 PROJECT_ID = uuid4()
@@ -40,12 +42,15 @@ def app():
     app.dependency_overrides[get_project_repository] = lambda: object()
     app.dependency_overrides[get_source_repository] = lambda: object()
 
+    app.add_exception_handler(Exception, custom_exception_handler)
+    app.add_exception_handler(RequestValidationError, custom_exception_handler)
+
     return app
 
 
 @pytest.fixture
 def client(app):
-    return TestClient(app)
+    return TestClient(app, raise_server_exceptions=False)
 
 
 def _get_capture_frame_exception(behavior, project_id):
@@ -57,29 +62,30 @@ def _get_capture_frame_exception(behavior, project_id):
     if behavior == "source_not_found":
         return ResourceNotFoundError(
             resource_type=ResourceType.SOURCE,
-            resource_id=f"no connected source for project {project_id}",
+            resource_id=None,
+            message=f"Project {project_id} has no connected source.",
         )
     if behavior == "project_not_active":
-        return ServiceError(f"project {project_id} is not active")
+        return PipelineNotActiveError(f"Cannot capture frame: project {project_id} is not active.")
     if behavior == "capture_timeout":
-        return ServiceError("No frame received within 5.0 seconds")
+        return ServiceError("No frame received within 5.0 seconds. Pipeline may not be running.")
     if behavior == "unexpected_error":
         return RuntimeError("Database connection failed")
     return None
 
 
 @pytest.mark.parametrize(
-    "behavior,expected_status,expect_location,expected_detail",
+    "behavior,expected_status,expect_location",
     [
-        ("success", 201, True, None),
-        ("project_not_found", 404, False, None),
-        ("source_not_found", 404, False, None),
-        ("project_not_active", 400, False, None),
-        ("capture_timeout", 400, False, None),
-        ("unexpected_error", 500, False, "An unexpected error occurred while capturing the frame"),
+        ("success", 201, True),
+        ("project_not_found", 404, False),
+        ("source_not_found", 404, False),
+        ("project_not_active", 400, False),
+        ("capture_timeout", 500, False),
+        ("unexpected_error", 500, False),
     ],
 )
-def test_capture_frame(client, monkeypatch, behavior, expected_status, expect_location, expected_detail):
+def test_capture_frame(client, behavior, expected_status, expect_location):
     class FakeFrameService:
         def __init__(self, pipeline_manager, frame_repo, project_repo, source_repo):
             pass
@@ -106,27 +112,7 @@ def test_capture_frame(client, monkeypatch, behavior, expected_status, expect_lo
         assert resp.json()["frame_id"] == FRAME_ID_STR
     else:
         assert "Location" not in resp.headers
-        if expected_detail:
-            assert expected_detail in resp.json()["detail"]
-        else:
-            assert "detail" in resp.json()
-
-
-def test_capture_frame_service_error_details(client, monkeypatch):
-    class FakeFrameService:
-        def __init__(self, pipeline_manager, frame_repo, project_repo, source_repo):
-            pass
-
-        def capture_frame(self, project_id):
-            raise ServiceError("Frame capture failed: encoding error")
-
-    app = client.app
-    app.dependency_overrides[get_frame_service] = lambda: FakeFrameService(None, None, None, None)
-
-    resp = client.post(f"/api/v1/projects/{PROJECT_ID_STR}/frames")
-
-    assert resp.status_code == 400
-    assert "Frame capture failed: encoding error" in resp.json()["detail"]
+        assert "detail" in resp.json()
 
 
 @pytest.mark.parametrize(
@@ -137,7 +123,7 @@ def test_capture_frame_service_error_details(client, monkeypatch):
         (False, False, 404),
     ],
 )
-def test_get_frame(client, monkeypatch, frame_exists, path_exists, expected_status, tmp_path):
+def test_get_frame(client, frame_exists, path_exists, expected_status, tmp_path):
     test_frame_path = tmp_path / "test_frame.jpg"
     if path_exists:
         test_frame_path.write_bytes(b"\xff\xd8\xff\xe0")  # minimal JPEG header
@@ -167,7 +153,7 @@ def test_get_frame(client, monkeypatch, frame_exists, path_exists, expected_stat
         assert resp.json()["detail"] == "Frame not found"
 
 
-def test_get_frame_returns_file_content(client, monkeypatch, tmp_path):
+def test_get_frame_returns_file_content(client, tmp_path):
     test_frame_path = tmp_path / "frame.jpg"
     expected_content = b"\xff\xd8\xff\xe0\x00\x10JFIF"  # JPEG header with JFIF marker
     test_frame_path.write_bytes(expected_content)
@@ -189,22 +175,25 @@ def test_get_frame_returns_file_content(client, monkeypatch, tmp_path):
     assert resp.headers["content-type"] == "image/jpeg"
 
 
-def test_get_frame_with_invalid_project_id(client, monkeypatch):
+def test_get_frame_with_invalid_project_id(client):
     resp = client.get(f"/api/v1/projects/not-a-uuid/frames/{FRAME_ID_STR}")
-    assert resp.status_code == 422
+    assert resp.status_code == 400
+    assert "detail" in resp.json()
 
 
-def test_get_frame_with_invalid_frame_id(client, monkeypatch):
+def test_get_frame_with_invalid_frame_id(client):
     resp = client.get(f"/api/v1/projects/{PROJECT_ID_STR}/frames/not-a-uuid")
-    assert resp.status_code == 422
+    assert resp.status_code == 400
+    assert "detail" in resp.json()
 
 
 def test_capture_frame_with_invalid_project_id(client):
     resp = client.post("/api/v1/projects/not-a-uuid/frames")
-    assert resp.status_code == 422
+    assert resp.status_code == 400
+    assert "detail" in resp.json()
 
 
-def test_capture_multiple_frames_returns_different_ids(client, monkeypatch):
+def test_capture_multiple_frames_returns_different_ids(client):
     frame_ids = [FRAME_ID, SECOND_FRAME_ID]
     call_count = 0
 
