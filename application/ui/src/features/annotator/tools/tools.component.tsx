@@ -23,7 +23,7 @@ export const Tools = ({ tools, activeTool, setActiveTool }: ToolsProps) => {
             {tools.map((tool) => (
                 <Fragment key={tool.type}>
                     <ActionButton
-                        aria-label={'Annotation visibility'}
+                        aria-label={`Select ${tool.type} Tool`}
                         isQuiet={activeTool !== tool.type}
                         onPress={() => setActiveTool(tool.type)}
                     >
