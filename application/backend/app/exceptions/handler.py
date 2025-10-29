@@ -176,7 +176,7 @@ def handle_integrity_error(exc: IntegrityError, resource_type: ResourceType, res
 
 
 def _handle_unique_constraint(error_msg: str, resource_type: ResourceType) -> None:
-    """Handle UNIQUE constraint violations."""
+    """Handle UNIQUE constraint violations using constraint name enums."""
     constraint_messages = {
         UniqueConstraintName.PROJECT_NAME: ("name", "A project with this name already exists."),
         UniqueConstraintName.PROMPT_NAME_PER_PROJECT: (
@@ -204,7 +204,40 @@ def _handle_unique_constraint(error_msg: str, resource_type: ResourceType) -> No
     }
 
     for constraint, (field_name, message) in constraint_messages.items():
-        if constraint in error_msg or constraint.value.replace("uq_", "").replace("_", "") in error_msg:
+        constraint_value = constraint.value
+        constraint_value_no_prefix = constraint_value.replace("uq_", "")
+
+        if (
+            constraint_value in error_msg
+            or constraint_value_no_prefix in error_msg
+            or constraint_value_no_prefix.replace("_", "") in error_msg
+        ):
+            raise ResourceAlreadyExistsError(
+                resource_type=resource_type,
+                resource_value=field_name,
+                raised_by="name",
+                message=message,
+            )
+
+
+    table_column_match = re.search(r"(\w+)\.(\w+)", error_msg)
+    if table_column_match:
+        table_name = table_column_match.group(1).lower()
+        column_name = table_column_match.group(2).lower()
+
+        table_column_mapping = {
+            ("project", "name"): UniqueConstraintName.PROJECT_NAME,
+            ("prompt", "name"): UniqueConstraintName.PROMPT_NAME_PER_PROJECT,
+            ("processor", "name"): UniqueConstraintName.PROCESSOR_NAME_PER_PROJECT,
+            ("source", "name"): UniqueConstraintName.SOURCE_NAME_PER_PROJECT,
+            ("label", "name"): UniqueConstraintName.LABEL_NAME_PER_PROJECT,
+            ("project", "active"): UniqueConstraintName.SINGLE_ACTIVE_PROJECT,
+            ("source", "connected"): UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT,
+        }
+
+        constraint = table_column_mapping.get((table_name, column_name))
+        if constraint:
+            field_name, message = constraint_messages[constraint]
             raise ResourceAlreadyExistsError(
                 resource_type=resource_type,
                 resource_value=field_name,
