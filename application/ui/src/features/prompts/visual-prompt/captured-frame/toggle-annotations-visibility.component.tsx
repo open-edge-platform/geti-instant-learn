@@ -12,7 +12,7 @@ export const ToggleAnnotationsVisibility = () => {
     const { isVisible, toggleVisibility } = useAnnotationVisibility();
 
     return (
-        <ActionButton aria-label={'Annotation visibility'} isQuiet onPress={toggleVisibility}>
+        <ActionButton aria-label={`${isVisible ? 'Hide' : 'Show'} annotations`} isQuiet onPress={toggleVisibility}>
             {isVisible ? <Visible /> : <Invisible />}
         </ActionButton>
     );
