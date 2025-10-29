@@ -6,6 +6,8 @@
 import { WebcamConfig } from '@geti-prompt/api';
 import { expect, http, test } from '@geti-prompt/test-fixtures';
 
+import { LabelsPage } from '../labels/labels-page';
+import { registerApiLabels } from '../labels/mocks';
 import { initializeWebRTC } from './initialize-webrtc';
 import { StreamPage } from './stream-page';
 
@@ -22,6 +24,8 @@ const WEBCAM_SOURCE: WebcamConfig = {
 test('Prompt flow', async ({ network, page, context }) => {
     await initializeWebRTC({ page, context, network });
     const streamPage = new StreamPage(page);
+
+    registerApiLabels({ network });
 
     network.use(
         http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {
@@ -61,10 +65,14 @@ test('Prompt flow', async ({ network, page, context }) => {
         await expect(page.getByAltText('Captured frame')).toBeVisible();
     });
 
-    // TODO: Complete this step once we integrate the /labels endpoints
     await test.step('Adds annotation & labels', async () => {
         // Select bounding box tool & make annotation
-        // Apply label
+
+        const labelsPage = new LabelsPage(page);
+        const labelName = 'Label 1';
+
+        await labelsPage.addLabel(labelName);
+        await expect(labelsPage.getLabel(labelName)).toBeVisible();
     });
 
     await test.step('Saves prompt', async () => {
