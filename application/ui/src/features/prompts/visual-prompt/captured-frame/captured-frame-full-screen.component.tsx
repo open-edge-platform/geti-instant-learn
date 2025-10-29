@@ -5,7 +5,7 @@
 
 import { Content, Dialog, DialogContainer, Divider, Grid, Heading, minmax } from '@geti/ui';
 
-import { CapturedFrameContent } from './captured-frame.component';
+import { CapturedFrameContent } from './captured-frame-content.component';
 import { useFullScreenMode } from './full-screen-mode.component';
 
 interface CapturedFrameFullScreenProps {
