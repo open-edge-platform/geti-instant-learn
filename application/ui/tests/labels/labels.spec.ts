@@ -53,14 +53,16 @@ const registerApiLabels = ({
             labels.push(body as LabelType);
 
             return HttpResponse.json(body, { status: 201 });
-        })
+        }),
 
-        /*http.put('/api/v1/projects/{project_id}/labels/{label_id}', async ({ request, params }) => {
+        http.put('/api/v1/projects/{project_id}/labels/{label_id}', async ({ request, params }) => {
             const labelId = params.label_id;
             const body = await request.json();
 
-            labels = labels.map((label) => (label.id === labelId ? { ...label, ...body } : label));
-        })*/
+            labels = labels.map((label) => (label.id === labelId ? ({ ...label, ...body } as LabelType) : label));
+
+            return HttpResponse.json(body as LabelType, { status: 200 });
+        })
     );
 };
 
@@ -92,9 +94,7 @@ test.describe('Labels', () => {
 
         const newLabelName = 'Cool label';
 
-        await labelsPage.showDialog();
-        await labelsPage.enterName(newLabelName);
-        await labelsPage.confirmLabel();
+        await labelsPage.addLabel(newLabelName);
 
         await expect(labelsPage.getLabel(newLabelName)).toBeVisible();
     });
@@ -118,5 +118,30 @@ test.describe('Labels', () => {
         await expect(labelsPage.getLabel(label.name)).toBeVisible();
         await labelsPage.deleteLabel(label.name);
         await expect(labelsPage.getLabel(label.name)).toBeHidden();
+    });
+
+    test('Updates label', async ({ page, network }) => {
+        const labelsPage = new LabelsPage(page);
+        const streamPage = new StreamPage(page);
+
+        const label: LabelType = {
+            id: '1',
+            name: 'Cool label',
+            color: '#000000',
+        };
+        const newLabelName = 'New label name';
+
+        registerApiLabels({ network, defaultLabels: [label] });
+
+        await page.goto('/');
+        await streamPage.startStream();
+        await streamPage.captureFrame();
+
+        await expect(labelsPage.getLabel(label.name)).toBeVisible();
+
+        await labelsPage.updateLabelName(label.name, newLabelName);
+
+        await expect(labelsPage.getLabel(label.name)).toBeHidden();
+        await expect(labelsPage.getLabel(newLabelName)).toBeVisible();
     });
 });
