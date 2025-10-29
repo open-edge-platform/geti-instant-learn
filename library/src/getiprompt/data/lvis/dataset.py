@@ -15,7 +15,6 @@ import polars as pl
 import torch
 from lvis import LVIS
 from pycocotools import mask as mask_utils
-from torchvision import tv_tensors
 
 from getiprompt.data.base import Dataset
 
@@ -67,6 +66,7 @@ class LVISDataset(Dataset):
         categories: Sequence[str] | None = None,
         n_shots: int = 1,
     ) -> None:
+        """Initialize the LVISDataset."""
         super().__init__(n_shots=n_shots)
 
         self.root = Path(root)
@@ -76,15 +76,18 @@ class LVISDataset(Dataset):
         # Load the DataFrame
         self.df = self._load_dataframe()
 
-    def _load_masks(self, raw_sample: dict) -> tv_tensors.Mask | None:
+    def _load_masks(self, raw_sample: dict) -> torch.Tensor | None:
         """Decode and merge masks from COCO RLE format into semantic masks.
 
         Args:
             raw_sample: Dictionary from DataFrame row.
 
         Returns:
-            tv_tensors.Mask with shape (N_categories, H, W) where N_categories is the
+            torch.Tensor with shape (N_categories, H, W) where N_categories is the
             number of unique categories, and dtype torch.bool, or None if no segmentations are available.
+
+        Raises:
+            TypeError: If unknown segmentation format is encountered.
         """
         segmentations = raw_sample.get("segmentations")
         if not segmentations:
@@ -109,16 +112,17 @@ class LVISDataset(Dataset):
                     rles = mask_utils.frPyObjects(seg, h, w)
                     mask = mask_utils.decode(rles)
                 else:
-                    raise ValueError(f"Unknown segmentation format: {type(seg)}")
+                    msg = f"Unknown segmentation format: {type(seg)}"
+                    raise TypeError(msg)
 
                 # Handle potential 3D masks from polygon conversion
                 mask = torch.from_numpy(mask)
                 mask = torch.max(mask, dim=-1).values
                 # Merge with category mask using logical OR
-                category_mask = category_mask | mask
+                category_mask |= mask
             semantic_masks.append(category_mask)
 
-        return tv_tensors.Mask(torch.stack(semantic_masks, dim=0))  # (N_categories, H, W)
+        return torch.stack(semantic_masks, dim=0)  # (N_categories, H, W)
 
     def _load_dataframe(self) -> pl.DataFrame:
         """Load LVIS samples into Polars DataFrame with semantic mask structure."""
@@ -156,6 +160,7 @@ def make_lvis_dataframe(
         pl.DataFrame: DataFrame containing sample metadata with semantic mask support.
 
     Raises:
+        FileNotFoundError: If image file not found.
         ValueError: If no matching annotations are found.
     """
     # Get category filtering
@@ -192,7 +197,8 @@ def make_lvis_dataframe(
         # Build path using the actual COCO subfolder
         image_path = images_dir.parent / coco_subset / image_filename
         if not image_path.exists():
-            raise FileNotFoundError(f"Image file not found: {image_path}")
+            msg = f"Image file not found: {image_path}"
+            raise FileNotFoundError(msg)
 
         img_h, img_w = img_info["height"], img_info["width"]
 
@@ -245,7 +251,8 @@ def make_lvis_dataframe(
         })
 
     if not samples_data:
-        raise ValueError("No valid annotations found")
+        msg = "No valid annotations found"
+        raise ValueError(msg)
 
     # Create DataFrame
     df = pl.DataFrame(samples_data)

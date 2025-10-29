@@ -5,24 +5,17 @@
 
 from __future__ import annotations
 
-import argparse
 import itertools
-import warnings
-from pathlib import Path
-
-warnings.filterwarnings("ignore", category=UserWarning)
-warnings.filterwarnings("ignore", category=FutureWarning)
-
 from logging import getLogger
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import polars as pl
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from torch.utils.data import DataLoader
-from torchvision import tv_tensors
 
 from getiprompt.data import Dataset, LVISDataset, PerSegDataset
-from getiprompt.data.base import Sample
 from getiprompt.metrics import SegmentationMetrics
 from getiprompt.models import Model, load_model
 from getiprompt.types import Masks, Priors, Text
@@ -38,6 +31,14 @@ from getiprompt.utils.utils import masks_to_custom_masks
 from getiprompt.visualize import ExportMaskVisualization
 
 logger = getLogger("Geti Prompt")
+
+
+if TYPE_CHECKING:
+    import argparse
+
+    from torchvision import tv_tensors
+
+    from getiprompt.data.base import Sample
 
 
 def extract_priors(
@@ -69,9 +70,7 @@ def extract_priors(
     text_prior.add(category_name, class_id=int(category_id))
 
     # Create priors object
-    priors = Priors(masks=masks_obj, text=text_prior)
-
-    return priors
+    return Priors(masks=masks_obj, text=text_prior)
 
 
 def infer_on_category(
@@ -527,7 +526,7 @@ def perform_benchmark_experiment(args: argparse.Namespace | None = None) -> None
         # Support both presets (e.g., "default", "benchmark", "all") and explicit lists (e.g., "cat,dog,bird")
         if args.class_name:
             # Check if it's a preset or a comma-separated list
-            if "," not in args.class_name and args.class_name.lower() in ("default", "benchmark", "all"):
+            if "," not in args.class_name and args.class_name.lower() in {"default", "benchmark", "all"}:
                 categories_arg = args.class_name  # Pass preset string directly
             else:
                 categories_arg = [c.strip() for c in args.class_name.split(",")]  # Split comma-separated list

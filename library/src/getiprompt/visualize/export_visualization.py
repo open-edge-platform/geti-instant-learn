@@ -22,10 +22,11 @@ class ExportMaskVisualization(Visualization):
         >>> import os
         >>> import numpy as np
         >>> from getiprompt.processes.visualizations import ExportMaskVisualization
-        >>> from getiprompt.types import Image, Masks, Points
+        >>> from getiprompt.types import Masks, Points
+        >>> from torchvision import tv_tensors
         >>>
         >>> visualizer = ExportMaskVisualization(output_folder="visualizations")
-        >>> sample_image = Image(np.zeros((10, 10, 3), dtype=np.uint8))
+        >>> sample_image = tv_tensors.Image(np.zeros((10, 10, 3), dtype=np.uint8))
         >>> visualizer(
         ...     images=[sample_image],
         ...     masks=[Masks()],

@@ -34,14 +34,15 @@ class ImageEncoder(nn.Module):
 
     Examples:
         >>> from getiprompt.processes.encoders import Encoder
-        >>> from getiprompt.types import Image, Priors, Features
+        >>> from getiprompt.types import Priors, Features
+        >>> from torchvision import tv_tensors
         >>> import torch
         >>> import numpy as np
         >>>
         >>> # Create a sample image
         >>> sample_image = np.zeros((518, 518, 3), dtype=np.uint8)
         >>> encoder = Encoder(model_id="dinov2_large")
-        >>> features, masks = encoder([Image(sample_image)], priors_per_image=[Priors()])
+        >>> features, masks = encoder([tv_tensors.Image(sample_image)], priors_per_image=[Priors()])
         >>> len(features), len(masks)
         (1, 1)
         >>> # Each image gets a Features object with global features and a Masks object

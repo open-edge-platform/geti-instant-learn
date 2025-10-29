@@ -4,9 +4,8 @@
 """Segmentation metrics calculator."""
 
 from logging import getLogger
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
 import torch
 from sklearn.metrics import confusion_matrix
 from torch import nn
@@ -15,6 +14,9 @@ from getiprompt.types import Masks
 
 logger = getLogger("Geti Prompt")
 
+
+if TYPE_CHECKING:
+    import numpy as np
 
 # TODO(Eugene): replace it with torhmetrics implementation
 # https://github.com/open-edge-platform/geti-prompt/issues/174
@@ -84,9 +86,8 @@ class SegmentationMetrics(nn.Module):
         }
         for cat_name, confusion in self.confusion.items():
             if confusion.shape != (2, 2):
-                logger.warning(
-                    f"Warning: Confusion matrix for {cat_name} is not 2x2 ({confusion.shape}). Skipping metrics.",
-                )
+                msg = f"Warning: Confusion matrix for {cat_name} is not 2x2 ({confusion.shape}). Skipping metrics."
+                logger.warning(msg)
                 continue
 
             tn = confusion[0, 0]  # True Negative (BG correctly predicted)
@@ -139,7 +140,7 @@ class SegmentationMetrics(nn.Module):
 
         Args:
             predictions: List of predicted masks
-            references: List of reference masks
+            ground_truths: List of ground truth masks
             mapping: Dictionary mapping class ids to class names.
         """
         if mapping is None:
@@ -189,6 +190,6 @@ class SegmentationMetrics(nn.Module):
                 y_pred=pred_mask.flatten(),
             )
             if class_name in self.confusion:
-                self.confusion[class_name] = self.confusion[class_name] + conf
+                self.confusion[class_name] += conf
             else:
                 self.confusion[class_name] = conf

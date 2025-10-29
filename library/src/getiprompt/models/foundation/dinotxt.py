@@ -40,11 +40,12 @@ class DinoTextEncoder(nn.Module):
 
     Examples:
         >>> import torch
-        >>> from getiprompt.types import Image, Priors
+        >>> from torchvision import tv_tensors
+        >>> from getiprompt.types import Priors
         >>> from getiprompt.models.dinotxt import DinoTextEncoder
         >>> encoder = DinoTextEncoder(device="cuda", weights_location="~/data/dinov3_weights")
         >>> text_embedding = encoder.encode_text(Priors(text={0: "cat", 1: "dog"}))
-        >>> image_embedding = encoder.encode_image([Image(torch.randn(224, 224, 3))])
+        >>> image_embedding = encoder.encode_image([tv_tensors.Image(torch.randn(224, 224, 3))])
     """
 
     def __init__(
@@ -57,6 +58,7 @@ class DinoTextEncoder(nn.Module):
         mean: tuple[float] = (123.675, 116.28, 103.53),
         std: tuple[float] = (58.395, 57.12, 57.375),
     ) -> None:
+        """Initialize the DinoTextEncoder."""
         super().__init__()
 
         # Load model and tokenizer from local weights
@@ -89,6 +91,7 @@ class DinoTextEncoder(nn.Module):
         Raises:
             FileNotFoundError: If weights files don't exist.
             RuntimeError: If weights loading fails.
+            ValueError: If the backbone size is invalid.
         """
         weights_location = Path(weights_location) if isinstance(weights_location, str) else weights_location
         weights_location = weights_location.expanduser()

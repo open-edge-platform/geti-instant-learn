@@ -12,10 +12,12 @@ from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_selectors import AverageFeatures, FeatureSelector
 from getiprompt.components.filters import ClassOverlapMaskFilter, MaxPointFilter
 from getiprompt.components.prompt_generators import GridPromptGenerator
-from getiprompt.models import Model, load_sam_model
 from getiprompt.types import Priors, Results
 from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
+
+from .base import Model
+from .foundation import load_sam_model
 
 if TYPE_CHECKING:
     from getiprompt.components.prompt_generators.base import PromptGenerator
@@ -32,7 +34,8 @@ class PerDino(Model):
         >>> import torch
         >>> import numpy as np
         >>> from getiprompt.models import PerDino
-        >>> from getiprompt.types import Image, Priors, Results
+        >>> from getiprompt.types import Priors, Results
+        >>> from torchvision import tv_tensors
         >>>
         >>> perdino = PerDino()
         >>>
@@ -43,8 +46,8 @@ class PerDino(Model):
         >>> ref_priors.masks.add(torch.ones(30, 30, dtype=torch.bool), class_id=1)
         >>>
         >>> # Run learn and infer
-        >>> learn_results = perdino.learn([Image(ref_image)], [ref_priors])
-        >>> infer_results = perdino.infer([Image(target_image)])
+        >>> learn_results = perdino.learn([tv_tensors.Image(ref_image)], [ref_priors])
+        >>> infer_results = perdino.infer([tv_tensors.Image(target_image)])
         >>>
         >>> isinstance(learn_results, Results) and isinstance(infer_results, Results)
         True

@@ -12,11 +12,12 @@ from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_selectors import AllFeaturesSelector, FeatureSelector
 from getiprompt.components.filters import MaxPointFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
-from getiprompt.models import Model
-from getiprompt.models.foundation import load_sam_model
 from getiprompt.types import Priors, Results
 from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
+
+from .base import Model
+from .foundation import load_sam_model
 
 if TYPE_CHECKING:
     from getiprompt.components.prompt_generators.base import PromptGenerator
@@ -39,7 +40,8 @@ class Matcher(Model):
         >>> import torch
         >>> import numpy as np
         >>> from getiprompt.models import Matcher
-        >>> from getiprompt.types import Image, Priors, Results
+        >>> from torchvision import tv_tensors
+        >>> from getiprompt.types import Priors, Results
         >>>
         >>> matcher = Matcher()
         >>>
@@ -50,8 +52,8 @@ class Matcher(Model):
         >>> ref_priors.masks.add(torch.ones(30, 30, dtype=torch.bool), class_id=1)
         >>>
         >>> # Run learn and infer
-        >>> learn_results = matcher.learn([Image(ref_image)], [ref_priors])
-        >>> infer_results = matcher.infer([Image(target_image)])
+        >>> learn_results = matcher.learn([tv_tensors.Image(ref_image)], [ref_priors])
+        >>> infer_results = matcher.infer([tv_tensors.Image(target_image)])
         >>>
         >>> isinstance(learn_results, Results) and isinstance(infer_results, Results)
         True

@@ -5,6 +5,7 @@
 # All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+"""ResizeLongestSide from Segment Anything."""
 
 from copy import deepcopy
 
@@ -26,6 +27,7 @@ class ResizeLongestSide:
     """
 
     def __init__(self, target_length: int) -> None:
+        """Initialize the ResizeLongestSide."""
         self.target_length = target_length
 
     def apply_image(self, image: np.ndarray) -> np.ndarray:
@@ -54,8 +56,8 @@ class ResizeLongestSide:
             self.target_length,
         )
         coords = deepcopy(coords).astype(float)
-        coords[..., 0] = coords[..., 0] * (new_w / old_w)
-        coords[..., 1] = coords[..., 1] * (new_h / old_h)
+        coords[..., 0] *= new_w / old_w
+        coords[..., 1] *= new_h / old_h
         return coords
 
     def apply_boxes(
@@ -157,8 +159,8 @@ class ResizeLongestSide:
             self.target_length,
         )
         coords = torch.clone(coords).to(torch.float)
-        coords[..., 0] = coords[..., 0] * (old_w / new_w)
-        coords[..., 1] = coords[..., 1] * (old_h / new_h)
+        coords[..., 0] *= old_w / new_w
+        coords[..., 1] *= old_h / new_h
         return coords
 
     @staticmethod

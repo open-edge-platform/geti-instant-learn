@@ -3,11 +3,12 @@
 
 """Batch handling for GetiPrompt datasets.
 
-This module provides batch collation functionality for GetiPrompt samples.
+This module provides batch collation functionality for `Sample`s.
 The batch is a thin wrapper around list[Sample] with convenient
 properties for batch-level access to tensors.
 """
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -50,7 +51,7 @@ class Batch:
 
         Batch-level access (returns lists):
         >>> images = batch.images  # list[tv_tensors.Image]
-        >>> masks = batch.masks    # list[tv_tensors.Mask | None]
+        >>> masks = batch.masks    # list[torch.Tensor | None]
         >>> categories = batch.categories  # list[list[str]]
 
         Multi-instance example:
@@ -67,7 +68,7 @@ class Batch:
 
     # Cached tensors for performance (lazy conversion)
     _images: list[tv_tensors.Image] | None = field(default=None, init=False, repr=False)
-    _masks: list[tv_tensors.Mask | None] | None = field(default=None, init=False, repr=False)
+    _masks: list[torch.Tensor | None] | None = field(default=None, init=False, repr=False)
 
     def __len__(self) -> int:
         """Get the batch size (number of samples)."""
@@ -84,7 +85,7 @@ class Batch:
         """
         return self.samples[index]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Sample]:
         """Iterate over samples in the batch."""
         return iter(self.samples)
 
@@ -106,14 +107,14 @@ class Batch:
         return self._images
 
     @property
-    def masks(self) -> list[tv_tensors.Mask | None]:
+    def masks(self) -> list[torch.Tensor | None]:
         """Get all masks as list of tensors.
 
         Converts numpy arrays to tensors and caches the result.
         Each tensor has shape (N, H, W) where N is the number of instances.
 
         Returns:
-            list[tv_tensors.Mask | None]: List of mask tensors or None.
+            list[torch.Tensor | None]: List of mask tensors or None.
         """
         if self._masks is None:
             self._masks = []
@@ -271,6 +272,7 @@ class Batch:
             >>> images = batch.images  # Lazy conversion to tensors
         """
         if not samples:
-            raise ValueError("Cannot collate empty list of samples")
+            msg = "Cannot collate empty list of samples"
+            raise ValueError(msg)
 
         return cls(samples=samples)

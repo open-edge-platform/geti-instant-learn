@@ -1,7 +1,11 @@
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+"""Prompt encoder for Per SAM model."""
 
 from typing import Any
 
@@ -13,6 +17,20 @@ from getiprompt.models.foundation.per_sam.modeling.modules import LayerNorm2d
 
 
 class PromptEncoder(nn.Module):
+    """Encodes prompts for input to SAM's mask decoder.
+
+    Arguments:
+        embed_dim (int): The prompts' embedding dimension
+        image_embedding_size (tuple(int, int)): The spatial size of the
+        image embedding, as (H, W).
+        input_image_size (int): The padded size of the image as input
+        to the image encoder, as (H, W).
+        mask_in_chans (int): The number of hidden channels used for
+        encoding input masks.
+        activation (nn.Module): The activation to use when encoding
+        input masks.
+    """
+
     def __init__(
         self,
         embed_dim: int,
@@ -21,19 +39,7 @@ class PromptEncoder(nn.Module):
         mask_in_chans: int,
         activation: type[nn.Module] = nn.GELU,
     ) -> None:
-        """Encodes prompts for input to SAM's mask decoder.
-
-        Arguments:
-          embed_dim (int): The prompts' embedding dimension
-          image_embedding_size (tuple(int, int)): The spatial size of the
-            image embedding, as (H, W).
-          input_image_size (int): The padded size of the image as input
-            to the image encoder, as (H, W).
-          mask_in_chans (int): The number of hidden channels used for
-            encoding input masks.
-          activation (nn.Module): The activation to use when encoding
-            input masks.
-        """
+        """Initialize the PromptEncoder."""
         super().__init__()
         self.embed_dim = embed_dim
         self.input_image_size = input_image_size
@@ -58,13 +64,7 @@ class PromptEncoder(nn.Module):
         self.no_mask_embed = nn.Embedding(1, embed_dim)
 
     def get_dense_pe(self) -> torch.Tensor:
-        """Returns the positional encoding used to encode point prompts,
-        applied to a dense set of points the shape of the image encoding.
-
-        Returns:
-          torch.Tensor: Positional encoding with shape
-            1x(embed_dim)x(embedding_h)x(embedding_w)
-        """
+        """Get the positional encoding used to encode point prompts."""
         return self.pe_layer(self.image_embedding_size).unsqueeze(0)
 
     def _embed_points(
@@ -74,7 +74,7 @@ class PromptEncoder(nn.Module):
         pad: bool,
     ) -> torch.Tensor:
         """Embeds point prompts."""
-        points = points + 0.5  # Shift to center of pixel
+        points += 0.5  # Shift to center of pixel
         if pad:
             padding_point = torch.zeros((points.shape[0], 1, 2), device=points.device)
             padding_label = -torch.ones((labels.shape[0], 1), device=labels.device)
@@ -98,8 +98,7 @@ class PromptEncoder(nn.Module):
 
     def _embed_masks(self, masks: torch.Tensor) -> torch.Tensor:
         """Embeds mask inputs."""
-        mask_embedding = self.mask_downscaling(masks)
-        return mask_embedding
+        return self.mask_downscaling(masks)
 
     def _get_batch_size(
         self,
@@ -117,6 +116,7 @@ class PromptEncoder(nn.Module):
         return 1
 
     def _get_device(self) -> torch.device:
+        """Get the device of the prompt encoder."""
         return self.point_embeddings[0].weight.device
 
     def forward(
@@ -180,7 +180,7 @@ class PositionEmbeddingRandom(nn.Module):
         """Positionally encode points that are normalized to [0,1]."""
         # assuming coords are in [0, 1]^2 square and have d_1 x ... x d_n x 2 shape
         coords = 2 * coords - 1
-        coords = coords @ self.positional_encoding_gaussian_matrix
+        coords @= self.positional_encoding_gaussian_matrix
         coords = 2 * np.pi * coords
         # outputs d_1 x ... x d_n x C shape
         return torch.cat([torch.sin(coords), torch.cos(coords)], dim=-1)
@@ -192,8 +192,8 @@ class PositionEmbeddingRandom(nn.Module):
         grid = torch.ones((h, w), device=device, dtype=torch.float32)
         y_embed = grid.cumsum(dim=0) - 0.5
         x_embed = grid.cumsum(dim=1) - 0.5
-        y_embed = y_embed / h
-        x_embed = x_embed / w
+        y_embed /= h
+        x_embed /= w
 
         pe = self._pe_encoding(torch.stack([x_embed, y_embed], dim=-1))
         return pe.permute(2, 0, 1)  # C x H x W
@@ -205,6 +205,6 @@ class PositionEmbeddingRandom(nn.Module):
     ) -> torch.Tensor:
         """Positionally encode points that are not normalized to [0,1]."""
         coords = coords_input.clone()
-        coords[:, :, 0] = coords[:, :, 0] / image_size[1]
-        coords[:, :, 1] = coords[:, :, 1] / image_size[0]
+        coords[:, :, 0] /= image_size[1]
+        coords[:, :, 1] /= image_size[0]
         return self._pe_encoding(coords.to(torch.float))  # B x N x C

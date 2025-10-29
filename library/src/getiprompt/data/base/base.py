@@ -13,8 +13,8 @@ from collections.abc import Callable, Sequence
 
 import numpy as np
 import polars as pl
+import torch
 from torch.utils.data import Dataset as TorchDataset
-from torchvision import tv_tensors
 
 from getiprompt.data.base.batch import Batch
 from getiprompt.data.base.sample import Sample
@@ -56,6 +56,7 @@ class Dataset(TorchDataset, ABC):
     """
 
     def __init__(self, n_shots: int = 1) -> None:
+        """Initialize the Dataset."""
         super().__init__()
         self.n_shots = n_shots
         self._df: pl.DataFrame | None = None
@@ -69,11 +70,17 @@ class Dataset(TorchDataset, ABC):
 
     @property
     def df(self) -> pl.DataFrame:
-        """Get the underlying Polars DataFrame."""
+        """Get the underlying Polars DataFrame.
+
+        Returns:
+            The Polars DataFrame.
+
+        Raises:
+            RuntimeError: If the DataFrame is not initialized.
+        """
         if self._df is None:
-            raise RuntimeError(
-                "Dataset not initialized. Ensure that DataFrame has been loaded.",
-            )
+            msg = "Dataset not initialized. Ensure that DataFrame has been loaded."
+            raise RuntimeError(msg)
         return self._df
 
     @df.setter
@@ -93,12 +100,19 @@ class Dataset(TorchDataset, ABC):
         - mask_paths: list[str] - Paths to mask files (PerSeg)
         - bboxes: list[list[float]] - Bounding boxes
         - segmentations: list[dict] - COCO RLE/polygon (LVIS)
+
+        Args:
+            dataframe: The Polars DataFrame to set.
+
+        Raises:
+            ValueError: If the DataFrame is missing required columns.
         """
         # Validate required columns (updated for multi-instance)
         required_columns = {"image_path", "categories", "category_ids", "is_reference", "n_shot"}
         if not required_columns.issubset(set(dataframe.columns)):
             missing = required_columns - set(dataframe.columns)
-            raise ValueError(f"DataFrame missing required columns: {missing}")
+            msg = f"DataFrame missing required columns: {missing}"
+            raise ValueError(msg)
         self._df = dataframe
 
     def __len__(self) -> int:
@@ -179,23 +193,43 @@ class Dataset(TorchDataset, ABC):
         """Get category name from category ID.
 
         Searches through all rows and instances to find the matching category ID.
+
+        Args:
+            category_id: The ID of the category to search for.
+
+        Returns:
+            The category name.
+
+        Raises:
+            ValueError: If the category ID is not found in the dataset.
         """
         for row in self.df.iter_rows(named=True):
             for i, cid in enumerate(row["category_ids"]):
                 if cid == category_id:
                     return row["categories"][i]
-        raise ValueError(f"Category ID {category_id} not found in dataset")
+        msg = f"Category ID {category_id} not found in dataset"
+        raise ValueError(msg)
 
     def get_category_id(self, category_name: str) -> int:
         """Get category ID from category name.
 
         Searches through all rows and instances to find the matching category name.
+
+        Args:
+            category_name: The name of the category to search for.
+
+        Returns:
+            The category ID.
+
+        Raises:
+            ValueError: If the category name is not found in the dataset.
         """
         for row in self.df.iter_rows(named=True):
             for i, cat in enumerate(row["categories"]):
                 if cat == category_name:
                     return row["category_ids"][i]
-        raise ValueError(f"Category '{category_name}' not found in dataset")
+        msg = f"Category '{category_name}' not found in dataset"
+        raise ValueError(msg)
 
     def get_reference_samples_df(self, category: str | None = None) -> pl.DataFrame:
         """Get reference samples as Polars DataFrame.
@@ -248,9 +282,21 @@ class Dataset(TorchDataset, ABC):
         return new_dataset
 
     def subsample(self, indices: Sequence[int], inplace: bool = False) -> "Dataset":
-        """Create a subset of the dataset using the provided indices."""
+        """Create a subset of the dataset using the provided indices.
+
+        Args:
+            indices: The indices to subsample.
+            inplace: Whether to modify the dataset in place.
+
+        Returns:
+            Dataset: The subsampled dataset.
+
+        Raises:
+            ValueError: If duplicate indices are provided.
+        """
         if len(set(indices)) != len(indices):
-            raise ValueError("No duplicates allowed in indices.")
+            msg = "No duplicates allowed in indices."
+            raise ValueError(msg)
 
         # Get subset of the DataFrame
         subset_df = self.df[list(indices)]
@@ -260,9 +306,20 @@ class Dataset(TorchDataset, ABC):
         return dataset
 
     def __add__(self, other_dataset: "Dataset") -> "Dataset":
-        """Concatenate this dataset with another dataset."""
+        """Concatenate this dataset with another dataset.
+
+        Args:
+            other_dataset: The dataset to concatenate with.
+
+        Returns:
+            Dataset: The concatenated dataset.
+
+        Raises:
+            TypeError: If datasets are not of the same type.
+        """
         if not isinstance(other_dataset, self.__class__):
-            raise TypeError("Cannot concatenate datasets that are not of the same type.")
+            msg = "Cannot concatenate datasets that are not of the same type."
+            raise TypeError(msg)
 
         # Concatenate the DataFrames
         combined_df = pl.concat([self.df, other_dataset.df])
@@ -277,7 +334,7 @@ class Dataset(TorchDataset, ABC):
         return Batch.collate
 
     @abstractmethod
-    def _load_masks(self, raw_sample: dict) -> tv_tensors.Mask | None:
+    def _load_masks(self, raw_sample: dict) -> torch.Tensor | None:
         """Load masks for a sample.
 
         This method should be implemented by subclasses to load masks in their

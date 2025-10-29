@@ -8,10 +8,12 @@ from torchvision import tv_tensors
 from getiprompt.components import MasksToPolygons, SamDecoder
 from getiprompt.components.filters import MultiInstancePriorFilter
 from getiprompt.components.prompt_generators import GroundingModel, TextToBoxPromptGenerator
-from getiprompt.models import Model, load_sam_model
 from getiprompt.types import Priors, Results, Text
 from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
+
+from .base import Model
+from .foundation import load_sam_model
 
 
 class GroundedSAM(Model):
@@ -74,8 +76,8 @@ class GroundedSAM(Model):
         """Perform learning step on the reference images and priors.
 
         Args:
-            reference_images list[tv_tensors.Image]: The reference images.
-            reference_priors list[Priors]: The reference priors.
+            reference_images(list[tv_tensors.Image]): The reference images.
+            reference_priors(list[Priors]): The reference priors.
 
         Raises:
             ValueError: If the reference priors do not have all text types.
@@ -98,7 +100,7 @@ class GroundedSAM(Model):
         """Perform inference step on the target images.
 
         Args:
-            target_images list[tv_tensors.Image]: The target images.
+            target_images(list[tv_tensors.Image]): The target images.
 
         Returns:
             Results: The results.

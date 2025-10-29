@@ -6,8 +6,9 @@
 from typing import TYPE_CHECKING
 
 from getiprompt.components.prompt_generators import SoftmatcherPromptGenerator
-from getiprompt.models import Matcher
 from getiprompt.utils.constants import SAMModelName
+
+from .matcher import Matcher
 
 if TYPE_CHECKING:
     from getiprompt.components.prompt_generators import PromptGenerator
@@ -31,7 +32,8 @@ class SoftMatcher(Matcher):
 
     Examples:
         >>> from getiprompt.models.softmatcher import SoftMatcher
-        >>> from getiprompt.types import Image, Priors, Results
+        >>> from getiprompt.types import Priors, Results
+        >>> from torchvision import tv_tensors
         >>> import torch
         >>> import numpy as np
         >>>
@@ -44,8 +46,8 @@ class SoftMatcher(Matcher):
         >>> ref_priors.masks.add(torch.ones(30, 30, dtype=torch.bool), class_id=1)
         >>>
         >>> # Run learn and infer
-        >>> learn_results = soft_matcher.learn([Image(ref_image)], [ref_priors])
-        >>> infer_results = soft_matcher.infer([Image(target_image)])
+        >>> learn_results = soft_matcher.learn([tv_tensors.Image(ref_image)], [ref_priors])
+        >>> infer_results = soft_matcher.infer([tv_tensors.Image(target_image)])
         >>>
         >>> isinstance(learn_results, Results) and isinstance(infer_results, Results)
         True

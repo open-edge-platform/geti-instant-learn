@@ -20,6 +20,8 @@ from getiprompt.models.foundation.per_sam.modeling.tiny_vit_sam import TinyViT
 
 
 class SAM(nn.Module):
+    """SAM model."""
+
     mask_threshold: float = 0.0
     image_format: str = "RGB"
 
@@ -54,7 +56,7 @@ class SAM(nn.Module):
         self.register_buffer("pixel_std", torch.Tensor(pixel_std).view(-1, 1, 1), False)
 
     @property
-    def device(self) -> Any:
+    def device(self) -> torch.device:
         """Get the device of the model."""
         return self.pixel_mean.device
 

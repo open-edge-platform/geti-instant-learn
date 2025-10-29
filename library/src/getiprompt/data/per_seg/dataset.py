@@ -61,6 +61,7 @@ class PerSegDataset(Dataset):
         categories: Sequence[str] | None = None,
         n_shots: int = 1,
     ) -> None:
+        """Initialize the PerSegDataset."""
         super().__init__(n_shots=n_shots)
 
         self.root = Path(root)
@@ -127,9 +128,11 @@ def make_perseg_dataframe(
     annotations_dir = root / "Annotations"
 
     if not images_dir.exists():
-        raise FileNotFoundError(f"Images directory not found: {images_dir}")
+        msg = f"Images directory not found: {images_dir}"
+        raise FileNotFoundError(msg)
     if not annotations_dir.exists():
-        raise FileNotFoundError(f"Annotations directory not found: {annotations_dir}")
+        msg = f"Annotations directory not found: {annotations_dir}"
+        raise FileNotFoundError(msg)
 
     # Get all available categories
     available_categories = [d.name for d in images_dir.iterdir() if d.is_dir() and (annotations_dir / d.name).exists()]
@@ -139,7 +142,8 @@ def make_perseg_dataframe(
         available_categories = [cat for cat in available_categories if cat in categories]
 
     if not available_categories:
-        raise ValueError("No valid categories found")
+        msg = "No valid categories found"
+        raise ValueError(msg)
 
     # Create category to ID mapping
     category_to_id = {cat: idx for idx, cat in enumerate(sorted(available_categories))}
@@ -196,7 +200,8 @@ def make_perseg_dataframe(
             })
 
     if not samples_data:
-        raise ValueError("No valid image-mask pairs found")
+        msg = "No valid image-mask pairs found"
+        raise ValueError(msg)
 
     # Create DataFrame
     df = pl.DataFrame(samples_data)

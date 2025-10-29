@@ -11,6 +11,12 @@ from typing import TYPE_CHECKING
 from getiprompt.components.prompt_generators import GroundingModel
 from getiprompt.utils.constants import ModelName, SAMModelName
 
+# Lazy import to avoid circular dependencies during module import time.
+from .grounded_sam import GroundedSAM
+from .matcher import Matcher
+from .per_dino import PerDino
+from .soft_matcher import SoftMatcher
+
 if TYPE_CHECKING:
     from argparse import Namespace
 
@@ -30,9 +36,6 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
     Returns:
         The instantiated model.
     """
-    # Lazy import to avoid circular dependencies during module import time.
-    from getiprompt.models import GroundedSAM, Matcher, PerDino, SoftMatcher
-
     logger.info("Constructing model: %s", model_name.value)
 
     match model_name:

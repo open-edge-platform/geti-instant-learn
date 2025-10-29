@@ -24,12 +24,13 @@ class SamDecoder(nn.Module):
     Examples:
         >>> from getiprompt.models.models import load_sam_model
         >>> from getiprompt.processes.segmenters import SamDecoder
-        >>> from getiprompt.types import Image, Masks, Points, Priors, Similarities
+        >>> from getiprompt.types import Masks, Points, Priors, Similarities
+        >>> from torchvision import tv_tensors
         >>> import torch
         >>> import numpy as np
         >>> sam_predictor = load_sam_model(backbone_name="MobileSAM")
         >>> segmenter = SamDecoder(sam_predictor=sam_predictor)
-        >>> image = Image(np.zeros((1024, 1024, 3), dtype=np.uint8))
+        >>> image = tv_tensors.Image(np.zeros((1024, 1024, 3), dtype=np.uint8))
         >>> priors = Priors()
         >>> points = torch.tensor([[512, 512, 0.9, 1], [100, 100, 0.8, 0]]) # fg, bg
         >>> priors.points.add(points, class_id=1)

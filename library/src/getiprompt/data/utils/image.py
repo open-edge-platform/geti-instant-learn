@@ -60,7 +60,7 @@ def read_image(path: str | Path, as_tensor: bool = True) -> tv_tensors.Image | n
     return np.array(pil_image, dtype=np.uint8)
 
 
-def read_mask(path: str | Path, as_tensor: bool = True) -> tv_tensors.Mask | np.ndarray:
+def read_mask(path: str | Path, as_tensor: bool = True) -> torch.Tensor | np.ndarray:
     """Read a mask from file.
 
     Args:
@@ -68,7 +68,7 @@ def read_mask(path: str | Path, as_tensor: bool = True) -> tv_tensors.Mask | np.
         as_tensor (bool, optional): Whether to return as tensor. Defaults to ``True``.
 
     Returns:
-        Mask | np.ndarray: Loaded mask as tensor (HW format) or numpy array (HW format).
+        torch.Tensor | np.ndarray: Loaded mask as tensor (HW format) or numpy array (HW format).
 
     Note:
             The mask is binarized to 0 (background) and 1 (foreground).
@@ -104,6 +104,5 @@ def read_mask(path: str | Path, as_tensor: bool = True) -> tv_tensors.Mask | np.
 
     if as_tensor:
         # Convert to tensor
-        binary_tensor = torch.from_numpy(binary_array)
-        return tv_tensors.Mask(binary_tensor)
+        return torch.from_numpy(binary_array)
     return binary_array

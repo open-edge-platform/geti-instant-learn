@@ -27,7 +27,7 @@ class Sample:
             - torch: (C, H, W) - Channel-first format
             Required.
         image_path (str): Path to the source image file. Required.
-        masks (np.ndarray | torch.Tensor | None): N masks with shape (N, H, W) - all same H×W. Defaults to None.
+        masks (np.ndarray | torch.Tensor | None): N masks with shape (N, H, W) - all same HxW. Defaults to None.
         bboxes (np.ndarray | torch.Tensor | None): Bounding boxes with shape (N, 4). Defaults to None.
         points (np.ndarray | torch.Tensor | None): Point coordinates with shape (N, 2). Defaults to None.
         categories (list[str] | None): List of N category names. Defaults to None.
@@ -43,7 +43,7 @@ class Sample:
     Note:
         - For single-instance (PerSeg): N=1
         - For multi-instance (LVIS): N>1
-        - All masks (if provided) must have the same H×W (typically the image size)
+        - All masks (if provided) must have the same HxW (typically the image size)
         - At least one of masks, bboxes, or points should be provided for meaningful segmentation tasks
         - If masks not provided, you can use bboxes or points to generate masks later (e.g., with SAM)
 
@@ -116,11 +116,11 @@ class Sample:
     """
 
     # Required fields
-    image: tv_tensors.Image | np.ndarray
+    image: np.ndarray | tv_tensors.Image
     image_path: str | None = None
 
     # Optional annotation fields (defaults to None)
-    masks: tv_tensors.Mask | np.ndarray | None = None
+    masks: np.ndarray | torch.Tensor | None = None
     bboxes: np.ndarray | torch.Tensor | None = None
     points: np.ndarray | torch.Tensor | None = None
 

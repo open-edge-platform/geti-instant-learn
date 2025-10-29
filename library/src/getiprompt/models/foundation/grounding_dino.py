@@ -30,21 +30,17 @@ import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from itertools import starmap
-from pathlib import Path
 from typing import Any, ClassVar
 
 import torch
-import torch.nn.functional as F
+import torch.nn.functional
 from torch import Tensor, nn
-from torch.autograd import Function
-from torch.autograd.function import once_differentiable
 from transformers.activations import ACT2FN
 from transformers.file_utils import (
     ModelOutput,
     add_start_docstrings_to_model_forward,
     is_scipy_available,
     is_timm_available,
-    is_torch_cuda_available,
     is_vision_available,
     replace_return_docstrings,
     requires_backends,
@@ -53,7 +49,7 @@ from transformers.modeling_utils import PreTrainedModel
 from transformers.models.auto import AutoModel
 from transformers.models.grounding_dino.configuration_grounding_dino import GroundingDinoConfig
 from transformers.pytorch_utils import meshgrid
-from transformers.utils import is_accelerate_available, is_ninja_available, logging
+from transformers.utils import is_accelerate_available, logging
 from transformers.utils.backbone_utils import load_backbone
 
 if is_vision_available():
@@ -68,104 +64,6 @@ if is_scipy_available():
 
 if is_timm_available():
     from timm import create_model
-
-
-logger = logging.get_logger(__name__)
-
-MultiScaleDeformableAttention = None
-
-
-# Copied from models.deformable_detr.load_cuda_kernels
-def load_cuda_kernels() -> None:
-    """Load CUDA Kernerls."""
-    from torch.utils.cpp_extension import load
-
-    global MultiScaleDeformableAttention  # noqa: PLW0603
-    import transformers
-
-    root = Path(Path.parent(transformers.__file__)) / "kernels" / "deformable_detr"
-    src_files = [
-        root / filename
-        for filename in [
-            "vision.cpp",
-            Path("cpu") / "ms_deform_attn_cpu.cpp",
-            Path("cuda") / "ms_deform_attn_cuda.cu",
-        ]
-    ]
-
-    MultiScaleDeformableAttention = load(
-        "MultiScaleDeformableAttention",
-        src_files,
-        with_cuda=True,
-        extra_include_paths=[str(root)],
-        extra_cflags=["-DWITH_CUDA=1"],
-        extra_cuda_cflags=[
-            "-DCUDA_HAS_FP16=1",
-            "-D__CUDA_NO_HALF_OPERATORS__",
-            "-D__CUDA_NO_HALF_CONVERSIONS__",
-            "-D__CUDA_NO_HALF2_OPERATORS__",
-        ],
-    )
-
-
-# Copied from transformers.models.deformable_detr.modeling_deformable_detr.MultiScaleDeformableAttentionFunction
-class MultiScaleDeformableAttentionFunction(Function):
-    """Multi-scale Deformable Attention Function."""
-
-    @staticmethod
-    def forward(
-        context: Any,
-        value: torch.Tensor,
-        value_spatial_shapes: torch.Tensor,
-        value_level_start_index: torch.Tensor,
-        sampling_locations: torch.Tensor,
-        attention_weights: torch.Tensor,
-        im2col_step: int,
-    ) -> torch.Tensor:
-        """Forward Function."""
-        context.im2col_step = im2col_step
-        output = MultiScaleDeformableAttention.ms_deform_attn_forward(
-            value,
-            value_spatial_shapes,
-            value_level_start_index,
-            sampling_locations,
-            attention_weights,
-            context.im2col_step,
-        )
-        context.save_for_backward(
-            value,
-            value_spatial_shapes,
-            value_level_start_index,
-            sampling_locations,
-            attention_weights,
-        )
-        return output
-
-    @staticmethod
-    @once_differentiable
-    def backward(
-        context: Any,
-        grad_output: torch.Tensor,
-    ) -> tuple[torch.Tensor, None, None, torch.Tensor, torch.Tensor, None]:
-        """Backward Function."""
-        (
-            value,
-            value_spatial_shapes,
-            value_level_start_index,
-            sampling_locations,
-            attention_weights,
-        ) = context.saved_tensors
-        grad_value, grad_sampling_loc, grad_attn_weight = MultiScaleDeformableAttention.ms_deform_attn_backward(
-            value,
-            value_spatial_shapes,
-            value_level_start_index,
-            sampling_locations,
-            attention_weights,
-            grad_output,
-            context.im2col_step,
-        )
-
-        return grad_value, None, None, grad_sampling_loc, grad_attn_weight, None
 
 
 logger = logging.get_logger(__name__)
@@ -367,6 +265,11 @@ class GroundingDinoFrozenBatchNorm2d(nn.Module):
     """
 
     def __init__(self, n: int) -> None:
+        """Initialize the FrozenBatchNorm2d.
+
+        Args:
+            n(int): The number of features.
+        """
         super().__init__()
         self.register_buffer("weight", torch.ones(n))
         self.register_buffer("bias", torch.zeros(n))
@@ -406,7 +309,7 @@ class GroundingDinoFrozenBatchNorm2d(nn.Module):
         running_mean = self.running_mean.reshape(1, -1, 1, 1)
         epsilon = 1e-5
         scale = weight * (running_var + epsilon).rsqrt()
-        bias = bias - running_mean * scale
+        bias -= running_mean * scale
         return x * scale + bias
 
 
@@ -441,6 +344,14 @@ class GroundingDinoConvEncoder(nn.Module):
     """
 
     def __init__(self, config: GroundingDinoConfig) -> None:
+        """Initialize the GroundingDinoConvEncoder.
+
+        Args:
+            config(GroundingDinoConfig): The configuration object.
+
+        Raises:
+            ValueError: If either `backbone` or `backbone_config` is not provided in the config.
+        """
         super().__init__()
 
         self.config = config
@@ -500,6 +411,7 @@ class GroundingDinoConvModel(nn.Module):
     """This module adds 2D position embeddings to all intermediate feature maps of the convolutional encoder."""
 
     def __init__(self, conv_encoder: GroundingDinoConvEncoder, position_embedding: nn.Module) -> None:
+        """Initialize the GroundingDinoConvModel."""
         super().__init__()
         self.conv_encoder = conv_encoder
         self.position_embedding = position_embedding
@@ -520,6 +432,7 @@ class GroundingDinoSinePositionEmbedding(nn.Module):
     """This is a more standard version of the position embedding, generalized to work on images."""
 
     def __init__(self, config: GroundingDinoConfig) -> None:
+        """Initialize the GroundingDinoSinePositionEmbedding."""
         super().__init__()
         self.embedding_dim = config.d_model // 2
         self.temperature = config.positional_embedding_temperature
@@ -547,6 +460,11 @@ class GroundingDinoLearnedPositionEmbedding(nn.Module):
     """This module learns positional embeddings up to a fixed maximum size."""
 
     def __init__(self, config: GroundingDinoConfig) -> None:
+        """Initialize the learned position embedding.
+
+        Args:
+            config(GroundingDinoConfig): The configuration object.
+        """
         super().__init__()
 
         embedding_dim = config.d_model // 2
@@ -567,7 +485,17 @@ class GroundingDinoLearnedPositionEmbedding(nn.Module):
 
 
 def build_position_encoding(config: GroundingDinoConfig) -> nn.Module:
-    """Build position encoding."""
+    """Build position encoding.
+
+    Args:
+        config(GroundingDinoConfig): The configuration object.
+
+    Returns:
+        nn.Module: The position encoding module.
+
+    Raises:
+        ValueError: If the position embedding type is not supported.
+    """
     if config.position_embedding_type == "sine":
         position_embedding = GroundingDinoSinePositionEmbedding(config)
     elif config.position_embedding_type == "learned":
@@ -624,14 +552,17 @@ class GroundingDinoMultiscaleDeformableAttention(nn.Module):
     """Multiscale deformable attention as proposed in Deformable DETR."""
 
     def __init__(self, config: GroundingDinoConfig, num_heads: int, n_points: int) -> None:
-        super().__init__()
+        """Initialize the GroundingDinoMultiscaleDeformableAttention.
 
-        kernel_loaded = MultiScaleDeformableAttention is not None
-        if is_torch_cuda_available() and is_ninja_available() and not kernel_loaded:
-            try:
-                load_cuda_kernels()
-            except Exception as e:
-                logger.warning(f"Could not load the custom kernel for multi-scale deformable attention: {e}")
+        Args:
+            config: The configuration object.
+            num_heads: The number of attention heads.
+            n_points: The number of sampling points per attention head per feature level.
+
+        Raises:
+            ValueError: If embed_dim (d_model) is not divisible by num_heads.
+        """
+        super().__init__()
 
         if config.d_model % num_heads != 0:
             msg = f"embed_dim (d_model) must be divisible by num_heads, but got {config.d_model} and {num_heads}"
@@ -700,7 +631,26 @@ class GroundingDinoMultiscaleDeformableAttention(nn.Module):
         level_start_index: torch.Tensor = None,
         output_attentions: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Forward function for multiscale deformable attention."""
+        """Forward function for multiscale deformable attention.
+
+        Args:
+            hidden_states: The hidden states.
+            attention_mask: The attention mask.
+            encoder_hidden_states: The encoder hidden states.
+            encoder_attention_mask: The encoder attention mask.
+            position_embeddings: The position embeddings.
+            reference_points: The reference points.
+            spatial_shapes: The spatial shapes.
+            level_start_index: The level start index.
+            output_attentions: Whether to output attentions.
+
+        Returns:
+            The output and attention weights.
+
+        Raises:
+            ValueError: If the spatial shapes are not aligned with the sequence length of the encoder hidden states.
+            ValueError: If the reference points are not in [x0, y0, x1, y1] (corner) format.
+        """
         # add position embeddings to the hidden states before projecting to queries and keys
         if position_embeddings is not None:
             hidden_states = self.with_pos_embed(hidden_states, position_embeddings)
@@ -730,7 +680,7 @@ class GroundingDinoMultiscaleDeformableAttention(nn.Module):
             self.n_heads,
             self.n_levels * self.n_points,
         )
-        attention_weights = F.softmax(attention_weights, -1).view(
+        attention_weights = torch.nn.functional.softmax(attention_weights, -1).view(
             batch_size,
             num_queries,
             self.n_heads,
@@ -754,25 +704,8 @@ class GroundingDinoMultiscaleDeformableAttention(nn.Module):
             msg = f"Last dim of reference_points must be 2 or 4, but got {reference_points.shape[-1]}"
             raise ValueError(msg)
 
-        if self.disable_custom_kernels:
-            # PyTorch implementation
-            output = multi_scale_deformable_attention(value, spatial_shapes, sampling_locations, attention_weights)
-        else:
-            try:
-                # custom kernel
-                output = MultiScaleDeformableAttentionFunction.apply(
-                    value,
-                    spatial_shapes,
-                    level_start_index,
-                    sampling_locations,
-                    attention_weights,
-                    self.im2col_step,
-                )
-            except Exception:
-                # PyTorch implementation
-                output = multi_scale_deformable_attention(value, spatial_shapes, sampling_locations, attention_weights)
+        output = multi_scale_deformable_attention(value, spatial_shapes, sampling_locations, attention_weights)
         output = self.output_proj(output)
-
         return output, attention_weights
 
 
@@ -780,6 +713,7 @@ class GroundingDinoTextEnhancerLayer(nn.Module):
     """Vanilla Transformer with text embeddings as input."""
 
     def __init__(self, config: GroundingDinoConfig) -> None:
+        """Initialize the GroundingDinoTextEnhancerLayer."""
         super().__init__()
         self.self_attn = GroundingDinoMultiheadAttention(
             config,
@@ -845,7 +779,7 @@ class GroundingDinoTextEnhancerLayer(nn.Module):
             output_attentions=True,
         )
         attention_output = nn.functional.dropout(attention_output, p=self.dropout, training=self.training)
-        hidden_states = hidden_states + attention_output
+        hidden_states += attention_output
         hidden_states = self.layer_norm_before(hidden_states)
 
         residual = hidden_states
@@ -853,7 +787,7 @@ class GroundingDinoTextEnhancerLayer(nn.Module):
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
         hidden_states = self.fc2(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = hidden_states + residual
+        hidden_states += residual
         hidden_states = self.layer_norm_after(hidden_states)
 
         return hidden_states, attention_weights
@@ -863,6 +797,14 @@ class GroundingDinoBiMultiHeadAttention(nn.Module):
     """Bi-directional multi-head attention for image-to-text and text-to-image attention."""
 
     def __init__(self, config: GroundingDinoConfig) -> None:
+        """Initialize the GroundingDinoBiMultiHeadAttention.
+
+        Args:
+            config: The configuration object.
+
+        Raises:
+            ValueError: If the embed_dim is not divisible by the num_heads.
+        """
         super().__init__()
 
         vision_dim = text_dim = config.d_model
@@ -929,6 +871,11 @@ class GroundingDinoBiMultiHeadAttention(nn.Module):
             - **text_attn_weights** (`torch.FloatTensor` of shape `(batch_size, num_heads, text_sequence_length,
               text_sequence_length)`) --
                 Attention weights of the text-to-image cross-attention layer.
+
+        Raises:
+            ValueError: If the attention weights are not of the correct size.
+            ValueError: If the vision attention mask is not of the correct size.
+            ValueError: If the text attention mask is not of the correct size.
         """
         batch_size, tgt_len, _ = vision_features.size()
 
@@ -986,8 +933,8 @@ class GroundingDinoBiMultiHeadAttention(nn.Module):
             attn_weights.masked_fill_(text_attention_mask, float("-inf"))
         vision_attn_weights = attn_weights.softmax(dim=-1)
 
-        vision_attn_probs = F.dropout(vision_attn_weights, p=self.dropout, training=self.training)
-        text_attn_probs = F.dropout(text_attn_weights, p=self.dropout, training=self.training)
+        vision_attn_probs = torch.nn.functional.dropout(vision_attn_weights, p=self.dropout, training=self.training)
+        text_attn_probs = torch.nn.functional.dropout(text_attn_weights, p=self.dropout, training=self.training)
 
         vision_attn_output = torch.bmm(vision_attn_probs, text_value_states)
         text_attn_output = torch.bmm(text_attn_probs, vision_value_states)
@@ -1247,6 +1194,7 @@ class GroundingDinoEncoderLayer(nn.Module):
     """Grounding Dino Encoder Layer."""
 
     def __init__(self, config: GroundingDinoConfig) -> None:
+        """Initialize the GroundingDinoEncoderLayer."""
         super().__init__()
 
         self.d_model = config.d_model
