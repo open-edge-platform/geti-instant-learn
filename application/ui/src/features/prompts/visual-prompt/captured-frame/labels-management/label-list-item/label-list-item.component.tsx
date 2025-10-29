@@ -102,22 +102,25 @@ export const LabelListItem = ({ label, onSelect, isSelected, existingLabelsNames
 
     const updateLabelMutation = useUpdateLabelMutation();
     const updateLabel = (newLabel: LabelType) => {
-        updateLabelMutation.mutate({
-            body: {
-                color: newLabel.color,
-                name: newLabel.name,
-            },
-            params: {
-                path: {
-                    project_id: projectId,
-                    label_id: label.id,
+        updateLabelMutation.mutate(
+            {
+                body: {
+                    color: newLabel.color,
+                    name: newLabel.name,
+                },
+                params: {
+                    path: {
+                        project_id: projectId,
+                        label_id: label.id,
+                    },
                 },
             },
-        }, {
-            onSuccess: () => {
-                setIsInEdition(false);
+            {
+                onSuccess: () => {
+                    setIsInEdition(false);
+                },
             }
-        });
+        );
     };
 
     if (isInEdition) {
