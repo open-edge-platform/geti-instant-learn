@@ -24,25 +24,27 @@ type AnnotatorContext = {
 
     // Labels
     selectedLabel: LabelType;
-    setSelectedLabel: Dispatch<SetStateAction<LabelType>>;
+    selectedLabelId: string;
+    setSelectedLabelId: Dispatch<SetStateAction<string>>;
 };
 
 export const AnnotatorProviderContext = createContext<AnnotatorContext | null>(null);
 
-const PLACEHOLDER_LABEL = { id: 'placeholder', name: 'No label', color: 'var(--annotation-fill)', isPrediction: false };
+export const PLACEHOLDER_LABEL: LabelType = { id: 'placeholder', name: 'No label', color: 'var(--annotation-fill)' };
 
 export const AnnotatorProvider = ({ frameId, children }: { frameId: string; children: ReactNode }) => {
     const labels = useProjectLabels();
     const [activeTool, setActiveTool] = useState<ToolType | null>(null);
-    const [selectedLabel, setSelectedLabel] = useState<LabelType>(PLACEHOLDER_LABEL);
+    const [selectedLabelId, setSelectedLabelId] = useState<string>(PLACEHOLDER_LABEL.id);
 
     const imageQuery = useLoadImageQuery(frameId);
+    const selectedLabel = labels.find(({ id }) => id === selectedLabelId) || PLACEHOLDER_LABEL;
 
     useEffect(() => {
-        if (labels.length > 0 && selectedLabel.id === PLACEHOLDER_LABEL.id) {
-            setSelectedLabel(labels[0]);
+        if (labels.length > 0) {
+            setSelectedLabelId(labels[0].id);
         }
-    }, [labels, selectedLabel.id]);
+    }, [labels]);
 
     return (
         <AnnotatorProviderContext.Provider
@@ -50,7 +52,8 @@ export const AnnotatorProvider = ({ frameId, children }: { frameId: string; chil
                 activeTool,
                 setActiveTool,
 
-                setSelectedLabel,
+                setSelectedLabelId,
+                selectedLabelId,
                 selectedLabel,
 
                 image: imageQuery.data,

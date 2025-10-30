@@ -43,10 +43,11 @@ export const SegmentAnythingTool = () => {
     const [previewShapes, setPreviewShapes] = useState<Shape[]>([]);
 
     const zoom = useZoom();
-    const { roi, image, selectedLabel, frameId } = useAnnotator();
+    const { roi, image, selectedLabel } = useAnnotator();
     const { annotations } = useAnnotationActions();
     const { isLoading, decodingQueryFn } = useSegmentAnythingModel();
     const throttledDecodingQueryFn = useSingleStackFn(decodingQueryFn);
+
     const decodingMutation = useDecodingMutation(decodingQueryFn, [selectedLabel]);
 
     const ref = useRef<SVGRectElement>(null);
@@ -73,7 +74,7 @@ export const SegmentAnythingTool = () => {
                 // start to compute the next decoding
                 return [];
             });
-    }, [mousePosition, throttledDecodingQueryFn, throttleSetMousePosition, roi, frameId]);
+    }, [mousePosition, throttledDecodingQueryFn, throttleSetMousePosition, roi]);
 
     const handleMouseMove = (event: PointerEvent<SVGSVGElement>) => {
         if (!ref.current) {

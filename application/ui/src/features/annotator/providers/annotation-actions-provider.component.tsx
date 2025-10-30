@@ -11,6 +11,7 @@ import { useCurrentProject } from 'src/features/project/hooks/use-current-projec
 import { v4 as uuid } from 'uuid';
 
 import type { Annotation, Shape } from '../types';
+import { useAnnotator } from './annotator-provider.component';
 
 // TODO: update this type
 type ServerAnnotation = Annotation;
@@ -38,9 +39,10 @@ const AnnotationsContext = createContext<AnnotationsContextValue | null>(null);
 
 type AnnotationActionsProviderProps = {
     children: ReactNode;
-    // mediaItem?: MediaItem;
 };
 export const AnnotationActionsProvider = ({ children }: AnnotationActionsProviderProps) => {
+    const { frameId } = useAnnotator();
+
     const serverAnnotations: Annotation[] = useMemo(() => [], []);
     const fetchError = null;
 
@@ -48,6 +50,10 @@ export const AnnotationActionsProvider = ({ children }: AnnotationActionsProvide
 
     const [localAnnotations, setLocalAnnotations] = useState<Annotation[]>([]);
     const isDirty = useRef<boolean>(false);
+
+    useEffect(() => {
+        setLocalAnnotations([]);
+    }, [frameId]);
 
     const updateAnnotations = (updatedAnnotations: Annotation[]) => {
         const updatedMap = new Map(updatedAnnotations.map((ann) => [ann.id, ann]));
