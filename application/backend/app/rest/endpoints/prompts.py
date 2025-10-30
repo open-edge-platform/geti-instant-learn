@@ -35,6 +35,8 @@ def create_prompt(
     """
     Add a new prompt to the project.
     """
+    logger.debug(f"Received POST project {project_id} prompt request, name: {prompt_name}, type: {prompt_type}")
+
     return Response(status_code=status.HTTP_201_CREATED)
 
 
@@ -55,6 +57,8 @@ def delete_prompt(project_id: UUID, prompt_id: UUID) -> Response:
     """
     Delete the prompt's directory and all its contents.
     """
+    logger.debug(f"Received DELETE project {project_id} prompt {prompt_id} request.")
+
     return Response(status_code=status.HTTP_200_OK)
 
 
@@ -75,6 +79,8 @@ def get_prompt(project_id: UUID, prompt_id: UUID) -> Response:
     """
     Retrieve the details and files of the prompt.
     """
+    logger.debug(f"Received GET project {project_id} prompt {prompt_id} request.")
+
     return Response(status_code=status.HTTP_200_OK)
 
 
@@ -95,6 +101,8 @@ def get_all_prompts(project_id: UUID) -> Response:
     """
     Retrieve a list of all prompts for the project.
     """
+    logger.debug(f"Received GET project {project_id} prompts request.")
+
     return Response(status_code=status.HTTP_200_OK, content={"project_prompts": []})
 
 
@@ -115,4 +123,6 @@ def update_prompt(project_id: UUID, prompt_id: UUID) -> Response:
     """
     Update the existing files of the prompt.
     """
+    logger.debug(f"Received PUT project {project_id} prompt {prompt_id} request.")
+
     return Response(status_code=status.HTTP_200_OK)
