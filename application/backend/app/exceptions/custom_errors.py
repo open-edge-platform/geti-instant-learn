@@ -69,11 +69,3 @@ class ResourceUpdateConflictError(ResourceError):
         msg = message or f"{resource_type.value} with ID {resource_id} cannot change immutable field '{field}'."
         super().__init__(resource_type, resource_id, msg)
         self.field = field
-
-
-class PipelineNotActiveError(ServiceError):
-    """Exception raised when pipeline is not active."""
-
-
-class PipelineProjectMismatchError(ServiceError):
-    """Exception raised when pipeline project doesn't match."""
