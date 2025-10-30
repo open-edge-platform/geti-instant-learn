@@ -28,10 +28,14 @@ jobs:
 
       - name: Build docker image
         working-directory: application
+        env:
+          BUILD_VERSION: ${{ inputs.build_version }}
         run: |
-          just version="${{ inputs.build_version }}" docker-build-context="--no-cache" build-image
+          just version="${BUILD_VERSION}" docker-build-context="--no-cache" build-image
 
       - name: Show size of the image
         working-directory: application
+        env:
+          BUILD_VERSION: ${{ inputs.build_version }}
         run: |
-          just version="${{ inputs.build_version }}" show-size
+          just version="${BUILD_VERSION}" show-size
