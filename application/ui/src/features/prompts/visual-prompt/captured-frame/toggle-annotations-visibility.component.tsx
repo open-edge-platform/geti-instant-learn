@@ -5,11 +5,15 @@
 
 import { ActionButton } from '@geti/ui';
 import { Invisible, Visible } from '@geti/ui/icons';
+import { useHotkeys } from 'react-hotkeys-hook';
 
+import { HOTKEYS } from '../../../annotator/hotkeys/hotkeys';
 import { useAnnotationVisibility } from '../../../annotator/providers/annotation-visibility-provider.component';
 
 export const ToggleAnnotationsVisibility = () => {
     const { isVisible, toggleVisibility } = useAnnotationVisibility();
+
+    useHotkeys(HOTKEYS.toggleAnnotations, toggleVisibility, [toggleVisibility]);
 
     return (
         <ActionButton aria-label={`${isVisible ? 'Hide' : 'Show'} annotations`} isQuiet onPress={toggleVisibility}>

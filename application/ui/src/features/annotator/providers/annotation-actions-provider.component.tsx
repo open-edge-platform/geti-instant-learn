@@ -7,13 +7,24 @@ import { createContext, ReactNode, useContext, useEffect, useMemo, useRef } from
 
 import { LabelType } from '@geti-prompt/api';
 import { get, isEmpty } from 'lodash-es';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { useCurrentProject } from 'src/features/project/hooks/use-current-project.hook';
 import { v4 as uuid } from 'uuid';
 
+import { HOTKEYS } from '../hotkeys/hotkeys';
 import type { Annotation, Shape } from '../types';
 import { UndoRedoProvider } from '../undo-redo/undo-redo-provider.component';
 import useUndoRedoState from '../undo-redo/use-undo-redo-state';
-import { useAnnotator } from './annotator-provider.component';
+import { useSelectedAnnotations } from './select-annotation-provider.component';
+
+const useDeleteAnnotationHotkey = () => {
+    const { selectedAnnotations } = useSelectedAnnotations();
+    const { annotations, deleteAnnotations } = useAnnotationActions();
+
+    const selectedIds = [...annotations.filter((a) => selectedAnnotations.has(a.id)).map(({ id }) => id)];
+
+    useHotkeys(HOTKEYS.deleteAnnotation, () => deleteAnnotations(selectedIds), [deleteAnnotations, selectedIds]);
+};
 
 // TODO: update this type
 type ServerAnnotation = Annotation;
@@ -43,8 +54,6 @@ type AnnotationActionsProviderProps = {
     children: ReactNode;
 };
 export const AnnotationActionsProvider = ({ children }: AnnotationActionsProviderProps) => {
-    const { frameId } = useAnnotator();
-
     const serverAnnotations: Annotation[] = useMemo(() => [], []);
     const fetchError = null;
 
@@ -54,13 +63,7 @@ export const AnnotationActionsProvider = ({ children }: AnnotationActionsProvide
 
     const [state, setState, undoRedoActions] = useUndoRedoState<Annotation[]>([]);
 
-    useEffect(() => {
-        if (state.length > 0) {
-            setState([]);
-        }
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [frameId]);
+    useDeleteAnnotationHotkey();
 
     const updateAnnotations = (updatedAnnotations: Annotation[]) => {
         const updatedMap = new Map(updatedAnnotations.map((ann) => [ann.id, ann]));
@@ -90,7 +93,7 @@ export const AnnotationActionsProvider = ({ children }: AnnotationActionsProvide
     const submitAnnotations = async () => {
         if (!isDirty.current) return;
 
-        // TODO: implement saving annotations
+        // TODO: implement saving annotations once API is ready
         // const serverFormattedAnnotations = mapLocalAnnotationsToServer(localAnnotations);
         // await saveMutation.mutateAsync({
         //     params: { path: { dataset_item_id: mediaItem.id || '', project_id: projectId } },

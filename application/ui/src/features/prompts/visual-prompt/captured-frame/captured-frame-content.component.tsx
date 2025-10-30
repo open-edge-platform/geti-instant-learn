@@ -33,7 +33,7 @@ export const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnot
         >
             <AnnotatorProvider frameId={frameId}>
                 <SelectAnnotationProvider>
-                    <AnnotationActionsProvider>
+                    <AnnotationActionsProvider key={frameId}>
                         <AnnotationVisibilityProvider>
                             <FullScreenModeProvider>{children}</FullScreenModeProvider>
                         </AnnotationVisibilityProvider>
