@@ -23,11 +23,12 @@ just run-image
 Then navigate to `http://localhost:9100` in your web browser to access Geti Prompt.
 
 ## Parametrizing the Docker Container
-User can customize the behavior of the Docker container using the runtime variables defined in the `Justfile` in application directory.
+The user can customize the behavior of the Docker container using the runtime variables defined in the `Justfile` in 
+application directory.
 
 ### Port mapping
 By default, Geti Prompt runs on port `9100` inside the container and this port is mapped to port `9100` on the host machine.
-User can change the port mapping by setting proper variable `host-port` or `container-port`:
+The user can change the port mapping by setting proper variable `host-port` or `container-port`:
 
 This command will use host port `9200` to access Geti Prompt:
 ```bash
@@ -40,9 +41,10 @@ just container-port=9201 run-image
 ```
 
 ### Docker volume for persistent storage
-Variable `docker-volume` is used to tell Docker name of directory used for persistent storage. Default is empty string (no volume).
+Variable `docker-volume` is used to tell Docker the name of directory used for persistent storage. Default is empty 
+string (no volume).
 If specified, the volume will be mounted to `WORKDIR_PATH/data` inside the container. 
-User can define the directory as follows:
+The user can define the directory as follows:
 
 ```bash
 just docker-volume=/tmp/some_dir run-image
