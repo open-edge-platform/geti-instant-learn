@@ -7,24 +7,12 @@ import { createContext, ReactNode, useContext, useEffect, useMemo, useRef } from
 
 import { LabelType } from '@geti-prompt/api';
 import { get, isEmpty } from 'lodash-es';
-import { useHotkeys } from 'react-hotkeys-hook';
 import { useCurrentProject } from 'src/features/project/hooks/use-current-project.hook';
 import { v4 as uuid } from 'uuid';
 
-import { HOTKEYS } from '../hotkeys/hotkeys';
 import type { Annotation, Shape } from '../types';
 import { UndoRedoProvider } from '../undo-redo/undo-redo-provider.component';
 import useUndoRedoState from '../undo-redo/use-undo-redo-state';
-import { useSelectedAnnotations } from './select-annotation-provider.component';
-
-const useDeleteAnnotationHotkey = () => {
-    const { selectedAnnotations } = useSelectedAnnotations();
-    const { annotations, deleteAnnotations } = useAnnotationActions();
-
-    const selectedIds = [...annotations.filter((a) => selectedAnnotations.has(a.id)).map(({ id }) => id)];
-
-    useHotkeys(HOTKEYS.deleteAnnotation, () => deleteAnnotations(selectedIds), [deleteAnnotations, selectedIds]);
-};
 
 // TODO: update this type
 type ServerAnnotation = Annotation;
@@ -62,8 +50,6 @@ export const AnnotationActionsProvider = ({ children }: AnnotationActionsProvide
     const isDirty = useRef<boolean>(false);
 
     const [state, setState, undoRedoActions] = useUndoRedoState<Annotation[]>([]);
-
-    useDeleteAnnotationHotkey();
 
     const updateAnnotations = (updatedAnnotations: Annotation[]) => {
         const updatedMap = new Map(updatedAnnotations.map((ann) => [ann.id, ann]));

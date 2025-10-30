@@ -5,9 +5,11 @@
 
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { View } from '@geti/ui';
+import { useHotkeys } from 'react-hotkeys-hook';
 
 import { ZoomTransform } from '../../components/zoom/zoom-transform';
 import { Annotations } from './annotations/annotations.component';
+import { HOTKEYS } from './hotkeys/hotkeys';
 import { useAnnotationActions } from './providers/annotation-actions-provider.component';
 import { useAnnotator } from './providers/annotator-provider.component';
 import { useSelectedAnnotations } from './providers/select-annotation-provider.component';
@@ -15,6 +17,15 @@ import { ToolManager } from './tools/tool-manager.component';
 
 const getImageUrl = (projectId: string, frameId: string) => {
     return `${import.meta.env.PUBLIC_API_URL}/api/v1/projects/${projectId}/frames/${frameId}`;
+};
+
+const useDeleteAnnotationHotkey = () => {
+    const { selectedAnnotations } = useSelectedAnnotations();
+    const { annotations, deleteAnnotations } = useAnnotationActions();
+
+    const selectedIds = [...annotations.filter((a) => selectedAnnotations.has(a.id)).map(({ id }) => id)];
+
+    useHotkeys(HOTKEYS.deleteAnnotation, () => deleteAnnotations(selectedIds), [deleteAnnotations, selectedIds]);
 };
 
 type AnnotatorCanvasProps = {
@@ -34,6 +45,8 @@ export const AnnotatorCanvas = ({ frameId }: AnnotatorCanvasProps) => {
     ];
 
     const imageUrl = getImageUrl(projectId, frameId);
+
+    useDeleteAnnotationHotkey();
 
     return (
         <ZoomTransform target={image}>

@@ -5,11 +5,16 @@
 
 import { ActionButton, Flex } from '@geti/ui';
 import { Redo, Undo } from '@geti/ui/icons';
+import { useHotkeys } from 'react-hotkeys-hook';
+import { HOTKEYS } from 'src/features/annotator/hotkeys/hotkeys';
 
 import { useUndoRedo } from '../../../annotator/undo-redo/undo-redo-provider.component';
 
 export const UndoRedo = ({ isDisabled }: { isDisabled?: boolean }) => {
     const { undo, canUndo, redo, canRedo } = useUndoRedo();
+
+    useHotkeys(HOTKEYS.undo, undo, [undo]);
+    useHotkeys(HOTKEYS.redo, redo, [redo]);
 
     return (
         <Flex alignItems='center' justify-content='center' data-testid='undo-redo-tools'>
