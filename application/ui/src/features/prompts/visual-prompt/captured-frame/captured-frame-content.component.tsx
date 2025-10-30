@@ -14,6 +14,7 @@ import { AnnotationVisibilityProvider } from '../../../annotator/providers/annot
 import { AnnotatorProvider } from '../../../annotator/providers/annotator-provider.component';
 import { SelectAnnotationProvider } from '../../../annotator/providers/select-annotation-provider.component';
 import { CapturedFrameActions } from './captured-frame-actions.component';
+import { FullScreenModeProvider } from './full-screen-mode.component';
 import { Labels } from './labels-management/labels.component';
 
 interface CapturedFrameAnnotatorProps {
@@ -21,25 +22,25 @@ interface CapturedFrameAnnotatorProps {
     frameId: string;
 }
 
-const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorProps) => {
+export const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorProps) => {
     return (
-        <ZoomProvider>
-            <Suspense
-                fallback={
-                    <View gridRow={'1/-1'} alignSelf={'center'}>
-                        <Loading mode={'inline'} />
-                    </View>
-                }
-            >
-                <AnnotatorProvider frameId={frameId}>
-                    <SelectAnnotationProvider>
-                        <AnnotationActionsProvider>
-                            <AnnotationVisibilityProvider>{children}</AnnotationVisibilityProvider>
-                        </AnnotationActionsProvider>
-                    </SelectAnnotationProvider>
-                </AnnotatorProvider>
-            </Suspense>
-        </ZoomProvider>
+        <Suspense
+            fallback={
+                <View gridRow={'1/-1'} alignSelf={'center'}>
+                    <Loading mode={'inline'} />
+                </View>
+            }
+        >
+            <AnnotatorProvider frameId={frameId}>
+                <SelectAnnotationProvider>
+                    <AnnotationActionsProvider>
+                        <AnnotationVisibilityProvider>
+                            <FullScreenModeProvider>{children}</FullScreenModeProvider>
+                        </AnnotationVisibilityProvider>
+                    </AnnotationActionsProvider>
+                </SelectAnnotationProvider>
+            </AnnotatorProvider>
+        </Suspense>
     );
 };
 
@@ -49,7 +50,7 @@ interface CapturedFrameContentProps {
 
 export const CapturedFrameContent = ({ frameId }: CapturedFrameContentProps) => {
     return (
-        <CapturedFrameProviders frameId={frameId}>
+        <ZoomProvider>
             <View gridArea={'labels'} backgroundColor={'gray-200'} paddingX={'size-100'} paddingY={'size-50'}>
                 <Labels />
             </View>
@@ -60,6 +61,6 @@ export const CapturedFrameContent = ({ frameId }: CapturedFrameContentProps) => 
             <View gridArea={'actions'} backgroundColor={'gray-200'} padding={'size-100'}>
                 <CapturedFrameActions />
             </View>
-        </CapturedFrameProviders>
+        </ZoomProvider>
     );
 };

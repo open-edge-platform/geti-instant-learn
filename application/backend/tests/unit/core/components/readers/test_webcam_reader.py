@@ -13,7 +13,7 @@ def test_video_path(tmp_path):
     """Create a simple test video file to simulate webcam."""
     video_path = tmp_path / "test_webcam.avi"
 
-    fourcc = cv2.VideoWriter_fourcc(*"MJPG")  # type: ignore[attr-defined]
+    fourcc = cv2.VideoWriter.fourcc(*"MJPG")
     out = cv2.VideoWriter(str(video_path), fourcc, 20.0, (640, 480))
 
     if not out.isOpened():

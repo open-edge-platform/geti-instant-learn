@@ -7,9 +7,8 @@ import { Image } from '@geti-prompt/icons';
 import { Content, Flex, Grid, minmax, View } from '@geti/ui';
 
 import { useSelectedFrame } from '../../../stream/selected-frame-provider.component';
-import { CapturedFrameContent } from './captured-frame-content.component';
+import { CapturedFrameContent, CapturedFrameProviders } from './captured-frame-content.component';
 import { CapturedFrameFullScreen } from './captured-frame-full-screen.component';
-import { FullScreenModeProvider } from './full-screen-mode.component';
 
 import styles from './captured-frame.module.scss';
 
@@ -34,18 +33,18 @@ export const CapturedFrame = () => {
     }
 
     return (
-        <FullScreenModeProvider>
-            <Grid
-                width={'100%'}
-                areas={['labels', 'image', 'actions']}
-                rows={[minmax('size-500', 'auto'), 'size-6000', 'size-500']}
-                UNSAFE_style={{
-                    backgroundColor: 'var(--spectrum-global-color-gray-200)',
-                }}
-            >
+        <Grid
+            width={'100%'}
+            areas={['labels', 'image', 'actions']}
+            rows={[minmax('size-500', 'auto'), 'size-6000', 'size-500']}
+            UNSAFE_style={{
+                backgroundColor: 'var(--spectrum-global-color-gray-200)',
+            }}
+        >
+            <CapturedFrameProviders frameId={selectedFrameId}>
                 <CapturedFrameContent frameId={selectedFrameId} />
-            </Grid>
-            <CapturedFrameFullScreen frameId={selectedFrameId} />
-        </FullScreenModeProvider>
+                <CapturedFrameFullScreen frameId={selectedFrameId} />
+            </CapturedFrameProviders>
+        </Grid>
     );
 };

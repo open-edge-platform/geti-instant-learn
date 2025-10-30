@@ -60,6 +60,24 @@ class StreamReader(AbstractContextManager, ABC):
     ) -> None:
         self.close()
 
+    def seek(self, index: int) -> None:  # noqa: ARG002
+        """
+        Jump to a specific frame index.
+        """
+        raise UnsupportedOperationError
+
+    def index(self) -> int:
+        """
+        Get the current frame position.
+        """
+        raise UnsupportedOperationError
+
+    def list_frames(self, page: int = 1, page_size: int = 30) -> dict:  # noqa: ARG002
+        """
+        Get a paginated list of all available frames.
+        """
+        raise UnsupportedOperationError
+
 
 class StreamWriter(AbstractContextManager, ABC):
     """An abstract interface for writing processed frames to various sinks."""
@@ -78,3 +96,7 @@ class StreamWriter(AbstractContextManager, ABC):
         self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None, /
     ) -> None:
         self.close()
+
+
+class UnsupportedOperationError(Exception):
+    """Exception raised when an unsupported operation is attempted on a stream reader or writer."""
