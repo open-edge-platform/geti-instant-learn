@@ -12,8 +12,6 @@ from typing import Any
 
 import numpy as np
 import torch
-from efficientvit.models.efficientvit import EfficientViTSamPredictor
-from efficientvit.models.nn import UpSampleLayer
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 from segment_anything_hq.predictor import SamPredictor as SamHQPredictor
 from torch import nn
@@ -37,13 +35,13 @@ def get_dummy_input(model: AutoModel, precision: torch.dtype, device: str) -> to
 
 
 def optimize_model(
-    model: AutoModel | SamPredictor | SamHQPredictor | EfficientViTSamPredictor | SAM2ImagePredictor,
+    model: AutoModel | SamPredictor | SamHQPredictor | SAM2ImagePredictor,
     device: str,
     precision: torch.dtype,
     compile_models: bool,
     benchmark_inference_speed: bool = True,
     compile_backend: str = "inductor",
-) -> AutoModel | SamPredictor | SamHQPredictor | EfficientViTSamPredictor | SAM2ImagePredictor:
+) -> AutoModel | SamPredictor | SamHQPredictor | SAM2ImagePredictor:
     """This method optimizes a model by quantizing it and compiling it.
 
     Args:
@@ -110,7 +108,7 @@ def optimize_model(
 
 @torch.inference_mode()
 def benchmark_inference(
-    model: SamPredictor | SamHQPredictor | EfficientViTSamPredictor | SAM2ImagePredictor | AutoModel,
+    model: SamPredictor | SamHQPredictor | SAM2ImagePredictor | AutoModel,
     precision: torch.dtype,
     repeat: int = 10,
 ) -> float:
@@ -163,34 +161,6 @@ def benchmark_inference(
     return avg_duration
 
 
-def _monkey_patch_transform(predictor: EfficientViTSamPredictor, dtype: torch.dtype) -> None:
-    """Monkey patch the forward method of the EfficientViTSamImageEncoder to use the correct dtype."""
-    original_forward = predictor.model.image_encoder.forward
-
-    def forward_dtype_wrapper(x: torch.Tensor) -> torch.Tensor:
-        # The input tensor must be converted to the same dtype as the model's weights.
-        return original_forward(x.to(dtype))
-
-    # Replace the original forward method with the wrapper.
-    predictor.model.image_encoder.forward = forward_dtype_wrapper
-
-
-def _monkey_patch_upsample_layers(model: nn.Module, dtype: torch.dtype) -> None:
-    """Recursively find all UpSampleLayer instances and patch their forward method.
-
-    This is necessary because F.interpolate with mode='bicubic' can upcast to float32.
-    """
-    for module in model.modules():
-        if isinstance(module, UpSampleLayer):
-            original_forward = module.forward
-
-            def new_forward(
-                x: torch.Tensor,
-                original_forward: Callable[[torch.Tensor], torch.Tensor] = original_forward,
-            ) -> torch.Tensor:
-                return original_forward(x).to(dtype)
-
-            module.forward = new_forward
 
 
 def _monkey_patch_preprocess(predictor: SamPredictor | SamHQPredictor, dtype: torch.dtype) -> None:
@@ -330,7 +300,7 @@ def _monkey_patch_sam2_architecture(predictor: SAM2ImagePredictor, dtype: torch.
 
 
 def _monkey_patch_dtype(
-    predictor: SamPredictor | SamHQPredictor | EfficientViTSamPredictor | SAM2ImagePredictor,
+    predictor: SamPredictor | SamHQPredictor | SAM2ImagePredictor,
 ) -> None:
     """Monkey patch the predictor to use the correct dtype for the model.
 
@@ -348,12 +318,6 @@ def _monkey_patch_dtype(
     dtype = predictor.model.mask_decoder.iou_prediction_head.layers[0].weight.dtype
     _monkey_patch_prompt_encoder(predictor.model.prompt_encoder, dtype)
     _monkey_patch_predict_torch(predictor, dtype)
-    if isinstance(predictor, EfficientViTSamPredictor):
-        _monkey_patch_prompt_encoder(predictor.model.prompt_encoder, dtype)
-        _monkey_patch_transform(predictor, dtype)
-        _monkey_patch_upsample_layers(predictor.model, dtype)
-        _monkey_patch_predict_torch(predictor, dtype)
-        return
     _monkey_patch_preprocess(predictor, dtype)
     _monkey_patch_tinyvit_architecture(predictor, dtype)
 

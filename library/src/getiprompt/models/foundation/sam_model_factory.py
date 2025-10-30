@@ -6,8 +6,6 @@
 from logging import getLogger
 from typing import TYPE_CHECKING
 
-from efficientvit.models.efficientvit import EfficientViTSamPredictor
-from efficientvit.sam_model_zoo import create_efficientvit_sam_model
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 from segment_anything_hq import sam_model_registry as sam_hq_model_registry
@@ -31,7 +29,7 @@ def load_sam_model(
     precision: str = "bf16",
     compile_models: bool = False,
     benchmark_inference_speed: bool = False,
-) -> SamPredictor | SamHQPredictor | EfficientViTSamPredictor | SAM2ImagePredictor:
+) -> SamPredictor | SamHQPredictor | SAM2ImagePredictor:
     """Load and optimize a SAM model.
 
     Args:
@@ -74,16 +72,6 @@ def load_sam_model(
     elif sam in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
         model: SamHQ = sam_hq_model_registry[registry_name](checkpoint=str(checkpoint_path)).to(device).eval()
         predictor = SamHQPredictor(model)
-    elif sam == SAMModelName.EFFICIENT_VIT_SAM:
-        model = (
-            create_efficientvit_sam_model(
-                name=registry_name,
-                weight_url=str(checkpoint_path),
-            )
-            .to(device)
-            .eval()
-        )
-        predictor = EfficientViTSamPredictor(model)
     else:
         msg = f"Model {sam} not implemented yet"
         raise NotImplementedError(msg)

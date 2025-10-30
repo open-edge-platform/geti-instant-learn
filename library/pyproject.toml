@@ -14,7 +14,7 @@ authors = [
 description = "Geti Prompt - A modular framework for visual prompting"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.10"
+requires-python = ">=3.12, <3.13"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
@@ -25,7 +25,7 @@ classifiers = [
 # REQUIREMENTS                                                                #
 dependencies = [
     "matplotlib==3.10.3",
-    "numpy==1.26.4",
+    "numpy~=2.2.6",
     "opencv-python==4.11.0.86",
     "rich==14.0.0",
     "requests==2.32.4",
@@ -40,7 +40,6 @@ dependencies = [
     "torch==2.7.0+cu126",
     "torchvision==0.22.0+cu126",
     "transformers==4.56.2",
-    "efficientvit",
     "segment-anything-hq==0.3",
     "markupsafe==3.0.2",
     "jsonargparse",
@@ -55,7 +54,6 @@ torch = { index = "pytorch" }
 xformers = { index = "pytorch" }
 torchvision = { index = "pytorch" }
 torchmetrics = { index = "pytorch" }
-efficientvit = { git = "https://github.com/mit-han-lab/efficientvit.git", rev = "71b35be" }
 sam-2 = { git = "https://github.com/facebookresearch/sam2.git", rev = "2b90b9f"}
 
 [project.scripts]

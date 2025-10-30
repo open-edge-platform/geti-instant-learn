@@ -12,7 +12,6 @@ class SAMModelName(Enum):
 
     SAM = "SAM"
     MOBILE_SAM = "MobileSAM"
-    EFFICIENT_VIT_SAM = "EfficientViT-SAM"
     SAM_HQ = "SAM-HQ"
     SAM_HQ_TINY = "SAM-HQ-tiny"
     SAM2_TINY = "SAM2-tiny"
@@ -100,12 +99,6 @@ MODEL_MAP = {
         "local_filename": "mobile_sam.pt",
         "download_url": "https://github.com/ChaoningZhang/MobileSAM/raw/refs/heads/master/weights/mobile_sam.pt",
         "sha_sum": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
-    },
-    SAMModelName.EFFICIENT_VIT_SAM: {  # 512x512 input resolution
-        "registry_name": "efficientvit-sam-l0",
-        "local_filename": "efficientvit_sam_l0.pt",
-        "download_url": "https://huggingface.co/mit-han-lab/efficientvit-sam/resolve/main/efficientvit_sam_l0.pt",
-        "sha_sum": "c4f994b01a16d48bcf2fbbb089448cfbf58fae5811edfa8113c953b8b8cc64b8",
     },
     SAMModelName.SAM_HQ: {  # 1024x1024 input resolution
         "registry_name": "vit_h",
