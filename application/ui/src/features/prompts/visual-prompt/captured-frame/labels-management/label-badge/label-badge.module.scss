@@ -1,21 +1,21 @@
-:root {
-    --default-label-width-percentage: 13%;
-    --maximum-label-width-percentage: 25%;
-}
-
 .labelBadgeContainer {
     height: min-content;
     padding: var(--spectrum-global-dimension-size-50);
 }
 
 .badge {
+    --foregroundColor: lch(from var(--labelBgColor) calc((50 - l) * infinity) 0 0);
+    --spectrum-high-contrast-button-text: var(--foregroundColor);
+
     background-color: var(--labelBgColor);
     border-radius: var(--spectrum-alias-border-radius-regular);
     padding: var(--spectrum-global-dimension-size-50) var(--spectrum-global-dimension-size-100);
-    --foregroundColor: lch(from var(--labelBgColor) calc((50 - l) * infinity) 0 0);
-    --spectrum-high-contrast-button-text: var(--foregroundColor);
     display: flex;
-    width: var(--default-label-width-percentage);
+    width: fit-content;
+    align-items: center;
+    transition: width 0.3s;
+    flex: 0 1 var(--spectrum-global-dimension-size-600);
+
     & button {
         display: none;
         opacity: 0;
@@ -24,9 +24,10 @@
 }
 
 .badge:hover {
-    width: var(--maximum-label-width-percentage);
-    transition: width 0.3s;
+    flex: 0 1 auto;
+
     & button {
+        padding-top: var(--spectrum-global-dimension-size-50);
         display: block;
         opacity: 1;
     }
@@ -34,8 +35,8 @@
 
 .selected,
 .selected:focus {
-    outline-offset: var(--spectrum-global-dimension-size-50);
-    outline: var(--spectrum-global-dimension-size-50) solid var(--labelBgColor);
+    outline-offset: var(--spectrum-global-dimension-size-25);
+    outline: var(--spectrum-global-dimension-size-25) solid var(--labelBgColor);
 }
 
 .buttonText {

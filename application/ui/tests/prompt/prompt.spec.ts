@@ -5,11 +5,12 @@
 
 import { WebcamConfig } from '@geti-prompt/api';
 import { expect, http, test } from '@geti-prompt/test-fixtures';
-import { HttpResponse } from 'msw';
 
-import { MOCK_FRAME_JPEG_BASE64, mockRTCPeerConnectionScript } from './mocks';
+import { LabelsPage } from '../labels/labels-page';
+import { registerApiLabels } from '../labels/mocks';
+import { initializeWebRTC } from './initialize-webrtc';
+import { StreamPage } from './stream-page';
 
-const FRAME_ID = '1';
 const DEVICE_ID = 10;
 const WEBCAM_SOURCE: WebcamConfig = {
     connected: true,
@@ -21,45 +22,18 @@ const WEBCAM_SOURCE: WebcamConfig = {
 };
 
 test('Prompt flow', async ({ network, page, context }) => {
-    // Emulate prefers-reduced-motion to disable CSS animations
-    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await initializeWebRTC({ page, context, network });
+    const streamPage = new StreamPage(page);
 
-    // Mock RTCPeerConnection to simulate successful WebRTC connection
-    await context.addInitScript(mockRTCPeerConnectionScript);
+    registerApiLabels({ network });
 
     network.use(
-        http.get('/api/v1/projects/{project_id}', ({ response }) => {
-            return response(200).json({
-                id: 'project-id',
-                name: 'Cool project',
-                active: true,
-            });
-        }),
-
         http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {
             return response(200).json({ sources: [WEBCAM_SOURCE] });
         }),
 
         http.put('/api/v1/projects/{project_id}/sources/{source_id}', ({ response }) =>
             response(200).json(WEBCAM_SOURCE)
-        ),
-        http.post('/api/v1/projects/{project_id}/frames', ({ response }) => response(201).json({ frame_id: FRAME_ID })),
-        http.get('/api/v1/projects/{project_id}/frames/{frame_id}', () => {
-            // Return a 1x1 red pixel JPEG image (image/jpeg content type)
-            const buffer = Buffer.from(MOCK_FRAME_JPEG_BASE64, 'base64');
-
-            return new HttpResponse(buffer, {
-                status: 200,
-                headers: {
-                    'Content-Type': 'image/jpeg',
-                },
-            });
-        }),
-        http.post('/api/v1/projects/{project_id}/offer', ({ response }) =>
-            response(200).json({
-                type: 'answer',
-                sdp: 'some-sdp',
-            })
         )
     );
 
@@ -80,21 +54,25 @@ test('Prompt flow', async ({ network, page, context }) => {
     // });
 
     await test.step('Starts stream', async () => {
-        await page.getByRole('button', { name: 'Start stream' }).click();
+        await streamPage.startStream();
 
-        await expect(page.getByRole('button', { name: 'Capture frame' })).toBeVisible();
+        await expect(streamPage.captureFrameButton).toBeVisible();
     });
 
     await test.step('Captures frame', async () => {
-        await page.getByRole('button', { name: 'Capture frame' }).click();
+        await streamPage.captureFrame();
 
         await expect(page.getByAltText('Captured frame')).toBeVisible();
     });
 
-    // TODO: Complete this step once we integrate the /labels endpoints
     await test.step('Adds annotation & labels', async () => {
         // Select bounding box tool & make annotation
-        // Apply label
+
+        const labelsPage = new LabelsPage(page);
+        const labelName = 'Label 1';
+
+        await labelsPage.addLabel(labelName);
+        await expect(labelsPage.getLabel(labelName)).toBeVisible();
     });
 
     await test.step('Saves prompt', async () => {

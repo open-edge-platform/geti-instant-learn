@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { ActionButton } from '@geti/ui';
 import { Fragment } from 'react/jsx-runtime';
 
-import { IconWrapper } from '../../../components/icon-wrapper/icon-wrapper.component';
 import type { ToolConfig, ToolType } from './interface';
 
 interface ToolsProps {
@@ -22,9 +22,13 @@ export const Tools = ({ tools, activeTool, setActiveTool }: ToolsProps) => {
         <>
             {tools.map((tool) => (
                 <Fragment key={tool.type}>
-                    <IconWrapper onPress={() => setActiveTool(tool.type)} isSelected={activeTool === tool.type}>
+                    <ActionButton
+                        aria-label={`Select ${tool.type} Tool`}
+                        isQuiet={activeTool !== tool.type}
+                        onPress={() => setActiveTool(tool.type)}
+                    >
                         <tool.icon data-tool={tool.type} />
-                    </IconWrapper>
+                    </ActionButton>
                 </Fragment>
             ))}
         </>

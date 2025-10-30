@@ -4,6 +4,7 @@
  */
 
 import { client } from '@geti-prompt/api';
+import { isFirefox } from '@react-aria/utils';
 import { v4 as uuid } from 'uuid';
 
 export type WebRTCConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'failed';
@@ -86,12 +87,15 @@ export class WebRTCConnection {
         try {
             this.updateStatus('connecting');
 
-            // Firefox requires ICE server configuration for WebRTC connections
-            const config: RTCConfiguration = {
-                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-            };
-
-            this.peerConnection = new RTCPeerConnection(config);
+            // Only set ICE server config if browser is Firefox
+            if (isFirefox()) {
+                const config: RTCConfiguration = {
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+                };
+                this.peerConnection = new RTCPeerConnection(config);
+            } else {
+                this.peerConnection = new RTCPeerConnection();
+            }
 
             this.timeoutId = setTimeout(() => {
                 console.warn('Connection is taking longer than usual. Are you on a VPN?');
