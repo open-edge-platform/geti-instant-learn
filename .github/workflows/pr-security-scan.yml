@@ -88,5 +88,5 @@ jobs:
           scan-scope: "changed"
           severity: "MEDIUM"
           fail-on-findings: true # reports only
-          config: "p/ci p/default p/cwe-top-25 p/trailofbits p/owasp-top-ten"
+          config: ".github/semgrep.yml"
           output-format: "text" # Use plain text output format to omit uploading code scanning results to Security tab
