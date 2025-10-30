@@ -5,6 +5,7 @@
 
 import { createContext, ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
+import { LabelType } from '@geti-prompt/api';
 import { get, isEmpty } from 'lodash-es';
 import { useCurrentProject } from 'src/features/project/hooks/use-current-project.hook';
 import { v4 as uuid } from 'uuid';
@@ -25,7 +26,7 @@ const mapServerAnnotationsToLocal = (serverAnnotations: ServerAnnotation[]): Ann
 
 interface AnnotationsContextValue {
     annotations: Annotation[];
-    addAnnotations: (shapes: Shape[]) => void;
+    addAnnotations: (shapes: Shape[], labels: LabelType[]) => void;
     deleteAnnotations: (annotationIds: string[]) => void;
     updateAnnotations: (updatedAnnotations: Annotation[]) => void;
     submitAnnotations: () => Promise<void>;
@@ -57,13 +58,13 @@ export const AnnotationActionsProvider = ({ children }: AnnotationActionsProvide
         isDirty.current = true;
     };
 
-    const addAnnotations = (shapes: Shape[]) => {
+    const addAnnotations = (shapes: Shape[], labels: LabelType[]) => {
         setLocalAnnotations((prevAnnotations) => [
             ...prevAnnotations,
             ...shapes.map((shape) => ({
                 shape,
                 id: uuid(),
-                labels: [],
+                labels,
             })),
         ]);
         isDirty.current = true;

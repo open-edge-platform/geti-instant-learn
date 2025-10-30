@@ -39,9 +39,9 @@ export const Annotations = ({ annotations, width, height }: AnnotationsProps) =>
             onClick={handleBackgroundClick}
             style={
                 {
-                    ['--annotation-stroke']: '1px solid var(--energy-blue)',
-                    ['--annotation-fill']: 'rgba(0, 199, 253, 0.2)',
-                    ['--annotation-border-opacity']: '1',
+                    '--annotation-stroke': '1px solid var(--energy-blue)',
+                    '--annotation-fill': 'rgba(0, 199, 253, 0.2)',
+                    '--annotation-border-opacity': '1',
                     position: 'absolute',
                     inset: 0,
                     outline: 'none',

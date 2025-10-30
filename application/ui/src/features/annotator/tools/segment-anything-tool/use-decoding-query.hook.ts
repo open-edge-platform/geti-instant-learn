@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { LabelType } from '@geti-prompt/api';
 import { queryOptions, useMutation, useQuery } from '@tanstack/react-query';
 
 import { useAnnotationActions } from '../../providers/annotation-actions-provider.component';
@@ -49,7 +50,10 @@ export const useDecodingQuery = (
     return useQuery(decodingQueryOptions);
 };
 
-export const useDecodingMutation = (queryFn: (points: InteractiveAnnotationPoint[]) => Promise<Shape[]>) => {
+export const useDecodingMutation = (
+    queryFn: (points: InteractiveAnnotationPoint[]) => Promise<Shape[]>,
+    labels: LabelType[]
+) => {
     const { roi } = useAnnotator();
     const { addAnnotations } = useAnnotationActions();
 
@@ -63,7 +67,7 @@ export const useDecodingMutation = (queryFn: (points: InteractiveAnnotationPoint
                 return removeOffLimitPoints(shape, roi);
             });
 
-            addAnnotations(shapes);
+            addAnnotations(shapes, labels);
         },
     });
 };

@@ -3,14 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { PointerEvent, useEffect, useRef, useState } from 'react';
+import { CSSProperties, PointerEvent, useEffect, useRef, useState } from 'react';
 
 import { clampPointBetweenImage } from '@geti/smart-tools/utils';
 
 import { useZoom } from '../../../../components/zoom/zoom.provider';
-import { AnnotationShapeWithLabels } from '../../annotations/annotation-shape-with-labels.component';
+import { AnnotationShape } from '../../annotations/annotation-shape.component';
 import { MaskAnnotations } from '../../annotations/mask-annotations.component';
 import { AnnotatorLoading } from '../../annotator-loading.component';
+import { useAnnotationActions } from '../../providers/annotation-actions-provider.component';
 import { useAnnotator } from '../../providers/annotator-provider.component';
 import { Annotation, type Shape } from '../../types';
 import { SvgToolCanvas } from '../svg-tool-canvas.component';
@@ -42,10 +43,11 @@ export const SegmentAnythingTool = () => {
     const [previewShapes, setPreviewShapes] = useState<Shape[]>([]);
 
     const zoom = useZoom();
-    const { roi, image } = useAnnotator();
+    const { roi, image, selectedLabel, frameId } = useAnnotator();
+    const { annotations } = useAnnotationActions();
     const { isLoading, decodingQueryFn } = useSegmentAnythingModel();
     const throttledDecodingQueryFn = useSingleStackFn(decodingQueryFn);
-    const decodingMutation = useDecodingMutation(decodingQueryFn);
+    const decodingMutation = useDecodingMutation(decodingQueryFn, [selectedLabel]);
 
     const ref = useRef<SVGRectElement>(null);
 
@@ -71,7 +73,7 @@ export const SegmentAnythingTool = () => {
                 // start to compute the next decoding
                 return [];
             });
-    }, [mousePosition, throttledDecodingQueryFn, throttleSetMousePosition, roi]);
+    }, [mousePosition, throttledDecodingQueryFn, throttleSetMousePosition, roi, frameId]);
 
     const handleMouseMove = (event: PointerEvent<SVGSVGElement>) => {
         if (!ref.current) {
@@ -105,10 +107,10 @@ export const SegmentAnythingTool = () => {
         });
     };
 
-    const annotations = previewShapes.map((shape, idx): Annotation => {
+    const previewAnnotations = previewShapes.map((shape, idx): Annotation => {
         return {
             shape,
-            labels: [{ id: 'id', color: 'red', name: 'Segment Anything', isPrediction: false }],
+            labels: [selectedLabel],
             id: `${idx}`,
         };
     });
@@ -132,25 +134,34 @@ export const SegmentAnythingTool = () => {
                 cursor: `url("/icons/selection.svg") 8 8, auto`,
             }}
         >
-            <MaskAnnotations isEnabled annotations={annotations} width={image.width} height={image.height}>
+            <MaskAnnotations isEnabled annotations={previewAnnotations} width={image.width} height={image.height}>
                 <></>
             </MaskAnnotations>
+
+            {annotations.map((annotation) => (
+                <AnnotationShape annotation={annotation} key={annotation.id} />
+            ))}
 
             {previewShapes.length > 0 &&
                 previewShapes.map((shape, idx) => (
                     <g
                         key={idx}
                         aria-label='Segment anything preview'
+                        style={
+                            {
+                                '--energy-blue-shade': '#0095ca',
+                            } as CSSProperties
+                        }
                         {...SELECT_ANNOTATION_STYLES}
                         strokeWidth={'calc(3px / var(--zoom-scale))'}
                         fillOpacity={0.0}
                         className={classes.stroke}
                     >
-                        <AnnotationShapeWithLabels
+                        <AnnotationShape
                             annotation={{
                                 shape,
-                                id: '',
-                                labels: [{ id: 'id', color: 'red', name: 'Segment Anything', isPrediction: false }],
+                                labels: [selectedLabel],
+                                id: `${idx}`,
                             }}
                         />
                     </g>
