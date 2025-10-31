@@ -25,7 +25,7 @@ describe('ToolManager', () => {
         expect(screen.queryByLabelText('SAM tool canvas')).not.toBeInTheDocument();
     });
 
-    it('renders with the respective active tool', async () => {
+    it('renders SAM tool correctly', async () => {
         render(
             <AnnotatorProvider frameId={'test-frame'}>
                 <AnnotationActionsProvider>
