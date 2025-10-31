@@ -7,6 +7,9 @@ import { createContext, ReactNode, use, useState } from 'react';
 
 import { ActionButton } from '@geti/ui';
 import { Collapse, Expand } from '@geti/ui/icons';
+import { useHotkeys } from 'react-hotkeys-hook';
+
+import { HOTKEYS } from '../../../annotator/hotkeys/hotkeys';
 
 const FullScreenModeContext = createContext<{
     isFullScreenMode: boolean;
@@ -31,6 +34,8 @@ export const useFullScreenMode = () => {
 
 export const FullScreenMode = () => {
     const { isFullScreenMode, setIsFullScreenMode } = useFullScreenMode();
+
+    useHotkeys(HOTKEYS.fullscreen, () => setIsFullScreenMode(!isFullScreenMode), [isFullScreenMode]);
 
     return (
         <ActionButton

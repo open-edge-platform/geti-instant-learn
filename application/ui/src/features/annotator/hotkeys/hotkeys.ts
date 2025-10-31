@@ -9,7 +9,14 @@ const CTRL_KEY = 'ctrl';
 const COMMAND_KEY = 'meta';
 export const CTRL_OR_COMMAND_KEY = isMac() ? COMMAND_KEY : CTRL_KEY;
 
-export type HotKeyActions = 'undo' | 'redo' | 'toggleAnnotations' | 'deleteAnnotation' | 'enableSam' | 'fitToScreen';
+export type HotKeyActions =
+    | 'undo'
+    | 'redo'
+    | 'toggleAnnotations'
+    | 'deleteAnnotation'
+    | 'enableSam'
+    | 'fitToScreen'
+    | 'fullscreen';
 
 export type Hotkeys = Record<HotKeyActions, string>;
 
@@ -19,5 +26,6 @@ export const HOTKEYS: Hotkeys = {
     toggleAnnotations: 'a',
     deleteAnnotation: 'delete',
     enableSam: 's',
-    fitToScreen: 'f',
+    fitToScreen: 'r',
+    fullscreen: 'f',
 };
