@@ -87,13 +87,17 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.execute(
-        f"CREATE UNIQUE INDEX IF NOT EXISTS {UniqueConstraintName.SOURCE_TYPE_PER_PROJECT} "
-        "ON Source (project_id, json_extract(config, '$.source_type'))"
+        sa.text(
+            f"CREATE UNIQUE INDEX IF NOT EXISTS {UniqueConstraintName.SOURCE_TYPE_PER_PROJECT} "
+            "ON Source (project_id, json_extract(config, '$.source_type'))"
+        )
     )
     op.execute(
-        f"CREATE UNIQUE INDEX IF NOT EXISTS {UniqueConstraintName.SOURCE_NAME_PER_PROJECT} "
-        "ON Source (project_id, json_extract(config, '$.name')) "
-        "WHERE json_extract(config, '$.name') IS NOT NULL"
+        sa.text(
+            f"CREATE UNIQUE INDEX IF NOT EXISTS {UniqueConstraintName.SOURCE_NAME_PER_PROJECT} "
+            "ON Source (project_id, json_extract(config, '$.name')) "
+            "WHERE json_extract(config, '$.name') IS NOT NULL"
+        )
     )
     op.create_index(
         UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT,
@@ -138,8 +142,8 @@ def downgrade() -> None:
     op.drop_index(UniqueConstraintName.LABEL_NAME_PER_PROJECT, table_name='Label')
     op.drop_table('Label')
     op.drop_table('Annotation')
-    op.execute(f"DROP INDEX IF EXISTS {UniqueConstraintName.SOURCE_NAME_PER_PROJECT}")
-    op.execute(f"DROP INDEX IF EXISTS {UniqueConstraintName.SOURCE_TYPE_PER_PROJECT}")
+    op.execute(sa.text(f"DROP INDEX IF EXISTS {UniqueConstraintName.SOURCE_NAME_PER_PROJECT}"))
+    op.execute(sa.text(f"DROP INDEX IF EXISTS {UniqueConstraintName.SOURCE_TYPE_PER_PROJECT}"))
     op.drop_index(
         UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT,
         table_name='Source',
