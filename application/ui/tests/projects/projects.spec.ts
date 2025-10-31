@@ -8,7 +8,6 @@ import { NetworkFixture } from '@msw/playwright';
 
 import { ProjectType } from '../../src/api';
 import { paths } from '../../src/routes/paths';
-import { ProjectPage } from './projects-page';
 
 const registerApiProjects = ({
     network,
@@ -96,15 +95,13 @@ test.describe('Projects', () => {
     test.describe('Navigation', () => {
         test("Navigates to the project's details page when the URL contains valid project ID", async ({
             network,
-            page,
+            projectPage,
         }) => {
             const project: ProjectType = {
                 id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                 name: 'Cool project',
                 active: true,
             };
-
-            const projectPage = new ProjectPage(page);
 
             registerApiProjects({ network, defaultProjects: [project] });
 
@@ -113,7 +110,7 @@ test.describe('Projects', () => {
             await expect(projectPage.getSelectedProject(project.name)).toBeVisible();
         });
 
-        test('Shows error page when the URL contains invalid project ID', async ({ network, page }) => {
+        test('Shows error page when the URL contains invalid project ID', async ({ network, page, projectPage }) => {
             const project: ProjectType = {
                 id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                 name: 'Cool project',
@@ -121,8 +118,6 @@ test.describe('Projects', () => {
             };
 
             registerApiProjects({ network, defaultProjects: [project] });
-
-            const projectPage = new ProjectPage(page);
 
             await projectPage.goto('1');
 
@@ -136,10 +131,8 @@ test.describe('Projects', () => {
 
         test(
             'Navigates to the welcome page when the URL does not contain project ID and there are ' + 'no projects',
-            async ({ network, page }) => {
+            async ({ network, page, projectPage }) => {
                 registerApiProjects({ network, defaultProjects: [] });
-
-                const projectPage = new ProjectPage(page);
 
                 await page.goto(paths.root({}));
 
@@ -154,7 +147,7 @@ test.describe('Projects', () => {
         test(
             'Navigates to the projects list page when the URL does not contain project ID and there are ' +
                 'at least two projects, none of them are active',
-            async ({ page, network }) => {
+            async ({ page, network, projectPage }) => {
                 const projects: ProjectType[] = [
                     {
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
@@ -169,7 +162,6 @@ test.describe('Projects', () => {
                 ];
 
                 registerApiProjects({ network, defaultProjects: projects });
-                const projectPage = new ProjectPage(page);
 
                 await page.goto(paths.root({}));
 
@@ -189,7 +181,7 @@ test.describe('Projects', () => {
         test(
             'Navigates to the project details page of the active project when the URL does not contain project ' +
                 'ID and there are at least two projects, one of them is active',
-            async ({ page, network }) => {
+            async ({ page, network, projectPage }) => {
                 const projects: ProjectType[] = [
                     {
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
@@ -204,7 +196,6 @@ test.describe('Projects', () => {
                 ];
 
                 registerApiProjects({ network, defaultProjects: projects });
-                const projectPage = new ProjectPage(page);
 
                 await page.goto(paths.root({}));
 
@@ -216,7 +207,7 @@ test.describe('Projects', () => {
         test(
             "Navigates to the project's details page when the URL does not contain project ID and there is " +
                 'only one project',
-            async ({ network, page }) => {
+            async ({ network, page, projectPage }) => {
                 const projects: ProjectType[] = [
                     {
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
@@ -226,8 +217,6 @@ test.describe('Projects', () => {
                 ];
 
                 registerApiProjects({ network, defaultProjects: projects });
-
-                const projectPage = new ProjectPage(page);
 
                 await page.goto(paths.root({}));
 
@@ -239,6 +228,7 @@ test.describe('Projects', () => {
         test('Navigates to projects page when trying to open welcome page and there is at least one project', async ({
             network,
             page,
+            projectPage,
         }) => {
             const projects: ProjectType[] = [
                 {
@@ -250,8 +240,6 @@ test.describe('Projects', () => {
 
             registerApiProjects({ network, defaultProjects: projects });
 
-            const projectPage = new ProjectPage(page);
-
             await page.goto(paths.welcome({}));
 
             await expect(projectPage.welcomeHeader).toBeHidden();
@@ -262,7 +250,11 @@ test.describe('Projects', () => {
     });
 
     test.describe('Project management', () => {
-        test('Creates a new project via the project list page with active project', async ({ network, page }) => {
+        test('Creates a new project via the project list page with active project', async ({
+            network,
+            page,
+            projectPage,
+        }) => {
             const projects = registerApiProjects({
                 network,
                 defaultProjects: [
@@ -278,8 +270,6 @@ test.describe('Projects', () => {
                     },
                 ],
             });
-
-            const projectPage = new ProjectPage(page);
 
             await projectPage.gotoProjects();
 
@@ -294,7 +284,11 @@ test.describe('Projects', () => {
             expect(page.url()).toContain(paths.project({ projectId: projects[projects.length - 1].id }));
         });
 
-        test('Creates a new project via the project list page with no active project', async ({ network, page }) => {
+        test('Creates a new project via the project list page with no active project', async ({
+            network,
+            page,
+            projectPage,
+        }) => {
             const projects = registerApiProjects({
                 network,
                 defaultProjects: [
@@ -311,8 +305,6 @@ test.describe('Projects', () => {
                 ],
             });
 
-            const projectPage = new ProjectPage(page);
-
             await projectPage.gotoProjects();
 
             await projectPage.create();
@@ -322,7 +314,11 @@ test.describe('Projects', () => {
             expect(page.url()).toContain(paths.project({ projectId: projects[projects.length - 1].id }));
         });
 
-        test('Creates a new project via the project details page with active project', async ({ network, page }) => {
+        test('Creates a new project via the project details page with active project', async ({
+            network,
+            page,
+            projectPage,
+        }) => {
             const projects = registerApiProjects({
                 network,
                 defaultProjects: [
@@ -333,8 +329,6 @@ test.describe('Projects', () => {
                     },
                 ],
             });
-
-            const projectPage = new ProjectPage(page);
 
             await projectPage.goto(projects[0].id);
 
@@ -355,7 +349,11 @@ test.describe('Projects', () => {
             expect(page.url()).toContain(paths.project({ projectId: projects[projects.length - 1].id }));
         });
 
-        test('Creates a new project via the project details page with no active project', async ({ network, page }) => {
+        test('Creates a new project via the project details page with no active project', async ({
+            network,
+            page,
+            projectPage,
+        }) => {
             const projects = registerApiProjects({
                 network,
                 defaultProjects: [
@@ -366,8 +364,6 @@ test.describe('Projects', () => {
                     },
                 ],
             });
-
-            const projectPage = new ProjectPage(page);
 
             await projectPage.goto(projects[0].id);
 
@@ -385,7 +381,7 @@ test.describe('Projects', () => {
         });
     });
 
-    test('Edits a project via the project list page', async ({ network, page }) => {
+    test('Edits a project via the project list page', async ({ network, projectPage }) => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
@@ -401,8 +397,6 @@ test.describe('Projects', () => {
                 },
             ],
         });
-
-        const projectPage = new ProjectPage(page);
 
         await projectPage.gotoProjects();
 
@@ -417,7 +411,7 @@ test.describe('Projects', () => {
         await expect(projectPage.getProjectInTheList(newProjectName)).toBeVisible();
     });
 
-    test('Edits a project via the project details page', async ({ network, page }) => {
+    test('Edits a project via the project details page', async ({ network, projectPage }) => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
@@ -435,8 +429,6 @@ test.describe('Projects', () => {
         });
 
         const [project] = projects;
-
-        const projectPage = new ProjectPage(page);
 
         await projectPage.goto(project.id);
 
@@ -451,7 +443,7 @@ test.describe('Projects', () => {
         await expect(projectPage.getProjectInTheList(newProjectName)).toBeVisible();
     });
 
-    test('Deletes a project via the project list page', async ({ network, page }) => {
+    test('Deletes a project via the project list page', async ({ network, projectPage }) => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
@@ -467,8 +459,6 @@ test.describe('Projects', () => {
                 },
             ],
         });
-
-        const projectPage = new ProjectPage(page);
 
         await projectPage.gotoProjects();
 
@@ -482,7 +472,7 @@ test.describe('Projects', () => {
         await expect(projectPage.getProjectInTheList(project.name)).toBeHidden();
     });
 
-    test('Deletes a current project via the project details page', async ({ network, page }) => {
+    test('Deletes a current project via the project details page', async ({ network, page, projectPage }) => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
@@ -498,8 +488,6 @@ test.describe('Projects', () => {
                 },
             ],
         });
-
-        const projectPage = new ProjectPage(page);
         const [project] = projects;
 
         await projectPage.goto(project.id);
@@ -516,7 +504,7 @@ test.describe('Projects', () => {
         await expect(page).toHaveURL(paths.projects({}));
     });
 
-    test('Deletes a not current project via the project details page', async ({ network, page }) => {
+    test('Deletes a not current project via the project details page', async ({ network, page, projectPage }) => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
@@ -532,8 +520,6 @@ test.describe('Projects', () => {
                 },
             ],
         });
-
-        const projectPage = new ProjectPage(page);
         const [project, secondProject] = projects;
 
         await projectPage.goto(project.id);
@@ -551,7 +537,11 @@ test.describe('Projects', () => {
         expect(page.url()).toContain(paths.project({ projectId: project.id }));
     });
 
-    test('Deletes a project via the project details page (the last project)', async ({ network, page }) => {
+    test('Deletes a project via the project details page (the last project)', async ({
+        network,
+        page,
+        projectPage,
+    }) => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
@@ -562,8 +552,6 @@ test.describe('Projects', () => {
                 },
             ],
         });
-
-        const projectPage = new ProjectPage(page);
 
         await projectPage.goto(projects[0].id);
 
@@ -584,7 +572,7 @@ test.describe('Projects', () => {
     test(
         'Activates an inactive project when there is already an active project using a project menu in the ' +
             'details page',
-        async ({ network, page }) => {
+        async ({ network, projectPage }) => {
             const projects = registerApiProjects({
                 network,
                 defaultProjects: [
@@ -600,8 +588,6 @@ test.describe('Projects', () => {
                     },
                 ],
             });
-
-            const projectPage = new ProjectPage(page);
 
             const [firstProject, secondProject] = projects;
 
@@ -624,7 +610,7 @@ test.describe('Projects', () => {
 
     test(
         'Activates an inactive project when there is no active project using a project menu in the details ' + 'page',
-        async ({ network, page }) => {
+        async ({ network, projectPage }) => {
             const projects = registerApiProjects({
                 network,
                 defaultProjects: [
@@ -640,8 +626,6 @@ test.describe('Projects', () => {
                     },
                 ],
             });
-
-            const projectPage = new ProjectPage(page);
 
             const [firstProject, secondProject] = projects;
 
@@ -664,7 +648,7 @@ test.describe('Projects', () => {
     test(
         'Activates an inactive project when there is no active project using the activate button in the ' +
             'current project',
-        async ({ network, page }) => {
+        async ({ network, projectPage }) => {
             const projects = registerApiProjects({
                 network,
                 defaultProjects: [
@@ -680,8 +664,6 @@ test.describe('Projects', () => {
                     },
                 ],
             });
-
-            const projectPage = new ProjectPage(page);
 
             const [firstProject, secondProject] = projects;
 
@@ -703,7 +685,7 @@ test.describe('Projects', () => {
         }
     );
 
-    test('Activates an inactive project in the project list', async ({ network, page }) => {
+    test('Activates an inactive project in the project list', async ({ network, projectPage }) => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
@@ -719,8 +701,6 @@ test.describe('Projects', () => {
                 },
             ],
         });
-
-        const projectPage = new ProjectPage(page);
 
         const [firstProject, secondProject] = projects;
 
@@ -739,7 +719,7 @@ test.describe('Projects', () => {
         await expect(projectPage.getInactiveProjectInTheList(secondProject.name)).toBeVisible();
     });
 
-    test('Activates an inactive project using activate in the main content', async ({ network, page }) => {
+    test('Activates an inactive project using activate in the main content', async ({ network, page, projectPage }) => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
@@ -756,7 +736,6 @@ test.describe('Projects', () => {
             ],
         });
 
-        const projectPage = new ProjectPage(page);
         const [firstProject, secondProject] = projects;
 
         await projectPage.goto(secondProject.id);
@@ -776,7 +755,7 @@ test.describe('Projects', () => {
         await expect(projectPage.inactiveStatus).toBeVisible();
     });
 
-    test('Deactivates an active project using a project menu in the details page', async ({ network, page }) => {
+    test('Deactivates an active project using a project menu in the details page', async ({ network, projectPage }) => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
@@ -793,8 +772,6 @@ test.describe('Projects', () => {
             ],
         });
 
-        const projectPage = new ProjectPage(page);
-
         const [firstProject] = projects;
 
         await projectPage.goto(firstProject.id);
@@ -809,7 +786,7 @@ test.describe('Projects', () => {
 
     test(
         'Deactivates an active project in the details page using the deactivate button in the current' + ' project',
-        async ({ network, page }) => {
+        async ({ network, projectPage }) => {
             const projects = registerApiProjects({
                 network,
                 defaultProjects: [
@@ -826,8 +803,6 @@ test.describe('Projects', () => {
                 ],
             });
 
-            const projectPage = new ProjectPage(page);
-
             const [firstProject] = projects;
 
             await projectPage.goto(firstProject.id);
@@ -841,7 +816,7 @@ test.describe('Projects', () => {
         }
     );
 
-    test('Deactivates an active project in the project list', async ({ network, page }) => {
+    test('Deactivates an active project in the project list', async ({ network, projectPage }) => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
@@ -857,8 +832,6 @@ test.describe('Projects', () => {
                 },
             ],
         });
-
-        const projectPage = new ProjectPage(page);
 
         const [firstProject, secondProject] = projects;
 
