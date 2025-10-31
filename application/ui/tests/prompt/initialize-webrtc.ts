@@ -4,7 +4,7 @@
  */
 
 import { readFileSync } from 'fs';
-import path, { join } from 'path';
+import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { http } from '@geti-prompt/test-fixtures';
@@ -45,7 +45,7 @@ export const initializeWebRTC = async ({
 
         http.post('/api/v1/projects/{project_id}/frames', ({ response }) => response(201).json({ frame_id: FRAME_ID })),
         http.get('/api/v1/projects/{project_id}/frames/{frame_id}', () => {
-            const testImagePath = join(dirname, '../../src/assets/test.webp');
+            const testImagePath = path.resolve(dirname, '../../src/assets/test.webp');
             const buffer = readFileSync(testImagePath);
 
             return new HttpResponse(buffer, {
