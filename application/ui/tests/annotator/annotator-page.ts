@@ -12,8 +12,12 @@ export class AnnotatorPage {
         await this.page.getByRole('button', { name: 'Select SAM Tool' }).click();
     }
 
+    getCapturedFrame() {
+        return this.page.getByAltText('Captured frame');
+    }
+
     async annotateAt(x: number, y: number) {
-        const image = this.page.getByAltText('Captured frame');
+        const image = this.getCapturedFrame();
         const box = await image.boundingBox();
 
         if (box) {
@@ -30,16 +34,15 @@ export class AnnotatorPage {
             await this.page.mouse.click(hoverX, hoverY);
 
             // One for the annotation, and the other for the preview.
-            expect(await this.page.getByLabel('annotation polygon').count()).toBe(2);
+            await expect(this.page.getByLabel('annotation polygon')).toHaveCount(2);
         }
     }
 
     async addAnnotation() {
-        const image = this.page.getByAltText('Captured frame');
+        const image = this.getCapturedFrame();
         const box = await image.boundingBox();
 
         if (box) {
-            // Position: middle horizontally, 20% from the bottom vertically
             const hoverX = box.x + box.width / 2;
             const hoverY = box.y + box.height * 0.8;
             await this.annotateAt(hoverX, hoverY);

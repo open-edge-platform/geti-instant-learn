@@ -20,7 +20,7 @@ const WEBCAM_SOURCE: WebcamConfig = {
 };
 
 test.use({ browserName: 'firefox' });
-test('Annotator', async ({ network, page, context, streamPage }) => {
+test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) => {
     await initializeWebRTC({ page, context, network });
 
     registerApiLabels({ network });
@@ -52,29 +52,11 @@ test('Annotator', async ({ network, page, context, streamPage }) => {
     });
 
     await test.step('Adds annotation & labels', async () => {
-        await page.getByRole('button', { name: 'Select SAM Tool' }).click();
+        await annotatorPage.startSAM();
 
         await expect(page.getByText('Processing image, please wait...')).toBeVisible();
         await expect(page.getByText('Processing image, please wait...')).toBeHidden({ timeout: 20000 });
 
-        const image = page.getByAltText('Captured frame');
-        const box = await image.boundingBox();
-
-        if (box) {
-            // Position: middle horizontally, 20% from the bottom vertically
-            const hoverX = box.x + box.width / 2;
-            const hoverY = box.y + box.height * 0.8;
-
-            // Hover to trigger preview
-            await page.mouse.move(hoverX, hoverY);
-
-            // Wait for preview to appear
-            await expect(page.getByLabel('Segment anything preview')).toBeVisible({ timeout: 10000 });
-
-            await page.mouse.click(hoverX, hoverY);
-
-            // One for the annotation, and the other for the preview.
-            expect(await page.getByLabel('annotation polygon').count()).toBe(2);
-        }
+        await annotatorPage.addAnnotation();
     });
 });
