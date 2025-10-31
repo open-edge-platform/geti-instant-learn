@@ -130,50 +130,6 @@ async def test_handle_offer_sets_remote_description(webrtc_manager, mock_pipelin
 
 
 @pytest.mark.asyncio
-async def test_cleanup_connection_disposes_queue(webrtc_manager, mock_pipeline_manager, sample_offer):
-    """Test that cleanup_connection properly disposes the queue."""
-    with (
-        patch("webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection,
-        patch("webrtc.manager.InferenceVideoStreamTrack") as MockTrack,
-        patch("webrtc.manager.isinstance", return_value=True),
-    ):
-        # Setup mocks
-        mock_track = Mock()
-        mock_track.kind = "video"
-        MockTrack.return_value = mock_track
-
-        mock_pc = AsyncMock(spec=RTCPeerConnection)
-        mock_pc.localDescription = Mock(sdp="answer-sdp", type="answer")
-        mock_pc.connectionState = "connected"
-        MockRTCPeerConnection.return_value = mock_pc
-
-        # Create connection
-        await webrtc_manager.handle_offer(PROJECT_ID, sample_offer)
-
-        # Get connection data
-        conn_data = webrtc_manager._pcs[sample_offer.webrtc_id]
-        queue = conn_data.queue
-
-        # Mock queue shutdown
-        with patch.object(queue, "shutdown") as mock_shutdown:
-            # Execute cleanup
-            await webrtc_manager.cleanup_connection(sample_offer.webrtc_id)
-
-            # Verify queue shutdown was called
-            mock_shutdown.assert_called_once()
-
-            # Verify connection close was called
-            mock_pc.close.assert_called_once()
-
-            # Verify connection removed from registry
-            assert sample_offer.webrtc_id not in webrtc_manager._pcs
-
-            # Note: unregister_webrtc is NOT called in cleanup_connection
-            # It's only called in the connection_state_change callback
-            # when the connection state becomes "failed" or "closed"
-
-
-@pytest.mark.asyncio
 async def test_connection_state_change_triggers_cleanup(webrtc_manager, mock_pipeline_manager, sample_offer):
     """Test that connection state change to 'failed' or 'closed' triggers cleanup."""
     with (
@@ -212,23 +168,17 @@ async def test_connection_state_change_triggers_cleanup(webrtc_manager, mock_pip
         conn_data = webrtc_manager._pcs[sample_offer.webrtc_id]
         queue = conn_data.queue
 
-        # Mock queue shutdown
-        with patch.object(queue, "shutdown") as mock_shutdown:
-            # Simulate connection state change to closed
-            mock_pc.connectionState = "closed"
+        mock_pc.connectionState = "closed"
 
-            # Trigger the callback
-            assert captured_callback is not None
-            await captured_callback()
+        # Trigger the callback
+        assert captured_callback is not None
+        await captured_callback()
 
-            # Verify queue shutdown was called
-            mock_shutdown.assert_called_once()
+        # Verify unregister was called
+        mock_pipeline_manager.unregister_webrtc.assert_called_once_with(queue, project_id=PROJECT_ID)
 
-            # Verify unregister was called
-            mock_pipeline_manager.unregister_webrtc.assert_called_once_with(queue, project_id=PROJECT_ID)
-
-            # Verify connection removed from registry
-            assert sample_offer.webrtc_id not in webrtc_manager._pcs
+        # Verify connection removed from registry
+        assert sample_offer.webrtc_id not in webrtc_manager._pcs
 
 
 @pytest.mark.asyncio
@@ -265,7 +215,6 @@ async def test_cleanup_all_connections(webrtc_manager, mock_pipeline_manager):
         queues = []
         for conn_data in webrtc_manager._pcs.values():
             queue = conn_data.queue
-            queue.shutdown = Mock()
             queues.append(queue)
 
         # Execute cleanup
@@ -277,6 +226,3 @@ async def test_cleanup_all_connections(webrtc_manager, mock_pipeline_manager):
         # Verify close was called on each peer connection
         for mock_pc in mock_pcs:
             mock_pc.close.assert_called_once()
-
-        # Verify shutdown was called on each queue
-        assert queue.shutdown.call_count == num_connections

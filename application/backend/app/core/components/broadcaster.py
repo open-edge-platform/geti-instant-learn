@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from queue import Full, Queue, ShutDown
+from queue import Full, Queue
 from threading import Lock
 
 logger = logging.getLogger(__name__)
@@ -44,15 +44,10 @@ class FrameBroadcaster[T]:
 
     def broadcast(self, frame: T) -> None:
         """Broadcast frame to all registered queues."""
-        queues_to_remove = []
         with self._lock:
             for queue in self.queues:
                 try:
                     queue.put_nowait(frame)
-                except ShutDown:
-                    # Queue has been shut down, mark for removal
-                    queues_to_remove.append(queue)
-                    logger.debug("Queue has been shut down, removing from broadcaster")
                 except Full:
                     # Queue is full, drop the oldest frame and add the new one
                     try:
@@ -62,10 +57,3 @@ class FrameBroadcaster[T]:
                         logger.exception("Error replacing frame in full queue")
                 except Exception:
                     logger.exception("Error broadcasting to queue")
-
-            # Remove shut-down queues from the list
-            for queue in queues_to_remove:
-                try:
-                    self.queues.remove(queue)
-                except ValueError:
-                    pass  # Queue already removed

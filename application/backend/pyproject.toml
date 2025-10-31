@@ -4,7 +4,7 @@
 name = "geti-prompt-backend"
 version = "0.1.0"
 description = "Geti Prompt service"
-requires-python = ">=3.13, <3.14"
+requires-python = ">=3.12, <3.13"
 
 dependencies = [
     "fastapi~=0.116",
@@ -17,6 +17,7 @@ dependencies = [
     "opencv-python-headless~=4.12.0",
     "aiortc~=1.13.0",
     "pydantic-extra-types~=2.10.6",
+    "getiprompt",
 ]
 
 [dependency-groups]
@@ -33,11 +34,15 @@ dev = [
     "pytest-asyncio==1.2.0",
 ]
 
+[tool.uv.sources]
+getiprompt = { path = "../../library", editable = true }
+
+
 [tool.pytest.ini_options]
 pythonpath = ["app"]
 
 [tool.ruff]
-target-version = "py313"
+target-version = "py312"
 line-length = 120
 
 exclude = [
@@ -87,7 +92,7 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 max-args = 7
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.12"
 ignore_missing_imports = true
 exclude = "^.*/tests/.*\\.py|app/alembic/.*\\.py"
 show_error_codes = true
