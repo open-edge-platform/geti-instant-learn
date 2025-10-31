@@ -3,25 +3,29 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Flex } from '@geti/ui';
+import { useRef } from 'react';
 
+import { DOMRefValue, Flex } from '@geti/ui';
+
+import { CanvasSettings } from '../../../annotator/canvas-settings/canvas-settings.component';
 import { AnnotatorTools } from '../../../annotator/tools/annotator-tools.component';
-import { CanvasAdjustments } from './canvas-adjustments.component';
 import { FullScreenMode } from './full-screen-mode.component';
 import { ToggleAnnotationsVisibility } from './toggle-annotations-visibility.component';
 import { UndoRedo } from './undo-redo.component';
 import { ZoomManagement } from './zoom-management.component';
 
 export const CapturedFrameActions = () => {
+    const ref = useRef<DOMRefValue<HTMLDivElement>>(null);
+
     return (
-        <Flex height={'100%'} alignItems={'center'} justifyContent={'end'} gap={'size-50'}>
+        <Flex height={'100%'} alignItems={'center'} justifyContent={'end'} gap={'size-50'} ref={ref}>
             <AnnotatorTools />
 
             <UndoRedo />
 
             <ToggleAnnotationsVisibility />
 
-            <CanvasAdjustments />
+            <CanvasSettings ref={ref} />
 
             <ZoomManagement />
 

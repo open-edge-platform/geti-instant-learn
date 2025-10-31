@@ -15,6 +15,8 @@ import { useAnnotator } from './providers/annotator-provider.component';
 import { useSelectedAnnotations } from './providers/select-annotation-provider.component';
 import { ToolManager } from './tools/tool-manager.component';
 
+import styles from './annotator-canvas.module.scss';
+
 const getImageUrl = (projectId: string, frameId: string) => {
     return `${import.meta.env.PUBLIC_API_URL}/api/v1/projects/${projectId}/frames/${frameId}`;
 };
@@ -56,7 +58,7 @@ export const AnnotatorCanvas = ({ frameId }: AnnotatorCanvasProps) => {
     return (
         <ZoomTransform target={image}>
             <View position={'relative'}>
-                <img src={imageUrl} alt='Captured frame' />
+                <img src={imageUrl} alt='Captured frame' className={styles.image} />
 
                 <Annotations annotations={orderedAnnotations} width={image.width} height={image.height} />
                 <ToolManager />

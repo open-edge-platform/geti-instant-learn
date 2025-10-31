@@ -13,25 +13,25 @@ just build-image
 ```
 
 ## Running the Docker Container
-To run the Docker container, use the following command:
+
+```
+just [OPTIONS] run-image
+```
+
+## Options
+
+| Option | Default | Description |
+|:--------|:---------|:-------------|
+| `host-port` | `9100` | Host port mapping |
+| `container-port` | `9100` | Internal container port |
+| `docker-volume` | *(none)* | Directory for persistent data (mounted to `WORKDIR_PATH/data`) |
+| `webcam-device` | `/dev/video0` | Host webcam device path (if available) |
+
+To run the Docker container with default parameters, use the following command. 
+The Docker image will be built automatically if it doesn't exist yet:
 
 ```bash
 just run-image
 ```
 
 Then navigate to `http://localhost:9100` in your web browser to access Geti Prompt.
-
-## Parametrizing the Docker Container
-You can customize the behavior of the Docker container using the following environment variables:
-
-### Port mapping
-The `HOST_PORT` environment variable specifies the port on the host machine to be used. Defaults to `CONTAINER_PORT`.  
-The `CONTAINER_PORT` environment variable defines the port inside the container where the application runs. Default is `9100`.
-
-### Docker volume for persistent storage
-Environment variable `DOCKER_VOLUME` is used to tell Docker volume name for persistent storage. Default is empty string (no volume).
-If specified, the volume will be mounted to `WORKDIR_PATH/data` inside the container. 
-
-### Webcam access
-Environment variable `WEBCAM_DEVICE` is used to tell location of webcam device on host machine. Default is `/dev/video0`.
-If specified, the device will be passed to the container to enable webcam access only when such device is available on host machine.
