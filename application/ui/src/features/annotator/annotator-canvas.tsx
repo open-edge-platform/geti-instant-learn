@@ -23,9 +23,14 @@ const useDeleteAnnotationHotkey = () => {
     const { selectedAnnotations } = useSelectedAnnotations();
     const { annotations, deleteAnnotations } = useAnnotationActions();
 
-    const selectedIds = annotations.filter((a) => selectedAnnotations.has(a.id)).map(({ id }) => id);
-
-    useHotkeys(HOTKEYS.deleteAnnotation, () => deleteAnnotations(selectedIds), [deleteAnnotations, selectedIds]);
+    useHotkeys(
+        HOTKEYS.deleteAnnotation,
+        () => {
+            const selectedIds = annotations.filter((a) => selectedAnnotations.has(a.id)).map(({ id }) => id);
+            deleteAnnotations(selectedIds);
+        },
+        [deleteAnnotations, annotations, selectedAnnotations]
+    );
 };
 
 type AnnotatorCanvasProps = {
