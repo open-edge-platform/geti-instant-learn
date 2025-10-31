@@ -78,6 +78,9 @@ class WebRTCManager:
     @staticmethod
     async def _cleanup_pc_data(pc_data: ConnectionData) -> None:
         """Helper method to clean up a single connection's data."""
+        if isinstance(pc_data.queue, Queue):
+            pc_data.queue.shutdown()
+
         if isinstance(pc_data.connection, RTCPeerConnection):
             await pc_data.connection.close()
 
