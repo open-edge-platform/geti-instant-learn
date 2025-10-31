@@ -3,64 +3,161 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { fireEvent, screen } from '@testing-library/react';
-import { userEvent } from '@testing-library/user-event';
+import { useRef } from 'react';
 
-import { getMockedUserProjectSettingsObject } from '../../../../../test-utils/mocked-items-factory/mocked-settings';
-import { providersRender as render } from '../../../../../test-utils/required-providers-render';
-import { AnnotatorCanvasSettingsProvider } from '../../../providers/annotator-canvas-settings-provider/annotator-canvas-settings-provider.component';
-import { CanvasSettings } from './canvas-adjustments.component';
+import { render } from '@geti-prompt/test-utils';
+import { fireEvent, screen, within } from '@testing-library/react';
 
-jest.mock('../../../providers/annotator-provider/annotator-provider.component', () => ({
-    ...jest.requireActual('../../../providers/annotator-provider/annotator-provider.component'),
-    useAnnotator: jest.fn(() => ({
-        canvasSettings: {
-            canvasSettingsState: [{}, jest.fn()],
-            handleSaveConfig: jest.fn(),
-        },
-    })),
-}));
+import { FullScreenModeProvider } from '../../prompts/visual-prompt/captured-frame/full-screen-mode.component';
+import { CanvasSettingsProvider, DEFAULT_CANVAS_SETTINGS } from './canvas-settings-provider.component';
+import { CanvasSettings } from './canvas-settings.component';
 
-describe('CanvasAdjustments', () => {
-    const saveConfig = jest.fn();
-    const defaultSettings = getMockedUserProjectSettingsObject({ saveConfig });
+const App = () => {
+    const ref = useRef(null);
 
-    const renderCanvasAdjustments = async () => {
-        render(
-            <AnnotatorCanvasSettingsProvider settings={defaultSettings}>
-                <CanvasSettings />
-            </AnnotatorCanvasSettingsProvider>
-        );
+    return (
+        <FullScreenModeProvider>
+            <CanvasSettingsProvider>
+                <CanvasSettings ref={ref} />
+            </CanvasSettingsProvider>
+        </FullScreenModeProvider>
+    );
+};
 
-        await userEvent.click(screen.getByRole('button', { name: /Canvas adjustments/i }));
+const getContainer = (setting: string) => within(screen.getByLabelText(setting));
+
+const increaseSetting = (setting: string, count: number) => {
+    const container = getContainer(setting);
+
+    for (let i = 0; i < count; i++) {
+        fireEvent.keyDown(container.getByRole('slider'), { key: 'Right' });
+    }
+};
+
+const decreaseSetting = (setting: string, count: number) => {
+    const container = getContainer(setting);
+
+    for (let i = 0; i < count; i++) {
+        fireEvent.keyDown(container.getByRole('slider'), { key: 'Left' });
+    }
+};
+
+const expectSettingValueToBe = (setting: string, value: string) => {
+    const container = getContainer(setting);
+
+    expect(container.getByText(value)).toBeInTheDocument();
+};
+
+const resetSetting = (setting: string) => {
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`Reset ${setting}`, 'i') }));
+};
+
+describe('CanvasSettings', () => {
+    const renderCanvasAdjustments = () => {
+        render(<App />);
+
+        fireEvent.click(screen.getByRole('button', { name: /Canvas settings/i }));
     };
 
-    it('Canvas settings should be not be saved on close event when settings are the same', async () => {
-        await renderCanvasAdjustments();
+    it('Updates annotation fill opacity and resets to default', () => {
+        renderCanvasAdjustments();
 
-        await userEvent.click(screen.getByRole('button', { name: /Close canvas adjustments/i }));
+        const setting = 'Annotation fill opacity';
 
-        expect(saveConfig).not.toHaveBeenCalled();
+        const increaseBy = 10;
+
+        expectSettingValueToBe(setting, `${DEFAULT_CANVAS_SETTINGS.annotationFillOpacity.value * 100}%`);
+
+        increaseSetting(setting, increaseBy);
+
+        expectSettingValueToBe(setting, `${DEFAULT_CANVAS_SETTINGS.annotationFillOpacity.value * 100 + increaseBy}%`);
+
+        resetSetting(setting);
+
+        expectSettingValueToBe(setting, `${DEFAULT_CANVAS_SETTINGS.annotationFillOpacity.defaultValue * 100}%`);
     });
 
-    it('Canvas settings should be save on close event', async () => {
-        await renderCanvasAdjustments();
+    it('Updates annotation border opacity and resets to default', () => {
+        renderCanvasAdjustments();
 
-        fireEvent.change(screen.getByRole('slider', { name: /label opacity adjustment/i }), { target: { value: 0.5 } });
+        const setting = 'Annotation border opacity';
 
-        await userEvent.click(screen.getByRole('button', { name: /Close canvas adjustments/i }));
+        const decreaseBy = 5;
 
-        expect(saveConfig).toHaveBeenCalled();
+        expectSettingValueToBe(setting, `${DEFAULT_CANVAS_SETTINGS.annotationBorderOpacity.value * 100}%`);
+
+        decreaseSetting(setting, decreaseBy);
+
+        expectSettingValueToBe(setting, `${DEFAULT_CANVAS_SETTINGS.annotationBorderOpacity.value * 100 - decreaseBy}%`);
+
+        resetSetting(setting);
+
+        expectSettingValueToBe(setting, `${DEFAULT_CANVAS_SETTINGS.annotationBorderOpacity.defaultValue * 100}%`);
     });
 
-    it('Enabling "Hide labels" should disable labels opacity', async () => {
-        await renderCanvasAdjustments();
+    it('Updates image brightness and resets to default', () => {
+        renderCanvasAdjustments();
 
-        const hideLabels = screen.getByRole('switch', { name: 'Hide labels' });
+        const setting = 'Image brightness';
 
-        await userEvent.click(hideLabels);
+        const increaseBy = 5;
 
-        expect(hideLabels).toBeEnabled();
-        expect(screen.getByRole('slider', { name: /label opacity adjustment/i })).toBeDisabled();
+        expectSettingValueToBe(setting, `${DEFAULT_CANVAS_SETTINGS.imageBrightness.value}`);
+
+        increaseSetting(setting, increaseBy);
+
+        expectSettingValueToBe(setting, `+${DEFAULT_CANVAS_SETTINGS.imageBrightness.value + increaseBy}`);
+
+        resetSetting(setting);
+
+        expectSettingValueToBe(setting, `${DEFAULT_CANVAS_SETTINGS.imageBrightness.defaultValue}`);
+    });
+
+    it('Updates image saturation and resets to default', () => {
+        renderCanvasAdjustments();
+
+        const setting = 'Image saturation';
+
+        const increaseBy = 5;
+
+        expectSettingValueToBe(setting, `${DEFAULT_CANVAS_SETTINGS.imageSaturation.value}`);
+
+        increaseSetting(setting, increaseBy);
+
+        expectSettingValueToBe(setting, `+${DEFAULT_CANVAS_SETTINGS.imageSaturation.value + increaseBy}`);
+
+        resetSetting(setting);
+
+        expectSettingValueToBe(setting, `${DEFAULT_CANVAS_SETTINGS.imageSaturation.defaultValue}`);
+    });
+
+    it('Updates image contrast and resets to default', () => {
+        renderCanvasAdjustments();
+
+        const setting = 'Image contrast';
+
+        const increaseBy = 5;
+
+        expectSettingValueToBe(setting, `${DEFAULT_CANVAS_SETTINGS.imageSaturation.value}`);
+
+        increaseSetting(setting, increaseBy);
+
+        expectSettingValueToBe(setting, `+${DEFAULT_CANVAS_SETTINGS.imageSaturation.value + increaseBy}`);
+
+        resetSetting(setting);
+
+        expectSettingValueToBe(setting, `${DEFAULT_CANVAS_SETTINGS.imageSaturation.defaultValue}`);
+    });
+
+    it('Updates pixel view and resets to default', () => {
+        renderCanvasAdjustments();
+
+        const pixelView = screen.getByRole('switch', { name: 'Pixel view' });
+
+        expect(pixelView).not.toBeChecked();
+
+        fireEvent.click(pixelView);
+
+        expect(pixelView).toBeChecked();
     });
 });
