@@ -21,10 +21,20 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Initial cleanup
+        uses: ./.github/actions/cleanup-runner
+        with:
+          type: "initial"
+
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y just
+
+      - name: Initial cleanup
+        uses: ./.github/actions/cleanup-runner
+        with:
+          type: "pre-build"
 
       - name: Build docker image
         working-directory: application
