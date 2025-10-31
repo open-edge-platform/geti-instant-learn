@@ -25,30 +25,21 @@ runs:
       run: |
         echo "=== Performing System Cleanup ==="
 
-        sudo rm -rf /opt/hostedtoolcache || true
-        if [ -f /swapfile ]; then
-          sudo swapoff -a
-          sudo rm -f /swapfile
-        fi
+        # Remove large directories in parallel for speed
+        # Each & backgrounds the process, wait at the end synchronizes them all
+        sudo rm -rf /usr/share/dotnet &
+        sudo rm -rf /usr/local/lib/android &
+        sudo rm -rf /opt/ghc &
+        sudo rm -rf /usr/local/share/boost &
+        sudo rm -rf /opt/hostedtoolcache &
 
-        echo "Removing unnecessary system packages..."
-        sudo rm -rf /usr/share/dotnet || true
-        sudo rm -rf /opt/ghc || true
-        sudo rm -rf /usr/local/share/boost || true
-        sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
-        sudo rm -rf /usr/local/lib/android || true
-        sudo rm -rf /usr/share/swift || true
-        sudo rm -rf /opt/az || true
-        sudo rm -rf /usr/share/gradle || true
+        # Quick cleanup of apt cache (fast operation, run in parallel)
+        sudo apt-get clean &
 
-        sudo rm -rf /usr/share/locale/* || true
-        sudo rm -rf /usr/share/man/* || true
-        sudo rm -rf /usr/share/doc/* || true
+        # Wait for all background processes to complete
+        wait
 
-        echo "Cleaning package manager caches..."
-        sudo apt-get clean
-        sudo apt-get autoremove -y
-        sudo apt-get autoclean
+        echo "Cleanup complete"
 
     - name: Pre-build cleanup
       if: inputs.type == 'pre-build'
