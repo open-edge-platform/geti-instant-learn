@@ -48,10 +48,10 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
     await test.step('Captures frame', async () => {
         await streamPage.captureFrame();
 
-        await expect(page.getByAltText('Captured frame')).toBeVisible();
+        await expect(annotatorPage.getCapturedFrame()).toBeVisible();
     });
 
-    await test.step('Adds annotation & labels', async () => {
+    await test.step('Adds annotation', async () => {
         await annotatorPage.startSAM();
 
         await expect(page.getByText('Processing image, please wait...')).toBeVisible();

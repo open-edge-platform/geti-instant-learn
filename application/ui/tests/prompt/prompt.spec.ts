@@ -20,7 +20,7 @@ const WEBCAM_SOURCE: WebcamConfig = {
     },
 };
 
-test('Prompt flow', async ({ network, page, context, streamPage }) => {
+test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage }) => {
     await initializeWebRTC({ page, context, network });
 
     registerApiLabels({ network });
@@ -60,7 +60,7 @@ test('Prompt flow', async ({ network, page, context, streamPage }) => {
     await test.step('Captures frame', async () => {
         await streamPage.captureFrame();
 
-        await expect(page.getByAltText('Captured frame')).toBeVisible();
+        await expect(annotatorPage.getCapturedFrame()).toBeVisible();
     });
 
     await test.step('Adds annotation & labels', async () => {

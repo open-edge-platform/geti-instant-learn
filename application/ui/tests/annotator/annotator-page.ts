@@ -21,7 +21,6 @@ export class AnnotatorPage {
         const box = await image.boundingBox();
 
         if (box) {
-            // Position: middle horizontally, 20% from the bottom vertically
             const hoverX = x;
             const hoverY = y;
 
@@ -43,8 +42,10 @@ export class AnnotatorPage {
         const box = await image.boundingBox();
 
         if (box) {
+            // Position: middle horizontally, 20% from the bottom vertically
             const hoverX = box.x + box.width / 2;
             const hoverY = box.y + box.height * 0.8;
+
             await this.annotateAt(hoverX, hoverY);
         }
     }
