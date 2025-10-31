@@ -60,34 +60,31 @@ export const Settings = ({ ref }: SettingsProps) => {
     const { isFullScreenMode } = useFullScreenMode();
 
     return (
-        <TooltipTrigger placement={'right'}>
-            <DialogTrigger
-                type={'popover'}
-                hideArrow
-                targetRef={targetRef}
-                placement={isFullScreenMode ? 'top right' : 'right'}
-            >
-                <ActionButton isQuiet aria-label={'Settings'}>
-                    <Adjustments />
-                </ActionButton>
-                {(close) => (
-                    <Dialog height={'40rem'} UNSAFE_className={styles.settingsDialog}>
-                        <Heading>
-                            <Flex justifyContent={'space-between'} alignItems={'center'}>
-                                <Text>Settings</Text>
-                                <ActionButton isQuiet onPress={close} aria-label={'Close settings'}>
-                                    <Close />
-                                </ActionButton>
-                            </Flex>
-                        </Heading>
-                        <Divider size={'S'} />
-                        <Content>
-                            <SettingsTabs />
-                        </Content>
-                    </Dialog>
-                )}
-            </DialogTrigger>
-            <Tooltip>Settings</Tooltip>
-        </TooltipTrigger>
+        <DialogTrigger
+            type={'popover'}
+            hideArrow
+            targetRef={targetRef}
+            placement={isFullScreenMode ? 'top right' : 'right'}
+        >
+            <ActionButton isQuiet aria-label={'Settings'}>
+                <Adjustments />
+            </ActionButton>
+            {(close) => (
+                <Dialog height={'40rem'} UNSAFE_className={styles.settingsDialog}>
+                    <Heading>
+                        <Flex justifyContent={'space-between'} alignItems={'center'}>
+                            <Text>Settings</Text>
+                            <ActionButton isQuiet onPress={close} aria-label={'Close settings'}>
+                                <Close />
+                            </ActionButton>
+                        </Flex>
+                    </Heading>
+                    <Divider size={'S'} />
+                    <Content>
+                        <SettingsTabs />
+                    </Content>
+                </Dialog>
+            )}
+        </DialogTrigger>
     );
 };

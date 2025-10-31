@@ -35,11 +35,11 @@ export const Hotkeys = () => {
             <HotkeyItem hotkeyName={'Undo'} hotkey={getHotkey(HOTKEYS.undo)} />
             <HotkeyItem hotkeyName={'Redo'} hotkey={getHotkey(HOTKEYS.redo)} />
             <HotkeyItem hotkeyName={'Delete annotation'} hotkey={getHotkey(HOTKEYS.deleteAnnotation)} />
-            <HotkeyItem hotkeyName={'Show or hide all annotations'} hotkey={getHotkey(HOTKEYS.redo)} />
-            <HotkeyItem hotkeyName={'Fit canvas to screen'} hotkey={getHotkey(HOTKEYS.fitToScreen)} />
+            <HotkeyItem hotkeyName={'Show or hide all annotations'} hotkey={getHotkey(HOTKEYS.toggleAnnotations)} />
+            <HotkeyItem hotkeyName={'Reset zoom'} hotkey={getHotkey(HOTKEYS.fitToScreen)} />
             <HotkeyItem hotkeyName={'Fullscreen'} hotkey={getHotkey(HOTKEYS.fullscreen)} />
             <Divider size={'S'} gridColumn={'1 / -1'} />
-            <HotkeyItem hotkeyName={'Enable Segment Anything'} hotkey={getHotkey(HOTKEYS.enableSam)} />
+            <HotkeyItem hotkeyName={'Segment Anything tool'} hotkey={getHotkey(HOTKEYS.enableSam)} />
         </Grid>
     );
 };
