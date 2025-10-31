@@ -138,15 +138,15 @@ describe('CanvasSettings', () => {
 
         const increaseBy = 5;
 
-        expectSettingValueToBe(setting, `${DEFAULT_CANVAS_SETTINGS.imageSaturation.value}`);
+        expectSettingValueToBe(setting, `${DEFAULT_CANVAS_SETTINGS.imageContrast.value}`);
 
         increaseSetting(setting, increaseBy);
 
-        expectSettingValueToBe(setting, `+${DEFAULT_CANVAS_SETTINGS.imageSaturation.value + increaseBy}`);
+        expectSettingValueToBe(setting, `+${DEFAULT_CANVAS_SETTINGS.imageContrast.value + increaseBy}`);
 
         resetSetting(setting);
 
-        expectSettingValueToBe(setting, `${DEFAULT_CANVAS_SETTINGS.imageSaturation.defaultValue}`);
+        expectSettingValueToBe(setting, `${DEFAULT_CANVAS_SETTINGS.imageContrast.defaultValue}`);
     });
 
     it('Updates pixel view and resets to default', () => {
