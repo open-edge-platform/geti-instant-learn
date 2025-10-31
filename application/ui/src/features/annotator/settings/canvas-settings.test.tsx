@@ -10,7 +10,7 @@ import { fireEvent, screen, within } from '@testing-library/react';
 
 import { FullScreenModeProvider } from '../../prompts/visual-prompt/captured-frame/full-screen-mode.component';
 import { CanvasSettingsProvider, DEFAULT_CANVAS_SETTINGS } from './canvas-settings-provider.component';
-import { CanvasSettings } from './canvas-settings.component';
+import { Settings } from './canvas-settings.component';
 
 const App = () => {
     const ref = useRef(null);
@@ -18,7 +18,7 @@ const App = () => {
     return (
         <FullScreenModeProvider>
             <CanvasSettingsProvider>
-                <CanvasSettings ref={ref} />
+                <Settings ref={ref} />
             </CanvasSettingsProvider>
         </FullScreenModeProvider>
     );

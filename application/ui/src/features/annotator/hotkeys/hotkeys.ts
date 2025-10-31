@@ -6,8 +6,8 @@
 import { isMac } from '@react-aria/utils';
 
 const CTRL_KEY = 'ctrl';
-const COMMAND_KEY = 'meta';
-export const CTRL_OR_COMMAND_KEY = isMac() ? COMMAND_KEY : CTRL_KEY;
+export const COMMAND_KEY = 'meta';
+const CTRL_OR_COMMAND_KEY = isMac() ? COMMAND_KEY : CTRL_KEY;
 
 export type HotKeyActions =
     | 'undo'

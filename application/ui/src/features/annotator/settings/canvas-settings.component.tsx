@@ -14,6 +14,10 @@ import {
     DOMRefValue,
     Flex,
     Heading,
+    Item,
+    TabList,
+    TabPanels,
+    Tabs,
     Text,
     useUnwrapDOMRef,
 } from '@geti/ui';
@@ -21,16 +25,42 @@ import { Adjustments, Close } from '@geti/ui/icons';
 
 import { useFullScreenMode } from '../../prompts/visual-prompt/captured-frame/full-screen-mode.component';
 import { useCanvasSettings } from './canvas-settings-provider.component';
+import { Hotkeys } from './hotkeys.component';
 import { SettingsList } from './settings-list.component';
 
-import classes from './canvas-settings.module.scss';
+import styles from './canvas-settings.module.scss';
 
-interface CanvasSettingsProps {
+interface SettingsProps {
     ref: RefObject<DOMRefValue<HTMLDivElement> | null>;
 }
 
-export const CanvasSettings = ({ ref }: CanvasSettingsProps) => {
+const CanvasSettings = () => {
     const { canvasSettings, setCanvasSettings } = useCanvasSettings();
+
+    return <SettingsList canvasSettings={canvasSettings} onCanvasSettingsChange={setCanvasSettings} />;
+};
+
+const tabs = [{ label: 'Settings' }, { label: 'Hotkeys' }];
+
+const SettingsTabs = () => {
+    return (
+        <Tabs items={tabs}>
+            <TabList marginBottom={'size-200'}>
+                {(tab: { label: string }) => <Item key={tab.label}>{tab.label}</Item>}
+            </TabList>
+            <TabPanels>
+                <Item key={'Settings'}>
+                    <CanvasSettings />
+                </Item>
+                <Item key={'Hotkeys'}>
+                    <Hotkeys />
+                </Item>
+            </TabPanels>
+        </Tabs>
+    );
+};
+
+export const Settings = ({ ref }: SettingsProps) => {
     const targetRef = useUnwrapDOMRef(ref);
     const { isFullScreenMode } = useFullScreenMode();
 
@@ -41,22 +71,22 @@ export const CanvasSettings = ({ ref }: CanvasSettingsProps) => {
             targetRef={targetRef}
             placement={isFullScreenMode ? 'top right' : 'right'}
         >
-            <ActionButton isQuiet aria-label={'Canvas settings'}>
+            <ActionButton isQuiet aria-label={'Settings'}>
                 <Adjustments />
             </ActionButton>
             {(close) => (
-                <Dialog UNSAFE_className={classes.canvasDialog}>
+                <Dialog height={'40rem'} UNSAFE_className={styles.settingsDialog}>
                     <Heading>
                         <Flex justifyContent={'space-between'} alignItems={'center'}>
-                            <Text>Canvas settings</Text>
-                            <ActionButton isQuiet onPress={close} aria-label={'Close canvas settings'}>
+                            <Text>Settings</Text>
+                            <ActionButton isQuiet onPress={close} aria-label={'Close settings'}>
                                 <Close />
                             </ActionButton>
                         </Flex>
                     </Heading>
-                    <Divider marginY={'size-150'} UNSAFE_className={classes.canvasAdjustmentsDivider} />
+                    <Divider size={'S'} />
                     <Content>
-                        <SettingsList canvasSettings={canvasSettings} onCanvasSettingsChange={setCanvasSettings} />
+                        <SettingsTabs />
                     </Content>
                 </Dialog>
             )}
