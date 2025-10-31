@@ -5,12 +5,12 @@
 
 import { createNetworkFixture, NetworkFixture } from '@msw/playwright';
 import { expect, test as testBase } from '@playwright/test';
-import { StreamPage } from 'prompt/stream-page';
 
 import { handlers, http } from '../src/api/utils';
 import { AnnotatorPage } from './annotator/annotator-page';
 import { LabelsPage } from './labels/labels-page';
 import { ProjectPage } from './projects/projects-page';
+import { StreamPage } from './prompt/stream-page';
 
 interface Fixtures {
     network: NetworkFixture;

@@ -7,9 +7,9 @@ import { LabelType } from '@geti-prompt/api';
 import { expect, http, test } from '@geti-prompt/test-fixtures';
 import { NetworkFixture } from '@msw/playwright';
 import { Page } from '@playwright/test';
-import { StreamPage } from 'prompt/stream-page';
 
 import { initializeWebRTC } from '../prompt/initialize-webrtc';
+import { StreamPage } from '../prompt/stream-page';
 import { registerApiLabels, WEBCAM_SOURCE } from './mocks';
 
 const setupLabels = async ({

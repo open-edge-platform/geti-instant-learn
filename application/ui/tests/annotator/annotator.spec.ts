@@ -5,9 +5,9 @@
 
 import { WebcamConfig } from '@geti-prompt/api';
 import { expect, http, test } from '@geti-prompt/test-fixtures';
-import { initializeWebRTC } from 'prompt/initialize-webrtc';
 
 import { registerApiLabels } from '../labels/mocks';
+import { initializeWebRTC } from '../prompt/initialize-webrtc';
 
 const DEVICE_ID = 10;
 const WEBCAM_SOURCE: WebcamConfig = {
