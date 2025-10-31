@@ -5,8 +5,8 @@
 
 import { Grid, minmax, repeat } from '@geti/ui';
 
+import TestImage from '../../../assets/test.webp';
 import { ReferencedImage } from './referenced-image/referenced-image.component';
-import TestImage from './test.jpg';
 
 const REFERENCED_IMAGES = [TestImage, TestImage, TestImage, TestImage, TestImage, TestImage];
 
