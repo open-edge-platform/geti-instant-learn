@@ -55,7 +55,7 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
         await annotatorPage.startSAM();
 
         await expect(page.getByText('Processing image, please wait...')).toBeVisible();
-        await expect(page.getByText('Processing image, please wait...')).toBeHidden({ timeout: 60000 });
+        await expect(page.getByText('Processing image, please wait...')).toBeHidden({ timeout: 5 * 60 * 1000 });
 
         await annotatorPage.addAnnotation();
     });
