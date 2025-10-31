@@ -23,7 +23,7 @@ const useDeleteAnnotationHotkey = () => {
     const { selectedAnnotations } = useSelectedAnnotations();
     const { annotations, deleteAnnotations } = useAnnotationActions();
 
-    const selectedIds = [...annotations.filter((a) => selectedAnnotations.has(a.id)).map(({ id }) => id)];
+    const selectedIds = annotations.filter((a) => selectedAnnotations.has(a.id)).map(({ id }) => id);
 
     useHotkeys(HOTKEYS.deleteAnnotation, () => deleteAnnotations(selectedIds), [deleteAnnotations, selectedIds]);
 };
