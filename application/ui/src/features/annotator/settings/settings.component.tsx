@@ -19,8 +19,6 @@ import {
     TabPanels,
     Tabs,
     Text,
-    Tooltip,
-    TooltipTrigger,
     useUnwrapDOMRef,
 } from '@geti/ui';
 import { Adjustments, Close } from '@geti/ui/icons';
