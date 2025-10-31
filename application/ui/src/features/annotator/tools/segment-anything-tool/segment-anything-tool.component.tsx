@@ -122,6 +122,7 @@ export const SegmentAnythingTool = () => {
 
     return (
         <SvgToolCanvas
+            aria-label='SAM tool canvas'
             image={image}
             canvasRef={ref}
             onPointerMove={handleMouseMove}

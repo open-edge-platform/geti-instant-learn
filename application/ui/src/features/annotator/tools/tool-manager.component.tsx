@@ -3,12 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useAnnotator } from '../providers/annotator-provider.component';
+import { ToolType } from './interface';
 import { SegmentAnythingTool } from './segment-anything-tool/segment-anything-tool.component';
 
-export const ToolManager = () => {
-    const { activeTool } = useAnnotator();
-
+export const ToolManager = ({ activeTool }: { activeTool: ToolType | null }) => {
     if (activeTool === 'sam') {
         return <SegmentAnythingTool />;
     }
