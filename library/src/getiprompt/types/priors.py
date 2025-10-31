@@ -5,7 +5,6 @@ from getiprompt.types.boxes import Boxes
 from getiprompt.types.data import Data
 from getiprompt.types.masks import Masks
 from getiprompt.types.points import Points
-from getiprompt.types.prompts import Prompt
 from getiprompt.types.text import Text
 
 
@@ -20,13 +19,11 @@ class Priors(Data):
         points: Points | None = None,
         boxes: Boxes | None = None,
         masks: Masks | None = None,
-        polygons: Prompt | None = None,
         text: Text | None = None,
     ) -> None:
         self._points: Points = points if points is not None else Points()
         self._boxes: Boxes = boxes if boxes is not None else Boxes()
         self._masks: Masks = masks if masks is not None else Masks()
-        self._polygons: Prompt = polygons if polygons is not None else Prompt()
         self._text: Text = text if text is not None else Text()
 
     @property
@@ -58,11 +55,6 @@ class Priors(Data):
     def masks(self, masks: Masks) -> None:
         """Set the masks."""
         self._masks = masks
-
-    @property
-    def polygons(self) -> Prompt:
-        """Get the polygons."""
-        return self._polygons
 
     @property
     def text(self) -> Text:
