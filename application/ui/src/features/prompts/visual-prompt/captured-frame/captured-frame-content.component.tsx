@@ -9,6 +9,8 @@ import { Loading, View } from '@geti/ui';
 
 import { ZoomProvider } from '../../../../components/zoom/zoom.provider';
 import { AnnotatorCanvas } from '../../../annotator/annotator-canvas';
+import { AnnotatorCanvasSettings } from '../../../annotator/canvas-settings/annotator-canvas-settings.component';
+import { CanvasSettingsProvider } from '../../../annotator/canvas-settings/canvas-settings-provider.component';
 import { AnnotationActionsProvider } from '../../../annotator/providers/annotation-actions-provider.component';
 import { AnnotationVisibilityProvider } from '../../../annotator/providers/annotation-visibility-provider.component';
 import { AnnotatorProvider } from '../../../annotator/providers/annotator-provider.component';
@@ -37,7 +39,9 @@ export const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnot
                 <SelectAnnotationProvider>
                     <AnnotationActionsProvider>
                         <AnnotationVisibilityProvider>
-                            <FullScreenModeProvider>{children}</FullScreenModeProvider>
+                            <FullScreenModeProvider>
+                                <CanvasSettingsProvider>{children}</CanvasSettingsProvider>
+                            </FullScreenModeProvider>
                         </AnnotationVisibilityProvider>
                     </AnnotationActionsProvider>
                 </SelectAnnotationProvider>
@@ -58,7 +62,9 @@ export const CapturedFrameContent = ({ frameId }: CapturedFrameContentProps) => 
             </View>
 
             <View gridArea={'image'} backgroundColor={'gray-50'} overflow={'hidden'}>
-                <AnnotatorCanvas frameId={frameId} />
+                <AnnotatorCanvasSettings>
+                    <AnnotatorCanvas frameId={frameId} />
+                </AnnotatorCanvasSettings>
             </View>
             <View gridArea={'actions'} backgroundColor={'gray-200'} padding={'size-100'}>
                 <CapturedFrameActions />
