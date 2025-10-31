@@ -44,6 +44,7 @@ build-image:
     @docker build \
         {{ docker-extra-args }} \
         {{ docker-build-context }} \
+        --build-context libs=../library \
         --build-arg PUBLIC_API_URL=http://localhost:{{ container-port }} \
         --build-arg STATIC_FILES_DIR={{ static-files-dir }} \
         --build-arg DB_DATA_DIR={{ db-data-dir }} \

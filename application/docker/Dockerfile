@@ -1,4 +1,4 @@
-FROM python:3.13-slim-bookworm@sha256:ee6c0814498e24cc54424475b9611edb99072250b2b30f9fb83d9256a1469b7a AS base
+FROM python:3.12-slim-bookworm@sha256:3291ae895c4a3af495196e48292a19fad4ea7ce82528b91cca64961a4d04f538 AS base
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
 # Disable Python downloads, because we want to use the system interpreter
@@ -15,10 +15,23 @@ WORKDIR ${WORKDIR_PATH}
 
 ENV PYTHONPATH=/app
 
+# Install git for git dependencies (sam-2)
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+
+# Copy library and create proper directory structure
+COPY --from=libs . /geti_prompt/library
+
+# Change to a subdirectory so ../../library resolves correctly
+RUN mkdir -p /geti_prompt/app/backend
+WORKDIR /geti_prompt/app/backend
+
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-dev --no-editable
+
+# Change back to the original working directory
+WORKDIR /geti_prompt
 
 COPY --link backend/app ./app
 
