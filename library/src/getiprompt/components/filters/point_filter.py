@@ -6,21 +6,17 @@
 import torch
 from torch import nn
 
-from getiprompt.types import Priors
 
+class PointFilter(nn.Module):
+    """Point filter that reduces the number of points in points_per_image to a maximum value.
 
-class MaxPointFilter(nn.Module):
-    """Filter that reduces the number of points in priors to a maximum value.
-
-    This selects the points with the highest scores.
+    This selects the points with the highest scores for each class.
 
     Example:
         >>> import torch
-        >>> from getiprompt.types import Priors
-        >>> from getiprompt.filters.priors.max_point_filter import MaxPointFilter
-        >>> filter = MaxPointFilter(max_num_points=2)
-        >>> priors = Priors()
-        >>> fg_points_1 = torch.tensor([
+        >>> from getiprompt.components.filters.max_point_filter import PointFilter
+        >>> filter = PointFilter(max_num_points=2)
+        >>> points_per_image = {1: torch.tensor([
         ...     [10, 10, 0.9, 1],
         ...     [20, 20, 0.8, 1],
         ...     [30, 30, 0.7, 1],
@@ -43,33 +39,32 @@ class MaxPointFilter(nn.Module):
         2
     """
 
-    def __init__(self, max_num_points: int = 40) -> None:
+    def __init__(self, num_foreground_points: int = 40) -> None:
         """Initialize the max point filter.
 
         Args:
-            max_num_points: Maximum number of points to keep per class
+            num_foreground_points: Maximum number of foreground points to keep per class
         """
         super().__init__()
-        self.max_num_points = max_num_points
+        self.num_foreground_points = num_foreground_points
 
-    def forward(self, priors: list[Priors]) -> list[Priors]:
+    def forward(self, points_per_image: list[dict[int, torch.Tensor]]) -> list[dict[int, torch.Tensor]]:
         """Filter points in the priors, keeping the ones with the highest scores.
 
         Modifies the priors in-place to preserve all other information.
 
         Args:
-            priors: List of Priors objects to filter
+            points_per_image: List of points per image, one per target image instance
 
         Returns:
-            The same Priors list with filtered points
+            points_per_image: List of points per image, one per target image instance with filtered points
         """
-        for prior in priors:
-            for class_id, points_per_sim_map in prior.points.data.items():
-                for i, points in enumerate(points_per_sim_map):
-                    filtered_points = self._filter_points(points)
-                    prior.points.data[class_id][i] = filtered_points
+        for cls_points in points_per_image:
+            for class_id, points in cls_points.items():
+                filtered_points = self._filter_points(points)
+                cls_points[class_id] = filtered_points
 
-        return priors
+        return points_per_image
 
     def _filter_points(self, points: torch.Tensor) -> torch.Tensor:
         """Filter a single list of points based on scores. This method adds all background points.
@@ -81,7 +76,7 @@ class MaxPointFilter(nn.Module):
             Filtered points tensor
         """
         # If points is empty or fewer than max_num_points, return as is
-        if points.shape[0] <= self.max_num_points:
+        if points.shape[0] <= self.num_foreground_points:
             return points
 
         fg_indices = (points[:, 3] == 1).nonzero()[:, 0]
@@ -91,7 +86,7 @@ class MaxPointFilter(nn.Module):
         bg_points = points[bg_indices]
 
         _, fg_indices_sorted = torch.sort(fg_points[:, 2], descending=True)
-        fg_indices_select = fg_indices_sorted[: self.max_num_points]
+        fg_indices_select = fg_indices_sorted[: self.num_foreground_points]
         fg_points_select = fg_points[fg_indices_select]
 
         # return best matching foreground points and add all background_points

@@ -5,14 +5,14 @@
 
 from typing import TYPE_CHECKING
 
-from torchvision import tv_tensors
-
 from getiprompt.components import MaskAdder, MasksToPolygons, SamDecoder
 from getiprompt.components.encoders import ImageEncoder
+from getiprompt.components.feature_extractors.local_feature_extractor import LocalFeatureExtractor
 from getiprompt.components.feature_selectors import AllFeaturesSelector, FeatureSelector
-from getiprompt.components.filters import MaxPointFilter
+from getiprompt.components.filters import PointFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
-from getiprompt.types import Priors, Results
+from getiprompt.data.base.batch import Batch
+from getiprompt.types import Results
 from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
 
@@ -101,6 +101,12 @@ class Matcher(Model):
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
         )
+        # Local feature extraction with mask pooling
+        self.local_feature_extractor = LocalFeatureExtractor(
+            input_size=self.encoder.input_size,
+            patch_size=self.encoder.patch_size,
+            device=device,
+        )
         self.feature_selector: FeatureSelector = AllFeaturesSelector()
         self.prompt_generator: PromptGenerator = BidirectionalPromptGenerator(
             encoder_input_size=self.encoder.input_size,
@@ -108,7 +114,7 @@ class Matcher(Model):
             encoder_feature_size=self.encoder.feature_size,
             num_background_points=num_background_points,
         )
-        self.point_filter = MaxPointFilter(max_num_points=num_foreground_points)
+        self.point_filter = PointFilter(num_foreground_points=num_foreground_points)
         self.segmenter: SamDecoder = SamDecoder(
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
@@ -119,32 +125,42 @@ class Matcher(Model):
         self.reference_masks = None
 
     @track_duration
-    def learn(self, reference_images: list[tv_tensors.Image], reference_priors: list[Priors]) -> Results:
+    def learn(self, reference_batch: Batch) -> None:
         """Perform learning step on the reference images and priors."""
-        # Start running the model
-        reference_priors = self.mask_adder(reference_images, reference_priors)
-        reference_features, self.reference_masks = self.encoder(reference_images, reference_priors)
+        # Encode reference images to batched tensor
+        reference_embeddings = self.encoder(images=reference_batch.images)
+        # Extract local features and pooled masks
+        reference_features, self.reference_masks = self.local_feature_extractor(
+            reference_embeddings,
+            reference_batch.masks,
+            reference_batch.category_ids,
+            reference_batch.is_reference,
+        )
         self.reference_features = self.feature_selector(reference_features)
 
     @track_duration
-    def infer(self, target_images: list[tv_tensors.Image]) -> Results:
+    def infer(self, target_batch: Batch) -> Results:
         """Perform inference step on the target images."""
-        target_features, _ = self.encoder(target_images)
-        priors, similarities = self.prompt_generator(
+        target_embeddings = self.encoder(images=target_batch.images)
+        point_prompts, similarities_per_image = self.prompt_generator(
             self.reference_features,
-            target_features,
             self.reference_masks,
-            target_images,
+            target_embeddings,
+            target_batch.images,
         )
-        priors = self.point_filter(priors)
-        masks, used_points, _ = self.segmenter(target_images, priors, similarities)
+        point_prompts = self.point_filter(point_prompts)
+        masks, used_points, _ = self.segmenter(
+            target_batch.images,
+            point_prompts=point_prompts,
+            similarities=similarities_per_image,
+        )
         annotations = self.mask_processor(masks)
 
         # write output
         results = Results()
-        results.priors = priors
+        results.priors = point_prompts
         results.used_points = used_points
         results.masks = masks
         results.annotations = annotations
-        results.similarities = similarities
+        results.similarities = similarities_per_image
         return results

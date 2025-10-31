@@ -61,6 +61,7 @@ class LVISDataset(Dataset):
 
     def __init__(
         self,
+        df: pl.DataFrame | None = None,
         root: Path | str = "./datasets/LVIS",
         split: str = "val",
         categories: Sequence[str] | None = None,
@@ -69,12 +70,12 @@ class LVISDataset(Dataset):
         """Initialize the LVISDataset."""
         super().__init__(n_shots=n_shots)
 
-        self.root = Path(root)
+        self.root = Path(root).expanduser()
         self.split = split
         self.categories_filter = categories
 
         # Load the DataFrame
-        self.df = self._load_dataframe()
+        self.df = df if df is not None else self._load_dataframe()
 
     def _load_masks(self, raw_sample: dict) -> torch.Tensor | None:
         """Decode and merge masks from COCO RLE format into semantic masks.

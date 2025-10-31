@@ -57,6 +57,7 @@ class PerSegDataset(Dataset):
 
     def __init__(
         self,
+        df: pl.DataFrame | None = None,
         root: Path | str = "./datasets/PerSeg",
         categories: Sequence[str] | None = None,
         n_shots: int = 1,
@@ -64,11 +65,11 @@ class PerSegDataset(Dataset):
         """Initialize the PerSegDataset."""
         super().__init__(n_shots=n_shots)
 
-        self.root = Path(root)
+        self.root = Path(root).expanduser()
         self.categories_filter = categories
 
         # Load the DataFrame
-        self.df = self._load_dataframe()
+        self.df = df if df is not None else self._load_dataframe()
 
     def _load_masks(self, raw_sample: dict) -> torch.Tensor | None:
         """Load single mask from file path.
