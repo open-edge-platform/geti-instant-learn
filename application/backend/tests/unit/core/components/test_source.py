@@ -1,3 +1,4 @@
+import threading
 import time
 from unittest.mock import MagicMock
 
@@ -56,7 +57,6 @@ class TestSource:
             if len(frames_read) == 2:
                 self.source.pause()
                 # Stop after pausing to break the loop
-                import threading
 
                 threading.Timer(0.05, self.source.stop).start()
             time.sleep(0.01)
@@ -82,7 +82,6 @@ class TestSource:
                 self.source.pause()
                 paused = True
                 # Simulate resume after a delay
-                import threading
 
                 threading.Timer(0.05, self.source.resume).start()
             elif len(frames_read) == 5:
@@ -107,7 +106,6 @@ class TestSource:
             if len(frames_read) == 1:
                 self.source.pause()
                 # Stop after a delay
-                import threading
 
                 threading.Timer(0.05, self.source.stop).start()
             time.sleep(0.01)
