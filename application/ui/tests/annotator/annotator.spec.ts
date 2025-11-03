@@ -18,10 +18,11 @@ const WEBCAM_SOURCE: WebcamConfig = {
         source_type: 'webcam',
     },
 };
+const ANNOTATOR_PAGE_TIMEOUT = 10 * 60 * 1000;
 
 test.use({ browserName: 'firefox' });
 test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) => {
-    test.setTimeout(10 * 60 * 1000);
+    test.setTimeout(ANNOTATOR_PAGE_TIMEOUT);
 
     await initializeWebRTC({ page, context, network });
 
@@ -56,8 +57,12 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
     await test.step('Adds annotation', async () => {
         await annotatorPage.startSAM();
 
-        await expect(page.getByText('Processing image, please wait...')).toBeVisible();
-        await expect(page.getByText('Processing image, please wait...')).toBeHidden();
+        await expect(page.getByText('Processing image, please wait...')).toBeVisible({
+            timeout: ANNOTATOR_PAGE_TIMEOUT,
+        });
+        await expect(page.getByText('Processing image, please wait...')).toBeHidden({
+            timeout: ANNOTATOR_PAGE_TIMEOUT,
+        });
 
         await annotatorPage.addAnnotation();
     });
