@@ -10,31 +10,25 @@ import { Page } from '@playwright/test';
 
 import { initializeWebRTC } from '../prompt/initialize-webrtc';
 import { StreamPage } from '../prompt/stream-page';
-import { LabelsPage } from './labels-page';
 import { registerApiLabels, WEBCAM_SOURCE } from './mocks';
 
 const setupLabels = async ({
     network,
     labels = [],
     page,
+    streamPage,
 }: {
     network: NetworkFixture;
     page: Page;
+    streamPage: StreamPage;
     labels?: LabelType[];
 }) => {
-    const labelsPage = new LabelsPage(page);
-    const streamPage = new StreamPage(page);
-
     registerApiLabels({ network, defaultLabels: labels });
 
     await page.goto('/');
 
     await streamPage.startStream();
     await streamPage.captureFrame();
-
-    return {
-        labelsPage,
-    };
 };
 
 test.describe('Labels', () => {
@@ -52,8 +46,8 @@ test.describe('Labels', () => {
         );
     });
 
-    test('Creates label', async ({ page, network }) => {
-        const { labelsPage } = await setupLabels({ network, page });
+    test('Creates label', async ({ page, labelsPage, streamPage, network }) => {
+        await setupLabels({ network, page, streamPage });
 
         const newLabelName = 'Cool label';
 
@@ -62,21 +56,20 @@ test.describe('Labels', () => {
         await expect(labelsPage.getLabel(newLabelName)).toBeVisible();
     });
 
-    test('Deletes label', async ({ page, network }) => {
+    test('Deletes label', async ({ labelsPage, page, streamPage, network }) => {
         const label: LabelType = {
             id: '1',
             name: 'Cool label',
             color: '#000000',
         };
-
-        const { labelsPage } = await setupLabels({ network, page, labels: [label] });
+        await setupLabels({ network, page, streamPage, labels: [label] });
 
         await expect(labelsPage.getLabel(label.name)).toBeVisible();
         await labelsPage.deleteLabel(label.name);
         await expect(labelsPage.getLabel(label.name)).toBeHidden();
     });
 
-    test('Updates label', async ({ page, network }) => {
+    test('Updates label', async ({ labelsPage, page, streamPage, network }) => {
         const label: LabelType = {
             id: '1',
             name: 'Cool label',
@@ -84,7 +77,7 @@ test.describe('Labels', () => {
         };
         const newLabelName = 'New label name';
 
-        const { labelsPage } = await setupLabels({ network, page, labels: [label] });
+        await setupLabels({ network, page, streamPage, labels: [label] });
 
         await expect(labelsPage.getLabel(label.name)).toBeVisible();
 

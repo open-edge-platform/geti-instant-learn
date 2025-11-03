@@ -5,10 +5,12 @@ from uuid import uuid4
 
 import pytest
 from fastapi import status
+from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 
 from core.runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 from dependencies import get_webrtc_manager
+from exceptions.handler import custom_exception_handler
 from main import app
 from services.schemas.webrtc import Answer, Offer
 from webrtc.manager import WebRTCManager
@@ -18,7 +20,10 @@ PROJECT_ID = uuid4()
 
 @pytest.fixture
 def fxt_client():
-    return TestClient(app)
+    # Register the global exception handler
+    app.add_exception_handler(Exception, custom_exception_handler)
+    app.add_exception_handler(RequestValidationError, custom_exception_handler)
+    return TestClient(app, raise_server_exceptions=False)
 
 
 @pytest.fixture
@@ -62,4 +67,5 @@ class TestWebRTCEndpoints:
 
     def test_create_webrtc_offer_invalid_payload(self, fxt_client):
         resp = fxt_client.post(f"/api/v1/projects/{PROJECT_ID}/offer", json={"sdp": 123})
-        assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        assert "detail" in resp.json()

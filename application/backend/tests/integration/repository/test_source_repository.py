@@ -138,6 +138,18 @@ def test_get_connected_in_project(source_repo, fxt_session, clean_after):
     assert connected.config.get("label") == "active"
 
 
+def test_get_connected_in_project_none(source_repo, fxt_session, clean_after):
+    project = ProjectDB(name="proj")
+    fxt_session.add(project)
+    fxt_session.commit()
+
+    source_repo.add(make_source(project.id, label="disconnected"))
+    fxt_session.commit()
+
+    connected = source_repo.get_connected_in_project(project.id)
+    assert connected is None
+
+
 def test_get_by_type_in_project(source_repo, fxt_session, clean_after):
     project = ProjectDB(name="proj")
     fxt_session.add(project)
@@ -203,6 +215,108 @@ def test_unique_source_type_per_project(source_repo, fxt_session, clean_after):
     fetched = source_repo.get_by_type_in_project(project.id, st)
     assert fetched is not None
     assert fetched.config.get("label") == "first"
+
+
+def test_single_connected_source_per_project(source_repo, fxt_session, clean_after):
+    project = ProjectDB(name="proj")
+    fxt_session.add(project)
+    fxt_session.commit()
+
+    types = list(SourceType)
+    first_type = types[0]
+    second_type = types[1] if len(types) > 1 else types[0]
+
+    first = SourceDB(
+        config={"source_type": first_type, "label": "first"},
+        project_id=project.id,
+        connected=True,
+    )
+    source_repo.add(first)
+    fxt_session.commit()
+
+    # try to create second connected source (should fail if same type provided, so use different type)
+    second = SourceDB(
+        config={"source_type": second_type, "label": "second"},
+        project_id=project.id,
+        connected=True,
+    )
+    source_repo.add(second)
+
+    with pytest.raises(IntegrityError):
+        fxt_session.commit()
+
+    fxt_session.rollback()
+
+    connected = source_repo.get_connected_in_project(project.id)
+    assert connected is not None
+    assert connected.config.get("label") == "first"
+
+
+def test_multiple_disconnected_sources_allowed(source_repo, fxt_session, clean_after):
+    project = ProjectDB(name="proj")
+    fxt_session.add(project)
+    fxt_session.commit()
+
+    types = list(SourceType)
+    for i, st in enumerate(types[:3]):
+        src = SourceDB(
+            config={"source_type": st, "label": f"source_{i}"},
+            project_id=project.id,
+            connected=False,
+        )
+        source_repo.add(src)
+    fxt_session.commit()
+
+    all_sources = source_repo.get_all_by_project(project.id)
+    assert len(all_sources) == 3
+    assert all(not s.connected for s in all_sources)
+
+
+def test_unique_source_name_per_project(source_repo, fxt_session, clean_after):
+    project = ProjectDB(name="proj")
+    fxt_session.add(project)
+    fxt_session.commit()
+
+    types = list(SourceType)
+    first_type = types[0]
+    second_type = types[1] if len(types) > 1 else types[0]
+
+    first = SourceDB(
+        config={"source_type": first_type, "name": "my_source"},
+        project_id=project.id,
+    )
+    source_repo.add(first)
+    fxt_session.commit()
+
+    # try to create second source with same name (different type to avoid type constraint)
+    second = SourceDB(
+        config={"source_type": second_type, "name": "my_source"},
+        project_id=project.id,
+    )
+    source_repo.add(second)
+
+    with pytest.raises(IntegrityError):
+        fxt_session.commit()
+
+    fxt_session.rollback()
+
+
+def test_source_name_optional(source_repo, fxt_session, clean_after):
+    project = ProjectDB(name="proj")
+    fxt_session.add(project)
+    fxt_session.commit()
+
+    types = list(SourceType)
+    for st in types[:2]:
+        src = SourceDB(
+            config={"source_type": st},
+            project_id=project.id,
+        )
+        source_repo.add(src)
+    fxt_session.commit()
+
+    all_sources = source_repo.get_all_by_project(project.id)
+    assert len(all_sources) == 2
 
 
 def test_connected_default_false(source_repo, fxt_session, clean_after):

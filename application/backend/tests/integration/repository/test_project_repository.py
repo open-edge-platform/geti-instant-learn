@@ -46,25 +46,6 @@ def test_get_all(repo, fxt_session, clean_after):
     assert {p.name for p in all_projects} == names
 
 
-def test_exists_by_name_and_id(repo, fxt_session, clean_after):
-    pid = uuid4()
-    p = ProjectDB(id=pid, name="unique", active=False)
-    repo.add(p)
-    fxt_session.commit()
-
-    assert repo.exists_by_name("unique") is True
-    assert repo.exists_by_id(pid) is True
-
-
-def test_exists_by_name_and_id_false(repo, fxt_session, clean_after):
-    p = ProjectDB(id=uuid4(), name="another")
-    repo.add(p)
-    fxt_session.commit()
-
-    assert repo.exists_by_name("absent") is False
-    assert repo.exists_by_id(uuid4()) is False
-
-
 def test_get_active_single(repo, fxt_session, clean_after):
     inactive = ProjectDB(name="inactive", active=False)
     active = ProjectDB(name="active", active=True)
@@ -113,6 +94,22 @@ def test_single_active_project_constraint(repo, fxt_session, clean_after):
     active_rows = fxt_session.query(ProjectDB).filter_by(active=True).all()
     assert len(active_rows) == 1
     assert active_rows[0].name == "active_primary"
+
+
+def test_unique_project_name_constraint(repo, fxt_session, clean_after):
+    first = ProjectDB(name="duplicate_name", active=False)
+    repo.add(first)
+    fxt_session.commit()
+
+    second = ProjectDB(name="duplicate_name", active=False)
+    repo.add(second)
+
+    with pytest.raises(IntegrityError):
+        fxt_session.commit()
+
+    fxt_session.rollback()
+    projects = fxt_session.query(ProjectDB).filter_by(name="duplicate_name").all()
+    assert len(projects) == 1
 
 
 def test_get_paginated_empty(repo, fxt_session, clean_after):

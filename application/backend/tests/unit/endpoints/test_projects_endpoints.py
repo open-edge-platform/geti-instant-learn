@@ -5,16 +5,17 @@ from uuid import UUID, uuid4
 
 import pytest
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 
-from dependencies import SessionDep, get_config_dispatcher  # type: ignore
-from rest.endpoints import projects
-from routers import projects_router
-from services.errors import (
+from dependencies import SessionDep, get_config_dispatcher, get_project_service
+from exceptions.custom_errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ResourceType,
 )
+from exceptions.handler import custom_exception_handler
+from routers import projects_router
 from services.schemas.base import Pagination
 from services.schemas.project import ProjectSchema, ProjectsListSchema
 
@@ -32,34 +33,40 @@ def assert_project_schema(data: dict, project_id: str, name: str, active: bool =
 
 @pytest.fixture
 def app():
+    from rest.endpoints import projects as _  # noqa: F401
+
     app = FastAPI()
     app.include_router(projects_router, prefix="/api/v1")
     app.dependency_overrides[SessionDep] = lambda: object()
 
     class DummyDispatcher:
-        def dispatch(self, event):  # noqa: D401
+        def dispatch(self, event):
             pass
 
     app.dependency_overrides[get_config_dispatcher] = lambda: DummyDispatcher()
+
+    app.add_exception_handler(Exception, custom_exception_handler)
+    app.add_exception_handler(RequestValidationError, custom_exception_handler)
+
     return app
 
 
 @pytest.fixture
 def client(app):
-    return TestClient(app)
+    return TestClient(app, raise_server_exceptions=False)
 
 
 @pytest.mark.parametrize(
-    "behavior,expected_status,expect_location,expect_conflict_substring",
+    "behavior,expected_status,expect_location,expect_substring",
     [
         ("success", 201, True, None),
-        ("conflict", 409, False, PROJECT_ID_STR),
-        ("error", 500, False, None),
+        ("conflict", 409, False, "already exists"),
+        ("error", 500, False, "internal server error"),
     ],
 )
-def test_create_project(client, monkeypatch, behavior, expected_status, expect_location, expect_conflict_substring):
+def test_create_project(client, behavior, expected_status, expect_location, expect_substring):
     class FakeService:
-        def __init__(self, session, config_change_dispatcher):  # noqa: D401
+        def __init__(self, session, config_change_dispatcher):
             pass
 
         def create_project(self, payload):
@@ -69,14 +76,15 @@ def test_create_project(client, monkeypatch, behavior, expected_status, expect_l
             if behavior == "conflict":
                 raise ResourceAlreadyExistsError(
                     resource_type=ResourceType.PROJECT,
-                    resource_value=str(PROJECT_ID),
-                    raised_by="id",
+                    resource_value="myproj",
+                    field="name",
+                    message="A project with this name already exists.",
                 )
             if behavior == "error":
-                raise RuntimeError("boom")
+                raise RuntimeError("Database connection failed")
             raise AssertionError("Unhandled behavior")
 
-    monkeypatch.setattr(projects, "ProjectService", FakeService)
+    client.app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
 
     payload = {"id": PROJECT_ID_STR, "name": "myproj"}
     resp = client.post("/api/v1/projects", json=payload)
@@ -88,23 +96,19 @@ def test_create_project(client, monkeypatch, behavior, expected_status, expect_l
         assert_project_schema(response_data, PROJECT_ID_STR, "myproj", active=True)
     else:
         assert "Location" not in resp.headers
-        if behavior == "conflict":
-            assert expect_conflict_substring in resp.json()["detail"]
-        if behavior == "error":
-            assert resp.json()["detail"] == "Failed to create a project due to internal server error."
+        if expect_substring:
+            assert expect_substring.lower() in resp.json()["detail"].lower()
 
 
 @pytest.mark.parametrize(
-    "behavior,expected_status,expect_detail",
+    "behavior,expected_status",
     [
-        ("success", 204, None),
-        ("missing", 204, None),  # Endpoint suppresses 404
-        ("error", 500, f"Failed to delete project with id {PROJECT_ID_STR} due to an internal error."),
+        ("success", 204),
+        ("missing", 404),
+        ("error", 500),
     ],
 )
-def test_delete_project(client, monkeypatch, behavior, expected_status, expect_detail):
-    from rest.endpoints import projects as ep_mod
-
+def test_delete_project(client, behavior, expected_status):
     class FakeService:
         def __init__(self, session, config_change_dispatcher):
             pass
@@ -119,30 +123,28 @@ def test_delete_project(client, monkeypatch, behavior, expected_status, expect_d
                     resource_id=str(project_id),
                 )
             if behavior == "error":
-                raise RuntimeError("boom")
+                raise RuntimeError("Database error")
             raise AssertionError("Unhandled behavior")
 
-    monkeypatch.setattr(ep_mod, "ProjectService", FakeService)
+    client.app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
 
     resp = client.delete(f"/api/v1/projects/{PROJECT_ID_STR}")
     assert resp.status_code == expected_status
-    if expect_detail:
-        assert resp.json()["detail"] == expect_detail
-    else:
+    if expected_status == 204:
         assert resp.text == ""
+    else:
+        assert "detail" in resp.json()
 
 
 @pytest.mark.parametrize(
-    "behavior,expected_status,expected_detail",
+    "behavior,expected_status",
     [
-        ("success", 200, None),
-        ("notfound", 404, "No active project found."),
-        ("error", 500, "Failed to retrieve active project."),
+        ("success", 200),
+        ("notfound", 404),
+        ("error", 500),
     ],
 )
-def test_get_active_project(client, monkeypatch, behavior, expected_status, expected_detail):
-    from rest.endpoints import projects as ep_mod
-
+def test_get_active_project(client, behavior, expected_status):
     class FakeService:
         def __init__(self, session, config_change_dispatcher):
             pass
@@ -151,31 +153,34 @@ def test_get_active_project(client, monkeypatch, behavior, expected_status, expe
             if behavior == "success":
                 return ProjectSchema(id=PROJECT_ID, name="activeproj", active=True)
             if behavior == "notfound":
-                raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id="active")
+                raise ResourceNotFoundError(
+                    resource_type=ResourceType.PROJECT,
+                    resource_id=None,
+                    message="No active project found.",
+                )
             if behavior == "error":
-                raise RuntimeError("boom")
+                raise RuntimeError("Database error")
             raise AssertionError("Unhandled behavior")
 
-    monkeypatch.setattr(ep_mod, "ProjectService", FakeService)
+    client.app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
+
     resp = client.get("/api/v1/projects/active")
     assert resp.status_code == expected_status
-    if expected_detail:
-        assert resp.json()["detail"] == expected_detail
-    elif behavior == "success":
+    if behavior == "success":
         assert_project_schema(resp.json(), PROJECT_ID_STR, "activeproj", active=True)
+    else:
+        assert "detail" in resp.json()
 
 
 @pytest.mark.parametrize(
-    "behavior,expected_status,expected_count,expected_detail",
+    "behavior,expected_status,expected_count",
     [
-        ("no_projects", 200, 0, None),
-        ("some_projects", 200, 2, None),
-        ("error", 500, None, "Failed to list projects."),
+        ("no_projects", 200, 0),
+        ("some_projects", 200, 2),
+        ("error", 500, None),
     ],
 )
-def test_get_projects_list(client, monkeypatch, behavior, expected_status, expected_count, expected_detail):
-    from rest.endpoints import projects as ep_mod
-
+def test_get_projects_list(client, behavior, expected_status, expected_count):
     class FakeService:
         def __init__(self, session, config_change_dispatcher):
             pass
@@ -194,15 +199,17 @@ def test_get_projects_list(client, monkeypatch, behavior, expected_status, expec
                     projects=projects, pagination=Pagination(count=2, total=2, offset=offset, limit=limit)
                 )
             if behavior == "error":
-                raise RuntimeError("boom")
+                raise RuntimeError("Database error")
             raise AssertionError("Unhandled behavior")
 
-    monkeypatch.setattr(ep_mod, "ProjectService", FakeService)
+    client.app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
+
     resp = client.get("/api/v1/projects")
     assert resp.status_code == expected_status
-    if expected_detail:
-        assert resp.json()["detail"] == expected_detail
+    if behavior == "error":
+        assert "detail" in resp.json()
         return
+
     data = resp.json()
     projects_list = data["projects"]
     assert len(projects_list) == expected_count
@@ -216,9 +223,7 @@ def test_get_projects_list(client, monkeypatch, behavior, expected_status, expec
         assert ids == {PROJECT_ID_STR, SECOND_PROJECT_ID_STR}
 
 
-def test_get_projects_list_with_pagination_params(client, monkeypatch):
-    from rest.endpoints import projects as ep_mod
-
+def test_get_projects_list_with_pagination_params(client):
     class FakeService:
         def __init__(self, session, config_change_dispatcher):
             pass
@@ -229,7 +234,8 @@ def test_get_projects_list_with_pagination_params(client, monkeypatch):
             projects = [ProjectSchema(id=PROJECT_ID, name="proj1", active=False)]
             return ProjectsListSchema(projects=projects, pagination=Pagination(count=1, total=15, offset=10, limit=5))
 
-    monkeypatch.setattr(ep_mod, "ProjectService", FakeService)
+    client.app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
+
     resp = client.get("/api/v1/projects?offset=10&limit=5")
     assert resp.status_code == 200
     data = resp.json()
@@ -249,9 +255,7 @@ def test_get_projects_list_with_pagination_params(client, monkeypatch):
         ("error", 500, False),
     ],
 )
-def test_get_project(client, monkeypatch, behavior, expected_status, expect_payload):
-    from rest.endpoints import projects as ep_mod
-
+def test_get_project(client, behavior, expected_status, expect_payload):
     class FakeService:
         def __init__(self, session, config_change_dispatcher):
             pass
@@ -263,30 +267,29 @@ def test_get_project(client, monkeypatch, behavior, expected_status, expect_payl
             if behavior == "notfound":
                 raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
             if behavior == "error":
-                raise RuntimeError("boom")
+                raise RuntimeError("Database error")
             raise AssertionError("Unhandled behavior")
 
-    monkeypatch.setattr(ep_mod, "ProjectService", FakeService)
+    client.app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
+
     resp = client.get(f"/api/v1/projects/{PROJECT_ID_STR}")
     assert resp.status_code == expected_status
     if expect_payload:
         assert_project_schema(resp.json(), PROJECT_ID_STR, "minproj", active=False)
     else:
-        if behavior == "error":
-            assert resp.json()["detail"] == "Failed to retrieve project."
+        assert "detail" in resp.json()
 
 
 @pytest.mark.parametrize(
-    "behavior,expected_status,expect_detail",
+    "behavior,expected_status",
     [
-        ("success", 200, None),
-        ("notfound", 404, "nf"),
-        ("error", 500, "Failed to update project due to internal server error."),
+        ("success", 200),
+        ("notfound", 404),
+        ("conflict", 409),
+        ("error", 500),
     ],
 )
-def test_update_project(client, monkeypatch, behavior, expected_status, expect_detail):
-    from rest.endpoints import projects as ep_mod
-
+def test_update_project(client, behavior, expected_status):
     NEW_NAME = "renamed"
 
     class FakeService:
@@ -300,21 +303,28 @@ def test_update_project(client, monkeypatch, behavior, expected_status, expect_d
                 return ProjectSchema(id=PROJECT_ID, name=NEW_NAME, active=False)
             if behavior == "notfound":
                 raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
+            if behavior == "conflict":
+                raise ResourceAlreadyExistsError(
+                    resource_type=ResourceType.PROJECT,
+                    resource_value=NEW_NAME,
+                    field="name",
+                    message="A project with this name already exists.",
+                )
             if behavior == "error":
-                raise RuntimeError("boom")
+                raise RuntimeError("Database error")
             raise AssertionError("Unhandled behavior")
 
-    monkeypatch.setattr(ep_mod, "ProjectService", FakeService)
-    resp = client.put(f"/api/v1/projects/{PROJECT_ID_STR}", json={"name": NEW_NAME})
+    client.app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
+
+    resp = client.put(f"/api/v1/projects/{PROJECT_ID_STR}", json={"name": NEW_NAME, "active": False})
     assert resp.status_code == expected_status
     if behavior == "success":
         assert_project_schema(resp.json(), PROJECT_ID_STR, NEW_NAME, active=False)
-    elif behavior == "error":
-        assert resp.json()["detail"] == expect_detail
-    elif behavior == "notfound":
+    else:
         assert "detail" in resp.json()
 
 
 def test_update_project_validation_error(client):
     resp = client.put(f"/api/v1/projects/{PROJECT_ID_STR}", json={"name": ""})
-    assert resp.status_code == 422
+    assert resp.status_code == 400
+    assert "detail" in resp.json()

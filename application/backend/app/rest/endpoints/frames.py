@@ -2,17 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, Response, status
+from fastapi import HTTPException, Response, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from dependencies import get_frame_service
+from dependencies import FrameServiceDep, FrameServiceWithQueueDep
 from routers import projects_router
-from services.errors import ResourceNotFoundError, ServiceError
-from services.frame import FrameService
 
 logger = logging.getLogger(__name__)
 
@@ -104,36 +101,21 @@ class FrameCaptureResponse(BaseModel):
         },
     },
 )
-def capture_frame(project_id: UUID, frame_service: Annotated[FrameService, Depends(get_frame_service)]) -> Response:
+def capture_frame(project_id: UUID, frame_service: FrameServiceWithQueueDep) -> Response:
     """
     Capture the latest frame from the video stream of the active project.
     Returns the frame ID in the response body and a Location header pointing to the captured frame.
     """
-    logger.debug(f"Received POST capture frame for project {project_id} request.")
+    frame_id = frame_service.capture_frame(project_id)
 
-    try:
-        frame_id = frame_service.capture_frame(project_id)
+    response = FrameCaptureResponse(frame_id=frame_id)
 
-        response = FrameCaptureResponse(frame_id=frame_id)
-
-        return Response(
-            status_code=status.HTTP_201_CREATED,
-            headers={"Location": f"/projects/{project_id}/frames/{frame_id}"},
-            content=response.model_dump_json(),
-            media_type="application/json",
-        )
-    except ResourceNotFoundError as e:
-        logger.warning(f"Resource not found during frame capture: {e}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except ServiceError as e:
-        logger.warning(f"Service error during frame capture: {e}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        logger.exception(f"Unexpected error capturing frame: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred while capturing the frame",
-        )
+    return Response(
+        status_code=status.HTTP_201_CREATED,
+        headers={"Location": f"/projects/{project_id}/frames/{frame_id}"},
+        content=response.model_dump_json(),
+        media_type="application/json",
+    )
 
 
 @projects_router.get(
@@ -167,14 +149,10 @@ def capture_frame(project_id: UUID, frame_service: Annotated[FrameService, Depen
         },
     },
 )
-def get_frame(
-    project_id: UUID, frame_id: UUID, frame_service: Annotated[FrameService, Depends(get_frame_service)]
-) -> Response:
+def get_frame(project_id: UUID, frame_id: UUID, frame_service: FrameServiceDep) -> Response:
     """
     Retrieve a captured frame as JPEG.
     """
-    logger.debug(f"Received GET project {project_id} frame {frame_id} request.")
-
     frame_path = frame_service.get_frame_path(project_id, frame_id)
     if frame_path is None or not frame_path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Frame not found")

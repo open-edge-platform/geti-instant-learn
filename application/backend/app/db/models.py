@@ -8,6 +8,8 @@ from sqlalchemy import CheckConstraint, ForeignKey, Index, Text, UniqueConstrain
 from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+from db.constraints import CheckConstraintName, UniqueConstraintName
+
 
 class Base(DeclarativeBase):
     __abstract__ = True
@@ -23,8 +25,16 @@ class LabelDB(Base):
     prompt: Mapped["PromptDB"] = relationship(back_populates="labels")
     project: Mapped["ProjectDB"] = relationship(back_populates="labels")
     __table_args__ = (
-        CheckConstraint("project_id IS NOT NULL OR prompt_id IS NOT NULL", name="label_parent_check"),
-        Index("label_name_project_unique", "name", "project_id", unique=True),
+        CheckConstraint(
+            "project_id IS NOT NULL OR prompt_id IS NOT NULL",
+            name=CheckConstraintName.LABEL_PARENT,
+        ),
+        Index(
+            UniqueConstraintName.LABEL_NAME_PER_PROJECT,
+            "name",
+            "project_id",
+            unique=True,
+        ),
     )
 
 
@@ -44,11 +54,24 @@ class SourceDB(Base):
     project: Mapped["ProjectDB"] = relationship(back_populates="sources")
     __table_args__ = (
         Index(
-            # ensures at most one source of each type per project
-            "uq_source_type_per_project",
+            UniqueConstraintName.SOURCE_TYPE_PER_PROJECT,
             "project_id",
             text("json_extract(config, '$.source_type')"),
             unique=True,
+        ),
+        Index(
+            UniqueConstraintName.SOURCE_NAME_PER_PROJECT,
+            "project_id",
+            text("json_extract(config, '$.name')"),
+            unique=True,
+            sqlite_where=text("json_extract(config, '$.name') IS NOT NULL"),
+        ),
+        Index(
+            UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT,
+            "project_id",
+            "connected",
+            unique=True,
+            sqlite_where=text("connected IS 1"),
         ),
     )
 
@@ -81,6 +104,13 @@ class PromptDB(Base):
     labels: Mapped[list[LabelDB]] = relationship(
         back_populates="prompt", cascade="all, delete-orphan", passive_deletes=True
     )
+    __table_args__ = (
+        UniqueConstraint(
+            "name",
+            "project_id",
+            name=UniqueConstraintName.PROMPT_NAME_PER_PROJECT,
+        ),
+    )
 
 
 class ProcessorDB(Base):
@@ -89,6 +119,15 @@ class ProcessorDB(Base):
     config: Mapped[dict] = mapped_column(JSON, nullable=False)
     project_id: Mapped[UUID] = mapped_column(ForeignKey("Project.id", ondelete="CASCADE"))
     project: Mapped["ProjectDB"] = relationship(back_populates="processors", single_parent=True)
+    __table_args__ = (
+        Index(
+            UniqueConstraintName.PROCESSOR_NAME_PER_PROJECT,
+            "project_id",
+            "name",
+            unique=True,
+            sqlite_where=text("name IS NOT NULL"),
+        ),
+    )
 
 
 class ProjectDB(Base):
@@ -100,7 +139,6 @@ class ProjectDB(Base):
     )
     processors: Mapped[list[ProcessorDB]] = relationship(back_populates="project")
     sinks: Mapped[list[SinkDB]] = relationship(back_populates="project")
-
     prompts: Mapped[list[PromptDB]] = relationship(
         back_populates="project", cascade="all, delete-orphan", passive_deletes=True
     )
@@ -108,11 +146,11 @@ class ProjectDB(Base):
         back_populates="project", cascade="all, delete-orphan", passive_deletes=True
     )
     __table_args__ = (
-        # ensures at most one row where active is true
+        UniqueConstraint("name", name=UniqueConstraintName.PROJECT_NAME),
         Index(
-            "single_active_project",
+            UniqueConstraintName.SINGLE_ACTIVE_PROJECT,
             "active",
             unique=True,
-            sqlite_where=active.is_(True),
+            sqlite_where=text("active IS 1"),
         ),
     )

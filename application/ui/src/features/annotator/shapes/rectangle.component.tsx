@@ -5,15 +5,14 @@
 
 import { SVGProps } from 'react';
 
-import type { Rect as RectInterface } from '../types';
-
 interface RectangleProps {
-    rect: RectInterface;
     styles: SVGProps<SVGRectElement>;
     ariaLabel: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
 }
-export const Rectangle = ({ rect, styles, ariaLabel }: RectangleProps) => {
-    const { x, y, width, height } = rect;
-
+export const Rectangle = ({ x, y, width, height, ariaLabel, styles }: RectangleProps) => {
     return <rect x={x} y={y} width={width} height={height} {...styles} aria-label={ariaLabel} />;
 };

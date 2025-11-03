@@ -9,12 +9,12 @@ import { Loading, View } from '@geti/ui';
 
 import { ZoomProvider } from '../../../../components/zoom/zoom.provider';
 import { AnnotatorCanvas } from '../../../annotator/annotator-canvas';
-import { AnnotatorCanvasSettings } from '../../../annotator/canvas-settings/annotator-canvas-settings.component';
-import { CanvasSettingsProvider } from '../../../annotator/canvas-settings/canvas-settings-provider.component';
 import { AnnotationActionsProvider } from '../../../annotator/providers/annotation-actions-provider.component';
 import { AnnotationVisibilityProvider } from '../../../annotator/providers/annotation-visibility-provider.component';
 import { AnnotatorProvider } from '../../../annotator/providers/annotator-provider.component';
 import { SelectAnnotationProvider } from '../../../annotator/providers/select-annotation-provider.component';
+import { AnnotatorCanvasSettings } from '../../../annotator/settings/annotator-canvas-settings.component';
+import { CanvasSettingsProvider } from '../../../annotator/settings/canvas-settings-provider.component';
 import { CapturedFrameActions } from './captured-frame-actions.component';
 import { FullScreenModeProvider } from './full-screen-mode.component';
 import { Labels } from './labels-management/labels.component';
