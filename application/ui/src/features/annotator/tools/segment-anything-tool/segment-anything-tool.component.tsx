@@ -32,8 +32,6 @@ import classes from './segment-anything.module.scss';
 const THROTTLE_TIME = 150;
 
 const SELECT_ANNOTATION_STYLES = {
-    fillOpacity: 0.3,
-    fill: 'var(--energy-blue-shade)',
     stroke: 'var(--energy-blue-shade)',
     strokeWidth: 'calc(2px / var(--zoom-scale))',
 };
@@ -157,12 +155,14 @@ export const SegmentAnythingTool = () => {
                         {...SELECT_ANNOTATION_STYLES}
                         strokeWidth={'calc(3px / var(--zoom-scale))'}
                         fillOpacity={0.0}
-                        className={classes.stroke}
+                        className={classes.animateStroke}
                     >
                         <AnnotationShape
                             annotation={{
                                 shape,
-                                labels: [selectedLabel],
+                                // During preview mode (while hovering), display the annotation without label color
+                                // to provide an unobscured view of the underlying image before finalizing placement.
+                                labels: [],
                                 id: `${idx}`,
                             }}
                         />
