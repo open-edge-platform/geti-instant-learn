@@ -1,4 +1,4 @@
-.referencedImage {
+.promptThumbnail {
     position: relative;
 
     &:hover .actionMenu {
@@ -16,4 +16,9 @@
     visibility: hidden;
     opacity: 0;
     transition: opacity 0.2s ease-in-out;
+
+    &:has([aria-expanded='true']) {
+        visibility: visible;
+        opacity: 1;
+    }
 }

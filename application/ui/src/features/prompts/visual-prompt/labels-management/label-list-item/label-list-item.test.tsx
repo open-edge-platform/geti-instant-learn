@@ -8,7 +8,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
-import { http, server } from '../../../../../../setup-test';
+import { http, server } from '../../../../../setup-test';
 import { LabelListItem } from './label-list-item.component';
 
 describe('LabelListItem', () => {
