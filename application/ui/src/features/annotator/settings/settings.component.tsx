@@ -33,7 +33,7 @@ interface SettingsProps {
     ref: RefObject<DOMRefValue<HTMLDivElement> | null>;
 }
 
-const tabs = [{ label: 'Settings' }, { label: 'Hotkeys' }];
+const tabs = [{ label: 'Canvas settings' }, { label: 'Hotkeys' }];
 
 const SettingsTabs = () => {
     return (
@@ -42,7 +42,7 @@ const SettingsTabs = () => {
                 {(tab: { label: string }) => <Item key={tab.label}>{tab.label}</Item>}
             </TabList>
             <TabPanels>
-                <Item key={'Settings'}>
+                <Item key={'Canvas settings'}>
                     <CanvasSettings />
                 </Item>
                 <Item key={'Hotkeys'}>
