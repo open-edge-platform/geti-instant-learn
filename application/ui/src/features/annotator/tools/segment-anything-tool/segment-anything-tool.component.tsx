@@ -109,7 +109,9 @@ export const SegmentAnythingTool = () => {
     const previewAnnotations = previewShapes.map((shape, idx): Annotation => {
         return {
             shape,
-            labels: [selectedLabel],
+            // During preview mode (while hovering), display the annotation without label color
+            // to provide an unobscured view of the underlying image before finalizing placement.
+            labels: [],
             id: `${idx}`,
         };
     });
@@ -134,18 +136,18 @@ export const SegmentAnythingTool = () => {
                 cursor: `url("/icons/selection.svg") 8 8, auto`,
             }}
         >
-            <MaskAnnotations isEnabled annotations={previewAnnotations} width={image.width} height={image.height}>
-                <></>
-            </MaskAnnotations>
+            {previewAnnotations.length > 0 && (
+                <MaskAnnotations isEnabled annotations={previewAnnotations} width={image.width} height={image.height} />
+            )}
 
             {annotations.map((annotation) => (
                 <AnnotationShape annotation={annotation} key={annotation.id} />
             ))}
 
-            {previewShapes.length > 0 &&
-                previewShapes.map((shape, idx) => (
+            {previewAnnotations.length > 0 &&
+                previewAnnotations.map((annotation) => (
                     <g
-                        key={idx}
+                        key={annotation.id}
                         aria-label='Segment anything preview'
                         style={
                             {
@@ -154,18 +156,11 @@ export const SegmentAnythingTool = () => {
                         }
                         {...SELECT_ANNOTATION_STYLES}
                         strokeWidth={'calc(3px / var(--zoom-scale))'}
+                        fill={'transparent'}
                         fillOpacity={0.0}
                         className={classes.animateStroke}
                     >
-                        <AnnotationShape
-                            annotation={{
-                                shape,
-                                // During preview mode (while hovering), display the annotation without label color
-                                // to provide an unobscured view of the underlying image before finalizing placement.
-                                labels: [],
-                                id: `${idx}`,
-                            }}
-                        />
+                        <AnnotationShape annotation={annotation} />
                     </g>
                 ))}
         </SvgToolCanvas>
