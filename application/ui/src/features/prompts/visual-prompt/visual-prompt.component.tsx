@@ -5,7 +5,7 @@
 
 import { ReactNode, Suspense } from 'react';
 
-import { Button, Flex, Grid, Loading, minmax, View } from '@geti/ui';
+import { Button, Flex, Grid, Loading, minmax } from '@geti/ui';
 import { AnnotationActionsProvider } from 'src/features/annotator/providers/annotation-actions-provider.component';
 import { AnnotationVisibilityProvider } from 'src/features/annotator/providers/annotation-visibility-provider.component';
 import { AnnotatorProvider } from 'src/features/annotator/providers/annotator-provider.component';
