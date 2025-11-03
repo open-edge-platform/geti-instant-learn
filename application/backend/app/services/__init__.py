@@ -4,11 +4,13 @@
 from .frame import FrameService
 from .label import LabelService
 from .project import ProjectService
+from .prompt import PromptService
 from .source import SourceService
 
 __all__ = [
     "FrameService",
     "LabelService",
     "ProjectService",
+    "PromptService",
     "SourceService",
 ]

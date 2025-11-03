@@ -4,7 +4,8 @@
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Text, UniqueConstraint, text
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Text, UniqueConstraint
+from sqlalchemy import text
 from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -95,8 +96,8 @@ class PromptDB(Base):
     type: Mapped[PromptType] = mapped_column(nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     project_id: Mapped[UUID] = mapped_column(ForeignKey("Project.id", ondelete="CASCADE"), nullable=False)
-    text: Mapped[str | None] = mapped_column(nullable=True)
-    image_path: Mapped[str | None] = mapped_column(nullable=True)
+    text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    frame_id: Mapped[UUID | None] = mapped_column(nullable=True)
     project: Mapped["ProjectDB"] = relationship(back_populates="prompts")
     annotations: Mapped[list[AnnotationDB]] = relationship(
         back_populates="prompt", cascade="all, delete-orphan", passive_deletes=True
@@ -109,6 +110,20 @@ class PromptDB(Base):
             "name",
             "project_id",
             name=UniqueConstraintName.PROMPT_NAME_PER_PROJECT,
+        ),
+        # ensure only one text prompt per project
+        Index(
+            UniqueConstraintName.SINGLE_TEXT_PROMPT_PER_PROJECT,
+            "project_id",
+            "type",
+            unique=True,
+            sqlite_where=text("type = 'TEXT'"),
+        ),
+        # ensure text prompts have text, visual prompts have frame_id
+        CheckConstraint(
+            "(type = 'TEXT' AND text IS NOT NULL AND frame_id IS NULL) OR "
+            "(type = 'VISUAL' AND frame_id IS NOT NULL AND text IS NULL)",
+            name=CheckConstraintName.PROMPT_CONTENT,
         ),
     )
 
@@ -137,8 +152,12 @@ class ProjectDB(Base):
     sources: Mapped[list[SourceDB]] = relationship(
         back_populates="project", cascade="all, delete-orphan", passive_deletes=True
     )
-    processors: Mapped[list[ProcessorDB]] = relationship(back_populates="project")
-    sinks: Mapped[list[SinkDB]] = relationship(back_populates="project")
+    processors: Mapped[list[ProcessorDB]] = relationship(
+        back_populates="project", cascade="all, delete-orphan", passive_deletes=True
+    )
+    sinks: Mapped[list[SinkDB]] = relationship(
+        back_populates="project", cascade="all, delete-orphan", passive_deletes=True
+    )
     prompts: Mapped[list[PromptDB]] = relationship(
         back_populates="project", cascade="all, delete-orphan", passive_deletes=True
     )
