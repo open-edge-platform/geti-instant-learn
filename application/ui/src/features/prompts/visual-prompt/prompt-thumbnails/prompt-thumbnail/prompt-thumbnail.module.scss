@@ -16,9 +16,14 @@
     visibility: hidden;
     opacity: 0;
     transition: opacity 0.2s ease-in-out;
+    border-radius: var(--spectrum-global-dimension-size-50);
 
     &:has([aria-expanded='true']) {
         visibility: visible;
         opacity: 1;
+    }
+
+    svg {
+        transform: rotate(90deg);
     }
 }
