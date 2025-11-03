@@ -157,7 +157,6 @@ export const SegmentAnythingTool = () => {
                         {...SELECT_ANNOTATION_STYLES}
                         strokeWidth={'calc(3px / var(--zoom-scale))'}
                         fill={'transparent'}
-                        fillOpacity={0.0}
                         className={classes.animateStroke}
                     >
                         <AnnotationShape annotation={annotation} />
