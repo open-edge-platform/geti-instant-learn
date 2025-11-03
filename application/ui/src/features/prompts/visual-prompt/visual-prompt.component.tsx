@@ -5,7 +5,7 @@
 
 import { ReactNode, Suspense } from 'react';
 
-import { Button, Flex, Loading, View } from '@geti/ui';
+import { Button, Flex, Grid, Loading, minmax, View } from '@geti/ui';
 import { AnnotationActionsProvider } from 'src/features/annotator/providers/annotation-actions-provider.component';
 import { AnnotationVisibilityProvider } from 'src/features/annotator/providers/annotation-visibility-provider.component';
 import { AnnotatorProvider } from 'src/features/annotator/providers/annotator-provider.component';
@@ -30,9 +30,9 @@ const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorPro
     return (
         <Suspense
             fallback={
-                <View gridRow={'1/-1'} alignSelf={'center'}>
+                <Flex height={'100%'} gridRow={'1/-1'} alignItems={'center'} justifyContent={'center'}>
                     <Loading mode={'inline'} />
-                </View>
+                </Flex>
             }
         >
             {/* key={frameId} is added here to make sure that the whole tree unmounts/mounts
@@ -60,10 +60,21 @@ export const VisualPrompt = () => {
     };
 
     return (
-        <Flex height={'100%'} direction={'column'} gap={'size-300'}>
-            <CapturedFrameProviders frameId={selectedFrameId}>
-                <CapturedFrame frameId={selectedFrameId as string} />
-            </CapturedFrameProviders>
+        <Flex direction={'column'} gap={'size-300'} height={'100%'}>
+            <Grid
+                width={'100%'}
+                height={'100%'}
+                maxHeight={'size-6000'}
+                areas={['labels', 'image', 'actions']}
+                rows={[minmax('size-500', 'auto'), 'auto', 'size-500']}
+                UNSAFE_style={{
+                    backgroundColor: 'var(--spectrum-global-color-gray-200)',
+                }}
+            >
+                <CapturedFrameProviders frameId={selectedFrameId}>
+                    <CapturedFrame frameId={selectedFrameId as string} />
+                </CapturedFrameProviders>
+            </Grid>
             <Button alignSelf={'end'} variant={'secondary'} isDisabled={selectedFrameId === null} onPress={savePrompt}>
                 Save prompt
             </Button>

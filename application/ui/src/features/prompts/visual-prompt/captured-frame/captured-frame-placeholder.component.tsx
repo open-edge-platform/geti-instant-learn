@@ -4,19 +4,25 @@
  */
 
 import { Image } from '@geti-prompt/icons';
-import { Content, Flex, View } from '@geti/ui';
+import { Content, Flex } from '@geti/ui';
 
 import styles from './captured-frame-placeholder.module.scss';
 
 export const CapturedFramePlaceholder = () => {
     return (
-        <View backgroundColor={'gray-300'} height={'size-6000'}>
-            <Flex height={'100%'} width={'100%'} justifyContent={'center'} alignItems={'center'}>
-                <Flex direction={'column'} gap={'size-100'} alignItems={'center'}>
-                    <Image />
-                    <Content UNSAFE_className={styles.noFramePlaceholder}>Capture frames for visual prompt</Content>
-                </Flex>
+        <Flex
+            height={'size-6000'}
+            width={'100%'}
+            justifyContent={'center'}
+            alignItems={'center'}
+            UNSAFE_style={{
+                backgroundColor: 'var(--spectrum-global-color-gray-300)',
+            }}
+        >
+            <Flex direction={'column'} gap={'size-100'} alignItems={'center'}>
+                <Image />
+                <Content UNSAFE_className={styles.noFramePlaceholder}>Capture frames for visual prompt</Content>
             </Flex>
-        </View>
+        </Flex>
     );
 };
