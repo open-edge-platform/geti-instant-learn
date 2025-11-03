@@ -62,12 +62,5 @@ export default defineConfig({
                 "img-src 'self' http://localhost:9100 data: blob:; " +
                 "style-src 'self' 'unsafe-inline';",
         },
-        proxy: {
-            '/api': {
-                target: 'http://localhost:9100',
-                changeOrigin: true,
-                ws: true,
-            },
-        },
     },
 });
