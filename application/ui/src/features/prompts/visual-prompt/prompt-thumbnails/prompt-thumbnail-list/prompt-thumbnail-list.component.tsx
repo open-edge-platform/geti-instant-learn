@@ -6,7 +6,7 @@
 import { Grid, minmax, repeat } from '@geti/ui';
 
 import TestImage from '../../../../../assets/test.webp';
-import { PromptThumbnail } from '../prompt-thumbnail/prompt-thumbnail';
+import { PromptThumbnail } from '../prompt-thumbnail/prompt-thumbnail.component';
 
 const PROMPT_THUMBNAILS = [
     { url: TestImage, frameId: 'frame-1' },
