@@ -76,5 +76,7 @@ ENV ASSET_PREFIX=${ASSET_PREFIX}
 VOLUME ${DB_DATA_DIR}
 
 COPY --from=web_ui /home/app/web_ui/dist/ ${STATIC_FILES_DIR}
+# temporary file for testing
+COPY --from=web_ui /home/app/web_ui/src/assets/test.webp ${STATIC_FILES_DIR}/assets/test.webp
 
 CMD ["uv", "run", "app/main.py"]

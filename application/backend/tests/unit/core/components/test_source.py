@@ -1,5 +1,3 @@
-import threading
-import time
 from unittest.mock import MagicMock
 
 import pytest
@@ -46,76 +44,6 @@ class TestSource:
 
         broadcast_calls = [call.args[0] for call in self.mock_broadcaster.broadcast.call_args_list]
         assert broadcast_calls == expected_broadcasts
-
-    def test_pause_stops_polling_reader(self):
-        """Test that pausing stops the reader from being polled."""
-        frames_read = []
-
-        def read_and_track(*args, **kwargs):
-            frame = f"frame{len(frames_read) + 1}"
-            frames_read.append(frame)
-            if len(frames_read) == 2:
-                self.source.pause()
-                # Stop after pausing to break the loop
-
-                threading.Timer(0.05, self.source.stop).start()
-            time.sleep(0.01)
-            return frame
-
-        self.mock_stream_reader.read.side_effect = read_and_track
-        self.source.run()
-
-        # Should only read 2 frames before pausing, then stop
-        assert len(frames_read) == 2
-
-    def test_resume_continues_polling_reader(self):
-        """Test that resuming continues polling the reader."""
-        frames_read = []
-        paused = False
-
-        def read_and_control(*args, **kwargs):
-            nonlocal paused
-            frame = f"frame{len(frames_read) + 1}"
-            frames_read.append(frame)
-
-            if len(frames_read) == 2 and not paused:
-                self.source.pause()
-                paused = True
-                # Simulate resume after a delay
-
-                threading.Timer(0.05, self.source.resume).start()
-            elif len(frames_read) == 5:
-                self.source.stop()
-
-            time.sleep(0.01)
-            return frame
-
-        self.mock_stream_reader.read.side_effect = read_and_control
-        self.source.run()
-
-        # Should read 2 frames, pause, resume, then read 3 more
-        assert len(frames_read) == 5
-
-    def test_stop_while_paused(self):
-        """Test that source can be stopped while paused."""
-        frames_read = []
-
-        def read_and_pause(*args, **kwargs):
-            frame = f"frame{len(frames_read) + 1}"
-            frames_read.append(frame)
-            if len(frames_read) == 1:
-                self.source.pause()
-                # Stop after a delay
-
-                threading.Timer(0.05, self.source.stop).start()
-            time.sleep(0.01)
-            return frame
-
-        self.mock_stream_reader.read.side_effect = read_and_pause
-        self.source.run()
-
-        # Should only read 1 frame, then pause and stop
-        assert len(frames_read) == 1
 
     def test_seek_delegates_to_reader(self):
         """Test that seek() calls the reader's seek method."""

@@ -1,7 +1,5 @@
-#  Copyright (C) 2025 Intel Corporation
-#  SPDX-License-Identifier: Apache-2.0
-
 import logging
+import threading
 import time
 
 from core.components.base import PipelineComponent, StreamReader
@@ -23,15 +21,17 @@ class Source(PipelineComponent):
         super().__init__()
         self._reader = stream_reader
         self._inbound_broadcaster = inbound_broadcaster
+        self._pause_condition = threading.Condition()
 
     def run(self) -> None:
         logger.debug("Starting a source loop")
         with self._reader:
             self._reader.connect()
             while not self._stop_event.is_set():
-                # Wait while paused (wait for resume)
-                while self._pause_event.is_set() and not self._stop_event.is_set():
-                    time.sleep(0.01)
+                # Wait while paused using condition variable
+                with self._pause_condition:
+                    while self._pause_event.is_set() and not self._stop_event.is_set():
+                        self._pause_condition.wait()
 
                 if self._stop_event.is_set():
                     break
@@ -70,18 +70,13 @@ class Source(PipelineComponent):
         """
         return self._reader.list_frames(page, page_size)
 
-    def pause(self) -> None:
+    def stop(self) -> None:
         """
-        Pause source flow.
-        Stops automatic frame advancement. Reader stops being polled.
+        Stop source flow.
+        Sets stop event and notifies pause condition to wake up waiting threads.
         """
-        self._pause_event.set()
-        logger.debug("Source paused")
-
-    def resume(self) -> None:
-        """
-        Resume source flow.
-        Resumes automatic frame advancement. Reader continues auto-advance.
-        """
-        self._pause_event.clear()
-        logger.debug("Source resumed")
+        self._stop_event.set()
+        # Wake up thread if it's waiting on pause condition
+        with self._pause_condition:
+            self._pause_condition.notify()
+        logger.debug("Source stopped")
