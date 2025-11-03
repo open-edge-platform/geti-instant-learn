@@ -15,6 +15,11 @@ export const AnnotationShape = ({ annotation }: AnnotationShapeProps) => {
     const { shape, labels } = annotation;
     const color = labels.length ? labels[0].color : 'var(--annotation-fill)';
 
+    const styles = {
+        fill: color,
+        fillOpacity: 'var(--annotation-fill-opacity)',
+    };
+
     if (shape.type === 'rectangle') {
         return (
             <Rectangle
@@ -23,23 +28,13 @@ export const AnnotationShape = ({ annotation }: AnnotationShapeProps) => {
                 y={shape.y}
                 width={shape.width}
                 height={shape.height}
-                styles={{
-                    fill: color,
-                }}
+                styles={styles}
             />
         );
     }
 
     if (shape.type === 'polygon') {
-        return (
-            <Polygon
-                ariaLabel={'annotation polygon'}
-                points={shape.points}
-                styles={{
-                    fill: color,
-                }}
-            />
-        );
+        return <Polygon ariaLabel={'annotation polygon'} points={shape.points} styles={styles} />;
     }
 
     return null;
