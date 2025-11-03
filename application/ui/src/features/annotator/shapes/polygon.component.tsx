@@ -15,12 +15,8 @@ interface PolygonProps {
     ariaLabel: string;
 }
 
-export const Polygon = ({ polygon, styles, ariaLabel }: PolygonProps) => {
+export const Polygon = ({ polygon, ariaLabel, styles }: PolygonProps) => {
     const points = useMemo((): string => getFormattedPoints(polygon.points), [polygon]);
 
-    return (
-        <g>
-            <polygon points={points} {...styles} aria-label={ariaLabel} />
-        </g>
-    );
+    return <polygon points={points} aria-label={ariaLabel} {...styles} />;
 };

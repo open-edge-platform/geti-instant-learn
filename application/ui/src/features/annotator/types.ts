@@ -30,25 +30,9 @@ export type Polygon = {
 
 export type Shape = Rect | Polygon;
 
-// Circle is only used for visual purposes on segment-anything tool
-export type Circle = {
-    readonly type: 'circle';
-    readonly x: number;
-    readonly y: number;
-    readonly r: number;
-};
-
 export type ClipperPoint = {
     X: number;
     Y: number;
-};
-
-// TODO: update this once we have the final type
-export type MediaItem = {
-    id: string;
-    width: number;
-    height: number;
-    url?: string;
 };
 
 export type Label = {

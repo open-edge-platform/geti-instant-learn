@@ -28,9 +28,9 @@ type AnnotatorContext = {
     setSelectedLabelId: Dispatch<SetStateAction<string>>;
 };
 
-export const AnnotatorProviderContext = createContext<AnnotatorContext | null>(null);
+const AnnotatorProviderContext = createContext<AnnotatorContext | null>(null);
 
-export const PLACEHOLDER_LABEL: LabelType = { id: 'placeholder', name: 'No label', color: 'var(--annotation-fill)' };
+const PLACEHOLDER_LABEL: LabelType = { id: 'placeholder', name: 'No label', color: 'var(--annotation-fill)' };
 
 export const AnnotatorProvider = ({ frameId, children }: { frameId: string; children: ReactNode }) => {
     const labels = useProjectLabels();

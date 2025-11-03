@@ -7,7 +7,7 @@ import { LabelType } from '@geti-prompt/api';
 
 export const MAX_LABEL_NAME_LENGTH = 100;
 
-export const isUniqueLabelName = (name: string, existingLabels: LabelType[], excludeId?: string): boolean => {
+const isUniqueLabelName = (name: string, existingLabels: LabelType[], excludeId?: string): boolean => {
     return !existingLabels.some((label) => label.name === name && label.id !== excludeId);
 };
 

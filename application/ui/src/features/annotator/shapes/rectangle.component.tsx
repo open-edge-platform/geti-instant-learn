@@ -12,7 +12,7 @@ interface RectangleProps {
     styles: SVGProps<SVGRectElement>;
     ariaLabel: string;
 }
-export const Rectangle = ({ rect, styles, ariaLabel }: RectangleProps) => {
+export const Rectangle = ({ rect, ariaLabel, styles }: RectangleProps) => {
     const { x, y, width, height } = rect;
 
     return <rect x={x} y={y} width={width} height={height} {...styles} aria-label={ariaLabel} />;

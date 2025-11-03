@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { Annotation, Polygon } from '../types';
-import { getFormattedPoints } from './utils';
+import { Polygon } from '../shapes/polygon.component';
+import { Rectangle } from '../shapes/rectangle.component';
+import type { Annotation } from '../types';
 
 type AnnotationShapeProps = {
     annotation: Annotation;
@@ -16,23 +17,30 @@ export const AnnotationShape = ({ annotation }: AnnotationShapeProps) => {
 
     if (shape.type === 'rectangle') {
         return (
-            <rect
-                aria-label='annotation rect'
-                x={shape.x}
-                y={shape.y}
-                width={shape.width}
-                height={shape.height}
-                fill={color}
+            <Rectangle
+                ariaLabel={'annotation rect'}
+                rect={{
+                    type: 'rectangle',
+                    x: shape.x,
+                    y: shape.y,
+                    width: shape.width,
+                    height: shape.height,
+                }}
+                styles={{
+                    fill: color,
+                }}
             />
         );
     }
 
     if (shape.type === 'polygon') {
         return (
-            <polygon
-                aria-label='annotation polygon'
-                points={getFormattedPoints((shape as Polygon).points)}
-                fill={color}
+            <Polygon
+                ariaLabel={'annotation polygon'}
+                polygon={{ type: 'polygon', points: shape.points }}
+                styles={{
+                    fill: color,
+                }}
             />
         );
     }
