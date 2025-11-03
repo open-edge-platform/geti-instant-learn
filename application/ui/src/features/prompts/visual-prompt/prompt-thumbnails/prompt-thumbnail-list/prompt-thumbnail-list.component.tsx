@@ -8,10 +8,17 @@ import { Grid, minmax, repeat } from '@geti/ui';
 import TestImage from '../../../../../assets/test.webp';
 import { PromptThumbnail } from '../prompt-thumbnail/prompt-thumbnail';
 
-const PROMPT_THUMBNAILS = [TestImage, TestImage, TestImage, TestImage, TestImage, TestImage];
+const PROMPT_THUMBNAILS = [
+    { url: TestImage, frameId: 'frame-1' },
+    { url: TestImage, frameId: 'frame-2' },
+    { url: TestImage, frameId: 'frame-3' },
+    { url: TestImage, frameId: 'frame-4' },
+    { url: TestImage, frameId: 'frame-5' },
+    { url: TestImage, frameId: 'frame-6' },
+];
 
 const usePrompts = () => {
-    // TODO: API call to `/api/v1/projects/{project_id}/prompts`
+    // TODO: GET `/api/v1/projects/{project_id}/prompts`
     // once the backend is implemented.
     return PROMPT_THUMBNAILS;
 };

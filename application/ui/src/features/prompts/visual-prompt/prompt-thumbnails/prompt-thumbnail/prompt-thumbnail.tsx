@@ -4,22 +4,32 @@
  */
 
 import { ActionMenu, Item, Key, View } from '@geti/ui';
+import { useSelectedFrame } from 'src/features/stream/selected-frame-provider.component';
 
 import styles from './prompt-thumbnail.module.scss';
 
 const PROMPT_OPTIONS = ['Edit', 'Delete'] as const;
 
 interface PromptThumbnailProps {
-    image: string;
+    image: { url: string; frameId: string };
 }
 export const PromptThumbnail = ({ image }: PromptThumbnailProps) => {
+    const { setSelectedFrameId } = useSelectedFrame();
+
     const onAction = (option: Key) => {
-        console.info(`Selected option: ${option}`);
+        switch (option) {
+            case 'Edit':
+                setSelectedFrameId(image.frameId);
+                break;
+            case 'Delete':
+                // TODO: DELETE /api/v1/projects/{project_id}/prompts/{prompt_id}
+                break;
+        }
     };
 
     return (
         <View UNSAFE_className={styles.promptThumbnail}>
-            <img src={image} alt={image.toString()} className={styles.image} />
+            <img src={image.url} alt={image.toString()} className={styles.image} />
 
             <View
                 position={'absolute'}

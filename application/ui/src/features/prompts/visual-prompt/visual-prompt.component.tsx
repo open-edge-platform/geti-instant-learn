@@ -55,12 +55,16 @@ const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorPro
 export const VisualPrompt = () => {
     const { selectedFrameId } = useSelectedFrame();
 
+    const savePrompt = () => {
+        // TODO: PUT /api/v1/projects/{project_id}/prompts/{prompt_id}
+    };
+
     return (
         <Flex height={'100%'} direction={'column'} gap={'size-300'}>
             <CapturedFrameProviders frameId={selectedFrameId}>
                 <CapturedFrame frameId={selectedFrameId as string} />
             </CapturedFrameProviders>
-            <Button alignSelf={'end'} variant={'secondary'} isDisabled={selectedFrameId === null}>
+            <Button alignSelf={'end'} variant={'secondary'} isDisabled={selectedFrameId === null} onPress={savePrompt}>
                 Save prompt
             </Button>
             <PromptThumbnailList />
