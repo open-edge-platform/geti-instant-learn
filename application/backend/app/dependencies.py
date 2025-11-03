@@ -23,7 +23,7 @@ settings = get_settings()
 
 
 # --- Core singletons ---
-def get_pipeline_manager(request: Request) -> "PipelineManager":
+def get_pipeline_manager(request: Request) -> PipelineManager:
     """Dependency that provides access to the PipelineManager."""
     return request.app.state.pipeline_manager
 
@@ -88,7 +88,7 @@ def get_frame_service(
 
 
 def get_frame_service_with_queue(
-    pipeline_manager: Annotated["PipelineManager", Depends(get_pipeline_manager)],
+    pipeline_manager: Annotated[PipelineManager, Depends(get_pipeline_manager)],
     frame_repo: Annotated[FrameRepository, Depends(get_frame_repository)],
     project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
     source_repo: Annotated[SourceRepository, Depends(get_source_repository)],
