@@ -5,18 +5,18 @@
 
 import { SVGProps, useMemo } from 'react';
 
-import type { Point, Polygon as PolygonInterface } from '../types';
+import type { Point } from '../types';
 
 const getFormattedPoints = (points: Point[]): string => points.map(({ x, y }) => `${x},${y}`).join(' ');
 
 interface PolygonProps {
-    polygon: PolygonInterface;
     styles: SVGProps<SVGPolygonElement>;
     ariaLabel: string;
+    points: Point[];
 }
 
-export const Polygon = ({ polygon, ariaLabel, styles }: PolygonProps) => {
-    const points = useMemo((): string => getFormattedPoints(polygon.points), [polygon]);
+export const Polygon = ({ points, ariaLabel, styles }: PolygonProps) => {
+    const formattedPoints = useMemo((): string => getFormattedPoints(points), [points]);
 
-    return <polygon points={points} aria-label={ariaLabel} {...styles} />;
+    return <polygon points={formattedPoints} aria-label={ariaLabel} {...styles} />;
 };

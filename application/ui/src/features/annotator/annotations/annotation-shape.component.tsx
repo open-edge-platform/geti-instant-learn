@@ -19,13 +19,10 @@ export const AnnotationShape = ({ annotation }: AnnotationShapeProps) => {
         return (
             <Rectangle
                 ariaLabel={'annotation rect'}
-                rect={{
-                    type: 'rectangle',
-                    x: shape.x,
-                    y: shape.y,
-                    width: shape.width,
-                    height: shape.height,
-                }}
+                x={shape.x}
+                y={shape.y}
+                width={shape.width}
+                height={shape.height}
                 styles={{
                     fill: color,
                 }}
@@ -37,7 +34,7 @@ export const AnnotationShape = ({ annotation }: AnnotationShapeProps) => {
         return (
             <Polygon
                 ariaLabel={'annotation polygon'}
-                polygon={{ type: 'polygon', points: shape.points }}
+                points={shape.points}
                 styles={{
                     fill: color,
                 }}
