@@ -50,16 +50,32 @@ class ResourceAlreadyExistsError(ResourceError):
     """Exception raised when a resource with the same name or id already exists."""
 
     def __init__(
-        self, resource_type: ResourceType, resource_value: str, raised_by: str = "name", message: str | None = None
+        self,
+        resource_type: ResourceType,
+        resource_value: str | None = None,
+        field: str = "name",
+        message: str | None = None,
     ):
+        """
+        Initialize ResourceAlreadyExistsError.
+
+        Args:
+            resource_type: Type of resource (e.g., PROJECT, SOURCE)
+            resource_value: The actual value that caused the conflict (e.g., "My Project")
+            field: The field that caused the conflict (e.g., "name", "active")
+            message: Custom error message. If not provided, generates a default message.
+        """
         if not message:
-            if raised_by == "id":
-                msg = f"{resource_type.value} with id '{resource_value}' already exists."
+            if field == "id":
+                msg = f"{resource_type.value} with ID '{resource_value}' already exists."
+            elif resource_value:
+                msg = f"{resource_type.value} with {field} '{resource_value}' already exists in this context."
             else:
-                msg = f"{resource_type.value} with name '{resource_value}' already exists."
+                msg = f"{resource_type.value} constraint violation: {field} must be unique."
         else:
             msg = message
         super().__init__(resource_type, resource_value, msg)
+        self.field = field
 
 
 class ResourceUpdateConflictError(ResourceError):

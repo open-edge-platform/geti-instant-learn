@@ -74,7 +74,9 @@ def test_create_label_duplicate_name(label_service, mock_label_repository, mock_
     with pytest.raises(ResourceAlreadyExistsError) as exc_info:
         label_service.create_label(PROJECT_ID, label_data)
 
-    assert "label with this name already exists" in str(exc_info.value).lower()
+    assert exc_info.value.resource_type == ResourceType.LABEL
+    assert exc_info.value.field == "name"
+    assert "label with the name 'duplicate label' already exists" in str(exc_info.value).lower()
     label_service.session.rollback.assert_called_once()
 
 
@@ -246,5 +248,7 @@ def test_update_label_duplicate_name(label_service, mock_label_repository, mock_
     with pytest.raises(ResourceAlreadyExistsError) as exc_info:
         label_service.update_label(PROJECT_ID, LABEL_ID, update_data)
 
-    assert "label with this name already exists" in str(exc_info.value).lower()
+    assert exc_info.value.resource_type == ResourceType.LABEL
+    assert exc_info.value.field == "name"
+    assert "label with the name 'duplicate name' already exists" in str(exc_info.value).lower()
     label_service.session.rollback.assert_called_once()

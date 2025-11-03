@@ -82,14 +82,16 @@ def test_create_project_duplicate_name_raises_integrity_error(service, repo_mock
     data = ProjectCreateSchema(name="dup")
     repo_mock.get_active.return_value = None
 
-    session_mock.flush.side_effect = IntegrityError(
-        "UNIQUE constraint failed: Project.name", params=None, orig=Exception("UNIQUE constraint failed: Project.name")
-    )
+    mock_error = IntegrityError("statement", "params", "orig")
+    mock_error.orig = Exception("UNIQUE constraint failed: uq_project_name")
+    session_mock.flush.side_effect = mock_error
 
     with pytest.raises(ResourceAlreadyExistsError) as exc_info:
         service.create_project(data)
 
-    assert "project with this name already exists" in str(exc_info.value).lower()
+    assert exc_info.value.resource_type.value == "Project"
+    assert exc_info.value.field == "name"
+    assert "project with the name 'dup' already exists" in str(exc_info.value).lower()
     repo_mock.add.assert_called_once()
     session_mock.rollback.assert_called_once()
     session_mock.commit.assert_not_called()
@@ -190,13 +192,15 @@ def test_update_project_duplicate_name_raises_integrity_error(service, repo_mock
     existing = make_project(project_id=pid, name="old")
     repo_mock.get_by_id.return_value = existing
 
-    session_mock.commit.side_effect = IntegrityError(
-        "UNIQUE constraint failed: Project.name", params=None, orig=Exception("UNIQUE constraint failed: Project.name")
-    )
+    mock_error = IntegrityError("statement", "params", "orig")
+    mock_error.orig = Exception("UNIQUE constraint failed: uq_project_name")
+    session_mock.commit.side_effect = mock_error
 
-    with pytest.raises(ResourceAlreadyExistsError):
+    with pytest.raises(ResourceAlreadyExistsError) as exc_info:
         service.update_project(pid, ProjectUpdateSchema(name="other", active=existing.active))
 
+    assert exc_info.value.resource_type.value == "Project"
+    assert exc_info.value.field == "name"
     session_mock.rollback.assert_called_once()
 
 

@@ -87,7 +87,7 @@ class TestCreateLabel:
                 raise ResourceAlreadyExistsError(
                     resource_type=ResourceType.LABEL,
                     resource_value=create_data.name,
-                    raised_by="name",
+                    field="name",
                     message="A label with this name already exists in the project.",
                 )
 
@@ -372,7 +372,7 @@ class TestUpdateLabel:
                 raise ResourceAlreadyExistsError(
                     resource_type=ResourceType.LABEL,
                     resource_value=update_data.name,
-                    raised_by="name",
+                    field="name",
                     message="A label with this name already exists in the project.",
                 )
 

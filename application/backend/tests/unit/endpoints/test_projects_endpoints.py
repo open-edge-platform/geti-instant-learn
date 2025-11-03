@@ -77,7 +77,7 @@ def test_create_project(client, behavior, expected_status, expect_location, expe
                 raise ResourceAlreadyExistsError(
                     resource_type=ResourceType.PROJECT,
                     resource_value="myproj",
-                    raised_by="name",
+                    field="name",
                     message="A project with this name already exists.",
                 )
             if behavior == "error":
@@ -307,7 +307,7 @@ def test_update_project(client, behavior, expected_status):
                 raise ResourceAlreadyExistsError(
                     resource_type=ResourceType.PROJECT,
                     resource_value=NEW_NAME,
-                    raised_by="name",
+                    field="name",
                     message="A project with this name already exists.",
                 )
             if behavior == "error":

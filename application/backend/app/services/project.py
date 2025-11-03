@@ -15,12 +15,14 @@ from core.runtime.dispatcher import (
     ProjectDeactivationEvent,
 )
 from core.runtime.schemas.pipeline import PipelineConfig
+from db.constraints import UniqueConstraintName
 from db.models import ProjectDB
 from exceptions.custom_errors import (
+    ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ResourceType,
 )
-from exceptions.handler import handle_integrity_error
+from exceptions.handler import extract_constraint_name
 from repositories.project import ProjectRepository
 from services.schemas.mappers.project import (
     project_db_to_schema,
@@ -83,7 +85,7 @@ class ProjectService:
         except IntegrityError as exc:
             self.session.rollback()
             logger.error("Project creation failed due to constraint violation: %s", exc)
-            handle_integrity_error(exc, ResourceType.PROJECT, project.id)
+            self._handle_project_integrity_error(exc, project.id, create_data.name)
 
         self.session.refresh(project)
         self._dispatch_pending_events()
@@ -165,7 +167,7 @@ class ProjectService:
             except IntegrityError as exc:
                 self.session.rollback()
                 logger.error("Project update failed due to constraint violation: %s", exc)
-                handle_integrity_error(exc, ResourceType.PROJECT, project.id)
+                self._handle_project_integrity_error(exc, project_id, update_data.name)
 
             self.session.refresh(project)
             self._dispatch_pending_events()
@@ -331,3 +333,52 @@ class ProjectService:
             for ev in self._pending_events:
                 self._dispatcher.dispatch(ev)
         self._pending_events.clear()
+
+    def _handle_project_integrity_error(
+        self, exc: IntegrityError, project_id: UUID, project_name: str | None = None
+    ) -> None:
+        """
+        Handle IntegrityError with context-aware messages for projects.
+
+        Args:
+            exc: The IntegrityError from SQLAlchemy
+            project_id: ID of the project being created/updated
+            project_name: Name of the project (for better error messages)
+        """
+        error_msg = str(exc.orig).lower()
+        constraint_name = extract_constraint_name(error_msg)
+
+        logger.warning(
+            "Project constraint violation: project_id=%s, constraint=%s, error=%s",
+            project_id,
+            constraint_name or "unknown",
+            error_msg,
+        )
+
+        if "foreign key" in error_msg:
+            raise ResourceNotFoundError(
+                resource_type=ResourceType.PROJECT,
+                resource_id=str(project_id),
+                message="Referenced resource does not exist.",
+            )
+
+        if "unique" in error_msg or constraint_name:
+            if constraint_name == UniqueConstraintName.PROJECT_NAME or "name" in error_msg:
+                raise ResourceAlreadyExistsError(
+                    resource_type=ResourceType.PROJECT,
+                    resource_value=project_name,
+                    field="name",
+                    message=f"A project with the name '{project_name}' already exists."
+                    if project_name
+                    else "A project with this name already exists.",
+                )
+            if constraint_name == UniqueConstraintName.SINGLE_ACTIVE_PROJECT or "active" in error_msg:
+                raise ResourceAlreadyExistsError(
+                    resource_type=ResourceType.PROJECT,
+                    field="active",
+                    message="Only one project can be active at a time. "
+                    "Please deactivate the current active project first.",
+                )
+
+        logger.error(f"Unmapped constraint violation for project {project_id}: {error_msg}")
+        raise ValueError("Database constraint violation. Please check your input and try again.")

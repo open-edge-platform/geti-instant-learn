@@ -10,7 +10,12 @@ from sqlalchemy.exc import IntegrityError
 
 from core.components.schemas.reader import SourceType, VideoFileConfig, WebCamConfig
 from core.runtime.dispatcher import ComponentConfigChangeEvent
-from exceptions.custom_errors import ResourceAlreadyExistsError, ResourceNotFoundError, ResourceUpdateConflictError
+from exceptions.custom_errors import (
+    ResourceAlreadyExistsError,
+    ResourceNotFoundError,
+    ResourceType,
+    ResourceUpdateConflictError,
+)
 from services.schemas.source import SourceCreateSchema, SourceUpdateSchema
 from services.source import SourceService
 
@@ -146,16 +151,16 @@ def test_create_source_type_conflict_raises_integrity_error(service):
         config=WebCamConfig(source_type=SourceType.WEBCAM, name="Dup", device_id=0),
     )
 
-    service.session.commit.side_effect = IntegrityError(
-        "UNIQUE constraint failed: uq_source_type_per_project",
-        params=None,
-        orig=Exception("UNIQUE constraint failed: uq_source_type_per_project"),
-    )
+    mock_error = IntegrityError("statement", "params", "orig")
+    mock_error.orig = Exception("UNIQUE constraint failed: uq_source_type_per_project")
+    service.session.commit.side_effect = mock_error
 
     with pytest.raises(ResourceAlreadyExistsError) as exc_info:
         service.create_source(project_id=project_id, create_data=create_schema)
 
-    assert "source with this type already exists" in str(exc_info.value).lower()
+    assert exc_info.value.resource_type == ResourceType.SOURCE
+    assert exc_info.value.field == "source_type"
+    assert "source of type 'webcam' already exists" in str(exc_info.value).lower()
     service.session.rollback.assert_called_once()
 
 
@@ -170,16 +175,18 @@ def test_create_source_name_conflict_raises_integrity_error(service):
         config=WebCamConfig(source_type=SourceType.WEBCAM, name="DupName", device_id=0),
     )
 
-    service.session.commit.side_effect = IntegrityError(
-        "UNIQUE constraint failed: uq_source_name_per_project",
-        params=None,
-        orig=Exception("UNIQUE constraint failed: uq_source_name_per_project"),
-    )
+    mock_error = IntegrityError("statement", "params", "orig")
+    mock_error.orig = Exception("UNIQUE constraint failed: uq_source_name_per_project")
+    service.session.commit.side_effect = mock_error
 
     with pytest.raises(ResourceAlreadyExistsError) as exc_info:
         service.create_source(project_id=project_id, create_data=create_schema)
 
-    assert "source with this name already exists" in str(exc_info.value).lower()
+    assert exc_info.value.resource_type == ResourceType.SOURCE
+    assert exc_info.value.field == "name"
+    assert "source with" in str(exc_info.value).lower()
+    assert "this name" in str(exc_info.value).lower()
+    assert "already exists in this project" in str(exc_info.value).lower()
     service.session.rollback.assert_called_once()
 
 
@@ -212,15 +219,15 @@ def test_create_connected_source_violates_single_connected_constraint(service):
     )
 
     # simulate IntegrityError from database constraint
-    service.session.commit.side_effect = IntegrityError(
-        "UNIQUE constraint failed: uq_single_connected_source_per_project",
-        params=None,
-        orig=Exception("UNIQUE constraint failed: uq_single_connected_source_per_project"),
-    )
+    mock_error = IntegrityError("statement", "params", "orig")
+    mock_error.orig = Exception("UNIQUE constraint failed: uq_single_connected_source_per_project")
+    service.session.commit.side_effect = mock_error
 
     with pytest.raises(ResourceAlreadyExistsError) as exc_info:
         service.create_source(project_id=project_id, create_data=create_schema)
 
+    assert exc_info.value.resource_type == ResourceType.SOURCE
+    assert exc_info.value.field == "connected"
     assert "only one source can be connected per project" in str(exc_info.value).lower()
     service.session.rollback.assert_called_once()
 

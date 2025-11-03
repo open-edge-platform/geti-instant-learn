@@ -7,12 +7,14 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from db.constraints import CheckConstraintName, UniqueConstraintName
 from db.models import LabelDB, ProjectDB
 from exceptions.custom_errors import (
+    ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ResourceType,
 )
-from exceptions.handler import handle_integrity_error
+from exceptions.handler import extract_constraint_name
 from repositories.label import LabelRepository
 from repositories.project import ProjectRepository
 from services.schemas.label import (
@@ -74,9 +76,10 @@ class LabelService:
         """
         self._ensure_project(project_id)
         logger.debug(
-            "Label create requested: name=%s id=%s",
+            "Label create requested: name=%s id=%s project_id=%s",
             create_data.name,
             create_data.id or "AUTO",
+            project_id,
         )
 
         label: LabelDB = label_schema_to_db(create_data)
@@ -89,7 +92,7 @@ class LabelService:
         except IntegrityError as exc:
             self.session.rollback()
             logger.error("Label creation failed due to constraint violation: %s", exc)
-            handle_integrity_error(exc, ResourceType.LABEL, label.id)
+            self._handle_label_integrity_error(exc, label.id, project_id, create_data.name, "create")
 
         self.session.refresh(label)
         logger.info(
@@ -184,8 +187,61 @@ class LabelService:
         except IntegrityError as exc:
             self.session.rollback()
             logger.error("Label update failed due to constraint violation: %s", exc)
-            handle_integrity_error(exc, ResourceType.LABEL, label.id)
+            self._handle_label_integrity_error(exc, label.id, project_id, update_data.name, "update")
 
         self.session.refresh(label)
         logger.info("Label updated in project=%s label_id=%s name=%s", project_id, label.id, label.name)
         return label_db_to_schema(label=label)
+
+    def _handle_label_integrity_error(
+        self,
+        exc: IntegrityError,
+        label_id: UUID,
+        project_id: UUID,
+        label_name: str | None,
+        operation: str,
+    ) -> None:
+        """
+        Handle IntegrityError with context-aware messages for labels.
+
+        Args:
+            exc: The IntegrityError from SQLAlchemy
+            label_id: ID of the label being created/updated
+            project_id: ID of the owning project
+            label_name: Name of the label (for better error messages)
+            operation: Operation being performed ("create" or "update")
+        """
+        error_msg = str(exc.orig).lower()
+        constraint_name = extract_constraint_name(error_msg)
+
+        logger.warning(
+            "Label constraint violation during %s: label_id=%s, project_id=%s, constraint=%s, error=%s",
+            operation,
+            label_id,
+            project_id,
+            constraint_name or "unknown",
+            error_msg,
+        )
+
+        if "foreign key" in error_msg:
+            raise ResourceNotFoundError(
+                resource_type=ResourceType.LABEL,
+                resource_id=str(label_id),
+                message="Referenced project or prompt does not exist.",
+            )
+
+        if "check constraint" in error_msg or constraint_name == CheckConstraintName.LABEL_PARENT:
+            raise ValueError("Label must belong to either a project or a prompt.")
+
+        if "unique" in error_msg or constraint_name == UniqueConstraintName.LABEL_NAME_PER_PROJECT:
+            raise ResourceAlreadyExistsError(
+                resource_type=ResourceType.LABEL,
+                resource_value=label_name,
+                field="name",
+                message=f"A label with the name '{label_name}' already exists in this project."
+                if label_name
+                else "A label with this name already exists in this project.",
+            )
+
+        logger.error(f"Unmapped constraint violation for label {operation} (label_id={label_id}): {error_msg}")
+        raise ValueError(f"Database constraint violation during label {operation}. Please check your input.")

@@ -134,14 +134,14 @@ def test_create_source(client, behavior, expected_status):
                 raise ResourceAlreadyExistsError(
                     resource_type=ResourceType.SOURCE,
                     resource_value="source_type",
-                    raised_by="name",
+                    field="source_type",
                     message="A source with this type already exists in the project.",
                 )
             if behavior == "conflict_connected":
                 raise ResourceAlreadyExistsError(
                     resource_type=ResourceType.SOURCE,
                     resource_value="connected",
-                    raised_by="name",
+                    field="connected",
                     message="Only one source can be connected per project at a time.",
                 )
             if behavior == "notfound":
