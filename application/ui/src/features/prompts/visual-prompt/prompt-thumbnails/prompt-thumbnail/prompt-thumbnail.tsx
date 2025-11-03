@@ -29,7 +29,7 @@ export const PromptThumbnail = ({ image }: PromptThumbnailProps) => {
 
     return (
         <View UNSAFE_className={styles.promptThumbnail}>
-            <img src={image.url} alt={image.toString()} className={styles.image} />
+            <img src={image.url} alt={image.frameId} className={styles.image} />
 
             <View
                 position={'absolute'}

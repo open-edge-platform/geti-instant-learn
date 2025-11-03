@@ -32,8 +32,8 @@ export const PromptThumbnailList = () => {
 
     return (
         <Grid columns={[repeat('auto-fit', minmax('size-1600', '1fr'))]} gap={'size-100'}>
-            {promptThumbnails.map((image, index) => (
-                <PromptThumbnail key={index} image={image} />
+            {promptThumbnails.map((image) => (
+                <PromptThumbnail key={image.frameId} image={image} />
             ))}
         </Grid>
     );
