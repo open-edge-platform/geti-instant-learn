@@ -7,7 +7,9 @@ from multiprocessing import Event
 from types import TracebackType
 from typing import Any, TypeVar
 
+from core.components.error import UnsupportedOperationError
 from core.components.schemas.processor import InputData
+from core.components.schemas.reader import FrameListResponse
 
 IN = TypeVar("IN")
 OUT = TypeVar("OUT")
@@ -22,6 +24,7 @@ class PipelineComponent(ABC):
 
     def __init__(self):
         self._stop_event = Event()
+        self._pause_event = Event()
 
     def __call__(self, *args, **kwargs):  # noqa: ARG002
         # signature must match interface
@@ -37,6 +40,18 @@ class PipelineComponent(ABC):
     def stop(self) -> None:
         self._stop_event.set()
         self._stop()
+
+    def pause(self) -> None:
+        """Pause the component's processing."""
+        self._pause_event.set()
+
+    def resume(self) -> None:
+        """Resume the component's processing."""
+        self._pause_event.clear()
+
+    def is_paused(self) -> bool:
+        """Check if the component is currently paused."""
+        return self._pause_event.is_set()
 
 
 class StreamReader(AbstractContextManager, ABC):
@@ -72,7 +87,7 @@ class StreamReader(AbstractContextManager, ABC):
         """
         raise UnsupportedOperationError
 
-    def list_frames(self, page: int = 1, page_size: int = 30) -> dict:  # noqa: ARG002
+    def list_frames(self, page: int = 1, page_size: int = 30) -> FrameListResponse:  # noqa: ARG002
         """
         Get a paginated list of all available frames.
         """
@@ -96,7 +111,3 @@ class StreamWriter(AbstractContextManager, ABC):
         self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None, /
     ) -> None:
         self.close()
-
-
-class UnsupportedOperationError(Exception):
-    """Exception raised when an unsupported operation is attempted on a stream reader or writer."""

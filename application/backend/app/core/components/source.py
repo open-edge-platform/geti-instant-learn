@@ -7,6 +7,7 @@ import time
 from core.components.base import PipelineComponent, StreamReader
 from core.components.broadcaster import FrameBroadcaster
 from core.components.schemas.processor import InputData
+from core.components.schemas.reader import FrameListResponse
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,13 @@ class Source(PipelineComponent):
         with self._reader:
             self._reader.connect()
             while not self._stop_event.is_set():
+                # Wait while paused (wait for resume)
+                while self._pause_event.is_set() and not self._stop_event.is_set():
+                    time.sleep(0.01)
+
+                if self._stop_event.is_set():
+                    break
+
                 try:
                     data = self._reader.read()
                     if data is None:
@@ -40,3 +48,40 @@ class Source(PipelineComponent):
                     logger.error(f"Error reading from stream: {e}.")
                     time.sleep(0.1)
         logger.debug("Stopping the source loop")
+
+    def seek(self, index: int) -> InputData | None:
+        """
+        Seek to a specific frame index.
+        Delegates to reader.seek() and returns the frame data.
+        """
+        return self._reader.seek(index)
+
+    def index(self) -> int:
+        """
+        Get current frame position.
+        Delegates to reader.index().
+        """
+        return self._reader.index()
+
+    def list_frames(self, page: int = 1, page_size: int = 100) -> FrameListResponse:
+        """
+        Get paginated list of all frames.
+        Delegates to reader.list_frames().
+        """
+        return self._reader.list_frames(page, page_size)
+
+    def pause(self) -> None:
+        """
+        Pause source flow.
+        Stops automatic frame advancement. Reader stops being polled.
+        """
+        self._pause_event.set()
+        logger.debug("Source paused")
+
+    def resume(self) -> None:
+        """
+        Resume source flow.
+        Resumes automatic frame advancement. Reader continues auto-advance.
+        """
+        self._pause_event.clear()
+        logger.debug("Source resumed")

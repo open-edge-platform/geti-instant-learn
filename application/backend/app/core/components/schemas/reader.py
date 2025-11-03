@@ -20,6 +20,7 @@ class WebCamConfig(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
+                "seekable": False,
                 "source_type": "webcam",
                 "device_id": 0,
             }
@@ -34,6 +35,7 @@ class VideoFileConfig(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
+                "seekable": True,
                 "source_type": "video_file",
                 "video_path": "/path/to/video.mp4",
             }
@@ -48,6 +50,7 @@ class ImagesFolderConfig(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
+                "seekable": True,
                 "source_type": "images_folder",
                 "images_folder_path": "/path/to/images",
             }
