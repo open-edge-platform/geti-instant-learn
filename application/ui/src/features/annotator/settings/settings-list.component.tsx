@@ -9,8 +9,6 @@ import { AnnotationSetting } from './annotation-setting.component';
 import { CanvasSettingsState } from './canvas-settings-provider.component';
 import { ImageSetting } from './image-setting.component';
 
-import classes from './canvas-settings.module.scss';
-
 interface SettingsListProps {
     canvasSettings: CanvasSettingsState;
     onCanvasSettingsChange: (canvasSettings: CanvasSettingsState) => void;
@@ -46,7 +44,7 @@ export const SettingsList = ({ canvasSettings, onCanvasSettingsChange }: Setting
                     updateCanvasSettings('annotationBorderOpacity', value);
                 }}
             />
-            <Divider size={'S'} marginY={'size-250'} UNSAFE_className={classes.canvasAdjustmentsDivider} />
+            <Divider size={'S'} marginY={'size-250'} />
             <ImageSetting
                 headerText={'Image brightness'}
                 formatOptions={{ signDisplay: 'exceptZero' }}
@@ -74,7 +72,7 @@ export const SettingsList = ({ canvasSettings, onCanvasSettingsChange }: Setting
                     updateCanvasSettings('imageSaturation', value);
                 }}
             />
-            <Divider size={'S'} marginY={'size-250'} UNSAFE_className={classes.canvasAdjustmentsDivider} />
+            <Divider size={'S'} marginY={'size-250'} />
 
             <Flex alignItems={'center'} justifyContent={'space-between'}>
                 <Text>Pixel view</Text>

@@ -7,7 +7,7 @@ import { useRef } from 'react';
 
 import { DOMRefValue, Flex } from '@geti/ui';
 
-import { CanvasSettings } from '../../../annotator/canvas-settings/canvas-settings.component';
+import { Settings } from '../../../annotator/settings/settings.component';
 import { AnnotatorTools } from '../../../annotator/tools/annotator-tools.component';
 import { FullScreenMode } from './full-screen-mode.component';
 import { ToggleAnnotationsVisibility } from './toggle-annotations-visibility.component';
@@ -25,7 +25,7 @@ export const CapturedFrameActions = () => {
 
             <ToggleAnnotationsVisibility />
 
-            <CanvasSettings ref={ref} />
+            <Settings ref={ref} />
 
             <ZoomManagement />
 

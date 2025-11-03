@@ -25,6 +25,7 @@ export const Tools = ({ tools, activeTool, setActiveTool }: ToolsProps) => {
                     <ActionButton
                         aria-label={`Select ${tool.type} Tool`}
                         isQuiet={activeTool !== tool.type}
+                        aria-pressed={activeTool === tool.type}
                         onPress={() => setActiveTool(tool.type)}
                     >
                         <tool.icon data-tool={tool.type} />
