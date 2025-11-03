@@ -3,12 +3,11 @@
 
 """This model uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
 
-from torchvision import tv_tensors
-
 from getiprompt.components import MasksToPolygons, SamDecoder
 from getiprompt.components.filters import MultiInstancePriorFilter
 from getiprompt.components.prompt_generators import GroundingModel, TextToBoxPromptGenerator
-from getiprompt.types import Priors, Results, Text
+from getiprompt.data.base.batch import Batch
+from getiprompt.types import Results, Text
 from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
 
@@ -68,45 +67,41 @@ class GroundedSAM(Model):
         self.text_priors: Text | None = None
 
     @track_duration
-    def learn(self, reference_images: list[tv_tensors.Image], reference_priors: list[Priors]) -> None:
+    def learn(self, reference_batch: Batch) -> None:
         """Perform learning step on the reference images and priors.
 
         Args:
-            reference_images(list[tv_tensors.Image]): The reference images.
-            reference_priors(list[Priors]): The reference priors.
+            reference_batch(Batch): The reference batch.
 
         Raises:
             ValueError: If the reference priors do not have all text types.
         """
-        if not all(p.text is not None for p in reference_priors):
-            msg = "reference_priors must have all text types"
-            raise ValueError(msg)
-        # If all priors are the same use only the first one, else use all.
-        if not all(p.text.data for p in reference_priors):
-            msg = "Different image-level text priors not supported."
-            raise ValueError(msg)
-
-        self.text_priors = reference_priors[0].text
+        self.text_priors = list(
+            dict.fromkeys(cat for categories in reference_batch.categories for cat in categories),
+        )
 
     @track_duration
-    def infer(self, target_images: list[tv_tensors.Image]) -> Results:
+    def infer(self, target_batch: Batch) -> Results:
         """Perform inference step on the target images.
 
         Args:
-            target_images(list[tv_tensors.Image]): The target images.
+            target_batch(Batch): The target batch.
 
         Returns:
             Results: The results.
         """
         # Start running the model
-        priors = self.prompt_generator(target_images, [self.text_priors] * len(target_images))
-        priors = self.multi_instance_prior_filter(priors)
-        masks, _, used_boxes = self.segmenter(target_images, priors)
+        pred_samples = self.prompt_generator(target_batch.images, self.text_priors)
+        box_prompts = self.multi_instance_prior_filter(pred_samples)
+        masks, _, used_boxes = self.segmenter(
+            target_batch.images,
+            box_prompts=box_prompts,
+        )
         annotations = self.mask_processor(masks)
 
         # write output
         results = Results()
-        results.priors = priors
+        results.priors = box_prompts
         results.used_boxes = used_boxes
         results.masks = masks
         results.annotations = annotations

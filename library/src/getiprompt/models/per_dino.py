@@ -10,7 +10,7 @@ import torch
 from getiprompt.components import CosineSimilarity, MasksToPolygons, SamDecoder
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_selectors import AverageFeatures, FeatureSelector
-from getiprompt.components.filters import ClassOverlapMaskFilter, MaxPointFilter
+from getiprompt.components.filters import ClassOverlapMaskFilter, PointFilter
 from getiprompt.components.prompt_generators import GridPromptGenerator
 from getiprompt.types import Priors, Results
 from getiprompt.utils.benchmark import track_duration
@@ -109,9 +109,7 @@ class PerDino(Model):
             similarity_threshold=similarity_threshold,
             num_bg_points=num_background_points,
         )
-        self.point_filter = MaxPointFilter(
-            max_num_points=num_foreground_points,
-        )
+        self.point_filter = PointFilter(num_foreground_points=num_foreground_points)
         self.segmenter: SamDecoder = SamDecoder(
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,

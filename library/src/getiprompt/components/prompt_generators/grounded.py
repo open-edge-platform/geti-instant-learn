@@ -3,15 +3,15 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from difflib import SequenceMatcher
 from enum import Enum
 
-import numpy as np
 import torch
 from torchvision import tv_tensors
 from transformers import AutoModelForZeroShotObjectDetection, AutoProcessor
 
 from getiprompt.components.prompt_generators import PromptGenerator
-from getiprompt.types import Boxes, Priors, Text
+from getiprompt.data.base.sample import Sample
 from getiprompt.utils.utils import precision_to_torch_dtype
 
 
@@ -74,39 +74,29 @@ class TextToBoxPromptGenerator(PromptGenerator):
         self.text_threshold = text_threshold
         self.template = template
 
-    def forward(
-        self,
-        target_images: list[tv_tensors.Image],
-        text_priors: list[Text],
-    ) -> list[Priors]:
+    def forward(self, target_images: list[tv_tensors.Image], unique_categories: list[str]) -> list[Sample]:
         """This generates bounding box prompt candidates (or priors) based on the text priors.
 
         Args:
-            target_images: The target images
-            text_priors: List[Text] the priors to use as an input
+            target_images(list[tv_tensors.Image]): The target images
+            unique_categories(list[str]): The unique categories to use as an input
 
         Returns:
-            List[Priors] List of priors, one per target image instance
-
-        Raises:
-            ValueError: If the number of text priors is not equal to the number of target images.
+            list[Sample]: List of prediction samples, one per target image instance, each containing the bboxes, scores, and labels
         """
-        if len(text_priors) != len(target_images):
-            msg = "Need one text prior per image"
-            raise ValueError(msg)
-        sizes = [image.shape[-2:] for image in target_images]
-
-        # convert to strings seperated by a '.'
-        text_labels = []
-        for text_prior in text_priors:
-            text = [self.template.format(prior=text_prior.get(cid)) for cid in text_prior.class_ids()]
-            text_labels.append(". ".join(text) + ".")
+        formatted_categories = [self.template.format(prior=category) for category in unique_categories]
+        prompts = ""
+        for category in formatted_categories:
+            prompts += category + ". "
+        prompts = [prompts.strip()] * len(target_images)
 
         # Run the grounding model
-        inputs = self.processor(images=target_images, text=text_labels, return_tensors="pt").to(self.device)
+        inputs = self.processor(images=target_images, text=prompts, return_tensors="pt").to(self.device)
         inputs["pixel_values"] = inputs["pixel_values"].to(self.model.dtype)
         with torch.inference_mode(), torch.autocast(device_type=self.device, dtype=self.model.dtype):
             outputs = self.model(**inputs)
+
+        sizes = [image.shape[-2:] for image in target_images]
         results = self.processor.post_process_grounded_object_detection(
             outputs,
             inputs.input_ids,
@@ -116,26 +106,36 @@ class TextToBoxPromptGenerator(PromptGenerator):
         )
 
         # Generate all priors from the result of the Dino model.
-        priors_per_image: list[Priors] = []
-        for result, text_prior in zip(results, text_priors, strict=False):
-            result_per_label = {}  # store all boxes of a certain class
-            # This returns the xyxy box, float score and text label.
-            for box, score, label_text in zip(result["boxes"], result["scores"], result["labels"], strict=False):
-                # fuzzy match the label text to the class name
-                label_id = text_prior.find_best(label_text)
-                row = np.array([*[float(b) for b in box], float(score), float(label_id)])
-                if label_id in result_per_label:
-                    result_per_label[label_id].append(row)
-                else:
-                    result_per_label[label_id] = [row]
-            boxes = Boxes()
-            # Remap the label text back to the label id (class id) and create a Boxes instance
-            for label_id, boxes_result in result_per_label.items():
-                boxes.add(data=np.array(boxes_result), class_id=int(label_id))
-            # Wrap the Boxes into a Priors class
-            priors = Priors(boxes=boxes)
-            priors_per_image.append(priors)
-        return priors_per_image
+        preds: list[Sample] = []
+        for result in results:
+            pred_labels = self.map_labels_to_categories(result["labels"], unique_categories)
+            pred_label_ids = [unique_categories.index(label) for label in pred_labels]
+            preds.append(
+                Sample(
+                    bboxes=result["boxes"],
+                    scores=result["scores"],
+                    category_ids=pred_label_ids,
+                    categories=pred_labels,
+                ),
+            )
+        return preds
+
+    def map_labels_to_categories(self, labels: list[str], unique_categories: list[str]) -> list[str]:
+        """Map labels to their best matching category by similarity.
+
+        Args:
+            labels(list[str]): The labels to map to categories.
+            unique_categories(list[str]): The unique categories to match against.
+
+        Returns:
+            list[str]: The mapped labels that match categories from ``unique_categories``.
+        """
+        processed_labels = []
+        for label in labels:
+            if label not in unique_categories:
+                label = max(unique_categories, key=lambda x: SequenceMatcher(None, x, label).ratio())
+            processed_labels.append(label)
+        return processed_labels
 
     @staticmethod
     def _load_grounding_model_and_processor(
