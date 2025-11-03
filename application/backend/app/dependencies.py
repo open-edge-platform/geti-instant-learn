@@ -2,12 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from typing import TYPE_CHECKING, Annotated
+from collections.abc import Generator
+from typing import Annotated
 
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
 from core.runtime.dispatcher import ConfigChangeDispatcher
+from core.runtime.pipeline_manager import PipelineManager
 from db.engine import get_session
 from repositories.frame import FrameRepository
 from repositories.project import ProjectRepository
@@ -15,9 +17,6 @@ from repositories.source import SourceRepository
 from services import FrameService, LabelService, ProjectService, SourceService
 from settings import get_settings
 from webrtc.manager import WebRTCManager
-
-if TYPE_CHECKING:
-    from core.runtime.pipeline_manager import PipelineManager
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -77,13 +76,41 @@ def get_source_service(
 
 
 def get_frame_service(
-    pipeline_manager: Annotated["PipelineManager", Depends(get_pipeline_manager)],
     frame_repo: Annotated[FrameRepository, Depends(get_frame_repository)],
     project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
     source_repo: Annotated[SourceRepository, Depends(get_source_repository)],
 ) -> FrameService:
-    """Dependency that provides a FrameService instance."""
-    return FrameService(pipeline_manager, frame_repo, project_repo, source_repo)
+    """
+    Dependency that provides a FrameService instance without queue (for GET requests).
+    This is lightweight and doesn't register any consumers with the pipeline.
+    """
+    return FrameService(frame_repo, project_repo, source_repo)
+
+
+def get_frame_service_with_queue(
+    pipeline_manager: Annotated["PipelineManager", Depends(get_pipeline_manager)],
+    frame_repo: Annotated[FrameRepository, Depends(get_frame_repository)],
+    project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
+    source_repo: Annotated[SourceRepository, Depends(get_source_repository)],
+) -> Generator[FrameService]:
+    """
+    Dependency that provides a FrameService instance with managed queue lifecycle (for POST requests).
+    Only use this for endpoints that need to capture frames from the pipeline.
+    """
+    active_project = project_repo.get_active()
+    if not active_project:
+        # no active project - service will fail gracefully in capture_frame
+        yield FrameService(frame_repo, project_repo, source_repo)
+        return
+    inbound_queue = pipeline_manager.register_inbound_consumer(active_project.id)
+
+    try:
+        yield FrameService(frame_repo, project_repo, source_repo, inbound_queue)
+    finally:
+        try:
+            pipeline_manager.unregister_inbound_consumer(active_project.id, inbound_queue)
+        except Exception as e:
+            logger.warning(f"Failed to unregister inbound consumer queue: {e}")
 
 
 def get_label_service(session: SessionDep) -> LabelService:
@@ -95,4 +122,5 @@ def get_label_service(session: SessionDep) -> LabelService:
 ProjectServiceDep = Annotated[ProjectService, Depends(get_project_service)]
 SourceServiceDep = Annotated[SourceService, Depends(get_source_service)]
 FrameServiceDep = Annotated[FrameService, Depends(get_frame_service)]
+FrameServiceWithQueueDep = Annotated[FrameService, Depends(get_frame_service_with_queue)]
 LabelServiceDep = Annotated[LabelService, Depends(get_label_service)]

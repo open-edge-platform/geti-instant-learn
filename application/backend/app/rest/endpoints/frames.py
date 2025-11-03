@@ -8,7 +8,7 @@ from fastapi import HTTPException, Response, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from dependencies import FrameServiceDep
+from dependencies import FrameServiceDep, FrameServiceWithQueueDep
 from routers import projects_router
 
 logger = logging.getLogger(__name__)
@@ -101,7 +101,7 @@ class FrameCaptureResponse(BaseModel):
         },
     },
 )
-def capture_frame(project_id: UUID, frame_service: FrameServiceDep) -> Response:
+def capture_frame(project_id: UUID, frame_service: FrameServiceWithQueueDep) -> Response:
     """
     Capture the latest frame from the video stream of the active project.
     Returns the frame ID in the response body and a Location header pointing to the captured frame.

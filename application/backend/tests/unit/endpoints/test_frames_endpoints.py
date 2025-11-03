@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from uuid import uuid4
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI
@@ -13,6 +14,7 @@ from dependencies import (
     SessionDep,
     get_frame_repository,
     get_frame_service,
+    get_frame_service_with_queue,
     get_pipeline_manager,
     get_project_repository,
     get_source_repository,
@@ -36,12 +38,17 @@ def app():
     app = FastAPI()
     app.include_router(projects_router, prefix="/api/v1")
 
-    # Override nested dependencies to prevent AttributeError
+    # Override nested dependencies with proper mocks
     app.dependency_overrides[SessionDep] = lambda: object()
-    app.dependency_overrides[get_pipeline_manager] = lambda: object()
-    app.dependency_overrides[get_frame_repository] = lambda: object()
-    app.dependency_overrides[get_project_repository] = lambda: object()
-    app.dependency_overrides[get_source_repository] = lambda: object()
+    app.dependency_overrides[get_pipeline_manager] = lambda: MagicMock()
+    app.dependency_overrides[get_frame_repository] = lambda: MagicMock()
+
+    # Create a mock project repository that returns None for get_active (no active project)
+    mock_project_repo = MagicMock()
+    mock_project_repo.get_active.return_value = None
+    app.dependency_overrides[get_project_repository] = lambda: mock_project_repo
+
+    app.dependency_overrides[get_source_repository] = lambda: MagicMock()
 
     app.add_exception_handler(Exception, custom_exception_handler)
     app.add_exception_handler(RequestValidationError, custom_exception_handler)
@@ -88,9 +95,6 @@ def _get_capture_frame_exception(behavior, project_id):
 )
 def test_capture_frame(client, behavior, expected_status, expect_location):
     class FakeFrameService:
-        def __init__(self, pipeline_manager, frame_repo, project_repo, source_repo):
-            pass
-
         def capture_frame(self, project_id):
             assert project_id == PROJECT_ID
             if behavior == "success":
@@ -102,7 +106,8 @@ def test_capture_frame(client, behavior, expected_status, expect_location):
             raise AssertionError("Unhandled behavior")
 
     app = client.app
-    app.dependency_overrides[get_frame_service] = lambda: FakeFrameService(None, None, None, None)
+    # Override the with_queue dependency for POST requests
+    app.dependency_overrides[get_frame_service_with_queue] = lambda: FakeFrameService()
 
     resp = client.post(f"/api/v1/projects/{PROJECT_ID_STR}/frames")
 
@@ -130,9 +135,6 @@ def test_get_frame(client, frame_exists, path_exists, expected_status, tmp_path)
         test_frame_path.write_bytes(b"\xff\xd8\xff\xe0")  # minimal JPEG header
 
     class FakeFrameService:
-        def __init__(self, pipeline_manager, frame_repo, project_repo, source_repo):
-            pass
-
         def get_frame_path(self, project_id, frame_id):
             assert project_id == PROJECT_ID
             assert frame_id == FRAME_ID
@@ -141,7 +143,8 @@ def test_get_frame(client, frame_exists, path_exists, expected_status, tmp_path)
             return None
 
     app = client.app
-    app.dependency_overrides[get_frame_service] = lambda: FakeFrameService(None, None, None, None)
+    # Override the regular dependency for GET requests
+    app.dependency_overrides[get_frame_service] = lambda: FakeFrameService()
 
     resp = client.get(f"/api/v1/projects/{PROJECT_ID_STR}/frames/{FRAME_ID_STR}")
 
@@ -160,14 +163,11 @@ def test_get_frame_returns_file_content(client, tmp_path):
     test_frame_path.write_bytes(expected_content)
 
     class FakeFrameService:
-        def __init__(self, pipeline_manager, frame_repo, project_repo, source_repo):
-            pass
-
         def get_frame_path(self, project_id, frame_id):
             return test_frame_path
 
     app = client.app
-    app.dependency_overrides[get_frame_service] = lambda: FakeFrameService(None, None, None, None)
+    app.dependency_overrides[get_frame_service] = lambda: FakeFrameService()
 
     resp = client.get(f"/api/v1/projects/{PROJECT_ID_STR}/frames/{FRAME_ID_STR}")
 
@@ -199,9 +199,6 @@ def test_capture_multiple_frames_returns_different_ids(client):
     call_count = 0
 
     class FakeFrameService:
-        def __init__(self, pipeline_manager, frame_repo, project_repo, source_repo):
-            pass
-
         def capture_frame(self, project_id):
             nonlocal call_count
             result = frame_ids[call_count]
@@ -209,7 +206,7 @@ def test_capture_multiple_frames_returns_different_ids(client):
             return result
 
     app = client.app
-    app.dependency_overrides[get_frame_service] = lambda: FakeFrameService(None, None, None, None)
+    app.dependency_overrides[get_frame_service_with_queue] = lambda: FakeFrameService()
 
     resp1 = client.post(f"/api/v1/projects/{PROJECT_ID_STR}/frames")
     assert resp1.status_code == 201
