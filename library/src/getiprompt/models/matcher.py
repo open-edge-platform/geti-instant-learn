@@ -5,7 +5,7 @@
 
 from typing import TYPE_CHECKING
 
-from getiprompt.components import MaskAdder, MasksToPolygons, SamDecoder
+from getiprompt.components import SamDecoder
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_extractors.local_feature_extractor import LocalFeatureExtractor
 from getiprompt.components.feature_selectors import AllFeaturesSelector, FeatureSelector
@@ -30,34 +30,53 @@ class Matcher(Model):
     https://arxiv.org/abs/2305.13310.
 
     Main novelties:
-    - Uses DinoV2 patch encoding instead of SAM for encoding the images, resulting in a more robust feature extractor
+    - Uses DinoV3 large patch encoding instead of SAM for encoding the images, resulting in a more robust feature extractor
     - Uses a bidirectional prompt generator to generate prompts for the segmenter
     - Has a more complex mask postprocessing step to remove and merge masks
 
     Note that the post processing mask filtering techniques are different from that of the original paper.
 
     Examples:
+        >>> from getiprompt.models import Matcher
+        >>> from getiprompt.data.base import Batch
+        >>> from getiprompt.data.base.sample import Sample
+        >>> from getiprompt.types import Results
         >>> import torch
         >>> import numpy as np
-        >>> from getiprompt.models import Matcher
-        >>> from torchvision import tv_tensors
-        >>> from getiprompt.types import Priors, Results
-        >>>
+
         >>> matcher = Matcher()
-        >>>
+
         >>> # Create mock inputs
-        >>> ref_image = np.zeros((1024, 1024, 3), dtype=np.uint8)
-        >>> target_image = np.zeros((1024, 1024, 3), dtype=np.uint8)
-        >>> ref_priors = Priors()
-        >>> ref_priors.masks.add(torch.ones(30, 30, dtype=torch.bool), class_id=1)
-        >>>
+        >>> ref_image = torch.zeros((3, 1024, 1024))
+        >>> target_image = torch.zeros((3, 1024, 1024))
+        >>> ref_mask = torch.ones(30, 30, dtype=torch.bool)
+
+        >>> # Create reference sample
+        >>> ref_sample = Sample(
+        ...     image=ref_image,
+        ...     masks=ref_mask.unsqueeze(0),
+        ...     category_ids=np.array([1]),
+        ...     is_reference=[True],
+        ...     categories=["object"],
+        ... )
+        >>> ref_batch = Batch.collate([ref_sample])
+
+        >>> # Create target sample
+        >>> target_sample = Sample(
+        ...     image=target_image,
+        ...     is_reference=[False],
+        ...     categories=["object"],
+        ... )
+        >>> target_batch = Batch.collate([target_sample])
+
         >>> # Run learn and infer
-        >>> learn_results = matcher.learn([tv_tensors.Image(ref_image)], [ref_priors])
-        >>> infer_results = matcher.infer([tv_tensors.Image(target_image)])
-        >>>
-        >>> isinstance(learn_results, Results) and isinstance(infer_results, Results)
+        >>> matcher.learn(ref_batch)
+        >>> infer_results = matcher.infer(target_batch)
+
+        >>> isinstance(infer_results, Results)
         True
-        >>> infer_results.masks is not None and infer_results.annotations is not None
+
+        >>> infer_results.masks is not None
         True
     """
 
@@ -119,8 +138,6 @@ class Matcher(Model):
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
         )
-        self.mask_adder = MaskAdder(segmenter=self.segmenter)
-        self.mask_processor = MasksToPolygons()
         self.reference_features = None
         self.reference_masks = None
 
@@ -153,13 +170,11 @@ class Matcher(Model):
             point_prompts=point_prompts,
             similarities=similarities_per_image,
         )
-        annotations = self.mask_processor(masks)
 
         # write output
         results = Results()
         results.point_prompts = point_prompts
         results.used_points = used_points
         results.masks = masks
-        results.annotations = annotations
         results.similarities = similarities_per_image
         return results

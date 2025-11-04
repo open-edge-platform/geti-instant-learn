@@ -5,14 +5,13 @@
 
 from typing import TYPE_CHECKING
 
-import torch
-
-from getiprompt.components import CosineSimilarity, MasksToPolygons, SamDecoder
+from getiprompt.components import CosineSimilarity, SamDecoder
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_selectors import AverageFeatures, FeatureSelector
 from getiprompt.components.filters import ClassOverlapMaskFilter, PointPromptFilter
 from getiprompt.components.prompt_generators import GridPromptGenerator
-from getiprompt.types import Priors, Results
+from getiprompt.data.base.batch import Batch
+from getiprompt.types import Results
 from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
 
@@ -31,29 +30,45 @@ class PerDino(Model):
     segmenter and to allow for multi object target images.
 
     Examples:
+        >>> from getiprompt.models import PerDino
+        >>> from getiprompt.data.base import Batch
+        >>> from getiprompt.data.base.sample import Sample
+        >>> from getiprompt.types import Results
         >>> import torch
         >>> import numpy as np
-        >>> from getiprompt.models import PerDino
-        >>> from getiprompt.types import Priors, Results
-        >>> from torchvision import tv_tensors
-        >>>
+
         >>> perdino = PerDino()
-        >>>
+
         >>> # Create mock inputs
-        >>> ref_image = np.zeros((1024, 1024, 3), dtype=np.uint8)
-        >>> target_image = np.zeros((1024, 1024, 3), dtype=np.uint8)
-        >>> ref_priors = Priors()
-        >>> ref_priors.masks.add(torch.ones(30, 30, dtype=torch.bool), class_id=1)
-        >>>
+        >>> ref_image = torch.zeros((3, 1024, 1024))
+        >>> target_image = torch.zeros((3, 1024, 1024))
+        >>> ref_mask = torch.ones(30, 30, dtype=torch.bool)
+
+        >>> # Create reference sample
+        >>> ref_sample = Sample(
+        ...     image=ref_image,
+        ...     masks=ref_mask.unsqueeze(0),
+        ...     category_ids=np.array([1]),
+        ...     is_reference=[True],
+        ...     categories=["object"],
+        ... )
+        >>> ref_batch = Batch.collate([ref_sample])
+
+        >>> # Create target sample
+        >>> target_sample = Sample(
+        ...     image=target_image,
+        ...     is_reference=[False],
+        ...     categories=["object"],
+        ... )
+        >>> target_batch = Batch.collate([target_sample])
+
         >>> # Run learn and infer
-        >>> learn_results = perdino.learn([tv_tensors.Image(ref_image)], [ref_priors])
-        >>> infer_results = perdino.infer([tv_tensors.Image(target_image)])
-        >>>
-        >>> isinstance(learn_results, Results) and isinstance(infer_results, Results)
+        >>> perdino.learn(ref_batch)
+        >>> infer_results = perdino.infer(target_batch)
+
+        >>> isinstance(infer_results, Results)
         True
         >>> infer_results.masks is not None
-        True
-        >>> infer_results.annotations is not None
         True
     """
 
@@ -114,34 +129,35 @@ class PerDino(Model):
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
         )
-        self.mask_processor = MasksToPolygons()
         self.class_overlap_mask_filter = ClassOverlapMaskFilter()
         self.reference_features = None
 
     @track_duration
-    def learn(self, reference_images: list[torch.Tensor], reference_priors: list[Priors]) -> None:
+    def learn(self, reference_batch: Batch) -> None:
         """Perform learning step on the reference images and priors."""
         # Start running the model
-        reference_features, _ = self.encoder(reference_images, reference_priors)
+        reference_features = self.encoder(reference_batch.images)
         self.reference_features = self.feature_selector(reference_features)
 
     @track_duration
-    def infer(self, target_images: list[torch.Tensor]) -> Results:
+    def infer(self, target_batch: Batch) -> Results:
         """Perform inference step on the target images."""
         # Start running the model
-        target_features, _ = self.encoder(target_images)
-        similarities = self.similarity_matcher(self.reference_features, target_features, target_images)
-        priors = self.prompt_generator(similarities, target_images)
-        priors = self.prompt_filter(priors)
-        masks, used_points, _ = self.segmenter(target_images, priors, similarities)
+        target_embeddings = self.encoder(target_batch.images)
+        similarities = self.similarity_matcher(self.reference_features, target_embeddings, target_batch.images)
+        point_prompts = self.prompt_generator(similarities, target_batch.images)
+        point_prompts = self.prompt_filter(point_prompts)
+        masks, used_points, _ = self.segmenter(
+            target_batch.images,
+            point_prompts=point_prompts,
+            similarities=similarities,
+        )
         masks, used_points = self.class_overlap_mask_filter(masks, used_points)
-        annotations = self.mask_processor(masks)
 
         # write output
         results = Results()
-        results.priors = priors
+        results.point_prompts = point_prompts
         results.used_points = used_points
         results.masks = masks
-        results.annotations = annotations
         results.similarities = similarities
         return results

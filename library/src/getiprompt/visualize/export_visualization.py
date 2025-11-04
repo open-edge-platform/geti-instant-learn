@@ -11,7 +11,7 @@ import numpy as np
 import torch
 from torchvision import tv_tensors
 
-from getiprompt.types import Annotations, Boxes, Masks, Points
+from getiprompt.types import Boxes, Masks, Points
 from getiprompt.utils import get_colors
 from getiprompt.visualize.base import Visualization
 
@@ -52,7 +52,6 @@ class ExportMaskVisualization(Visualization):
         file_names: list[str] | None = None,
         points: list[Points] | None = None,
         boxes: list[Boxes] | None = None,
-        annotations: list[Annotations] | None = None,
         class_names: list[str] | None = None,
         show_legend: bool = False,
         legend_position: str = "top_right",
@@ -65,7 +64,6 @@ class ExportMaskVisualization(Visualization):
             file_names: List of file names to visualize
             points: List of points to visualize
             boxes: List of boxes to visualize
-            annotations: List of annotations to visualize
             class_names: List of class names to visualize
             show_legend: Whether to show the legend
             legend_position: Position of the legend
@@ -86,7 +84,6 @@ class ExportMaskVisualization(Visualization):
                 file_names,
                 points,
                 boxes,
-                annotations,
                 class_colors,
                 num_classes,
                 show_legend,
@@ -195,7 +192,7 @@ class ExportMaskVisualization(Visualization):
         return image_with_legend
 
     @staticmethod
-    def create_overlay(  # noqa: C901
+    def create_overlay(
         image: np.ndarray,
         masks: np.ndarray,
         mask_color: list[int],
@@ -205,7 +202,6 @@ class ExportMaskVisualization(Visualization):
         boxes: list[np.ndarray] | None = None,
         box_scores: list[float] | None = None,
         box_types: list[int] | None = None,
-        polygons: list[Points] | None = None,
         num_classes: int | None = None,
     ) -> np.ndarray:
         """Save a visualization of the segmentation mask overlaid on the image.
@@ -220,7 +216,6 @@ class ExportMaskVisualization(Visualization):
             boxes: Optional boxes to visualize
             box_scores: Optional confidence scores for the boxes
             box_types: The type of box (class or label)
-            polygons: Optional polygons to visualize
             num_classes: The number of classes for creating box colors per class
         """
         image_vis = image.copy()
@@ -289,23 +284,6 @@ class ExportMaskVisualization(Visualization):
                         1,
                     )
 
-            # Draw the polygon and the vertices
-            if polygons is not None:
-                for polygon in polygons:
-                    poly = np.array(polygon, np.int32)
-                    poly = poly.reshape((-1, 1, 2))
-                    cv2.polylines(image_vis, [poly], isClosed=True, color=(255, 0, 255), thickness=2)
-                    for point in polygon:
-                        x, y = int(point[0]), int(point[1])
-                        size = int(image.shape[0] / 200)  # Scale marker size with image
-                        cv2.drawMarker(
-                            image_vis,
-                            (x, y),
-                            (0, 255, 0),
-                            cv2.MARKER_SQUARE,
-                            size,
-                        )
-
         return image_vis
 
     @staticmethod
@@ -331,7 +309,6 @@ class ExportMaskVisualization(Visualization):
         file_names: list[str],
         points: list[Points] | None,
         boxes: list[Boxes] | None,
-        annotations: list[Annotations] | None,
         class_colors: list[list[int]] | None,
         num_classes: int,
         show_legend: bool,
@@ -347,7 +324,6 @@ class ExportMaskVisualization(Visualization):
             file_names: List of file names to visualize
             points: List of points to visualize
             boxes: List of boxes to visualize
-            annotations: List of annotations to visualize
             class_colors: List of class colors to visualize
             num_classes: Number of classes to visualize
             show_legend: Whether to show the legend
@@ -370,7 +346,6 @@ class ExportMaskVisualization(Visualization):
                 class_id,
                 points,
                 boxes,
-                annotations,
                 i,
                 class_colors,
                 num_classes,
@@ -395,7 +370,6 @@ class ExportMaskVisualization(Visualization):
         class_id: int,
         points: list[Points] | None,
         boxes: list[Boxes] | None,
-        annotations: list[Annotations] | None,
         i: int,
         class_colors: list[list[int]] | None,
         num_classes: int,
@@ -408,7 +382,6 @@ class ExportMaskVisualization(Visualization):
             class_id: Class ID
             points: Points to visualize
             boxes: Boxes to visualize
-            annotations: Annotations to visualize
             i: Index of the image
             class_colors: List of class colors to visualize
             num_classes: Number of classes to visualize
@@ -418,7 +391,6 @@ class ExportMaskVisualization(Visualization):
         # Extract points, boxes, and polygons
         point_data = self._extract_point_data(points, i, class_id)
         box_data = self._extract_box_data(boxes, i, class_id)
-        polygons = self._get_polygons(annotations[i]) if annotations is not None else None
 
         # Get color for the class
         mask_color = self._get_class_color(class_id, class_colors, num_classes)
@@ -429,7 +401,6 @@ class ExportMaskVisualization(Visualization):
             mask_color=mask_color,
             **point_data,
             **box_data,
-            polygons=polygons,
             num_classes=num_classes,
         )
 
@@ -490,18 +461,3 @@ class ExportMaskVisualization(Visualization):
             rgb_float = colorsys.hsv_to_rgb(class_id / float(num_classes), 1.0, 1.0)
             return [int(x * 255) for x in rgb_float]
         return get_colors(1)[0]
-
-    @staticmethod
-    def _get_polygons(annotations_per_class: Annotations) -> list[np.ndarray]:
-        """Get polygons for a specific class.
-
-        Raises:
-            RuntimeError: If multiple class annotations are provided.
-
-        Args:
-            annotations_per_class: Annotations to visualize
-        """
-        if not annotations_per_class.polygons.is_empy():
-            msg = "Multiple class annotations not supported yet."
-            raise RuntimeError(msg)
-        return annotations_per_class.polygons[0]

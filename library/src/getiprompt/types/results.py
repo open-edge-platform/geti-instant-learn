@@ -3,7 +3,6 @@
 
 """Results type for Geti Prompt."""
 
-from getiprompt.types.annotations import Annotations
 from getiprompt.types.boxes import Boxes
 from getiprompt.types.masks import Masks
 from getiprompt.types.points import Points
@@ -16,7 +15,6 @@ class Results:
     def __init__(self) -> None:
         """Initializes the Results."""
         self._masks: list[Masks] | None = None
-        self._annotations: list[Annotations] | None = None
         self._used_points: list[Points] | None = None
         self._used_boxes: list[Boxes] | None = None
         self._similarities: list[Similarities] | None = None
@@ -53,16 +51,6 @@ class Results:
     def used_boxes(self, used_boxes: list[Boxes]) -> None:
         """Sets the used boxes."""
         self._used_boxes = used_boxes
-
-    @property
-    def annotations(self) -> list[Annotations]:
-        """Returns annotations produced by the latest run of model."""
-        return self._annotations if self._annotations is not None else []
-
-    @annotations.setter
-    def annotations(self, annotations: list[Annotations]) -> None:
-        """Sets the annotations."""
-        self._annotations = annotations
 
     @property
     def similarities(self) -> list[Similarities]:

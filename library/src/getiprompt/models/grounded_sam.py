@@ -3,7 +3,7 @@
 
 """This model uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
 
-from getiprompt.components import MasksToPolygons, SamDecoder
+from getiprompt.components import SamDecoder
 from getiprompt.components.filters import BoxPromptFilter
 from getiprompt.components.prompt_generators import GroundingModel, TextToBoxPromptGenerator
 from getiprompt.data.base.batch import Batch
@@ -63,7 +63,6 @@ class GroundedSAM(Model):
             sam_predictor=self.sam_predictor,
         )
         self.prompt_filter: BoxPromptFilter = BoxPromptFilter()
-        self.mask_processor = MasksToPolygons()
 
     @track_duration
     def learn(self, reference_batch: Batch) -> None:
@@ -98,12 +97,10 @@ class GroundedSAM(Model):
             target_batch.images,
             box_prompts=box_prompts,
         )
-        annotations = self.mask_processor(masks)
 
         # write output
         results = Results()
         results.box_prompts = box_prompts
         results.used_boxes = used_boxes
         results.masks = masks
-        results.annotations = annotations
         return results
