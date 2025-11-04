@@ -1,6 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import base64
 import logging
 from uuid import UUID
 
@@ -345,9 +346,10 @@ class SourceService:
         # Placeholder for actual frame retrieval logic
         logger.info("Retrieving frames from source_id=%s project_id=%s", source_id, project_id)
         frames = []
+        with open(MOCK_FILE, 'rb') as file:
+            encoded_file = base64.b64encode(file.read()).decode('utf-8')
         for i in range(4):
-            url = f"/api/v1/projects/{project_id}/sources/{source_id}/frames/{i}"
-            frames.append(FrameMetadata(index=i, thumbnail=url))
+            frames.append(FrameMetadata(index=i, thumbnail=encoded_file))
         return FrameListResponse(
             frames=frames,
             total=len(frames),

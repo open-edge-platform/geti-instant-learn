@@ -5,7 +5,7 @@ import logging
 from uuid import UUID
 
 from fastapi import Response, status
-from fastapi.responses import FileResponse
+import json
 
 from dependencies import SourceServiceDep
 from routers import projects_router
@@ -169,10 +169,14 @@ def get_frame_index(
 def get_frame(
     project_id: UUID,
     source_id: UUID,
-    index: int,  # noqa: ARG001
+    index: int,
 ) -> Response:
     """
     Get a specific frame by index for the specified source.
     """
     logger.debug(f"Received GET frames request for source {source_id} in project {project_id}.")
-    return FileResponse(MOCK_FILE, media_type="image/jpeg")
+    return Response(
+        content=json.dumps({"index": index}),
+        status_code=status.HTTP_200_OK,
+        media_type="application/json",
+    )
