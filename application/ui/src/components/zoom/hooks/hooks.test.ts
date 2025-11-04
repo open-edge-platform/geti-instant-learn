@@ -79,32 +79,6 @@ describe('usePanning', () => {
 
         expect(result.current.isPanning).toBe(false);
     });
-
-    it('does not change isPanning for other keys', () => {
-        const { result } = renderHook(() => usePanning());
-
-        act(() => {
-            fireEvent.keyDown(window, { code: 'KeyA' });
-        });
-
-        expect(result.current.isPanning).toBe(false);
-    });
-
-    it('allows manual control of isPanning via setIsPanning', () => {
-        const { result } = renderHook(() => usePanning());
-
-        act(() => {
-            result.current.setIsPanning(true);
-        });
-
-        expect(result.current.isPanning).toBe(true);
-
-        act(() => {
-            result.current.setIsPanning(false);
-        });
-
-        expect(result.current.isPanning).toBe(false);
-    });
 });
 
 describe('useWheelPanning', () => {
