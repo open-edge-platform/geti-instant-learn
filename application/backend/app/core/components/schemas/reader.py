@@ -69,7 +69,6 @@ class FrameMetadata(BaseModel):
 
     index: int
     thumbnail: str  # url to the frame itself
-    path: str
 
 
 class FrameListResponse(BaseModel):

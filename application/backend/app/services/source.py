@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from core.components.schemas.reader import FrameListResponse, FrameMetadata, SourceType
+from core.components.schemas.reader import FrameListResponse, FrameMetadata
 from core.runtime.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher
 from db.constraints import UniqueConstraintName
 from db.models import ProjectDB, SourceDB
@@ -347,7 +347,7 @@ class SourceService:
         frames = []
         for i in range(4):
             url = f"/api/v1/projects/{project_id}/sources/{source_id}/frames/{i}"
-            frames.append(FrameMetadata(index=i, thumbnail=url, path=MOCK_FILE))
+            frames.append(FrameMetadata(index=i, thumbnail=url))
         return FrameListResponse(
             frames=frames,
             total=len(frames),

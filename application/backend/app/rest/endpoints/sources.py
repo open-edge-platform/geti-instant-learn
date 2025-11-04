@@ -115,26 +115,17 @@ def delete_source(
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
     },
 )
-def get_frames(
-    project_id: UUID, source_id: UUID, db_session: SessionDep, config_dispatcher: ConfigChangeDispatcherDep
-) -> Response:
+def get_frames(project_id: UUID, source_id: UUID, source_service: SourceServiceDep) -> Response:
     """
     Get a list of all frame indices for the specified source.
     """
     logger.debug(f"Received GET frames request for source {source_id} in project {project_id}.")
-    service = SourceService(session=db_session, config_change_dispatcher=config_dispatcher)
-    try:
-        all_frames = service.get_frames(project_id=project_id, source_id=source_id)
-        return Response(
-            content=all_frames.model_dump_json(),
-            status_code=status.HTTP_200_OK,
-            media_type="application/json",
-        )
-    except ResourceNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception as e:
-        logger.exception(f"Error listing frames for source {source_id} in project {project_id}: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list frames.")
+    all_frames = source_service.get_frames(project_id=project_id, source_id=source_id)
+    return Response(
+        content=all_frames.model_dump_json(),
+        status_code=status.HTTP_200_OK,
+        media_type="application/json",
+    )
 
 
 @projects_router.get(
@@ -149,20 +140,15 @@ def get_frames(
     },
 )
 def get_frame_index(
-    project_id: UUID, source_id: UUID, db_session: SessionDep, config_dispatcher: ConfigChangeDispatcherDep
+    project_id: UUID,
+    source_id: UUID,
+    source_service: SourceServiceDep,  # noqa: ARG001
 ) -> int:
     """
     Get the current frame index for the specified source.
     """
     logger.debug(f"Received GET frames request for source {source_id} in project {project_id}.")
-    service = SourceService(session=db_session, config_change_dispatcher=config_dispatcher)  # noqa: F841
-    try:
-        return 1
-    except ResourceNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except Exception as e:
-        logger.exception(f"Error listing frames for source {source_id} in project {project_id}: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list frames.")
+    return 1
 
 
 @projects_router.post(
@@ -180,8 +166,6 @@ def get_frame(
     project_id: UUID,
     source_id: UUID,
     index: int,  # noqa: ARG001
-    db_session: SessionDep,  # noqa: ARG001
-    config_dispatcher: ConfigChangeDispatcherDep,  # noqa: ARG001
 ) -> Response:
     """
     Get a specific frame by index for the specified source.
