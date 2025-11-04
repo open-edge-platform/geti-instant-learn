@@ -11,7 +11,7 @@ import styles from './captured-frame-placeholder.module.scss';
 export const CapturedFramePlaceholder = () => {
     return (
         <Flex
-            height={'size-6000'}
+            height={'100%'}
             width={'100%'}
             justifyContent={'center'}
             alignItems={'center'}
@@ -19,7 +19,7 @@ export const CapturedFramePlaceholder = () => {
                 backgroundColor: 'var(--spectrum-global-color-gray-300)',
             }}
         >
-            <Flex direction={'column'} gap={'size-100'} alignItems={'center'}>
+            <Flex direction={'column'} gap={'size-100'} alignItems={'center'} height={'100%'} justifyContent={'center'}>
                 <Image />
                 <Content UNSAFE_className={styles.noFramePlaceholder}>Capture frames for visual prompt</Content>
             </Flex>

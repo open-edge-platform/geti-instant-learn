@@ -3,14 +3,78 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { ReactNode, Suspense } from 'react';
+
+import { Flex, Grid, Loading, minmax } from '@geti/ui';
+import { AnnotationActionsProvider } from 'src/features/annotator/providers/annotation-actions-provider.component';
+import { AnnotationVisibilityProvider } from 'src/features/annotator/providers/annotation-visibility-provider.component';
+import { AnnotatorProvider } from 'src/features/annotator/providers/annotator-provider.component';
+import { SelectAnnotationProvider } from 'src/features/annotator/providers/select-annotation-provider.component';
+import { CanvasSettingsProvider } from 'src/features/annotator/settings/canvas-settings-provider.component';
+
 import { CapturedFrameContent } from './captured-frame-content.component';
 import { CapturedFrameFullScreen } from './captured-frame-full-screen.component';
+import { CapturedFramePlaceholder } from './captured-frame-placeholder.component';
+import { FullScreenModeProvider } from './full-screen-mode.component';
+
+const CenteredWrapper = ({ children }: { children: ReactNode }) => (
+    <Flex height={'100%'} gridRow={'1/-1'} alignItems={'center'} justifyContent={'center'}>
+        {children}
+    </Flex>
+);
+interface CapturedFrameAnnotatorProps {
+    children: ReactNode;
+    frameId: string | null;
+}
+const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorProps) => {
+    if (frameId === null) {
+        return (
+            <CenteredWrapper>
+                <CapturedFramePlaceholder />
+            </CenteredWrapper>
+        );
+    }
+
+    return (
+        <Suspense
+            fallback={
+                <CenteredWrapper>
+                    <Loading mode={'inline'} />
+                </CenteredWrapper>
+            }
+        >
+            {/* key={frameId} is added here to make sure that the whole tree unmounts/mounts
+                every time we capture a new frame */}
+            <AnnotatorProvider frameId={frameId} key={frameId}>
+                <SelectAnnotationProvider>
+                    <AnnotationActionsProvider>
+                        <AnnotationVisibilityProvider>
+                            <FullScreenModeProvider>
+                                <CanvasSettingsProvider>{children}</CanvasSettingsProvider>
+                            </FullScreenModeProvider>
+                        </AnnotationVisibilityProvider>
+                    </AnnotationActionsProvider>
+                </SelectAnnotationProvider>
+            </AnnotatorProvider>
+        </Suspense>
+    );
+};
 
 export const CapturedFrame = ({ frameId }: { frameId: string }) => {
     return (
-        <>
-            <CapturedFrameContent frameId={frameId} />
-            <CapturedFrameFullScreen frameId={frameId} />
-        </>
+        <Grid
+            width={'100%'}
+            height={'size-6000'}
+            areas={['labels', 'image', 'actions']}
+            rows={[minmax('size-500', 'auto'), 'auto', 'size-500']}
+            UNSAFE_style={{
+                backgroundColor: 'var(--spectrum-global-color-gray-200)',
+            }}
+        >
+            <CapturedFrameProviders frameId={frameId}>
+                <CapturedFrameContent frameId={frameId} />
+                <CapturedFrameFullScreen frameId={frameId} />
+            </CapturedFrameProviders>
+        </Grid>
     );
 };

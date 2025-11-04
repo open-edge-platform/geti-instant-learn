@@ -27,7 +27,7 @@ export const Prompt = () => {
 
                         <Divider size={'S'} />
 
-                        <Flex direction={'column'} gap={'size-200'} height={'100%'}>
+                        <Flex direction={'column'} gap={'size-200'}>
                             <ModelToolbar />
                             <PromptMode />
                         </Flex>
