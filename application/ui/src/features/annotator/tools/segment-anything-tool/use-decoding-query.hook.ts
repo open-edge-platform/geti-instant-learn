@@ -18,7 +18,7 @@ const roundPoint = (point: InteractiveAnnotationPoint): InteractiveAnnotationPoi
     positive: point.positive,
 });
 
-export const useDecodingQueryOptions = (
+const useDecodingQueryOptions = (
     points: InteractiveAnnotationPoint[],
     queryFn: (points: InteractiveAnnotationPoint[]) => Promise<Shape[]>
 ) => {

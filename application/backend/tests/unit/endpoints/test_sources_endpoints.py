@@ -5,16 +5,19 @@ from uuid import UUID, uuid4
 
 import pytest
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 
 from core.components.schemas.reader import SourceType, WebCamConfig
-from dependencies import SessionDep, get_config_dispatcher
-from routers import projects_router
-from services.errors import (
+from dependencies import SessionDep, get_config_dispatcher, get_source_service
+from exceptions.custom_errors import (
+    ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ResourceType,
     ResourceUpdateConflictError,
 )
+from exceptions.handler import custom_exception_handler
+from routers import projects_router
 from services.schemas.source import SourceSchema, SourcesListSchema
 
 PROJECT_ID = uuid4()
@@ -36,7 +39,6 @@ def make_source_schema(
 
 @pytest.fixture
 def app():
-    # ensure sources endpoints register routes on projects_router before inclusion.
     from rest.endpoints import sources as _  # noqa: F401
 
     app = FastAPI()
@@ -44,29 +46,31 @@ def app():
     app.dependency_overrides[SessionDep] = lambda: object()
 
     class DummyDispatcher:
-        def dispatch(self, event):  # noqa: D401
+        def dispatch(self, event):
             pass
 
     app.dependency_overrides[get_config_dispatcher] = lambda: DummyDispatcher()
+
+    app.add_exception_handler(Exception, custom_exception_handler)
+    app.add_exception_handler(RequestValidationError, custom_exception_handler)
+
     return app
 
 
 @pytest.fixture
 def client(app):
-    return TestClient(app)
+    return TestClient(app, raise_server_exceptions=False)
 
 
 @pytest.mark.parametrize(
-    "behavior,expected_status,expected_len,expected_detail",
+    "behavior,expected_status,expected_len",
     [
-        ("some", 200, 2, None),
-        ("notfound", 404, None, None),
-        ("error", 500, None, "Failed to list sources."),
+        ("some", 200, 2),
+        ("notfound", 404, None),
+        ("error", 500, None),
     ],
 )
-def test_get_sources(client, monkeypatch, behavior, expected_status, expected_len, expected_detail):
-    from rest.endpoints import sources as ep_mod
-
+def test_get_sources(client, behavior, expected_status, expected_len):
     class FakeService:
         def __init__(self, session, config_change_dispatcher):
             pass
@@ -83,43 +87,38 @@ def test_get_sources(client, monkeypatch, behavior, expected_status, expected_le
             if behavior == "notfound":
                 raise ResourceNotFoundError(ResourceType.PROJECT, str(project_id))
             if behavior == "error":
-                raise RuntimeError("boom")
+                raise RuntimeError("Database error")
             raise AssertionError("Unhandled behavior")
 
-    monkeypatch.setattr(ep_mod, "SourceService", FakeService)
+    client.app.dependency_overrides[get_source_service] = lambda: FakeService(None, None)
 
     resp = client.get(f"/api/v1/projects/{PROJECT_ID}/sources")
     assert resp.status_code == expected_status
-    if expected_detail:
-        assert resp.json()["detail"] == expected_detail
-        return
-    if behavior == "notfound":
-        assert "detail" in resp.json()
-        return
-    data = resp.json()
-    assert isinstance(data["sources"], list)
-    assert len(data["sources"]) == expected_len
     if behavior == "some":
+        data = resp.json()
+        assert isinstance(data["sources"], list)
+        assert len(data["sources"]) == expected_len
         ids = {s["id"] for s in data["sources"]}
         assert ids == {str(SOURCE_ID_1), str(SOURCE_ID_2)}
         first = data["sources"][0]
         assert "config" in first
         assert first["config"]["source_type"] == "webcam"
         assert "device_id" in first["config"]
+    else:
+        assert "detail" in resp.json()
 
 
 @pytest.mark.parametrize(
-    "behavior,expected_status,expect_detail",
+    "behavior,expected_status",
     [
-        ("success", 201, None),
-        ("conflict", 409, None),
-        ("notfound", 404, None),
-        ("error", 500, "Failed to create source."),
+        ("success", 201),
+        ("conflict_type", 409),
+        ("conflict_connected", 409),
+        ("notfound", 404),
+        ("error", 500),
     ],
 )
-def test_create_source(client, monkeypatch, behavior, expected_status, expect_detail):
-    from rest.endpoints import sources as ep_mod
-
+def test_create_source(client, behavior, expected_status):
     CREATED_ID = uuid4()
 
     class FakeService:
@@ -131,15 +130,27 @@ def test_create_source(client, monkeypatch, behavior, expected_status, expect_de
             assert create_data.config.source_type == SourceType.WEBCAM
             if behavior == "success":
                 return make_source_schema(CREATED_ID, create_data.config.device_id, create_data.connected)
-            if behavior == "conflict":
-                raise ResourceUpdateConflictError(ResourceType.SOURCE, str(CREATED_ID), field="source_type")
+            if behavior == "conflict_type":
+                raise ResourceAlreadyExistsError(
+                    resource_type=ResourceType.SOURCE,
+                    resource_value="source_type",
+                    field="source_type",
+                    message="A source with this type already exists in the project.",
+                )
+            if behavior == "conflict_connected":
+                raise ResourceAlreadyExistsError(
+                    resource_type=ResourceType.SOURCE,
+                    resource_value="connected",
+                    field="connected",
+                    message="Only one source can be connected per project at a time.",
+                )
             if behavior == "notfound":
                 raise ResourceNotFoundError(ResourceType.PROJECT, str(project_id))
             if behavior == "error":
-                raise RuntimeError("boom")
+                raise RuntimeError("Database error")
             raise AssertionError("Unhandled behavior")
 
-    monkeypatch.setattr(ep_mod, "SourceService", FakeService)
+    client.app.dependency_overrides[get_source_service] = lambda: FakeService(None, None)
 
     payload = {
         "id": str(CREATED_ID),
@@ -148,31 +159,26 @@ def test_create_source(client, monkeypatch, behavior, expected_status, expect_de
     }
     resp = client.post(f"/api/v1/projects/{PROJECT_ID}/sources", json=payload)
     assert resp.status_code == expected_status
-    if expect_detail:
-        assert resp.json()["detail"] == expect_detail
-        return
-    if behavior in ("conflict", "notfound"):
+    if behavior == "success":
+        data = resp.json()
+        assert data["id"] == str(CREATED_ID)
+        assert data["connected"] is True
+        assert data["config"]["source_type"] == "webcam"
+        assert data["config"]["device_id"] == 3
+    else:
         assert "detail" in resp.json()
-        return
-    data = resp.json()
-    assert data["id"] == str(CREATED_ID)
-    assert data["connected"] is True
-    assert data["config"]["source_type"] == "webcam"
-    assert data["config"]["device_id"] == 3
 
 
 @pytest.mark.parametrize(
-    "behavior,expected_status,expect_detail",
+    "behavior,expected_status",
     [
-        ("success", 200, None),
-        ("conflict", 409, None),
-        ("notfound", 404, None),
-        ("error", 500, "Failed to update source configuration."),
+        ("success", 200),
+        ("conflict", 400),
+        ("notfound", 404),
+        ("error", 500),
     ],
 )
-def test_update_source(client, monkeypatch, behavior, expected_status, expect_detail):
-    from rest.endpoints import sources as ep_mod
-
+def test_update_source(client, behavior, expected_status):
     class FakeService:
         def __init__(self, session, config_change_dispatcher):
             pass
@@ -184,14 +190,19 @@ def test_update_source(client, monkeypatch, behavior, expected_status, expect_de
             if behavior == "success":
                 return make_source_schema(source_id, update_data.config.device_id, update_data.connected)
             if behavior == "conflict":
-                raise ResourceUpdateConflictError(ResourceType.SOURCE, str(source_id), field="source_type")
+                raise ResourceUpdateConflictError(
+                    resource_type=ResourceType.SOURCE,
+                    resource_id=str(source_id),
+                    field="source_type",
+                    message="Cannot change source type after creation.",
+                )
             if behavior == "notfound":
                 raise ResourceNotFoundError(ResourceType.SOURCE, str(source_id))
             if behavior == "error":
-                raise RuntimeError("boom")
+                raise RuntimeError("Database error")
             raise AssertionError("Unhandled behavior")
 
-    monkeypatch.setattr(ep_mod, "SourceService", FakeService)
+    client.app.dependency_overrides[get_source_service] = lambda: FakeService(None, None)
 
     payload = {
         "connected": False,
@@ -199,29 +210,24 @@ def test_update_source(client, monkeypatch, behavior, expected_status, expect_de
     }
     resp = client.put(f"/api/v1/projects/{PROJECT_ID}/sources/{SOURCE_ID_1}", json=payload)
     assert resp.status_code == expected_status
-    if expect_detail:
-        assert resp.json()["detail"] == expect_detail
-        return
-    if behavior in ("conflict", "notfound"):
+    if behavior == "success":
+        data = resp.json()
+        assert data["id"] == str(SOURCE_ID_1)
+        assert data["config"]["device_id"] == 7
+        assert data["config"]["source_type"] == "webcam"
+    else:
         assert "detail" in resp.json()
-        return
-    data = resp.json()
-    assert data["id"] == str(SOURCE_ID_1)
-    assert data["config"]["device_id"] == 7
-    assert data["config"]["source_type"] == "webcam"
 
 
 @pytest.mark.parametrize(
-    "behavior,expected_status,expect_detail",
+    "behavior,expected_status",
     [
-        ("success", 204, None),
-        ("missing", 204, None),
-        ("error", 500, "Failed to delete source."),
+        ("success", 204),
+        ("missing", 404),
+        ("error", 500),
     ],
 )
-def test_delete_source(client, monkeypatch, behavior, expected_status, expect_detail):
-    from rest.endpoints import sources as ep_mod
-
+def test_delete_source(client, behavior, expected_status):
     class FakeService:
         def __init__(self, session, config_change_dispatcher):
             pass
@@ -234,15 +240,14 @@ def test_delete_source(client, monkeypatch, behavior, expected_status, expect_de
             if behavior == "missing":
                 raise ResourceNotFoundError(ResourceType.SOURCE, str(source_id))
             if behavior == "error":
-                raise RuntimeError("boom")
+                raise RuntimeError("Database error")
             raise AssertionError("Unhandled behavior")
 
-    monkeypatch.setattr(ep_mod, "SourceService", FakeService)
+    client.app.dependency_overrides[get_source_service] = lambda: FakeService(None, None)
 
     resp = client.delete(f"/api/v1/projects/{PROJECT_ID}/sources/{SOURCE_ID_2}")
     assert resp.status_code == expected_status
-    if expect_detail:
-        assert resp.json()["detail"] == expect_detail
+    if expected_status == 204:
+        assert resp.text == ""
     else:
-        if resp.status_code == 204:
-            assert resp.text == ""
+        assert "detail" in resp.json()

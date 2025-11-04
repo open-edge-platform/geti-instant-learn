@@ -23,12 +23,12 @@ interface CanvasSettingsContextProps {
     setCanvasSettings: Dispatch<SetStateAction<CanvasSettingsState>>;
 }
 
-export const CanvasSettingsContext = createContext<CanvasSettingsContextProps | null>(null);
+const CanvasSettingsContext = createContext<CanvasSettingsContextProps | null>(null);
 
 export const DEFAULT_CANVAS_SETTINGS: CanvasSettingsState = {
     annotationFillOpacity: {
-        value: 0.4,
-        defaultValue: 0.4,
+        value: 0.2,
+        defaultValue: 0.2,
     },
     annotationBorderOpacity: {
         value: 1,

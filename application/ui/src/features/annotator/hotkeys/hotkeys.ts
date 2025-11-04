@@ -9,7 +9,7 @@ const CTRL_KEY = 'ctrl';
 export const COMMAND_KEY = 'meta';
 const CTRL_OR_COMMAND_KEY = isMac() ? COMMAND_KEY : CTRL_KEY;
 
-export type HotKeyActions =
+type HotKeyActions =
     | 'undo'
     | 'redo'
     | 'toggleAnnotations'
@@ -18,7 +18,7 @@ export type HotKeyActions =
     | 'fitToScreen'
     | 'fullscreen';
 
-export type Hotkeys = Record<HotKeyActions, string>;
+type Hotkeys = Record<HotKeyActions, string>;
 
 export const HOTKEYS: Hotkeys = {
     undo: `${CTRL_OR_COMMAND_KEY}+z`,

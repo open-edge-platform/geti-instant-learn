@@ -6,10 +6,11 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from core.runtime.dispatcher import ProjectActivationEvent, ProjectDeactivationEvent
 from core.runtime.schemas.pipeline import PipelineConfig
-from services.errors import ResourceAlreadyExistsError, ResourceNotFoundError
+from exceptions.custom_errors import ResourceAlreadyExistsError, ResourceNotFoundError
 from services.project import ProjectService
 from services.schemas.project import ProjectCreateSchema, ProjectSchema, ProjectUpdateSchema
 
@@ -64,8 +65,6 @@ def test_create_project_success(service, repo_mock, session_mock, explicit_id):
         data = ProjectCreateSchema(name="alpha")
     else:
         data = ProjectCreateSchema(id=explicit_id, name="alpha")
-    repo_mock.exists_by_name.return_value = False
-    repo_mock.exists_by_id.return_value = False
     repo_mock.get_active.return_value = None
 
     result = service.create_project(data)
@@ -77,32 +76,38 @@ def test_create_project_success(service, repo_mock, session_mock, explicit_id):
     assert session_mock.flush.call_count == 2  # flushes: initial add + activation
     session_mock.commit.assert_called_once()
     session_mock.refresh.assert_called_once()
-    repo_mock.exists_by_name.assert_called_once_with("alpha")
-    repo_mock.exists_by_id.assert_called_once_with(data.id)
 
 
-def test_create_project_duplicate_name(service, repo_mock, session_mock):
+def test_create_project_duplicate_name_raises_integrity_error(service, repo_mock, session_mock):
     data = ProjectCreateSchema(name="dup")
-    repo_mock.exists_by_name.return_value = True
+    repo_mock.get_active.return_value = None
 
-    with pytest.raises(ResourceAlreadyExistsError):
+    mock_error = IntegrityError("statement", "params", "orig")
+    mock_error.orig = Exception("UNIQUE constraint failed: uq_project_name")
+    session_mock.flush.side_effect = mock_error
+
+    with pytest.raises(ResourceAlreadyExistsError) as exc_info:
         service.create_project(data)
 
-    repo_mock.add.assert_not_called()
+    assert exc_info.value.resource_type.value == "Project"
+    assert exc_info.value.field == "name"
+    assert "project with the name 'dup' already exists" in str(exc_info.value).lower()
+    repo_mock.add.assert_called_once()
+    session_mock.rollback.assert_called_once()
     session_mock.commit.assert_not_called()
 
 
-def test_create_project_duplicate_id(service, repo_mock, session_mock):
-    pid = uuid.uuid4()
-    data = ProjectCreateSchema(id=pid, name="x")
-    repo_mock.exists_by_name.return_value = False
-    repo_mock.exists_by_id.return_value = True
+def test_create_project_single_active_constraint_violation(service, repo_mock, session_mock):
+    data = ProjectCreateSchema(name="second_active")
+    existing_active = make_project(name="first_active", active=True)
+    repo_mock.get_active.return_value = existing_active
 
-    with pytest.raises(ResourceAlreadyExistsError):
-        service.create_project(data)
+    # _activate_project() should deactivate the existing one first
+    result = service.create_project(data)
 
-    repo_mock.add.assert_not_called()
-    session_mock.commit.assert_not_called()
+    assert result.active is True
+    assert existing_active.active is False
+    session_mock.commit.assert_called_once()
 
 
 def test_get_project_success(service, repo_mock):
@@ -172,7 +177,6 @@ def test_update_project_success(service, repo_mock, session_mock):
     pid = uuid.uuid4()
     existing = make_project(project_id=pid, name="old")
     repo_mock.get_by_id.return_value = existing
-    repo_mock.exists_by_name.return_value = False
 
     data = ProjectUpdateSchema(name="new", active=existing.active)
     updated = service.update_project(pid, data)
@@ -183,16 +187,21 @@ def test_update_project_success(service, repo_mock, session_mock):
     session_mock.refresh.assert_called_once()
 
 
-def test_update_project_duplicate_name(service, repo_mock, session_mock):
+def test_update_project_duplicate_name_raises_integrity_error(service, repo_mock, session_mock):
     pid = uuid.uuid4()
     existing = make_project(project_id=pid, name="old")
     repo_mock.get_by_id.return_value = existing
-    repo_mock.exists_by_name.return_value = True
 
-    with pytest.raises(ResourceAlreadyExistsError):
+    mock_error = IntegrityError("statement", "params", "orig")
+    mock_error.orig = Exception("UNIQUE constraint failed: uq_project_name")
+    session_mock.commit.side_effect = mock_error
+
+    with pytest.raises(ResourceAlreadyExistsError) as exc_info:
         service.update_project(pid, ProjectUpdateSchema(name="other", active=existing.active))
 
-    session_mock.commit.assert_not_called()
+    assert exc_info.value.resource_type.value == "Project"
+    assert exc_info.value.field == "name"
+    session_mock.rollback.assert_called_once()
 
 
 def test_update_project_not_found(service, repo_mock):
@@ -318,8 +327,6 @@ def test_active_pipeline_config_success(service, repo_mock):
 
 def test_create_emits_activation_event(service, repo_mock, dispatcher_mock):
     data = ProjectCreateSchema(name="alpha")
-    repo_mock.exists_by_name.return_value = False
-    repo_mock.exists_by_id.return_value = False
     repo_mock.get_active.return_value = None
 
     service.create_project(data)
@@ -370,7 +377,6 @@ def test_delete_inactive_emits_no_event(service, repo_mock, dispatcher_mock):
 def test_update_activate_emits_activation_event(service, repo_mock, dispatcher_mock):
     project_inactive = make_project(active=False)
     repo_mock.get_by_id.return_value = project_inactive
-    repo_mock.exists_by_name.return_value = False
     repo_mock.get_active.return_value = None
 
     service.update_project(project_inactive.id, ProjectUpdateSchema(active=True))
@@ -384,7 +390,6 @@ def test_update_activate_emits_activation_event(service, repo_mock, dispatcher_m
 def test_update_deactivate_emits_deactivation_event(service, repo_mock, dispatcher_mock):
     project_active = make_project(active=True)
     repo_mock.get_by_id.return_value = project_active
-    repo_mock.exists_by_name.return_value = False
 
     service.update_project(project_active.id, ProjectUpdateSchema(active=False))
 
@@ -399,7 +404,6 @@ def test_update_activate_replaces_existing_active_emits_two_events(service, repo
     project_target = make_project(active=False)
     repo_mock.get_by_id.return_value = project_target
     repo_mock.get_active.return_value = project_current_active
-    repo_mock.exists_by_name.return_value = False
 
     service.update_project(project_target.id, ProjectUpdateSchema(active=True))
 

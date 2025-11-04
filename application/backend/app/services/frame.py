@@ -8,11 +8,11 @@ from queue import Empty, Queue
 from uuid import UUID
 
 from core.components.schemas.processor import InputData
-from core.runtime.pipeline_manager import PipelineManager
+from core.runtime.errors import PipelineNotActiveError
+from exceptions.custom_errors import ResourceNotFoundError, ResourceType, ServiceError
 from repositories.frame import FrameRepository
 from repositories.project import ProjectRepository
 from repositories.source import SourceRepository
-from services.errors import ResourceNotFoundError, ResourceType, ServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +20,12 @@ logger = logging.getLogger(__name__)
 class FrameService:
     def __init__(
         self,
-        pipeline_manager: PipelineManager,
         frame_repo: FrameRepository,
         project_repo: ProjectRepository,
         source_repo: SourceRepository,
+        inbound_queue: Queue[InputData] | None = None,
     ):
-        self._pipeline_manager = pipeline_manager
+        self._inbound_queue = inbound_queue
         self._frame_repo = frame_repo
         self._project_repo = project_repo
         self._source_repo = source_repo
@@ -40,8 +40,12 @@ class FrameService:
             The UUID of the saved frame.
         Raises:
             ResourceNotFoundError: If project not found or has no connected source.
-            ServiceError: If project is not active or frame capture fails.
+            PipelineNotActiveError: If project is not active.
+            ServiceError: If frame capture fails.
         """
+        if self._inbound_queue is None:
+            raise ServiceError("Frame capture service has not been properly initialized with inbound queue.")
+
         project = self._project_repo.get_by_id(project_id)
         if not project:
             raise ResourceNotFoundError(
@@ -50,7 +54,7 @@ class FrameService:
             )
 
         if not project.active:
-            raise ServiceError(
+            raise PipelineNotActiveError(
                 f"Cannot capture frame: project {project_id} is not active. "
                 "Please activate the project before capturing frames."
             )
@@ -64,13 +68,9 @@ class FrameService:
                 "Please connect a source before capturing frames.",
             )
 
-        consumer_queue: Queue[InputData] | None = None
-
         try:
-            consumer_queue = self._pipeline_manager.register_inbound_consumer(project_id)
-
             # wait for a frame from the pipeline
-            input_data = consumer_queue.get(timeout=5.0)
+            input_data = self._inbound_queue.get(timeout=5.0)
             frame = input_data.frame
 
             frame_id = uuid.uuid4()
@@ -84,12 +84,6 @@ class FrameService:
         except Exception as e:
             logger.exception(f"Failed to capture frame for project {project_id}.")
             raise ServiceError(f"Frame capture failed: {str(e)}")
-        finally:
-            if consumer_queue is not None:
-                try:
-                    self._pipeline_manager.unregister_inbound_consumer(project_id, consumer_queue)
-                except Exception as e:
-                    logger.warning(f"Failed to unregister consumer: {e}")
 
     def get_frame_path(self, project_id: UUID, frame_id: UUID) -> Path | None:
         """Get the path to a stored frame."""
