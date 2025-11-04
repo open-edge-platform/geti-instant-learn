@@ -113,7 +113,7 @@
       matchUpdateTypes: ["major", "minor"],
     },
 
-    // Disable docker.io/astral/uv image upgrades, except digital pinning,
+    // Disable ghcr.io/astral-sh/uv image upgrades, except digital pinning,
     {
       enabled: false,
       matchDatasources: ["docker"],
