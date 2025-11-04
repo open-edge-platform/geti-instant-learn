@@ -143,12 +143,16 @@ def get_frame_index(
     project_id: UUID,
     source_id: UUID,
     source_service: SourceServiceDep,  # noqa: ARG001
-) -> int:
+) -> Response:
     """
     Get the current frame index for the specified source.
     """
     logger.debug(f"Received GET frames request for source {source_id} in project {project_id}.")
-    return 1
+    return Response(
+        content='{"index": 1}',
+        status_code=status.HTTP_200_OK,
+        media_type="application/json",
+    )
 
 
 @projects_router.post(

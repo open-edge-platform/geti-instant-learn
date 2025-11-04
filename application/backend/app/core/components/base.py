@@ -24,7 +24,6 @@ class PipelineComponent(ABC):
 
     def __init__(self):
         self._stop_event = Event()
-        self._pause_event = Event()
 
     def __call__(self, *args, **kwargs):  # noqa: ARG002
         # signature must match interface

@@ -1,5 +1,7 @@
+#  Copyright (C) 2025 Intel Corporation
+#  SPDX-License-Identifier: Apache-2.0
+
 import logging
-import threading
 import time
 
 from core.components.base import PipelineComponent, StreamReader
@@ -21,18 +23,12 @@ class Source(PipelineComponent):
         super().__init__()
         self._reader = stream_reader
         self._inbound_broadcaster = inbound_broadcaster
-        self._pause_condition = threading.Condition()
 
     def run(self) -> None:
         logger.debug("Starting a source loop")
         with self._reader:
             self._reader.connect()
             while not self._stop_event.is_set():
-                # Wait while paused using condition variable
-                with self._pause_condition:
-                    while self._pause_event.is_set() and not self._stop_event.is_set():
-                        self._pause_condition.wait()
-
                 if self._stop_event.is_set():
                     break
 
@@ -69,14 +65,3 @@ class Source(PipelineComponent):
         Delegates to reader.list_frames().
         """
         return self._reader.list_frames(page, page_size)
-
-    def stop(self) -> None:
-        """
-        Stop source flow.
-        Sets stop event and notifies pause condition to wake up waiting threads.
-        """
-        self._stop_event.set()
-        # Wake up thread if it's waiting on pause condition
-        with self._pause_condition:
-            self._pause_condition.notify()
-        logger.debug("Source stopped")
