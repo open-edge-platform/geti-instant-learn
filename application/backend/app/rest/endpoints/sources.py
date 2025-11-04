@@ -1,11 +1,11 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 import logging
 from uuid import UUID
 
 from fastapi import Response, status
-import json
 
 from dependencies import SourceServiceDep
 from routers import projects_router

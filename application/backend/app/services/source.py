@@ -346,8 +346,8 @@ class SourceService:
         # Placeholder for actual frame retrieval logic
         logger.info("Retrieving frames from source_id=%s project_id=%s", source_id, project_id)
         frames = []
-        with open(MOCK_FILE, 'rb') as file:
-            encoded_file = base64.b64encode(file.read()).decode('utf-8')
+        with open(MOCK_FILE, "rb") as file:
+            encoded_file = base64.b64encode(file.read()).decode("utf-8")
         for i in range(4):
             frames.append(FrameMetadata(index=i, thumbnail=encoded_file))
         return FrameListResponse(
