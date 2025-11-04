@@ -21,6 +21,15 @@ class Masks(Prompt):
         if mask.dtype != torch.bool:
             mask = (mask > 0).bool()
 
+        # Handle empty tensors - just store them as-is
+        if mask.numel() == 0:
+            if class_id not in self._data:
+                self._data[class_id] = mask
+            else:
+                # For empty tensors, we can't concatenate, so replace
+                self._data[class_id] = mask
+            return
+
         if mask.ndim == 3 and mask.shape[0] != 1:  # HWC format
             max_channel = 0 if mask.shape[-1] == 1 else torch.argmax(mask.sum(dim=(0, 1)))
             mask = mask[:, :, max_channel].unsqueeze(0)
@@ -114,4 +123,9 @@ class Masks(Prompt):
     @property
     def mask_shape(self) -> tuple[int, int]:
         """Get the shape of a mask."""
-        return self._data[0].shape[1:]
+        # # CODE WILL BE REMOVED, TEMPORARY FIX:
+        #   find the first non-empty mask and return its shape
+        for mask in self._data.values():
+            if mask.numel() > 0:
+                return mask.shape[1:]
+        return (0, 0)

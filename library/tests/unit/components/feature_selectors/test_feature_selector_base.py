@@ -9,7 +9,6 @@ import torch
 from getiprompt.components.feature_selectors.all_features import AllFeaturesSelector
 from getiprompt.components.feature_selectors.average_features import AverageFeatures
 from getiprompt.components.feature_selectors.base import FeatureSelector
-from getiprompt.components.feature_selectors.cluster_features import ClusterFeatures
 from getiprompt.types import Features
 
 
@@ -147,7 +146,6 @@ class TestFeatureSelector:
         """Test that concrete classes inherit from FeatureSelector correctly."""
         pytest.assume(issubclass(AllFeaturesSelector, FeatureSelector))
         pytest.assume(issubclass(AverageFeatures, FeatureSelector))
-        pytest.assume(issubclass(ClusterFeatures, FeatureSelector))
 
     def test_get_all_local_class_features_with_none_features(self) -> None:
         """Test get_all_local_class_features with None features."""

@@ -5,15 +5,19 @@
 
 from typing import TYPE_CHECKING
 
-from getiprompt.components import CosineSimilarity, MaskAdder, MasksToPolygons, SamDecoder
+import torch
+
+from getiprompt.components import CosineSimilarity, MasksToPolygons, SamDecoder
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_selectors import AverageFeatures, FeatureSelector
 from getiprompt.components.filters import ClassOverlapMaskFilter, MaxPointFilter
 from getiprompt.components.prompt_generators import GridPromptGenerator
-from getiprompt.models import Model, load_sam_model
-from getiprompt.types import Image, Priors, Results
+from getiprompt.types import Priors, Results
+from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
-from getiprompt.utils.decorators import track_duration
+
+from .base import Model
+from .foundation import load_sam_model
 
 if TYPE_CHECKING:
     from getiprompt.components.prompt_generators.base import PromptGenerator
@@ -30,7 +34,8 @@ class PerDino(Model):
         >>> import torch
         >>> import numpy as np
         >>> from getiprompt.models import PerDino
-        >>> from getiprompt.types import Image, Priors, Results
+        >>> from getiprompt.types import Priors, Results
+        >>> from torchvision import tv_tensors
         >>>
         >>> perdino = PerDino()
         >>>
@@ -41,8 +46,8 @@ class PerDino(Model):
         >>> ref_priors.masks.add(torch.ones(30, 30, dtype=torch.bool), class_id=1)
         >>>
         >>> # Run learn and infer
-        >>> learn_results = perdino.learn([Image(ref_image)], [ref_priors])
-        >>> infer_results = perdino.infer([Image(target_image)])
+        >>> learn_results = perdino.learn([tv_tensors.Image(ref_image)], [ref_priors])
+        >>> infer_results = perdino.infer([tv_tensors.Image(target_image)])
         >>>
         >>> isinstance(learn_results, Results) and isinstance(infer_results, Results)
         True
@@ -65,7 +70,6 @@ class PerDino(Model):
         compile_models: bool = False,
         benchmark_inference_speed: bool = False,
         device: str = "cuda",
-        image_size: int | tuple[int, int] | None = None,
     ) -> None:
         """Initialize the PerDino model.
 
@@ -81,9 +85,8 @@ class PerDino(Model):
             compile_models: Whether to compile the models.
             benchmark_inference_speed: Whether to benchmark the inference speed.
             device: The device to use for the model.
-            image_size: The size of the image to use, if None, the image will not be resized.
         """
-        super().__init__(image_size=image_size)
+        super().__init__()
         self.sam_predictor = load_sam_model(
             sam,
             device,
@@ -113,37 +116,27 @@ class PerDino(Model):
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
         )
-        self.prior_mask_from_points = MaskAdder(segmenter=self.segmenter)
         self.mask_processor = MasksToPolygons()
         self.class_overlap_mask_filter = ClassOverlapMaskFilter()
         self.reference_features = None
 
     @track_duration
-    def learn(self, reference_images: list[Image], reference_priors: list[Priors]) -> Results:
+    def learn(self, reference_images: list[torch.Tensor], reference_priors: list[Priors]) -> None:
         """Perform learning step on the reference images and priors."""
-        reference_images = self.resize_images(reference_images)
-        reference_priors = self.prior_mask_from_points(reference_images, reference_priors)
-        reference_priors = self.resize_masks(reference_priors)
-
         # Start running the model
-        reference_features, _ = self.encoder(
-            reference_images,
-            reference_priors,
-        )
+        reference_features, _ = self.encoder(reference_images, reference_priors)
         self.reference_features = self.feature_selector(reference_features)
 
     @track_duration
-    def infer(self, target_images: list[Image]) -> Results:
+    def infer(self, target_images: list[torch.Tensor]) -> Results:
         """Perform inference step on the target images."""
-        target_images = self.resize_images(target_images)
-
         # Start running the model
         target_features, _ = self.encoder(target_images)
         similarities = self.similarity_matcher(self.reference_features, target_features, target_images)
         priors = self.prompt_generator(similarities, target_images)
         priors = self.point_filter(priors)
         masks, used_points, _ = self.segmenter(target_images, priors, similarities)
-        masks = self.class_overlap_mask_filter(masks, used_points)
+        masks, used_points = self.class_overlap_mask_filter(masks, used_points)
         annotations = self.mask_processor(masks)
 
         # write output

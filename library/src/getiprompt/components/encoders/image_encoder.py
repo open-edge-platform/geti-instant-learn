@@ -8,10 +8,10 @@ from logging import getLogger
 import torch
 from torch import nn
 from torch.nn import functional
-from torchvision import transforms
+from torchvision import transforms, tv_tensors
 from transformers import AutoImageProcessor, AutoModel
 
-from getiprompt.types import Features, Image, Masks, Priors
+from getiprompt.types import Features, Masks, Priors
 from getiprompt.utils import MaybeToTensor, precision_to_torch_dtype
 
 logger = getLogger("Geti Prompt")
@@ -34,14 +34,15 @@ class ImageEncoder(nn.Module):
 
     Examples:
         >>> from getiprompt.processes.encoders import Encoder
-        >>> from getiprompt.types import Image, Priors, Features
+        >>> from getiprompt.types import Priors, Features
+        >>> from torchvision import tv_tensors
         >>> import torch
         >>> import numpy as np
         >>>
         >>> # Create a sample image
         >>> sample_image = np.zeros((518, 518, 3), dtype=np.uint8)
         >>> encoder = Encoder(model_id="dinov2_large")
-        >>> features, masks = encoder([Image(sample_image)], priors_per_image=[Priors()])
+        >>> features, masks = encoder([tv_tensors.Image(sample_image)], priors_per_image=[Priors()])
         >>> len(features), len(masks)
         (1, 1)
         >>> # Each image gets a Features object with global features and a Masks object
@@ -116,25 +117,9 @@ class ImageEncoder(nn.Module):
             transforms.Lambda(lambda x: (x * -1) + 1),
         ])
 
-    @torch.inference_mode()
-    def _embed(self, x: list[torch.Tensor]) -> torch.Tensor:
-        """Embed images.
-
-        Args:
-            x: The input images.
-
-        Returns:
-            The normalized features.
-        """
-        inputs = self.processor(images=x, return_tensors="pt")
-        inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
-        last_hidden_state = self.model(**inputs).last_hidden_state
-        features = last_hidden_state[:, self.ignore_token_length :, :]  # Remove CLS token (and register tokens if used)
-        return functional.normalize(features, p=2, dim=-1)
-
     def forward(
         self,
-        images: list[Image] | None = None,
+        images: list[tv_tensors.Image] | None = None,
         priors_per_image: list[Priors] | None = None,
     ) -> tuple[list[Features], list[Masks]]:
         """This method creates an embedding from the images for locations inside the mask.
@@ -147,7 +132,7 @@ class ImageEncoder(nn.Module):
             A list of extracted features.
         """
         resized_masks_per_image: list[Masks] = []
-        image_features: list[Features] = self._extract_global_features_batch(images)
+        image_features: list[Features] = self._extract_embeddings(images)
 
         if priors_per_image is not None:
             for features, priors in zip(image_features, priors_per_image, strict=False):
@@ -185,21 +170,25 @@ class ImageEncoder(nn.Module):
                 features.add_local_features(local_features=local_features, class_id=class_id)
         return features, resized_masks
 
-    def _extract_global_features_batch(self, images: list[Image]) -> list[Features]:
+    @torch.inference_mode()
+    def _extract_embeddings(
+        self,
+        images: list[tv_tensors.Image],
+    ) -> list[Features]:
         """Extract all global features from the images.
 
         Args:
-            images: A list of images.
+            images(list[tv_tensors.Image]): A list of tv_tensors.Image.
 
         Returns:
-            A list of features.
+            A list of Features.
         """
-        image_tensors = [image.data for image in images]
-        features = self._embed(image_tensors)
-        image_features: list[Features] = []
-        for idx, _image in enumerate(images):
-            image_features.append(Features(global_features=features[idx]))
-        return image_features
+        inputs = self.processor(images=images, return_tensors="pt")
+        inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
+        last_hidden_state = self.model(**inputs).last_hidden_state
+        features = last_hidden_state[:, self.ignore_token_length :, :]  # Remove CLS token (and register tokens if used)
+        features = functional.normalize(features, p=2, dim=-1)
+        return [Features(global_features=f) for f in features]
 
     @staticmethod
     def _load_hf_model(model_id: str, input_size: int) -> tuple[nn.Module, AutoImageProcessor]:

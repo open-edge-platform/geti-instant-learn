@@ -6,8 +6,6 @@
 from logging import getLogger
 from typing import TYPE_CHECKING
 
-from efficientvit.models.efficientvit import EfficientViTSamPredictor
-from efficientvit.sam_model_zoo import create_efficientvit_sam_model
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 from segment_anything_hq import sam_model_registry as sam_hq_model_registry
@@ -20,7 +18,7 @@ from getiprompt.utils.utils import download_file, precision_to_torch_dtype
 if TYPE_CHECKING:
     from segment_anything_hq.modeling.sam import Sam as SamHQ
 
-    from getiprompt.models.foundation.per_sam.modeling import Sam
+    from getiprompt.models.foundation.per_sam.modeling import SAM
 
 logger = getLogger("Geti Prompt")
 
@@ -31,7 +29,7 @@ def load_sam_model(
     precision: str = "bf16",
     compile_models: bool = False,
     benchmark_inference_speed: bool = False,
-) -> SamPredictor | SamHQPredictor | EfficientViTSamPredictor | SAM2ImagePredictor:
+) -> SamPredictor | SamHQPredictor | SAM2ImagePredictor:
     """Load and optimize a SAM model.
 
     Args:
@@ -40,6 +38,10 @@ def load_sam_model(
         precision: The precision of the model.
         compile_models: Whether to compile the model.
         benchmark_inference_speed: Whether to benchmark the inference speed.
+
+    Raises:
+        ValueError: If the model is not implemented yet.
+        NotImplementedError: If the model is not implemented yet.
 
     Returns:
         The loaded model.
@@ -57,10 +59,11 @@ def load_sam_model(
     local_filename = model_info["local_filename"]
     checkpoint_path = DATA_PATH.joinpath(local_filename)
 
-    logger.info(f"Loading segmentation model: {sam} from {checkpoint_path}")
+    msg = f"Loading segmentation model: {sam} from {checkpoint_path}"
+    logger.info(msg)
 
     if sam in {SAMModelName.SAM, SAMModelName.MOBILE_SAM}:
-        model: Sam = sam_model_registry[registry_name](checkpoint=str(checkpoint_path)).to(device).eval()
+        model: SAM = sam_model_registry[registry_name](checkpoint=str(checkpoint_path)).to(device).eval()
         predictor = SamPredictor(model)
     elif sam in {SAMModelName.SAM2_TINY, SAMModelName.SAM2_SMALL, SAMModelName.SAM2_BASE, SAMModelName.SAM2_LARGE}:
         config_path = "configs/sam2.1/" + model_info["config_filename"]
@@ -69,16 +72,6 @@ def load_sam_model(
     elif sam in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
         model: SamHQ = sam_hq_model_registry[registry_name](checkpoint=str(checkpoint_path)).to(device).eval()
         predictor = SamHQPredictor(model)
-    elif sam == SAMModelName.EFFICIENT_VIT_SAM:
-        model = (
-            create_efficientvit_sam_model(
-                name=registry_name,
-                weight_url=str(checkpoint_path),
-            )
-            .to(device)
-            .eval()
-        )
-        predictor = EfficientViTSamPredictor(model)
     else:
         msg = f"Model {sam} not implemented yet"
         raise NotImplementedError(msg)
@@ -97,6 +90,10 @@ def check_model_weights(model_name: SAMModelName) -> None:
 
     Args:
         model_name: The name of the model.
+
+    Raises:
+        ValueError: If the model is not found in MODEL_MAP.
+        ValueError: If the model weights are missing.
     """
     if model_name not in MODEL_MAP:
         msg = f"Model '{model_name.value}' not found in MODEL_MAP for weight checking."
@@ -114,5 +111,6 @@ def check_model_weights(model_name: SAMModelName) -> None:
     target_path = DATA_PATH.joinpath(local_filename)
 
     if not target_path.exists():
-        logger.info(f"Model weights for {model_name.value} not found at {target_path}, downloading...")
+        msg = f"Model weights for {model_name.value} not found at {target_path}, downloading..."
+        logger.info(msg)
         download_file(download_url, target_path, sha_sum)

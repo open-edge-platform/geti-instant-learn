@@ -11,7 +11,8 @@ import numpy as np
 import pytest
 
 from core.components.schemas.processor import InputData
-from services.errors import ResourceNotFoundError, ResourceType, ServiceError
+from core.runtime.errors import PipelineNotActiveError
+from exceptions.custom_errors import ResourceNotFoundError, ResourceType, ServiceError
 from services.frame import FrameService
 
 
@@ -32,11 +33,6 @@ def sample_input_data(sample_frame):
 
 
 @pytest.fixture
-def pipeline_manager_mock():
-    return MagicMock(name="PipelineManager")
-
-
-@pytest.fixture
 def frame_repository_mock():
     return MagicMock(name="FrameRepository")
 
@@ -52,17 +48,34 @@ def source_repository_mock():
 
 
 @pytest.fixture
-def frame_service(
-    pipeline_manager_mock,
+def frame_service_without_queue(
     frame_repository_mock,
     project_repository_mock,
     source_repository_mock,
 ):
+    """Frame service without queue (for GET requests)."""
     return FrameService(
-        pipeline_manager=pipeline_manager_mock,
         frame_repo=frame_repository_mock,
         project_repo=project_repository_mock,
         source_repo=source_repository_mock,
+    )
+
+
+@pytest.fixture
+def frame_service_with_queue(
+    frame_repository_mock,
+    project_repository_mock,
+    source_repository_mock,
+    sample_input_data,
+):
+    """Frame service with queue (for POST requests)."""
+    consumer_queue = Queue()
+    consumer_queue.put(sample_input_data)
+    return FrameService(
+        frame_repo=frame_repository_mock,
+        project_repo=project_repository_mock,
+        source_repo=source_repository_mock,
+        inbound_queue=consumer_queue,
     )
 
 
@@ -82,9 +95,17 @@ def make_source(source_id=None, connected=True):
     )
 
 
+def test_capture_frame_without_queue_raises_error(
+    frame_service_without_queue,
+):
+    project_id = uuid.uuid4()
+
+    with pytest.raises(ServiceError, match="not been properly initialized with inbound queue"):
+        frame_service_without_queue.capture_frame(project_id)
+
+
 def test_capture_frame_success(
-    frame_service,
-    pipeline_manager_mock,
+    frame_service_with_queue,
     frame_repository_mock,
     project_repository_mock,
     source_repository_mock,
@@ -93,19 +114,15 @@ def test_capture_frame_success(
     project_id = uuid.uuid4()
     expected_project = make_project(project_id=project_id, active=True)
     expected_source = make_source(connected=True)
-    consumer_queue = Queue()
-    consumer_queue.put(sample_input_data)
 
     project_repository_mock.get_by_id.return_value = expected_project
     source_repository_mock.get_connected_in_project.return_value = expected_source
-    pipeline_manager_mock.register_inbound_consumer.return_value = consumer_queue
 
-    captured_frame_id = frame_service.capture_frame(project_id)
+    captured_frame_id = frame_service_with_queue.capture_frame(project_id)
 
     assert isinstance(captured_frame_id, uuid.UUID)
     project_repository_mock.get_by_id.assert_called_once_with(project_id)
     source_repository_mock.get_connected_in_project.assert_called_once_with(project_id)
-    pipeline_manager_mock.register_inbound_consumer.assert_called_once_with(project_id)
     frame_repository_mock.save_frame.assert_called_once()
 
     call_args = frame_repository_mock.save_frame.call_args
@@ -113,37 +130,35 @@ def test_capture_frame_success(
     assert isinstance(call_args[0][1], uuid.UUID)
     np.testing.assert_array_equal(call_args[0][2], sample_input_data.frame)
 
-    pipeline_manager_mock.unregister_inbound_consumer.assert_called_once_with(project_id, consumer_queue)
-
 
 def test_capture_frame_project_not_found(
-    frame_service,
+    frame_service_with_queue,
     project_repository_mock,
 ):
     project_id = uuid.uuid4()
     project_repository_mock.get_by_id.return_value = None
 
     with pytest.raises(ResourceNotFoundError) as exc_info:
-        frame_service.capture_frame(project_id)
+        frame_service_with_queue.capture_frame(project_id)
 
     assert exc_info.value.resource_type == ResourceType.PROJECT
     assert exc_info.value.resource_id == str(project_id)
 
 
 def test_capture_frame_project_not_active(
-    frame_service,
+    frame_service_with_queue,
     project_repository_mock,
 ):
     project_id = uuid.uuid4()
     inactive_project = make_project(project_id=project_id, active=False)
     project_repository_mock.get_by_id.return_value = inactive_project
 
-    with pytest.raises(ServiceError, match="project .* is not active"):
-        frame_service.capture_frame(project_id)
+    with pytest.raises(PipelineNotActiveError, match="project .* is not active"):
+        frame_service_with_queue.capture_frame(project_id)
 
 
 def test_capture_frame_no_connected_source(
-    frame_service,
+    frame_service_with_queue,
     project_repository_mock,
     source_repository_mock,
 ):
@@ -153,17 +168,16 @@ def test_capture_frame_no_connected_source(
     source_repository_mock.get_connected_in_project.return_value = None
 
     with pytest.raises(ResourceNotFoundError) as exc_info:
-        frame_service.capture_frame(project_id)
+        frame_service_with_queue.capture_frame(project_id)
 
     assert exc_info.value.resource_type == ResourceType.SOURCE
     assert "no connected source" in str(exc_info.value).lower()
 
 
 def test_capture_frame_timeout(
-    frame_service,
-    pipeline_manager_mock,
     project_repository_mock,
     source_repository_mock,
+    frame_repository_mock,
 ):
     project_id = uuid.uuid4()
     active_project = make_project(project_id=project_id, active=True)
@@ -172,17 +186,19 @@ def test_capture_frame_timeout(
 
     project_repository_mock.get_by_id.return_value = active_project
     source_repository_mock.get_connected_in_project.return_value = connected_source
-    pipeline_manager_mock.register_inbound_consumer.return_value = empty_queue
+
+    frame_service = FrameService(
+        frame_repo=frame_repository_mock,
+        project_repo=project_repository_mock,
+        source_repo=source_repository_mock,
+        inbound_queue=empty_queue,
+    )
 
     with pytest.raises(ServiceError, match="No frame received within 5 seconds"):
         frame_service.capture_frame(project_id)
 
-    pipeline_manager_mock.unregister_inbound_consumer.assert_called_once_with(project_id, empty_queue)
-
 
 def test_capture_frame_save_failure(
-    frame_service,
-    pipeline_manager_mock,
     frame_repository_mock,
     project_repository_mock,
     source_repository_mock,
@@ -196,46 +212,23 @@ def test_capture_frame_save_failure(
 
     project_repository_mock.get_by_id.return_value = active_project
     source_repository_mock.get_connected_in_project.return_value = connected_source
-    pipeline_manager_mock.register_inbound_consumer.return_value = consumer_queue
     frame_repository_mock.save_frame.side_effect = RuntimeError("Disk full")
+
+    frame_service = FrameService(
+        frame_repo=frame_repository_mock,
+        project_repo=project_repository_mock,
+        source_repo=source_repository_mock,
+        inbound_queue=consumer_queue,
+    )
 
     with pytest.raises(ServiceError, match="Frame capture failed"):
         frame_service.capture_frame(project_id)
 
-    pipeline_manager_mock.unregister_inbound_consumer.assert_called_once_with(project_id, consumer_queue)
-
-
-def test_capture_frame_unregister_failure_is_logged(
-    frame_service,
-    pipeline_manager_mock,
-    frame_repository_mock,
-    project_repository_mock,
-    source_repository_mock,
-    sample_input_data,
-    caplog,
-):
-    project_id = uuid.uuid4()
-    active_project = make_project(project_id=project_id, active=True)
-    connected_source = make_source(connected=True)
-    consumer_queue = Queue()
-    consumer_queue.put(sample_input_data)
-
-    project_repository_mock.get_by_id.return_value = active_project
-    source_repository_mock.get_connected_in_project.return_value = connected_source
-    pipeline_manager_mock.register_inbound_consumer.return_value = consumer_queue
-    pipeline_manager_mock.unregister_inbound_consumer.side_effect = Exception("Unregister failed")
-
-    captured_frame_id = frame_service.capture_frame(project_id)
-
-    assert isinstance(captured_frame_id, uuid.UUID)
-    assert "Failed to unregister consumer" in caplog.text
-
 
 def test_capture_frame_queue_get_exception(
-    frame_service,
-    pipeline_manager_mock,
     project_repository_mock,
     source_repository_mock,
+    frame_repository_mock,
 ):
     project_id = uuid.uuid4()
     active_project = make_project(project_id=project_id, active=True)
@@ -245,16 +238,20 @@ def test_capture_frame_queue_get_exception(
 
     project_repository_mock.get_by_id.return_value = active_project
     source_repository_mock.get_connected_in_project.return_value = connected_source
-    pipeline_manager_mock.register_inbound_consumer.return_value = consumer_queue
+
+    frame_service = FrameService(
+        frame_repo=frame_repository_mock,
+        project_repo=project_repository_mock,
+        source_repo=source_repository_mock,
+        inbound_queue=consumer_queue,
+    )
 
     with pytest.raises(ServiceError, match="Frame capture failed"):
         frame_service.capture_frame(project_id)
 
-    pipeline_manager_mock.unregister_inbound_consumer.assert_called_once_with(project_id, consumer_queue)
-
 
 def test_get_frame_path_returns_path(
-    frame_service,
+    frame_service_without_queue,
     frame_repository_mock,
 ):
     project_id = uuid.uuid4()
@@ -262,21 +259,21 @@ def test_get_frame_path_returns_path(
     expected_path = Path(f"/fake/path/{project_id}/frames/{frame_id}.jpg")
     frame_repository_mock.get_frame_path.return_value = expected_path
 
-    result_path = frame_service.get_frame_path(project_id, frame_id)
+    result_path = frame_service_without_queue.get_frame_path(project_id, frame_id)
 
     assert result_path == expected_path
     frame_repository_mock.get_frame_path.assert_called_once_with(project_id, frame_id)
 
 
 def test_get_frame_path_returns_none_when_not_exists(
-    frame_service,
+    frame_service_without_queue,
     frame_repository_mock,
 ):
     project_id = uuid.uuid4()
     frame_id = uuid.uuid4()
     frame_repository_mock.get_frame_path.return_value = None
 
-    result_path = frame_service.get_frame_path(project_id, frame_id)
+    result_path = frame_service_without_queue.get_frame_path(project_id, frame_id)
 
     assert result_path is None
     frame_repository_mock.get_frame_path.assert_called_once_with(project_id, frame_id)

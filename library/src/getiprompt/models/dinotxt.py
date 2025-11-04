@@ -4,10 +4,11 @@
 """DINOv3 zero-shot classification model."""
 
 import torch
+from torchvision import tv_tensors
 
 from getiprompt.models.base import Model
 from getiprompt.models.foundation.dinotxt import IMAGENET_TEMPLATES, DinoTextEncoder
-from getiprompt.types import Image, Masks, Priors, Results
+from getiprompt.types import Masks, Priors, Results
 from getiprompt.utils import precision_to_torch_dtype
 from getiprompt.utils.constants import DINOv3BackboneSize
 
@@ -24,7 +25,7 @@ class DinoTxtZeroShotClassification(Model):
 
     Examples:
         >>> from getiprompt.models import DinoTxtZeroShotClassification
-        >>> from getiprompt.types import Image, Priors
+        >>> from getiprompt.types import Priors
         >>> from getiprompt.utils.constants import DINOv3BackboneSize
         >>>
         >>> dinotxt = DinoTxtZeroShotClassification(
@@ -45,7 +46,8 @@ class DinoTxtZeroShotClassification(Model):
         image_size: tuple[int, int] | None = (512, 512),
         backbone_size: DINOv3BackboneSize = DINOv3BackboneSize.LARGE,
     ) -> None:
-        super().__init__(image_size=image_size)
+        """Initialize the DinoTxtZeroShotClassification."""
+        super().__init__()
         self.precision = precision = precision_to_torch_dtype(precision)
         self.dino_encoder = DinoTextEncoder(
             device=device,
@@ -57,7 +59,7 @@ class DinoTxtZeroShotClassification(Model):
 
     def learn(
         self,
-        reference_images: list[Image],  # noqa: ARG002
+        reference_images: list[tv_tensors.Image],  # noqa: ARG002
         reference_priors: list[Priors],
     ) -> None:
         """Perform learning step on the priors.
@@ -68,18 +70,19 @@ class DinoTxtZeroShotClassification(Model):
             reference_images: A list of reference images.
             reference_priors: A list of reference priors.
 
-        Returns:
-            None
+        Raises:
+            ValueError: If no reference priors are provided.
 
         Examples:
             >>> import torch
             >>> import numpy as np
             >>> from getiprompt.models import DINOTxt
-            >>> from getiprompt.types import Image, Priors
+            >>> from getiprompt.types import Priors
+            >>> from torchvision import tv_tensors
             >>> dinotxt = DINOTxt()
             >>> ref_priors = Priors(text={0: "cat", 1: "dog"})
             >>> dinotxt.learn(reference_images=[], reference_priors=[ref_priors])
-            >>> dinotxt.infer(target_images=[Image()])
+            >>> dinotxt.infer(target_images=[tv_tensors.Image()])
         """
         if not reference_priors:
             msg = "reference_priors must be provided"
@@ -91,7 +94,7 @@ class DinoTxtZeroShotClassification(Model):
         self.reference_features = self.dino_encoder.encode_text(reference_prior, self.prompt_templates)
 
     @torch.no_grad()
-    def infer(self, target_images: list[Image]) -> Results:
+    def infer(self, target_images: list[tv_tensors.Image]) -> Results:
         """Perform inference on the target images.
 
         Args:
@@ -103,7 +106,8 @@ class DinoTxtZeroShotClassification(Model):
         Examples:
             >>> import torch
             >>> from getiprompt.models import DinoTxtZeroShotClassification
-            >>> from getiprompt.types import Image, Priors
+            >>> from getiprompt.types import Priors
+            >>> from torchvision import tv_tensors
             >>> dinotxt = DinoTxtZeroShotClassification()
             >>> ref_priors = Priors(text={0: "cat", 1: "dog"})
             >>> dinotxt.learn(reference_images=[], reference_priors=[ref_priors])

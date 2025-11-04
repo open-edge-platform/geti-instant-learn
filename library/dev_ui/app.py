@@ -18,7 +18,7 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 from flask import Flask, Response, jsonify, render_template, request, stream_with_context
-
+from getiprompt.utils.data import load_dataset
 from helpers import (
     load_and_prepare_data,
     parse_request_and_check_reload,
@@ -26,10 +26,10 @@ from helpers import (
     reload_model_if_needed,
     stream_inference,
 )
+
 from getiprompt.components.encoders import AVAILABLE_IMAGE_ENCODERS
 from getiprompt.utils.args import get_arguments
 from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
-from getiprompt.utils.data import load_dataset
 
 BATCH_SIZE = 5
 

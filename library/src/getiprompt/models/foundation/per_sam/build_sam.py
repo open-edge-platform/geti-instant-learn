@@ -1,16 +1,28 @@
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+"""Build SAM model."""
 
 from functools import partial
 
 import torch
 
-from .modeling import ImageEncoderViT, MaskDecoder, PromptEncoder, Sam, TinyViT, TwoWayTransformer
+from getiprompt.models.foundation.per_sam.modeling import (
+    SAM,
+    ImageEncoderViT,
+    MaskDecoder,
+    PromptEncoder,
+    TinyViT,
+    TwoWayTransformer,
+)
 
 
-def build_sam_vit_h(checkpoint=None):
+def build_sam_vit_h(checkpoint: str | None = None) -> SAM:
+    """Build SAM ViT-H model."""
     return _build_sam(
         encoder_embed_dim=1280,
         encoder_depth=32,
@@ -23,7 +35,8 @@ def build_sam_vit_h(checkpoint=None):
 build_sam = build_sam_vit_h
 
 
-def build_sam_vit_l(checkpoint=None):
+def build_sam_vit_l(checkpoint: str | None = None) -> SAM:
+    """Build SAM ViT-L model."""
     return _build_sam(
         encoder_embed_dim=1024,
         encoder_depth=24,
@@ -33,7 +46,8 @@ def build_sam_vit_l(checkpoint=None):
     )
 
 
-def build_sam_vit_b(checkpoint=None):
+def build_sam_vit_b(checkpoint: str | None = None) -> SAM:
+    """Build SAM ViT-B model."""
     return _build_sam(
         encoder_embed_dim=768,
         encoder_depth=12,
@@ -43,12 +57,13 @@ def build_sam_vit_b(checkpoint=None):
     )
 
 
-def build_sam_vit_t(checkpoint=None):
+def build_sam_vit_t(checkpoint: str | None = None) -> SAM:
+    """Build SAM ViT-T model."""
     prompt_embed_dim = 256
     image_size = 1024
     vit_patch_size = 16
     image_embedding_size = image_size // vit_patch_size
-    mobile_sam = Sam(
+    mobile_sam = SAM(
         image_encoder=TinyViT(
             img_size=1024,
             in_chans=3,
@@ -105,17 +120,18 @@ sam_model_registry = {
 
 
 def _build_sam(
-    encoder_embed_dim,
-    encoder_depth,
-    encoder_num_heads,
-    encoder_global_attn_indexes,
-    checkpoint=None,
-):
+    encoder_embed_dim: int,
+    encoder_depth: int,
+    encoder_num_heads: int,
+    encoder_global_attn_indexes: list[int],
+    checkpoint: str | None = None,
+) -> SAM:
+    """Build SAM model."""
     prompt_embed_dim = 256
     image_size = 1024
     vit_patch_size = 16
     image_embedding_size = image_size // vit_patch_size
-    sam = Sam(
+    sam = SAM(
         image_encoder=ImageEncoderViT(
             depth=encoder_depth,
             embed_dim=encoder_embed_dim,

@@ -56,3 +56,20 @@ class ImagesFolderConfig(BaseModel):
 
 
 ReaderConfig = Annotated[WebCamConfig | VideoFileConfig | ImagesFolderConfig, Field(discriminator="source_type")]
+
+
+class FrameMetadata(BaseModel):
+    """Metadata for a single frame in the timeline."""
+
+    index: int
+    thumbnail: str  # base64-encoded image
+    path: str
+
+
+class FrameListResponse(BaseModel):
+    """Paginated response for frame listing."""
+
+    total: int
+    page: int
+    page_size: int
+    frames: list[FrameMetadata]

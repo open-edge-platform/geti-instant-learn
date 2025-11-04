@@ -9,7 +9,7 @@ import { WebcamConfig } from '@geti-prompt/api';
 import { Button, TextField, View } from '@geti/ui';
 import { isInteger } from 'lodash-es';
 
-import { useCurrentProject } from '../../../projects-management/hooks/use-current-project.hook';
+import { useCurrentProject } from '../../../project/hooks/use-current-project.hook';
 import { useCreateWebcamSource } from '../hooks/use-create-webcam-source';
 import { useUpdateWebcamSource } from '../hooks/use-update-webcam-source';
 
@@ -55,6 +55,7 @@ export const WebcamSource = ({ source }: WebcamSourceProps) => {
                 <TextField
                     label={'Device ID'}
                     value={selectedDeviceId}
+                    name='device-id'
                     onChange={setSelectedDeviceId}
                     validate={(value) => (isInteger(Number(value)) ? true : 'Device ID must be an integer')}
                 />

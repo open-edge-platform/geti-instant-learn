@@ -6,9 +6,9 @@
 import { $api } from '@geti-prompt/api';
 import { View } from '@geti/ui';
 
-import { useCurrentProject } from '../features/projects-management/hooks/use-current-project.hook';
-import { NotActiveProject } from '../features/projects-management/not-active-project/not-active-project.component';
-import { StreamContainer } from '../features/stream/stream.component';
+import { useCurrentProject } from '../features/project/hooks/use-current-project.hook';
+import { NotActiveProject } from '../features/project/not-active-project/not-active-project.component';
+import { StreamContainer } from '../features/stream/stream-container/stream-container.component';
 import { NoMediaPlaceholder } from './no-media-placeholder/no-media-placeholder.component';
 
 const NoSourcePlaceholder = () => {

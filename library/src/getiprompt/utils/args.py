@@ -69,22 +69,16 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         "--class_name",
         type=str,
         default=None,
-        help="Filter on class name",
+        help="Filter categories. Can be: "
+        "(1) preset name ('default', 'benchmark', 'all'), "
+        "(2) comma-separated list (e.g., 'cat,dog,bird'), "
+        "(3) None (uses 'default' preset)",
     )
     parser.add_argument(
         "--num_grid_cells",
         type=int,
         default=16,
         help="Number of grid cells to use for the grid prompt generator",
-    )
-    parser.add_argument(
-        "--image_size",
-        type=int,
-        default=None,
-        help="Size of the image to use for inference. If not provided, the original size will be used. "
-        "If provided, the image will be resized to the given size, maintaining aspect ratio. "
-        "Note: images are always resized to 1024x1024 for SAM and to 518x518 for DINO. "
-        "This will mainly influence the UI rendering.",
     )
     parser.add_argument(
         "--overwrite",
@@ -96,12 +90,6 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         type=str,
         default=None,
         help="If passed, will save all",
-    )
-    parser.add_argument(
-        "--num_clusters",
-        type=int,
-        default=3,
-        help="Number of clusters of features to create, if using the ClusterFeatures module",
     )
     parser.add_argument(
         "--similarity_threshold",
@@ -166,13 +154,6 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         help="The maximum batch size used during inference.",
     )
     parser.add_argument(
-        "--num_batches",
-        type=int,
-        help="The maximum number of batches per class to process. "
-        "This can be used to limit the amount images that are processed. "
-        "The number of processed images will not exceed num_classes * num_batches * batch_size",
-    )
-    parser.add_argument(
         "--precision",
         type=str,
         default="bf16",
@@ -221,6 +202,16 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         type=float,
         default=0.3,
         help="The text threshold for the grounding model",
+    )
+    parser.add_argument(
+        "--dataset_root",
+        type=str,
+        default=None,
+        help=(
+            "Root directory where datasets are stored. "
+            "If not provided, defaults to ~/datasets for PerSeg "
+            "and ~/data/lvis for LVIS."
+        ),
     )
 
 

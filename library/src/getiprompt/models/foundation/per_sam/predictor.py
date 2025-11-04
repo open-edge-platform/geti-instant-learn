@@ -12,7 +12,7 @@ import torch
 
 from getiprompt.data import ResizeLongestSide
 
-from .modeling.sam import Sam
+from .modeling.sam import SAM
 
 
 class SamPredictor:
@@ -20,16 +20,15 @@ class SamPredictor:
 
     def __init__(
         self,
-        sam_model: Sam,
+        sam_model: SAM,
     ) -> None:
-        """Uses SAM to calculate the image embedding for an image, and then
-        allow repeated, efficient mask prediction given prompts.
+        """Uses SAM to calculate the image embedding for an image, and then mask prediction given prompts.
 
         Arguments:
-          sam_model (Sam): The model to use for mask prediction.
+          sam_model(SAM): The model to use for mask prediction.
         """
         super().__init__()
-        self.model: Sam = sam_model
+        self.model: SAM = sam_model
         self.transform = ResizeLongestSide(sam_model.image_encoder.img_size)
         self.reset_image()
 
@@ -40,7 +39,7 @@ class SamPredictor:
         image_format: str = "RGB",
         cal_image: bool = True,  # noqa: ARG002
     ) -> torch.Tensor:
-        """Calculates the image embeddings for the provided image
+        """Calculates the image embeddings for the provided image.
 
         Allowing masks to be predicted with the 'predict' method.
 
@@ -51,10 +50,7 @@ class SamPredictor:
           image_format (str): The color format of the image, in ['RGB', 'BGR'].
           cal_image (bool): Whether to calculate the image embedding.
         """
-        assert image_format in (
-            "RGB",
-            "BGR",
-        ), f"image_format must be in ['RGB', 'BGR'], is {image_format}."
+        assert image_format in {"RGB", "BGR"}, f"image_format must be in ['RGB', 'BGR'], is {image_format}."
         if image_format != self.model.image_format:
             image = image[..., ::-1]
 
@@ -95,7 +91,7 @@ class SamPredictor:
         original_image_size: tuple[int, ...],
         transformed_mask: torch.Tensor = None,
         cal_image: bool = True,
-    ) -> None:
+    ) -> torch.Tensor | None:
         """Calculates the image embeddings for the provided image.
 
         Allowing masks to be predicted with the 'predict' method. Expects the input
@@ -274,16 +270,15 @@ class SamPredictor:
           (torch.Tensor): An array of shape BxCxHxW, where C is the number
             of masks and H=W=256. These low res logits can be passed to
             a subsequent iteration as mask input.
+
+        Raises:
+            RuntimeError: If no image has been set with 'set_image' prior to calling predict.
         """
         if not self.is_image_set:
-            raise RuntimeError(
-                "An image must be set with .set_image(...) before mask prediction.",
-            )
+            msg = "An image must be set with .set_image(...) before mask prediction."
+            raise RuntimeError(msg)
 
-        if point_coords is not None:
-            points = (point_coords, point_labels)
-        else:
-            points = None
+        points = (point_coords, point_labels) if point_coords is not None else None
 
         # Embed prompts
         sparse_embeddings, dense_embeddings = self.model.prompt_encoder(
@@ -316,19 +311,20 @@ class SamPredictor:
         return high_res_masks, iou_predictions, low_res_masks, high_res_masks
 
     def get_image_embedding(self) -> torch.Tensor:
-        """Returns the image embeddings for the currently set image, with
-        shape 1xCxHxW, where C is the embedding dimension and (H,W) are
-        the embedding spatial dimension of SAM (typically C=256, H=W=64).
+        """Returns the image embeddings for the currently set image, with shape 1xCxHxW (typically C=256, H=W=64).
+
+        Raises:
+            RuntimeError: If no image has been set with 'set_image' prior to calling get_image_embedding.
         """
         if not self.is_image_set:
-            raise RuntimeError(
-                "An image must be set with .set_image(...) to generate an embedding.",
-            )
+            msg = "An image must be set with .set_image(...) to generate an embedding."
+            raise RuntimeError(msg)
         assert self.features is not None, "Features must exist if an image has been set."
         return self.features
 
     @property
     def device(self) -> torch.device:
+        """Returns the device of the model."""
         return self.model.device
 
     def reset_image(self) -> None:

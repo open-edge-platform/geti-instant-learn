@@ -5,16 +5,19 @@
 
 from typing import TYPE_CHECKING
 
+from torchvision import tv_tensors
+
 from getiprompt.components import MaskAdder, MasksToPolygons, SamDecoder
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_selectors import AllFeaturesSelector, FeatureSelector
 from getiprompt.components.filters import MaxPointFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
-from getiprompt.models import Model
-from getiprompt.models.foundation import load_sam_model
-from getiprompt.types import Image, Priors, Results
+from getiprompt.types import Priors, Results
+from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
-from getiprompt.utils.decorators import track_duration
+
+from .base import Model
+from .foundation import load_sam_model
 
 if TYPE_CHECKING:
     from getiprompt.components.prompt_generators.base import PromptGenerator
@@ -37,7 +40,8 @@ class Matcher(Model):
         >>> import torch
         >>> import numpy as np
         >>> from getiprompt.models import Matcher
-        >>> from getiprompt.types import Image, Priors, Results
+        >>> from torchvision import tv_tensors
+        >>> from getiprompt.types import Priors, Results
         >>>
         >>> matcher = Matcher()
         >>>
@@ -48,8 +52,8 @@ class Matcher(Model):
         >>> ref_priors.masks.add(torch.ones(30, 30, dtype=torch.bool), class_id=1)
         >>>
         >>> # Run learn and infer
-        >>> learn_results = matcher.learn([Image(ref_image)], [ref_priors])
-        >>> infer_results = matcher.infer([Image(target_image)])
+        >>> learn_results = matcher.learn([tv_tensors.Image(ref_image)], [ref_priors])
+        >>> infer_results = matcher.infer([tv_tensors.Image(target_image)])
         >>>
         >>> isinstance(learn_results, Results) and isinstance(infer_results, Results)
         True
@@ -68,7 +72,6 @@ class Matcher(Model):
         compile_models: bool = False,
         benchmark_inference_speed: bool = False,
         device: str = "cuda",
-        image_size: int | tuple[int, int] | None = None,
     ) -> None:
         """Initialize the Matcher model.
 
@@ -82,9 +85,8 @@ class Matcher(Model):
             compile_models: Whether to compile the models.
             benchmark_inference_speed: Whether to benchmark the inference speed.
             device: The device to use for the model.
-            image_size: The size of the image to use, if None, the image will not be resized.
         """
-        super().__init__(image_size=image_size)
+        super().__init__()
         self.sam_predictor = load_sam_model(
             sam,
             device,
@@ -117,22 +119,16 @@ class Matcher(Model):
         self.reference_masks = None
 
     @track_duration
-    def learn(self, reference_images: list[Image], reference_priors: list[Priors]) -> Results:
+    def learn(self, reference_images: list[tv_tensors.Image], reference_priors: list[Priors]) -> Results:
         """Perform learning step on the reference images and priors."""
-        reference_images = self.resize_images(reference_images)
-        reference_priors = self.mask_adder(reference_images, reference_priors)
-        reference_priors = self.resize_masks(reference_priors)
-
         # Start running the model
+        reference_priors = self.mask_adder(reference_images, reference_priors)
         reference_features, self.reference_masks = self.encoder(reference_images, reference_priors)
         self.reference_features = self.feature_selector(reference_features)
 
     @track_duration
-    def infer(self, target_images: list[Image]) -> Results:
+    def infer(self, target_images: list[tv_tensors.Image]) -> Results:
         """Perform inference step on the target images."""
-        target_images = self.resize_images(target_images)
-
-        # Start running the model
         target_features, _ = self.encoder(target_images)
         priors, similarities = self.prompt_generator(
             self.reference_features,

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { MouseEvent } from 'react';
+import { CSSProperties, MouseEvent } from 'react';
 
 import { isEmpty } from 'lodash-es';
 
@@ -17,10 +17,9 @@ type AnnotationsProps = {
     annotations: AnnotationType[];
     width: number;
     height: number;
-    isFocussed: boolean;
 };
 
-export const Annotations = ({ annotations, width, height, isFocussed }: AnnotationsProps) => {
+export const Annotations = ({ annotations, width, height }: AnnotationsProps) => {
     const { setSelectedAnnotations } = useSelectedAnnotations();
 
     // If the user clicks on an empty spot on the canvas, we want to deselect
@@ -38,16 +37,20 @@ export const Annotations = ({ annotations, width, height, isFocussed }: Annotati
             height={height}
             tabIndex={-1}
             onClick={handleBackgroundClick}
-            style={{
-                position: 'absolute',
-                inset: 0,
-                outline: 'none',
-                overflow: 'visible',
-                ...DEFAULT_ANNOTATION_STYLES,
-            }}
+            style={
+                {
+                    '--annotation-stroke': '1px solid var(--energy-blue)',
+                    '--annotation-fill': 'rgba(0, 199, 253, 0.2)',
+                    position: 'absolute',
+                    inset: 0,
+                    outline: 'none',
+                    overflow: 'visible',
+                    ...DEFAULT_ANNOTATION_STYLES,
+                } as CSSProperties
+            }
         >
             {!isEmpty(annotations) && (
-                <MaskAnnotations annotations={annotations} width={width} height={height} isEnabled={isFocussed}>
+                <MaskAnnotations annotations={annotations} width={width} height={height} isEnabled={false}>
                     {annotations.map((annotation) => (
                         <Annotation annotation={annotation} key={annotation.id} />
                     ))}

@@ -7,10 +7,11 @@ from enum import Enum
 
 import numpy as np
 import torch
+from torchvision import tv_tensors
 from transformers import AutoModelForZeroShotObjectDetection, AutoProcessor
 
 from getiprompt.components.prompt_generators import PromptGenerator
-from getiprompt.types import Boxes, Image, Priors, Text
+from getiprompt.types import Boxes, Priors, Text
 from getiprompt.utils.utils import precision_to_torch_dtype
 
 
@@ -75,7 +76,7 @@ class TextToBoxPromptGenerator(PromptGenerator):
 
     def forward(
         self,
-        target_images: list[Image],
+        target_images: list[tv_tensors.Image],
         text_priors: list[Text],
     ) -> list[Priors]:
         """This generates bounding box prompt candidates (or priors) based on the text priors.
@@ -86,13 +87,14 @@ class TextToBoxPromptGenerator(PromptGenerator):
 
         Returns:
             List[Priors] List of priors, one per target image instance
+
+        Raises:
+            ValueError: If the number of text priors is not equal to the number of target images.
         """
         if len(text_priors) != len(target_images):
             msg = "Need one text prior per image"
             raise ValueError(msg)
-        # convert to Pillow images
-        pil_images = [image.to_pil() for image in target_images]
-        sizes = [image.size[::-1] for image in pil_images]
+        sizes = [image.shape[-2:] for image in target_images]
 
         # convert to strings seperated by a '.'
         text_labels = []
@@ -101,7 +103,7 @@ class TextToBoxPromptGenerator(PromptGenerator):
             text_labels.append(". ".join(text) + ".")
 
         # Run the grounding model
-        inputs = self.processor(images=pil_images, text=text_labels, return_tensors="pt").to(self.device)
+        inputs = self.processor(images=target_images, text=text_labels, return_tensors="pt").to(self.device)
         inputs["pixel_values"] = inputs["pixel_values"].to(self.model.dtype)
         with torch.inference_mode(), torch.autocast(device_type=self.device, dtype=self.model.dtype):
             outputs = self.model(**inputs)

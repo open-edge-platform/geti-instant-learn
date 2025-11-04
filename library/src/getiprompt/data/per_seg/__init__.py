@@ -1,8 +1,8 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""PerSeg dataset."""
+"""PerSeg dataset implementation."""
 
-from .dataset import PerSegAnnotation, PerSegDataset, PerSegImage
+from .dataset import PerSegDataset
 
-__all__ = ["PerSegAnnotation", "PerSegDataset", "PerSegImage"]
+__all__ = ["PerSegDataset"]

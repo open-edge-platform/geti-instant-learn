@@ -7,7 +7,6 @@ from getiprompt.types.annotations import Annotations
 from getiprompt.types.boxes import Boxes
 from getiprompt.types.data import Data
 from getiprompt.types.features import Features
-from getiprompt.types.image import Image
 from getiprompt.types.masks import Masks
 from getiprompt.types.points import Points
 from getiprompt.types.priors import Priors, Prompt
@@ -20,7 +19,6 @@ __all__ = [
     "Boxes",
     "Data",
     "Features",
-    "Image",
     "Masks",
     "Points",
     "Priors",

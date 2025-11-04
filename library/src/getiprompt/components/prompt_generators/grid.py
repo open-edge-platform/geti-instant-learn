@@ -4,10 +4,10 @@
 """Grid-based prompt generator."""
 
 import torch
+from torchvision import tv_tensors
 
 from getiprompt.components.prompt_generators.base import PromptGenerator
 from getiprompt.types import Priors, Similarities
-from getiprompt.types.image import Image
 
 
 class GridPromptGenerator(PromptGenerator):
@@ -18,7 +18,7 @@ class GridPromptGenerator(PromptGenerator):
     Examples:
         >>> import torch
         >>> from getiprompt.processes.prompt_generators import GridPromptGenerator
-        >>> from getiprompt.types import Image, Similarities
+        >>> from getiprompt.types import Similarities
         >>>
         >>> prompt_generator = GridPromptGenerator(num_grid_cells=2)
         >>> similarities = Similarities()
@@ -26,7 +26,7 @@ class GridPromptGenerator(PromptGenerator):
         >>> sim_map = torch.zeros(1, 10, 10)
         >>> sim_map[0, 2:4, 2:4] = 0.8
         >>> similarities.add(sim_map, class_id=1)
-        >>> image = Image(torch.zeros(20, 20, 3))
+        >>> image = tv_tensors.Image(torch.zeros(3, 20, 20))
         >>> image.add_local_features(image.global_features[:6], 1)
         >>> priors = prompt_generator(target_similarities=[similarities], target_images=[image])
         >>> isinstance(priors[0], Priors) and priors[0].points.get(1) is not None
@@ -49,6 +49,9 @@ class GridPromptGenerator(PromptGenerator):
                                 For example, 16 means a 16x16 grid.
             similarity_threshold: float the threshold for the similarity mask
             num_bg_points: int the number of background points to sample
+
+        Raises:
+            ValueError: If num_grid_cells is not positive.
         """
         super().__init__()
         if num_grid_cells <= 0:
@@ -61,7 +64,7 @@ class GridPromptGenerator(PromptGenerator):
     def forward(
         self,
         target_similarities: list[Similarities] | None = None,
-        target_images: list[Image] | None = None,
+        target_images: list[tv_tensors.Image] | None = None,
     ) -> list[Priors]:
         """This generates prompt candidates (or priors).
 
@@ -73,7 +76,7 @@ class GridPromptGenerator(PromptGenerator):
             target_similarities: List[Similarities] List of similarities, one per target image instance.
                                 Each similarity map within is expected to be 2D (H_map, W_map)
                                 or a stack of 2D maps 3D (num_maps, H_map, W_map).
-            target_images: List[Image] List of target image instances
+            target_images: List[tv_tensors.Image] List of target image instances
 
         Returns:
             List[Priors] List of priors, one per target image instance
@@ -83,10 +86,10 @@ class GridPromptGenerator(PromptGenerator):
         if target_similarities is None:
             target_similarities = [Similarities()]
         if target_images is None:
-            target_images = [Image()]
-        for i, similarities_per_image in enumerate(target_similarities):
+            target_images = [tv_tensors.Image()]
+for similarities_per_image, target_image in zip(target_similarities, target_images, strict=True):
             priors = Priors()
-            original_image_shape = target_images[i].size  # (width, height)
+            original_image_shape = target_image.shape[-2:]  # (width, height)
 
             for class_id, class_similarity_maps in similarities_per_image.data.items():
                 background_points_enc = self._get_background_points(class_similarity_maps)  # Operates on (H_enc, W_enc)

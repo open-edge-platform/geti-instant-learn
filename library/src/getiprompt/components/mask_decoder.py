@@ -9,10 +9,11 @@ from logging import getLogger
 import torch
 from segment_anything_hq.predictor import SamPredictor as SamHQPredictor
 from torch import nn
+from torchvision import tv_tensors
 from torchvision.ops import masks_to_boxes, nms
 
 from getiprompt.data import ResizeLongestSide
-from getiprompt.types import Boxes, Image, Masks, Points, Priors, Similarities
+from getiprompt.types import Boxes, Masks, Points, Priors, Similarities
 
 logger = getLogger("Geti Prompt")
 
@@ -23,12 +24,13 @@ class SamDecoder(nn.Module):
     Examples:
         >>> from getiprompt.models.models import load_sam_model
         >>> from getiprompt.processes.segmenters import SamDecoder
-        >>> from getiprompt.types import Image, Masks, Points, Priors, Similarities
+        >>> from getiprompt.types import Masks, Points, Priors, Similarities
+        >>> from torchvision import tv_tensors
         >>> import torch
         >>> import numpy as np
         >>> sam_predictor = load_sam_model(backbone_name="MobileSAM")
         >>> segmenter = SamDecoder(sam_predictor=sam_predictor)
-        >>> image = Image(np.zeros((1024, 1024, 3), dtype=np.uint8))
+        >>> image = tv_tensors.Image(np.zeros((3, 1024, 1024), dtype=np.uint8))
         >>> priors = Priors()
         >>> points = torch.tensor([[512, 512, 0.9, 1], [100, 100, 0.8, 0]]) # fg, bg
         >>> priors.points.add(points, class_id=1)
@@ -76,19 +78,19 @@ class SamDecoder(nn.Module):
 
     def preprocess_inputs(
         self,
-        images: list[Image],
+        images: list[tv_tensors.Image],
         priors: list[Priors] | None = None,
     ) -> tuple[list[torch.Tensor], list[dict[int, torch.Tensor]], list[tuple[int, int]]]:
         """Preprocess the inputs.
 
         Args:
-            images: The images to preprocess.
-            priors: The priors to preprocess.
+            images(list[tv_tensors.Image]): The images to preprocess.
+            priors(list[Priors]): The priors to preprocess.
 
         Returns:
             A tuple of preprocessed images, preprocessed points, and original sizes.
 
-        TODO(Eugene): Unwrap getiprompt.Priors and getiprompt.Image into pure tensors for the SAM predictor.
+        TODO(Eugene): Unwrap getiprompt.Priors into pure tensors for the SAM predictor.
         Consider moving this to a dedicated preprocessing module once the data flow is finalized.
         https://github.com/open-edge-platform/geti-prompt/issues/174
 
@@ -101,11 +103,9 @@ class SamDecoder(nn.Module):
 
         for image, priors_per_image in zip_longest(images, priors, fillvalue=None):
             # Preprocess image using SamPredictor transform
-            input_image = self.transform.apply_image(image.data)
-            input_image_torch = torch.as_tensor(input_image, device=device)
-            input_image_torch = input_image_torch.permute(2, 0, 1).contiguous()[None, :, :, :]
-            ori_size = image.data.shape[:2]
-            preprocessed_images.append(input_image_torch)
+            input_image = self.transform.apply_image_torch(image).to(device)
+            ori_size = image.shape[-2:]
+            preprocessed_images.append(input_image)
             original_sizes.append(ori_size)
             class_points = {}
             class_boxes = {}
@@ -157,16 +157,16 @@ class SamDecoder(nn.Module):
     @torch.inference_mode()
     def forward(
         self,
-        images: list[Image],
+        images: list[tv_tensors.Image],
         priors: list[Priors] | None = None,
         similarities: list[Similarities] | None = None,
     ) -> tuple[list[Masks], list[Points], list[Boxes]]:
         """Forward pass.
 
         Args:
-            images: The images to predict masks from.
-            priors: The priors to predict masks from.
-            similarities: The similarities to predict masks from.
+            images(list[tv_tensors.Image]): The images to predict masks from.
+            priors(list[Priors]): The priors to predict masks from.
+            similarities(list[Similarities]): The similarities to predict masks from.
         """
         if similarities is None:
             similarities = []
@@ -359,6 +359,9 @@ class SamDecoder(nn.Module):
                     )
                     # Remap from [total_points, 3] to [total_points, 4] where last dim is [x, y, score, label]
                     remapped_points = self.remap_preprocessed_points(final_points)
+                    assert len(final_masks) == remapped_points[:, -1].sum(), (
+                        "The number of masks and points do not match"
+                    )
                     all_used_points.add(remapped_points, label)
 
                 if final_boxes is not None and len(final_boxes) > 0:
@@ -368,12 +371,9 @@ class SamDecoder(nn.Module):
                     )
                     all_used_boxes.add(final_boxes, label)
             else:
-                # TODO(Eugene): This part feels inconsistent.
-                # It only adds empty points, but not empty masks or boxes.
-                # As a result, len(all_masks), len(all_used_points), and len(all_used_boxes) end up mismatched.
-                # Returning variables with inconsistent lengths is undesirable.
-                # https://github.com/open-edge-platform/geti-prompt/issues/174
-                all_used_points.add(torch.tensor([]), label)
+                all_used_points.add(torch.empty((0, 4)), label)
+                all_used_boxes.add(torch.empty((0, 6)), label)
+                all_masks.add(torch.empty((0, *original_size)), label)
 
         return all_masks, all_used_points, all_used_boxes
 

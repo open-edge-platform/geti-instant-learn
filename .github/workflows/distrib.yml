@@ -29,14 +29,13 @@ jobs:
       - name: Build docker image
         working-directory: application
         env:
-          DOCKER_BUILD_CONTEXT: "--no-cache"
-          TAG: ${{ inputs.build_version }}
+          BUILD_VERSION: ${{ inputs.build_version }}
         run: |
-          just build-image
+          just version="${BUILD_VERSION}" docker-build-context="--no-cache" build-image
 
       - name: Show size of the image
         working-directory: application
         env:
-          TAG: ${{ inputs.build_version }}
+          BUILD_VERSION: ${{ inputs.build_version }}
         run: |
-          just show-size
+          just version="${BUILD_VERSION}" show-size

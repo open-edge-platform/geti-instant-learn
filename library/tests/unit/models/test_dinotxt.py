@@ -3,27 +3,43 @@
 
 """Test the DINOv3 zero-shot classification pipeline."""
 
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 import pytest
 import torch
 from skimage.draw import random_shapes
+from torchvision.tv_tensors import Image
 
 from getiprompt.models.dinotxt import DinoTxtZeroShotClassification
-from getiprompt.types import Image, Priors, Results
+from getiprompt.types import Priors, Results
 
 
 @pytest.fixture
-def model_instance() -> DinoTxtZeroShotClassification:
+def mock_dino_encoder() -> MagicMock:
+    """Create a mock DinoTextEncoder."""
+    mock_encoder = MagicMock()
+    # Mock text embeddings: (embedding_dim, num_classes) - transposed for matrix multiplication
+    mock_encoder.encode_text.return_value = torch.randn(128, 3)  # 128 dim embeddings, 3 classes
+    # Mock image embeddings: (num_images, embedding_dim)
+    mock_encoder.encode_image.return_value = torch.randn(9, 128)  # 9 images, 128 dim embeddings
+    return mock_encoder
+
+
+@pytest.fixture
+def model_instance(mock_dino_encoder: MagicMock) -> DinoTxtZeroShotClassification:
     """Returns an instance of the DinoTxtZeroShotClassification pipeline.
 
     Returns:
         DinoTxtZeroShotClassification: An instance configured for CPU testing.
     """
-    return DinoTxtZeroShotClassification(
-        device="cpu",  # Use CPU for testing
-        image_size=(224, 224),  # Smaller size for faster testing
-        precision="bf16",
-    )
+    with patch("getiprompt.models.dinotxt.DinoTextEncoder") as mock_encoder_class:
+        mock_encoder_class.return_value = mock_dino_encoder
+        return DinoTxtZeroShotClassification(
+            device="cpu",  # Use CPU for testing
+            image_size=(224, 224),  # Smaller size for faster testing
+            precision="bf16",
+        )
 
 
 @pytest.fixture
@@ -67,8 +83,12 @@ class TestDinoTxtZeroShotClassification:
     """Test cases for the DinoTxtZeroShotClassification pipeline."""
 
     @staticmethod
-    def test_pipeline_initialization_with_custom_params() -> None:
+    @patch("getiprompt.models.dinotxt.DinoTextEncoder")
+    def test_pipeline_initialization_with_custom_params(mock_encoder_class: MagicMock) -> None:
         """Test pipeline initialization with custom parameters."""
+        mock_encoder = MagicMock()
+        mock_encoder_class.return_value = mock_encoder
+
         custom_templates = ["a photo of a {}."]
         pipeline = DinoTxtZeroShotClassification(
             prompt_templates=custom_templates,
@@ -78,7 +98,6 @@ class TestDinoTxtZeroShotClassification:
         )
         pytest.assume(pipeline.prompt_templates == custom_templates)
         pytest.assume(pipeline.precision == torch.float16)
-        pytest.assume(pipeline.resize_images.size == (512, 512))
 
     @staticmethod
     def test_learn_with_empty_reference_priors(model_instance: DinoTxtZeroShotClassification) -> None:

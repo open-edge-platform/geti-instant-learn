@@ -6,7 +6,6 @@
 from .similarity_resize import resize_similarity_map
 from .utils import (
     MaybeToTensor,
-    calculate_mask_iou,
     color_overlay,
     download_file,
     get_colors,
@@ -17,7 +16,6 @@ from .utils import (
 
 __all__ = [
     "MaybeToTensor",
-    "calculate_mask_iou",
     "color_overlay",
     "download_file",
     "get_colors",

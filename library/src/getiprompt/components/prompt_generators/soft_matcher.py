@@ -7,10 +7,10 @@ from logging import getLogger
 
 import torch
 from torch.nn import functional
+from torchvision import tv_tensors
 
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.types import Features, Masks, Priors, Similarities
-from getiprompt.types.image import Image
 
 logger = getLogger("Geti Prompt")
 
@@ -81,6 +81,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         softmatching_score_threshold: float = 0.4,
         softmatching_bidirectional: bool = False,
     ) -> None:
+        """Initialize the SoftmatcherPromptGenerator."""
         super().__init__(
             encoder_input_size=encoder_input_size,
             encoder_patch_size=encoder_patch_size,
@@ -99,7 +100,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         reference_features: Features,
         target_features_list: list[Features],
         reference_masks: list[Masks],
-        target_images: list[Image],
+        target_images: list[tv_tensors.Image],
     ) -> tuple[list[Priors], list[Similarities]]:
         """This class generates prompts for the segmenter.
 
@@ -112,7 +113,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
             reference_features: Features object containing reference features
             target_features_list: List[Features] List of target features, one per target image instance
             reference_masks: List[Masks] List of reference masks, one per reference image instance
-            target_images: List[Image] List of target images
+            target_images: List[tv_tensors.Image] List of target images
 
         Returns:
             List[Priors] List of priors, one per target image instance
@@ -126,7 +127,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         )
 
         reference_masks = self._merge_masks(reference_masks)
-        for i, target_features in enumerate(target_features_list):
+        for target_image, target_features in zip(target_images, target_features_list, strict=True):
             priors = Priors()
             similarities = Similarities()
             similarity_map = flattened_global_features @ target_features.global_features.T
@@ -144,7 +145,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
                 local_similarity_map = local_mean_reference_feature @ target_features.global_features.T
                 local_similarity_map = self._resize_similarity_map(
                     local_similarity_map,
-                    target_images[i].size,
+                    target_image.shape[-2:],
                 )
                 similarities.add(local_similarity_map, class_id)
 
@@ -184,7 +185,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
                     )
                     image_level_fg_points = self._transform_to_image_coordinates(
                         fg_points,
-                        original_image_size=target_images[i].size,
+                        original_image_size=target_image.shape[-2:],
                     )
                     fg_point_labels = torch.ones(
                         (len(image_level_fg_points), 1),
@@ -206,7 +207,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
                     )
                     image_level_bg_points = self._transform_to_image_coordinates(
                         bg_points,
-                        original_image_size=target_images[i].size,
+                        original_image_size=target_image.shape[-2:],
                     )
                     bg_point_labels = torch.zeros(
                         (len(image_level_bg_points), 1),

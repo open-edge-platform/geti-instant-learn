@@ -6,10 +6,9 @@
 import { PointerEvent, useCallback } from 'react';
 
 import { isEmpty } from 'lodash-es';
-// TODO: Extract zoom so annotator feature does not rely on prompt-sidebar feature
-import { useZoom } from 'src/features/prompt-sidebar/prompt-modes/visual-prompt/captured-image/zoom/zoom.provider';
 import { v4 as uuid } from 'uuid';
 
+import { useZoom } from '../../../components/zoom/zoom.provider';
 import type { Label } from '../types';
 
 const labelStyles = (scale: number) => {

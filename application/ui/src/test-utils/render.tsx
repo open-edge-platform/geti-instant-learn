@@ -8,13 +8,13 @@ import { Suspense, type ReactNode } from 'react';
 import { IntelBrandedLoading, Toast } from '@geti/ui';
 import { ThemeProvider } from '@geti/ui/theme';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { RenderOptions, render as rtlRender } from '@testing-library/react';
+import { render as rtlRender, RenderOptions as RTLRenderOptions } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 
 import { queryClient } from '../query-client/query-client';
 import { paths } from '../routes/paths';
 
-interface Options extends RenderOptions {
+export interface RenderOptions extends RTLRenderOptions {
     route: string;
     path: string;
 }
@@ -32,7 +32,7 @@ const TestProviders = ({ children }: { children: ReactNode }) => {
 
 export const render = (
     ui: ReactNode,
-    options: Options = { route: paths.project({ projectId: '1' }), path: paths.project.pattern }
+    options: RenderOptions = { route: paths.project({ projectId: '1' }), path: paths.project.pattern }
 ) => {
     const router = createMemoryRouter(
         [

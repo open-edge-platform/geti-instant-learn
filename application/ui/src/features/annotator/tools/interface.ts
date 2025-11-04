@@ -5,7 +5,7 @@
 
 import type { ComponentType, SVGProps } from 'react';
 
-export type ToolType = 'selection' | 'bounding-box' | 'sam';
+export type ToolType = 'sam';
 
 export interface ToolConfig {
     type: ToolType;

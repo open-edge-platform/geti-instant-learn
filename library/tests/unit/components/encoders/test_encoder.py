@@ -8,9 +8,10 @@ from unittest.mock import Mock, patch
 import numpy as np
 import pytest
 import torch
+from torchvision.tv_tensors import Image
 
 from getiprompt.components.encoders import AVAILABLE_IMAGE_ENCODERS, ImageEncoder
-from getiprompt.types import Features, Image, Masks, Priors
+from getiprompt.types import Features, Masks, Priors
 
 
 class TestEncoder:
@@ -60,7 +61,7 @@ class TestEncoder:
 
         return mock_model_instance
 
-    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.utils.optimization.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_initialization(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
@@ -81,7 +82,7 @@ class TestEncoder:
         pytest.assume(encoder.patch_size == expected_patch_size)
         pytest.assume(hasattr(encoder, "mask_transform"))
 
-    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.utils.optimization.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_mask_transform_creation(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
@@ -104,7 +105,7 @@ class TestEncoder:
         expected_shape = (1, 14, 14)  # (224/16, 224/16)
         pytest.assume(result.shape == expected_shape)
 
-    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.utils.optimization.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_call_without_priors(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
@@ -142,7 +143,7 @@ class TestEncoder:
         """Test that all valid model IDs are accepted."""
         for model_id in AVAILABLE_IMAGE_ENCODERS:
             with (
-                patch("getiprompt.components.encoders.image_encoder.optimize_model") as mock_optimize,
+                patch("getiprompt.utils.optimization.optimize_model") as mock_optimize,
                 patch("getiprompt.components.encoders.image_encoder.AutoModel") as mock_model,
                 patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor") as mock_processor,
             ):
@@ -161,7 +162,7 @@ class TestEncoder:
                 encoder = ImageEncoder(model_id=model_id, device="cpu")
                 pytest.assume(encoder.model_id == model_id)
 
-    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.utils.optimization.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_with_different_input_sizes(
@@ -180,7 +181,7 @@ class TestEncoder:
             encoder = ImageEncoder(model_id="dinov2_small", device="cpu", input_size=input_size)
             pytest.assume(encoder.input_size == input_size)
 
-    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.utils.optimization.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_with_different_precisions(
@@ -200,7 +201,7 @@ class TestEncoder:
             encoder = ImageEncoder(model_id="dinov2_small", device="cpu", precision=precision_str, input_size=224)
             pytest.assume(encoder.precision == expected_dtype)
 
-    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.utils.optimization.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_with_compile_models(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
@@ -217,7 +218,7 @@ class TestEncoder:
         call_args = mock_optimize.call_args
         pytest.assume(call_args[1]["compile_models"] is True)
 
-    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.utils.optimization.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_with_benchmark_inference_speed(
@@ -239,7 +240,7 @@ class TestEncoder:
         call_args = mock_optimize.call_args
         pytest.assume(call_args[1]["benchmark_inference_speed"] is True)
 
-    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.utils.optimization.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_device_handling(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
@@ -257,7 +258,7 @@ class TestEncoder:
             call_args = mock_optimize.call_args
             pytest.assume(call_args[1]["device"] == device)
 
-    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.utils.optimization.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_all_parameters(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
@@ -293,7 +294,7 @@ class TestEncoder:
         pytest.assume(call_args[1]["compile_models"] is True)
         pytest.assume(call_args[1]["benchmark_inference_speed"] is True)
 
-    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.utils.optimization.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_mask_transform_with_different_sizes(
@@ -319,7 +320,7 @@ class TestEncoder:
             expected_size = input_size // 16
             pytest.assume(result.shape == (1, expected_size, expected_size))
 
-    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.utils.optimization.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_with_priors(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
@@ -351,11 +352,11 @@ class TestEncoder:
         pytest.assume(isinstance(masks[0], Masks))
         pytest.assume(len(masks[0].data) > 0)  # Should have masks
 
-    @patch("getiprompt.components.encoders.image_encoder.optimize_model")
+    @patch("getiprompt.utils.optimization.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
-    def test_embed_method(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
-        """Test the _embed method."""
+    def test_extract_embeddings_method(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
+        """Test the _extract_embeddings method."""
         # Setup mocks with proper structure
         mock_model_instance = self._setup_mock_model(mock_model, mock_processor)
         mock_optimize.return_value = mock_model_instance
@@ -369,15 +370,15 @@ class TestEncoder:
         # Mock processor output
         mock_processor.return_value = {"pixel_values": torch.randn(1, 3, 224, 224)}
 
-        # Test _embed method
-        features = encoder._embed(test_tensors)  # noqa: SLF001
+        # Test _extract_embeddings method
+        features = encoder._extract_embeddings(test_tensors)  # noqa: SLF001
 
         # Check output
         expected_bs = 1
         expected_feature_dim = 1024
-        pytest.assume(isinstance(features, torch.Tensor))
-        pytest.assume(features.shape[0] == expected_bs)  # batch size
-        pytest.assume(features.shape[-1] == expected_feature_dim)  # feature dimension
+        pytest.assume(isinstance(features, list))
+        pytest.assume(len(features) == expected_bs)  # batch size
+        pytest.assume(features[0].global_features.shape[-1] == expected_feature_dim)  # feature dimension
 
     @staticmethod
     def test_error_handling_invalid_model_id() -> None:

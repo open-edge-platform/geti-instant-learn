@@ -1,7 +1,12 @@
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+
+"""Mask decoder for Per SAM model."""
 
 from itertools import starmap
 
@@ -9,10 +14,12 @@ import torch
 from torch import nn
 from torch.nn import functional
 
-from .common import LayerNorm2d
+from getiprompt.models.foundation.per_sam.modeling.modules import LayerNorm2d
 
 
 class MaskDecoder(nn.Module):
+    """Mask decoder for Per SAM model."""
+
     def __init__(
         self,
         *,
@@ -23,8 +30,7 @@ class MaskDecoder(nn.Module):
         iou_head_depth: int = 3,
         iou_head_hidden_dim: int = 256,
     ) -> None:
-        """Predicts masks given an image and prompt embeddings, using a
-        transformer architecture.
+        """Predicts masks given an image and prompt embeddings, using a transformer architecture.
 
         Arguments:
           transformer_dim (int): the channel dimension of the transformer
@@ -73,8 +79,8 @@ class MaskDecoder(nn.Module):
         sparse_prompt_embeddings: torch.Tensor,
         dense_prompt_embeddings: torch.Tensor,
         multimask_output: bool,
-        attn_sim=None,
-        target_embedding=None,
+        attn_sim: torch.Tensor | None = None,
+        target_embedding: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Predict masks given image and prompt embeddings.
 
@@ -85,6 +91,8 @@ class MaskDecoder(nn.Module):
           dense_prompt_embeddings (torch.Tensor): the embeddings of the mask inputs
           multimask_output (bool): Whether to return multiple masks or a single
             mask.
+          attn_sim (torch.Tensor | None): Attention similarity map, if available.
+          target_embedding (torch.Tensor | None): Target embedding, if available.
 
         Returns:
           torch.Tensor: batched predicted masks
@@ -100,10 +108,7 @@ class MaskDecoder(nn.Module):
         )
 
         # Select the correct mask or masks for output
-        if multimask_output:
-            mask_slice = slice(1, None)
-        else:
-            mask_slice = slice(0, 1)
+        mask_slice = slice(1, None) if multimask_output else slice(0, 1)
         masks = masks[:, mask_slice, :, :]
         iou_pred = iou_pred[:, mask_slice]
 
@@ -127,7 +132,7 @@ class MaskDecoder(nn.Module):
 
         # Expand per-image data in batch direction to be per-mask
         src = torch.repeat_interleave(image_embeddings, tokens.shape[0], dim=0)
-        src = src + dense_prompt_embeddings
+        src += dense_prompt_embeddings
         pos_src = torch.repeat_interleave(image_pe, tokens.shape[0], dim=0)
         b, c, h, w = src.shape
 
@@ -139,9 +144,9 @@ class MaskDecoder(nn.Module):
         # Upscale mask embeddings and predict masks using the mask tokens
         src = src.transpose(1, 2).view(b, c, h, w)
         upscaled_embedding = self.output_upscaling(src)
-        hyper_in_list: list[torch.Tensor] = []
-        for i in range(self.num_mask_tokens):
-            hyper_in_list.append(self.output_hypernetworks_mlps[i](mask_tokens_out[:, i, :]))
+        hyper_in_list: list[torch.Tensor] = [
+            self.output_hypernetworks_mlps[i](mask_tokens_out[:, i, :]) for i in range(self.num_mask_tokens)
+        ]
         hyper_in = torch.stack(hyper_in_list, dim=1)
         b, c, h, w = upscaled_embedding.shape
         masks = (hyper_in @ upscaled_embedding.view(b, c, h * w)).view(b, -1, h, w)
@@ -152,9 +157,9 @@ class MaskDecoder(nn.Module):
         return masks, iou_pred
 
 
-# Lightly adapted from
-# https://github.com/facebookresearch/MaskFormer/blob/main/mask_former/modeling/transformer/transformer_predictor.py # noqa
 class MLP(nn.Module):
+    """MLP for Per SAM model."""
+
     def __init__(
         self,
         input_dim: int,
@@ -163,6 +168,15 @@ class MLP(nn.Module):
         num_layers: int,
         sigmoid_output: bool = False,
     ) -> None:
+        """MLP for Per SAM model.
+
+        Args:
+            input_dim (int): The dimension of the input.
+            hidden_dim (int): The dimension of the hidden layers.
+            output_dim (int): The dimension of the output.
+            num_layers (int): The number of layers.
+            sigmoid_output (bool): Whether to use sigmoid output.
+        """
         super().__init__()
         self.num_layers = num_layers
         h = [hidden_dim] * (num_layers - 1)
@@ -171,9 +185,9 @@ class MLP(nn.Module):
         )
         self.sigmoid_output = sigmoid_output
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         for i, layer in enumerate(self.layers):
             x = functional.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
         if self.sigmoid_output:
-            x = functional.sigmoid(x)
+            return functional.sigmoid(x)
         return x

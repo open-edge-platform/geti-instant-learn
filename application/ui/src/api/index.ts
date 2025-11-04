@@ -20,5 +20,7 @@ export {
     type SchemaProjectsListSchema as ProjectsListType,
     type SchemaProjectUpdateSchema as ProjectUpdateType,
     type SchemaSourceSchema as SourceConfig,
+    type SchemaLabelSchema as LabelType,
+    type SchemaLabelsListSchema as LabelListType,
     type paths,
 } from './openapi-spec';

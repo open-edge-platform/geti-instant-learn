@@ -14,6 +14,11 @@ declare module '@tanstack/react-query' {
 }
 
 export const queryClient: QueryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            retry: false,
+        },
+    },
     mutationCache: new MutationCache({
         onSuccess: (_data, _variables, _context, mutation): void | Promise<void> => {
             // Fire-and-forget invalidation

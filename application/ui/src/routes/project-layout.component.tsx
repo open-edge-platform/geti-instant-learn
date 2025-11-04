@@ -10,13 +10,12 @@ import { Header } from '../components/header/header.component';
 import { MainContent } from '../components/main-content.component';
 import { Sidebar } from '../components/sidebar/sidebar.component';
 import { Toolbar } from '../components/toolbar.component';
-import { useCurrentProject } from '../features/projects-management/hooks/use-current-project.hook';
+import { useCurrentProject } from '../features/project/hooks/use-current-project.hook';
+import { SelectedFrameProvider } from '../features/stream/selected-frame-provider.component';
 import { WebRTCConnectionProvider } from '../features/stream/web-rtc/web-rtc-connection-provider';
 
 const useCheckIfProjectIsValid = () => {
-    useCurrentProject({
-        retry: 1,
-    });
+    useCurrentProject();
 };
 
 export const ProjectLayout = () => {
@@ -36,11 +35,13 @@ export const ProjectLayout = () => {
 
                 <Toolbar />
 
-                <View backgroundColor={'gray-50'} gridArea={'main'}>
-                    <MainContent />
-                </View>
+                <SelectedFrameProvider>
+                    <View backgroundColor={'gray-50'} gridArea={'main'}>
+                        <MainContent />
+                    </View>
 
-                <Sidebar />
+                    <Sidebar />
+                </SelectedFrameProvider>
             </Grid>
         </WebRTCConnectionProvider>
     );

@@ -185,4 +185,3 @@ The Flask development server automatically reloads when you save changes to Pyth
 ## License
 
 This Development UI is part of the Geti Prompt project and is licensed under the Apache 2.0 License.
-

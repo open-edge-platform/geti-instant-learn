@@ -4,18 +4,21 @@
 import logging
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from core.components.schemas.reader import SourceType
 from core.runtime.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher
+from db.constraints import UniqueConstraintName
 from db.models import ProjectDB, SourceDB
-from repositories.project import ProjectRepository
-from repositories.source import SourceRepository
-from services.errors import (
+from exceptions.custom_errors import (
+    ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ResourceType,
     ResourceUpdateConflictError,
 )
+from exceptions.handler import extract_constraint_name
+from repositories.project import ProjectRepository
+from repositories.source import SourceRepository
 from services.schemas.mappers.source import (
     source_db_to_schema,
     source_schema_to_db,
@@ -37,7 +40,7 @@ class SourceService:
 
     Responsibilities:
       - Enforce business rules.
-      - Enforce invariants (single source per type per project, immutable source_type on update).
+      - Enforce invariants (single source per type per project via DB constraints, immutable source_type on update).
       - Transaction boundaries (commit).
       - Raise domain-specific exceptions.
     """
@@ -93,37 +96,40 @@ class SourceService:
     def create_source(self, project_id: UUID, create_data: SourceCreateSchema) -> SourceSchema:
         """
         Create a new source.
-        Raise an exception if a source with same source_type already exists in the project.
+        Database constraints enforce uniqueness of source_type and name per project.
         """
         self._ensure_project(project_id)
-        source_type_value: SourceType = create_data.config.source_type
-        existing_same_type = self.source_repository.get_by_type_in_project(
-            project_id=project_id, source_type=source_type_value
+
+        source_type = create_data.config.source_type.value
+        source_name = create_data.config.name if hasattr(create_data.config, "name") else None
+
+        logger.debug(
+            "Source create requested: project_id=%s source_type=%s name=%s connected=%s",
+            project_id,
+            source_type,
+            source_name,
+            create_data.connected,
         )
-        if existing_same_type:
-            logger.error(
-                "Cannot create source: project_id=%s already has source_type=%s (existing source_id=%s)",
-                project_id,
-                source_type_value,
-                existing_same_type.id,
-            )
-            raise ResourceUpdateConflictError(
-                resource_type=ResourceType.SOURCE,
-                resource_id=str(existing_same_type.id),
-                field="source_type",
-                message=f"Project {project_id} already has a source of type {source_type_value}",
-            )
+
         if create_data.connected:
             self._disconnect_existing_connected_source(project_id=project_id)
+
         new_source: SourceDB = source_schema_to_db(schema=create_data, project_id=project_id)
         self.source_repository.add(new_source)
-        self.session.commit()
+
+        try:
+            self.session.commit()
+        except IntegrityError as exc:
+            self.session.rollback()
+            logger.error("Source creation failed due to constraint violation: %s", exc)
+            self._handle_source_integrity_error(exc, new_source.id, project_id, source_type, source_name)
+
         self.session.refresh(new_source)
         logger.info(
             "Source created: source_id=%s project_id=%s source_type=%s connected=%s config=%s",
             new_source.id,
             project_id,
-            source_type_value,
+            new_source.config.get("source_type"),
             new_source.connected,
             new_source.config,
         )
@@ -147,6 +153,8 @@ class SourceService:
 
         existing_type = source.config.get("source_type")
         incoming_type = update_data.config.source_type.value
+        source_name = update_data.config.name if hasattr(update_data.config, "name") else None
+
         if existing_type != incoming_type:
             logger.error(
                 "Cannot update source: source_type change forbidden for source_id=%s project_id=%s "
@@ -167,7 +175,13 @@ class SourceService:
         source.connected = update_data.connected
         source.config = update_data.config.model_dump()
 
-        self.session.commit()
+        try:
+            self.session.commit()
+        except IntegrityError as exc:
+            self.session.rollback()
+            logger.error("Source update failed due to constraint violation: %s", exc)
+            self._handle_source_integrity_error(exc, source.id, project_id, existing_type, source_name)
+
         self.session.refresh(source)
         logger.info(
             "Source updated: source_id=%s project_id=%s source_type=%s connected=%s config=%s",
@@ -222,7 +236,7 @@ class SourceService:
 
     def _disconnect_existing_connected_source(self, project_id: UUID) -> None:
         """
-        Disconnect any currently connected source in the project, except the one with exclude_id.
+        Disconnect any currently connected source in the project.
         Does not commit by itself; caller commits.
         """
         connected_source = self.source_repository.get_connected_in_project(project_id)
@@ -246,3 +260,69 @@ class SourceService:
                     component_id=str(source_id),
                 )
             )
+
+    def _handle_source_integrity_error(
+        self,
+        exc: IntegrityError,
+        source_id: UUID,
+        project_id: UUID,
+        source_type: str | None,
+        source_name: str | None,
+    ) -> None:
+        """
+        Handle IntegrityError with context-aware messages for sources.
+
+        Args:
+            exc: The IntegrityError from SQLAlchemy
+            source_id: ID of the source being created/updated
+            project_id: ID of the owning project
+            source_type: Type of the source (e.g., "GETI", "FILE")
+            source_name: Name of the source (if applicable)
+        """
+        error_msg = str(exc.orig).lower()
+        constraint_name = extract_constraint_name(error_msg)
+
+        logger.warning(
+            "Source constraint violation: source_id=%s, project_id=%s, constraint=%s, error=%s",
+            source_id,
+            project_id,
+            constraint_name or "unknown",
+            error_msg,
+        )
+
+        if "foreign key" in error_msg:
+            raise ResourceNotFoundError(
+                resource_type=ResourceType.SOURCE,
+                resource_id=str(source_id),
+                message="Referenced project does not exist.",
+            )
+
+        if "unique" in error_msg or constraint_name:
+            if constraint_name == UniqueConstraintName.SOURCE_NAME_PER_PROJECT or ("name" in error_msg and source_name):
+                raise ResourceAlreadyExistsError(
+                    resource_type=ResourceType.SOURCE,
+                    resource_value=source_name,
+                    field="name",
+                    message=f"A source with the name '{source_name}' already exists in this project."
+                    if source_name
+                    else "A source with this name already exists in this project.",
+                )
+            if constraint_name == UniqueConstraintName.SOURCE_TYPE_PER_PROJECT or "source_type" in error_msg:
+                raise ResourceAlreadyExistsError(
+                    resource_type=ResourceType.SOURCE,
+                    resource_value=source_type,
+                    field="source_type",
+                    message=f"A source of type '{source_type}' already exists in this project."
+                    if source_type
+                    else "A source of this type already exists in this project.",
+                )
+            if constraint_name == UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT or "connected" in error_msg:
+                raise ResourceAlreadyExistsError(
+                    resource_type=ResourceType.SOURCE,
+                    field="connected",
+                    message="Only one source can be connected per project at a time. "
+                    "Please disconnect the current source first.",
+                )
+
+        logger.error(f"Unmapped constraint violation for source (source_id={source_id}): {error_msg}")
+        raise ValueError("Database constraint violation. Please check your input and try again.")

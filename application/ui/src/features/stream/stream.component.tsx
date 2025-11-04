@@ -3,14 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ReactNode, useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
-import { Button, Flex, Loading } from '@geti/ui';
-import { Play } from '@geti/ui/icons';
+import { $api } from '@geti-prompt/api';
+import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { Button, Flex } from '@geti/ui';
 
+import { usePromptMode } from '../prompts/prompt-modes/prompt-modes.component';
+import { useSelectedFrame } from './selected-frame-provider.component';
 import { useWebRTCConnection } from './web-rtc/web-rtc-connection-provider';
-
-import styles from './stream.module.scss';
 
 const useStreamToVideo = () => {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -58,27 +59,61 @@ const useStreamToVideo = () => {
     return videoRef;
 };
 
-const Container = ({ children }: { children: ReactNode }) => {
+const useCaptureFrameMutation = () => {
+    return $api.useMutation('post', '/api/v1/projects/{project_id}/frames');
+};
+
+const useCaptureFrame = () => {
+    const { projectId } = useProjectIdentifier();
+    const captureFrameMutation = useCaptureFrameMutation();
+    const { setSelectedFrameId } = useSelectedFrame();
+
+    const captureFrame = async () => {
+        captureFrameMutation.mutate(
+            {
+                params: {
+                    path: {
+                        project_id: projectId,
+                    },
+                },
+            },
+            {
+                onSuccess: ({ frame_id }) => {
+                    setSelectedFrameId(frame_id);
+                },
+            }
+        );
+    };
+
+    return {
+        captureFrame,
+        isPending: captureFrameMutation.isPending,
+    };
+};
+
+const CaptureFrameButton = () => {
+    const { captureFrame, isPending } = useCaptureFrame();
+
     return (
-        <Flex width={'100%'} height={'100%'} alignItems={'center'} justifyContent={'center'}>
-            <Flex
-                height={'90%'}
-                width={'90%'}
-                alignItems={'center'}
-                justifyContent={'center'}
-                UNSAFE_className={styles.streamContainer}
-            >
-                {children}
-            </Flex>
-        </Flex>
+        <Button
+            variant={'primary'}
+            staticColor={'white'}
+            alignSelf={'center'}
+            style={'fill'}
+            onPress={captureFrame}
+            isPending={isPending}
+        >
+            Capture frame
+        </Button>
     );
 };
 
-const Stream = () => {
+export const Stream = () => {
     const videoRef = useStreamToVideo();
+    const promptMode = usePromptMode();
 
     return (
-        <>
+        <Flex width={'100%'} height={'100%'} direction={'column'}>
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
             <video
                 ref={videoRef}
@@ -87,38 +122,9 @@ const Stream = () => {
                 controls={false}
                 width={'100%'}
                 height={'100%'}
-                className={styles.videoStream}
+                style={{ flex: 1 }}
             />
-        </>
+            {promptMode === 'visual' && <CaptureFrameButton />}
+        </Flex>
     );
-};
-
-export const StreamContainer = () => {
-    const { status, start } = useWebRTCConnection();
-
-    if (status === 'connected') {
-        return (
-            <Container>
-                <Stream />
-            </Container>
-        );
-    }
-
-    if (status === 'connecting') {
-        return (
-            <Container>
-                <Loading mode='inline' />
-            </Container>
-        );
-    }
-
-    if (status === 'idle') {
-        return (
-            <Container>
-                <Button onPress={start} UNSAFE_className={styles.playButton} aria-label={'Start stream'}>
-                    <Play width='128px' height='128px' />
-                </Button>
-            </Container>
-        );
-    }
 };

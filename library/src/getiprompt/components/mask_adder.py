@@ -4,9 +4,10 @@
 """Add masks to priors from points if masks are missing."""
 
 from torch import nn
+from torchvision import tv_tensors
 
 from getiprompt.components.mask_decoder import SamDecoder
-from getiprompt.types import Image, Priors
+from getiprompt.types import Priors
 
 
 class MaskAdder(nn.Module):
@@ -24,12 +25,12 @@ class MaskAdder(nn.Module):
         super().__init__()
         self.segmenter = segmenter
 
-    def forward(self, images: list[Image], priors: list[Priors]) -> list[Priors]:
+    def forward(self, images: list[tv_tensors.Image], priors: list[Priors]) -> list[Priors]:
         """Create masks from points in the priors.
 
         Args:
-            images: List of images to segment
-            priors: List of Priors objects to segment
+            images (list[tv_tensors.Image]): List of images to segment
+            priors (list[Priors]): List of Priors objects to segment
 
         Returns:
             The same Priors list with masks

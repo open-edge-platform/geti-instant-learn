@@ -49,4 +49,18 @@ export default defineConfig({
     html: {
         title: 'Geti Prompt',
     },
+
+    server: {
+        headers: {
+            'Cross-Origin-Embedder-Policy': 'credentialless',
+            'Cross-Origin-Opener-Policy': 'same-origin',
+            'Content-Security-Policy':
+                "default-src 'self'; " +
+                "script-src 'self' 'unsafe-eval' blob:; " +
+                "worker-src 'self' blob:; " +
+                "connect-src 'self' http://localhost:9100 data:; " +
+                "img-src 'self' http://localhost:9100 data: blob:; " +
+                "style-src 'self' 'unsafe-inline';",
+        },
+    },
 });

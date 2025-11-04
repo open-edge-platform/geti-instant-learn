@@ -48,12 +48,12 @@ export const allowPanning = (onPointerDown?: OnPointerDown): OnPointerDown | und
 };
 
 export const DEFAULT_ANNOTATION_STYLES = {
-    fillOpacity: 0.4,
+    fillOpacity: 'var(--annotation-fill-opacity)',
     fill: 'var(--annotation-fill)',
     stroke: 'var(--annotation-stroke)',
     strokeLinecap: 'round',
     strokeWidth: 'calc(1px / var(--zoom-scale))',
     strokeDashoffset: 0,
     strokeDasharray: 0,
-    strokeOpacity: 'var(--annotation-border-opacity, 1)',
+    strokeOpacity: 'var(--annotation-border-opacity)',
 } satisfies CSSProperties;

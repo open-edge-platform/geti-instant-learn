@@ -7,9 +7,17 @@ import { createNetworkFixture, NetworkFixture } from '@msw/playwright';
 import { expect, test as testBase } from '@playwright/test';
 
 import { handlers, http } from '../src/api/utils';
+import { AnnotatorPage } from './annotator/annotator-page';
+import { LabelsPage } from './labels/labels-page';
+import { ProjectPage } from './projects/projects-page';
+import { StreamPage } from './prompt/stream-page';
 
 interface Fixtures {
     network: NetworkFixture;
+    streamPage: StreamPage;
+    labelsPage: LabelsPage;
+    annotatorPage: AnnotatorPage;
+    projectPage: ProjectPage;
 }
 
 const test = testBase.extend<Fixtures>({
@@ -40,8 +48,35 @@ const test = testBase.extend<Fixtures>({
                     sources: [],
                 });
             }),
+            http.get('/api/v1/projects/{project_id}/labels', ({ response }) => {
+                return response(200).json({
+                    labels: [],
+                    pagination: {
+                        total: 0,
+                        count: 0,
+                        offset: 0,
+                        limit: 10,
+                    },
+                });
+            }),
         ],
     }),
+    streamPage: async ({ page }, use) => {
+        const streamPage = new StreamPage(page);
+        await use(streamPage);
+    },
+    labelsPage: async ({ page }, use) => {
+        const labelsPage = new LabelsPage(page);
+        await use(labelsPage);
+    },
+    annotatorPage: async ({ page }, use) => {
+        const annotatorPage = new AnnotatorPage(page);
+        await use(annotatorPage);
+    },
+    projectPage: async ({ page }, use) => {
+        const projectPage = new ProjectPage(page);
+        await use(projectPage);
+    },
 });
 
 export { expect, test, http };

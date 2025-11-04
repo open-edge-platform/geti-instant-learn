@@ -7,8 +7,8 @@ import { $api } from '@geti-prompt/api';
 import { Navigate } from 'react-router';
 import { createBrowserRouter } from 'react-router-dom';
 
-import { ProjectsListEntry } from '../features/projects-management/projects-list-entry/projects-list-entry.component';
-import { Welcome } from '../features/projects-management/projects-list-entry/welcome.component';
+import { ProjectsListEntry } from '../features/project/projects-list-entry/projects-list-entry.component';
+import { Welcome } from '../features/project/projects-list-entry/welcome.component';
 import { ErrorPage } from './error-page.component';
 import { paths } from './paths';
 import { ProjectLayout } from './project-layout.component';

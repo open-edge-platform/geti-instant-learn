@@ -3,24 +3,16 @@
 
 """Datasets."""
 
-from .base import Dataset
-from .dataset_iterator_base import DatasetIter
-from .dataset_iterators import (
-    BatchedCategoryIter,
-    BatchedSingleCategoryIter,
-    IndexIter,
-)
+from .base import Batch, Dataset, Sample
 from .lvis import LVISDataset
 from .per_seg import PerSegDataset
 from .transforms import ResizeLongestSide
 
 __all__ = [
-    "BatchedCategoryIter",
-    "BatchedSingleCategoryIter",
+    "Batch",
     "Dataset",
-    "DatasetIter",
-    "IndexIter",
     "LVISDataset",
     "PerSegDataset",
     "ResizeLongestSide",
+    "Sample",
 ]

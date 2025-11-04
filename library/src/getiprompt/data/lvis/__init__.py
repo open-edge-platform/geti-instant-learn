@@ -1,8 +1,8 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""LVIS dataset."""
+"""LVIS dataset for GetiPrompt few-shot segmentation."""
 
-from .dataset import LVISAnnotation, LVISDataset, LVISImage
+from .dataset import LVISDataset
 
-__all__ = ["LVISAnnotation", "LVISDataset", "LVISImage"]
+__all__ = ["LVISDataset"]

@@ -1,0 +1,41 @@
+.streamContainer {
+    background-color: var(--spectrum-global-color-gray-200);
+}
+
+.playButton {
+    padding: var(--spectrum-global-dimension-size-1200);
+    border-radius: var(--spectrum-alias-border-radius-medium);
+    animation:
+        glow-pulse 2s infinite,
+        scale-pulse 2s infinite ease-in-out;
+}
+
+@keyframes glow-pulse {
+    0%,
+    100% {
+        box-shadow:
+            0 0 5px rgba(0, 104, 181, 0.5),
+            0 0 10px rgba(0, 104, 181, 0.3);
+    }
+    50% {
+        box-shadow:
+            0 0 30px rgba(0, 104, 181, 0.8),
+            0 0 30px rgba(0, 104, 181, 0.5);
+    }
+}
+
+@keyframes scale-pulse {
+    0%,
+    100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .playButton {
+        animation: none;
+    }
+}

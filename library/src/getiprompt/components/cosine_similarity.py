@@ -3,9 +3,11 @@
 
 """Cosine similarity matcher."""
 
+import torch
 from torch import nn
+from torchvision import tv_tensors
 
-from getiprompt.types import Features, Image, Similarities
+from getiprompt.types import Features, Similarities
 from getiprompt.utils.similarity_resize import resize_similarity_map
 
 
@@ -34,14 +36,12 @@ class CosineSimilarity(nn.Module):
         True
     """
 
-    def __init__(self) -> None:
-        super().__init__()
-
+    @torch.inference_mode()
     def forward(
         self,
         reference_features: list[Features],
         target_features: list[Features],
-        target_images: list[Image] | None = None,
+        target_images: list[tv_tensors.Image] | None = None,
     ) -> list[Similarities]:
         """This function computes the cosine similarity between the reference features and the target features.
 
@@ -49,18 +49,18 @@ class CosineSimilarity(nn.Module):
         to be reduced (averaged/clustered) into a single Features object.
 
         Args:
-            reference_features: List[Features] List of reference features, one per prior image instance
-            target_features: List[Features] List of target features, one per target image instance
-            target_images: List[Image] List of target images
+            reference_features (list[Features]): List of reference features, one per prior image instance
+            target_features (list[Features]): List of target features, one per target image instance
+            target_images (list[tv_tensors.Image]): List of target images
 
         Returns:
-            List[Similarities] List of similarities, one per target image instance which are resized to
+            list[Similarities]: List of similarities, one per target image instance which are resized to
               the original image size
         """
         reference_features = reference_features[0]
         per_image_similarities: list[Similarities] = []
-        for i, target in enumerate(target_features):
-            normalized_target = target.global_features / target.global_features.norm(
+        for target_feature, target_image in zip(target_features, target_images, strict=True):
+            normalized_target = target_feature.global_features / target_feature.global_features.norm(
                 dim=-1,
                 keepdim=True,
             )
@@ -83,10 +83,7 @@ class CosineSimilarity(nn.Module):
                     similarities = local_reference_features @ normalized_target.T
                     similarities = resize_similarity_map(
                         similarities=similarities,
-                        # scaling to 1024 can speed up prompt generation, however we can also resize the images at
-                        #   the start of the model
-                        target_size=target_images[i].size,
-                        unpadded_image_size=target_images[i].sam_preprocessed_size,
+                        target_size=target_image.shape[-2:],
                     )
 
                     all_similarities.add(

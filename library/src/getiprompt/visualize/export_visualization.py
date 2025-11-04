@@ -8,8 +8,9 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from torchvision import tv_tensors
 
-from getiprompt.types import Annotations, Boxes, Image, Masks, Points
+from getiprompt.types import Annotations, Boxes, Masks, Points
 from getiprompt.utils import get_colors
 from getiprompt.visualize.base import Visualization
 
@@ -21,10 +22,11 @@ class ExportMaskVisualization(Visualization):
         >>> import os
         >>> import numpy as np
         >>> from getiprompt.processes.visualizations import ExportMaskVisualization
-        >>> from getiprompt.types import Image, Masks, Points
+        >>> from getiprompt.types import Masks, Points
+        >>> from torchvision import tv_tensors
         >>>
         >>> visualizer = ExportMaskVisualization(output_folder="visualizations")
-        >>> sample_image = Image(np.zeros((10, 10, 3), dtype=np.uint8))
+        >>> sample_image = tv_tensors.Image(np.zeros((3, 10, 10), dtype=np.uint8))
         >>> visualizer(
         ...     images=[sample_image],
         ...     masks=[Masks()],
@@ -44,9 +46,9 @@ class ExportMaskVisualization(Visualization):
 
     def __call__(
         self,
-        images: list[Image] | None = None,
+        images: list[tv_tensors.Image] | None = None,
         masks: list[Masks] | None = None,
-        names: list[str] | None = None,
+        file_names: list[str] | None = None,
         points: list[Points] | None = None,
         boxes: list[Boxes] | None = None,
         annotations: list[Annotations] | None = None,
@@ -59,7 +61,7 @@ class ExportMaskVisualization(Visualization):
         Args:
             images: List of images to visualize
             masks: List of masks to visualize
-            names: List of names to visualize
+            file_names: List of file names to visualize
             points: List of points to visualize
             boxes: List of boxes to visualize
             annotations: List of annotations to visualize
@@ -68,7 +70,7 @@ class ExportMaskVisualization(Visualization):
             legend_position: Position of the legend
         """
         # Initialize defaults
-        names = names or []
+        file_names = file_names or []
         masks = masks or []
         images = images or []
 
@@ -80,7 +82,7 @@ class ExportMaskVisualization(Visualization):
                 i,
                 images,
                 masks,
-                names,
+                file_names,
                 points,
                 boxes,
                 annotations,
@@ -323,9 +325,9 @@ class ExportMaskVisualization(Visualization):
     def _process_single_image(
         self,
         i: int,
-        images: list[Image],
+        images: list[tv_tensors.Image],
         masks: list[Masks],
-        names: list[str],
+        file_names: list[str],
         points: list[Points] | None,
         boxes: list[Boxes] | None,
         annotations: list[Annotations] | None,
@@ -341,7 +343,7 @@ class ExportMaskVisualization(Visualization):
             i: Index of the image
             images: List of images to visualize
             masks: List of masks to visualize
-            names: List of names to visualize
+            file_names: List of file names to visualize
             points: List of points to visualize
             boxes: List of boxes to visualize
             annotations: List of annotations to visualize
@@ -352,11 +354,11 @@ class ExportMaskVisualization(Visualization):
             class_names: List of class names to visualize
         """
         masks_per_class = masks[i]
-        image_np = images[i].to_numpy()
-        name = names[i]
+        image_np = images[i].permute(1, 2, 0).numpy()
+        file_name = file_names[i]
 
-        output_filename = Path(self.output_folder) / name
-        Path.mkdir(Path(output_filename, parents=True).parent, exist_ok=True, parents=True)
+        output_path = Path(self.output_folder) / file_name
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
         image_vis = image_np
 
@@ -383,7 +385,7 @@ class ExportMaskVisualization(Visualization):
             image_vis = self.add_legend(image_vis, legend_class_names, class_colors, legend_position)
 
         # Save visualization
-        cv2.imwrite(output_filename, cv2.cvtColor(image_vis, cv2.COLOR_RGB2BGR))
+        cv2.imwrite(output_path, cv2.cvtColor(image_vis, cv2.COLOR_RGB2BGR))
 
     def _process_class_masks(
         self,

@@ -1,7 +1,11 @@
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+"""SAM model."""
 
 from typing import Any
 
@@ -9,13 +13,15 @@ import torch
 from torch import nn
 from torch.nn import functional
 
-from .image_encoder import ImageEncoderViT
-from .mask_decoder import MaskDecoder
-from .prompt_encoder import PromptEncoder
-from .tiny_vit_sam import TinyViT
+from getiprompt.models.foundation.per_sam.modeling.image_encoder import ImageEncoderViT
+from getiprompt.models.foundation.per_sam.modeling.mask_decoder import MaskDecoder
+from getiprompt.models.foundation.per_sam.modeling.prompt_encoder import PromptEncoder
+from getiprompt.models.foundation.per_sam.modeling.tiny_vit_sam import TinyViT
 
 
-class Sam(nn.Module):
+class SAM(nn.Module):
+    """SAM model."""
+
     mask_threshold: float = 0.0
     image_format: str = "RGB"
 
@@ -50,7 +56,8 @@ class Sam(nn.Module):
         self.register_buffer("pixel_std", torch.Tensor(pixel_std).view(-1, 1, 1), False)
 
     @property
-    def device(self) -> Any:
+    def device(self) -> torch.device:
+        """Get the device of the model."""
         return self.pixel_mean.device
 
     @torch.no_grad()
@@ -60,6 +67,7 @@ class Sam(nn.Module):
         multimask_output: bool,
     ) -> list[dict[str, torch.Tensor]]:
         """Predicts masks end-to-end from provided images and prompts.
+
         If prompts are not known in advance, using SamPredictor is
         recommended over calling the model directly.
 

@@ -5,12 +5,14 @@
 # All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+"""ResizeLongestSide from Segment Anything."""
 
 from copy import deepcopy
 
 import numpy as np
 import torch
 from torch.nn import functional
+from torchvision import tv_tensors
 from torchvision.transforms.functional import resize, to_pil_image
 
 # TODO(Eugene): refactor ResizeLongestSide only keeping torch.Tensor implemenataion.
@@ -25,6 +27,7 @@ class ResizeLongestSide:
     """
 
     def __init__(self, target_length: int) -> None:
+        """Initialize the ResizeLongestSide."""
         self.target_length = target_length
 
     def apply_image(self, image: np.ndarray) -> np.ndarray:
@@ -53,8 +56,8 @@ class ResizeLongestSide:
             self.target_length,
         )
         coords = deepcopy(coords).astype(float)
-        coords[..., 0] = coords[..., 0] * (new_w / old_w)
-        coords[..., 1] = coords[..., 1] * (new_h / old_h)
+        coords[..., 0] *= new_w / old_w
+        coords[..., 1] *= new_h / old_h
         return coords
 
     def apply_boxes(
@@ -76,7 +79,7 @@ class ResizeLongestSide:
 
     def apply_image_torch(
         self,
-        image: torch.Tensor,
+        image: tv_tensors.Image,
     ) -> torch.Tensor:
         """Expects batched images with shape BxCxHxW and float format.
 
@@ -87,12 +90,14 @@ class ResizeLongestSide:
             image: The image to resize.
 
         Returns:
-            Resized image.
+            torch.Tensor: Resized image in 1 x C x H x W format.
         """
         # Expects an image in BCHW format. May not exactly match apply_image.
-        target_size = self.get_preprocess_shape(image.shape[2], image.shape[3], self.target_length)
+        assert isinstance(image, tv_tensors.Image), "Image must be a tv_tensors.Image"
+        h, w = image.shape[-2:]
+        target_size = self.get_preprocess_shape(h, w, self.target_length)
         return functional.interpolate(
-            image,
+            image.unsqueeze(0),
             target_size,
             mode="bilinear",
             align_corners=False,
@@ -154,8 +159,8 @@ class ResizeLongestSide:
             self.target_length,
         )
         coords = torch.clone(coords).to(torch.float)
-        coords[..., 0] = coords[..., 0] * (old_w / new_w)
-        coords[..., 1] = coords[..., 1] * (old_h / new_h)
+        coords[..., 0] *= old_w / new_w
+        coords[..., 1] *= old_h / new_h
         return coords
 
     @staticmethod

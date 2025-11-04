@@ -3,29 +3,48 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { createContext, ReactNode, useContext, useState, type Dispatch, type SetStateAction } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+
+import { LabelType } from '@geti-prompt/api';
+import { useProjectLabels } from '@geti-prompt/hooks';
 
 import { useLoadImageQuery } from '../hooks/use-load-image-query.hook';
 import { ToolType } from '../tools/interface';
-import type { MediaItem, RegionOfInterest } from '../types';
+import type { RegionOfInterest } from '../types';
 
 type AnnotatorContext = {
     // Tools
     activeTool: ToolType | null;
-    setActiveTool: Dispatch<SetStateAction<ToolType>>;
+    setActiveTool: Dispatch<SetStateAction<ToolType | null>>;
 
-    // Media item
-    mediaItem: MediaItem;
-    image: ImageData;
+    // Media items
     roi: RegionOfInterest;
+    frameId: string;
+    image: ImageData;
+
+    // Labels
+    selectedLabel: LabelType;
+    selectedLabelId: string;
+    setSelectedLabelId: Dispatch<SetStateAction<string>>;
 };
 
-export const AnnotatorProviderContext = createContext<AnnotatorContext | null>(null);
+const AnnotatorProviderContext = createContext<AnnotatorContext | null>(null);
 
-export const AnnotatorProvider = ({ mediaItem, children }: { mediaItem: MediaItem; children: ReactNode }) => {
-    const [activeTool, setActiveTool] = useState<ToolType>('selection');
+const PLACEHOLDER_LABEL: LabelType = { id: 'placeholder', name: 'No label', color: 'var(--annotation-fill)' };
 
-    const imageQuery = useLoadImageQuery(mediaItem);
+export const AnnotatorProvider = ({ frameId, children }: { frameId: string; children: ReactNode }) => {
+    const labels = useProjectLabels();
+    const [activeTool, setActiveTool] = useState<ToolType | null>(null);
+    const [selectedLabelId, setSelectedLabelId] = useState<string>(PLACEHOLDER_LABEL.id);
+
+    const imageQuery = useLoadImageQuery(frameId);
+    const selectedLabel = labels.find(({ id }) => id === selectedLabelId) || PLACEHOLDER_LABEL;
+
+    useEffect(() => {
+        if (labels.length > 0) {
+            setSelectedLabelId(labels[0].id);
+        }
+    }, [labels]);
 
     return (
         <AnnotatorProviderContext.Provider
@@ -33,9 +52,13 @@ export const AnnotatorProvider = ({ mediaItem, children }: { mediaItem: MediaIte
                 activeTool,
                 setActiveTool,
 
-                mediaItem,
+                setSelectedLabelId,
+                selectedLabelId,
+                selectedLabel,
+
                 image: imageQuery.data,
-                roi: { x: 0, y: 0, width: mediaItem.width, height: mediaItem.height },
+                frameId,
+                roi: { x: 0, y: 0, width: imageQuery.data.width, height: imageQuery.data.height },
             }}
         >
             {children}
