@@ -7,8 +7,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { $api } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
-import { Button, Grid, minmax } from '@geti/ui';
-import { dimensionValue } from '@react-spectrum/utils';
+import { Button, dimensionValue, Grid, minmax } from '@geti/ui';
 
 import { usePromptMode } from '../prompts/prompt-modes/prompt-modes.component';
 import { FramesList } from './frames-list/frames-list.component';
