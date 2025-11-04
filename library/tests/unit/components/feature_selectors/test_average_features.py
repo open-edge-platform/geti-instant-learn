@@ -23,11 +23,8 @@ class TestAverageFeatures:
         selector = AverageFeatures()
         result = selector([])
 
-        expected_result_length = 1
-        pytest.assume(isinstance(result, list))
-        pytest.assume(len(result) == expected_result_length)
-        pytest.assume(isinstance(result[0], Features))
-        pytest.assume(result[0].local_features == {})
+        pytest.assume(isinstance(result, Features))
+        pytest.assume(result.local_features == {})
 
     def test_call_single_image_single_class(self) -> None:
         """Test AverageFeatures with single image and single class."""
@@ -38,13 +35,12 @@ class TestAverageFeatures:
 
         result = selector([features])
 
-        expected_result_length = 1
         expected_features_per_class = 1
         expected_feature_shape = (1, 4)
-        pytest.assume(len(result) == expected_result_length)
-        pytest.assume(1 in result[0].local_features)
-        pytest.assume(len(result[0].local_features[1]) == expected_features_per_class)
-        pytest.assume(result[0].local_features[1][0].shape == expected_feature_shape)
+        pytest.assume(isinstance(result, Features))
+        pytest.assume(1 in result.local_features)
+        pytest.assume(len(result.local_features[1]) == expected_features_per_class)
+        pytest.assume(result.local_features[1][0].shape == expected_feature_shape)
 
     def test_call_multiple_images_single_class(self) -> None:
         """Test AverageFeatures with multiple images and single class."""
@@ -58,13 +54,12 @@ class TestAverageFeatures:
 
         result = selector([features1, features2])
 
-        expected_result_length = 1
         expected_features_per_class = 1
         expected_feature_shape = (1, 4)
-        pytest.assume(len(result) == expected_result_length)
-        pytest.assume(1 in result[0].local_features)
-        pytest.assume(len(result[0].local_features[1]) == expected_features_per_class)
-        pytest.assume(result[0].local_features[1][0].shape == expected_feature_shape)
+        pytest.assume(isinstance(result, Features))
+        pytest.assume(1 in result.local_features)
+        pytest.assume(len(result.local_features[1]) == expected_features_per_class)
+        pytest.assume(result.local_features[1][0].shape == expected_feature_shape)
 
     def test_call_multiple_classes(self) -> None:
         """Test AverageFeatures with multiple classes."""
@@ -78,14 +73,13 @@ class TestAverageFeatures:
 
         result = selector([features])
 
-        expected_result_length = 1
         expected_features_per_class = 1
         expected_feature_shape = (1, 4)
-        pytest.assume(len(result) == expected_result_length)
+        pytest.assume(isinstance(result, Features))
         for class_id in [1, 2]:
-            pytest.assume(class_id in result[0].local_features)
-            pytest.assume(len(result[0].local_features[class_id]) == expected_features_per_class)
-            pytest.assume(result[0].local_features[class_id][0].shape == expected_feature_shape)
+            pytest.assume(class_id in result.local_features)
+            pytest.assume(len(result.local_features[class_id]) == expected_features_per_class)
+            pytest.assume(result.local_features[class_id][0].shape == expected_feature_shape)
 
     def test_call_normalization(self) -> None:
         """Test that AverageFeatures properly normalizes the averaged features."""
@@ -101,7 +95,7 @@ class TestAverageFeatures:
 
         result = selector([features])
 
-        averaged = result[0].local_features[1][0]
+        averaged = result.local_features[1][0]
         # Should be normalized to unit length
         norm = torch.norm(averaged, dim=-1)
         pytest.assume(torch.allclose(norm, torch.ones_like(norm)))
@@ -122,13 +116,12 @@ class TestAverageFeatures:
 
         result = selector([features])
 
-        expected_result_length = 1
         expected_features_per_class = 1
         expected_feature_shape = (1, feature_dims)
-        pytest.assume(len(result) == expected_result_length)
-        pytest.assume(1 in result[0].local_features)
-        pytest.assume(len(result[0].local_features[1]) == expected_features_per_class)
-        pytest.assume(result[0].local_features[1][0].shape == expected_feature_shape)
+        pytest.assume(isinstance(result, Features))
+        pytest.assume(1 in result.local_features)
+        pytest.assume(len(result.local_features[1]) == expected_features_per_class)
+        pytest.assume(result.local_features[1][0].shape == expected_feature_shape)
 
     def test_call_empty_class_features(self) -> None:
         """Test AverageFeatures with empty class features."""
@@ -154,14 +147,13 @@ class TestAverageFeatures:
 
         result = selector([features])
 
-        expected_result_length = 1
         expected_features_per_class = 1
         expected_feature_shape = (1, 4)
-        pytest.assume(len(result) == expected_result_length)
+        pytest.assume(isinstance(result, Features))
         for class_id in [1, 2, 3]:
-            pytest.assume(class_id in result[0].local_features)
-            pytest.assume(len(result[0].local_features[class_id]) == expected_features_per_class)
-            pytest.assume(result[0].local_features[class_id][0].shape == expected_feature_shape)
+            pytest.assume(class_id in result.local_features)
+            pytest.assume(len(result.local_features[class_id]) == expected_features_per_class)
+            pytest.assume(result.local_features[class_id][0].shape == expected_feature_shape)
 
     def test_call_multiple_images_multiple_classes(self) -> None:
         """Test AverageFeatures with multiple images and multiple classes."""
@@ -181,15 +173,12 @@ class TestAverageFeatures:
 
         result = selector([features1, features2])
 
-        expected_result_length = 1
         expected_features_per_class = 1
         class_keys = [1, 2, 3]
-        pytest.assume(len(result) == expected_result_length)
+        pytest.assume(isinstance(result, Features))
         for class_id in class_keys:
-            pytest.assume(class_id in result[0].local_features)
-            pytest.assume(len(result[0].local_features[class_id]) == expected_features_per_class)
-        pytest.assume(len(result[0].local_features[2]) == expected_features_per_class)
-        pytest.assume(len(result[0].local_features[3]) == expected_features_per_class)
+            pytest.assume(class_id in result.local_features)
+            pytest.assume(len(result.local_features[class_id]) == expected_features_per_class)
 
     def test_call_different_devices(self) -> None:
         """Test AverageFeatures with tensors on different devices."""
@@ -222,14 +211,13 @@ class TestAverageFeatures:
 
         result = selector([features])
 
-        expected_result_length = 1
         expected_features_per_class = 1
         expected_feature_shape = (1, 4)
-        pytest.assume(len(result) == expected_result_length)
+        pytest.assume(isinstance(result, Features))
         for class_id in [1, 2]:
-            pytest.assume(class_id in result[0].local_features)
-            pytest.assume(len(result[0].local_features[class_id]) == expected_features_per_class)
-            pytest.assume(result[0].local_features[class_id][0].shape == expected_feature_shape)
+            pytest.assume(class_id in result.local_features)
+            pytest.assume(len(result.local_features[class_id]) == expected_features_per_class)
+            pytest.assume(result.local_features[class_id][0].shape == expected_feature_shape)
 
     def test_call_zero_features(self) -> None:
         """Test AverageFeatures with zero features."""
@@ -240,12 +228,12 @@ class TestAverageFeatures:
 
         result = selector([features])
 
-        averaged = result[0].local_features[1][0]
+        averaged = result.local_features[1][0]
         # Zero features result in NaN after normalization
         pytest.assume(torch.isnan(averaged).all())
 
-    def test_call_returns_list(self) -> None:
-        """Test that AverageFeatures returns a list."""
+    def test_call_returns_features(self) -> None:
+        """Test that AverageFeatures returns a Features object."""
         selector = AverageFeatures()
 
         features = Features()
@@ -253,10 +241,8 @@ class TestAverageFeatures:
 
         result = selector([features])
 
-        expected_result_length = 1
-        pytest.assume(isinstance(result, list))
-        pytest.assume(len(result) == expected_result_length)
-        pytest.assume(isinstance(result[0], Features))
+        pytest.assume(isinstance(result, Features))
+        pytest.assume(1 in result.local_features)
 
     def test_call_preserves_feature_dimensions(self) -> None:
         """Test that AverageFeatures preserves feature dimensions."""
@@ -268,7 +254,7 @@ class TestAverageFeatures:
         result = selector([features])
 
         expected_feature_shape = (1, 8)
-        pytest.assume(result[0].local_features[1][0].shape == expected_feature_shape)
+        pytest.assume(result.local_features[1][0].shape == expected_feature_shape)
 
     def test_call_handles_single_tensor_per_class(self) -> None:
         """Test AverageFeatures with single tensor per class."""
@@ -279,13 +265,12 @@ class TestAverageFeatures:
 
         result = selector([features])
 
-        expected_result_length = 1
         expected_features_per_class = 1
         expected_feature_shape = (1, 4)
-        pytest.assume(len(result) == expected_result_length)
-        pytest.assume(1 in result[0].local_features)
-        pytest.assume(len(result[0].local_features[1]) == expected_features_per_class)
-        pytest.assume(result[0].local_features[1][0].shape == expected_feature_shape)
+        pytest.assume(isinstance(result, Features))
+        pytest.assume(1 in result.local_features)
+        pytest.assume(len(result.local_features[1]) == expected_features_per_class)
+        pytest.assume(result.local_features[1][0].shape == expected_feature_shape)
 
     def test_averaging_mathematical_correctness(self) -> None:
         """Test mathematical correctness of averaging."""
@@ -301,7 +286,7 @@ class TestAverageFeatures:
 
         result = selector([features])
 
-        averaged = result[0].local_features[1][0]
+        averaged = result.local_features[1][0]
         expected = torch.tensor([[0.5, 0.5, 0.0, 0.0]])
         expected_normalized = expected / torch.norm(expected, dim=-1, keepdim=True)
 
@@ -322,7 +307,7 @@ class TestAverageFeatures:
 
         result = selector([features])
 
-        averaged = result[0].local_features[1][0]
+        averaged = result.local_features[1][0]
         # Should be normalized
         norm = torch.norm(averaged, dim=-1)
         pytest.assume(torch.allclose(norm, torch.ones_like(norm)))

@@ -8,7 +8,6 @@ from getiprompt.types.data import Data
 from getiprompt.types.features import Features
 from getiprompt.types.masks import Masks
 from getiprompt.types.points import Points
-from getiprompt.types.priors import Priors
 from getiprompt.types.results import Results
 from getiprompt.types.similarities import Similarities
 from getiprompt.types.text import Text
@@ -19,7 +18,6 @@ __all__ = [
     "Features",
     "Masks",
     "Points",
-    "Priors",
     "Results",
     "Similarities",
     "Text",
