@@ -4,8 +4,6 @@
 import torch
 from torch import nn
 
-from getiprompt.data.base.sample import Sample
-
 
 class MultiInstancePriorFilter(nn.Module):
     """Filter out large boxes that are mostly covered by smaller boxes.
@@ -18,33 +16,23 @@ class MultiInstancePriorFilter(nn.Module):
         super().__init__()
         self.threshold = threshold
 
-    def forward(self, pred_samples: list[Sample]) -> list[Sample]:
+    def forward(self, prompts_per_image: list[dict[int, torch.Tensor]]) -> list[dict[int, torch.Tensor]]:
         """Filter the boxes based on containment and area ratio.
 
         Args:
-            priors: A list of Priors objects, one for each image.
+            prompts_per_image(list[dict[int, torch.Tensor]]): List of prompts per image, one per target image instance.
 
         Returns:
-            A list of Priors objects with the large container boxes filtered out.
+            prompts_per_image(list[dict[int, torch.Tensor]]):
+                List of prompts per image, one per target image instance, with the large container boxes filtered out.
         """
-        boxes_per_image = []
-        for pred in pred_samples:
-            if pred.bboxes is None:
-                continue
-
-            cls_boxes: dict[int, list[torch.Tensor]] = {}
-            for class_id, box, score in zip(pred.category_ids, pred.bboxes, pred.scores, strict=False):
-                if class_id not in cls_boxes:
-                    cls_boxes[class_id] = []
-                cls_boxes[class_id].append(torch.cat((box, score.unsqueeze(0))))
-
-            for class_id, boxes in cls_boxes.items():
-                original_box_tensor = torch.stack(boxes)
+        for class_prompts in prompts_per_image:
+            for class_id, boxes in class_prompts.items():
                 x1, y1, x2, y2 = (
-                    original_box_tensor[:, 0],
-                    original_box_tensor[:, 1],
-                    original_box_tensor[:, 2],
-                    original_box_tensor[:, 3],
+                    boxes[:, 0],
+                    boxes[:, 1],
+                    boxes[:, 2],
+                    boxes[:, 3],
                 )
                 areas = (x2 - x1) * (y2 - y1)
 
@@ -83,6 +71,5 @@ class MultiInstancePriorFilter(nn.Module):
                     # We sort these original indices to ensure the final output preserves the initial order.
                     original_indices_to_keep = sorted_indices[keep_mask]
                     final_indices, _ = torch.sort(original_indices_to_keep)
-                    cls_boxes[class_id] = original_box_tensor[final_indices]
-            boxes_per_image.append(cls_boxes)
-        return boxes_per_image
+                    class_prompts[class_id] = boxes[final_indices]
+        return prompts_per_image

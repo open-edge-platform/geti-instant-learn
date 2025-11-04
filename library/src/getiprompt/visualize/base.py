@@ -25,7 +25,7 @@ class Visualization:
     """
 
     @staticmethod
-    def boxes_from_priors(priors: list[dict[int, torch.Tensor]]) -> list[Boxes]:
+    def to_boxes(priors: list[dict[int, torch.Tensor]]) -> list[Boxes]:
         """Extracts boxes from priors.
 
         Args:
@@ -43,7 +43,7 @@ class Visualization:
         return boxes_per_image
 
     @staticmethod
-    def points_from_priors(priors: list[dict[int, torch.Tensor]]) -> list[Points]:
+    def to_points(priors: list[dict[int, torch.Tensor]]) -> list[Points]:
         """Extracts points from priors.
 
         Args:

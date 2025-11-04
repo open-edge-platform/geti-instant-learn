@@ -50,7 +50,7 @@ def infer_on_category(
     metrics_calculators: dict[int, SegmentationMetrics],
     progress: Progress,
     batch_size: int = 4,
-    visualize: bool = True,
+    visualize: bool = False,
 ) -> tuple[int, int]:
     """Perform inference on all samples of a category.
 
@@ -146,15 +146,8 @@ def infer_on_category(
                 images=batch.images,
                 masks=results.masks,
                 file_names=file_names,
-                points=results.used_points,
-                boxes=visualizer.boxes_from_priors(results.priors),
-            )
-            visualizer(
-                images=batch.images,
-                masks=results.masks,
-                file_names=file_names_debug,
-                points=visualizer.points_from_priors(results.priors),
-                boxes=visualizer.boxes_from_priors(results.priors),
+                points=visualizer.to_points(results.point_prompts),
+                boxes=visualizer.to_boxes(results.box_prompts),
             )
             visualizer(
                 images=batch.images,
@@ -191,9 +184,6 @@ def learn_from_category(dataset: Dataset, model: Model, category_name: str) -> N
         filtered_masks = []
         filtered_category_ids = []
         filtered_categories = []
-        if len(sample.category_ids) > 1:
-            print(sample.image_path)
-
         for mask, category_id, category, is_reference in zip(
             sample.masks,
             sample.category_ids,

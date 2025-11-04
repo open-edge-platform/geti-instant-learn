@@ -48,24 +48,6 @@ class PointFilter(nn.Module):
         super().__init__()
         self.num_foreground_points = num_foreground_points
 
-    def forward(self, points_per_image: list[dict[int, torch.Tensor]]) -> list[dict[int, torch.Tensor]]:
-        """Filter points in the priors, keeping the ones with the highest scores.
-
-        Modifies the priors in-place to preserve all other information.
-
-        Args:
-            points_per_image: List of points per image, one per target image instance
-
-        Returns:
-            points_per_image: List of points per image, one per target image instance with filtered points
-        """
-        for cls_points in points_per_image:
-            for class_id, points in cls_points.items():
-                filtered_points = self._filter_points(points)
-                cls_points[class_id] = filtered_points
-
-        return points_per_image
-
     def _filter_points(self, points: torch.Tensor) -> torch.Tensor:
         """Filter a single list of points based on scores. This method adds all background points.
 
@@ -91,3 +73,20 @@ class PointFilter(nn.Module):
 
         # return best matching foreground points and add all background_points
         return torch.cat([fg_points_select, bg_points])
+
+    def forward(self, prompts_per_image: list[dict[int, torch.Tensor]]) -> list[dict[int, torch.Tensor]]:
+        """Filter points in the prompts, keeping the ones with the highest scores.
+
+        Args:
+            prompts_per_image(list[dict[int, torch.Tensor]]): List of prompts per image, one per target image instance.
+
+        Returns:
+            prompts_per_image(list[dict[int, torch.Tensor]]):
+                List of prompts per image, one per target image instance, with the points filtered.
+        """
+        for class_prompts in prompts_per_image:
+            for class_id, points in class_prompts.items():
+                filtered_points = self._filter_points(points)
+                class_prompts[class_id] = filtered_points
+
+        return prompts_per_image

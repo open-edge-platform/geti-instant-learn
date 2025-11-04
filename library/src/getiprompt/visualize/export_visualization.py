@@ -8,6 +8,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import torch
 from torchvision import tv_tensors
 
 from getiprompt.types import Annotations, Boxes, Masks, Points
@@ -443,6 +444,9 @@ class ExportMaskVisualization(Visualization):
         """
         if points is not None and i < len(points) and points[i] is not None and not points[i].is_empty:
             current_points = points[i].data[class_id][0]
+            if isinstance(current_points, torch.Tensor):
+                current_points = current_points.float()  # convert from bfloat16 to float32 as CPU only supports float32
+
             return {
                 "points": current_points.cpu().numpy()[:, :2],
                 "point_scores": current_points.cpu().numpy()[:, 2],
@@ -461,6 +465,9 @@ class ExportMaskVisualization(Visualization):
         """
         if boxes is not None and i < len(boxes) and boxes[i] is not None and not boxes[i].is_empty:
             current_boxes = boxes[i].data[class_id][0]
+            if isinstance(current_boxes, torch.Tensor):
+                current_boxes = current_boxes.float()  # convert from bfloat16 to float32 as CPU only supports float32
+
             return {
                 "boxes": current_boxes.cpu().numpy()[:, :4],
                 "box_scores": current_boxes.cpu().numpy()[:, 4],

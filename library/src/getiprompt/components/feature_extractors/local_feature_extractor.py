@@ -42,14 +42,16 @@ class LocalFeatureExtractor(nn.Module):
         batched_features: torch.Tensor,
         batched_masks: torch.Tensor,
         batched_category_ids: torch.Tensor,
-        batched_is_reference: torch.Tensor,
     ) -> tuple[list[Features], list[Masks]]:
         """Extract local features from batched features and samples.
 
         Args:
             batched_features: Batched feature tensor of shape
                 (batch_size, num_patches, embedding_dim).
-            samples: List of Sample objects, each containing masks and category_ids.
+            batched_masks: Batched mask tensor of shape
+                (batch_size, num_masks, height, width).
+            batched_category_ids: Batched category ID tensor of shape
+                (batch_size, num_masks).
 
         Returns:
             tuple[list[Features], list[Masks]]: Tuple of Features objects (with local features added)
@@ -59,22 +61,20 @@ class LocalFeatureExtractor(nn.Module):
         features_list = [Features(global_features=emb) for emb in batched_features.unbind(0)]
 
         resized_masks_per_image = []
-        for embedding, masks_tensor, category_ids, is_reference_list in zip(
+        for embedding, masks_tensor, category_ids in zip(
             features_list,
             batched_masks,
             batched_category_ids,
-            batched_is_reference,
-            strict=False,
+            strict=True,
         ):
             resized_masks = Masks()
-            for category_id, mask, is_reference in zip(category_ids, masks_tensor, is_reference_list, strict=True):
+            for category_id, mask in zip(category_ids, masks_tensor, strict=True):
                 category_id = category_id.item()
-                if is_reference:
-                    pooled_mask = self.transform(mask)
-                    resized_masks.add(mask=pooled_mask, class_id=category_id)
-                    keep = pooled_mask.flatten().bool()
-                    local_features = embedding.global_features[keep]
-                    embedding.add_local_features(local_features=local_features, class_id=category_id)
+                pooled_mask = self.transform(mask)
+                resized_masks.add(mask=pooled_mask, class_id=category_id)
+                keep = pooled_mask.flatten().bool()
+                local_features = embedding.global_features[keep]
+                embedding.add_local_features(local_features=local_features, class_id=category_id)
             resized_masks_per_image.append(resized_masks)
 
         return features_list, resized_masks_per_image

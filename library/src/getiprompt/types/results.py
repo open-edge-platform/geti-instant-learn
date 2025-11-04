@@ -7,7 +7,6 @@ from getiprompt.types.annotations import Annotations
 from getiprompt.types.boxes import Boxes
 from getiprompt.types.masks import Masks
 from getiprompt.types.points import Points
-from getiprompt.types.priors import Priors
 from getiprompt.types.similarities import Similarities
 
 
@@ -17,12 +16,13 @@ class Results:
     def __init__(self) -> None:
         """Initializes the Results."""
         self._masks: list[Masks] | None = None
-        self._priors: list[Priors] | None = None
         self._annotations: list[Annotations] | None = None
         self._used_points: list[Points] | None = None
         self._used_boxes: list[Boxes] | None = None
         self._similarities: list[Similarities] | None = None
         self._duration: float | None = None
+        self._box_prompts: list[Boxes] | None = None
+        self._point_prompts: list[Points] | None = None
 
     @property
     def masks(self) -> list[Masks]:
@@ -33,16 +33,6 @@ class Results:
     def masks(self, masks: list[Masks]) -> None:
         """Sets the masks."""
         self._masks = masks
-
-    @property
-    def priors(self) -> list[Priors]:
-        """Returns priors produced by the latest run of model."""
-        return self._priors if self._priors is not None else []
-
-    @priors.setter
-    def priors(self, priors: list[Priors]) -> None:
-        """Sets the priors."""
-        self._priors = priors
 
     @property
     def used_points(self) -> list[Points]:
@@ -93,3 +83,23 @@ class Results:
     def duration(self, duration: float) -> None:
         """Sets the duration."""
         self._duration = duration
+
+    @property
+    def box_prompts(self) -> list[Boxes]:
+        """Returns box prompts produced by the latest run of model."""
+        return self._box_prompts if self._box_prompts is not None else []
+
+    @box_prompts.setter
+    def box_prompts(self, box_prompts: list[Boxes]) -> None:
+        """Sets the box prompts."""
+        self._box_prompts = box_prompts
+
+    @property
+    def point_prompts(self) -> list[Points]:
+        """Returns point prompts produced by the latest run of model."""
+        return self._point_prompts if self._point_prompts is not None else []
+
+    @point_prompts.setter
+    def point_prompts(self, point_prompts: list[Points]) -> None:
+        """Sets the point prompts."""
+        self._point_prompts = point_prompts

@@ -134,7 +134,6 @@ class Matcher(Model):
             reference_embeddings,
             reference_batch.masks,
             reference_batch.category_ids,
-            reference_batch.is_reference,
         )
         self.reference_features = self.feature_selector(reference_features)
 
@@ -158,7 +157,7 @@ class Matcher(Model):
 
         # write output
         results = Results()
-        results.priors = point_prompts
+        results.point_prompts = point_prompts
         results.used_points = used_points
         results.masks = masks
         results.annotations = annotations

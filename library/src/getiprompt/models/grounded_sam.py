@@ -102,7 +102,7 @@ class GroundedSAM(Model):
 
         # write output
         results = Results()
-        results.priors = box_prompts
+        results.box_prompts = box_prompts
         results.used_boxes = used_boxes
         results.masks = masks
         results.annotations = annotations

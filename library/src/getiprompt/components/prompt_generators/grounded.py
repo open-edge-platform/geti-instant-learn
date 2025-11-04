@@ -3,6 +3,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from collections import defaultdict
 from difflib import SequenceMatcher
 from enum import Enum
 
@@ -11,7 +12,6 @@ from torchvision import tv_tensors
 from transformers import AutoModelForZeroShotObjectDetection, AutoProcessor
 
 from getiprompt.components.prompt_generators import PromptGenerator
-from getiprompt.data.base.sample import Sample
 from getiprompt.utils.utils import precision_to_torch_dtype
 
 
@@ -74,69 +74,6 @@ class TextToBoxPromptGenerator(PromptGenerator):
         self.text_threshold = text_threshold
         self.template = template
 
-    def forward(self, target_images: list[tv_tensors.Image], category_mapping: dict[str, int]) -> list[Sample]:
-        """This generates bounding box prompt candidates (or priors) based on the text priors.
-
-        Args:
-            target_images(list[tv_tensors.Image]): The target images
-            category_mapping(dict[str, int]): The category mapping
-
-        Returns:
-            list[Sample]: List of prediction samples, one per target image instance, each containing the bboxes, scores, and labels
-        """
-        formatted_categories = [self.template.format(prior=category) for category in category_mapping]
-        prompts = ""
-        for category in formatted_categories:
-            prompts += category + ". "
-        prompts = [prompts.strip()] * len(target_images)
-
-        # Run the grounding model
-        inputs = self.processor(images=target_images, text=prompts, return_tensors="pt").to(self.device)
-        inputs["pixel_values"] = inputs["pixel_values"].to(self.model.dtype)
-        with torch.inference_mode(), torch.autocast(device_type=self.device, dtype=self.model.dtype):
-            outputs = self.model(**inputs)
-
-        sizes = [image.shape[-2:] for image in target_images]
-        results = self.processor.post_process_grounded_object_detection(
-            outputs,
-            inputs.input_ids,
-            threshold=self.box_threshold,
-            text_threshold=self.text_threshold,
-            target_sizes=sizes,
-        )
-
-        # Generate all priors from the result of the Dino model.
-        preds: list[Sample] = []
-        for result in results:
-            pred_labels = self.map_labels_to_categories(result["labels"], category_mapping)
-            pred_label_ids = [category_mapping[label] for label in pred_labels]
-            preds.append(
-                Sample(
-                    bboxes=result["boxes"],
-                    scores=result["scores"],
-                    category_ids=pred_label_ids,
-                    categories=pred_labels,
-                ),
-            )
-        return preds
-
-    def map_labels_to_categories(self, labels: list[str], category_mapping: dict[str, int]) -> list[str]:
-        """Map labels to their best matching category by similarity.
-
-        Args:
-            labels(list[str]): The labels to map to categories.
-            category_mapping(dict[str, int]): The category mapping.
-
-        Returns:
-            list[str]: The mapped labels that match categories from ``category_mapping``.
-        """
-        processed_labels = []
-        for label in labels:
-            if label not in category_mapping:
-                label = max(category_mapping.keys(), key=lambda x: SequenceMatcher(None, x, label).ratio())
-            processed_labels.append(label)
-        return processed_labels
-
     @staticmethod
     def _load_grounding_model_and_processor(
         model_id: str,
@@ -178,3 +115,79 @@ class TextToBoxPromptGenerator(PromptGenerator):
             benchmark_inference_speed=benchmark_inference_speed,
         )
         return model, processor
+
+    def _map_labels_to_categories(self, labels: list[str], category_mapping: dict[str, int]) -> list[str]:
+        """Map labels to their best matching category by similarity.
+
+        Args:
+            labels(list[str]): The labels to map to categories.
+            category_mapping(dict[str, int]): The category mapping.
+
+        Returns:
+            list[str]: The mapped labels that match categories from ``category_mapping``.
+        """
+        processed_labels = []
+        for label in labels:
+            if label not in category_mapping:
+                label = max(category_mapping.keys(), key=lambda x: SequenceMatcher(None, x, label).ratio())
+            processed_labels.append(label)
+        return processed_labels
+
+    def forward(
+        self,
+        target_images: list[tv_tensors.Image],
+        category_mapping: dict[str, int],
+    ) -> list[dict[int, torch.Tensor]]:
+        """This generates bounding box prompt candidates based on the text priors.
+
+        Args:
+            target_images(list[tv_tensors.Image]): The target images
+            category_mapping(dict[str, int]): The category mapping
+
+        Returns:
+            list[dict[int, torch.Tensor]]: List of prompts per image, one per target image instance.
+        """
+        formatted_categories = [self.template.format(prior=category) for category in category_mapping]
+        prompts = ""
+        for category in formatted_categories:
+            prompts += category + ". "
+        prompts = [prompts.strip()] * len(target_images)
+
+        # Run the grounding model
+        inputs = self.processor(images=target_images, text=prompts, return_tensors="pt").to(self.device)
+        inputs["pixel_values"] = inputs["pixel_values"].to(self.model.dtype)
+        with torch.inference_mode(), torch.autocast(device_type=self.device, dtype=self.model.dtype):
+            outputs = self.model(**inputs)
+
+        sizes = [image.shape[-2:] for image in target_images]
+        results = self.processor.post_process_grounded_object_detection(
+            outputs,
+            inputs.input_ids,
+            threshold=self.box_threshold,
+            text_threshold=self.text_threshold,
+            target_sizes=sizes,
+        )
+
+        # Generate all priors from the result of the Dino model.
+        preds: list[dict[int, torch.Tensor]] = []
+        for result in results:
+            pred_labels = self._map_labels_to_categories(result["labels"], category_mapping)
+            pred_label_ids = [category_mapping[label] for label in pred_labels]
+            pred_bboxes = result["boxes"]
+            pred_scores = result["scores"]
+
+            class_prompts: dict[int, torch.Tensor] = defaultdict(list)
+            for pred_bbox, pred_score, pred_label_id in zip(
+                pred_bboxes,
+                pred_scores,
+                pred_label_ids,
+                strict=True,
+            ):
+                class_prompts[pred_label_id].append(torch.cat([pred_bbox, pred_score.unsqueeze(0)], dim=0))
+
+            for class_id, prompts in class_prompts.items():
+                class_prompts[class_id] = torch.stack(prompts)
+
+            preds.append(class_prompts)
+
+        return preds
