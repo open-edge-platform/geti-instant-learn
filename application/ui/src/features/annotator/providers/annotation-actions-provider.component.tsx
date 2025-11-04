@@ -3,13 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { createContext, ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useMemo, useRef } from 'react';
 
+import { LabelType } from '@geti-prompt/api';
 import { get, isEmpty } from 'lodash-es';
 import { useCurrentProject } from 'src/features/project/hooks/use-current-project.hook';
 import { v4 as uuid } from 'uuid';
 
 import type { Annotation, Shape } from '../types';
+import { UndoRedoProvider } from '../undo-redo/undo-redo-provider.component';
+import useUndoRedoState from '../undo-redo/use-undo-redo-state';
 
 // TODO: update this type
 type ServerAnnotation = Annotation;
@@ -25,7 +28,7 @@ const mapServerAnnotationsToLocal = (serverAnnotations: ServerAnnotation[]): Ann
 
 interface AnnotationsContextValue {
     annotations: Annotation[];
-    addAnnotations: (shapes: Shape[]) => void;
+    addAnnotations: (shapes: Shape[], labels: LabelType[]) => void;
     deleteAnnotations: (annotationIds: string[]) => void;
     updateAnnotations: (updatedAnnotations: Annotation[]) => void;
     submitAnnotations: () => Promise<void>;
@@ -37,7 +40,6 @@ const AnnotationsContext = createContext<AnnotationsContextValue | null>(null);
 
 type AnnotationActionsProviderProps = {
     children: ReactNode;
-    // mediaItem?: MediaItem;
 };
 export const AnnotationActionsProvider = ({ children }: AnnotationActionsProviderProps) => {
     const serverAnnotations: Annotation[] = useMemo(() => [], []);
@@ -45,43 +47,40 @@ export const AnnotationActionsProvider = ({ children }: AnnotationActionsProvide
 
     const { data: project } = useCurrentProject();
 
-    const [localAnnotations, setLocalAnnotations] = useState<Annotation[]>([]);
     const isDirty = useRef<boolean>(false);
+
+    const [state, setState, undoRedoActions] = useUndoRedoState<Annotation[]>([]);
 
     const updateAnnotations = (updatedAnnotations: Annotation[]) => {
         const updatedMap = new Map(updatedAnnotations.map((ann) => [ann.id, ann]));
-
-        setLocalAnnotations((prevAnnotations) =>
-            prevAnnotations.map((annotation) => updatedMap.get(annotation.id) ?? annotation)
-        );
+        setState((prevAnnotations) => prevAnnotations.map((annotation) => updatedMap.get(annotation.id) ?? annotation));
         isDirty.current = true;
     };
 
-    const addAnnotations = (shapes: Shape[]) => {
-        setLocalAnnotations((prevAnnotations) => [
+    const addAnnotations = (shapes: Shape[], labels: LabelType[]) => {
+        setState((prevAnnotations) => [
             ...prevAnnotations,
             ...shapes.map((shape) => ({
                 shape,
                 id: uuid(),
-                labels: [],
+                labels,
             })),
         ]);
+
         isDirty.current = true;
     };
 
     const deleteAnnotations = (annotationIds: string[]) => {
-        setLocalAnnotations((prevAnnotations) =>
-            prevAnnotations.filter((annotation) => !annotationIds.includes(annotation.id))
-        );
+        setState((prevAnnotations) => prevAnnotations.filter((annotation) => !annotationIds.includes(annotation.id)));
+
         isDirty.current = true;
     };
 
     const submitAnnotations = async () => {
         if (!isDirty.current) return;
 
-        // TODO: implement saving annotations
+        // TODO: implement saving annotations once API is ready
         // const serverFormattedAnnotations = mapLocalAnnotationsToServer(localAnnotations);
-
         // await saveMutation.mutateAsync({
         //     params: { path: { dataset_item_id: mediaItem.id || '', project_id: projectId } },
         //     body: { annotations: serverFormattedAnnotations },
@@ -98,22 +97,23 @@ export const AnnotationActionsProvider = ({ children }: AnnotationActionsProvide
         if (annotations.length > 0) {
             const localFormattedAnnotations = mapServerAnnotationsToLocal(annotations);
 
-            setLocalAnnotations(localFormattedAnnotations);
+            setState(localFormattedAnnotations);
+
             isDirty.current = false;
         }
-    }, [serverAnnotations, project]);
+    }, [serverAnnotations, project, setState]);
 
     useEffect(() => {
         if (!isEmpty(fetchError)) {
-            setLocalAnnotations([]);
+            setState([]);
         }
-    }, [fetchError]);
+    }, [fetchError, setState]);
 
     return (
         <AnnotationsContext.Provider
             value={{
                 isUserReviewed: get(serverAnnotations, 'user_reviewed', false),
-                annotations: localAnnotations,
+                annotations: state,
 
                 // Local
                 addAnnotations,
@@ -127,7 +127,7 @@ export const AnnotationActionsProvider = ({ children }: AnnotationActionsProvide
                 isSaving: false,
             }}
         >
-            {children}
+            <UndoRedoProvider state={undoRedoActions}>{children}</UndoRedoProvider>
         </AnnotationsContext.Provider>
     );
 };

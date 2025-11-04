@@ -30,7 +30,7 @@ This repository explores algorithms that make visual prompting more effective, e
 ## Key Features
 
 - 🧩 **Modular Pipeline Architecture:** Easily configure pipelines by modifying their Python class definitions to mix and match components (backbones, feature extractors, matchers, etc.). Simplifies experimentation and development of novel approaches.
-- 🔬 **Extensive Algorithm & Backbone Support:** Includes implementations for various state-of-the-art algorithms (Matcher, SoftMatcher, Dino-based methods) and diverse backbone models (SAM, MobileSAM, EfficientViT-SAM, DinoV2).
+- 🔬 **Extensive Algorithm & Backbone Support:** Includes implementations for various state-of-the-art algorithms (Matcher, SoftMatcher, Dino-based methods) and diverse backbone models (SAM, MobileSAM, DinoV2).
 - 📊 **Comprehensive Evaluation Framework:** Unified evaluation script with support for multiple datasets (LVIS, PerSeg, etc.) and standard metrics (mIoU, Precision, Recall).
 - 💻 **Interactive Web UI:** Visually inspect similarity maps, generated masks, and points for qualitative analysis and debugging. Easily switch between configurations.
 - 🔌 **Easy Integration:** Designed for straightforward addition of new algorithms, backbones, or datasets.
@@ -152,7 +152,7 @@ getiprompt benchmark --dataset_name all
 ```
 
 > **Available Models:** `Matcher`, `SoftMatcher`, `PerDino`, `GroundedSAM`
-> **Available SAM Backbones:** `SAM`, `MobileSAM`, `EfficientViT-SAM`, `SAM-HQ`, `SAM-HQ-tiny`, `SAM2-tiny`, `SAM2-small`, `SAM2-base`, `SAM2-large`
+> **Available SAM Backbones:** `SAM`, `MobileSAM`, `SAM-HQ`, `SAM-HQ-tiny`, `SAM2-tiny`, `SAM2-small`, `SAM2-base`, `SAM2-large`
 > **Available Datasets:** `PerSeg`, `lvis`
 
 > **Tip:** Use `all` with `--model`, `--sam`, or `--dataset_name` to run all available options. These can be combined for comprehensive benchmarking.

@@ -7,8 +7,8 @@ import { PointerEvent, useRef, useState } from 'react';
 
 import { isEmpty } from 'lodash-es';
 
+import { isWheelButton } from '../../../features/annotator/utils';
 import { Point } from '../types';
-import { isWheelButton } from '../utils';
 
 export const useWheelPanning = (setIsPanning: (value: boolean) => void) => {
     const [isGrabbing, setIsGrabbing] = useState(false);

@@ -39,9 +39,6 @@ terms are listed below.
     Copyright (c) @IDEA-Research, https://github.com/IDEA-Research/GroundingDino.
     SPDX-License-Identifier: Apache-2.0
 
-7.  EfficientViT-SAM
-    Copyright (c) @mit-han-lab, https://github.com/mit-han-lab/efficientvit/tree/master/applications/efficientvit_sam.
-    SPDX-License-Identifier: Apache-2.0
 
 8.  MobileSAM
     Copyright (c) @ChaoningZhang, https://github.com/ChaoningZhang/MobileSAM.

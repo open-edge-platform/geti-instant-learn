@@ -5,12 +5,16 @@
 
 import { ActionButton, Flex, Grid, Text } from '@geti/ui';
 import { Add, FitScreen, Remove } from '@geti/ui/icons';
+import { useHotkeys } from 'react-hotkeys-hook';
+import { HOTKEYS } from 'src/features/annotator/hotkeys/hotkeys';
 
 import { useSetZoom, useZoom } from '../../../../components/zoom/zoom.provider';
 
 export const ZoomManagement = () => {
     const zoom = useZoom();
     const { onZoomChange, fitToScreen } = useSetZoom();
+
+    useHotkeys(HOTKEYS.fitToScreen, fitToScreen, [fitToScreen]);
 
     return (
         <Flex alignItems={'center'} gap={'size-50'}>

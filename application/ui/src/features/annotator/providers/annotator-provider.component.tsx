@@ -3,7 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { createContext, ReactNode, useContext, useState, type Dispatch, type SetStateAction } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+
+import { LabelType } from '@geti-prompt/api';
+import { useProjectLabels } from '@geti-prompt/hooks';
 
 import { useLoadImageQuery } from '../hooks/use-load-image-query.hook';
 import { ToolType } from '../tools/interface';
@@ -14,24 +17,44 @@ type AnnotatorContext = {
     activeTool: ToolType | null;
     setActiveTool: Dispatch<SetStateAction<ToolType | null>>;
 
-    // Media item
+    // Media items
     roi: RegionOfInterest;
     frameId: string;
     image: ImageData;
+
+    // Labels
+    selectedLabel: LabelType;
+    selectedLabelId: string;
+    setSelectedLabelId: Dispatch<SetStateAction<string>>;
 };
 
-export const AnnotatorProviderContext = createContext<AnnotatorContext | null>(null);
+const AnnotatorProviderContext = createContext<AnnotatorContext | null>(null);
+
+const PLACEHOLDER_LABEL: LabelType = { id: 'placeholder', name: 'No label', color: 'var(--annotation-fill)' };
 
 export const AnnotatorProvider = ({ frameId, children }: { frameId: string; children: ReactNode }) => {
+    const labels = useProjectLabels();
     const [activeTool, setActiveTool] = useState<ToolType | null>(null);
+    const [selectedLabelId, setSelectedLabelId] = useState<string>(PLACEHOLDER_LABEL.id);
 
     const imageQuery = useLoadImageQuery(frameId);
+    const selectedLabel = labels.find(({ id }) => id === selectedLabelId) || PLACEHOLDER_LABEL;
+
+    useEffect(() => {
+        if (labels.length > 0) {
+            setSelectedLabelId(labels[0].id);
+        }
+    }, [labels]);
 
     return (
         <AnnotatorProviderContext.Provider
             value={{
                 activeTool,
                 setActiveTool,
+
+                setSelectedLabelId,
+                selectedLabelId,
+                selectedLabel,
 
                 image: imageQuery.data,
                 frameId,
