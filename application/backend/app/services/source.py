@@ -269,7 +269,7 @@ class SourceService:
             frames.append(FrameMetadata(index=i, thumbnail=url, path=MOCK_FILE))
         return FrameListResponse(
             frames=frames,
-            total=1,
+            total=len(frames),
             page=1,
-            page_size=1,
+            page_size=len(frames),
         )

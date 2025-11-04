@@ -150,7 +150,9 @@ def delete_source(
     tags=["Sources"],
     status_code=status.HTTP_200_OK,
     responses={
-        status.HTTP_200_OK: {"description": "Successfully updated the configuration for the project's source."},
+        status.HTTP_200_OK: {
+            "description": "Successfully retrieved the list of frame indices for the project's source."
+        },
         status.HTTP_404_NOT_FOUND: {"description": "Project or source not found."},
         status.HTTP_409_CONFLICT: {"description": "Source type change is not allowed."},
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
@@ -183,7 +185,7 @@ def get_frames(
     tags=["Sources"],
     status_code=status.HTTP_200_OK,
     responses={
-        status.HTTP_200_OK: {"description": "Successfully updated the configuration for the project's source."},
+        status.HTTP_200_OK: {"description": "Successfully retrieved the frame index for the project's source."},
         status.HTTP_404_NOT_FOUND: {"description": "Project or source not found."},
         status.HTTP_409_CONFLICT: {"description": "Source type change is not allowed."},
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
@@ -193,7 +195,7 @@ def get_frame_index(
     project_id: UUID, source_id: UUID, db_session: SessionDep, config_dispatcher: ConfigChangeDispatcherDep
 ) -> int:
     """
-    Get a list of all frame indices for the specified source.
+    Get the current frame index for the specified source.
     """
     logger.debug(f"Received GET frames request for source {source_id} in project {project_id}.")
     service = SourceService(session=db_session, config_change_dispatcher=config_dispatcher)  # noqa: F841
@@ -211,7 +213,7 @@ def get_frame_index(
     tags=["Sources"],
     status_code=status.HTTP_200_OK,
     responses={
-        status.HTTP_200_OK: {"description": "Successfully updated the configuration for the project's source."},
+        status.HTTP_200_OK: {"description": "Successfully retrieved the frame for the project's source."},
         status.HTTP_404_NOT_FOUND: {"description": "Project or source not found."},
         status.HTTP_409_CONFLICT: {"description": "Source type change is not allowed."},
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
@@ -225,7 +227,7 @@ def get_frame(
     config_dispatcher: ConfigChangeDispatcherDep,  # noqa: ARG001
 ) -> Response:
     """
-    Get a list of all frame indices for the specified source.
+    Get a specific frame by index for the specified source.
     """
     logger.debug(f"Received GET frames request for source {source_id} in project {project_id}.")
     return FileResponse(MOCK_FILE, media_type="image/jpeg")
