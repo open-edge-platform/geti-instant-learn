@@ -115,11 +115,7 @@ class SamDecoder(nn.Module):
         # find unique labels
         unique_labels = sorted(set(class_point_prompts.keys()) | set(class_box_prompts.keys()))
 
-        return (
-            preprocessed_images,
-            unique_labels,
-            original_sizes,
-        )
+        return preprocessed_images, unique_labels, original_sizes
 
     @staticmethod
     def point_preprocess(
@@ -256,10 +252,7 @@ class SamDecoder(nn.Module):
 
                 # Apply inverse coordinate transformation only to x, y coordinates
                 if final_points is not None and len(final_points) > 0:
-                    final_points[:, :2] = self.transform.apply_inverse_coords_torch(
-                        final_points[:, :2],  # Just the x, y coordinates
-                        original_size,
-                    )
+                    final_points[:, :2] = self.transform.apply_inverse_coords_torch(final_points[:, :2], original_size)
                     # Remap from [total_points, 3] to [total_points, 4] where last dim is [x, y, score, label]
                     remapped_points = self.remap_preprocessed_points(final_points)
                     assert len(final_masks) == remapped_points[:, -1].sum(), (
@@ -268,10 +261,7 @@ class SamDecoder(nn.Module):
                     all_used_points.add(remapped_points, label)
 
                 if final_boxes is not None and len(final_boxes) > 0:
-                    final_boxes[:, :4] = self.transform.apply_inverse_coords_torch(
-                        final_boxes[:, :4],
-                        original_size,
-                    )
+                    final_boxes[:, :4] = self.transform.apply_inverse_boxes(final_boxes[:, :4], original_size)
                     all_used_boxes.add(final_boxes, label)
             else:
                 all_used_points.add(torch.empty((0, 4)), label)

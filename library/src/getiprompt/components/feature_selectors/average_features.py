@@ -47,9 +47,6 @@ class AverageFeatures(FeatureSelector):
         True
     """
 
-    def __init__(self) -> None:
-        super().__init__()
-
     def forward(self, features_per_image: list[Features]) -> Features:
         """This method averages all features across all reference images and their masks for each class.
 

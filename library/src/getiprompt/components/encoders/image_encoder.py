@@ -62,6 +62,9 @@ class ImageEncoder(nn.Module):
             compile_models: Whether to compile the models.
             benchmark_inference_speed: Whether to benchmark the inference speed.
             input_size: The input size to use.
+
+        Raises:
+            ValueError: If the model ID is invalid.
         """
         from getiprompt.utils.optimization import optimize_model
 
@@ -75,7 +78,8 @@ class ImageEncoder(nn.Module):
         self.input_size = input_size
         self.device = device
 
-        logger.info(f"Loading DINO model {model_id}")
+        msg = f"Loading DINO model {model_id}"
+        logger.info(msg)
         self.model, self.processor = self._load_hf_model(AVAILABLE_IMAGE_ENCODERS[model_id], input_size)
         self.model = self.model.to(device).eval()
         self.patch_size = self.model.config.patch_size
@@ -109,6 +113,7 @@ class ImageEncoder(nn.Module):
 
         Raises:
             ValueError: If the user does not have access to the weights of the model.
+            OSError: If the model is not found.
         """
         err_msg = (
             "User does not have access to the weights of the DinoV3 model.\n"

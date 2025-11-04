@@ -10,14 +10,12 @@ from logging import getLogger
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import numpy as np
 import polars as pl
-import torch
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from torch.utils.data import DataLoader
 
 from getiprompt.data import Dataset, LVISDataset, PerSegDataset
-from getiprompt.data.base import Batch, Sample
+from getiprompt.data.base import Batch
 from getiprompt.metrics import SegmentationMetrics
 from getiprompt.models import Model, load_model
 from getiprompt.utils import setup_logger
@@ -47,7 +45,7 @@ def infer_on_category(
     metrics_calculators: dict[int, SegmentationMetrics],
     progress: Progress,
     batch_size: int = 4,
-    visualize: bool = False,
+    visualize: bool = True,
 ) -> tuple[int, int]:
     """Perform inference on all samples of a category.
 
@@ -156,44 +154,9 @@ def learn_from_category(dataset: Dataset, model: Model, category_name: str) -> N
         dataset: The dataset containing reference samples
         model: The model to train
         category_name: The category to learn from
-
-    Raises:
-        ValueError: If no reference samples are found for the category.
     """
-    # Get reference samples for this category
     reference_dataset = dataset.get_reference_dataset(category=category_name)
-    if len(reference_dataset) == 0:
-        msg = f"No reference samples found for category: {category_name}"
-        raise ValueError(msg)
-
-    # TODO(Eugene): This is a temporary solution to handle multi-instance images.
-    samples = []
-    for sample in reference_dataset:
-        filtered_masks = []
-        filtered_category_ids = []
-        filtered_categories = []
-        for mask, category_id, category, is_reference in zip(
-            sample.masks,
-            sample.category_ids,
-            sample.categories,
-            sample.is_reference,
-            strict=False,
-        ):
-            if category == category_name and is_reference:
-                filtered_masks.append(mask)
-                filtered_category_ids.append(category_id)
-                filtered_categories.append(category)
-        if len(filtered_masks) > 0:
-            samples.append(
-                Sample(
-                    image=sample.image,
-                    masks=torch.stack(filtered_masks),
-                    category_ids=np.stack(filtered_category_ids),
-                    categories=filtered_categories,
-                ),
-            )
-
-    reference_batch = Batch.collate(samples)
+    reference_batch = Batch.collate(reference_dataset)
     # Learn
     model.learn(reference_batch)
 

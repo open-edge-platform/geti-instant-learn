@@ -59,9 +59,7 @@ class GroundedSAM(Model):
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
         )
-        self.segmenter: SamDecoder = SamDecoder(
-            sam_predictor=self.sam_predictor,
-        )
+        self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor)
         self.prompt_filter: BoxPromptFilter = BoxPromptFilter()
 
     @track_duration
@@ -70,9 +68,6 @@ class GroundedSAM(Model):
 
         Args:
             reference_batch(Batch): The reference batch.
-
-        Raises:
-            ValueError: If the reference priors do not have all text types.
         """
         self.category_mapping = {}
         for sample in reference_batch.samples:
