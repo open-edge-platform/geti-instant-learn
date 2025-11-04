@@ -23,23 +23,23 @@ class CosineSimilarity(nn.Module):
         >>> similarity_matcher = CosineSimilarity()
         >>> ref_features = Features()
         >>> ref_features.local_features = {1: [torch.randn(1, 256)]}
-        >>> target_features = Features(global_features=torch.randn(64, 64, 256))
-        >>> target_image = Image(np.zeros((1024, 1024, 3), dtype=np.uint8))
+        >>> target_embeddings = torch.randn(64, 64, 256)
+        >>> target_image = torch.zeros((3, 1024, 1024))
         >>>
         >>> similarities = similarity_matcher(
-        ...     reference_features=[ref_features],
-        ...     target_features=[target_features],
-        ...     target_images=[target_image],
+        ...     reference_features=ref_features,
+        ...     target_embeddings=target_embeddings,
+        ...     target_images=target_image,
         ... )
         >>>
-        >>> isinstance(similarities[0], Similarities) and similarities[0]._data[1].shape == (1, 1024, 1024)
+        >>> isinstance(similarities, Similarities) and similarities._data[1].shape == (1, 1024, 1024)
         True
     """
 
     @torch.inference_mode()
     def forward(
         self,
-        reference_features: list[Features],
+        reference_features: Features,
         target_embeddings: torch.Tensor,
         target_images: list[tv_tensors.Image],
     ) -> list[Similarities]:
@@ -57,7 +57,6 @@ class CosineSimilarity(nn.Module):
             list[Similarities]: List of similarities, one per target image instance which are resized to
               the original image size
         """
-        reference_features = reference_features[0]
         per_image_similarities: list[Similarities] = []
         for target_embedding, target_image in zip(target_embeddings, target_images, strict=True):
             target_embedding /= target_embedding.norm(dim=-1, keepdim=True)

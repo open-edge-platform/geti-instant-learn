@@ -169,7 +169,7 @@ class TextToBoxPromptGenerator(PromptGenerator):
         )
 
         # Generate all priors from the result of the Dino model.
-        preds: list[dict[int, torch.Tensor]] = []
+        box_prompts: list[dict[int, torch.Tensor]] = []
         for result in results:
             pred_labels = self._map_labels_to_categories(result["labels"], category_mapping)
             pred_label_ids = [category_mapping[label] for label in pred_labels]
@@ -188,6 +188,6 @@ class TextToBoxPromptGenerator(PromptGenerator):
             for class_id, prompts in class_prompts.items():
                 class_prompts[class_id] = torch.stack(prompts)
 
-            preds.append(class_prompts)
+            box_prompts.append(class_prompts)
 
-        return preds
+        return box_prompts

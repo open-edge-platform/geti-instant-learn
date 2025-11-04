@@ -13,6 +13,70 @@ class LocalFeatureExtractor(nn.Module):
 
     Given batched feature tensors and samples with masks, pools pixel-space masks
     to the patch grid and extracts local features inside each mask.
+
+    Examples:
+        >>> import torch
+        >>> from getiprompt.components.feature_extractors import LocalFeatureExtractor
+        >>> from getiprompt.types import Features, Masks
+
+        >>> # Initialize the extractor
+        >>> extractor = LocalFeatureExtractor(
+        ...     input_size=224,
+        ...     patch_size=14,
+        ...     device="cpu",
+        ... )
+
+        >>> # Create mock batched inputs
+        >>> batch_size = 2
+        >>> patches_per_dim = 16  # 224 // 14 = 16
+        >>> total_patches = patches_per_dim * patches_per_dim  # 16 * 16 = 256
+        >>> embedding_dim = 768
+        >>> num_masks = 2
+        >>> mask_height, mask_width = 224, 224
+
+        >>> # Batched features: (batch_size, total_patches, embedding_dim)
+        >>> batched_features = torch.randn(batch_size, total_patches, embedding_dim)
+
+        >>> # Batched masks: (batch_size, num_masks, height, width)
+        >>> # Create masks with some foreground regions
+        >>> batched_masks = torch.zeros(batch_size, num_masks, mask_height, mask_width, dtype=torch.bool)
+        >>> batched_masks[0, 0, 50:100, 50:100] = True  # First sample, first mask
+        >>> batched_masks[0, 1, 150:200, 150:200] = True  # First sample, second mask
+        >>> batched_masks[1, 0, 30:80, 30:80] = True  # Second sample, first mask
+
+        >>> # Batched category IDs: (batch_size, num_masks)
+        >>> batched_category_ids = torch.tensor([[1, 2], [1, 0]], dtype=torch.long)
+
+        >>> # Extract local features
+        >>> features_list, masks_list = extractor(
+        ...     batched_features,
+        ...     batched_masks,
+        ...     batched_category_ids,
+        ... )
+
+        >>> # Check outputs
+        >>> len(features_list) == batch_size
+        True
+        >>> len(masks_list) == batch_size
+        True
+
+        >>> # Each Features object has global features and local features added
+        >>> isinstance(features_list[0], Features)
+        True
+        >>> features_list[0].global_features.shape == (total_patches, embedding_dim)
+        True
+        >>> 1 in features_list[0].local_features
+        True
+        >>> len(features_list[0].local_features[1]) > 0
+        True
+
+        >>> # Each Masks object contains pooled masks
+        >>> isinstance(masks_list[0], Masks)
+        True
+        >>> 1 in masks_list[0].data
+        True
+        >>> masks_list[0].data[1].shape[0] == 1  # One mask per class
+        True
     """
 
     def __init__(self, input_size: int, patch_size: int, device: str) -> None:

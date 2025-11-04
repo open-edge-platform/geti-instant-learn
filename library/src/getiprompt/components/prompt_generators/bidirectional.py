@@ -308,15 +308,15 @@ class BidirectionalPromptGenerator(PromptGenerator):
 
         return merged
 
-    def _resize_similarity_map(self, similarity_map: torch.Tensor, original_image_size: torch.Tensor) -> torch.Tensor:
+    def _resize_similarity_map(self, similarity_map: torch.Tensor, ori_size: torch.Tensor) -> torch.Tensor:
         """Resize the similarity map to the original image size.
 
         Args:
             similarity_map: torch.Tensor - Similarity map [num_target_features]
-            original_image_size: torch.Tensor - Original image size (height, width)
+            ori_size: torch.Tensor - Original image size (height, width)
 
         Returns:
-            torch.Tensor - Resized similarity map [original_height, original_width]
+            torch.Tensor - Resized similarity map [ori_height, ori_width]
         """
         similarity_map = (
             similarity_map.reshape(
@@ -326,7 +326,7 @@ class BidirectionalPromptGenerator(PromptGenerator):
             .unsqueeze(0)
             .unsqueeze(0)
         )
-        return functional.interpolate(similarity_map, size=original_image_size, mode="bilinear").squeeze(0)
+        return functional.interpolate(similarity_map, size=ori_size, mode="bilinear").squeeze(0)
 
     def forward(
         self,

@@ -121,69 +121,6 @@ class SamDecoder(nn.Module):
             original_sizes,
         )
 
-    @torch.inference_mode()
-    def forward(
-        self,
-        images: list[tv_tensors.Image],
-        point_prompts: list[dict[int, torch.Tensor]] | None = None,
-        box_prompts: list[dict[int, torch.Tensor]] | None = None,
-        similarities: list[Similarities] | None = None,
-    ) -> tuple[list[Masks], list[Points], list[Boxes]]:
-        """Forward pass.
-
-        Args:
-            images(list[tv_tensors.Image]): The images to predict masks from.
-            point_prompts(list[dict[int, torch.Tensor]]): The point prompts to predict masks from.
-            box_prompts(list[dict[int, torch.Tensor]]): The box prompts to predict masks from.
-            similarities(list[Similarities]): The similarities to predict masks from.
-        """
-        if similarities is None:
-            similarities = []
-        masks_per_image: list[Masks] = []
-        points_per_image: list[dict[int, torch.Tensor]] = []
-        boxes_per_image: list[Boxes] = []
-
-        # default to empty lists if not provided
-        if box_prompts is None:
-            box_prompts = [{}] * len(images)
-        if point_prompts is None:
-            point_prompts = [{}] * len(images)
-
-        images, labels, original_sizes = self.preprocess_inputs(images, point_prompts, box_prompts)
-
-        for (
-            image,
-            class_point_prompts,
-            class_box_prompts,
-            similarities_per_image,
-            original_size,
-        ) in zip_longest(
-            images,
-            point_prompts,
-            box_prompts,
-            similarities,
-            original_sizes,
-            fillvalue=None,
-        ):
-            # Set the preprocessed image in the predictor
-            self.predictor.set_torch_image(image, original_size)
-            if class_point_prompts or class_box_prompts:
-                masks, point_prompts_used, box_prompts_used = self.predict_single(
-                    class_point_prompts,
-                    class_box_prompts,
-                    labels,
-                    similarities_per_image,
-                    original_size,
-                )
-                points_per_image.append(point_prompts_used)
-                boxes_per_image.append(box_prompts_used)
-                masks_per_image.append(masks)
-            else:
-                points_per_image.append(Points())
-                masks_per_image.append(Masks())
-                boxes_per_image.append(Boxes())
-        return masks_per_image, points_per_image, boxes_per_image
-
     @staticmethod
     def point_preprocess(
         points: torch.Tensor,
@@ -490,3 +427,72 @@ class SamDecoder(nn.Module):
             )
 
         return masks[keep], input_coords[keep]
+
+    @torch.inference_mode()
+    def forward(
+        self,
+        images: list[tv_tensors.Image],
+        point_prompts: list[dict[int, torch.Tensor]] | None = None,
+        box_prompts: list[dict[int, torch.Tensor]] | None = None,
+        similarities: list[Similarities] | None = None,
+    ) -> tuple[list[Masks], list[Points], list[Boxes]]:
+        """Forward pass.
+
+        Args:
+            images(list[tv_tensors.Image]): The images to predict masks from.
+            point_prompts(list[dict[int, torch.Tensor]]): The point prompts to predict masks from.
+            box_prompts(list[dict[int, torch.Tensor]]): The box prompts to predict masks from.
+            similarities(list[Similarities]): The similarities to predict masks from.
+
+        Returns:
+            A tuple of masks, points, and boxes per image.
+            masks_per_image(list[Masks]): The masks per image.
+            points_per_image(list[Points]): The points per image.
+            boxes_per_image(list[Boxes]): The boxes per image.
+        """
+        if similarities is None:
+            similarities = []
+        masks_per_image: list[Masks] = []
+        points_per_image: list[Points] = []
+        boxes_per_image: list[Boxes] = []
+
+        # default to empty lists if not provided
+        if box_prompts is None:
+            box_prompts = [{}] * len(images)
+        if point_prompts is None:
+            point_prompts = [{}] * len(images)
+
+        images, labels, original_sizes = self.preprocess_inputs(images, point_prompts, box_prompts)
+
+        for (
+            image,
+            class_point_prompts,
+            class_box_prompts,
+            similarities_per_image,
+            original_size,
+        ) in zip_longest(
+            images,
+            point_prompts,
+            box_prompts,
+            similarities,
+            original_sizes,
+            fillvalue=None,
+        ):
+            # Set the preprocessed image in the predictor
+            self.predictor.set_torch_image(image, original_size)
+            if class_point_prompts or class_box_prompts:
+                masks, point_prompts_used, box_prompts_used = self.predict_single(
+                    class_point_prompts,
+                    class_box_prompts,
+                    labels,
+                    similarities_per_image,
+                    original_size,
+                )
+                points_per_image.append(point_prompts_used)
+                boxes_per_image.append(box_prompts_used)
+                masks_per_image.append(masks)
+            else:
+                points_per_image.append(Points())
+                masks_per_image.append(Masks())
+                boxes_per_image.append(Boxes())
+        return masks_per_image, points_per_image, boxes_per_image

@@ -50,7 +50,7 @@ class AverageFeatures(FeatureSelector):
     def __init__(self) -> None:
         super().__init__()
 
-    def forward(self, features_per_image: list[Features]) -> list[Features]:
+    def forward(self, features_per_image: list[Features]) -> Features:
         """This method averages all features across all reference images and their masks for each class.
 
         The result will be a single averaged feature vector per class.
@@ -59,7 +59,7 @@ class AverageFeatures(FeatureSelector):
             features_per_image: A list of features for each reference image.
 
         Returns:
-            A list of Features object with the averaged features per class.
+            A Features object with the averaged features per class.
         """
         result_features = Features()
 
@@ -71,4 +71,4 @@ class AverageFeatures(FeatureSelector):
             averaged_features /= averaged_features.norm(dim=-1, keepdim=True)
             result_features.add_local_features(averaged_features, class_id)
 
-        return [result_features]
+        return result_features

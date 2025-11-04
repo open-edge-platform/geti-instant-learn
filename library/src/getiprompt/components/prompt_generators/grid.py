@@ -159,8 +159,7 @@ class GridPromptGenerator(PromptGenerator):
         bg_y_coords = (bg_indices_flat // map_w).long()
         bg_x_coords = (bg_indices_flat % map_w).long()
 
-        bg_coords = torch.stack((bg_x_coords, bg_y_coords, bg_values), dim=0).T  # (N, 3)
-        return bg_coords.float()
+        return torch.stack((bg_x_coords, bg_y_coords, bg_values), dim=0).T.float()  # (N, 3)
 
     @staticmethod
     def _filter_duplicate_points(class_point_prompts: dict[int, torch.Tensor]) -> dict[int, torch.Tensor]:
@@ -185,11 +184,7 @@ class GridPromptGenerator(PromptGenerator):
             if len(foreground_points) > 0:
                 sorted_indices = torch.argsort(foreground_points[:, 2], descending=True)
                 foreground_points = foreground_points[sorted_indices]
-                _, unique_indices = torch.unique(
-                    foreground_points[:, :2],
-                    dim=0,
-                    return_inverse=True,
-                )
+                _, unique_indices = torch.unique(foreground_points[:, :2], dim=0, return_inverse=True)
                 unique_points_foreground = foreground_points[unique_indices]
             else:
                 unique_points_foreground = torch.empty((0, 4), device=class_points.device)
@@ -197,25 +192,15 @@ class GridPromptGenerator(PromptGenerator):
             # Filter background points (keep lowest scores)
             background_points = class_points[class_points[:, 3] == 0]
             if len(background_points) > 0:
-                sorted_indices = torch.argsort(
-                    background_points[:, 2],
-                    descending=False,
-                )
+                sorted_indices = torch.argsort(background_points[:, 2], descending=False)
                 background_points = background_points[sorted_indices]
-                _, unique_indices = torch.unique(
-                    background_points[:, :2],
-                    dim=0,
-                    return_inverse=True,
-                )
+                _, unique_indices = torch.unique(background_points[:, :2], dim=0, return_inverse=True)
                 unique_points_background = background_points[unique_indices]
             else:
                 unique_points_background = torch.empty((0, 4), device=class_points.device)
 
             # Combine filtered foreground and background points
-            filtered_prompts[class_id] = torch.cat(
-                [unique_points_foreground, unique_points_background],
-                dim=0,
-            )
+            filtered_prompts[class_id] = torch.cat([unique_points_foreground, unique_points_background], dim=0)
 
         return filtered_prompts
 
@@ -223,28 +208,28 @@ class GridPromptGenerator(PromptGenerator):
     def _convert_points_to_original_size(
         input_coords: torch.Tensor,
         input_map_shape: tuple[int, int],
-        original_image_size: tuple[int, int],
+        ori_size: tuple[int, int],
     ) -> torch.Tensor:
         """Converts point coordinates from an input map's space to original image space.
 
         Args:
             input_coords: Tensor of shape (N, k) with [x, y, ...] coordinates.
                                    Assumes input_coords[:, 0] is x and input_coords[:, 1] is y.
-            original_image_size: Tuple (width, height) of the original image.
             input_map_shape: Tuple (height, width) of the input similarity map from which points were derived.
+            ori_size: Tuple (width, height) of the original image.
 
         Returns:
-            Tensor of shape (N, k) with [x, y, ...] coordinates scaled to original_image_size.
+            Tensor of shape (N, k) with [x, y, ...] coordinates scaled to ori_size.
         """
         points_original_coords = input_coords.clone()
-        original_width, original_height = original_image_size
+        ori_width, ori_height = ori_size
         map_w, map_h = input_map_shape
         if map_w == 0 or map_h == 0:
             return points_original_coords
 
-        scale_x = original_width / map_w
+        scale_x = ori_width / map_w
         points_original_coords[:, 0] = points_original_coords[:, 0] * scale_x
-        scale_y = original_height / map_h
+        scale_y = ori_height / map_h
         points_original_coords[:, 1] = points_original_coords[:, 1] * scale_y
         return points_original_coords
 
@@ -280,60 +265,46 @@ class GridPromptGenerator(PromptGenerator):
             original_image_shape = target_image.shape[-2:]  # (height, width)
 
             for class_id, class_similarity_maps in similarities_per_image.data.items():
-                background_points_enc = self._get_background_points(class_similarity_maps)  # Operates on (H_enc, W_enc)
+                background_points = self._get_background_points(class_similarity_maps)  # Operates on (H_enc, W_enc)
 
                 # Convert background points to original image coordinates
-                background_points_orig = self._convert_points_to_original_size(
-                    background_points_enc,
-                    class_similarity_maps.shape[-2:],  # input_map_shape (H_map, W_map)
-                    original_image_shape,  # original_image_size (H_orig, W_orig)
+                background_points = self._convert_points_to_original_size(
+                    background_points,
+                    class_similarity_maps.shape[-2:],
+                    original_image_shape,
                 )
 
                 # Collect all foreground points from all similarity maps for this class
-                all_foreground_points_list = []
-                device = None
-                for similarity_map_enc in class_similarity_maps:  # Each map is (H_map, W_map)
-                    if device is None:
-                        device = similarity_map_enc.device
-
-                    foreground_points_enc = self._get_foreground_points(similarity_map_enc)
+                foreground_points_list = []
+                for similarity_map in class_similarity_maps:
+                    foreground_points = self._get_foreground_points(similarity_map)
 
                     # Skip if no foreground points found for this map
-                    if len(foreground_points_enc) == 0:
+                    if len(foreground_points) == 0:
                         continue
 
-                    foreground_points_orig = self._convert_points_to_original_size(
-                        foreground_points_enc,
-                        similarity_map_enc.shape,  # input_map_shape (H_map, W_map)
-                        original_image_shape,  # original_image_size (H_orig, W_orig)
+                    foreground_points = self._convert_points_to_original_size(
+                        foreground_points,
+                        similarity_map.shape,
+                        original_image_shape,
                     )
 
-                    fg_point_labels = torch.ones(
-                        (len(foreground_points_orig), 1),
-                        device=foreground_points_orig.device,
-                    )
-                    fg_points_with_labels = torch.cat([foreground_points_orig, fg_point_labels], dim=1)
-                    all_foreground_points_list.append(fg_points_with_labels)
+                    foreground_labels = torch.ones((len(foreground_points), 1), device=foreground_points.device)
+                    foreground_points = torch.cat([foreground_points, foreground_labels], dim=1)
+                    foreground_points_list.append(foreground_points)
 
                 # Combine all foreground points from all maps
-                if all_foreground_points_list:
-                    all_foreground_points = torch.cat(all_foreground_points_list, dim=0)
+                if foreground_points_list:
+                    foreground_points = torch.cat(foreground_points_list, dim=0)
                 else:
-                    all_foreground_points = torch.empty(
-                        (0, 4),
-                        device=device if device is not None else background_points_orig.device,
-                    )
+                    foreground_points = torch.empty((0, 4)).to(background_points.device)
 
                 # Add background points
-                bg_point_labels = torch.zeros(
-                    (len(background_points_orig), 1),
-                    device=background_points_orig.device,
-                )
-                background_points_with_labels = torch.cat([background_points_orig, bg_point_labels], dim=1)
+                background_labels = torch.zeros((len(background_points), 1), device=background_points.device)
+                background_points = torch.cat([background_points, background_labels], dim=1)
 
                 # Combine all points for this class
-                all_points = torch.cat([all_foreground_points, background_points_with_labels], dim=0)
-                class_point_prompts[class_id] = all_points
+                class_point_prompts[class_id] = torch.cat([foreground_points, background_points], dim=0)
 
             # Filter duplicates
             class_point_prompts = self._filter_duplicate_points(class_point_prompts)
