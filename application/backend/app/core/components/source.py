@@ -29,9 +29,6 @@ class Source(PipelineComponent):
         with self._reader:
             self._reader.connect()
             while not self._stop_event.is_set():
-                if self._stop_event.is_set():
-                    break
-
                 try:
                     data = self._reader.read()
                     if data is None:
