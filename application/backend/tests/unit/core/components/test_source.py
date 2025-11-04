@@ -78,13 +78,3 @@ class TestSource:
 
         self.mock_stream_reader.list_frames.assert_called_once_with(1, 100)
         assert result == expected_response
-
-    def test_pause_resume_state(self):
-        """Test that pause and resume correctly set the pause event."""
-        assert not self.source.is_paused()
-
-        self.source.pause()
-        assert self.source.is_paused()
-
-        self.source.resume()
-        assert not self.source.is_paused()

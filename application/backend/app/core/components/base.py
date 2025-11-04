@@ -41,18 +41,6 @@ class PipelineComponent(ABC):
         self._stop_event.set()
         self._stop()
 
-    def pause(self) -> None:
-        """Pause the component's processing."""
-        self._pause_event.set()
-
-    def resume(self) -> None:
-        """Resume the component's processing."""
-        self._pause_event.clear()
-
-    def is_paused(self) -> bool:
-        """Check if the component is currently paused."""
-        return self._pause_event.is_set()
-
 
 class StreamReader(AbstractContextManager, ABC):
     """An abstract interface for reading frames from various sources."""
