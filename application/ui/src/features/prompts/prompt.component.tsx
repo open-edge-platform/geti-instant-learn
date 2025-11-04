@@ -17,10 +17,11 @@ export const Prompt = () => {
             backgroundColor={'gray-100'}
             paddingY={'size-200'}
             paddingX={'size-300'}
+            height={'100%'}
         >
             <Flex direction={'column'} height={'100%'}>
                 <Heading margin={0}>Prompt</Heading>
-                <View padding={'size-300'} height={'100%'}>
+                <View padding={'size-300'} flex={1}>
                     <Flex direction={'column'} gap={'size-300'} height={'100%'}>
                         <PromptModes />
 
@@ -28,7 +29,9 @@ export const Prompt = () => {
 
                         <Flex direction={'column'} gap={'size-200'}>
                             <ModelToolbar />
-                            <PromptMode />
+                            <View flex={1}>
+                                <PromptMode />
+                            </View>
                         </Flex>
                     </Flex>
                 </View>
