@@ -3,6 +3,8 @@
     transition: grid-template-columns 0.3s ease-in-out;
     border-top-width: var(--spectrum-alias-border-size-thin);
     border-top-style: solid;
+    border-left-width: var(--spectrum-alias-border-size-thin);
+    border-left-style: solid;
     border-color: var(--spectrum-global-color-gray-50);
 }
 

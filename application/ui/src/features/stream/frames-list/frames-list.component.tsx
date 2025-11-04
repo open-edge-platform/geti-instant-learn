@@ -33,7 +33,7 @@ const useFrames = () => {
         TestImg,
     ].map((url, idx) => {
         return {
-            url,
+            thumbnail: url,
             index: idx,
         };
     });
@@ -41,14 +41,15 @@ const useFrames = () => {
 
 interface FrameThumbnailProps {
     frame: {
-        url: string;
+        // it's a base 64 encoded string
+        thumbnail: string;
         index: number;
     };
     isSelected: boolean;
 }
 
 const FrameThumbnail = ({ frame, isSelected }: FrameThumbnailProps) => {
-    const { url } = frame;
+    const { thumbnail } = frame;
 
     return (
         <View borderColor={'gray-100'} borderWidth={'thicker'} height={'100%'} width={'100%'}>
@@ -61,7 +62,7 @@ const FrameThumbnail = ({ frame, isSelected }: FrameThumbnailProps) => {
             >
                 <img
                     alt={'Frame'}
-                    src={url}
+                    src={thumbnail}
                     style={{ objectFit: 'cover', height: '100%', width: '100%', display: 'block' }}
                 />
             </View>
@@ -80,7 +81,7 @@ export const FramesList = () => {
                 items={frames}
                 renderItem={(frame) => <FrameThumbnail frame={frame} isSelected={frame.index === activeFrameIndex} />}
                 idFormatter={(item) => item.index.toString()}
-                textValueFormatter={(item) => item.url}
+                textValueFormatter={(item) => item.index.toString()}
                 layoutOptions={{ size: 72, gap: 0 }}
                 listBoxItemStyles={{
                     height: '100%',
