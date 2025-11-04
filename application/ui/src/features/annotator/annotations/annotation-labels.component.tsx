@@ -44,7 +44,7 @@ const labelStyles = (scale: number) => {
     };
 };
 
-const placeholderLabel = { id: uuid(), name: 'No label', color: 'var(--annotation-fill)', isPrediction: false };
+const placeholderLabel = { id: uuid(), name: 'No label', color: 'var(--annotation-fill)' };
 
 interface AnnotationLabelsProps {
     labels: Label[];
