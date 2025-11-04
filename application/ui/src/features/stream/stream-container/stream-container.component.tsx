@@ -13,7 +13,7 @@ import { useWebRTCConnection } from '../web-rtc/web-rtc-connection-provider';
 
 import styles from './stream-container.module.scss';
 
-const Container = ({ children, withBackground = false }: { children: ReactNode; withBackground?: boolean }) => {
+const Container = ({ children }: { children: ReactNode }) => {
     return (
         <Flex width={'100%'} height={'100%'} alignItems={'center'} justifyContent={'center'}>
             <Flex
@@ -21,7 +21,7 @@ const Container = ({ children, withBackground = false }: { children: ReactNode; 
                 width={'90%'}
                 alignItems={'center'}
                 justifyContent={'center'}
-                UNSAFE_className={withBackground ? styles.streamContainer : undefined}
+                UNSAFE_className={styles.streamContainer}
             >
                 {children}
             </Flex>
@@ -33,16 +33,12 @@ export const StreamContainer = () => {
     const { status, start } = useWebRTCConnection();
 
     if (status === 'connected') {
-        return (
-            <Container>
-                <Stream />
-            </Container>
-        );
+        return <Stream />;
     }
 
     if (status === 'connecting') {
         return (
-            <Container withBackground>
+            <Container>
                 <Loading mode='inline' />
             </Container>
         );
@@ -50,7 +46,7 @@ export const StreamContainer = () => {
 
     if (status === 'idle') {
         return (
-            <Container withBackground>
+            <Container>
                 <Button onPress={start} UNSAFE_className={styles.playButton} aria-label={'Start stream'}>
                     <Play width='128px' height='128px' />
                 </Button>
