@@ -17,7 +17,6 @@ export const Prompt = () => {
             backgroundColor={'gray-100'}
             paddingY={'size-200'}
             paddingX={'size-300'}
-            height={'100%'}
         >
             <Flex direction={'column'} height={'100%'}>
                 <Heading margin={0}>Prompt</Heading>
