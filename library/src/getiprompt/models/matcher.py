@@ -9,7 +9,7 @@ from getiprompt.components import MaskAdder, MasksToPolygons, SamDecoder
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_extractors.local_feature_extractor import LocalFeatureExtractor
 from getiprompt.components.feature_selectors import AllFeaturesSelector, FeatureSelector
-from getiprompt.components.filters import PointFilter
+from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.data.base.batch import Batch
 from getiprompt.types import Results
@@ -114,7 +114,7 @@ class Matcher(Model):
             encoder_feature_size=self.encoder.feature_size,
             num_background_points=num_background_points,
         )
-        self.point_filter = PointFilter(num_foreground_points=num_foreground_points)
+        self.prompt_filter = PointPromptFilter(num_foreground_points=num_foreground_points)
         self.segmenter: SamDecoder = SamDecoder(
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
@@ -147,7 +147,7 @@ class Matcher(Model):
             target_embeddings,
             target_batch.images,
         )
-        point_prompts = self.point_filter(point_prompts)
+        point_prompts = self.prompt_filter(point_prompts)
         masks, used_points, _ = self.segmenter(
             target_batch.images,
             point_prompts=point_prompts,

@@ -6,13 +6,13 @@
 import pytest
 import torch
 
-from getiprompt.components.filters import MultiInstancePriorFilter
+from getiprompt.components.filters import BoxPromptFilter
 from getiprompt.types import Boxes, Priors
 
 
 def test_multi_instance_prior_filter() -> None:
     """Test the MultiInstancePriorFilter."""
-    filt = MultiInstancePriorFilter()
+    filt = BoxPromptFilter()
 
     # Create a scenario where one large box contains three smaller boxes
     # that almost fill it. The large box should be filtered out.
