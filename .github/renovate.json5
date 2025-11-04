@@ -121,10 +121,11 @@
       matchUpdateTypes: ["major", "minor", "patch"],
     },
 
-    // Disable non-security upgrades for npm, except lock file update
+    // Disable non-security and lock file upgrades for npm
+    // Lock is updated manually
     {
       enabled: false,
-      matchDatasources: ["npm"],
+      matchManagers: ["npm"],
     },
 
     // NPM version in package.json is updated manually
