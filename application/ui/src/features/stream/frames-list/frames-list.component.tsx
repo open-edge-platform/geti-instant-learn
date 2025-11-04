@@ -11,6 +11,7 @@ import TestImg from '../../../assets/test.webp';
 import styles from './frames-list.module.scss';
 
 const useFrames = () => {
+    // TODO: replace with actual frames
     return [
         TestImg,
         TestImg,
@@ -70,6 +71,7 @@ const FrameThumbnail = ({ frame, isSelected }: FrameThumbnailProps) => {
 
 export const FramesList = () => {
     const frames = useFrames();
+    // TODO: replace with actual active frame index
     const activeFrameIndex = 0;
 
     return (
