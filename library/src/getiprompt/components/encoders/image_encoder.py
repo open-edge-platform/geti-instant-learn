@@ -106,6 +106,9 @@ class ImageEncoder(nn.Module):
 
         Returns:
             The model and processor.
+
+        Raises:
+            ValueError: If the user does not have access to the weights of the model.
         """
         err_msg = (
             "User does not have access to the weights of the DinoV3 model.\n"

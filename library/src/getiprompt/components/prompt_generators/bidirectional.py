@@ -21,6 +21,12 @@ class BidirectionalPromptGenerator(PromptGenerator):
 
     This is based on the similarities between the reference and target images.
 
+    Args:
+        encoder_input_size: int - The size of the encoder input image.
+        encoder_patch_size: int - The size of the encoder patch.
+        encoder_feature_size: int - The size of the encoder feature.
+        num_background_points: int - The number of background points to generate.
+
     Examples:
         >>> import torch
         >>> from getiprompt.processes.prompt_generators import BidirectionalPromptGenerator
@@ -69,6 +75,7 @@ class BidirectionalPromptGenerator(PromptGenerator):
         encoder_feature_size: int,
         num_background_points: int = 2,
     ) -> None:
+        """Initialize the BidirectionalPromptGenerator."""
         super().__init__()
         self.encoder_input_size = encoder_input_size
         self.num_background_points = num_background_points
@@ -349,7 +356,8 @@ class BidirectionalPromptGenerator(PromptGenerator):
             target_images(list[tv_tensors.Image]): Target images
 
         Returns:
-            point_prompts(list[dict[int, torch.Tensor]]): List of point prompts (with class_id as key and points as value)
+            point_prompts(list[dict[int, torch.Tensor]]):
+                List of point prompts (with class_id as key and points as value)
             similarities_per_images(list[Similarities]): List of similarities
         """
         point_prompts: list[dict[int, torch.Tensor]] = []

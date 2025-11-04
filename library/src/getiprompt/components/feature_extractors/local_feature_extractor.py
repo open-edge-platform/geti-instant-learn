@@ -1,3 +1,8 @@
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+"""Local feature extractor."""
+
 from __future__ import annotations
 
 import torch

@@ -80,7 +80,6 @@ class TestEncoder:
         pytest.assume(encoder.input_size == expected_input_size)
         pytest.assume(encoder.patch_size == expected_patch_size)
 
-
     @patch("getiprompt.utils.optimization.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
@@ -100,7 +99,6 @@ class TestEncoder:
         features = encoder(images)
 
         # Check outputs
-        expected_value = 1
         pytest.assume(isinstance(features, torch.Tensor))
         expected_batch_size = 1
         pytest.assume(features.shape[0] == expected_batch_size)
@@ -267,9 +265,6 @@ class TestEncoder:
         pytest.assume(call_args[1]["compile_models"] is True)
         pytest.assume(call_args[1]["benchmark_inference_speed"] is True)
 
-
-
-
     @staticmethod
     def test_error_handling_invalid_model_id() -> None:
         """Test error handling for invalid model ID."""
@@ -385,4 +380,3 @@ class TestEncoderIntegration:
         # Verify feature dimension
         expected_patches = (224 // encoder_base.patch_size) ** 2
         pytest.assume(features.shape == (1, expected_patches, 768))  # batch, patches, 768 dims
-

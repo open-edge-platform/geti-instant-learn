@@ -17,8 +17,7 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeEl
 from torch.utils.data import DataLoader
 
 from getiprompt.data import Dataset, LVISDataset, PerSegDataset
-from getiprompt.data.base import Batch
-from getiprompt.data.base.sample import Sample
+from getiprompt.data.base import Batch, Sample
 from getiprompt.metrics import SegmentationMetrics
 from getiprompt.models import Model, load_model
 from getiprompt.utils import setup_logger
@@ -38,8 +37,6 @@ logger = getLogger("Geti Prompt")
 if TYPE_CHECKING:
     import argparse
 
-    from getiprompt.data.base import Sample
-
 
 def infer_on_category(
     dataset: Dataset,
@@ -50,7 +47,7 @@ def infer_on_category(
     metrics_calculators: dict[int, SegmentationMetrics],
     progress: Progress,
     batch_size: int = 4,
-    visualize: bool = True,
+    visualize: bool = False,
 ) -> tuple[int, int]:
     """Perform inference on all samples of a category.
 
@@ -122,15 +119,6 @@ def infer_on_category(
             file_names = [
                 str(
                     Path("predictions") / f"priors_batch_{priors_batch_index}" / category_name / Path(img_path).name,
-                )
-                for img_path in batch.image_paths
-            ]
-            file_names_debug = [
-                str(
-                    Path("predictions_debug")
-                    / f"priors_batch_{priors_batch_index}"
-                    / category_name
-                    / Path(img_path).name,
                 )
                 for img_path in batch.image_paths
             ]

@@ -116,7 +116,8 @@ class TextToBoxPromptGenerator(PromptGenerator):
         )
         return model, processor
 
-    def _map_labels_to_categories(self, labels: list[str], category_mapping: dict[str, int]) -> list[str]:
+    @staticmethod
+    def _map_labels_to_categories(labels: list[str], category_mapping: dict[str, int]) -> list[str]:
         """Map labels to their best matching category by similarity.
 
         Args:

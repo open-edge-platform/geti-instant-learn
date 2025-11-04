@@ -30,7 +30,7 @@ class Matcher(Model):
     https://arxiv.org/abs/2305.13310.
 
     Main novelties:
-    - Uses DinoV3 large patch encoding instead of SAM for encoding the images, resulting in a more robust feature extractor
+    - Uses patch encoding instead of SAM for encoding the images, resulting in a more robust feature extractor
     - Uses a bidirectional prompt generator to generate prompts for the segmenter
     - Has a more complex mask postprocessing step to remove and merge masks
 

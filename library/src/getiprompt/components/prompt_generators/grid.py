@@ -228,9 +228,9 @@ class GridPromptGenerator(PromptGenerator):
             return points_original_coords
 
         scale_x = ori_width / map_w
-        points_original_coords[:, 0] = points_original_coords[:, 0] * scale_x
+        points_original_coords[:, 0] *= scale_x
         scale_y = ori_height / map_h
-        points_original_coords[:, 1] = points_original_coords[:, 1] * scale_y
+        points_original_coords[:, 1] *= scale_y
         return points_original_coords
 
     def forward(
@@ -251,7 +251,8 @@ class GridPromptGenerator(PromptGenerator):
             target_images: List[tv_tensors.Image] List of target image instances
 
         Returns:
-            point_prompts(list[dict[int, torch.Tensor]]): List of point prompts (with class_id as key and points as value)
+            point_prompts(list[dict[int, torch.Tensor]]):
+                List of point prompts (with class_id as key and points as value)
         """
         point_prompts: list[dict[int, torch.Tensor]] = []
 

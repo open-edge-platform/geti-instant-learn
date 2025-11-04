@@ -137,7 +137,28 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         rff_dim: int,
         rff_sigma: float,
     ) -> tuple[torch.Tensor | None, torch.Tensor | None]:
-        """Calculate forward and backward similarity maps based on configuration."""
+        """Calculate forward and backward similarity maps based on configuration.
+
+        Args:
+            use_rff: bool - Whether to use RFF approximation.
+            masked_ref_indices: torch.Tensor - Indices of masked reference features.
+            ref_features: torch.Tensor | None - Reference features.
+            target_features: torch.Tensor | None - Target features.
+            similarity_map: torch.Tensor | None - Similarity map.
+            bidirectional: bool - Whether to use bidirectional softmatching.
+            rff_dim: int - Dimension of the RFF projection.
+            rff_sigma: float - Width of the Gaussian kernel for RFF.
+
+        Returns:
+            tuple[torch.Tensor | None, torch.Tensor | None]:
+                Tuple containing:
+                    forward_sim: torch.Tensor | None - Forward similarity map.
+                    similarity_map_for_backward: torch.Tensor | None - Backward similarity map.
+
+        Raises:
+            ValueError: If ref_features and target_features are not provided when use_rff is True.
+            ValueError: If similarity_map is not provided when use_rff is False.
+        """
         similarity_map_for_backward = None
         if use_rff:
             if ref_features is None or target_features is None:
@@ -317,6 +338,9 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
                   after bidirectional filtering.
                 similarity_scores: torch.Tensor - Similarity scores of matched foreground points.
                 soft_sim_map: torch.Tensor - Soft similarity map, for visualization.
+
+        Raises:
+            ValueError: If full similarity map is required for bidirectional matching.
         """
         device = similarity_map.device
         dtype = similarity_map.dtype
@@ -405,7 +429,8 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
             target_images(list[tv_tensors.Image]): Target images
 
         Returns:
-            point_prompts(list[dict[int, torch.Tensor]]): List of point prompts (with class_id as key and points as value)
+            point_prompts(list[dict[int, torch.Tensor]]):
+                List of point prompts (with class_id as key and points as value)
             similarities_per_images(list[Similarities]): List of similarities
         """
         point_prompts: list[dict[int, torch.Tensor]] = []
