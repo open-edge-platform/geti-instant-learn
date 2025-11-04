@@ -7,10 +7,11 @@ import { ReactNode } from 'react';
 
 import { $api, SourceType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
-import { ImagesFolder, VideoFile, WebCam } from '@geti-prompt/icons';
+import { ImagesFolder as ImagesFolderIcon, WebCam } from '@geti-prompt/icons';
 
 import { DisclosureGroup } from '../../../components/disclosure-group/disclosure-group.component';
-import { getWebcamSource } from './utils';
+import { ImagesFolder } from './images-folder/images-folder.component';
+import { getImagesFolderSource, getWebcamSource } from './utils';
 import { WebcamSource } from './webcam/webcam-source.component';
 
 export const SourcesConfiguration = () => {
@@ -42,17 +43,17 @@ export const SourcesConfiguration = () => {
             icon: <IPCamera width={'24px'} />,
         },*/
         /*{ label: 'GenICam', value: 'gen-i-cam', content: 'Test', icon: <GenICam width={'24px'} /> },*/
-        {
+        /*{
             label: 'Video file',
             value: 'video_file',
             content: 'Test',
             icon: <VideoFile width={'24px'} />,
-        },
+        },*/
         {
             label: 'Image folder',
             value: 'images_folder',
-            content: 'Test',
-            icon: <ImagesFolder width={'24px'} />,
+            content: <ImagesFolder source={getImagesFolderSource(data?.sources)} />,
+            icon: <ImagesFolderIcon width={'24px'} />,
         },
     ];
 
