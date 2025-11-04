@@ -464,7 +464,7 @@ class ExportMaskVisualization(Visualization):
             return {
                 "boxes": current_boxes.cpu().numpy()[:, :4],
                 "box_scores": current_boxes.cpu().numpy()[:, 4],
-                "box_types": current_boxes.cpu().numpy()[:, 5],
+                "box_types": len(current_boxes) * [class_id],
             }
         return {"boxes": None, "box_scores": None, "box_types": None}
 

@@ -74,17 +74,17 @@ class TextToBoxPromptGenerator(PromptGenerator):
         self.text_threshold = text_threshold
         self.template = template
 
-    def forward(self, target_images: list[tv_tensors.Image], unique_categories: list[str]) -> list[Sample]:
+    def forward(self, target_images: list[tv_tensors.Image], category_mapping: dict[str, int]) -> list[Sample]:
         """This generates bounding box prompt candidates (or priors) based on the text priors.
 
         Args:
             target_images(list[tv_tensors.Image]): The target images
-            unique_categories(list[str]): The unique categories to use as an input
+            category_mapping(dict[str, int]): The category mapping
 
         Returns:
             list[Sample]: List of prediction samples, one per target image instance, each containing the bboxes, scores, and labels
         """
-        formatted_categories = [self.template.format(prior=category) for category in unique_categories]
+        formatted_categories = [self.template.format(prior=category) for category in category_mapping]
         prompts = ""
         for category in formatted_categories:
             prompts += category + ". "
@@ -108,8 +108,8 @@ class TextToBoxPromptGenerator(PromptGenerator):
         # Generate all priors from the result of the Dino model.
         preds: list[Sample] = []
         for result in results:
-            pred_labels = self.map_labels_to_categories(result["labels"], unique_categories)
-            pred_label_ids = [unique_categories.index(label) for label in pred_labels]
+            pred_labels = self.map_labels_to_categories(result["labels"], category_mapping)
+            pred_label_ids = [category_mapping[label] for label in pred_labels]
             preds.append(
                 Sample(
                     bboxes=result["boxes"],
@@ -120,20 +120,20 @@ class TextToBoxPromptGenerator(PromptGenerator):
             )
         return preds
 
-    def map_labels_to_categories(self, labels: list[str], unique_categories: list[str]) -> list[str]:
+    def map_labels_to_categories(self, labels: list[str], category_mapping: dict[str, int]) -> list[str]:
         """Map labels to their best matching category by similarity.
 
         Args:
             labels(list[str]): The labels to map to categories.
-            unique_categories(list[str]): The unique categories to match against.
+            category_mapping(dict[str, int]): The category mapping.
 
         Returns:
-            list[str]: The mapped labels that match categories from ``unique_categories``.
+            list[str]: The mapped labels that match categories from ``category_mapping``.
         """
         processed_labels = []
         for label in labels:
-            if label not in unique_categories:
-                label = max(unique_categories, key=lambda x: SequenceMatcher(None, x, label).ratio())
+            if label not in category_mapping:
+                label = max(category_mapping.keys(), key=lambda x: SequenceMatcher(None, x, label).ratio())
             processed_labels.append(label)
         return processed_labels
 

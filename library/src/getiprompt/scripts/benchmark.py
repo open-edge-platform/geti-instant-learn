@@ -12,14 +12,15 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import polars as pl
+import torch
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from torch.utils.data import DataLoader
 
 from getiprompt.data import Dataset, LVISDataset, PerSegDataset
 from getiprompt.data.base import Batch
+from getiprompt.data.base.sample import Sample
 from getiprompt.metrics import SegmentationMetrics
 from getiprompt.models import Model, load_model
-from getiprompt.types import Masks, Priors, Text
 from getiprompt.utils import setup_logger
 from getiprompt.utils.args import get_arguments, parse_experiment_args
 from getiprompt.utils.benchmark import (
@@ -40,38 +41,6 @@ if TYPE_CHECKING:
     from getiprompt.data.base import Sample
 
 
-def extract_priors(
-    sample: Sample,
-    category_name: str,
-) -> Priors:
-    """Extract priors from a Sample.
-
-    Args:
-        sample: Sample - The sample to extract priors from.
-        category_name: str - The category name for the text prior.
-
-    Returns:
-        Priors - The priors extracted from the sample.
-    """
-    # Convert masks to Masks type
-    masks_obj = Masks()
-    if sample.masks is not None:
-        mask_np = sample.masks if isinstance(sample.masks, np.ndarray) else sample.masks.cpu().numpy()
-        category_ids = (
-            sample.category_ids if isinstance(sample.category_ids, np.ndarray) else sample.category_ids.cpu().numpy()
-        )
-
-        for mask, category_id in zip(mask_np, category_ids, strict=True):
-            masks_obj.add(mask, class_id=int(category_id))
-
-    # Create text prior
-    text_prior = Text()
-    text_prior.add(category_name, class_id=int(category_id))
-
-    # Create priors object
-    return Priors(masks=masks_obj, text=text_prior)
-
-
 def infer_on_category(
     dataset: Dataset,
     model: Model,
@@ -81,7 +50,7 @@ def infer_on_category(
     metrics_calculators: dict[int, SegmentationMetrics],
     progress: Progress,
     batch_size: int = 4,
-    visualize: bool = False,
+    visualize: bool = True,
 ) -> tuple[int, int]:
     """Perform inference on all samples of a category.
 
@@ -216,8 +185,37 @@ def learn_from_category(dataset: Dataset, model: Model, category_name: str) -> N
         msg = f"No reference samples found for category: {category_name}"
         raise ValueError(msg)
 
-    reference_batch = Batch.collate(reference_dataset)
+    # TODO(Eugene): This is a temporary solution to handle multi-instance images.
+    samples = []
+    for sample in reference_dataset:
+        filtered_masks = []
+        filtered_category_ids = []
+        filtered_categories = []
+        if len(sample.category_ids) > 1:
+            print(sample.image_path)
 
+        for mask, category_id, category, is_reference in zip(
+            sample.masks,
+            sample.category_ids,
+            sample.categories,
+            sample.is_reference,
+            strict=False,
+        ):
+            if category == category_name and is_reference:
+                filtered_masks.append(mask)
+                filtered_category_ids.append(category_id)
+                filtered_categories.append(category)
+        if len(filtered_masks) > 0:
+            samples.append(
+                Sample(
+                    image=sample.image,
+                    masks=torch.stack(filtered_masks),
+                    category_ids=np.stack(filtered_category_ids),
+                    categories=filtered_categories,
+                ),
+            )
+
+    reference_batch = Batch.collate(samples)
     # Learn
     model.learn(reference_batch)
 

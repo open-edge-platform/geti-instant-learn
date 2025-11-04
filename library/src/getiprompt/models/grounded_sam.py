@@ -7,7 +7,7 @@ from getiprompt.components import MasksToPolygons, SamDecoder
 from getiprompt.components.filters import MultiInstancePriorFilter
 from getiprompt.components.prompt_generators import GroundingModel, TextToBoxPromptGenerator
 from getiprompt.data.base.batch import Batch
-from getiprompt.types import Results, Text
+from getiprompt.types import Results
 from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
 
@@ -64,7 +64,6 @@ class GroundedSAM(Model):
         )
         self.multi_instance_prior_filter: MultiInstancePriorFilter = MultiInstancePriorFilter()
         self.mask_processor = MasksToPolygons()
-        self.text_priors: Text | None = None
 
     @track_duration
     def learn(self, reference_batch: Batch) -> None:
@@ -76,9 +75,11 @@ class GroundedSAM(Model):
         Raises:
             ValueError: If the reference priors do not have all text types.
         """
-        self.text_priors = list(
-            dict.fromkeys(cat for categories in reference_batch.categories for cat in categories),
-        )
+        self.category_mapping = {}
+        for sample in reference_batch.samples:
+            for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
+                if category not in self.category_mapping:
+                    self.category_mapping[category] = int(category_id)
 
     @track_duration
     def infer(self, target_batch: Batch) -> Results:
@@ -91,7 +92,7 @@ class GroundedSAM(Model):
             Results: The results.
         """
         # Start running the model
-        pred_samples = self.prompt_generator(target_batch.images, self.text_priors)
+        pred_samples = self.prompt_generator(target_batch.images, self.category_mapping)
         box_prompts = self.multi_instance_prior_filter(pred_samples)
         masks, _, used_boxes = self.segmenter(
             target_batch.images,
