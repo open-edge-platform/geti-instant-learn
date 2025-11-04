@@ -18,7 +18,7 @@ export const VisualPrompt = () => {
 
     return (
         <Flex direction={'column'} gap={'size-300'} height={'100%'}>
-            <CapturedFrame frameId={selectedFrameId as string} />
+            <CapturedFrame frameId={selectedFrameId} />
 
             <Button alignSelf={'end'} variant={'secondary'} isDisabled={selectedFrameId === null} onPress={savePrompt}>
                 Save prompt

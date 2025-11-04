@@ -24,17 +24,9 @@ const CenteredWrapper = ({ children }: { children: ReactNode }) => (
 );
 interface CapturedFrameAnnotatorProps {
     children: ReactNode;
-    frameId: string | null;
+    frameId: string;
 }
 const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorProps) => {
-    if (frameId === null) {
-        return (
-            <CenteredWrapper>
-                <CapturedFramePlaceholder />
-            </CenteredWrapper>
-        );
-    }
-
     return (
         <Suspense
             fallback={
@@ -60,7 +52,7 @@ const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorPro
     );
 };
 
-export const CapturedFrame = ({ frameId }: { frameId: string }) => {
+export const CapturedFrame = ({ frameId }: { frameId: string | null }) => {
     return (
         <Grid
             width={'100%'}
@@ -71,10 +63,16 @@ export const CapturedFrame = ({ frameId }: { frameId: string }) => {
                 backgroundColor: 'var(--spectrum-global-color-gray-200)',
             }}
         >
-            <CapturedFrameProviders frameId={frameId}>
-                <CapturedFrameContent frameId={frameId} />
-                <CapturedFrameFullScreen frameId={frameId} />
-            </CapturedFrameProviders>
+            {frameId === null ? (
+                <CenteredWrapper>
+                    <CapturedFramePlaceholder />
+                </CenteredWrapper>
+            ) : (
+                <CapturedFrameProviders frameId={frameId}>
+                    <CapturedFrameContent frameId={frameId} />
+                    <CapturedFrameFullScreen frameId={frameId} />
+                </CapturedFrameProviders>
+            )}
         </Grid>
     );
 };
