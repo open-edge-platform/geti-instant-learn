@@ -32,25 +32,16 @@ class ImageEncoder(nn.Module):
     """This encoder uses a model from HuggingFace to encode the images.
 
     Examples:
-        >>> from getiprompt.processes.encoders import Encoder
-        >>> from getiprompt.types import Priors, Features
+        >>> from getiprompt.components.encoders import ImageEncoder
         >>> from torchvision import tv_tensors
         >>> import torch
-        >>> import numpy as np
-        >>>
-        >>> # Create a sample image
-        >>> sample_image = np.zeros((518, 518, 3), dtype=np.uint8)
-        >>> encoder = Encoder(model_id="dinov2_large")
-        >>> features, masks = encoder([tv_tensors.Image(sample_image)], priors_per_image=[Priors()])
-        >>> len(features), len(masks)
-        (1, 1)
-        >>> # Each image gets a Features object with global features and a Masks object
-        >>> isinstance(features[0], Features), isinstance(masks[0], Masks)
-        (True, True)
-        >>> # DINOv2-large outputs 1024-dimensional feature vectors
-        >>> features[0].global_features.shape
-        torch.Size([1369, 1024])
 
+        >>> # Create a sample image
+        >>> sample_image = torch.zeros((3, 518, 518))
+        >>> encoder = ImageEncoder(model_id="dinov2_large")
+        >>> features = encoder(images=[sample_image])
+        >>> features.shape
+        torch.Size([1369, 1024])
     """
 
     def __init__(
@@ -102,23 +93,6 @@ class ImageEncoder(nn.Module):
             benchmark_inference_speed=benchmark_inference_speed,
         ).eval()
 
-    @torch.inference_mode()
-    def forward(self, images: list[tv_tensors.Image]) -> torch.Tensor:
-        """Encode images into normalized patch embeddings.
-
-        Args:
-            images(list[tv_tensors.Image]): A list of images.
-
-        Returns:
-            torch.Tensor: Normalized patch-grid feature tensor of shape
-                (batch_size, num_patches, embedding_dim).
-        """
-        inputs = self.processor(images=images, return_tensors="pt")
-        inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
-        last_hidden_state = self.model(**inputs).last_hidden_state
-        features = last_hidden_state[:, self.ignore_token_length :, :]  # Remove CLS token (and register tokens if used)
-        return functional.normalize(features, p=2, dim=-1)
-
     @staticmethod
     def _load_hf_model(model_id: str, input_size: int) -> tuple[nn.Module, AutoImageProcessor]:
         """Load DINO model from HuggingFace with error handling.
@@ -155,3 +129,20 @@ class ImageEncoder(nn.Module):
                 raise ValueError(err_msg) from None
             raise
         return model, processor
+
+    @torch.inference_mode()
+    def forward(self, images: list[tv_tensors.Image]) -> torch.Tensor:
+        """Encode images into normalized patch embeddings.
+
+        Args:
+            images(list[tv_tensors.Image]): A list of images.
+
+        Returns:
+            torch.Tensor: Normalized patch-grid feature tensor of shape
+                (batch_size, num_patches, embedding_dim).
+        """
+        inputs = self.processor(images=images, return_tensors="pt")
+        inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
+        last_hidden_state = self.model(**inputs).last_hidden_state
+        features = last_hidden_state[:, self.ignore_token_length :, :]  # Remove CLS token (and register tokens if used)
+        return functional.normalize(features, p=2, dim=-1)

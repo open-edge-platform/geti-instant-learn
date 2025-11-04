@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from getiprompt.components import CosineSimilarity, SamDecoder
 from getiprompt.components.encoders import ImageEncoder
+from getiprompt.components.feature_extractors import LocalFeatureExtractor
 from getiprompt.components.feature_selectors import AverageFeatures, FeatureSelector
 from getiprompt.components.filters import ClassOverlapMaskFilter, PointPromptFilter
 from getiprompt.components.prompt_generators import GridPromptGenerator
@@ -117,6 +118,12 @@ class PerDino(Model):
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
         )
+        # Local feature extraction with mask pooling
+        self.local_feature_extractor = LocalFeatureExtractor(
+            input_size=self.encoder.input_size,
+            patch_size=self.encoder.patch_size,
+            device=device,
+        )
         self.feature_selector: FeatureSelector = AverageFeatures()
         self.similarity_matcher = CosineSimilarity()
         self.prompt_generator: PromptGenerator = GridPromptGenerator(
@@ -137,6 +144,9 @@ class PerDino(Model):
         """Perform learning step on the reference images and priors."""
         # Start running the model
         reference_features = self.encoder(reference_batch.images)
+        reference_features, _ = self.local_feature_extractor(
+            reference_features, reference_batch.masks, reference_batch.category_ids
+        )
         self.reference_features = self.feature_selector(reference_features)
 
     @track_duration

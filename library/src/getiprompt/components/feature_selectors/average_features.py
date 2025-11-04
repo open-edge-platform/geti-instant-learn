@@ -64,16 +64,11 @@ class AverageFeatures(FeatureSelector):
         result_features = Features()
 
         # Average features for each class
-        for class_id, feature_list in self.get_all_local_class_features(
-            features_per_image,
-        ).items():
+        for class_id, feature_list in self.get_all_local_class_features(features_per_image).items():
             stacked_features = torch.cat(feature_list, dim=0)
             averaged_features = stacked_features.mean(dim=0, keepdim=True)
             # allthough features are already normalized, we make sure that the average is normalized too
-            averaged_features = averaged_features / averaged_features.norm(
-                dim=-1,
-                keepdim=True,
-            )
+            averaged_features /= averaged_features.norm(dim=-1, keepdim=True)
             result_features.add_local_features(averaged_features, class_id)
 
         return [result_features]
