@@ -9,7 +9,12 @@ from fastapi import Query, Response, status
 
 from api.routers import projects_router
 from dependencies import ProjectServiceDep
-from domain.services.schemas.project import ProjectCreateSchema, ProjectSchema, ProjectsListSchema, ProjectUpdateSchema
+from domain.services.schemas.project import (
+    ProjectCreateSchema,
+    ProjectSchema,
+    ProjectsListSchema,
+    ProjectUpdateSchema,
+)
 
 logger = logging.getLogger(__name__)
 
