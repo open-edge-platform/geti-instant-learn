@@ -122,10 +122,9 @@ class PromptService:
         self._ensure_project(project_id)
 
         logger.debug(
-            "Prompt create requested: project_id=%s type=%s name=%s",
+            "Prompt create requested: project_id=%s type=%s",
             project_id,
             create_data.type,
-            create_data.name,
         )
 
         # Validate visual prompt has existing frame
@@ -151,15 +150,14 @@ class PromptService:
         except IntegrityError as exc:
             self.session.rollback()
             logger.error("Prompt creation failed due to constraint violation: %s", exc)
-            self._handle_prompt_integrity_error(exc, new_prompt.id, project_id, new_prompt.type, new_prompt.name)
+            self._handle_prompt_integrity_error(exc, new_prompt.id, project_id, new_prompt.type)
 
         self.session.refresh(new_prompt)
         logger.info(
-            "Prompt created: prompt_id=%s project_id=%s type=%s name=%s",
+            "Prompt created: prompt_id=%s project_id=%s type=%s",
             new_prompt.id,
             project_id,
             new_prompt.type,
-            new_prompt.name,
         )
         return prompt_db_to_schema(new_prompt)
 
@@ -208,7 +206,6 @@ class PromptService:
         prompt_id: UUID,
         project_id: UUID,
         prompt_type: PromptType,
-        prompt_name: str,
     ) -> None:
         """
         Handle IntegrityError with context-aware messages for prompts.
@@ -218,7 +215,6 @@ class PromptService:
             prompt_id: ID of the prompt being created
             project_id: ID of the owning project
             prompt_type: Type of the prompt (TEXT or VISUAL)
-            prompt_name: Name of the prompt
         """
         error_msg = str(exc.orig).lower()
         constraint_name = extract_constraint_name(error_msg)
@@ -238,37 +234,21 @@ class PromptService:
                 message="Referenced project does not exist.",
             )
 
-        if "unique" in error_msg or constraint_name:
-            if constraint_name == UniqueConstraintName.PROMPT_NAME_PER_PROJECT or "name" in error_msg:
-                raise ResourceAlreadyExistsError(
-                    resource_type=ResourceType.PROMPT,
-                    resource_value=prompt_name,
-                    field="name",
-                    message=f"A prompt with the name '{prompt_name}' already exists in this project.",
-                )
-            if constraint_name == UniqueConstraintName.SINGLE_TEXT_PROMPT_PER_PROJECT or (
-                "text" in error_msg and "type" in error_msg
-            ):
-                raise ResourceAlreadyExistsError(
-                    resource_type=ResourceType.PROMPT,
-                    field="type",
-                    message="Only one text prompt is allowed per project. "
-                    "Please delete the existing text prompt before creating a new one.",
-                )
+        if ("unique" in error_msg or constraint_name) and (
+            constraint_name == UniqueConstraintName.SINGLE_TEXT_PROMPT_PER_PROJECT
+            or ("text" in error_msg and "type" in error_msg)
+        ):
+            raise ResourceAlreadyExistsError(
+                resource_type=ResourceType.PROMPT,
+                field="type",
+                message="Only one text prompt is allowed per project. "
+                "Please delete the existing text prompt before creating a new one.",
+            )
 
-        if "check" in error_msg or constraint_name in [
-            CheckConstraintName.PROMPT_CONTENT,
-            CheckConstraintName.VISUAL_PROMPT_FRAME,
-        ]:
+        if "check" in error_msg or constraint_name == CheckConstraintName.PROMPT_CONTENT:
             if prompt_type == PromptType.TEXT:
-                raise ServiceError(
-                    "Text prompt must have non-empty text content.",
-                )
-            else:
-                raise ServiceError(
-                    "Visual prompt must have a valid frame_id.",
-                )
+                raise ServiceError("Text prompt must have non-empty text content.")
+            raise ServiceError("Visual prompt must have a valid frame_id.")
 
         logger.error(f"Unmapped constraint violation for prompt (prompt_id={prompt_id}): {error_msg}")
         raise ValueError("Database constraint violation. Please check your input and try again.")
-

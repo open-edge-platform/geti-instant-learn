@@ -58,10 +58,10 @@ def get_frame_repository() -> FrameRepository:
     """Provides a FrameRepository instance."""
     return FrameRepository()
 
+
 def get_prompt_repository(session: SessionDep) -> PromptRepository:
     """Provides a PromptRepository instance."""
     return PromptRepository(session)
-
 
 
 # --- Service providers ---
@@ -118,6 +118,7 @@ def get_frame_service_with_queue(
         except Exception as e:
             logger.warning(f"Failed to unregister inbound consumer queue: {e}")
 
+
 def get_prompt_service(
     session: SessionDep,
     prompt_repo: Annotated[PromptRepository, Depends(get_prompt_repository)],
@@ -131,7 +132,6 @@ def get_prompt_service(
         project_repository=project_repo,
         frame_repository=frame_repo,
     )
-
 
 
 def get_label_service(session: SessionDep) -> LabelService:

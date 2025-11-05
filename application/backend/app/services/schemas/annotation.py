@@ -41,4 +41,5 @@ class PolygonAnnotation(BaseModel):
         }
     }
 
+
 Annotation = Annotated[PointAnnotation | PolygonAnnotation, Field(discriminator="type")]

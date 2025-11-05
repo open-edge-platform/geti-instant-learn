@@ -11,7 +11,6 @@ from services.schemas.prompt import (
     PromptSchema,
     TextPromptCreateSchema,
     TextPromptSchema,
-    VisualPromptCreateSchema,
     VisualPromptSchema,
 )
 
@@ -29,17 +28,17 @@ def prompt_db_to_schema(prompt: PromptDB) -> PromptSchema:
             content=prompt.text or "",
             project_id=prompt.project_id,
         )
-    else:  # PromptType.VISUAL
-        # Extract annotations from the relationship - config is already a dict that Pydantic will parse
-        annotations: list[Any] = [ann.config for ann in prompt.annotations]
-        return VisualPromptSchema(
-            id=prompt.id,
-            type=PromptType.VISUAL,
-            name=prompt.name,
-            frame_id=prompt.frame_id or UUID(int=0),  # Should never be None due to constraint
-            annotations=annotations,  # type: ignore[arg-type]
-            project_id=prompt.project_id,
-        )
+    # PromptType.VISUAL
+    # Extract annotations from the relationship - config is already a dict that Pydantic will parse
+    annotations: list[Any] = [ann.config for ann in prompt.annotations]
+    return VisualPromptSchema(
+        id=prompt.id,
+        type=PromptType.VISUAL,
+        name=prompt.name,
+        frame_id=prompt.frame_id or UUID(int=0),  # Should never be None due to constraint
+        annotations=annotations,  # type: ignore[arg-type]
+        project_id=prompt.project_id,
+    )
 
 
 def prompts_db_to_schemas(prompts: Iterable[PromptDB]) -> list[PromptSchema]:
@@ -88,4 +87,3 @@ def prompt_create_schema_to_db(schema: PromptCreateSchema, project_id: UUID) -> 
         )
 
     return prompt_db
-

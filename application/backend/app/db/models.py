@@ -5,7 +5,7 @@ from enum import StrEnum
 from uuid import UUID, uuid4
 
 from sqlalchemy import CheckConstraint, ForeignKey, Index, Text, UniqueConstraint
-from sqlalchemy import text
+from sqlalchemy import text as sa_text
 from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -27,24 +27,18 @@ class LabelDB(Base):
     project: Mapped["ProjectDB"] = relationship(back_populates="labels")
     __table_args__ = (
         CheckConstraint(
-            "project_id IS NOT NULL OR prompt_id IS NOT NULL",
+            "(project_id IS NOT NULL AND prompt_id IS NULL) OR (project_id IS NULL AND prompt_id IS NOT NULL)",
             name=CheckConstraintName.LABEL_PARENT,
         ),
-        Index(
-            UniqueConstraintName.LABEL_NAME_PER_PROJECT,
-            "name",
-            "project_id",
-            unique=True,
-        ),
+        UniqueConstraint("name", "project_id", name=UniqueConstraintName.LABEL_NAME_PER_PROJECT),
     )
 
 
 class AnnotationDB(Base):
     __tablename__ = "Annotation"
     config: Mapped[dict] = mapped_column(JSON, nullable=False)
-    prompt_id: Mapped[UUID] = mapped_column(ForeignKey("Prompt.id", ondelete="CASCADE"))
+    prompt_id: Mapped[UUID] = mapped_column(ForeignKey("Prompt.id", ondelete="CASCADE"), unique=True)
     prompt: Mapped["PromptDB"] = relationship(back_populates="annotations", single_parent=True)
-    __table_args__ = (UniqueConstraint("prompt_id"),)
 
 
 class SourceDB(Base):
@@ -57,22 +51,22 @@ class SourceDB(Base):
         Index(
             UniqueConstraintName.SOURCE_TYPE_PER_PROJECT,
             "project_id",
-            text("json_extract(config, '$.source_type')"),
+            sa_text("json_extract(config, '$.source_type')"),
             unique=True,
         ),
         Index(
             UniqueConstraintName.SOURCE_NAME_PER_PROJECT,
             "project_id",
-            text("json_extract(config, '$.name')"),
+            sa_text("json_extract(config, '$.name')"),
             unique=True,
-            sqlite_where=text("json_extract(config, '$.name') IS NOT NULL"),
+            sqlite_where=sa_text("json_extract(config, '$.name') IS NOT NULL"),
         ),
         Index(
             UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT,
             "project_id",
             "connected",
             unique=True,
-            sqlite_where=text("connected IS 1"),
+            sqlite_where=sa_text("connected IS 1"),
         ),
     )
 
@@ -94,7 +88,6 @@ class PromptType(StrEnum):
 class PromptDB(Base):
     __tablename__ = "Prompt"
     type: Mapped[PromptType] = mapped_column(nullable=False)
-    name: Mapped[str] = mapped_column(Text, nullable=False)
     project_id: Mapped[UUID] = mapped_column(ForeignKey("Project.id", ondelete="CASCADE"), nullable=False)
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
     frame_id: Mapped[UUID | None] = mapped_column(nullable=True)
@@ -106,18 +99,13 @@ class PromptDB(Base):
         back_populates="prompt", cascade="all, delete-orphan", passive_deletes=True
     )
     __table_args__ = (
-        UniqueConstraint(
-            "name",
-            "project_id",
-            name=UniqueConstraintName.PROMPT_NAME_PER_PROJECT,
-        ),
         # ensure only one text prompt per project
         Index(
             UniqueConstraintName.SINGLE_TEXT_PROMPT_PER_PROJECT,
             "project_id",
             "type",
             unique=True,
-            sqlite_where=text("type = 'TEXT'"),
+            sqlite_where=sa_text("type = 'TEXT'"),
         ),
         # ensure text prompts have text, visual prompts have frame_id
         CheckConstraint(
@@ -140,7 +128,7 @@ class ProcessorDB(Base):
             "project_id",
             "name",
             unique=True,
-            sqlite_where=text("name IS NOT NULL"),
+            sqlite_where=sa_text("name IS NOT NULL"),
         ),
     )
 
@@ -170,6 +158,6 @@ class ProjectDB(Base):
             UniqueConstraintName.SINGLE_ACTIVE_PROJECT,
             "active",
             unique=True,
-            sqlite_where=text("active IS 1"),
+            sqlite_where=sa_text("active IS 1"),
         ),
     )

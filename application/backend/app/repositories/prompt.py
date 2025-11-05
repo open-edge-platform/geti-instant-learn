@@ -93,4 +93,3 @@ class PromptRepository(BaseRepository):
         """
         logger.debug(f"Deleting prompt id={prompt.id} project_id={prompt.project_id}")
         self.session.delete(prompt)
-

@@ -79,6 +79,6 @@ PromptSchema = Annotated[TextPromptSchema | VisualPromptSchema, Field(discrimina
 
 class PromptsListSchema(BaseModel):
     """Schema for listing prompts."""
+
     prompts: list[PromptSchema]
     pagination: Pagination
-
