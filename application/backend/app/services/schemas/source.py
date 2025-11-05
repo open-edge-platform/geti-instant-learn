@@ -3,7 +3,7 @@
 
 from pydantic import BaseModel
 
-from core.components.schemas.reader import ReaderConfig
+from runtime.core.components.schemas.reader import ReaderConfig
 from services.schemas.base import BaseIDPayload, BaseIDSchema
 
 

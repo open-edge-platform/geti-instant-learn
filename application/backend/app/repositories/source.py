@@ -8,9 +8,9 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from core.components.schemas.reader import SourceType
 from db.models import SourceDB
 from repositories.base import BaseRepository
+from runtime.core.components.schemas.reader import SourceType
 
 logger = logging.getLogger(__name__)
 

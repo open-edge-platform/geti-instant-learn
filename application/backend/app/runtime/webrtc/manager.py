@@ -8,7 +8,7 @@ from uuid import UUID
 
 from aiortc import RTCPeerConnection, RTCSessionDescription
 
-from core.runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
+from runtime.core.runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 from runtime.pipeline_manager import PipelineManager
 from runtime.webrtc.stream import InferenceVideoStreamTrack
 from services.schemas.webrtc import Answer, Offer

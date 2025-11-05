@@ -6,9 +6,9 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from core.components.schemas.reader import SourceType
 from db.models import ProjectDB, SourceDB
 from repositories.source import SourceRepository
+from runtime.core.components.schemas.reader import SourceType
 
 
 @pytest.fixture

@@ -8,14 +8,14 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from core.components.schemas.reader import SourceType, VideoFileConfig, WebCamConfig
-from core.runtime.dispatcher import ComponentConfigChangeEvent
 from exceptions.custom_errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ResourceType,
     ResourceUpdateConflictError,
 )
+from runtime.core.components.schemas.reader import SourceType, VideoFileConfig, WebCamConfig
+from runtime.core.runtime.dispatcher import ComponentConfigChangeEvent
 from services.schemas.source import SourceCreateSchema, SourceUpdateSchema
 from services.source import SourceService
 

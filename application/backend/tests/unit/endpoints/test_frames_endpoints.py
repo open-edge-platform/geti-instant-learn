@@ -9,7 +9,6 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 
-from core.runtime.errors import PipelineNotActiveError
 from dependencies import (
     SessionDep,
     get_frame_repository,
@@ -22,6 +21,7 @@ from dependencies import (
 from exceptions.custom_errors import ResourceNotFoundError, ResourceType, ServiceError
 from exceptions.handler import custom_exception_handler
 from routers import projects_router
+from runtime.core.runtime.errors import PipelineNotActiveError
 
 PROJECT_ID = uuid4()
 PROJECT_ID_STR = str(PROJECT_ID)

@@ -9,8 +9,6 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from core.components.schemas.reader import FrameListResponse, FrameMetadata
-from core.runtime.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher
 from db.constraints import UniqueConstraintName
 from db.models import ProjectDB, SourceDB
 from exceptions.custom_errors import (
@@ -22,6 +20,8 @@ from exceptions.custom_errors import (
 from exceptions.handler import extract_constraint_name
 from repositories.project import ProjectRepository
 from repositories.source import SourceRepository
+from runtime.core.components.schemas.reader import FrameListResponse, FrameMetadata
+from runtime.core.runtime.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher
 from services.schemas.mappers.source import (
     source_db_to_schema,
     source_schema_to_db,

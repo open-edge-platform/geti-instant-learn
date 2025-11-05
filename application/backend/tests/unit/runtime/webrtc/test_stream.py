@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from av import VideoFrame
 
-from core.components.schemas.processor import InputData
+from runtime.core.components.schemas.processor import InputData
 from runtime.webrtc.stream import InferenceVideoStreamTrack
 
 

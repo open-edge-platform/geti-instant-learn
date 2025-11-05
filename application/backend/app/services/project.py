@@ -8,13 +8,6 @@ from pydantic import TypeAdapter
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from core.components.schemas.reader import ReaderConfig
-from core.runtime.dispatcher import (
-    ConfigChangeDispatcher,
-    ProjectActivationEvent,
-    ProjectDeactivationEvent,
-)
-from core.runtime.schemas.pipeline import PipelineConfig
 from db.constraints import UniqueConstraintName
 from db.models import ProjectDB
 from exceptions.custom_errors import (
@@ -24,6 +17,13 @@ from exceptions.custom_errors import (
 )
 from exceptions.handler import extract_constraint_name
 from repositories.project import ProjectRepository
+from runtime.core.components.schemas.pipeline import PipelineConfig
+from runtime.core.components.schemas.reader import ReaderConfig
+from runtime.core.runtime.dispatcher import (
+    ConfigChangeDispatcher,
+    ProjectActivationEvent,
+    ProjectDeactivationEvent,
+)
 from services.schemas.mappers.project import (
     project_db_to_schema,
     project_schema_to_db,

@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 from aiortc import RTCPeerConnection, RTCSessionDescription
 
-from core.runtime.errors import PipelineProjectMismatchError
+from runtime.core.runtime.errors import PipelineProjectMismatchError
 from runtime.pipeline_manager import PipelineManager
 from runtime.webrtc.manager import WebRTCManager
 from services.schemas.webrtc import Answer, Offer

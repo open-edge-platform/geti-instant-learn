@@ -1,0 +1,216 @@
+from queue import Queue
+from typing import Any
+from unittest.mock import Mock, patch
+
+import pytest
+
+from runtime.core.components.broadcaster import FrameBroadcaster
+from runtime.core.components.factories.components import ComponentFactory
+from runtime.core.components.pipeline import Pipeline
+from runtime.core.components.processor import Processor
+from runtime.core.components.schemas.pipeline import PipelineConfig
+from runtime.core.components.schemas.processor import InputData, OutputData
+from runtime.core.components.sink import Sink
+from runtime.core.components.source import Source
+
+
+class MockComponentFactory(ComponentFactory):
+    """Mock implementation of ComponentFactory for testing."""
+
+    def __init__(self):
+        self.created_sources = []
+        self.created_processors = []
+        self.created_sinks = []
+
+    def create_source(self, reader_conf: Any, inbound_broadcaster: FrameBroadcaster[InputData]) -> Mock:
+        mock_source = Mock(spec=Source)
+        mock_source.stop = Mock()
+        self.created_sources.append((mock_source, reader_conf, inbound_broadcaster))
+        return mock_source
+
+    def create_processor(
+        self,
+        inbound_broadcaster: FrameBroadcaster[InputData],
+        outbound_broadcaster: FrameBroadcaster[OutputData],
+        model_config: Any,
+    ) -> Mock:
+        mock_processor = Mock(spec=Processor)
+        mock_processor.stop = Mock()
+        self.created_processors.append((mock_processor, inbound_broadcaster, outbound_broadcaster, model_config))
+        return mock_processor
+
+    def create_sink(self, outbound_broadcaster: FrameBroadcaster[OutputData], writer_conf: Any) -> Mock:
+        mock_sink = Mock(spec=Sink)
+        mock_sink.stop = Mock()
+        self.created_sinks.append((mock_sink, outbound_broadcaster, writer_conf))
+        return mock_sink
+
+
+@pytest.fixture
+def mock_config():
+    mock_config = Mock(spec=PipelineConfig)
+    mock_config.project_id = "test-project-123"
+    mock_config.reader = {"type": "test_source"}
+    mock_config.processor = {"type": "test_pipeline"}
+    mock_config.writer = {"type": "test_sink"}
+
+    mock_config.model_copy.return_value = mock_config
+
+    return mock_config
+
+
+@pytest.fixture
+def mock_factory():
+    return MockComponentFactory()
+
+
+class TestPipeline:
+    def test_pipeline_initialization_creates_components(self, mock_config, mock_factory):
+        pipeline = Pipeline(mock_config, component_factory=mock_factory)
+        pipeline.stop()
+        assert len(mock_factory.created_sources) == 1
+        assert len(mock_factory.created_processors) == 1
+        assert len(mock_factory.created_sinks) == 1
+
+        _, reader_conf, inbound_broadcaster = mock_factory.created_sources[0]
+
+        assert reader_conf == mock_config.reader
+        assert inbound_broadcaster is not None
+
+        _, proc_inbound, proc_outbound, _ = mock_factory.created_processors[0]
+        assert proc_inbound is inbound_broadcaster
+        assert proc_outbound is not None
+
+    def test_pipeline_registers_and_unregisters_inbound_consumer(self, mock_config, mock_factory):
+        pipeline = Pipeline(mock_config, component_factory=mock_factory)
+
+        consumer_queue = pipeline.register_inbound_consumer()
+        assert isinstance(consumer_queue, Queue)
+
+        pipeline.unregister_inbound_consumer(consumer_queue)
+
+        pipeline.stop()
+
+    def test_pipeline_start_creates_threads_for_all_components(self, mock_config, mock_factory):
+        pipelines = Pipeline(mock_config, component_factory=mock_factory)
+
+        with patch("runtime.core.components.pipeline.Thread") as mock_thread_class:
+            mock_thread_instances = [Mock() for _ in range(3)]
+            mock_thread_class.side_effect = mock_thread_instances
+
+            pipelines.start()
+
+            assert mock_thread_class.call_count == 3
+            for mock_thread in mock_thread_instances:
+                mock_thread.start.assert_called_once()
+
+    def test_pipeline_stop_stops_components_in_correct_order(self, mock_config, mock_factory):
+        pipeline = Pipeline(mock_config, component_factory=mock_factory)
+
+        with patch("runtime.core.components.pipeline.Thread"):
+            pipeline.start()
+
+        pipeline.stop()
+
+        source_mock = mock_factory.created_sources[0][0]
+        pipeline_mock = mock_factory.created_processors[0][0]
+        sink_mock = mock_factory.created_sinks[0][0]
+
+        source_mock.stop.assert_called_once()
+        pipeline_mock.stop.assert_called_once()
+        sink_mock.stop.assert_called_once()
+
+    def test_update_config_restarts_source_when_config_changes(self, mock_config, mock_factory):
+        pipeline = Pipeline(mock_config, component_factory=mock_factory)
+
+        new_config = Mock(spec=PipelineConfig)
+        new_config.project_id = mock_config.project_id
+        new_config.reader = {"type": "new_source"}  # Different config
+        new_config.processor = mock_config.processor  # Same
+        new_config.writer = mock_config.writer  # Same
+
+        with patch("runtime.core.components.pipeline.Thread") as mock_thread:
+            pipeline.start()
+            mock_thread.reset_mock()
+
+            pipeline.update_config(new_config)
+
+            # Should create one new source, adding 1 to a created source when the job started.
+            assert len(mock_factory.created_sources) == 2
+
+            # Verify the new source receives the same inbound broadcaster
+            _, _, first_broadcaster = mock_factory.created_sources[0]
+            _, _, second_broadcaster = mock_factory.created_sources[1]
+            assert first_broadcaster is second_broadcaster
+
+            # Should not create new pipeline or sink:
+            assert len(mock_factory.created_processors) == 1
+            assert len(mock_factory.created_sinks) == 1
+
+            # Should create one new thread for the restarted source
+            mock_thread.assert_called_once()
+
+    def test_update_config_no_restart_when_config_unchanged(self, mock_config, mock_factory):
+        pipeline = Pipeline(mock_config, component_factory=mock_factory)
+
+        # Same config
+        same_config = Mock(spec=PipelineConfig)
+        same_config.reader = mock_config.reader
+        same_config.processor = mock_config.processor
+        same_config.writer = mock_config.writer
+
+        with patch("runtime.core.components.pipeline.Thread"):
+            pipeline.start()
+
+            original_source = mock_factory.created_sources[0][0]
+            original_pipeline = mock_factory.created_processors[0][0]
+            original_sink = mock_factory.created_sinks[0][0]
+
+            # Clear creation tracking
+            mock_factory.created_sources.clear()
+            mock_factory.created_processors.clear()
+            mock_factory.created_sinks.clear()
+
+            pipeline.update_config(same_config)
+
+            # no new components should be created
+            assert len(mock_factory.created_sources) == 0
+            assert len(mock_factory.created_processors) == 0
+            assert len(mock_factory.created_sinks) == 0
+
+            # Original components should not be stopped
+            original_source.stop.assert_not_called()
+            original_pipeline.stop.assert_not_called()
+            original_sink.stop.assert_not_called()
+
+    def test_update_config_restarts_all_components(self, mock_config, mock_factory):
+        pipeline = Pipeline(mock_config, component_factory=mock_factory)
+
+        new_config = Mock(spec=PipelineConfig)
+        new_config.project_id = mock_config.project_id
+        new_config.reader = {"type": "new_source"}  # Different
+        new_config.processor = {"type": "new_pipeline"}  # Different
+        new_config.writer = {"type": "new_sink"}  # Different
+
+        with patch("runtime.core.components.pipeline.Thread"):
+            pipeline.start()
+
+            original_source = mock_factory.created_sources[0][0]
+            original_pipeline = mock_factory.created_processors[0][0]
+            original_sink = mock_factory.created_sinks[0][0]
+
+            # Clear creation tracking
+            mock_factory.created_sources.clear()
+            mock_factory.created_processors.clear()
+            mock_factory.created_sinks.clear()
+
+            pipeline.update_config(new_config)
+
+            assert len(mock_factory.created_sources) == 1
+            assert len(mock_factory.created_processors) == 1
+            assert len(mock_factory.created_sinks) == 1
+
+            # Original source and pipeline should be stopped
+            original_source.stop.assert_called_once()
+            original_pipeline.stop.assert_called_once()
+            original_sink.stop.assert_called_once()
