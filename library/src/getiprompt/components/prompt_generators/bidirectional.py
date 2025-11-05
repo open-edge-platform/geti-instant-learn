@@ -3,6 +3,7 @@
 
 """Bidirectional prompt generator."""
 
+from collections import defaultdict
 from logging import getLogger
 
 import torch
@@ -276,44 +277,29 @@ class BidirectionalPromptGenerator(PromptGenerator):
 
     @staticmethod
     def _merge_masks(reference_masks: list[Masks]) -> Masks:
-        """Concatenate the per-image masks in the *height* direction.
-
-        This is done so that, after .flatten(), patch-indices line up with the way reference
-        features are stacked.
+        """Merge n-shot masks into a single mask.
 
         Args:
             reference_masks: List[Masks] - List of reference masks, one per reference image instance
-
         Returns:
-            Masks - Merged masks
+            Masks: n-shot merged masks
         """
         if not reference_masks:
             return Masks()
 
-        device = next(iter(reference_masks[0].data.values())).device
-        n_images = len(reference_masks)
-        h, w = next(iter(reference_masks[0].data.values())).shape[-2:]
+        _, w = next(iter(reference_masks[0].data.values())).shape[-2:]
 
-        # All class-ids that appear anywhere
-        class_ids: set[int] = set()
-        for m in reference_masks:
-            class_ids.update(m.data.keys())
+        class_masks = defaultdict(list)
+        for mask in reference_masks:
+            for class_id, mask_tensor in mask.data.items():
+                class_masks[class_id].append(mask_tensor)
 
-        merged = Masks()
-        for cid in class_ids:
-            # Tall canvas: (1, h * n_images, w)
-            tall = torch.zeros((1, h * n_images, w), dtype=torch.bool, device=device)
+        merged_masks = Masks()
+        # Concatenate the masks for each class
+        for class_id, masks in class_masks.items():
+            merged_masks.add(torch.cat(masks).reshape(-1, w).unsqueeze(0), class_id)
 
-            for img_idx, m in enumerate(reference_masks):
-                if cid not in m.data:
-                    continue
-                block = m.data[cid].any(dim=0, keepdim=True)  # (1, h, w)
-                start = img_idx * h
-                tall[:, start : start + h, :] = block  # paste with OR
-
-            merged.add(tall, cid)
-
-        return merged
+        return merged_masks
 
     def _resize_similarity_map(self, similarity_map: torch.Tensor, ori_size: torch.Tensor) -> torch.Tensor:
         """Resize the similarity map to the original image size.
@@ -379,13 +365,10 @@ class BidirectionalPromptGenerator(PromptGenerator):
             h, w = target_image.shape[-2:]
 
             for class_id, mask in reference_masks.data.items():
-                # NOTE: why select index 0?
-                local_mean_reference_feature = reference_features.get_local_features(class_id)[0].mean(
-                    dim=0,
-                    keepdim=True,
-                )
-                local_mean_reference_feature /= local_mean_reference_feature.norm(dim=-1, keepdim=True)
-                local_similarity = local_mean_reference_feature @ target_feature.global_features.T
+                local_reference_feature = torch.cat(reference_features.get_local_features(class_id))
+                local_reference_feature = local_reference_feature.mean(dim=0, keepdim=True)
+                local_reference_feature /= local_reference_feature.norm(dim=-1, keepdim=True)
+                local_similarity = local_reference_feature @ target_feature.global_features.T
                 local_similarity = self._resize_similarity_map(local_similarity, target_image.shape[-2:])
                 similarities.add(local_similarity, class_id)
 
