@@ -44,11 +44,13 @@ export const ImagesFolder = ({ source }: ImagesFolderProps) => {
             createImagesFolderSource.mutate({
                 source_type: 'images_folder',
                 images_folder_path: folderPath,
+                seekable: true,
             });
         } else {
             updateImagesFolderSource.mutate(source.id, {
                 source_type: 'images_folder',
                 images_folder_path: folderPath,
+                seekable: true,
             });
         }
     };

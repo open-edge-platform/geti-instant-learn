@@ -19,6 +19,7 @@ const getImagesFolderSource = (
         id: '123',
         connected: source.connected ?? true,
         config: {
+            seekable: true,
             images_folder_path: source.imagesFolderPath ?? '',
             source_type: 'images_folder',
         },
@@ -121,6 +122,7 @@ describe('ImagesFolder', () => {
                 expect.objectContaining({
                     connected: true,
                     config: {
+                        seekable: true,
                         source_type: 'images_folder',
                         images_folder_path: imagesFolderPath,
                     },
@@ -163,6 +165,7 @@ describe('ImagesFolder', () => {
                 expect.objectContaining({
                     connected: true,
                     config: {
+                        seekable: true,
                         source_type: 'images_folder',
                         images_folder_path: imagesFolderPath,
                     },
