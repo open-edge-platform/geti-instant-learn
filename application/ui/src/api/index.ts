@@ -12,7 +12,7 @@ type SourceWithoutConfig = Omit<SchemaSourceSchema, 'config'>;
 
 type WebcamConfig = components['schemas']['WebCamConfig'];
 type VideoFileConfig = components['schemas']['VideoFileConfig'];
-type ImagesFolderConfig = components['schemas']['ImagesFolderConfig'];
+export type ImagesFolderConfig = components['schemas']['ImagesFolderConfig'];
 
 export type SourceConfig = WebcamConfig | VideoFileConfig | ImagesFolderConfig;
 

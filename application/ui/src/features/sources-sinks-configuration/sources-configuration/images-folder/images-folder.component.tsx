@@ -5,7 +5,7 @@
 
 import { FormEvent, useState } from 'react';
 
-import { ImagesFolderSourceType } from '@geti-prompt/api';
+import { ImagesFolderConfig, ImagesFolderSourceType } from '@geti-prompt/api';
 import { Button, TextField } from '@geti/ui';
 
 import { useCreateSource } from '../hooks/use-create-source';
@@ -31,18 +31,16 @@ export const ImagesFolder = ({ source }: ImagesFolderProps) => {
     const submit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
+        const config: ImagesFolderConfig = {
+            source_type: 'images_folder',
+            images_folder_path: folderPath,
+            seekable: true,
+        };
+
         if (source === undefined) {
-            createImagesFolderSource.mutate({
-                source_type: 'images_folder',
-                images_folder_path: folderPath,
-                seekable: true,
-            });
+            createImagesFolderSource.mutate(config);
         } else {
-            updateImagesFolderSource.mutate(source.id, {
-                source_type: 'images_folder',
-                images_folder_path: folderPath,
-                seekable: true,
-            });
+            updateImagesFolderSource.mutate(source.id, config);
         }
     };
 
