@@ -8,14 +8,14 @@ from typing import Annotated
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
-from db.engine import get_session
+from domain.db.engine import get_session
 from domain.dispatcher import ConfigChangeDispatcher
-from repositories.frame import FrameRepository
-from repositories.project import ProjectRepository
-from repositories.source import SourceRepository
+from domain.repositories.frame import FrameRepository
+from domain.repositories.project import ProjectRepository
+from domain.repositories.source import SourceRepository
+from domain.services import FrameService, LabelService, ProjectService, SourceService
 from runtime.pipeline_manager import PipelineManager
 from runtime.webrtc.manager import WebRTCManager
-from services import FrameService, LabelService, ProjectService, SourceService
 from settings import get_settings
 
 logger = logging.getLogger(__name__)

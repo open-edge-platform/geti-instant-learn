@@ -9,9 +9,9 @@ from uuid import UUID
 from aiortc import RTCPeerConnection, RTCSessionDescription
 
 from domain.errors import PipelineNotActiveError, PipelineProjectMismatchError
+from domain.services.schemas.webrtc import Answer, Offer
 from runtime.pipeline_manager import PipelineManager
 from runtime.webrtc.stream import InferenceVideoStreamTrack
-from services.schemas.webrtc import Answer, Offer
 
 logger = logging.getLogger(__name__)
 

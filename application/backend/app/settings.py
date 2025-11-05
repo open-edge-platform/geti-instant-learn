@@ -48,7 +48,7 @@ class Settings(BaseSettings):
 
     # Alembic
     alembic_config_path: str = str(current_dir / "alembic.ini")
-    alembic_script_location: str = str(current_dir / "alembic")
+    alembic_script_location: str = str(current_dir / "domain" / "alembic")
 
     # Proxy settings
     no_proxy: str = Field(default="localhost,127.0.0.1,::1", alias="no_proxy")

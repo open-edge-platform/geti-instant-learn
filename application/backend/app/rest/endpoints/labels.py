@@ -8,8 +8,8 @@ from uuid import UUID
 from fastapi import Query, Response, status
 
 from dependencies import LabelServiceDep
+from domain.services.schemas.label import LabelCreateSchema, LabelSchema, LabelsListSchema, LabelUpdateSchema
 from routers import projects_router
-from services.schemas.label import LabelCreateSchema, LabelSchema, LabelsListSchema, LabelUpdateSchema
 
 logger = logging.getLogger(__name__)
 

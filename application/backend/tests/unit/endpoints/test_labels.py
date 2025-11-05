@@ -10,11 +10,11 @@ from fastapi.testclient import TestClient
 from pydantic_extra_types.color import Color
 
 from dependencies import SessionDep, get_label_service
+from domain.services.schemas.base import Pagination
+from domain.services.schemas.label import LabelSchema, LabelsListSchema
 from exceptions.custom_errors import ResourceAlreadyExistsError, ResourceNotFoundError, ResourceType
 from exceptions.handler import custom_exception_handler
 from routers import projects_router
-from services.schemas.base import Pagination
-from services.schemas.label import LabelSchema, LabelsListSchema
 
 
 @pytest.fixture

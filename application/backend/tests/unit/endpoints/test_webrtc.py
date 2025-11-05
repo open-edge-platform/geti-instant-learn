@@ -10,10 +10,10 @@ from fastapi.testclient import TestClient
 
 from dependencies import get_webrtc_manager
 from domain.errors import PipelineNotActiveError, PipelineProjectMismatchError
+from domain.services.schemas.webrtc import Answer, Offer
 from exceptions.handler import custom_exception_handler
 from main import app
 from runtime.webrtc.manager import WebRTCManager
-from services.schemas.webrtc import Answer, Offer
 
 PROJECT_ID = uuid4()
 

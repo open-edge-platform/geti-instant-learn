@@ -10,9 +10,9 @@ from uuid import UUID
 from fastapi import Depends, status
 
 from dependencies import get_webrtc_manager as get_webrtc
+from domain.services.schemas.webrtc import Answer, Offer
 from routers import projects_router
 from runtime.webrtc.manager import WebRTCManager
-from services.schemas.webrtc import Answer, Offer
 
 logger = logging.getLogger(__name__)
 

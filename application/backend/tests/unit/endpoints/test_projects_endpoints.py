@@ -9,6 +9,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 
 from dependencies import SessionDep, get_config_dispatcher, get_project_service
+from domain.services.schemas.base import Pagination
+from domain.services.schemas.project import ProjectSchema, ProjectsListSchema
 from exceptions.custom_errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
@@ -16,8 +18,6 @@ from exceptions.custom_errors import (
 )
 from exceptions.handler import custom_exception_handler
 from routers import projects_router
-from services.schemas.base import Pagination
-from services.schemas.project import ProjectSchema, ProjectsListSchema
 
 PROJECT_ID = uuid4()
 PROJECT_ID_STR = str(PROJECT_ID)

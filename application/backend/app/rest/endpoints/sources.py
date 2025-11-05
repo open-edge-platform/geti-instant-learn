@@ -8,8 +8,8 @@ from uuid import UUID
 from fastapi import Response, status
 
 from dependencies import SourceServiceDep
+from domain.services.schemas.source import SourceCreateSchema, SourceSchema, SourcesListSchema, SourceUpdateSchema
 from routers import projects_router
-from services.schemas.source import SourceCreateSchema, SourceSchema, SourcesListSchema, SourceUpdateSchema
 
 logger = logging.getLogger(__name__)
 

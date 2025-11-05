@@ -6,9 +6,9 @@ import pytest
 from aiortc import RTCPeerConnection, RTCSessionDescription
 
 from domain.errors import PipelineProjectMismatchError
+from domain.services.schemas.webrtc import Answer, Offer
 from runtime.pipeline_manager import PipelineManager
 from runtime.webrtc.manager import WebRTCManager
-from services.schemas.webrtc import Answer, Offer
 
 PROJECT_ID = uuid4()
 
