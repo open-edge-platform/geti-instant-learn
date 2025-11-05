@@ -6,7 +6,7 @@
 import { FormEvent, useState } from 'react';
 
 import { ImagesFolderConfig, ImagesFolderSourceType } from '@geti-prompt/api';
-import { Button, TextField } from '@geti/ui';
+import { Button, Content, ContextualHelp, Heading, Text, TextField } from '@geti/ui';
 
 import { useCreateSource } from '../hooks/use-create-source';
 import { useUpdateSource } from '../hooks/use-update-source';
@@ -14,6 +14,22 @@ import { useUpdateSource } from '../hooks/use-update-source';
 interface ImagesFolderProps {
     source: ImagesFolderSourceType | undefined;
 }
+
+const FolderPathDescription = () => {
+    return (
+        <ContextualHelp variant='info'>
+            <Heading>What is a folder path?</Heading>
+            <Content>
+                <Text>
+                    A folder path is the location of a directory on your system.
+                    <br />
+                    Enter the absolute path (e.g. /Users/username/images) or relative path (e.g. ./data/images) to the
+                    folder containing your images.
+                </Text>
+            </Content>
+        </ContextualHelp>
+    );
+};
 
 export const ImagesFolder = ({ source }: ImagesFolderProps) => {
     const [folderPath, setFolderPath] = useState(source?.config?.images_folder_path ?? '');
@@ -51,12 +67,7 @@ export const ImagesFolder = ({ source }: ImagesFolderProps) => {
                 value={folderPath}
                 onChange={setFolderPath}
                 width={'100%'}
-                description={
-                    isFolderPathValid
-                        ? undefined
-                        : // eslint-disable-next-line max-len
-                          'Enter the absolute or relative path to the folder containing images (e.g., /home/user/images or ./data/images)'
-                }
+                contextualHelp={<FolderPathDescription />}
             />
 
             <Button
