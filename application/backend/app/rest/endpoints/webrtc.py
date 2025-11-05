@@ -11,8 +11,8 @@ from fastapi import Depends, status
 
 from dependencies import get_webrtc_manager as get_webrtc
 from routers import projects_router
+from runtime.webrtc.manager import WebRTCManager
 from services.schemas.webrtc import Answer, Offer
-from webrtc.manager import WebRTCManager
 
 logger = logging.getLogger(__name__)
 

@@ -7,8 +7,8 @@ from aiortc import RTCPeerConnection, RTCSessionDescription
 
 from core.runtime.errors import PipelineProjectMismatchError
 from runtime.pipeline_manager import PipelineManager
+from runtime.webrtc.manager import WebRTCManager
 from services.schemas.webrtc import Answer, Offer
-from webrtc.manager import WebRTCManager
 
 PROJECT_ID = uuid4()
 
@@ -38,8 +38,8 @@ def sample_offer():
 async def test_handle_offer_success(webrtc_manager, mock_pipeline_manager, sample_offer):
     """Test successful offer handling with matching project IDs."""
     with (
-        patch("webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection,
-        patch("webrtc.manager.InferenceVideoStreamTrack") as MockTrack,
+        patch("runtime.webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection,
+        patch("runtime.webrtc.manager.InferenceVideoStreamTrack") as MockTrack,
     ):
         mock_pc = AsyncMock(spec=RTCPeerConnection)
         mock_pc.localDescription = Mock(sdp="answer-sdp", type="answer")
@@ -76,8 +76,8 @@ async def test_handle_offer_project_id_mismatch(webrtc_manager, mock_pipeline_ma
 async def test_handle_offer_creates_video_track(webrtc_manager, mock_pipeline_manager, sample_offer):
     """Test that video track is added to the peer connection."""
     with (
-        patch("webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection,
-        patch("webrtc.manager.InferenceVideoStreamTrack") as MockTrack,
+        patch("runtime.webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection,
+        patch("runtime.webrtc.manager.InferenceVideoStreamTrack") as MockTrack,
     ):
         mock_pc = AsyncMock(spec=RTCPeerConnection)
         mock_pc.localDescription = Mock(sdp="answer-sdp", type="answer")
@@ -95,8 +95,8 @@ async def test_handle_offer_creates_video_track(webrtc_manager, mock_pipeline_ma
 async def test_handle_offer_registers_connection_state_handler(webrtc_manager, mock_pipeline_manager, sample_offer):
     """Test that connection state change handler is registered."""
     with (
-        patch("webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection,
-        patch("webrtc.manager.InferenceVideoStreamTrack") as MockTrack,
+        patch("runtime.webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection,
+        patch("runtime.webrtc.manager.InferenceVideoStreamTrack") as MockTrack,
     ):
         mock_pc = AsyncMock(spec=RTCPeerConnection)
         mock_pc.localDescription = Mock(sdp="answer-sdp", type="answer")
@@ -112,8 +112,8 @@ async def test_handle_offer_registers_connection_state_handler(webrtc_manager, m
 async def test_handle_offer_sets_remote_description(webrtc_manager, mock_pipeline_manager, sample_offer):
     """Test that remote description is set from the offer."""
     with (
-        patch("webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection,
-        patch("webrtc.manager.InferenceVideoStreamTrack") as MockTrack,
+        patch("runtime.webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection,
+        patch("runtime.webrtc.manager.InferenceVideoStreamTrack") as MockTrack,
     ):
         mock_pc = AsyncMock(spec=RTCPeerConnection)
         mock_pc.localDescription = Mock(sdp="answer-sdp", type="answer")
@@ -133,9 +133,9 @@ async def test_handle_offer_sets_remote_description(webrtc_manager, mock_pipelin
 async def test_cleanup_connection_disposes_queue(webrtc_manager, mock_pipeline_manager, sample_offer):
     """Test that cleanup_connection properly disposes the queue."""
     with (
-        patch("webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection,
-        patch("webrtc.manager.InferenceVideoStreamTrack") as MockTrack,
-        patch("webrtc.manager.isinstance", return_value=True),
+        patch("runtime.webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection,
+        patch("runtime.webrtc.manager.InferenceVideoStreamTrack") as MockTrack,
+        patch("runtime.webrtc.manager.isinstance", return_value=True),
     ):
         # Setup mocks
         mock_track = Mock()
@@ -177,9 +177,9 @@ async def test_cleanup_connection_disposes_queue(webrtc_manager, mock_pipeline_m
 async def test_connection_state_change_triggers_cleanup(webrtc_manager, mock_pipeline_manager, sample_offer):
     """Test that connection state change to 'failed' or 'closed' triggers cleanup."""
     with (
-        patch("webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection,
-        patch("webrtc.manager.InferenceVideoStreamTrack") as MockTrack,
-        patch("webrtc.manager.isinstance", return_value=True),
+        patch("runtime.webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection,
+        patch("runtime.webrtc.manager.InferenceVideoStreamTrack") as MockTrack,
+        patch("runtime.webrtc.manager.isinstance", return_value=True),
     ):
         # Setup mocks
         mock_track = Mock()
@@ -239,9 +239,9 @@ async def test_cleanup_all_connections(webrtc_manager, mock_pipeline_manager):
     offers = [Offer(webrtc_id=f"conn-{i}", sdp="v=0\r\n", type="offer") for i in range(num_connections)]
 
     with (
-        patch("webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection,
-        patch("webrtc.manager.InferenceVideoStreamTrack") as MockTrack,
-        patch("webrtc.manager.isinstance", return_value=True),
+        patch("runtime.webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection,
+        patch("runtime.webrtc.manager.InferenceVideoStreamTrack") as MockTrack,
+        patch("runtime.webrtc.manager.isinstance", return_value=True),
     ):
         # Setup mocks
         mock_track = Mock()

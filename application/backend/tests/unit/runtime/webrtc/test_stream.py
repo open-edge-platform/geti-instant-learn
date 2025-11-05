@@ -9,7 +9,7 @@ import pytest
 from av import VideoFrame
 
 from core.components.schemas.processor import InputData
-from webrtc.stream import InferenceVideoStreamTrack
+from runtime.webrtc.stream import InferenceVideoStreamTrack
 
 
 @pytest.fixture

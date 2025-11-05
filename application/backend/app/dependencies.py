@@ -14,9 +14,9 @@ from repositories.frame import FrameRepository
 from repositories.project import ProjectRepository
 from repositories.source import SourceRepository
 from runtime.pipeline_manager import PipelineManager
+from runtime.webrtc.manager import WebRTCManager
 from services import FrameService, LabelService, ProjectService, SourceService
 from settings import get_settings
-from webrtc.manager import WebRTCManager
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

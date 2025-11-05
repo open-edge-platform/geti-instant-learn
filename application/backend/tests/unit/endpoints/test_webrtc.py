@@ -12,8 +12,8 @@ from core.runtime.errors import PipelineNotActiveError, PipelineProjectMismatchE
 from dependencies import get_webrtc_manager
 from exceptions.handler import custom_exception_handler
 from main import app
+from runtime.webrtc.manager import WebRTCManager
 from services.schemas.webrtc import Answer, Offer
-from webrtc.manager import WebRTCManager
 
 PROJECT_ID = uuid4()
 
