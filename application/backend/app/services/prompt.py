@@ -13,7 +13,8 @@ from exceptions.custom_errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ResourceType,
-    ServiceError, ResourceUpdateConflictError,
+    ResourceUpdateConflictError,
+    ServiceError,
 )
 from exceptions.handler import extract_constraint_name
 from repositories.frame import FrameRepository
@@ -289,7 +290,7 @@ class PromptService:
                 resource_id=str(prompt_id),
                 field="type",
                 message=f"Cannot change prompt type from {prompt.type} to {update_data.type}. "
-                "Delete and recreate the prompt instead."
+                "Delete and recreate the prompt instead.",
             )
 
         logger.debug(

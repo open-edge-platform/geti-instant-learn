@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from collections.abc import Iterable
-from typing import Any
 from uuid import UUID, uuid4
 
 from db.models import AnnotationDB, PromptDB, PromptType

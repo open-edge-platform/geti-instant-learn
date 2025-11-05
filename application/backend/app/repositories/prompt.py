@@ -51,10 +51,7 @@ class PromptRepository(BaseRepository):
         stmt = (
             select(PromptDB)
             .where(PromptDB.id == prompt_id, PromptDB.project_id == project_id)
-            .options(
-                joinedload(PromptDB.annotations),
-                joinedload(PromptDB.labels)
-            )
+            .options(joinedload(PromptDB.annotations), joinedload(PromptDB.labels))
         )
         return self.session.scalars(stmt).unique().first()
 
