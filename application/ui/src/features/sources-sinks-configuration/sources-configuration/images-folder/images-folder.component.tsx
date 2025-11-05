@@ -6,13 +6,10 @@
 import { FormEvent, useState } from 'react';
 
 import { ImagesFolderSourceType } from '@geti-prompt/api';
-import { Folder } from '@geti-prompt/icons';
-import { ActionButton, Button, Flex, TextField } from '@geti/ui';
+import { Button, TextField } from '@geti/ui';
 
 import { useCreateSource } from '../hooks/use-create-source';
 import { useUpdateSource } from '../hooks/use-update-source';
-
-import styles from './images-folder.module.scss';
 
 interface ImagesFolderProps {
     source: ImagesFolderSourceType | undefined;
@@ -23,19 +20,13 @@ export const ImagesFolder = ({ source }: ImagesFolderProps) => {
     const createImagesFolderSource = useCreateSource();
     const updateImagesFolderSource = useUpdateSource();
 
+    const isFolderPathValid = folderPath.trim().length > 0;
+
     const isApplyDisabled =
-        folderPath.trim().length === 0 ||
+        !isFolderPathValid ||
         createImagesFolderSource.isPending ||
         updateImagesFolderSource.isPending ||
         (folderPath === source?.config?.images_folder_path && source?.connected);
-
-    const showDirectoryPicker = async () => {
-        if (window.showDirectoryPicker === undefined) return;
-
-        const handle = await window.showDirectoryPicker();
-
-        setFolderPath(handle.name);
-    };
 
     const submit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -57,17 +48,18 @@ export const ImagesFolder = ({ source }: ImagesFolderProps) => {
 
     return (
         <form onSubmit={submit}>
-            <Flex alignItems={'end'} gap={'size-50'}>
-                <TextField label={'Folder path'} value={folderPath} onChange={setFolderPath} flex={1} />
-                <ActionButton
-                    isQuiet
-                    aria-label={'Select folder'}
-                    UNSAFE_className={styles.imagesFolderButton}
-                    onPress={showDirectoryPicker}
-                >
-                    <Folder />
-                </ActionButton>
-            </Flex>
+            <TextField
+                label={'Folder path'}
+                value={folderPath}
+                onChange={setFolderPath}
+                width={'100%'}
+                description={
+                    isFolderPathValid
+                        ? undefined
+                        : // eslint-disable-next-line max-len
+                          'Enter the absolute or relative path to the folder containing images (e.g., /home/user/images or ./data/images)'
+                }
+            />
 
             <Button
                 type={'submit'}
