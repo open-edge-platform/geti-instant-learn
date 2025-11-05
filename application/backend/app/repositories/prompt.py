@@ -5,7 +5,7 @@ import logging
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from db.models import PromptDB, PromptType
@@ -51,7 +51,10 @@ class PromptRepository(BaseRepository):
         stmt = (
             select(PromptDB)
             .where(PromptDB.id == prompt_id, PromptDB.project_id == project_id)
-            .options(joinedload(PromptDB.annotations))
+            .options(
+                joinedload(PromptDB.annotations),
+                joinedload(PromptDB.labels)
+            )
         )
         return self.session.scalars(stmt).unique().first()
 
@@ -75,21 +78,33 @@ class PromptRepository(BaseRepository):
         )
         return self.session.scalars(stmt).unique().first()
 
-    def get_by_name_and_project(self, name: str, project_id: UUID) -> PromptDB | None:
-        """
-        Retrieve a prompt by name within a project.
-        """
-        logger.debug(f"Fetching prompt name={name} in project_id={project_id}")
-        stmt = (
-            select(PromptDB)
-            .where(PromptDB.name == name, PromptDB.project_id == project_id)
-            .options(joinedload(PromptDB.annotations))
-        )
-        return self.session.scalars(stmt).unique().first()
-
     def delete(self, prompt: PromptDB) -> None:
         """
         Mark a PromptDB entity for deletion (not committed).
         """
         logger.debug(f"Deleting prompt id={prompt.id} project_id={prompt.project_id}")
         self.session.delete(prompt)
+
+    def get_paginated(self, project_id: UUID, offset: int = 0, limit: int = 10) -> tuple[Sequence[PromptDB], int]:
+        """
+        Retrieve prompts with pagination.
+
+        Returns:
+            A tuple of (prompts, total_count)
+        """
+        logger.debug(f"Fetching prompts for project_id={project_id} with offset={offset}, limit={limit}")
+
+        prompts_query = (
+            select(PromptDB)
+            .where(PromptDB.project_id == project_id)
+            .options(joinedload(PromptDB.annotations), joinedload(PromptDB.labels))
+            .offset(offset)
+            .limit(limit)
+        )
+
+        total_count_query = select(func.count()).select_from(PromptDB).where(PromptDB.project_id == project_id)
+
+        prompts = self.session.scalars(prompts_query).unique().all()
+        total_count = self.session.scalar(total_count_query) or 0
+
+        return prompts, total_count

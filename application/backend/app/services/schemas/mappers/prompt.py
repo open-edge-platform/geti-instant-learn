@@ -6,11 +6,14 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from db.models import AnnotationDB, PromptDB, PromptType
+from services.schemas.annotation import Annotation
 from services.schemas.prompt import (
     PromptCreateSchema,
     PromptSchema,
+    PromptUpdateSchema,
     TextPromptCreateSchema,
     TextPromptSchema,
+    TextPromptUpdateSchema,
     VisualPromptSchema,
 )
 
@@ -24,20 +27,14 @@ def prompt_db_to_schema(prompt: PromptDB) -> PromptSchema:
         return TextPromptSchema(
             id=prompt.id,
             type=PromptType.TEXT,
-            name=prompt.name,
             content=prompt.text or "",
-            project_id=prompt.project_id,
         )
-    # PromptType.VISUAL
-    # Extract annotations from the relationship - config is already a dict that Pydantic will parse
-    annotations: list[Any] = [ann.config for ann in prompt.annotations]
+    annotations: list[Annotation] = [ann.config for ann in prompt.annotations]
     return VisualPromptSchema(
         id=prompt.id,
         type=PromptType.VISUAL,
-        name=prompt.name,
-        frame_id=prompt.frame_id or UUID(int=0),  # Should never be None due to constraint
-        annotations=annotations,  # type: ignore[arg-type]
-        project_id=prompt.project_id,
+        frame_id=prompt.frame_id,
+        annotations=annotations,
     )
 
 
@@ -52,34 +49,30 @@ def prompt_create_schema_to_db(schema: PromptCreateSchema, project_id: UUID) -> 
     """
     Create a new PromptDB (unpersisted) from schema.
     project_id should be injected by service layer.
+    Note: label_id will be handled separately in the service layer.
     """
-    prompt_id = uuid4()
-
     if isinstance(schema, TextPromptCreateSchema):
         prompt_db = PromptDB(
-            id=prompt_id,
+            id=schema.id,
             type=PromptType.TEXT,
-            name=schema.name,
             text=schema.content,
             frame_id=None,
             project_id=project_id,
             annotations=[],
         )
-    else:  # VisualPromptCreateSchema
-        # Create annotation entities from the schema
+    else:
         annotation_entities = [
             AnnotationDB(
                 id=uuid4(),
                 config=ann.model_dump(),
-                prompt_id=prompt_id,
+                prompt_id=schema.id,
             )
             for ann in schema.annotations
         ]
 
         prompt_db = PromptDB(
-            id=prompt_id,
+            id=schema.id,
             type=PromptType.VISUAL,
-            name=schema.name,
             text=None,
             frame_id=schema.frame_id,
             project_id=project_id,
@@ -87,3 +80,27 @@ def prompt_create_schema_to_db(schema: PromptCreateSchema, project_id: UUID) -> 
         )
 
     return prompt_db
+
+
+def prompt_update_schema_to_db(prompt_db: PromptDB, schema: PromptUpdateSchema) -> None:
+    """
+    Update an existing PromptDB instance from an update schema.
+    For visual prompts, annotations are replaced if provided.
+    """
+    if isinstance(schema, TextPromptUpdateSchema):
+        if schema.content is not None:
+            prompt_db.text = schema.content
+    else:
+        if schema.frame_id is not None:
+            prompt_db.frame_id = schema.frame_id
+
+        if schema.annotations is not None:
+            # replace existing annotations with new ones
+            prompt_db.annotations.clear()
+            for ann in schema.annotations:
+                annotation_entity = AnnotationDB(
+                    id=uuid4(),
+                    config=ann.model_dump(),
+                    prompt_id=prompt_db.id,
+                )
+                prompt_db.annotations.append(annotation_entity)
