@@ -66,12 +66,17 @@ def upgrade() -> None:
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.ForeignKeyConstraint(['project_id'], ['Project.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
-    op.create_index(UniqueConstraintName.SINGLE_TEXT_PROMPT_PER_PROJECT,
-                    'Prompt', ['project_id', 'type'], unique=True,
-                    sqlite_where=sa.text("type = 'TEXT'")),
-    sa.CheckConstraint("(type = 'TEXT' AND text IS NOT NULL AND frame_id IS NULL) OR "
-                       "(type = 'VISUAL' AND frame_id IS NOT NULL AND text IS NULL)",
-                       name=CheckConstraintName.PROMPT_CONTENT)
+    sa.CheckConstraint(
+        "(type = 'TEXT' AND text IS NOT NULL AND frame_id IS NULL) OR "
+        "(type = 'VISUAL' AND frame_id IS NOT NULL AND text IS NULL)",
+        name=CheckConstraintName.PROMPT_CONTENT)
+    )
+    op.create_index(
+        UniqueConstraintName.SINGLE_TEXT_PROMPT_PER_PROJECT,
+        'Prompt',
+        ['project_id', 'type'],
+        unique=True,
+        sqlite_where=sa.text("type = 'TEXT'")
     )
 
     op.create_table('Sink',
