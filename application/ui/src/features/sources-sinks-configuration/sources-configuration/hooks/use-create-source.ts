@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api } from '@geti-prompt/api';
+import { $api, SourceConfig } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { v4 as uuid } from 'uuid';
 
-export const useCreateWebcamSource = () => {
+export const useCreateSource = () => {
     const { projectId } = useProjectIdentifier();
-    const createWebcamSourceMutation = $api.useMutation('post', '/api/v1/projects/{project_id}/sources', {
+    const createSourceMutation = $api.useMutation('post', '/api/v1/projects/{project_id}/sources', {
         meta: {
             invalidates: [
                 [
@@ -27,16 +27,12 @@ export const useCreateWebcamSource = () => {
         },
     });
 
-    const createWebcamSource = (deviceId: number) => {
-        createWebcamSourceMutation.mutate({
+    const createSource = (config: SourceConfig) => {
+        createSourceMutation.mutate({
             body: {
                 id: uuid(),
                 connected: true,
-                config: {
-                    seekable: false,
-                    source_type: 'webcam',
-                    device_id: deviceId,
-                },
+                config,
             },
             params: {
                 path: {
@@ -47,7 +43,7 @@ export const useCreateWebcamSource = () => {
     };
 
     return {
-        mutate: createWebcamSource,
-        isPending: createWebcamSourceMutation.isPending,
+        mutate: createSource,
+        isPending: createSourceMutation.isPending,
     };
 };

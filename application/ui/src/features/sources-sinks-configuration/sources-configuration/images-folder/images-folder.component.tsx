@@ -3,23 +3,31 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { FormEvent, useState } from 'react';
 
-import { ImagesFolderConfig } from '@geti-prompt/api';
+import { ImagesFolderSourceType } from '@geti-prompt/api';
 import { Folder } from '@geti-prompt/icons';
-import { ActionButton, Button, Flex, TextField, View } from '@geti/ui';
+import { ActionButton, Button, Flex, TextField } from '@geti/ui';
+
+import { useCreateSource } from '../hooks/use-create-source';
+import { useUpdateSource } from '../hooks/use-update-source';
 
 import styles from './images-folder.module.scss';
 
 interface ImagesFolderProps {
-    source: ImagesFolderConfig | undefined;
+    source: ImagesFolderSourceType | undefined;
 }
 
 export const ImagesFolder = ({ source }: ImagesFolderProps) => {
     const [folderPath, setFolderPath] = useState(source?.config?.images_folder_path ?? '');
+    const createImagesFolderSource = useCreateSource();
+    const updateImagesFolderSource = useUpdateSource();
 
     const isApplyDisabled =
-        folderPath.trim().length === 0 || (folderPath === source?.config?.images_folder_path && source?.connected);
+        folderPath.trim().length === 0 ||
+        createImagesFolderSource.isPending ||
+        updateImagesFolderSource.isPending ||
+        (folderPath === source?.config?.images_folder_path && source?.connected);
 
     const showDirectoryPicker = async () => {
         if (window.showDirectoryPicker === undefined) return;
@@ -29,8 +37,26 @@ export const ImagesFolder = ({ source }: ImagesFolderProps) => {
         setFolderPath(handle.name);
     };
 
+    const submit = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        if (source !== undefined) {
+            updateImagesFolderSource.mutate(source.id, {
+                source_type: 'images_folder',
+                images_folder_path: folderPath,
+            });
+
+            return;
+        }
+
+        createImagesFolderSource.mutate({
+            source_type: 'images_folder',
+            images_folder_path: folderPath,
+        });
+    };
+
     return (
-        <View>
+        <form onSubmit={submit}>
             <Flex alignItems={'end'} gap={'size-50'}>
                 <TextField label={'Folder path'} value={folderPath} onChange={setFolderPath} flex={1} />
                 <ActionButton
@@ -43,7 +69,13 @@ export const ImagesFolder = ({ source }: ImagesFolderProps) => {
                 </ActionButton>
             </Flex>
 
-            <Button variant={'accent'} isDisabled={isApplyDisabled} marginTop={'size-200'}>
+            <Button
+                type={'submit'}
+                variant={'accent'}
+                isDisabled={isApplyDisabled}
+                isPending={createImagesFolderSource.isPending || updateImagesFolderSource.isPending}
+                marginTop={'size-200'}
+            >
                 Apply
             </Button>
         </form>

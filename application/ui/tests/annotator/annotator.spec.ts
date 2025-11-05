@@ -3,14 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { WebcamConfig } from '@geti-prompt/api';
+import { WebcamSourceType } from '@geti-prompt/api';
 import { expect, http, test } from '@geti-prompt/test-fixtures';
 
 import { registerApiLabels } from '../labels/mocks';
 import { initializeWebRTC } from '../prompt/initialize-webrtc';
 
 const DEVICE_ID = 10;
-const WEBCAM_SOURCE: WebcamConfig = {
+const WEBCAM_SOURCE: WebcamSourceType = {
     connected: true,
     id: 'webcam-id',
     config: {
