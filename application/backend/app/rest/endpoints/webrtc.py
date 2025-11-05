@@ -9,9 +9,9 @@ from uuid import UUID
 
 from fastapi import Depends, status
 
-from dependencies import get_webrtc_manager as get_webrtc
+from dependencies import get_webrtc_manager
 from domain.services.schemas.webrtc import Answer, Offer
-from routers import projects_router
+from rest.routers import projects_router
 from runtime.webrtc.manager import WebRTCManager
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
     },
 )
 async def create_webrtc_offer(
-    project_id: UUID, offer: Offer, webrtc_manager: Annotated[WebRTCManager, Depends(get_webrtc)]
+    project_id: UUID, offer: Offer, webrtc_manager: Annotated[WebRTCManager, Depends(get_webrtc_manager)]
 ) -> Answer:
     """Create a WebRTC offer"""
     return await webrtc_manager.handle_offer(project_id=project_id, offer=offer)

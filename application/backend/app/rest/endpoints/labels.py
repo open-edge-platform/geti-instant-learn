@@ -9,7 +9,7 @@ from fastapi import Query, Response, status
 
 from dependencies import LabelServiceDep
 from domain.services.schemas.label import LabelCreateSchema, LabelSchema, LabelsListSchema, LabelUpdateSchema
-from routers import projects_router
+from rest.routers import projects_router
 
 logger = logging.getLogger(__name__)
 

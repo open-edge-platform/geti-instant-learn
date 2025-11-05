@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from dependencies import FrameServiceDep, FrameServiceWithQueueDep
-from routers import projects_router
+from rest.routers import projects_router
 
 logger = logging.getLogger(__name__)
 

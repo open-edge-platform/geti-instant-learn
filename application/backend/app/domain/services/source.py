@@ -31,7 +31,7 @@ from domain.services.schemas.source import (
     SourcesListSchema,
     SourceUpdateSchema,
 )
-from exceptions.handler import extract_constraint_name
+from rest.handler import extract_constraint_name
 from runtime.core.components.schemas.reader import FrameListResponse, FrameMetadata
 
 logger = logging.getLogger(__name__)

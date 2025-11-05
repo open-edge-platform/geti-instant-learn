@@ -13,8 +13,8 @@ from dependencies import SessionDep, get_label_service
 from domain.errors import ResourceAlreadyExistsError, ResourceNotFoundError, ResourceType
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.label import LabelSchema, LabelsListSchema
-from exceptions.handler import custom_exception_handler
-from routers import projects_router
+from rest.handler import custom_exception_handler
+from rest.routers import projects_router
 
 
 @pytest.fixture

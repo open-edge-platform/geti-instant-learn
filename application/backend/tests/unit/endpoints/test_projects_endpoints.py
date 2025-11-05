@@ -16,8 +16,8 @@ from domain.errors import (
 )
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.project import ProjectSchema, ProjectsListSchema
-from exceptions.handler import custom_exception_handler
-from routers import projects_router
+from rest.handler import custom_exception_handler
+from rest.routers import projects_router
 
 PROJECT_ID = uuid4()
 PROJECT_ID_STR = str(PROJECT_ID)

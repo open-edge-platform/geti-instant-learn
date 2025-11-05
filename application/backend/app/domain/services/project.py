@@ -32,7 +32,7 @@ from domain.services.schemas.project import (
     ProjectsListSchema,
     ProjectUpdateSchema,
 )
-from exceptions.handler import extract_constraint_name
+from rest.handler import extract_constraint_name
 from runtime.core.components.schemas.pipeline import PipelineConfig
 from runtime.core.components.schemas.reader import ReaderConfig
 

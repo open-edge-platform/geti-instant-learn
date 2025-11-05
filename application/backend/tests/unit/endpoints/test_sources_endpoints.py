@@ -16,8 +16,8 @@ from domain.errors import (
     ResourceUpdateConflictError,
 )
 from domain.services.schemas.source import SourceSchema, SourcesListSchema
-from exceptions.handler import custom_exception_handler
-from routers import projects_router
+from rest.handler import custom_exception_handler
+from rest.routers import projects_router
 from runtime.core.components.schemas.reader import SourceType, WebCamConfig
 
 PROJECT_ID = uuid4()

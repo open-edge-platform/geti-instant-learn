@@ -23,7 +23,7 @@ from domain.services.schemas.label import (
     LabelUpdateSchema,
 )
 from domain.services.schemas.mappers.label import label_db_to_schema, label_schema_to_db, labels_db_to_list_items
-from exceptions.handler import extract_constraint_name
+from rest.handler import extract_constraint_name
 
 logger = logging.getLogger(__name__)
 

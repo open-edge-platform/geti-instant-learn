@@ -9,7 +9,7 @@ from fastapi import Response, status
 
 from dependencies import SourceServiceDep
 from domain.services.schemas.source import SourceCreateSchema, SourceSchema, SourcesListSchema, SourceUpdateSchema
-from routers import projects_router
+from rest.routers import projects_router
 
 logger = logging.getLogger(__name__)
 

@@ -19,8 +19,8 @@ from dependencies import (
     get_source_repository,
 )
 from domain.errors import ResourceNotFoundError, ResourceType, ServiceError
-from exceptions.handler import custom_exception_handler
-from routers import projects_router
+from rest.handler import custom_exception_handler
+from rest.routers import projects_router
 from runtime.errors import PipelineNotActiveError
 
 PROJECT_ID = uuid4()

@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import Response, status
 
-from routers import projects_router
+from rest.routers import projects_router
 
 logger = logging.getLogger(__name__)
 

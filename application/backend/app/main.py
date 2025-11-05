@@ -16,8 +16,8 @@ from fastapi.staticfiles import StaticFiles
 import rest.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
 from domain.db.engine import get_session_factory, run_db_migrations
 from domain.dispatcher import ConfigChangeDispatcher
-from exceptions.handler import custom_exception_handler
-from routers import projects_router
+from rest.handler import custom_exception_handler
+from rest.routers import projects_router
 from runtime.pipeline_manager import PipelineManager
 from runtime.webrtc.manager import WebRTCManager
 from settings import get_settings

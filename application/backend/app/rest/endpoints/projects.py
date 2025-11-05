@@ -8,13 +8,8 @@ from uuid import UUID
 from fastapi import Query, Response, status
 
 from dependencies import ProjectServiceDep
-from domain.services.schemas.project import (
-    ProjectCreateSchema,
-    ProjectSchema,
-    ProjectsListSchema,
-    ProjectUpdateSchema,
-)
-from routers import projects_router
+from domain.services.schemas.project import ProjectCreateSchema, ProjectSchema, ProjectsListSchema, ProjectUpdateSchema
+from rest.routers import projects_router
 
 logger = logging.getLogger(__name__)
 
