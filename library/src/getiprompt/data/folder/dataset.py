@@ -248,4 +248,3 @@ def make_folder_dataframe(
     df = df.drop(["_is_ref_sort", "_n_shot_sort"])
 
     return df
-

@@ -6,4 +6,3 @@
 from .dataset import FolderDataset
 
 __all__ = ["FolderDataset"]
-

@@ -1,8 +1,8 @@
-# FSS-1000: A 1000 Class Dataset for Few-shot Segmentation 
+# FSS-1000: A 1000 Class Dataset for Few-shot Segmentation
 
 <img src='examples/example.png' align="left">
 
-We provide our dataset and PyTorch implementation for relation network benchmark. Details are in our [paper](https://arxiv.org/abs/1907.12347). 
+We provide our dataset and PyTorch implementation for relation network benchmark. Details are in our [paper](https://arxiv.org/abs/1907.12347).
 
 ## Prerequisites
 - Linux or macOS
@@ -22,12 +22,12 @@ First, download pretrained model [here](https://drive.google.com/open?id=1Vk0Pq8
 python autolabel.py -sd imgs/example/support -td imgs/example/query
 ```
 
-- Set option ```-sd``` to the support directory and the script will input them as support set. 
+- Set option ```-sd``` to the support directory and the script will input them as support set.
 - Set option ```-td``` to the path of your query images.
 - Results will be saved under ```./results```
-  
+
 ### Testing your own data
-- Label 5 support images following the format in ```imgs/example/support/```.  
+- Label 5 support images following the format in ```imgs/example/support/```.
 - Set your support and query path accordingly.
 
 ### Training

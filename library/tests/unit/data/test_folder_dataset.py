@@ -4,15 +4,13 @@
 """Unit tests for Folder dataset functionality."""
 
 from pathlib import Path
-from typing import Any
 from unittest.mock import MagicMock, patch
 
-import numpy as np
 import polars as pl
 import pytest
 import torch
 
-from getiprompt.data.base import Batch, Dataset, Sample
+from getiprompt.data.base import Batch, Sample
 from getiprompt.data.folder import FolderDataset
 
 
@@ -507,4 +505,3 @@ class TestFolderDatasetEdgeCases:
         # The first sample should be reference
         assert sample0["is_reference"][0] is True
         assert sample1["is_reference"][0] is True
-
