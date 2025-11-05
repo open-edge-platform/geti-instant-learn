@@ -34,7 +34,7 @@ const PLACEHOLDER_LABEL: LabelType = { id: 'placeholder', name: 'No label', colo
 
 export const AnnotatorProvider = ({ frameId, children }: { frameId: string; children: ReactNode }) => {
     const labels = useProjectLabels();
-    const [activeTool, setActiveTool] = useState<ToolType | null>(null);
+    const [activeTool, setActiveTool] = useState<ToolType | null>('sam');
     const [selectedLabelId, setSelectedLabelId] = useState<string>(PLACEHOLDER_LABEL.id);
 
     const imageQuery = useLoadImageQuery(frameId);

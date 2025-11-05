@@ -56,8 +56,6 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
     });
 
     await test.step('Adds annotation', async () => {
-        await annotatorPage.startSAM();
-
         await expect(page.getByText('Processing image, please wait...')).toBeVisible({
             timeout: ANNOTATOR_PAGE_TIMEOUT,
         });
