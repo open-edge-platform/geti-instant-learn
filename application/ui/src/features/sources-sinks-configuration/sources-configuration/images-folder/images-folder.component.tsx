@@ -40,19 +40,17 @@ export const ImagesFolder = ({ source }: ImagesFolderProps) => {
     const submit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
-        if (source !== undefined) {
+        if (source === undefined) {
+            createImagesFolderSource.mutate({
+                source_type: 'images_folder',
+                images_folder_path: folderPath,
+            });
+        } else {
             updateImagesFolderSource.mutate(source.id, {
                 source_type: 'images_folder',
                 images_folder_path: folderPath,
             });
-
-            return;
         }
-
-        createImagesFolderSource.mutate({
-            source_type: 'images_folder',
-            images_folder_path: folderPath,
-        });
     };
 
     return (

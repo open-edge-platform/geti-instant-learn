@@ -39,19 +39,17 @@ export const WebcamSource = ({ source }: WebcamSourceProps) => {
 
         const deviceId = parseInt(selectedDeviceId);
 
-        if (source !== undefined) {
+        if (source === undefined) {
+            createWebcamSource.mutate({
+                source_type: 'webcam',
+                device_id: deviceId,
+            });
+        } else {
             updateWebcamSource.mutate(source.id, {
                 source_type: 'webcam',
                 device_id: deviceId,
             });
-
-            return;
         }
-
-        createWebcamSource.mutate({
-            source_type: 'webcam',
-            device_id: deviceId,
-        });
     };
 
     if (!data.active) {
