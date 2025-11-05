@@ -36,7 +36,7 @@ class Settings(BaseSettings):
 
     # Database
     current_dir: Path = Path(__file__).parent.resolve()
-    db_data_dir: Path = Field(default=current_dir / "data", alias="DB_DATA_DIR")
+    db_data_dir: Path = Field(default=current_dir.parent / ".data", alias="DB_DATA_DIR")
     db_filename: str = "geti_prompt.db"
 
     @property
