@@ -14,6 +14,7 @@ const WEBCAM_SOURCE: WebcamConfig = {
     connected: true,
     id: 'webcam-id',
     config: {
+        seekable: false,
         device_id: DEVICE_ID,
         source_type: 'webcam',
     },

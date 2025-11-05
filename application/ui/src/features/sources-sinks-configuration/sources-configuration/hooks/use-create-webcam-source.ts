@@ -33,6 +33,7 @@ export const useCreateWebcamSource = () => {
                 id: uuid(),
                 connected: true,
                 config: {
+                    seekable: false,
                     source_type: 'webcam',
                     device_id: deviceId,
                 },

@@ -31,6 +31,7 @@ export const useUpdateWebcamSource = () => {
             body: {
                 connected: true,
                 config: {
+                    seekable: false,
                     source_type: 'webcam',
                     device_id: deviceId,
                 },
