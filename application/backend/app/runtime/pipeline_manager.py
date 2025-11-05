@@ -8,16 +8,16 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from runtime.core.components.pipeline import Pipeline
-from runtime.core.components.schemas.processor import InputData
-from runtime.core.runtime.dispatcher import (
+from domain.dispatcher import (
     ComponentConfigChangeEvent,
     ConfigChangeDispatcher,
     ConfigChangeEvent,
     ProjectActivationEvent,
     ProjectDeactivationEvent,
 )
-from runtime.core.runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
+from domain.errors import PipelineNotActiveError, PipelineProjectMismatchError
+from runtime.core.components.pipeline import Pipeline
+from runtime.core.components.schemas.processor import InputData
 from services.project import ProjectService
 
 logger = logging.getLogger(__name__)

@@ -8,9 +8,9 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+from domain.dispatcher import ProjectActivationEvent, ProjectDeactivationEvent
 from exceptions.custom_errors import ResourceAlreadyExistsError, ResourceNotFoundError
 from runtime.core.components.schemas.pipeline import PipelineConfig
-from runtime.core.runtime.dispatcher import ProjectActivationEvent, ProjectDeactivationEvent
 from services.project import ProjectService
 from services.schemas.project import ProjectCreateSchema, ProjectSchema, ProjectUpdateSchema
 

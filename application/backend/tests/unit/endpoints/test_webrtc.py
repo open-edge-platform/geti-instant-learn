@@ -9,9 +9,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 
 from dependencies import get_webrtc_manager
+from domain.errors import PipelineNotActiveError, PipelineProjectMismatchError
 from exceptions.handler import custom_exception_handler
 from main import app
-from runtime.core.runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 from runtime.webrtc.manager import WebRTCManager
 from services.schemas.webrtc import Answer, Offer
 

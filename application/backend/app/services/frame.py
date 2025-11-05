@@ -7,12 +7,12 @@ from pathlib import Path
 from queue import Empty, Queue
 from uuid import UUID
 
+from domain.errors import PipelineNotActiveError
 from exceptions.custom_errors import ResourceNotFoundError, ResourceType, ServiceError
 from repositories.frame import FrameRepository
 from repositories.project import ProjectRepository
 from repositories.source import SourceRepository
 from runtime.core.components.schemas.processor import InputData
-from runtime.core.runtime.errors import PipelineNotActiveError
 
 logger = logging.getLogger(__name__)
 

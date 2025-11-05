@@ -7,14 +7,14 @@ from uuid import uuid4
 
 import pytest
 
-from runtime.core.components.schemas.pipeline import PipelineConfig
-from runtime.core.runtime.dispatcher import (
+from domain.dispatcher import (
     ComponentConfigChangeEvent,
     ConfigChangeDispatcher,
     ProjectActivationEvent,
     ProjectDeactivationEvent,
 )
-from runtime.core.runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
+from domain.errors import PipelineNotActiveError, PipelineProjectMismatchError
+from runtime.core.components.schemas.pipeline import PipelineConfig
 from runtime.pipeline_manager import PipelineManager
 
 

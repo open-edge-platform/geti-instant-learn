@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-from runtime.core.runtime.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher
+from domain.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher
 
 
 @pytest.fixture

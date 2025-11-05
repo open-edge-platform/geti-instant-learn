@@ -10,6 +10,11 @@ from sqlalchemy.orm import Session
 
 from db.constraints import UniqueConstraintName
 from db.models import ProjectDB
+from domain.dispatcher import (
+    ConfigChangeDispatcher,
+    ProjectActivationEvent,
+    ProjectDeactivationEvent,
+)
 from exceptions.custom_errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
@@ -19,11 +24,6 @@ from exceptions.handler import extract_constraint_name
 from repositories.project import ProjectRepository
 from runtime.core.components.schemas.pipeline import PipelineConfig
 from runtime.core.components.schemas.reader import ReaderConfig
-from runtime.core.runtime.dispatcher import (
-    ConfigChangeDispatcher,
-    ProjectActivationEvent,
-    ProjectDeactivationEvent,
-)
 from services.schemas.mappers.project import (
     project_db_to_schema,
     project_schema_to_db,
