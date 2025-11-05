@@ -3,32 +3,48 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { getMockedLabel } from '@geti-prompt/mocks';
-import { render } from '@geti-prompt/test-utils';
+import { getMockedLabel, render } from '@geti-prompt/test-utils';
 import { fireEvent, screen } from '@testing-library/react';
+import { ZoomState } from 'src/components/zoom/types';
+import { useZoom } from 'src/components/zoom/zoom.provider';
 
 import { Label } from '../types';
 import { AnnotationLabels } from './annotation-labels.component';
 
-const mockZoom = { scale: 1, maxZoomIn: 10, hasAnimation: false, translate: { x: 0, y: 0 } };
+const mockZoom: ZoomState = {
+    scale: 1,
+    maxZoomIn: 10,
+    hasAnimation: false,
+    translate: { x: 0, y: 0 },
+    initialCoordinates: { x: 0, y: 0, scale: 1 },
+};
 
 vi.mock('src/components/zoom/zoom.provider', () => ({
-    useZoom: () => mockZoom,
+    useZoom: vi.fn(),
 }));
+
+const renderAnnotationLabels = (labels: Label[], onRemove: (id: string) => void) => {
+    render(
+        <svg>
+            <AnnotationLabels labels={labels} onRemove={onRemove} />
+        </svg>
+    );
+};
 
 describe('AnnotationLabels', () => {
     const mockOnRemove = vi.fn();
 
+    beforeEach(() => {
+        vi.mocked(useZoom).mockReturnValue(mockZoom);
+    });
+
     afterEach(() => {
         mockOnRemove.mockClear();
+        vi.clearAllMocks();
     });
 
     it('renders placeholder when no labels provided', () => {
-        render(
-            <svg>
-                <AnnotationLabels labels={[]} onRemove={mockOnRemove} />
-            </svg>
-        );
+        renderAnnotationLabels([], mockOnRemove);
 
         expect(screen.getByText('No label')).toBeInTheDocument();
     });
@@ -36,61 +52,48 @@ describe('AnnotationLabels', () => {
     it('renders single label with name and color', () => {
         const label = getMockedLabel({ name: 'Person', color: '#FF0000' });
 
-        render(
-            <svg>
-                <AnnotationLabels labels={[label]} onRemove={mockOnRemove} />
-            </svg>
-        );
+        renderAnnotationLabels([label], mockOnRemove);
 
-        expect(screen.getByText('Person')).toBeInTheDocument();
+        expect(screen.getByText(label.name)).toBeInTheDocument();
 
-        const rect = screen.getByLabelText('label Person background');
-        expect(rect).toHaveAttribute('fill', '#FF0000');
+        const rect = screen.getByLabelText(`label ${label.name} background`);
+        expect(rect).toHaveAttribute('fill', label.color);
     });
 
-    it('renders multiple labels horizontally', () => {
+    it('renders multiple labels', () => {
         const labels: Label[] = [
             getMockedLabel({ id: '1', name: 'Person', color: '#FF0000' }),
             getMockedLabel({ id: '2', name: 'Car', color: '#00FF00' }),
         ];
 
-        render(
-            <svg>
-                <AnnotationLabels labels={labels} onRemove={mockOnRemove} />
-            </svg>
-        );
+        renderAnnotationLabels(labels, mockOnRemove);
 
-        expect(screen.getByText('Person')).toBeInTheDocument();
-        expect(screen.getByText('Car')).toBeInTheDocument();
+        expect(screen.getByText(labels[0].name)).toBeInTheDocument();
+        expect(screen.getByText(labels[1].name)).toBeInTheDocument();
     });
 
     it('calls onRemove when close button clicked', () => {
         const label = getMockedLabel({ id: 'label-1', name: 'Person' });
 
-        render(
-            <svg>
-                <AnnotationLabels labels={[label]} onRemove={mockOnRemove} />
-            </svg>
-        );
+        renderAnnotationLabels([label], mockOnRemove);
 
-        const closeButton = screen.getByLabelText('Remove Person');
+        const closeButton = screen.getByLabelText(`Remove ${label.name}`);
         fireEvent.pointerDown(closeButton);
 
         expect(mockOnRemove).toHaveBeenCalledTimes(1);
-        expect(mockOnRemove).toHaveBeenCalledWith('label-1');
+        expect(mockOnRemove).toHaveBeenCalledWith(label.id);
     });
 
     it('adjusts sizes based on zoom scale', () => {
-        mockZoom.scale = 2;
+        const newMockZoom: ZoomState = { ...mockZoom, scale: 2 };
+
+        vi.mocked(useZoom).mockReturnValue(newMockZoom);
+
         const label = getMockedLabel({ name: 'Person' });
 
-        render(
-            <svg>
-                <AnnotationLabels labels={[label]} onRemove={mockOnRemove} />
-            </svg>
-        );
+        renderAnnotationLabels([label], mockOnRemove);
 
-        const text = screen.getByLabelText('label Person');
+        const text = screen.getByLabelText(`label ${label.name}`);
 
         // Font size should be 14 / 2 = 7
         expect(text).toHaveAttribute('font-size', '7');
@@ -106,7 +109,7 @@ describe('AnnotationLabels', () => {
             </svg>
         );
 
-        const closeButton = screen.getByLabelText('Remove Person');
+        const closeButton = screen.getByLabelText(`Remove ${label.name}`);
         fireEvent.pointerDown(closeButton);
 
         expect(mockOnRemove).toHaveBeenCalled();
@@ -120,14 +123,10 @@ describe('AnnotationLabels', () => {
             getMockedLabel({ id: '2', name: 'B', color: '#00FF00' }),
         ];
 
-        render(
-            <svg>
-                <AnnotationLabels labels={labels} onRemove={mockOnRemove} />
-            </svg>
-        );
+        renderAnnotationLabels(labels, mockOnRemove);
 
-        const firstRect = screen.getByLabelText('label A background');
-        const secondRect = screen.getByLabelText('label B background');
+        const firstRect = screen.getByLabelText(`label ${labels[0].name} background`);
+        const secondRect = screen.getByLabelText(`label ${labels[1].name} background`);
 
         const firstX = parseFloat(firstRect.getAttribute('x') || '0');
         const secondX = parseFloat(secondRect.getAttribute('x') || '0');
