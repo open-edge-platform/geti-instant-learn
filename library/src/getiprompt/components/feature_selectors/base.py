@@ -27,9 +27,7 @@ class FeatureSelector(nn.Module, ABC):
     """
 
     @staticmethod
-    def get_all_local_class_features(
-        features_per_image: list[Features],
-    ) -> dict[int, list[torch.Tensor]]:
+    def get_all_local_class_features(features_per_image: list[Features]) -> dict[int, list[torch.Tensor]]:
         """This method gets all features for all classes over all images.
 
         Args:

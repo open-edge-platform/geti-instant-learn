@@ -6,7 +6,6 @@
 # ruff: noqa: ANN002, ANN003
 
 import time
-from collections.abc import Callable
 from logging import getLogger
 from typing import Any
 
@@ -159,8 +158,6 @@ def benchmark_inference(
     )
     logger.debug(msg)
     return avg_duration
-
-
 
 
 def _monkey_patch_preprocess(predictor: SamPredictor | SamHQPredictor, dtype: torch.dtype) -> None:

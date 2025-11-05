@@ -61,8 +61,6 @@ class AllFeaturesSelector(FeatureSelector):
             dim=0,
         )
         result_features.global_features = global_features
-        result_features.local_features = self.get_all_local_class_features(
-            features_per_image,
-        )
+        result_features.local_features = self.get_all_local_class_features(features_per_image)
 
         return result_features
