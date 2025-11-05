@@ -18,10 +18,10 @@ from dependencies import (
     get_project_repository,
     get_source_repository,
 )
-from domain.errors import PipelineNotActiveError
 from exceptions.custom_errors import ResourceNotFoundError, ResourceType, ServiceError
 from exceptions.handler import custom_exception_handler
 from routers import projects_router
+from runtime.errors import PipelineNotActiveError
 
 PROJECT_ID = uuid4()
 PROJECT_ID_STR = str(PROJECT_ID)

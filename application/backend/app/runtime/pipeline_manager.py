@@ -15,10 +15,10 @@ from domain.dispatcher import (
     ProjectActivationEvent,
     ProjectDeactivationEvent,
 )
-from domain.errors import PipelineNotActiveError, PipelineProjectMismatchError
 from domain.services.project import ProjectService
 from runtime.core.components.pipeline import Pipeline
 from runtime.core.components.schemas.processor import InputData
+from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 
 logger = logging.getLogger(__name__)
 
