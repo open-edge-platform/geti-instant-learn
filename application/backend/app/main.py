@@ -18,7 +18,7 @@ from core.runtime.dispatcher import ConfigChangeDispatcher
 from db.engine import get_session_factory, run_db_migrations
 from exceptions.handler import custom_exception_handler
 from routers import projects_router
-from services.pipeline_manager import PipelineManager
+from runtime.pipeline_manager import PipelineManager
 from settings import get_settings
 from webrtc.manager import WebRTCManager
 

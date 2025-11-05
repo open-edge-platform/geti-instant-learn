@@ -13,8 +13,8 @@ from db.engine import get_session
 from repositories.frame import FrameRepository
 from repositories.project import ProjectRepository
 from repositories.source import SourceRepository
+from runtime.pipeline_manager import PipelineManager
 from services import FrameService, LabelService, ProjectService, SourceService
-from services.pipeline_manager import PipelineManager
 from settings import get_settings
 from webrtc.manager import WebRTCManager
 

@@ -6,7 +6,7 @@ import pytest
 from aiortc import RTCPeerConnection, RTCSessionDescription
 
 from core.runtime.errors import PipelineProjectMismatchError
-from services.pipeline_manager import PipelineManager
+from runtime.pipeline_manager import PipelineManager
 from services.schemas.webrtc import Answer, Offer
 from webrtc.manager import WebRTCManager
 
