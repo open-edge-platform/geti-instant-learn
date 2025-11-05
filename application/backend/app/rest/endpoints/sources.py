@@ -12,7 +12,6 @@ from routers import projects_router
 from services.schemas.source import SourceCreateSchema, SourceSchema, SourcesListSchema, SourceUpdateSchema
 
 logger = logging.getLogger(__name__)
-MOCK_FILE = "/geti_prompt/html/assets/test.webp"
 
 
 @projects_router.get(

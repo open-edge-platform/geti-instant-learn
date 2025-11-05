@@ -3,6 +3,7 @@
 
 import base64
 import logging
+import os
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -35,7 +36,7 @@ from services.schemas.source import (
 
 logger = logging.getLogger(__name__)
 
-MOCK_FILE = "/geti_prompt/html/assets/test.webp"
+MOCK_FILE = os.getenv("MOCKED_FILE", os.path.join(os.path.dirname(__file__), "../../../ui/src/assets/test.webp"))
 
 
 class SourceService:

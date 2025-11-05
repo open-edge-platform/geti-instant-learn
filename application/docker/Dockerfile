@@ -72,11 +72,13 @@ ARG DB_DATA_DIR=""
 ENV DB_DATA_DIR=${DB_DATA_DIR}
 ARG ASSET_PREFIX=""
 ENV ASSET_PREFIX=${ASSET_PREFIX}
+ARG MOCKED_FILE=""
+ENV MOCKED_FILE=${MOCKED_FILE}
 
 VOLUME ${DB_DATA_DIR}
 
 COPY --from=web_ui /home/app/web_ui/dist/ ${STATIC_FILES_DIR}
 # temporary file for testing
-COPY --from=web_ui /home/app/web_ui/src/assets/test.webp ${STATIC_FILES_DIR}/assets/test.webp
+COPY --from=web_ui /home/app/web_ui/src/assets/test.webp ${MOCKED_FILE}
 
 CMD ["uv", "run", "app/main.py"]

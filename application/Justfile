@@ -26,6 +26,7 @@ asset-prefix := "/html"
 data-dir := "/data"
 static-files-dir := workdir-path + asset-prefix
 db-data-dir := workdir-path + data-dir
+mocked-file := static-files-dir + "/assets/test.webp"
 
 # -------------------------------------------------------------------------------------------------
 # Proxy settings
@@ -54,6 +55,7 @@ build-image:
         --build-arg DB_DATA_DIR={{ db-data-dir }} \
         --build-arg ASSET_PREFIX={{ asset-prefix }} \
         --build-arg WORKDIR_PATH={{ workdir-path }} \
+        --build-arg MOCKED_FILE={{ mocked-file }} \
         --tag "{{ docker-image }}" \
         --file docker/Dockerfile .
 
