@@ -29,4 +29,6 @@ export {
     type SchemaLabelSchema as LabelType,
     type SchemaLabelsListSchema as LabelListType,
     type paths,
+    type SchemaSourceCreateSchema as SourceCreateType,
+    type SchemaSourceUpdateSchema as SourceUpdateType,
 } from './openapi-spec';
