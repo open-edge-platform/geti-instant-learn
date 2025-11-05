@@ -2,5 +2,5 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-This module defines additional integration test configuration
+Root integration test configuration
 """
