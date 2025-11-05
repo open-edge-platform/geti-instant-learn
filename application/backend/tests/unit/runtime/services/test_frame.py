@@ -11,9 +11,9 @@ import numpy as np
 import pytest
 
 from domain.errors import PipelineNotActiveError
-from domain.services.frame import FrameService
 from exceptions.custom_errors import ResourceNotFoundError, ResourceType, ServiceError
 from runtime.core.components.schemas.processor import InputData
+from runtime.services.frame import FrameService
 
 
 @pytest.fixture

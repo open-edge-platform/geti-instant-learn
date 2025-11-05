@@ -13,8 +13,9 @@ from domain.dispatcher import ConfigChangeDispatcher
 from domain.repositories.frame import FrameRepository
 from domain.repositories.project import ProjectRepository
 from domain.repositories.source import SourceRepository
-from domain.services import FrameService, LabelService, ProjectService, SourceService
+from domain.services import LabelService, ProjectService, SourceService
 from runtime.pipeline_manager import PipelineManager
+from runtime.services.frame import FrameService
 from runtime.webrtc.manager import WebRTCManager
 from settings import get_settings
 
