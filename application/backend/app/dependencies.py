@@ -9,12 +9,12 @@ from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
 from core.runtime.dispatcher import ConfigChangeDispatcher
-from core.runtime.pipeline_manager import PipelineManager
 from db.engine import get_session
 from repositories.frame import FrameRepository
 from repositories.project import ProjectRepository
 from repositories.source import SourceRepository
 from services import FrameService, LabelService, ProjectService, SourceService
+from services.pipeline_manager import PipelineManager
 from settings import get_settings
 from webrtc.manager import WebRTCManager
 

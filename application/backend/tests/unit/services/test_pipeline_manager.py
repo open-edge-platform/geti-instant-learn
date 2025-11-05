@@ -14,8 +14,8 @@ from core.runtime.dispatcher import (
     ProjectDeactivationEvent,
 )
 from core.runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
-from core.runtime.pipeline_manager import PipelineManager
 from core.runtime.schemas.pipeline import PipelineConfig
+from services.pipeline_manager import PipelineManager
 
 
 class FakeSessionCtx:
@@ -63,8 +63,8 @@ class TestPipelineManager:
         active_uuid = uuid4()
 
         with (
-            patch("core.runtime.pipeline_manager.ProjectService") as svc_cls,
-            patch("core.runtime.pipeline_manager.Pipeline") as pipeline_cls,
+            patch("services.pipeline_manager.ProjectService") as svc_cls,
+            patch("services.pipeline_manager.Pipeline") as pipeline_cls,
         ):
             svc_inst = svc_cls.return_value
             # Active project returns config
@@ -82,8 +82,8 @@ class TestPipelineManager:
 
     def test_start_without_active_project_only_subscribes(self, dispatcher, session_factory):
         with (
-            patch("core.runtime.pipeline_manager.ProjectService") as svc_cls,
-            patch("core.runtime.pipeline_manager.Pipeline") as pipeline_cls,
+            patch("services.pipeline_manager.ProjectService") as svc_cls,
+            patch("services.pipeline_manager.Pipeline") as pipeline_cls,
         ):
             svc_inst = svc_cls.return_value
             svc_inst.get_active_pipeline_config.return_value = None
@@ -98,8 +98,8 @@ class TestPipelineManager:
 
     def test_on_activation_event_starts_new_pipeline(self, dispatcher, session_factory):
         with (
-            patch("core.runtime.pipeline_manager.ProjectService") as svc_cls,
-            patch("core.runtime.pipeline_manager.Pipeline") as pipeline_cls,
+            patch("services.pipeline_manager.ProjectService") as svc_cls,
+            patch("services.pipeline_manager.Pipeline") as pipeline_cls,
         ):
             svc_inst = svc_cls.return_value
             pid = uuid4()
@@ -117,8 +117,8 @@ class TestPipelineManager:
 
     def test_on_activation_replaces_existing_pipeline(self, dispatcher, session_factory):
         with (
-            patch("core.runtime.pipeline_manager.ProjectService") as svc_cls,
-            patch("core.runtime.pipeline_manager.Pipeline") as pipeline_cls,
+            patch("services.pipeline_manager.ProjectService") as svc_cls,
+            patch("services.pipeline_manager.Pipeline") as pipeline_cls,
         ):
             # Existing pipeline
             old_pipeline = Mock()
@@ -140,7 +140,7 @@ class TestPipelineManager:
             assert mgr._pipeline == pipeline_cls.return_value
 
     def test_on_deactivation_stops_matching_pipeline(self, dispatcher, session_factory):
-        with patch("core.runtime.pipeline_manager.ProjectService"), patch("core.runtime.pipeline_manager.Pipeline"):
+        with patch("services.pipeline_manager.ProjectService"), patch("services.pipeline_manager.Pipeline"):
             pid = uuid4()
             running = Mock()
             running.config.project_id = pid
@@ -155,7 +155,7 @@ class TestPipelineManager:
             assert mgr._pipeline is None
 
     def test_on_deactivation_ignores_non_matching_pipeline(self, dispatcher, session_factory):
-        with patch("core.runtime.pipeline_manager.ProjectService"), patch("core.runtime.pipeline_manager.Pipeline"):
+        with patch("services.pipeline_manager.ProjectService"), patch("services.pipeline_manager.Pipeline"):
             running = Mock()
             running.config.project_id = uuid4()
             mgr = PipelineManager(dispatcher, session_factory)
@@ -168,7 +168,7 @@ class TestPipelineManager:
             assert mgr._pipeline is running
 
     def test_on_component_update_applies_config_for_matching_project(self, dispatcher, session_factory):
-        with patch("core.runtime.pipeline_manager.ProjectService") as svc_cls:
+        with patch("services.pipeline_manager.ProjectService") as svc_cls:
             pid = uuid4()
             running = Mock()
             running.config.project_id = pid
@@ -186,7 +186,7 @@ class TestPipelineManager:
             running.update_config.assert_called_once_with(new_cfg)
 
     def test_on_component_update_ignores_mismatch(self, dispatcher, session_factory):
-        with patch("core.runtime.pipeline_manager.ProjectService") as svc_cls:
+        with patch("services.pipeline_manager.ProjectService") as svc_cls:
             pid_running = uuid4()
             pid_event = uuid4()
             running = Mock()
@@ -218,7 +218,7 @@ class TestPipelineManager:
         assert mgr._pipeline is None
 
     def test_register_inbound_consumer_success(self, dispatcher, session_factory):
-        with patch("core.runtime.pipeline_manager.ProjectService"), patch("core.runtime.pipeline_manager.Pipeline"):
+        with patch("services.pipeline_manager.ProjectService"), patch("services.pipeline_manager.Pipeline"):
             pid = uuid4()
             mock_pipeline = Mock()
             mock_pipeline.config.project_id = pid
@@ -241,7 +241,7 @@ class TestPipelineManager:
             mgr.register_inbound_consumer(uuid4())
 
     def test_register_inbound_consumer_project_mismatch(self, dispatcher, session_factory):
-        with patch("core.runtime.pipeline_manager.ProjectService"), patch("core.runtime.pipeline_manager.Pipeline"):
+        with patch("services.pipeline_manager.ProjectService"), patch("services.pipeline_manager.Pipeline"):
             pid_running = uuid4()
             pid_requested = uuid4()
 
@@ -255,7 +255,7 @@ class TestPipelineManager:
                 mgr.register_inbound_consumer(pid_requested)
 
     def test_unregister_inbound_consumer_success(self, dispatcher, session_factory):
-        with patch("core.runtime.pipeline_manager.ProjectService"), patch("core.runtime.pipeline_manager.Pipeline"):
+        with patch("services.pipeline_manager.ProjectService"), patch("services.pipeline_manager.Pipeline"):
             pid = uuid4()
             mock_pipeline = Mock()
             mock_pipeline.config.project_id = pid
@@ -276,7 +276,7 @@ class TestPipelineManager:
             mgr.unregister_inbound_consumer(uuid4(), Queue())
 
     def test_unregister_inbound_consumer_project_mismatch(self, dispatcher, session_factory):
-        with patch("core.runtime.pipeline_manager.ProjectService"), patch("core.runtime.pipeline_manager.Pipeline"):
+        with patch("services.pipeline_manager.ProjectService"), patch("services.pipeline_manager.Pipeline"):
             pid_running = uuid4()
             pid_requested = uuid4()
 
