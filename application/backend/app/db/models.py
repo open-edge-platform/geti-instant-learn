@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-
+from enum import StrEnum
 from uuid import UUID, uuid4
 
 from sqlalchemy import CheckConstraint, ForeignKey, Index, Text, UniqueConstraint
@@ -9,7 +9,6 @@ from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from db.constraints import CheckConstraintName, UniqueConstraintName
-from services.schemas.prompt import PromptType
 
 
 class Base(DeclarativeBase):
@@ -76,6 +75,13 @@ class SinkDB(Base):
     config: Mapped[dict] = mapped_column(JSON, nullable=False)
     project_id: Mapped[UUID] = mapped_column(ForeignKey("Project.id", ondelete="CASCADE"))
     project: Mapped["ProjectDB"] = relationship(back_populates="sinks", single_parent=True)
+
+
+class PromptType(StrEnum):
+    """Enum for different types of prompts."""
+
+    TEXT = "TEXT"
+    VISUAL = "VISUAL"
 
 
 class PromptDB(Base):

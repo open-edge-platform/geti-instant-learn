@@ -1,27 +1,20 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from db.models import PromptType
 from services.schemas.annotation import Annotation
 from services.schemas.base import BaseIDPayload, BaseIDSchema, Pagination
-
-
-class PromptType(StrEnum):
-    """Enum for different types of prompts."""
-
-    TEXT = "TEXT"
-    VISUAL = "VISUAL"
 
 
 class TextPromptCreateSchema(BaseIDPayload):
     """Schema for creating a text prompt."""
 
-    type: Literal[PromptType.TEXT]
+    type: Literal[PromptType.TEXT]  # type: ignore[valid-type]
     content: str = Field(..., description="Text content of the prompt", min_length=1)
     label_id: UUID | None = Field(None, description="Optional label ID to associate with the prompt")
 
@@ -39,7 +32,7 @@ class TextPromptCreateSchema(BaseIDPayload):
 class VisualPromptCreateSchema(BaseIDPayload):
     """Schema for creating a visual prompt."""
 
-    type: Literal[PromptType.VISUAL]
+    type: Literal[PromptType.VISUAL]  # type: ignore[valid-type]
     frame_id: UUID = Field(..., description="ID of the frame to use for the prompt")
     annotations: list[Annotation] = Field(..., description="List of annotations for the prompt", min_length=1)
     label_id: UUID | None = Field(None, description="Optional label ID to associate with the prompt")
@@ -67,7 +60,7 @@ PromptCreateSchema = Annotated[TextPromptCreateSchema | VisualPromptCreateSchema
 class TextPromptUpdateSchema(BaseModel):
     """Schema for updating a text prompt."""
 
-    type: Literal[PromptType.TEXT]
+    type: Literal[PromptType.TEXT]  # type: ignore[valid-type]
     content: str | None = Field(None, description="Text content of the prompt", min_length=1)
     label_id: UUID | None = Field(None, description="Optional label ID to associate with the prompt")
 
@@ -85,7 +78,7 @@ class TextPromptUpdateSchema(BaseModel):
 class VisualPromptUpdateSchema(BaseModel):
     """Schema for updating a visual prompt."""
 
-    type: Literal[PromptType.VISUAL]
+    type: Literal[PromptType.VISUAL]  # type: ignore[valid-type]
     frame_id: UUID | None = Field(None, description="ID of the frame to use for the prompt")
     annotations: list[Annotation] | None = Field(None, description="List of annotations for the prompt", min_length=1)
     label_id: UUID | None = Field(None, description="Optional label ID to associate with the prompt")
@@ -113,14 +106,14 @@ PromptUpdateSchema = Annotated[TextPromptUpdateSchema | VisualPromptUpdateSchema
 class TextPromptSchema(BaseIDSchema):
     """Schema for a text prompt response."""
 
-    type: Literal[PromptType.TEXT]
+    type: Literal[PromptType.TEXT]  # type: ignore[valid-type]
     content: str
 
 
 class VisualPromptSchema(BaseIDSchema):
     """Schema for a visual prompt response."""
 
-    type: Literal[PromptType.VISUAL]
+    type: Literal[PromptType.VISUAL]  # type: ignore[valid-type]
     frame_id: UUID
     annotations: list[Annotation]
 
