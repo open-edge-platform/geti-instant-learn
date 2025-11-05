@@ -520,4 +520,3 @@ class TestLocalFeatureExtractor:
         # Check pooled mask shape
         pooled_mask = masks_list[0].data[1]
         pytest.assume(pooled_mask.shape == (1, patches_per_dim, patches_per_dim))
-
