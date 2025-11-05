@@ -7,10 +7,10 @@ from pathlib import Path
 from queue import Empty, Queue
 from uuid import UUID
 
+from domain.errors import ResourceNotFoundError, ResourceType, ServiceError
 from domain.repositories.frame import FrameRepository
 from domain.repositories.project import ProjectRepository
 from domain.repositories.source import SourceRepository
-from exceptions.custom_errors import ResourceNotFoundError, ResourceType, ServiceError
 from runtime.core.components.schemas.processor import InputData
 from runtime.errors import PipelineNotActiveError
 

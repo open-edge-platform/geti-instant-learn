@@ -18,7 +18,7 @@ from dependencies import (
     get_project_repository,
     get_source_repository,
 )
-from exceptions.custom_errors import ResourceNotFoundError, ResourceType, ServiceError
+from domain.errors import ResourceNotFoundError, ResourceType, ServiceError
 from exceptions.handler import custom_exception_handler
 from routers import projects_router
 from runtime.errors import PipelineNotActiveError

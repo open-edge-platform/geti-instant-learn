@@ -9,9 +9,9 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from domain.dispatcher import ProjectActivationEvent, ProjectDeactivationEvent
+from domain.errors import ResourceAlreadyExistsError, ResourceNotFoundError
 from domain.services.project import ProjectService
 from domain.services.schemas.project import ProjectCreateSchema, ProjectSchema, ProjectUpdateSchema
-from exceptions.custom_errors import ResourceAlreadyExistsError, ResourceNotFoundError
 from runtime.core.components.schemas.pipeline import PipelineConfig
 
 

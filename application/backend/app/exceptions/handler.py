@@ -9,7 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
-from exceptions.custom_errors import (
+from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ResourceUpdateConflictError,

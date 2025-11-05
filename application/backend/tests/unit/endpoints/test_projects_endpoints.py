@@ -9,13 +9,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 
 from dependencies import SessionDep, get_config_dispatcher, get_project_service
-from domain.services.schemas.base import Pagination
-from domain.services.schemas.project import ProjectSchema, ProjectsListSchema
-from exceptions.custom_errors import (
+from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ResourceType,
 )
+from domain.services.schemas.base import Pagination
+from domain.services.schemas.project import ProjectSchema, ProjectsListSchema
 from exceptions.handler import custom_exception_handler
 from routers import projects_router
 

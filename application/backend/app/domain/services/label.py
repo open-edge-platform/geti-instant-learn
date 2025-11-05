@@ -9,6 +9,11 @@ from sqlalchemy.orm import Session
 
 from domain.db.constraints import CheckConstraintName, UniqueConstraintName
 from domain.db.models import LabelDB, ProjectDB
+from domain.errors import (
+    ResourceAlreadyExistsError,
+    ResourceNotFoundError,
+    ResourceType,
+)
 from domain.repositories.label import LabelRepository
 from domain.repositories.project import ProjectRepository
 from domain.services.schemas.label import (
@@ -18,11 +23,6 @@ from domain.services.schemas.label import (
     LabelUpdateSchema,
 )
 from domain.services.schemas.mappers.label import label_db_to_schema, label_schema_to_db, labels_db_to_list_items
-from exceptions.custom_errors import (
-    ResourceAlreadyExistsError,
-    ResourceNotFoundError,
-    ResourceType,
-)
 from exceptions.handler import extract_constraint_name
 
 logger = logging.getLogger(__name__)

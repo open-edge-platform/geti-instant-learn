@@ -9,9 +9,9 @@ from pydantic_extra_types.color import Color
 from sqlalchemy.exc import IntegrityError
 
 from domain.db.models import LabelDB
+from domain.errors import ResourceAlreadyExistsError, ResourceNotFoundError, ResourceType
 from domain.services.label import LabelService
 from domain.services.schemas.label import LabelCreateSchema, LabelSchema, LabelsListSchema, LabelUpdateSchema
-from exceptions.custom_errors import ResourceAlreadyExistsError, ResourceNotFoundError, ResourceType
 
 PROJECT_ID = uuid4()
 LABEL_ID = uuid4()

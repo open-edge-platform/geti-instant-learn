@@ -9,13 +9,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 
 from dependencies import SessionDep, get_config_dispatcher, get_source_service
-from domain.services.schemas.source import SourceSchema, SourcesListSchema
-from exceptions.custom_errors import (
+from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ResourceType,
     ResourceUpdateConflictError,
 )
+from domain.services.schemas.source import SourceSchema, SourcesListSchema
 from exceptions.handler import custom_exception_handler
 from routers import projects_router
 from runtime.core.components.schemas.reader import SourceType, WebCamConfig

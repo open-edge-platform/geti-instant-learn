@@ -12,6 +12,12 @@ from sqlalchemy.orm import Session
 from domain.db.constraints import UniqueConstraintName
 from domain.db.models import ProjectDB, SourceDB
 from domain.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher
+from domain.errors import (
+    ResourceAlreadyExistsError,
+    ResourceNotFoundError,
+    ResourceType,
+    ResourceUpdateConflictError,
+)
 from domain.repositories.project import ProjectRepository
 from domain.repositories.source import SourceRepository
 from domain.services.schemas.mappers.source import (
@@ -24,12 +30,6 @@ from domain.services.schemas.source import (
     SourceSchema,
     SourcesListSchema,
     SourceUpdateSchema,
-)
-from exceptions.custom_errors import (
-    ResourceAlreadyExistsError,
-    ResourceNotFoundError,
-    ResourceType,
-    ResourceUpdateConflictError,
 )
 from exceptions.handler import extract_constraint_name
 from runtime.core.components.schemas.reader import FrameListResponse, FrameMetadata

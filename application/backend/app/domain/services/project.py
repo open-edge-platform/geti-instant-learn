@@ -15,6 +15,11 @@ from domain.dispatcher import (
     ProjectActivationEvent,
     ProjectDeactivationEvent,
 )
+from domain.errors import (
+    ResourceAlreadyExistsError,
+    ResourceNotFoundError,
+    ResourceType,
+)
 from domain.repositories.project import ProjectRepository
 from domain.services.schemas.mappers.project import (
     project_db_to_schema,
@@ -26,11 +31,6 @@ from domain.services.schemas.project import (
     ProjectSchema,
     ProjectsListSchema,
     ProjectUpdateSchema,
-)
-from exceptions.custom_errors import (
-    ResourceAlreadyExistsError,
-    ResourceNotFoundError,
-    ResourceType,
 )
 from exceptions.handler import extract_constraint_name
 from runtime.core.components.schemas.pipeline import PipelineConfig

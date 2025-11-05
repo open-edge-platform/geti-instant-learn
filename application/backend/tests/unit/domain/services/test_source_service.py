@@ -9,14 +9,14 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from domain.dispatcher import ComponentConfigChangeEvent
-from domain.services.schemas.source import SourceCreateSchema, SourceUpdateSchema
-from domain.services.source import SourceService
-from exceptions.custom_errors import (
+from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ResourceType,
     ResourceUpdateConflictError,
 )
+from domain.services.schemas.source import SourceCreateSchema, SourceUpdateSchema
+from domain.services.source import SourceService
 from runtime.core.components.schemas.reader import SourceType, VideoFileConfig, WebCamConfig
 
 

@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from exceptions.custom_errors import ResourceNotFoundError, ResourceType, ServiceError
+from domain.errors import ResourceNotFoundError, ResourceType, ServiceError
 from runtime.core.components.schemas.processor import InputData
 from runtime.errors import PipelineNotActiveError
 from runtime.services.frame import FrameService
