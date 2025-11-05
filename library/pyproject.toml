@@ -37,7 +37,7 @@ dependencies = [
     "scikit-learn==1.6.1",
     "scikit-image==0.24.0",
     "openvino-model-api==0.3.0.2",
-    "torch==2.7.0+cu126",
+    "torch==2.8.0+cu126",
     "torchvision==0.22.0+cu126",
     "transformers==4.56.2",
     "segment-anything-hq==0.3",
