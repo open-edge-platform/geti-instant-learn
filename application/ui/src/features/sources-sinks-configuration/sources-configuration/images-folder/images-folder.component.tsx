@@ -15,30 +15,30 @@ interface ImagesFolderProps {
     source: ImagesFolderConfig | undefined;
 }
 
-const validatePath = (path: string) => {
-    if (path.trim().length === 0) {
-        return 'Folder path cannot be empty';
-    }
-
-    return undefined;
-};
-
 export const ImagesFolder = ({ source }: ImagesFolderProps) => {
-    const [folderPath, setFolderPath] = useState(source?.config.images_folder_path ?? '');
+    const [folderPath, setFolderPath] = useState(source?.config?.images_folder_path ?? '');
 
-    const isApplyDisabled = folderPath.trim().length === 0;
+    const isApplyDisabled =
+        folderPath.trim().length === 0 || (folderPath === source?.config?.images_folder_path && source?.connected);
+
+    const showDirectoryPicker = async () => {
+        if (window.showDirectoryPicker === undefined) return;
+
+        const handle = await window.showDirectoryPicker();
+
+        setFolderPath(handle.name);
+    };
 
     return (
         <View>
             <Flex alignItems={'end'} gap={'size-50'}>
-                <TextField
-                    label={'Folder path'}
-                    value={folderPath}
-                    onChange={setFolderPath}
-                    //validate={validatePath}
-                    flex={1}
-                />
-                <ActionButton isQuiet aria-label={'Select folder'} UNSAFE_className={styles.imagesFolderButton}>
+                <TextField label={'Folder path'} value={folderPath} onChange={setFolderPath} flex={1} />
+                <ActionButton
+                    isQuiet
+                    aria-label={'Select folder'}
+                    UNSAFE_className={styles.imagesFolderButton}
+                    onPress={showDirectoryPicker}
+                >
                     <Folder />
                 </ActionButton>
             </Flex>
@@ -46,6 +46,6 @@ export const ImagesFolder = ({ source }: ImagesFolderProps) => {
             <Button variant={'accent'} isDisabled={isApplyDisabled} marginTop={'size-200'}>
                 Apply
             </Button>
-        </View>
+        </form>
     );
 };
