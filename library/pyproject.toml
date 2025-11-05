@@ -38,7 +38,7 @@ dependencies = [
     "scikit-image==0.24.0",
     "openvino-model-api==0.3.0.2",
     "torch==2.8.0+cu126",
-    "torchvision==0.22.0+cu126",
+    "torchvision==0.23.0+cu126",
     "transformers==4.56.2",
     "segment-anything-hq==0.3",
     "markupsafe==3.0.2",
@@ -82,7 +82,7 @@ packages = ["src/getiprompt"]
 
 [project.optional-dependencies]
 extras = [
-    "xformers==0.0.30",
+    "xformers==0.0.32.post2",
 ]
 notebook = [
     "jupyter==1.1.1",
