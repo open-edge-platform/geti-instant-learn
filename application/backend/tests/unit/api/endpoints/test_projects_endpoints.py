@@ -8,6 +8,8 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 
+from api.handler import custom_exception_handler
+from api.routers import projects_router
 from dependencies import SessionDep, get_config_dispatcher, get_project_service
 from domain.errors import (
     ResourceAlreadyExistsError,
@@ -16,8 +18,6 @@ from domain.errors import (
 )
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.project import ProjectSchema, ProjectsListSchema
-from rest.handler import custom_exception_handler
-from rest.routers import projects_router
 
 PROJECT_ID = uuid4()
 PROJECT_ID_STR = str(PROJECT_ID)
@@ -33,7 +33,7 @@ def assert_project_schema(data: dict, project_id: str, name: str, active: bool =
 
 @pytest.fixture
 def app():
-    from rest.endpoints import projects as _  # noqa: F401
+    from api.endpoints import projects as _  # noqa: F401
 
     app = FastAPI()
     app.include_router(projects_router, prefix="/api/v1")

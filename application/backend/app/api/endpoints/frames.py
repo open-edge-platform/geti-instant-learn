@@ -8,8 +8,8 @@ from fastapi import HTTPException, Response, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from api.routers import projects_router
 from dependencies import FrameServiceDep, FrameServiceWithQueueDep
-from rest.routers import projects_router
 
 logger = logging.getLogger(__name__)
 

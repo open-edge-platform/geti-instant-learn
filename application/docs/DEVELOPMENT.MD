@@ -7,7 +7,7 @@ Our project follows a strict **3-layer architecture** designed for maintainabili
 > **The Rule:** Strict unidirectional dependency flow from top to bottom.
 ```
 ┌─────────────────────────────────┐
-│    Presentation Layer           │  ← Entry point
+│    API (Presentation) Layer     │  ← Entry point
 ├─────────────────────────────────┤
 │    Runtime Layer                │  ← Live state & execution
 ├─────────────────────────────────┤
@@ -19,7 +19,7 @@ Our project follows a strict **3-layer architecture** designed for maintainabili
 
 ## Layer Definitions
 
-### 1. Presentation Layer
+### 1. API (Presentation) Layer
 
 **Purpose:** Entry point for all external communication with the system.
 

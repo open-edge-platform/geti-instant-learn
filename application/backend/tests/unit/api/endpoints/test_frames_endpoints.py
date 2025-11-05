@@ -9,6 +9,8 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 
+from api.handler import custom_exception_handler
+from api.routers import projects_router
 from dependencies import (
     SessionDep,
     get_frame_repository,
@@ -19,8 +21,6 @@ from dependencies import (
     get_source_repository,
 )
 from domain.errors import ResourceNotFoundError, ResourceType, ServiceError
-from rest.handler import custom_exception_handler
-from rest.routers import projects_router
 from runtime.errors import PipelineNotActiveError
 
 PROJECT_ID = uuid4()
@@ -33,7 +33,7 @@ SECOND_FRAME_ID_STR = str(SECOND_FRAME_ID)
 
 @pytest.fixture
 def app():
-    from rest.endpoints import frames as _  # noqa: F401
+    from api.endpoints import frames as _  # noqa: F401
 
     app = FastAPI()
     app.include_router(projects_router, prefix="/api/v1")

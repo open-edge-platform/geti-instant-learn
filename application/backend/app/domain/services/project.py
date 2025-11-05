@@ -8,6 +8,7 @@ from pydantic import TypeAdapter
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from api.handler import extract_constraint_name
 from domain.db.constraints import UniqueConstraintName
 from domain.db.models import ProjectDB
 from domain.dispatcher import (
@@ -32,7 +33,6 @@ from domain.services.schemas.project import (
     ProjectsListSchema,
     ProjectUpdateSchema,
 )
-from rest.handler import extract_constraint_name
 from runtime.core.components.schemas.pipeline import PipelineConfig
 from runtime.core.components.schemas.reader import ReaderConfig
 

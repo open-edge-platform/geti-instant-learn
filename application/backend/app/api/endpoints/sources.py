@@ -7,9 +7,9 @@ from uuid import UUID
 
 from fastapi import Response, status
 
+from api.routers import projects_router
 from dependencies import SourceServiceDep
 from domain.services.schemas.source import SourceCreateSchema, SourceSchema, SourcesListSchema, SourceUpdateSchema
-from rest.routers import projects_router
 
 logger = logging.getLogger(__name__)
 

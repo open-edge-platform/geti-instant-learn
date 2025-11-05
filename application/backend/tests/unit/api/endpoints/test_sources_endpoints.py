@@ -8,6 +8,8 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 
+from api.handler import custom_exception_handler
+from api.routers import projects_router
 from dependencies import SessionDep, get_config_dispatcher, get_source_service
 from domain.errors import (
     ResourceAlreadyExistsError,
@@ -16,8 +18,6 @@ from domain.errors import (
     ResourceUpdateConflictError,
 )
 from domain.services.schemas.source import SourceSchema, SourcesListSchema
-from rest.handler import custom_exception_handler
-from rest.routers import projects_router
 from runtime.core.components.schemas.reader import SourceType, WebCamConfig
 
 PROJECT_ID = uuid4()
@@ -39,7 +39,7 @@ def make_source_schema(
 
 @pytest.fixture
 def app():
-    from rest.endpoints import sources as _  # noqa: F401
+    from api.endpoints import sources as _  # noqa: F401
 
     app = FastAPI()
     app.include_router(projects_router, prefix="/api/v1")

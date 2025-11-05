@@ -7,9 +7,9 @@ from uuid import UUID
 
 from fastapi import Query, Response, status
 
+from api.routers import projects_router
 from dependencies import LabelServiceDep
 from domain.services.schemas.label import LabelCreateSchema, LabelSchema, LabelsListSchema, LabelUpdateSchema
-from rest.routers import projects_router
 
 logger = logging.getLogger(__name__)
 

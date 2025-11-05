@@ -9,17 +9,17 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 from pydantic_extra_types.color import Color
 
+from api.handler import custom_exception_handler
+from api.routers import projects_router
 from dependencies import SessionDep, get_label_service
 from domain.errors import ResourceAlreadyExistsError, ResourceNotFoundError, ResourceType
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.label import LabelSchema, LabelsListSchema
-from rest.handler import custom_exception_handler
-from rest.routers import projects_router
 
 
 @pytest.fixture
 def app():
-    from rest.endpoints import labels as _  # noqa: F401
+    from api.endpoints import labels as _  # noqa: F401
 
     app = FastAPI()
     app.include_router(projects_router, prefix="/api/v1")
