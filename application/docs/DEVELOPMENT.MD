@@ -37,7 +37,7 @@ Our project follows a strict **3-layer architecture** designed for maintainabili
 - Response formatting
 - HTTP/API protocol handling
 
-**Testing:** Integration tests with mocked Runtime and Configuration layers.
+**Testing:** Unit tests with mocked Runtime and Configuration layers.
 
 ---
 
@@ -61,11 +61,11 @@ Our project follows a strict **3-layer architecture** designed for maintainabili
 - Real-time state coordination
 - Execution of ML workflows
 
-**Testing:** Unit tests with mocked Configuration services.
+**Testing:** Unit tests with mocked Domain services.
 
 ---
 
-### 3. Configuration Layer
+### 3. Domain Layer
 
 **Purpose:** Foundation of the application. Manages all data persistence, data-related business logic, and configuration.
 
@@ -96,7 +96,9 @@ Our project follows a strict **3-layer architecture** designed for maintainabili
 - Configuration management
 - Transaction coordination
 
-**Testing:** Pure unit tests with mocked repositories.
+**Testing:**
+- Unit tests for services use mocked repositories.
+- Integration tests for repositories use a real database.
 
 ---
 
