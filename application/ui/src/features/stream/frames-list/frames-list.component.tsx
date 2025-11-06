@@ -5,7 +5,6 @@
 
 import { RefObject } from 'react';
 
-import { useEventListener } from '@geti-prompt/hooks';
 import {
     AriaComponentsListBox,
     HorizontalLayout,
@@ -95,32 +94,11 @@ const FrameThumbnail = ({ frame, isSelected, onActivateFrame }: FrameThumbnailPr
 interface FramesListProps {
     activeFrameIndex: number;
     onSetActiveFrame: (index: number) => void;
-    onNextFrame: () => void;
-    onPrevFrame: () => void;
     frames: Frame[];
     ref: RefObject<HTMLDivElement | null>;
 }
 
-export const FramesList = ({
-    activeFrameIndex,
-    frames,
-    onSetActiveFrame,
-    ref,
-    onNextFrame,
-    onPrevFrame,
-}: FramesListProps) => {
-    useEventListener(
-        'keydown',
-        (event) => {
-            if (event.key === 'ArrowLeft') {
-                onPrevFrame();
-            } else if (event.key === 'ArrowRight') {
-                onNextFrame();
-            }
-        },
-        ref
-    );
-
+export const FramesList = ({ activeFrameIndex, frames, onSetActiveFrame, ref }: FramesListProps) => {
     return (
         <View height={'100%'} overflow={'hidden'} padding={'size-200'} backgroundColor={'gray-100'}>
             <Virtualizer<HorizontalLayoutOptions> layout={HorizontalLayout} layoutOptions={{ size: 80, gap: 0 }}>

@@ -5,6 +5,7 @@
 
 import { useRef, useState } from 'react';
 
+import { useEventListener } from '@geti-prompt/hooks';
 import { ActionButton, Grid, minmax, View } from '@geti/ui';
 import { ChevronLeft, ChevronRight } from '@geti/ui/icons';
 
@@ -19,6 +20,14 @@ const useActiveFrameSelection = (frames: Frame[]) => {
     // TODO: replace with actual active frame index
     const [activeFrameIdx, setActiveFrameIdx] = useState(0);
     const framesRef = useRef<HTMLDivElement>(null);
+
+    useEventListener('keydown', (event) => {
+        if (event.key === 'ArrowLeft') {
+            prevFrame();
+        } else if (event.key === 'ArrowRight') {
+            nextFrame();
+        }
+    });
 
     const scrollFrameIntoView = (frameIdx: number) => {
         const framesListRect = framesRef.current?.getBoundingClientRect();
@@ -128,8 +137,6 @@ export const ImagesFolderStream = () => {
                     activeFrameIndex={activeFrameIdx}
                     onSetActiveFrame={activateFrame}
                     frames={frames}
-                    onNextFrame={nextFrame}
-                    onPrevFrame={prevFrame}
                 />
             </View>
         </Grid>
