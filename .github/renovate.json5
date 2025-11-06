@@ -40,18 +40,16 @@
   packageRules: [
     // Disable non-security upgrades for pypi, except lock file update
     {
-      matchDatasources: ["pypi"],
-
       enabled: false,
+      matchDatasources: ["pypi"],
     },
 
     // Python version in TOML is updated manually
     {
+      enabled: false,
       matchDatasources: ["python-version"],
       matchDepTypes: ["requires-python"],
       matchDepNames: ["python"],
-
-      enabled: false,
     },
 
     // Group GitHub Actions updates
@@ -61,6 +59,7 @@
       groupName: "GitHub Actions",
       matchManagers: ["github-actions"],
       matchPackagePatterns: ["*"],
+      schedule: ["* * 1,15 * *"], // twice a month
     },
 
     // uv version used in GitHub Actions is updated manually
@@ -79,7 +78,7 @@
       matchDepTypes: ["uses-with"],
     },
 
-    // Disable mcr.microsoft.com/playwright image upgrades, except digital pinning, 
+    // Disable mcr.microsoft.com/playwright image upgrades, except digital pinning,
     {
       enabled: false,
       matchManagers: ["github-actions"],
@@ -88,24 +87,14 @@
       matchUpdateTypes: ["major", "minor", "patch"],
     },
 
-    // Group Docker base images updates
+    // Group container images updates
     {
-      groupName: "Docker base images",
-
-      matchManagers: ["dockerfile"],
-      matchDatasources: ["docker"],
-      // Group all base images into one PR
-      matchPackagePatterns: ["*"],
-
       enabled: true,
-    },
-
-    // Disable docker.io/astral/uv image upgrades, except digital pinning,
-    {
-      enabled: false,
       matchDatasources: ["docker"],
-      matchPackageNames: ["ghcr.io/astral-sh"],
-      matchUpdateTypes: ["major", "minor", "patch"],
+      matchManagers: ["dockerfile"],
+      pinDigests: true,
+      groupName: "Container images",
+      schedule: ["* * * * 0"], // weekly
     },
 
     // Disable python base image upgrades, except patch and digital pinning
@@ -116,19 +105,34 @@
       matchUpdateTypes: ["major", "minor"],
     },
 
-    // Disable non-security upgrades for npm, except lock file update
+    // Disable node image upgrades, except patch and digital pinning
     {
-      matchDatasources: ["npm"],
-
       enabled: false,
+      matchDatasources: ["docker"],
+      matchPackageNames: ["node"],
+      matchUpdateTypes: ["major", "minor"],
+    },
+
+    // Disable ghcr.io/astral-sh/uv image upgrades, except digital pinning,
+    {
+      enabled: false,
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/astral-sh/uv"],
+      matchUpdateTypes: ["major", "minor", "patch"],
+    },
+
+    // Disable non-security and lock file upgrades for npm
+    // Lock is updated manually
+    {
+      enabled: false,
+      matchManagers: ["npm"],
     },
 
     // NPM version in package.json is updated manually
     {
+      enabled: false,
       matchDatasources: ["node-version"],
       matchDepNames: ["node"],
-
-      enabled: false,
     },
   ],
 

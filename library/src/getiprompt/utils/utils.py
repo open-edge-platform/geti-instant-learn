@@ -477,7 +477,7 @@ def sample_points(
         min(sample_range[1], len(points)) + 1,
     ):
         if len(points) > 8:
-            index = [random.sample(range(len(points)), i) for j in range(max_iterations)]
+            index = [random.sample(range(len(points)), i) for j in range(max_iterations)] # nosec B311
             sample = np.take(points, index, axis=0)  # (max_iterations * i) * 2
         else:
             index = generate_combinations(len(points), i)

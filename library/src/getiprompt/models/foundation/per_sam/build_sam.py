@@ -105,7 +105,8 @@ def build_sam_vit_t(checkpoint: str | None = None) -> SAM:
     mobile_sam.eval()
     if checkpoint is not None:
         with open(checkpoint, "rb") as f:
-            state_dict = torch.load(f, weights_only=True)
+            # ignore as weights_only is set to True and used version is not affected by CVE-2025-32434
+            state_dict = torch.load(f, weights_only=True) # nosemgrep: trailofbits.python.pickles-in-pytorch.pickles-in-pytorch
         mobile_sam.load_state_dict(state_dict)
     return mobile_sam
 
@@ -170,6 +171,7 @@ def _build_sam(
     sam.eval()
     if checkpoint is not None:
         with open(checkpoint, "rb") as f:
-            state_dict = torch.load(f, weights_only=True)
+            # ignore as weights_only is set to True and used version is not affected by CVE-2025-32434
+            state_dict = torch.load(f, weights_only=True) # nosemgrep: trailofbits.python.pickles-in-pytorch.pickles-in-pytorch
         sam.load_state_dict(state_dict)
     return sam

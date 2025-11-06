@@ -9,14 +9,9 @@ import { LabelType } from '@geti-prompt/api';
 import { useProjectLabels } from '@geti-prompt/hooks';
 
 import { useLoadImageQuery } from '../hooks/use-load-image-query.hook';
-import { ToolType } from '../tools/interface';
 import type { RegionOfInterest } from '../types';
 
 type AnnotatorContext = {
-    // Tools
-    activeTool: ToolType | null;
-    setActiveTool: Dispatch<SetStateAction<ToolType | null>>;
-
     // Media items
     roi: RegionOfInterest;
     frameId: string;
@@ -34,7 +29,6 @@ const PLACEHOLDER_LABEL: LabelType = { id: 'placeholder', name: 'No label', colo
 
 export const AnnotatorProvider = ({ frameId, children }: { frameId: string; children: ReactNode }) => {
     const labels = useProjectLabels();
-    const [activeTool, setActiveTool] = useState<ToolType | null>(null);
     const [selectedLabelId, setSelectedLabelId] = useState<string>(PLACEHOLDER_LABEL.id);
 
     const imageQuery = useLoadImageQuery(frameId);
@@ -47,11 +41,8 @@ export const AnnotatorProvider = ({ frameId, children }: { frameId: string; chil
     }, [labels]);
 
     return (
-        <AnnotatorProviderContext.Provider
+        <AnnotatorProviderContext
             value={{
-                activeTool,
-                setActiveTool,
-
                 setSelectedLabelId,
                 selectedLabelId,
                 selectedLabel,
@@ -62,7 +53,7 @@ export const AnnotatorProvider = ({ frameId, children }: { frameId: string; chil
             }}
         >
             {children}
-        </AnnotatorProviderContext.Provider>
+        </AnnotatorProviderContext>
     );
 };
 

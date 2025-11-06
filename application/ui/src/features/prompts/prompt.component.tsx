@@ -21,13 +21,13 @@ export const Prompt = () => {
         >
             <Flex direction={'column'} height={'100%'}>
                 <Heading margin={0}>Prompt</Heading>
-                <View flex={1} padding={'size-300'}>
-                    <Flex direction={'column'} height={'100%'} gap={'size-300'}>
+                <View padding={'size-300'} flex={1}>
+                    <Flex direction={'column'} gap={'size-300'} height={'100%'}>
                         <PromptModes />
 
                         <Divider size={'S'} />
 
-                        <Flex flex={1} direction={'column'} gap={'size-200'}>
+                        <Flex direction={'column'} gap={'size-200'}>
                             <ModelToolbar />
                             <View flex={1}>
                                 <PromptMode />

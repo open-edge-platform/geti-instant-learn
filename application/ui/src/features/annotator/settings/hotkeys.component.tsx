@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Divider, Grid, Keyboard, Text } from '@geti/ui';
+import { Grid, Keyboard, Text } from '@geti/ui';
 
 import { COMMAND_KEY, HOTKEYS } from '../hotkeys/hotkeys';
 
@@ -38,8 +38,6 @@ export const Hotkeys = () => {
             <HotkeyItem hotkeyName={'Show or hide all annotations'} hotkey={getHotkey(HOTKEYS.toggleAnnotations)} />
             <HotkeyItem hotkeyName={'Reset zoom'} hotkey={getHotkey(HOTKEYS.fitToScreen)} />
             <HotkeyItem hotkeyName={'Fullscreen'} hotkey={getHotkey(HOTKEYS.fullscreen)} />
-            <Divider size={'S'} gridColumn={'1 / -1'} />
-            <HotkeyItem hotkeyName={'Segment Anything tool'} hotkey={getHotkey(HOTKEYS.enableSam)} />
         </Grid>
     );
 };

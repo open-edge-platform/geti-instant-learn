@@ -8,15 +8,17 @@ from typing import Annotated
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
-from core.runtime.dispatcher import ConfigChangeDispatcher
-from core.runtime.pipeline_manager import PipelineManager
-from db.engine import get_session
-from repositories.frame import FrameRepository
-from repositories.project import ProjectRepository
-from repositories.source import SourceRepository
-from services import FrameService, LabelService, ProjectService, SourceService
+from domain.db.engine import get_session
+from domain.dispatcher import ConfigChangeDispatcher
+from domain.repositories.frame import FrameRepository
+from domain.repositories.project import ProjectRepository
+from domain.repositories.prompt import PromptRepository
+from domain.repositories.source import SourceRepository
+from domain.services import LabelService, ProjectService, PromptService, SourceService
+from runtime.pipeline_manager import PipelineManager
+from runtime.services.frame import FrameService
+from runtime.webrtc.manager import WebRTCManager
 from settings import get_settings
-from webrtc.manager import WebRTCManager
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -56,6 +58,11 @@ def get_source_repository(session: SessionDep) -> SourceRepository:
 def get_frame_repository() -> FrameRepository:
     """Provides a FrameRepository instance."""
     return FrameRepository()
+
+
+def get_prompt_repository(session: SessionDep) -> PromptRepository:
+    """Provides a PromptRepository instance."""
+    return PromptRepository(session)
 
 
 # --- Service providers ---
@@ -113,6 +120,21 @@ def get_frame_service_with_queue(
             logger.warning(f"Failed to unregister inbound consumer queue: {e}")
 
 
+def get_prompt_service(
+    session: SessionDep,
+    prompt_repo: Annotated[PromptRepository, Depends(get_prompt_repository)],
+    project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
+    frame_repo: Annotated[FrameRepository, Depends(get_frame_repository)],
+) -> PromptService:
+    """Dependency that provides a PromptService instance."""
+    return PromptService(
+        session=session,
+        prompt_repository=prompt_repo,
+        project_repository=project_repo,
+        frame_repository=frame_repo,
+    )
+
+
 def get_label_service(session: SessionDep) -> LabelService:
     """Dependency that provides a LabelService instance."""
     return LabelService(session=session)
@@ -124,3 +146,4 @@ SourceServiceDep = Annotated[SourceService, Depends(get_source_service)]
 FrameServiceDep = Annotated[FrameService, Depends(get_frame_service)]
 FrameServiceWithQueueDep = Annotated[FrameService, Depends(get_frame_service_with_queue)]
 LabelServiceDep = Annotated[LabelService, Depends(get_label_service)]
+PromptServiceDep = Annotated[PromptService, Depends(get_prompt_service)]

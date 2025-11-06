@@ -7,9 +7,10 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { $api } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
-import { Button, Flex } from '@geti/ui';
+import { Button, dimensionValue, Grid, minmax } from '@geti/ui';
 
 import { usePromptMode } from '../prompts/prompt-modes/prompt-modes.component';
+import { FramesList } from './frames-list/frames-list.component';
 import { useSelectedFrame } from './selected-frame-provider.component';
 import { useWebRTCConnection } from './web-rtc/web-rtc-connection-provider';
 
@@ -96,35 +97,88 @@ const CaptureFrameButton = () => {
 
     return (
         <Button
+            justifySelf={'center'}
             variant={'primary'}
             staticColor={'white'}
-            alignSelf={'center'}
             style={'fill'}
             onPress={captureFrame}
             isPending={isPending}
         >
-            Capture frame
+            Capture
         </Button>
     );
 };
 
-export const Stream = () => {
+const useActiveSource = () => {
+    const { projectId } = useProjectIdentifier();
+    const { data } = $api.useQuery('get', '/api/v1/projects/{project_id}/sources', {
+        params: {
+            path: {
+                project_id: projectId,
+            },
+        },
+    });
+
+    return data?.sources.find((source) => source.connected);
+};
+
+const Video = () => {
     const videoRef = useStreamToVideo();
+
+    // eslint-disable-next-line jsx-a11y/media-has-caption
+    return <video ref={videoRef} autoPlay playsInline controls={false} width={'100%'} height={'100%'} />;
+};
+
+const WebcamStream = () => {
     const promptMode = usePromptMode();
 
     return (
-        <Flex width={'100%'} height={'100%'} direction={'column'}>
-            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-            <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                controls={false}
-                width={'100%'}
-                height={'100%'}
-                style={{ flex: 1 }}
-            />
+        <Grid
+            height={'100%'}
+            width={'100%'}
+            rows={[minmax(0, '1fr'), 'max-content']}
+            rowGap={'size-200'}
+            UNSAFE_style={{ paddingTop: dimensionValue('size-600'), paddingBottom: dimensionValue('size-200') }}
+        >
+            <Video />
             {promptMode === 'visual' && <CaptureFrameButton />}
-        </Flex>
+        </Grid>
     );
+};
+
+const StaticSourceStream = () => {
+    const promptMode = usePromptMode();
+
+    return (
+        <Grid
+            height={'100%'}
+            width={'100%'}
+            rows={[minmax(0, '1fr'), 'max-content', '120px']}
+            rowGap={'size-200'}
+            UNSAFE_style={{
+                paddingTop: '48px',
+            }}
+        >
+            <Video />
+            {promptMode === 'visual' && <CaptureFrameButton />}
+            <FramesList />
+        </Grid>
+    );
+};
+
+export const Stream = () => {
+    const activeSource = useActiveSource();
+
+    // Should never happen, just for type safety
+    if (activeSource === undefined) {
+        return null;
+    }
+
+    if (activeSource.config.source_type === 'webcam') {
+        return <WebcamStream />;
+    }
+
+    if (activeSource.config.source_type === 'images_folder' || activeSource.config.source_type === 'video_file') {
+        return <StaticSourceStream />;
+    }
 };

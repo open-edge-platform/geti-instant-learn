@@ -3,48 +3,76 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Image } from '@geti-prompt/icons';
-import { Content, Flex, Grid, minmax, View } from '@geti/ui';
+import { ReactNode, Suspense } from 'react';
 
-import { useSelectedFrame } from '../../../stream/selected-frame-provider.component';
-import { CapturedFrameContent, CapturedFrameProviders } from './captured-frame-content.component';
+import { Flex, Grid, Loading, minmax } from '@geti/ui';
+import { AnnotationActionsProvider } from 'src/features/annotator/providers/annotation-actions-provider.component';
+import { AnnotationVisibilityProvider } from 'src/features/annotator/providers/annotation-visibility-provider.component';
+import { AnnotatorProvider } from 'src/features/annotator/providers/annotator-provider.component';
+import { SelectAnnotationProvider } from 'src/features/annotator/providers/select-annotation-provider.component';
+import { CanvasSettingsProvider } from 'src/features/annotator/settings/canvas-settings-provider.component';
+
+import { CapturedFrameContent } from './captured-frame-content.component';
 import { CapturedFrameFullScreen } from './captured-frame-full-screen.component';
+import { CapturedFramePlaceholder } from './captured-frame-placeholder.component';
+import { FullScreenModeProvider } from './full-screen-mode.component';
 
-import styles from './captured-frame.module.scss';
-
-const NoCapturedFramePlaceholder = () => {
+const CenteredWrapper = ({ children }: { children: ReactNode }) => (
+    <Flex height={'100%'} gridRow={'1/-1'} alignItems={'center'} justifyContent={'center'}>
+        {children}
+    </Flex>
+);
+interface CapturedFrameAnnotatorProps {
+    children: ReactNode;
+    frameId: string;
+}
+const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorProps) => {
     return (
-        <View backgroundColor={'gray-300'} height={'size-6000'}>
-            <Flex height={'100%'} width={'100%'} justifyContent={'center'} alignItems={'center'}>
-                <Flex direction={'column'} gap={'size-100'} alignItems={'center'}>
-                    <Image />
-                    <Content UNSAFE_className={styles.noFramePlaceholder}>Capture frames for visual prompt</Content>
-                </Flex>
-            </Flex>
-        </View>
+        <Suspense
+            fallback={
+                <CenteredWrapper>
+                    <Loading mode={'inline'} />
+                </CenteredWrapper>
+            }
+        >
+            {/* key={frameId} is added here to make sure that the whole tree unmounts/mounts
+                every time we capture a new frame */}
+            <AnnotatorProvider frameId={frameId} key={frameId}>
+                <SelectAnnotationProvider>
+                    <AnnotationActionsProvider>
+                        <AnnotationVisibilityProvider>
+                            <FullScreenModeProvider>
+                                <CanvasSettingsProvider>{children}</CanvasSettingsProvider>
+                            </FullScreenModeProvider>
+                        </AnnotationVisibilityProvider>
+                    </AnnotationActionsProvider>
+                </SelectAnnotationProvider>
+            </AnnotatorProvider>
+        </Suspense>
     );
 };
 
-export const CapturedFrame = () => {
-    const { selectedFrameId } = useSelectedFrame();
-
-    if (selectedFrameId === null) {
-        return <NoCapturedFramePlaceholder />;
-    }
-
+export const CapturedFrame = ({ frameId }: { frameId: string | null }) => {
     return (
         <Grid
             width={'100%'}
+            height={'size-6000'}
             areas={['labels', 'image', 'actions']}
-            rows={[minmax('size-500', 'auto'), 'size-6000', 'size-500']}
+            rows={[minmax('size-500', 'auto'), 'auto', 'size-500']}
             UNSAFE_style={{
                 backgroundColor: 'var(--spectrum-global-color-gray-200)',
             }}
         >
-            <CapturedFrameProviders frameId={selectedFrameId}>
-                <CapturedFrameContent frameId={selectedFrameId} />
-                <CapturedFrameFullScreen frameId={selectedFrameId} />
-            </CapturedFrameProviders>
+            {frameId === null ? (
+                <CenteredWrapper>
+                    <CapturedFramePlaceholder />
+                </CenteredWrapper>
+            ) : (
+                <CapturedFrameProviders frameId={frameId}>
+                    <CapturedFrameContent frameId={frameId} />
+                    <CapturedFrameFullScreen frameId={frameId} />
+                </CapturedFrameProviders>
+            )}
         </Grid>
     );
 };

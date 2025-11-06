@@ -13,11 +13,11 @@ export class StreamPage {
     }
 
     get captureFrameButton() {
-        return this.page.getByRole('button', { name: 'Capture Frame' });
+        return this.page.getByRole('button', { name: 'Capture' });
     }
 
     async captureFrame() {
-        await this.page.getByRole('button', { name: 'Capture Frame' }).click();
+        await this.captureFrameButton.click();
     }
 
     async stopStream() {

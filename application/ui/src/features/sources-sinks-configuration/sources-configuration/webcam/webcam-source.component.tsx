@@ -5,24 +5,24 @@
 
 import { FormEvent, useState } from 'react';
 
-import { WebcamConfig } from '@geti-prompt/api';
+import { WebcamSourceType } from '@geti-prompt/api';
 import { Button, TextField, View } from '@geti/ui';
 import { isInteger } from 'lodash-es';
 
 import { useCurrentProject } from '../../../project/hooks/use-current-project.hook';
-import { useCreateWebcamSource } from '../hooks/use-create-webcam-source';
-import { useUpdateWebcamSource } from '../hooks/use-update-webcam-source';
+import { useCreateSource } from '../hooks/use-create-source';
+import { useUpdateSource } from '../hooks/use-update-source';
 
 interface WebcamSourceProps {
-    source: WebcamConfig | undefined;
+    source: WebcamSourceType | undefined;
 }
 
 export const WebcamSource = ({ source }: WebcamSourceProps) => {
     const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>(
         source?.config?.device_id?.toString() ?? '0'
     );
-    const createWebcamSource = useCreateWebcamSource();
-    const updateWebcamSource = useUpdateWebcamSource();
+    const createWebcamSource = useCreateSource();
+    const updateWebcamSource = useUpdateSource();
     const { data } = useCurrentProject();
 
     const isApplyPending = createWebcamSource.isPending || updateWebcamSource.isPending;
@@ -37,12 +37,21 @@ export const WebcamSource = ({ source }: WebcamSourceProps) => {
 
         if (selectedDeviceId === undefined) return;
 
-        if (source !== undefined) {
-            updateWebcamSource.mutate(source.id, parseInt(selectedDeviceId));
-            return;
-        }
+        const deviceId = parseInt(selectedDeviceId);
 
-        createWebcamSource.mutate(parseInt(selectedDeviceId));
+        if (source === undefined) {
+            createWebcamSource.mutate({
+                source_type: 'webcam',
+                device_id: deviceId,
+                seekable: false,
+            });
+        } else {
+            updateWebcamSource.mutate(source.id, {
+                source_type: 'webcam',
+                device_id: deviceId,
+                seekable: false,
+            });
+        }
     };
 
     if (!data.active) {

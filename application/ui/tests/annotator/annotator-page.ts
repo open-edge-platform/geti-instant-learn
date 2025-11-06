@@ -8,10 +8,6 @@ import { expect, Page } from '@playwright/test';
 export class AnnotatorPage {
     constructor(private page: Page) {}
 
-    async startSAM() {
-        await this.page.getByRole('button', { name: 'Select SAM Tool' }).click();
-    }
-
     getCapturedFrame() {
         return this.page.getByAltText('Captured frame');
     }
