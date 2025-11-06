@@ -2,10 +2,12 @@
  * Copyright (C) 2025 Intel Corporation
  * SPDX-License-Identifier: Apache-2.0
  */
+
 import { $api } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
-import { useSelectedFrame } from './selected-frame-provider.component';
 import { Button } from '@geti/ui';
+
+import { useSelectedFrame } from './selected-frame-provider.component';
 
 const useCaptureFrameMutation = () => {
     return $api.useMutation('post', '/api/v1/projects/{project_id}/frames');

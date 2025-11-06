@@ -3,30 +3,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { ActionButton, Grid, minmax, View } from '@geti/ui';
 import { ChevronLeft, ChevronRight } from '@geti/ui/icons';
 
 import { usePromptMode } from '../../prompts/prompt-modes/prompt-modes.component';
 import { CaptureFrameButton } from '../capture-frame-button.component';
-import { FramesList, useFrames } from '../frames-list/frames-list.component';
+import { FramesList, useFrames, type Frame } from '../frames-list/frames-list.component';
 import { Video } from '../video.component';
 
 import styles from './images-folder-stream.module.scss';
 
-export const ImagesFolderStream = () => {
-    const promptMode = usePromptMode();
-    const frames = useFrames();
-
+const useActiveFrameSelection = (frames: Frame[]) => {
     // TODO: replace with actual active frame index
     const [activeFrameIdx, setActiveFrameIdx] = useState(0);
-
-    const isPrevFrameButtonDisabled = activeFrameIdx === 0;
-    const isNextFrameButtonDisabled = activeFrameIdx === frames.length - 1;
+    const framesRef = useRef<HTMLDivElement>(null);
 
     const scrollFrameIntoView = (frameIdx: number) => {
-        const framesListRect = document.querySelector('[aria-label="Frames list"]')?.getBoundingClientRect();
+        const framesListRect = framesRef.current?.getBoundingClientRect();
+        // Note: we don't want to create an array of refs for each frame, so we use querySelector
         const frameElement = document.querySelector(`[aria-label="Frame #${frameIdx}"]`);
 
         if (frameElement === null || framesListRect === undefined) {
@@ -51,9 +47,11 @@ export const ImagesFolderStream = () => {
 
     const nextFrame = () => {
         const nextFrameIdx = activeFrameIdx + 1;
+
         if (nextFrameIdx >= frames.length) {
             return;
         }
+
         activateFrame(nextFrameIdx);
     };
 
@@ -64,6 +62,23 @@ export const ImagesFolderStream = () => {
         }
         activateFrame(prevFrameIdx);
     };
+
+    return {
+        framesRef,
+        activeFrameIdx,
+        activateFrame,
+        nextFrame,
+        prevFrame,
+    };
+};
+
+export const ImagesFolderStream = () => {
+    const promptMode = usePromptMode();
+    const frames = useFrames();
+    const { activeFrameIdx, activateFrame, nextFrame, prevFrame, framesRef } = useActiveFrameSelection(frames);
+
+    const isPrevFrameButtonDisabled = activeFrameIdx === 0;
+    const isNextFrameButtonDisabled = activeFrameIdx === frames.length - 1;
 
     return (
         <Grid
@@ -108,7 +123,14 @@ export const ImagesFolderStream = () => {
                 </View>
             )}
             <View gridArea={'frames'}>
-                <FramesList activeFrameIndex={activeFrameIdx} onSetActiveFrame={activateFrame} frames={frames} />
+                <FramesList
+                    ref={framesRef}
+                    activeFrameIndex={activeFrameIdx}
+                    onSetActiveFrame={activateFrame}
+                    frames={frames}
+                    onNextFrame={nextFrame}
+                    onPrevFrame={prevFrame}
+                />
             </View>
         </Grid>
     );

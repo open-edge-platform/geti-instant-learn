@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useCallback } from 'react';
+import { RefObject } from 'react';
 
+import { useEventListener } from '@geti-prompt/hooks';
 import {
     AriaComponentsListBox,
-    DOMRefValue,
     HorizontalLayout,
     HorizontalLayoutOptions,
     ListBoxItem,
@@ -20,7 +20,7 @@ import TestImg from '../../../assets/test.webp';
 
 import styles from './frames-list.module.scss';
 
-export const useFrames = () => {
+export const useFrames = (): Frame[] => {
     // TODO: replace with actual frames
     return [
         TestImg,
@@ -49,7 +49,7 @@ export const useFrames = () => {
     });
 };
 
-interface Frame {
+export interface Frame {
     // it's a base 64 encoded string
     thumbnail: string;
     index: number;
@@ -64,28 +64,9 @@ interface FrameThumbnailProps {
 const FrameThumbnail = ({ frame, isSelected, onActivateFrame }: FrameThumbnailProps) => {
     const { thumbnail } = frame;
 
-    const refHandler = useCallback(
-        (ref: DOMRefValue<HTMLElement> | null) => {
-            const element = ref?.UNSAFE_getDOMNode();
-            if (element == null) {
-                return;
-            }
-
-            if (!isSelected) {
-                return;
-            }
-
-            element.scrollIntoView({
-                behavior: 'smooth',
-            });
-        },
-        [isSelected]
-    );
-
     return (
         <div style={{ height: '100%', width: '100%' }} onClick={() => onActivateFrame(frame.index)}>
             <View
-                //ref={refHandler}
                 borderColor={'gray-100'}
                 borderYWidth={'thick'}
                 borderXWidth={isSelected ? 'thick' : undefined}
@@ -114,10 +95,32 @@ const FrameThumbnail = ({ frame, isSelected, onActivateFrame }: FrameThumbnailPr
 interface FramesListProps {
     activeFrameIndex: number;
     onSetActiveFrame: (index: number) => void;
+    onNextFrame: () => void;
+    onPrevFrame: () => void;
     frames: Frame[];
+    ref: RefObject<HTMLDivElement | null>;
 }
 
-export const FramesList = ({ activeFrameIndex, frames, onSetActiveFrame }: FramesListProps) => {
+export const FramesList = ({
+    activeFrameIndex,
+    frames,
+    onSetActiveFrame,
+    ref,
+    onNextFrame,
+    onPrevFrame,
+}: FramesListProps) => {
+    useEventListener(
+        'keydown',
+        (event) => {
+            if (event.key === 'ArrowLeft') {
+                onPrevFrame();
+            } else if (event.key === 'ArrowRight') {
+                onNextFrame();
+            }
+        },
+        ref
+    );
+
     return (
         <View height={'100%'} overflow={'hidden'} padding={'size-200'} backgroundColor={'gray-100'}>
             <Virtualizer<HorizontalLayoutOptions> layout={HorizontalLayout} layoutOptions={{ size: 80, gap: 0 }}>
@@ -125,11 +128,12 @@ export const FramesList = ({ activeFrameIndex, frames, onSetActiveFrame }: Frame
                     orientation={'horizontal'}
                     style={{ overflowX: 'auto', width: '100%', scrollbarGutter: 'stable' }}
                     aria-label={'Frames list'}
+                    ref={ref}
                 >
                     {frames.map((frame) => (
                         <ListBoxItem
                             key={frame.index}
-                            style={{ height: '100%', width: '100%' }}
+                            style={{ height: '100%', width: '100%', outline: 'none' }}
                             aria-label={`Frame #${frame.index}`}
                         >
                             <FrameThumbnail
