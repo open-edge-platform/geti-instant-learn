@@ -45,14 +45,7 @@ export const CaptureFrameButton = () => {
     const { captureFrame, isPending } = useCaptureFrame();
 
     return (
-        <Button
-            justifySelf={'center'}
-            variant={'primary'}
-            staticColor={'white'}
-            style={'fill'}
-            onPress={captureFrame}
-            isPending={isPending}
-        >
+        <Button variant={'primary'} staticColor={'white'} style={'fill'} onPress={captureFrame} isPending={isPending}>
             Capture
         </Button>
     );

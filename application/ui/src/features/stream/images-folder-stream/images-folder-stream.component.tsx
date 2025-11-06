@@ -84,7 +84,7 @@ export const ImagesFolderStream = () => {
         <Grid
             height={'100%'}
             width={'100%'}
-            rows={[minmax(0, '1fr'), 'max-content', '128px']}
+            rows={[minmax(0, '1fr'), 'max-content', 'size-1600']}
             columns={['size-200', 'size-600', minmax(0, '1fr'), 'size-600', 'size-200']}
             areas={[
                 'left-gutter prev-btn stream next-btn right-gutter',

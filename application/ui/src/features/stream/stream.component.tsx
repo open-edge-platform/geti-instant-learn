@@ -5,7 +5,7 @@
 
 import { $api } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
-import { dimensionValue, Grid, minmax } from '@geti/ui';
+import { dimensionValue, Grid, minmax, View } from '@geti/ui';
 
 import { usePromptMode } from '../prompts/prompt-modes/prompt-modes.component';
 import { CaptureFrameButton } from './capture-frame-button.component';
@@ -33,11 +33,17 @@ const WebcamStream = () => {
             height={'100%'}
             width={'100%'}
             rows={[minmax(0, '1fr'), 'max-content']}
+            columns={['size-200', minmax(0, '1fr'), 'size-200']}
+            areas={['left-gutter video right-gutter', 'left-gutter capture right-gutter']}
             rowGap={'size-200'}
             UNSAFE_style={{ paddingTop: dimensionValue('size-600'), paddingBottom: dimensionValue('size-200') }}
         >
-            <Video />
-            {promptMode === 'visual' && <CaptureFrameButton />}
+            <View gridArea={'video'}>
+                <Video />
+            </View>
+            <View gridArea={'capture'} justifySelf={'center'}>
+                {promptMode === 'visual' && <CaptureFrameButton />}
+            </View>
         </Grid>
     );
 };
