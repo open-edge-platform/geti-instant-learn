@@ -17,7 +17,7 @@ from exceptions.custom_errors import (
     ServiceError,
 )
 from services.prompt import PromptService
-from services.schemas.annotation import AnnotationSchema, PointAnnotation
+from services.schemas.annotation import AnnotationSchema, Point, RectangleAnnotation
 from services.schemas.prompt import (
     TextPromptCreateSchema,
     TextPromptUpdateSchema,
@@ -193,7 +193,7 @@ def test_create_visual_prompt_success(service):
         frame_id=frame_id,
         annotations=[
             AnnotationSchema(
-                config=PointAnnotation(type="point", x=0.5, y=0.5),
+                config=RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]),
                 label_id=label_id,
             )
         ],
@@ -222,7 +222,7 @@ def test_create_visual_prompt_frame_not_found(service):
         frame_id=frame_id,
         annotations=[
             AnnotationSchema(
-                config=PointAnnotation(type="point", x=0.5, y=0.5),
+                config=RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]),
                 label_id=None,
             )
         ],
@@ -251,7 +251,7 @@ def test_create_visual_prompt_label_not_found(service):
         frame_id=frame_id,
         annotations=[
             AnnotationSchema(
-                config=PointAnnotation(type="point", x=0.5, y=0.5),
+                config=RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]),
                 label_id=label_id,
             )
         ],
@@ -408,7 +408,7 @@ def test_update_visual_prompt_annotations_success(service):
         frame_id=None,
         annotations=[
             AnnotationSchema(
-                config=PointAnnotation(type="point", x=0.3, y=0.7),
+                config=RectangleAnnotation(type="rectangle", points=[Point(x=0.2, y=0.2), Point(x=0.7, y=0.7)]),
                 label_id=label_id,
             )
         ],
@@ -432,7 +432,7 @@ def test_update_prompt_type_change_conflict(service):
         frame_id=uuid.uuid4(),
         annotations=[
             AnnotationSchema(
-                config=PointAnnotation(type="point", x=0.5, y=0.5),
+                config=RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]),
                 label_id=None,
             )
         ],

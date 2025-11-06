@@ -47,7 +47,7 @@ def make_visual_prompt(project_id, frame_id=None, annotations=None) -> PromptDB:
 
 def make_annotation(prompt_id, label_id=None, config=None) -> AnnotationDB:
     if config is None:
-        config = {"type": "point", "x": 0.5, "y": 0.5}
+        config = {"type": "rectangle", "points": [{"x": 0.1, "y": 0.1}, {"x": 0.5, "y": 0.5}]}
     return AnnotationDB(
         config=config,
         label_id=label_id,

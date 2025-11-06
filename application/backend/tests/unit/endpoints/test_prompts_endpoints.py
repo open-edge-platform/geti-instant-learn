@@ -18,7 +18,7 @@ from exceptions.custom_errors import (
 )
 from exceptions.handler import custom_exception_handler
 from routers import projects_router
-from services.schemas.annotation import AnnotationSchema, PointAnnotation
+from services.schemas.annotation import AnnotationSchema, Point, RectangleAnnotation
 from services.schemas.base import Pagination
 from services.schemas.prompt import PromptsListSchema, TextPromptSchema, VisualPromptSchema
 
@@ -44,7 +44,7 @@ def make_visual_prompt_schema(prompt_id: UUID, frame_id: UUID, label_id: UUID | 
         frame_id=frame_id,
         annotations=[
             AnnotationSchema(
-                config=PointAnnotation(type="point", x=0.5, y=0.5),
+                config=RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]),
                 label_id=label_id,
             )
         ],
@@ -228,7 +228,10 @@ def test_create_prompt(client, behavior, expected_status):  # noqa: C901
             "frame_id": str(FRAME_ID),
             "annotations": [
                 {
-                    "config": {"type": "point", "x": 0.5, "y": 0.5},
+                    "config": {
+                        "type": "rectangle",
+                        "points": [{"x": 0.1, "y": 0.1}, {"x": 0.5, "y": 0.5}],
+                    },
                     "label_id": str(LABEL_ID) if behavior != "label_notfound" else str(uuid4()),
                 }
             ],
@@ -308,7 +311,10 @@ def test_update_prompt(client, behavior, expected_status):  # noqa: C901
             "frame_id": str(new_frame_id),
             "annotations": [
                 {
-                    "config": {"type": "point", "x": 0.3, "y": 0.7},
+                    "config": {
+                        "type": "rectangle",
+                        "points": [{"x": 0.2, "y": 0.2}, {"x": 0.7, "y": 0.7}],
+                    },
                     "label_id": str(LABEL_ID),
                 }
             ],
@@ -401,7 +407,7 @@ def test_create_prompt_invalid_annotation_type(client):
         "frame_id": str(FRAME_ID),
         "annotations": [
             {
-                "config": {"type": "invalid_type", "x": 0.5},
+                "config": {"type": "invalid_type", "points": [{"x": 0.5, "y": 0.5}]},
                 "label_id": str(LABEL_ID),
             }
         ],

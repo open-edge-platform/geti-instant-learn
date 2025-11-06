@@ -19,8 +19,7 @@ from services.schemas.prompt import (
 
 def prompt_db_to_schema(prompt: PromptDB) -> PromptSchema:
     """
-    Map a PromptDB instance to PromptSchema.
-    Pydantic will discriminate by `type` field.
+    Map a PromptDB instance to a PromptSchema object.
     """
     if prompt.type == PromptType.TEXT:
         return TextPromptSchema(

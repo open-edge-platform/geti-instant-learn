@@ -43,7 +43,12 @@ class VisualPromptCreateSchema(BaseIDPayload):
                     {
                         "config": {
                             "type": "polygon",
-                            "points": [[0.1, 0.1], [0.5, 0.1], [0.5, 0.5], [0.1, 0.5]],
+                            "points": [
+                                {"x": 0.1, "y": 0.1},
+                                {"x": 0.5, "y": 0.1},
+                                {"x": 0.5, "y": 0.5},
+                                {"x": 0.1, "y": 0.5},
+                            ],
                         },
                         "label_id": "123e4567-e89b-12d3-a456-426614174001",
                     }
@@ -90,7 +95,12 @@ class VisualPromptUpdateSchema(BaseModel):
                     {
                         "config": {
                             "type": "polygon",
-                            "points": [[0.1, 0.1], [0.5, 0.1], [0.5, 0.5], [0.1, 0.5]],
+                            "points": [
+                                {"x": 0.1, "y": 0.1},
+                                {"x": 0.5, "y": 0.1},
+                                {"x": 0.5, "y": 0.5},
+                                {"x": 0.1, "y": 0.5},
+                            ],
                         },
                         "label_id": "123e4567-e89b-12d3-a456-426614174001",
                     }
