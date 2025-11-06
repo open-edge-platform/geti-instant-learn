@@ -23,6 +23,11 @@ Our project follows a strict **3-layer architecture** designed for maintainabili
 
 **Purpose:** Entry point for all external communication with the system.
 
+**Responsibilities:**
+- Input validation
+- Response formatting
+- HTTP/API protocol handling
+
 **Components:**
 - FastAPI endpoints
 - Pydantic validation models
@@ -32,11 +37,6 @@ Our project follows a strict **3-layer architecture** designed for maintainabili
 - ✅ **CAN** depend on: Runtime Layer, Configuration Layer
 - ❌ **CANNOT** depend on: Nothing (top layer)
 
-**Responsibilities:**
-- Input validation
-- Response formatting
-- HTTP/API protocol handling
-
 **Testing:** Unit tests with mocked Runtime and Configuration layers.
 
 ---
@@ -44,6 +44,11 @@ Our project follows a strict **3-layer architecture** designed for maintainabili
 ### 2. Runtime Layer
 
 **Purpose:** Manages the application's live state and executes zero-shot learning pipelines.
+
+**Responsibilities:**
+- Pipeline lifecycle management
+- Real-time state coordination
+- Execution of ML workflows
 
 **Components:**
 - **PipelineManager**: Stateful singleton managing active pipeline(s). This is the only stateful singleton in the system. Ensure thread safety and document its lifecycle explicitly.
@@ -56,11 +61,6 @@ Our project follows a strict **3-layer architecture** designed for maintainabili
 - ✅ **CAN** depend on: Configuration Layer
 - ❌ **CANNOT** depend on: Presentation Layer
 
-**Responsibilities:**
-- Pipeline lifecycle management
-- Real-time state coordination
-- Execution of ML workflows
-
 **Testing:** Unit tests with mocked Domain services.
 
 ---
@@ -68,6 +68,12 @@ Our project follows a strict **3-layer architecture** designed for maintainabili
 ### 3. Domain Layer
 
 **Purpose:** Foundation of the application. Manages all data persistence, data-related business logic, and configuration.
+
+**Responsibilities:**
+- Data persistence and retrieval
+- Business rule enforcement
+- Configuration management
+- Transaction coordination
 
 **Components:**
 
@@ -89,12 +95,6 @@ Our project follows a strict **3-layer architecture** designed for maintainabili
 - **Internal dependencies:**
   - Data Services → Repositories (via interfaces)
   - Repositories remain isolated from each other
-
-**Responsibilities:**
-- Data persistence and retrieval
-- Business rule enforcement
-- Configuration management
-- Transaction coordination
 
 **Testing:**
 - Unit tests for services use mocked repositories.
