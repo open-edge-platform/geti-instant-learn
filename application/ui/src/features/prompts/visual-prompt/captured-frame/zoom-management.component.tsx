@@ -27,7 +27,10 @@ export const ZoomManagement = () => {
                 >
                     <Add />
                 </ActionButton>
-                <Text UNSAFE_style={{ fontSize: 'var(--spectrum-global-dimension-font-size-25)' }}>
+                <Text
+                    data-testid='zoom-level'
+                    UNSAFE_style={{ fontSize: 'var(--spectrum-global-dimension-font-size-25)' }}
+                >
                     {(zoom.scale * 100).toFixed(1)}%
                 </Text>
                 <ActionButton

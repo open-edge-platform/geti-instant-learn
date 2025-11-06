@@ -140,9 +140,11 @@ export const SegmentAnythingTool = () => {
                 <MaskAnnotations isEnabled annotations={previewAnnotations} width={image.width} height={image.height} />
             )}
 
-            {annotations.map((annotation) => (
-                <AnnotationShape annotation={annotation} key={annotation.id} />
-            ))}
+            <g aria-label={'annotation list'}>
+                {annotations.map((annotation) => (
+                    <AnnotationShape annotation={annotation} key={annotation.id} />
+                ))}
+            </g>
 
             {previewAnnotations.length > 0 &&
                 previewAnnotations.map((annotation) => (

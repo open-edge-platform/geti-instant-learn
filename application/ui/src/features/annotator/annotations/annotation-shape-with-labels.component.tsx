@@ -31,9 +31,13 @@ export const AnnotationShapeWithLabels = ({ annotation }: AnnotationShapeProps) 
         updateAnnotations([updatedAnnotation]);
     };
 
+    if (!isVisible) {
+        return null;
+    }
+
     if (shape.type === 'rectangle') {
         return (
-            <g transform={`translate(${shape.x}, ${shape.y})`} display={isVisible ? 'block' : 'none'}>
+            <g transform={`translate(${shape.x}, ${shape.y})`}>
                 <AnnotationShape annotation={{ ...annotation, shape: { ...shape, x: 0, y: 0 } }} />
                 <AnnotationLabels labels={labels} onRemove={removeLabels} />
             </g>
