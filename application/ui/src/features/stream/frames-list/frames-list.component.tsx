@@ -98,10 +98,17 @@ interface FramesListProps {
     ref: RefObject<HTMLDivElement | null>;
 }
 
+const LAYOUT_OPTIONS: HorizontalLayoutOptions = {
+    size: 80,
+    gap: 0,
+    // number of items to render before and after the visible area
+    overscan: 5,
+};
+
 export const FramesList = ({ activeFrameIndex, frames, onSetActiveFrame, ref }: FramesListProps) => {
     return (
         <View height={'100%'} overflow={'hidden'} padding={'size-200'} backgroundColor={'gray-100'}>
-            <Virtualizer<HorizontalLayoutOptions> layout={HorizontalLayout} layoutOptions={{ size: 80, gap: 0 }}>
+            <Virtualizer<HorizontalLayoutOptions> layout={HorizontalLayout} layoutOptions={LAYOUT_OPTIONS}>
                 <AriaComponentsListBox
                     orientation={'horizontal'}
                     style={{ overflowX: 'auto', width: '100%', scrollbarGutter: 'stable' }}
@@ -111,7 +118,7 @@ export const FramesList = ({ activeFrameIndex, frames, onSetActiveFrame, ref }: 
                     {frames.map((frame) => (
                         <ListBoxItem
                             key={frame.index}
-                            style={{ height: '100%', width: '100%', outline: 'none' }}
+                            style={{ height: '100%', width: '100%' }}
                             aria-label={`Frame #${frame.index}`}
                         >
                             <FrameThumbnail
