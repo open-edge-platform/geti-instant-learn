@@ -58,9 +58,10 @@ interface Frame {
 interface FrameThumbnailProps {
     frame: Frame;
     isSelected: boolean;
+    onActivateFrame: (index: number) => void;
 }
 
-const FrameThumbnail = ({ frame, isSelected }: FrameThumbnailProps) => {
+const FrameThumbnail = ({ frame, isSelected, onActivateFrame }: FrameThumbnailProps) => {
     const { thumbnail } = frame;
 
     const refHandler = useCallback(
@@ -82,38 +83,60 @@ const FrameThumbnail = ({ frame, isSelected }: FrameThumbnailProps) => {
     );
 
     return (
-        <View ref={refHandler} borderColor={'gray-100'} borderWidth={'thicker'} height={'100%'} width={'100%'}>
+        <div style={{ height: '100%', width: '100%' }} onClick={() => onActivateFrame(frame.index)}>
             <View
-                UNSAFE_className={clsx({
-                    [styles.selected]: isSelected,
-                    [styles.notSelected]: !isSelected,
-                })}
+                //ref={refHandler}
+                borderColor={'gray-100'}
+                borderYWidth={'thick'}
+                borderXWidth={isSelected ? 'thick' : undefined}
                 height={'100%'}
                 width={'100%'}
             >
-                <img
-                    alt={'Frame'}
-                    src={thumbnail}
-                    style={{ objectFit: 'cover', height: '100%', width: '100%', display: 'block' }}
-                />
+                <View
+                    UNSAFE_className={clsx({
+                        [styles.selected]: isSelected,
+                        [styles.notSelected]: !isSelected,
+                    })}
+                    height={'100%'}
+                    width={'100%'}
+                >
+                    <img
+                        alt={'Frame'}
+                        src={thumbnail}
+                        style={{ objectFit: 'cover', height: '100%', width: '100%', display: 'block' }}
+                    />
+                </View>
             </View>
-        </View>
+        </div>
     );
 };
 
 interface FramesListProps {
     activeFrameIndex: number;
+    onSetActiveFrame: (index: number) => void;
     frames: Frame[];
 }
 
-export const FramesList = ({ activeFrameIndex, frames }: FramesListProps) => {
+export const FramesList = ({ activeFrameIndex, frames, onSetActiveFrame }: FramesListProps) => {
     return (
         <View height={'100%'} overflow={'hidden'} padding={'size-200'} backgroundColor={'gray-100'}>
             <Virtualizer<HorizontalLayoutOptions> layout={HorizontalLayout} layoutOptions={{ size: 80, gap: 0 }}>
-                <AriaComponentsListBox orientation={'horizontal'} style={{ overflowX: 'auto', width: '100%' }}>
+                <AriaComponentsListBox
+                    orientation={'horizontal'}
+                    style={{ overflowX: 'auto', width: '100%', scrollbarGutter: 'stable' }}
+                    aria-label={'Frames list'}
+                >
                     {frames.map((frame) => (
-                        <ListBoxItem key={frame.index} style={{ height: '100%', width: '100%' }}>
-                            <FrameThumbnail frame={frame} isSelected={frame.index === activeFrameIndex} />
+                        <ListBoxItem
+                            key={frame.index}
+                            style={{ height: '100%', width: '100%' }}
+                            aria-label={`Frame #${frame.index}`}
+                        >
+                            <FrameThumbnail
+                                frame={frame}
+                                isSelected={frame.index === activeFrameIndex}
+                                onActivateFrame={onSetActiveFrame}
+                            />
                         </ListBoxItem>
                     ))}
                 </AriaComponentsListBox>

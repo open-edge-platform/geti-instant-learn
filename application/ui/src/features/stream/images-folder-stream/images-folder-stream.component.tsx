@@ -25,26 +25,58 @@ export const ImagesFolderStream = () => {
     const isPrevFrameButtonDisabled = activeFrameIdx === 0;
     const isNextFrameButtonDisabled = activeFrameIdx === frames.length - 1;
 
+    const scrollFrameIntoView = (frameIdx: number) => {
+        const framesListRect = document.querySelector('[aria-label="Frames list"]')?.getBoundingClientRect();
+        const frameElement = document.querySelector(`[aria-label="Frame #${frameIdx}"]`);
+
+        if (frameElement === null || framesListRect === undefined) {
+            return;
+        }
+
+        const frameRect = frameElement.getBoundingClientRect();
+
+        const shouldScroll = frameRect.left < framesListRect.left || frameRect.right > framesListRect.right;
+
+        if (shouldScroll) {
+            frameElement.scrollIntoView({
+                behavior: 'smooth',
+            });
+        }
+    };
+
+    const activateFrame = (frameIdx: number) => {
+        setActiveFrameIdx(frameIdx);
+        scrollFrameIntoView(frameIdx);
+    };
+
     const nextFrame = () => {
-        setActiveFrameIdx((prev) => prev + 1);
+        const nextFrameIdx = activeFrameIdx + 1;
+        if (nextFrameIdx >= frames.length) {
+            return;
+        }
+        activateFrame(nextFrameIdx);
     };
 
     const prevFrame = () => {
-        setActiveFrameIdx((prev) => prev - 1);
+        const prevFrameIdx = activeFrameIdx - 1;
+        if (prevFrameIdx < 0) {
+            return;
+        }
+        activateFrame(prevFrameIdx);
     };
 
     return (
         <Grid
             height={'100%'}
             width={'100%'}
-            rows={[minmax(0, '1fr'), 'max-content', '120px']}
+            rows={[minmax(0, '1fr'), 'max-content', '128px']}
             columns={['size-200', 'size-600', minmax(0, '1fr'), 'size-600', 'size-200']}
             areas={[
                 'left-gutter prev-btn stream next-btn right-gutter',
                 'capture capture capture capture capture',
                 'frames frames frames frames frames',
             ]}
-            rowGap={'size-200'}
+            gap={'size-200'}
             UNSAFE_style={{
                 paddingTop: '48px',
             }}
@@ -76,7 +108,7 @@ export const ImagesFolderStream = () => {
                 </View>
             )}
             <View gridArea={'frames'}>
-                <FramesList activeFrameIndex={activeFrameIdx} frames={frames} />
+                <FramesList activeFrameIndex={activeFrameIdx} onSetActiveFrame={activateFrame} frames={frames} />
             </View>
         </Grid>
     );
