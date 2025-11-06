@@ -120,6 +120,7 @@ export const FramesList = ({ activeFrameIndex, frames, onSetActiveFrame, ref }: 
                             key={frame.index}
                             className={styles.frameItem}
                             aria-label={`Frame #${frame.index}`}
+                            aria-selected={frame.index === activeFrameIndex}
                         >
                             <FrameThumbnail
                                 frame={frame}
