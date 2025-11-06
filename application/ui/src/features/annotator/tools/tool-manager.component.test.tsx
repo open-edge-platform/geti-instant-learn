@@ -7,6 +7,7 @@ import { render } from '@geti-prompt/test-utils';
 import { screen } from '@testing-library/react';
 
 import { AnnotationActionsProvider } from '../providers/annotation-actions-provider.component';
+import { AnnotationVisibilityProvider } from '../providers/annotation-visibility-provider.component';
 import { AnnotatorProvider } from '../providers/annotator-provider.component';
 import { ToolManager } from './tool-manager.component';
 
@@ -15,7 +16,9 @@ describe('ToolManager', () => {
         render(
             <AnnotatorProvider frameId={'test-frame'}>
                 <AnnotationActionsProvider>
-                    <ToolManager />
+                    <AnnotationVisibilityProvider>
+                        <ToolManager />
+                    </AnnotationVisibilityProvider>
                 </AnnotationActionsProvider>
             </AnnotatorProvider>
         );
