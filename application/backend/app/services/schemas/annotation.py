@@ -3,6 +3,7 @@
 
 from enum import StrEnum
 from typing import Annotated, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -20,7 +21,7 @@ class PointAnnotation(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
-                "annotation_type": "point",
+                "type": "point",
                 "x": 0.5,
                 "y": 0.5,
             }
@@ -35,7 +36,7 @@ class PolygonAnnotation(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
-                "annotation_type": "polygon",
+                "type": "polygon",
                 "points": [[0.1, 0.1], [0.5, 0.1], [0.5, 0.5], [0.1, 0.5]],
             }
         }
@@ -43,3 +44,8 @@ class PolygonAnnotation(BaseModel):
 
 
 Annotation = Annotated[PointAnnotation | PolygonAnnotation, Field(discriminator="type")]
+
+
+class AnnotationSchema(BaseModel):
+    config: Annotation
+    label_id: UUID | None = Field(None, description="Optional label for the annotation")

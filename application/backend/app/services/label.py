@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from db.constraints import CheckConstraintName, UniqueConstraintName
+from db.constraints import UniqueConstraintName
 from db.models import LabelDB, ProjectDB
 from exceptions.custom_errors import (
     ResourceAlreadyExistsError,
@@ -225,13 +225,10 @@ class LabelService:
 
         if "foreign key" in error_msg:
             raise ResourceNotFoundError(
-                resource_type=ResourceType.LABEL,
-                resource_id=str(label_id),
-                message="Referenced project or prompt does not exist.",
+                resource_type=ResourceType.PROJECT,
+                resource_id=str(project_id),
+                message="Referenced project does not exist.",
             )
-
-        if "check constraint" in error_msg or constraint_name == CheckConstraintName.LABEL_PARENT:
-            raise ValueError("Label must belong to either a project or a prompt.")
 
         if "unique" in error_msg or constraint_name == UniqueConstraintName.LABEL_NAME_PER_PROJECT:
             raise ResourceAlreadyExistsError(

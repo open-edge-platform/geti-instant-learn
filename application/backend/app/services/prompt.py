@@ -120,6 +120,7 @@ class PromptService:
         Create a new prompt.
         - Visual prompts must have frame_id and annotations
         - Visual prompts must reference an existing frame
+        - Annotations can optionally reference labels that must exist in the project
         - Only one text prompt is allowed per project
 
         Parameters:
@@ -170,24 +171,9 @@ class PromptService:
                     resource_id=str(create_data.frame_id),
                     message=f"Frame {create_data.frame_id} does not exist in project {project_id}",
                 )
+            self._validate_annotation_labels(create_data.annotations, project_id)
 
         new_prompt: PromptDB = prompt_create_schema_to_db(schema=create_data, project_id=project_id)
-
-        if create_data.label_id:
-            label = self.label_repository.get_by_id(project_id, create_data.label_id)
-            if not label:
-                logger.error(
-                    "Label not found: label_id=%s in project with id=%s",
-                    create_data.label_id,
-                    project_id,
-                )
-                raise ResourceNotFoundError(
-                    resource_type=ResourceType.LABEL,
-                    resource_id=str(create_data.label_id),
-                    message=f"Label {create_data.label_id} does not exist in project {project_id}",
-                )
-            label.project_id = None
-            label.prompt_id = new_prompt.id
 
         self.prompt_repository.add(new_prompt)
 
@@ -255,10 +241,7 @@ class PromptService:
         For visual prompts:
         - If frame_id is updated, validates the new frame exists
         - If annotations are updated, they replace the existing ones
-
-        For label updates:
-        - If label_id is provided, associates the label with the prompt
-        - If label_id is None and prompt had a label, the label is removed
+        - Annotation label_ids are validated to exist in the project
 
         Parameters:
             project_id: Owning project UUID.
@@ -303,9 +286,6 @@ class PromptService:
         if isinstance(update_data, VisualPromptUpdateSchema):
             self._handle_visual_prompt_update(prompt, update_data, project_id)
 
-        if hasattr(update_data, "label_id") and update_data.label_id:
-            self._handle_label_update(prompt, update_data.label_id, project_id)
-
         prompt_update_schema_to_db(prompt, update_data)
 
         try:
@@ -335,57 +315,58 @@ class PromptService:
             update_data: The update data containing new frame_id
             project_id: The project ID for frame validation
         """
-        if not update_data.frame_id:
-            return
-
-        frame_path = self.frame_repository.get_frame_path(project_id, update_data.frame_id)
-        if not frame_path:
-            logger.error(
-                "Visual prompt update failed: frame_id=%s not found in project_id=%s",
-                update_data.frame_id,
-                project_id,
-            )
-            raise ResourceNotFoundError(
-                resource_type=ResourceType.FRAME,
-                resource_id=str(update_data.frame_id),
-                message=f"Frame {update_data.frame_id} does not exist in project {project_id}",
-            )
-
-        if prompt.frame_id and prompt.frame_id != update_data.frame_id:
-            old_frame_deleted = self.frame_repository.delete_frame(project_id, prompt.frame_id)
-            if old_frame_deleted:
-                logger.info(
-                    "Deleted old frame file: frame_id=%s project_id=%s",
-                    prompt.frame_id,
+        if update_data.frame_id is not None:
+            frame_path = self.frame_repository.get_frame_path(project_id, update_data.frame_id)
+            if not frame_path:
+                logger.error(
+                    "Visual prompt update failed: frame_id=%s not found in project_id=%s",
+                    update_data.frame_id,
                     project_id,
                 )
+                raise ResourceNotFoundError(
+                    resource_type=ResourceType.FRAME,
+                    resource_id=str(update_data.frame_id),
+                    message=f"Frame {update_data.frame_id} does not exist in project {project_id}",
+                )
 
-    def _handle_label_update(self, prompt: PromptDB, label_id: UUID, project_id: UUID) -> None:
+            if prompt.frame_id and prompt.frame_id != update_data.frame_id:
+                old_frame_deleted = self.frame_repository.delete_frame(project_id, prompt.frame_id)
+                if old_frame_deleted:
+                    logger.info(
+                        "Deleted old frame file: frame_id=%s project_id=%s",
+                        prompt.frame_id,
+                        project_id,
+                    )
+
+        if update_data.annotations is not None:
+            self._validate_annotation_labels(update_data.annotations, project_id)
+
+    def _validate_annotation_labels(self, annotations: list, project_id: UUID) -> None:
         """
-        Handle label association updates for a prompt.
+        Validate that all label_ids in annotations exist in the project.
 
         Args:
-            prompt: The prompt being updated
-            label_id: The new label ID to associate
+            annotations: List of AnnotationSchema objects
             project_id: The project ID for label validation
+
+        Raises:
+            ResourceNotFoundError: If any label_id doesn't exist in the project
         """
-        label = self.label_repository.get_by_id(project_id, label_id)
-        if not label:
-            logger.error(
-                "Label not found: label_id=%s in project_id=%s",
-                label_id,
-                project_id,
-            )
-            raise ResourceNotFoundError(
-                resource_type=ResourceType.LABEL,
-                resource_id=str(label_id),
-                message=f"Label {label_id} does not exist in project {project_id}",
-            )
+        label_ids = {ann.label_id for ann in annotations if ann.label_id is not None}
 
-        # todo think over, maybe things should be handled by label service
-
-        label.project_id = None
-        label.prompt_id = prompt.id
+        for label_id in label_ids:
+            label = self.label_repository.get_by_id(project_id, label_id)
+            if not label:
+                logger.error(
+                    "Label not found: label_id=%s in project_id=%s",
+                    label_id,
+                    project_id,
+                )
+                raise ResourceNotFoundError(
+                    resource_type=ResourceType.LABEL,
+                    resource_id=str(label_id),
+                    message=f"Label {label_id} does not exist in project {project_id}",
+                )
 
     def _ensure_project(self, project_id: UUID) -> ProjectDB:
         """

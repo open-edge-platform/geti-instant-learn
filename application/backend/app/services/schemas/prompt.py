@@ -7,7 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from db.models import PromptType
-from services.schemas.annotation import Annotation
+from services.schemas.annotation import AnnotationSchema
 from services.schemas.base import BaseIDPayload, BaseIDSchema, Pagination
 
 
@@ -16,14 +16,12 @@ class TextPromptCreateSchema(BaseIDPayload):
 
     type: Literal[PromptType.TEXT]  # type: ignore[valid-type]
     content: str = Field(..., description="Text content of the prompt", min_length=1)
-    label_id: UUID | None = Field(None, description="Optional label ID to associate with the prompt")
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "type": "TEXT",
                 "content": "red car",
-                "label_id": "123e4567-e89b-12d3-a456-426614174000",
             }
         }
     }
@@ -34,8 +32,7 @@ class VisualPromptCreateSchema(BaseIDPayload):
 
     type: Literal[PromptType.VISUAL]  # type: ignore[valid-type]
     frame_id: UUID = Field(..., description="ID of the frame to use for the prompt")
-    annotations: list[Annotation] = Field(..., description="List of annotations for the prompt", min_length=1)
-    label_id: UUID | None = Field(None, description="Optional label ID to associate with the prompt")
+    annotations: list[AnnotationSchema] = Field(..., description="List of annotations for the prompt", min_length=1)
 
     model_config = {
         "json_schema_extra": {
@@ -44,17 +41,19 @@ class VisualPromptCreateSchema(BaseIDPayload):
                 "frame_id": "123e4567-e89b-12d3-a456-426614174000",
                 "annotations": [
                     {
-                        "type": "polygon",
-                        "points": [[0.1, 0.1], [0.5, 0.1], [0.5, 0.5], [0.1, 0.5]],
+                        "config": {
+                            "type": "polygon",
+                            "points": [[0.1, 0.1], [0.5, 0.1], [0.5, 0.5], [0.1, 0.5]],
+                        },
+                        "label_id": "123e4567-e89b-12d3-a456-426614174001",
                     }
                 ],
-                "label_id": "123e4567-e89b-12d3-a456-426614174000",
             }
         }
     }
 
 
-PromptCreateSchema = Annotated[TextPromptCreateSchema | VisualPromptCreateSchema, Field(discriminator="type")]
+PromptCreateSchema = Annotated[VisualPromptCreateSchema | TextPromptCreateSchema, Field(discriminator="type")]
 
 
 class TextPromptUpdateSchema(BaseModel):
@@ -62,14 +61,12 @@ class TextPromptUpdateSchema(BaseModel):
 
     type: Literal[PromptType.TEXT]  # type: ignore[valid-type]
     content: str | None = Field(None, description="Text content of the prompt", min_length=1)
-    label_id: UUID | None = Field(None, description="Optional label ID to associate with the prompt")
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "type": "TEXT",
                 "content": "red car",
-                "label_id": "123e4567-e89b-12d3-a456-426614174000",
             }
         }
     }
@@ -80,8 +77,9 @@ class VisualPromptUpdateSchema(BaseModel):
 
     type: Literal[PromptType.VISUAL]  # type: ignore[valid-type]
     frame_id: UUID | None = Field(None, description="ID of the frame to use for the prompt")
-    annotations: list[Annotation] | None = Field(None, description="List of annotations for the prompt", min_length=1)
-    label_id: UUID | None = Field(None, description="Optional label ID to associate with the prompt")
+    annotations: list[AnnotationSchema] | None = Field(
+        None, description="List of annotations for the prompt", min_length=1
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -90,17 +88,19 @@ class VisualPromptUpdateSchema(BaseModel):
                 "frame_id": "123e4567-e89b-12d3-a456-426614174000",
                 "annotations": [
                     {
-                        "type": "polygon",
-                        "points": [[0.1, 0.1], [0.5, 0.1], [0.5, 0.5], [0.1, 0.5]],
+                        "config": {
+                            "type": "polygon",
+                            "points": [[0.1, 0.1], [0.5, 0.1], [0.5, 0.5], [0.1, 0.5]],
+                        },
+                        "label_id": "123e4567-e89b-12d3-a456-426614174001",
                     }
                 ],
-                "label_id": "123e4567-e89b-12d3-a456-426614174000",
             }
         }
     }
 
 
-PromptUpdateSchema = Annotated[TextPromptUpdateSchema | VisualPromptUpdateSchema, Field(discriminator="type")]
+PromptUpdateSchema = Annotated[VisualPromptUpdateSchema | TextPromptUpdateSchema, Field(discriminator="type")]
 
 
 class TextPromptSchema(BaseIDSchema):
@@ -115,10 +115,10 @@ class VisualPromptSchema(BaseIDSchema):
 
     type: Literal[PromptType.VISUAL]  # type: ignore[valid-type]
     frame_id: UUID
-    annotations: list[Annotation]
+    annotations: list[AnnotationSchema]
 
 
-PromptSchema = Annotated[TextPromptSchema | VisualPromptSchema, Field(discriminator="type")]
+PromptSchema = Annotated[VisualPromptSchema | TextPromptSchema, Field(discriminator="type")]
 
 
 class PromptsListSchema(BaseModel):

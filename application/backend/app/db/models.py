@@ -20,22 +20,15 @@ class LabelDB(Base):
     __tablename__ = "Label"
     name: Mapped[str] = mapped_column(nullable=False)
     color: Mapped[str] = mapped_column(nullable=False)
-    project_id: Mapped[UUID | None] = mapped_column(ForeignKey("Project.id", ondelete="CASCADE"))
-    prompt_id: Mapped[UUID | None] = mapped_column(ForeignKey("Prompt.id", ondelete="CASCADE"))
-    prompt: Mapped["PromptDB"] = relationship(back_populates="labels")
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("Project.id", ondelete="CASCADE"), nullable=False)
     project: Mapped["ProjectDB"] = relationship(back_populates="labels")
-    __table_args__ = (
-        CheckConstraint(
-            "(project_id IS NOT NULL AND prompt_id IS NULL) OR (project_id IS NULL AND prompt_id IS NOT NULL)",
-            name=CheckConstraintName.LABEL_PARENT,
-        ),
-        UniqueConstraint("name", "project_id", name=UniqueConstraintName.LABEL_NAME_PER_PROJECT),
-    )
+    __table_args__ = (UniqueConstraint("name", "project_id", name=UniqueConstraintName.LABEL_NAME_PER_PROJECT),)
 
 
 class AnnotationDB(Base):
     __tablename__ = "Annotation"
     config: Mapped[dict] = mapped_column(JSON, nullable=False)
+    label_id: Mapped[UUID | None] = mapped_column(ForeignKey("Label.id", ondelete="SET NULL"), nullable=True)
     prompt_id: Mapped[UUID] = mapped_column(ForeignKey("Prompt.id", ondelete="CASCADE"))
     prompt: Mapped["PromptDB"] = relationship(back_populates="annotations", single_parent=True)
 
@@ -92,9 +85,6 @@ class PromptDB(Base):
     frame_id: Mapped[UUID | None] = mapped_column(nullable=True)
     project: Mapped["ProjectDB"] = relationship(back_populates="prompts")
     annotations: Mapped[list[AnnotationDB]] = relationship(
-        back_populates="prompt", cascade="all, delete-orphan", passive_deletes=True
-    )
-    labels: Mapped[list[LabelDB]] = relationship(
         back_populates="prompt", cascade="all, delete-orphan", passive_deletes=True
     )
     __table_args__ = (

@@ -61,7 +61,7 @@ def upgrade() -> None:
     op.create_table('Prompt',
     sa.Column('type', sa.Enum('TEXT', 'VISUAL', name='prompttype'), nullable=False),
     sa.Column('project_id', sa.Uuid(), nullable=False),
-    sa.Column('text', sa.String(), nullable=True),
+    sa.Column('text', sa.Text(), nullable=True),
     sa.Column('frame_id', sa.Uuid(), nullable=True),
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.ForeignKeyConstraint(['project_id'], ['Project.id'], ondelete='CASCADE'),
@@ -118,24 +118,21 @@ def upgrade() -> None:
 
     op.create_table('Annotation',
     sa.Column('config', sqlite.JSON(), nullable=False),
+    sa.Column('label_id', sa.Uuid(), nullable=True),
     sa.Column('prompt_id', sa.Uuid(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
+    sa.ForeignKeyConstraint(['label_id'], ['Label.id'], ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['prompt_id'], ['Prompt.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('prompt_id')
+    sa.PrimaryKeyConstraint('id')
     )
 
     op.create_table('Label',
     sa.Column('name', sa.String(), nullable=False),
     sa.Column('color', sa.String(), nullable=False),
-    sa.Column('project_id', sa.Uuid(), nullable=True),
-    sa.Column('prompt_id', sa.Uuid(), nullable=True),
+    sa.Column('project_id', sa.Uuid(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
-    sa.CheckConstraint(
-        '(project_id IS NOT NULL AND prompt_id IS NULL) OR (project_id IS NULL AND prompt_id IS NOT NULL)', name=CheckConstraintName.LABEL_PARENT),
     sa.UniqueConstraint('name', 'project_id', name=UniqueConstraintName.LABEL_NAME_PER_PROJECT),
     sa.ForeignKeyConstraint(['project_id'], ['Project.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['prompt_id'], ['Prompt.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
 

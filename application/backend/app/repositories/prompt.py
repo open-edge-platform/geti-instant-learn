@@ -51,7 +51,7 @@ class PromptRepository(BaseRepository):
         stmt = (
             select(PromptDB)
             .where(PromptDB.id == prompt_id, PromptDB.project_id == project_id)
-            .options(joinedload(PromptDB.annotations), joinedload(PromptDB.labels))
+            .options(joinedload(PromptDB.annotations))
         )
         return self.session.scalars(stmt).unique().first()
 
@@ -94,7 +94,7 @@ class PromptRepository(BaseRepository):
         prompts_query = (
             select(PromptDB)
             .where(PromptDB.project_id == project_id)
-            .options(joinedload(PromptDB.annotations), joinedload(PromptDB.labels))
+            .options(joinedload(PromptDB.annotations))
             .offset(offset)
             .limit(limit)
         )

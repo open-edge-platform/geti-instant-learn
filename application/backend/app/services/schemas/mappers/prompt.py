@@ -5,7 +5,7 @@ from collections.abc import Iterable
 from uuid import UUID, uuid4
 
 from db.models import AnnotationDB, PromptDB, PromptType
-from services.schemas.annotation import Annotation
+from services.schemas.annotation import AnnotationSchema
 from services.schemas.prompt import (
     PromptCreateSchema,
     PromptSchema,
@@ -28,7 +28,11 @@ def prompt_db_to_schema(prompt: PromptDB) -> PromptSchema:
             type=PromptType.TEXT,
             content=prompt.text or "",
         )
-    annotations: list[Annotation] = [ann.config for ann in prompt.annotations]
+
+    annotations: list[AnnotationSchema] = [
+        AnnotationSchema(config=ann.config, label_id=ann.label_id) for ann in prompt.annotations
+    ]
+
     return VisualPromptSchema(
         id=prompt.id,
         type=PromptType.VISUAL,
@@ -48,7 +52,6 @@ def prompt_create_schema_to_db(schema: PromptCreateSchema, project_id: UUID) -> 
     """
     Create a new PromptDB (unpersisted) from schema.
     project_id should be injected by service layer.
-    Note: label_id will be handled separately in the service layer.
     """
     if isinstance(schema, TextPromptCreateSchema):
         prompt_db = PromptDB(
@@ -63,7 +66,8 @@ def prompt_create_schema_to_db(schema: PromptCreateSchema, project_id: UUID) -> 
         annotation_entities = [
             AnnotationDB(
                 id=uuid4(),
-                config=ann.model_dump(),
+                config=ann.config.model_dump(),
+                label_id=ann.label_id,
                 prompt_id=schema.id,
             )
             for ann in schema.annotations
@@ -99,7 +103,8 @@ def prompt_update_schema_to_db(prompt_db: PromptDB, schema: PromptUpdateSchema) 
             for ann in schema.annotations:
                 annotation_entity = AnnotationDB(
                     id=uuid4(),
-                    config=ann.model_dump(),
+                    config=ann.config.model_dump(),
+                    label_id=ann.label_id,
                     prompt_id=prompt_db.id,
                 )
                 prompt_db.annotations.append(annotation_entity)
