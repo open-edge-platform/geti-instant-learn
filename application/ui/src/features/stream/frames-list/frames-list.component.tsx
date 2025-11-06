@@ -111,14 +111,14 @@ export const FramesList = ({ activeFrameIndex, frames, onSetActiveFrame, ref }: 
             <Virtualizer<HorizontalLayoutOptions> layout={HorizontalLayout} layoutOptions={LAYOUT_OPTIONS}>
                 <AriaComponentsListBox
                     orientation={'horizontal'}
-                    style={{ overflowX: 'auto', width: '100%', scrollbarGutter: 'stable' }}
+                    className={styles.framesList}
                     aria-label={'Frames list'}
                     ref={ref}
                 >
                     {frames.map((frame) => (
                         <ListBoxItem
                             key={frame.index}
-                            style={{ height: '100%', width: '100%' }}
+                            className={styles.frameItem}
                             aria-label={`Frame #${frame.index}`}
                         >
                             <FrameThumbnail

@@ -5,3 +5,14 @@
 .notSelected {
     border: var(--spectrum-alias-border-radius-regular) solid transparent;
 }
+
+.framesList {
+    overflow-x: auto;
+    width: 100%;
+    scrollbar-gutter: stable;
+}
+
+.frameItem {
+    height: 100%;
+    width: 100%;
+}
