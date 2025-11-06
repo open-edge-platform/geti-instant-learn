@@ -65,4 +65,66 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
 
         await annotatorPage.addAnnotation();
     });
+
+    await test.step('Hides/Shows annotations', async () => {
+        await annotatorPage.hasAnnotations();
+
+        await annotatorPage.hideAnnotations();
+
+        await expect(await annotatorPage.getAnnotation()).toBeHidden();
+
+        await annotatorPage.showAnnotations();
+
+        await annotatorPage.hasAnnotations();
+    });
+
+    await test.step('Undoes/redoes annotations', async () => {
+        await annotatorPage.hasAnnotations();
+
+        await annotatorPage.undoAnnotation();
+
+        await expect(await annotatorPage.getAnnotation()).toBeHidden();
+
+        await annotatorPage.redoAnnotation();
+
+        await annotatorPage.hasAnnotations();
+    });
+
+    await test.step('Plays with zoom', async () => {
+        await annotatorPage.hasAnnotations();
+
+        const initialZoom = await annotatorPage.getZoomValue();
+
+        await annotatorPage.zoomIn();
+        await annotatorPage.zoomIn();
+        await annotatorPage.zoomIn();
+
+        await annotatorPage.zoomOut();
+        await annotatorPage.zoomOut();
+        await annotatorPage.zoomOut();
+
+        expect(await annotatorPage.getZoomValue()).toEqual(initialZoom);
+
+        await annotatorPage.zoomIn();
+        await annotatorPage.zoomIn();
+        await annotatorPage.zoomIn();
+
+        await annotatorPage.fitToScreen();
+
+        expect(await annotatorPage.getZoomValue()).toEqual(initialZoom);
+    });
+
+    await test.step('Changes to fullscreen', async () => {
+        await annotatorPage.hasAnnotations();
+
+        await annotatorPage.openFullscreen();
+
+        await annotatorPage.hasAnnotations();
+
+        // Open settings just for fun
+        await annotatorPage.openSettings();
+        await annotatorPage.closeSettings();
+
+        await annotatorPage.closeFullscreen();
+    });
 });
