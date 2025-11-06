@@ -1,0 +1,6 @@
+.button,
+.button[class*='is-hovered'] {
+    border-radius: 50% !important;
+    height: var(--spectrum-global-dimension-size-600);
+    width: var(--spectrum-global-dimension-size-600);
+}

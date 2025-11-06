@@ -1,3 +1,7 @@
 .selected {
     border: var(--spectrum-alias-border-radius-regular) solid var(--energy-blue);
 }
+
+.notSelected {
+    border: var(--spectrum-alias-border-radius-regular) solid transparent;
+}
