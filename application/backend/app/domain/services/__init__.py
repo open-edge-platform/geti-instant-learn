@@ -3,10 +3,12 @@
 
 from .label import LabelService
 from .project import ProjectService
+from .prompt import PromptService
 from .source import SourceService
 
 __all__ = [
     "LabelService",
     "ProjectService",
+    "PromptService",
     "SourceService",
 ]

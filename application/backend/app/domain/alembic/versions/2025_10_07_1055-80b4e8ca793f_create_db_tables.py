@@ -60,14 +60,23 @@ def upgrade() -> None:
 
     op.create_table('Prompt',
     sa.Column('type', sa.Enum('TEXT', 'VISUAL', name='prompttype'), nullable=False),
-    sa.Column('name', sa.Text(), nullable=False),
     sa.Column('project_id', sa.Uuid(), nullable=False),
-    sa.Column('text', sa.String(), nullable=True),
-    sa.Column('image_path', sa.String(), nullable=True),
+    sa.Column('text', sa.Text(), nullable=True),
+    sa.Column('frame_id', sa.Uuid(), nullable=True),
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.ForeignKeyConstraint(['project_id'], ['Project.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('name', 'project_id', name=UniqueConstraintName.PROMPT_NAME_PER_PROJECT)
+    sa.CheckConstraint(
+        "(type = 'TEXT' AND text IS NOT NULL AND frame_id IS NULL) OR "
+        "(type = 'VISUAL' AND frame_id IS NOT NULL AND text IS NULL)",
+        name=CheckConstraintName.PROMPT_CONTENT)
+    )
+    op.create_index(
+        UniqueConstraintName.SINGLE_TEXT_PROMPT_PER_PROJECT,
+        'Prompt',
+        ['project_id', 'type'],
+        unique=True,
+        sqlite_where=sa.text("type = 'TEXT'")
     )
 
     op.create_table('Sink',
@@ -109,32 +118,22 @@ def upgrade() -> None:
 
     op.create_table('Annotation',
     sa.Column('config', sqlite.JSON(), nullable=False),
+    sa.Column('label_id', sa.Uuid(), nullable=True),
     sa.Column('prompt_id', sa.Uuid(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
+    sa.ForeignKeyConstraint(['label_id'], ['Label.id'], ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['prompt_id'], ['Prompt.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('prompt_id')
+    sa.PrimaryKeyConstraint('id')
     )
 
     op.create_table('Label',
     sa.Column('name', sa.String(), nullable=False),
     sa.Column('color', sa.String(), nullable=False),
-    sa.Column('project_id', sa.Uuid(), nullable=True),
-    sa.Column('prompt_id', sa.Uuid(), nullable=True),
+    sa.Column('project_id', sa.Uuid(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
-    sa.CheckConstraint(
-        'project_id IS NOT NULL OR prompt_id IS NOT NULL',
-        name=CheckConstraintName.LABEL_PARENT
-    ),
+    sa.UniqueConstraint('name', 'project_id', name=UniqueConstraintName.LABEL_NAME_PER_PROJECT),
     sa.ForeignKeyConstraint(['project_id'], ['Project.id'], ondelete='CASCADE'),
-    sa.ForeignKeyConstraint(['prompt_id'], ['Prompt.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(
-        UniqueConstraintName.LABEL_NAME_PER_PROJECT,
-        'Label',
-        ['name', 'project_id'],
-        unique=True
     )
 
 
@@ -144,23 +143,12 @@ def downgrade() -> None:
     op.drop_table('Annotation')
     op.execute(sa.text(f"DROP INDEX IF EXISTS {UniqueConstraintName.SOURCE_NAME_PER_PROJECT}"))
     op.execute(sa.text(f"DROP INDEX IF EXISTS {UniqueConstraintName.SOURCE_TYPE_PER_PROJECT}"))
-    op.drop_index(
-        UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT,
-        table_name='Source',
-        sqlite_where=sa.text('connected IS 1')
-    )
+    op.drop_index(UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT, table_name='Source')
     op.drop_table('Source')
     op.drop_table('Sink')
+    op.drop_index(UniqueConstraintName.SINGLE_TEXT_PROMPT_PER_PROJECT, table_name='Prompt')
     op.drop_table('Prompt')
-    op.drop_index(
-        UniqueConstraintName.PROCESSOR_NAME_PER_PROJECT,
-        table_name='Processor',
-        sqlite_where=sa.text('name IS NOT NULL')
-    )
+    op.drop_index(UniqueConstraintName.PROCESSOR_NAME_PER_PROJECT, table_name='Processor')
     op.drop_table('Processor')
-    op.drop_index(
-        UniqueConstraintName.SINGLE_ACTIVE_PROJECT,
-        table_name='Project',
-        sqlite_where=sa.text('active IS 1')
-    )
+    op.drop_index(UniqueConstraintName.SINGLE_ACTIVE_PROJECT, table_name='Project')
     op.drop_table('Project')

@@ -2,14 +2,52 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from typing import Annotated
 from uuid import UUID
 
-from fastapi import Form, Response, status
+from fastapi import Response, status
 
 from api.routers import projects_router
+from dependencies import PromptServiceDep
+from domain.services.schemas.prompt import PromptCreateSchema, PromptSchema, PromptsListSchema, PromptUpdateSchema
 
 logger = logging.getLogger(__name__)
+
+
+@projects_router.get(
+    path="/{project_id}/prompts",
+    tags=["Prompts"],
+    status_code=status.HTTP_200_OK,
+    responses={
+        status.HTTP_200_OK: {"description": "Successfully retrieved the list of all prompts for the project."},
+        status.HTTP_404_NOT_FOUND: {"description": "Project not found."},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
+    },
+)
+def get_all_prompts(
+    project_id: UUID, prompt_service: PromptServiceDep, offset: int = 0, limit: int = 10
+) -> PromptsListSchema:
+    """
+    Retrieve a list of all prompts for the project with pagination.
+    """
+    limit = min(limit, 100)  # set the maximum limit to prevent excessive queries
+    return prompt_service.list_prompts(project_id, offset=offset, limit=limit)
+
+
+@projects_router.get(
+    path="/{project_id}/prompts/{prompt_id}",
+    tags=["Prompts"],
+    status_code=status.HTTP_200_OK,
+    responses={
+        status.HTTP_200_OK: {"description": "Successfully retrieved the details of the prompt."},
+        status.HTTP_404_NOT_FOUND: {"description": "Project or prompt not found."},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
+    },
+)
+def get_prompt(project_id: UUID, prompt_id: UUID, prompt_service: PromptServiceDep) -> PromptSchema:
+    """
+    Retrieve the details of a specific prompt.
+    """
+    return prompt_service.get_prompt(project_id, prompt_id)
 
 
 @projects_router.post(
@@ -17,93 +55,20 @@ logger = logging.getLogger(__name__)
     tags=["Prompts"],
     status_code=status.HTTP_201_CREATED,
     responses={
-        status.HTTP_201_CREATED: {
-            "description": "Successfully added a new prompt to the project.",
-        },
-        status.HTTP_500_INTERNAL_SERVER_ERROR: {
-            "description": "Unexpected error occurred while adding a new prompt to the project.",
-        },
+        status.HTTP_201_CREATED: {"description": "Successfully created a new prompt."},
+        status.HTTP_404_NOT_FOUND: {"description": "Project, label, or frame not found."},
+        status.HTTP_409_CONFLICT: {"description": "Prompt already exists."},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
     },
 )
-def create_prompt(
-    project_id: UUID,
-    prompt_name: Annotated[str, Form()],
-    prompt_type: Annotated[str, Form()],
-    # image: Annotated[UploadFile, File()],
-    # annotation_data: Annotated[UploadFile, File()]
-) -> Response:
+def create_prompt(project_id: UUID, payload: PromptCreateSchema, prompt_service: PromptServiceDep) -> PromptSchema:
     """
-    Add a new prompt to the project.
+    Create a new text or visual prompt for the project.
+    Text prompts are limited to one per project.
+    Visual prompts must reference an existing frame and include annotations.
+    Returns the created prompt.
     """
-    logger.debug(f"Received POST project {project_id} prompt request, name: {prompt_name}, type: {prompt_type}")
-
-    return Response(status_code=status.HTTP_201_CREATED)
-
-
-@projects_router.delete(
-    path="/{project_id}/prompts/{prompt_id}",
-    tags=["Prompts"],
-    status_code=status.HTTP_200_OK,
-    responses={
-        status.HTTP_200_OK: {
-            "description": "Successfully deleted the prompt's directory and all its contents.",
-        },
-        status.HTTP_500_INTERNAL_SERVER_ERROR: {
-            "description": "Unexpected error occurred while deleting the prompt's directory.",
-        },
-    },
-)
-def delete_prompt(project_id: UUID, prompt_id: UUID) -> Response:
-    """
-    Delete the prompt's directory and all its contents.
-    """
-    logger.debug(f"Received DELETE project {project_id} prompt {prompt_id} request.")
-
-    return Response(status_code=status.HTTP_200_OK)
-
-
-@projects_router.get(
-    path="/{project_id}/prompts/{prompt_id}",
-    tags=["Prompts"],
-    status_code=status.HTTP_200_OK,
-    responses={
-        status.HTTP_200_OK: {
-            "description": "Successfully retrieved the details and files of the prompt.",
-        },
-        status.HTTP_500_INTERNAL_SERVER_ERROR: {
-            "description": "Unexpected error occurred while retrieving the prompt details.",
-        },
-    },
-)
-def get_prompt(project_id: UUID, prompt_id: UUID) -> Response:
-    """
-    Retrieve the details and files of the prompt.
-    """
-    logger.debug(f"Received GET project {project_id} prompt {prompt_id} request.")
-
-    return Response(status_code=status.HTTP_200_OK)
-
-
-@projects_router.get(
-    path="/{project_id}/prompts",
-    tags=["Prompts"],
-    status_code=status.HTTP_200_OK,
-    responses={
-        status.HTTP_200_OK: {
-            "description": "Successfully retrieved the list of all prompts for the project.",
-        },
-        status.HTTP_500_INTERNAL_SERVER_ERROR: {
-            "description": "Unexpected error occurred while retrieving the list of prompts for the project.",
-        },
-    },
-)
-def get_all_prompts(project_id: UUID) -> Response:
-    """
-    Retrieve a list of all prompts for the project.
-    """
-    logger.debug(f"Received GET project {project_id} prompts request.")
-
-    return Response(status_code=status.HTTP_200_OK, content={"project_prompts": []})
+    return prompt_service.create_prompt(project_id=project_id, create_data=payload)
 
 
 @projects_router.put(
@@ -111,18 +76,34 @@ def get_all_prompts(project_id: UUID) -> Response:
     tags=["Prompts"],
     status_code=status.HTTP_200_OK,
     responses={
-        status.HTTP_200_OK: {
-            "description": "Successfully updated the files for the prompt.",
-        },
-        status.HTTP_500_INTERNAL_SERVER_ERROR: {
-            "description": "Unexpected error occurred while updating the prompt details.",
-        },
+        status.HTTP_200_OK: {"description": "Successfully updated the prompt."},
+        status.HTTP_404_NOT_FOUND: {"description": "Project, prompt, label, or frame not found."},
+        status.HTTP_400_BAD_REQUEST: {"description": "Invalid update data or type mismatch."},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
     },
 )
-def update_prompt(project_id: UUID, prompt_id: UUID) -> Response:
+def update_prompt(
+    project_id: UUID, prompt_id: UUID, payload: PromptUpdateSchema, prompt_service: PromptServiceDep
+) -> PromptSchema:
     """
-    Update the existing files of the prompt.
+    Update an existing prompt (text or visual) for the project.
     """
-    logger.debug(f"Received PUT project {project_id} prompt {prompt_id} request.")
+    return prompt_service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=payload)
 
-    return Response(status_code=status.HTTP_200_OK)
+
+@projects_router.delete(
+    path="/{project_id}/prompts/{prompt_id}",
+    tags=["Prompts"],
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_204_NO_CONTENT: {"description": "Successfully deleted the prompt."},
+        status.HTTP_404_NOT_FOUND: {"description": "Project or prompt not found."},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
+    },
+)
+def delete_prompt(project_id: UUID, prompt_id: UUID, prompt_service: PromptServiceDep) -> Response:
+    """
+    Delete a prompt from the project.
+    """
+    prompt_service.delete_prompt(project_id=project_id, prompt_id=prompt_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

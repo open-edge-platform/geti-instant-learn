@@ -17,7 +17,7 @@ settings = get_settings()
 
 class FrameRepository:
     def __init__(self, base_dir: Path | None = None):
-        self._base_dir = base_dir or Path(settings.db_data_dir) / "tmp" / "projects"
+        self._base_dir = base_dir or Path(settings.db_data_dir) / "projects"
 
     def _frame_path(self, project_id: UUID, frame_id: UUID) -> Path:
         """Construct the filesystem path for a given frame."""
