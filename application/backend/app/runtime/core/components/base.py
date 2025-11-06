@@ -7,7 +7,7 @@ from multiprocessing import Event
 from types import TracebackType
 from typing import Any, TypeVar
 
-from runtime.core.components.error import UnsupportedOperationError
+from runtime.core.components.errors import UnsupportedOperationError
 from runtime.core.components.schemas.processor import InputData
 from runtime.core.components.schemas.reader import FrameListResponse
 
