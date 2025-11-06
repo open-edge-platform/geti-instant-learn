@@ -8,6 +8,7 @@ import { expect, http, test } from '@geti-prompt/test-fixtures';
 
 import { registerApiLabels } from '../labels/mocks';
 import { initializeWebRTC } from '../prompt/initialize-webrtc';
+import { AnnotatorPage } from './annotator-page';
 
 const DEVICE_ID = 10;
 const WEBCAM_SOURCE: WebcamSourceType = {
@@ -20,6 +21,14 @@ const WEBCAM_SOURCE: WebcamSourceType = {
     },
 };
 const ANNOTATOR_PAGE_TIMEOUT = 10 * 60 * 1000;
+
+const expectToNotHaveAnnotations = async ({ annotatorPage }: { annotatorPage: AnnotatorPage }) => {
+    await expect(annotatorPage.getAnnotation()).toHaveCount(0);
+};
+
+const expectToHaveAnnotations = async ({ annotatorPage }: { annotatorPage: AnnotatorPage }) => {
+    await expect(annotatorPage.getAnnotation()).not.toHaveCount(0);
+};
 
 test.use({ browserName: 'firefox' });
 test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) => {
@@ -67,33 +76,33 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
     });
 
     await test.step('Hides/Shows annotations', async () => {
-        await annotatorPage.hasAnnotations();
+        await expectToHaveAnnotations({ annotatorPage });
 
         await annotatorPage.hideAnnotations();
 
-        await expect(annotatorPage.getAnnotation()).toHaveCount(0);
+        await expectToNotHaveAnnotations({ annotatorPage });
 
         await annotatorPage.showAnnotations();
 
-        await annotatorPage.hasAnnotations();
+        await expectToHaveAnnotations({ annotatorPage });
     });
 
     await test.step('Undoes/redoes annotations', async () => {
-        await annotatorPage.hasAnnotations();
+        await expectToHaveAnnotations({ annotatorPage });
 
         await annotatorPage.undoAnnotation();
 
-        await expect(annotatorPage.getAnnotation()).toHaveCount(0);
+        await expectToNotHaveAnnotations({ annotatorPage });
 
         await annotatorPage.redoAnnotation();
 
-        await annotatorPage.hasAnnotations();
+        await expectToHaveAnnotations({ annotatorPage });
     });
 
     await test.step('Plays with zoom', async () => {
-        await annotatorPage.hasAnnotations();
+        await expectToHaveAnnotations({ annotatorPage });
 
-        const initialZoom = await annotatorPage.getZoomValue();
+        const initialZoom = await (await annotatorPage.getZoomValue()).innerText();
 
         await annotatorPage.zoomIn();
         await annotatorPage.zoomIn();
@@ -103,7 +112,7 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
         await annotatorPage.zoomOut();
         await annotatorPage.zoomOut();
 
-        await expect(await annotatorPage.getZoomValue()).toHaveText(await initialZoom.innerText());
+        await expect(await annotatorPage.getZoomValue()).toHaveText(initialZoom);
 
         await annotatorPage.zoomIn();
         await annotatorPage.zoomIn();
@@ -111,15 +120,15 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
 
         await annotatorPage.fitToScreen();
 
-        await expect(await annotatorPage.getZoomValue()).toHaveText(await initialZoom.innerText());
+        await expect(await annotatorPage.getZoomValue()).toHaveText(initialZoom);
     });
 
     await test.step('Changes to fullscreen', async () => {
-        await annotatorPage.hasAnnotations();
+        await expectToHaveAnnotations({ annotatorPage });
 
         await annotatorPage.openFullscreen();
 
-        await annotatorPage.hasAnnotations();
+        await expectToHaveAnnotations({ annotatorPage });
 
         // Open settings just for fun
         await annotatorPage.openSettings();

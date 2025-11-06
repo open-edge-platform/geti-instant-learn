@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useAnnotationVisibility } from '../providers/annotation-visibility-provider.component';
 import type { Annotation as AnnotationType } from '../types';
 import { AnnotationContext } from './annotation-context';
 import { AnnotationShapeWithLabels } from './annotation-shape-with-labels.component';
@@ -16,19 +15,15 @@ interface AnnotationProps {
     withLabels?: boolean;
 }
 export const Annotation = ({ annotation, withLabels = false }: AnnotationProps) => {
-    const { isVisible } = useAnnotationVisibility();
-
     return (
         <AnnotationContext.Provider value={annotation}>
             <SelectableAnnotation>
                 <EditableAnnotation>
-                    {isVisible ? (
-                        withLabels ? (
-                            <AnnotationShapeWithLabels annotation={annotation} />
-                        ) : (
-                            <AnnotationShape annotation={annotation} />
-                        )
-                    ) : null}
+                    {withLabels ? (
+                        <AnnotationShapeWithLabels annotation={annotation} />
+                    ) : (
+                        <AnnotationShape annotation={annotation} />
+                    )}
                 </EditableAnnotation>
             </SelectableAnnotation>
         </AnnotationContext.Provider>

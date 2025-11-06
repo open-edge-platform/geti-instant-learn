@@ -50,10 +50,6 @@ export class AnnotatorPage {
         return this.page.getByLabel('annotation list').getByLabel('annotation polygon');
     }
 
-    async hasAnnotations() {
-        await expect(this.getAnnotation()).not.toHaveCount(0);
-    }
-
     async hideAnnotations() {
         await this.page.getByRole('button', { name: 'Hide annotations' }).click();
     }

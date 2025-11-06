@@ -13,6 +13,7 @@ import { Annotation } from '../../annotations/annotation.component';
 import { MaskAnnotations } from '../../annotations/mask-annotations.component';
 import { AnnotatorLoading } from '../../annotator-loading.component';
 import { useAnnotationActions } from '../../providers/annotation-actions-provider.component';
+import { useAnnotationVisibility } from '../../providers/annotation-visibility-provider.component';
 import { useAnnotator } from '../../providers/annotator-provider.component';
 import { type Annotation as AnnotationType, type Shape } from '../../types';
 import { SvgToolCanvas } from '../svg-tool-canvas.component';
@@ -44,6 +45,7 @@ export const SegmentAnythingTool = () => {
     const zoom = useZoom();
     const { roi, image, selectedLabel } = useAnnotator();
     const { annotations } = useAnnotationActions();
+    const { isVisible } = useAnnotationVisibility();
     const { isLoading, decodingQueryFn } = useSegmentAnythingModel();
     const throttledDecodingQueryFn = useSingleStackFn(decodingQueryFn);
 
@@ -141,11 +143,13 @@ export const SegmentAnythingTool = () => {
                 <MaskAnnotations isEnabled annotations={previewAnnotations} width={image.width} height={image.height} />
             )}
 
-            <g aria-label={'annotation list'}>
-                {annotations.map((annotation) => (
-                    <Annotation annotation={annotation} key={annotation.id} />
-                ))}
-            </g>
+            {isVisible && (
+                <g aria-label={'annotation list'}>
+                    {annotations.map((annotation) => (
+                        <Annotation withLabels annotation={annotation} key={annotation.id} />
+                    ))}
+                </g>
+            )}
 
             {previewAnnotations.length > 0 &&
                 previewAnnotations.map((annotation) => (
