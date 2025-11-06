@@ -71,7 +71,7 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
 
         await annotatorPage.hideAnnotations();
 
-        await expect(await annotatorPage.getAnnotation()).toBeHidden();
+        await expect(annotatorPage.getAnnotation()).toHaveCount(0);
 
         await annotatorPage.showAnnotations();
 
@@ -83,7 +83,7 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
 
         await annotatorPage.undoAnnotation();
 
-        await expect(await annotatorPage.getAnnotation()).toBeHidden();
+        await expect(annotatorPage.getAnnotation()).toHaveCount(0);
 
         await annotatorPage.redoAnnotation();
 
@@ -103,7 +103,7 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
         await annotatorPage.zoomOut();
         await annotatorPage.zoomOut();
 
-        expect(await annotatorPage.getZoomValue()).toEqual(initialZoom);
+        await expect(await annotatorPage.getZoomValue()).toHaveText(await initialZoom.innerText());
 
         await annotatorPage.zoomIn();
         await annotatorPage.zoomIn();
@@ -111,7 +111,7 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
 
         await annotatorPage.fitToScreen();
 
-        expect(await annotatorPage.getZoomValue()).toEqual(initialZoom);
+        await expect(await annotatorPage.getZoomValue()).toHaveText(await initialZoom.innerText());
     });
 
     await test.step('Changes to fullscreen', async () => {

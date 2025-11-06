@@ -9,11 +9,12 @@ import { clampPointBetweenImage } from '@geti/smart-tools/utils';
 
 import { useZoom } from '../../../../components/zoom/zoom.provider';
 import { AnnotationShape } from '../../annotations/annotation-shape.component';
+import { Annotation } from '../../annotations/annotation.component';
 import { MaskAnnotations } from '../../annotations/mask-annotations.component';
 import { AnnotatorLoading } from '../../annotator-loading.component';
 import { useAnnotationActions } from '../../providers/annotation-actions-provider.component';
 import { useAnnotator } from '../../providers/annotator-provider.component';
-import { Annotation, type Shape } from '../../types';
+import { type Annotation as AnnotationType, type Shape } from '../../types';
 import { SvgToolCanvas } from '../svg-tool-canvas.component';
 import { getRelativePoint, removeOffLimitPoints } from '../utils';
 import { InteractiveAnnotationPoint } from './segment-anything.interface';
@@ -106,7 +107,7 @@ export const SegmentAnythingTool = () => {
         });
     };
 
-    const previewAnnotations = previewShapes.map((shape, idx): Annotation => {
+    const previewAnnotations = previewShapes.map((shape, idx): AnnotationType => {
         return {
             shape,
             // During preview mode (while hovering), display the annotation without label color
@@ -142,7 +143,7 @@ export const SegmentAnythingTool = () => {
 
             <g aria-label={'annotation list'}>
                 {annotations.map((annotation) => (
-                    <AnnotationShape annotation={annotation} key={annotation.id} />
+                    <Annotation annotation={annotation} key={annotation.id} />
                 ))}
             </g>
 

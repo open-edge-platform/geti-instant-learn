@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useAnnotationVisibility } from '../providers/annotation-visibility-provider.component';
 import { Polygon } from '../shapes/polygon.component';
 import { Rectangle } from '../shapes/rectangle.component';
 import type { Annotation } from '../types';
@@ -14,17 +13,12 @@ type AnnotationShapeProps = {
 
 export const AnnotationShape = ({ annotation }: AnnotationShapeProps) => {
     const { shape, labels } = annotation;
-    const { isVisible } = useAnnotationVisibility();
     const color = labels.length ? labels[0].color : 'var(--annotation-fill)';
 
     const styles = {
         fill: color,
         fillOpacity: 'var(--annotation-fill-opacity)',
     };
-
-    if (!isVisible) {
-        return null;
-    }
 
     if (shape.type === 'rectangle') {
         return (

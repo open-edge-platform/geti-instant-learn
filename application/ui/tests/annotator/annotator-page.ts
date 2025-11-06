@@ -46,12 +46,12 @@ export class AnnotatorPage {
         }
     }
 
-    async getAnnotation() {
+    getAnnotation() {
         return this.page.getByLabel('annotation list').getByLabel('annotation polygon');
     }
 
     async hasAnnotations() {
-        return (await (await this.getAnnotation()).count()) > 0;
+        await expect(this.getAnnotation()).not.toHaveCount(0);
     }
 
     async hideAnnotations() {
@@ -99,6 +99,6 @@ export class AnnotatorPage {
     }
 
     async getZoomValue() {
-        return this.page.getByTestId('zoom-level').innerText();
+        return this.page.getByTestId('zoom-level');
     }
 }
