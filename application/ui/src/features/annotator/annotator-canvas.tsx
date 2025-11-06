@@ -43,7 +43,7 @@ export const AnnotatorCanvas = ({ frameId }: AnnotatorCanvasProps) => {
     const { projectId } = useProjectIdentifier();
     const { annotations } = useAnnotationActions();
     const { selectedAnnotations } = useSelectedAnnotations();
-    const { image, activeTool } = useAnnotator();
+    const { image } = useAnnotator();
 
     // Order annotations by selection. Selected annotation should always be on top.
     const orderedAnnotations = [
@@ -61,7 +61,7 @@ export const AnnotatorCanvas = ({ frameId }: AnnotatorCanvasProps) => {
                 <img src={imageUrl} alt='Captured frame' className={styles.image} />
 
                 <Annotations annotations={orderedAnnotations} width={image.width} height={image.height} />
-                <ToolManager activeTool={activeTool} />
+                <ToolManager />
             </View>
         </ZoomTransform>
     );
