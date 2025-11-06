@@ -9,7 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 from pydantic_extra_types.color import Color
 
-from api.handler import custom_exception_handler
+from api.error_handler import custom_exception_handler
 from api.routers import projects_router
 from dependencies import SessionDep, get_label_service
 from domain.errors import ResourceAlreadyExistsError, ResourceNotFoundError, ResourceType

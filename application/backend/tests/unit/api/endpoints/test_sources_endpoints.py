@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 
-from api.handler import custom_exception_handler
+from api.error_handler import custom_exception_handler
 from api.routers import projects_router
 from dependencies import SessionDep, get_config_dispatcher, get_source_service
 from domain.errors import (

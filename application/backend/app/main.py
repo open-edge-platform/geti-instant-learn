@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 import api.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
-from api.handler import custom_exception_handler
+from api.error_handler import custom_exception_handler
 from api.routers import projects_router
 from domain.db.engine import get_session_factory, run_db_migrations
 from domain.dispatcher import ConfigChangeDispatcher

@@ -9,7 +9,7 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from api.handler import extract_constraint_name
+from api.error_handler import extract_constraint_name
 from domain.db.constraints import UniqueConstraintName
 from domain.db.models import ProjectDB, SourceDB
 from domain.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher
