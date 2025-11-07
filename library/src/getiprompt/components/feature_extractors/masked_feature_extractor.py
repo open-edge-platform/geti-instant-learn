@@ -3,11 +3,13 @@
 
 """Masked Feature Extractor module."""
 
+from collections import defaultdict
+
 import torch
 from torch import nn
 from torchvision import transforms
 
-from getiprompt.types import Features, Masks
+from getiprompt.types import Masks
 from getiprompt.utils import MaybeToTensor
 
 
@@ -50,14 +52,11 @@ class MaskedFeatureExtractor(nn.Module):
         batched_features: torch.Tensor,
         batched_masks: torch.Tensor,
         batched_category_ids: torch.Tensor,
-    ) -> tuple[list[Features], list[Masks]]:
-        """Extract local, mask-conditioned features from batched inputs.
+    ) -> tuple[dict[int, torch.Tensor], list[Masks]]:
+        """Extract masked, mask-conditioned features from batched inputs.
 
         This method aligns binary masks to the patch grid, selects feature embeddings
         corresponding to masked regions, and associates them with their category IDs.
-        Each sample in the batch produces:
-            - A :class:`Features` object containing both global and per-category local features.
-            - A :class:`Masks` object containing the pooled, patch-aligned masks.
 
         Args:
             batched_features (torch.Tensor): Feature tensor of shape
@@ -70,23 +69,14 @@ class MaskedFeatureExtractor(nn.Module):
                 ``(batch_size, num_masks)``.
 
         Returns:
-            tuple[list[Features], list[Masks]]: A pair of lists, each of length ``batch_size``:
-                - The first list contains :class:`Features` objects with local features grouped by category.
-                - The second list contains :class:`Masks` objects with corresponding pooled masks.
-
-        Example:
-            >>> features_list, masks_list = extractor(
-            ...     batched_features, batched_masks, batched_category_ids
-            ... )
-            >>> len(features_list) == len(masks_list)
-            True
+            tuple[dict[int, torch.Tensor], list[Masks]]:
+                - masked_ref_embeds: Dictionary of masked reference features grouped by category.
+                - resized_masks_per_image: List of resized masks.
         """
-        # Split batched tensor into individual tensors and wrap in Features objects
-        features_list = [Features(global_features=emb) for emb in batched_features.unbind(0)]
-
         resized_masks_per_image = []
+        masked_ref_embeds = defaultdict(list)
         for embedding, masks_tensor, category_ids in zip(
-            features_list,
+            batched_features,
             batched_masks,
             batched_category_ids,
             strict=True,
@@ -97,8 +87,11 @@ class MaskedFeatureExtractor(nn.Module):
                 pooled_mask = self.transform(mask)
                 resized_masks.add(mask=pooled_mask, class_id=category_id)
                 keep = pooled_mask.flatten().bool()
-                local_features = embedding.global_features[keep]
-                embedding.add_local_features(local_features=local_features, class_id=category_id)
+                local_features = embedding[keep]
+                masked_ref_embeds[category_id].append(local_features)
             resized_masks_per_image.append(resized_masks)
 
-        return features_list, resized_masks_per_image
+        for category_id, masked_embed_list in masked_ref_embeds.items():
+            masked_ref_embeds[category_id] = torch.cat(masked_embed_list, dim=0)
+
+        return masked_ref_embeds, resized_masks_per_image

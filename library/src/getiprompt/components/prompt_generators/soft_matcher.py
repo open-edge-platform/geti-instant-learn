@@ -10,7 +10,7 @@ from torch.nn import functional
 from torchvision import tv_tensors
 
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
-from getiprompt.types import Features, Masks, Similarities
+from getiprompt.types import Masks, Similarities
 
 logger = getLogger("Geti Prompt")
 

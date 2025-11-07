@@ -396,7 +396,7 @@ def load_and_prepare_data(
         raise ValueError(msg)
 
     all_indices = list(range(image_count_for_category))
-    reference_indices = sorted(random.sample(all_indices, n_shot)) if random_prior else all_indices[:n_shot] # nosec B311
+    reference_indices = sorted(random.sample(all_indices, n_shot)) if random_prior else all_indices[:n_shot]  # nosec B311
 
     target_indices = [i for i in all_indices if i not in reference_indices]
     if not target_indices:

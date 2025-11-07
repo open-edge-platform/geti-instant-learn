@@ -327,7 +327,7 @@ class BidirectionalPromptGenerator(PromptGenerator):
         for target_embed, target_image in zip(target_embeds, target_images, strict=False):
             class_point_prompts: dict[int, torch.Tensor] = {}
             similarities = Similarities()
-            similarity_map = flattened_ref_embeds @ target_embed.global_features.T
+            similarity_map = flattened_ref_embeds @ target_embed.T
             h, w = target_image.shape[-2:]
 
             for class_id, ref_mask in reference_masks.data.items():

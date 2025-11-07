@@ -123,7 +123,7 @@ class Matcher(Model):
             benchmark_inference_speed=benchmark_inference_speed,
         )
         # Local feature extraction with mask pooling
-        self.local_feature_extractor = MaskedFeatureExtractor(
+        self.masked_feature_extractor = MaskedFeatureExtractor(
             input_size=self.encoder.input_size,
             patch_size=self.encoder.patch_size,
             device=device,
@@ -148,7 +148,7 @@ class Matcher(Model):
         # Encode reference images to batched tensor
         self.ref_embeds = self.encoder(images=reference_batch.images)
         # Extract local features and pooled masks
-        self.masked_ref_embeds, self.ref_masks = self.local_feature_extractor(
+        self.masked_ref_embeds, self.ref_masks = self.masked_feature_extractor(
             self.ref_embeds,
             reference_batch.masks,
             reference_batch.category_ids,
