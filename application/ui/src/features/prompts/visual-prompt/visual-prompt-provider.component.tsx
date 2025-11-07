@@ -8,6 +8,8 @@ import { createContext, ReactNode, use, useEffect, useState } from 'react';
 import { $api, LabelType, VisualPromptType } from '@geti-prompt/api';
 import { useProjectIdentifier, useProjectLabels } from '@geti-prompt/hooks';
 
+import { useVisualPromptQuery } from './api/use-visual-prompt-query';
+
 interface VisualPromptContextProps {
     promptId: string | null;
     setPromptId: (id: string) => void;
@@ -27,28 +29,6 @@ interface VisualPromptProviderProps {
 
 const PLACEHOLDER_LABEL: LabelType = { id: 'placeholder', name: 'No label', color: 'var(--annotation-fill)' };
 
-const useVisualPromptQuery = (promptId: string | null) => {
-    const { projectId } = useProjectIdentifier();
-    const { data } = $api.useQuery(
-        'get',
-        '/api/v1/projects/{project_id}/prompts/{prompt_id}',
-        {
-            params: {
-                path: {
-                    project_id: projectId,
-                    prompt_id: promptId as string,
-                },
-            },
-        },
-        {
-            enabled: promptId !== null,
-        }
-    );
-
-    // In this place we're sure we only get a VisualPromptType
-    return data as VisualPromptType | undefined;
-};
-
 export const VisualPromptProvider = ({ children }: VisualPromptProviderProps) => {
     const labels = useProjectLabels();
     const [selectedLabelId, setSelectedLabelId] = useState<string>(PLACEHOLDER_LABEL.id);
@@ -58,10 +38,18 @@ export const VisualPromptProvider = ({ children }: VisualPromptProviderProps) =>
     const selectedLabel: LabelType = labels.find(({ id }) => id === selectedLabelId) ?? PLACEHOLDER_LABEL;
 
     useEffect(() => {
+        if (prompt?.annotations !== undefined) {
+            const labelId = prompt.annotations[0].label_id;
+
+            labelId != null && setSelectedLabelId(labelId);
+
+            return;
+        }
+
         if (labels.length > 0) {
             setSelectedLabelId(labels[0].id);
         }
-    }, [labels]);
+    }, [labels, prompt?.annotations]);
 
     return (
         <VisualPromptContext

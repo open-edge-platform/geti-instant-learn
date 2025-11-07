@@ -10,6 +10,7 @@ import { v4 as uuid } from 'uuid';
 import { useAnnotationActions } from '../../../annotator/providers/annotation-actions-provider.component';
 import { useAnnotator } from '../../../annotator/providers/annotator-provider.component';
 import { useVisualPrompt } from '../visual-prompt-provider.component';
+import { useEditPrompt } from './use-edit-prompt';
 import { convertAnnotationsToDTO } from './utils';
 
 const useSavePromptMutation = () => {
@@ -27,12 +28,13 @@ const useSavePromptMutation = () => {
 export const useSavePrompt = () => {
     const { projectId } = useProjectIdentifier();
     const { annotations } = useAnnotationActions();
-    const { roi } = useAnnotator();
-    const { setPromptId } = useVisualPrompt();
+    const { roi, frameId } = useAnnotator();
+    const { setPromptId, prompt } = useVisualPrompt();
 
     const savePromptMutation = useSavePromptMutation();
+    const editPromptMutation = useEditPrompt();
 
-    const savePrompt = (frameId: string) => {
+    const createPrompt = () => {
         savePromptMutation.mutate(
             {
                 body: {
@@ -55,8 +57,16 @@ export const useSavePrompt = () => {
         );
     };
 
+    const savePrompt = () => {
+        if (prompt === undefined) {
+            createPrompt();
+        } else {
+            editPromptMutation.mutate(prompt);
+        }
+    };
+
     return {
         mutate: savePrompt,
-        isPending: savePromptMutation.isPending,
+        isPending: savePromptMutation.isPending || editPromptMutation.isPending,
     };
 };

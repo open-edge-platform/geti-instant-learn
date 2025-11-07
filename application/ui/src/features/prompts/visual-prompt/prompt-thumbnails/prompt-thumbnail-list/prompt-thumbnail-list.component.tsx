@@ -9,12 +9,12 @@ import TestImage from '../../../../../assets/test.webp';
 import { PromptThumbnail } from '../prompt-thumbnail/prompt-thumbnail.component';
 
 const PROMPT_THUMBNAILS = [
-    { url: TestImage, frameId: 'frame-1' },
-    { url: TestImage, frameId: 'frame-2' },
-    { url: TestImage, frameId: 'frame-3' },
-    { url: TestImage, frameId: 'frame-4' },
-    { url: TestImage, frameId: 'frame-5' },
-    { url: TestImage, frameId: 'frame-6' },
+    { url: TestImage, frameId: 'frame-1', promptId: 'prompt-1' },
+    { url: TestImage, frameId: 'frame-2', promptId: 'prompt-2' },
+    { url: TestImage, frameId: 'frame-3', promptId: 'prompt-3' },
+    { url: TestImage, frameId: 'frame-4', promptId: 'prompt-4' },
+    { url: TestImage, frameId: 'frame-5', promptId: 'prompt-5' },
+    { url: TestImage, frameId: 'frame-6', promptId: 'prompt-6' },
 ];
 
 const usePrompts = () => {

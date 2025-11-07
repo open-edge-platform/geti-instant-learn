@@ -33,4 +33,5 @@ export {
     type SchemaSourceUpdateSchema as SourceUpdateType,
     type SchemaAnnotationSchemaInput as AnnotationPostType,
     type SchemaVisualPromptSchema as VisualPromptType,
+    type SchemaAnnotationSchemaOutput as AnnotationType,
 } from './openapi-spec';

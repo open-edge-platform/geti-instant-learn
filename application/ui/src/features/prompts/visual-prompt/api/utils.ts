@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { AnnotationPostType } from '@geti-prompt/api';
+import { AnnotationPostType, AnnotationType, LabelType } from '@geti-prompt/api';
 import { Point, RegionOfInterest } from '@geti/smart-tools/types';
 
 import { Annotation } from '../../../annotator/types';
@@ -17,8 +17,6 @@ const normalizePoints = (points: Point[], roi: { width: number; height: number }
     });
 };
 
-// It will be used in the future when getting the prompt with annotations
-// eslint-disable-next-line
 const denormalizePoints = (points: Point[], roi: { width: number; height: number }): Point[] => {
     return points.map((point) => {
         return {
@@ -63,5 +61,43 @@ export const convertAnnotationsToDTO = (
         }
 
         throw new Error(`Annotation of type: ${(annotation.shape as { type: string }).type} is not supported.`);
+    });
+};
+
+// TODO: Use that function to map annotations from DTO to the format that is used in the annotator
+// I think we could do that in the AnnotationActionsProvider where we have access to the labels
+export const convertAnnotationsFromDTO = (
+    annotations: AnnotationType[],
+    labels: LabelType[],
+    roi: Pick<RegionOfInterest, 'width' | 'height'>
+): Annotation[] => {
+    return annotations.map((annotation) => {
+        if (annotation.config.type === 'polygon') {
+            return {
+                shape: {
+                    type: 'polygon',
+                    points: denormalizePoints(annotation.config.points, roi),
+                },
+                // TODO: To figure out what should happen if prompt has a label with X which no longer exists,
+                // maybe we should block removing the label which is used by any prompt or show an error message
+                // when user tries to do that.
+                labels: labels.filter(({ id }) => id === annotation.label_id),
+            };
+        } else if (annotation.config.type === 'rectangle') {
+            const denormalizedPoints: Point[] = denormalizePoints(annotation.config.points, roi);
+
+            return {
+                shape: {
+                    type: 'rectangle',
+                    x: denormalizedPoints[0].x,
+                    y: denormalizedPoints[0].y,
+                    width: denormalizedPoints[1].x - denormalizedPoints[0].x,
+                    height: denormalizedPoints[1].y - denormalizedPoints[0].y,
+                },
+                labels: labels.filter(({ id }) => id === annotation.label_id),
+            };
+        }
+
+        throw new Error(`Annotation of type: ${(annotation.config as { type: string }).type} is not supported.`);
     });
 };
