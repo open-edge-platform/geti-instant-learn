@@ -6,10 +6,13 @@
     border: var(--spectrum-alias-border-radius-regular) solid transparent;
 }
 
+.frame {
+    transition: border 0.2s ease-in-out;
+}
+
 .framesList {
     overflow-x: auto;
     width: 100%;
-    scrollbar-gutter: stable;
 }
 
 .frameItem {

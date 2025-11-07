@@ -57,37 +57,34 @@ export interface Frame {
 interface FrameThumbnailProps {
     frame: Frame;
     isSelected: boolean;
-    onActivateFrame: (index: number) => void;
 }
 
-const FrameThumbnail = ({ frame, isSelected, onActivateFrame }: FrameThumbnailProps) => {
+const FrameThumbnail = ({ frame, isSelected }: FrameThumbnailProps) => {
     const { thumbnail } = frame;
 
     return (
-        <div style={{ height: '100%', width: '100%' }} onClick={() => onActivateFrame(frame.index)}>
+        <View
+            borderColor={'gray-100'}
+            borderYWidth={'thick'}
+            borderXWidth={isSelected ? 'thick' : undefined}
+            height={'100%'}
+            width={'100%'}
+        >
             <View
-                borderColor={'gray-100'}
-                borderYWidth={'thick'}
-                borderXWidth={isSelected ? 'thick' : undefined}
+                UNSAFE_className={clsx(styles.frame, {
+                    [styles.selected]: isSelected,
+                    [styles.notSelected]: !isSelected,
+                })}
                 height={'100%'}
                 width={'100%'}
             >
-                <View
-                    UNSAFE_className={clsx({
-                        [styles.selected]: isSelected,
-                        [styles.notSelected]: !isSelected,
-                    })}
-                    height={'100%'}
-                    width={'100%'}
-                >
-                    <img
-                        alt={'Frame'}
-                        src={thumbnail}
-                        style={{ objectFit: 'cover', height: '100%', width: '100%', display: 'block' }}
-                    />
-                </View>
+                <img
+                    alt={'Frame'}
+                    src={thumbnail}
+                    style={{ objectFit: 'cover', height: '100%', width: '100%', display: 'block' }}
+                />
             </View>
-        </div>
+        </View>
     );
 };
 
@@ -107,7 +104,7 @@ const LAYOUT_OPTIONS: HorizontalLayoutOptions = {
 
 export const FramesList = ({ activeFrameIndex, frames, onSetActiveFrame, ref }: FramesListProps) => {
     return (
-        <View height={'100%'} overflow={'hidden'} padding={'size-200'} backgroundColor={'gray-100'}>
+        <View height={'100%'} padding={'size-200'} backgroundColor={'gray-100'}>
             <Virtualizer<HorizontalLayoutOptions> layout={HorizontalLayout} layoutOptions={LAYOUT_OPTIONS}>
                 <AriaComponentsListBox
                     orientation={'horizontal'}
@@ -121,12 +118,9 @@ export const FramesList = ({ activeFrameIndex, frames, onSetActiveFrame, ref }: 
                             className={styles.frameItem}
                             aria-label={`Frame #${frame.index}`}
                             aria-selected={frame.index === activeFrameIndex}
+                            onAction={() => onSetActiveFrame(frame.index)}
                         >
-                            <FrameThumbnail
-                                frame={frame}
-                                isSelected={frame.index === activeFrameIndex}
-                                onActivateFrame={onSetActiveFrame}
-                            />
+                            <FrameThumbnail frame={frame} isSelected={frame.index === activeFrameIndex} />
                         </ListBoxItem>
                     ))}
                 </AriaComponentsListBox>
