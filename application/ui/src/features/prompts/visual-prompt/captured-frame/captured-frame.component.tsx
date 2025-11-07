@@ -29,6 +29,7 @@ interface CapturedFrameAnnotatorProps {
 const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorProps) => {
     return (
         <Suspense
+            key={frameId}
             fallback={
                 <CenteredWrapper>
                     <Loading mode={'inline'} />
@@ -69,8 +70,8 @@ export const CapturedFrame = ({ frameId }: { frameId: string | null }) => {
                 </CenteredWrapper>
             ) : (
                 <CapturedFrameProviders frameId={frameId}>
-                    <CapturedFrameContent frameId={frameId} />
-                    <CapturedFrameFullScreen frameId={frameId} />
+                    <CapturedFrameContent />
+                    <CapturedFrameFullScreen />
                 </CapturedFrameProviders>
             )}
         </Grid>
