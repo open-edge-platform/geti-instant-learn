@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { createContext, ReactNode, useContext, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { createContext, ReactNode, useContext, useState, type Dispatch, type SetStateAction } from 'react';
 
 import { LabelType } from '@geti-prompt/api';
 import { useProjectLabels } from '@geti-prompt/hooks';
@@ -29,16 +29,13 @@ const PLACEHOLDER_LABEL: LabelType = { id: 'placeholder', name: 'No label', colo
 
 export const AnnotatorProvider = ({ frameId, children }: { frameId: string; children: ReactNode }) => {
     const labels = useProjectLabels();
-    const [selectedLabelId, setSelectedLabelId] = useState<string>(PLACEHOLDER_LABEL.id);
-
     const imageQuery = useLoadImageQuery(frameId);
-    const selectedLabel = labels.find(({ id }) => id === selectedLabelId) || PLACEHOLDER_LABEL;
 
-    useEffect(() => {
-        if (labels.length > 0) {
-            setSelectedLabelId(labels[0].id);
-        }
-    }, [labels]);
+    const [selectedLabelId, setSelectedLabelId] = useState<string>(() =>
+        labels.length > 0 ? labels[0].id : PLACEHOLDER_LABEL.id
+    );
+
+    const selectedLabel = labels.find(({ id }) => id === selectedLabelId) || PLACEHOLDER_LABEL;
 
     return (
         <AnnotatorProviderContext
