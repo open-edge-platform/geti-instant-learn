@@ -26,12 +26,10 @@ from domain.services.thumbnail import (
 
 
 def make_label(color="#FF0000"):
-    """Create a mock label with color."""
     return SimpleNamespace(id=uuid4(), name="test", color=color)
 
 
 def create_test_frame(width=800, height=600, color=(100, 150, 200)):
-    """Create a test frame with specified dimensions and color."""
     frame = np.zeros((height, width, 3), dtype=np.uint8)
     frame[:] = color
     return frame
@@ -39,25 +37,22 @@ def create_test_frame(width=800, height=600, color=(100, 150, 200)):
 
 class TestResizeFrame:
     def test_resize_large_frame(self):
-        """Test resizing a frame larger than max dimension."""
         frame = create_test_frame(width=1000, height=800)
         resized = _resize_frame_to_thumbnail_size(frame)
 
         assert max(resized.shape[:2]) == THUMBNAIL_MAX_DIMENSION
-        assert resized.shape[0] == 320  # 800 * (400/1000)
-        assert resized.shape[1] == 400
+        assert resized.shape[0] == 240  # 800 * (300/1000)
+        assert resized.shape[1] == 300
 
     def test_resize_tall_frame(self):
-        """Test resizing a tall frame."""
         frame = create_test_frame(width=600, height=1200)
         resized = _resize_frame_to_thumbnail_size(frame)
 
         assert max(resized.shape[:2]) == THUMBNAIL_MAX_DIMENSION
-        assert resized.shape[0] == 400
-        assert resized.shape[1] == 200  # 600 * (400/1200)
+        assert resized.shape[0] == 300
+        assert resized.shape[1] == 150  # 600 * (300/1200)
 
     def test_no_resize_small_frame(self):
-        """Test that small frames are not resized."""
         frame = create_test_frame(width=300, height=200)
         resized = _resize_frame_to_thumbnail_size(frame)
 
@@ -65,7 +60,6 @@ class TestResizeFrame:
         np.testing.assert_array_equal(resized, frame)
 
     def test_aspect_ratio_preserved(self):
-        """Test that aspect ratio is preserved during resize."""
         frame = create_test_frame(width=1600, height=900)
         resized = _resize_frame_to_thumbnail_size(frame)
 
@@ -77,18 +71,15 @@ class TestResizeFrame:
 
 class TestHexToBgr:
     def test_hex_with_hash(self):
-        """Test conversion with hash prefix."""
         assert _convert_hex_to_bgr("#FF0000") == (0, 0, 255)  # Red in BGR
         assert _convert_hex_to_bgr("#00FF00") == (0, 255, 0)  # Green in BGR
         assert _convert_hex_to_bgr("#0000FF") == (255, 0, 0)  # Blue in BGR
 
     def test_hex_without_hash(self):
-        """Test conversion without hash prefix."""
         assert _convert_hex_to_bgr("FF0000") == (0, 0, 255)
         assert _convert_hex_to_bgr("00FF00") == (0, 255, 0)
 
     def test_various_colors(self):
-        """Test various color conversions."""
         assert _convert_hex_to_bgr("#FFFFFF") == (255, 255, 255)  # White
         assert _convert_hex_to_bgr("#000000") == (0, 0, 0)  # Black
         assert _convert_hex_to_bgr("#FF8800") == (0, 136, 255)  # Orange
@@ -96,7 +87,6 @@ class TestHexToBgr:
 
 class TestEncodeToBase64:
     def test_encode_valid_image(self):
-        """Test encoding a valid image."""
         frame = create_test_frame(width=100, height=100)
         result = _encode_image_to_base64_data_uri(frame)
 
@@ -109,7 +99,6 @@ class TestEncodeToBase64:
         assert len(decoded) > 0
 
     def test_encoded_image_decodable(self):
-        """Test that encoded image can be decoded back."""
         frame = create_test_frame(width=200, height=150, color=(50, 100, 150))
         encoded = _encode_image_to_base64_data_uri(frame)
 
@@ -123,7 +112,6 @@ class TestEncodeToBase64:
 
 class TestDrawRectangle:
     def test_draw_rectangle_basic(self):
-        """Test drawing a basic rectangle."""
         overlay = create_test_frame(width=200, height=200, color=(255, 255, 255))
         rect = RectangleAnnotation(type="rectangle", points=[Point(x=0.2, y=0.2), Point(x=0.8, y=0.8)])
         color = (0, 0, 255)
@@ -135,7 +123,6 @@ class TestDrawRectangle:
         np.testing.assert_array_equal(center_pixel, color)
 
     def test_draw_rectangle_coordinates(self):
-        """Test that rectangle is drawn at correct coordinates."""
         overlay = np.zeros((100, 100, 3), dtype=np.uint8)
         rect = RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)])
         color = (255, 0, 0)
@@ -149,7 +136,6 @@ class TestDrawRectangle:
 
 class TestDrawPolygon:
     def test_draw_triangle(self):
-        """Test drawing a triangular polygon."""
         overlay = create_test_frame(width=200, height=200, color=(255, 255, 255))
         polygon = PolygonAnnotation(
             type="polygon", points=[Point(x=0.5, y=0.1), Point(x=0.1, y=0.9), Point(x=0.9, y=0.9)]
@@ -163,7 +149,6 @@ class TestDrawPolygon:
         np.testing.assert_array_equal(center_pixel, color)
 
     def test_draw_square_polygon(self):
-        """Test drawing a square polygon."""
         overlay = np.zeros((100, 100, 3), dtype=np.uint8)
         polygon = PolygonAnnotation(
             type="polygon",
@@ -179,7 +164,6 @@ class TestDrawPolygon:
 
 class TestGenerateThumbnail:
     def test_generate_thumbnail_with_rectangle(self):
-        """Test generating thumbnail with rectangle annotation."""
         frame = create_test_frame(width=800, height=600)
         label_id = uuid4()
         annotation = AnnotationSchema(
@@ -194,7 +178,6 @@ class TestGenerateThumbnail:
         assert len(result) > 100
 
     def test_generate_thumbnail_with_polygon(self):
-        """Test generating thumbnail with polygon annotation."""
         frame = create_test_frame(width=600, height=400)
         label_id = uuid4()
         annotation = AnnotationSchema(
@@ -211,7 +194,6 @@ class TestGenerateThumbnail:
         assert result.startswith("data:image/jpeg;base64,")
 
     def test_generate_thumbnail_multiple_annotations(self):
-        """Test generating thumbnail with multiple annotations."""
         frame = create_test_frame(width=1000, height=800)
         label_id_1 = uuid4()
         label_id_2 = uuid4()
@@ -240,7 +222,6 @@ class TestGenerateThumbnail:
         assert result.startswith("data:image/jpeg;base64,")
 
     def test_generate_thumbnail_resizes_large_frame(self):
-        """Test that large frames are resized in thumbnail."""
         large_frame = create_test_frame(width=2000, height=1500)
         label_id = uuid4()
         annotation = AnnotationSchema(
@@ -259,7 +240,6 @@ class TestGenerateThumbnail:
         assert max(decoded_img.shape[:2]) <= THUMBNAIL_MAX_DIMENSION
 
     def test_generate_thumbnail_empty_annotations(self):
-        """Test generating thumbnail with no annotations."""
         frame = create_test_frame(width=400, height=300)
 
         result = generate_thumbnail(frame, [])
@@ -267,7 +247,6 @@ class TestGenerateThumbnail:
         assert result.startswith("data:image/jpeg;base64,")
 
     def test_generate_thumbnail_different_colors(self):
-        """Test generating thumbnail with different label colors."""
         frame = create_test_frame(width=500, height=500)
         colors = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF"]
 

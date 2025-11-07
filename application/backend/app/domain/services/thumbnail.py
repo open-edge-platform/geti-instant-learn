@@ -15,6 +15,7 @@ import cv2
 import numpy as np
 
 from domain.db.models import LabelDB
+from domain.errors import ServiceError
 from domain.services.schemas.annotation import (
     AnnotationSchema,
     AnnotationType,
@@ -24,10 +25,10 @@ from domain.services.schemas.annotation import (
 
 logger = logging.getLogger(__name__)
 
-THUMBNAIL_MAX_DIMENSION = 400
+THUMBNAIL_MAX_DIMENSION = 300
 ANNOTATION_LINE_THICKNESS_RATIO = 0.005  # 0.5% of smaller image dimension
 MIN_ANNOTATION_LINE_THICKNESS = 2
-ANNOTATION_FILL_OPACITY = 0.4  # 40% opacity for annotation fill
+ANNOTATION_FILL_OPACITY = 0.5  # 50% opacity for annotation fill
 JPEG_QUALITY = 85
 
 
@@ -42,23 +43,28 @@ def generate_thumbnail(frame: np.ndarray, annotations: list[tuple[AnnotationSche
     Returns:
         Base64-encoded data URI of the thumbnail with JPEG encoding
     """
-    thumbnail = _resize_frame_to_thumbnail_size(frame)
-    height, width = thumbnail.shape[:2]
-    line_thickness = max(
-        MIN_ANNOTATION_LINE_THICKNESS,
-        int(min(height, width) * ANNOTATION_LINE_THICKNESS_RATIO),
-    )
+    try:
+        thumbnail = _resize_frame_to_thumbnail_size(frame)
+        height, width = thumbnail.shape[:2]
+        line_thickness = max(
+            MIN_ANNOTATION_LINE_THICKNESS,
+            int(min(height, width) * ANNOTATION_LINE_THICKNESS_RATIO),
+        )
 
-    annotation_overlay = thumbnail.copy()
+        annotation_overlay = thumbnail.copy()
 
-    for annotation_schema, label in annotations:
-        color_bgr = _convert_hex_to_bgr(label.color)
-        annotation = annotation_schema.config
+        for annotation_schema, label in annotations:
+            color_bgr = _convert_hex_to_bgr(label.color)
+            annotation = annotation_schema.config
 
-        if annotation.type == AnnotationType.RECTANGLE:
-            _draw_filled_rectangle(annotation_overlay, annotation, color_bgr, width, height, line_thickness)
-        elif annotation.type == AnnotationType.POLYGON:
-            _draw_filled_polygon(annotation_overlay, annotation, color_bgr, width, height, line_thickness)
+            if annotation.type == AnnotationType.RECTANGLE:
+                _draw_filled_rectangle(annotation_overlay, annotation, color_bgr, width, height, line_thickness)
+            elif annotation.type == AnnotationType.POLYGON:
+                _draw_filled_polygon(annotation_overlay, annotation, color_bgr, width, height, line_thickness)
+            else:
+                logger.warning(f"Unsupported annotation type: {annotation.type}")
+    except (cv2.error, ValueError) as e:
+        raise ServiceError(f"Failed to generate thumbnail: {str(e)}")
 
     # blend annotation overlay with original frame for semi-transparency
     cv2.addWeighted(
