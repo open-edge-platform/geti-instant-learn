@@ -8,6 +8,7 @@ import { expect, http, test } from '@geti-prompt/test-fixtures';
 
 import { registerApiLabels } from '../labels/mocks';
 import { initializeWebRTC } from '../prompt/initialize-webrtc';
+import { AnnotatorPage } from './annotator-page';
 
 const DEVICE_ID = 10;
 const WEBCAM_SOURCE: WebcamSourceType = {
@@ -21,7 +22,14 @@ const WEBCAM_SOURCE: WebcamSourceType = {
 };
 const ANNOTATOR_PAGE_TIMEOUT = 10 * 60 * 1000;
 
-test.use({ browserName: 'firefox' });
+const expectToNotHaveAnnotations = async ({ annotatorPage }: { annotatorPage: AnnotatorPage }) => {
+    await expect(annotatorPage.getAnnotation()).toHaveCount(0);
+};
+
+const expectToHaveAnnotations = async ({ annotatorPage }: { annotatorPage: AnnotatorPage }) => {
+    await expect(annotatorPage.getAnnotation()).not.toHaveCount(0, { timeout: 10000 });
+};
+
 test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) => {
     test.setTimeout(ANNOTATOR_PAGE_TIMEOUT);
 
@@ -64,5 +72,64 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
         });
 
         await annotatorPage.addAnnotation();
+        await expectToHaveAnnotations({ annotatorPage });
+    });
+
+    await test.step('Hides/Shows annotations', async () => {
+        await expectToHaveAnnotations({ annotatorPage });
+
+        await annotatorPage.hideAnnotations();
+
+        await expectToNotHaveAnnotations({ annotatorPage });
+
+        await annotatorPage.showAnnotations();
+
+        await expectToHaveAnnotations({ annotatorPage });
+    });
+
+    await test.step('Undoes/redoes annotations', async () => {
+        await expectToHaveAnnotations({ annotatorPage });
+
+        await annotatorPage.undoAnnotation();
+
+        await expectToNotHaveAnnotations({ annotatorPage });
+
+        await annotatorPage.redoAnnotation();
+
+        await expectToHaveAnnotations({ annotatorPage });
+    });
+
+    await test.step('Plays with zoom', async () => {
+        const initialZoom = await (await annotatorPage.getZoomValue()).innerText();
+
+        await annotatorPage.zoomIn();
+        await annotatorPage.zoomIn();
+        await annotatorPage.zoomIn();
+
+        await annotatorPage.zoomOut();
+        await annotatorPage.zoomOut();
+        await annotatorPage.zoomOut();
+
+        await expect(await annotatorPage.getZoomValue()).toHaveText(initialZoom);
+
+        await annotatorPage.zoomIn();
+        await annotatorPage.zoomIn();
+        await annotatorPage.zoomIn();
+
+        await annotatorPage.fitToScreen();
+
+        await expect(await annotatorPage.getZoomValue()).toHaveText(initialZoom);
+    });
+
+    await test.step('Changes to fullscreen', async () => {
+        await annotatorPage.openFullscreen();
+
+        await expectToHaveAnnotations({ annotatorPage });
+
+        // Open settings just for fun
+        await annotatorPage.openSettings();
+        await annotatorPage.closeSettings();
+
+        await annotatorPage.closeFullscreen();
     });
 });

@@ -3,7 +3,9 @@
 
 """Base class for visualization processes."""
 
-from getiprompt.types import Boxes, Masks, Points, Priors
+import torch
+
+from getiprompt.types import Boxes, Points
 
 
 class Visualization:
@@ -23,21 +25,7 @@ class Visualization:
     """
 
     @staticmethod
-    def masks_from_priors(priors: list[Priors]) -> list[Masks]:
-        """Converts a list of shape 1HW to a List of Masks.
-
-        Note: The first channel of arrays contains instance ids in range [0..max()].
-
-        Args:
-            priors: The list of priors to convert
-
-        Returns:
-            The list of masks
-        """
-        return [m.masks for m in priors]
-
-    @staticmethod
-    def boxes_from_priors(priors: list[Priors]) -> list[Boxes]:
+    def to_boxes(priors: list[dict[int, torch.Tensor]]) -> list[Boxes]:
         """Extracts boxes from priors.
 
         Args:
@@ -46,10 +34,16 @@ class Visualization:
         Returns:
             The list of boxes
         """
-        return [m.boxes for m in priors]
+        boxes_per_image = []
+        for cls_boxes in priors:
+            boxes_obj = Boxes()
+            for class_id, boxes in cls_boxes.items():
+                boxes_obj.add(boxes, class_id)
+            boxes_per_image.append(boxes_obj)
+        return boxes_per_image
 
     @staticmethod
-    def points_from_priors(priors: list[Priors]) -> list[Points]:
+    def to_points(priors: list[dict[int, torch.Tensor]]) -> list[Points]:
         """Extracts points from priors.
 
         Args:
@@ -58,7 +52,13 @@ class Visualization:
         Returns:
             The list of points
         """
-        return [m.points for m in priors]
+        points_per_image = []
+        for cls_points in priors:
+            points_obj = Points()
+            for class_id, points in cls_points.items():
+                points_obj.add(points, class_id)
+            points_per_image.append(points_obj)
+        return points_per_image
 
     def __call__(self) -> None:
         """Call visualization process."""

@@ -23,6 +23,7 @@ export const AnnotatorLoading = ({ isLoading }: { isLoading: boolean }) => {
                 <Heading
                     level={1}
                     UNSAFE_style={{
+                        fontSize: 'calc(var(--spectrum-global-dimension-size-200) / var(--zoom-scale, 1))',
                         textShadow: '1px 1px 2px black, 1px 1px 2px white',
                     }}
                 >

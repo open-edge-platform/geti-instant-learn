@@ -3,24 +3,18 @@
 
 """Model factory module."""
 
-from __future__ import annotations
-
 import logging
-from typing import TYPE_CHECKING
+from argparse import Namespace
 
 from getiprompt.components.prompt_generators import GroundingModel
 from getiprompt.utils.constants import ModelName, SAMModelName
 
 # Lazy import to avoid circular dependencies during module import time.
+from .base import Model
 from .grounded_sam import GroundedSAM
 from .matcher import Matcher
 from .per_dino import PerDino
 from .soft_matcher import SoftMatcher
-
-if TYPE_CHECKING:
-    from argparse import Namespace
-
-    from getiprompt.models.base import Model
 
 logger = logging.getLogger("Geti Prompt")
 

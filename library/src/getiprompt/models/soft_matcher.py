@@ -31,8 +31,10 @@ class SoftMatcher(Matcher):
     We have added several sampling techniques to increase the performance of the model.
 
     Examples:
-        >>> from getiprompt.models.softmatcher import SoftMatcher
-        >>> from getiprompt.types import Priors, Results
+        >>> from getiprompt.models import SoftMatcher
+        >>> from getiprompt.data.base import Batch
+        >>> from getiprompt.data.base.sample import Sample
+        >>> from getiprompt.types import Results
         >>> from torchvision import tv_tensors
         >>> import torch
         >>> import numpy as np
@@ -42,18 +44,33 @@ class SoftMatcher(Matcher):
         >>> # Create mock inputs
         >>> ref_image = np.zeros((1024, 1024, 3), dtype=np.uint8)
         >>> target_image = np.zeros((1024, 1024, 3), dtype=np.uint8)
-        >>> ref_priors = Priors()
-        >>> ref_priors.masks.add(torch.ones(30, 30, dtype=torch.bool), class_id=1)
+        >>> ref_mask = torch.ones(30, 30, dtype=torch.bool)
+        >>>
+        >>> # Create reference sample
+        >>> ref_sample = Sample(
+        ...     image=ref_image,
+        ...     masks=ref_mask.unsqueeze(0).numpy(),
+        ...     category_ids=np.array([1]),
+        ...     is_reference=[True],
+        ...     categories=["object"],
+        ... )
+        >>> ref_batch = Batch.collate([ref_sample])
+        >>>
+        >>> # Create target sample
+        >>> target_sample = Sample(
+        ...     image=target_image,
+        ...     is_reference=[False],
+        ...     categories=["object"],
+        ... )
+        >>> target_batch = Batch.collate([target_sample])
         >>>
         >>> # Run learn and infer
-        >>> learn_results = soft_matcher.learn([tv_tensors.Image(ref_image)], [ref_priors])
-        >>> infer_results = soft_matcher.infer([tv_tensors.Image(target_image)])
+        >>> soft_matcher.learn(ref_batch)
+        >>> infer_results = soft_matcher.infer(target_batch)
         >>>
-        >>> isinstance(learn_results, Results) and isinstance(infer_results, Results)
+        >>> isinstance(infer_results, Results)
         True
         >>> infer_results.masks is not None
-        True
-        >>> infer_results.annotations is not None
         True
     """
 

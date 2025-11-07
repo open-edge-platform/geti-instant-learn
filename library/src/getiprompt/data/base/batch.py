@@ -248,15 +248,15 @@ class Batch:
         return [s.mask_paths for s in self.samples]
 
     @classmethod
-    def collate(cls, samples: list[Sample]) -> "Batch":
-        """Collate a list of samples into a batch.
+    def collate(cls, samples: Sample | list[Sample]) -> "Batch":
+        """Collate sample(s) into a batch.
 
-        Simply wraps the list of samples in a Batch.
+        Simply wraps the sample(s) in a Batch.
         No data transformation is performed - tensor conversion happens
         lazily when properties are accessed.
 
         Args:
-            samples (list[Sample]): List of samples to batch.
+            samples: Single sample or list of samples to batch.
 
         Returns:
             Batch: The batched samples.
@@ -264,13 +264,23 @@ class Batch:
         Raises:
             ValueError: If the sample list is empty.
 
-        Example:
+        Examples:
+            Collate a list of samples:
             >>> samples = [sample1, sample2, sample3]
             >>> batch = Batch.collate(samples)
             >>> len(batch)
             3
+
+            Collate a single sample:
+            >>> batch = Batch.collate(sample1)
+            >>> len(batch)
+            1
             >>> images = batch.images  # Lazy conversion to tensors
         """
+        # Convert single sample to list
+        if isinstance(samples, Sample):
+            samples = [samples]
+
         if not samples:
             msg = "Cannot collate empty list of samples"
             raise ValueError(msg)

@@ -3,111 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useCallback, useEffect, useRef } from 'react';
-
 import { $api } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
-import { Button, dimensionValue, Grid, minmax } from '@geti/ui';
+import { dimensionValue, Grid, minmax, View } from '@geti/ui';
 
 import { usePromptMode } from '../prompts/prompt-modes/prompt-modes.component';
-import { FramesList } from './frames-list/frames-list.component';
-import { useSelectedFrame } from './selected-frame-provider.component';
-import { useWebRTCConnection } from './web-rtc/web-rtc-connection-provider';
-
-const useStreamToVideo = () => {
-    const videoRef = useRef<HTMLVideoElement>(null);
-
-    const { status, webRTCConnectionRef } = useWebRTCConnection();
-
-    const connect = useCallback(() => {
-        const receivers = webRTCConnectionRef.current?.getPeerConnection()?.getReceivers();
-
-        if (receivers === undefined) {
-            return;
-        }
-
-        const stream = new MediaStream(receivers.map((receiver) => receiver.track));
-
-        if (videoRef.current !== null && videoRef.current.srcObject !== stream) {
-            videoRef.current.srcObject = stream;
-        }
-    }, [webRTCConnectionRef]);
-
-    useEffect(() => {
-        if (status === 'connected') {
-            connect();
-        }
-    }, [status, connect]);
-
-    useEffect(() => {
-        const abortController = new AbortController();
-
-        webRTCConnectionRef.current?.getPeerConnection()?.addEventListener(
-            'track',
-            () => {
-                connect();
-            },
-            {
-                signal: abortController.signal,
-            }
-        );
-
-        return () => {
-            abortController.abort();
-        };
-    }, [connect, webRTCConnectionRef]);
-
-    return videoRef;
-};
-
-const useCaptureFrameMutation = () => {
-    return $api.useMutation('post', '/api/v1/projects/{project_id}/frames');
-};
-
-const useCaptureFrame = () => {
-    const { projectId } = useProjectIdentifier();
-    const captureFrameMutation = useCaptureFrameMutation();
-    const { setSelectedFrameId } = useSelectedFrame();
-
-    const captureFrame = async () => {
-        captureFrameMutation.mutate(
-            {
-                params: {
-                    path: {
-                        project_id: projectId,
-                    },
-                },
-            },
-            {
-                onSuccess: ({ frame_id }) => {
-                    setSelectedFrameId(frame_id);
-                },
-            }
-        );
-    };
-
-    return {
-        captureFrame,
-        isPending: captureFrameMutation.isPending,
-    };
-};
-
-const CaptureFrameButton = () => {
-    const { captureFrame, isPending } = useCaptureFrame();
-
-    return (
-        <Button
-            justifySelf={'center'}
-            variant={'primary'}
-            staticColor={'white'}
-            style={'fill'}
-            onPress={captureFrame}
-            isPending={isPending}
-        >
-            Capture
-        </Button>
-    );
-};
+import { CaptureFrameButton } from './capture-frame-button.component';
+import { ImagesFolderStream } from './images-folder-stream/images-folder-stream.component';
+import { Video } from './video.component';
 
 const useActiveSource = () => {
     const { projectId } = useProjectIdentifier();
@@ -122,13 +25,6 @@ const useActiveSource = () => {
     return data?.sources.find((source) => source.connected);
 };
 
-const Video = () => {
-    const videoRef = useStreamToVideo();
-
-    // eslint-disable-next-line jsx-a11y/media-has-caption
-    return <video ref={videoRef} autoPlay playsInline controls={false} width={'100%'} height={'100%'} />;
-};
-
 const WebcamStream = () => {
     const promptMode = usePromptMode();
 
@@ -137,31 +33,17 @@ const WebcamStream = () => {
             height={'100%'}
             width={'100%'}
             rows={[minmax(0, '1fr'), 'max-content']}
+            columns={['size-200', minmax(0, '1fr'), 'size-200']}
+            areas={['left-gutter video right-gutter', 'left-gutter capture right-gutter']}
             rowGap={'size-200'}
             UNSAFE_style={{ paddingTop: dimensionValue('size-600'), paddingBottom: dimensionValue('size-200') }}
         >
-            <Video />
-            {promptMode === 'visual' && <CaptureFrameButton />}
-        </Grid>
-    );
-};
-
-const StaticSourceStream = () => {
-    const promptMode = usePromptMode();
-
-    return (
-        <Grid
-            height={'100%'}
-            width={'100%'}
-            rows={[minmax(0, '1fr'), 'max-content', '120px']}
-            rowGap={'size-200'}
-            UNSAFE_style={{
-                paddingTop: '48px',
-            }}
-        >
-            <Video />
-            {promptMode === 'visual' && <CaptureFrameButton />}
-            <FramesList />
+            <View gridArea={'video'}>
+                <Video />
+            </View>
+            <View gridArea={'capture'} justifySelf={'center'}>
+                {promptMode === 'visual' && <CaptureFrameButton />}
+            </View>
         </Grid>
     );
 };
@@ -178,7 +60,7 @@ export const Stream = () => {
         return <WebcamStream />;
     }
 
-    if (activeSource.config.source_type === 'images_folder' || activeSource.config.source_type === 'video_file') {
-        return <StaticSourceStream />;
+    if (activeSource.config.source_type === 'images_folder') {
+        return <ImagesFolderStream />;
     }
 };

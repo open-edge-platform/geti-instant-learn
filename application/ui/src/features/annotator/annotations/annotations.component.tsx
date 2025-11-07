@@ -7,6 +7,7 @@ import { CSSProperties, MouseEvent } from 'react';
 
 import { isEmpty } from 'lodash-es';
 
+import { useAnnotationVisibility } from '../providers/annotation-visibility-provider.component';
 import { useSelectedAnnotations } from '../providers/select-annotation-provider.component';
 import type { Annotation as AnnotationType } from '../types';
 import { DEFAULT_ANNOTATION_STYLES } from '../utils';
@@ -21,6 +22,7 @@ type AnnotationsProps = {
 
 export const Annotations = ({ annotations, width, height }: AnnotationsProps) => {
     const { setSelectedAnnotations } = useSelectedAnnotations();
+    const { isVisible } = useAnnotationVisibility();
 
     // If the user clicks on an empty spot on the canvas, we want to deselect
     // all annotations
@@ -49,7 +51,7 @@ export const Annotations = ({ annotations, width, height }: AnnotationsProps) =>
                 } as CSSProperties
             }
         >
-            {!isEmpty(annotations) && (
+            {!isEmpty(annotations) && isVisible && (
                 <MaskAnnotations annotations={annotations} width={width} height={height} isEnabled={false}>
                     {annotations.map((annotation) => (
                         <Annotation annotation={annotation} key={annotation.id} />

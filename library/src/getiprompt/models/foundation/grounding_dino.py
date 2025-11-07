@@ -908,7 +908,7 @@ class GroundingDinoBiMultiHeadAttention(nn.Module):
             )
             raise ValueError(msg)
 
-        attn_weights = attn_weights - attn_weights.max()
+        attn_weights -= attn_weights.max()
         # Do not increase -50000/50000, data type half has quite limited range
         attn_weights = torch.clamp(attn_weights, min=-50000, max=50000)
 
@@ -993,6 +993,7 @@ class GroundingDinoDropPath(nn.Module):
     """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks)."""
 
     def __init__(self, drop_prob: float | None = None) -> None:
+        """Initialize the GroundingDinoDropPath."""
         super().__init__()
         self.drop_prob = drop_prob
 
@@ -1009,6 +1010,7 @@ class GroundingDinoFusionLayer(nn.Module):
     """Image and text features fusion layer."""
 
     def __init__(self, config: GroundingDinoConfig) -> None:
+        """Initialize the GroundingDinoFusionLayer."""
         super().__init__()
         drop_path = config.fusion_droppath
 
@@ -1064,8 +1066,8 @@ class GroundingDinoFusionLayer(nn.Module):
             vision_attention_mask=attention_mask_vision,
             text_attention_mask=attention_mask_text,
         )
-        vision_features = vision_features + self.drop_path(self.vision_param * delta_v)
-        text_features = text_features + self.drop_path(self.text_param * delta_t)
+        vision_features += self.drop_path(self.vision_param * delta_v)
+        text_features += self.drop_path(self.text_param * delta_t)
 
         return (vision_features, vision_attn), (text_features, text_attn)
 
@@ -1074,6 +1076,7 @@ class GroundingDinoDeformableLayer(nn.Module):
     """GroundingDINO Deformable Transformer Encoder Layer."""
 
     def __init__(self, config: GroundingDinoConfig) -> None:
+        """Initialize the GroundingDinoDeformableLayer."""
         super().__init__()
         self.embed_dim = config.d_model
         self.self_attn = GroundingDinoMultiscaleDeformableAttention(

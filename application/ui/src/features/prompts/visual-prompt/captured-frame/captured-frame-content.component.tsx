@@ -11,11 +11,7 @@ import { AnnotatorCanvasSettings } from '../../../annotator/settings/annotator-c
 import { Labels } from '../labels-management/labels.component';
 import { CapturedFrameActions } from './captured-frame-actions.component';
 
-interface CapturedFrameContentProps {
-    frameId: string;
-}
-
-export const CapturedFrameContent = ({ frameId }: CapturedFrameContentProps) => {
+export const CapturedFrameContent = () => {
     return (
         <ZoomProvider>
             <View gridArea={'labels'} backgroundColor={'gray-200'} paddingX={'size-100'} paddingY={'size-50'}>
@@ -24,7 +20,7 @@ export const CapturedFrameContent = ({ frameId }: CapturedFrameContentProps) => 
 
             <View gridArea={'image'} backgroundColor={'gray-50'} overflow={'hidden'}>
                 <AnnotatorCanvasSettings>
-                    <AnnotatorCanvas frameId={frameId} />
+                    <AnnotatorCanvas />
                 </AnnotatorCanvasSettings>
             </View>
             <View gridArea={'actions'} backgroundColor={'gray-200'} padding={'size-100'}>

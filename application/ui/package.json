@@ -21,7 +21,7 @@
         "lint": "eslint ./src ./tests --max-warnings 0",
         "lint:fix": "eslint --fix ./src ./tests",
         "preview": "rsbuild preview",
-        "clone-geti-ui-packages": "npx tiged --force --mode=git https://github.com/open-edge-platform/geti.git/web_ui/packages/config#d10267860d35efb25079684111171fb51e7fda06 packages/config && npx tiged --force --mode=git https://github.com/open-edge-platform/geti.git/web_ui/packages/ui#d10267860d35efb25079684111171fb51e7fda06 packages/ui && npx tiged --force --mode=git https://github.com/open-edge-platform/geti.git/web_ui/packages/smart-tools#d10267860d35efb25079684111171fb51e7fda06 packages/smart-tools",
+        "clone-geti-ui-packages": "npx tiged --force --mode=git https://github.com/open-edge-platform/geti.git/web_ui/packages/config#61cc6bc4a9178acade2c5347da64354da5dfd811 packages/config && npx tiged --force --mode=git https://github.com/open-edge-platform/geti.git/web_ui/packages/ui#61cc6bc4a9178acade2c5347da64354da5dfd811 packages/ui && npx tiged --force --mode=git https://github.com/open-edge-platform/geti.git/web_ui/packages/smart-tools#61cc6bc4a9178acade2c5347da64354da5dfd811 packages/smart-tools",
         "preinstall": "npm run clone-geti-ui-packages",
         "type-check": "concurrently -n UI,Tests -c green,cyan \"npm run type-check:ui\" \"npm run type-check:tests\"",
         "type-check:ui": "tsc --noEmit -p ./tsconfig.json",

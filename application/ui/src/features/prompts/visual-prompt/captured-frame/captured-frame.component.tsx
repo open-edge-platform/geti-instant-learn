@@ -29,15 +29,16 @@ interface CapturedFrameAnnotatorProps {
 const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorProps) => {
     return (
         <Suspense
+            key={frameId}
             fallback={
                 <CenteredWrapper>
                     <Loading mode={'inline'} />
                 </CenteredWrapper>
             }
         >
-            {/* key={frameId} is added here to make sure that the whole tree unmounts/mounts
-                every time we capture a new frame */}
-            <AnnotatorProvider frameId={frameId} key={frameId}>
+            {/* Suspense key={frameId} ensures clean state reset between frames
+                while allowing React Query cache to work properly */}
+            <AnnotatorProvider frameId={frameId}>
                 <SelectAnnotationProvider>
                     <AnnotationActionsProvider>
                         <AnnotationVisibilityProvider>
@@ -69,8 +70,8 @@ export const CapturedFrame = ({ frameId }: { frameId: string | null }) => {
                 </CenteredWrapper>
             ) : (
                 <CapturedFrameProviders frameId={frameId}>
-                    <CapturedFrameContent frameId={frameId} />
-                    <CapturedFrameFullScreen frameId={frameId} />
+                    <CapturedFrameContent />
+                    <CapturedFrameFullScreen />
                 </CapturedFrameProviders>
             )}
         </Grid>

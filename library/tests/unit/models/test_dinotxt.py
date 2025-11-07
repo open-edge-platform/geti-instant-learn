@@ -11,8 +11,10 @@ import torch
 from skimage.draw import random_shapes
 from torchvision.tv_tensors import Image
 
+from getiprompt.data.base.batch import Batch
+from getiprompt.data.base.sample import Sample
 from getiprompt.models.dinotxt import DinoTxtZeroShotClassification
-from getiprompt.types import Priors, Results
+from getiprompt.types import Results
 
 
 @pytest.fixture
@@ -70,13 +72,20 @@ def sample_dataset() -> tuple[list[np.ndarray], list[str]]:
 
 
 @pytest.fixture
-def sample_priors() -> Priors:
-    """Create sample text priors for classification.
+def sample_reference_batch() -> Batch:
+    """Create sample reference batch with categories for classification.
 
     Returns:
-        Priors: A Priors object containing text descriptions for each class.
+        Batch: A Batch object containing samples with categories.
     """
-    return Priors(text={0: "circle", 1: "rectangle", 2: "triangle"})
+    # Create a sample with categories
+    sample = Sample(
+        image=torch.zeros((3, 224, 224)),
+        categories=["circle", "rectangle", "triangle"],
+        category_ids=np.array([0, 1, 2]),
+        is_reference=[True, True, True],
+    )
+    return Batch.collate([sample])
 
 
 class TestDinoTxtZeroShotClassification:
@@ -100,10 +109,11 @@ class TestDinoTxtZeroShotClassification:
         pytest.assume(pipeline.precision == torch.float16)
 
     @staticmethod
-    def test_learn_with_empty_reference_priors(model_instance: DinoTxtZeroShotClassification) -> None:
-        """Test that learn raises ValueError when no reference priors are provided."""
-        with pytest.raises(ValueError, match="reference_priors must be provided"):
-            model_instance.learn([], [])
+    def test_learn_with_empty_reference_batch(model_instance: DinoTxtZeroShotClassification) -> None:
+        """Test that learn raises ValueError when no reference samples are provided."""
+        with pytest.raises(ValueError, match="Cannot collate empty list of samples"):
+            empty_batch = Batch.collate([])
+            model_instance.learn(empty_batch)
 
     @staticmethod
     def test_infer_without_learning(
@@ -112,27 +122,32 @@ class TestDinoTxtZeroShotClassification:
     ) -> None:
         """Test that infer raises AttributeError when learn hasn't been called."""
         sample_images, _ = sample_dataset
-        # Convert numpy arrays to Image objects
+        # Convert numpy arrays to Image objects and create Batch
+        image_objects = [Image(img) for img in sample_images]
+        samples = [Sample(image=img, is_reference=[False], categories=["object"]) for img in image_objects]
+        target_batch = Batch.collate(samples)
         with pytest.raises(AttributeError):
-            model_instance.infer(sample_images)
+            model_instance.infer(target_batch)
 
     @staticmethod
     def test_infer(
         model_instance: DinoTxtZeroShotClassification,
         sample_dataset: tuple[list[np.ndarray], list[str]],
-        sample_priors: Priors,
+        sample_reference_batch: Batch,
     ) -> None:
         """Test the full learn and infer cycle of the pipeline."""
         sample_images, sample_labels = sample_dataset
 
         # Learn first
-        model_instance.learn([], [sample_priors])
+        model_instance.learn(sample_reference_batch)
 
-        # Convert numpy arrays to Image objects
+        # Convert numpy arrays to Image objects and create Batch
         image_objects = [Image(img) for img in sample_images]
+        samples = [Sample(image=img, is_reference=[False], categories=["object"]) for img in image_objects]
+        target_batch = Batch.collate(samples)
 
         # Then infer
-        result = model_instance.infer(image_objects)
+        result = model_instance.infer(target_batch)
 
         # Verify results
         pytest.assume(isinstance(result, Results))

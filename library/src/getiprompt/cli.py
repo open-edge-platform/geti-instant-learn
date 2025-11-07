@@ -147,7 +147,6 @@ class GetiPromptCLI:
                     reference_points_str=config.run.points,
                     reference_text_prompt=config.run.reference_text_prompt,
                     output_location=config.run.output_location,
-                    output_masks_only=config.run.output_masks_only,
                     batch_size=config.run.batch_size,
                 )
             case "benchmark":

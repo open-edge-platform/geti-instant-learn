@@ -5,14 +5,14 @@
 
 from typing import TYPE_CHECKING
 
-from torchvision import tv_tensors
-
-from getiprompt.components import MaskAdder, MasksToPolygons, SamDecoder
+from getiprompt.components import SamDecoder
 from getiprompt.components.encoders import ImageEncoder
+from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.feature_selectors import AllFeaturesSelector, FeatureSelector
-from getiprompt.components.filters import MaxPointFilter
+from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
-from getiprompt.types import Priors, Results
+from getiprompt.data.base.batch import Batch
+from getiprompt.types import Results
 from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
 
@@ -23,6 +23,9 @@ if TYPE_CHECKING:
     from getiprompt.components.prompt_generators.base import PromptGenerator
 
 
+DEBUG = True
+
+
 class Matcher(Model):
     """This is the Matcher model.
 
@@ -30,34 +33,53 @@ class Matcher(Model):
     https://arxiv.org/abs/2305.13310.
 
     Main novelties:
-    - Uses DinoV2 patch encoding instead of SAM for encoding the images, resulting in a more robust feature extractor
+    - Uses patch encoding instead of SAM for encoding the images, resulting in a more robust feature extractor
     - Uses a bidirectional prompt generator to generate prompts for the segmenter
     - Has a more complex mask postprocessing step to remove and merge masks
 
     Note that the post processing mask filtering techniques are different from that of the original paper.
 
     Examples:
+        >>> from getiprompt.models import Matcher
+        >>> from getiprompt.data.base import Batch
+        >>> from getiprompt.data.base.sample import Sample
+        >>> from getiprompt.types import Results
         >>> import torch
         >>> import numpy as np
-        >>> from getiprompt.models import Matcher
-        >>> from torchvision import tv_tensors
-        >>> from getiprompt.types import Priors, Results
-        >>>
+
         >>> matcher = Matcher()
-        >>>
+
         >>> # Create mock inputs
-        >>> ref_image = np.zeros((1024, 1024, 3), dtype=np.uint8)
-        >>> target_image = np.zeros((1024, 1024, 3), dtype=np.uint8)
-        >>> ref_priors = Priors()
-        >>> ref_priors.masks.add(torch.ones(30, 30, dtype=torch.bool), class_id=1)
-        >>>
+        >>> ref_image = torch.zeros((3, 1024, 1024))
+        >>> target_image = torch.zeros((3, 1024, 1024))
+        >>> ref_mask = torch.ones(30, 30, dtype=torch.bool)
+
+        >>> # Create reference sample
+        >>> ref_sample = Sample(
+        ...     image=ref_image,
+        ...     masks=ref_mask.unsqueeze(0),
+        ...     category_ids=np.array([1]),
+        ...     is_reference=[True],
+        ...     categories=["object"],
+        ... )
+        >>> ref_batch = Batch.collate([ref_sample])
+
+        >>> # Create target sample
+        >>> target_sample = Sample(
+        ...     image=target_image,
+        ...     is_reference=[False],
+        ...     categories=["object"],
+        ... )
+        >>> target_batch = Batch.collate([target_sample])
+
         >>> # Run learn and infer
-        >>> learn_results = matcher.learn([tv_tensors.Image(ref_image)], [ref_priors])
-        >>> infer_results = matcher.infer([tv_tensors.Image(target_image)])
-        >>>
-        >>> isinstance(learn_results, Results) and isinstance(infer_results, Results)
+        >>> matcher.learn(ref_batch)
+        >>> infer_results = matcher.infer(target_batch)
+
+        >>> isinstance(infer_results, Results)
         True
-        >>> infer_results.masks is not None and infer_results.annotations is not None
+
+        >>> infer_results.masks is not None
         True
     """
 
@@ -101,6 +123,12 @@ class Matcher(Model):
             compile_models=compile_models,
             benchmark_inference_speed=benchmark_inference_speed,
         )
+        # Local feature extraction with mask pooling
+        self.local_feature_extractor = MaskedFeatureExtractor(
+            input_size=self.encoder.input_size,
+            patch_size=self.encoder.patch_size,
+            device=device,
+        )
         self.feature_selector: FeatureSelector = AllFeaturesSelector()
         self.prompt_generator: PromptGenerator = BidirectionalPromptGenerator(
             encoder_input_size=self.encoder.input_size,
@@ -108,43 +136,48 @@ class Matcher(Model):
             encoder_feature_size=self.encoder.feature_size,
             num_background_points=num_background_points,
         )
-        self.point_filter = MaxPointFilter(max_num_points=num_foreground_points)
+        self.prompt_filter = PointPromptFilter(num_foreground_points=num_foreground_points)
         self.segmenter: SamDecoder = SamDecoder(
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
         )
-        self.mask_adder = MaskAdder(segmenter=self.segmenter)
-        self.mask_processor = MasksToPolygons()
         self.reference_features = None
         self.reference_masks = None
 
     @track_duration
-    def learn(self, reference_images: list[tv_tensors.Image], reference_priors: list[Priors]) -> Results:
+    def learn(self, reference_batch: Batch) -> None:
         """Perform learning step on the reference images and priors."""
-        # Start running the model
-        reference_priors = self.mask_adder(reference_images, reference_priors)
-        reference_features, self.reference_masks = self.encoder(reference_images, reference_priors)
+        # Encode reference images to batched tensor
+        reference_embeddings = self.encoder(images=reference_batch.images)
+        # Extract local features and pooled masks
+        reference_features, self.reference_masks = self.local_feature_extractor(
+            reference_embeddings,
+            reference_batch.masks,
+            reference_batch.category_ids,
+        )
         self.reference_features = self.feature_selector(reference_features)
 
     @track_duration
-    def infer(self, target_images: list[tv_tensors.Image]) -> Results:
+    def infer(self, target_batch: Batch) -> Results:
         """Perform inference step on the target images."""
-        target_features, _ = self.encoder(target_images)
-        priors, similarities = self.prompt_generator(
+        target_embeddings = self.encoder(images=target_batch.images)
+        point_prompts, similarities_per_image = self.prompt_generator(
             self.reference_features,
-            target_features,
             self.reference_masks,
-            target_images,
+            target_embeddings,
+            target_batch.images,
         )
-        priors = self.point_filter(priors)
-        masks, used_points, _ = self.segmenter(target_images, priors, similarities)
-        annotations = self.mask_processor(masks)
+        point_prompts = self.prompt_filter(point_prompts)
+        masks, used_points, _ = self.segmenter(
+            target_batch.images,
+            point_prompts=point_prompts,
+            similarities=similarities_per_image,
+        )
 
         # write output
         results = Results()
-        results.priors = priors
+        results.point_prompts = point_prompts
         results.used_points = used_points
         results.masks = masks
-        results.annotations = annotations
-        results.similarities = similarities
+        results.similarities = similarities_per_image
         return results

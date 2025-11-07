@@ -6,13 +6,13 @@
 import pytest
 import torch
 
-from getiprompt.components.filters import MultiInstancePriorFilter
-from getiprompt.types import Boxes, Priors
+from getiprompt.components.filters import BoxPromptFilter
+from getiprompt.types import Boxes
 
 
 def test_multi_instance_prior_filter() -> None:
     """Test the MultiInstancePriorFilter."""
-    filt = MultiInstancePriorFilter()
+    filt = BoxPromptFilter()
 
     # Create a scenario where one large box contains three smaller boxes
     # that almost fill it. The large box should be filtered out.
@@ -27,7 +27,8 @@ def test_multi_instance_prior_filter() -> None:
     ])
     # Total area: 9467. This should trigger the filter for the large box.
     boxes1.add(torch.cat([large_box1, small_boxes1]))
-    priors1 = Priors(boxes=boxes1)
+    # Convert Boxes to dict format expected by BoxPromptFilter
+    prompts1: dict[int, torch.Tensor] = {0: boxes1.get(0)[0]}
 
     # Create a second scenario where the contained boxes are too small
     # to trigger the filter.
@@ -35,12 +36,13 @@ def test_multi_instance_prior_filter() -> None:
     large_box2 = torch.tensor([[0, 0, 100, 100, 0.9, 1]])
     small_boxes2 = torch.tensor([[10, 10, 20, 20, 0.8, 1]])
     boxes2.add(torch.cat([large_box2, small_boxes2]))
-    priors2 = Priors(boxes=boxes2)
+    # Convert Boxes to dict format expected by BoxPromptFilter
+    prompts2: dict[int, torch.Tensor] = {0: boxes2.get(0)[0]}
 
-    filtered_priors_list = filt([priors1, priors2])
+    filtered_prompts_list = filt([prompts1, prompts2])
 
     # In the first case, only the 3 small boxes should remain.
-    remaining_boxes1 = filtered_priors_list[0].boxes.get(0)[0]
+    remaining_boxes1 = filtered_prompts_list[0][0]
     expected_value = 3
     pytest.assume(remaining_boxes1.shape[0] == expected_value)
     # Sort boxes before comparison to avoid order-related failures
@@ -49,7 +51,7 @@ def test_multi_instance_prior_filter() -> None:
     pytest.assume(torch.all(remaining_boxes1_sorted == small_boxes1_sorted))
 
     # In the second case, both boxes should be kept.
-    remaining_boxes2 = filtered_priors_list[1].boxes.get(0)[0]
+    remaining_boxes2 = filtered_prompts_list[1][0]
     expected_boxes2 = torch.cat([large_box2, small_boxes2])
     expected_value = 2
     pytest.assume(remaining_boxes2.shape[0] == expected_value)

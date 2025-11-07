@@ -3,22 +3,19 @@
 
 """Geti Prompt Benchmark Script."""
 
-from __future__ import annotations
-
 import itertools
+from argparse import Namespace
 from logging import getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-import numpy as np
 import polars as pl
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from torch.utils.data import DataLoader
 
 from getiprompt.data import Dataset, LVISDataset, PerSegDataset
+from getiprompt.data.base import Batch
 from getiprompt.metrics import SegmentationMetrics
 from getiprompt.models import Model, load_model
-from getiprompt.types import Masks, Priors, Text
 from getiprompt.utils import setup_logger
 from getiprompt.utils.args import get_arguments, parse_experiment_args
 from getiprompt.utils.benchmark import (
@@ -31,46 +28,6 @@ from getiprompt.utils.utils import masks_to_custom_masks
 from getiprompt.visualize import ExportMaskVisualization
 
 logger = getLogger("Geti Prompt")
-
-
-if TYPE_CHECKING:
-    import argparse
-
-    from torchvision import tv_tensors
-
-    from getiprompt.data.base import Sample
-
-
-def extract_priors(
-    sample: Sample,
-    category_name: str,
-) -> Priors:
-    """Extract priors from a Sample.
-
-    Args:
-        sample: Sample - The sample to extract priors from.
-        category_name: str - The category name for the text prior.
-
-    Returns:
-        Priors - The priors extracted from the sample.
-    """
-    # Convert masks to Masks type
-    masks_obj = Masks()
-    if sample.masks is not None:
-        mask_np = sample.masks if isinstance(sample.masks, np.ndarray) else sample.masks.cpu().numpy()
-        category_ids = (
-            sample.category_ids if isinstance(sample.category_ids, np.ndarray) else sample.category_ids.cpu().numpy()
-        )
-
-        for mask, category_id in zip(mask_np, category_ids, strict=True):
-            masks_obj.add(mask, class_id=int(category_id))
-
-    # Create text prior
-    text_prior = Text()
-    text_prior.add(category_name, class_id=int(category_id))
-
-    # Create priors object
-    return Priors(masks=masks_obj, text=text_prior)
 
 
 def infer_on_category(
@@ -132,8 +89,7 @@ def infer_on_category(
     n_samples = 0
     for batch in dataloader:
         # Run inference
-        target_images = batch.images
-        results = model.infer(target_images=target_images)
+        results = model.infer(batch)
         total_time += results.duration
         n_samples += len(batch)
 
@@ -158,15 +114,6 @@ def infer_on_category(
                 )
                 for img_path in batch.image_paths
             ]
-            file_names_debug = [
-                str(
-                    Path("predictions_debug")
-                    / f"priors_batch_{priors_batch_index}"
-                    / category_name
-                    / Path(img_path).name,
-                )
-                for img_path in batch.image_paths
-            ]
             file_names_gt = [
                 str(
                     Path("ground_truth") / f"priors_batch_{priors_batch_index}" / category_name / Path(img_path).name,
@@ -176,21 +123,14 @@ def infer_on_category(
 
             # Visualize predictions and ground truth
             visualizer(
-                images=target_images,
+                images=batch.images,
                 masks=results.masks,
                 file_names=file_names,
-                points=results.used_points,
-                boxes=visualizer.boxes_from_priors(results.priors),
+                points=visualizer.to_points(results.point_prompts),
+                boxes=visualizer.to_boxes(results.box_prompts),
             )
             visualizer(
-                images=target_images,
-                masks=results.masks,
-                file_names=file_names_debug,
-                points=visualizer.points_from_priors(results.priors),
-                boxes=visualizer.boxes_from_priors(results.priors),
-            )
-            visualizer(
-                images=target_images,
+                images=batch.images,
                 masks=gt_masks,
                 file_names=file_names_gt,
             )
@@ -201,75 +141,22 @@ def infer_on_category(
     return total_time, n_samples
 
 
-def learn_from_category(
-    dataset: Dataset,
-    model: Model,
-    category_name: str,
-    n_shot: int,
-    visualizer: ExportMaskVisualization,
-    priors_batch_index: int,
-) -> tuple[list[tv_tensors.Image], list[Priors]]:
+def learn_from_category(dataset: Dataset, model: Model, category_name: str) -> None:
     """Learn from reference samples of a category.
 
     Args:
         dataset: The dataset containing reference samples
         model: The model to train
         category_name: The category to learn from
-        n_shot: Number of reference shots to use
-        visualizer: The visualizer for exporting
-        priors_batch_index: The current prior batch index
-
-    Returns:
-        list[tv_tensors.Image] - The reference images used for learning.
-        list[Priors] - The reference priors used for learning.
-
-    Raises:
-        ValueError: If no reference samples are found for the category.
     """
-    # Get reference samples for this category
     reference_dataset = dataset.get_reference_dataset(category=category_name)
-    if len(reference_dataset) == 0:
-        msg = f"No reference samples found for category: {category_name}"
-        raise ValueError(msg)
-
-    # Limit to n_shot samples
-    n_samples = min(n_shot, len(reference_dataset))
-
-    # Convert samples to legacy format (Image, Priors)
-    reference_images = []
-    reference_priors = []
-
-    for i in range(n_samples):
-        sample = reference_dataset[i]
-        priors = extract_priors(sample, category_name)
-        reference_images.append(sample.image)
-        reference_priors.append(priors)
-
+    reference_batch = Batch.collate(reference_dataset)
     # Learn
-    model.learn(
-        reference_images=reference_images,
-        reference_priors=reference_priors,
-    )
-
-    # Save priors visualization
-    priors_file_names = [
-        str(
-            Path("priors") / f"priors_batch_{priors_batch_index}" / category_name / f"prior_{image_index}.png",
-        )
-        for image_index in range(len(reference_images))
-    ]
-    masks_priors = visualizer.masks_from_priors(reference_priors)
-    visualizer(
-        images=reference_images,
-        masks=masks_priors,
-        file_names=priors_file_names,
-    )
-
-    return reference_images, reference_priors
+    model.learn(reference_batch)
 
 
 def predict_on_dataset(
-    args: argparse.Namespace,
+    args: Namespace,
     model: Model,
     dataset: Dataset,
     output_path: Path,
@@ -338,9 +225,6 @@ def predict_on_dataset(
                     dataset=dataset,
                     model=model,
                     category_name=category_name,
-                    n_shot=args.n_shot,
-                    visualizer=visualizer,
-                    priors_batch_index=priors_batch_index,
                 )
                 progress.update(priors_task, advance=1)
 
@@ -489,7 +373,7 @@ def load_dataset_by_name(
     raise ValueError(msg)
 
 
-def perform_benchmark_experiment(args: argparse.Namespace | None = None) -> None:
+def perform_benchmark_experiment(args: Namespace | None = None) -> None:
     """Main function to run the experiments.
 
     This function initializes the arguments, determines which models, datasets, and models to process,

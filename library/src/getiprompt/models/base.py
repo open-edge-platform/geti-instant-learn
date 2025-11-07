@@ -7,9 +7,9 @@ from abc import abstractmethod
 from logging import getLogger
 
 from torch import nn
-from torchvision import tv_tensors
 
-from getiprompt.types import Priors, Results
+from getiprompt.data.base.batch import Batch
+from getiprompt.types import Results
 
 logger = getLogger("Geti Prompt")
 
@@ -18,21 +18,20 @@ class Model(nn.Module):
     """This class is the base class for all models."""
 
     @abstractmethod
-    def learn(self, reference_images: list[tv_tensors.Image], reference_priors: list[Priors]) -> None:
+    def learn(self, reference_batch: Batch) -> None:
         """This method learns the context.
 
         Args:
-            reference_images: A list of images ot learn from.
-            reference_priors: A list of priors associated with the image.
+            reference_batch(Batch): A batch of reference samples to learn from.
         """
 
     @abstractmethod
-    def infer(self, target_images: list[tv_tensors.Image]) -> Results:
+    def infer(self, target_batch: Batch) -> Results:
         """This method uses the learned context to infer object locations.
 
         Args:
-            target_images: A List of images to infer.
+            target_batch(Batch): A batch of target samples to infer.
 
         Returns:
-            None
+            Results: The results of the inference.
         """

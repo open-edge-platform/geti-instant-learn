@@ -4,11 +4,10 @@
 """Filters."""
 
 from .mask_filter import ClassOverlapMaskFilter
-from .max_point_filter import MaxPointFilter
-from .multi_instance_prior_filter import MultiInstancePriorFilter
+from .prompt_filter import BoxPromptFilter, PointPromptFilter
 
 __all__ = [
+    "BoxPromptFilter",
     "ClassOverlapMaskFilter",
-    "MaxPointFilter",
-    "MultiInstancePriorFilter",
+    "PointPromptFilter",
 ]

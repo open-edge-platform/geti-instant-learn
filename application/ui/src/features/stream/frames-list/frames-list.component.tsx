@@ -3,14 +3,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { View, VirtualizedHorizontalGrid } from '@geti/ui';
+import { RefObject } from 'react';
+
+import {
+    AriaComponentsListBox,
+    HorizontalLayout,
+    HorizontalLayoutOptions,
+    ListBoxItem,
+    View,
+    Virtualizer,
+} from '@geti/ui';
 import { clsx } from 'clsx';
 
 import TestImg from '../../../assets/test.webp';
 
 import styles from './frames-list.module.scss';
 
-const useFrames = () => {
+export const useFrames = (): Frame[] => {
     // TODO: replace with actual frames
     return [
         TestImg,
@@ -39,12 +48,14 @@ const useFrames = () => {
     });
 };
 
+export interface Frame {
+    // it's a base 64 encoded string
+    thumbnail: string;
+    index: number;
+}
+
 interface FrameThumbnailProps {
-    frame: {
-        // it's a base 64 encoded string
-        thumbnail: string;
-        index: number;
-    };
+    frame: Frame;
     isSelected: boolean;
 }
 
@@ -52,10 +63,17 @@ const FrameThumbnail = ({ frame, isSelected }: FrameThumbnailProps) => {
     const { thumbnail } = frame;
 
     return (
-        <View borderColor={'gray-100'} borderWidth={'thicker'} height={'100%'} width={'100%'}>
+        <View
+            borderColor={'gray-100'}
+            borderYWidth={'thick'}
+            borderXWidth={isSelected ? 'thick' : undefined}
+            height={'100%'}
+            width={'100%'}
+        >
             <View
-                UNSAFE_className={clsx({
+                UNSAFE_className={clsx(styles.frame, {
                     [styles.selected]: isSelected,
+                    [styles.notSelected]: !isSelected,
                 })}
                 height={'100%'}
                 width={'100%'}
@@ -70,24 +88,43 @@ const FrameThumbnail = ({ frame, isSelected }: FrameThumbnailProps) => {
     );
 };
 
-export const FramesList = () => {
-    const frames = useFrames();
-    // TODO: replace with actual active frame index
-    const activeFrameIndex = 0;
+interface FramesListProps {
+    activeFrameIndex: number;
+    onSetActiveFrame: (index: number) => void;
+    frames: Frame[];
+    ref: RefObject<HTMLDivElement | null>;
+}
 
+const LAYOUT_OPTIONS: HorizontalLayoutOptions = {
+    size: 80,
+    gap: 0,
+    // number of items to render before and after the visible area
+    overscan: 5,
+};
+
+export const FramesList = ({ activeFrameIndex, frames, onSetActiveFrame, ref }: FramesListProps) => {
     return (
-        <View height={'100%'} overflow={'auto hidden'} padding={'size-200'} backgroundColor={'gray-100'}>
-            <VirtualizedHorizontalGrid
-                items={frames}
-                renderItem={(frame) => <FrameThumbnail frame={frame} isSelected={frame.index === activeFrameIndex} />}
-                idFormatter={(item) => item.index.toString()}
-                textValueFormatter={(item) => item.index.toString()}
-                layoutOptions={{ size: 72, gap: 0 }}
-                listBoxItemStyles={{
-                    height: '100%',
-                    width: '100%',
-                }}
-            />
+        <View height={'100%'} padding={'size-200'} backgroundColor={'gray-100'}>
+            <Virtualizer<HorizontalLayoutOptions> layout={HorizontalLayout} layoutOptions={LAYOUT_OPTIONS}>
+                <AriaComponentsListBox
+                    orientation={'horizontal'}
+                    className={styles.framesList}
+                    aria-label={'Frames list'}
+                    ref={ref}
+                >
+                    {frames.map((frame) => (
+                        <ListBoxItem
+                            key={frame.index}
+                            className={styles.frameItem}
+                            aria-label={`Frame #${frame.index}`}
+                            aria-selected={frame.index === activeFrameIndex}
+                            onAction={() => onSetActiveFrame(frame.index)}
+                        >
+                            <FrameThumbnail frame={frame} isSelected={frame.index === activeFrameIndex} />
+                        </ListBoxItem>
+                    ))}
+                </AriaComponentsListBox>
+            </Virtualizer>
         </View>
     );
 };

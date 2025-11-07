@@ -24,6 +24,10 @@ class Boxes(Prompt):
         """Adds data for a given class by extending the list."""
         if not isinstance(data, torch.Tensor):
             data = torch.from_numpy(data)
+
+        if data.device != torch.device("cpu"):
+            data = data.to(torch.device("cpu"))
+
         if class_id in self._data:
             self._data[class_id].append(data)
         else:

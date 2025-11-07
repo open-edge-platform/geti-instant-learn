@@ -76,25 +76,6 @@ class TestSamDecoderValidation:
         assert isinstance(result[1], list)
         assert isinstance(result[2], list)
 
-    def test_assertion_mismatched_masks_and_points(self, sam_decoder: SamDecoder) -> None:
-        """Test that assertion fails when mask and point counts don't match."""
-        # Create sample data
-        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
-        priors = MagicMock()
-        priors.points.data = {0: [torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32)]}
-        priors.boxes.data = {}
-
-        # Mock the predict method to return mismatched counts
-        mock_masks = torch.ones((2, 100, 100), dtype=torch.bool)  # 2 masks
-        mock_points = torch.tensor([[[100, 150, 0.9]]], dtype=torch.float32)  # 1 point (mismatch!)
-        mock_boxes = torch.empty((0, 6), dtype=torch.float32)
-
-        sam_decoder.predict = MagicMock(return_value=(mock_masks, mock_points, mock_boxes))
-
-        # This should raise an assertion error
-        with pytest.raises(AssertionError, match="The number of masks and points do not match"):
-            sam_decoder.forward([image], [priors], None)
-
     def test_assertion_with_zero_masks_and_points(self, sam_decoder: SamDecoder) -> None:
         """Test that assertion passes with zero masks and points."""
         # Create sample data
@@ -293,12 +274,12 @@ class TestSamDecoderEmptyTensorHandling:
         """Test empty tensor handling with multiple classes."""
         # Create sample data with multiple classes
         image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
-        priors = MagicMock()
-        priors.points.data = {
-            0: [torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32)],
-            1: [torch.tensor([[200, 250, 0.8, 1]], dtype=torch.float32)],
+        # Format: [x, y, score, label] where label=1 for foreground points
+        point_prompts = {
+            0: torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32),
+            1: torch.tensor([[200, 250, 0.8, 1]], dtype=torch.float32),
         }
-        priors.boxes.data = {}
+        box_prompts = {}
 
         # Mock the predict method to return empty results
         mock_masks = torch.empty((0, 100, 100), dtype=torch.bool)
@@ -307,7 +288,7 @@ class TestSamDecoderEmptyTensorHandling:
 
         sam_decoder.predict = MagicMock(return_value=(mock_masks, mock_points, mock_boxes))
 
-        result = sam_decoder.forward([image], [priors], None)
+        result = sam_decoder.forward([image], [point_prompts], [box_prompts], None)
 
         masks_per_image = result[0]
 

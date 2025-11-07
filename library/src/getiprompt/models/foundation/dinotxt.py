@@ -10,7 +10,6 @@ import torchvision
 from torch import nn
 from torchvision import tv_tensors
 
-from getiprompt.types import Priors
 from getiprompt.utils.constants import (
     DINOV3_BACKBONE_MAP,
     DINOV3_TXT_HEAD_FILENAME,
@@ -41,16 +40,16 @@ class DinoTextEncoder(nn.Module):
     Examples:
         >>> import torch
         >>> from torchvision import tv_tensors
-        >>> from getiprompt.types import Priors
-        >>> from getiprompt.models.dinotxt import DinoTextEncoder
-        >>> encoder = DinoTextEncoder(device="cuda", weights_location="~/data/dinov3_weights")
-        >>> text_embedding = encoder.encode_text(Priors(text={0: "cat", 1: "dog"}))
+        >>> from getiprompt.models.foundation.dinotxt import DinoTextEncoder
+        >>> encoder = DinoTextEncoder(device="cpu", weights_location="~/data/dinov3_weights")
+        >>> category_mapping = {0: "cat", 1: "dog"}
+        >>> text_embedding = encoder.encode_text(category_mapping)
         >>> image_embedding = encoder.encode_image([tv_tensors.Image(torch.randn(224, 224, 3))])
     """
 
     def __init__(
         self,
-        image_size: int = 512,
+        image_size: tuple[int, int] | int | None = (512, 512),
         precision: torch.dtype = torch.bfloat16,
         device: str = "cuda",
         weights_location: str | Path = DINOV3_WEIGHTS_PATH,
@@ -66,8 +65,13 @@ class DinoTextEncoder(nn.Module):
         self.precision = precision
         self.model, self.tokenizer = DinoTextEncoder._load_model(weights_location, backbone_size.value, device)
 
+        # Handle image_size: if tuple, use first dimension; if int, use as is; if None, default to 512
+        resize_size = (
+            image_size[0] if isinstance(image_size, tuple) else (image_size if image_size is not None else 512)
+        )
+
         self.transforms = torchvision.transforms.Compose([
-            torchvision.transforms.v2.Resize(image_size),
+            torchvision.transforms.v2.Resize(resize_size),
             torchvision.transforms.v2.Normalize(mean=mean, std=std),
             torchvision.transforms.v2.ToDtype(dtype=self.precision),
         ])
@@ -151,29 +155,30 @@ class DinoTextEncoder(nn.Module):
     @torch.no_grad()
     def encode_text(
         self,
-        reference_prior: Priors,
+        category_mapping: dict[int, str],
         prompt_template: list[str] = IMAGENET_TEMPLATES,
     ) -> torch.Tensor:
         """Encode the class text prompt to text embedding.
 
         Args:
-            reference_prior: The prior to encode.
+            category_mapping: Dictionary mapping class IDs to category names (e.g., {0: "cat", 1: "dog"}).
             prompt_template: The prompt template to use for the model.
 
         Returns:
-            The text embedding.
+            The text embedding tensor with shape (embedding_dim, num_classes).
 
         Examples:
-            >>> from getiprompt.models.dinotxt import DinoTextEncoder
-            >>> from getiprompt.types import Priors
-            >>> encoder = DinoTextEncoder()
-            >>> prior = Priors(text={0: "cat", 1: "dog"})
-            >>> text_embedding = encoder.encode_text(prior)
-            >>> text_embedding.shape
-            torch.Size([2048, 2])
+            >>> from getiprompt.models.foundation.dinotxt import DinoTextEncoder
+            >>> encoder = DinoTextEncoder(device="cpu")
+            >>> category_mapping = {0: "cat", 1: "dog"}
+            >>> text_embedding = encoder.encode_text(category_mapping)
+            >>> text_embedding.shape[1] == len(category_mapping)
+            True
         """
         zero_shot_weights = []
-        for label_name in reference_prior.text.values():
+        # Sort by class_id to ensure consistent ordering
+        for class_id in sorted(category_mapping.keys()):
+            label_name = category_mapping[class_id]
             texts = [template.format(label_name) for template in prompt_template]
             texts = self.tokenizer.tokenize(texts)
             texts = texts.to(self.device)
