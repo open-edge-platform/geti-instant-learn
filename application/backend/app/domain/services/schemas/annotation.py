@@ -60,4 +60,4 @@ Annotation = Annotated[RectangleAnnotation | PolygonAnnotation, Field(discrimina
 
 class AnnotationSchema(BaseModel):
     config: Annotation
-    label_id: UUID | None = Field(None, description="Optional label for the annotation")
+    label_id: UUID = Field(..., description="Label for the annotation")

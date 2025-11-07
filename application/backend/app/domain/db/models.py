@@ -1,5 +1,6 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
 from enum import StrEnum
 from uuid import UUID, uuid4
 
@@ -83,6 +84,7 @@ class PromptDB(Base):
     project_id: Mapped[UUID] = mapped_column(ForeignKey("Project.id", ondelete="CASCADE"), nullable=False)
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
     frame_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    thumbnail: Mapped[str | None] = mapped_column(Text, nullable=True)  # base64-encoded image with annotations
     project: Mapped["ProjectDB"] = relationship(back_populates="prompts")
     annotations: Mapped[list[AnnotationDB]] = relationship(
         back_populates="prompt", cascade="all, delete-orphan", passive_deletes=True

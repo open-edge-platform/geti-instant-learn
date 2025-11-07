@@ -37,6 +37,7 @@ def prompt_db_to_schema(prompt: PromptDB) -> PromptSchema:
         type=PromptType.VISUAL,
         frame_id=prompt.frame_id,
         annotations=annotations,
+        thumbnail=prompt.thumbnail,
     )
 
 
@@ -47,7 +48,7 @@ def prompts_db_to_schemas(prompts: Iterable[PromptDB]) -> list[PromptSchema]:
     return [prompt_db_to_schema(p) for p in prompts]
 
 
-def prompt_create_schema_to_db(schema: PromptCreateSchema, project_id: UUID) -> PromptDB:
+def prompt_create_schema_to_db(schema: PromptCreateSchema, project_id: UUID, thumbnail: str | None = None) -> PromptDB:
     """
     Create a new PromptDB (unpersisted) from schema.
     project_id should be injected by service layer.
@@ -60,6 +61,7 @@ def prompt_create_schema_to_db(schema: PromptCreateSchema, project_id: UUID) -> 
             frame_id=None,
             project_id=project_id,
             annotations=[],
+            thumbnail=None,
         )
     else:
         annotation_entities = [
@@ -79,12 +81,13 @@ def prompt_create_schema_to_db(schema: PromptCreateSchema, project_id: UUID) -> 
             frame_id=schema.frame_id,
             project_id=project_id,
             annotations=annotation_entities,
+            thumbnail=thumbnail,
         )
 
     return prompt_db
 
 
-def prompt_update_schema_to_db(prompt_db: PromptDB, schema: PromptUpdateSchema) -> None:
+def prompt_update_schema_to_db(prompt_db: PromptDB, schema: PromptUpdateSchema) -> PromptDB:
     """
     Update an existing PromptDB instance from an update schema.
     For visual prompts, annotations are replaced if provided.
@@ -107,3 +110,4 @@ def prompt_update_schema_to_db(prompt_db: PromptDB, schema: PromptUpdateSchema) 
                     prompt_id=prompt_db.id,
                 )
                 prompt_db.annotations.append(annotation_entity)
+    return prompt_db

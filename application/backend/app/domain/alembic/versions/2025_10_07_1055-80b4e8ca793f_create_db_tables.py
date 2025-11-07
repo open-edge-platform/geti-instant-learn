@@ -63,6 +63,7 @@ def upgrade() -> None:
     sa.Column('project_id', sa.Uuid(), nullable=False),
     sa.Column('text', sa.Text(), nullable=True),
     sa.Column('frame_id', sa.Uuid(), nullable=True),
+    sa.Column('thumbnail', sa.Text(), nullable=True),
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.ForeignKeyConstraint(['project_id'], ['Project.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),

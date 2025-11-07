@@ -126,6 +126,7 @@ class VisualPromptSchema(BaseIDSchema):
     type: Literal[PromptType.VISUAL]  # type: ignore[valid-type]
     frame_id: UUID
     annotations: list[AnnotationSchema]
+    thumbnail: str | None = Field(None, description="Base64-encoded thumbnail image with annotations")
 
 
 PromptSchema = Annotated[VisualPromptSchema | TextPromptSchema, Field(discriminator="type")]

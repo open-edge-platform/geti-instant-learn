@@ -4,6 +4,7 @@
 import logging
 from uuid import UUID
 
+import cv2
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -21,6 +22,7 @@ from domain.repositories.frame import FrameRepository
 from domain.repositories.label import LabelRepository
 from domain.repositories.project import ProjectRepository
 from domain.repositories.prompt import PromptRepository
+from domain.services.schemas.annotation import AnnotationSchema
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.mappers.prompt import (
     prompt_create_schema_to_db,
@@ -37,6 +39,7 @@ from domain.services.schemas.prompt import (
     VisualPromptCreateSchema,
     VisualPromptUpdateSchema,
 )
+from domain.services.thumbnail import ThumbnailGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +123,7 @@ class PromptService:
         Create a new prompt.
         - Visual prompts must have frame_id and annotations
         - Visual prompts must reference an existing frame
-        - Annotations can optionally reference labels that must exist in the project
+        - Annotations reference labels that must exist in the project
         - Only one text prompt is allowed per project
 
         Parameters:
@@ -158,6 +161,7 @@ class PromptService:
                     "Only one text prompt is allowed per project. Please update the existing text prompt instead.",
                 )
 
+        thumbnail = None
         if isinstance(create_data, VisualPromptCreateSchema):
             frame_path = self.frame_repository.get_frame_path(project_id, create_data.frame_id)
             if not frame_path:
@@ -172,8 +176,11 @@ class PromptService:
                     message=f"Frame {create_data.frame_id} does not exist in project {project_id}",
                 )
             self._validate_annotation_labels(create_data.annotations, project_id)
+            thumbnail = self._generate_thumbnail(project_id, create_data.frame_id, create_data.annotations)
 
-        new_prompt: PromptDB = prompt_create_schema_to_db(schema=create_data, project_id=project_id)
+        new_prompt: PromptDB = prompt_create_schema_to_db(
+            schema=create_data, project_id=project_id, thumbnail=thumbnail
+        )
 
         self.prompt_repository.add(new_prompt)
 
@@ -263,11 +270,7 @@ class PromptService:
             raise ResourceNotFoundError(resource_type=ResourceType.PROMPT, resource_id=str(prompt_id))
 
         if prompt.type.value != update_data.type:
-            logger.error(
-                "Cannot change prompt type: current=%s, requested=%s",
-                prompt.type,
-                update_data.type,
-            )
+            logger.error("Cannot change prompt type: current=%s, requested=%s", prompt.type, update_data.type)
             raise ResourceUpdateConflictError(
                 resource_type=ResourceType.PROMPT,
                 resource_id=str(prompt_id),
@@ -283,10 +286,15 @@ class PromptService:
             update_data.type,
         )
 
+        regenerate_thumbnail = False
         if isinstance(update_data, VisualPromptUpdateSchema):
-            self._handle_visual_prompt_update(prompt, update_data, project_id)
+            regenerate_thumbnail = self._handle_visual_prompt_update(prompt, update_data, project_id)
 
-        prompt_update_schema_to_db(prompt, update_data)
+        prompt = prompt_update_schema_to_db(prompt, update_data)
+
+        if regenerate_thumbnail and prompt.frame_id:
+            annotations = [AnnotationSchema(config=ann.config, label_id=ann.label_id) for ann in prompt.annotations]
+            prompt.thumbnail = self._generate_thumbnail(project_id, prompt.frame_id, annotations)
 
         try:
             self.session.commit()
@@ -306,7 +314,7 @@ class PromptService:
 
     def _handle_visual_prompt_update(
         self, prompt: PromptDB, update_data: VisualPromptUpdateSchema, project_id: UUID
-    ) -> None:
+    ) -> bool:
         """
         Handle visual prompt frame updates and cleanup.
 
@@ -315,6 +323,7 @@ class PromptService:
             update_data: The update data containing new frame_id
             project_id: The project ID for frame validation
         """
+        regenerate_thumbnail = False
         if update_data.frame_id is not None:
             frame_path = self.frame_repository.get_frame_path(project_id, update_data.frame_id)
             if not frame_path:
@@ -328,18 +337,15 @@ class PromptService:
                     resource_id=str(update_data.frame_id),
                     message=f"Frame {update_data.frame_id} does not exist in project {project_id}",
                 )
-
             if prompt.frame_id and prompt.frame_id != update_data.frame_id:
-                old_frame_deleted = self.frame_repository.delete_frame(project_id, prompt.frame_id)
-                if old_frame_deleted:
-                    logger.info(
-                        "Deleted old frame file: frame_id=%s project_id=%s",
-                        prompt.frame_id,
-                        project_id,
-                    )
+                self.frame_repository.delete_frame(project_id, prompt.frame_id)
+                regenerate_thumbnail = True
 
         if update_data.annotations is not None:
             self._validate_annotation_labels(update_data.annotations, project_id)
+            regenerate_thumbnail = True
+
+        return regenerate_thumbnail
 
     def _validate_annotation_labels(self, annotations: list, project_id: UUID) -> None:
         """
@@ -367,6 +373,32 @@ class PromptService:
                     resource_id=str(label_id),
                     message=f"Label {label_id} does not exist in project {project_id}",
                 )
+
+    def _generate_thumbnail(self, project_id: UUID, frame_id: UUID, annotations: list[AnnotationSchema]) -> str:
+        """Generate thumbnail with annotations overlay."""
+        frame_path = self.frame_repository.get_frame_path(project_id, frame_id)
+        if not frame_path:
+            raise ResourceNotFoundError(
+                resource_type=ResourceType.FRAME,
+                resource_id=str(frame_id),
+            )
+
+        frame = cv2.imread(str(frame_path))
+        if frame is None:
+            raise ServiceError(f"Failed to read frame from {frame_path}")
+
+        # fetch labels and pair with annotations
+        label_ids = [ann.label_id for ann in annotations]
+        labels_by_id = {
+            label.id: label
+            for label_id in label_ids
+            if (label := self.label_repository.get_by_id(project_id, label_id))
+        }
+
+        # create annotation-label pairs
+        annotation_label_pairs = [(ann, labels_by_id[ann.label_id]) for ann in annotations]
+
+        return ThumbnailGenerator.generate(frame, annotation_label_pairs)
 
     def _ensure_project(self, project_id: UUID) -> ProjectDB:
         """
