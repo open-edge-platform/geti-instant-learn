@@ -136,7 +136,7 @@ class PromptService:
 
         Raises:
             ResourceNotFoundError: If project doesn't exist or frame doesn't exist (for visual prompts).
-            ResourceAlreadyExistsError: If constraint violations occur (e.g., text prompt already exists, frame already used).
+            ResourceAlreadyExistsError: If constraint violations occur (e.g., frame already used).
             ServiceError: If validation fails.
         """
         self._ensure_project(project_id)

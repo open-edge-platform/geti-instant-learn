@@ -396,3 +396,50 @@ def test_annotation_without_label(prompt_repo, fxt_session, clean_after):
     fetched = prompt_repo.get_by_id(prompt.id)
     assert len(fetched.annotations) == 1
     assert fetched.annotations[0].label_id is None
+
+
+def test_unique_frame_id_constraint(prompt_repo, fxt_session, clean_after):
+    """Test that each frame_id can only be used once across all visual prompts."""
+    project = ProjectDB(name="proj")
+    fxt_session.add(project)
+    fxt_session.commit()
+
+    frame_id = uuid4()
+    first_prompt = make_visual_prompt(project.id, frame_id=frame_id)
+    second_prompt = make_visual_prompt(project.id, frame_id=frame_id)
+
+    prompt_repo.add(first_prompt)
+    fxt_session.commit()
+    prompt_repo.add(second_prompt)
+
+    with pytest.raises(IntegrityError):
+        fxt_session.commit()
+    fxt_session.rollback()
+
+    # verify only first prompt exists
+    all_prompts = prompt_repo.get_all_by_project(project.id)
+    assert len(all_prompts) == 1
+    assert all_prompts[0].frame_id == frame_id
+
+
+def test_different_frames_allowed(prompt_repo, fxt_session, clean_after):
+    """Test that different frame_ids can be used for different visual prompts."""
+    project = ProjectDB(name="proj")
+    fxt_session.add(project)
+    fxt_session.commit()
+
+    frame_id_1 = uuid4()
+    frame_id_2 = uuid4()
+    frame_id_3 = uuid4()
+
+    prompt_1 = make_visual_prompt(project.id, frame_id=frame_id_1)
+    prompt_2 = make_visual_prompt(project.id, frame_id=frame_id_2)
+    prompt_3 = make_visual_prompt(project.id, frame_id=frame_id_3)
+
+    for p in [prompt_1, prompt_2, prompt_3]:
+        prompt_repo.add(p)
+    fxt_session.commit()
+
+    all_prompts = prompt_repo.get_all_by_project(project.id)
+    assert len(all_prompts) == 3
+    assert {p.frame_id for p in all_prompts} == {frame_id_1, frame_id_2, frame_id_3}

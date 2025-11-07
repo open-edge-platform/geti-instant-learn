@@ -24,8 +24,8 @@ from domain.services.schemas.annotation import (
 
 logger = logging.getLogger(__name__)
 
-THUMBNAIL_MAX_DIMENSION = 800
-LINE_THICKNESS_RATIO = 0.003  # 0.3% of image dimension
+THUMBNAIL_MAX_DIMENSION = 400
+LINE_THICKNESS_RATIO = 0.005  # 0.3% of image dimension
 MIN_LINE_THICKNESS = 2
 FILL_ALPHA = 0.3
 
