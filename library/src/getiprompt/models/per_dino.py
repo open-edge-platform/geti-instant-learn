@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 from getiprompt.components import CosineSimilarity, SamDecoder
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor
-from getiprompt.components.feature_selectors import AverageFeatures, FeatureSelector
 from getiprompt.components.filters import ClassOverlapMaskFilter, PointPromptFilter
 from getiprompt.components.prompt_generators import GridPromptGenerator
 from getiprompt.data.base.batch import Batch
@@ -119,12 +118,11 @@ class PerDino(Model):
             benchmark_inference_speed=benchmark_inference_speed,
         )
         # Local feature extraction with mask pooling
-        self.local_feature_extractor = MaskedFeatureExtractor(
+        self.masked_feature_extractor = MaskedFeatureExtractor(
             input_size=self.encoder.input_size,
             patch_size=self.encoder.patch_size,
             device=device,
         )
-        self.feature_selector: FeatureSelector = AverageFeatures()
         self.similarity_matcher = CosineSimilarity()
         self.prompt_generator: PromptGenerator = GridPromptGenerator(
             num_grid_cells=num_grid_cells,
@@ -144,19 +142,18 @@ class PerDino(Model):
         """Perform learning step on the reference images and priors."""
         # Start running the model
         reference_features = self.encoder(reference_batch.images)
-        reference_features, _ = self.local_feature_extractor(
+        self.masked_ref_embeds, _ = self.masked_feature_extractor(
             reference_features,
             reference_batch.masks,
             reference_batch.category_ids,
         )
-        self.reference_features = self.feature_selector(reference_features)
 
     @track_duration
     def infer(self, target_batch: Batch) -> Results:
         """Perform inference step on the target images."""
         # Start running the model
         target_embeddings = self.encoder(target_batch.images)
-        similarities = self.similarity_matcher(self.reference_features, target_embeddings, target_batch.images)
+        similarities = self.similarity_matcher(self.masked_ref_embeds, target_embeddings, target_batch.images)
         point_prompts = self.prompt_generator(similarities, target_batch.images)
         point_prompts = self.prompt_filter(point_prompts)
         masks, used_points, _ = self.segmenter(

@@ -7,7 +7,7 @@ import torch
 from torch import nn
 from torchvision import tv_tensors
 
-from getiprompt.types import Features, Similarities
+from getiprompt.types import Similarities
 from getiprompt.utils.similarity_resize import resize_similarity_map
 
 
@@ -39,17 +39,14 @@ class CosineSimilarity(nn.Module):
     @torch.inference_mode()
     def forward(
         self,
-        reference_features: Features,
+        masked_ref_embeds: dict[int, torch.Tensor],
         target_embeddings: torch.Tensor,
         target_images: list[tv_tensors.Image],
     ) -> list[Similarities]:
         """This function computes the cosine similarity between the reference features and the target features.
 
-        This similarity matcher expects the features of multiple reference images
-        to be reduced (averaged/clustered) into a single Features object.
-
         Args:
-            reference_features (list[Features]): List of reference features, one per prior image instance
+            masked_ref_embeds (dict[int, torch.Tensor]): Dictionary of masked reference embeddings
             target_embeddings (torch.Tensor): Target embeddings
             target_images (list[tv_tensors.Image]): List of target images
 
@@ -69,11 +66,10 @@ class CosineSimilarity(nn.Module):
                 )
             # compute cosine similarity of (1,1,embed_dim) and (encoder_shape*encoder_shape, embed_dim)
             all_similarities = Similarities()
-            for class_id, local_reference_features_per_mask in reference_features.local_features.items():
+            for class_id, local_reference_features in masked_ref_embeds.items():
                 # Need to loop since number of reference features can differ per input mask.
-                for local_reference_features in local_reference_features_per_mask:
-                    similarities = local_reference_features @ target_embedding.T
-                    similarities = resize_similarity_map(similarities=similarities, target_size=target_image.shape[-2:])
-                    all_similarities.add(similarities=similarities, class_id=class_id)
+                similarities = local_reference_features @ target_embedding.T
+                similarities = resize_similarity_map(similarities=similarities, target_size=target_image.shape[-2:])
+                all_similarities.add(similarities=similarities, class_id=class_id)
             per_image_similarities.append(all_similarities)
         return per_image_similarities
