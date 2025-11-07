@@ -55,6 +55,7 @@ class Pipeline:
         inbound_broadcaster: FrameBroadcaster[InputData] = FrameBroadcaster[InputData](),
         outbound_broadcaster: FrameBroadcaster[OutputData] = FrameBroadcaster[OutputData](),
     ):
+        # todo: remove project id from the pipeline as it is the application impl details
         self._project_id = project_id
         self._inbound_broadcaster = inbound_broadcaster
         self._outbound_broadcaster = outbound_broadcaster

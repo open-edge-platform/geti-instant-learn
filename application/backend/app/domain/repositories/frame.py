@@ -29,7 +29,9 @@ class FrameRepository:
         path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
-            success, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
+            # Convert RGB to BGR for OpenCV encoding
+            bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            success, buffer = cv2.imencode(".jpg", bgr_frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
             if not success:
                 logger.error(f"Failed to encode frame {frame_id} for project {project_id}")
                 raise RuntimeError(f"Failed to encode frame {frame_id}")
@@ -44,6 +46,22 @@ class FrameRepository:
         """Get the filesystem path for a frame if it exists."""
         path = self._frame_path(project_id, frame_id)
         return path if path.exists() else None
+
+    def get_frame(self, project_id: UUID, frame_id: UUID) -> np.ndarray | None:
+        """Load a frame from disk and convert from BGR to RGB."""
+        frame_path = self.get_frame_path(project_id, frame_id)
+        if frame_path is None:
+            return None
+        try:
+            image = cv2.imread(str(frame_path))
+            if image is None:
+                logger.error(f"Failed to read frame {frame_id} from {frame_path}")
+                return None
+            # Convert BGR to RGB to conform to the InputData contract
+            return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        except cv2.error:
+            logger.exception(f"OpenCV error while reading frame {frame_id} from project {project_id}")
+            return None
 
     def delete_frame(self, project_id: UUID, frame_id: UUID) -> bool:
         """Delete a frame file."""

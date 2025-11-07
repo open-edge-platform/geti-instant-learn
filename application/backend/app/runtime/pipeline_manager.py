@@ -129,8 +129,17 @@ class PipelineManager:
         inbound_bcast = FrameBroadcaster[InputData]()
         outbound_bcast = FrameBroadcaster[OutputData]()
 
+        # todo:
+        # 1. get prompts, get_annotations => Priors
+        # 2. get frames => tv_tensor.Image
+        # 3. a service that would return list[(tv_tensor.Image, Priors)]
+
+        # todo: get required prompts.
+        # todo: infer prompt mode from the model.
         source = self._component_factory.create_source(config.reader, inbound_bcast)
+
         processor = self._component_factory.create_processor(inbound_bcast, outbound_bcast, config.processor)
+
         sink = self._component_factory.create_sink(outbound_bcast, config.writer)
 
         return Pipeline(
@@ -170,6 +179,9 @@ class PipelineManager:
             logger.info(f"Sink config changed: {self._current_config.writer} -> {new_config.writer}")
             new_sink = self._component_factory.create_sink(self._pipeline._outbound_broadcaster, new_config.writer)
             self._pipeline.update_component(new_sink)
+
+    # todo: 1. unify methods for regsitring/unregistring all types of consumers.
+    #       2. use context manager to automaticaly unregister a queue when it exists the scope
 
     def register_webrtc(self, project_id: UUID) -> queue.Queue:
         """Register webRTC in pipeline."""

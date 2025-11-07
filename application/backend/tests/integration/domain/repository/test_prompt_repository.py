@@ -142,6 +142,33 @@ def test_get_all_by_project(prompt_repo, fxt_session, clean_after):
     assert {p.id for p in result} == {text_prompt.id, visual_prompt_1.id, visual_prompt_2.id}
 
 
+def test_get_all_by_project_with_type_filter(prompt_repo, fxt_session, clean_after):
+    project = ProjectDB(name="proj")
+    fxt_session.add(project)
+    fxt_session.commit()
+
+    text_prompt = make_text_prompt(project.id)
+    visual_prompt_1 = make_visual_prompt(project.id)
+    visual_prompt_2 = make_visual_prompt(project.id)
+
+    for p in [text_prompt, visual_prompt_1, visual_prompt_2]:
+        prompt_repo.add(p)
+    fxt_session.commit()
+
+    all_prompts = prompt_repo.get_all_by_project(project.id)
+    assert len(all_prompts) == 3
+
+    text_prompts = prompt_repo.get_all_by_project(project.id, prompt_type=PromptType.TEXT)
+    assert len(text_prompts) == 1
+    assert text_prompts[0].id == text_prompt.id
+    assert text_prompts[0].type == PromptType.TEXT
+
+    visual_prompts = prompt_repo.get_all_by_project(project.id, prompt_type=PromptType.VISUAL)
+    assert len(visual_prompts) == 2
+    assert {p.id for p in visual_prompts} == {visual_prompt_1.id, visual_prompt_2.id}
+    assert all(p.type == PromptType.VISUAL for p in visual_prompts)
+
+
 def test_get_text_prompt_by_project(prompt_repo, fxt_session, clean_after):
     project = ProjectDB(name="proj")
     fxt_session.add(project)
