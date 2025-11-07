@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { useEffect, useRef } from 'react';
+
 import { View } from '@geti/ui';
 import { useHotkeys } from 'react-hotkeys-hook';
 
@@ -16,10 +17,6 @@ import { useSelectedAnnotations } from './providers/select-annotation-provider.c
 import { ToolManager } from './tools/tool-manager.component';
 
 import styles from './annotator-canvas.module.scss';
-
-const getImageUrl = (projectId: string, frameId: string) => {
-    return `${import.meta.env.PUBLIC_API_URL}/api/v1/projects/${projectId}/frames/${frameId}`;
-};
 
 const useDeleteAnnotationHotkey = () => {
     const { selectedAnnotations } = useSelectedAnnotations();
@@ -35,15 +32,24 @@ const useDeleteAnnotationHotkey = () => {
     );
 };
 
-type AnnotatorCanvasProps = {
-    frameId: string;
-};
-
-export const AnnotatorCanvas = ({ frameId }: AnnotatorCanvasProps) => {
-    const { projectId } = useProjectIdentifier();
+export const AnnotatorCanvas = () => {
     const { annotations } = useAnnotationActions();
     const { selectedAnnotations } = useSelectedAnnotations();
     const { image } = useAnnotator();
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        canvas.width = image.width;
+        canvas.height = image.height;
+
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+            ctx.putImageData(image, 0, 0);
+        }
+    }, [image]);
 
     // Order annotations by selection. Selected annotation should always be on top.
     const orderedAnnotations = [
@@ -51,14 +57,12 @@ export const AnnotatorCanvas = ({ frameId }: AnnotatorCanvasProps) => {
         ...annotations.filter((a) => selectedAnnotations.has(a.id)),
     ];
 
-    const imageUrl = getImageUrl(projectId, frameId);
-
     useDeleteAnnotationHotkey();
 
     return (
         <ZoomTransform target={image}>
             <View position={'relative'}>
-                <img src={imageUrl} alt='Captured frame' className={styles.image} />
+                <canvas ref={canvasRef} className={styles.image} />
 
                 <Annotations annotations={orderedAnnotations} width={image.width} height={image.height} />
                 <ToolManager />
