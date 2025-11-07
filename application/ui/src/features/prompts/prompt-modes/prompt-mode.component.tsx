@@ -4,6 +4,7 @@
  */
 
 import { TextPrompt } from '../text-prompt/text-prompt.component';
+import { VisualPromptProvider } from '../visual-prompt/visual-prompt-provider.component';
 import { VisualPrompt } from '../visual-prompt/visual-prompt.component';
 import { usePromptMode } from './prompt-modes.component';
 
@@ -11,7 +12,11 @@ export const PromptMode = () => {
     const mode = usePromptMode();
 
     if (mode === 'visual') {
-        return <VisualPrompt />;
+        return (
+            <VisualPromptProvider>
+                <VisualPrompt />
+            </VisualPromptProvider>
+        );
     }
 
     return <TextPrompt />;

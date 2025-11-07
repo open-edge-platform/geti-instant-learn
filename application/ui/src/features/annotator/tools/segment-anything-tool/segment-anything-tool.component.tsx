@@ -8,6 +8,7 @@ import { CSSProperties, PointerEvent, useEffect, useRef, useState } from 'react'
 import { clampPointBetweenImage } from '@geti/smart-tools/utils';
 
 import { useZoom } from '../../../../components/zoom/zoom.provider';
+import { useVisualPrompt } from '../../../prompts/visual-prompt/visual-prompt-provider.component';
 import { AnnotationShape } from '../../annotations/annotation-shape.component';
 import { Annotation } from '../../annotations/annotation.component';
 import { MaskAnnotations } from '../../annotations/mask-annotations.component';
@@ -43,7 +44,8 @@ export const SegmentAnythingTool = () => {
     const [previewShapes, setPreviewShapes] = useState<Shape[]>([]);
 
     const zoom = useZoom();
-    const { roi, image, selectedLabel } = useAnnotator();
+    const { roi, image } = useAnnotator();
+    const { selectedLabel } = useVisualPrompt();
     const { annotations } = useAnnotationActions();
     const { isVisible } = useAnnotationVisibility();
     const { isLoading, decodingQueryFn } = useSegmentAnythingModel();
