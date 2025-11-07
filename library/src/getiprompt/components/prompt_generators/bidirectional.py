@@ -333,8 +333,6 @@ class BidirectionalPromptGenerator(PromptGenerator):
             for class_id, ref_mask in reference_masks.data.items():
                 # NOTE: why select index 0?
                 local_reference_feature = masked_ref_embeds[class_id]
-                local_reference_feature = local_reference_feature.mean(dim=0, keepdim=True)
-                local_reference_feature /= local_reference_feature.norm(dim=-1, keepdim=True)
                 local_similarity = local_reference_feature @ target_embed.T
                 local_similarity = self._resize_similarity_map(local_similarity, target_image.shape[-2:])
                 similarities.add(local_similarity, class_id)

@@ -92,6 +92,9 @@ class MaskedFeatureExtractor(nn.Module):
             resized_masks_per_image.append(resized_masks)
 
         for category_id, masked_embed_list in masked_ref_embeds.items():
-            masked_ref_embeds[category_id] = torch.cat(masked_embed_list, dim=0)
+            _embed = torch.cat(masked_embed_list, dim=0)
+            _embed = _embed.mean(dim=0, keepdim=True)
+            _embed /= _embed.norm(dim=-1, keepdim=True)
+            masked_ref_embeds[category_id] = _embed
 
         return masked_ref_embeds, resized_masks_per_image
