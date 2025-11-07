@@ -9,7 +9,7 @@ export class AnnotatorPage {
     constructor(private page: Page) {}
 
     getCapturedFrame() {
-        return this.page.getByAltText('Captured frame');
+        return this.page.getByLabel('Captured frame');
     }
 
     async annotateAt(x: number, y: number) {
