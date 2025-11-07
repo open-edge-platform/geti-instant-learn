@@ -63,22 +63,20 @@ def generate_thumbnail(frame: np.ndarray, annotations: list[tuple[AnnotationSche
                 _draw_filled_polygon(annotation_overlay, annotation, color_bgr, width, height, line_thickness)
             else:
                 logger.warning(f"Unsupported annotation type: {annotation.type}")
+
+        # blend annotation overlay with original frame for semi-transparency
+        cv2.addWeighted(
+            annotation_overlay,
+            ANNOTATION_FILL_OPACITY,
+            thumbnail,
+            1 - ANNOTATION_FILL_OPACITY,
+            0,
+            thumbnail,
+        )
+
+        return _encode_image_to_base64_data_uri(thumbnail)
     except (cv2.error, ValueError) as e:
         raise ServiceError(f"Failed to generate thumbnail: {str(e)}")
-
-    # blend annotation overlay with original frame for semi-transparency
-    cv2.addWeighted(
-        annotation_overlay,
-        ANNOTATION_FILL_OPACITY,
-        thumbnail,
-        1 - ANNOTATION_FILL_OPACITY,
-        0,
-        thumbnail,
-    )
-
-    return _encode_image_to_base64_data_uri(thumbnail)
-
-
 def _resize_frame_to_thumbnail_size(frame: np.ndarray) -> np.ndarray:
     """
     Resize frame to thumbnail dimensions while maintaining aspect ratio.
