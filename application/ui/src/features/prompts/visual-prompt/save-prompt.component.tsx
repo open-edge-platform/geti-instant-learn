@@ -7,11 +7,13 @@ import { Button } from '@geti/ui';
 import { isEmpty } from 'lodash-es';
 
 import { useAnnotationActions } from '../../annotator/providers/annotation-actions-provider.component';
+import { useAnnotator } from '../../annotator/providers/annotator-provider.component';
 import { useSavePrompt } from './api/use-save-prompt';
 
 export const SavePrompt = () => {
     const savePrompt = useSavePrompt();
     const { annotations } = useAnnotationActions();
+    const { frameId } = useAnnotator();
 
     const isSavePromptDisabled = isEmpty(annotations) || savePrompt.isPending;
 
