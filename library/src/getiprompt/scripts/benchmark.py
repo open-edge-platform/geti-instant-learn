@@ -3,8 +3,6 @@
 
 """Geti Prompt Benchmark Script."""
 
-from __future__ import annotations
-
 import itertools
 from logging import getLogger
 from pathlib import Path

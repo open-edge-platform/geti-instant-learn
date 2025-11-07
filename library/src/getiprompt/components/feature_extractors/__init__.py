@@ -3,8 +3,8 @@
 
 """Feature extractors."""
 
-from .local_feature_extractor import LocalFeatureExtractor
+from .mask_feature_extractor import MaskedFeatureExtractor
 
 __all__ = [
-    "LocalFeatureExtractor",
+    "MaskedFeatureExtractor",
 ]

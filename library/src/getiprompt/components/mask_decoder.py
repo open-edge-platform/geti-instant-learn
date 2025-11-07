@@ -255,8 +255,8 @@ class SamDecoder(nn.Module):
                     final_points[:, :2] = self.transform.apply_inverse_coords_torch(final_points[:, :2], original_size)
                     # Remap from [total_points, 3] to [total_points, 4] where last dim is [x, y, score, label]
                     remapped_points = self.remap_preprocessed_points(final_points)
-                    assert len(final_masks) == remapped_points[:, -1].sum(), (
-                        "The number of masks and points do not match"
+                    remapped_points[:, :2] = self.transform.apply_inverse_coords_torch(
+                        remapped_points[:, :2], original_size
                     )
                     all_used_points.add(remapped_points, label)
 
