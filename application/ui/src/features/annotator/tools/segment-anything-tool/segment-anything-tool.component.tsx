@@ -143,13 +143,12 @@ export const SegmentAnythingTool = () => {
                 <MaskAnnotations isEnabled annotations={previewAnnotations} width={image.width} height={image.height} />
             )}
 
-            {isVisible && (
-                <g aria-label={'annotation list'}>
-                    {annotations.map((annotation) => (
+            <g aria-label={'annotation list'}>
+                {isVisible &&
+                    annotations.map((annotation) => (
                         <Annotation withLabels annotation={annotation} key={annotation.id} />
                     ))}
-                </g>
-            )}
+            </g>
 
             {previewAnnotations.length > 0 &&
                 previewAnnotations.map((annotation) => (

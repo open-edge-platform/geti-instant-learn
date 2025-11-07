@@ -77,6 +77,8 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
     });
 
     await test.step('Hides/Shows annotations', async () => {
+        await expectToHaveAnnotations({ annotatorPage });
+
         await annotatorPage.hideAnnotations();
 
         await expectToNotHaveAnnotations({ annotatorPage });
@@ -87,6 +89,8 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
     });
 
     await test.step('Undoes/redoes annotations', async () => {
+        await expectToHaveAnnotations({ annotatorPage });
+
         await annotatorPage.undoAnnotation();
 
         await expectToNotHaveAnnotations({ annotatorPage });
