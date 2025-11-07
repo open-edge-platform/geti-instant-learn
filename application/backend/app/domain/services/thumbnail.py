@@ -77,6 +77,8 @@ def generate_thumbnail(frame: np.ndarray, annotations: list[tuple[AnnotationSche
         return _encode_image_to_base64_data_uri(thumbnail)
     except (cv2.error, ValueError) as e:
         raise ServiceError(f"Failed to generate thumbnail: {str(e)}")
+
+
 def _resize_frame_to_thumbnail_size(frame: np.ndarray) -> np.ndarray:
     """
     Resize frame to thumbnail dimensions while maintaining aspect ratio.
