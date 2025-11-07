@@ -3,20 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Button, ButtonProps } from '@geti/ui';
+import { Button } from '@geti/ui';
 import { isEmpty } from 'lodash-es';
 
 import { useAnnotationActions } from '../../annotator/providers/annotation-actions-provider.component';
+import { useAnnotator } from '../../annotator/providers/annotator-provider.component';
 import { useSavePrompt } from './api/use-save-prompt';
 
-interface SavePromptProps {
-    frameId: string;
-    justifySelf?: ButtonProps['justifySelf'];
-}
-
-export const SavePrompt = ({ frameId, justifySelf }: SavePromptProps) => {
+export const SavePrompt = () => {
     const savePrompt = useSavePrompt();
     const { annotations } = useAnnotationActions();
+    const { frameId } = useAnnotator();
 
     const isSavePromptDisabled = isEmpty(annotations) || savePrompt.isPending;
 
@@ -26,7 +23,7 @@ export const SavePrompt = ({ frameId, justifySelf }: SavePromptProps) => {
 
     return (
         <Button
-            justifySelf={justifySelf}
+            justifySelf={'end'}
             variant={'secondary'}
             isDisabled={isSavePromptDisabled}
             isPending={savePrompt.isPending}
