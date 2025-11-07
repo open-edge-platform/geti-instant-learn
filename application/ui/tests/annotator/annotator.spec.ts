@@ -127,4 +127,11 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage, pr
 
         await annotatorPage.closeFullscreen();
     });
+
+    await test.step('Saves prompt', async () => {
+        await promptPage.savePrompt();
+
+        // TODO: Once prompts thumbnails are implemented, verify that the prompt was indeed saved
+        // TODO: Verify if the prompt edition works as well (or create separate test for that if needed)
+    });
 });
