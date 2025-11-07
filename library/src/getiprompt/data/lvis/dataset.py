@@ -103,15 +103,15 @@ class LVISDataset(Dataset):
         # Decode all masks for this category and merge them
         category_mask = torch.zeros((h, w), dtype=torch.bool)
 
-        for seg in segmentations:
-            if isinstance(seg, dict):  # RLE format
-                mask = mask_utils.decode(seg)  # (H, W)
-            elif isinstance(seg, list):  # Polygon format
+        for segmentation in segmentations:
+            if isinstance(segmentation, dict):  # RLE format
+                mask = mask_utils.decode(segmentation)  # (H, W)
+            elif isinstance(segmentation, list):  # Polygon format
                 # Convert polygon to RLE then decode
-                rles = mask_utils.frPyObjects(seg, h, w)
+                rles = mask_utils.frPyObjects(segmentation, h, w)
                 mask = mask_utils.decode(rles)
             else:
-                msg = f"Unknown segmentation format: {type(seg)}"
+                msg = f"Unknown segmentation format: {type(segmentation)}"
                 raise TypeError(msg)
 
             # Handle potential 3D masks from polygon conversion

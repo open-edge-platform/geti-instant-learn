@@ -8,12 +8,8 @@ import { expect, Page } from '@playwright/test';
 export class AnnotatorPage {
     constructor(private page: Page) {}
 
-    async startSAM() {
-        await this.page.getByRole('button', { name: 'Select SAM Tool' }).click();
-    }
-
     getCapturedFrame() {
-        return this.page.getByAltText('Captured frame');
+        return this.page.getByLabel('Captured frame');
     }
 
     async annotateAt(x: number, y: number) {
@@ -48,5 +44,57 @@ export class AnnotatorPage {
 
             await this.annotateAt(hoverX, hoverY);
         }
+    }
+
+    getAnnotation() {
+        return this.page.getByLabel('annotation list').getByLabel('annotation polygon');
+    }
+
+    async hideAnnotations() {
+        await this.page.getByRole('button', { name: 'Hide annotations' }).click();
+    }
+
+    async showAnnotations() {
+        await this.page.getByRole('button', { name: 'Show annotations' }).click();
+    }
+
+    async undoAnnotation() {
+        await this.page.getByRole('button', { name: 'undo' }).click();
+    }
+
+    async redoAnnotation() {
+        await this.page.getByRole('button', { name: 'redo' }).click();
+    }
+
+    async openFullscreen() {
+        await this.page.getByRole('button', { name: 'Open full screen' }).click();
+    }
+
+    async closeFullscreen() {
+        await this.page.getByRole('button', { name: 'Close full screen' }).click();
+    }
+
+    async openSettings() {
+        await this.page.getByRole('button', { name: 'Settings' }).click();
+    }
+
+    async closeSettings() {
+        await this.page.getByRole('button', { name: 'Close settings' }).click();
+    }
+
+    async zoomIn() {
+        await this.page.getByRole('button', { name: 'Zoom in' }).click();
+    }
+
+    async zoomOut() {
+        await this.page.getByRole('button', { name: 'Zoom out' }).click();
+    }
+
+    async fitToScreen() {
+        await this.page.getByRole('button', { name: 'Fit image to screen' }).click();
+    }
+
+    async getZoomValue() {
+        return this.page.getByTestId('zoom-level');
     }
 }

@@ -82,7 +82,6 @@ export const Toolbar = () => {
     return (
         <View
             gridArea={'toolbar'}
-            borderEndWidth={'thin'}
             borderTopWidth={'thin'}
             borderColor={'gray-50'}
             backgroundColor={'gray-100'}

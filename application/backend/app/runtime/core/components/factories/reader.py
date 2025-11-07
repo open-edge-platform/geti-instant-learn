@@ -1,0 +1,25 @@
+#  Copyright (C) 2025 Intel Corporation
+#  SPDX-License-Identifier: Apache-2.0
+
+from runtime.core.components.base import StreamReader
+from runtime.core.components.readers.noop_reader import NoOpReader
+from runtime.core.components.readers.webcam_reader import WebCamReader
+from runtime.core.components.schemas.reader import ReaderConfig, WebCamConfig
+
+
+class StreamReaderFactory:
+    """
+    A factory for creating StreamReader instances based on a configuration.
+
+    This class decouples the application from the concrete implementation of
+    the StreamReader, allowing for different reader types to be instantiated
+    based on the provided configuration.
+    """
+
+    @classmethod
+    def create(cls, config: ReaderConfig) -> StreamReader:
+        match config:
+            case WebCamConfig() as config:
+                return WebCamReader(config)
+            case _:
+                return NoOpReader()

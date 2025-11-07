@@ -42,7 +42,7 @@ line-length = 120
 
 exclude = [
     ".venv*",
-    "app/alembic/*.py",
+    "app/domain/alembic/*.py",
 ]
 src = ["app"]
 

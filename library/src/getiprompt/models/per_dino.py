@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from getiprompt.components import CosineSimilarity, SamDecoder
 from getiprompt.components.encoders import ImageEncoder
-from getiprompt.components.feature_extractors import LocalFeatureExtractor
+from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.feature_selectors import AverageFeatures, FeatureSelector
 from getiprompt.components.filters import ClassOverlapMaskFilter, PointPromptFilter
 from getiprompt.components.prompt_generators import GridPromptGenerator
@@ -119,7 +119,7 @@ class PerDino(Model):
             benchmark_inference_speed=benchmark_inference_speed,
         )
         # Local feature extraction with mask pooling
-        self.local_feature_extractor = LocalFeatureExtractor(
+        self.local_feature_extractor = MaskedFeatureExtractor(
             input_size=self.encoder.input_size,
             patch_size=self.encoder.patch_size,
             device=device,

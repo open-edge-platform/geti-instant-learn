@@ -85,6 +85,94 @@ class TestBatchBasic:
         with pytest.raises(ValueError, match="Cannot collate empty list of samples"):
             Batch.collate([])
 
+    def test_batch_collate_single_sample(self, sample_single_instance: Sample) -> None:
+        """Test that collating a single sample (not wrapped in list) works."""
+        batch = Batch.collate(sample_single_instance)
+
+        assert len(batch) == 1
+        assert batch[0] == sample_single_instance
+        assert batch.samples == [sample_single_instance]
+
+    def test_batch_collate_single_sample_equivalence(self, sample_single_instance: Sample) -> None:
+        """Test that collating single sample is equivalent to wrapping in list."""
+        batch1 = Batch.collate(sample_single_instance)
+        batch2 = Batch.collate([sample_single_instance])
+
+        assert len(batch1) == len(batch2) == 1
+        assert batch1[0] == batch2[0] == sample_single_instance
+        assert batch1.samples == batch2.samples == [sample_single_instance]
+
+    def test_batch_collate_single_sample_properties(self, sample_single_instance: Sample) -> None:
+        """Test that all properties work when collating a single sample."""
+        batch = Batch.collate(sample_single_instance)
+
+        # Test all properties work with single sample
+        images = batch.images
+        assert len(images) == 1
+        assert isinstance(images[0], torch.Tensor)
+
+        masks = batch.masks
+        assert len(masks) == 1
+        assert isinstance(masks[0], torch.Tensor)
+
+        bboxes = batch.bboxes
+        assert len(bboxes) == 1
+        assert isinstance(bboxes[0], torch.Tensor)
+
+        points = batch.points
+        assert len(points) == 1
+        assert isinstance(points[0], torch.Tensor)
+
+        categories = batch.categories
+        assert len(categories) == 1
+        assert categories[0] == ["cat"]
+
+        category_ids = batch.category_ids
+        assert len(category_ids) == 1
+        assert isinstance(category_ids[0], torch.Tensor)
+        assert category_ids[0].tolist() == [0]
+
+        is_reference = batch.is_reference
+        assert len(is_reference) == 1
+        assert is_reference[0] == [True]
+
+        n_shot = batch.n_shot
+        assert len(n_shot) == 1
+        assert n_shot[0] == [0]
+
+        image_paths = batch.image_paths
+        assert len(image_paths) == 1
+        assert image_paths[0] == "single.jpg"
+
+        mask_paths = batch.mask_paths
+        assert len(mask_paths) == 1
+        assert mask_paths[0] == ["mask1.png"]
+
+    def test_batch_collate_single_multi_instance_sample(self, sample_multi_instance: Sample) -> None:
+        """Test that collating a single multi-instance sample works."""
+        batch = Batch.collate(sample_multi_instance)
+
+        assert len(batch) == 1
+        assert batch[0] == sample_multi_instance
+        assert batch.samples == [sample_multi_instance]
+
+        # Test multi-instance properties
+        categories = batch.categories
+        assert len(categories) == 1
+        assert categories[0] == ["person", "car", "dog"]
+
+        category_ids = batch.category_ids
+        assert len(category_ids) == 1
+        assert category_ids[0].tolist() == [0, 1, 2]
+
+        is_reference = batch.is_reference
+        assert len(is_reference) == 1
+        assert is_reference[0] == [True, False, True]
+
+        n_shot = batch.n_shot
+        assert len(n_shot) == 1
+        assert n_shot[0] == [0, -1, 1]
+
     def test_batch_length(self, sample_single_instance: Sample, sample_multi_instance: Sample) -> None:
         """Test batch length property."""
         samples = [sample_single_instance, sample_multi_instance]

@@ -10,7 +10,6 @@ from getiprompt.types.masks import Masks
 from getiprompt.types.points import Points
 from getiprompt.types.results import Results
 from getiprompt.types.similarities import Similarities
-from getiprompt.types.text import Text
 
 __all__ = [
     "Boxes",
@@ -20,5 +19,4 @@ __all__ = [
     "Points",
     "Results",
     "Similarities",
-    "Text",
 ]

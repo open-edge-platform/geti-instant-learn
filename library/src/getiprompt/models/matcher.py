@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from getiprompt.components import SamDecoder
 from getiprompt.components.encoders import ImageEncoder
-from getiprompt.components.feature_extractors.local_feature_extractor import LocalFeatureExtractor
+from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.data.base.batch import Batch
@@ -20,6 +20,9 @@ from .foundation import load_sam_model
 
 if TYPE_CHECKING:
     from getiprompt.components.prompt_generators.base import PromptGenerator
+
+
+DEBUG = True
 
 
 class Matcher(Model):
@@ -120,7 +123,7 @@ class Matcher(Model):
             benchmark_inference_speed=benchmark_inference_speed,
         )
         # Local feature extraction with mask pooling
-        self.local_feature_extractor = LocalFeatureExtractor(
+        self.local_feature_extractor = MaskedFeatureExtractor(
             input_size=self.encoder.input_size,
             patch_size=self.encoder.patch_size,
             device=device,

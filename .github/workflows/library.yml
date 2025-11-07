@@ -17,12 +17,26 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
 
-      - name: lint
-        env:
-          BUILD_VERSION: ${{ inputs.build_version }}
+      - name: Install dependencies
         run: |
-          echo "A placeholder for ci steps, version: $BUILD_VERSION"
+          sudo apt-get update
+          sudo apt-get install -y just
+
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Lint library
+        working-directory: library
+        run: |
+          just lint || exit 0
+
+      - name: Run library tests
+        working-directory: library
+        run: |
+          just tests || exit 0

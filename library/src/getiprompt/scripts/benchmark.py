@@ -3,12 +3,10 @@
 
 """Geti Prompt Benchmark Script."""
 
-from __future__ import annotations
-
 import itertools
+from argparse import Namespace
 from logging import getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import polars as pl
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
@@ -30,10 +28,6 @@ from getiprompt.utils.utils import masks_to_custom_masks
 from getiprompt.visualize import ExportMaskVisualization
 
 logger = getLogger("Geti Prompt")
-
-
-if TYPE_CHECKING:
-    import argparse
 
 
 def infer_on_category(
@@ -162,7 +156,7 @@ def learn_from_category(dataset: Dataset, model: Model, category_name: str) -> N
 
 
 def predict_on_dataset(
-    args: argparse.Namespace,
+    args: Namespace,
     model: Model,
     dataset: Dataset,
     output_path: Path,
@@ -379,7 +373,7 @@ def load_dataset_by_name(
     raise ValueError(msg)
 
 
-def perform_benchmark_experiment(args: argparse.Namespace | None = None) -> None:
+def perform_benchmark_experiment(args: Namespace | None = None) -> None:
     """Main function to run the experiments.
 
     This function initializes the arguments, determines which models, datasets, and models to process,

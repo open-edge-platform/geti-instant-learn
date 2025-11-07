@@ -9,11 +9,13 @@ import { clampPointBetweenImage } from '@geti/smart-tools/utils';
 
 import { useZoom } from '../../../../components/zoom/zoom.provider';
 import { AnnotationShape } from '../../annotations/annotation-shape.component';
+import { Annotation } from '../../annotations/annotation.component';
 import { MaskAnnotations } from '../../annotations/mask-annotations.component';
 import { AnnotatorLoading } from '../../annotator-loading.component';
 import { useAnnotationActions } from '../../providers/annotation-actions-provider.component';
+import { useAnnotationVisibility } from '../../providers/annotation-visibility-provider.component';
 import { useAnnotator } from '../../providers/annotator-provider.component';
-import { Annotation, type Shape } from '../../types';
+import { type Annotation as AnnotationType, type Shape } from '../../types';
 import { SvgToolCanvas } from '../svg-tool-canvas.component';
 import { getRelativePoint, removeOffLimitPoints } from '../utils';
 import { InteractiveAnnotationPoint } from './segment-anything.interface';
@@ -32,8 +34,6 @@ import classes from './segment-anything.module.scss';
 const THROTTLE_TIME = 150;
 
 const SELECT_ANNOTATION_STYLES = {
-    fillOpacity: 0.3,
-    fill: 'var(--energy-blue-shade)',
     stroke: 'var(--energy-blue-shade)',
     strokeWidth: 'calc(2px / var(--zoom-scale))',
 };
@@ -45,6 +45,7 @@ export const SegmentAnythingTool = () => {
     const zoom = useZoom();
     const { roi, image, selectedLabel } = useAnnotator();
     const { annotations } = useAnnotationActions();
+    const { isVisible } = useAnnotationVisibility();
     const { isLoading, decodingQueryFn } = useSegmentAnythingModel();
     const throttledDecodingQueryFn = useSingleStackFn(decodingQueryFn);
 
@@ -108,10 +109,12 @@ export const SegmentAnythingTool = () => {
         });
     };
 
-    const previewAnnotations = previewShapes.map((shape, idx): Annotation => {
+    const previewAnnotations = previewShapes.map((shape, idx): AnnotationType => {
         return {
             shape,
-            labels: [selectedLabel],
+            // During preview mode (while hovering), display the annotation without label color
+            // to provide an unobscured view of the underlying image before finalizing placement.
+            labels: [],
             id: `${idx}`,
         };
     });
@@ -136,18 +139,19 @@ export const SegmentAnythingTool = () => {
                 cursor: `url("/icons/selection.svg") 8 8, auto`,
             }}
         >
-            <MaskAnnotations isEnabled annotations={previewAnnotations} width={image.width} height={image.height}>
-                <></>
-            </MaskAnnotations>
+            {previewAnnotations.length > 0 && (
+                <MaskAnnotations isEnabled annotations={previewAnnotations} width={image.width} height={image.height} />
+            )}
 
-            {annotations.map((annotation) => (
-                <AnnotationShape annotation={annotation} key={annotation.id} />
-            ))}
+            <g aria-label={'annotation list'}>
+                {isVisible &&
+                    annotations.map((annotation) => <Annotation annotation={annotation} key={annotation.id} />)}
+            </g>
 
-            {previewShapes.length > 0 &&
-                previewShapes.map((shape, idx) => (
+            {previewAnnotations.length > 0 &&
+                previewAnnotations.map((annotation) => (
                     <g
-                        key={idx}
+                        key={annotation.id}
                         aria-label='Segment anything preview'
                         style={
                             {
@@ -156,16 +160,10 @@ export const SegmentAnythingTool = () => {
                         }
                         {...SELECT_ANNOTATION_STYLES}
                         strokeWidth={'calc(3px / var(--zoom-scale))'}
-                        fillOpacity={0.0}
-                        className={classes.stroke}
+                        fill={'transparent'}
+                        className={classes.animateStroke}
                     >
-                        <AnnotationShape
-                            annotation={{
-                                shape,
-                                labels: [selectedLabel],
-                                id: `${idx}`,
-                            }}
-                        />
+                        <AnnotationShape annotation={annotation} />
                     </g>
                 ))}
         </SvgToolCanvas>
