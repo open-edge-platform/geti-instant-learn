@@ -5,11 +5,13 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
+
 import torch
 from torch import nn
 from torchvision import transforms
 
-from getiprompt.types import Features, Masks
+from getiprompt.types import Masks
 from getiprompt.utils import MaybeToTensor
 
 
@@ -108,10 +110,10 @@ class LocalFeatureExtractor(nn.Module):
 
     def forward(
         self,
-        batched_features: torch.Tensor,
-        batched_masks: torch.Tensor,
-        batched_category_ids: torch.Tensor,
-    ) -> tuple[list[Features], list[Masks]]:
+        batch_ref_embeds: torch.Tensor,
+        batch_ref_masks: torch.Tensor,
+        batch_ref_category_ids: torch.Tensor,
+    ) -> tuple[dict[int, list[torch.Tensor]], list[Masks]]:
         """Extract local features from batched features and samples.
 
         Args:
@@ -123,27 +125,32 @@ class LocalFeatureExtractor(nn.Module):
                 (batch_size, num_masks).
 
         Returns:
-            tuple[list[Features], list[Masks]]: Tuple of Features objects (with local features added)
-                and Masks objects, one per sample.
+            tuple[dict[int, list[torch.Tensor]], list[Masks]]:
+                masked_embeds: Dictionary of masked embeddings.
+                resized_masks_per_image: List of resized masks.
         """
         # Split batched tensor into individual tensors and wrap in Features objects
-        features_list = [Features(global_features=emb) for emb in batched_features.unbind(0)]
 
         resized_masks_per_image = []
-        for embedding, masks_tensor, category_ids in zip(
-            features_list,
-            batched_masks,
-            batched_category_ids,
+        masked_embeds = defaultdict(list)
+        for ref_embed, ref_masks, ref_cat_ids in zip(
+            batch_ref_embeds,
+            batch_ref_masks,
+            batch_ref_category_ids,
             strict=True,
         ):
-            resized_masks = Masks()
-            for category_id, mask in zip(category_ids, masks_tensor, strict=True):
-                category_id = category_id.item()
-                pooled_mask = self.transform(mask)
-                resized_masks.add(mask=pooled_mask, class_id=category_id)
+            resized_ref_masks = Masks()
+            for ref_cat_id, ref_mask in zip(ref_cat_ids, ref_masks, strict=True):
+                ref_cat_id = ref_cat_id.item()
+                pooled_mask = self.transform(ref_mask)
+                resized_ref_masks.add(mask=pooled_mask, class_id=ref_cat_id)
                 keep = pooled_mask.flatten().bool()
-                local_features = embedding.global_features[keep]
-                embedding.add_local_features(local_features=local_features, class_id=category_id)
-            resized_masks_per_image.append(resized_masks)
+                local_features = ref_embed[keep]
+                masked_embeds[ref_cat_id].append(local_features)
+            resized_masks_per_image.append(resized_ref_masks)
 
-        return features_list, resized_masks_per_image
+        masked_embeds = {
+            ref_cat_id: torch.cat(masked_embed_list, dim=0) for ref_cat_id, masked_embed_list in masked_embeds.items()
+        }
+
+        return masked_embeds, resized_masks_per_image

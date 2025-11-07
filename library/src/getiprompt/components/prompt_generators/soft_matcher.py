@@ -410,9 +410,10 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
 
     def forward(
         self,
-        reference_features: Features,
+        ref_embeds: torch.Tensor,
+        masked_ref_embeds: dict[int, torch.Tensor],
         reference_masks: list[Masks],
-        target_embeddings: torch.Tensor,
+        target_embeds: torch.Tensor,
         target_images: list[tv_tensors.Image],
     ) -> tuple[list[dict[int, torch.Tensor]], list[Similarities]]:
         """This generates prompt candidates (or priors) based on the similarities.
@@ -423,9 +424,10 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         This Prompt Generator computes the similarity map internally.
 
         Args:
-            reference_features(Features): Features object containing reference features
+            ref_embeds(torch.Tensor): Reference embeddings
+            masked_ref_embeds(dict[int, torch.Tensor]): Dictionary of masked reference embeddings
             reference_masks(list[Masks]): List of reference masks, one per reference image instance
-            target_embeddings(torch.Tensor): Target embeddings
+            target_embeds(torch.Tensor): Target embeddings
             target_images(list[tv_tensors.Image]): Target images
 
         Returns:
@@ -436,31 +438,23 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         point_prompts: list[dict[int, torch.Tensor]] = []
         similarities_per_image: list[Similarities] = []
 
-        target_features = [Features(global_features=emb) for emb in target_embeddings.unbind(0)]
-
         # this basically makes a vertical stack + flatten
-        flattened_global_features = reference_features.global_features.reshape(
-            -1,
-            reference_features.global_features.shape[-1],
-        )
+        flattened_ref_embeds = ref_embeds.reshape(-1, ref_embeds.shape[-1])
         reference_masks = self._merge_masks(reference_masks)
 
-        for target_feature, target_image in zip(target_features, target_images, strict=False):
+        for target_embed, target_image in zip(target_embeds, target_images, strict=False):
             class_point_prompts: dict[int, torch.Tensor] = {}
             similarities = Similarities()
-            similarity_map = flattened_global_features @ target_feature.global_features.T
+            similarity_map = flattened_ref_embeds @ target_embed.T
             h, w = target_image.shape[-2:]
 
             for class_id, mask in reference_masks.data.items():
-                # Construct mean local similarity map. This can later be used to filter out masks and for visualizing
-                # the similarity map.
-                local_mean_reference_feature = reference_features.get_local_features(
-                    class_id,
-                )[0].mean(dim=0, keepdim=True)
-                local_mean_reference_feature /= local_mean_reference_feature.norm(dim=-1, keepdim=True)
-                local_similarity_map = local_mean_reference_feature @ target_feature.global_features.T
-                local_similarity_map = self._resize_similarity_map(local_similarity_map, (h, w))
-                similarities.add(local_similarity_map, class_id)
+                local_reference_feature = masked_ref_embeds[class_id]
+                local_reference_feature = local_reference_feature.mean(dim=0, keepdim=True)
+                local_reference_feature /= local_reference_feature.norm(dim=-1, keepdim=True)
+                local_similarity = local_reference_feature @ target_embed.T
+                local_similarity = self._resize_similarity_map(local_similarity, target_image.shape[-2:])
+                similarities.add(local_similarity, class_id)
 
                 # Select background points based on similarity to averaged local feature
                 _, background_indices, background_scores = self._select_background_points(similarity_map, mask)
@@ -470,8 +464,8 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
                     mask=mask,
                     similarity_map=similarity_map,
                     use_rff=self.approximate_matching,
-                    ref_features=flattened_global_features,
-                    target_features=target_feature.global_features,
+                    ref_features=flattened_ref_embeds,
+                    target_features=target_embed,
                     score_threshold=self.softmatching_score_threshold,
                     bidirectional=self.softmatching_bidirectional,
                     use_sampling=self.use_sampling,
@@ -483,7 +477,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
                 # this increases the mask filtering technique based on average similarity.
                 soft_sim_map = functional.interpolate(
                     soft_sim_map,
-                    size=local_similarity_map.shape[-2:],
+                    size=local_similarity.shape[-2:],
                     mode="bilinear",
                     align_corners=False,
                 ).squeeze(0)

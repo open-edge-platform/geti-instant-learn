@@ -253,7 +253,9 @@ class SamDecoder(nn.Module):
                 # Apply inverse coordinate transformation only to x, y coordinates
                 if final_points is not None and len(final_points) > 0:
                     remapped_points = self.remap_preprocessed_points(final_points)
-                    remapped_points[:, :2] = self.transform.apply_inverse_coords_torch(remapped_points[:, :2], original_size)
+                    remapped_points[:, :2] = self.transform.apply_inverse_coords_torch(
+                        remapped_points[:, :2], original_size
+                    )
                     all_used_points.add(remapped_points, label)
 
                 if final_boxes is not None and len(final_boxes) > 0:
