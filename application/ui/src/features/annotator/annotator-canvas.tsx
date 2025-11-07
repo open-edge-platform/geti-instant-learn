@@ -63,11 +63,7 @@ export const AnnotatorCanvas = () => {
     return (
         <ZoomTransform target={image}>
             <View position={'relative'}>
-                <canvas
-                    aria-label='Captured frame'
-                    ref={(canvasRef) => drawImageOnCanvas(canvasRef)}
-                    className={styles.image}
-                />
+                <canvas aria-label='Captured frame' ref={drawImageOnCanvas} className={styles.image} />
 
                 <Annotations annotations={orderedAnnotations} width={image.width} height={image.height} />
                 <ToolManager />
