@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useRef } from 'react';
+import { useCallback } from 'react';
 
 import { View } from '@geti/ui';
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -36,20 +36,21 @@ export const AnnotatorCanvas = () => {
     const { annotations } = useAnnotationActions();
     const { selectedAnnotations } = useSelectedAnnotations();
     const { image } = useAnnotator();
-    const canvasRef = useRef<HTMLCanvasElement>(null);
 
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
+    const drawImageOnCanvas = useCallback(
+        (canvasRef: HTMLCanvasElement | null) => {
+            if (!canvasRef) return;
 
-        canvas.width = image.width;
-        canvas.height = image.height;
+            canvasRef.width = image.width;
+            canvasRef.height = image.height;
 
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-            ctx.putImageData(image, 0, 0);
-        }
-    }, [image]);
+            const ctx = canvasRef.getContext('2d');
+            if (ctx) {
+                ctx.putImageData(image, 0, 0);
+            }
+        },
+        [image]
+    );
 
     // Order annotations by selection. Selected annotation should always be on top.
     const orderedAnnotations = [
@@ -62,7 +63,11 @@ export const AnnotatorCanvas = () => {
     return (
         <ZoomTransform target={image}>
             <View position={'relative'}>
-                <canvas aria-label='Captured frame' ref={canvasRef} className={styles.image} />
+                <canvas
+                    aria-label='Captured frame'
+                    ref={(canvasRef) => drawImageOnCanvas(canvasRef)}
+                    className={styles.image}
+                />
 
                 <Annotations annotations={orderedAnnotations} width={image.width} height={image.height} />
                 <ToolManager />
