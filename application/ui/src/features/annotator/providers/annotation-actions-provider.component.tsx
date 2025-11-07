@@ -31,9 +31,7 @@ interface AnnotationsContextValue {
     addAnnotations: (shapes: Shape[], labels: LabelType[]) => void;
     deleteAnnotations: (annotationIds: string[]) => void;
     updateAnnotations: (updatedAnnotations: Annotation[]) => void;
-    submitAnnotations: () => Promise<void>;
     isUserReviewed: boolean;
-    isSaving: boolean;
 }
 
 const AnnotationsContext = createContext<AnnotationsContextValue | null>(null);
@@ -76,19 +74,6 @@ export const AnnotationActionsProvider = ({ children }: AnnotationActionsProvide
         isDirty.current = true;
     };
 
-    const submitAnnotations = async () => {
-        if (!isDirty.current) return;
-
-        // TODO: implement saving annotations once API is ready
-        // const serverFormattedAnnotations = mapLocalAnnotationsToServer(localAnnotations);
-        // await saveMutation.mutateAsync({
-        //     params: { path: { dataset_item_id: mediaItem.id || '', project_id: projectId } },
-        //     body: { annotations: serverFormattedAnnotations },
-        // });
-
-        isDirty.current = false;
-    };
-
     useEffect(() => {
         if (!project || !serverAnnotations) return;
 
@@ -119,12 +104,6 @@ export const AnnotationActionsProvider = ({ children }: AnnotationActionsProvide
                 addAnnotations,
                 updateAnnotations,
                 deleteAnnotations,
-
-                // Remote
-                submitAnnotations,
-
-                // isSaving: saveMutation.isPending,
-                isSaving: false,
             }}
         >
             <UndoRedoProvider state={undoRedoActions}>{children}</UndoRedoProvider>
