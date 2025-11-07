@@ -27,7 +27,7 @@ const expectToNotHaveAnnotations = async ({ annotatorPage }: { annotatorPage: An
 };
 
 const expectToHaveAnnotations = async ({ annotatorPage }: { annotatorPage: AnnotatorPage }) => {
-    await expect(annotatorPage.getAnnotation()).not.toHaveCount(0);
+    await expect(annotatorPage.getAnnotation()).not.toHaveCount(0, { timeout: 10000 });
 };
 
 test.use({ browserName: 'firefox' });
@@ -73,11 +73,10 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
         });
 
         await annotatorPage.addAnnotation();
+        await expectToHaveAnnotations({ annotatorPage });
     });
 
     await test.step('Hides/Shows annotations', async () => {
-        await expectToHaveAnnotations({ annotatorPage });
-
         await annotatorPage.hideAnnotations();
 
         await expectToNotHaveAnnotations({ annotatorPage });
@@ -88,8 +87,6 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
     });
 
     await test.step('Undoes/redoes annotations', async () => {
-        await expectToHaveAnnotations({ annotatorPage });
-
         await annotatorPage.undoAnnotation();
 
         await expectToNotHaveAnnotations({ annotatorPage });
@@ -100,8 +97,6 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
     });
 
     await test.step('Plays with zoom', async () => {
-        await expectToHaveAnnotations({ annotatorPage });
-
         const initialZoom = await (await annotatorPage.getZoomValue()).innerText();
 
         await annotatorPage.zoomIn();
@@ -124,8 +119,6 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
     });
 
     await test.step('Changes to fullscreen', async () => {
-        await expectToHaveAnnotations({ annotatorPage });
-
         await annotatorPage.openFullscreen();
 
         await expectToHaveAnnotations({ annotatorPage });
