@@ -5,6 +5,7 @@
 
 import { AnnotationPostType, AnnotationType, LabelType } from '@geti-prompt/api';
 import { Point, RegionOfInterest } from '@geti/smart-tools/types';
+import { v4 as uuid } from 'uuid';
 
 import { Annotation } from '../../../annotator/types';
 
@@ -65,7 +66,8 @@ export const convertAnnotationsToDTO = (
 };
 
 // TODO: Use that function to map annotations from DTO to the format that is used in the annotator
-// I think we could do that in the AnnotationActionsProvider where we have access to the labels
+// I think we could do that in either useVisualPromptQuery (or better in a separate hook that calls useVisualPromptQuery
+// and then maps the result) or AnnotationActionsProvider
 export const convertAnnotationsFromDTO = (
     annotations: AnnotationType[],
     labels: LabelType[],
@@ -74,6 +76,7 @@ export const convertAnnotationsFromDTO = (
     return annotations.map((annotation) => {
         if (annotation.config.type === 'polygon') {
             return {
+                id: uuid(),
                 shape: {
                     type: 'polygon',
                     points: denormalizePoints(annotation.config.points, roi),
@@ -87,6 +90,7 @@ export const convertAnnotationsFromDTO = (
             const denormalizedPoints: Point[] = denormalizePoints(annotation.config.points, roi);
 
             return {
+                id: uuid(),
                 shape: {
                     type: 'rectangle',
                     x: denormalizedPoints[0].x,
