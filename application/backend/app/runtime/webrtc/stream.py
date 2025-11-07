@@ -81,7 +81,7 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
             raise
 
         logger.debug("Received the frame from the stream_queue.")
-        frame = VideoFrame.from_ndarray(np_frame, format="rgb24")  # Changed from bgr24 to rgb24
+        frame = VideoFrame.from_ndarray(np_frame, format="rgb24")
         frame.pts = pts
         frame.time_base = time_base
         return frame

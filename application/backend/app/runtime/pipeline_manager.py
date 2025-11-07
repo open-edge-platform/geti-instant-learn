@@ -88,7 +88,7 @@ class PipelineManager:
 
     def on_config_change(self, event: ConfigChangeEvent) -> None:
         """
-        React to configuration change events by creating new pipelines or updating components.
+        React to configuration change events.
         """
         match event:
             case ProjectActivationEvent() as e:

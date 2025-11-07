@@ -90,7 +90,6 @@ class Pipeline:
         self._inbound_broadcaster.unregister(queue)
 
     def start(self) -> None:
-        """Start all pipeline components in separate threads."""
         logger.debug(f"Starting pipeline for project_id={self._project_id}")
         for component_cls, component in self._components.items():
             thread = Thread(target=component, daemon=False)
@@ -99,7 +98,6 @@ class Pipeline:
         logger.debug(f"Pipeline started for project_id={self._project_id}")
 
     def stop(self) -> None:
-        """Stop all pipeline components in order: Source -> Processor -> Sink."""
         logger.debug(f"Stopping pipeline for project_id={self._project_id}")
 
         for component_cls in [Source, Processor, Sink]:
@@ -134,7 +132,6 @@ class Pipeline:
             if thread and thread.is_alive():
                 thread.join(timeout=5)
 
-        # Replace with new component and start it
         self._components[component_cls] = new_component
         thread = Thread(target=new_component, daemon=False)
         thread.start()
