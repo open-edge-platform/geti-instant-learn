@@ -30,7 +30,7 @@ const expectToHaveAnnotations = async ({ annotatorPage }: { annotatorPage: Annot
     await expect(annotatorPage.getAnnotation()).not.toHaveCount(0, { timeout: 10000 });
 };
 
-test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) => {
+test('Annotator', async ({ network, page, context, streamPage, annotatorPage, promptPage }) => {
     test.setTimeout(ANNOTATOR_PAGE_TIMEOUT);
 
     await initializeWebRTC({ page, context, network });
@@ -71,8 +71,12 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
             timeout: ANNOTATOR_PAGE_TIMEOUT,
         });
 
+        await expect(promptPage.savePromptButton).toBeDisabled();
+
         await annotatorPage.addAnnotation();
+
         await expectToHaveAnnotations({ annotatorPage });
+        await expect(promptPage.savePromptButton).toBeEnabled();
     });
 
     await test.step('Hides/Shows annotations', async () => {
@@ -131,5 +135,12 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
         await annotatorPage.closeSettings();
 
         await annotatorPage.closeFullscreen();
+    });
+
+    await test.step('Saves prompt', async () => {
+        await promptPage.savePrompt();
+
+        // TODO: Once prompts thumbnails are implemented, verify that the prompt was indeed saved
+        // TODO: Verify if the prompt edition works as well (or create separate test for that if needed)
     });
 });

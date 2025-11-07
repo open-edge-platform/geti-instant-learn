@@ -8,6 +8,7 @@ import { expect, test as testBase } from '@playwright/test';
 
 import { handlers, http } from '../src/api/utils';
 import { AnnotatorPage } from './annotator/annotator-page';
+import { PromptPage } from './annotator/prompt-page';
 import { LabelsPage } from './labels/labels-page';
 import { ProjectPage } from './projects/projects-page';
 import { StreamPage } from './prompt/stream-page';
@@ -18,6 +19,7 @@ interface Fixtures {
     labelsPage: LabelsPage;
     annotatorPage: AnnotatorPage;
     projectPage: ProjectPage;
+    promptPage: PromptPage;
 }
 
 const test = testBase.extend<Fixtures>({
