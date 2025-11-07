@@ -30,7 +30,6 @@ const expectToHaveAnnotations = async ({ annotatorPage }: { annotatorPage: Annot
     await expect(annotatorPage.getAnnotation()).not.toHaveCount(0, { timeout: 10000 });
 };
 
-test.use({ browserName: 'firefox' });
 test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) => {
     test.setTimeout(ANNOTATOR_PAGE_TIMEOUT);
 
