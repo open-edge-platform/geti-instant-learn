@@ -36,9 +36,9 @@ const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorPro
                 </CenteredWrapper>
             }
         >
-            {/* key={frameId} is added here to make sure that the whole tree unmounts/mounts
-                every time we capture a new frame */}
-            <AnnotatorProvider frameId={frameId} key={frameId}>
+            {/* Suspense key={frameId} ensures clean state reset between frames
+                while allowing React Query cache to work properly */}
+            <AnnotatorProvider frameId={frameId}>
                 <SelectAnnotationProvider>
                     <AnnotationActionsProvider>
                         <AnnotationVisibilityProvider>
