@@ -98,6 +98,13 @@ class PromptDB(Base):
             unique=True,
             sqlite_where=sa_text("type = 'TEXT'"),
         ),
+        # ensure each frame can only be used once across all prompts
+        Index(
+            UniqueConstraintName.UNIQUE_FRAME_ID_PER_PROMPT,
+            "frame_id",
+            unique=True,
+            sqlite_where=sa_text("frame_id IS NOT NULL"),
+        ),
         # ensure text prompts have text, visual prompts have frame_id
         CheckConstraint(
             "(type = 'TEXT' AND text IS NOT NULL AND frame_id IS NULL) OR "

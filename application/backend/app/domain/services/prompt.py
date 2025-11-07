@@ -39,7 +39,7 @@ from domain.services.schemas.prompt import (
     VisualPromptCreateSchema,
     VisualPromptUpdateSchema,
 )
-from domain.services.thumbnail import ThumbnailGenerator
+from domain.services.thumbnail import generate_thumbnail
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +123,7 @@ class PromptService:
         Create a new prompt.
         - Visual prompts must have frame_id and annotations
         - Visual prompts must reference an existing frame
+        - Each frame can only be used once across all prompts
         - Annotations reference labels that must exist in the project
         - Only one text prompt is allowed per project
 
@@ -135,7 +136,7 @@ class PromptService:
 
         Raises:
             ResourceNotFoundError: If project doesn't exist or frame doesn't exist (for visual prompts).
-            ResourceAlreadyExistsError: If constraint violations occur (e.g., text prompt already exists).
+            ResourceAlreadyExistsError: If constraint violations occur (e.g., text prompt already exists, frame already used).
             ServiceError: If validation fails.
         """
         self._ensure_project(project_id)
@@ -189,7 +190,7 @@ class PromptService:
         except IntegrityError as exc:
             self.session.rollback()
             logger.error("Prompt creation failed due to constraint violation: %s", exc)
-            self._handle_prompt_integrity_error(exc, new_prompt.id, project_id, new_prompt.type)
+            self._handle_prompt_integrity_error(exc, new_prompt.id, project_id, new_prompt.type, new_prompt.frame_id)
 
         self.session.refresh(new_prompt)
         logger.info(
@@ -398,7 +399,7 @@ class PromptService:
         # create annotation-label pairs
         annotation_label_pairs = [(ann, labels_by_id[ann.label_id]) for ann in annotations]
 
-        return ThumbnailGenerator.generate(frame, annotation_label_pairs)
+        return generate_thumbnail(frame, annotation_label_pairs)
 
     def _ensure_project(self, project_id: UUID) -> ProjectDB:
         """
@@ -425,6 +426,7 @@ class PromptService:
         prompt_id: UUID,
         project_id: UUID,
         prompt_type: PromptType,
+        frame_id: UUID | None = None,
     ) -> None:
         """
         Handle IntegrityError with context-aware messages for prompts.
@@ -434,14 +436,16 @@ class PromptService:
             prompt_id: ID of the prompt being created
             project_id: ID of the owning project
             prompt_type: Type of the prompt (TEXT or VISUAL)
+            frame_id: ID of the frame (for visual prompts)
         """
         error_msg = str(exc.orig).lower()
         constraint_name = extract_constraint_name(error_msg)
 
         logger.warning(
-            "Prompt constraint violation: prompt_id=%s, project_id=%s, constraint=%s, error=%s",
+            "Prompt constraint violation: prompt_id=%s, project_id=%s, frame_id=%s, constraint=%s, error=%s",
             prompt_id,
             project_id,
+            frame_id,
             constraint_name or "unknown",
             error_msg,
         )
@@ -462,6 +466,16 @@ class PromptService:
                 field="type",
                 message="A text prompt already exists for this project. "
                 "Please update or delete the existing text prompt.",
+            )
+
+        if ("unique" in error_msg or constraint_name) and (
+            constraint_name == UniqueConstraintName.UNIQUE_FRAME_ID_PER_PROMPT or "frame_id" in error_msg
+        ):
+            raise ResourceAlreadyExistsError(
+                resource_type=ResourceType.PROMPT,
+                field="frame_id",
+                message=f"Frame {frame_id} is already used by another prompt. "
+                "Each frame can only be used once. Please capture a new frame or use a different frame.",
             )
 
         if "check" in error_msg or constraint_name == CheckConstraintName.PROMPT_CONTENT:

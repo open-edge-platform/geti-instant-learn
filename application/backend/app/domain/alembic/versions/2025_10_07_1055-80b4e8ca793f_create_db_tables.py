@@ -79,6 +79,13 @@ def upgrade() -> None:
         unique=True,
         sqlite_where=sa.text("type = 'TEXT'")
     )
+    op.create_index(
+        UniqueConstraintName.UNIQUE_FRAME_ID_PER_PROMPT,
+        'Prompt',
+        ['frame_id'],
+        unique=True,
+        sqlite_where=sa.text("frame_id IS NOT NULL")
+    )
 
     op.create_table('Sink',
     sa.Column('config', sqlite.JSON(), nullable=False),
@@ -148,6 +155,7 @@ def downgrade() -> None:
     op.drop_table('Source')
     op.drop_table('Sink')
     op.drop_index(UniqueConstraintName.SINGLE_TEXT_PROMPT_PER_PROJECT, table_name='Prompt')
+    op.drop_index(UniqueConstraintName.UNIQUE_FRAME_ID_PER_PROMPT, table_name='Prompt')
     op.drop_table('Prompt')
     op.drop_index(UniqueConstraintName.PROCESSOR_NAME_PER_PROJECT, table_name='Processor')
     op.drop_table('Processor')
