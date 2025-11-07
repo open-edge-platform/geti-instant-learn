@@ -356,7 +356,7 @@ class TestMaskedFeatureExtractor:
         batched_category_ids = torch.tensor([[1]], dtype=torch.long)
 
         # Extract local features
-        features_list, masks_list = extractor(
+        features_list, _ = extractor(
             batched_features,
             batched_masks,
             batched_category_ids,
@@ -392,7 +392,7 @@ class TestMaskedFeatureExtractor:
         batched_category_ids = torch.tensor([[1]], dtype=torch.long)
 
         # Extract local features
-        features_list, masks_list = extractor(
+        features_list, _ = extractor(
             batched_features,
             batched_masks,
             batched_category_ids,
@@ -479,7 +479,7 @@ class TestMaskedFeatureExtractor:
         # Check that global features are unchanged
         pytest.assume(torch.equal(features_list[0].global_features, original_features))
 
-    @pytest.mark.parametrize("input_size,patch_size", [(224, 14), (336, 14), (224, 16)])
+    @pytest.mark.parametrize("input_size,patch_size", ((224, 14), (336, 14), (224, 16)))
     def test_forward_different_configurations(self, input_size: int, patch_size: int) -> None:
         """Test MaskedFeatureExtractor with different input_size and patch_size configurations."""
         extractor = MaskedFeatureExtractor(

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from getiprompt.components import SamDecoder
 from getiprompt.components.encoders import ImageEncoder
-from getiprompt.components.feature_extractors.local_feature_extractor import MaskedFeatureExtractor
+from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.feature_selectors import AllFeaturesSelector, FeatureSelector
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator

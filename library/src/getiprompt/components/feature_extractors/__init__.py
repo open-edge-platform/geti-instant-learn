@@ -3,7 +3,7 @@
 
 """Feature extractors."""
 
-from .mask_feature_extractor import MaskedFeatureExtractor
+from .masked_feature_extractor import MaskedFeatureExtractor
 
 __all__ = [
     "MaskedFeatureExtractor",
