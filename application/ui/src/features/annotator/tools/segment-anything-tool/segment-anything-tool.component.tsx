@@ -145,9 +145,7 @@ export const SegmentAnythingTool = () => {
 
             <g aria-label={'annotation list'}>
                 {isVisible &&
-                    annotations.map((annotation) => (
-                        <Annotation withLabels annotation={annotation} key={annotation.id} />
-                    ))}
+                    annotations.map((annotation) => <Annotation annotation={annotation} key={annotation.id} />)}
             </g>
 
             {previewAnnotations.length > 0 &&
