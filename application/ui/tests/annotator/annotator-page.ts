@@ -52,12 +52,10 @@ export class AnnotatorPage {
 
     async hideAnnotations() {
         await this.page.getByRole('button', { name: 'Hide annotations' }).click();
-        await this.page.getByRole('button', { name: 'Show annotations' }).waitFor({ state: 'visible' });
     }
 
     async showAnnotations() {
         await this.page.getByRole('button', { name: 'Show annotations' }).click();
-        await this.page.getByRole('button', { name: 'Hide annotations' }).waitFor({ state: 'visible' });
     }
 
     async undoAnnotation() {
