@@ -16,11 +16,11 @@ from domain.services.schemas.annotation import (
 )
 from domain.services.thumbnail import (
     THUMBNAIL_MAX_DIMENSION,
-    _draw_polygon,
-    _draw_rectangle,
-    _encode_to_base64,
-    _hex_to_bgr,
-    _resize_frame,
+    _convert_hex_to_bgr,
+    _draw_filled_polygon,
+    _draw_filled_rectangle,
+    _encode_image_to_base64_data_uri,
+    _resize_frame_to_thumbnail_size,
     generate_thumbnail,
 )
 
@@ -41,7 +41,7 @@ class TestResizeFrame:
     def test_resize_large_frame(self):
         """Test resizing a frame larger than max dimension."""
         frame = create_test_frame(width=1000, height=800)
-        resized = _resize_frame(frame)
+        resized = _resize_frame_to_thumbnail_size(frame)
 
         assert max(resized.shape[:2]) == THUMBNAIL_MAX_DIMENSION
         assert resized.shape[0] == 320  # 800 * (400/1000)
@@ -50,7 +50,7 @@ class TestResizeFrame:
     def test_resize_tall_frame(self):
         """Test resizing a tall frame."""
         frame = create_test_frame(width=600, height=1200)
-        resized = _resize_frame(frame)
+        resized = _resize_frame_to_thumbnail_size(frame)
 
         assert max(resized.shape[:2]) == THUMBNAIL_MAX_DIMENSION
         assert resized.shape[0] == 400
@@ -59,7 +59,7 @@ class TestResizeFrame:
     def test_no_resize_small_frame(self):
         """Test that small frames are not resized."""
         frame = create_test_frame(width=300, height=200)
-        resized = _resize_frame(frame)
+        resized = _resize_frame_to_thumbnail_size(frame)
 
         assert resized.shape == frame.shape
         np.testing.assert_array_equal(resized, frame)
@@ -67,7 +67,7 @@ class TestResizeFrame:
     def test_aspect_ratio_preserved(self):
         """Test that aspect ratio is preserved during resize."""
         frame = create_test_frame(width=1600, height=900)
-        resized = _resize_frame(frame)
+        resized = _resize_frame_to_thumbnail_size(frame)
 
         original_ratio = 1600 / 900
         resized_ratio = resized.shape[1] / resized.shape[0]
@@ -78,27 +78,27 @@ class TestResizeFrame:
 class TestHexToBgr:
     def test_hex_with_hash(self):
         """Test conversion with hash prefix."""
-        assert _hex_to_bgr("#FF0000") == (0, 0, 255)  # Red in BGR
-        assert _hex_to_bgr("#00FF00") == (0, 255, 0)  # Green in BGR
-        assert _hex_to_bgr("#0000FF") == (255, 0, 0)  # Blue in BGR
+        assert _convert_hex_to_bgr("#FF0000") == (0, 0, 255)  # Red in BGR
+        assert _convert_hex_to_bgr("#00FF00") == (0, 255, 0)  # Green in BGR
+        assert _convert_hex_to_bgr("#0000FF") == (255, 0, 0)  # Blue in BGR
 
     def test_hex_without_hash(self):
         """Test conversion without hash prefix."""
-        assert _hex_to_bgr("FF0000") == (0, 0, 255)
-        assert _hex_to_bgr("00FF00") == (0, 255, 0)
+        assert _convert_hex_to_bgr("FF0000") == (0, 0, 255)
+        assert _convert_hex_to_bgr("00FF00") == (0, 255, 0)
 
     def test_various_colors(self):
         """Test various color conversions."""
-        assert _hex_to_bgr("#FFFFFF") == (255, 255, 255)  # White
-        assert _hex_to_bgr("#000000") == (0, 0, 0)  # Black
-        assert _hex_to_bgr("#FF8800") == (0, 136, 255)  # Orange
+        assert _convert_hex_to_bgr("#FFFFFF") == (255, 255, 255)  # White
+        assert _convert_hex_to_bgr("#000000") == (0, 0, 0)  # Black
+        assert _convert_hex_to_bgr("#FF8800") == (0, 136, 255)  # Orange
 
 
 class TestEncodeToBase64:
     def test_encode_valid_image(self):
         """Test encoding a valid image."""
         frame = create_test_frame(width=100, height=100)
-        result = _encode_to_base64(frame)
+        result = _encode_image_to_base64_data_uri(frame)
 
         assert result.startswith("data:image/jpeg;base64,")
         assert len(result) > 50
@@ -111,7 +111,7 @@ class TestEncodeToBase64:
     def test_encoded_image_decodable(self):
         """Test that encoded image can be decoded back."""
         frame = create_test_frame(width=200, height=150, color=(50, 100, 150))
-        encoded = _encode_to_base64(frame)
+        encoded = _encode_image_to_base64_data_uri(frame)
 
         b64_data = encoded.split(",")[1]
         decoded_bytes = base64.b64decode(b64_data)
@@ -128,7 +128,7 @@ class TestDrawRectangle:
         rect = RectangleAnnotation(type="rectangle", points=[Point(x=0.2, y=0.2), Point(x=0.8, y=0.8)])
         color = (0, 0, 255)
 
-        _draw_rectangle(overlay, rect, color, width=200, height=200, thickness=2)
+        _draw_filled_rectangle(overlay, rect, color, image_width=200, image_height=200, border_thickness=2)
 
         # check that some pixels in the rectangle area have been modified
         center_pixel = overlay[100, 100]
@@ -140,7 +140,7 @@ class TestDrawRectangle:
         rect = RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)])
         color = (255, 0, 0)
 
-        _draw_rectangle(overlay, rect, color, width=100, height=100, thickness=1)
+        _draw_filled_rectangle(overlay, rect, color, image_width=100, image_height=100, border_thickness=1)
 
         # check corners are colored
         assert np.any(overlay[10, 10] == color)
@@ -156,7 +156,7 @@ class TestDrawPolygon:
         )
         color = (0, 255, 0)
 
-        _draw_polygon(overlay, polygon, color, width=200, height=200, thickness=2)
+        _draw_filled_polygon(overlay, polygon, color, image_width=200, image_height=200, border_thickness=2)
 
         # check that center of triangle has been colored
         center_pixel = overlay[120, 100]
@@ -171,7 +171,7 @@ class TestDrawPolygon:
         )
         color = (0, 0, 255)
 
-        _draw_polygon(overlay, polygon, color, width=100, height=100, thickness=1)
+        _draw_filled_polygon(overlay, polygon, color, image_width=100, image_height=100, border_thickness=1)
 
         # check center is colored
         assert np.any(overlay[50, 50] == color)

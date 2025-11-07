@@ -25,9 +25,10 @@ from domain.services.schemas.annotation import (
 logger = logging.getLogger(__name__)
 
 THUMBNAIL_MAX_DIMENSION = 400
-LINE_THICKNESS_RATIO = 0.005  # 0.3% of image dimension
-MIN_LINE_THICKNESS = 2
-FILL_ALPHA = 0.3
+ANNOTATION_LINE_THICKNESS_RATIO = 0.005  # 0.5% of smaller image dimension
+MIN_ANNOTATION_LINE_THICKNESS = 2
+ANNOTATION_FILL_OPACITY = 0.4  # 40% opacity for annotation fill
+JPEG_QUALITY = 85
 
 
 def generate_thumbnail(frame: np.ndarray, annotations: list[tuple[AnnotationSchema, LabelDB]]) -> str:
@@ -39,104 +40,154 @@ def generate_thumbnail(frame: np.ndarray, annotations: list[tuple[AnnotationSche
         annotations: List of (annotation, label) tuples
 
     Returns:
-        Base64-encoded data URI of the thumbnail
+        Base64-encoded data URI of the thumbnail with JPEG encoding
     """
-    thumbnail = _resize_frame(frame)
+    thumbnail = _resize_frame_to_thumbnail_size(frame)
     height, width = thumbnail.shape[:2]
     line_thickness = max(
-        MIN_LINE_THICKNESS,
-        int(min(height, width) * LINE_THICKNESS_RATIO),
+        MIN_ANNOTATION_LINE_THICKNESS,
+        int(min(height, width) * ANNOTATION_LINE_THICKNESS_RATIO),
     )
 
-    overlay = thumbnail.copy()
+    annotation_overlay = thumbnail.copy()
 
     for annotation_schema, label in annotations:
-        color_bgr = _hex_to_bgr(label.color)
+        color_bgr = _convert_hex_to_bgr(label.color)
         annotation = annotation_schema.config
 
         if annotation.type == AnnotationType.RECTANGLE:
-            _draw_rectangle(overlay, annotation, color_bgr, width, height, line_thickness)
+            _draw_filled_rectangle(annotation_overlay, annotation, color_bgr, width, height, line_thickness)
         elif annotation.type == AnnotationType.POLYGON:
-            _draw_polygon(overlay, annotation, color_bgr, width, height, line_thickness)
+            _draw_filled_polygon(annotation_overlay, annotation, color_bgr, width, height, line_thickness)
 
-    # blend overlay with original for transparency
+    # blend annotation overlay with original frame for semi-transparency
     cv2.addWeighted(
-        overlay,
-        FILL_ALPHA,
+        annotation_overlay,
+        ANNOTATION_FILL_OPACITY,
         thumbnail,
-        1 - FILL_ALPHA,
+        1 - ANNOTATION_FILL_OPACITY,
         0,
         thumbnail,
     )
 
-    return _encode_to_base64(thumbnail)
+    return _encode_image_to_base64_data_uri(thumbnail)
 
 
-def _resize_frame(frame: np.ndarray) -> np.ndarray:
-    """Resize frame maintaining aspect ratio."""
+def _resize_frame_to_thumbnail_size(frame: np.ndarray) -> np.ndarray:
+    """
+    Resize frame to thumbnail dimensions while maintaining aspect ratio.
+
+    Args:
+        frame: Original frame as numpy array
+
+    Returns:
+        Resized frame, or copy of original if already small enough
+    """
     height, width = frame.shape[:2]
 
     if max(height, width) <= THUMBNAIL_MAX_DIMENSION:
         return frame.copy()
 
-    scale = THUMBNAIL_MAX_DIMENSION / max(height, width)
-    new_width = int(width * scale)
-    new_height = int(height * scale)
+    scale_factor = THUMBNAIL_MAX_DIMENSION / max(height, width)
+    new_width = int(width * scale_factor)
+    new_height = int(height * scale_factor)
 
     return cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
 
-def _draw_rectangle(
+def _draw_filled_rectangle(
     overlay: np.ndarray,
     rect: RectangleAnnotation,
-    color: tuple[int, int, int],
-    width: int,
-    height: int,
-    thickness: int,
+    color_bgr: tuple[int, int, int],
+    image_width: int,
+    image_height: int,
+    border_thickness: int,
 ) -> None:
-    """Draw a rectangle annotation with fill and border."""
-    pt1 = (int(rect.points[0].x * width), int(rect.points[0].y * height))
-    pt2 = (int(rect.points[1].x * width), int(rect.points[1].y * height))
+    """
+    Draw a rectangle annotation with semi-transparent fill and opaque border.
 
-    # draw filled rectangle on overlay
-    cv2.rectangle(overlay, pt1, pt2, color, -1)
+    Args:
+        overlay: Image overlay to draw on
+        rect: Rectangle annotation with normalized coordinates
+        color_bgr: Color in BGR format
+        image_width: Width of the image in pixels
+        image_height: Height of the image in pixels
+        border_thickness: Thickness of the rectangle border
+    """
+    top_left = (int(rect.points[0].x * image_width), int(rect.points[0].y * image_height))
+    bottom_right = (int(rect.points[1].x * image_width), int(rect.points[1].y * image_height))
 
-    # draw border on overlay with higher opacity
-    cv2.rectangle(overlay, pt1, pt2, color, thickness)
+    # draw filled rectangle
+    cv2.rectangle(overlay, top_left, bottom_right, color_bgr, -1)
+
+    # draw border with full opacity for better visibility
+    cv2.rectangle(overlay, top_left, bottom_right, color_bgr, border_thickness)
 
 
-def _draw_polygon(
+def _draw_filled_polygon(
     overlay: np.ndarray,
     polygon: PolygonAnnotation,
-    color: tuple[int, int, int],
-    width: int,
-    height: int,
-    thickness: int,
+    color_bgr: tuple[int, int, int],
+    image_width: int,
+    image_height: int,
+    border_thickness: int,
 ) -> None:
-    """Draw a polygon annotation with fill and border."""
-    points = np.array([[int(pt.x * width), int(pt.y * height)] for pt in polygon.points], dtype=np.int32)
+    """
+    Draw a polygon annotation with semi-transparent fill and opaque border.
 
-    # draw filled polygon on overlay
-    cv2.fillPoly(overlay, [points], color)
+    Args:
+        overlay: Image overlay to draw on
+        polygon: Polygon annotation with normalized coordinates
+        color_bgr: Color in BGR format
+        image_width: Width of the image in pixels
+        image_height: Height of the image in pixels
+        border_thickness: Thickness of the polygon border
+    """
+    pixel_points = np.array(
+        [[int(pt.x * image_width), int(pt.y * image_height)] for pt in polygon.points],
+        dtype=np.int32,
+    )
 
-    # draw border on overlay with higher opacity
-    cv2.polylines(overlay, [points], isClosed=True, color=color, thickness=thickness)
+    # draw filled polygon
+    cv2.fillPoly(overlay, [pixel_points], color_bgr)
+
+    # draw border with full opacity for better visibility
+    cv2.polylines(overlay, [pixel_points], isClosed=True, color=color_bgr, thickness=border_thickness)
 
 
-def _hex_to_bgr(hex_color: str) -> tuple[int, int, int]:
-    """Convert hex color to BGR tuple for OpenCV."""
+def _convert_hex_to_bgr(hex_color: str) -> tuple[int, int, int]:
+    """
+    Convert hex color string to BGR tuple for OpenCV.
+
+    Args:
+        hex_color: Hex color string (e.g., "#FF0000" or "FF0000")
+
+    Returns:
+        BGR color tuple (e.g., (0, 0, 255) for red)
+    """
     hex_color = hex_color.lstrip("#")
-    rgb = tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
-    return rgb[2], rgb[1], rgb[0]  # convert RGB to BGR
+    red, green, blue = tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+    return blue, green, red  # OpenCV uses BGR instead of RGB
 
 
-def _encode_to_base64(image: np.ndarray) -> str:
-    """Encode image to base64 data URI."""
-    success, buffer = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 85])
-    if not success:
-        raise RuntimeError("Failed to encode thumbnail")
+def _encode_image_to_base64_data_uri(image: np.ndarray) -> str:
+    """
+    Encode image to base64 data URI with JPEG format.
 
-    b64_bytes = base64.b64encode(buffer.tobytes())
-    b64_str = b64_bytes.decode("utf-8")
+    Args:
+        image: Image as numpy array
 
-    return f"data:image/jpeg;base64,{b64_str}"
+    Returns:
+        Data URI string (e.g., "data:image/jpeg;base64,...")
+
+    Raises:
+        RuntimeError: If encoding fails
+    """
+    encode_success, encoded_buffer = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
+    if not encode_success:
+        raise RuntimeError("Failed to encode thumbnail to JPEG format")
+
+    base64_bytes = base64.b64encode(encoded_buffer.tobytes())
+    base64_string = base64_bytes.decode("utf-8")
+
+    return f"data:image/jpeg;base64,{base64_string}"
