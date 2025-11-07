@@ -8,18 +8,25 @@ from domain.db.models import AnnotationDB, PromptDB, PromptType
 from domain.services.schemas.annotation import AnnotationSchema
 from domain.services.schemas.prompt import (
     PromptCreateSchema,
+    PromptListItemSchema,
     PromptSchema,
     PromptUpdateSchema,
     TextPromptCreateSchema,
     TextPromptSchema,
     TextPromptUpdateSchema,
+    VisualPromptListItemSchema,
     VisualPromptSchema,
 )
 
 
-def prompt_db_to_schema(prompt: PromptDB) -> PromptSchema:
+def prompt_db_to_schema(prompt: PromptDB, include_thumbnail: bool = False) -> PromptSchema | PromptListItemSchema:
     """
-    Map a PromptDB instance to a PromptSchema object.
+    Map a PromptDB instance to a PromptSchema or PromptListItemSchema object.
+
+    Args:
+        prompt: The prompt database entity
+        include_thumbnail: If True, returns schema with thumbnail for list responses.
+                          If False, returns schema without thumbnail for detail responses.
     """
     if prompt.type == PromptType.TEXT:
         return TextPromptSchema(
@@ -32,20 +39,34 @@ def prompt_db_to_schema(prompt: PromptDB) -> PromptSchema:
         AnnotationSchema(config=ann.config, label_id=ann.label_id) for ann in prompt.annotations
     ]
 
+    if include_thumbnail:
+        return VisualPromptListItemSchema(
+            id=prompt.id,
+            type=PromptType.VISUAL,
+            frame_id=prompt.frame_id,
+            annotations=annotations,
+            thumbnail=prompt.thumbnail or "",
+        )
+
     return VisualPromptSchema(
         id=prompt.id,
         type=PromptType.VISUAL,
         frame_id=prompt.frame_id,
         annotations=annotations,
-        thumbnail=prompt.thumbnail,
     )
 
 
-def prompts_db_to_schemas(prompts: Iterable[PromptDB]) -> list[PromptSchema]:
+def prompts_db_to_schemas(
+    prompts: Iterable[PromptDB], include_thumbnail: bool = False
+) -> list[PromptSchema | PromptListItemSchema]:
     """
-    Map a list of PromptDB instances to a list of PromptSchema objects.
+    Map a list of PromptDB instances to a list of PromptSchema or PromptListItemSchema objects.
+
+    Args:
+        prompts: Iterable of prompt database entities
+        include_thumbnail: If True, includes thumbnails in the response (for lists)
     """
-    return [prompt_db_to_schema(p) for p in prompts]
+    return [prompt_db_to_schema(p, include_thumbnail=include_thumbnail) for p in prompts]
 
 
 def prompt_create_schema_to_db(schema: PromptCreateSchema, project_id: UUID, thumbnail: str | None = None) -> PromptDB:

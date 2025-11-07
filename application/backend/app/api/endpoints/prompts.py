@@ -18,7 +18,10 @@ logger = logging.getLogger(__name__)
     tags=["Prompts"],
     status_code=status.HTTP_200_OK,
     responses={
-        status.HTTP_200_OK: {"description": "Successfully retrieved the list of all prompts for the project."},
+        status.HTTP_200_OK: {
+            "description": "Successfully retrieved the list of all prompts for the project. "
+            "Visual prompts include thumbnails."
+        },
         status.HTTP_404_NOT_FOUND: {"description": "Project not found."},
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
     },
@@ -28,6 +31,7 @@ def get_all_prompts(
 ) -> PromptsListSchema:
     """
     Retrieve a list of all prompts for the project with pagination.
+    Visual prompts include thumbnail previews in the list response.
     """
     limit = min(limit, 100)  # set the maximum limit to prevent excessive queries
     return prompt_service.list_prompts(project_id, offset=offset, limit=limit)
@@ -66,7 +70,6 @@ def create_prompt(project_id: UUID, payload: PromptCreateSchema, prompt_service:
     Create a new text or visual prompt for the project.
     Text prompts are limited to one per project.
     Visual prompts must reference an existing frame and include annotations.
-    Returns the created prompt.
     """
     return prompt_service.create_prompt(project_id=project_id, create_data=payload)
 

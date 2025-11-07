@@ -83,13 +83,14 @@ class PromptService:
 
         Returns:
             Pydantic list wrapper with prompt schemas and pagination info.
+            Visual prompts include thumbnails in list view.
 
         Raises:
             ResourceNotFoundError: If the project does not exist.
         """
         self._ensure_project(project_id)
         db_prompts, total_count = self.prompt_repository.get_paginated(project_id, offset=offset, limit=limit)
-        prompts = prompts_db_to_schemas(db_prompts)
+        prompts = prompts_db_to_schemas(db_prompts, include_thumbnail=True)
 
         pagination = Pagination(
             count=len(prompts),
@@ -108,6 +109,9 @@ class PromptService:
             project_id: Owning project UUID.
             prompt_id: Prompt UUID.
 
+        Returns:
+            Prompt schema without thumbnail (use list endpoint for thumbnails).
+
         Raises:
             ResourceNotFoundError: If project or prompt does not exist.
         """
@@ -116,7 +120,7 @@ class PromptService:
         if not prompt:
             logger.error("Prompt not found: id=%s project_id=%s", prompt_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.PROMPT, resource_id=str(prompt_id))
-        return prompt_db_to_schema(prompt)
+        return prompt_db_to_schema(prompt, include_thumbnail=False)
 
     def create_prompt(self, project_id: UUID, create_data: PromptCreateSchema) -> PromptSchema:
         """
@@ -132,7 +136,7 @@ class PromptService:
             create_data: Prompt creation data.
 
         Returns:
-            Created prompt schema.
+            Created prompt schema without thumbnail (use list endpoint for thumbnails).
 
         Raises:
             ResourceNotFoundError: If project doesn't exist or frame doesn't exist (for visual prompts).
@@ -199,7 +203,7 @@ class PromptService:
             project_id,
             new_prompt.type,
         )
-        return prompt_db_to_schema(new_prompt)
+        return prompt_db_to_schema(new_prompt, include_thumbnail=False)
 
     def delete_prompt(self, project_id: UUID, prompt_id: UUID) -> None:
         """
@@ -257,7 +261,7 @@ class PromptService:
             update_data: Prompt update data.
 
         Returns:
-            Updated prompt schema.
+            Updated prompt schema without thumbnail (use list endpoint for thumbnails).
 
         Raises:
             ResourceNotFoundError: If project, prompt, label, or frame doesn't exist.
@@ -311,7 +315,7 @@ class PromptService:
             project_id,
             prompt.type,
         )
-        return prompt_db_to_schema(prompt)
+        return prompt_db_to_schema(prompt, include_thumbnail=False)
 
     def _handle_visual_prompt_update(
         self, prompt: PromptDB, update_data: VisualPromptUpdateSchema, project_id: UUID

@@ -19,7 +19,12 @@ from domain.errors import (
     ResourceUpdateConflictError,
 )
 from domain.services.schemas.base import Pagination
-from domain.services.schemas.prompt import PromptsListSchema, TextPromptSchema, VisualPromptSchema
+from domain.services.schemas.prompt import (
+    PromptsListSchema,
+    TextPromptSchema,
+    VisualPromptListItemSchema,
+    VisualPromptSchema,
+)
 
 PROJECT_ID = uuid4()
 PROJECT_ID_STR = str(PROJECT_ID)
@@ -89,7 +94,7 @@ def test_get_all_prompts(client, behavior, expected_status, expected_count):
             if behavior == "some_prompts":
                 prompts = [
                     TextPromptSchema(id=PROMPT_ID, type=PromptType.TEXT, content="find red car"),
-                    VisualPromptSchema(
+                    VisualPromptListItemSchema(
                         id=SECOND_PROMPT_ID,
                         type=PromptType.VISUAL,
                         frame_id=FRAME_ID,
@@ -125,6 +130,7 @@ def test_get_all_prompts(client, behavior, expected_status, expected_count):
     if behavior == "some_prompts":
         assert prompts_list[0]["type"] == "TEXT"
         assert prompts_list[1]["type"] == "VISUAL"
+        # Thumbnail should be present in list response
         assert "thumbnail" in prompts_list[1]
         assert prompts_list[1]["thumbnail"] == "data:image/jpeg;base64,fake"
 
@@ -176,7 +182,6 @@ def test_get_prompt(client, prompt_type, behavior, expected_status):
                     type=PromptType.VISUAL,
                     frame_id=FRAME_ID,
                     annotations=[],
-                    thumbnail="data:image/jpeg;base64,fake",
                 )
             if behavior == "notfound":
                 raise ResourceNotFoundError(resource_type=ResourceType.PROMPT, resource_id=str(prompt_id))
@@ -195,8 +200,8 @@ def test_get_prompt(client, prompt_type, behavior, expected_status):
             assert_text_prompt_schema(data, PROMPT_ID_STR, "find red car")
         else:
             assert_visual_prompt_schema(data, PROMPT_ID_STR, FRAME_ID_STR)
-            assert "thumbnail" in data
-            assert data["thumbnail"] == "data:image/jpeg;base64,fake"
+            # Thumbnail should NOT be present in detail response
+            assert data.get("thumbnail") is None
     else:
         assert "detail" in resp.json()
 
@@ -205,7 +210,7 @@ def test_get_prompt(client, prompt_type, behavior, expected_status):
 @pytest.mark.parametrize(
     "behavior,expected_status,expect_location",
     [
-        ("success", 201, False),  # Changed: FastAPI doesn't auto-set Location header
+        ("success", 201, False),
         ("text_duplicate", 409, False),
         ("error", 500, False),
     ],
@@ -248,7 +253,7 @@ def test_create_text_prompt(client, behavior, expected_status, expect_location):
 @pytest.mark.parametrize(
     "behavior,expected_status,expect_location",
     [
-        ("success", 201, False),  # Changed: FastAPI doesn't auto-set Location header
+        ("success", 201, False),
         ("frame_not_found", 404, False),
         ("label_not_found", 404, False),
         ("frame_duplicate", 409, False),
@@ -272,7 +277,6 @@ def test_create_visual_prompt(client, behavior, expected_status, expect_location
                     type=PromptType.VISUAL,
                     frame_id=FRAME_ID,
                     annotations=create_data.annotations,
-                    thumbnail="data:image/jpeg;base64,fake",
                 )
             if behavior == "frame_not_found":
                 raise ResourceNotFoundError(
@@ -314,8 +318,8 @@ def test_create_visual_prompt(client, behavior, expected_status, expect_location
     if behavior == "success":
         response_data = resp.json()
         assert_visual_prompt_schema(response_data, PROMPT_ID_STR, FRAME_ID_STR)
-        assert "thumbnail" in response_data
-        assert response_data["thumbnail"] == "data:image/jpeg;base64,fake"
+        # Thumbnail should NOT be present in create response
+        assert response_data.get("thumbnail") is None
     else:
         assert "detail" in resp.json()
 
@@ -395,7 +399,6 @@ def test_update_visual_prompt(client, behavior, expected_status):
                     type=PromptType.VISUAL,
                     frame_id=NEW_FRAME_ID,
                     annotations=update_data.annotations or [],
-                    thumbnail="data:image/jpeg;base64,updated",
                 )
             if behavior == "notfound":
                 raise ResourceNotFoundError(resource_type=ResourceType.PROMPT, resource_id=str(prompt_id))
@@ -426,8 +429,6 @@ def test_update_visual_prompt(client, behavior, expected_status):
     if behavior == "success":
         data = resp.json()
         assert_visual_prompt_schema(data, PROMPT_ID_STR, NEW_FRAME_ID_STR)
-        assert "thumbnail" in data
-        assert data["thumbnail"] == "data:image/jpeg;base64,updated"
     else:
         assert "detail" in resp.json()
 
