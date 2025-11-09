@@ -35,7 +35,7 @@ function getNewValue<State>(newState: SetStateAction<State>, value: State) {
     return computeState(value);
 }
 
-export type UseUndoRedoState<State> = [State, SetStateWrapper<State>, UndoRedoActions<State>];
+type UseUndoRedoState<State> = [State, SetStateWrapper<State>, UndoRedoActions<State>];
 
 function useUndoRedoState<State>(initialState: State | (() => State)): UseUndoRedoState<State> {
     const parentUndoRedo = useParentUndoRedo();

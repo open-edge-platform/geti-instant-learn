@@ -36,7 +36,7 @@ class Settings(BaseSettings):
 
     # Database
     current_dir: Path = Path(__file__).parent.resolve()
-    db_data_dir: Path = Field(default=current_dir / "data", alias="DB_DATA_DIR")
+    db_data_dir: Path = Field(default=current_dir.parent / ".data", alias="DB_DATA_DIR")
     db_filename: str = "geti_prompt.db"
 
     @property
@@ -48,7 +48,7 @@ class Settings(BaseSettings):
 
     # Alembic
     alembic_config_path: str = str(current_dir / "alembic.ini")
-    alembic_script_location: str = str(current_dir / "alembic")
+    alembic_script_location: str = str(current_dir / "domain" / "alembic")
 
     # Proxy settings
     no_proxy: str = Field(default="localhost,127.0.0.1,::1", alias="no_proxy")

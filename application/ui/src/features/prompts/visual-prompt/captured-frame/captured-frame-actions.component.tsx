@@ -7,8 +7,7 @@ import { useRef } from 'react';
 
 import { DOMRefValue, Flex } from '@geti/ui';
 
-import { CanvasSettings } from '../../../annotator/canvas-settings/canvas-settings.component';
-import { AnnotatorTools } from '../../../annotator/tools/annotator-tools.component';
+import { Settings } from '../../../annotator/settings/settings.component';
 import { FullScreenMode } from './full-screen-mode.component';
 import { ToggleAnnotationsVisibility } from './toggle-annotations-visibility.component';
 import { UndoRedo } from './undo-redo.component';
@@ -19,13 +18,11 @@ export const CapturedFrameActions = () => {
 
     return (
         <Flex height={'100%'} alignItems={'center'} justifyContent={'end'} gap={'size-50'} ref={ref}>
-            <AnnotatorTools />
-
             <UndoRedo />
 
             <ToggleAnnotationsVisibility />
 
-            <CanvasSettings ref={ref} />
+            <Settings ref={ref} />
 
             <ZoomManagement />
 

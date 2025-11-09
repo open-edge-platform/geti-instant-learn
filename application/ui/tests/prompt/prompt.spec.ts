@@ -3,27 +3,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { WebcamConfig } from '@geti-prompt/api';
+import { WebcamSourceType } from '@geti-prompt/api';
 import { expect, http, test } from '@geti-prompt/test-fixtures';
 
 import { LabelsPage } from '../labels/labels-page';
 import { registerApiLabels } from '../labels/mocks';
 import { initializeWebRTC } from './initialize-webrtc';
-import { StreamPage } from './stream-page';
 
 const DEVICE_ID = 10;
-const WEBCAM_SOURCE: WebcamConfig = {
+const WEBCAM_SOURCE: WebcamSourceType = {
     connected: true,
     id: 'webcam-id',
     config: {
+        seekable: false,
         device_id: DEVICE_ID,
         source_type: 'webcam',
     },
 };
 
-test('Prompt flow', async ({ network, page, context }) => {
+test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage }) => {
     await initializeWebRTC({ page, context, network });
-    const streamPage = new StreamPage(page);
 
     registerApiLabels({ network });
 
@@ -62,7 +61,7 @@ test('Prompt flow', async ({ network, page, context }) => {
     await test.step('Captures frame', async () => {
         await streamPage.captureFrame();
 
-        await expect(page.getByAltText('Captured frame')).toBeVisible();
+        await expect(annotatorPage.getCapturedFrame()).toBeVisible();
     });
 
     await test.step('Adds annotation & labels', async () => {

@@ -35,11 +35,7 @@ class ResizeLongestSide:
         target_size = self.get_preprocess_shape(image.shape[0], image.shape[1], self.target_length)
         return np.array(resize(to_pil_image(image), target_size))
 
-    def apply_coords(
-        self,
-        coords: np.ndarray,
-        original_size: tuple[int, ...],
-    ) -> np.ndarray:
+    def apply_coords(self, coords: np.ndarray, original_size: tuple[int, ...]) -> np.ndarray:
         """Resizes coordinates to the longest side 'target_length'.
 
         Args:
@@ -60,11 +56,7 @@ class ResizeLongestSide:
         coords[..., 1] *= new_h / old_h
         return coords
 
-    def apply_boxes(
-        self,
-        boxes: np.ndarray,
-        original_size: tuple[int, ...],
-    ) -> np.ndarray:
+    def apply_boxes(self, boxes: np.ndarray, original_size: tuple[int, ...]) -> np.ndarray:
         """Resizes boxes to the longest side 'target_length'.
 
         Args:
@@ -77,10 +69,7 @@ class ResizeLongestSide:
         boxes = self.apply_coords(boxes.reshape(-1, 2, 2), original_size)
         return boxes.reshape(-1, 4)
 
-    def apply_image_torch(
-        self,
-        image: tv_tensors.Image,
-    ) -> torch.Tensor:
+    def apply_image_torch(self, image: tv_tensors.Image) -> torch.Tensor:
         """Expects batched images with shape BxCxHxW and float format.
 
         This transformation may not exactly match apply_image. apply_image is
@@ -104,11 +93,7 @@ class ResizeLongestSide:
             antialias=True,
         )
 
-    def apply_coords_torch(
-        self,
-        coords: torch.Tensor,
-        original_size: tuple[int, ...],
-    ) -> torch.Tensor:
+    def apply_coords_torch(self, coords: torch.Tensor, original_size: tuple[int, ...]) -> torch.Tensor:
         """Resizes coordinates to the longest side 'target_length'.
 
         Args:
@@ -129,11 +114,7 @@ class ResizeLongestSide:
         coords[..., 1] *= new_h / old_h
         return coords
 
-    def apply_boxes_torch(
-        self,
-        boxes: torch.Tensor,
-        original_size: tuple[int, ...],
-    ) -> torch.Tensor:
+    def apply_boxes_torch(self, boxes: torch.Tensor, original_size: tuple[int, ...]) -> torch.Tensor:
         """Resizes boxes to the longest side 'target_length'.
 
         Args:
@@ -146,11 +127,12 @@ class ResizeLongestSide:
         boxes = self.apply_coords_torch(boxes.reshape(-1, 2, 2), original_size)
         return boxes.reshape(-1, 4)
 
-    def apply_inverse_coords_torch(
-        self,
-        coords: torch.Tensor,
-        original_size: tuple[int, ...],
-    ) -> torch.Tensor:
+    def apply_inverse_boxes(self, boxes: torch.Tensor, original_size: tuple[int, ...]) -> torch.Tensor:
+        """Inverts the box transformation back to the original image size."""
+        boxes = self.apply_inverse_coords_torch(boxes.reshape(-1, 2, 2), original_size)
+        return boxes.reshape(-1, 4)
+
+    def apply_inverse_coords_torch(self, coords: torch.Tensor, original_size: tuple[int, ...]) -> torch.Tensor:
         """Inverts the coordinate transformation back to the original image size."""
         old_h, old_w = original_size
         new_h, new_w = self.get_preprocess_shape(
@@ -164,11 +146,7 @@ class ResizeLongestSide:
         return coords
 
     @staticmethod
-    def get_preprocess_shape(
-        oldh: int,
-        oldw: int,
-        long_side_length: int,
-    ) -> tuple[int, int]:
+    def get_preprocess_shape(oldh: int, oldw: int, long_side_length: int) -> tuple[int, int]:
         """Compute the output size given input size and target long side length."""
         scale = long_side_length * 1.0 / max(oldh, oldw)
         newh, neww = oldh * scale, oldw * scale

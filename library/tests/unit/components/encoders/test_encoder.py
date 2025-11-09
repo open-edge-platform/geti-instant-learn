@@ -11,7 +11,6 @@ import torch
 from torchvision.tv_tensors import Image
 
 from getiprompt.components.encoders import AVAILABLE_IMAGE_ENCODERS, ImageEncoder
-from getiprompt.types import Features, Masks, Priors
 
 
 class TestEncoder:
@@ -80,30 +79,6 @@ class TestEncoder:
         pytest.assume(encoder.processor == self.mock_processor)
         pytest.assume(encoder.input_size == expected_input_size)
         pytest.assume(encoder.patch_size == expected_patch_size)
-        pytest.assume(hasattr(encoder, "mask_transform"))
-
-    @patch("getiprompt.utils.optimization.optimize_model")
-    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
-    def test_mask_transform_creation(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
-        """Test that mask transform is created correctly."""
-        # Setup mocks with proper structure
-        mock_model_instance = self._setup_mock_model(mock_model, mock_processor)
-        mock_optimize.return_value = mock_model_instance
-
-        # Create encoder
-        encoder = ImageEncoder(model_id="dinov2_small", device="cpu", input_size=224)
-
-        # Test that mask transform is a Compose object
-        pytest.assume(hasattr(encoder.mask_transform, "transforms"))
-
-        # Test mask transform with dummy data
-        dummy_mask = torch.randn(224, 224)
-        result = encoder.mask_transform(dummy_mask)
-
-        # Check that result has correct shape
-        expected_shape = (1, 14, 14)  # (224/16, 224/16)
-        pytest.assume(result.shape == expected_shape)
 
     @patch("getiprompt.utils.optimization.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
@@ -121,16 +96,12 @@ class TestEncoder:
         images = [Image(np.zeros((224, 224, 3), dtype=np.uint8))]
 
         # Test encoder call
-        features, masks = encoder(images, priors_per_image=None)
+        features = encoder(images)
 
         # Check outputs
-        expected_value = 1
-        pytest.assume(len(features) == expected_value)
-        pytest.assume(len(masks) == expected_value)
-        pytest.assume(isinstance(features[0], Features))
-        pytest.assume(isinstance(masks[0], Masks))
-        expected_value = 0
-        pytest.assume(len(masks[0].data) == expected_value)  # Empty masks
+        pytest.assume(isinstance(features, torch.Tensor))
+        expected_batch_size = 1
+        pytest.assume(features.shape[0] == expected_batch_size)
 
     @staticmethod
     def test_model_id_validation() -> None:
@@ -294,92 +265,6 @@ class TestEncoder:
         pytest.assume(call_args[1]["compile_models"] is True)
         pytest.assume(call_args[1]["benchmark_inference_speed"] is True)
 
-    @patch("getiprompt.utils.optimization.optimize_model")
-    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
-    def test_mask_transform_with_different_sizes(
-        self,
-        mock_processor: Mock,
-        mock_model: Mock,
-        mock_optimize: Mock,
-    ) -> None:
-        """Test mask transform with different input sizes."""
-        # Setup mocks with proper structure
-        mock_model_instance = self._setup_mock_model(mock_model, mock_processor)
-        mock_optimize.return_value = mock_model_instance
-
-        # Test with different mask sizes
-        for input_size in [224, 384, 512]:
-            encoder = ImageEncoder(model_id="dinov2_small", device="cpu", input_size=input_size)
-
-            # Test mask transform
-            dummy_mask = torch.randn(input_size, input_size)
-            result = encoder.mask_transform(dummy_mask)
-
-            # Check output shape
-            expected_size = input_size // 16
-            pytest.assume(result.shape == (1, expected_size, expected_size))
-
-    @patch("getiprompt.utils.optimization.optimize_model")
-    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
-    def test_encoder_with_priors(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
-        """Test encoder call with priors."""
-        # Setup mocks with proper structure
-        mock_model_instance = self._setup_mock_model(mock_model, mock_processor)
-        mock_optimize.return_value = mock_model_instance
-
-        # Create encoder
-        encoder = ImageEncoder(model_id="dinov2_small", device="cpu", input_size=224)
-
-        # Create test data with priors
-        images = [Image(np.zeros((224, 224, 3), dtype=np.uint8))]
-        priors = [Priors()]
-
-        # Add a simple mask to priors
-        mask = torch.zeros(224, 224)
-        mask[50:100, 50:100] = 1  # Small square mask
-        priors[0].masks.add(mask=mask, class_id=1)
-
-        # Test encoder call
-        features, masks = encoder(images, priors_per_image=priors)
-
-        # Check outputs
-        expected_value = 1
-        pytest.assume(len(features) == expected_value)
-        pytest.assume(len(masks) == expected_value)
-        pytest.assume(isinstance(features[0], Features))
-        pytest.assume(isinstance(masks[0], Masks))
-        pytest.assume(len(masks[0].data) > 0)  # Should have masks
-
-    @patch("getiprompt.utils.optimization.optimize_model")
-    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
-    def test_extract_embeddings_method(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
-        """Test the _extract_embeddings method."""
-        # Setup mocks with proper structure
-        mock_model_instance = self._setup_mock_model(mock_model, mock_processor)
-        mock_optimize.return_value = mock_model_instance
-
-        # Create encoder
-        encoder = ImageEncoder(model_id="dinov2_small", device="cpu", input_size=224)
-
-        # Create test tensors
-        test_tensors = [torch.randn(3, 224, 224)]
-
-        # Mock processor output
-        mock_processor.return_value = {"pixel_values": torch.randn(1, 3, 224, 224)}
-
-        # Test _extract_embeddings method
-        features = encoder._extract_embeddings(test_tensors)  # noqa: SLF001
-
-        # Check output
-        expected_bs = 1
-        expected_feature_dim = 1024
-        pytest.assume(isinstance(features, list))
-        pytest.assume(len(features) == expected_bs)  # batch size
-        pytest.assume(features[0].global_features.shape[-1] == expected_feature_dim)  # feature dimension
-
     @staticmethod
     def test_error_handling_invalid_model_id() -> None:
         """Test error handling for invalid model ID."""
@@ -411,46 +296,23 @@ class TestEncoderIntegration:
         rng = np.random.default_rng(42)
         test_image = Image(rng.integers(0, 255, (224, 224, 3), dtype=np.uint8))
 
-        # Test 1: Forward method without priors
-        features, masks = encoder.forward([test_image], priors_per_image=None)
+        # Test forward method
+        features = encoder.forward([test_image])
 
         # Verify outputs
-        pytest.assume(len(features) == 1)
-        pytest.assume(len(masks) == 1)
-        pytest.assume(isinstance(features[0], Features))
-        pytest.assume(isinstance(masks[0], Masks))
+        pytest.assume(isinstance(features, torch.Tensor))
+        expected_batch_size = 1
+        pytest.assume(features.shape[0] == expected_batch_size)
 
         # Verify feature shape and properties
-        feature_tensor = features[0].global_features
         expected_patches = (224 // encoder.patch_size) ** 2
-        pytest.assume(feature_tensor.shape == (expected_patches, 384))  # dinov2_small has 384 dims
+        pytest.assume(features.shape[1] == expected_patches)
+        pytest.assume(features.shape[2] == 384)  # dinov2_small has 384 dims
 
         # Check L2 normalization
-        feature_norms = torch.norm(feature_tensor.float(), dim=-1)
-        expected_norms = torch.ones(expected_patches, dtype=torch.float32)
+        feature_norms = torch.norm(features.float(), dim=-1)
+        expected_norms = torch.ones(expected_batch_size, expected_patches, dtype=torch.float32)
         pytest.assume(torch.allclose(feature_norms, expected_norms, atol=1e-2))
-
-        # Test 2: Forward method with priors
-        priors = [Priors()]
-        mask = torch.zeros(224, 224)
-        mask[50:150, 50:150] = 1  # 100x100 square mask
-        priors[0].masks.add(mask=mask, class_id=1)
-
-        features_with_priors, masks_with_priors = encoder.forward([test_image], priors_per_image=priors)
-
-        # Verify outputs with priors
-        pytest.assume(len(features_with_priors) == 1)
-        pytest.assume(len(masks_with_priors) == 1)
-        pytest.assume(isinstance(features_with_priors[0], Features))
-        pytest.assume(isinstance(masks_with_priors[0], Masks))
-
-        # Verify that local features were extracted
-        pytest.assume(len(features_with_priors[0].local_features) > 0)
-        pytest.assume(1 in features_with_priors[0].local_features)
-
-        # Verify mask was processed
-        pytest.assume(len(masks_with_priors[0].data) > 0)
-        pytest.assume(1 in masks_with_priors[0].data)
 
     @pytest.mark.slow
     @pytest.mark.integration
@@ -486,14 +348,14 @@ class TestEncoderIntegration:
         image2 = Image(image_data.copy())
 
         # Extract features
-        features1, _ = encoder.forward([image1], priors_per_image=None)
-        features2, _ = encoder.forward([image2], priors_per_image=None)
+        features1 = encoder.forward([image1])
+        features2 = encoder.forward([image2])
 
         # Features should be identical for identical images
-        pytest.assume(torch.allclose(features1[0].global_features, features2[0].global_features, atol=1e-6))
+        pytest.assume(torch.allclose(features1, features2, atol=1e-6))
 
         # Features should be normalized
-        feature_norms = torch.norm(features1[0].global_features.float(), dim=-1)
+        feature_norms = torch.norm(features1.float(), dim=-1)
         expected_norms = torch.ones_like(feature_norms, dtype=torch.float32)
         pytest.assume(
             torch.allclose(feature_norms, expected_norms, atol=1e-2),
@@ -513,29 +375,8 @@ class TestEncoderIntegration:
         # Test feature extraction
         rng = np.random.default_rng(42)
         test_image = Image(rng.integers(0, 255, (224, 224, 3), dtype=np.uint8))
-        features, _ = encoder_base.forward([test_image], priors_per_image=None)
+        features = encoder_base.forward([test_image])
 
         # Verify feature dimension
         expected_patches = (224 // encoder_base.patch_size) ** 2
-        pytest.assume(features[0].global_features.shape == (expected_patches, 768))  # patches, 768 dims
-
-    @pytest.mark.slow
-    @pytest.mark.integration
-    @staticmethod
-    def test_error_handling_with_real_model() -> None:
-        """Test error handling with real model."""
-        encoder = ImageEncoder(model_id="dinov2_small", device="cpu", input_size=224)
-
-        # Test with very small mask that should fail
-        rng = np.random.default_rng(42)
-        test_image = Image(rng.integers(0, 255, (224, 224, 3), dtype=np.uint8))
-        priors = [Priors()]
-
-        # Create a mask that's too small (1x1 pixel)
-        mask = torch.zeros(224, 224)
-        mask[100, 100] = 1  # Single pixel
-        priors[0].masks.add(mask=mask, class_id=1)
-
-        # This should raise an error
-        with pytest.raises(ValueError, match="The reference mask is too small to detect any features"):
-            encoder.forward([test_image], priors_per_image=priors)
+        pytest.assume(features.shape == (1, expected_patches, 768))  # batch, patches, 768 dims

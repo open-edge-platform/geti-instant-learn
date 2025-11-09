@@ -8,17 +8,19 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-import rest.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
-from core.runtime.dispatcher import ConfigChangeDispatcher
-from core.runtime.pipeline_manager import PipelineManager
-from dependencies import get_session_factory, run_db_migrations
-from routers import projects_router
+import api.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
+from api.error_handler import custom_exception_handler
+from api.routers import projects_router
+from domain.db.engine import get_session_factory, run_db_migrations
+from domain.dispatcher import ConfigChangeDispatcher
+from runtime.pipeline_manager import PipelineManager
+from runtime.webrtc.manager import WebRTCManager
 from settings import get_settings
-from webrtc.manager import WebRTCManager
 
 settings = get_settings()
 
@@ -64,6 +66,9 @@ app = FastAPI(
     # TODO add contact info
     # TODO add license
 )
+
+app.add_exception_handler(Exception, custom_exception_handler)
+app.add_exception_handler(RequestValidationError, custom_exception_handler)
 
 raw = os.getenv("CORS_ORIGINS", "http://localhost:3000, http://localhost:9100")
 allowed_origins = [o.strip() for o in raw.split(",") if o.strip()]

@@ -42,9 +42,6 @@ class AllFeaturesSelector(FeatureSelector):
         3
     """
 
-    def __init__(self) -> None:
-        super().__init__()
-
     def forward(self, features_per_image: list[Features]) -> Features:
         """This method merges all features over all prior images without averaging.
 

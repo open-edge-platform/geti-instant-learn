@@ -65,8 +65,7 @@ class Dataset(TorchDataset, ABC):
     def name(self) -> str:
         """Get the name of the dataset."""
         class_name = self.__class__.__name__
-        class_name = class_name.removesuffix("Dataset")
-        return class_name
+        return class_name.removesuffix("Dataset")
 
     @property
     def df(self) -> pl.DataFrame:
@@ -137,9 +136,22 @@ class Dataset(TorchDataset, ABC):
               - Testability (can test transforms separately)
               - Performance (preprocessing once vs. per-batch)
               - Clarity (separation of concerns)
+
+        Args:
+            index: The index of the sample to get.
+
+        Returns:
+            Sample: The sample at the given index.
+
+        Raises:
+            IndexError: If the index is out of range.
         """
         # Get raw sample from DataFrame
-        raw_sample = self.df.row(index, named=True)
+        try:
+            raw_sample = self.df.row(index, named=True)
+        except pl.exceptions.OutOfBoundsError as e:
+            msg = f"Index {index} out of range for dataset of length {len(self)}"
+            raise IndexError(msg) from e
 
         # Load image (once per sample!)
         # Returns HWC format for model preprocessors (HuggingFace, SAM)

@@ -45,7 +45,17 @@ dependencies = [
     "jsonargparse",
     "sam-2",
     "ftfy",
+]
+
+[dependency-groups]
+dev = [
+    "pytest~=8.3",
     "pytest-assume>=2.4.3",
+    "ruff~=0.11",
+    "pre-commit~=4.1",
+    "mypy~=1.15",
+    "pytest-cov==2.11.1",
+    "pytest-html~=4.0.0",
 ]
 
 [tool.uv.sources]

@@ -433,7 +433,6 @@ dependencies = [
     { name = "polars" },
     { name = "pot" },
     { name = "pycocotools" },
-    { name = "pytest-assume" },
     { name = "requests" },
     { name = "rich" },
     { name = "sam-2" },
@@ -466,7 +465,6 @@ requires-dist = [
     { name = "pre-commit", marker = "extra == 'dev'", specifier = "==4.2.0" },
     { name = "pycocotools", specifier = "==2.0.9" },
     { name = "pytest", marker = "extra == 'dev'", specifier = "==8.4.0" },
-    { name = "pytest-assume", specifier = ">=2.4.3" },
     { name = "pytest-assume", marker = "extra == 'dev'" },
     { name = "requests", specifier = "==2.32.4" },
     { name = "rich", specifier = "==14.0.0" },
@@ -484,6 +482,17 @@ requires-dist = [
     { name = "xformers", marker = "extra == 'extras'", specifier = "==0.0.30", index = "https://download.pytorch.org/whl/cu126" },
 ]
 provides-extras = ["extras", "notebook", "dev", "dev-ui", "full"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = "~=1.15" },
+    { name = "pre-commit", specifier = "~=4.1" },
+    { name = "pytest", specifier = "~=8.3" },
+    { name = "pytest-assume", specifier = ">=2.4.3" },
+    { name = "pytest-cov", specifier = "==2.11.1" },
+    { name = "pytest-html", specifier = "~=4.0.0" },
+    { name = "ruff", specifier = "~=0.11" },
+]
 
 [[package]]
 name = "google-crc32c"
@@ -512,6 +521,8 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/19/0d/6660d55f7373b2ff8152401a83e02084956da23ae58cddbfb0b330978fe9/greenlet-3.2.4-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:3b3812d8d0c9579967815af437d96623f45c0f2ae5f04e366de62a12d83a8fb0", size = 607586, upload-time = "2025-08-07T13:18:28.544Z" },
     { url = "https://files.pythonhosted.org/packages/8e/1a/c953fdedd22d81ee4629afbb38d2f9d71e37d23caace44775a3a969147d4/greenlet-3.2.4-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:abbf57b5a870d30c4675928c37278493044d7c14378350b3aa5d484fa65575f0", size = 1123281, upload-time = "2025-08-07T13:42:39.858Z" },
     { url = "https://files.pythonhosted.org/packages/3f/c7/12381b18e21aef2c6bd3a636da1088b888b97b7a0362fac2e4de92405f97/greenlet-3.2.4-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:20fb936b4652b6e307b8f347665e2c615540d4b42b3b4c8a321d8286da7e520f", size = 1151142, upload-time = "2025-08-07T13:18:22.981Z" },
+    { url = "https://files.pythonhosted.org/packages/27/45/80935968b53cfd3f33cf99ea5f08227f2646e044568c9b1555b58ffd61c2/greenlet-3.2.4-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:ee7a6ec486883397d70eec05059353b8e83eca9168b9f3f9a361971e77e0bcd0", size = 1564846, upload-time = "2025-11-04T12:42:15.191Z" },
+    { url = "https://files.pythonhosted.org/packages/69/02/b7c30e5e04752cb4db6202a3858b149c0710e5453b71a3b2aec5d78a1aab/greenlet-3.2.4-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:326d234cbf337c9c3def0676412eb7040a35a768efc92504b947b3e9cfc7543d", size = 1633814, upload-time = "2025-11-04T12:42:17.175Z" },
     { url = "https://files.pythonhosted.org/packages/e9/08/b0814846b79399e585f974bbeebf5580fbe59e258ea7be64d9dfb253c84f/greenlet-3.2.4-cp312-cp312-win_amd64.whl", hash = "sha256:a7d4e128405eea3814a12cc2605e0e6aedb4035bf32697f72deca74de4105e02", size = 299899, upload-time = "2025-08-07T13:38:53.448Z" },
 ]
 
@@ -1412,19 +1423,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/08/ba/45911d754e8eba3d5a841a5ce61a65a685ff1798421ac054f85aa8747dfb/pytest-8.4.1.tar.gz", hash = "sha256:7c67fd69174877359ed9371ec3af8a3d2b04741818c51e5e99cc1742251fa93c", size = 1517714, upload-time = "2025-06-18T05:48:06.109Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/29/16/c8a903f4c4dffe7a12843191437d7cd8e32751d5de349d45d3fe69544e87/pytest-8.4.1-py3-none-any.whl", hash = "sha256:539c70ba6fcead8e78eebbf1115e8b589e7565830d7d006a8723f19ac8a0afb7", size = 365474, upload-time = "2025-06-18T05:48:03.955Z" },
-]
-
-[[package]]
-name = "pytest-assume"
-version = "2.4.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pytest" },
-    { name = "six" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/4a/95/28dcc584679367b15360e1b7b3167311f80cc735b8b2f5ecfa89b7319d10/pytest-assume-2.4.3.tar.gz", hash = "sha256:983e90537660fd7aa18bb554693523020272e7edeee3e40435593297bcc6347e", size = 8695, upload-time = "2021-06-24T17:13:00.321Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e8/5d/ecd54af3d3dc3f69e9cf527449a51bd5ca39cd47aaeab9a74e55603a9ce1/pytest_assume-2.4.3-py3-none-any.whl", hash = "sha256:09074220213b87cf1f400609701a44b75078b4e69588c7227e061ff9b3ecf54b", size = 5980, upload-time = "2021-06-24T17:12:59.186Z" },
 ]
 
 [[package]]

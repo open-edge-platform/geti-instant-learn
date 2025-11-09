@@ -1,0 +1,156 @@
+#  Copyright (C) 2025 Intel Corporation
+#  SPDX-License-Identifier: Apache-2.0
+
+import logging
+import queue
+from contextlib import contextmanager
+from uuid import UUID
+
+from sqlalchemy.orm import Session, sessionmaker
+
+from domain.dispatcher import (
+    ComponentConfigChangeEvent,
+    ConfigChangeDispatcher,
+    ConfigChangeEvent,
+    ProjectActivationEvent,
+    ProjectDeactivationEvent,
+)
+from domain.services.project import ProjectService
+from runtime.core.components.pipeline import Pipeline
+from runtime.core.components.schemas.processor import InputData
+from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
+
+logger = logging.getLogger(__name__)
+
+
+class PipelineManager:
+    """
+    Glues the app configuration and runtime layers together by managing the active Pipeline.
+
+    This class listens for configuration change events and translates them into
+    lifecycle actions for the running Job instance, such as starting, stopping,
+    or performing a live configuration update.
+    """
+
+    def __init__(self, event_dispatcher: ConfigChangeDispatcher, session_factory: sessionmaker[Session]):
+        self._event_dispatcher = event_dispatcher
+        self._session_factory = session_factory
+        self._pipeline: Pipeline | None = None
+
+    @contextmanager
+    def _project_service(self):
+        """
+        Context manager yielding a short-lived ProjectService, ensures session cleanup.
+        """
+        with self._session_factory() as session:
+            svc = ProjectService(session=session, config_change_dispatcher=self._event_dispatcher)
+            yield svc
+
+    def start(self) -> None:
+        """
+        Start pipeline for active project if present; subscribe to config events.
+        """
+        with self._project_service() as svc:
+            cfg = svc.get_active_pipeline_config()
+        if cfg:
+            self._pipeline = Pipeline(pipeline_conf=cfg)
+            self._pipeline.start()
+            logger.info("Pipeline started: project_id=%s", cfg.project_id)
+        else:
+            logger.info("No active project found at startup.")
+        self._event_dispatcher.subscribe(self.on_config_change)
+
+    def stop(self) -> None:
+        """
+        Stop and dispose the running pipeline.
+        """
+        if self._pipeline:
+            self._pipeline.stop()
+            self._pipeline = None
+
+    def on_config_change(self, event: ConfigChangeEvent) -> None:
+        """
+        React to configuration change events.
+        """
+        match event:
+            case ProjectActivationEvent() as e:
+                with self._project_service() as svc:
+                    cfg = svc.get_pipeline_config(e.project_id)
+                if self._pipeline:
+                    self._pipeline.stop()
+                self._pipeline = Pipeline(pipeline_conf=cfg)
+                self._pipeline.start()
+                logger.info("Pipeline started for activated project %s", e.project_id)
+
+            case ProjectDeactivationEvent() as e:
+                if self._pipeline and self._pipeline.config.project_id == e.project_id:
+                    self._pipeline.stop()
+                    self._pipeline = None
+                    logger.info("Pipeline stopped due to project deactivation %s", e.project_id)
+
+            case ComponentConfigChangeEvent() as e:
+                if self._pipeline and self._pipeline.config.project_id == e.project_id:
+                    with self._project_service() as svc:
+                        new_cfg = svc.get_pipeline_config(self._pipeline.config.project_id)
+                    self._pipeline.update_config(new_cfg)
+                    logger.info("Pipeline config updated for project %s", e.project_id)
+
+    def register_webrtc(self, project_id: UUID) -> queue.Queue:
+        """Register webRTC in pipeline."""
+        if self._pipeline is None:
+            raise PipelineNotActiveError("No active pipeline to register to.")
+        if project_id != self._pipeline.config.project_id:
+            raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
+        return self._pipeline.register_webrtc()
+
+    def unregister_webrtc(self, target_queue: queue.Queue, project_id: UUID) -> None:
+        """Unregister webRTC in pipeline."""
+        if self._pipeline is None:
+            raise PipelineNotActiveError("No active pipeline to unregister from.")
+        if project_id != self._pipeline.config.project_id:
+            raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
+        return self._pipeline.unregister_webrtc(queue=target_queue)
+
+    def register_inbound_consumer(self, project_id: UUID) -> queue.Queue[InputData]:
+        """
+        Register a consumer for raw input frames from the source.
+
+        Args:
+            project_id: The project ID to verify against the active pipeline.
+
+        Returns:
+            A queue that will receive raw input frames.
+
+        Raises:
+            PipelineNotActiveError: If no pipeline is running.
+            PipelineProjectMismatchError: If project_id doesn't match the active pipeline.
+        """
+        if self._pipeline is None:
+            raise PipelineNotActiveError("No active pipeline to register inbound consumer.")
+        if project_id != self._pipeline.config.project_id:
+            raise PipelineProjectMismatchError(
+                f"Project ID {project_id} does not match the active pipeline's project ID "
+                f"{self._pipeline.config.project_id}."
+            )
+        return self._pipeline.register_inbound_consumer()
+
+    def unregister_inbound_consumer(self, project_id: UUID, target_queue: queue.Queue[InputData]) -> None:
+        """
+        Unregister a consumer for raw input frames.
+
+        Args:
+            project_id: The project ID to verify against the active pipeline.
+            target_queue: The queue to unregister.
+
+        Raises:
+            PipelineNotActiveError: If no pipeline is running.
+            PipelineProjectMismatchError: If project_id doesn't match the active pipeline.
+        """
+        if self._pipeline is None:
+            raise PipelineNotActiveError("No active pipeline to unregister inbound consumer from.")
+        if project_id != self._pipeline.config.project_id:
+            raise PipelineProjectMismatchError(
+                f"Project ID {project_id} does not match the active pipeline's project ID "
+                f"{self._pipeline.config.project_id}."
+            )
+        self._pipeline.unregister_inbound_consumer(target_queue)

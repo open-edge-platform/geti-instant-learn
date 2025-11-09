@@ -64,7 +64,7 @@ class PerSegDataset(Dataset):
         """Initialize the PerSegDataset."""
         super().__init__(n_shots=n_shots)
 
-        self.root = Path(root)
+        self.root = Path(root).expanduser()
         self.categories_filter = categories
 
         # Load the DataFrame

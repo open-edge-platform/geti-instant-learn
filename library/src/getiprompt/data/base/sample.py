@@ -116,13 +116,14 @@ class Sample:
     """
 
     # Required fields
-    image: np.ndarray | tv_tensors.Image
+    image: np.ndarray | tv_tensors.Image | None = None
     image_path: str | None = None
 
     # Optional annotation fields (defaults to None)
     masks: np.ndarray | torch.Tensor | None = None
     bboxes: np.ndarray | torch.Tensor | None = None
     points: np.ndarray | torch.Tensor | None = None
+    scores: np.ndarray | torch.Tensor | None = None
 
     # Optional metadata fields (defaults to None)
     categories: list[str] | None = None

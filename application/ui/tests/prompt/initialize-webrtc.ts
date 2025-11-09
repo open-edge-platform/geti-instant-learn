@@ -3,14 +3,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { readFileSync } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
 import { http } from '@geti-prompt/test-fixtures';
 import { NetworkFixture } from '@msw/playwright';
 import { BrowserContext, Page } from '@playwright/test';
 import { HttpResponse } from 'msw';
 
-import { MOCK_FRAME_JPEG_BASE64, mockRTCPeerConnectionScript } from './mocks';
+import { mockRTCPeerConnectionScript } from './mocks';
 
 const FRAME_ID = '1';
+
+const filename = fileURLToPath(import.meta.url);
+const dirname = path.dirname(filename);
 
 export const initializeWebRTC = async ({
     page,
@@ -38,8 +45,8 @@ export const initializeWebRTC = async ({
 
         http.post('/api/v1/projects/{project_id}/frames', ({ response }) => response(201).json({ frame_id: FRAME_ID })),
         http.get('/api/v1/projects/{project_id}/frames/{frame_id}', () => {
-            // Return a 1x1 red pixel JPEG image (image/jpeg content type)
-            const buffer = Buffer.from(MOCK_FRAME_JPEG_BASE64, 'base64');
+            const testImagePath = path.resolve(dirname, '../../src/assets/test.webp');
+            const buffer = readFileSync(testImagePath);
 
             return new HttpResponse(buffer, {
                 status: 200,

@@ -118,8 +118,6 @@ class TestMatcher:
             "prompt_generator": MagicMock(),
             "point_filter": MagicMock(),
             "segmenter": MagicMock(),
-            "mask_adder": MagicMock(),
-            "mask_processor": MagicMock(),
         }
 
     @patch("getiprompt.models.matcher.load_sam_model")
@@ -140,10 +138,8 @@ class TestMatcher:
         assert hasattr(model, "encoder")
         assert hasattr(model, "feature_selector")
         assert hasattr(model, "prompt_generator")
-        assert hasattr(model, "point_filter")
+        assert hasattr(model, "prompt_filter")
         assert hasattr(model, "segmenter")
-        assert hasattr(model, "mask_adder")
-        assert hasattr(model, "mask_processor")
 
     @patch("getiprompt.models.matcher.load_sam_model")
     @patch("getiprompt.models.matcher.ImageEncoder")
@@ -232,10 +228,8 @@ class TestSoftMatcher:
         assert hasattr(model, "encoder")
         assert hasattr(model, "feature_selector")
         assert hasattr(model, "prompt_generator")
-        assert hasattr(model, "point_filter")
+        assert hasattr(model, "prompt_filter")
         assert hasattr(model, "segmenter")
-        assert hasattr(model, "mask_adder")
-        assert hasattr(model, "mask_processor")
 
     @patch("getiprompt.models.matcher.load_sam_model")
     @patch("getiprompt.models.matcher.ImageEncoder")
@@ -300,7 +294,6 @@ class TestGroundedSAM:
             "prompt_generator": MagicMock(),
             "segmenter": MagicMock(),
             "multi_instance_prior_filter": MagicMock(),
-            "mask_processor": MagicMock(),
         }
 
     @patch("getiprompt.models.grounded_sam.load_sam_model")
@@ -313,8 +306,7 @@ class TestGroundedSAM:
         assert hasattr(model, "sam_predictor")
         assert hasattr(model, "prompt_generator")
         assert hasattr(model, "segmenter")
-        assert hasattr(model, "multi_instance_prior_filter")
-        assert hasattr(model, "mask_processor")
+        assert hasattr(model, "prompt_filter")
 
     @patch("getiprompt.models.grounded_sam.load_sam_model")
     def test_grounded_sam_forward_pass(self, mock_load_sam: MagicMock, mock_components: dict[str, Any]) -> None:

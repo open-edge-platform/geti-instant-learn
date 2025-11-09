@@ -69,7 +69,7 @@ class LVISDataset(Dataset):
         """Initialize the LVISDataset."""
         super().__init__(n_shots=n_shots)
 
-        self.root = Path(root)
+        self.root = Path(root).expanduser()
         self.split = split
         self.categories_filter = categories
 
@@ -79,12 +79,15 @@ class LVISDataset(Dataset):
     def _load_masks(self, raw_sample: dict) -> torch.Tensor | None:
         """Decode and merge masks from COCO RLE format into semantic masks.
 
+        Since the DataFrame is exploded (one row per image-category combination),
+        segmentations is a single list containing all segmentations for one category.
+
         Args:
             raw_sample: Dictionary from DataFrame row.
 
         Returns:
-            torch.Tensor with shape (N_categories, H, W) where N_categories is the
-            number of unique categories, and dtype torch.bool, or None if no segmentations are available.
+            torch.Tensor with shape (1, H, W) where 1 represents the single category
+            in this row, and dtype torch.bool, or None if no segmentations are available.
 
         Raises:
             TypeError: If unknown segmentation format is encountered.
@@ -96,33 +99,30 @@ class LVISDataset(Dataset):
         # Get image dimensions
         h, w = raw_sample.get("img_dim")
 
-        # In semantic version, segmentations is a list of lists:
-        # Each inner list contains all segmentations for one category
-        semantic_masks = []
+        # After explode, segmentations is a single list of segmentations for one category
+        # Decode all masks for this category and merge them
+        category_mask = torch.zeros((h, w), dtype=torch.bool)
 
-        for category_segmentations in segmentations:
-            # Decode all masks for this category
-            category_mask = torch.zeros((h, w), dtype=torch.bool)
+        for segmentation in segmentations:
+            if isinstance(segmentation, dict):  # RLE format
+                mask = mask_utils.decode(segmentation)  # (H, W)
+            elif isinstance(segmentation, list):  # Polygon format
+                # Convert polygon to RLE then decode
+                rles = mask_utils.frPyObjects(segmentation, h, w)
+                mask = mask_utils.decode(rles)
+            else:
+                msg = f"Unknown segmentation format: {type(segmentation)}"
+                raise TypeError(msg)
 
-            for seg in category_segmentations:
-                if isinstance(seg, dict):  # RLE format
-                    mask = mask_utils.decode(seg)  # (H, W)
-                elif isinstance(seg, list):  # Polygon format
-                    # Convert polygon to RLE then decode
-                    rles = mask_utils.frPyObjects(seg, h, w)
-                    mask = mask_utils.decode(rles)
-                else:
-                    msg = f"Unknown segmentation format: {type(seg)}"
-                    raise TypeError(msg)
-
-                # Handle potential 3D masks from polygon conversion
-                mask = torch.from_numpy(mask)
+            # Handle potential 3D masks from polygon conversion
+            mask = torch.from_numpy(mask)
+            if mask.ndim > 2:
                 mask = torch.max(mask, dim=-1).values
-                # Merge with category mask using logical OR
-                category_mask = category_mask | mask
-            semantic_masks.append(category_mask)
+            # Merge with category mask using logical OR
+            category_mask = category_mask | mask
 
-        return torch.stack(semantic_masks, dim=0)  # (N_categories, H, W)
+        # Return as (1, H, W) to maintain consistency with Sample structure
+        return category_mask.unsqueeze(0)  # (1, H, W)
 
     def _load_dataframe(self) -> pl.DataFrame:
         """Load LVIS samples into Polars DataFrame with semantic mask structure."""
@@ -146,8 +146,8 @@ def make_lvis_dataframe(
     """Create a Polars DataFrame for LVIS dataset with semantic masks.
 
     This function creates a DataFrame where instances of the same category
-    are merged into semantic masks. Each row represents one image with
-    unique categories only.
+    are merged into semantic masks. Each row represents one image-category combination
+    (exploded format: one row per instance).
 
     Args:
         lvis_api (LVIS): LVIS API instance.
@@ -157,7 +157,8 @@ def make_lvis_dataframe(
         n_shots (int, optional): Number of reference shots per category. Defaults to 1.
 
     Returns:
-        pl.DataFrame: DataFrame containing sample metadata with semantic mask support.
+        pl.DataFrame: DataFrame containing sample metadata with one row per instance.
+            Each row represents one image-category combination.
 
     Raises:
         FileNotFoundError: If image file not found.
@@ -256,6 +257,22 @@ def make_lvis_dataframe(
 
     # Create DataFrame
     df = pl.DataFrame(samples_data)
+
+    # Explode to split multi-instance rows into single-instance rows
+    # This creates one row per image-category combination
+    explode_columns = ["categories", "category_ids", "segmentations", "is_reference", "n_shot"]
+    df = df.explode(explode_columns)
+
+    # Convert exploded scalar columns to single-element lists for consistency
+    # This ensures the format matches what Sample expects (lists)
+    # Note: segmentations is already a list after explode (list of segmentations for one category)
+    df = df.with_columns([
+        pl.col("categories").map_elements(lambda x: [x], return_dtype=pl.List(pl.String)),
+        pl.col("category_ids").map_elements(lambda x: [x], return_dtype=pl.List(pl.Int64)),
+        pl.col("is_reference").map_elements(lambda x: [x], return_dtype=pl.List(pl.Boolean)),
+        pl.col("n_shot").map_elements(lambda x: [x], return_dtype=pl.List(pl.Int64)),
+        # segmentations is already a list, no conversion needed
+    ])
 
     # Sort by image_id for consistency
     df = df.sort("image_id")

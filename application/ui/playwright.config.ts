@@ -29,8 +29,9 @@ export default defineConfig({
         launchOptions: {
             slowMo: 100,
             headless: true,
-            devtools: true,
+            devtools: !CI,
         },
+        viewport: { height: 1480, width: 1920 },
         timezoneId: 'UTC',
         actionTimeout: CI ? 10000 : 5000,
         navigationTimeout: CI ? 10000 : 5000,

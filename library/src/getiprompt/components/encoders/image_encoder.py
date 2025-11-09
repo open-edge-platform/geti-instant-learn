@@ -1,18 +1,17 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Wrapper class that uses a DINO model to encode images and process them into Features and Masks."""
+"""Wrapper class that uses a DINO model to encode images into normalized patch embeddings."""
 
 from logging import getLogger
 
 import torch
 from torch import nn
 from torch.nn import functional
-from torchvision import transforms, tv_tensors
+from torchvision import tv_tensors
 from transformers import AutoImageProcessor, AutoModel
 
-from getiprompt.types import Features, Masks, Priors
-from getiprompt.utils import MaybeToTensor, precision_to_torch_dtype
+from getiprompt.utils import precision_to_torch_dtype
 
 logger = getLogger("Geti Prompt")
 
@@ -33,25 +32,16 @@ class ImageEncoder(nn.Module):
     """This encoder uses a model from HuggingFace to encode the images.
 
     Examples:
-        >>> from getiprompt.processes.encoders import Encoder
-        >>> from getiprompt.types import Priors, Features
+        >>> from getiprompt.components.encoders import ImageEncoder
         >>> from torchvision import tv_tensors
         >>> import torch
-        >>> import numpy as np
-        >>>
-        >>> # Create a sample image
-        >>> sample_image = np.zeros((518, 518, 3), dtype=np.uint8)
-        >>> encoder = Encoder(model_id="dinov2_large")
-        >>> features, masks = encoder([tv_tensors.Image(sample_image)], priors_per_image=[Priors()])
-        >>> len(features), len(masks)
-        (1, 1)
-        >>> # Each image gets a Features object with global features and a Masks object
-        >>> isinstance(features[0], Features), isinstance(masks[0], Masks)
-        (True, True)
-        >>> # DINOv2-large outputs 1024-dimensional feature vectors
-        >>> features[0].global_features.shape
-        torch.Size([1369, 1024])
 
+        >>> # Create a sample image
+        >>> sample_image = torch.zeros((3, 518, 518))
+        >>> encoder = ImageEncoder(model_id="dinov2_large")
+        >>> features = encoder(images=[sample_image])
+        >>> features.shape
+        torch.Size([1369, 1024])
     """
 
     def __init__(
@@ -72,6 +62,9 @@ class ImageEncoder(nn.Module):
             compile_models: Whether to compile the models.
             benchmark_inference_speed: Whether to benchmark the inference speed.
             input_size: The input size to use.
+
+        Raises:
+            ValueError: If the model ID is invalid.
         """
         from getiprompt.utils.optimization import optimize_model
 
@@ -85,7 +78,8 @@ class ImageEncoder(nn.Module):
         self.input_size = input_size
         self.device = device
 
-        logger.info(f"Loading DINO model {model_id}")
+        msg = f"Loading DINO model {model_id}"
+        logger.info(msg)
         self.model, self.processor = self._load_hf_model(AVAILABLE_IMAGE_ENCODERS[model_id], input_size)
         self.model = self.model.to(device).eval()
         self.patch_size = self.model.config.patch_size
@@ -103,93 +97,6 @@ class ImageEncoder(nn.Module):
             benchmark_inference_speed=benchmark_inference_speed,
         ).eval()
 
-        # Mask transform based on the model variant output size
-        self.mask_transform = transforms.Compose([
-            MaybeToTensor(),
-            transforms.Lambda(lambda x: x.unsqueeze(0) if x.ndim == 2 else x),
-            transforms.Lambda(lambda x: x.float()),
-            transforms.Resize([self.input_size, self.input_size]),
-            # MinPool to make sure we do not use background features
-            transforms.Lambda(lambda x: (x * -1) + 1),
-            torch.nn.MaxPool2d(
-                kernel_size=(self.patch_size, self.patch_size),
-            ),
-            transforms.Lambda(lambda x: (x * -1) + 1),
-        ])
-
-    def forward(
-        self,
-        images: list[tv_tensors.Image] | None = None,
-        priors_per_image: list[Priors] | None = None,
-    ) -> tuple[list[Features], list[Masks]]:
-        """This method creates an embedding from the images for locations inside the mask.
-
-        Args:
-            images: A list of images.
-            priors_per_image: A list of priors per image.
-
-        Returns:
-            A list of extracted features.
-        """
-        resized_masks_per_image: list[Masks] = []
-        image_features: list[Features] = self._extract_embeddings(images)
-
-        if priors_per_image is not None:
-            for features, priors in zip(image_features, priors_per_image, strict=False):
-                _, resized_masks = self._extract_local_features(features=features, masks_per_class=priors.masks)
-                resized_masks_per_image.append(resized_masks)
-        else:
-            resized_masks_per_image = [Masks() for _ in image_features]
-
-        return image_features, resized_masks_per_image
-
-    def _extract_local_features(self, features: Features, masks_per_class: Masks) -> tuple[Features, Masks]:
-        """This method extracts the local features from the image.
-
-         This only keeps the features that are inside the masks.
-
-        Args:
-            features: The features to extract the local features from.
-            masks_per_class: The masks to extract the local features from.
-
-        Returns:
-            The features with the local features extracted.
-        """
-        resized_masks = Masks()
-        for class_id, masks in masks_per_class.data.items():
-            for mask in masks:
-                # preprocess mask, add batch dim, convert to float and resize
-                pooled_mask = self.mask_transform(mask.data).to(self.model.device)
-                resized_masks.add(mask=pooled_mask, class_id=class_id)
-                # extract local features
-                indices = pooled_mask.flatten().bool()
-                local_features = features.global_features[indices]
-                if local_features.shape[0] == 0:
-                    e = f"The reference mask is too small to detect any features for class {class_id}"
-                    raise ValueError(e)
-                features.add_local_features(local_features=local_features, class_id=class_id)
-        return features, resized_masks
-
-    @torch.inference_mode()
-    def _extract_embeddings(
-        self,
-        images: list[tv_tensors.Image],
-    ) -> list[Features]:
-        """Extract all global features from the images.
-
-        Args:
-            images(list[tv_tensors.Image]): A list of tv_tensors.Image.
-
-        Returns:
-            A list of Features.
-        """
-        inputs = self.processor(images=images, return_tensors="pt")
-        inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
-        last_hidden_state = self.model(**inputs).last_hidden_state
-        features = last_hidden_state[:, self.ignore_token_length :, :]  # Remove CLS token (and register tokens if used)
-        features = functional.normalize(features, p=2, dim=-1)
-        return [Features(global_features=f) for f in features]
-
     @staticmethod
     def _load_hf_model(model_id: str, input_size: int) -> tuple[nn.Module, AutoImageProcessor]:
         """Load DINO model from HuggingFace with error handling.
@@ -203,6 +110,10 @@ class ImageEncoder(nn.Module):
 
         Returns:
             The model and processor.
+
+        Raises:
+            ValueError: If the user does not have access to the weights of the model.
+            OSError: If the model is not found.
         """
         err_msg = (
             "User does not have access to the weights of the DinoV3 model.\n"
@@ -226,3 +137,20 @@ class ImageEncoder(nn.Module):
                 raise ValueError(err_msg) from None
             raise
         return model, processor
+
+    @torch.inference_mode()
+    def forward(self, images: list[tv_tensors.Image]) -> torch.Tensor:
+        """Encode images into normalized patch embeddings.
+
+        Args:
+            images(list[tv_tensors.Image]): A list of images.
+
+        Returns:
+            torch.Tensor: Normalized patch-grid feature tensor of shape
+                (batch_size, num_patches, embedding_dim).
+        """
+        inputs = self.processor(images=images, return_tensors="pt")
+        inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
+        last_hidden_state = self.model(**inputs).last_hidden_state
+        features = last_hidden_state[:, self.ignore_token_length :, :]  # Remove CLS token (and register tokens if used)
+        return functional.normalize(features, p=2, dim=-1)

@@ -3,11 +3,11 @@
 
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
-from alembic import command
-from alembic.config import Config
 from settings import get_settings
 
 

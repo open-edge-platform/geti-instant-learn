@@ -5,24 +5,6 @@
 
 import { ZoomState } from './types';
 
-export const ZOOM_STEP_DIVISOR = 10;
-const BUTTON_WHEEL = {
-    button: 1,
-    buttons: 4,
-};
-
-interface MouseButton {
-    button: number;
-    buttons: number;
-}
-
-const isButton = (button: MouseButton, buttonToCompare: MouseButton): boolean =>
-    button.button === buttonToCompare.button || button.buttons === buttonToCompare.buttons;
-
-export const isWheelButton = (button: MouseButton): boolean => {
-    return isButton(button, BUTTON_WHEEL);
-};
-
 export const getZoomState =
     ({
         initialCoordinates,

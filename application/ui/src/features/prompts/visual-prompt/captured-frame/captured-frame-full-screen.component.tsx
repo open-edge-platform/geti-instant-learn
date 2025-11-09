@@ -8,11 +8,7 @@ import { Content, Dialog, DialogContainer, Divider, Grid, Heading, minmax } from
 import { CapturedFrameContent } from './captured-frame-content.component';
 import { useFullScreenMode } from './full-screen-mode.component';
 
-interface CapturedFrameFullScreenProps {
-    frameId: string;
-}
-
-export const CapturedFrameFullScreen = ({ frameId }: CapturedFrameFullScreenProps) => {
+export const CapturedFrameFullScreen = () => {
     const { isFullScreenMode, setIsFullScreenMode } = useFullScreenMode();
 
     return (
@@ -31,7 +27,7 @@ export const CapturedFrameFullScreen = ({ frameId }: CapturedFrameFullScreenProp
                                 backgroundColor: 'var(--spectrum-global-color-gray-200)',
                             }}
                         >
-                            <CapturedFrameContent frameId={frameId} />
+                            <CapturedFrameContent />
                         </Grid>
                     </Content>
                 </Dialog>

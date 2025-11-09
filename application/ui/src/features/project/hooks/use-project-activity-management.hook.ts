@@ -9,7 +9,7 @@ import { $api } from '@geti-prompt/api';
 
 import { MutationMeta } from '../../../query-client/query-client.interface';
 
-export const useProjectActivationMutation = (projectId: string, currentActiveProjectId: string | undefined) => {
+const useProjectActivationMutation = (projectId: string, currentActiveProjectId: string | undefined) => {
     const invalidates: MutationMeta['invalidates'] =
         currentActiveProjectId === undefined
             ? [

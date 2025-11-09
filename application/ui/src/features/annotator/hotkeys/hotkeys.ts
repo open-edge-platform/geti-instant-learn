@@ -6,26 +6,18 @@
 import { isMac } from '@react-aria/utils';
 
 const CTRL_KEY = 'ctrl';
-const COMMAND_KEY = 'meta';
-export const CTRL_OR_COMMAND_KEY = isMac() ? COMMAND_KEY : CTRL_KEY;
+export const COMMAND_KEY = 'meta';
+const CTRL_OR_COMMAND_KEY = isMac() ? COMMAND_KEY : CTRL_KEY;
 
-export type HotKeyActions =
-    | 'undo'
-    | 'redo'
-    | 'toggleAnnotations'
-    | 'deleteAnnotation'
-    | 'enableSam'
-    | 'fitToScreen'
-    | 'fullscreen';
+type HotKeyActions = 'undo' | 'redo' | 'toggleAnnotations' | 'deleteAnnotation' | 'fitToScreen' | 'fullscreen';
 
-export type Hotkeys = Record<HotKeyActions, string>;
+type Hotkeys = Record<HotKeyActions, string>;
 
 export const HOTKEYS: Hotkeys = {
     undo: `${CTRL_OR_COMMAND_KEY}+z`,
     redo: `${CTRL_OR_COMMAND_KEY}+y`,
     toggleAnnotations: 'a',
     deleteAnnotation: 'delete',
-    enableSam: 's',
     fitToScreen: 'r',
     fullscreen: 'f',
 };
