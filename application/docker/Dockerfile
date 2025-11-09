@@ -1,4 +1,4 @@
-FROM python:3.13-slim-bookworm@sha256:ee6c0814498e24cc54424475b9611edb99072250b2b30f9fb83d9256a1469b7a AS base
+FROM python:3.13-slim-bookworm@sha256:e66df2153a7cc47b4438848efb65e2d9442db4330db9befaee5107fc75464959 AS base
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
 # Disable Python downloads, because we want to use the system interpreter
@@ -25,7 +25,7 @@ COPY --link backend/app ./app
 #############
 # geti_ui_packages
 #############
-FROM node:24-alpine3.22@sha256:3e843c608bb5232f39ecb2b25e41214b958b0795914707374c8acc28487dea17 AS geti_ui_packages
+FROM node:24-alpine3.22@sha256:f36fed0b2129a8492535e2853c64fbdbd2d29dc1219ee3217023ca48aebd3787 AS geti_ui_packages
 
 WORKDIR /home/app/web_ui/
 RUN apk add --no-cache git=2.49.1-r0
@@ -35,7 +35,7 @@ RUN npm run clone-geti-ui-packages
 #############
 # web_ui deps
 #############
-FROM node:24-alpine3.22@sha256:3e843c608bb5232f39ecb2b25e41214b958b0795914707374c8acc28487dea17 AS ui_base
+FROM node:24-alpine3.22@sha256:f36fed0b2129a8492535e2853c64fbdbd2d29dc1219ee3217023ca48aebd3787 AS ui_base
 
 WORKDIR /home/app/web_ui/
 
