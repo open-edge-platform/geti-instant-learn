@@ -26,7 +26,7 @@ class TestPerDino:
         return {
             "sam_predictor": MagicMock(),
             "encoder": MagicMock(),
-            "feature_selector": MagicMock(),
+            "masked_feature_extractor": MagicMock(),
             "similarity_matcher": MagicMock(),
             "prompt_generator": MagicMock(),
             "segmenter": MagicMock(),
@@ -48,7 +48,7 @@ class TestPerDino:
 
         assert hasattr(model, "sam_predictor")
         assert hasattr(model, "encoder")
-        assert hasattr(model, "feature_selector")
+        assert hasattr(model, "masked_feature_extractor")
         assert hasattr(model, "similarity_matcher")
         assert hasattr(model, "prompt_generator")
         assert hasattr(model, "segmenter")
@@ -114,7 +114,7 @@ class TestMatcher:
         return {
             "sam_predictor": MagicMock(),
             "encoder": MagicMock(),
-            "feature_selector": MagicMock(),
+            "masked_feature_extractor": MagicMock(),
             "prompt_generator": MagicMock(),
             "point_filter": MagicMock(),
             "segmenter": MagicMock(),
@@ -136,7 +136,7 @@ class TestMatcher:
 
         assert hasattr(model, "sam_predictor")
         assert hasattr(model, "encoder")
-        assert hasattr(model, "feature_selector")
+        assert hasattr(model, "masked_feature_extractor")
         assert hasattr(model, "prompt_generator")
         assert hasattr(model, "prompt_filter")
         assert hasattr(model, "segmenter")
@@ -198,16 +198,14 @@ class TestSoftMatcher:
 
     @pytest.fixture
     def mock_components(self) -> dict[str, Any]:
-        """Create mock components for SoftMatcher."""
+        """Create mock components for Matcher."""
         return {
             "sam_predictor": MagicMock(),
             "encoder": MagicMock(),
-            "feature_selector": MagicMock(),
+            "masked_feature_extractor": MagicMock(),
             "prompt_generator": MagicMock(),
             "point_filter": MagicMock(),
             "segmenter": MagicMock(),
-            "mask_adder": MagicMock(),
-            "mask_processor": MagicMock(),
         }
 
     @patch("getiprompt.models.matcher.load_sam_model")
@@ -226,7 +224,7 @@ class TestSoftMatcher:
 
         assert hasattr(model, "sam_predictor")
         assert hasattr(model, "encoder")
-        assert hasattr(model, "feature_selector")
+        assert hasattr(model, "masked_feature_extractor")
         assert hasattr(model, "prompt_generator")
         assert hasattr(model, "prompt_filter")
         assert hasattr(model, "segmenter")
