@@ -49,7 +49,7 @@ class MaskedFeatureExtractor(nn.Module):
 
     def forward(
         self,
-        features: torch.Tensor,
+        embeddings: torch.Tensor,
         masks: torch.Tensor,
         category_ids: torch.Tensor,
     ) -> tuple[dict[int, torch.Tensor], list[Masks]]:
@@ -59,7 +59,7 @@ class MaskedFeatureExtractor(nn.Module):
         corresponding to masked regions, and associates them with their category IDs.
 
         Args:
-            features (torch.Tensor): Feature tensor of shape
+            embeddings(torch.Tensor): Feature tensor of shape
                 ``(batch_size, num_patches, embedding_dim)``, typically the patch embeddings
                 from an encoder (e.g., ViT).
             masks (torch.Tensor): Binary masks of shape
@@ -73,27 +73,27 @@ class MaskedFeatureExtractor(nn.Module):
                 - resized_masks_per_image: List of resized masks.
         """
         resized_masks_per_image = []
-        masked_ref_embeds = defaultdict(list)
-        for embedding, masks_tensor, category_ids in zip(
-            features,
+        masked_ref_embeddings = defaultdict(list)
+        for embedding, masks_tensor, category_ids_tensor in zip(
+            embeddings,
             masks,
             category_ids,
             strict=True,
         ):
             resized_masks = Masks()
-            for category_id, mask in zip(category_ids, masks_tensor, strict=True):
+            for category_id, mask in zip(category_ids_tensor, masks_tensor, strict=True):
                 category_id = category_id.item()
                 pooled_mask = self.transform(mask)
                 resized_masks.add(mask=pooled_mask, class_id=category_id)
                 keep = pooled_mask.flatten().bool()
-                local_features = embedding[keep]
-                masked_ref_embeds[category_id].append(local_features)
+                masked_embedding = embedding[keep]
+                masked_ref_embeddings[category_id].append(masked_embedding)
             resized_masks_per_image.append(resized_masks)
 
-        for category_id, masked_embed_list in masked_ref_embeds.items():
-            _embed = torch.cat(masked_embed_list, dim=0)
-            _embed = _embed.mean(dim=0, keepdim=True)
-            _embed /= _embed.norm(dim=-1, keepdim=True)
-            masked_ref_embeds[category_id] = _embed
+        for category_id, masked_embed_list in masked_ref_embeddings.items():
+            _embedding = torch.cat(masked_embed_list, dim=0)
+            _embedding = _embedding.mean(dim=0, keepdim=True)
+            _embedding /= _embedding.norm(dim=-1, keepdim=True)
+            masked_ref_embeddings[category_id] = _embedding
 
-        return masked_ref_embeds, resized_masks_per_image
+        return masked_ref_embeddings, resized_masks_per_image
