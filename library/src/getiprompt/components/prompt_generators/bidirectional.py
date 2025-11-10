@@ -12,7 +12,7 @@ from torch.nn import functional
 from torchvision import tv_tensors
 
 from getiprompt.components.prompt_generators.base import PromptGenerator
-from getiprompt.types import Masks, Similarities
+from getiprompt.types import Masks
 
 logger = getLogger("Geti Prompt")
 
@@ -25,55 +25,16 @@ def _empty_match_result(sim_map: torch.Tensor) -> tuple[list, torch.Tensor]:
 
 
 class BidirectionalPromptGenerator(PromptGenerator):
-    """This class generates prompts for the segmenter.
+    """Generates point prompts for segmentation based on bidirectional matching.
 
-    This is based on the similarities between the reference and target images.
+    This prompt generator uses bidirectional matching between reference and target image features
+    to generate foreground point prompts, and selects background points based on low similarity.
 
     Args:
-        encoder_input_size: int - The size of the encoder input image.
-        encoder_patch_size: int - The size of the encoder patch.
-        encoder_feature_size: int - The size of the encoder feature.
-        num_background_points: int - The number of background points to generate.
-
-    Examples:
-        >>> import torch
-        >>> from getiprompt.processes.prompt_generators import BidirectionalPromptGenerator
-        >>> from getiprompt.types import Features, Image, Masks, Priors, Similarities
-        >>>
-        >>> # Setup
-        >>> encoder_input_size=224
-        >>> encoder_patch_size=14
-        >>> encoder_feature_size=16
-        >>> feature_dim = 64
-        >>> num_patches = encoder_feature_size * encoder_feature_size
-        >>>
-        >>> # Create inputs
-        >>> ref_feats = Features(torch.rand(num_patches, feature_dim))
-        >>> ref_feats.add_local_features(ref_feats.global_features[:6], 1)
-        >>> target_feats = Features(torch.rand(num_patches, feature_dim))
-        >>> mask = torch.zeros(num_patches); mask[:6] = 1
-        >>> ref_masks = Masks(); ref_masks.add(mask, 1)
-        >>> image = Image(torch.zeros(encoder_input_size, encoder_input_size, 3))
-        >>>
-        >>> # Instantiate generator
-        >>> prompt_generator = BidirectionalPromptGenerator(
-        ...     encoder_input_size=encoder_input_size,
-        ...     encoder_patch_size=encoder_patch_size,
-        ...     encoder_feature_size=encoder_feature_size,
-        ...     num_background_points=2,
-        ... )
-        >>>
-        >>> # Run
-        >>> priors, similarities = prompt_generator(
-        ...    reference_features=[ref_feats],
-        ...    target_features=[target_feats],
-        ...    reference_masks=[ref_masks],
-        ...    target_images=[image],
-        ... )
-        >>> isinstance(priors[0], Priors) and priors[0].points.get(1) is not None
-        True
-        >>> isinstance(similarities[0], Similarities) and similarities[0].get(1) is not None
-        True
+        encoder_input_size: Size of the encoder input image (e.g., 224, 1024).
+        encoder_patch_size: Size of each encoder patch (e.g., 14, 16).
+        encoder_feature_size: Size of the feature map grid (e.g., 16, 64).
+        num_background_points: Number of background points to generate per class. Default: 2.
     """
 
     def __init__(
@@ -298,7 +259,7 @@ class BidirectionalPromptGenerator(PromptGenerator):
         reference_masks: list[Masks],
         target_embeds: torch.Tensor,
         target_images: list[tv_tensors.Image],
-    ) -> tuple[list[dict[int, torch.Tensor]], list[Similarities]]:
+    ) -> tuple[list[dict[int, torch.Tensor]], list[dict[int, torch.Tensor]]]:
         """This generates prompt candidates (or priors) based on the similarities.
 
         This is done between the reference and target images.
@@ -315,10 +276,10 @@ class BidirectionalPromptGenerator(PromptGenerator):
         Returns:
             point_prompts(list[dict[int, torch.Tensor]]):
                 List of point prompts (with class_id as key and points as value)
-            similarities_per_images(list[Similarities]): List of similarities
+            similarities_per_images(list[dict[int, torch.Tensor]]): List of similarities dictionaries
         """
         point_prompts: list[dict[int, torch.Tensor]] = []
-        similarities_per_image: list[Similarities] = []
+        similarities_per_image: list[dict[int, torch.Tensor]] = []
 
         # this basically makes a vertical stack + flatten
         flattened_ref_embeds = ref_embeds.reshape(-1, ref_embeds.shape[-1])
@@ -326,16 +287,15 @@ class BidirectionalPromptGenerator(PromptGenerator):
 
         for target_embed, target_image in zip(target_embeds, target_images, strict=False):
             class_point_prompts: dict[int, torch.Tensor] = {}
-            similarities = Similarities()
+            similarities: dict[int, list[torch.Tensor]] = defaultdict(list)
             similarity_map = flattened_ref_embeds @ target_embed.T
             h, w = target_image.shape[-2:]
 
             for class_id, ref_mask in reference_masks.data.items():
-                # NOTE: why select index 0?
                 local_reference_feature = masked_ref_embeds[class_id]
                 local_similarity = local_reference_feature @ target_embed.T
                 local_similarity = self._resize_similarity_map(local_similarity, target_image.shape[-2:])
-                similarities.add(local_similarity, class_id)
+                similarities[class_id].append(local_similarity)
 
                 # Select background points based on similarity to averaged local feature
                 _, background_indices, background_scores = self._select_background_points(similarity_map, ref_mask)
@@ -363,5 +323,10 @@ class BidirectionalPromptGenerator(PromptGenerator):
 
                 class_point_prompts[class_id] = torch.cat([foreground_points, background_points])
             point_prompts.append(class_point_prompts)
-            similarities_per_image.append(similarities)
+
+            # Concatenate all tensors once per class
+            concatenated_similarities = {
+                class_id: torch.cat(tensor_list, dim=0) for class_id, tensor_list in similarities.items()
+            }
+            similarities_per_image.append(concatenated_similarities)
         return point_prompts, similarities_per_image

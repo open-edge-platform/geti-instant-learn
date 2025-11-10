@@ -1286,6 +1286,7 @@ class GroundingDinoMultiheadAttention(nn.Module):
     """Equivalent implementation of nn.MultiheadAttention with `batch_first=True`."""
 
     def __init__(self, config: GroundingDinoConfig, num_attention_heads: int | None = None) -> None:
+        """Initialize the GroundingDinoMultiheadAttention."""
         super().__init__()
         if config.hidden_size % num_attention_heads != 0 and not hasattr(config, "embedding_size"):
             msg = (
@@ -1342,10 +1343,10 @@ class GroundingDinoMultiheadAttention(nn.Module):
             # Take the dot product between "query" and "key" to get the raw attention scores.
             attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
 
-            attention_scores = attention_scores / math.sqrt(self.attention_head_size)
+            attention_scores /= math.sqrt(self.attention_head_size)
             if attention_mask is not None:
                 # Apply the attention mask is (precomputed for all layers in GroundingDinoModel forward() function)
-                attention_scores = attention_scores + attention_mask
+                attention_scores += attention_mask
 
             # Normalize the attention scores to probabilities.
             attention_probs = nn.functional.softmax(attention_scores, dim=-1)
@@ -1677,6 +1678,7 @@ class GroundingDinoEncoder(GroundingDinoPreTrainedModel):
     """
 
     def __init__(self, config: GroundingDinoConfig) -> None:
+        """Initialize the GroundingDinoEncoder."""
         super().__init__(config)
 
         self.dropout = config.dropout

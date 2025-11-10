@@ -3,6 +3,7 @@
 
 """Soft-matching prompt generator."""
 
+from collections import defaultdict
 from logging import getLogger
 
 import torch
@@ -10,7 +11,7 @@ from torch.nn import functional
 from torchvision import tv_tensors
 
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
-from getiprompt.types import Masks, Similarities
+from getiprompt.types import Masks
 
 logger = getLogger("Geti Prompt")
 
@@ -35,7 +36,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
     Examples:
         >>> import torch
         >>> from getiprompt.components.prompt_generators import SoftmatcherPromptGenerator
-        >>> from getiprompt.types import Features, Masks, Similarities
+        >>> from getiprompt.types import Masks
         >>> from torchvision import tv_tensors
         >>>
         >>> # Setup
@@ -46,11 +47,10 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         >>> num_patches = encoder_feature_size * encoder_feature_size
         >>>
         >>> # Create inputs
-        >>> ref_feats = Features(torch.rand(num_patches, feature_dim))
-        >>> ref_feats.add_local_features(ref_feats.global_features[:6], 1)
+        >>> ref_embeds = torch.rand(num_patches, feature_dim)
         >>> target_embeddings = torch.rand(1, num_patches, feature_dim)
         >>> mask = torch.zeros(num_patches); mask[:6] = 1
-        >>> ref_masks = Masks(); ref_masks.add(mask, 1)
+        >>> reference_masks = Masks(); reference_masks.add(mask, 1)
         >>> image = tv_tensors.Image(torch.zeros(encoder_input_size, encoder_input_size, 3))
         >>>
         >>> # Instantiate and run
@@ -60,14 +60,15 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         ...     encoder_feature_size=encoder_feature_size,
         ... )
         >>> point_prompts, sims = generator(
-        ...    reference_features=ref_feats,
-        ...    reference_masks=[ref_masks],
+        ...    ref_embeds=ref_embeds,
+        ...    masked_ref_embeds={1: ref_embeds},
+        ...    reference_masks=[reference_masks],
         ...    target_embeddings=target_embeddings,
         ...    target_images=[image]
         ... )
         >>> isinstance(point_prompts[0], dict) and 1 in point_prompts[0]
         True
-        >>> isinstance(sims[0], Similarities) and sims[0].get(1) is not None
+        >>> isinstance(sims[0], dict) and sims[0].get(1) is not None
         True
     """
 
@@ -415,7 +416,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         reference_masks: list[Masks],
         target_embeds: torch.Tensor,
         target_images: list[tv_tensors.Image],
-    ) -> tuple[list[dict[int, torch.Tensor]], list[Similarities]]:
+    ) -> tuple[list[dict[int, torch.Tensor]], list[dict[int, torch.Tensor]]]:
         """This generates prompt candidates (or priors) based on the similarities.
 
         This is done between the reference and target images.
@@ -433,10 +434,10 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         Returns:
             point_prompts(list[dict[int, torch.Tensor]]):
                 List of point prompts (with class_id as key and points as value)
-            similarities_per_images(list[Similarities]): List of similarities
+            similarities_per_images(list[dict[int, torch.Tensor]]): List of similarities dictionaries
         """
         point_prompts: list[dict[int, torch.Tensor]] = []
-        similarities_per_image: list[Similarities] = []
+        similarities_per_image: list[dict[int, torch.Tensor]] = []
 
         # this basically makes a vertical stack + flatten
         flattened_ref_embeds = ref_embeds.reshape(-1, ref_embeds.shape[-1])
@@ -444,7 +445,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
 
         for target_embed, target_image in zip(target_embeds, target_images, strict=False):
             class_point_prompts: dict[int, torch.Tensor] = {}
-            similarities = Similarities()
+            similarities: dict[int, list[torch.Tensor]] = defaultdict(list)
             similarity_map = flattened_ref_embeds @ target_embed.T
             h, w = target_image.shape[-2:]
 
@@ -452,7 +453,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
                 local_reference_feature = masked_ref_embeds[class_id]
                 local_similarity = local_reference_feature @ target_embed.T
                 local_similarity = self._resize_similarity_map(local_similarity, target_image.shape[-2:])
-                similarities.add(local_similarity, class_id)
+                similarities[class_id].append(local_similarity)
 
                 # Select background points based on similarity to averaged local feature
                 _, background_indices, background_scores = self._select_background_points(similarity_map, mask)
@@ -475,12 +476,12 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
                 # this increases the mask filtering technique based on average similarity.
                 soft_sim_map = functional.interpolate(
                     soft_sim_map,
-                    size=local_similarity.shape[-2:],
+                    size=similarities[class_id][0].shape[-2:],
                     mode="bilinear",
                     align_corners=False,
                 ).squeeze(0)
                 soft_sim_map = (soft_sim_map - soft_sim_map.min()) / (soft_sim_map.max() - soft_sim_map.min() + 1e-6)
-                similarities.add(soft_sim_map, class_id)
+                similarities[class_id].append(soft_sim_map)
 
                 # Process foreground points
                 if len(foreground_scores) > 0:
@@ -502,5 +503,10 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
 
                 class_point_prompts[class_id] = torch.cat([foreground_points, background_points])
             point_prompts.append(class_point_prompts)
-            similarities_per_image.append(similarities)
+
+            # Concatenate all tensors once per class
+            concatenated_similarities = {
+                class_id: torch.cat(tensor_list, dim=0) for class_id, tensor_list in similarities.items()
+            }
+            similarities_per_image.append(concatenated_similarities)
         return point_prompts, similarities_per_image

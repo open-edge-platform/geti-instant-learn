@@ -10,8 +10,6 @@ from pathlib import Path
 class SAMModelName(Enum):
     """Enum for SAM model types."""
 
-    SAM = "SAM"
-    MOBILE_SAM = "MobileSAM"
     SAM_HQ = "SAM-HQ"
     SAM_HQ_TINY = "SAM-HQ-tiny"
     SAM2_TINY = "SAM2-tiny"
@@ -60,12 +58,6 @@ DINOV3_BACKBONE_MAP = {
 }
 
 MODEL_MAP = {
-    SAMModelName.SAM: {  # 1024x1024 input resolution
-        "registry_name": "vit_h",
-        "local_filename": "sam_vit_h_4b8939.pth",
-        "download_url": "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth",
-        "sha_sum": "a7bf3b02f3ebf1267aba913ff637d9a2d5c33d3173bb679e46d9f338c26f262e",
-    },
     SAMModelName.SAM2_TINY: {  # 1024x1024 input resolution
         "registry_name": "vit_t",
         "local_filename": "sam2.1_hiera_tiny.pt",
@@ -93,12 +85,6 @@ MODEL_MAP = {
         "config_filename": "sam2.1_hiera_l.yaml",
         "download_url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_large.pt",
         "sha_sum": "2647878d5dfa5098f2f8649825738a9345572bae2d4350a2468587ece47dd318",
-    },
-    SAMModelName.MOBILE_SAM: {  # 1024x1024 input resolution
-        "registry_name": "vit_t",
-        "local_filename": "mobile_sam.pt",
-        "download_url": "https://github.com/ChaoningZhang/MobileSAM/raw/refs/heads/master/weights/mobile_sam.pt",
-        "sha_sum": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
     },
     SAMModelName.SAM_HQ: {  # 1024x1024 input resolution
         "registry_name": "vit_h",

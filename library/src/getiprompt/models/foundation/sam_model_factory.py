@@ -8,17 +8,14 @@ from typing import TYPE_CHECKING
 
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
-from segment_anything_hq import sam_model_registry as sam_hq_model_registry
-from segment_anything_hq.predictor import SamPredictor as SamHQPredictor
+from segment_anything_hq import sam_model_registry
+from segment_anything_hq.predictor import SamPredictor
 
-from getiprompt.models.foundation.per_sam import SamPredictor, sam_model_registry
 from getiprompt.utils.constants import DATA_PATH, MODEL_MAP, SAMModelName
 from getiprompt.utils.utils import download_file, precision_to_torch_dtype
 
 if TYPE_CHECKING:
     from segment_anything_hq.modeling.sam import Sam as SamHQ
-
-    from getiprompt.models.foundation.per_sam.modeling import SAM
 
 logger = getLogger("Geti Prompt")
 
@@ -29,7 +26,7 @@ def load_sam_model(
     precision: str = "bf16",
     compile_models: bool = False,
     benchmark_inference_speed: bool = False,
-) -> SamPredictor | SamHQPredictor | SAM2ImagePredictor:
+) -> SamPredictor | SAM2ImagePredictor:
     """Load and optimize a SAM model.
 
     Args:
@@ -62,16 +59,13 @@ def load_sam_model(
     msg = f"Loading segmentation model: {sam} from {checkpoint_path}"
     logger.info(msg)
 
-    if sam in {SAMModelName.SAM, SAMModelName.MOBILE_SAM}:
-        model: SAM = sam_model_registry[registry_name](checkpoint=str(checkpoint_path)).to(device).eval()
-        predictor = SamPredictor(model)
-    elif sam in {SAMModelName.SAM2_TINY, SAMModelName.SAM2_SMALL, SAMModelName.SAM2_BASE, SAMModelName.SAM2_LARGE}:
+    if sam in {SAMModelName.SAM2_TINY, SAMModelName.SAM2_SMALL, SAMModelName.SAM2_BASE, SAMModelName.SAM2_LARGE}:
         config_path = "configs/sam2.1/" + model_info["config_filename"]
         sam_model = build_sam2(config_path, str(checkpoint_path))
         predictor = SAM2ImagePredictor(sam_model)
     elif sam in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
-        model: SamHQ = sam_hq_model_registry[registry_name](checkpoint=str(checkpoint_path)).to(device).eval()
-        predictor = SamHQPredictor(model)
+        model: SamHQ = sam_model_registry[registry_name](checkpoint=str(checkpoint_path)).to(device).eval()
+        predictor = SamPredictor(model)
     else:
         msg = f"Model {sam} not implemented yet"
         raise NotImplementedError(msg)

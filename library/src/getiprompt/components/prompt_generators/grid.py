@@ -7,7 +7,6 @@ import torch
 from torchvision import tv_tensors
 
 from getiprompt.components.prompt_generators.base import PromptGenerator
-from getiprompt.types import Similarities
 
 
 class GridPromptGenerator(PromptGenerator):
@@ -18,14 +17,13 @@ class GridPromptGenerator(PromptGenerator):
     Examples:
         >>> import torch
         >>> from getiprompt.components.prompt_generators import GridPromptGenerator
-        >>> from getiprompt.types import Similarities
         >>>
         >>> prompt_generator = GridPromptGenerator(num_grid_cells=2)
-        >>> similarities = Similarities()
+        >>> similarities = {}
         >>> # Create a similarity map with a clear hot-spot
         >>> sim_map = torch.zeros(1, 10, 10)
         >>> sim_map[0, 2:4, 2:4] = 0.8
-        >>> similarities.add(sim_map, class_id=1)
+        >>> similarities[1] = sim_map
         >>> image = tv_tensors.Image(torch.zeros(3, 20, 20))
         >>> point_prompts = prompt_generator(target_similarities=[similarities], target_images=[image])
         >>> isinstance(point_prompts[0], dict) and 1 in point_prompts[0]
@@ -235,7 +233,7 @@ class GridPromptGenerator(PromptGenerator):
 
     def forward(
         self,
-        target_similarities: list[Similarities] | None = None,
+        target_similarities: list[dict[int, torch.Tensor]] | None = None,
         target_images: list[tv_tensors.Image] | None = None,
     ) -> list[dict[int, torch.Tensor]]:
         """This generates prompt candidates (or priors).
@@ -245,7 +243,8 @@ class GridPromptGenerator(PromptGenerator):
         The grid is defined by self.num_grid_cells and applied to the input similarity map's dimensions.
 
         Args:
-            target_similarities: List[Similarities] List of similarities, one per target image instance.
+            target_similarities: list[dict[int, torch.Tensor]] List of similarities dictionaries,
+                                one per target image instance.
                                 Each similarity map within is expected to be 2D (H_map, W_map)
                                 or a stack of 2D maps 3D (num_maps, H_map, W_map).
             target_images: List[tv_tensors.Image] List of target image instances
@@ -257,22 +256,22 @@ class GridPromptGenerator(PromptGenerator):
         point_prompts: list[dict[int, torch.Tensor]] = []
 
         if target_similarities is None:
-            target_similarities = [Similarities()]
+            target_similarities = [{}]
         if target_images is None:
             target_images = [tv_tensors.Image()]
 
         for similarities_per_image, target_image in zip(target_similarities, target_images, strict=True):
             class_point_prompts: dict[int, torch.Tensor] = {}
-            original_image_shape = target_image.shape[-2:]  # (height, width)
+            ori_size = target_image.shape[-2:]  # (height, width)
 
-            for class_id, class_similarity_maps in similarities_per_image.data.items():
+            for class_id, class_similarity_maps in similarities_per_image.items():
                 background_points = self._get_background_points(class_similarity_maps)  # Operates on (H_enc, W_enc)
 
                 # Convert background points to original image coordinates
                 background_points = self._convert_points_to_original_size(
                     background_points,
                     class_similarity_maps.shape[-2:],
-                    original_image_shape,
+                    ori_size,
                 )
 
                 # Collect all foreground points from all similarity maps for this class
@@ -287,7 +286,7 @@ class GridPromptGenerator(PromptGenerator):
                     foreground_points = self._convert_points_to_original_size(
                         foreground_points,
                         similarity_map.shape,
-                        original_image_shape,
+                        ori_size,
                     )
 
                     foreground_labels = torch.ones((len(foreground_points), 1), device=foreground_points.device)
