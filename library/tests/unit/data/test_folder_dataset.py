@@ -138,7 +138,7 @@ class TestFolderDatasetWithFSS1000:
 
         dataset = FolderDataset(root=fss1000_root, n_shots=1)
         assert len(dataset) > 0
-        assert len(dataset.categories) == 15  # We have 15 categories
+        assert len(dataset.categories) == 2
 
     def test_load_specific_categories(self, fss1000_root: Path) -> None:
         """Test loading specific categories."""

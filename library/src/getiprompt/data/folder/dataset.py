@@ -35,7 +35,7 @@ class FolderDataset(Dataset):
 
     Args:
         root (Path | str): Path to root directory containing the dataset.
-            Should contain 'images' and 'masks' subdirectories.
+            Should contain 'images' and optionally 'masks' subdirectories.
         images_dir (str, optional): Name of images subdirectory. Defaults to "images".
         masks_dir (str, optional): Name of masks subdirectory. Defaults to "masks".
         categories (Sequence[str] | None, optional): List of category names to include.
@@ -45,6 +45,9 @@ class FolderDataset(Dataset):
             Defaults to (".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif").
         mask_extensions (tuple[str, ...], optional): Valid mask file extensions.
             Defaults to (".png", ".bmp", ".tiff", ".tif").
+        masks_required (bool, optional): If True, masks directory is required and only
+            image-mask pairs are included. If False, masks are optional and all images
+            are included (with or without masks). Defaults to True.
 
     Example:
         >>> from pathlib import Path
@@ -76,6 +79,7 @@ class FolderDataset(Dataset):
         n_shots: int = 1,
         img_extensions: tuple[str, ...] = IMG_EXTENSIONS,
         mask_extensions: tuple[str, ...] = MASK_EXTENSIONS,
+        masks_required: bool = True,
     ) -> None:
         """Initialize the FolderDataset."""
         super().__init__(n_shots=n_shots)
@@ -86,6 +90,7 @@ class FolderDataset(Dataset):
         self.categories_filter = categories
         self.img_extensions = img_extensions
         self.mask_extensions = mask_extensions
+        self.masks_required = masks_required
 
         # Load the DataFrame
         self.df = self._load_dataframe()
@@ -119,6 +124,7 @@ class FolderDataset(Dataset):
             n_shots=self.n_shots,
             img_extensions=self.img_extensions,
             mask_extensions=self.mask_extensions,
+            masks_required=self.masks_required,
         )
 
 
@@ -130,6 +136,7 @@ def make_folder_dataframe(
     n_shots: int = 1,
     img_extensions: tuple[str, ...] = IMG_EXTENSIONS,
     mask_extensions: tuple[str, ...] = MASK_EXTENSIONS,
+    masks_required: bool = True,
 ) -> pl.DataFrame:
     """Create a Polars DataFrame for folder dataset.
 
@@ -142,6 +149,9 @@ def make_folder_dataframe(
         n_shots (int, optional): Number of reference shots per category. Defaults to 1.
         img_extensions (tuple[str, ...], optional): Valid image extensions.
         mask_extensions (tuple[str, ...], optional): Valid mask extensions.
+        masks_required (bool, optional): If True, masks directory is required and only
+            image-mask pairs are included. If False, masks are optional and all images
+            are included (with or without masks). Defaults to True.
 
     Returns:
         pl.DataFrame: DataFrame containing sample metadata.
@@ -156,17 +166,22 @@ def make_folder_dataframe(
     if not images_root.exists():
         msg = f"Images directory not found: {images_root}"
         raise FileNotFoundError(msg)
-    if not masks_root.exists():
+    if masks_required and not masks_root.exists():
         msg = f"Masks directory not found: {masks_root}"
         raise FileNotFoundError(msg)
 
-    # Get all available categories (must exist in both images and masks)
+    # Get all available categories
     available_categories = []
     for category_dir in images_root.iterdir():
         if category_dir.is_dir():
             category_name = category_dir.name
-            mask_category_dir = masks_root / category_name
-            if mask_category_dir.exists() and mask_category_dir.is_dir():
+            # If masks are required, category must exist in both images and masks
+            if masks_required:
+                mask_category_dir = masks_root / category_name
+                if mask_category_dir.exists() and mask_category_dir.is_dir():
+                    available_categories.append(category_name)
+            else:
+                # If masks are optional, just check images directory
                 available_categories.append(category_name)
 
     # Filter categories if specified
@@ -195,18 +210,21 @@ def make_folder_dataframe(
         # Sort by filename (assuming numeric naming like 1.jpg, 2.jpg, etc.)
         image_files = sorted(image_files, key=lambda x: (len(x.stem), x.stem))
 
-        # Find corresponding mask files
+        # Find corresponding mask files (optional if masks_required is False)
         valid_pairs = []
         for img_file in image_files:
             # Try different mask extensions
             mask_file = None
-            for ext in mask_extensions:
-                potential_mask = mask_dir / f"{img_file.stem}{ext}"
-                if potential_mask.exists():
-                    mask_file = potential_mask
-                    break
+            if masks_root.exists() and mask_dir.exists():
+                for ext in mask_extensions:
+                    potential_mask = mask_dir / f"{img_file.stem}{ext}"
+                    if potential_mask.exists():
+                        mask_file = potential_mask
+                        break
 
-            if mask_file is not None:
+            # If masks are required, only include pairs with masks
+            # If masks are optional, include all images (with or without masks)
+            if mask_file is not None or not masks_required:
                 valid_pairs.append((img_file, mask_file))
 
         if len(valid_pairs) < n_shots:
@@ -226,13 +244,16 @@ def make_folder_dataframe(
                 "image_path": str(img_file),
                 "categories": [category],  # List with single element
                 "category_ids": [category_id],  # List with single element
-                "mask_paths": [str(mask_file)],  # List with single element
+                "mask_paths": [str(mask_file)] if mask_file is not None else [None],  # List with single element
                 "is_reference": [is_reference],  # List with single element
                 "n_shot": [n_shot],  # List with single element
             })
 
     if not samples_data:
-        msg = "No valid image-mask pairs found"
+        if masks_required:
+            msg = "No valid image-mask pairs found"
+        else:
+            msg = "No valid images found"
         raise ValueError(msg)
 
     # Create DataFrame
