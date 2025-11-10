@@ -9,8 +9,8 @@ import torch
 from torch import nn
 from torchvision import transforms
 
+from getiprompt.data.transforms import MaybeToTensor
 from getiprompt.types import Masks
-from getiprompt.utils import MaybeToTensor
 
 
 class MaskedFeatureExtractor(nn.Module):
@@ -49,9 +49,9 @@ class MaskedFeatureExtractor(nn.Module):
 
     def forward(
         self,
-        batched_features: torch.Tensor,
-        batched_masks: torch.Tensor,
-        batched_category_ids: torch.Tensor,
+        features: torch.Tensor,
+        masks: torch.Tensor,
+        category_ids: torch.Tensor,
     ) -> tuple[dict[int, torch.Tensor], list[Masks]]:
         """Extract masked, mask-conditioned features from batched inputs.
 
@@ -59,14 +59,13 @@ class MaskedFeatureExtractor(nn.Module):
         corresponding to masked regions, and associates them with their category IDs.
 
         Args:
-            batched_features (torch.Tensor): Feature tensor of shape
+            features (torch.Tensor): Feature tensor of shape
                 ``(batch_size, num_patches, embedding_dim)``, typically the patch embeddings
                 from an encoder (e.g., ViT).
-            batched_masks (torch.Tensor): Binary masks of shape
+            masks (torch.Tensor): Binary masks of shape
                 ``(batch_size, num_masks, height, width)``, defining spatial regions
                 to extract local features from.
-            batched_category_ids (torch.Tensor): Category IDs for each mask of shape
-                ``(batch_size, num_masks)``.
+            category_ids (torch.Tensor): Category IDs for each mask of shape ``(batch_size, num_masks)``.
 
         Returns:
             tuple[dict[int, torch.Tensor], list[Masks]]:
@@ -76,9 +75,9 @@ class MaskedFeatureExtractor(nn.Module):
         resized_masks_per_image = []
         masked_ref_embeds = defaultdict(list)
         for embedding, masks_tensor, category_ids in zip(
-            batched_features,
-            batched_masks,
-            batched_category_ids,
+            features,
+            masks,
+            category_ids,
             strict=True,
         ):
             resized_masks = Masks()

@@ -8,7 +8,6 @@ from logging import getLogger
 
 import torch
 from torch.nn import functional
-from torchvision import tv_tensors
 
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.types import Masks
@@ -411,11 +410,11 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
 
     def forward(
         self,
-        ref_embeds: torch.Tensor,
-        masked_ref_embeds: dict[int, torch.Tensor],
+        ref_embeddings: torch.Tensor,
+        masked_ref_embeddings: dict[int, torch.Tensor],
         reference_masks: list[Masks],
-        target_embeds: torch.Tensor,
-        target_images: list[tv_tensors.Image],
+        target_embeddings: torch.Tensor,
+        original_sizes: list[tuple[int, int]],
     ) -> tuple[list[dict[int, torch.Tensor]], list[dict[int, torch.Tensor]]]:
         """This generates prompt candidates (or priors) based on the similarities.
 
@@ -425,11 +424,11 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         This Prompt Generator computes the similarity map internally.
 
         Args:
-            ref_embeds(torch.Tensor): Reference embeddings
-            masked_ref_embeds(dict[int, torch.Tensor]): Dictionary of masked reference embeddings
+            ref_embeddings(torch.Tensor): Reference embeddings
+            masked_ref_embeddings(dict[int, torch.Tensor]): Dictionary of masked reference embeddings
             reference_masks(list[Masks]): List of reference masks, one per reference image instance
-            target_embeds(torch.Tensor): Target embeddings
-            target_images(list[tv_tensors.Image]): Target images
+            target_embeddings(torch.Tensor): Target embeddings
+            original_sizes(list[tuple[int, int]]): Original sizes of the target images
 
         Returns:
             point_prompts(list[dict[int, torch.Tensor]]):
@@ -440,19 +439,19 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         similarities_per_image: list[dict[int, torch.Tensor]] = []
 
         # this basically makes a vertical stack + flatten
-        flattened_ref_embeds = ref_embeds.reshape(-1, ref_embeds.shape[-1])
+        flattened_ref_embeds = ref_embeddings.reshape(-1, ref_embeddings.shape[-1])
         reference_masks = self._merge_masks(reference_masks)
 
-        for target_embed, target_image in zip(target_embeds, target_images, strict=False):
+        for target_embed, original_size in zip(target_embeddings, original_sizes, strict=False):
             class_point_prompts: dict[int, torch.Tensor] = {}
             similarities: dict[int, list[torch.Tensor]] = defaultdict(list)
             similarity_map = flattened_ref_embeds @ target_embed.T
-            h, w = target_image.shape[-2:]
+            h, w = original_size
 
             for class_id, mask in reference_masks.data.items():
-                local_reference_feature = masked_ref_embeds[class_id]
+                local_reference_feature = masked_ref_embeddings[class_id]
                 local_similarity = local_reference_feature @ target_embed.T
-                local_similarity = self._resize_similarity_map(local_similarity, target_image.shape[-2:])
+                local_similarity = self._resize_similarity_map(local_similarity, original_size)
                 similarities[class_id].append(local_similarity)
 
                 # Select background points based on similarity to averaged local feature

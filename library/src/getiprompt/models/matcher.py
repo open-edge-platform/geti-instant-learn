@@ -139,17 +139,17 @@ class Matcher(Model):
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
         )
-        self.masked_ref_embeds = None
+        self.masked_ref_embeddings = None
         self.ref_masks = None
 
     @track_duration
     def learn(self, reference_batch: Batch) -> None:
         """Perform learning step on the reference images and priors."""
         # Encode reference images to batched tensor
-        self.ref_embeds = self.encoder(images=reference_batch.images)
+        self.ref_embeddings = self.encoder(images=reference_batch.images)
         # Extract local features and pooled masks
-        self.masked_ref_embeds, self.ref_masks = self.masked_feature_extractor(
-            self.ref_embeds,
+        self.masked_ref_embeddings, self.ref_masks = self.masked_feature_extractor(
+            self.ref_embeddings,
             reference_batch.masks,
             reference_batch.category_ids,
         )
@@ -158,13 +158,14 @@ class Matcher(Model):
     def infer(self, target_batch: Batch) -> Results:
         """Perform inference step on the target images."""
         target_images = target_batch.images
-        target_embeds = self.encoder(images=target_batch.images)
+        original_sizes = [image.shape[-2:] for image in target_images]
+        target_embeddings = self.encoder(images=target_batch.images)
         point_prompts, similarities_per_image = self.prompt_generator(
-            self.ref_embeds,
-            self.masked_ref_embeds,
+            self.ref_embeddings,
+            self.masked_ref_embeddings,
             self.ref_masks,
-            target_embeds,
-            target_images,
+            target_embeddings,
+            original_sizes,
         )
         point_prompts = self.prompt_filter(point_prompts)
         masks, used_points, _ = self.segmenter(

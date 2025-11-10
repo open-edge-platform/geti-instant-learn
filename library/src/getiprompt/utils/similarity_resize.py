@@ -9,10 +9,7 @@ import torch
 from torch.nn import functional
 
 
-def resize_similarity_map(
-    similarities: torch.Tensor,
-    target_size: tuple[int, int] | int,
-) -> torch.Tensor:
+def resize_similarity_maps(similarity_maps: torch.Tensor, target_size: tuple[int, int] | int) -> torch.Tensor:
     """Resize similarity maps to target image size while removing padding.
 
     This function converts flat similarity tensors to square spatial grids,
@@ -42,26 +39,26 @@ def resize_similarity_map(
         >>> resized_batch.shape
         torch.Size([4, 128, 128])
     """
-    square_size = int(math.sqrt(similarities.shape[-1]))
+    square_size = int(math.sqrt(similarity_maps.shape[-1]))
 
     # Put in batched square shape
-    similarities = similarities.reshape(
-        similarities.shape[0],
+    similarity_maps = similarity_maps.reshape(
+        similarity_maps.shape[0],
         1,
         square_size,
         square_size,
     )
 
     # Resize to (original) target size
-    similarities = functional.interpolate(
-        similarities,
+    similarity_maps = functional.interpolate(
+        similarity_maps,
         size=target_size,
         mode="bilinear",
         align_corners=False,
     ).squeeze(1)
 
     # Squeeze batch dimension if batch size is 1
-    if similarities.ndim == 4:
-        similarities = similarities.squeeze(0)
+    if similarity_maps.ndim == 4:
+        similarity_maps = similarity_maps.squeeze(0)
 
-    return similarities
+    return similarity_maps

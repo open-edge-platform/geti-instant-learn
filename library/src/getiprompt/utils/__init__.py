@@ -3,24 +3,18 @@
 
 """Utils."""
 
-from .similarity_resize import resize_similarity_map
+from .similarity_resize import resize_similarity_maps
 from .utils import (
-    MaybeToTensor,
-    color_overlay,
     download_file,
     get_colors,
     precision_to_torch_dtype,
-    prepare_target_guided_prompting,
     setup_logger,
 )
 
 __all__ = [
-    "MaybeToTensor",
-    "color_overlay",
     "download_file",
     "get_colors",
     "precision_to_torch_dtype",
-    "prepare_target_guided_prompting",
-    "resize_similarity_map",
+    "resize_similarity_maps",
     "setup_logger",
 ]

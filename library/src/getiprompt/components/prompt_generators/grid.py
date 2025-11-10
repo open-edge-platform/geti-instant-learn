@@ -53,31 +53,31 @@ class GridPromptGenerator(PromptGenerator):
         self.similarity_threshold = similarity_threshold
         self.num_bg_points = num_bg_points
 
-    def _get_foreground_points(self, similarity: torch.Tensor) -> torch.Tensor:
+    def _get_foreground_points(self, similarity_map: torch.Tensor) -> torch.Tensor:
         """Select foreground points based on the similarity mask and grid-based filtering.
 
         Operates on the provided similarity map, using self.num_grid_cells to define the grid.
 
         Args:
-            similarity: 2D Similarity mask tensor (map_height, map_width)
+            similarity_map: 2D Similarity mask tensor (map_height, map_width)
 
         Returns:
             Foreground points coordinates and scores with shape (N, 3) where each row is [x, y, score],
             in the input similarity map's coordinate space.
         """
-        map_w, map_h = similarity.shape
+        map_w, map_h = similarity_map.shape
 
         if map_h == 0 or map_w == 0:
-            return torch.empty((0, 3), device=similarity.device)
+            return torch.empty((0, 3), device=similarity_map.device)
 
-        point_coords = torch.where(similarity > self.similarity_threshold)  # (x_indices, y_indices)
+        point_coords = torch.where(similarity_map > self.similarity_threshold)  # (x_indices, y_indices)
         foreground_coords = torch.stack(
-            (point_coords[1], point_coords[0], similarity[point_coords]),
+            (point_coords[1], point_coords[0], similarity_map[point_coords]),
             axis=0,
         ).T
 
         if len(foreground_coords) == 0:
-            return torch.empty((0, 3), device=similarity.device)
+            return torch.empty((0, 3), device=similarity_map.device)
 
         cell_width = map_w / self.num_grid_cells
         cell_height = map_h / self.num_grid_cells
@@ -108,7 +108,7 @@ class GridPromptGenerator(PromptGenerator):
                 selected_points_list.append(best_point_in_cell)
 
         if not selected_points_list:
-            return torch.empty((0, 3), device=similarity.device)
+            return torch.empty((0, 3), device=similarity_map.device)
 
         points_scores = torch.cat(selected_points_list, dim=0)
 
@@ -116,36 +116,36 @@ class GridPromptGenerator(PromptGenerator):
         sorted_indices = torch.argsort(points_scores[:, -1], descending=True)
         return points_scores[sorted_indices]
 
-    def _get_background_points(self, similarity: torch.Tensor) -> torch.Tensor:
+    def _get_background_points(self, similarity_map: torch.Tensor) -> torch.Tensor:
         """Select background points based on the similarity mask.
 
         Operates on the input similarity map (can be 2D or 3D).
         If 3D, sums over the first dimension. Coordinates are relative to the map's H, W.
 
         Args:
-            similarity: Similarity mask tensor (H, W) or (num_maps, H, W)
+            similarity_map: Similarity mask tensor (H, W) or (num_maps, H, W)
 
         Returns:
             Background points coordinates with shape (num_bg_points, 3) where each row is [x, y, score]
             in the input similarity map's H, W coordinate space.
         """
         if self.num_bg_points == 0:
-            return torch.empty((0, 3), device=similarity.device)
+            return torch.empty((0, 3), device=similarity_map.device)
 
-        current_similarity_map = similarity
+        current_similarity_map = similarity_map
         if current_similarity_map.ndim == 3:
             if current_similarity_map.shape[0] == 0:  # Empty stack
-                return torch.empty((0, 3), device=similarity.device)
+                return torch.empty((0, 3), device=similarity_map.device)
             current_similarity_map = current_similarity_map.sum(dim=0)  # Sum over maps
 
         map_h, map_w = current_similarity_map.shape
         if map_h == 0 or map_w == 0:
-            return torch.empty((0, 3), device=similarity.device)
+            return torch.empty((0, 3), device=similarity_map.device)
 
         num_elements = current_similarity_map.numel()
         k = min(self.num_bg_points, num_elements)
         if k == 0:
-            return torch.empty((0, 3), device=similarity.device)
+            return torch.empty((0, 3), device=similarity_map.device)
 
         bg_values, bg_indices_flat = torch.topk(
             current_similarity_map.flatten(),

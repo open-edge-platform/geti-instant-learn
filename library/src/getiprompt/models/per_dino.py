@@ -135,15 +135,15 @@ class PerDino(Model):
             mask_similarity_threshold=mask_similarity_threshold,
         )
         self.class_overlap_mask_filter = ClassOverlapMaskFilter()
-        self.reference_features = None
+        self.reference_embeddings = None
 
     @track_duration
     def learn(self, reference_batch: Batch) -> None:
         """Perform learning step on the reference images and priors."""
         # Start running the model
-        reference_features = self.encoder(reference_batch.images)
-        self.masked_ref_embeds, _ = self.masked_feature_extractor(
-            reference_features,
+        reference_embeddings = self.encoder(reference_batch.images)
+        self.masked_ref_embeddings, _ = self.masked_feature_extractor(
+            reference_embeddings,
             reference_batch.masks,
             reference_batch.category_ids,
         )
@@ -152,12 +152,14 @@ class PerDino(Model):
     def infer(self, target_batch: Batch) -> Results:
         """Perform inference step on the target images."""
         # Start running the model
-        target_embeddings = self.encoder(target_batch.images)
-        similarities = self.similarity_matcher(self.masked_ref_embeds, target_embeddings, target_batch.images)
-        point_prompts = self.prompt_generator(similarities, target_batch.images)
+        target_images = target_batch.images
+        image_sizes = [image.shape[-2:] for image in target_images]
+        target_embeddings = self.encoder(target_images)
+        similarities = self.similarity_matcher(self.masked_ref_embeddings, target_embeddings, image_sizes)
+        point_prompts = self.prompt_generator(similarities, target_images)
         point_prompts = self.prompt_filter(point_prompts)
         masks, used_points, _ = self.segmenter(
-            target_batch.images,
+            target_images,
             point_prompts=point_prompts,
             similarities=similarities,
         )

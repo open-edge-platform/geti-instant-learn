@@ -96,12 +96,12 @@ class TestEncoder:
         images = [Image(np.zeros((224, 224, 3), dtype=np.uint8))]
 
         # Test encoder call
-        features = encoder(images)
+        embeddings = encoder(images)
 
         # Check outputs
-        pytest.assume(isinstance(features, torch.Tensor))
+        pytest.assume(isinstance(embeddings, torch.Tensor))
         expected_batch_size = 1
-        pytest.assume(features.shape[0] == expected_batch_size)
+        pytest.assume(embeddings.shape[0] == expected_batch_size)
 
     @staticmethod
     def test_model_id_validation() -> None:
@@ -297,20 +297,20 @@ class TestEncoderIntegration:
         test_image = Image(rng.integers(0, 255, (224, 224, 3), dtype=np.uint8))
 
         # Test forward method
-        features = encoder.forward([test_image])
+        embeddings = encoder.forward([test_image])
 
         # Verify outputs
-        pytest.assume(isinstance(features, torch.Tensor))
+        pytest.assume(isinstance(embeddings, torch.Tensor))
         expected_batch_size = 1
-        pytest.assume(features.shape[0] == expected_batch_size)
+        pytest.assume(embeddings.shape[0] == expected_batch_size)
 
         # Verify feature shape and properties
         expected_patches = (224 // encoder.patch_size) ** 2
-        pytest.assume(features.shape[1] == expected_patches)
-        pytest.assume(features.shape[2] == 384)  # dinov2_small has 384 dims
+        pytest.assume(embeddings.shape[1] == expected_patches)
+        pytest.assume(embeddings.shape[2] == 384)  # dinov2_small has 384 dims
 
         # Check L2 normalization
-        feature_norms = torch.norm(features.float(), dim=-1)
+        feature_norms = torch.norm(embeddings.float(), dim=-1)
         expected_norms = torch.ones(expected_batch_size, expected_patches, dtype=torch.float32)
         pytest.assume(torch.allclose(feature_norms, expected_norms, atol=1e-2))
 
@@ -338,7 +338,7 @@ class TestEncoderIntegration:
     @pytest.mark.integration
     @staticmethod
     def test_feature_quality_and_consistency() -> None:
-        """Test that extracted features are meaningful and consistent."""
+        """Test that extracted embeddings are meaningful and consistent."""
         encoder = ImageEncoder(model_id="dinov2_small", device="cpu", input_size=224)
 
         # Create identical images
@@ -347,7 +347,7 @@ class TestEncoderIntegration:
         image1 = Image(image_data.copy())
         image2 = Image(image_data.copy())
 
-        # Extract features
+        # Extract embeddings
         features1 = encoder.forward([image1])
         features2 = encoder.forward([image2])
 
@@ -375,8 +375,8 @@ class TestEncoderIntegration:
         # Test feature extraction
         rng = np.random.default_rng(42)
         test_image = Image(rng.integers(0, 255, (224, 224, 3), dtype=np.uint8))
-        features = encoder_base.forward([test_image])
+        embeddings = encoder_base.forward([test_image])
 
         # Verify feature dimension
         expected_patches = (224 // encoder_base.patch_size) ** 2
-        pytest.assume(features.shape == (1, expected_patches, 768))  # batch, patches, 768 dims
+        pytest.assume(embeddings.shape == (1, expected_patches, 768))  # batch, patches, 768 dims

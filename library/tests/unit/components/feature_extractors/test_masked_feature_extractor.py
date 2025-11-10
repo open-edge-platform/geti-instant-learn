@@ -40,31 +40,31 @@ class TestMaskedFeatureExtractor:
         num_masks = 1
         mask_height, mask_width = 224, 224
 
-        # Create batched features
-        batched_features = torch.randn(batch_size, total_patches, embedding_dim)
+        # Create batched embeddings
+        embeddings = torch.randn(batch_size, total_patches, embedding_dim)
 
         # Create a mask with a foreground region
-        batched_masks = torch.zeros(batch_size, num_masks, mask_height, mask_width, dtype=torch.bool)
-        batched_masks[0, 0, 50:100, 50:100] = True  # Single mask region
+        masks = torch.zeros(batch_size, num_masks, mask_height, mask_width, dtype=torch.bool)
+        masks[0, 0, 50:100, 50:100] = True  # Single mask region
 
         # Category IDs
-        batched_category_ids = torch.tensor([[1]], dtype=torch.long)
+        category_ids = torch.tensor([[1]], dtype=torch.long)
 
-        # Extract local features
-        masked_ref_embeds, masks_list = extractor(
-            batched_features,
-            batched_masks,
-            batched_category_ids,
+        # Extract local embeddings
+        masked_ref_embeddings, masks_list = extractor(
+            embeddings,
+            masks,
+            category_ids,
         )
 
         # Check outputs
-        pytest.assume(isinstance(masked_ref_embeds, dict))
+        pytest.assume(isinstance(masked_ref_embeddings, dict))
         pytest.assume(len(masks_list) == batch_size)
 
         # Check masked reference embeddings (aggregated across batch by category)
-        pytest.assume(1 in masked_ref_embeds)
-        pytest.assume(isinstance(masked_ref_embeds[1], torch.Tensor))
-        pytest.assume(masked_ref_embeds[1].shape == (1, embedding_dim))  # Averaged and normalized
+        pytest.assume(1 in masked_ref_embeddings)
+        pytest.assume(isinstance(masked_ref_embeddings[1], torch.Tensor))
+        pytest.assume(masked_ref_embeddings[1].shape == (1, embedding_dim))  # Averaged and normalized
 
         # Check Masks object
         pytest.assume(isinstance(masks_list[0], Masks))
@@ -86,37 +86,33 @@ class TestMaskedFeatureExtractor:
         num_masks = 2
         mask_height, mask_width = 224, 224
 
-        # Create batched features
-        batched_features = torch.randn(batch_size, total_patches, embedding_dim)
+        # Create batched embeddings
+        embeddings = torch.randn(batch_size, total_patches, embedding_dim)
 
         # Create masks with foreground regions
-        batched_masks = torch.zeros(batch_size, num_masks, mask_height, mask_width, dtype=torch.bool)
-        batched_masks[0, 0, 50:100, 50:100] = True  # First sample, first mask
-        batched_masks[0, 1, 150:200, 150:200] = True  # First sample, second mask
-        batched_masks[1, 0, 30:80, 30:80] = True  # Second sample, first mask
-        batched_masks[1, 1, 100:150, 100:150] = True  # Second sample, second mask
+        masks = torch.zeros(batch_size, num_masks, mask_height, mask_width, dtype=torch.bool)
+        masks[0, 0, 50:100, 50:100] = True  # First sample, first mask
+        masks[0, 1, 150:200, 150:200] = True  # First sample, second mask
+        masks[1, 0, 30:80, 30:80] = True  # Second sample, first mask
+        masks[1, 1, 100:150, 100:150] = True  # Second sample, second mask
 
         # Category IDs
-        batched_category_ids = torch.tensor([[1, 2], [1, 0]], dtype=torch.long)
+        category_ids = torch.tensor([[1, 2], [1, 0]], dtype=torch.long)
 
-        # Extract local features
-        masked_ref_embeds, masks_list = extractor(
-            batched_features,
-            batched_masks,
-            batched_category_ids,
-        )
+        # Extract local embeddings
+        masked_ref_embeddings, masks_list = extractor(embeddings, masks, category_ids)
 
         # Check outputs
-        pytest.assume(isinstance(masked_ref_embeds, dict))
+        pytest.assume(isinstance(masked_ref_embeddings, dict))
         pytest.assume(len(masks_list) == batch_size)
 
         # Check masked reference embeddings (aggregated across batch by category)
-        pytest.assume(1 in masked_ref_embeds)
-        pytest.assume(2 in masked_ref_embeds)
-        pytest.assume(0 in masked_ref_embeds)
-        pytest.assume(isinstance(masked_ref_embeds[1], torch.Tensor))
-        pytest.assume(isinstance(masked_ref_embeds[2], torch.Tensor))
-        pytest.assume(isinstance(masked_ref_embeds[0], torch.Tensor))
+        pytest.assume(1 in masked_ref_embeddings)
+        pytest.assume(2 in masked_ref_embeddings)
+        pytest.assume(0 in masked_ref_embeddings)
+        pytest.assume(isinstance(masked_ref_embeddings[1], torch.Tensor))
+        pytest.assume(isinstance(masked_ref_embeddings[2], torch.Tensor))
+        pytest.assume(isinstance(masked_ref_embeddings[0], torch.Tensor))
 
         # Check first image masks
         pytest.assume(isinstance(masks_list[0], Masks))
@@ -143,36 +139,32 @@ class TestMaskedFeatureExtractor:
         num_masks = 3
         mask_height, mask_width = 224, 224
 
-        # Create batched features
-        batched_features = torch.randn(batch_size, total_patches, embedding_dim)
+        # Create batched embeddings
+        embeddings = torch.randn(batch_size, total_patches, embedding_dim)
 
         # Create masks for different classes
-        batched_masks = torch.zeros(batch_size, num_masks, mask_height, mask_width, dtype=torch.bool)
-        batched_masks[0, 0, 50:100, 50:100] = True  # Class 1
-        batched_masks[0, 1, 120:170, 120:170] = True  # Class 2
-        batched_masks[0, 2, 180:210, 180:210] = True  # Class 3
+        masks = torch.zeros(batch_size, num_masks, mask_height, mask_width, dtype=torch.bool)
+        masks[0, 0, 50:100, 50:100] = True  # Class 1
+        masks[0, 1, 120:170, 120:170] = True  # Class 2
+        masks[0, 2, 180:210, 180:210] = True  # Class 3
 
         # Category IDs
-        batched_category_ids = torch.tensor([[1, 2, 3]], dtype=torch.long)
+        category_ids = torch.tensor([[1, 2, 3]], dtype=torch.long)
 
-        # Extract local features
-        masked_ref_embeds, masks_list = extractor(
-            batched_features,
-            batched_masks,
-            batched_category_ids,
-        )
+        # Extract local embeddings
+        masked_ref_embeddings, masks_list = extractor(embeddings, masks, category_ids)
 
         # Check outputs
-        pytest.assume(isinstance(masked_ref_embeds, dict))
+        pytest.assume(isinstance(masked_ref_embeddings, dict))
         pytest.assume(len(masks_list) == 1)
 
         # Check all classes are present in masked reference embeddings
-        pytest.assume(1 in masked_ref_embeds)
-        pytest.assume(2 in masked_ref_embeds)
-        pytest.assume(3 in masked_ref_embeds)
-        pytest.assume(isinstance(masked_ref_embeds[1], torch.Tensor))
-        pytest.assume(isinstance(masked_ref_embeds[2], torch.Tensor))
-        pytest.assume(isinstance(masked_ref_embeds[3], torch.Tensor))
+        pytest.assume(1 in masked_ref_embeddings)
+        pytest.assume(2 in masked_ref_embeddings)
+        pytest.assume(3 in masked_ref_embeddings)
+        pytest.assume(isinstance(masked_ref_embeddings[1], torch.Tensor))
+        pytest.assume(isinstance(masked_ref_embeddings[2], torch.Tensor))
+        pytest.assume(isinstance(masked_ref_embeddings[3], torch.Tensor))
 
         pytest.assume(1 in masks_list[0].data)
         pytest.assume(2 in masks_list[0].data)
@@ -193,35 +185,31 @@ class TestMaskedFeatureExtractor:
         num_masks = 1
         mask_height, mask_width = 224, 224
 
-        # Create batched features
-        batched_features = torch.randn(batch_size, total_patches, embedding_dim)
+        # Create batched embeddings
+        embeddings = torch.randn(batch_size, total_patches, embedding_dim)
 
         # Create empty mask
-        batched_masks = torch.zeros(batch_size, num_masks, mask_height, mask_width, dtype=torch.bool)
+        masks = torch.zeros(batch_size, num_masks, mask_height, mask_width, dtype=torch.bool)
 
         # Category IDs
-        batched_category_ids = torch.tensor([[1]], dtype=torch.long)
+        category_ids = torch.tensor([[1]], dtype=torch.long)
 
-        # Extract local features
-        masked_ref_embeds, masks_list = extractor(
-            batched_features,
-            batched_masks,
-            batched_category_ids,
-        )
+        # Extract local embeddings
+        masked_ref_embeddings, masks_list = extractor(embeddings, masks, category_ids)
 
         # Check outputs
-        pytest.assume(isinstance(masked_ref_embeds, dict))
+        pytest.assume(isinstance(masked_ref_embeddings, dict))
         pytest.assume(len(masks_list) == 1)
 
         # Empty mask should still create entries
         pytest.assume(1 in masks_list[0].data)
-        # Empty mask might not create features (depends on implementation)
-        # If features exist, they should be a tensor
-        if 1 in masked_ref_embeds:
-            pytest.assume(isinstance(masked_ref_embeds[1], torch.Tensor))
+        # Empty mask might not create embeddings (depends on implementation)
+        # If embeddings exist, they should be a tensor
+        if 1 in masked_ref_embeddings:
+            pytest.assume(isinstance(masked_ref_embeddings[1], torch.Tensor))
 
     def test_forward_feature_extraction_correctness(self) -> None:
-        """Test that features are correctly extracted from masked regions."""
+        """Test that embeddings are correctly extracted from masked regions."""
         extractor = MaskedFeatureExtractor(
             input_size=224,
             patch_size=14,
@@ -233,27 +221,23 @@ class TestMaskedFeatureExtractor:
         total_patches = patches_per_dim * patches_per_dim
         embedding_dim = 768
 
-        # Create batched features with known values
-        batched_features = torch.randn(batch_size, total_patches, embedding_dim)
+        # Create batched embeddings with known values
+        embeddings = torch.randn(batch_size, total_patches, embedding_dim)
 
         # Create a mask covering a specific region
         mask_height, mask_width = 224, 224
-        batched_masks = torch.zeros(batch_size, 1, mask_height, mask_width, dtype=torch.bool)
-        batched_masks[0, 0, 50:100, 50:100] = True
+        masks = torch.zeros(batch_size, 1, mask_height, mask_width, dtype=torch.bool)
+        masks[0, 0, 50:100, 50:100] = True
 
-        batched_category_ids = torch.tensor([[1]], dtype=torch.long)
+        category_ids = torch.tensor([[1]], dtype=torch.long)
 
-        # Extract local features
-        masked_ref_embeds, _ = extractor(
-            batched_features,
-            batched_masks,
-            batched_category_ids,
-        )
+        # Extract local embeddings
+        masked_ref_embeddings, _ = extractor(embeddings, masks, category_ids)
 
         # Check that masked reference embeddings are extracted
-        pytest.assume(1 in masked_ref_embeds)
-        pytest.assume(isinstance(masked_ref_embeds[1], torch.Tensor))
-        pytest.assume(masked_ref_embeds[1].shape == (1, embedding_dim))  # Averaged and normalized
+        pytest.assume(1 in masked_ref_embeddings)
+        pytest.assume(isinstance(masked_ref_embeddings[1], torch.Tensor))
+        pytest.assume(masked_ref_embeddings[1].shape == (1, embedding_dim))  # Averaged and normalized
 
     def test_forward_mask_pooling(self) -> None:
         """Test that masks are correctly pooled to patch grid."""
@@ -269,29 +253,25 @@ class TestMaskedFeatureExtractor:
         embedding_dim = 768
         mask_height, mask_width = 224, 224
 
-        # Create batched features
-        batched_features = torch.randn(batch_size, total_patches, embedding_dim)
+        # Create batched embeddings
+        embeddings = torch.randn(batch_size, total_patches, embedding_dim)
 
         # Create a mask
-        batched_masks = torch.zeros(batch_size, 1, mask_height, mask_width, dtype=torch.bool)
-        batched_masks[0, 0, 50:100, 50:100] = True
+        masks = torch.zeros(batch_size, 1, mask_height, mask_width, dtype=torch.bool)
+        masks[0, 0, 50:100, 50:100] = True
 
-        batched_category_ids = torch.tensor([[1]], dtype=torch.long)
+        category_ids = torch.tensor([[1]], dtype=torch.long)
 
-        # Extract local features
-        masked_ref_embeds, masks_list = extractor(
-            batched_features,
-            batched_masks,
-            batched_category_ids,
-        )
+        # Extract local embeddings
+        masked_ref_embeddings, masks_list = extractor(embeddings, masks, category_ids)
 
         # Check that pooled mask has correct shape
         # Pooled mask should be (1, patches_per_dim, patches_per_dim)
         pooled_mask = masks_list[0].data[1]
         pytest.assume(pooled_mask.shape == (1, patches_per_dim, patches_per_dim))
 
-        # Check that features were extracted
-        pytest.assume(1 in masked_ref_embeds)
+        # Check that embeddings were extracted
+        pytest.assume(1 in masked_ref_embeddings)
 
     def test_forward_different_input_sizes(self) -> None:
         """Test MaskedFeatureExtractor with different input sizes."""
@@ -310,27 +290,27 @@ class TestMaskedFeatureExtractor:
         embedding_dim = 768
         mask_height, mask_width = input_size, input_size
 
-        # Create batched features
-        batched_features = torch.randn(batch_size, total_patches, embedding_dim)
+        # Create batched embeddings
+        embeddings = torch.randn(batch_size, total_patches, embedding_dim)
 
         # Create masks
-        batched_masks = torch.zeros(batch_size, 1, mask_height, mask_width, dtype=torch.bool)
-        batched_masks[0, 0, 100:200, 100:200] = True
+        masks = torch.zeros(batch_size, 1, mask_height, mask_width, dtype=torch.bool)
+        masks[0, 0, 100:200, 100:200] = True
 
-        batched_category_ids = torch.tensor([[1]], dtype=torch.long)
+        category_ids = torch.tensor([[1]], dtype=torch.long)
 
-        # Extract local features
-        masked_ref_embeds, masks_list = extractor(
-            batched_features,
-            batched_masks,
-            batched_category_ids,
+        # Extract local embeddings
+        masked_ref_embeddings, masks_list = extractor(
+            embeddings,
+            masks,
+            category_ids,
         )
 
         # Check outputs
-        pytest.assume(isinstance(masked_ref_embeds, dict))
+        pytest.assume(isinstance(masked_ref_embeddings, dict))
         pytest.assume(len(masks_list) == 1)
-        pytest.assume(1 in masked_ref_embeds)
-        pytest.assume(masked_ref_embeds[1].shape == (1, embedding_dim))
+        pytest.assume(1 in masked_ref_embeddings)
+        pytest.assume(masked_ref_embeddings[1].shape == (1, embedding_dim))
 
         # Check pooled mask shape
         pooled_mask = masks_list[0].data[1]
@@ -350,25 +330,25 @@ class TestMaskedFeatureExtractor:
         embedding_dim = 1024  # Different embedding dimension
         mask_height, mask_width = 224, 224
 
-        # Create batched features
-        batched_features = torch.randn(batch_size, total_patches, embedding_dim)
+        # Create batched embeddings
+        embeddings = torch.randn(batch_size, total_patches, embedding_dim)
 
         # Create masks
-        batched_masks = torch.zeros(batch_size, 1, mask_height, mask_width, dtype=torch.bool)
-        batched_masks[0, 0, 50:100, 50:100] = True
+        masks = torch.zeros(batch_size, 1, mask_height, mask_width, dtype=torch.bool)
+        masks[0, 0, 50:100, 50:100] = True
 
-        batched_category_ids = torch.tensor([[1]], dtype=torch.long)
+        category_ids = torch.tensor([[1]], dtype=torch.long)
 
-        # Extract local features
-        masked_ref_embeds, _ = extractor(
-            batched_features,
-            batched_masks,
-            batched_category_ids,
+        # Extract local embeddings
+        masked_ref_embeddings, _ = extractor(
+            embeddings,
+            masks,
+            category_ids,
         )
 
         # Check that embedding dimension is preserved
-        pytest.assume(1 in masked_ref_embeds)
-        pytest.assume(masked_ref_embeds[1].shape == (1, embedding_dim))
+        pytest.assume(1 in masked_ref_embeddings)
+        pytest.assume(masked_ref_embeddings[1].shape == (1, embedding_dim))
 
     def test_forward_large_mask_region(self) -> None:
         """Test MaskedFeatureExtractor with a large mask region."""
@@ -384,26 +364,26 @@ class TestMaskedFeatureExtractor:
         embedding_dim = 768
         mask_height, mask_width = 224, 224
 
-        # Create batched features
-        batched_features = torch.randn(batch_size, total_patches, embedding_dim)
+        # Create batched embeddings
+        embeddings = torch.randn(batch_size, total_patches, embedding_dim)
 
         # Create a large mask covering most of the image
-        batched_masks = torch.zeros(batch_size, 1, mask_height, mask_width, dtype=torch.bool)
-        batched_masks[0, 0, 20:200, 20:200] = True  # Large region
+        masks = torch.zeros(batch_size, 1, mask_height, mask_width, dtype=torch.bool)
+        masks[0, 0, 20:200, 20:200] = True  # Large region
 
-        batched_category_ids = torch.tensor([[1]], dtype=torch.long)
+        category_ids = torch.tensor([[1]], dtype=torch.long)
 
-        # Extract local features
-        masked_ref_embeds, _ = extractor(
-            batched_features,
-            batched_masks,
-            batched_category_ids,
+        # Extract local embeddings
+        masked_ref_embeddings, _ = extractor(
+            embeddings,
+            masks,
+            category_ids,
         )
 
-        # Large mask should extract features
-        pytest.assume(1 in masked_ref_embeds)
-        pytest.assume(isinstance(masked_ref_embeds[1], torch.Tensor))
-        pytest.assume(masked_ref_embeds[1].shape == (1, embedding_dim))  # Averaged and normalized
+        # Large mask should extract embeddings
+        pytest.assume(1 in masked_ref_embeddings)
+        pytest.assume(isinstance(masked_ref_embeddings[1], torch.Tensor))
+        pytest.assume(masked_ref_embeddings[1].shape == (1, embedding_dim))  # Averaged and normalized
 
     def test_forward_same_class_id_multiple_masks(self) -> None:
         """Test MaskedFeatureExtractor with multiple masks for the same class."""
@@ -420,28 +400,28 @@ class TestMaskedFeatureExtractor:
         num_masks = 2
         mask_height, mask_width = 224, 224
 
-        # Create batched features
-        batched_features = torch.randn(batch_size, total_patches, embedding_dim)
+        # Create batched embeddings
+        embeddings = torch.randn(batch_size, total_patches, embedding_dim)
 
         # Create multiple masks with same class ID
-        batched_masks = torch.zeros(batch_size, num_masks, mask_height, mask_width, dtype=torch.bool)
-        batched_masks[0, 0, 50:100, 50:100] = True  # First mask
-        batched_masks[0, 1, 150:200, 150:200] = True  # Second mask, same class
+        masks = torch.zeros(batch_size, num_masks, mask_height, mask_width, dtype=torch.bool)
+        masks[0, 0, 50:100, 50:100] = True  # First mask
+        masks[0, 1, 150:200, 150:200] = True  # Second mask, same class
 
         # Same category ID for both masks
-        batched_category_ids = torch.tensor([[1, 1]], dtype=torch.long)
+        category_ids = torch.tensor([[1, 1]], dtype=torch.long)
 
-        # Extract local features
-        masked_ref_embeds, masks_list = extractor(
-            batched_features,
-            batched_masks,
-            batched_category_ids,
+        # Extract local embeddings
+        masked_ref_embeddings, masks_list = extractor(
+            embeddings,
+            masks,
+            category_ids,
         )
 
-        # Both masks should add features to the same class (aggregated)
-        pytest.assume(1 in masked_ref_embeds)
-        pytest.assume(isinstance(masked_ref_embeds[1], torch.Tensor))
-        pytest.assume(masked_ref_embeds[1].shape == (1, embedding_dim))  # Averaged across masks
+        # Both masks should add embeddings to the same class (aggregated)
+        pytest.assume(1 in masked_ref_embeddings)
+        pytest.assume(isinstance(masked_ref_embeddings[1], torch.Tensor))
+        pytest.assume(masked_ref_embeddings[1].shape == (1, embedding_dim))  # Averaged across masks
 
         # Masks should be concatenated for the same class
         pytest.assume(1 in masks_list[0].data)
@@ -461,26 +441,26 @@ class TestMaskedFeatureExtractor:
         embedding_dim = 768
         mask_height, mask_width = 224, 224
 
-        # Create batched features with specific values
-        batched_features = torch.randn(batch_size, total_patches, embedding_dim)
+        # Create batched embeddings with specific values
+        embeddings = torch.randn(batch_size, total_patches, embedding_dim)
 
         # Create masks
-        batched_masks = torch.zeros(batch_size, 1, mask_height, mask_width, dtype=torch.bool)
-        batched_masks[0, 0, 50:100, 50:100] = True
+        masks = torch.zeros(batch_size, 1, mask_height, mask_width, dtype=torch.bool)
+        masks[0, 0, 50:100, 50:100] = True
 
-        batched_category_ids = torch.tensor([[1]], dtype=torch.long)
+        category_ids = torch.tensor([[1]], dtype=torch.long)
 
-        # Extract local features
-        masked_ref_embeds, _ = extractor(
-            batched_features,
-            batched_masks,
-            batched_category_ids,
+        # Extract local embeddings
+        masked_ref_embeddings, _ = extractor(
+            embeddings,
+            masks,
+            category_ids,
         )
 
         # Check that masked reference embeddings are created
-        pytest.assume(1 in masked_ref_embeds)
-        pytest.assume(isinstance(masked_ref_embeds[1], torch.Tensor))
-        pytest.assume(masked_ref_embeds[1].shape == (1, embedding_dim))
+        pytest.assume(1 in masked_ref_embeddings)
+        pytest.assume(isinstance(masked_ref_embeddings[1], torch.Tensor))
+        pytest.assume(masked_ref_embeddings[1].shape == (1, embedding_dim))
 
     @pytest.mark.parametrize("input_size,patch_size", ((224, 14), (336, 14), (224, 16)))
     def test_forward_different_configurations(self, input_size: int, patch_size: int) -> None:
@@ -497,29 +477,29 @@ class TestMaskedFeatureExtractor:
         batch_size = 1
         mask_height, mask_width = input_size, input_size
 
-        # Create batched features
-        batched_features = torch.randn(batch_size, total_patches, embedding_dim)
+        # Create batched embeddings
+        embeddings = torch.randn(batch_size, total_patches, embedding_dim)
 
         # Create masks
-        batched_masks = torch.zeros(batch_size, 1, mask_height, mask_width, dtype=torch.bool)
+        masks = torch.zeros(batch_size, 1, mask_height, mask_width, dtype=torch.bool)
         # Use a region proportional to input size
         region_size = input_size // 4
-        batched_masks[0, 0, region_size : 2 * region_size, region_size : 2 * region_size] = True
+        masks[0, 0, region_size : 2 * region_size, region_size : 2 * region_size] = True
 
-        batched_category_ids = torch.tensor([[1]], dtype=torch.long)
+        category_ids = torch.tensor([[1]], dtype=torch.long)
 
-        # Extract local features
-        masked_ref_embeds, masks_list = extractor(
-            batched_features,
-            batched_masks,
-            batched_category_ids,
+        # Extract local embeddings
+        masked_ref_embeddings, masks_list = extractor(
+            embeddings,
+            masks,
+            category_ids,
         )
 
         # Check outputs
-        pytest.assume(isinstance(masked_ref_embeds, dict))
+        pytest.assume(isinstance(masked_ref_embeddings, dict))
         pytest.assume(len(masks_list) == 1)
-        pytest.assume(1 in masked_ref_embeds)
-        pytest.assume(masked_ref_embeds[1].shape == (1, embedding_dim))
+        pytest.assume(1 in masked_ref_embeddings)
+        pytest.assume(masked_ref_embeddings[1].shape == (1, embedding_dim))
 
         # Check pooled mask shape
         pooled_mask = masks_list[0].data[1]
