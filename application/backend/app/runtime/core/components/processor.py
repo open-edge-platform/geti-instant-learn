@@ -53,8 +53,7 @@ class Processor(PipelineComponent):
             try:
                 data = self._in_queue.get(timeout=0.1)
                 if model is not None:
-                    batch = Batch.collate(Sample(image=data.frame))
-                    results = model.infer(batch)
+                    results = model.infer(Batch.collate(Sample(image=data.frame)))
                     output_data = OutputData(frame=data.frame, results=results)
                 else:
                     output_data = OutputData(frame=data.frame, results=Results())
