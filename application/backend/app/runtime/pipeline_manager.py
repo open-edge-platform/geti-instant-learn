@@ -16,8 +16,11 @@ from domain.dispatcher import (
     ProjectDeactivationEvent,
 )
 from domain.services.project import ProjectService
+from runtime.core.components.broadcaster import FrameBroadcaster
+from runtime.core.components.factories.components import ComponentFactory, DefaultComponentFactory
 from runtime.core.components.pipeline import Pipeline
-from runtime.core.components.schemas.processor import InputData
+from runtime.core.components.schemas.pipeline import PipelineConfig
+from runtime.core.components.schemas.processor import InputData, OutputData
 from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 
 logger = logging.getLogger(__name__)
@@ -25,17 +28,31 @@ logger = logging.getLogger(__name__)
 
 class PipelineManager:
     """
-    Glues the app configuration and runtime layers together by managing the active Pipeline.
+    Manages the active Pipeline and its lifecycle, handling configuration changes.
 
-    This class listens for configuration change events and translates them into
-    lifecycle actions for the running Job instance, such as starting, stopping,
-    or performing a live configuration update.
+    This class is responsible for:
+    - Creating and managing the active Pipeline instance
+    - Tracking the current pipeline configuration
+    - Reacting to configuration change events and determining which components need updates
+    - Creating new component instances and instructing the pipeline to update them
+
+    The Pipeline itself only manages component lifecycle (start/stop/replace), while
+    the PipelineManager handles the business logic of configuration comparison and
+    component instantiation.
     """
 
-    def __init__(self, event_dispatcher: ConfigChangeDispatcher, session_factory: sessionmaker[Session]):
+    def __init__(
+        self,
+        event_dispatcher: ConfigChangeDispatcher,
+        session_factory: sessionmaker[Session],
+        component_factory: ComponentFactory | None = None,
+    ):
         self._event_dispatcher = event_dispatcher
         self._session_factory = session_factory
+        self._component_factory = component_factory or DefaultComponentFactory()
+        # todo: bundle refs to pipeline and pipeline config together.
         self._pipeline: Pipeline | None = None
+        self._current_config: PipelineConfig | None = None
 
     @contextmanager
     def _project_service(self):
@@ -53,7 +70,8 @@ class PipelineManager:
         with self._project_service() as svc:
             cfg = svc.get_active_pipeline_config()
         if cfg:
-            self._pipeline = Pipeline(pipeline_conf=cfg)
+            self._current_config = cfg
+            self._pipeline = self._create_pipeline(cfg)
             self._pipeline.start()
             logger.info("Pipeline started: project_id=%s", cfg.project_id)
         else:
@@ -67,6 +85,7 @@ class PipelineManager:
         if self._pipeline:
             self._pipeline.stop()
             self._pipeline = None
+        self._current_config = None
 
     def on_config_change(self, event: ConfigChangeEvent) -> None:
         """
@@ -78,28 +97,90 @@ class PipelineManager:
                     cfg = svc.get_pipeline_config(e.project_id)
                 if self._pipeline:
                     self._pipeline.stop()
-                self._pipeline = Pipeline(pipeline_conf=cfg)
+                self._current_config = cfg
+                self._pipeline = self._create_pipeline(cfg)
                 self._pipeline.start()
                 logger.info("Pipeline started for activated project %s", e.project_id)
 
             case ProjectDeactivationEvent() as e:
-                if self._pipeline and self._pipeline.config.project_id == e.project_id:
+                if self._pipeline and self._pipeline.project_id == e.project_id:
                     self._pipeline.stop()
                     self._pipeline = None
+                    self._current_config = None
                     logger.info("Pipeline stopped due to project deactivation %s", e.project_id)
 
             case ComponentConfigChangeEvent() as e:
-                if self._pipeline and self._pipeline.config.project_id == e.project_id:
+                if self._pipeline and self._pipeline.project_id == e.project_id:
                     with self._project_service() as svc:
-                        new_cfg = svc.get_pipeline_config(self._pipeline.config.project_id)
-                    self._pipeline.update_config(new_cfg)
-                    logger.info("Pipeline config updated for project %s", e.project_id)
+                        new_cfg = svc.get_pipeline_config(self._pipeline.project_id)
+                    self._update_pipeline_components(new_cfg)
+                    self._current_config = new_cfg
+                    logger.info("Pipeline components updated for project %s", e.project_id)
+
+    def _create_pipeline(self, config: PipelineConfig) -> Pipeline:
+        """
+        Create a new Pipeline instance with components built from the given configuration.
+
+        Args:
+            config: The pipeline configuration.
+
+        Returns:
+            A fully initialized Pipeline instance (not yet started).
+        """
+        inbound_bcast = FrameBroadcaster[InputData]()
+        outbound_bcast = FrameBroadcaster[OutputData]()
+
+        source = self._component_factory.create_source(config.reader, inbound_bcast)
+        processor = self._component_factory.create_processor(inbound_bcast, outbound_bcast, config.processor)
+        sink = self._component_factory.create_sink(outbound_bcast, config.writer)
+
+        return Pipeline(
+            project_id=config.project_id,
+            source=source,
+            processor=processor,
+            sink=sink,
+            inbound_broadcaster=inbound_bcast,
+            outbound_broadcaster=outbound_bcast,
+        )
+
+    def _update_pipeline_components(self, new_config: PipelineConfig) -> None:
+        """
+        Compare current and new configurations, updating only changed components.
+
+        Args:
+            new_config: The new pipeline configuration.
+        """
+        if not self._pipeline or not self._current_config:
+            return
+
+        if new_config.reader != self._current_config.reader:
+            logger.info(f"Source config changed: {self._current_config.reader} -> {new_config.reader}")
+            new_source = self._component_factory.create_source(new_config.reader, self._pipeline._inbound_broadcaster)
+            self._pipeline.update_component(new_source)
+
+        if new_config.processor != self._current_config.processor:
+            logger.info(f"Processor config changed: {self._current_config.processor} -> {new_config.processor}")
+            new_processor = self._component_factory.create_processor(
+                self._pipeline._inbound_broadcaster,
+                self._pipeline._outbound_broadcaster,
+                new_config.processor,
+            )
+            self._pipeline.update_component(new_processor)
+
+        if new_config.writer != self._current_config.writer:
+            logger.info(f"Sink config changed: {self._current_config.writer} -> {new_config.writer}")
+            new_sink = self._component_factory.create_sink(self._pipeline._outbound_broadcaster, new_config.writer)
+            self._pipeline.update_component(new_sink)
+
+    # todo:
+    # 1. unify methods for regsitring/unregistring all types of consumers.
+    # 2. use context manager to automaticaly unregister a queue when it exists the scope
 
     def register_webrtc(self, project_id: UUID) -> queue.Queue:
         """Register webRTC in pipeline."""
         if self._pipeline is None:
             raise PipelineNotActiveError("No active pipeline to register to.")
-        if project_id != self._pipeline.config.project_id:
+        if project_id != self._pipeline.project_id:
             raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
         return self._pipeline.register_webrtc()
 
@@ -107,7 +188,7 @@ class PipelineManager:
         """Unregister webRTC in pipeline."""
         if self._pipeline is None:
             raise PipelineNotActiveError("No active pipeline to unregister from.")
-        if project_id != self._pipeline.config.project_id:
+        if project_id != self._pipeline.project_id:
             raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
         return self._pipeline.unregister_webrtc(queue=target_queue)
 
@@ -127,10 +208,9 @@ class PipelineManager:
         """
         if self._pipeline is None:
             raise PipelineNotActiveError("No active pipeline to register inbound consumer.")
-        if project_id != self._pipeline.config.project_id:
+        if project_id != self._pipeline.project_id:
             raise PipelineProjectMismatchError(
-                f"Project ID {project_id} does not match the active pipeline's project ID "
-                f"{self._pipeline.config.project_id}."
+                f"Project ID {project_id} does not match the active pipeline's project ID {self._pipeline.project_id}."
             )
         return self._pipeline.register_inbound_consumer()
 
@@ -148,9 +228,8 @@ class PipelineManager:
         """
         if self._pipeline is None:
             raise PipelineNotActiveError("No active pipeline to unregister inbound consumer from.")
-        if project_id != self._pipeline.config.project_id:
+        if project_id != self._pipeline.project_id:
             raise PipelineProjectMismatchError(
-                f"Project ID {project_id} does not match the active pipeline's project ID "
-                f"{self._pipeline.config.project_id}."
+                f"Project ID {project_id} does not match the active pipeline's project ID {self._pipeline.project_id}."
             )
         self._pipeline.unregister_inbound_consumer(target_queue)
