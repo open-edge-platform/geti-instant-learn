@@ -40,7 +40,7 @@ jobs:
         env:
           BUILD_VERSION: ${{ inputs.build_version }}
         run: |
-          just version="${BUILD_VERSION}" docker-build-context="--cache-from type=gha --cache-to type=gha,mode=max" build-image
+          just version="${BUILD_VERSION}" docker-build-context="--no-cache" build-image
 
       - name: Show size of the image
         working-directory: application
