@@ -63,6 +63,7 @@ def upgrade() -> None:
     sa.Column('project_id', sa.Uuid(), nullable=False),
     sa.Column('text', sa.Text(), nullable=True),
     sa.Column('frame_id', sa.Uuid(), nullable=True),
+    sa.Column('thumbnail', sa.Text(), nullable=True),
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.ForeignKeyConstraint(['project_id'], ['Project.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
@@ -77,6 +78,13 @@ def upgrade() -> None:
         ['project_id', 'type'],
         unique=True,
         sqlite_where=sa.text("type = 'TEXT'")
+    )
+    op.create_index(
+        UniqueConstraintName.UNIQUE_FRAME_ID_PER_PROMPT,
+        'Prompt',
+        ['frame_id'],
+        unique=True,
+        sqlite_where=sa.text("frame_id IS NOT NULL")
     )
 
     op.create_table('Sink',
@@ -147,6 +155,7 @@ def downgrade() -> None:
     op.drop_table('Source')
     op.drop_table('Sink')
     op.drop_index(UniqueConstraintName.SINGLE_TEXT_PROMPT_PER_PROJECT, table_name='Prompt')
+    op.drop_index(UniqueConstraintName.UNIQUE_FRAME_ID_PER_PROMPT, table_name='Prompt')
     op.drop_table('Prompt')
     op.drop_index(UniqueConstraintName.PROCESSOR_NAME_PER_PROJECT, table_name='Processor')
     op.drop_table('Processor')

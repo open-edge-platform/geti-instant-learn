@@ -3,8 +3,9 @@
 
 import uuid
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 from sqlalchemy.exc import IntegrityError
 
@@ -49,13 +50,14 @@ def make_visual_prompt_db(prompt_id=None, project_id=None, frame_id=None, annota
         frame_id=frame_id or uuid.uuid4(),
         project_id=project_id or uuid.uuid4(),
         annotations=annotations or [],
+        thumbnail=None,
     )
 
 
 def make_annotation_db(annotation_id=None, label_id=None):
     return SimpleNamespace(
         id=annotation_id or uuid.uuid4(),
-        config={"type": "point", "x": 0.5, "y": 0.5},
+        config={"type": "rectangle", "points": [{"x": 0.1, "y": 0.1}, {"x": 0.5, "y": 0.5}]},
         label_id=label_id,
     )
 
@@ -187,24 +189,28 @@ def test_create_visual_prompt_success(service):
     service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
     service.label_repository.get_by_id.return_value = make_label(label_id=label_id, project_id=project_id)
 
-    create_schema = VisualPromptCreateSchema(
-        id=new_id,
-        type=PromptType.VISUAL,
-        frame_id=frame_id,
-        annotations=[
-            AnnotationSchema(
-                config=RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]),
-                label_id=label_id,
-            )
-        ],
-    )
+    # mock cv2.imread to return a valid image
+    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    with patch("domain.services.prompt.cv2.imread", return_value=test_image):
+        create_schema = VisualPromptCreateSchema(
+            id=new_id,
+            type=PromptType.VISUAL,
+            frame_id=frame_id,
+            annotations=[
+                AnnotationSchema(
+                    config=RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]),
+                    label_id=label_id,
+                )
+            ],
+        )
 
-    result = service.create_prompt(project_id=project_id, create_data=create_schema)
+        result = service.create_prompt(project_id=project_id, create_data=create_schema)
 
     assert result.id == new_id
     assert result.type == PromptType.VISUAL
-    service.frame_repository.get_frame_path.assert_called_once_with(project_id, frame_id)
-    service.label_repository.get_by_id.assert_called_once_with(project_id, label_id)
+    # Called twice: once for validation, once for thumbnail generation
+    assert service.frame_repository.get_frame_path.call_count == 2
+    service.label_repository.get_by_id.assert_called_with(project_id, label_id)
     service.prompt_repository.add.assert_called_once()
     service.session.commit.assert_called_once()
 
@@ -212,6 +218,7 @@ def test_create_visual_prompt_success(service):
 def test_create_visual_prompt_frame_not_found(service):
     project_id = uuid.uuid4()
     frame_id = uuid.uuid4()
+    label_id = uuid.uuid4()
 
     service.project_repository.get_by_id.return_value = make_project(project_id)
     service.frame_repository.get_frame_path.return_value = None
@@ -223,7 +230,7 @@ def test_create_visual_prompt_frame_not_found(service):
         annotations=[
             AnnotationSchema(
                 config=RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]),
-                label_id=None,
+                label_id=label_id,
             )
         ],
     )
@@ -310,6 +317,42 @@ def test_create_prompt_integrity_error_check_constraint(service):
     service.session.rollback.assert_called_once()
 
 
+def test_create_prompt_integrity_error_frame_duplicate(service):
+    project_id = uuid.uuid4()
+    frame_id = uuid.uuid4()
+    label_id = uuid.uuid4()
+
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
+    service.label_repository.get_by_id.return_value = make_label(label_id=label_id, project_id=project_id)
+
+    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    with patch("domain.services.prompt.cv2.imread", return_value=test_image):
+        create_schema = VisualPromptCreateSchema(
+            id=uuid.uuid4(),
+            type=PromptType.VISUAL,
+            frame_id=frame_id,
+            annotations=[
+                AnnotationSchema(
+                    config=RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]),
+                    label_id=label_id,
+                )
+            ],
+        )
+
+        mock_error = IntegrityError("statement", "params", "orig")
+        mock_error.orig = Exception("UNIQUE constraint failed: uq_unique_frame_id_per_prompt")
+        service.session.commit.side_effect = mock_error
+
+        with pytest.raises(ResourceAlreadyExistsError) as exc_info:
+            service.create_prompt(project_id=project_id, create_data=create_schema)
+
+        assert exc_info.value.resource_type == ResourceType.PROMPT
+        assert exc_info.value.field == "frame_id"
+        assert str(frame_id) in str(exc_info.value)
+        service.session.rollback.assert_called_once()
+
+
 def test_delete_text_prompt_success(service):
     project_id = uuid.uuid4()
     prompt_id = uuid.uuid4()
@@ -372,24 +415,36 @@ def test_update_visual_prompt_frame_success(service):
     prompt_id = uuid.uuid4()
     old_frame_id = uuid.uuid4()
     new_frame_id = uuid.uuid4()
+    label_id = uuid.uuid4()
 
     service.project_repository.get_by_id.return_value = make_project(project_id)
-    prompt = make_visual_prompt_db(prompt_id=prompt_id, project_id=project_id, frame_id=old_frame_id)
+    prompt = make_visual_prompt_db(
+        prompt_id=prompt_id,
+        project_id=project_id,
+        frame_id=old_frame_id,
+        annotations=[make_annotation_db(label_id=label_id)],
+    )
     service.prompt_repository.get_by_id_and_project.return_value = prompt
     service.frame_repository.get_frame_path.return_value = "/path/to/new_frame.jpg"
     service.frame_repository.delete_frame.return_value = True
+    service.label_repository.get_by_id.return_value = make_label(label_id=label_id, project_id=project_id)
 
-    update_schema = VisualPromptUpdateSchema(
-        type=PromptType.VISUAL,
-        frame_id=new_frame_id,
-        annotations=None,
-    )
+    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    with patch("domain.services.prompt.cv2.imread", return_value=test_image):
+        update_schema = VisualPromptUpdateSchema(
+            type=PromptType.VISUAL,
+            frame_id=new_frame_id,
+            annotations=None,
+        )
 
-    result = service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
+        result = service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
 
     assert result.frame_id == new_frame_id
-    service.frame_repository.get_frame_path.assert_called_once_with(project_id, new_frame_id)
+    # Called twice: once for update validation, once for thumbnail generation
+    assert service.frame_repository.get_frame_path.call_count == 2
     service.frame_repository.delete_frame.assert_called_once_with(project_id, old_frame_id)
+    # Label is fetched for thumbnail generation
+    service.label_repository.get_by_id.assert_called_with(project_id, label_id)
     service.session.commit.assert_called_once()
 
 
@@ -397,32 +452,39 @@ def test_update_visual_prompt_annotations_success(service):
     project_id = uuid.uuid4()
     prompt_id = uuid.uuid4()
     label_id = uuid.uuid4()
+    frame_id = uuid.uuid4()
 
     service.project_repository.get_by_id.return_value = make_project(project_id)
-    prompt = make_visual_prompt_db(prompt_id=prompt_id, project_id=project_id)
+    prompt = make_visual_prompt_db(prompt_id=prompt_id, project_id=project_id, frame_id=frame_id)
     service.prompt_repository.get_by_id_and_project.return_value = prompt
     service.label_repository.get_by_id.return_value = make_label(label_id=label_id, project_id=project_id)
+    service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
 
-    update_schema = VisualPromptUpdateSchema(
-        type=PromptType.VISUAL,
-        frame_id=None,
-        annotations=[
-            AnnotationSchema(
-                config=RectangleAnnotation(type="rectangle", points=[Point(x=0.2, y=0.2), Point(x=0.7, y=0.7)]),
-                label_id=label_id,
-            )
-        ],
-    )
+    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    with patch("domain.services.prompt.cv2.imread", return_value=test_image):
+        update_schema = VisualPromptUpdateSchema(
+            type=PromptType.VISUAL,
+            frame_id=None,
+            annotations=[
+                AnnotationSchema(
+                    config=RectangleAnnotation(type="rectangle", points=[Point(x=0.2, y=0.2), Point(x=0.7, y=0.7)]),
+                    label_id=label_id,
+                )
+            ],
+        )
 
-    service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
+        service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
 
-    service.label_repository.get_by_id.assert_called_once_with(project_id, label_id)
+    # Called twice: once for validation, once for thumbnail generation
+    assert service.label_repository.get_by_id.call_count == 2
+    service.frame_repository.get_frame_path.assert_called_with(project_id, frame_id)
     service.session.commit.assert_called_once()
 
 
 def test_update_prompt_type_change_conflict(service):
     project_id = uuid.uuid4()
     prompt_id = uuid.uuid4()
+    label_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
     prompt = make_text_prompt_db(prompt_id=prompt_id, project_id=project_id)
     service.prompt_repository.get_by_id_and_project.return_value = prompt
@@ -433,7 +495,7 @@ def test_update_prompt_type_change_conflict(service):
         annotations=[
             AnnotationSchema(
                 config=RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]),
-                label_id=None,
+                label_id=label_id,
             )
         ],
     )

@@ -131,8 +131,20 @@ class VisualPromptSchema(BaseIDSchema):
 PromptSchema = Annotated[VisualPromptSchema | TextPromptSchema, Field(discriminator="type")]
 
 
+class VisualPromptListItemSchema(BaseIDSchema):
+    """Schema for a visual prompt in list response (includes thumbnail)."""
+
+    type: Literal[PromptType.VISUAL]  # type: ignore[valid-type]
+    frame_id: UUID
+    annotations: list[AnnotationSchema]
+    thumbnail: str = Field(..., description="Base64-encoded thumbnail image with annotations")
+
+
+PromptListItemSchema = Annotated[VisualPromptListItemSchema | TextPromptSchema, Field(discriminator="type")]
+
+
 class PromptsListSchema(BaseModel):
     """Schema for listing prompts."""
 
-    prompts: list[PromptSchema]
+    prompts: list[PromptListItemSchema]
     pagination: Pagination = Field(default_factory=lambda: Pagination(count=0, total=0, offset=0, limit=20))

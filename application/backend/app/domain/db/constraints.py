@@ -15,6 +15,7 @@ class UniqueConstraintName(StrEnum):
     LABEL_NAME_PER_PROJECT = "uq_label_name_per_project"
     SINGLE_ACTIVE_PROJECT = "uq_single_active_project"
     SINGLE_CONNECTED_SOURCE_PER_PROJECT = "uq_single_connected_source_per_project"
+    UNIQUE_FRAME_ID_PER_PROMPT = "uq_unique_frame_id_per_prompt"
 
 
 class CheckConstraintName(StrEnum):
