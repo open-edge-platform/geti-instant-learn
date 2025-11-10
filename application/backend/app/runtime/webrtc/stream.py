@@ -17,7 +17,11 @@ FALLBACK_FRAME = np.full((64, 64, 3), 16, dtype=np.uint8)
 
 
 class InferenceVideoStreamTrack(VideoStreamTrack):
-    """A video stream track that provides frames with inference results over WebRTC."""
+    """A video stream track that provides frames with inference results over WebRTC.
+
+    Expects frames in RGB HWC format as per the InputData contract.
+    Converts them to VideoFrame objects for WebRTC streaming.
+    """
 
     def __init__(self, stream_queue: queue.Queue[InputData]):
         super().__init__()
@@ -77,7 +81,7 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
             raise
 
         logger.debug("Received the frame from the stream_queue.")
-        frame = VideoFrame.from_ndarray(np_frame, format="bgr24")
+        frame = VideoFrame.from_ndarray(np_frame, format="rgb24")
         frame.pts = pts
         frame.time_base = time_base
         return frame

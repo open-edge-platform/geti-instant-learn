@@ -42,7 +42,25 @@ class PipelineComponent(ABC):
 
 
 class StreamReader(AbstractContextManager, ABC):
-    """An abstract interface for reading frames from various sources."""
+    """An abstract interface for reading frames from various sources.
+
+    All StreamReader implementations MUST conform to the following data contract:
+
+    Frame Format Contract:
+    - Color Format: RGB (Red, Green, Blue order)
+    - Array Format: HWC (Height, Width, Channels)
+    - Data Type: numpy.uint8
+    - Value Range: 0-255
+    - Shape: (H, W, 3) for color images
+
+    Example:
+        frame.shape = (H, W, 3)  # Height=H, Width=W, Channels=3 (RGB)
+        frame.dtype = numpy.uint8
+        frame[0, 0, 0] = R value (0-255)
+        frame[0, 0, 1] = G value (0-255)
+        frame[0, 0, 2] = B value (0-255)
+
+    """
 
     def connect(self) -> None:
         pass

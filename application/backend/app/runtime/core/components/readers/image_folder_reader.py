@@ -184,9 +184,11 @@ class ImageFolderReader(StreamReader, ABC):
             logger.warning(f"Failed to load image: {image_path}")
             return None
 
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
         return InputData(
             timestamp=int(time.time() * 1000),
-            frame=image,
+            frame=image_rgb,
             context={"path": str(image_path), "index": current_idx},
         )
 

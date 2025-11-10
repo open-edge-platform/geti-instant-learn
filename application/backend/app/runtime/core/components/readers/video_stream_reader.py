@@ -57,7 +57,10 @@ class BaseOpenCVReader(StreamReader, ABC):
         if not ret:
             raise RuntimeError(f"{self.__class__.__name__}: Failed to capture frame")
 
-        return InputData(timestamp=int(time.time() * 1000), frame=frame, context={})
+        # Convert BGR to RGB to conform to the InputData contract
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        return InputData(timestamp=int(time.time() * 1000), frame=frame_rgb, context={})
 
     def close(self) -> None:
         if self._cap is not None:
