@@ -27,6 +27,7 @@ from domain.services.schemas.base import Pagination
 from domain.services.schemas.mappers.prompt import (
     prompt_create_schema_to_db,
     prompt_db_to_schema,
+    prompt_db_to_training_sample,
     prompt_update_schema_to_db,
     prompts_db_to_schemas,
 )
@@ -36,6 +37,7 @@ from domain.services.schemas.prompt import (
     PromptsListSchema,
     PromptUpdateSchema,
     TextPromptCreateSchema,
+    TrainingSample,
     VisualPromptCreateSchema,
     VisualPromptUpdateSchema,
 )
@@ -100,6 +102,35 @@ class PromptService:
         )
 
         return PromptsListSchema(prompts=prompts, pagination=pagination)
+
+    def get_training_data(self, project_id: UUID, prompt_type: PromptType) -> list[TrainingSample]:
+        """
+        Get all prompts of a specific type for a project, formatted for model training.
+
+        Parameters:
+            project_id: Owning project UUID.
+            prompt_type: The type of prompts to retrieve (TEXT or VISUAL).
+
+        Returns:
+            A list of TrainingSample objects.
+
+        Raises:
+            ResourceNotFoundError: If the project does not exist.
+        """
+        self._ensure_project(project_id)
+        db_prompts = self.prompt_repository.get_all_by_project(project_id, prompt_type=prompt_type)
+
+        training_samples: list[TrainingSample] = []
+        for prompt in db_prompts:
+            frame = None
+            if prompt.type == PromptType.VISUAL and prompt.frame_id:
+                frame = self.frame_repository.get_frame(project_id, prompt.frame_id)
+
+            sample = prompt_db_to_training_sample(prompt, frame=frame)
+            if sample:
+                training_samples.append(sample)
+
+        return training_samples
 
     def get_prompt(self, project_id: UUID, prompt_id: UUID) -> PromptSchema:
         """

@@ -4,6 +4,7 @@
 from typing import Annotated, Literal
 from uuid import UUID
 
+import numpy as np
 from pydantic import BaseModel, Field
 
 from domain.db.models import PromptType
@@ -148,3 +149,21 @@ class PromptsListSchema(BaseModel):
 
     prompts: list[PromptListItemSchema]
     pagination: Pagination = Field(default_factory=lambda: Pagination(count=0, total=0, offset=0, limit=20))
+
+
+class VisualTrainingSample(BaseModel):
+    """Schema for a visual training sample."""
+
+    frame: np.ndarray
+    annotations: list[AnnotationSchema]
+
+    model_config = {"arbitrary_types_allowed": True}
+
+
+class TextTrainingSample(BaseModel):
+    """Schema for a text training sample."""
+
+    content: str
+
+
+TrainingSample = VisualTrainingSample | TextTrainingSample

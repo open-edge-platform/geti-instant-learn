@@ -4,6 +4,8 @@
 from collections.abc import Iterable
 from uuid import UUID, uuid4
 
+import numpy as np
+
 from domain.db.models import AnnotationDB, PromptDB, PromptType
 from domain.services.schemas.annotation import AnnotationSchema
 from domain.services.schemas.prompt import (
@@ -14,8 +16,11 @@ from domain.services.schemas.prompt import (
     TextPromptCreateSchema,
     TextPromptSchema,
     TextPromptUpdateSchema,
+    TextTrainingSample,
+    TrainingSample,
     VisualPromptListItemSchema,
     VisualPromptSchema,
+    VisualTrainingSample,
 )
 
 
@@ -132,3 +137,22 @@ def prompt_update_schema_to_db(prompt_db: PromptDB, schema: PromptUpdateSchema) 
                 )
                 prompt_db.annotations.append(annotation_entity)
     return prompt_db
+
+
+def prompt_db_to_training_sample(prompt: PromptDB, frame: np.ndarray | None = None) -> TrainingSample | None:
+    """
+    Map a PromptDB instance to a TrainingSample object.
+
+    Args:
+        prompt: The prompt database entity.
+        frame: The frame as a numpy array (for visual prompts).
+
+    Returns:
+        A TrainingSample object or None if the prompt is not valid for training.
+    """
+    if prompt.type == PromptType.TEXT and prompt.text:
+        return TextTrainingSample(content=prompt.text)
+    if prompt.type == PromptType.VISUAL and frame is not None:
+        annotations = [AnnotationSchema(config=ann.config, label_id=ann.label_id) for ann in prompt.annotations]
+        return VisualTrainingSample(frame=frame, annotations=annotations)
+    return None

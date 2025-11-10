@@ -551,3 +551,92 @@ def test_project_not_found(service):
         service.list_prompts(uuid.uuid4())
 
     assert exc_info.value.resource_type == ResourceType.PROJECT
+
+
+def test_get_training_data_text_prompts(service):
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+
+    text_prompt_1 = make_text_prompt_db(project_id=project_id, text="red car")
+    text_prompt_2 = make_text_prompt_db(project_id=project_id, text="blue truck")
+    service.prompt_repository.get_all_by_project.return_value = [text_prompt_1, text_prompt_2]
+
+    result = service.get_training_data(project_id, PromptType.TEXT)
+
+    assert len(result) == 2
+    assert result[0].content == "red car"
+    assert result[1].content == "blue truck"
+    service.prompt_repository.get_all_by_project.assert_called_once_with(project_id, prompt_type=PromptType.TEXT)
+
+
+def test_get_training_data_visual_prompts(service):
+    project_id = uuid.uuid4()
+    frame_id = uuid.uuid4()
+    label_id = uuid.uuid4()
+
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+
+    annotation_db = SimpleNamespace(
+        id=uuid.uuid4(),
+        config=RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]),
+        label_id=label_id,
+    )
+    visual_prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id, annotations=[annotation_db])
+    service.prompt_repository.get_all_by_project.return_value = [visual_prompt]
+
+    frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+    service.frame_repository.get_frame.return_value = frame
+
+    result = service.get_training_data(project_id, PromptType.VISUAL)
+
+    assert len(result) == 1
+    assert np.array_equal(result[0].frame, frame)
+    assert len(result[0].annotations) == 1
+    assert result[0].annotations[0].label_id == label_id
+    service.frame_repository.get_frame.assert_called_once_with(project_id, frame_id)
+
+
+def test_get_training_data_text_prompts_empty(service):
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.prompt_repository.get_all_by_project.return_value = []
+
+    result = service.get_training_data(project_id, PromptType.TEXT)
+
+    assert len(result) == 0
+    assert result == []
+
+
+def test_get_training_data_visual_prompts_empty(service):
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.prompt_repository.get_all_by_project.return_value = []
+
+    result = service.get_training_data(project_id, PromptType.VISUAL)
+
+    assert len(result) == 0
+    assert result == []
+
+
+def test_get_training_data_visual_prompt_frame_not_found(service):
+    project_id = uuid.uuid4()
+    frame_id = uuid.uuid4()
+
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    visual_prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id)
+    service.prompt_repository.get_all_by_project.return_value = [visual_prompt]
+    service.frame_repository.get_frame.return_value = None
+
+    result = service.get_training_data(project_id, PromptType.VISUAL)
+
+    assert len(result) == 0
+
+
+def test_get_training_data_project_not_found(service):
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = None
+
+    with pytest.raises(ResourceNotFoundError) as exc_info:
+        service.get_training_data(project_id, PromptType.TEXT)
+
+    assert exc_info.value.resource_type == ResourceType.PROJECT
