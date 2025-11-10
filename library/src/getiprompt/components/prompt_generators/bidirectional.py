@@ -69,7 +69,7 @@ class BidirectionalPromptGenerator(PromptGenerator):
             return _empty_match_result(sim_map)
 
         row_ind, col_ind = linear_sum_assignment(ref_to_target_sim.detach().cpu().float().numpy(), maximize=True)
-        row_ind, col_ind = map(lambda x: torch.as_tensor(x, dtype=torch.int64), (row_ind, col_ind))
+        row_ind, col_ind = torch.as_tensor(row_ind, dtype=torch.int64), torch.as_tensor(col_ind, dtype=torch.int64)
 
         matched_ref_idx = ref_mask_idx[row_ind]
         sim_scores = sim_map[matched_ref_idx, col_ind]
@@ -105,7 +105,7 @@ class BidirectionalPromptGenerator(PromptGenerator):
         # Backward pass (target → ref)
         target_to_ref_sim = sim_map.t()[target_idx_fw]
         row_ind, col_ind = linear_sum_assignment(target_to_ref_sim.detach().cpu().float().numpy(), maximize=True)
-        row_ind, col_ind = map(lambda x: torch.as_tensor(x, dtype=torch.int64), (row_ind, col_ind))
+        row_ind, col_ind = torch.as_tensor(row_ind, dtype=torch.int64), torch.as_tensor(col_ind, dtype=torch.int64)
 
         # Consistency filter
         valid_ref = torch.isin(col_ind, ref_mask_idx)
@@ -125,7 +125,7 @@ class BidirectionalPromptGenerator(PromptGenerator):
         """Select the N background points based on lowest average similarity to masked reference features.
 
         Args:
-            similarity_map: torch.Tensor - Similarity matrix [num_ref_features, num_target_features]
+            sim_map: torch.Tensor - Similarity matrix [num_ref_features, num_target_features]
             mask: torch.Tensor - Mask indicating relevant reference features [num_ref_features]
 
         Returns: tuple containing:
@@ -268,9 +268,11 @@ class BidirectionalPromptGenerator(PromptGenerator):
         This Prompt Generator computes the similarity map internally.
 
         Args:
-            reference_features(Features): Features object containing reference features
+            ref_embeds(torch.Tensor): Reference embeddings.
+            masked_ref_embeds(dict[int, torch.Tensor]): Dictionary of masked reference embeddings, with class_id as key
+                and masked reference embeddings as value.
             reference_masks(list[Masks]): List of reference masks, one per reference image instance
-            target_embeddings(torch.Tensor): Target embeddings
+            target_embeds(torch.Tensor): Target embeddings
             target_images(list[tv_tensors.Image]): Target images
 
         Returns:
