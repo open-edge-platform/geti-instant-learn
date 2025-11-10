@@ -20,7 +20,7 @@ from torchvision.transforms.functional import resize, to_pil_image
 # https://github.com/open-edge-platform/geti-prompt/issues/174
 
 
-class MaybeToTensor(transforms.ToTensor):
+class ToTensor(transforms.ToTensor):
     """Convert a ``PIL Image`` or ``numpy.ndarray`` to tensor, or keep as is if already a tensor."""
 
     def __call__(self, pic: PILImage.Image | np.ndarray | torch.Tensor) -> torch.Tensor:

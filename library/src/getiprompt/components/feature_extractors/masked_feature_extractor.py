@@ -9,7 +9,7 @@ import torch
 from torch import nn
 from torchvision import transforms
 
-from getiprompt.data.transforms import MaybeToTensor
+from getiprompt.data.transforms import ToTensor
 from getiprompt.types import Masks
 
 
@@ -38,7 +38,7 @@ class MaskedFeatureExtractor(nn.Module):
         self.patch_size = patch_size
         self.device = device
         self.transform = transforms.Compose([
-            MaybeToTensor(),
+            ToTensor(),
             transforms.Lambda(lambda x: x.unsqueeze(0) if x.ndim == 2 else x),
             transforms.Lambda(lambda x: x.float()),
             transforms.Resize([input_size, input_size]),
