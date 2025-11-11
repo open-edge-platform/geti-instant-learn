@@ -22,16 +22,18 @@ export type ImagesFolderSourceType = SourceWithoutConfig & { config: ImagesFolde
 
 export { $api, client } from './client';
 export {
+    type paths,
     type SchemaProjectSchema as ProjectType,
     type SchemaProjectsListSchema as ProjectsListType,
     type SchemaProjectUpdateSchema as ProjectUpdateType,
     type SchemaSourceSchema as Source,
     type SchemaLabelSchema as LabelType,
     type SchemaLabelsListSchema as LabelListType,
-    type paths,
     type SchemaSourceCreateSchema as SourceCreateType,
     type SchemaSourceUpdateSchema as SourceUpdateType,
     type SchemaAnnotationSchemaInput as AnnotationPostType,
-    type SchemaVisualPromptSchema as VisualPromptType,
     type SchemaAnnotationSchemaOutput as AnnotationType,
+    type SchemaVisualPromptSchema as VisualPromptType,
+    type SchemaPromptsListSchema as VisualPromptListType,
+    type SchemaVisualPromptListItemSchema as VisualPromptItemType,
 } from './openapi-spec';
