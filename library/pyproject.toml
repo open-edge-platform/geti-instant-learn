@@ -126,6 +126,8 @@ torchvision = [
     { index = "pytorch-cu126", extra = "cu126" },
 ]
 
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# RUFF CONFIGURATION                                                          #
 [tool.ruff]
 # Enable preview features
 preview = true
