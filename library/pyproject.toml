@@ -37,8 +37,6 @@ dependencies = [
     "scikit-learn==1.6.1",
     "scikit-image==0.24.0",
     "openvino-model-api==0.3.0.2",
-    "torch==2.7.0+cu126",
-    "torchvision==0.22.0+cu126",
     "transformers==4.56.2",
     "segment-anything-hq==0.3",
     "markupsafe==3.0.2",
@@ -58,29 +56,16 @@ dev = [
     "pytest-html~=4.0.0",
 ]
 
-[tool.uv.sources]
-markupsafe = { index = "pypi" }
-torch = { index = "pytorch" }
-xformers = { index = "pytorch" }
-torchvision = { index = "pytorch" }
-torchmetrics = { index = "pytorch" }
-sam-2 = { git = "https://github.com/facebookresearch/sam2.git", rev = "2b90b9f"}
-
-[project.scripts]
-getiprompt = "getiprompt.cli:main"
-
-[[tool.uv.index]]
-name = "pypi"
-url = "https://pypi.org/simple"
-
-[[tool.uv.index]]
-name = "pytorch"
-url = "https://download.pytorch.org/whl/cu126"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/getiprompt"]
-
 [project.optional-dependencies]
+# PyTorch dependency groups
+cpu = [
+    "torch<=2.8.0",
+    "torchvision>=0.22.0",
+]
+cu126 = [
+    "torch<=2.8.0",
+    "torchvision>=0.22.0",
+]
 extras = [
     "xformers==0.0.30",
 ]
@@ -99,13 +84,48 @@ dev = [
 dev_ui = [
     "flask==3.1.1",
 ]
-
 full = [
     "getiprompt[dev, extras, notebook, dev_ui]",
 ]
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# RUFF CONFIGURATION                                                          #
+[project.scripts]
+getiprompt = "getiprompt.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/getiprompt"]
+
+[tool.uv]
+package = true
+managed = true
+conflicts = [
+    [
+        { extra = "cpu" },
+        { extra = "cu126" },
+    ],
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+
+[tool.uv.sources]
+sam-2 = { git = "https://github.com/facebookresearch/sam2.git", rev = "2b90b9f"}
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu126", extra = "cu126" },
+]
+torchvision = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu126", extra = "cu126" },
+]
+
 [tool.ruff]
 # Enable preview features
 preview = true

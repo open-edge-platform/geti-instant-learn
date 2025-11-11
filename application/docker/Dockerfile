@@ -28,7 +28,7 @@ WORKDIR /geti_prompt/app/backend
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable
+    uv sync --frozen --no-dev --no-editable --extra cpu
 
 # Change back to the original working directory
 WORKDIR /geti_prompt
