@@ -58,6 +58,7 @@ export const convertAnnotationsToDTO = (
                     type: 'rectangle',
                     points: normalizedPoints,
                 },
+                label_id: annotation.labels.at(0)?.id,
             };
         }
 

@@ -41,7 +41,7 @@ export const VisualPromptProvider = ({ children }: VisualPromptProviderProps) =>
         if (prompt?.annotations !== undefined) {
             const labelId = prompt.annotations[0].label_id;
 
-            labelId != null && setSelectedLabelId(labelId);
+            labelId && setSelectedLabelId(labelId);
 
             return;
         }
