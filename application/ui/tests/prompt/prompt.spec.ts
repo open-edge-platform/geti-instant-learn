@@ -5,7 +5,6 @@
 
 import { WebcamSourceType } from '@geti-prompt/api';
 import { expect, http, test } from '@geti-prompt/test-fixtures';
-import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations } from 'annotator/utils';
 
 import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations } from '../annotator/utils';
 import { LabelsPage } from '../labels/labels-page';
