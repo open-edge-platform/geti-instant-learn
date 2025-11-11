@@ -3,9 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { VisualPromptItemType } from '@geti-prompt/api';
+import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { ActionMenu, Item, Key, View } from '@geti/ui';
 import { useSelectedFrame } from 'src/features/stream/selected-frame-provider.component';
 
+import { useDeletePrompt } from '../../api/use-delete-prompt';
 import { useVisualPrompt } from '../../visual-prompt-provider.component';
 
 import styles from './prompt-thumbnail.module.scss';
@@ -13,27 +16,41 @@ import styles from './prompt-thumbnail.module.scss';
 const PROMPT_OPTIONS = ['Edit', 'Delete'] as const;
 
 interface PromptThumbnailProps {
-    image: { url: string; frameId: string; promptId: string };
+    prompt: VisualPromptItemType;
 }
-export const PromptThumbnail = ({ image }: PromptThumbnailProps) => {
+export const PromptThumbnail = ({ prompt }: PromptThumbnailProps) => {
+    const { projectId } = useProjectIdentifier();
     const { setSelectedFrameId } = useSelectedFrame();
     const { setPromptId } = useVisualPrompt();
+    const deletePromptMutation = useDeletePrompt();
 
     const onAction = (option: Key) => {
         switch (option) {
             case 'Edit':
-                setSelectedFrameId(image.frameId);
-                setPromptId(image.promptId);
+                setSelectedFrameId(prompt.frame_id);
+                setPromptId(prompt.id);
                 break;
             case 'Delete':
-                // TODO: DELETE /api/v1/projects/{project_id}/prompts/{prompt_id}
+                deletePromptMutation.mutate({
+                    params: {
+                        path: {
+                            project_id: projectId,
+                            prompt_id: prompt.id,
+                        },
+                    },
+                });
                 break;
         }
     };
 
     return (
         <View UNSAFE_className={styles.promptThumbnail}>
-            <img src={image.url} alt={image.frameId} className={styles.image} />
+            <img
+                aria-label={`prompt thumbnail ${prompt.id}`}
+                src={prompt.thumbnail}
+                alt={prompt.frame_id}
+                className={styles.image}
+            />
 
             <View
                 position={'absolute'}
