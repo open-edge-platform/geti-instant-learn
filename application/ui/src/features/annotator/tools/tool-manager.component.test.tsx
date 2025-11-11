@@ -6,6 +6,7 @@
 import { render } from '@geti-prompt/test-utils';
 import { screen } from '@testing-library/react';
 
+import { VisualPromptProvider } from '../../prompts/visual-prompt/visual-prompt-provider.component';
 import { AnnotationActionsProvider } from '../providers/annotation-actions-provider.component';
 import { AnnotationVisibilityProvider } from '../providers/annotation-visibility-provider.component';
 import { AnnotatorProvider } from '../providers/annotator-provider.component';
@@ -14,13 +15,15 @@ import { ToolManager } from './tool-manager.component';
 describe('ToolManager', () => {
     it('renders SAM tool correctly', async () => {
         render(
-            <AnnotatorProvider frameId={'test-frame'}>
-                <AnnotationActionsProvider>
-                    <AnnotationVisibilityProvider>
-                        <ToolManager />
-                    </AnnotationVisibilityProvider>
-                </AnnotationActionsProvider>
-            </AnnotatorProvider>
+            <VisualPromptProvider>
+                <AnnotatorProvider frameId={'test-frame'}>
+                    <AnnotationActionsProvider>
+                        <AnnotationVisibilityProvider>
+                            <ToolManager />
+                        </AnnotationVisibilityProvider>
+                    </AnnotationActionsProvider>
+                </AnnotatorProvider>
+            </VisualPromptProvider>
         );
 
         expect(await screen.findByText('Processing image, please wait...')).toBeInTheDocument();

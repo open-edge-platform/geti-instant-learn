@@ -2,10 +2,11 @@
  * Copyright (C) 2025 Intel Corporation
  * SPDX-License-Identifier: Apache-2.0
  */
-import { useProjectIdentifier } from '@geti-prompt/hooks';
-import { $api, VisualPromptType } from '@geti-prompt/api';
 
-export const useVisualPromptQuery = (promptId: string | null) => {
+import { $api, VisualPromptType } from '@geti-prompt/api';
+import { useProjectIdentifier } from '@geti-prompt/hooks';
+
+export const useGetPrompt = (promptId: string | null) => {
     const { projectId } = useProjectIdentifier();
     const { data } = $api.useQuery(
         'get',

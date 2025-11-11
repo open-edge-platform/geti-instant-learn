@@ -79,6 +79,10 @@ const test = testBase.extend<Fixtures>({
         const projectPage = new ProjectPage(page);
         await use(projectPage);
     },
+    promptPage: async ({ page }, use) => {
+        const promptPage = new PromptPage(page);
+        await use(promptPage);
+    },
 });
 
 export { expect, test, http };
