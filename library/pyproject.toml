@@ -35,7 +35,6 @@ dependencies = [
     "polars>=1.31.0,<2.0.0",
     "scikit-learn==1.6.1",
     "scikit-image==0.24.0",
-    "openvino-model-api==0.3.0.2",
     "transformers==4.56.2",
     "segment-anything-hq==0.3",
     "timm==1.0.22",
