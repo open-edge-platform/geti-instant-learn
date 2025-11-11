@@ -60,12 +60,12 @@ dev = [
 [project.optional-dependencies]
 # PyTorch dependency groups
 cpu = [
-    "torch<=2.8.0",
-    "torchvision>=0.22.0",
+    "torch==2.8.0",
+    "torchvision==0.23.0",
 ]
 cu126 = [
-    "torch<=2.8.0",
-    "torchvision>=0.22.0",
+    "torch==2.8.0",
+    "torchvision==0.23.0",
 ]
 extras = [
     "xformers==0.0.30",
