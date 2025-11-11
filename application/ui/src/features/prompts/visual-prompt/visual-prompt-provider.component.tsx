@@ -12,7 +12,7 @@ import { useGetPrompt } from './api/use-get-prompt';
 
 interface VisualPromptContextProps {
     promptId: string | null;
-    setPromptId: (id: string) => void;
+    setPromptId: (id: string | null) => void;
     prompt: VisualPromptType | undefined;
 
     selectedLabelId: string;
@@ -32,10 +32,10 @@ const PLACEHOLDER_LABEL: LabelType = { id: 'placeholder', name: 'No label', colo
 export const VisualPromptProvider = ({ children }: VisualPromptProviderProps) => {
     const labels = useProjectLabels();
     const [selectedLabelId, setSelectedLabelId] = useState<string>(PLACEHOLDER_LABEL.id);
+    const selectedLabel: LabelType = labels.find(({ id }) => id === selectedLabelId) ?? PLACEHOLDER_LABEL;
+
     const [promptId, setPromptId] = useState<string | null>(null);
     const prompt = useGetPrompt(promptId);
-
-    const selectedLabel: LabelType = labels.find(({ id }) => id === selectedLabelId) ?? PLACEHOLDER_LABEL;
 
     useEffect(() => {
         if (prompt?.annotations !== undefined) {
