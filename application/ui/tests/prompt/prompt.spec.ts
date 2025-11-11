@@ -21,7 +21,7 @@ const WEBCAM_SOURCE: WebcamSourceType = {
     },
 };
 
-test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage }) => {
+test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, promptPage }) => {
     await initializeWebRTC({ page, context, network });
 
     registerApiLabels({ network });
@@ -75,7 +75,7 @@ test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage }
     });
 
     await test.step('Saves prompt', async () => {
-        await page.getByRole('button', { name: 'Save prompt' }).click();
+        await promptPage.savePrompt();
 
         // TODO: Once the api endpoint to save prompt is integrated, complete this test
         // await... (check if the image was indeed save to the list of prompts)
