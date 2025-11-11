@@ -5,13 +5,14 @@
 
 from typing import TYPE_CHECKING
 
+import torch
+
 from getiprompt.components import SamDecoder
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.data.base.batch import Batch
-from getiprompt.types import Results
 from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
 
@@ -20,9 +21,6 @@ from .foundation import load_sam_model
 
 if TYPE_CHECKING:
     from getiprompt.components.prompt_generators.base import PromptGenerator
-
-
-DEBUG = True
 
 
 class Matcher(Model):
@@ -155,8 +153,20 @@ class Matcher(Model):
         )
 
     @track_duration
-    def infer(self, target_batch: Batch) -> Results:
-        """Perform inference step on the target images."""
+    def infer(self, target_batch: Batch) -> list[dict[str, torch.Tensor | None]]:
+        """Perform inference step on the target images.
+
+        Args:
+            target_batch(Batch): The target batch.
+
+        Returns:
+            predictions(list[dict[str, torch.Tensor | None]]): A list of predictions.
+            Each prediction contains:
+                "pred_masks": torch.Tensor of shape [num_masks, H, W]
+                "pred_points": torch.Tensor of shape [num_points, 4]
+                "pred_boxes": torch.Tensor of shape [num_boxes, 6]
+                "pred_labels": torch.Tensor of shape [num_masks]
+        """
         target_images = target_batch.images
         original_sizes = [image.shape[-2:] for image in target_images]
         target_embeddings = self.encoder(images=target_batch.images)
@@ -168,16 +178,8 @@ class Matcher(Model):
             original_sizes,
         )
         point_prompts = self.prompt_filter(point_prompts)
-        masks, used_points, _ = self.segmenter(
+        return self.segmenter(
             target_images,
             point_prompts=point_prompts,
             similarities=similarities_per_image,
         )
-
-        # write output
-        results = Results()
-        results.point_prompts = point_prompts
-        results.used_points = used_points
-        results.masks = masks
-        results.similarities = similarities_per_image
-        return results

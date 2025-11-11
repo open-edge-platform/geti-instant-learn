@@ -3,14 +3,11 @@
 
 """Utility functions for Geti Prompt."""
 
-import colorsys
 import hashlib
 import logging
 import sys
-from itertools import starmap
 from pathlib import Path
 
-import numpy as np
 import requests
 import torch
 from rich.progress import BarColumn, DownloadColumn, Progress, TextColumn, TimeRemainingColumn, TransferSpeedColumn
@@ -125,20 +122,6 @@ def check_file_hash(file_path: Path, expected_hash: str) -> None:
     if file_hash != expected_hash:
         msg = f"File {file_path} has incorrect hash. Expected {expected_hash}, got {file_hash}"
         raise ValueError(msg)
-
-
-def get_colors(n: int) -> np.ndarray:
-    """Generate colors for a mask.
-
-    Args:
-        n: Number of colors to generate
-
-    Returns:
-        Colors for a mask
-    """
-    hsv_tuples = [(x / n, 0.5, 0.5) for x in range(n)]
-    rgb_tuples = starmap(colorsys.hsv_to_rgb, hsv_tuples)
-    return (np.array(list(rgb_tuples)) * 255).astype(np.uint8)
 
 
 def masks_to_custom_masks(

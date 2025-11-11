@@ -23,7 +23,7 @@ from getiprompt.data.base.sample import Sample
 from getiprompt.data.folder.dataset import FolderDataset
 from getiprompt.models import GroundedSAM, Model
 from getiprompt.utils.utils import setup_logger
-from getiprompt.visualize import ExportMaskVisualization
+from getiprompt.visualizer import Visualizer
 
 logger = getLogger("Geti Prompt")
 setup_logger()
@@ -195,13 +195,10 @@ def run_model(
                 else:
                     chunk_names.append(f"image_{idx}")
 
-            ExportMaskVisualization(str(output_location / "target"))(
+            Visualizer(str(output_location / "target"), class_names=class_strings).visualize(
                 images=chunk_images,
-                masks=results.masks,
+                predictions=results.masks,
                 file_names=chunk_names,
-                points=results.used_points,
-                boxes=results.used_boxes,
-                class_names=class_strings,
                 show_legend=True,
             )
             progress.update(task, advance=len(chunk_samples))

@@ -10,7 +10,6 @@ import torch
 from torch.nn import functional
 
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
-from getiprompt.types import Masks
 
 logger = getLogger("Geti Prompt")
 
@@ -412,7 +411,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         self,
         ref_embeddings: torch.Tensor,
         masked_ref_embeddings: dict[int, torch.Tensor],
-        reference_masks: list[Masks],
+        flatten_ref_masks: dict[int, torch.Tensor],
         target_embeddings: torch.Tensor,
         original_sizes: list[tuple[int, int]],
     ) -> tuple[list[dict[int, torch.Tensor]], list[dict[int, torch.Tensor]]]:
@@ -426,7 +425,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         Args:
             ref_embeddings(torch.Tensor): Reference embeddings
             masked_ref_embeddings(dict[int, torch.Tensor]): Dictionary of masked reference embeddings
-            reference_masks(list[Masks]): List of reference masks, one per reference image instance
+            flatten_ref_masks(dict[int, torch.Tensor]): Dictionary of flattened reference masks
             target_embeddings(torch.Tensor): Target embeddings
             original_sizes(list[tuple[int, int]]): Original sizes of the target images
 
@@ -440,7 +439,6 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
 
         # this basically makes a vertical stack + flatten
         flattened_ref_embeds = ref_embeddings.reshape(-1, ref_embeddings.shape[-1])
-        reference_masks = self._merge_masks(reference_masks)
 
         for target_embed, original_size in zip(target_embeddings, original_sizes, strict=False):
             class_point_prompts: dict[int, torch.Tensor] = {}
@@ -448,18 +446,21 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
             similarity_map = flattened_ref_embeds @ target_embed.T
             h, w = original_size
 
-            for class_id, mask in reference_masks.data.items():
-                local_reference_feature = masked_ref_embeddings[class_id]
-                local_similarity = local_reference_feature @ target_embed.T
+            for class_id, flatten_ref_mask in flatten_ref_masks.items():
+                local_ref_embedding = masked_ref_embeddings[class_id]
+                local_similarity = local_ref_embedding @ target_embed.T
                 local_similarity = self._resize_similarity_map(local_similarity, original_size)
                 similarities[class_id].append(local_similarity)
 
                 # Select background points based on similarity to averaged local feature
-                _, background_indices, background_scores = self._select_background_points(similarity_map, mask)
+                _, background_indices, background_scores = self._select_background_points(
+                    similarity_map,
+                    flatten_ref_mask,
+                )
 
                 # Perform foreground matching
                 foreground_indices, foreground_scores, soft_sim_map = self._perform_soft_matching(
-                    mask=mask,
+                    mask=flatten_ref_mask,
                     similarity_map=similarity_map,
                     use_rff=self.approximate_matching,
                     ref_features=flattened_ref_embeds,
