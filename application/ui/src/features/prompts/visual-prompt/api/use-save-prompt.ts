@@ -5,6 +5,7 @@
 
 import { $api } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { toast } from '@geti/ui';
 import { v4 as uuid } from 'uuid';
 
 import { useAnnotationActions } from '../../../annotator/providers/annotation-actions-provider.component';
@@ -52,6 +53,16 @@ export const useSavePrompt = () => {
             {
                 onSuccess: ({ id }) => {
                     setPromptId(id);
+                    toast({
+                        type: 'success',
+                        message: 'Prompt created successfully.',
+                    });
+                },
+                onError: () => {
+                    toast({
+                        type: 'error',
+                        message: 'Failed to create prompt. Make sure you created at least one label.',
+                    });
                 },
             }
         );
