@@ -126,8 +126,8 @@ def infer_on_category(
                 images=batch.images,
                 masks=results.masks,
                 file_names=file_names,
-                points=visualizer.to_points(results.point_prompts),
-                boxes=visualizer.to_boxes(results.box_prompts),
+                points=results.used_points,
+                boxes=results.used_boxes,
             )
             visualizer(
                 images=batch.images,

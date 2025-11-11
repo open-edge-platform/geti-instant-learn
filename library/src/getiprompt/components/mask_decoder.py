@@ -7,13 +7,13 @@ from itertools import zip_longest
 from logging import getLogger
 
 import torch
-from segment_anything_hq.predictor import SamPredictor as SamHQPredictor
+from segment_anything_hq.predictor import SamPredictor
 from torch import nn
 from torchvision import tv_tensors
 from torchvision.ops import masks_to_boxes, nms
 
 from getiprompt.data import ResizeLongestSide
-from getiprompt.types import Boxes, Masks, Points, Similarities
+from getiprompt.types import Boxes, Masks, Points
 
 logger = getLogger("Geti Prompt")
 
@@ -24,7 +24,7 @@ class SamDecoder(nn.Module):
     Examples:
         >>> from getiprompt.models.models import load_sam_model
         >>> from getiprompt.processes.segmenters import SamDecoder
-        >>> from getiprompt.types import Masks, Points, Priors, Similarities
+        >>> from getiprompt.types import Masks, Points, Priors
         >>> from torchvision import tv_tensors
         >>> import torch
         >>> import numpy as np
@@ -33,8 +33,8 @@ class SamDecoder(nn.Module):
         >>> image = tv_tensors.Image(np.zeros((3, 1024, 1024), dtype=np.uint8))
         >>> point_prompts = {1: torch.tensor([[512, 512, 0.9, 1], [100, 100, 0.8, 0]])} # fg, bg
         >>> points = torch.tensor([[512, 512, 0.9, 1], [100, 100, 0.8, 0]]) # fg, bg
-        >>> similarities = Similarities()
-        >>> similarities.add(torch.ones(1, 1024, 1024), class_id=1)
+        >>> similarities = {}
+        >>> similarities[1] = torch.ones(1, 1024, 1024)
         >>> masks, point_prompts_used, box_prompts_used = segmenter(
         ...     images=[image],
         ...     point_prompts=[point_prompts],
@@ -44,7 +44,7 @@ class SamDecoder(nn.Module):
 
     def __init__(
         self,
-        sam_predictor: SamHQPredictor,
+        sam_predictor: SamPredictor,
         mask_similarity_threshold: float = 0.38,
         nms_iou_threshold: float = 0.1,
     ) -> None:
@@ -210,7 +210,7 @@ class SamDecoder(nn.Module):
         class_points: dict[int, torch.Tensor],
         class_boxes: dict[int, torch.Tensor],
         labels: list[int],
-        similarities: Similarities | None = None,
+        similarities: dict[int, torch.Tensor] | None = None,
         original_size: tuple[int, int] | None = None,
     ) -> tuple[Masks, Points]:
         """Predict masks from a list of points.
@@ -226,9 +226,7 @@ class SamDecoder(nn.Module):
         all_used_points = Points()
         all_used_boxes = Boxes()
 
-        similarity_maps = (
-            [[] for _ in labels] if similarities is None else [similarities.data[label] for label in labels]
-        )
+        similarity_maps = [[] for _ in labels] if similarities is None else [similarities[label] for label in labels]
         class_points_list = [class_points.get(label) for label in labels]
         class_boxes_list = [class_boxes.get(label) for label in labels]
 
@@ -252,7 +250,6 @@ class SamDecoder(nn.Module):
 
                 # Apply inverse coordinate transformation only to x, y coordinates
                 if final_points is not None and len(final_points) > 0:
-                    final_points[:, :2] = self.transform.apply_inverse_coords_torch(final_points[:, :2], original_size)
                     # Remap from [total_points, 3] to [total_points, 4] where last dim is [x, y, score, label]
                     remapped_points = self.remap_preprocessed_points(final_points)
                     remapped_points[:, :2] = self.transform.apply_inverse_coords_torch(
@@ -425,7 +422,7 @@ class SamDecoder(nn.Module):
         images: list[tv_tensors.Image],
         point_prompts: list[dict[int, torch.Tensor]] | None = None,
         box_prompts: list[dict[int, torch.Tensor]] | None = None,
-        similarities: list[Similarities] | None = None,
+        similarities: list[dict[int, torch.Tensor]] | None = None,
     ) -> tuple[list[Masks], list[Points], list[Boxes]]:
         """Forward pass.
 
@@ -433,7 +430,7 @@ class SamDecoder(nn.Module):
             images(list[tv_tensors.Image]): The images to predict masks from.
             point_prompts(list[dict[int, torch.Tensor]]): The point prompts to predict masks from.
             box_prompts(list[dict[int, torch.Tensor]]): The box prompts to predict masks from.
-            similarities(list[Similarities]): The similarities to predict masks from.
+            similarities(list[dict[int, torch.Tensor]]): The similarities to predict masks from.
 
         Returns:
             A tuple of masks, points, and boxes per image.

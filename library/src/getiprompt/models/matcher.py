@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 from getiprompt.components import SamDecoder
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor
-from getiprompt.components.feature_selectors import AllFeaturesSelector, FeatureSelector
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.data.base.batch import Batch
@@ -124,12 +123,11 @@ class Matcher(Model):
             benchmark_inference_speed=benchmark_inference_speed,
         )
         # Local feature extraction with mask pooling
-        self.local_feature_extractor = MaskedFeatureExtractor(
+        self.masked_feature_extractor = MaskedFeatureExtractor(
             input_size=self.encoder.input_size,
             patch_size=self.encoder.patch_size,
             device=device,
         )
-        self.feature_selector: FeatureSelector = AllFeaturesSelector()
         self.prompt_generator: PromptGenerator = BidirectionalPromptGenerator(
             encoder_input_size=self.encoder.input_size,
             encoder_patch_size=self.encoder.patch_size,
@@ -141,35 +139,37 @@ class Matcher(Model):
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
         )
-        self.reference_features = None
-        self.reference_masks = None
+        self.masked_ref_embeddings = None
+        self.ref_masks = None
 
     @track_duration
     def learn(self, reference_batch: Batch) -> None:
         """Perform learning step on the reference images and priors."""
         # Encode reference images to batched tensor
-        reference_embeddings = self.encoder(images=reference_batch.images)
+        self.ref_embeddings = self.encoder(images=reference_batch.images)
         # Extract local features and pooled masks
-        reference_features, self.reference_masks = self.local_feature_extractor(
-            reference_embeddings,
+        self.masked_ref_embeddings, self.ref_masks = self.masked_feature_extractor(
+            self.ref_embeddings,
             reference_batch.masks,
             reference_batch.category_ids,
         )
-        self.reference_features = self.feature_selector(reference_features)
 
     @track_duration
     def infer(self, target_batch: Batch) -> Results:
         """Perform inference step on the target images."""
+        target_images = target_batch.images
+        original_sizes = [image.shape[-2:] for image in target_images]
         target_embeddings = self.encoder(images=target_batch.images)
         point_prompts, similarities_per_image = self.prompt_generator(
-            self.reference_features,
-            self.reference_masks,
+            self.ref_embeddings,
+            self.masked_ref_embeddings,
+            self.ref_masks,
             target_embeddings,
-            target_batch.images,
+            original_sizes,
         )
         point_prompts = self.prompt_filter(point_prompts)
         masks, used_points, _ = self.segmenter(
-            target_batch.images,
+            target_images,
             point_prompts=point_prompts,
             similarities=similarities_per_image,
         )

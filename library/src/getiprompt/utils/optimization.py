@@ -3,8 +3,6 @@
 
 """This file contains several methods to optimize a model for inference."""
 
-# ruff: noqa: ANN002, ANN003
-
 import time
 from logging import getLogger
 from typing import Any
@@ -12,12 +10,11 @@ from typing import Any
 import numpy as np
 import torch
 from sam2.sam2_image_predictor import SAM2ImagePredictor
-from segment_anything_hq.predictor import SamPredictor as SamHQPredictor
+from segment_anything_hq.predictor import SamPredictor
 from torch import nn
 from transformers import AutoModel
 
-from getiprompt.models.foundation.per_sam import SamPredictor
-from getiprompt.models.foundation.per_sam.modeling.tiny_vit_sam import Attention, TinyViT
+# ruff: noqa: ANN002, ANN003
 
 logger = getLogger("Geti Prompt")
 
@@ -34,13 +31,13 @@ def get_dummy_input(model: AutoModel, precision: torch.dtype, device: str) -> to
 
 
 def optimize_model(
-    model: AutoModel | SamPredictor | SamHQPredictor | SAM2ImagePredictor,
+    model: AutoModel | SamPredictor | SAM2ImagePredictor,
     device: str,
     precision: torch.dtype,
     compile_models: bool,
     benchmark_inference_speed: bool = True,
     compile_backend: str = "inductor",
-) -> AutoModel | SamPredictor | SamHQPredictor | SAM2ImagePredictor:
+) -> AutoModel | SamPredictor | SAM2ImagePredictor:
     """This method optimizes a model by quantizing it and compiling it.
 
     Args:
@@ -107,7 +104,7 @@ def optimize_model(
 
 @torch.inference_mode()
 def benchmark_inference(
-    model: SamPredictor | SamHQPredictor | SAM2ImagePredictor | AutoModel,
+    model: SamPredictor | SAM2ImagePredictor | AutoModel,
     precision: torch.dtype,
     repeat: int = 10,
 ) -> float:
@@ -160,7 +157,7 @@ def benchmark_inference(
     return avg_duration
 
 
-def _monkey_patch_preprocess(predictor: SamPredictor | SamHQPredictor, dtype: torch.dtype) -> None:
+def _monkey_patch_preprocess(predictor: SamPredictor, dtype: torch.dtype) -> None:
     """Monkey patch the preprocess method to use the correct dtype."""
     original_preprocess = predictor.model.preprocess
 
@@ -201,7 +198,7 @@ def _monkey_patch_prompt_encoder(prompt_encoder: nn.Module, dtype: torch.dtype) 
     prompt_encoder.forward = prompt_encoder_dtype_wrapper
 
 
-def _monkey_patch_predict_torch(predictor: SamPredictor | SamHQPredictor, dtype: torch.dtype) -> None:
+def _monkey_patch_predict_torch(predictor: SamPredictor, dtype: torch.dtype) -> None:
     """Monkey patch the predict_torch method to use the correct dtype."""
     original_predict_torch = predictor.predict_torch
 
@@ -228,42 +225,6 @@ def _monkey_patch_predict_torch(predictor: SamPredictor | SamHQPredictor, dtype:
         return processed_outputs
 
     predictor.predict_torch = predict_torch_dtype_wrapper
-
-
-def _monkey_patch_tinyvit_architecture(predictor: SamPredictor | SamHQPredictor, dtype: torch.dtype) -> None:
-    """Change model.forward to use x.to_dtype before calling the original forward function.
-
-    The 'ab' attribute of the Attention layers are not correctly set to the correct dtype.
-    """
-    if not isinstance(predictor.model.image_encoder, TinyViT):
-        return
-    original_forward = predictor.model.image_encoder.forward
-
-    def forward_dtype_wrapper(
-        self_tinyvit: TinyViT,
-        x_input_to_tinyvit: torch.Tensor,
-        *args_tinyvit,
-        **kwargs_tinyvit,
-    ) -> torch.Tensor:
-        x_input_to_tinyvit = x_input_to_tinyvit.to(dtype)
-
-        # The 'ab' attribute of the Attention layers are not correctly set to the correct dtype.
-        if not self_tinyvit.training:
-            for module in self_tinyvit.modules():
-                if (
-                    isinstance(module, Attention)
-                    and hasattr(module, "ab")
-                    and module.ab is not None
-                    and module.ab.dtype != dtype
-                ):
-                    module.ab = module.ab.to(dtype)
-
-        return original_forward(x_input_to_tinyvit, *args_tinyvit, **kwargs_tinyvit)
-
-    predictor.model.image_encoder.forward = forward_dtype_wrapper.__get__(
-        predictor.model.image_encoder,
-        predictor.model.image_encoder.__class__,
-    )
 
 
 def _monkey_patch_sam2_architecture(predictor: SAM2ImagePredictor, dtype: torch.dtype) -> None:
@@ -297,7 +258,7 @@ def _monkey_patch_sam2_architecture(predictor: SAM2ImagePredictor, dtype: torch.
 
 
 def _monkey_patch_dtype(
-    predictor: SamPredictor | SamHQPredictor | SAM2ImagePredictor,
+    predictor: SamPredictor | SAM2ImagePredictor,
 ) -> None:
     """Monkey patch the predictor to use the correct dtype for the model.
 
@@ -316,7 +277,6 @@ def _monkey_patch_dtype(
     _monkey_patch_prompt_encoder(predictor.model.prompt_encoder, dtype)
     _monkey_patch_predict_torch(predictor, dtype)
     _monkey_patch_preprocess(predictor, dtype)
-    _monkey_patch_tinyvit_architecture(predictor, dtype)
 
 
 def is_sam_model(model: Any) -> bool:  # noqa: ANN401

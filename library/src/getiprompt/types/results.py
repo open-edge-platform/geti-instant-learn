@@ -6,7 +6,6 @@
 from getiprompt.types.boxes import Boxes
 from getiprompt.types.masks import Masks
 from getiprompt.types.points import Points
-from getiprompt.types.similarities import Similarities
 
 
 class Results:
@@ -17,7 +16,6 @@ class Results:
         self._masks: list[Masks] | None = None
         self._used_points: list[Points] | None = None
         self._used_boxes: list[Boxes] | None = None
-        self._similarities: list[Similarities] | None = None
         self._duration: float | None = None
         self._box_prompts: list[Boxes] | None = None
         self._point_prompts: list[Points] | None = None
@@ -51,16 +49,6 @@ class Results:
     def used_boxes(self, used_boxes: list[Boxes]) -> None:
         """Sets the used boxes."""
         self._used_boxes = used_boxes
-
-    @property
-    def similarities(self) -> list[Similarities]:
-        """Returns similarities produced by the latest run of model."""
-        return self._similarities if self._similarities is not None else []
-
-    @similarities.setter
-    def similarities(self, similarities: list[Similarities]) -> None:
-        """Sets the similarities."""
-        self._similarities = similarities
 
     @property
     def duration(self) -> float:

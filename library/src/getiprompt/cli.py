@@ -1,10 +1,8 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-# ruff: noqa: E402
 
 """This module contains the Geti Prompt CLI."""
 
-import sys
 import warnings
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -32,47 +30,36 @@ class GetiPromptCLI:
     @staticmethod
     def add_run_arguments(parser: ArgumentParser) -> None:
         """Add arguments for the run subcommand."""
-        # load datasets
-        default_model = "Matcher"
-
-        # Use Grounding model when text is provided as input.
-        if "--reference_text_prompt" in sys.argv or "--text" in sys.argv:
-            default_model = "GroundedSAM"
-
-        parser.add_subclass_arguments(Model, "model", default=default_model)
+        parser.add_subclass_arguments(Model, "model", required=True)
         parser.add_argument(
-            "--reference_images",
-            "--ref",
+            "--data_root",
+            "--data",
             type=str,
             default=None,
-            help="Directory with reference images.",
+            help=(
+                "Root directory containing the dataset using FolderDataset structure. "
+                "Required: root/images/{category}/*.jpg and root/masks/{category}/*.png. "
+                "Each category must have at least (n_shots + 1) images and masks. "
+                "Example: ~/data/dataset/images/apple/1.jpg with ~/data/dataset/masks/apple/1.png"
+            ),
         )
         parser.add_argument(
-            "--target_images",
-            "--target",
-            type=str,
-            required=True,
-            help="Directory with target images.",
-        )
-        parser.add_argument(
-            "--reference_prompts",
-            "--ref_prompt",
+            "--text_prompt",
             type=str,
             default=None,
-            help="Directory with reference prompts (masks or points).",
+            help=(
+                "Text prompt with comma/dot-separated categories. If provided, no images are needed. "
+                "Model must be explicitly set (e.g., use GroundedSAM for text prompts)."
+            ),
         )
         parser.add_argument(
-            "--points",
-            type=str,
-            default=None,
-            help="Reference points as a string. e.g. [0:[640,640], -1:[200,200]]",
-        )
-        parser.add_argument(
-            "--reference_text_prompt",
-            "--text",
-            type=str,
-            default=None,
-            help="Text prompt for grounding dino. If provided, model is set to GroundingDinoSAM.",
+            "--n_shots",
+            type=int,
+            default=1,
+            help=(
+                "Number of reference shots per category. Each category must have at least (n_shots + 1) images and masks. "
+                "Defaults to 1."
+            ),
         )
         parser.add_argument("--output_location", type=str, default=None, help="Directory to save output.")
         parser.add_argument(
@@ -134,20 +121,14 @@ class GetiPromptCLI:
         subcommand = config.subcommand
         match subcommand:
             case "run":
-                if not config.run.reference_images and not config.run.reference_text_prompt:
-                    msg = "Either reference_images or reference_text_prompt must be provided."
-                    raise ValueError(msg)
-
                 model = config.run.model
                 run_model(
                     model=model,
-                    target_images=config.run.target_images,
-                    reference_images=config.run.reference_images,
-                    reference_prompts=config.run.reference_prompts,
-                    reference_points_str=config.run.points,
-                    reference_text_prompt=config.run.reference_text_prompt,
+                    data_root=config.run.data_root,
+                    text_prompt=config.run.text_prompt,
                     output_location=config.run.output_location,
                     batch_size=config.run.batch_size,
+                    n_shots=config.run.n_shots,
                 )
             case "benchmark":
                 perform_benchmark_experiment(config.benchmark)

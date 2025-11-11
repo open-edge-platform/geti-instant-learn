@@ -19,6 +19,9 @@ from getiprompt.visualize.base import Visualization
 class ExportMaskVisualization(Visualization):
     """The class exports the images for visualization.
 
+    If an output file already exists, a number will be appended to the filename
+    (e.g., image_1.png, image_2.png) to avoid overwriting.
+
     Examples:
         >>> import os
         >>> import numpy as np
@@ -41,7 +44,11 @@ class ExportMaskVisualization(Visualization):
     """
 
     def __init__(self, output_folder: str) -> None:
-        """Initializes the visualization class."""
+        """Initializes the visualization class.
+
+        Args:
+            output_folder: Directory to save visualization images
+        """
         super().__init__()
         self.output_folder = output_folder
 
@@ -336,6 +343,18 @@ class ExportMaskVisualization(Visualization):
 
         output_path = Path(self.output_folder) / file_name
         output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # If file exists, append a number to avoid overwriting
+        if output_path.exists():
+            # Find next available filename by appending a number
+            stem = output_path.stem
+            suffix = output_path.suffix
+            parent = output_path.parent
+            counter = 1
+            while output_path.exists():
+                new_name = f"{stem}_{counter}{suffix}"
+                output_path = parent / new_name
+                counter += 1
 
         image_vis = image_np
 

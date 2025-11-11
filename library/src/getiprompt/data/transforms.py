@@ -5,18 +5,36 @@
 # All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""ResizeLongestSide from Segment Anything."""
+"""Transforms for Geti Prompt."""
 
 from copy import deepcopy
 
 import numpy as np
 import torch
+from PIL import Image as PILImage
 from torch.nn import functional
-from torchvision import tv_tensors
+from torchvision import transforms, tv_tensors
 from torchvision.transforms.functional import resize, to_pil_image
 
 # TODO(Eugene): refactor ResizeLongestSide only keeping torch.Tensor implemenataion.
 # https://github.com/open-edge-platform/geti-prompt/issues/174
+
+
+class ToTensor(transforms.ToTensor):
+    """Convert a ``PIL Image`` or ``numpy.ndarray`` to tensor, or keep as is if already a tensor."""
+
+    def __call__(self, pic: PILImage.Image | np.ndarray | torch.Tensor) -> torch.Tensor:
+        """Convert a ``PIL Image`` or ``numpy.ndarray`` to tensor, or keep as is if already a tensor.
+
+        Args:
+            pic: Image to be converted to tensor.
+
+        Returns:
+            Tensor: Converted image.
+        """
+        if isinstance(pic, torch.Tensor):
+            return pic
+        return super().__call__(pic)
 
 
 class ResizeLongestSide:
