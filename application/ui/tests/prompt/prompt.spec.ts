@@ -21,6 +21,7 @@ const WEBCAM_SOURCE: WebcamSourceType = {
         source_type: 'webcam',
     },
 };
+const MOCK_PROMPT_ID = '123e4567-e89b-12d3-a456-426614174002';
 
 test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, promptPage }) => {
     await initializeWebRTC({ page, context, network });
@@ -90,9 +91,73 @@ test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, 
     });
 
     await test.step('Saves prompt', async () => {
+        network.use(
+            http.get('/api/v1/projects/{project_id}/prompts', ({ response }) => {
+                return response(200).json({
+                    prompts: [
+                        {
+                            id: MOCK_PROMPT_ID,
+                            annotations: [
+                                {
+                                    config: {
+                                        points: [
+                                            {
+                                                x: 0.1,
+                                                y: 0.1,
+                                            },
+                                            {
+                                                x: 0.5,
+                                                y: 0.1,
+                                            },
+                                            {
+                                                x: 0.5,
+                                                y: 0.5,
+                                            },
+                                        ],
+                                        type: 'polygon',
+                                    },
+                                    label_id: '123e4567-e89b-12d3-a456-426614174001',
+                                },
+                            ],
+                            frame_id: '123e4567-e89b-12d3-a456-426614174000',
+                            type: 'VISUAL',
+                            thumbnail: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ',
+                        },
+                    ],
+                    pagination: {
+                        total: 0,
+                        count: 0,
+                        offset: 0,
+                        limit: 10,
+                    },
+                });
+            })
+        );
+
         await promptPage.savePrompt();
 
-        // TODO: Once the api endpoint to save prompt is integrated, complete this test
-        // await... (check if the image was indeed save to the list of prompts)
+        await expect(promptPage.thumbnails).toHaveCount(1);
+    });
+
+    await test.step('Deletes prompt', async () => {
+        await expect(promptPage.thumbnails).toHaveCount(1);
+
+        network.use(
+            http.get('/api/v1/projects/{project_id}/prompts', ({ response }) => {
+                return response(200).json({
+                    prompts: [],
+                    pagination: {
+                        total: 0,
+                        count: 0,
+                        offset: 0,
+                        limit: 10,
+                    },
+                });
+            })
+        );
+
+        await promptPage.deletePrompt(MOCK_PROMPT_ID);
+
+        await expect(promptPage.thumbnails).toHaveCount(0);
     });
 });

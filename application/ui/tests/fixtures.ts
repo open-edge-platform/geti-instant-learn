@@ -61,6 +61,17 @@ const test = testBase.extend<Fixtures>({
                     },
                 });
             }),
+            http.get('/api/v1/projects/{project_id}/prompts', ({ response }) => {
+                return response(200).json({
+                    prompts: [],
+                    pagination: {
+                        total: 0,
+                        count: 0,
+                        offset: 0,
+                        limit: 10,
+                    },
+                });
+            }),
         ],
     }),
     streamPage: async ({ page }, use) => {
