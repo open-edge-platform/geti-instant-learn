@@ -9,6 +9,7 @@ import { LabelType, VisualPromptType } from '@geti-prompt/api';
 import { useProjectLabels } from '@geti-prompt/hooks';
 
 import { useGetPrompt } from './api/use-get-prompt';
+import { usePromptIdFromUrl } from './use-prompt-id-from-url';
 
 interface VisualPromptContextProps {
     promptId: string | null;
@@ -34,7 +35,7 @@ export const VisualPromptProvider = ({ children }: VisualPromptProviderProps) =>
     const [selectedLabelId, setSelectedLabelId] = useState<string>(PLACEHOLDER_LABEL.id);
     const selectedLabel: LabelType = labels.find(({ id }) => id === selectedLabelId) ?? PLACEHOLDER_LABEL;
 
-    const [promptId, setPromptId] = useState<string | null>(null);
+    const { promptId, setPromptId } = usePromptIdFromUrl();
     const prompt = useGetPrompt(promptId);
 
     useEffect(() => {

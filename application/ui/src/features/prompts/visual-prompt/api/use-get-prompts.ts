@@ -13,5 +13,5 @@ export const useGetPrompts = (): VisualPromptListType['prompts'] => {
         params: { path: { project_id: projectId } },
     });
 
-    return data.prompts || [];
+    return data.prompts ?? [];
 };
