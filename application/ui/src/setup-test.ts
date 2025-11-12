@@ -5,7 +5,7 @@
 
 import '@testing-library/jest-dom/vitest';
 
-import { LabelListType, ProjectsListType, ProjectType } from '@geti-prompt/api';
+import { LabelListType, ProjectsListType, ProjectType, VisualPromptListType } from '@geti-prompt/api';
 import { HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import fetchPolyfill, { Request as RequestPolyfill } from 'node-fetch';
@@ -37,6 +37,15 @@ const MOCKED_LABELS_RESPONSE: LabelListType = {
         limit: 10,
     },
 };
+const MOCKED_PROMPTS_RESPONSE: VisualPromptListType = {
+    prompts: [],
+    pagination: {
+        count: 0,
+        total: 0,
+        offset: 0,
+        limit: 10,
+    },
+};
 
 const initialHandlers = [
     http.get('/api/v1/projects', () => {
@@ -49,6 +58,10 @@ const initialHandlers = [
 
     http.get('/api/v1/projects/{project_id}/labels', () => {
         return HttpResponse.json(MOCKED_LABELS_RESPONSE);
+    }),
+
+    http.get('/api/v1/projects/{project_id}/prompts', () => {
+        return HttpResponse.json(MOCKED_PROMPTS_RESPONSE);
     }),
 ];
 

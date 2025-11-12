@@ -5,9 +5,11 @@
 
 import { createNetworkFixture, NetworkFixture } from '@msw/playwright';
 import { expect, test as testBase } from '@playwright/test';
+import { HttpResponse } from 'msw';
 
 import { handlers, http } from '../src/api/utils';
 import { AnnotatorPage } from './annotator/annotator-page';
+import { PromptPage } from './annotator/prompt-page';
 import { LabelsPage } from './labels/labels-page';
 import { ProjectPage } from './projects/projects-page';
 import { StreamPage } from './prompt/stream-page';
@@ -18,6 +20,7 @@ interface Fixtures {
     labelsPage: LabelsPage;
     annotatorPage: AnnotatorPage;
     projectPage: ProjectPage;
+    promptPage: PromptPage;
 }
 
 const test = testBase.extend<Fixtures>({
@@ -59,6 +62,54 @@ const test = testBase.extend<Fixtures>({
                     },
                 });
             }),
+            http.get('/api/v1/projects/{project_id}/prompts', ({ response }) => {
+                return response(200).json({
+                    prompts: [],
+                    pagination: {
+                        total: 0,
+                        count: 0,
+                        offset: 0,
+                        limit: 10,
+                    },
+                });
+            }),
+            http.post('/api/v1/projects/{project_id}/prompts', ({ response }) => {
+                return response(201).json({
+                    id: 'prompt-id',
+                    annotations: [
+                        {
+                            config: {
+                                points: [
+                                    {
+                                        x: 0.1,
+                                        y: 0.1,
+                                    },
+                                    {
+                                        x: 0.5,
+                                        y: 0.1,
+                                    },
+                                    {
+                                        x: 0.5,
+                                        y: 0.5,
+                                    },
+                                    {
+                                        x: 0.1,
+                                        y: 0.5,
+                                    },
+                                ],
+                                type: 'polygon',
+                            },
+                            label_id: '123e4567-e89b-12d3-a456-426614174001',
+                        },
+                    ],
+                    frame_id: '123e4567-e89b-12d3-a456-426614174000',
+                    type: 'VISUAL',
+                });
+            }),
+            // Handle DELETE /prompts/{prompt_id} - return 204 No Content
+            http.delete('/api/v1/projects/{project_id}/prompts/{prompt_id}', () => {
+                return HttpResponse.json({}, { status: 204 });
+            }),
         ],
     }),
     streamPage: async ({ page }, use) => {
@@ -76,6 +127,10 @@ const test = testBase.extend<Fixtures>({
     projectPage: async ({ page }, use) => {
         const projectPage = new ProjectPage(page);
         await use(projectPage);
+    },
+    promptPage: async ({ page }, use) => {
+        const promptPage = new PromptPage(page);
+        await use(promptPage);
     },
 });
 

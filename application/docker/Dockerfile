@@ -16,7 +16,10 @@ WORKDIR ${WORKDIR_PATH}
 ENV PYTHONPATH=/app
 
 # Install git for git dependencies (sam-2)
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 # Copy library and create proper directory structure
 COPY --from=libs . /geti_prompt/library

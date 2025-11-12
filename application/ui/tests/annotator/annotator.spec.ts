@@ -8,7 +8,7 @@ import { expect, http, test } from '@geti-prompt/test-fixtures';
 
 import { registerApiLabels } from '../labels/mocks';
 import { initializeWebRTC } from '../prompt/initialize-webrtc';
-import { AnnotatorPage } from './annotator-page';
+import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations, expectToNotHaveAnnotations } from './utils';
 
 const DEVICE_ID = 10;
 const WEBCAM_SOURCE: WebcamSourceType = {
@@ -20,17 +20,8 @@ const WEBCAM_SOURCE: WebcamSourceType = {
         source_type: 'webcam',
     },
 };
-const ANNOTATOR_PAGE_TIMEOUT = 10 * 60 * 1000;
 
-const expectToNotHaveAnnotations = async ({ annotatorPage }: { annotatorPage: AnnotatorPage }) => {
-    await expect(annotatorPage.getAnnotation()).toHaveCount(0);
-};
-
-const expectToHaveAnnotations = async ({ annotatorPage }: { annotatorPage: AnnotatorPage }) => {
-    await expect(annotatorPage.getAnnotation()).not.toHaveCount(0, { timeout: 10000 });
-};
-
-test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) => {
+test('Annotator', async ({ network, page, context, streamPage, annotatorPage, promptPage }) => {
     test.setTimeout(ANNOTATOR_PAGE_TIMEOUT);
 
     await initializeWebRTC({ page, context, network });
@@ -71,8 +62,12 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
             timeout: ANNOTATOR_PAGE_TIMEOUT,
         });
 
+        await expect(promptPage.savePromptButton).toBeDisabled();
+
         await annotatorPage.addAnnotation();
+
         await expectToHaveAnnotations({ annotatorPage });
+        await expect(promptPage.savePromptButton).toBeEnabled();
     });
 
     await test.step('Hides/Shows annotations', async () => {

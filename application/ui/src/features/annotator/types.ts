@@ -42,10 +42,8 @@ export type Label = {
     hotkey?: string;
 };
 
-// TODO: update this once we have the final type
 export type Annotation = {
     id: string;
     labels: Label[];
     shape: Shape;
-    confidence?: number | null;
 };

@@ -15,7 +15,6 @@ from domain.services.schemas.annotation import (
     RectangleAnnotation,
 )
 from domain.services.thumbnail import (
-    THUMBNAIL_MAX_DIMENSION,
     _convert_hex_to_bgr,
     _draw_filled_polygon,
     _draw_filled_rectangle,
@@ -23,6 +22,9 @@ from domain.services.thumbnail import (
     _resize_frame_to_thumbnail_size,
     generate_thumbnail,
 )
+from settings import get_settings
+
+settings = get_settings()
 
 
 def make_label(color="#FF0000"):
@@ -40,17 +42,17 @@ class TestResizeFrame:
         frame = create_test_frame(width=1000, height=800)
         resized = _resize_frame_to_thumbnail_size(frame)
 
-        assert max(resized.shape[:2]) == THUMBNAIL_MAX_DIMENSION
-        assert resized.shape[0] == 240  # 800 * (300/1000)
+        assert max(resized.shape[:2]) == settings.thumbnail_max_dimension
+        assert resized.shape[0] == 240
         assert resized.shape[1] == 300
 
     def test_resize_tall_frame(self):
         frame = create_test_frame(width=600, height=1200)
         resized = _resize_frame_to_thumbnail_size(frame)
 
-        assert max(resized.shape[:2]) == THUMBNAIL_MAX_DIMENSION
+        assert max(resized.shape[:2]) == settings.thumbnail_max_dimension
         assert resized.shape[0] == 300
-        assert resized.shape[1] == 150  # 600 * (300/1200)
+        assert resized.shape[1] == 150
 
     def test_no_resize_small_frame(self):
         frame = create_test_frame(width=300, height=200)
@@ -68,6 +70,14 @@ class TestResizeFrame:
 
         np.testing.assert_almost_equal(original_ratio, resized_ratio, decimal=2)
 
+    def test_resize_creates_copy_not_reference(self):
+        frame = create_test_frame(width=200, height=150)
+        resized = _resize_frame_to_thumbnail_size(frame)
+
+        resized[0, 0] = [255, 255, 255]
+
+        assert not np.array_equal(frame[0, 0], [255, 255, 255])
+
 
 class TestHexToBgr:
     def test_hex_with_hash(self):
@@ -84,6 +94,10 @@ class TestHexToBgr:
         assert _convert_hex_to_bgr("#000000") == (0, 0, 0)  # Black
         assert _convert_hex_to_bgr("#FF8800") == (0, 136, 255)  # Orange
 
+    def test_lowercase_hex(self):
+        assert _convert_hex_to_bgr("#ff0000") == (0, 0, 255)
+        assert _convert_hex_to_bgr("00ff00") == (0, 255, 0)
+
 
 class TestEncodeToBase64:
     def test_encode_valid_image(self):
@@ -93,7 +107,6 @@ class TestEncodeToBase64:
         assert result.startswith("data:image/jpeg;base64,")
         assert len(result) > 50
 
-        # verify it's valid base64
         b64_data = result.split(",")[1]
         decoded = base64.b64decode(b64_data)
         assert len(decoded) > 0
@@ -109,6 +122,14 @@ class TestEncodeToBase64:
         assert decoded_img is not None
         assert decoded_img.shape == frame.shape
 
+    def test_encode_different_sizes(self):
+        sizes = [(50, 50), (100, 200), (300, 100)]
+        for width, height in sizes:
+            frame = create_test_frame(width=width, height=height)
+            result = _encode_image_to_base64_data_uri(frame)
+
+            assert result.startswith("data:image/jpeg;base64,")
+
 
 class TestDrawRectangle:
     def test_draw_rectangle_basic(self):
@@ -116,10 +137,9 @@ class TestDrawRectangle:
         rect = RectangleAnnotation(type="rectangle", points=[Point(x=0.2, y=0.2), Point(x=0.8, y=0.8)])
         color = (0, 0, 255)
 
-        _draw_filled_rectangle(overlay, rect, color, image_width=200, image_height=200, border_thickness=2)
+        result = _draw_filled_rectangle(overlay, rect, color, image_width=200, image_height=200, border_thickness=2)
 
-        # check that some pixels in the rectangle area have been modified
-        center_pixel = overlay[100, 100]
+        center_pixel = result[100, 100]
         np.testing.assert_array_equal(center_pixel, color)
 
     def test_draw_rectangle_coordinates(self):
@@ -127,11 +147,20 @@ class TestDrawRectangle:
         rect = RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)])
         color = (255, 0, 0)
 
-        _draw_filled_rectangle(overlay, rect, color, image_width=100, image_height=100, border_thickness=1)
+        result = _draw_filled_rectangle(overlay, rect, color, image_width=100, image_height=100, border_thickness=1)
 
-        # check corners are colored
-        assert np.any(overlay[10, 10] == color)
-        assert np.any(overlay[50, 50] == color)
+        assert np.any(result[10, 10] == color)
+        assert np.any(result[50, 50] == color)
+
+    def test_draw_rectangle_returns_modified_overlay(self):
+        original = create_test_frame(width=100, height=100, color=(255, 255, 255))
+        rect = RectangleAnnotation(type="rectangle", points=[Point(x=0.2, y=0.2), Point(x=0.6, y=0.6)])
+        color = (0, 255, 0)
+
+        result = _draw_filled_rectangle(original, rect, color, image_width=100, image_height=100, border_thickness=2)
+
+        assert result is original
+        assert np.any(result[40, 40] == color)
 
 
 class TestDrawPolygon:
@@ -142,10 +171,9 @@ class TestDrawPolygon:
         )
         color = (0, 255, 0)
 
-        _draw_filled_polygon(overlay, polygon, color, image_width=200, image_height=200, border_thickness=2)
+        result = _draw_filled_polygon(overlay, polygon, color, image_width=200, image_height=200, border_thickness=2)
 
-        # check that center of triangle has been colored
-        center_pixel = overlay[120, 100]
+        center_pixel = result[120, 100]
         np.testing.assert_array_equal(center_pixel, color)
 
     def test_draw_square_polygon(self):
@@ -156,10 +184,21 @@ class TestDrawPolygon:
         )
         color = (0, 0, 255)
 
-        _draw_filled_polygon(overlay, polygon, color, image_width=100, image_height=100, border_thickness=1)
+        result = _draw_filled_polygon(overlay, polygon, color, image_width=100, image_height=100, border_thickness=1)
 
-        # check center is colored
-        assert np.any(overlay[50, 50] == color)
+        assert np.any(result[50, 50] == color)
+
+    def test_draw_polygon_returns_modified_overlay(self):
+        original = np.zeros((100, 100, 3), dtype=np.uint8)
+        polygon = PolygonAnnotation(
+            type="polygon",
+            points=[Point(x=0.3, y=0.3), Point(x=0.7, y=0.3), Point(x=0.5, y=0.7)],
+        )
+        color = (128, 128, 128)
+
+        result = _draw_filled_polygon(original, polygon, color, image_width=100, image_height=100, border_thickness=1)
+
+        assert result is original
 
 
 class TestGenerateThumbnail:
@@ -232,12 +271,11 @@ class TestGenerateThumbnail:
 
         result = generate_thumbnail(large_frame, [(annotation, label)])
 
-        # decode to verify size
         b64_data = result.split(",")[1]
         decoded_bytes = base64.b64decode(b64_data)
         decoded_img = cv2.imdecode(np.frombuffer(decoded_bytes, np.uint8), cv2.IMREAD_COLOR)
 
-        assert max(decoded_img.shape[:2]) <= THUMBNAIL_MAX_DIMENSION
+        assert max(decoded_img.shape[:2]) <= settings.thumbnail_max_dimension
 
     def test_generate_thumbnail_empty_annotations(self):
         frame = create_test_frame(width=400, height=300)
@@ -262,3 +300,22 @@ class TestGenerateThumbnail:
 
             assert result.startswith("data:image/jpeg;base64,")
             assert len(result) > 100
+
+    def test_generate_thumbnail_applies_transparency(self):
+        frame = create_test_frame(width=400, height=400, color=(100, 100, 100))
+        label_id = uuid4()
+        annotation = AnnotationSchema(
+            config=RectangleAnnotation(type="rectangle", points=[Point(x=0.0, y=0.0), Point(x=1.0, y=1.0)]),
+            label_id=label_id,
+        )
+        label = make_label(color="#FF0000")
+
+        result = generate_thumbnail(frame, [(annotation, label)])
+
+        b64_data = result.split(",")[1]
+        decoded_bytes = base64.b64decode(b64_data)
+        decoded_img = cv2.imdecode(np.frombuffer(decoded_bytes, np.uint8), cv2.IMREAD_COLOR)
+
+        center_pixel = decoded_img[200, 200]
+        assert not np.array_equal(center_pixel, [0, 0, 255])
+        assert not np.array_equal(center_pixel, [100, 100, 100])
