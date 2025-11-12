@@ -231,7 +231,7 @@ def get_model_configuration(
             "description": "Project not found",
             "content": {
                 "application/json": {
-                    "example": {"detail": "RProject with id 123e4567-e89b-12d3-a456-426614174000 not found."}
+                    "example": {"detail": "Project with id 123e4567-e89b-12d3-a456-426614174000 not found."}
                 }
             },
         },
@@ -261,7 +261,7 @@ def create_model_configuration(
     project_id: UUID, payload: ProcessorCreateSchema, model_service: ModelConfigurationServiceDep
 ) -> Response:
     """
-    Retrieve the source configuration of the project.
+    Create a new model configuration for the project.
     """
     model_configuration = model_service.create_model_configuration(project_id=project_id, create_data=payload)
     return Response(
@@ -339,7 +339,7 @@ def update_model_configuration(
     project_id: UUID, model_id: UUID, payload: ProcessorUpdateSchema, model_service: ModelConfigurationServiceDep
 ) -> ProcessorSchema:
     """
-    Retrieve the source configuration of the project.
+    Update an existing model configuration for the project.
     """
     return model_service.update_model_configuration(
         project_id=project_id, model_configuration_id=model_id, update_data=payload
@@ -383,7 +383,7 @@ def delete_model_configuration(
     project_id: UUID, model_id: UUID, model_service: ModelConfigurationServiceDep
 ) -> Response:
     """
-    Retrieve the source configuration of the project.
+    Delete a model configuration from the project.
     """
     model_service.delete_model_configuration(project_id=project_id, model_configuration_id=model_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

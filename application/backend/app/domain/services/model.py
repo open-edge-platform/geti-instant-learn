@@ -165,7 +165,7 @@ class ModelConfigurationService:
             logger.error(
                 f"Update failed; model configuration not found id={model_configuration_id} project_id={project_id}"
             )
-            raise ResourceNotFoundError(resource_type=ResourceType.SOURCE, resource_id=str(model_configuration_id))
+            raise ResourceNotFoundError(resource_type=ResourceType.PROCESSOR, resource_id=str(model_configuration_id))
 
         if update_data.active and not model_configuration.active:
             self._deactivate_existing_active_model(project_id=project_id)
