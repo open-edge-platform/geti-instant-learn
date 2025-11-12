@@ -58,9 +58,9 @@ class Settings(BaseSettings):
 
     # Thumbnail generation
     thumbnail_max_dimension: int = 300
-    thumbnail_line_thickness_ratio: float = 0.005
+    thumbnail_line_thickness_ratio: float = 0.005  # 0.5% of smaller image dimension
     thumbnail_min_line_thickness: int = 2
-    thumbnail_fill_opacity: float = 0.5
+    thumbnail_fill_opacity: float = 0.5  # 50% opacity for annotation fill
     thumbnail_jpeg_quality: int = 85
 
 

@@ -81,18 +81,18 @@ class TestResizeFrame:
 
 class TestHexToBgr:
     def test_hex_with_hash(self):
-        assert _convert_hex_to_bgr("#FF0000") == (0, 0, 255)
-        assert _convert_hex_to_bgr("#00FF00") == (0, 255, 0)
-        assert _convert_hex_to_bgr("#0000FF") == (255, 0, 0)
+        assert _convert_hex_to_bgr("#FF0000") == (0, 0, 255)  # Red in BGR
+        assert _convert_hex_to_bgr("#00FF00") == (0, 255, 0)  # Green in BGR
+        assert _convert_hex_to_bgr("#0000FF") == (255, 0, 0)  # Blue in BGR
 
     def test_hex_without_hash(self):
         assert _convert_hex_to_bgr("FF0000") == (0, 0, 255)
         assert _convert_hex_to_bgr("00FF00") == (0, 255, 0)
 
     def test_various_colors(self):
-        assert _convert_hex_to_bgr("#FFFFFF") == (255, 255, 255)
-        assert _convert_hex_to_bgr("#000000") == (0, 0, 0)
-        assert _convert_hex_to_bgr("#FF8800") == (0, 136, 255)
+        assert _convert_hex_to_bgr("#FFFFFF") == (255, 255, 255)  # White
+        assert _convert_hex_to_bgr("#000000") == (0, 0, 0)  # Black
+        assert _convert_hex_to_bgr("#FF8800") == (0, 136, 255)  # Orange
 
     def test_lowercase_hex(self):
         assert _convert_hex_to_bgr("#ff0000") == (0, 0, 255)

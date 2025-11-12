@@ -67,17 +67,16 @@ def generate_thumbnail(frame: np.ndarray, annotations: list[tuple[AnnotationSche
                 logger.warning(f"Unsupported annotation type: {annotation.type}")
 
         # blend annotation overlay with original thumbnail for semi-transparency
-        result = thumbnail.copy()
         cv2.addWeighted(
             annotation_overlay,
             settings.thumbnail_fill_opacity,
             thumbnail,
             1 - settings.thumbnail_fill_opacity,
             0,
-            result,
+            thumbnail,
         )
 
-        return _encode_image_to_base64_data_uri(result)
+        return _encode_image_to_base64_data_uri(thumbnail)
     except (cv2.error, ValueError) as e:
         raise ServiceError(f"Failed to generate thumbnail: {str(e)}")
 
