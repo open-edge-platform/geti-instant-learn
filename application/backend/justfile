@@ -24,7 +24,7 @@ pre-venv:
 
 venv: pre-venv
     uv lock --check
-    uv sync --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
+    uv sync --extra cpu --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
 
 venv-lock: pre-venv
     uv lock
