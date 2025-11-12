@@ -152,7 +152,6 @@ def run_model(
 
             reference_samples = [reference_dataset[i] for i in range(len(reference_dataset))]
             target_samples = [target_dataset[i] for i in range(len(target_dataset))]
-            class_strings = dataset.categories
 
         except (FileNotFoundError, ValueError) as e:
             msg = (
@@ -195,7 +194,10 @@ def run_model(
                 else:
                     chunk_names.append(f"image_{idx}")
 
-            Visualizer(str(output_location / "target"), class_names=class_strings).visualize(
+            class_strings = dataset.categories
+            class_ids = [dataset.get_category_id(category) for category in class_strings]
+            class_map = {category: class_id for category, class_id in zip(class_strings, class_ids, strict=True)}
+            Visualizer(str(output_location / "target"), class_map=class_map).visualize(
                 images=chunk_images,
                 predictions=results.masks,
                 file_names=chunk_names,

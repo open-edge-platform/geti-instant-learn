@@ -5,13 +5,14 @@
 
 from typing import TYPE_CHECKING
 
+import torch
+
 from getiprompt.components import CosineSimilarity, SamDecoder
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor
-from getiprompt.components.filters import ClassOverlapMaskFilter, PointPromptFilter
+from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import GridPromptGenerator
 from getiprompt.data.base.batch import Batch
-from getiprompt.types import Results
 from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
 
@@ -134,8 +135,7 @@ class PerDino(Model):
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
         )
-        self.class_overlap_mask_filter = ClassOverlapMaskFilter()
-        self.reference_embeddings = None
+        self.masked_ref_embeddings = None
 
     @track_duration
     def learn(self, reference_batch: Batch) -> None:
@@ -149,26 +149,28 @@ class PerDino(Model):
         )
 
     @track_duration
-    def infer(self, target_batch: Batch) -> Results:
-        """Perform inference step on the target images."""
+    def infer(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
+        """Perform inference step on the target images.
+
+        Args:
+            target_batch(Batch): The target batch.
+
+        Returns:
+            predictions(list[dict[str, torch.Tensor]]): A list of predictions.
+            Each prediction contains:
+                "pred_masks": torch.Tensor of shape [num_masks, H, W]
+                "pred_points": torch.Tensor of shape [num_points, 4]
+                "pred_labels": torch.Tensor of shape [num_masks]
+        """
         # Start running the model
         target_images = target_batch.images
         image_sizes = [image.shape[-2:] for image in target_images]
         target_embeddings = self.encoder(target_images)
-        similarities = self.similarity_matcher(self.masked_ref_embeddings, target_embeddings, image_sizes)
-        point_prompts = self.prompt_generator(similarities, target_images)
+        similarities_per_image = self.similarity_matcher(self.masked_ref_embeddings, target_embeddings, image_sizes)
+        point_prompts = self.prompt_generator(similarities_per_image, target_images)
         point_prompts = self.prompt_filter(point_prompts)
-        masks, used_points, _ = self.segmenter(
+        return self.segmenter(
             target_images,
             point_prompts=point_prompts,
-            similarities=similarities,
+            similarities=similarities_per_image,
         )
-        masks, used_points = self.class_overlap_mask_filter(masks, used_points)
-
-        # write output
-        results = Results()
-        results.point_prompts = point_prompts
-        results.used_points = used_points
-        results.masks = masks
-        results.similarities = similarities
-        return results

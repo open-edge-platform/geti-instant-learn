@@ -433,7 +433,7 @@ class SamDecoder(nn.Module):
         point_prompts: list[dict[int, torch.Tensor]] | None = None,
         box_prompts: list[dict[int, torch.Tensor]] | None = None,
         similarities: list[dict[int, torch.Tensor]] | None = None,
-    ) -> list[dict[str, torch.Tensor | None]]:
+    ) -> list[dict[str, torch.Tensor]]:
         """Forward pass.
 
         Args:

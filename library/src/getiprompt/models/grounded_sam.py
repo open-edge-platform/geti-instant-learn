@@ -3,11 +3,12 @@
 
 """This model uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
 
+import torch
+
 from getiprompt.components import SamDecoder
 from getiprompt.components.filters import BoxPromptFilter
 from getiprompt.components.prompt_generators import GroundingModel, TextToBoxPromptGenerator
 from getiprompt.data.base.batch import Batch
-from getiprompt.types import Results
 from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
 
@@ -76,26 +77,24 @@ class GroundedSAM(Model):
                     self.category_mapping[category] = int(category_id)
 
     @track_duration
-    def infer(self, target_batch: Batch) -> Results:
+    def infer(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
 
         Args:
             target_batch(Batch): The target batch.
 
         Returns:
-            Results: The results.
+            predictions(list[dict[str, torch.Tensor]]): A list of predictions.
+            Each prediction contains:
+                "pred_masks": torch.Tensor of shape [num_masks, H, W]
+                "pred_points": torch.Tensor of shape [num_points, 4]
+                "pred_boxes": torch.Tensor of shape [num_boxes, 6]
+                "pred_labels": torch.Tensor of shape [num_masks]
         """
         # Start running the model
         box_prompts = self.prompt_generator(target_batch.images, self.category_mapping)
         box_prompts = self.prompt_filter(box_prompts)
-        masks, _, used_boxes = self.segmenter(
+        return self.segmenter(
             target_batch.images,
             box_prompts=box_prompts,
         )
-
-        # write output
-        results = Results()
-        results.box_prompts = box_prompts
-        results.used_boxes = used_boxes
-        results.masks = masks
-        return results

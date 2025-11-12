@@ -11,8 +11,6 @@ import numpy as np
 import torch
 from torchvision import tv_tensors
 
-from itertools import starmap
-
 
 class Visualizer:
     """The class exports the images for visualization.
@@ -49,9 +47,9 @@ class Visualizer:
             legend_position: Position of the legend
         """
         for image, prediction, file_name in zip(
-            images, 
-            predictions, 
-            file_names, 
+            images,
+            predictions,
+            file_names,
             strict=False,
         ):
             self._process_single_image(image, prediction, file_name, show_legend)
@@ -59,18 +57,18 @@ class Visualizer:
     @staticmethod
     def _setup_colors(class_map: dict[int, str]) -> dict[int, list[int]]:
         """Setup colors for each category.
-        
+
         Args:
             class_map: Dictionary mapping class indices to category names.
+
         Returns:
             Dictionary mapping class indices to colors
         """
         color_map = {}
-        for class_id in class_map.keys():
+        for class_id in class_map:
             rgb_float = colorsys.hsv_to_rgb(class_id / float(len(class_map)), 1.0, 1.0)
             color_map[class_id] = [int(x * 255) for x in rgb_float]
         return color_map
-        
 
     def _process_single_image(
         self,
@@ -111,7 +109,7 @@ class Visualizer:
         image_vis = image_np.copy()
         if pred_masks is not None:
             # Draw each instance mask with the same class color and a border
-            for pred_label, pred_mask in zip(pred_labels, pred_masks):
+            for pred_label, pred_mask in zip(pred_labels, pred_masks, strict=False):
                 pred_label = pred_label.item()
                 pred_mask = pred_mask.cpu().numpy()
 
@@ -128,7 +126,7 @@ class Visualizer:
 
         # Draw points and confidence scores if provided
         if pred_points is not None:
-            for pred_label, pred_point in zip(pred_labels, pred_points):
+            for pred_label, pred_point in zip(pred_labels, pred_points, strict=False):
                 # Draw star marker
                 pred_point = pred_point.float().cpu().numpy()
                 x, y, score, fg_label = int(pred_point[0]), int(pred_point[1]), pred_point[2], int(pred_point[3])
@@ -155,7 +153,7 @@ class Visualizer:
 
         # Draw boxes and confidence scores if provided
         if pred_boxes is not None:
-            for pred_label, pred_box in zip(pred_labels, pred_boxes):
+            for pred_label, pred_box in zip(pred_labels, pred_boxes, strict=False):
                 # Draw star marker
                 pred_box = pred_box.cpu().numpy()
                 x1, y1, x2, y2 = [int(coord) for coord in pred_box]
@@ -172,8 +170,6 @@ class Visualizer:
                     (255, 255, 255),
                     1,
                 )
-        
-
 
         # Save visualization
         cv2.imwrite(output_path, cv2.cvtColor(image_vis, cv2.COLOR_RGB2BGR))

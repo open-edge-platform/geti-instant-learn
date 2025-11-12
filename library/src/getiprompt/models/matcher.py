@@ -153,14 +153,14 @@ class Matcher(Model):
         )
 
     @track_duration
-    def infer(self, target_batch: Batch) -> list[dict[str, torch.Tensor | None]]:
+    def infer(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
 
         Args:
             target_batch(Batch): The target batch.
 
         Returns:
-            predictions(list[dict[str, torch.Tensor | None]]): A list of predictions.
+            predictions(list[dict[str, torch.Tensor]]): A list of predictions.
             Each prediction contains:
                 "pred_masks": torch.Tensor of shape [num_masks, H, W]
                 "pred_points": torch.Tensor of shape [num_points, 4]

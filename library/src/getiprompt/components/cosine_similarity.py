@@ -63,16 +63,16 @@ class CosineSimilarity(nn.Module):
                     target_embedding.shape[2],
                 )
             # compute cosine similarity of (1,1,embed_dim) and (encoder_shape*encoder_shape, embed_dim)
-            all_similarities: dict[int, list[torch.Tensor]] = defaultdict(list)
-            for class_id, masked_embedding in masked_ref_embeddings.items():
+            similarity_maps: dict[int, list[torch.Tensor]] = defaultdict(list)
+            for class_id, masked_ref_embedding in masked_ref_embeddings.items():
                 # Need to loop since number of reference features can differ per input mask.
-                similarity_map = masked_embedding @ target_embedding.T
+                similarity_map = masked_ref_embedding @ target_embedding.T
                 similarity_map = resize_similarity_maps(similarity_maps=similarity_map, target_size=original_size)
-                all_similarities[class_id].append(similarity_map)
+                similarity_maps[class_id].append(similarity_map)
 
             # Concatenate all tensors once per class
             concatenated_similarity_maps = {
-                class_id: torch.cat(tensor_list, dim=0) for class_id, tensor_list in all_similarities.items()
+                class_id: torch.cat(tensor_list, dim=0) for class_id, tensor_list in similarity_maps.items()
             }
             per_image_similarities.append(concatenated_similarity_maps)
         return per_image_similarities
