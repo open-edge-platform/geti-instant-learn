@@ -13,7 +13,7 @@ class ModelFactory:
     """
 
     @classmethod
-    def create(cls, config: ModelConfig) -> Model | None:
+    def create(cls, config: ModelConfig | None) -> Model | None:
         match config:
             case MatcherConfig() as config:
                 return Matcher(

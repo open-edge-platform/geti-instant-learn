@@ -21,6 +21,7 @@ from domain.repositories.frame import FrameRepository
 from domain.repositories.label import LabelRepository
 from domain.repositories.project import ProjectRepository
 from domain.repositories.prompt import PromptRepository
+from domain.services.image import generate_thumbnail
 from domain.services.schemas.annotation import AnnotationSchema
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.mappers.label import label_db_to_schema
@@ -41,7 +42,6 @@ from domain.services.schemas.prompt import (
     VisualPromptCreateSchema,
     VisualPromptUpdateSchema,
 )
-from domain.services.thumbnail import generate_thumbnail
 
 logger = logging.getLogger(__name__)
 
