@@ -47,5 +47,4 @@ export type Annotation = {
     id: string;
     labels: Label[];
     shape: Shape;
-    confidence?: number | null;
 };

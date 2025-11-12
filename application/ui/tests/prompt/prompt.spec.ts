@@ -6,6 +6,7 @@
 import { WebcamSourceType } from '@geti-prompt/api';
 import { expect, http, test } from '@geti-prompt/test-fixtures';
 
+import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations } from '../annotator/utils';
 import { LabelsPage } from '../labels/labels-page';
 import { registerApiLabels } from '../labels/mocks';
 import { initializeWebRTC } from './initialize-webrtc';
@@ -21,7 +22,7 @@ const WEBCAM_SOURCE: WebcamSourceType = {
     },
 };
 
-test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage }) => {
+test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, promptPage }) => {
     await initializeWebRTC({ page, context, network });
 
     registerApiLabels({ network });
@@ -64,9 +65,23 @@ test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage }
         await expect(annotatorPage.getCapturedFrame()).toBeVisible();
     });
 
-    await test.step('Adds annotation & labels', async () => {
-        // Select bounding box tool & make annotation
+    await test.step('Adds annotation', async () => {
+        await expect(page.getByText('Processing image, please wait...')).toBeVisible({
+            timeout: ANNOTATOR_PAGE_TIMEOUT,
+        });
+        await expect(page.getByText('Processing image, please wait...')).toBeHidden({
+            timeout: ANNOTATOR_PAGE_TIMEOUT,
+        });
 
+        await expect(promptPage.savePromptButton).toBeDisabled();
+
+        await annotatorPage.addAnnotation();
+
+        await expectToHaveAnnotations({ annotatorPage });
+        await expect(promptPage.savePromptButton).toBeEnabled();
+    });
+
+    await test.step('Adds labels', async () => {
         const labelsPage = new LabelsPage(page);
         const labelName = 'Label 1';
 
@@ -75,7 +90,7 @@ test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage }
     });
 
     await test.step('Saves prompt', async () => {
-        await page.getByRole('button', { name: 'Save prompt' }).click();
+        await promptPage.savePrompt();
 
         // TODO: Once the api endpoint to save prompt is integrated, complete this test
         // await... (check if the image was indeed save to the list of prompts)

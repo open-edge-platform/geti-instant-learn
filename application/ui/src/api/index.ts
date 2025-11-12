@@ -31,4 +31,7 @@ export {
     type paths,
     type SchemaSourceCreateSchema as SourceCreateType,
     type SchemaSourceUpdateSchema as SourceUpdateType,
+    type SchemaAnnotationSchemaInput as AnnotationPostType,
+    type SchemaVisualPromptSchema as VisualPromptType,
+    type SchemaAnnotationSchemaOutput as AnnotationType,
 } from './openapi-spec';

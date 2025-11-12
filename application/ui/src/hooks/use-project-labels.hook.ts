@@ -17,5 +17,5 @@ export const useProjectLabels = (): LabelType[] => {
         },
     });
 
-    return data?.labels || [];
+    return data.labels ?? [];
 };

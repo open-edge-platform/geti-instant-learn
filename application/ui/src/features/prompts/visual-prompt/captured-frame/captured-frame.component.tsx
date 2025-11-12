@@ -14,19 +14,27 @@ import { CanvasSettingsProvider } from 'src/features/annotator/settings/canvas-s
 
 import { CapturedFrameContent } from './captured-frame-content.component';
 import { CapturedFrameFullScreen } from './captured-frame-full-screen.component';
-import { CapturedFramePlaceholder } from './captured-frame-placeholder.component';
 import { FullScreenModeProvider } from './full-screen-mode.component';
 
 const CenteredWrapper = ({ children }: { children: ReactNode }) => (
-    <Flex height={'100%'} gridRow={'1/-1'} alignItems={'center'} justifyContent={'center'}>
+    <Flex
+        height={'100%'}
+        alignItems={'center'}
+        justifyContent={'center'}
+        UNSAFE_style={{
+            backgroundColor: 'var(--spectrum-global-color-gray-200)',
+        }}
+    >
         {children}
     </Flex>
 );
+
 interface CapturedFrameAnnotatorProps {
     children: ReactNode;
     frameId: string;
 }
-const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorProps) => {
+
+export const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorProps) => {
     return (
         <Suspense
             key={frameId}
@@ -53,27 +61,21 @@ const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnotatorPro
     );
 };
 
-export const CapturedFrame = ({ frameId }: { frameId: string | null }) => {
+export const CapturedFrame = () => {
     return (
-        <Grid
-            width={'100%'}
-            height={'size-6000'}
-            areas={['labels', 'image', 'actions']}
-            rows={[minmax('size-500', 'auto'), 'auto', 'size-500']}
-            UNSAFE_style={{
-                backgroundColor: 'var(--spectrum-global-color-gray-200)',
-            }}
-        >
-            {frameId === null ? (
-                <CenteredWrapper>
-                    <CapturedFramePlaceholder />
-                </CenteredWrapper>
-            ) : (
-                <CapturedFrameProviders frameId={frameId}>
-                    <CapturedFrameContent />
-                    <CapturedFrameFullScreen />
-                </CapturedFrameProviders>
-            )}
-        </Grid>
+        <>
+            <Grid
+                width={'100%'}
+                height={'size-6000'}
+                areas={['labels', 'image', 'actions']}
+                rows={[minmax('size-500', 'auto'), 'auto', 'size-500']}
+                UNSAFE_style={{
+                    backgroundColor: 'var(--spectrum-global-color-gray-200)',
+                }}
+            >
+                <CapturedFrameContent />
+            </Grid>
+            <CapturedFrameFullScreen />
+        </>
     );
 };
