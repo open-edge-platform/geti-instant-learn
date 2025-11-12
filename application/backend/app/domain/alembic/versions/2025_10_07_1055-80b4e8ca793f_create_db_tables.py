@@ -47,6 +47,7 @@ def upgrade() -> None:
     sa.Column('config', sqlite.JSON(), nullable=False),
     sa.Column('project_id', sa.Uuid(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column('active', sa.Boolean(), nullable=False),
     sa.ForeignKeyConstraint(['project_id'], ['Project.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
