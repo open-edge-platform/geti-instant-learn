@@ -33,6 +33,14 @@ dev = [
     "pytest-asyncio==1.2.0",
 ]
 
+windows = [
+    "winrt-Windows.Storage==3.2.1",
+]
+
+installer = [
+    "pyinstaller~=6.16.0",
+]
+
 [project.optional-dependencies]
 cpu = ["getiprompt[cpu]"]
 cu126 = ["getiprompt[cu126]"]

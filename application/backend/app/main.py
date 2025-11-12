@@ -24,7 +24,10 @@ from settings import get_settings
 
 settings = get_settings()
 
+console_handler = logging.StreamHandler()
+file_handler = logging.FileHandler(filename=settings.log_file, encoding="utf8")
 logging.basicConfig(
+    handlers=[console_handler, file_handler],
     level=logging.INFO if not settings.debug else logging.DEBUG,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
@@ -94,7 +97,9 @@ if (
     and os.path.isdir(settings.static_files_dir)
     and next(os.scandir(settings.static_files_dir), None) is not None
 ):
-    app.mount(os.getenv("ASSET_PREFIX", "/html"), StaticFiles(directory=settings.static_files_dir), name="static")
+    asset_prefix = os.getenv("ASSET_PREFIX", "/html")
+    logger.info("Serving static files from %s by context %s", settings.static_files_dir, asset_prefix)
+    app.mount(asset_prefix, StaticFiles(directory=settings.static_files_dir), name="static")
 
     @app.get("/", include_in_schema=False)
     @app.get("/{full_path:path}", include_in_schema=False)
@@ -113,7 +118,7 @@ def main() -> None:
         app,
         host=settings.host,
         port=settings.port,
-        log_level="debug" if settings.debug else "info",
+        log_config=None,
     )
 
 

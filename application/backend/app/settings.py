@@ -3,11 +3,13 @@
 
 """Application configuration management"""
 
+import os
+import sys
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,6 +17,8 @@ class Settings(BaseSettings):
     """Application settings with environment variable support"""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
+
+    current_dir: Path = Path(__file__).parent.resolve()
 
     # Application
     app_name: str = "Geti Prompt"
@@ -27,7 +31,9 @@ class Settings(BaseSettings):
     )
     openapi_url: str = "/api/openapi.json"
     debug: bool = Field(default=False, alias="DEBUG")
+    log_file: Path = Field(default=current_dir.parent / "geti-prompt-backend.log", alias="LOG_FILE")
     environment: Literal["dev", "prod"] = "dev"
+
     static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
 
     # Server
@@ -35,7 +41,6 @@ class Settings(BaseSettings):
     port: int = Field(default=9100, alias="PORT")
 
     # Database
-    current_dir: Path = Path(__file__).parent.resolve()
     db_data_dir: Path = Field(default=current_dir.parent / ".data", alias="DB_DATA_DIR")
     db_filename: str = "geti_prompt.db"
 
@@ -62,6 +67,13 @@ class Settings(BaseSettings):
     thumbnail_min_line_thickness: int = 2
     thumbnail_fill_opacity: float = 0.5  # 50% opacity for annotation fill
     thumbnail_jpeg_quality: int = 85
+
+    @field_validator("static_files_dir", "alembic_config_path", "alembic_script_location", mode="after")
+    def prefix_paths(cls, v: str | None) -> str | None:
+        if v and getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+            # If application is running in pyinstaller bundle, adjust the path accordingly.
+            return os.path.join(sys._MEIPASS, v)
+        return v
 
 
 @lru_cache
