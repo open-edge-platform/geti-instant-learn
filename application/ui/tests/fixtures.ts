@@ -106,9 +106,14 @@ const test = testBase.extend<Fixtures>({
                     type: 'VISUAL',
                 });
             }),
-            // Handle DELETE /prompts/{prompt_id} - return 204 No Content
             http.delete('/api/v1/projects/{project_id}/prompts/{prompt_id}', () => {
                 return HttpResponse.json({}, { status: 204 });
+            }),
+            http.put('/api/v1/projects/{project_id}/prompts/{prompt_id}', async ({ request, params }) => {
+                const body = (await request.json()) as Record<string, unknown>;
+                const promptId = params.prompt_id as string;
+
+                return HttpResponse.json({ id: promptId, ...body } as never);
             }),
         ],
     }),

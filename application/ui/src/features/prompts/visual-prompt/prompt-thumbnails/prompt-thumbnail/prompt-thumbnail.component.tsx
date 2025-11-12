@@ -59,7 +59,7 @@ export const PromptThumbnail = ({ prompt }: PromptThumbnailProps) => {
                 backgroundColor={'gray-50'}
                 UNSAFE_className={styles.actionMenu}
             >
-                <ActionMenu isQuiet onAction={onAction} aria-label={'Prompt actions'}>
+                <ActionMenu isQuiet onAction={onAction} aria-label={`Prompt actions ${prompt.id}`}>
                     {PROMPT_OPTIONS.map((option) => {
                         return <Item key={option}>{option}</Item>;
                     })}
