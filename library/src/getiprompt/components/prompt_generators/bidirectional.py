@@ -127,7 +127,7 @@ class BidirectionalPromptGenerator(PromptGenerator):
 
         Args:
             similarity_map: torch.Tensor - Similarity matrix [num_ref_features, num_target_features]
-            mask: torch.Tensor - Mask indicating relevant reference features [num_ref_features]
+            ref_mask: torch.Tensor - Mask indicating relevant reference features [num_ref_features]
 
         Returns: tuple containing:
 
@@ -244,8 +244,8 @@ class BidirectionalPromptGenerator(PromptGenerator):
 
         Args:
             ref_embeddings(torch.Tensor): Reference embeddings.
-            masked_ref_embeddings(dict[int, torch.Tensor]): Dictionary of masked reference embeddings, with class_id as key
-                and masked reference embeddings as value.
+            masked_ref_embeddings(dict[int, torch.Tensor]): Dictionary with class_id as key and
+                masked reference embeddings as value.
             flatten_ref_masks(dict[int, torch.Tensor]): Dictionary of flattened reference masks, with class_id as key
                 and flattened reference masks as value.
             target_embeddings(torch.Tensor): Target embeddings

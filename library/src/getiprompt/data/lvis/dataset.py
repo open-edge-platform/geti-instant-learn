@@ -119,7 +119,7 @@ class LVISDataset(Dataset):
             if mask.ndim > 2:
                 mask = torch.max(mask, dim=-1).values
             # Merge with category mask using logical OR
-            category_mask = category_mask | mask
+            category_mask = category_mask | mask  # noqa: PLR6104
 
         # Return as (1, H, W) to maintain consistency with Sample structure
         return category_mask.unsqueeze(0)  # (1, H, W)
@@ -256,17 +256,17 @@ def make_lvis_dataframe(
         raise ValueError(msg)
 
     # Create DataFrame
-    df = pl.DataFrame(samples_data)
+    data_frame = pl.DataFrame(samples_data)
 
     # Explode to split multi-instance rows into single-instance rows
     # This creates one row per image-category combination
     explode_columns = ["categories", "category_ids", "segmentations", "is_reference", "n_shot"]
-    df = df.explode(explode_columns)
+    data_frame = data_frame.explode(explode_columns)
 
     # Convert exploded scalar columns to single-element lists for consistency
     # This ensures the format matches what Sample expects (lists)
     # Note: segmentations is already a list after explode (list of segmentations for one category)
-    df = df.with_columns([
+    data_frame = data_frame.with_columns([
         pl.col("categories").map_elements(lambda x: [x], return_dtype=pl.List(pl.String)),
         pl.col("category_ids").map_elements(lambda x: [x], return_dtype=pl.List(pl.Int64)),
         pl.col("is_reference").map_elements(lambda x: [x], return_dtype=pl.List(pl.Boolean)),
@@ -275,6 +275,6 @@ def make_lvis_dataframe(
     ])
 
     # Sort by image_id for consistency
-    df = df.sort("image_id")
+    data_frame = data_frame.sort("image_id")
 
-    return df
+    return data_frame

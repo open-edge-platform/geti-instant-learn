@@ -135,7 +135,7 @@ class TestDinoTxtZeroShotClassification:
         sample_reference_batch: Batch,
     ) -> None:
         """Test the full learn and infer cycle of the pipeline."""
-        sample_images, sample_labels = sample_dataset
+        sample_images, _ = sample_dataset
 
         # Learn first
         model_instance.learn(sample_reference_batch)

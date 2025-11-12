@@ -13,7 +13,6 @@ from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import GridPromptGenerator
 from getiprompt.data.base.batch import Batch
-from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
 
 from .base import Model
@@ -137,7 +136,6 @@ class PerDino(Model):
         )
         self.masked_ref_embeddings = None
 
-    @track_duration
     def learn(self, reference_batch: Batch) -> None:
         """Perform learning step on the reference images and priors."""
         # Start running the model
@@ -148,7 +146,6 @@ class PerDino(Model):
             reference_batch.category_ids,
         )
 
-    @track_duration
     def infer(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
 

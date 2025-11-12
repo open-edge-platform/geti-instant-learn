@@ -9,7 +9,6 @@ from getiprompt.components import SamDecoder
 from getiprompt.components.filters import BoxPromptFilter
 from getiprompt.components.prompt_generators import GroundingModel, TextToBoxPromptGenerator
 from getiprompt.data.base.batch import Batch
-from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
 
 from .base import Model
@@ -63,7 +62,6 @@ class GroundedSAM(Model):
         self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor)
         self.prompt_filter: BoxPromptFilter = BoxPromptFilter()
 
-    @track_duration
     def learn(self, reference_batch: Batch) -> None:
         """Perform learning step on the reference images and priors.
 
@@ -76,7 +74,6 @@ class GroundedSAM(Model):
                 if category not in self.category_mapping:
                     self.category_mapping[category] = int(category_id)
 
-    @track_duration
     def infer(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
 

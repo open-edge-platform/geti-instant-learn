@@ -16,7 +16,7 @@ def resize_similarity_maps(similarity_maps: torch.Tensor, target_size: tuple[int
     removes any padding (e.g., from SAM models), and resizes to the target dimensions.
 
     Args:
-        similarities: Similarity tensor of shape (batch, num_features) or (batch, 1, H, W).
+        similarity_maps: Similarity tensor of shape (batch, num_features) or (batch, 1, H, W).
             If 2D with shape (batch, N), it will be reshaped to square spatial dimensions
             where N = H * W and H = W = sqrt(N).
         target_size: Target image size as (height, width) tuple or single int for square.
@@ -28,14 +28,14 @@ def resize_similarity_maps(similarity_maps: torch.Tensor, target_size: tuple[int
     Examples:
         >>> import torch
         >>> # Flat similarities from 64x64 feature map
-        >>> similarities = torch.randn(1, 4096)  # 64*64=4096
-        >>> resized = resize_similarity_map(similarities, target_size=(256, 256))
+        >>> similarity_maps = torch.randn(1, 4096)  # 64*64=4096
+        >>> resized = resize_similarity_maps(similarity_maps, target_size=(256, 256))
         >>> resized.shape
         torch.Size([256, 256])
-        >>>
+
         >>> # Batch processing
-        >>> similarities_batch = torch.randn(4, 1024)  # batch=4, 32x32
-        >>> resized_batch = resize_similarity_map(similarities_batch, target_size=(128, 128))
+        >>> similarity_maps_batch = torch.randn(4, 1024)  # batch=4, 32x32
+        >>> resized_batch = resize_similarity_maps(similarity_maps_batch, target_size=(128, 128))
         >>> resized_batch.shape
         torch.Size([4, 128, 128])
     """

@@ -22,68 +22,13 @@ from getiprompt.utils.args import get_arguments, parse_experiment_args
 from getiprompt.utils.benchmark import (
     _get_output_path_for_experiment,
     _save_results,
+    convert_masks_to_one_hot_tensor,
     prepare_output_directory,
 )
 from getiprompt.utils.constants import get_category_presets
 from getiprompt.visualizer import Visualizer
 
 logger = getLogger("Geti Prompt")
-
-
-def convert_masks_to_one_hot_tensor(
-    predictions: list[dict[str, torch.Tensor | None]],
-    ground_truths: Batch,
-    num_classes: int,
-    category_id_to_index: dict[int, int],
-    device: torch.device,
-) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
-    """Convert predictions and ground truths to one-hot boolean tensors for torchmetrics.
-
-    Args:
-        predictions: List of prediction dictionaries containing 'pred_masks' and 'pred_labels'
-        ground_truths: Batch of ground truth samples
-        num_classes: Total number of classes in the dataset
-        category_id_to_index: Mapping from category ID to class index (0-based)
-        device: Device to place tensors on
-
-    Returns:
-        Tuple of (pred_tensors, gt_tensors) where each is a list of tensors in one-hot format:
-        - Each tensor has shape (C, H, W) where:
-          - C is number of classes
-          - H, W are height and width (can vary per image)
-    """
-    batch_pred_tensors: list[torch.Tensor] = []
-    batch_gt_tensors: list[torch.Tensor] = []
-
-    for prediction, gt_sample in zip(predictions, ground_truths.samples, strict=True):
-        # Get image dimensions from this sample
-        h, w = gt_sample.masks.shape[-2:]
-
-        # Initialize tensors (C, H, W) for this image
-        pred_tensor = torch.zeros(num_classes, h, w, dtype=torch.bool, device=device)
-        gt_tensor = torch.zeros(num_classes, h, w, dtype=torch.bool, device=device)
-
-        # Process ground truth masks
-        for gt_mask, cat_id in zip(gt_sample.masks, gt_sample.category_ids, strict=True):
-            if cat_id in category_id_to_index:
-                class_idx = category_id_to_index[cat_id]
-                # Apply logical OR to handle multiple instances of same class
-                gt_tensor[class_idx] = gt_tensor[class_idx] | gt_mask.to(device)
-
-        # Process prediction masks
-        pred_masks = prediction["pred_masks"]
-        pred_labels = prediction["pred_labels"]
-        for pred_mask, pred_label in zip(pred_masks, pred_labels, strict=True):
-            pred_label_id = pred_label.item()
-            if pred_label_id in category_id_to_index:
-                class_idx = category_id_to_index[pred_label_id]
-                # Apply logical OR to handle multiple instances of same class
-                pred_tensor[class_idx] = pred_tensor[class_idx] | pred_mask.to(device)
-
-        batch_pred_tensors.append(pred_tensor)
-        batch_gt_tensors.append(gt_tensor)
-
-    return batch_pred_tensors, batch_gt_tensors
 
 
 def infer_on_category(
@@ -94,9 +39,9 @@ def infer_on_category(
     visualizer: Visualizer,
     metrics_calculators: dict[int, MeanIoU],
     progress: Progress,
-    batch_size: int = 4,
+    batch_size: int,
+    device: torch.device,
     visualize: bool = True,
-    device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu"),
 ) -> None:
     """Perform inference on all samples of a category.
 
@@ -109,6 +54,7 @@ def infer_on_category(
         metrics_calculators: The calculator for the metrics
         progress: The progress bar
         batch_size: Batch size for DataLoader
+        device: The device to use.
         visualize: Whether to visualize the results
 
     Raises:
@@ -159,10 +105,7 @@ def infer_on_category(
         # MeanIoU expects (N, C, H, W) but images have different sizes
         # So we update with (1, C, H, W) for each image
         for pred_tensor, gt_tensor in zip(batch_pred_tensors, batch_gt_tensors, strict=True):
-            # Add batch dimension: (C, H, W) -> (1, C, H, W)
-            pred_tensor_batch = pred_tensor.unsqueeze(0)
-            gt_tensor_batch = gt_tensor.unsqueeze(0)
-            metrics_calculators[priors_batch_index].update(pred_tensor_batch, gt_tensor_batch)
+            metrics_calculators[priors_batch_index].update(pred_tensor, gt_tensor)
 
         if visualize:
             # Generate export paths
@@ -221,6 +164,7 @@ def predict_on_dataset(
         model_name: The algorithm name
         backbone_name: The model name
         number_of_priors_tests: The number of priors to try
+        device: The device to use.
 
     Returns:
         The timing DataFrame
@@ -290,6 +234,7 @@ def predict_on_dataset(
                     metrics_calculators=metrics_calculators,
                     progress=progress,
                     batch_size=args.batch_size,
+                    device=device,
                 )
 
             progress.remove_task(priors_task)

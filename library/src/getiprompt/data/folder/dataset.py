@@ -250,22 +250,19 @@ def make_folder_dataframe(
             })
 
     if not samples_data:
-        if masks_required:
-            msg = "No valid image-mask pairs found"
-        else:
-            msg = "No valid images found"
+        msg = "No valid image-mask pairs found" if masks_required else "No valid images found"
         raise ValueError(msg)
 
     # Create DataFrame
-    df = pl.DataFrame(samples_data)
+    data_frame = pl.DataFrame(samples_data)
 
     # Sort by category_id, then by first element of is_reference and n_shot lists
     # This keeps the same ordering as before (reference samples first within each category)
-    df = df.with_columns([
+    data_frame = data_frame.with_columns([
         pl.col("is_reference").list.first().alias("_is_ref_sort"),
         pl.col("n_shot").list.first().alias("_n_shot_sort"),
     ])
-    df = df.sort(["category_ids", "_is_ref_sort", "_n_shot_sort"], descending=[False, True, False])
-    df = df.drop(["_is_ref_sort", "_n_shot_sort"])
+    data_frame = data_frame.sort(["category_ids", "_is_ref_sort", "_n_shot_sort"], descending=[False, True, False])
+    data_frame = data_frame.drop(["_is_ref_sort", "_n_shot_sort"])
 
-    return df
+    return data_frame

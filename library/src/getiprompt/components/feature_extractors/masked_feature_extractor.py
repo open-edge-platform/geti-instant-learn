@@ -69,7 +69,7 @@ class MaskedFeatureExtractor(nn.Module):
         Returns:
             tuple[dict[int, torch.Tensor], dict[int, torch.Tensor]]:
                 - masked_ref_embeds: Dictionary of masked reference features grouped by category.
-                - resized_masks_per_image: List of resized masks.
+                - flatten_ref_masks: Dictionary of flattened masks grouped by category.
         """
         masked_ref_embeddings = defaultdict(list)
         flatten_ref_masks = defaultdict(list)
@@ -87,14 +87,15 @@ class MaskedFeatureExtractor(nn.Module):
                 masked_embedding = embedding[keep]
                 masked_ref_embeddings[category_id].append(masked_embedding)
 
-        for category_id, masked_embed_list in masked_ref_embeddings.items():
-            _embedding = torch.cat(masked_embed_list, dim=0)
-            _embedding = _embedding.mean(dim=0, keepdim=True)
-            _embedding /= _embedding.norm(dim=-1, keepdim=True)
-            masked_ref_embeddings[category_id] = _embedding
+        for category_id, masked_embedding in masked_ref_embeddings.items():
+            masked_embedding = torch.cat(masked_embedding, dim=0)
+            if masked_embedding.numel():  # num of elements > 0
+                masked_embedding = masked_embedding.mean(dim=0, keepdim=True)
+                masked_embedding /= masked_embedding.norm(dim=-1, keepdim=True)
+            masked_ref_embeddings[category_id] = masked_embedding
 
         for category_id, flatten_ref_mask_list in flatten_ref_masks.items():
-            _mask = torch.cat(flatten_ref_mask_list, dim=0)
-            flatten_ref_masks[category_id] = _mask.reshape(-1)
+            flatten_ref_mask_list = torch.cat(flatten_ref_mask_list, dim=0)
+            flatten_ref_masks[category_id] = flatten_ref_mask_list.reshape(-1)
 
         return masked_ref_embeddings, flatten_ref_masks

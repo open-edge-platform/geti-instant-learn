@@ -3,11 +3,6 @@
 
 """This module contains the Geti Prompt CLI."""
 
-import warnings
-
-warnings.filterwarnings("ignore", category=FutureWarning)
-
-
 from jsonargparse import ActionConfigFile, ArgumentParser, Namespace
 
 from getiprompt.models import Model
@@ -23,6 +18,7 @@ class GetiPromptCLI:
     """This class is the entry point for the Geti Prompt CLI."""
 
     def __init__(self) -> None:
+        """Initialize the Geti Prompt CLI."""
         self.parser = ArgumentParser(description="Geti Prompt CLI", env_prefix="getiprompt")
         self._add_subcommands()
         self.execute()
@@ -57,8 +53,8 @@ class GetiPromptCLI:
             type=int,
             default=1,
             help=(
-                "Number of reference shots per category. Each category must have at least (n_shots + 1) images and masks. "
-                "Defaults to 1."
+                "Number of reference shots per category. Each category must have at least"
+                "(n_shots + 1) images and masks. Defaults to 1."
             ),
         )
         parser.add_argument("--output_location", type=str, default=None, help="Directory to save output.")
@@ -117,7 +113,14 @@ class GetiPromptCLI:
 
     @staticmethod
     def _execute_subcommands(config: Namespace) -> None:
-        """Run the appropriate subcommand based on the config."""
+        """Execute the appropriate subcommand based on the config.
+
+        Args:
+            config: The configuration namespace.
+
+        Raises:
+            ValueError: If the subcommand is invalid.
+        """
         subcommand = config.subcommand
         match subcommand:
             case "run":
