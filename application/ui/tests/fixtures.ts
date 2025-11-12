@@ -5,6 +5,7 @@
 
 import { createNetworkFixture, NetworkFixture } from '@msw/playwright';
 import { expect, test as testBase } from '@playwright/test';
+import { HttpResponse } from 'msw';
 
 import { handlers, http } from '../src/api/utils';
 import { AnnotatorPage } from './annotator/annotator-page';
@@ -71,6 +72,43 @@ const test = testBase.extend<Fixtures>({
                         limit: 10,
                     },
                 });
+            }),
+            http.post('/api/v1/projects/{project_id}/prompts', ({ response }) => {
+                return response(201).json({
+                    id: 'prompt-id',
+                    annotations: [
+                        {
+                            config: {
+                                points: [
+                                    {
+                                        x: 0.1,
+                                        y: 0.1,
+                                    },
+                                    {
+                                        x: 0.5,
+                                        y: 0.1,
+                                    },
+                                    {
+                                        x: 0.5,
+                                        y: 0.5,
+                                    },
+                                    {
+                                        x: 0.1,
+                                        y: 0.5,
+                                    },
+                                ],
+                                type: 'polygon',
+                            },
+                            label_id: '123e4567-e89b-12d3-a456-426614174001',
+                        },
+                    ],
+                    frame_id: '123e4567-e89b-12d3-a456-426614174000',
+                    type: 'VISUAL',
+                });
+            }),
+            // Handle DELETE /prompts/{prompt_id} - return 204 No Content
+            http.delete('/api/v1/projects/{project_id}/prompts/{prompt_id}', () => {
+                return HttpResponse.json({}, { status: 204 });
             }),
         ],
     }),

@@ -11,7 +11,7 @@ import { LabelsPage } from '../labels/labels-page';
 import { registerApiLabels } from '../labels/mocks';
 import { initializeWebRTC } from './initialize-webrtc';
 
-const DEVICE_ID = 10;
+const DEVICE_ID = 0;
 const WEBCAM_SOURCE: WebcamSourceType = {
     connected: true,
     id: 'webcam-id',
@@ -32,7 +32,6 @@ test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, 
         http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {
             return response(200).json({ sources: [WEBCAM_SOURCE] });
         }),
-
         http.put('/api/v1/projects/{project_id}/sources/{source_id}', ({ response }) =>
             response(200).json(WEBCAM_SOURCE)
         )
@@ -41,18 +40,6 @@ test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, 
     await test.step('Navigate to default project', async () => {
         await page.goto('/');
     });
-
-    // TODO: Step to add a source. At the moment we always have a default source
-    //       but we will need to enable manual addition.
-    // await test.step('Add a X source', async () => {
-    //     await page.getByRole('button', { name: /Input\/Output Setup/ }).click();
-
-    //     await page.locator('input[name="device-id"]').fill('some-id');
-    //     await page.getByRole('button', { name: 'Apply' }).click();
-
-    //     // Click outside the dialog to close the sources dialog
-    //     await page.click('body', { position: { x: 10, y: 10 } });
-    // });
 
     await test.step('Starts stream', async () => {
         await streamPage.startStream();
@@ -66,28 +53,30 @@ test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, 
         await expect(annotatorPage.getCapturedFrame()).toBeVisible();
     });
 
-    await test.step('Adds annotation', async () => {
+    await test.step('Waits for SAM to load', async () => {
         await expect(page.getByText('Processing image, please wait...')).toBeVisible({
             timeout: ANNOTATOR_PAGE_TIMEOUT,
         });
         await expect(page.getByText('Processing image, please wait...')).toBeHidden({
             timeout: ANNOTATOR_PAGE_TIMEOUT,
         });
+    });
 
+    await test.step('Adds a label', async () => {
+        const labelsPage = new LabelsPage(page);
+        const labelName = 'Label 1';
+
+        await labelsPage.addLabel(labelName);
+        await expect(labelsPage.getLabel(labelName)).toBeVisible();
+    });
+
+    await test.step('Adds an annotation', async () => {
         await expect(promptPage.savePromptButton).toBeDisabled();
 
         await annotatorPage.addAnnotation();
 
         await expectToHaveAnnotations({ annotatorPage });
         await expect(promptPage.savePromptButton).toBeEnabled();
-    });
-
-    await test.step('Adds labels', async () => {
-        const labelsPage = new LabelsPage(page);
-        const labelName = 'Label 1';
-
-        await labelsPage.addLabel(labelName);
-        await expect(labelsPage.getLabel(labelName)).toBeVisible();
     });
 
     await test.step('Saves prompt', async () => {
@@ -125,8 +114,8 @@ test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, 
                         },
                     ],
                     pagination: {
-                        total: 0,
-                        count: 0,
+                        total: 1,
+                        count: 1,
                         offset: 0,
                         limit: 10,
                     },
@@ -136,11 +125,11 @@ test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, 
 
         await promptPage.savePrompt();
 
-        await expect(promptPage.thumbnails).toHaveCount(1);
+        await expect(promptPage.thumbnail).toHaveCount(1);
     });
 
     await test.step('Deletes prompt', async () => {
-        await expect(promptPage.thumbnails).toHaveCount(1);
+        await expect(promptPage.thumbnail).toHaveCount(1);
 
         network.use(
             http.get('/api/v1/projects/{project_id}/prompts', ({ response }) => {
@@ -156,8 +145,8 @@ test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, 
             })
         );
 
-        await promptPage.deletePrompt(MOCK_PROMPT_ID);
+        await promptPage.deletePrompt();
 
-        await expect(promptPage.thumbnails).toHaveCount(0);
+        await expect(promptPage.thumbnail).toHaveCount(0);
     });
 });
