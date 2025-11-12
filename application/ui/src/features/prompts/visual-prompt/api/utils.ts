@@ -38,7 +38,7 @@ export const convertAnnotationsToDTO = (
                     type: 'polygon',
                     points: normalizePoints(annotation.shape.points, roi),
                 },
-                label_id: annotation.labels.at(0)?.id || '',
+                label_id: annotation.labels.at(0)?.id ?? '',
             };
         } else if (annotation.shape.type === 'rectangle') {
             const points: Point[] = [
@@ -58,7 +58,7 @@ export const convertAnnotationsToDTO = (
                     type: 'rectangle',
                     points: normalizedPoints,
                 },
-                label_id: annotation.labels.at(0)?.id || '',
+                label_id: annotation.labels.at(0)?.id ?? '',
             };
         }
 

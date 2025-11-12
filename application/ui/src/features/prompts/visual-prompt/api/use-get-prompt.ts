@@ -15,7 +15,7 @@ export const useGetPrompt = (promptId: string | null) => {
             params: {
                 path: {
                     project_id: projectId,
-                    prompt_id: promptId as string,
+                    prompt_id: String(promptId),
                 },
             },
         },
