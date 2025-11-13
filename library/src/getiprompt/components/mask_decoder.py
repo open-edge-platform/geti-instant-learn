@@ -3,7 +3,6 @@
 
 """SAM decoder."""
 
-from itertools import zip_longest
 from logging import getLogger
 
 import torch
@@ -209,8 +208,8 @@ class SamDecoder(nn.Module):
         class_points: dict[int, torch.Tensor],
         class_boxes: dict[int, torch.Tensor],
         labels: list[int],
-        similarities: dict[int, torch.Tensor] | None = None,
-        original_size: tuple[int, int] | None = None,
+        similarities: dict[int, torch.Tensor],
+        original_size: tuple[int, int],
     ) -> dict[str, torch.Tensor]:
         """Predict masks from a list of points and boxes.
 
@@ -224,8 +223,8 @@ class SamDecoder(nn.Module):
         Returns:
             A dictionary of predictions:
                 "pred_masks": torch.Tensor of shape [num_masks, H, W]
-                "pred_points": torch.Tensor of shape [num_points, 4]
-                "pred_boxes": torch.Tensor of shape [num_boxes, 6]
+                "pred_points": torch.Tensor of shape [num_points, 4] with last dimension [x, y, score, fg_label]
+                "pred_boxes": torch.Tensor of shape [num_boxes, 5] with last dimension [x1, y1, x2, y2, score]
                 "pred_labels": torch.Tensor of shape [num_masks]
         """
         prediction = {
@@ -235,7 +234,7 @@ class SamDecoder(nn.Module):
             "pred_labels": torch.empty((0,), dtype=torch.long).to(self.device),
         }
 
-        similarity_maps = [[] for _ in labels] if similarities is None else [similarities[label] for label in labels]
+        similarity_maps = [similarities[label] for label in labels] if len(similarities) else [[] for _ in labels]
         class_points_list = [class_points.get(label) for label in labels]
         class_boxes_list = [class_boxes.get(label) for label in labels]
 
@@ -407,10 +406,7 @@ class SamDecoder(nn.Module):
         input_labels = input_labels[nms_indices]
 
         masks = masks.squeeze(1)
-        # TODO(Eugene): in GroundedDINO similarity map is None, in PerDino it's an emppty list
-        # Refactor this to use a more consistent approach.
-        # https://github.com/open-edge-platform/geti-prompt/issues/174
-        if similarity_map is None or len(similarity_map) == 0:
+        if len(similarity_map) == 0:
             return masks, input_coords
 
         mask_sum = (similarity_map[0] * masks).sum(dim=(1, 2))
@@ -444,13 +440,17 @@ class SamDecoder(nn.Module):
 
         Returns:
             predictions(list[dict[str, torch.Tensor | None]]): The predictions per image.
+                Each element in the list is a dictionary containing the following keys:
+                    "pred_masks": torch.Tensor of shape [num_masks, H, W]
+                    "pred_points": torch.Tensor of shape [num_points, 4], [x, y, score, fg_label]
+                    "pred_boxes": torch.Tensor of shape [num_boxes, 5], [x1, y1, x2, y2, score]
+                    "pred_labels": torch.Tensor of shape [num_masks]
         """
-        if similarities is None:
-            similarities = []
-
         predictions: list[dict[str, torch.Tensor | None]] = []
 
         # default to empty lists if not provided
+        if similarities is None:
+            similarities = [{}] * len(images)
         if box_prompts is None:
             box_prompts = [{}] * len(images)
         if point_prompts is None:
@@ -464,13 +464,13 @@ class SamDecoder(nn.Module):
             class_box_prompts,
             similarities_per_image,
             original_size,
-        ) in zip_longest(
+        ) in zip(
             images,
             point_prompts,
             box_prompts,
             similarities,
             original_sizes,
-            fillvalue=None,
+            strict=False,
         ):
             # Set the preprocessed image in the predictor
             self.predictor.set_torch_image(image, original_size)

@@ -27,7 +27,7 @@ just [OPTIONS] run-image
 | `docker-volume` | *(none)* | Directory for persistent data (mounted to `WORKDIR_PATH/data`) |
 | `webcam-device` | `/dev/video0` | Host webcam device path (if available) |
 
-To run the Docker container with default parameters, use the following command.
+To run the Docker container with default parameters, use the following command. 
 The Docker image will be built automatically if it doesn't exist yet:
 
 ```bash
