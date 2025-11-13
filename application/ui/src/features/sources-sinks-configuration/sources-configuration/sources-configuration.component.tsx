@@ -5,24 +5,17 @@
 
 import { ReactNode } from 'react';
 
-import { $api, SourceType } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { SourceType } from '@geti-prompt/api';
 import { ImagesFolder as ImagesFolderIcon, WebCam } from '@geti-prompt/icons';
 
 import { DisclosureGroup } from '../../../components/disclosure-group/disclosure-group.component';
+import { useGetSources } from './hooks/use-get-sources';
 import { ImagesFolder } from './images-folder/images-folder.component';
 import { getImagesFolderSource, getWebcamSource } from './utils';
 import { WebcamSource } from './webcam/webcam-source.component';
 
 export const SourcesConfiguration = () => {
-    const { projectId } = useProjectIdentifier();
-    const { data } = $api.useQuery('get', '/api/v1/projects/{project_id}/sources', {
-        params: {
-            path: {
-                project_id: projectId,
-            },
-        },
-    });
+    const { data } = useGetSources();
 
     const sources: {
         label: string;

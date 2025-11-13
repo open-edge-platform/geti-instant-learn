@@ -3,26 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { dimensionValue, Grid, minmax, View } from '@geti/ui';
 
 import { usePromptMode } from '../prompts/prompt-modes/prompt-modes.component';
+import { useGetSources } from '../sources-sinks-configuration/sources-configuration/hooks/use-get-sources';
 import { CaptureFrameButton } from './capture-frame-button.component';
 import { ImagesFolderStream } from './images-folder-stream/images-folder-stream.component';
 import { Video } from './video.component';
 
 const useActiveSource = () => {
-    const { projectId } = useProjectIdentifier();
-    const { data } = $api.useQuery('get', '/api/v1/projects/{project_id}/sources', {
-        params: {
-            path: {
-                project_id: projectId,
-            },
-        },
-    });
+    const { data } = useGetSources();
 
-    return data?.sources.find((source) => source.connected);
+    return data.sources.find((source) => source.connected);
 };
 
 const WebcamStream = () => {
