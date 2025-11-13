@@ -5,17 +5,19 @@
 
 import { createContext, ReactNode, use, useEffect, useState } from 'react';
 
-import { LabelType, VisualPromptType } from '@geti-prompt/api';
+import { LabelType, VisualPromptListType, VisualPromptType } from '@geti-prompt/api';
 import { useProjectLabels } from '@geti-prompt/hooks';
 
 import { useSelectedFrame } from '../../stream/selected-frame-provider.component';
 import { useGetPrompt } from './api/use-get-prompt';
+import { useGetPrompts } from './api/use-get-prompts';
 import { usePromptIdFromUrl } from './use-prompt-id-from-url';
 
 interface VisualPromptContextProps {
     promptId: string | null;
     setPromptId: (id: string | null) => void;
     prompt: VisualPromptType | undefined;
+    prompts: VisualPromptListType['prompts'];
 
     selectedLabelId: string;
     setSelectedLabelId: (id: string) => void;
@@ -33,6 +35,7 @@ const PLACEHOLDER_LABEL: LabelType = { id: 'placeholder', name: 'No label', colo
 
 export const VisualPromptProvider = ({ children }: VisualPromptProviderProps) => {
     const labels = useProjectLabels();
+    const prompts = useGetPrompts();
     const [selectedLabelId, setSelectedLabelId] = useState<string>(PLACEHOLDER_LABEL.id);
     const selectedLabel: LabelType = labels.find(({ id }) => id === selectedLabelId) ?? PLACEHOLDER_LABEL;
 
@@ -68,6 +71,7 @@ export const VisualPromptProvider = ({ children }: VisualPromptProviderProps) =>
                 promptId,
                 setPromptId,
                 prompt,
+                prompts,
 
                 setSelectedLabelId,
                 selectedLabelId,
