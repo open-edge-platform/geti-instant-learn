@@ -7,7 +7,7 @@ description = "Geti Prompt service"
 requires-python = ">=3.12, <3.13"
 
 dependencies = [
-    "fastapi~=0.116",
+    "fastapi~=0.116.1",
     "uvicorn[standard]~=0.35.0",
     "pydantic-settings~=2.10.1",
     "python-multipart~=0.0.20",
@@ -21,8 +21,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "pytest==8.4.1",
-    "ruff==0.12.9",
+    "pytest~=8.3",
+    "ruff~=0.11",
     "pre-commit~=4.1",
     "mypy~=1.15",
     "pytest-cov==2.11.1",
