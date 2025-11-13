@@ -470,7 +470,7 @@ class SamDecoder(nn.Module):
             box_prompts,
             similarities,
             original_sizes,
-            strict=False,
+            strict=True,
         ):
             # Set the preprocessed image in the predictor
             self.predictor.set_torch_image(image, original_size)
