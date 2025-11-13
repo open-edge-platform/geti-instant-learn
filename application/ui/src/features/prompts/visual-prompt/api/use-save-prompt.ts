@@ -22,6 +22,7 @@ const useSavePromptMutation = () => {
             invalidates: [
                 ['get', '/api/v1/projects/{project_id}/prompts', { params: { path: { project_id: projectId } } }],
             ],
+            errorMessage: 'Failed to create prompt. Make sure you created at least one label.',
         },
     });
 };
@@ -56,12 +57,6 @@ export const useSavePrompt = () => {
                     toast({
                         type: 'success',
                         message: 'Prompt created successfully.',
-                    });
-                },
-                onError: () => {
-                    toast({
-                        type: 'error',
-                        message: 'Failed to create prompt. Make sure you created at least one label.',
                     });
                 },
             }

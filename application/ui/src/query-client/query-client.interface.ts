@@ -42,7 +42,8 @@ type QueryKey<Paths extends paths> = {
     }[MethodsForPath<Paths, P>];
 }[keyof Paths];
 
-export type MutationMeta = {
+export type Meta = {
     invalidates?: QueryKey<paths>[];
     awaits?: QueryKey<paths>[];
+    errorMessage?: string;
 };
