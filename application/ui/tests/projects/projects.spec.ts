@@ -8,7 +8,7 @@ import { NetworkFixture } from '@msw/playwright';
 
 import { ProjectType } from '../../src/api';
 import { paths } from '../../src/routes/paths';
-import { getMockedProject } from '../../src/test-utils';
+import { getMockedProject } from '../../src/test-utils/mocks/mock-project';
 
 const registerApiProjects = ({
     network,
