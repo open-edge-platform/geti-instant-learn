@@ -5,7 +5,8 @@ from collections.abc import Iterable
 from uuid import UUID
 
 from domain.db.models import ProcessorDB
-from domain.services.schemas.processor import ProcessorCreateSchema, ProcessorSchema
+from domain.services.schemas.base import Pagination
+from domain.services.schemas.processor import ProcessorCreateSchema, ProcessorListSchema, ProcessorSchema
 
 
 def processor_db_to_schema(processor: ProcessorDB) -> ProcessorSchema:
@@ -21,13 +22,6 @@ def processor_db_to_schema(processor: ProcessorDB) -> ProcessorSchema:
     )
 
 
-def processors_db_to_schemas(processors: Iterable[ProcessorDB]) -> list[ProcessorSchema]:
-    """
-    Map a list of ProcessorDB instances to a list of ProcessorSchema objects.
-    """
-    return [processor_db_to_schema(p) for p in processors]
-
-
 def processor_schema_to_db(schema: ProcessorCreateSchema, project_id: UUID) -> ProcessorDB:
     """
     Create a new ProcessorDB (unpersisted) from schema, project_id should be injected by service layer.
@@ -39,3 +33,30 @@ def processor_schema_to_db(schema: ProcessorCreateSchema, project_id: UUID) -> P
         project_id=project_id,
         name=schema.name,
     )
+
+
+def processors_db_to_list_items(
+    processors: Iterable[ProcessorDB], total: int, offset: int = 0, limit: int = 20
+) -> ProcessorListSchema:
+    """
+    Map an iterable of LabelDB entities to LabelsListSchema with pagination metadata.
+
+    Parameters:
+        processors: Iterable of LabelDB entities to map
+        total: Total number of labels available
+        offset: Starting index of the returned items
+        limit: Maximum number of items requested
+
+    Returns:
+        LabelsListSchema with mapped labels and pagination metadata
+    """
+    items = [processor_db_to_schema(processor) for processor in processors]
+
+    pagination = Pagination(
+        count=len(items),
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
+
+    return ProcessorListSchema(model_configurations=items, pagination=pagination)

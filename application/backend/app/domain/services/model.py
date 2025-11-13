@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from api.error_handler import extract_constraint_name
 from domain.db.constraints import UniqueConstraintName
 from domain.db.models import ProcessorDB, ProjectDB
-from domain.dispatcher import ConfigChangeDispatcher
+from domain.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher
 from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
@@ -21,7 +21,7 @@ from domain.repositories.project import ProjectRepository
 from domain.services.schemas.mappers.processor import (
     processor_db_to_schema,
     processor_schema_to_db,
-    processors_db_to_schemas,
+    processors_db_to_list_items,
 )
 from domain.services.schemas.processor import (
     ProcessorCreateSchema,
@@ -39,7 +39,9 @@ class ModelConfigurationService:
 
     Responsibilities:
       - Enforce business rules.
-      - Enforce invariants (single model configuration per project via DB constraints).
+      - Enforce invariants (
+            single model configuration per project via DB constraints,
+            only one active model per project via DB constraints).
       - Transaction boundaries (commit).
       - Raise domain-specific exceptions.
     """
@@ -59,12 +61,14 @@ class ModelConfigurationService:
         self.project_repository = project_repository or ProjectRepository(session=session)
         self._dispatcher = config_change_dispatcher
 
-    def list_model_configurations(self, project_id: UUID) -> ProcessorListSchema:
+    def list_model_configurations(self, project_id: UUID, offset: int = 0, limit: int = 20) -> ProcessorListSchema:
         """
         List all model configurations belonging to a project.
 
         Parameters:
             project_id: Owning project UUID.
+            offset: Starting index (0-based)
+            limit: Maximum number of items to return
 
         Returns:
             Pydantic list wrapper with processor schemas.
@@ -73,8 +77,10 @@ class ModelConfigurationService:
             ResourceNotFoundError: If the project does not exist.
         """
         self._ensure_project(project_id)
-        db_model_configurations = self.processor_repository.get_all_by_project(project_id)
-        return ProcessorListSchema(model_configurations=processors_db_to_schemas(db_model_configurations))
+        db_model_configurations, total = self.processor_repository.get_paginated(
+            project_id=project_id, offset=offset, limit=limit
+        )
+        return processors_db_to_list_items(db_model_configurations, total=total, offset=offset, limit=limit)
 
     def get_model_configuration(self, project_id: UUID, model_configuration_id: UUID) -> ProcessorSchema:
         """
@@ -97,7 +103,7 @@ class ModelConfigurationService:
     def create_model_configuration(self, project_id: UUID, create_data: ProcessorCreateSchema) -> ProcessorSchema:
         """
         Create a new model configuration.
-        Database constraints enforce uniqueness of source_type and name per project.
+        Database constraints enforce uniqueness of model configuration name per project.
         """
         self._ensure_project(project_id)
 
@@ -131,6 +137,7 @@ class ModelConfigurationService:
             f"active={new_model_configuration.active} "
             f"config={new_model_configuration.config}"
         )
+        self._emit_component_change(project_id=project_id, model_configuration_id=new_model_configuration.id)
         return processor_db_to_schema(new_model_configuration)
 
     def get_active_model_configuration(self, project_id: UUID) -> ProcessorSchema:
@@ -192,6 +199,7 @@ class ModelConfigurationService:
             f"active={model_configuration.active} "
             f"config={model_configuration.config}"
         )
+        self._emit_component_change(project_id=project_id, model_configuration_id=model_configuration_id)
         return processor_db_to_schema(model_configuration)
 
     def delete_model_configuration(self, project_id: UUID, model_configuration_id: UUID) -> None:
@@ -217,6 +225,7 @@ class ModelConfigurationService:
         self.processor_repository.delete(model_configuration)
         self.session.commit()
         logger.info(f"Model configuration deleted: id={model_configuration_id} project_id={project_id}")
+        self._emit_component_change(project_id=project_id, model_configuration_id=model_configuration_id)
 
     def _ensure_project(self, project_id: UUID) -> ProjectDB:
         """
@@ -239,13 +248,26 @@ class ModelConfigurationService:
 
     def _deactivate_existing_active_model(self, project_id: UUID) -> None:
         """
-        Disconnect any currently connected source in the project.
+        Deactivate any currently active model configuration in the project.
         Does not commit by itself; caller commits.
         """
-        active_models = self.processor_repository.get_activated_in_project(project_id)
-        if active_models:
-            logger.info(f"Deactivated previously active model: id={active_models.id} project_id={project_id}")
-            active_models.active = False
+        active_model = self.processor_repository.get_activated_in_project(project_id)
+        if active_model:
+            logger.info(f"Deactivated previously active model: id={active_model.id} project_id={project_id}")
+            active_model.active = False
+
+    def _emit_component_change(self, project_id: UUID, model_configuration_id: UUID) -> None:
+        """
+        Emit a component configuration change event for model configuration to trigger pipeline updates.
+        """
+        if self._dispatcher:
+            self._dispatcher.dispatch(
+                ComponentConfigChangeEvent(
+                    project_id=project_id,
+                    component_type="processor",
+                    component_id=str(model_configuration_id),
+                )
+            )
 
     def _handle_source_integrity_error(
         self,

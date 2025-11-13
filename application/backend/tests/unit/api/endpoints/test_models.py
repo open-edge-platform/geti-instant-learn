@@ -9,6 +9,7 @@ from api.error_handler import custom_exception_handler
 from api.routers import projects_router
 from dependencies import SessionDep, get_model_configuration_service
 from domain.errors import ResourceAlreadyExistsError, ResourceNotFoundError, ResourceType
+from domain.services.schemas.base import Pagination
 from domain.services.schemas.processor import (
     ProcessorListSchema,
     ProcessorSchema,
@@ -99,8 +100,15 @@ class TestGetModelsConfiguration:
             def __init__(self, session):
                 pass
 
-            def list_model_configurations(self, project_id):
-                return ProcessorListSchema(model_configurations=[sample_processor_schema])
+            def list_model_configurations(self, project_id, offset=0, limit=100):
+                items = [sample_processor_schema]
+                pagination = Pagination(
+                    count=len(items),
+                    total=1,
+                    offset=offset,
+                    limit=limit,
+                )
+                return ProcessorListSchema(model_configurations=[sample_processor_schema], pagination=pagination)
 
         client.app.dependency_overrides[get_model_configuration_service] = lambda: FakeProcessorService(None)
 
@@ -114,8 +122,9 @@ class TestGetModelsConfiguration:
             def __init__(self, session):
                 pass
 
-            def list_model_configurations(self, project_id):
-                return ProcessorListSchema(model_configurations=[])
+            def list_model_configurations(self, project_id, offset=0, limit=100):
+                pagination = Pagination(count=0, total=0, offset=offset, limit=limit)
+                return ProcessorListSchema(model_configurations=[], pagination=pagination)
 
         client.app.dependency_overrides[get_model_configuration_service] = lambda: FakeProcessorService(None)
 
@@ -129,7 +138,7 @@ class TestGetModelsConfiguration:
             def __init__(self, session):
                 pass
 
-            def list_model_configurations(self, project_id):
+            def list_model_configurations(self, project_id, offset=0, limit=100):
                 raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
 
         client.app.dependency_overrides[get_model_configuration_service] = lambda: FakeProcessorService(None)
@@ -144,7 +153,7 @@ class TestGetModelsConfiguration:
             def __init__(self, session):
                 pass
 
-            def list_model_configurations(self, project_id):
+            def list_model_configurations(self, project_id, offset=0, limit=100):
                 raise RuntimeError("Database error")
 
         client.app.dependency_overrides[get_model_configuration_service] = lambda: FakeProcessorService(None)

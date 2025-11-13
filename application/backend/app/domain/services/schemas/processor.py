@@ -3,7 +3,7 @@
 
 from pydantic import BaseModel, Field
 
-from domain.services.schemas.base import BaseIDPayload, BaseIDSchema
+from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, Pagination
 from runtime.core.components.schemas.processor import ModelConfig
 
 
@@ -15,6 +15,7 @@ class ProcessorSchema(BaseIDSchema):
 
 class ProcessorListSchema(BaseModel):
     model_configurations: list[ProcessorSchema]
+    pagination: Pagination
 
 
 class ProcessorCreateSchema(BaseIDPayload):

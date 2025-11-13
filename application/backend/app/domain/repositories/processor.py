@@ -5,7 +5,7 @@ import logging
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from domain.db.models import ProcessorDB
@@ -72,3 +72,31 @@ class ProcessorRepository(BaseRepository):
         logger.debug(f"Get active model configuration for project_id={project_id}")
         stmt = select(ProcessorDB).where(ProcessorDB.project_id == project_id, ProcessorDB.active.is_(True))
         return self.session.scalars(stmt).first()
+
+    def get_paginated(self, project_id: UUID, offset: int = 0, limit: int = 20) -> tuple[Sequence[ProcessorDB], int]:
+        """
+        Retrieve processors with pagination.
+
+        Returns:
+            A tuple of (processors, total_count)
+        """
+        logger.debug(
+            f"Fetching all model configurations for project id {project_id} with offset={offset}, limit={limit}"
+        )
+
+        # Fetch total count and paginated results in one query
+        processors_query = (
+            select(ProcessorDB)
+            .where(ProcessorDB.project_id == project_id)
+            .order_by(ProcessorDB.name)
+            .offset(offset)
+            .limit(limit)
+        )
+        total_count_query = select(func.count()).select_from(ProcessorDB).where(ProcessorDB.project_id == project_id)
+
+        processors, total_count = (
+            self.session.scalars(processors_query).all(),
+            self.session.scalar(total_count_query) or 0,
+        )
+
+        return processors, total_count

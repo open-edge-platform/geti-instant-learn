@@ -106,13 +106,18 @@ class TestListModelConfigurations:
     ):
         """Test successfully listing model configurations."""
         mock_project_repository.get_by_id.return_value = sample_project_db
-        mock_processor_repository.get_all_by_project.return_value = []
+        mock_processor_repository.get_paginated.return_value = ([], 0)
 
-        result = service.list_model_configurations(sample_project_id)
+        result = service.list_model_configurations(sample_project_id, offset=0, limit=20)
 
         assert isinstance(result, ProcessorListSchema)
+        assert result.model_configurations == []
+        assert result.pagination.total == 0
+        assert result.pagination.count == 0
         mock_project_repository.get_by_id.assert_called_once_with(sample_project_id)
-        mock_processor_repository.get_all_by_project.assert_called_once_with(sample_project_id)
+        mock_processor_repository.get_paginated.assert_called_once_with(
+            project_id=sample_project_id, offset=0, limit=20
+        )
 
     def test_list_model_configurations_project_not_found(self, service, mock_project_repository, sample_project_id):
         """Test listing model configurations when project does not exist."""

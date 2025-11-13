@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import Response, status
+from fastapi import Query, Response, status
 
 from api.routers import projects_router
 from dependencies import ModelConfigurationServiceDep
@@ -27,7 +28,6 @@ logger = logging.getLogger(__name__)
             "description": "Successfully retrieved the active model configuration for the project.",
             "content": {
                 "application/json": {
-                    "schema": ProcessorSchema.model_json_schema(),
                     "example": {
                         "model_configurations": [
                             {
@@ -72,11 +72,16 @@ logger = logging.getLogger(__name__)
         },
     },
 )
-def get_models_configuration(project_id: UUID, model_service: ModelConfigurationServiceDep) -> ProcessorListSchema:
+def get_all_models(
+    project_id: UUID,
+    model_service: ModelConfigurationServiceDep,
+    offset: Annotated[int, Query(ge=0, le=1000)] = 0,
+    limit: Annotated[int, Query(ge=0, le=1000)] = 20,
+) -> ProcessorListSchema:
     """
     Retrieve the all model configurations of the project.
     """
-    return model_service.list_model_configurations(project_id=project_id)
+    return model_service.list_model_configurations(project_id=project_id, offset=offset, limit=limit)
 
 
 # needs to be before /{project_id}/models/{model_id} to avoid path conflict
@@ -89,7 +94,6 @@ def get_models_configuration(project_id: UUID, model_service: ModelConfiguration
             "description": "Successfully retrieved the active model configuration for the project.",
             "content": {
                 "application/json": {
-                    "schema": ProcessorSchema.model_json_schema(),
                     "example": {
                         "id": "550e8400-e29b-41d4-a716-446655440000",
                         "name": "Active Model",
@@ -134,7 +138,7 @@ def get_models_configuration(project_id: UUID, model_service: ModelConfiguration
         },
     },
 )
-def get_active_model_configuration(project_id: UUID, model_service: ModelConfigurationServiceDep) -> ProcessorSchema:
+def get_active_model(project_id: UUID, model_service: ModelConfigurationServiceDep) -> ProcessorSchema:
     """
     Retrieve the active model configuration of the project.
     """
@@ -150,7 +154,6 @@ def get_active_model_configuration(project_id: UUID, model_service: ModelConfigu
             "description": "Successfully retrieved the model configuration for the project.",
             "content": {
                 "application/json": {
-                    "schema": ProcessorSchema.model_json_schema(),
                     "example": {
                         "id": "550e8400-e29b-41d4-a716-446655440000",
                         "name": "My Model",
@@ -193,9 +196,7 @@ def get_active_model_configuration(project_id: UUID, model_service: ModelConfigu
         },
     },
 )
-def get_model_configuration(
-    project_id: UUID, model_id: UUID, model_service: ModelConfigurationServiceDep
-) -> ProcessorSchema:
+def get_model(project_id: UUID, model_id: UUID, model_service: ModelConfigurationServiceDep) -> ProcessorSchema:
     """
     Retrieve the model configuration of the project.
     """
@@ -211,7 +212,6 @@ def get_model_configuration(
             "description": "Model configuration created successfully",
             "content": {
                 "application/json": {
-                    "schema": ProcessorSchema.model_json_schema(),
                     "example": {
                         "id": "550e8400-e29b-41d4-a716-446655440000",
                         "name": "New Model",
@@ -257,7 +257,7 @@ def get_model_configuration(
         },
     },
 )
-def create_model_configuration(
+def create_model(
     project_id: UUID, payload: ProcessorCreateSchema, model_service: ModelConfigurationServiceDep
 ) -> Response:
     """
@@ -281,7 +281,6 @@ def create_model_configuration(
             "description": "Model configuration updated successfully",
             "content": {
                 "application/json": {
-                    "schema": ProcessorSchema.model_json_schema(),
                     "example": {
                         "id": "550e8400-e29b-41d4-a716-446655440000",
                         "name": "Updated Model",
@@ -335,7 +334,7 @@ def create_model_configuration(
         },
     },
 )
-def update_model_configuration(
+def update_model(
     project_id: UUID, model_id: UUID, payload: ProcessorUpdateSchema, model_service: ModelConfigurationServiceDep
 ) -> ProcessorSchema:
     """
@@ -379,9 +378,7 @@ def update_model_configuration(
         },
     },
 )
-def delete_model_configuration(
-    project_id: UUID, model_id: UUID, model_service: ModelConfigurationServiceDep
-) -> Response:
+def delete_model(project_id: UUID, model_id: UUID, model_service: ModelConfigurationServiceDep) -> Response:
     """
     Delete a model configuration from the project.
     """
