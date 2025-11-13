@@ -157,7 +157,6 @@ exclude = [
     "dist",
     "node_modules",
     "venv",
-    "per_segment_anything",
     "src/getiprompt/models/grounding_dino.py",
 ]
 
