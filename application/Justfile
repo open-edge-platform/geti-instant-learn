@@ -10,11 +10,11 @@ docker-volume := ""
 # -------------------------------------------------------------------------------------------------
 # Common variables used in the Justfile
 # -------------------------------------------------------------------------------------------------
-
+ai-device := "cpu"  # options: cpu, gpu
 component-name := "geti-prompt"
 images-registry := 'localhost:5000/open-edge-platform'
 version := `cat ../VERSION`
-docker-image := images-registry / component-name + ":" + version
+docker-image := images-registry / component-name + ":" + version + "-" + ai-device
 
 # -------------------------------------------------------------------------------------------------
 # Variables used in the Justfile to build in Docker image for Geti Prompt
@@ -27,7 +27,6 @@ data-dir := "/data"
 static-files-dir := workdir-path + asset-prefix
 db-data-dir := workdir-path + data-dir
 mocked-file := static-files-dir + "/assets/test.webp"
-ai-device := "cpu"  # options: cpu, gpu
 
 # -------------------------------------------------------------------------------------------------
 # Proxy settings
@@ -58,7 +57,7 @@ build-image:
         --build-arg ASSET_PREFIX={{ asset-prefix }} \
         --build-arg WORKDIR_PATH={{ workdir-path }} \
         --build-arg MOCKED_FILE={{ mocked-file }} \
-        --tag "{{ docker-image }}-{{ ai-device }}" \
+        --tag "{{ docker-image }}" \
         --file docker/Dockerfile . \
         --target geti-prompt-{{ ai-device }}
 
@@ -71,9 +70,60 @@ run-image: build-image
         {{ if docker-volume != "" { " --volume " + docker-volume + ":" + workdir-path + data-dir } else { "" } }} \
         {{ if path_exists(webcam-device) == "true" { " --device " + webcam-device + ":" + webcam-device } else { "" } }} \
         --name "{{ component-name }}-{{ version }}" \
-        "{{ docker-image }}-{{ ai-device }}"
+        "{{ docker-image }}"
 
 # show size of the built docker image
 show-size:
     # https://github.com/casey/just?tab=readme-ov-file#escaping-
     @docker image inspect "{{ docker-image }}-{{ ai-device }}" --format='{{{{.Size}}' | numfmt --to=iec
+
+# test geti prompt docker image using bash script
+test-image:
+    #!/usr/bin/env bash
+    echo "Testing docker image for component: {{ component-name }} with ai-device: {{ ai-device }}"
+
+    # Start the container in detached mode
+    CONTAINER_ID=$(docker run -d --rm \
+        --publish {{ host-port }}:{{ container-port }} \
+        --env PORT={{ container-port }} \
+        "{{ docker-image }}")
+    echo "Started container: $CONTAINER_ID"
+
+    # Function to cleanup container on exit
+    cleanup() {
+        echo "Cleaning up container: $CONTAINER_ID"
+        docker stop $CONTAINER_ID || true
+    }
+    trap cleanup EXIT
+
+    TEST_URL="http://{{ component-name }}.localhost:{{ host-port }}"
+    # Wait for container to be ready (max 60 seconds)
+    echo "Waiting for container to be ready..."
+    for i in {1..12}; do
+      if no_proxy=localhost curl -sf $TEST_URL/health > /dev/null 2>&1; then
+          echo "✅ Health check passed!"
+          break
+      fi
+      if [ $i -eq 12 ]; then
+          echo "❌ Health check failed after 60 seconds"
+          docker logs $CONTAINER_ID
+          exit 1
+      fi
+      echo "Attempt $i/12 - waiting 5 seconds..."
+      sleep 5
+    done
+
+    EXPECTED_TITLE="Geti Prompt"
+    echo "Checking HTML title..."
+
+    HTML_CONTENT=$(no_proxy=localhost curl -sf $TEST_URL)
+    if echo "$HTML_CONTENT" | grep -q "<title>.*$EXPECTED_TITLE.*</title>"; then
+      echo "✅ HTML title check passed - found: $EXPECTED_TITLE"
+    else
+      echo "❌ HTML title check failed - expected title '$EXPECTED_TITLE' not found"
+      echo "Actual HTML content:"
+      echo "$HTML_CONTENT"
+      exit 1
+    fi
+
+    echo "All checks passed successfully!"
