@@ -5,6 +5,7 @@
 
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Grid, minmax, View } from '@geti/ui';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 
 import { Header } from '../components/header/header.component';
 import { MainContent } from '../components/main-content.component';
@@ -26,9 +27,9 @@ export const ProjectLayout = () => {
     return (
         <WebRTCConnectionProvider key={projectId}>
             <Grid
-                areas={['header header header', 'toolbar prompt-sidebar sidebar', 'main prompt-sidebar sidebar']}
+                areas={['header', 'toolbar', 'main']}
                 rows={['size-800', 'size-700', minmax(0, '1fr')]}
-                columns={[minmax('50%', '1fr'), 'auto']}
+                columns={['1fr']}
                 height={'100vh'}
             >
                 <Header />
@@ -36,11 +37,24 @@ export const ProjectLayout = () => {
                 <Toolbar />
 
                 <SelectedFrameProvider>
-                    <View backgroundColor={'gray-50'} gridArea={'main'}>
-                        <MainContent />
+                    <View gridArea={'main'}>
+                        <PanelGroup direction='horizontal' style={{ height: '100%', width: '100%' }}>
+                            <Panel defaultSize={50} minSize={30} style={{ overflow: 'auto' }}>
+                                <View backgroundColor={'gray-50'} height={'100%'} width={'100%'}>
+                                    <MainContent />
+                                </View>
+                            </Panel>
+                            <PanelResizeHandle
+                                style={{
+                                    width: 'var(--spectrum-global-dimension-size-50)',
+                                    background: 'var(--spectrum-global-color-gray-400)',
+                                }}
+                            />
+                            <Panel defaultSize={50} minSize={30} style={{ overflow: 'auto' }}>
+                                <Sidebar />
+                            </Panel>
+                        </PanelGroup>
                     </View>
-
-                    <Sidebar />
                 </SelectedFrameProvider>
             </Grid>
         </WebRTCConnectionProvider>

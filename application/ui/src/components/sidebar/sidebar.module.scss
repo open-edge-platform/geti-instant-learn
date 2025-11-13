@@ -10,27 +10,9 @@
 
 .sidebarContent {
     overflow: hidden auto;
-    will-change: opacity, filter;
-    opacity: 0;
-    filter: blur(6px);
-    transition:
-        opacity 260ms ease-out,
-        filter 300ms ease-out;
     border-right-width: var(--spectrum-alias-border-size-thin);
     border-right-style: solid;
     border-color: var(--spectrum-global-color-gray-50);
-}
-
-.container[data-expanded='true'] .sidebarContent {
-    opacity: 1;
-    filter: blur(0px);
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .sidebarContent {
-        filter: none !important;
-        opacity: 1;
-    }
 }
 
 .toggleButton {

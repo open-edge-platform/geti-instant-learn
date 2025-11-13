@@ -23,17 +23,13 @@ interface TabProps {
 const SidebarTabs = ({ tabs, selectedTab }: TabProps) => {
     const [tab, setTab] = useState<string | null>(selectedTab);
 
-    const gridTemplateColumns = tab !== null ? ['clamp(size-4600, 35vw, 40rem)', 'size-600'] : ['0px', 'size-600'];
+    // If no tab is selected but we have enabled tabs, select the first one
+    const activeTab = tab ?? tabs.find((t) => !t.isDisabled)?.label ?? null;
 
-    const content = tabs.find(({ label }) => label === tab)?.content;
+    const content = tabs.find(({ label }) => label === activeTab)?.content;
 
     return (
-        <Grid
-            gridArea={'sidebar'}
-            UNSAFE_className={styles.container}
-            columns={gridTemplateColumns}
-            data-expanded={tab !== null}
-        >
+        <Grid UNSAFE_className={styles.container} columns={['1fr', 'size-600']} height={'100%'} data-expanded='true'>
             <View gridColumn={'1/2'} UNSAFE_className={styles.sidebarContent}>
                 {content}
             </View>
@@ -43,10 +39,10 @@ const SidebarTabs = ({ tabs, selectedTab }: TabProps) => {
                         <ToggleButton
                             key={label}
                             isQuiet
-                            isSelected={label === tab}
-                            onChange={() => setTab(label === tab ? null : label)}
+                            isSelected={label === activeTab}
+                            onChange={() => setTab(label)}
                             UNSAFE_className={styles.toggleButton}
-                            aria-label={`Toggle ${label} tab`}
+                            aria-label={`${label} tab`}
                             isDisabled={isDisabled}
                         >
                             {icon}
