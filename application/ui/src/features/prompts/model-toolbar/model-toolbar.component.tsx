@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { Key, useState } from 'react';
+
 import { Flex, Item, Picker, Text } from '@geti/ui';
 
 import styles from './model-toolbar.module.scss';
@@ -12,7 +14,7 @@ const useModels = () => {
 
     const mockDate = new Date().toLocaleString('en-US', {
         day: '2-digit',
-        month: 'long',
+        month: 'numeric',
         year: 'numeric',
         hour: 'numeric',
         minute: '2-digit',
@@ -28,15 +30,29 @@ const useModels = () => {
 
 export const ModelToolbar = () => {
     const models = useModels();
+    const [selectedModel, setSelectedModel] = useState(models[0]);
+
+    const handleSelectionChange = (key: Key | null) => {
+        const selected = models.find((model) => model.id === key);
+
+        if (selected) {
+            setSelectedModel(selected);
+        }
+    };
 
     return (
-        <Flex alignItems={'end'} gap={'size-100'}>
-            <Picker label={'Model'} defaultSelectedKey={models[0].id} items={models}>
+        <Flex alignItems={'end'} gap={'size-100'} justifyContent={'space-between'}>
+            <Picker
+                label={'Model'}
+                defaultSelectedKey={selectedModel.id}
+                onSelectionChange={handleSelectionChange}
+                items={models}
+            >
                 {(item) => <Item key={item.id}>{item.name}</Item>}
             </Picker>
 
             <Flex UNSAFE_className={styles.deployedText}>
-                <Text>Deployed: {models[0].deployedAt}</Text>
+                <Text>Deployed: {selectedModel.deployedAt}</Text>
             </Flex>
         </Flex>
     );
