@@ -243,10 +243,7 @@ def predict_on_dataset(
     # Construct the output metrics file from the calculated metrics
     all_metrics = None
     for prompt_index, iou_metric in metrics_calculators.items():
-        metrics = {
-            "category": [],
-            "iou": [],
-        }
+metrics = {"category": [], "iou": []}
 
         # Compute IoU for all classes (returns tensor of shape (C,))
         iou_per_class = iou_metric.compute()
