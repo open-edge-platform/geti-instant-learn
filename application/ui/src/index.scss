@@ -47,6 +47,11 @@ button[class*='toggleButton'][data-variant='accent']:disabled {
     opacity: 0.5 !important;
 }
 
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
 svg {
     fill: currentColor;
 }

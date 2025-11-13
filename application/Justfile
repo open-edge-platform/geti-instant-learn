@@ -27,6 +27,7 @@ data-dir := "/data"
 static-files-dir := workdir-path + asset-prefix
 db-data-dir := workdir-path + data-dir
 mocked-file := static-files-dir + "/assets/test.webp"
+ai-device := "cpu"  # options: cpu, gpu
 
 # -------------------------------------------------------------------------------------------------
 # Proxy settings
@@ -57,21 +58,22 @@ build-image:
         --build-arg ASSET_PREFIX={{ asset-prefix }} \
         --build-arg WORKDIR_PATH={{ workdir-path }} \
         --build-arg MOCKED_FILE={{ mocked-file }} \
-        --tag "{{ docker-image }}" \
-        --file docker/Dockerfile .
+        --tag "{{ docker-image }}-{{ ai-device }}" \
+        --file docker/Dockerfile . \
+        --target geti-prompt-{{ ai-device }}
 
 # launch geti prompt with optional webcam, volume and port mapping
 run-image: build-image
-    @echo "Running docker image for component: {{ component-name }}"
+    @echo "Running docker image for component: {{ component-name }} with ai-device: {{ ai-device }}"
     @docker run --rm \
         --publish {{ host-port }}:{{ container-port }} \
         --env PORT={{ container-port }} \
         {{ if docker-volume != "" { " --volume " + docker-volume + ":" + workdir-path + data-dir } else { "" } }} \
         {{ if path_exists(webcam-device) == "true" { " --device " + webcam-device + ":" + webcam-device } else { "" } }} \
         --name "{{ component-name }}-{{ version }}" \
-        "{{ docker-image }}"
+        "{{ docker-image }}-{{ ai-device }}"
 
 # show size of the built docker image
 show-size:
     # https://github.com/casey/just?tab=readme-ov-file#escaping-
-    @docker image inspect "{{ docker-image }}" --format='{{{{.Size}}' | numfmt --to=iec
+    @docker image inspect "{{ docker-image }}-{{ ai-device }}" --format='{{{{.Size}}' | numfmt --to=iec

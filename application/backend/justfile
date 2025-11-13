@@ -5,7 +5,7 @@ set shell := ["bash", "-cu"]
 py_path := "tests:app"
 python_version := "python3.13"
 # Ensure version in GHA workflow matches uv version here
-uv_version := "0.7.13"
+uv_version := "0.9.7"
 
 default:
     @just --list

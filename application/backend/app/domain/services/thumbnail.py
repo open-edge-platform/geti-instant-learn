@@ -14,7 +14,6 @@ import logging
 import cv2
 import numpy as np
 
-from domain.db.models import LabelDB
 from domain.errors import ServiceError
 from domain.services.schemas.annotation import (
     AnnotationSchema,
@@ -22,17 +21,15 @@ from domain.services.schemas.annotation import (
     PolygonAnnotation,
     RectangleAnnotation,
 )
+from domain.services.schemas.label import LabelSchema
+from settings import get_settings
 
 logger = logging.getLogger(__name__)
 
-THUMBNAIL_MAX_DIMENSION = 300
-ANNOTATION_LINE_THICKNESS_RATIO = 0.005  # 0.5% of smaller image dimension
-MIN_ANNOTATION_LINE_THICKNESS = 2
-ANNOTATION_FILL_OPACITY = 0.5  # 50% opacity for annotation fill
-JPEG_QUALITY = 85
+settings = get_settings()
 
 
-def generate_thumbnail(frame: np.ndarray, annotations: list[tuple[AnnotationSchema, LabelDB]]) -> str:
+def generate_thumbnail(frame: np.ndarray, annotations: list[tuple[AnnotationSchema, LabelSchema]]) -> str:
     """
     Generate a thumbnail with annotation overlays.
 
@@ -47,10 +44,11 @@ def generate_thumbnail(frame: np.ndarray, annotations: list[tuple[AnnotationSche
         thumbnail = _resize_frame_to_thumbnail_size(frame)
         height, width = thumbnail.shape[:2]
         line_thickness = max(
-            MIN_ANNOTATION_LINE_THICKNESS,
-            int(min(height, width) * ANNOTATION_LINE_THICKNESS_RATIO),
+            settings.thumbnail_min_line_thickness,
+            int(min(height, width) * settings.thumbnail_line_thickness_ratio),
         )
 
+        # create overlay for semi-transparent annotations
         annotation_overlay = thumbnail.copy()
 
         for annotation_schema, label in annotations:
@@ -58,18 +56,22 @@ def generate_thumbnail(frame: np.ndarray, annotations: list[tuple[AnnotationSche
             annotation = annotation_schema.config
 
             if annotation.type == AnnotationType.RECTANGLE:
-                _draw_filled_rectangle(annotation_overlay, annotation, color_bgr, width, height, line_thickness)
+                annotation_overlay = _draw_filled_rectangle(
+                    annotation_overlay, annotation, color_bgr, width, height, line_thickness
+                )
             elif annotation.type == AnnotationType.POLYGON:
-                _draw_filled_polygon(annotation_overlay, annotation, color_bgr, width, height, line_thickness)
+                annotation_overlay = _draw_filled_polygon(
+                    annotation_overlay, annotation, color_bgr, width, height, line_thickness
+                )
             else:
                 logger.warning(f"Unsupported annotation type: {annotation.type}")
 
-        # blend annotation overlay with original frame for semi-transparency
+        # blend annotation overlay with original thumbnail for semi-transparency
         cv2.addWeighted(
             annotation_overlay,
-            ANNOTATION_FILL_OPACITY,
+            settings.thumbnail_fill_opacity,
             thumbnail,
-            1 - ANNOTATION_FILL_OPACITY,
+            1 - settings.thumbnail_fill_opacity,
             0,
             thumbnail,
         )
@@ -91,10 +93,10 @@ def _resize_frame_to_thumbnail_size(frame: np.ndarray) -> np.ndarray:
     """
     height, width = frame.shape[:2]
 
-    if max(height, width) <= THUMBNAIL_MAX_DIMENSION:
+    if max(height, width) <= settings.thumbnail_max_dimension:
         return frame.copy()
 
-    scale_factor = THUMBNAIL_MAX_DIMENSION / max(height, width)
+    scale_factor = settings.thumbnail_max_dimension / max(height, width)
     new_width = int(width * scale_factor)
     new_height = int(height * scale_factor)
 
@@ -108,7 +110,7 @@ def _draw_filled_rectangle(
     image_width: int,
     image_height: int,
     border_thickness: int,
-) -> None:
+) -> np.ndarray:
     """
     Draw a rectangle annotation with semi-transparent fill and opaque border.
 
@@ -119,6 +121,9 @@ def _draw_filled_rectangle(
         image_width: Width of the image in pixels
         image_height: Height of the image in pixels
         border_thickness: Thickness of the rectangle border
+
+    Returns:
+        Overlay with rectangle drawn
     """
     top_left = (int(rect.points[0].x * image_width), int(rect.points[0].y * image_height))
     bottom_right = (int(rect.points[1].x * image_width), int(rect.points[1].y * image_height))
@@ -129,6 +134,8 @@ def _draw_filled_rectangle(
     # draw border with full opacity for better visibility
     cv2.rectangle(overlay, top_left, bottom_right, color_bgr, border_thickness)
 
+    return overlay
+
 
 def _draw_filled_polygon(
     overlay: np.ndarray,
@@ -137,7 +144,7 @@ def _draw_filled_polygon(
     image_width: int,
     image_height: int,
     border_thickness: int,
-) -> None:
+) -> np.ndarray:
     """
     Draw a polygon annotation with semi-transparent fill and opaque border.
 
@@ -148,6 +155,9 @@ def _draw_filled_polygon(
         image_width: Width of the image in pixels
         image_height: Height of the image in pixels
         border_thickness: Thickness of the polygon border
+
+    Returns:
+        Overlay with polygon drawn
     """
     pixel_points = np.array(
         [[int(pt.x * image_width), int(pt.y * image_height)] for pt in polygon.points],
@@ -159,6 +169,8 @@ def _draw_filled_polygon(
 
     # draw border with full opacity for better visibility
     cv2.polylines(overlay, [pixel_points], isClosed=True, color=color_bgr, thickness=border_thickness)
+
+    return overlay
 
 
 def _convert_hex_to_bgr(hex_color: str) -> tuple[int, int, int]:
@@ -189,7 +201,9 @@ def _encode_image_to_base64_data_uri(image: np.ndarray) -> str:
     Raises:
         RuntimeError: If encoding fails
     """
-    encode_success, encoded_buffer = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
+    encode_success, encoded_buffer = cv2.imencode(
+        ".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, settings.thumbnail_jpeg_quality]
+    )
     if not encode_success:
         raise RuntimeError("Failed to encode thumbnail to JPEG format")
 

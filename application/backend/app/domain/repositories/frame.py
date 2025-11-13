@@ -53,3 +53,28 @@ class FrameRepository:
             logger.debug(f"Deleted frame {frame_id} from project {project_id}")
             return True
         return False
+
+    def read_frame(self, project_id: UUID, frame_id: UUID) -> np.ndarray | None:
+        """
+        Read a frame from disk.
+
+        Args:
+            project_id: The project ID
+            frame_id: The frame ID
+
+        Returns:
+            Frame as numpy array, or None if frame doesn't exist or can't be read
+        """
+        path = self._frame_path(project_id, frame_id)
+        if not path.exists():
+            logger.warning(f"Frame file not found: {path}")
+            return None
+
+        try:
+            frame = cv2.imread(str(path))
+            if frame is None:
+                logger.error(f"Failed to read frame from {path}")
+            return frame
+        except cv2.error:
+            logger.exception(f"OpenCV error while reading frame {frame_id} from {path}")
+            return None

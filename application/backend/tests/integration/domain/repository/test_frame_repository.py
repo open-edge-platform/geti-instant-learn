@@ -139,3 +139,23 @@ def test_save_frames_in_different_projects(frame_repository, sample_frame):
     assert path_1.exists()
     assert path_2.exists()
     assert path_1.parent.parent != path_2.parent.parent
+
+
+def test_read_frame_success(frame_repository, sample_frame):
+    project_id = uuid4()
+    frame_id = uuid4()
+
+    frame_repository.save_frame(project_id, frame_id, sample_frame)
+    read_frame = frame_repository.read_frame(project_id, frame_id)
+
+    assert read_frame is not None
+    assert read_frame.shape == sample_frame.shape
+
+
+def test_read_frame_returns_none_when_not_exists(frame_repository):
+    project_id = uuid4()
+    frame_id = uuid4()
+
+    read_frame = frame_repository.read_frame(project_id, frame_id)
+
+    assert read_frame is None

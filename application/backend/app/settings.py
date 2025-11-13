@@ -56,6 +56,13 @@ class Settings(BaseSettings):
     # Supported file formats
     supported_extension: set[str] = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif"}
 
+    # Thumbnail generation
+    thumbnail_max_dimension: int = 300
+    thumbnail_line_thickness_ratio: float = 0.005  # 0.5% of smaller image dimension
+    thumbnail_min_line_thickness: int = 2
+    thumbnail_fill_opacity: float = 0.5  # 50% opacity for annotation fill
+    thumbnail_jpeg_quality: int = 85
+
 
 @lru_cache
 def get_settings() -> Settings:
