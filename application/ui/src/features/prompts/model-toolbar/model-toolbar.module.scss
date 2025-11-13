@@ -1,4 +1,7 @@
 .deployedText {
-    font-size: var(--spectrum-global-dimension-font-size-75);
+    font-size: var(--spectrum-global-dimension-font-size-50);
     color: var(--spectrum-global-color-gray-700);
+    align-items: center;
+    justify-content: center;
+    line-height: var(--spectrum-global-dimension-size-400);
 }
