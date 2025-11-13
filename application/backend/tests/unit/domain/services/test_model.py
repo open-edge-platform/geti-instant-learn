@@ -15,7 +15,7 @@ from domain.errors import (
     ResourceNotFoundError,
     ResourceType,
 )
-from domain.services.model import ModelConfigurationService
+from domain.services.model import ModelService
 from domain.services.schemas.processor import (
     ProcessorCreateSchema,
     ProcessorListSchema,
@@ -51,8 +51,8 @@ def mock_dispatcher():
 
 @pytest.fixture
 def service(mock_session, mock_processor_repository, mock_project_repository, mock_dispatcher):
-    """Create ModelConfigurationService instance with mocked dependencies."""
-    return ModelConfigurationService(
+    """Create ModelService instance with mocked dependencies."""
+    return ModelService(
         session=mock_session,
         processor_repository=mock_processor_repository,
         project_repository=mock_project_repository,
@@ -67,7 +67,7 @@ def sample_project_id():
 
 
 @pytest.fixture
-def sample_model_configuration_id():
+def sample_model_id():
     """Sample model configuration UUID."""
     return uuid4()
 
@@ -81,10 +81,10 @@ def sample_project_db(sample_project_id):
 
 
 @pytest.fixture
-def sample_processor_db(sample_model_configuration_id, sample_project_id):
+def sample_processor_db(sample_model_id, sample_project_id):
     """Sample ProcessorDB instance."""
     processor = Mock(spec=ProcessorDB)
-    processor.id = sample_model_configuration_id
+    processor.id = sample_model_id
     processor.project_id = sample_project_id
     processor.name = "test_processor"
     processor.active = True
@@ -98,20 +98,20 @@ def sample_processor_db(sample_model_configuration_id, sample_project_id):
     return processor
 
 
-class TestListModelConfigurations:
-    """Tests for list_model_configurations method."""
+class TestListModels:
+    """Tests for list_models method."""
 
-    def test_list_model_configurations_success(
+    def test_list_models_success(
         self, service, mock_project_repository, mock_processor_repository, sample_project_id, sample_project_db
     ):
-        """Test successfully listing model configurations."""
+        """Test successfully listing models."""
         mock_project_repository.get_by_id.return_value = sample_project_db
         mock_processor_repository.get_paginated.return_value = ([], 0)
 
-        result = service.list_model_configurations(sample_project_id, offset=0, limit=20)
+        result = service.list_models(sample_project_id, offset=0, limit=20)
 
         assert isinstance(result, ProcessorListSchema)
-        assert result.model_configurations == []
+        assert result.models == []
         assert result.pagination.total == 0
         assert result.pagination.count == 0
         mock_project_repository.get_by_id.assert_called_once_with(sample_project_id)
@@ -119,26 +119,26 @@ class TestListModelConfigurations:
             project_id=sample_project_id, offset=0, limit=20
         )
 
-    def test_list_model_configurations_project_not_found(self, service, mock_project_repository, sample_project_id):
-        """Test listing model configurations when project does not exist."""
+    def test_list_models_project_not_found(self, service, mock_project_repository, sample_project_id):
+        """Test listing models when project does not exist."""
         mock_project_repository.get_by_id.return_value = None
 
         with pytest.raises(ResourceNotFoundError) as exc_info:
-            service.list_model_configurations(sample_project_id)
+            service.list_models(sample_project_id)
 
         assert exc_info.value.resource_type == ResourceType.PROJECT
 
 
-class TestGetModelConfiguration:
-    """Tests for get_model_configuration method."""
+class TestGetModel:
+    """Tests for get_model method."""
 
-    def test_get_model_configuration_success(
+    def test_get_model_success(
         self,
         service,
         mock_project_repository,
         mock_processor_repository,
         sample_project_id,
-        sample_model_configuration_id,
+        sample_model_id,
         sample_project_db,
         sample_processor_db,
     ):
@@ -148,20 +148,20 @@ class TestGetModelConfiguration:
 
         with patch("domain.services.model.processor_db_to_schema") as mock_mapper:
             mock_mapper.return_value = Mock(spec=ProcessorSchema)
-            result = service.get_model_configuration(sample_project_id, sample_model_configuration_id)
+            result = service.get_model(sample_project_id, sample_model_id)
 
             assert result is not None
             mock_processor_repository.get_by_id_and_project.assert_called_once_with(
-                processor_id=sample_model_configuration_id, project_id=sample_project_id
+                processor_id=sample_model_id, project_id=sample_project_id
             )
 
-    def test_get_model_configuration_not_found(
+    def test_get_model_not_found(
         self,
         service,
         mock_project_repository,
         mock_processor_repository,
         sample_project_id,
-        sample_model_configuration_id,
+        sample_model_id,
         sample_project_db,
     ):
         """Test getting model configuration that does not exist."""
@@ -169,15 +169,15 @@ class TestGetModelConfiguration:
         mock_processor_repository.get_by_id_and_project.return_value = None
 
         with pytest.raises(ResourceNotFoundError) as exc_info:
-            service.get_model_configuration(sample_project_id, sample_model_configuration_id)
+            service.get_model(sample_project_id, sample_model_id)
 
         assert exc_info.value.resource_type == ResourceType.PROCESSOR
 
 
-class TestCreateModelConfiguration:
-    """Tests for create_model_configuration method."""
+class TestCreateModel:
+    """Tests for create_model method."""
 
-    def test_create_model_configuration_success(
+    def test_create_model_success(
         self,
         service,
         mock_session,
@@ -207,14 +207,14 @@ class TestCreateModelConfiguration:
             mock_schema_to_db.return_value = new_processor
             mock_db_to_schema.return_value = Mock(spec=ProcessorSchema)
 
-            result = service.create_model_configuration(sample_project_id, create_data)
+            result = service.create_model(sample_project_id, create_data)
 
             assert result is not None
             mock_processor_repository.add.assert_called_once_with(new_processor)
             mock_session.commit.assert_called_once()
             mock_session.refresh.assert_called_once_with(new_processor)
 
-    def test_create_model_configuration_deactivates_existing_active(
+    def test_create_model_deactivates_existing_active(
         self,
         service,
         mock_session,
@@ -233,6 +233,7 @@ class TestCreateModelConfiguration:
         create_data = Mock(spec=ProcessorCreateSchema)
         create_data.name = "new_processor"
         create_data.active = True
+        create_data.id = uuid4()
         create_data.config = Mock()
         create_data.config.model_type.value = "test_type"
 
@@ -242,11 +243,11 @@ class TestCreateModelConfiguration:
         ):
             mock_schema_to_db.return_value = Mock(spec=ProcessorDB, id=uuid4(), active=True)
 
-            service.create_model_configuration(sample_project_id, create_data)
+            service.create_model(sample_project_id, create_data)
 
             assert existing_active.active is False
 
-    def test_create_model_configuration_integrity_error(
+    def test_create_model_integrity_error(
         self,
         service,
         mock_session,
@@ -275,15 +276,15 @@ class TestCreateModelConfiguration:
             ),
         ):
             with pytest.raises(ResourceAlreadyExistsError):
-                service.create_model_configuration(sample_project_id, create_data)
+                service.create_model(sample_project_id, create_data)
 
             mock_session.rollback.assert_called_once()
 
 
-class TestGetActiveModelConfiguration:
-    """Tests for get_active_model_configuration method."""
+class TestGetActiveModel:
+    """Tests for get_active_model method."""
 
-    def test_get_active_model_configuration_success(
+    def test_get_active_model_success(
         self,
         service,
         mock_project_repository,
@@ -298,12 +299,12 @@ class TestGetActiveModelConfiguration:
 
         with patch("domain.services.model.processor_db_to_schema") as mock_mapper:
             mock_mapper.return_value = Mock(spec=ProcessorSchema)
-            result = service.get_active_model_configuration(sample_project_id)
+            result = service.get_active_model(sample_project_id)
 
             assert result is not None
             mock_processor_repository.get_activated_in_project.assert_called_once_with(sample_project_id)
 
-    def test_get_active_model_configuration_not_found(
+    def test_get_active_model_not_found(
         self, service, mock_project_repository, mock_processor_repository, sample_project_id, sample_project_db
     ):
         """Test getting active model configuration when none exists."""
@@ -311,22 +312,22 @@ class TestGetActiveModelConfiguration:
         mock_processor_repository.get_activated_in_project.return_value = None
 
         with pytest.raises(ResourceNotFoundError) as exc_info:
-            service.get_active_model_configuration(sample_project_id)
+            service.get_active_model(sample_project_id)
 
         assert exc_info.value.resource_type == ResourceType.PROCESSOR
 
 
 class TestUpdateModelConfiguration:
-    """Tests for update_model_configuration method."""
+    """Tests for update_model method."""
 
-    def test_update_model_configuration_success(
+    def test_update_model_success(
         self,
         service,
         mock_session,
         mock_project_repository,
         mock_processor_repository,
         sample_project_id,
-        sample_model_configuration_id,
+        sample_model_id,
         sample_project_db,
         sample_processor_db,
     ):
@@ -342,20 +343,20 @@ class TestUpdateModelConfiguration:
 
         with patch("domain.services.model.processor_db_to_schema") as mock_mapper:
             mock_mapper.return_value = Mock(spec=ProcessorSchema)
-            result = service.update_model_configuration(sample_project_id, sample_model_configuration_id, update_data)
+            result = service.update_model(sample_project_id, sample_model_id, update_data)
 
             assert result is not None
             assert sample_processor_db.name == "updated_name"
             assert sample_processor_db.active is True
             mock_session.commit.assert_called_once()
 
-    def test_update_model_configuration_not_found(
+    def test_update_model_not_found(
         self,
         service,
         mock_project_repository,
         mock_processor_repository,
         sample_project_id,
-        sample_model_configuration_id,
+        sample_model_id,
         sample_project_db,
     ):
         """Test updating model configuration that does not exist."""
@@ -365,20 +366,20 @@ class TestUpdateModelConfiguration:
         update_data = Mock(spec=ProcessorUpdateSchema)
 
         with pytest.raises(ResourceNotFoundError):
-            service.update_model_configuration(sample_project_id, sample_model_configuration_id, update_data)
+            service.update_model(sample_project_id, sample_model_id, update_data)
 
 
-class TestDeleteModelConfiguration:
-    """Tests for delete_model_configuration method."""
+class TestDeleteModel:
+    """Tests for delete_model method."""
 
-    def test_delete_model_configuration_success(
+    def test_delete_model_success(
         self,
         service,
         mock_session,
         mock_project_repository,
         mock_processor_repository,
         sample_project_id,
-        sample_model_configuration_id,
+        sample_model_id,
         sample_project_db,
         sample_processor_db,
     ):
@@ -386,18 +387,18 @@ class TestDeleteModelConfiguration:
         mock_project_repository.get_by_id.return_value = sample_project_db
         mock_processor_repository.get_by_id_and_project.return_value = sample_processor_db
 
-        service.delete_model_configuration(sample_project_id, sample_model_configuration_id)
+        service.delete_model(sample_project_id, sample_model_id)
 
         mock_processor_repository.delete.assert_called_once_with(sample_processor_db)
         mock_session.commit.assert_called_once()
 
-    def test_delete_model_configuration_not_found(
+    def test_delete_model_not_found(
         self,
         service,
         mock_project_repository,
         mock_processor_repository,
         sample_project_id,
-        sample_model_configuration_id,
+        sample_model_id,
         sample_project_db,
     ):
         """Test deleting model configuration that does not exist."""
@@ -405,7 +406,7 @@ class TestDeleteModelConfiguration:
         mock_processor_repository.get_by_id_and_project.return_value = None
 
         with pytest.raises(ResourceNotFoundError) as exc_info:
-            service.delete_model_configuration(sample_project_id, sample_model_configuration_id)
+            service.delete_model(sample_project_id, sample_model_id)
 
         assert exc_info.value.resource_type == ResourceType.PROCESSOR
 
@@ -413,17 +414,17 @@ class TestDeleteModelConfiguration:
 class TestHandleSourceIntegrityError:
     """Tests for _handle_source_integrity_error method."""
 
-    def test_handle_foreign_key_error(self, service, sample_model_configuration_id, sample_project_id):
+    def test_handle_foreign_key_error(self, service, sample_model_id, sample_project_id):
         """Test handling foreign key constraint violation."""
         exc = IntegrityError("statement", {}, Exception("foreign key constraint"))
 
         with patch("domain.services.model.extract_constraint_name", return_value=None):
             with pytest.raises(ResourceNotFoundError) as exc_info:
-                service._handle_source_integrity_error(exc, sample_model_configuration_id, sample_project_id, "test")
+                service._handle_source_integrity_error(exc, sample_model_id, sample_project_id, "test")
 
             assert "project does not exist" in str(exc_info.value).lower()
 
-    def test_handle_unique_name_error(self, service, sample_model_configuration_id, sample_project_id):
+    def test_handle_unique_name_error(self, service, sample_model_id, sample_project_id):
         """Test handling unique name constraint violation."""
         exc = IntegrityError("statement", {}, Exception("unique constraint"))
 
@@ -432,18 +433,16 @@ class TestHandleSourceIntegrityError:
             return_value=UniqueConstraintName.PROCESSOR_NAME_PER_PROJECT,
         ):
             with pytest.raises(ResourceAlreadyExistsError) as exc_info:
-                service._handle_source_integrity_error(
-                    exc, sample_model_configuration_id, sample_project_id, "duplicate_name"
-                )
+                service._handle_source_integrity_error(exc, sample_model_id, sample_project_id, "duplicate_name")
 
             assert exc_info.value.field == "name"
 
-    def test_handle_unmapped_constraint_error(self, service, sample_model_configuration_id, sample_project_id):
+    def test_handle_unmapped_constraint_error(self, service, sample_model_id, sample_project_id):
         """Test handling unmapped constraint violation."""
         exc = IntegrityError("statement", {}, Exception("some other constraint"))
 
         with patch("domain.services.model.extract_constraint_name", return_value=None):
             with pytest.raises(ValueError) as exc_info:
-                service._handle_source_integrity_error(exc, sample_model_configuration_id, sample_project_id, "test")
+                service._handle_source_integrity_error(exc, sample_model_id, sample_project_id, "test")
 
             assert "constraint violation" in str(exc_info.value).lower()

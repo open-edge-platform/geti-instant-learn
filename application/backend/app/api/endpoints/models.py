@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi import Query, Response, status
 
 from api.routers import projects_router
-from dependencies import ModelConfigurationServiceDep
+from dependencies import ModelServiceDep
 from domain.services.schemas.processor import (
     ProcessorCreateSchema,
     ProcessorListSchema,
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
             "content": {
                 "application/json": {
                     "example": {
-                        "model_configurations": [
+                        "models": [
                             {
                                 "id": "550e8400-e29b-41d4-a716-446655440000",
                                 "name": "Active Model",
@@ -74,14 +74,14 @@ logger = logging.getLogger(__name__)
 )
 def get_all_models(
     project_id: UUID,
-    model_service: ModelConfigurationServiceDep,
+    model_service: ModelServiceDep,
     offset: Annotated[int, Query(ge=0, le=1000)] = 0,
     limit: Annotated[int, Query(ge=0, le=1000)] = 20,
 ) -> ProcessorListSchema:
     """
     Retrieve the all model configurations of the project.
     """
-    return model_service.list_model_configurations(project_id=project_id, offset=offset, limit=limit)
+    return model_service.list_models(project_id=project_id, offset=offset, limit=limit)
 
 
 # needs to be before /{project_id}/models/{model_id} to avoid path conflict
@@ -138,11 +138,11 @@ def get_all_models(
         },
     },
 )
-def get_active_model(project_id: UUID, model_service: ModelConfigurationServiceDep) -> ProcessorSchema:
+def get_active_model(project_id: UUID, model_service: ModelServiceDep) -> ProcessorSchema:
     """
     Retrieve the active model configuration of the project.
     """
-    return model_service.get_active_model_configuration(project_id)
+    return model_service.get_active_model(project_id)
 
 
 @projects_router.get(
@@ -196,11 +196,11 @@ def get_active_model(project_id: UUID, model_service: ModelConfigurationServiceD
         },
     },
 )
-def get_model(project_id: UUID, model_id: UUID, model_service: ModelConfigurationServiceDep) -> ProcessorSchema:
+def get_model(project_id: UUID, model_id: UUID, model_service: ModelServiceDep) -> ProcessorSchema:
     """
     Retrieve the model configuration of the project.
     """
-    return model_service.get_model_configuration(project_id=project_id, model_configuration_id=model_id)
+    return model_service.get_model(project_id=project_id, model_id=model_id)
 
 
 @projects_router.post(
@@ -257,17 +257,15 @@ def get_model(project_id: UUID, model_id: UUID, model_service: ModelConfiguratio
         },
     },
 )
-def create_model(
-    project_id: UUID, payload: ProcessorCreateSchema, model_service: ModelConfigurationServiceDep
-) -> Response:
+def create_model(project_id: UUID, payload: ProcessorCreateSchema, model_service: ModelServiceDep) -> Response:
     """
     Create a new model configuration for the project.
     """
-    model_configuration = model_service.create_model_configuration(project_id=project_id, create_data=payload)
+    model = model_service.create_model(project_id=project_id, create_data=payload)
     return Response(
         status_code=status.HTTP_201_CREATED,
-        headers={"Location": f"/projects/{project_id}/models/{model_configuration.id}"},
-        content=model_configuration.model_dump_json(),
+        headers={"Location": f"/projects/{project_id}/models/{model.id}"},
+        content=model.model_dump_json(),
         media_type="application/json",
     )
 
@@ -335,14 +333,12 @@ def create_model(
     },
 )
 def update_model(
-    project_id: UUID, model_id: UUID, payload: ProcessorUpdateSchema, model_service: ModelConfigurationServiceDep
+    project_id: UUID, model_id: UUID, payload: ProcessorUpdateSchema, model_service: ModelServiceDep
 ) -> ProcessorSchema:
     """
     Update an existing model configuration for the project.
     """
-    return model_service.update_model_configuration(
-        project_id=project_id, model_configuration_id=model_id, update_data=payload
-    )
+    return model_service.update_model(project_id=project_id, model_id=model_id, update_data=payload)
 
 
 @projects_router.delete(
@@ -378,9 +374,9 @@ def update_model(
         },
     },
 )
-def delete_model(project_id: UUID, model_id: UUID, model_service: ModelConfigurationServiceDep) -> Response:
+def delete_model(project_id: UUID, model_id: UUID, model_service: ModelServiceDep) -> Response:
     """
     Delete a model configuration from the project.
     """
-    model_service.delete_model_configuration(project_id=project_id, model_configuration_id=model_id)
+    model_service.delete_model(project_id=project_id, model_id=model_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

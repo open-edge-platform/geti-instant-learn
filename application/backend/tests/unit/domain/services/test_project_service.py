@@ -29,12 +29,15 @@ def make_project(
     name="proj",
     active=False,
     sources=None,
+    processors=None,
 ):
     if project_id is None:
         project_id = uuid.uuid4()
     if sources is None:
         sources = []
-    return SimpleNamespace(id=project_id, name=name, active=active, sources=sources)
+    if processors is None:
+        processors = []
+    return SimpleNamespace(id=project_id, name=name, active=active, sources=sources, processors=processors)
 
 
 @pytest.fixture

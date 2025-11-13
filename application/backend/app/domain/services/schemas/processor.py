@@ -14,7 +14,7 @@ class ProcessorSchema(BaseIDSchema):
 
 
 class ProcessorListSchema(BaseModel):
-    model_configurations: list[ProcessorSchema]
+    models: list[ProcessorSchema]
     pagination: Pagination
 
 

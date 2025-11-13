@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from .label import LabelService
-from .model import ModelConfigurationService
+from .model import ModelService
 from .project import ProjectService
 from .prompt import PromptService
 from .source import SourceService
 
 __all__ = [
     "LabelService",
-    "ModelConfigurationService",
+    "ModelService",
     "ProjectService",
     "PromptService",
     "SourceService",

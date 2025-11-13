@@ -15,7 +15,7 @@ from domain.repositories.processor import ProcessorRepository
 from domain.repositories.project import ProjectRepository
 from domain.repositories.prompt import PromptRepository
 from domain.repositories.source import SourceRepository
-from domain.services import LabelService, ModelConfigurationService, ProjectService, PromptService, SourceService
+from domain.services import LabelService, ModelService, ProjectService, PromptService, SourceService
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.frame import FrameService
 from runtime.webrtc.manager import WebRTCManager
@@ -146,9 +146,11 @@ def get_label_service(session: SessionDep) -> LabelService:
     return LabelService(session=session)
 
 
-def get_model_configuration_service(session: SessionDep) -> ModelConfigurationService:
-    """Dependency that provides a ModelConfigurationService  instance."""
-    return ModelConfigurationService(session=session)
+def get_model_service(
+    session: SessionDep, dispatcher: Annotated[ConfigChangeDispatcher, Depends(get_config_dispatcher)]
+) -> ModelService:
+    """Dependency that provides a ModelService instance."""
+    return ModelService(session=session, config_change_dispatcher=dispatcher)
 
 
 # --- Dependency aliases ---
@@ -158,4 +160,4 @@ FrameServiceDep = Annotated[FrameService, Depends(get_frame_service)]
 FrameServiceWithQueueDep = Annotated[FrameService, Depends(get_frame_service_with_queue)]
 LabelServiceDep = Annotated[LabelService, Depends(get_label_service)]
 PromptServiceDep = Annotated[PromptService, Depends(get_prompt_service)]
-ModelConfigurationServiceDep = Annotated[ModelConfigurationService, Depends(get_model_configuration_service)]
+ModelServiceDep = Annotated[ModelService, Depends(get_model_service)]

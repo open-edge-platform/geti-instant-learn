@@ -10,7 +10,12 @@ from sqlalchemy.orm import Session
 from api.error_handler import extract_constraint_name
 from domain.db.constraints import UniqueConstraintName
 from domain.db.models import ProcessorDB, ProjectDB
-from domain.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher
+from domain.dispatcher import (
+    ComponentConfigChangeEvent,
+    ConfigChangeDispatcher,
+    ModelActivationEvent,
+    ModelDeactivationEvent,
+)
 from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
@@ -18,6 +23,7 @@ from domain.errors import (
 )
 from domain.repositories.processor import ProcessorRepository
 from domain.repositories.project import ProjectRepository
+from domain.services.base import BaseService
 from domain.services.schemas.mappers.processor import (
     processor_db_to_schema,
     processor_schema_to_db,
@@ -33,7 +39,7 @@ from domain.services.schemas.processor import (
 logger = logging.getLogger(__name__)
 
 
-class ModelConfigurationService:
+class ModelService(BaseService):
     """
     Service layer orchestrating model configuration use cases.
 
@@ -56,12 +62,11 @@ class ModelConfigurationService:
         """
         Initialize the service with a SQLAlchemy session.
         """
-        self.session = session
+        super().__init__(session=session, config_change_dispatcher=config_change_dispatcher, pending_events=[])
         self.processor_repository = processor_repository or ProcessorRepository(session=session)
         self.project_repository = project_repository or ProjectRepository(session=session)
-        self._dispatcher = config_change_dispatcher
 
-    def list_model_configurations(self, project_id: UUID, offset: int = 0, limit: int = 20) -> ProcessorListSchema:
+    def list_models(self, project_id: UUID, offset: int = 0, limit: int = 20) -> ProcessorListSchema:
         """
         List all model configurations belonging to a project.
 
@@ -77,30 +82,26 @@ class ModelConfigurationService:
             ResourceNotFoundError: If the project does not exist.
         """
         self._ensure_project(project_id)
-        db_model_configurations, total = self.processor_repository.get_paginated(
-            project_id=project_id, offset=offset, limit=limit
-        )
-        return processors_db_to_list_items(db_model_configurations, total=total, offset=offset, limit=limit)
+        db_models, total = self.processor_repository.get_paginated(project_id=project_id, offset=offset, limit=limit)
+        return processors_db_to_list_items(db_models, total=total, offset=offset, limit=limit)
 
-    def get_model_configuration(self, project_id: UUID, model_configuration_id: UUID) -> ProcessorSchema:
+    def get_model(self, project_id: UUID, model_id: UUID) -> ProcessorSchema:
         """
         Retrieve a model configuration by id within a project.
         Parameters:
             project_id: Owning project UUID.
-            model_configuration_id: Model Configuration UUID.
+            model_id: Model Configuration UUID.
         Raises:
             ResourceNotFoundError: If project or model configuration does not exist.
         """
         self._ensure_project(project_id)
-        model_configuration = self.processor_repository.get_by_id_and_project(
-            processor_id=model_configuration_id, project_id=project_id
-        )
-        if not model_configuration:
-            logger.error(f"Model configuration not found id={model_configuration_id} project_id={project_id}")
-            raise ResourceNotFoundError(resource_type=ResourceType.PROCESSOR, resource_id=str(model_configuration_id))
-        return processor_db_to_schema(model_configuration)
+        model = self.processor_repository.get_by_id_and_project(processor_id=model_id, project_id=project_id)
+        if not model:
+            logger.error(f"Model configuration not found id={model_id} project_id={project_id}")
+            raise ResourceNotFoundError(resource_type=ResourceType.PROCESSOR, resource_id=str(model_id))
+        return processor_db_to_schema(model)
 
-    def create_model_configuration(self, project_id: UUID, create_data: ProcessorCreateSchema) -> ProcessorSchema:
+    def create_model(self, project_id: UUID, create_data: ProcessorCreateSchema) -> ProcessorSchema:
         """
         Create a new model configuration.
         Database constraints enforce uniqueness of model configuration name per project.
@@ -117,30 +118,32 @@ class ModelConfigurationService:
 
         if create_data.active:
             self._deactivate_existing_active_model(project_id=project_id)
+            self._emit_activation(project_id=project_id, model_id=create_data.id)
 
-        new_model_configuration: ProcessorDB = processor_schema_to_db(schema=create_data, project_id=project_id)
-        self.processor_repository.add(new_model_configuration)
+        new_model: ProcessorDB = processor_schema_to_db(schema=create_data, project_id=project_id)
+        self.processor_repository.add(new_model)
 
         try:
             self.session.commit()
         except IntegrityError as exc:
             self.session.rollback()
             logger.error("Model configuration creation failed due to constraint violation: %s", exc)
-            self._handle_source_integrity_error(exc, new_model_configuration.id, project_id, model_name)
+            self._handle_source_integrity_error(exc, new_model.id, project_id, model_name)
 
-        self.session.refresh(new_model_configuration)
+        self.session.refresh(new_model)
         logger.info(
             f"Model configuration created: "
-            f"id={new_model_configuration.id} "
+            f"id={new_model.id} "
             f"project_id={project_id} "
-            f"model_type={new_model_configuration.config.get('model_type')} "
-            f"active={new_model_configuration.active} "
-            f"config={new_model_configuration.config}"
+            f"model_type={new_model.config.get('model_type')} "
+            f"active={new_model.active} "
+            f"config={new_model.config}"
         )
-        self._emit_component_change(project_id=project_id, model_configuration_id=new_model_configuration.id)
-        return processor_db_to_schema(new_model_configuration)
+        self._emit_component_change(project_id=project_id, model_id=new_model.id)
+        self._dispatch_pending_events()
+        return processor_db_to_schema(new_model)
 
-    def get_active_model_configuration(self, project_id: UUID) -> ProcessorSchema:
+    def get_active_model(self, project_id: UUID) -> ProcessorSchema:
         """
         Retrieve the active model configuration for the project.
         Parameters:
@@ -157,75 +160,76 @@ class ModelConfigurationService:
         logger.info(f"Active model fetched for project_id={project_id}:")
         return processor_db_to_schema(active_model)
 
-    def update_model_configuration(
+    def update_model(
         self,
         project_id: UUID,
-        model_configuration_id: UUID,
+        model_id: UUID,
         update_data: ProcessorUpdateSchema,
     ) -> ProcessorSchema:
         """
         Update existing model configuration.
         """
         self._ensure_project(project_id)
-        model_configuration = self.processor_repository.get_by_id_and_project(model_configuration_id, project_id)
-        if not model_configuration:
-            logger.error(
-                f"Update failed; model configuration not found id={model_configuration_id} project_id={project_id}"
-            )
-            raise ResourceNotFoundError(resource_type=ResourceType.PROCESSOR, resource_id=str(model_configuration_id))
+        model = self.processor_repository.get_by_id_and_project(model_id, project_id)
+        if not model:
+            logger.error(f"Update failed; model configuration not found id={model_id} project_id={project_id}")
+            raise ResourceNotFoundError(resource_type=ResourceType.PROCESSOR, resource_id=str(model_id))
 
-        if update_data.active and not model_configuration.active:
+        if update_data.active and not model.active:
             self._deactivate_existing_active_model(project_id=project_id)
+            self._emit_activation(project_id=project_id, model_id=update_data.id)
 
         # Update name if provided and different
-        if update_data.name is not None and model_configuration.name != update_data.name:
-            model_configuration.name = update_data.name
+        if update_data.name is not None and model.name != update_data.name:
+            model.name = update_data.name
 
-        model_configuration.active = update_data.active
-        model_configuration.config = update_data.config.model_dump()
+        model.active = update_data.active
+        model.config = update_data.config.model_dump()
         model_name = update_data.name
         try:
             self.session.commit()
         except IntegrityError as exc:
             self.session.rollback()
             logger.error("Model configuration creation failed due to constraint violation: %s", exc)
-            self._handle_source_integrity_error(exc, model_configuration.id, project_id, model_name)
+            self._handle_source_integrity_error(exc, model.id, project_id, model_name)
 
-        self.session.refresh(model_configuration)
+        self.session.refresh(model)
         logger.info(
             f"Model configuration updated: "
-            f"id={model_configuration_id} "
+            f"id={model_id} "
             f"project_id={project_id} "
-            f"active={model_configuration.active} "
-            f"config={model_configuration.config}"
+            f"active={model.active} "
+            f"config={model.config}"
         )
-        self._emit_component_change(project_id=project_id, model_configuration_id=model_configuration_id)
-        return processor_db_to_schema(model_configuration)
+        self._emit_component_change(project_id=project_id, model_id=model_id)
+        self._dispatch_pending_events()
+        return processor_db_to_schema(model)
 
-    def delete_model_configuration(self, project_id: UUID, model_configuration_id: UUID) -> None:
+    def delete_model(self, project_id: UUID, model_id: UUID) -> None:
         """
         Delete a model configuration by id within a project.
 
         Parameters:
             project_id: Owning project UUID.
-            model_configuration_id: Source UUID.
+            model_id: Source UUID.
 
         Raises:
             ResourceNotFoundError: If project or model configuration does not exist.
         """
         self._ensure_project(project_id)
-        model_configuration = self.processor_repository.get_by_id_and_project(
-            processor_id=model_configuration_id, project_id=project_id
-        )
-        if not model_configuration:
-            logger.error(
-                f"Cannot delete model configuration: id={model_configuration_id} not found in project_id={project_id}"
-            )
-            raise ResourceNotFoundError(resource_type=ResourceType.PROCESSOR, resource_id=str(model_configuration_id))
-        self.processor_repository.delete(model_configuration)
+        model = self.processor_repository.get_by_id_and_project(processor_id=model_id, project_id=project_id)
+        if not model:
+            logger.error(f"Cannot delete model: id={model_id} not found in project_id={project_id}")
+            raise ResourceNotFoundError(resource_type=ResourceType.PROCESSOR, resource_id=str(model_id))
+
+        if model.active:
+            self._emit_deactivation(project_id=project_id, model_id=model.id)
+
+        self.processor_repository.delete(model)
         self.session.commit()
-        logger.info(f"Model configuration deleted: id={model_configuration_id} project_id={project_id}")
-        self._emit_component_change(project_id=project_id, model_configuration_id=model_configuration_id)
+        self._dispatch_pending_events()
+        logger.info(f"Model deleted: id={model_id} project_id={project_id}")
+        self._emit_component_change(project_id=project_id, model_id=model_id)
 
     def _ensure_project(self, project_id: UUID) -> ProjectDB:
         """
@@ -255,24 +259,25 @@ class ModelConfigurationService:
         if active_model:
             logger.info(f"Deactivated previously active model: id={active_model.id} project_id={project_id}")
             active_model.active = False
+            self._emit_deactivation(project_id=project_id, model_id=active_model.id)
 
-    def _emit_component_change(self, project_id: UUID, model_configuration_id: UUID) -> None:
+    def _emit_component_change(self, project_id: UUID, model_id: UUID) -> None:
         """
-        Emit a component configuration change event for model configuration to trigger pipeline updates.
+        Emit a component configuration change event for model to trigger pipeline updates.
         """
         if self._dispatcher:
             self._dispatcher.dispatch(
                 ComponentConfigChangeEvent(
                     project_id=project_id,
                     component_type="processor",
-                    component_id=str(model_configuration_id),
+                    component_id=str(model_id),
                 )
             )
 
+    @staticmethod
     def _handle_source_integrity_error(
-        self,
         exc: IntegrityError,
-        model_configuration_id: UUID,
+        model_id: UUID,
         project_id: UUID,
         model_name: str | None,
     ) -> None:
@@ -281,7 +286,7 @@ class ModelConfigurationService:
 
         Args:
             exc: The IntegrityError from SQLAlchemy
-            model_configuration_id: ID of the model configuration being created/updated
+            model_id: ID of the model configuration being created/updated
             project_id: ID of the owning project
             model_name: Name of the source (if applicable)
         """
@@ -289,8 +294,8 @@ class ModelConfigurationService:
         constraint_name = extract_constraint_name(error_msg)
 
         logger.warning(
-            f"Model configuration constraint violation: "
-            f"id={model_configuration_id}, "
+            f"Model constraint violation: "
+            f"id={model_id}, "
             f"project_id={project_id}, "
             f"constraint={constraint_name or 'unknown'}, "
             f"error={error_msg}"
@@ -299,7 +304,7 @@ class ModelConfigurationService:
         if "foreign key" in error_msg:
             raise ResourceNotFoundError(
                 resource_type=ResourceType.PROCESSOR,
-                resource_id=str(model_configuration_id),
+                resource_id=str(model_id),
                 message="Referenced project does not exist.",
             )
 
@@ -314,7 +319,28 @@ class ModelConfigurationService:
                     else "A model configuration with this name already exists in this project.",
                 )
 
-        logger.error(
-            f"Unmapped constraint violation for model configuration (id={model_configuration_id}): {error_msg}"
-        )
+        logger.error(f"Unmapped constraint violation for model configuration (id={model_id}): {error_msg}")
         raise ValueError("Database constraint violation. Please check your input and try again.")
+
+    def _dispatch_pending_events(self) -> None:
+        """
+        Dispatch and clear queued events (call only after a successful commit).
+        """
+        if self._dispatcher and self._pending_events:
+            for ev in self._pending_events:
+                self._dispatcher.dispatch(ev)
+        self._pending_events.clear()
+
+    def _emit_activation(self, project_id: UUID, model_id: UUID) -> None:
+        """
+        Queue project activation event (dispatched after commit).
+        """
+        if self._dispatcher:
+            self._pending_events.append(ModelActivationEvent(project_id=project_id, model_id=model_id))
+
+    def _emit_deactivation(self, project_id: UUID, model_id: UUID) -> None:
+        """
+        Queue project deactivation event (dispatched after commit).
+        """
+        if self._dispatcher:
+            self._pending_events.append(ModelDeactivationEvent(project_id=project_id, model_id=model_id))

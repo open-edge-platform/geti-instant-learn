@@ -59,4 +59,4 @@ def processors_db_to_list_items(
         limit=limit,
     )
 
-    return ProcessorListSchema(model_configurations=items, pagination=pagination)
+    return ProcessorListSchema(models=items, pagination=pagination)
