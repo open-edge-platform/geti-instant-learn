@@ -616,7 +616,7 @@ requires-dist = [
     { name = "ipykernel", marker = "extra == 'notebook'", specifier = "==6.30.1" },
     { name = "jsonargparse" },
     { name = "jupyter", marker = "extra == 'notebook'", specifier = "==1.1.1" },
-    { name = "lvis", specifier = ">=0.5.3" },
+    { name = "lvis", specifier = "==0.5.3" 
     { name = "markupsafe", specifier = "==3.0.2" },
     { name = "matplotlib", specifier = "==3.10.3" },
     { name = "numpy", specifier = "~=2.2.6" },
@@ -635,7 +635,7 @@ requires-dist = [
     { name = "scikit-learn", specifier = "==1.6.1" },
     { name = "scipy", specifier = "==1.15.3" },
     { name = "segment-anything-hq", specifier = "==0.3" },
-    { name = "timm", specifier = ">=1.0.22" },
+    { name = "timm", specifier = "==1.0.22" },
     { name = "torch", marker = "extra == 'cpu'", specifier = "==2.8.0", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "getiprompt", extra = "cpu" } },
     { name = "torch", marker = "extra == 'cu126'", specifier = "==2.8.0", index = "https://download.pytorch.org/whl/cu126", conflict = { package = "getiprompt", extra = "cu126" } },
     { name = "torchmetrics", specifier = ">=1.6" },
