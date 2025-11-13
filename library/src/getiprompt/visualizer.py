@@ -103,7 +103,7 @@ class Visualizer:
                 counter += 1
 
         image_vis = image_np.copy()
-        if pred_masks is not None:
+        if len(pred_masks):
             # Draw each instance mask with the same class color and a border
             for pred_label, pred_mask in zip(pred_labels, pred_masks, strict=False):
                 pred_label = pred_label.item()
@@ -121,11 +121,12 @@ class Visualizer:
                 cv2.drawContours(image_vis, contours, -1, (255, 255, 255), 1)
 
         # Draw points and confidence scores if provided
-        if pred_points is not None:
+        if len(pred_points):
             for pred_label, pred_point in zip(pred_labels, pred_points, strict=False):
                 # Draw star marker
                 pred_point = pred_point.float().cpu().numpy()
-                x, y, score, fg_label = int(pred_point[0]), int(pred_point[1]), pred_point[2], int(pred_point[3])
+                # [x, y, score, fg_label]
+                x, y, _, fg_label = int(pred_point[0]), int(pred_point[1]), pred_point[2], int(pred_point[3])
                 size = int(height / 100)  # Scale marker size with image
                 cv2.drawMarker(
                     image_vis,
@@ -135,35 +136,15 @@ class Visualizer:
                     size,
                 )
 
-                # Add confidence score text
-                confidence = float(score)
-                cv2.putText(
-                    image_vis,
-                    f"{confidence:.2f}",
-                    (x + 5, y - 5),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    height / 100,
-                    (255, 255, 255),
-                    1,
-                )
-
         # Draw boxes and confidence scores if provided
-        if pred_boxes is not None:
+        if len(pred_boxes):
             for pred_label, pred_box in zip(pred_labels, pred_boxes, strict=False):
                 pred_label = pred_label.item()
                 pred_box = pred_box.cpu().numpy()
-                x1, y1, x2, y2, score = pred_box
+                # [x1, y1, x2, y2, score]
+                x1, y1, x2, y2, _ = pred_box
                 x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
                 cv2.rectangle(image_vis, (x1, y1), (x2, y2), color=self.color_map[pred_label], thickness=2)
-                cv2.putText(
-                    image_vis,
-                    f"{score:.2f}",
-                    (x1 + 5, y1 - 5),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    height / 100,
-                    (255, 255, 255),
-                    1,
-                )
 
         # Save visualization
         cv2.imwrite(output_path, cv2.cvtColor(image_vis, cv2.COLOR_RGB2BGR))
