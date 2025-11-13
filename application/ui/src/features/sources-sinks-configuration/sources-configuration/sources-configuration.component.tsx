@@ -50,7 +50,7 @@ export const SourcesConfiguration = () => {
         },
     ];
 
-    const activeSource = data?.sources.find((source) => source.connected)?.config.source_type;
+    const activeSource = data.sources.find((source) => source.connected)?.config.source_type;
 
     return <DisclosureGroup items={sources} value={activeSource} />;
 };
