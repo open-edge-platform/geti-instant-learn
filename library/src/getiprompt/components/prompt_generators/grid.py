@@ -4,12 +4,11 @@
 """Grid-based prompt generator."""
 
 import torch
+from torch import nn
 from torchvision import tv_tensors
 
-from getiprompt.components.prompt_generators.base import PromptGenerator
 
-
-class GridPromptGenerator(PromptGenerator):
+class GridPromptGenerator(nn.Module):
     """This class generates prompts for the segmenter.
 
     This is based on the similarities between the reference and target images.

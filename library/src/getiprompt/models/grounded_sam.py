@@ -24,7 +24,6 @@ class GroundedSAM(Model):
         grounding_model: GroundingModel = GroundingModel.LLMDET_TINY,
         precision: str = "bf16",
         compile_models: bool = False,
-        benchmark_inference_speed: bool = False,
         box_threshold: float = 0.4,
         text_threshold: float = 0.3,
         device: str = "cuda",
@@ -36,7 +35,6 @@ class GroundedSAM(Model):
             grounding_model: The grounding model to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
-            benchmark_inference_speed: Whether to benchmark the inference speed.
             box_threshold: The box threshold.
             text_threshold: The text threshold.
             device: The device to use.
@@ -47,7 +45,6 @@ class GroundedSAM(Model):
             device,
             precision=precision,
             compile_models=compile_models,
-            benchmark_inference_speed=benchmark_inference_speed,
         )
         self.prompt_generator: TextToBoxPromptGenerator = TextToBoxPromptGenerator(
             device=device,
@@ -57,7 +54,6 @@ class GroundedSAM(Model):
             model_id=grounding_model,
             precision=precision,
             compile_models=compile_models,
-            benchmark_inference_speed=benchmark_inference_speed,
         )
         self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor)
         self.prompt_filter: BoxPromptFilter = BoxPromptFilter()

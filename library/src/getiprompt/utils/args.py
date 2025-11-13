@@ -167,11 +167,6 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         help="Whether to compile the models",
     )
     parser.add_argument(
-        "--benchmark_inference_speed",
-        action="store_true",
-        help="Whether to show the inference time of the optimized models",
-    )
-    parser.add_argument(
         "--device",
         type=str,
         default="cuda",

@@ -8,9 +8,8 @@ from logging import getLogger
 
 import torch
 from scipy.optimize import linear_sum_assignment
+from torch import nn
 from torch.nn import functional
-
-from getiprompt.components.prompt_generators.base import PromptGenerator
 
 logger = getLogger("Geti Prompt")
 
@@ -22,7 +21,7 @@ def _empty_match_result(similarity_map: torch.Tensor) -> tuple[list, torch.Tenso
     return empty_idx, empty_scores
 
 
-class BidirectionalPromptGenerator(PromptGenerator):
+class BidirectionalPromptGenerator(nn.Module):
     """Generates point prompts for segmentation based on bidirectional matching.
 
     This prompt generator uses bidirectional matching between reference and target image features

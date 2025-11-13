@@ -35,7 +35,6 @@ def optimize_model(
     device: str,
     precision: torch.dtype,
     compile_models: bool,
-    benchmark_inference_speed: bool = True,
     compile_backend: str = "inductor",
 ) -> AutoModel | SamPredictor | SAM2ImagePredictor:
     """This method optimizes a model by quantizing it and compiling it.
@@ -45,17 +44,11 @@ def optimize_model(
         device: The device to use for the model.
         precision: The precision to use for the model.
         compile_models: Whether to compile the model.
-        benchmark_inference_speed: Whether to show the inference time.
         compile_backend: The backend to use for the model.
 
     Returns:
         The optimized model.
     """
-    # Initial inference
-    if benchmark_inference_speed:
-        logger.debug("Model initial inference:")
-        initial_inference_duration = benchmark_inference(model, precision)
-
     # Quantize
     if precision != torch.float32:
         if is_sam_model(model):
@@ -64,11 +57,6 @@ def optimize_model(
             _monkey_patch_dtype(model)
         else:
             model = model.to(dtype=precision)
-        if benchmark_inference_speed:
-            logger.debug("Quantized inference:")
-            quantized_inference_duration = benchmark_inference(model, precision)
-            msg = f"Quantization speedup: {initial_inference_duration / quantized_inference_duration:.2f}x"
-            logger.debug(msg)
 
     # Compile
     if compile_models:
@@ -87,15 +75,6 @@ def optimize_model(
             else:
                 model = torch.compile(model, backend=compile_backend)
                 model(pixel_values=get_dummy_input(model, precision, device))  # Run one inference to compile
-            if benchmark_inference_speed:
-                msg = "Compiled model inference:"
-                logger.debug(msg)
-                compiled_inference_duration = benchmark_inference(model, precision)
-                msg = (
-                    f"Quantization + Compilation speedup: "
-                    f"{initial_inference_duration / compiled_inference_duration:.2f}x",
-                )
-                logger.debug(msg)
         else:
             logger.warning("GPU is not NVIDIA V100, A100, or H100. Compilation will be skipped.")
 

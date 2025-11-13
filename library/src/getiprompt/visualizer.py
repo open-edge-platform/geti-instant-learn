@@ -125,7 +125,7 @@ class Visualizer:
             for pred_label, pred_point in zip(pred_labels, pred_points, strict=False):
                 # Draw star marker
                 pred_point = pred_point.float().cpu().numpy()
-                # [x, y, score, fg_label]
+                # point format in [x, y, score, fg_label]
                 x, y, _, fg_label = int(pred_point[0]), int(pred_point[1]), pred_point[2], int(pred_point[3])
                 size = int(height / 100)  # Scale marker size with image
                 cv2.drawMarker(
@@ -141,7 +141,7 @@ class Visualizer:
             for pred_label, pred_box in zip(pred_labels, pred_boxes, strict=False):
                 pred_label = pred_label.item()
                 pred_box = pred_box.cpu().numpy()
-                # [x1, y1, x2, y2, score]
+                # box format in [x1, y1, x2, y2, score]
                 x1, y1, x2, y2, _ = pred_box
                 x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
                 cv2.rectangle(image_vis, (x1, y1), (x2, y2), color=self.color_map[pred_label], thickness=2)

@@ -88,7 +88,6 @@ class Matcher(Model):
         mask_similarity_threshold: float | None = 0.38,
         precision: str = "bf16",
         compile_models: bool = False,
-        benchmark_inference_speed: bool = False,
         device: str = "cuda",
     ) -> None:
         """Initialize the Matcher model.
@@ -101,7 +100,6 @@ class Matcher(Model):
             encoder_model: ImageEncoder model ID to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
-            benchmark_inference_speed: Whether to benchmark the inference speed.
             device: The device to use for the model.
         """
         super().__init__()
@@ -110,14 +108,12 @@ class Matcher(Model):
             device,
             precision=precision,
             compile_models=compile_models,
-            benchmark_inference_speed=benchmark_inference_speed,
         )
         self.encoder: ImageEncoder = ImageEncoder(
             model_id=encoder_model,
             device=device,
             precision=precision,
             compile_models=compile_models,
-            benchmark_inference_speed=benchmark_inference_speed,
         )
         # Local feature extraction with mask pooling
         self.masked_feature_extractor = MaskedFeatureExtractor(

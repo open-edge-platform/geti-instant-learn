@@ -27,7 +27,7 @@ class MaskedFeatureExtractor(nn.Module):
 
     Example:
         >>> extractor = MaskedFeatureExtractor(input_size=224, patch_size=14, device="cpu")
-        >>> features_list, masks_list = extractor(batched_features, batched_masks, batched_category_ids)
+        >>> masked_ref_embeddings, flatten_ref_masks = extractor(embeddings, masks, category_ids)
     """
 
     def __init__(self, input_size: int, patch_size: int, device: str) -> None:
@@ -68,7 +68,7 @@ class MaskedFeatureExtractor(nn.Module):
 
         Returns:
             tuple[dict[int, torch.Tensor], dict[int, torch.Tensor]]:
-                - masked_ref_embeds: Dictionary of masked reference features grouped by category.
+                - masked_ref_embeddings: Dictionary of masked reference features grouped by category.
                 - flatten_ref_masks: Dictionary of flattened masks grouped by category.
         """
         masked_ref_embeddings = defaultdict(list)

@@ -83,7 +83,6 @@ class PerDino(Model):
         mask_similarity_threshold: float | None = 0.42,
         precision: str = "bf16",
         compile_models: bool = False,
-        benchmark_inference_speed: bool = False,
         device: str = "cuda",
     ) -> None:
         """Initialize the PerDino model.
@@ -98,7 +97,6 @@ class PerDino(Model):
             encoder_model: ImageEncoder model ID to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
-            benchmark_inference_speed: Whether to benchmark the inference speed.
             device: The device to use for the model.
         """
         super().__init__()
@@ -107,7 +105,6 @@ class PerDino(Model):
             device,
             precision=precision,
             compile_models=compile_models,
-            benchmark_inference_speed=benchmark_inference_speed,
         )
 
         self.encoder: ImageEncoder = ImageEncoder(
@@ -115,7 +112,6 @@ class PerDino(Model):
             device=device,
             precision=precision,
             compile_models=compile_models,
-            benchmark_inference_speed=benchmark_inference_speed,
         )
         # Local feature extraction with mask pooling
         self.masked_feature_extractor = MaskedFeatureExtractor(
