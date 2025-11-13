@@ -33,9 +33,8 @@ class Visualizer:
     def visualize(
         self,
         images: list[tv_tensors.Image],
-        predictions: list[dict[str, torch.Tensor | None]],
+        predictions: list[dict[str, torch.Tensor]],
         file_names: list[str],
-        show_legend: bool = False,
     ) -> None:
         """This method exports the visualization images.
 
@@ -43,8 +42,6 @@ class Visualizer:
             images: List of images to visualize
             predictions: List of predictions to visualize
             file_names: List of file names to visualize
-            show_legend: Whether to show the legend
-            legend_position: Position of the legend
         """
         for image, prediction, file_name in zip(
             images,
@@ -52,7 +49,7 @@ class Visualizer:
             file_names,
             strict=False,
         ):
-            self._process_single_image(image, prediction, file_name, show_legend)
+            self._process_single_image(image, prediction, file_name)
 
     @staticmethod
     def _setup_colors(class_map: dict[int, str]) -> dict[int, list[int]]:
@@ -73,9 +70,8 @@ class Visualizer:
     def _process_single_image(
         self,
         image: tv_tensors.Image,
-        prediction: dict[str, torch.Tensor | None],
+        prediction: dict[str, torch.Tensor],
         file_name: str,
-        show_legend: bool,
     ) -> None:
         """Process a single image for visualization.
 
@@ -83,13 +79,13 @@ class Visualizer:
             image: Image to visualize
             prediction: Prediction to visualize
             file_name: File name to visualize
-            show_legend: Whether to show the legend
         """
         pred_masks = prediction["pred_masks"]
         pred_points = prediction["pred_points"]
         pred_boxes = prediction["pred_boxes"]
         pred_labels = prediction["pred_labels"]
         image_np = image.permute(1, 2, 0).numpy()
+        height, _ = image_np.shape[:2]
 
         output_path = Path(self.output_folder) / file_name
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -130,7 +126,7 @@ class Visualizer:
                 # Draw star marker
                 pred_point = pred_point.float().cpu().numpy()
                 x, y, score, fg_label = int(pred_point[0]), int(pred_point[1]), pred_point[2], int(pred_point[3])
-                size = int(image.shape[0] / 100)  # Scale marker size with image
+                size = int(height / 100)  # Scale marker size with image
                 cv2.drawMarker(
                     image_vis,
                     (x, y),
@@ -146,7 +142,7 @@ class Visualizer:
                     f"{confidence:.2f}",
                     (x + 5, y - 5),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    image.shape[0] / 1500,
+                    height / 100,
                     (255, 255, 255),
                     1,
                 )
@@ -154,19 +150,17 @@ class Visualizer:
         # Draw boxes and confidence scores if provided
         if pred_boxes is not None:
             for pred_label, pred_box in zip(pred_labels, pred_boxes, strict=False):
-                # Draw star marker
+                pred_label = pred_label.item()
                 pred_box = pred_box.cpu().numpy()
-                x1, y1, x2, y2 = [int(coord) for coord in pred_box]
+                x1, y1, x2, y2, score = pred_box
+                x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
                 cv2.rectangle(image_vis, (x1, y1), (x2, y2), color=self.color_map[pred_label], thickness=2)
-
-                # Add confidence score text
-                confidence = float(box_scores[i])
                 cv2.putText(
                     image_vis,
-                    f"{confidence:.2f}",
+                    f"{score:.2f}",
                     (x1 + 5, y1 - 5),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    image.shape[0] / 1500,
+                    height / 100,
                     (255, 255, 255),
                     1,
                 )
