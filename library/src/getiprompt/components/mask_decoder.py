@@ -230,7 +230,7 @@ class SamDecoder(nn.Module):
         prediction = {
             "pred_masks": torch.empty((0, *original_size)).to(self.device),
             "pred_points": torch.empty((0, 4)).to(self.device),
-            "pred_boxes": torch.empty((0, 6)).to(self.device),
+            "pred_boxes": torch.empty((0, 5)).to(self.device),
             "pred_labels": torch.empty((0,), dtype=torch.long).to(self.device),
         }
 

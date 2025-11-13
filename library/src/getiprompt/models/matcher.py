@@ -156,8 +156,8 @@ class Matcher(Model):
             predictions(list[dict[str, torch.Tensor]]): A list of predictions.
             Each prediction contains:
                 "pred_masks": torch.Tensor of shape [num_masks, H, W]
-                "pred_points": torch.Tensor of shape [num_points, 4]
-                "pred_boxes": torch.Tensor of shape [num_boxes, 6]
+                "pred_points": torch.Tensor of shape [num_points, 4] with last dimension [x, y, score, fg_label]
+                "pred_boxes": torch.Tensor of shape [num_boxes, 5] with last dimension [x1, y1, x2, y2, score]
                 "pred_labels": torch.Tensor of shape [num_masks]
         """
         target_images = target_batch.images

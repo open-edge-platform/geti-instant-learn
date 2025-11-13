@@ -183,7 +183,7 @@ def run_model(
         for i in range(0, len(target_samples), batch_size):
             chunk_samples = target_samples[i : i + batch_size]
             target_batch = Batch.collate(chunk_samples)
-            results = model.infer(target_batch)
+            predictions = model.infer(target_batch)
 
             chunk_images = [sample.image for sample in chunk_samples if sample.image is not None]
             chunk_names = []
@@ -199,9 +199,8 @@ def run_model(
             class_map = {category: class_id for category, class_id in zip(class_strings, class_ids, strict=True)}
             Visualizer(str(output_location / "target"), class_map=class_map).visualize(
                 images=chunk_images,
-                predictions=results.masks,
+                predictions=predictions,
                 file_names=chunk_names,
-                show_legend=True,
             )
             progress.update(task, advance=len(chunk_samples))
     msg = f"Ouput saved in {output_location}"
