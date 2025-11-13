@@ -18,9 +18,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --link --from=libs ./src /geti_prompt/library/src
 COPY --link --from=libs ./pyproject.toml /geti_prompt/library/pyproject.toml
 
-# Copy backend source code
-COPY --link backend/app ./app
-
 # Change to a subdirectory so ../../library resolves correctly
 RUN mkdir -p /geti_prompt/app/backend
 WORKDIR /geti_prompt/app/backend
@@ -84,9 +81,15 @@ ARG MOCKED_FILE=""
 ENV MOCKED_FILE=${MOCKED_FILE}
 ENV PATH="/geti_prompt/.venv/bin:$PATH"
 ENV PYTHONPATH=/geti_prompt/app
+ARG UID=10001
+ENV UID=${UID}
+ARG USER_NAME="non-root"
+ENV USER_NAME=${USER_NAME}
+ARG PUBLIC_API_URL=""
+ENV PUBLIC_API_URL=${PUBLIC_API_URL}
 
 # Create directory and set ownership before VOLUME instruction
-RUN mkdir -p ${DB_DATA_DIR} && chown 10001:10001 ${DB_DATA_DIR}
+RUN mkdir -p ${DB_DATA_DIR} && chown ${UID}:${UID} ${DB_DATA_DIR}
 VOLUME ${DB_DATA_DIR}
 
 # Install OpenGL libraries for opencv-python
@@ -96,29 +99,38 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-RUN useradd -l -u 10001 non-root && \
-    usermod -G video non-root && \
-    mkdir -p /home/non-root/.cache/uv && \
-    chown -R non-root:non-root /home/non-root && \
+# Remove setuptools, pip, and wheel because uv is used as the package manager.
+# This reduces image size and attack surface, and avoids conflicts with uv.
+RUN useradd -l -u ${UID} ${USER_NAME} && \
+    usermod -G video ${USER_NAME} && \
+    mkdir -p /home/${USER_NAME}/.cache/uv && \
+    chown -R ${UID}:${UID} /home/${USER_NAME} && \
     pip3 uninstall -y setuptools pip wheel && \
     rm -rf /root/.cache/pip
 
-USER non-root
+USER ${USER_NAME}
 
-COPY --from=backend-base --chown=10001 /geti_prompt/app /geti_prompt/app
-COPY --from=backend-base --chown=10001 /geti_prompt/library /geti_prompt/library
-COPY --from=backend-base --chown=10001 /bin/uv /bin/uv
-COPY --from=web_ui --chown=10001 /home/app/web_ui/dist/ ${STATIC_FILES_DIR}
+# Copy backend source code
+COPY --link --chown=${UID} backend/app /geti_prompt/app
+COPY --from=backend-base --chown=${UID} /geti_prompt/library/src /geti_prompt/library/src
+COPY --from=backend-base --chown=${UID} /bin/uv /bin/uv
+COPY --from=web_ui --chown=${UID} /home/app/web_ui/dist/ ${STATIC_FILES_DIR}
 # temporary file for testing
-COPY --from=web_ui --chown=10001 /home/app/web_ui/src/assets/test.webp ${MOCKED_FILE}
+COPY --from=web_ui --chown=${UID} /home/app/web_ui/src/assets/test.webp ${MOCKED_FILE}
 
 WORKDIR /geti_prompt
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD uv run python -c "import urllib.request; urllib.request.urlopen('${PUBLIC_API_URL}/health')" || exit 1
 
 CMD ["uv", "run", "app/main.py"]
 
 ######################
 # Server (CPU version)
 ######################
+ARG UID=10001
+ENV UID=${UID}
+
 FROM runtime-base AS geti-prompt-cpu
 
-COPY --from=cpu-base --chown=10001 /geti_prompt/app/backend/.venv /geti_prompt/.venv
+COPY --from=cpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv

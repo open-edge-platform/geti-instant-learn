@@ -80,6 +80,13 @@ app.add_middleware(  # TODO restrict settings in production
     allow_headers=["*"],
 )
 
+
+@app.get("/health")
+async def health_check() -> dict[str, str]:
+    """Health check endpoint"""
+    return {"status": "ok"}
+
+
 app.include_router(projects_router, prefix="/api/v1")
 
 if (

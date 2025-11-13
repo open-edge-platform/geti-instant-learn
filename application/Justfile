@@ -64,7 +64,7 @@ build-image:
 
 # launch geti prompt with optional webcam, volume and port mapping
 run-image: build-image
-    @echo "Running docker image for component: {{ component-name }}"
+    @echo "Running docker image for component: {{ component-name }} with ai-device: {{ ai-device }}"
     @docker run --rm \
         --publish {{ host-port }}:{{ container-port }} \
         --env PORT={{ container-port }} \
