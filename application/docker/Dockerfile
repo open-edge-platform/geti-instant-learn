@@ -71,10 +71,10 @@ ENV ASSET_PREFIX=${ASSET_PREFIX}
 # build with --no-cache in case of sub-dependency changes (from geti)
 RUN npm run build
 
-######################
-# Server (CPU version)
-######################
-FROM python:3.12-slim-bookworm@sha256:3291ae895c4a3af495196e48292a19fad4ea7ce82528b91cca64961a4d04f538 AS geti-prompt-cpu
+#####################################
+# Base for CPU and GPU runtime images
+#####################################
+FROM python:3.12-slim-bookworm@sha256:3291ae895c4a3af495196e48292a19fad4ea7ce82528b91cca64961a4d04f538 AS runtime-base
 
 ARG STATIC_FILES_DIR=""
 ENV STATIC_FILES_DIR=${STATIC_FILES_DIR}
@@ -105,7 +105,6 @@ RUN useradd -l -u 10001 non-root && \
 
 USER non-root
 
-COPY --from=cpu-base --chown=10001 /geti_prompt/app/backend/.venv /geti_prompt/.venv
 COPY --from=backend-base --chown=10001 /geti_prompt/app /geti_prompt/app
 COPY --from=backend-base --chown=10001 /geti_prompt/library /geti_prompt/library
 COPY --from=backend-base --chown=10001 /bin/uv /bin/uv
@@ -116,3 +115,10 @@ COPY --from=web_ui --chown=10001 /home/app/web_ui/src/assets/test.webp ${MOCKED_
 WORKDIR /geti_prompt
 
 CMD ["uv", "run", "app/main.py"]
+
+######################
+# Server (CPU version)
+######################
+FROM runtime-base AS geti-prompt-cpu
+
+COPY --from=cpu-base --chown=10001 /geti_prompt/app/backend/.venv /geti_prompt/.venv
