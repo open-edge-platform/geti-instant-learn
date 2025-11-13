@@ -8,6 +8,7 @@ import { createContext, ReactNode, use, useEffect, useState } from 'react';
 import { LabelType, VisualPromptType } from '@geti-prompt/api';
 import { useProjectLabels } from '@geti-prompt/hooks';
 
+import { useSelectedFrame } from '../../stream/selected-frame-provider.component';
 import { useGetPrompt } from './api/use-get-prompt';
 import { usePromptIdFromUrl } from './use-prompt-id-from-url';
 
@@ -36,8 +37,17 @@ export const VisualPromptProvider = ({ children }: VisualPromptProviderProps) =>
     const selectedLabel: LabelType = labels.find(({ id }) => id === selectedLabelId) ?? PLACEHOLDER_LABEL;
 
     const { promptId, setPromptId } = usePromptIdFromUrl();
+    const { selectedFrameId, setSelectedFrameId } = useSelectedFrame();
     const prompt = useGetPrompt(promptId);
 
+    // Auto-load frame
+    useEffect(() => {
+        if (prompt?.frame_id && selectedFrameId !== prompt.frame_id) {
+            setSelectedFrameId(prompt.frame_id);
+        }
+    }, [prompt?.frame_id, selectedFrameId, setSelectedFrameId]);
+
+    // Auto-select label
     useEffect(() => {
         if (prompt?.annotations !== undefined) {
             const labelId = prompt.annotations[0].label_id;
