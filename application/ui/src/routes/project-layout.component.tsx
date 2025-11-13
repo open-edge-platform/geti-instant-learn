@@ -14,12 +14,9 @@ import { useCurrentProject } from '../features/project/hooks/use-current-project
 import { SelectedFrameProvider } from '../features/stream/selected-frame-provider.component';
 import { WebRTCConnectionProvider } from '../features/stream/web-rtc/web-rtc-connection-provider';
 
-const useCheckIfProjectIsValid = () => {
-    useCurrentProject();
-};
-
 export const ProjectLayout = () => {
-    useCheckIfProjectIsValid();
+    // Check if the current project is valid
+    useCurrentProject();
 
     const { projectId } = useProjectIdentifier();
 

@@ -3,19 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { render } from '@geti-prompt/test-utils';
+import { getMockedProject, render } from '@geti-prompt/test-utils';
 import { fireEvent, screen } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 import { SelectedFrameProvider } from 'src/features/stream/selected-frame-provider.component';
 
 import { http, server } from '../../setup-test';
 import { Sidebar } from './sidebar.component';
-
-const INACTIVE_PROJECT_RESPONSE = {
-    id: '1',
-    name: 'Inactive Project',
-    active: false,
-};
 
 const renderSidebar = () => {
     return render(
@@ -37,7 +31,13 @@ describe('Sidebar', () => {
     it('disables prompt tab when project is inactive', async () => {
         server.use(
             http.get('/api/v1/projects/{project_id}', () => {
-                return HttpResponse.json(INACTIVE_PROJECT_RESPONSE);
+                return HttpResponse.json(
+                    getMockedProject({
+                        id: '1',
+                        name: 'Inactive Project',
+                        active: false,
+                    })
+                );
             })
         );
 
@@ -66,7 +66,13 @@ describe('Sidebar', () => {
     it('does not expand sidebar for inactive project', async () => {
         server.use(
             http.get('/api/v1/projects/{project_id}', () => {
-                return HttpResponse.json(INACTIVE_PROJECT_RESPONSE);
+                return HttpResponse.json(
+                    getMockedProject({
+                        id: '1',
+                        name: 'Inactive Project',
+                        active: false,
+                    })
+                );
             })
         );
 
