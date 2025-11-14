@@ -6,9 +6,9 @@
 import { $api, VisualPromptType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 
+import { convertAnnotationsToDTO } from '../../../../shared/utils';
 import { useAnnotationActions } from '../../../annotator/providers/annotation-actions-provider.component';
 import { useAnnotator } from '../../../annotator/providers/annotator-provider.component';
-import { convertAnnotationsToDTO } from './utils';
 
 const useEditPromptMutation = () => {
     const { projectId } = useProjectIdentifier();

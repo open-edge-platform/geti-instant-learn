@@ -11,7 +11,9 @@ import { PromptThumbnail } from '../prompt-thumbnail/prompt-thumbnail.component'
 export const PromptThumbnailList = () => {
     const { prompts } = useVisualPrompt();
 
-    if (prompts.length === 0) {
+    const visualPrompts = prompts.filter((prompt) => prompt.type === 'VISUAL');
+
+    if (visualPrompts.length === 0) {
         return (
             <Flex marginY={'size-300'} justifyContent={'center'} alignItems={'center'}>
                 <Text>No prompts available</Text>
@@ -21,11 +23,9 @@ export const PromptThumbnailList = () => {
 
     return (
         <Grid columns={['1fr', '1fr']} gap={'size-100'}>
-            {prompts
-                .filter((prompt) => prompt.type === 'VISUAL')
-                .map((prompt) => (
-                    <PromptThumbnail key={prompt.id} prompt={prompt} />
-                ))}
+            {visualPrompts.map((prompt) => (
+                <PromptThumbnail key={prompt.id} prompt={prompt} />
+            ))}
         </Grid>
     );
 };
