@@ -43,8 +43,7 @@ export const AnnotationActionsProvider = ({
         }
 
         return [];
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [initialAnnotationsDTO, labels, roi.width, roi.height]);
+    }, [initialAnnotationsDTO, labels, roi]);
 
     const [annotations, setAnnotations, undoRedoActions] = useUndoRedoState<Annotation[]>(convertedAnnotations);
 
