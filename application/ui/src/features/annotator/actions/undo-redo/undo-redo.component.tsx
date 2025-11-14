@@ -7,7 +7,7 @@ import { ActionButton, Flex } from '@geti/ui';
 import { Redo, Undo } from '@geti/ui/icons';
 import { useHotkeys } from 'react-hotkeys-hook';
 
-import { HOTKEYS } from '../actions/hotkeys';
+import { HOTKEYS } from '../hotkeys';
 import { useUndoRedo } from './undo-redo-provider.component';
 
 export const UndoRedo = ({ isDisabled }: { isDisabled?: boolean }) => {

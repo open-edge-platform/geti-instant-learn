@@ -8,7 +8,7 @@ import { ReactNode } from 'react';
 import { SourceType } from '@geti-prompt/api';
 import { ImagesFolder as ImagesFolderIcon, WebCam } from '@geti-prompt/icons';
 
-import { DisclosureGroup } from '../../../components/disclosure-group/disclosure-group.component';
+import { DisclosureGroup } from '../disclosure-group/disclosure-group.component';
 import { useGetSources } from './hooks/use-get-sources';
 import { ImagesFolder } from './images-folder/images-folder.component';
 import { getImagesFolderSource, getWebcamSource } from './utils';

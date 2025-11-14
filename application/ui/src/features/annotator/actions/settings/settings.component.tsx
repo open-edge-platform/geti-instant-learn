@@ -23,7 +23,7 @@ import {
 } from '@geti/ui';
 import { Adjustments, Close } from '@geti/ui/icons';
 
-import { useFullScreenMode } from '../actions/full-screen-mode.component';
+import { useFullScreenMode } from '../full-screen-mode.component';
 import { CanvasSettings } from './canvas-settings.component';
 import { Hotkeys } from './hotkeys.component';
 
