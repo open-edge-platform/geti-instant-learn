@@ -177,7 +177,7 @@ class ModelService(BaseService):
 
         if update_data.active and not model.active:
             self._deactivate_existing_active_model(project_id=project_id)
-            self._emit_activation(project_id=project_id, model_id=update_data.id)
+            self._emit_activation(project_id=project_id, model_id=model_id)
 
         # Update name if provided and different
         if update_data.name is not None and model.name != update_data.name:

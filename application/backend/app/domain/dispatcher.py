@@ -27,7 +27,7 @@ class ModelDeactivationEvent(BaseModel):
 
 
 class ModelActivationEvent(BaseModel):
-    """Event fired when the current model should be deactivated."""
+    """Event fired when the current model should be activated."""
 
     model_id: UUID
     project_id: UUID

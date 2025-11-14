@@ -39,16 +39,16 @@ def processors_db_to_list_items(
     processors: Iterable[ProcessorDB], total: int, offset: int = 0, limit: int = 20
 ) -> ProcessorListSchema:
     """
-    Map an iterable of LabelDB entities to LabelsListSchema with pagination metadata.
+    Map an iterable of ProcessorDB entities to ProcessorListSchema with pagination metadata.
 
     Parameters:
-        processors: Iterable of LabelDB entities to map
-        total: Total number of labels available
+        processors: Iterable of ProcessorDB entities to map
+        total: Total number of processors available
         offset: Starting index of the returned items
         limit: Maximum number of items requested
 
     Returns:
-        LabelsListSchema with mapped labels and pagination metadata
+        ProcessorListSchema with mapped processors and pagination metadata
     """
     items = [processor_db_to_schema(processor) for processor in processors]
 

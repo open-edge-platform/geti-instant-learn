@@ -67,7 +67,7 @@ class ProcessorRepository(BaseRepository):
 
     def get_activated_in_project(self, project_id: UUID) -> ProcessorDB | None:
         """
-        Retrieve the connected source in a project (if any).
+        Retrieve the active model configuration in a project (if any).
         """
         logger.debug(f"Get active model configuration for project_id={project_id}")
         stmt = select(ProcessorDB).where(ProcessorDB.project_id == project_id, ProcessorDB.active.is_(True))
