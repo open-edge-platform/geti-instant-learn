@@ -5,6 +5,7 @@
 
 import { useEffect } from 'react';
 
+import { usePromptMode } from '@geti-prompt/hooks';
 import { Flex, Text, ToggleButtons } from '@geti/ui';
 import { useSearchParams } from 'react-router-dom';
 
@@ -29,11 +30,6 @@ const getSelectedPromptMode = (mode: string): PromptMode => {
         return 'visual';
     }
     return 'text';
-};
-
-export const usePromptMode = (): PromptMode => {
-    const [searchParams] = useSearchParams();
-    return (searchParams.get('mode') as PromptMode) ?? 'visual';
 };
 
 export const PromptModes = () => {

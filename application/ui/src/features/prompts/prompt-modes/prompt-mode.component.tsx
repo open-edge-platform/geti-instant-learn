@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { usePromptMode } from '@geti-prompt/hooks';
+
 import { TextPrompt } from '../text-prompt/text-prompt.component';
 import { VisualPrompt } from '../visual-prompt/visual-prompt.component';
-import { usePromptMode } from './prompt-modes.component';
 
 export const PromptMode = () => {
     const mode = usePromptMode();

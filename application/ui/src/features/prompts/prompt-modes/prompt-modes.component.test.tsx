@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { usePromptMode } from '@geti-prompt/hooks';
 import { render } from '@geti-prompt/test-utils';
 import { fireEvent, screen } from '@testing-library/react';
 
-import { PromptModes, usePromptMode } from './prompt-modes.component';
+import { PromptModes } from './prompt-modes.component';
 
 describe('PromptModes', () => {
     it('renders prompt mode toggle buttons', () => {

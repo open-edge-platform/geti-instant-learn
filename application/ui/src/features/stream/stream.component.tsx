@@ -3,10 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useGetSources, usePromptMode } from '@geti-prompt/hooks';
 import { dimensionValue, Grid, minmax, View } from '@geti/ui';
 
-import { usePromptMode } from '../prompts/prompt-modes/prompt-modes.component';
-import { useGetSources } from '../sources-sinks-configuration/sources-configuration/hooks/use-get-sources';
 import { CaptureFrameButton } from './capture-frame-button.component';
 import { ImagesFolderStream } from './images-folder-stream/images-folder-stream.component';
 import { Video } from './video.component';

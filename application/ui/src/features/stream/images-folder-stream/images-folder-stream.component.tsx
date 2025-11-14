@@ -5,11 +5,10 @@
 
 import { useRef, useState } from 'react';
 
-import { useEventListener } from '@geti-prompt/hooks';
+import { useEventListener, usePromptMode } from '@geti-prompt/hooks';
 import { ActionButton, Grid, minmax, View } from '@geti/ui';
 import { ChevronLeft, ChevronRight } from '@geti/ui/icons';
 
-import { usePromptMode } from '../../prompts/prompt-modes/prompt-modes.component';
 import { CaptureFrameButton } from '../capture-frame-button.component';
 import { FramesList, useFrames, type Frame } from '../frames-list/frames-list.component';
 import { Video } from '../video.component';
