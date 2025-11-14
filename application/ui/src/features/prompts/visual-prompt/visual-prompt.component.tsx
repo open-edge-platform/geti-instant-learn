@@ -5,11 +5,11 @@
 
 import { Flex, Grid } from '@geti/ui';
 
+import { SavePrompt } from '../../../components/save-prompt/save-prompt.component';
 import { useSelectedFrame } from '../../../shared/selected-frame-provider.component';
 import { CapturedFramePlaceholder } from './captured-frame/captured-frame-placeholder.component';
 import { CapturedFrame, CapturedFrameProviders } from './captured-frame/captured-frame.component';
 import { PromptThumbnailList } from './prompt-thumbnails/prompt-thumbnail-list/prompt-thumbnail-list.component';
-import { SavePrompt } from './save-prompt.component';
 import { useVisualPrompt } from './visual-prompt-provider.component';
 
 export const VisualPrompt = () => {
