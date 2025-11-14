@@ -7,9 +7,9 @@ import { CSSProperties } from 'react';
 
 import { Button, Flex, StatusLight, View } from '@geti/ui';
 
-import { useGetSources } from '../features/sources-sinks-configuration/sources-configuration/hooks/use-get-sources';
-import { SourcesSinksConfiguration } from '../features/sources-sinks-configuration/sources-sinks-configuration.component';
-import { useWebRTCConnection } from '../features/stream/web-rtc/web-rtc-connection-provider';
+import { useGetSources } from '../../features/sources-sinks-configuration/sources-configuration/hooks/use-get-sources';
+import { SourcesSinksConfiguration } from '../../features/sources-sinks-configuration/sources-sinks-configuration.component';
+import { useWebRTCConnection } from '../../features/stream/web-rtc/web-rtc-connection-provider';
 
 const StreamStatus = () => {
     const { data } = useGetSources();
