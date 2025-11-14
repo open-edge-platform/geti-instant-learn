@@ -146,17 +146,11 @@ CMD ["uv", "run", "app/main.py"]
 ######################
 FROM runtime-base AS geti-prompt-cpu
 
-ARG UID=10001
-ENV UID=${UID}
-
 COPY --from=cpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
 
 ######################
 # Server (GPU version)
 ######################
 FROM runtime-base AS geti-prompt-gpu
-
-ARG UID=10001
-ENV UID=${UID}
 
 COPY --from=gpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
