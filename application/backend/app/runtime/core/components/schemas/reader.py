@@ -68,7 +68,7 @@ class FrameMetadata(BaseModel):
     """Metadata for a single frame in the timeline."""
 
     index: int
-    thumbnail: str  # url to the frame itself
+    thumbnail: str
 
 
 class FrameListResponse(BaseModel):

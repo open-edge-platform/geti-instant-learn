@@ -26,7 +26,6 @@ asset-prefix := "/html"
 data-dir := "/data"
 static-files-dir := workdir-path + asset-prefix
 db-data-dir := workdir-path + data-dir
-mocked-file := static-files-dir + "/assets/test.webp"
 ai-device := "cpu"  # options: cpu, gpu
 
 # -------------------------------------------------------------------------------------------------

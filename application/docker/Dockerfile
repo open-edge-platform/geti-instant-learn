@@ -115,8 +115,6 @@ COPY --link --chown=${UID} backend/app /geti_prompt/app
 COPY --from=backend-base --chown=${UID} /geti_prompt/library/src /geti_prompt/library/src
 COPY --from=backend-base --chown=${UID} /bin/uv /bin/uv
 COPY --from=web_ui --chown=${UID} /home/app/web_ui/dist/ ${STATIC_FILES_DIR}
-# temporary file for testing
-COPY --from=web_ui --chown=${UID} /home/app/web_ui/src/assets/test.webp ${MOCKED_FILE}
 
 WORKDIR /geti_prompt
 

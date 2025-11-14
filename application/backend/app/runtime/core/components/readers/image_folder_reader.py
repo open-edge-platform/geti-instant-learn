@@ -5,7 +5,6 @@ import base64
 import logging
 import re
 import time
-from abc import ABC
 from pathlib import Path
 
 import cv2
@@ -13,13 +12,11 @@ import cv2
 from runtime.core.components.base import StreamReader
 from runtime.core.components.schemas.processor import InputData
 from runtime.core.components.schemas.reader import FrameListResponse, FrameMetadata, ReaderConfig
-from settings import get_settings
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 
-class ImageFolderReader(StreamReader, ABC):
+class ImageFolderReader(StreamReader):
     """
     A reader implementation for loading images from a folder.
 
@@ -27,8 +24,9 @@ class ImageFolderReader(StreamReader, ABC):
     supporting common image formats (jpg, jpeg, png, bmp, tiff).
     """
 
-    def __init__(self, config: ReaderConfig) -> None:
+    def __init__(self, config: ReaderConfig, supported_extensions: set[str]) -> None:
         self._config = config
+        self._supported_extensions = supported_extensions
         self._image_paths: list[Path] = []
         self._current_index: int = 0
         self._thumbnail_cache: dict[int, str] = {}
@@ -55,8 +53,7 @@ class ImageFolderReader(StreamReader, ABC):
             logger.warning(f"Failed to generate thumbnail for {image_path}: {e}")
             return None
 
-    @staticmethod
-    def _get_image_files(folder_path: Path) -> list[Path]:
+    def _get_image_files(self, folder_path: Path) -> list[Path]:
         """
         Filter and collect supported image files from the given folder.
 
@@ -67,9 +64,8 @@ class ImageFolderReader(StreamReader, ABC):
             A list of Path objects pointing to supported image files.
         """
         return [
-            path
-            for path in folder_path.iterdir()
-            if path.is_file() and path.suffix.lower() in settings.supported_extension
+            path for path in folder_path.iterdir() if path.is_file()
+                                                      and path.suffix.lower() in self._supported_extensions
         ]
 
     @staticmethod
@@ -158,13 +154,7 @@ class ImageFolderReader(StreamReader, ABC):
                 # Skip invalid images or provide placeholder
                 continue
 
-            frames.append(
-                FrameMetadata(
-                    index=idx,
-                    thumbnail=thumbnail,
-                    path=str(image_path),
-                )
-            )
+            frames.append(FrameMetadata(index=idx, thumbnail=thumbnail))
 
         return FrameListResponse(total=len(self._image_paths), page=page, page_size=page_size, frames=frames)
 

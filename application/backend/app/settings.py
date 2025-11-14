@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     no_proxy: str = Field(default="localhost,127.0.0.1,::1", alias="no_proxy")
 
     # Supported file formats
-    supported_extension: set[str] = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif"}
+    supported_extensions: set[str] = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif"}
 
     # Thumbnail generation
     thumbnail_max_dimension: int = 300
