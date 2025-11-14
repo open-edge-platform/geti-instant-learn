@@ -10,9 +10,14 @@ import { Header } from './header.component';
 
 describe('Header', () => {
     it('renders header properly', async () => {
-        render(<Header />);
+        render(
+            <Header homeLink=''>
+                <div>Here we are</div>
+            </Header>
+        );
 
         await waitForElementToBeRemoved(screen.getByRole('progressbar'));
         expect(await screen.findByText('Geti Prompt')).toBeInTheDocument();
+        expect(await screen.findByText('Here we are')).toBeInTheDocument();
     });
 });
