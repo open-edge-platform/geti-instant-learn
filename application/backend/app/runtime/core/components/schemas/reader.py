@@ -78,3 +78,9 @@ class FrameListResponse(BaseModel):
     page: int
     page_size: int
     frames: list[FrameMetadata]
+
+
+class FrameIndexResponse(BaseModel):
+    """Response for current frame index."""
+
+    index: int

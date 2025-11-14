@@ -64,8 +64,9 @@ class ImageFolderReader(StreamReader):
             A list of Path objects pointing to supported image files.
         """
         return [
-            path for path in folder_path.iterdir() if path.is_file()
-                                                      and path.suffix.lower() in self._supported_extensions
+            path
+            for path in folder_path.iterdir()
+            if path.is_file() and path.suffix.lower() in self._supported_extensions
         ]
 
     @staticmethod

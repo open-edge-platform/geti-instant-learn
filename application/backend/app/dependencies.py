@@ -26,7 +26,7 @@ settings = get_settings()
 
 def get_supported_image_extensions() -> set[str]:
     """Provides configuration for ImageFolderReader."""
-    return  settings.supported_extensions
+    return settings.supported_extensions
 
 
 # --- Core singletons ---
@@ -152,3 +152,4 @@ FrameServiceDep = Annotated[FrameService, Depends(get_frame_service)]
 FrameServiceWithQueueDep = Annotated[FrameService, Depends(get_frame_service_with_queue)]
 LabelServiceDep = Annotated[LabelService, Depends(get_label_service)]
 PromptServiceDep = Annotated[PromptService, Depends(get_prompt_service)]
+PipelineManagerDep = Annotated[PipelineManager, Depends(get_pipeline_manager)]
