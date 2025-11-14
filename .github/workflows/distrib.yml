@@ -6,7 +6,6 @@ on:
         description: "Specifies the build version to apply to all binaries produced by this workflow"
         type: string
         required: true
-        default: "latest"
   workflow_dispatch:
 jobs:
   component-check:
@@ -41,7 +40,7 @@ jobs:
       - name: Build docker image for ${{ matrix.ai-device }}
         working-directory: application
         env:
-          BUILD_VERSION: ${{ inputs.build_version }}
+          BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
           DEVICE: ${{ matrix.ai-device }}
         run: |
           just ai-device="${DEVICE}" version="${BUILD_VERSION}" docker-build-context="--no-cache" build-image
@@ -49,7 +48,7 @@ jobs:
       - name: Show size of the image for ${{ matrix.ai-device }}
         working-directory: application
         env:
-          BUILD_VERSION: ${{ inputs.build_version }}
+          BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
           DEVICE: ${{ matrix.ai-device }}
         run: |
           just ai-device="${DEVICE}" version="${BUILD_VERSION}" show-size
@@ -57,7 +56,7 @@ jobs:
       - name: Test image for ${{ matrix.ai-device }}
         working-directory: application
         env:
-          BUILD_VERSION: ${{ inputs.build_version }}
+          BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
           DEVICE: ${{ matrix.ai-device }}
         run: |
           just ai-device="${DEVICE}" version="${BUILD_VERSION}" test-image
