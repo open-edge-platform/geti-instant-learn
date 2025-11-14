@@ -10,11 +10,11 @@ import { Header } from '../components/header/header.component';
 import { MainContent } from '../components/main-content/main-content.component';
 import { Sidebar } from '../components/sidebar/sidebar.component';
 import { Toolbar } from '../components/toolbar/toolbar.component';
+import { paths } from '../constants/paths';
 import { useCurrentProject } from '../features/project/hooks/use-current-project.hook';
 import { ProjectsListPanel } from '../features/project/projects-list-panel.component';
-import { SelectedFrameProvider } from '../features/stream/selected-frame-provider.component';
 import { WebRTCConnectionProvider } from '../features/stream/web-rtc/web-rtc-connection-provider';
-import { paths } from './paths';
+import { SelectedFrameProvider } from '../shared/selected-frame-provider.component';
 
 export const ProjectRoute = () => {
     // Check if the current project is valid

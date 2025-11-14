@@ -7,7 +7,7 @@ import { expect, http, test } from '@geti-prompt/test-fixtures';
 import { NetworkFixture } from '@msw/playwright';
 
 import { ProjectType } from '../../src/api';
-import { paths } from '../../src/routes/paths';
+import { paths } from '../../src/constants/paths';
 import { getMockedProject } from '../../src/test-utils/mocks/mock-project';
 
 const registerApiProjects = ({

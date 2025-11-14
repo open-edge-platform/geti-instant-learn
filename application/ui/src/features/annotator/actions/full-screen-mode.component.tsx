@@ -9,7 +9,7 @@ import { ActionButton } from '@geti/ui';
 import { Collapse, Expand } from '@geti/ui/icons';
 import { useHotkeys } from 'react-hotkeys-hook';
 
-import { HOTKEYS } from '../../../annotator/hotkeys/hotkeys';
+import { HOTKEYS } from './hotkeys';
 
 const FullScreenModeContext = createContext<{
     isFullScreenMode: boolean;

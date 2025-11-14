@@ -8,7 +8,7 @@ import { NotFound } from '@geti/ui/icons';
 import { isObject, isString } from 'lodash-es';
 import { isRouteErrorResponse, useRouteError } from 'react-router';
 
-import { paths } from './paths';
+import { paths } from '../constants/paths';
 
 const redirectTo = (url: string): void => {
     window.location.href = url;

@@ -8,7 +8,7 @@ import { ReactNode } from 'react';
 import { render } from '@geti-prompt/test-utils';
 import { fireEvent, screen } from '@testing-library/react';
 
-import { ZoomProvider } from '../../../../components/zoom/zoom.provider';
+import { ZoomProvider } from '../../../components/zoom/zoom.provider';
 import { ZoomManagement } from './zoom-management.component';
 
 const renderWithZoomProvider = (ui: ReactNode) => {

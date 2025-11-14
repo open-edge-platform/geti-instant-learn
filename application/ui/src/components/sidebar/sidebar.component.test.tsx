@@ -6,7 +6,7 @@
 import { getMockedProject, render } from '@geti-prompt/test-utils';
 import { fireEvent, screen } from '@testing-library/react';
 import { HttpResponse } from 'msw';
-import { SelectedFrameProvider } from 'src/features/stream/selected-frame-provider.component';
+import { SelectedFrameProvider } from 'src/shared/selected-frame-provider.component';
 
 import { http, server } from '../../setup-test';
 import { Sidebar } from './sidebar.component';

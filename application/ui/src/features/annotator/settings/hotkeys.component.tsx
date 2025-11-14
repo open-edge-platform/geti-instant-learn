@@ -5,7 +5,7 @@
 
 import { Grid, Keyboard, Text } from '@geti/ui';
 
-import { COMMAND_KEY, HOTKEYS } from '../hotkeys/hotkeys';
+import { COMMAND_KEY, HOTKEYS } from '../actions/hotkeys';
 
 interface HotkeyItemProps {
     hotkeyName: string;

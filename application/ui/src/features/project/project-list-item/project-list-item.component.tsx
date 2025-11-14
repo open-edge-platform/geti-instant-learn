@@ -9,7 +9,7 @@ import { type ProjectType } from '@geti-prompt/api';
 import { Flex, PhotoPlaceholder, Text } from '@geti/ui';
 import { Link } from 'react-router-dom';
 
-import { paths } from '../../../routes/paths';
+import { paths } from '../../../constants/paths';
 import { ActivateProjectDialog } from '../activate-project-dialog/activate-project-dialog.component';
 import { useProjectActivityManagement } from '../hooks/use-project-activity-management.hook';
 import { ProjectActivityStatus } from '../project-activity-status/project-activity-status.component';

@@ -7,8 +7,8 @@ import { ActionButton } from '@geti/ui';
 import { Invisible, Visible } from '@geti/ui/icons';
 import { useHotkeys } from 'react-hotkeys-hook';
 
-import { HOTKEYS } from '../../../annotator/hotkeys/hotkeys';
-import { useAnnotationVisibility } from '../../../annotator/providers/annotation-visibility-provider.component';
+import { useAnnotationVisibility } from '../providers/annotation-visibility-provider.component';
+import { HOTKEYS } from './hotkeys';
 
 export const ToggleAnnotationsVisibility = () => {
     const { isVisible, toggleVisibility } = useAnnotationVisibility();

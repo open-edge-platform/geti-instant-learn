@@ -5,7 +5,7 @@
 
 import { Page } from '@playwright/test';
 
-import { paths } from '../../src/routes/paths';
+import { paths } from '../../src/constants/paths';
 
 export class ProjectPage {
     constructor(private page: Page) {}
