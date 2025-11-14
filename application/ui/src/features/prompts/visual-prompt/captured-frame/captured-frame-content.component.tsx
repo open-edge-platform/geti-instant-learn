@@ -7,8 +7,8 @@ import { View } from '@geti/ui';
 
 import { ZoomProvider } from '../../../../components/zoom/zoom.provider';
 import { AnnotatorActions } from '../../../annotator/actions/annotator-actions.component';
-import { AnnotatorCanvas } from '../../../annotator/annotator-canvas';
-import { AnnotatorCanvasSettings } from '../../../annotator/settings/annotator-canvas-settings.component';
+import { AnnotatorCanvasSettings } from '../../../annotator/actions/settings/annotator-canvas-settings.component';
+import { AnnotatorCanvas } from '../../../annotator/annotator-canvas/annotator-canvas';
 import { Labels } from '../labels-management/labels.component';
 
 export const CapturedFrameContent = () => {

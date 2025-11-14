@@ -8,13 +8,13 @@ import { useCallback } from 'react';
 import { View } from '@geti/ui';
 import { useHotkeys } from 'react-hotkeys-hook';
 
-import { ZoomTransform } from '../../components/zoom/zoom-transform';
-import { HOTKEYS } from './actions/hotkeys';
-import { Annotations } from './annotations/annotations.component';
-import { useAnnotationActions } from './providers/annotation-actions-provider.component';
-import { useAnnotator } from './providers/annotator-provider.component';
-import { useSelectedAnnotations } from './providers/select-annotation-provider.component';
-import { ToolManager } from './tools/tool-manager.component';
+import { ZoomTransform } from '../../../components/zoom/zoom-transform';
+import { HOTKEYS } from '../actions/hotkeys';
+import { Annotations } from '../annotations/annotations.component';
+import { useAnnotationActions } from '../providers/annotation-actions-provider.component';
+import { useAnnotator } from '../providers/annotator-provider.component';
+import { useSelectedAnnotations } from '../providers/select-annotation-provider.component';
+import { ToolManager } from '../tools/tool-manager.component';
 
 import styles from './annotator-canvas.module.scss';
 

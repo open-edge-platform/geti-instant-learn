@@ -5,7 +5,7 @@
 
 import { Flex, Heading, IntelBrandedLoading, View } from '@geti/ui';
 
-export const AnnotatorLoading = ({ isLoading }: { isLoading: boolean }) => {
+export const SAMLoading = ({ isLoading }: { isLoading: boolean }) => {
     return (
         <View
             position={'absolute'}
