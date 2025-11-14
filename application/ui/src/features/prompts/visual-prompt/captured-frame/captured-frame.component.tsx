@@ -7,11 +7,11 @@ import { ReactNode, Suspense, useEffect, useState } from 'react';
 
 import { Flex, Grid, Loading, minmax } from '@geti/ui';
 
+import { CanvasSettingsProvider } from '../../../../features/annotator/actions/settings/canvas-settings-provider.component';
 import { AnnotationActionsProvider } from '../../../../features/annotator/providers/annotation-actions-provider.component';
 import { AnnotationVisibilityProvider } from '../../../../features/annotator/providers/annotation-visibility-provider.component';
 import { AnnotatorProvider, useAnnotator } from '../../../../features/annotator/providers/annotator-provider.component';
 import { SelectAnnotationProvider } from '../../../../features/annotator/providers/select-annotation-provider.component';
-import { CanvasSettingsProvider } from '../../../../features/annotator/settings/canvas-settings-provider.component';
 import { Annotation } from '../../../../features/annotator/types';
 import { FullScreenModeProvider } from '../../../annotator/actions/full-screen-mode.component';
 import { convertAnnotationsFromDTO } from '../api/utils';
