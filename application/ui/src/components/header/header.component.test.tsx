@@ -4,7 +4,7 @@
  */
 
 import { render } from '@geti-prompt/test-utils';
-import { screen, waitForElementToBeRemoved } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 
 import { Header } from './header.component';
 
@@ -16,7 +16,6 @@ describe('Header', () => {
             </Header>
         );
 
-        await waitForElementToBeRemoved(screen.getByRole('progressbar'));
         expect(await screen.findByText('Geti Prompt')).toBeInTheDocument();
         expect(await screen.findByText('Here we are')).toBeInTheDocument();
     });
