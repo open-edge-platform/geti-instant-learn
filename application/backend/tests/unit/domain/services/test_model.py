@@ -317,7 +317,7 @@ class TestGetActiveModel:
         assert exc_info.value.resource_type == ResourceType.PROCESSOR
 
 
-class TestUpdateModelConfiguration:
+class TestUpdateModel:
     """Tests for update_model method."""
 
     def test_update_model_success(
@@ -334,6 +334,14 @@ class TestUpdateModelConfiguration:
         """Test successfully updating a model configuration."""
         mock_project_repository.get_by_id.return_value = sample_project_db
         mock_processor_repository.get_by_id_and_project.return_value = sample_processor_db
+
+        # Ensure the mock processor has a valid UUID for its id
+        sample_processor_db.id = uuid4()
+
+        # Mock the active model returned by get_activated_in_project
+        active_model = Mock(spec=ProcessorDB)
+        active_model.id = uuid4()
+        mock_processor_repository.get_activated_in_project.return_value = active_model
 
         update_data = Mock(spec=ProcessorUpdateSchema)
         update_data.name = "updated_name"
