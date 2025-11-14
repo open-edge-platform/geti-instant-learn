@@ -110,21 +110,19 @@ VOLUME ${DB_DATA_DIR}
 
 # Install OpenGL libraries for opencv-python
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1=1.6.0-1 \
-    libglib2.0-0=2.74.6-2+deb12u7 \
+      libgl1=1.6.0-1 \
+      libglib2.0-0=2.74.6-2+deb12u7 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
 # Remove setuptools, pip, and wheel because uv is used as the package manager.
 # This reduces image size and attack surface, and avoids conflicts with uv.
-RUN useradd -l -u ${UID} ${USER_NAME} && \
-    usermod -G video ${USER_NAME} && \
-    mkdir -p /home/${USER_NAME}/.cache/uv && \
-    chown -R ${UID}:${UID} /home/${USER_NAME} && \
-    pip3 uninstall -y setuptools pip wheel && \
-    rm -rf /root/.cache/pip
-
-USER ${USER_NAME}
+RUN useradd -l -u ${UID} ${USER_NAME} \
+    && usermod -G video ${USER_NAME} \
+    && mkdir -p /home/${USER_NAME}/.cache/uv \
+    && chown -R ${UID}:${UID} /home/${USER_NAME} \
+    && pip3 uninstall -y setuptools pip wheel \
+    && rm -rf /root/.cache/pip
 
 # Copy backend source code
 COPY --link --chown=${UID} backend/app /geti_prompt/app
@@ -146,11 +144,30 @@ CMD ["uv", "run", "app/main.py"]
 ######################
 FROM runtime-base AS geti-prompt-cpu
 
+# needed to define it here to allow installation of packages
+USER ${USER_NAME}
+
 COPY --from=cpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
 
 ######################
 # Server (GPU version)
 ######################
 FROM runtime-base AS geti-prompt-gpu
+
+RUN apt-get update  \
+    && apt-get install -y --no-install-recommends wget=1.21.3-1+deb12u1 \
+    && wget -q https://developer.download.nvidia.com/compute/cuda/repos/debian12/x86_64/cuda-keyring_1.1-1_all.deb \
+    && dpkg -i cuda-keyring_1.1-1_all.deb \
+    && rm -rf cuda-keyring_1.1-1_all.deb \
+    && apt-get remove -y wget
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+      nvidia-open=580.105.08-1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# needed to define it here to allow installation of packages
+USER ${USER_NAME}
 
 COPY --from=gpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
