@@ -175,9 +175,11 @@ class ModelService(BaseService):
             logger.error(f"Update failed; model configuration not found id={model_id} project_id={project_id}")
             raise ResourceNotFoundError(resource_type=ResourceType.PROCESSOR, resource_id=str(model_id))
 
-        if update_data.active and not model.active:
+        if update_data.active:
             self._deactivate_existing_active_model(project_id=project_id)
             self._emit_activation(project_id=project_id, model_id=model_id)
+        else:
+            self._emit_deactivation(project_id=project_id, model_id=model_id)
 
         # Update name if provided and different
         if update_data.name is not None and model.name != update_data.name:
@@ -227,9 +229,9 @@ class ModelService(BaseService):
 
         self.processor_repository.delete(model)
         self.session.commit()
+        self._emit_component_change(project_id=project_id, model_id=model_id)
         self._dispatch_pending_events()
         logger.info(f"Model deleted: id={model_id} project_id={project_id}")
-        self._emit_component_change(project_id=project_id, model_id=model_id)
 
     def _ensure_project(self, project_id: UUID) -> ProjectDB:
         """
