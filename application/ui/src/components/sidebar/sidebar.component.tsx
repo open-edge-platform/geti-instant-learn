@@ -5,11 +5,11 @@
 
 import { ReactNode, useState } from 'react';
 
+import { useCurrentProject } from '@geti-prompt/hooks';
 import { Wand } from '@geti-prompt/icons';
 import { Flex, Grid, ToggleButton, View } from '@geti/ui';
 import { GraphChart } from '@geti/ui/icons';
 
-import { useCurrentProject } from '../../features/project/hooks/use-current-project.hook';
 import { Prompt } from '../../features/prompts/prompt.component';
 import { Graphs } from './graphs/graphs.component';
 
