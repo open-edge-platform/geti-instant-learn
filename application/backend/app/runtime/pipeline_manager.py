@@ -129,11 +129,13 @@ class PipelineManager:
             prompt_svc = PromptService(session)
             reference_batch = prompt_svc.get_training_data(config.project_id, PromptType.VISUAL)
 
-        # todo: replace with reading the model configuration from the database when it is integrated
-        # model = ModelFactory.create(config.processor)
         source = self._component_factory.create_source(config.reader, inbound_bcast)
         processor = self._component_factory.create_processor(
-            inbound_bcast, outbound_bcast, MatcherConfig(), reference_batch
+            inbound_bcast,
+            outbound_bcast,
+            # todo: replace MatcherConfig() with reading the model configuration from the database when it is integrated
+            MatcherConfig(),
+            reference_batch,
         )
         sink = self._component_factory.create_sink(outbound_bcast, config.writer)
 
@@ -182,7 +184,7 @@ class PipelineManager:
             self._pipeline.update_component(new_sink)
 
     # todo:
-    # 1. unify methods for regsitring/unregistring all types of consumers.
+    # 1. unify methods for registring/unregistring all types of consumers.
     # 2. use context manager to automaticaly unregister a queue when it exists the scope
 
     def register_webrtc(self, project_id: UUID) -> queue.Queue:

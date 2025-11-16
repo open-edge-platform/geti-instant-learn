@@ -16,20 +16,9 @@ DEVICE_MAP = {
 
 
 class ModelFactory:
-    """
-    A factory for creating Model instances based on a configuration.
-    """
-
     @staticmethod
     def _resolve_device() -> str:
-        """Resolve the device based on RUNTIME environment variable.
-
-        Returns:
-            The device string (cpu, cuda, or xpu).
-
-        Raises:
-            ValueError: If the runtime is not supported.
-        """
+        """Resolve the device based on RUNTIME environment variable."""
         runtime = os.getenv("RUNTIME", "cpu").lower()
         device = DEVICE_MAP.get(runtime)
         if device is None:

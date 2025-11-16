@@ -145,21 +145,6 @@ def prompt_update_schema_to_db(prompt_db: PromptDB, schema: PromptUpdateSchema) 
 def visual_prompt_to_sample(prompt: PromptDB, frame: np.ndarray) -> Sample:
     """
     Convert a visual PromptDB and its frame to a training Sample.
-
-    Pure mapper function that performs validation and delegates to build_sample_from_annotations.
-
-    Args:
-        prompt: Database prompt entity (must be VISUAL type with annotations)
-        frame: Image array in HWC format corresponding to prompt.frame_id
-
-    Returns:
-        Sample object ready for training
-
-    Raises:
-        ServiceError: If prompt is not VISUAL type, has no frame_id, or has no valid annotations
-
-    Note:
-        This function only handles conversion. Frame fetching should be done by the service layer.
     """
     if prompt.type != PromptType.VISUAL:
         raise ServiceError(f"Cannot convert non-visual prompt to sample: prompt type is {prompt.type}")
