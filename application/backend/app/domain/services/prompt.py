@@ -24,6 +24,7 @@ from domain.repositories.project import ProjectRepository
 from domain.repositories.prompt import PromptRepository
 from domain.services.schemas.annotation import AnnotationSchema
 from domain.services.schemas.base import Pagination
+from domain.services.schemas.mappers.annotation import annotations_db_to_schemas
 from domain.services.schemas.mappers.label import label_db_to_schema
 from domain.services.schemas.mappers.prompt import (
     prompt_create_schema_to_db,
@@ -115,9 +116,14 @@ class PromptService:
             A Batch containing Sample objects ready for training, or None if no valid samples found.
         """
         if prompt_type == PromptType.TEXT:
-            raise ServiceError("Text prompts are not supported for training data generation.")
+            logger.warning("Text prompts are not supported for training data generation for project_id=%s", project_id)
+            return None
 
-        self._ensure_project(project_id)
+        project = self.project_repository.get_by_id(project_id)
+        if not project:
+            logger.error("Project not found id=%s", project_id)
+            return None
+
         db_prompts = self.prompt_repository.get_all_by_project(project_id, prompt_type=prompt_type)
 
         samples = []
@@ -344,16 +350,8 @@ class PromptService:
         prompt = prompt_update_schema_to_db(prompt, update_data)
 
         if regenerate_thumbnail and prompt.frame_id:
-            # Convert annotations from DB to schema
-            annotations: list[AnnotationSchema] = []
-            for ann in prompt.annotations:
-                if ann.label_id is not None:
-                    annotation_schema = AnnotationSchema.model_validate(
-                        {"config": ann.config, "label_id": ann.label_id}
-                    )
-                    annotations.append(annotation_schema)
+            annotations = annotations_db_to_schemas(prompt.annotations)
             prompt.thumbnail = self._generate_thumbnail(project_id, prompt.frame_id, annotations)
-
         try:
             self.session.commit()
         except IntegrityError as exc:

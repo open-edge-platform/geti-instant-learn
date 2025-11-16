@@ -20,7 +20,6 @@ from domain.errors import (
 from domain.services.prompt import PromptService
 from domain.services.schemas.annotation import (
     AnnotationSchema,
-    AnnotationType,
     Point,
     PolygonAnnotation,
     RectangleAnnotation,
@@ -560,18 +559,14 @@ def test_project_not_found(service):
 
 
 def test_get_training_data_text_prompts(service):
-    """Test that TEXT prompts raise ServiceError (unsupported operation)."""
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
 
-    with pytest.raises(ServiceError) as exc_info:
-        service.get_training_data(project_id, PromptType.TEXT)
-
-    assert "Text prompts are not supported" in str(exc_info.value)
+    batch = service.get_training_data(project_id, PromptType.TEXT)
+    assert batch is None
 
 
-def test_get_training_data_visual_prompts(service):
-    """Test that VISUAL prompts are converted to a Batch of Samples."""
+def test_get_training_data_for_visual_prompts(service):
     project_id = uuid.uuid4()
     frame_id = uuid.uuid4()
     label_id = uuid.uuid4()
@@ -608,19 +603,7 @@ def test_get_training_data_visual_prompts(service):
     service.frame_repository.get_frame.assert_called_once_with(project_id, frame_id)
 
 
-def test_get_training_data_text_prompts_empty(service):
-    """Test that empty TEXT prompt list still raises ServiceError."""
-    project_id = uuid.uuid4()
-    service.project_repository.get_by_id.return_value = make_project(project_id)
-
-    with pytest.raises(ServiceError) as exc_info:
-        service.get_training_data(project_id, PromptType.TEXT)
-
-    assert "Text prompts are not supported" in str(exc_info.value)
-
-
 def test_get_training_data_visual_prompts_empty(service):
-    """Test that empty VISUAL prompt list returns None."""
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
     service.prompt_repository.get_all_by_project.return_value = []
@@ -631,7 +614,6 @@ def test_get_training_data_visual_prompts_empty(service):
 
 
 def test_get_training_data_visual_prompt_frame_not_found(service):
-    """Test that prompts with missing frames are skipped with warning."""
     project_id = uuid.uuid4()
     frame_id = uuid.uuid4()
 
@@ -646,39 +628,27 @@ def test_get_training_data_visual_prompt_frame_not_found(service):
 
 
 def test_get_training_data_project_not_found(service):
-    """Test that missing project raises ResourceNotFoundError."""
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = None
 
-    with pytest.raises(ResourceNotFoundError) as exc_info:
-        service.get_training_data(project_id, PromptType.VISUAL)
-
-    assert exc_info.value.resource_type == ResourceType.PROJECT
+    batch = service.get_training_data(project_id, PromptType.VISUAL)
+    assert batch is None
 
 
-def test_get_training_data_visual_prompt_no_polygon_annotations(service):
-    """Test that prompts with only non-polygon annotations are skipped."""
+def test_get_training_data_visual_prompt_mapper_error_handled(service):
     project_id = uuid.uuid4()
     frame_id = uuid.uuid4()
-    label_id = uuid.uuid4()
 
     service.project_repository.get_by_id.return_value = make_project(project_id)
-
-    # Rectangle annotation (not polygon - won't generate masks)
-    annotation_db = SimpleNamespace(
-        id=uuid.uuid4(),
-        config=RectangleAnnotation(
-            type=AnnotationType.RECTANGLE, points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]
-        ).model_dump(),
-        label_id=label_id,
-    )
-    visual_prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id, annotations=[annotation_db])
+    visual_prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id)
     service.prompt_repository.get_all_by_project.return_value = [visual_prompt]
 
     frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
     service.frame_repository.get_frame.return_value = frame
 
-    result = service.get_training_data(project_id, PromptType.VISUAL)
+    from unittest.mock import patch
 
-    # Should skip prompt without polygon annotations
+    with patch("domain.services.prompt.visual_prompt_to_sample", side_effect=ServiceError("Mapper error")):
+        result = service.get_training_data(project_id, PromptType.VISUAL)
+
     assert result is None
