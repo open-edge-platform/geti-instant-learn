@@ -21,7 +21,7 @@ from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.factories.components import ComponentFactory, DefaultComponentFactory
 from runtime.core.components.pipeline import Pipeline
 from runtime.core.components.schemas.pipeline import PipelineConfig
-from runtime.core.components.schemas.processor import InputData, OutputData
+from runtime.core.components.schemas.processor import InputData, MatcherConfig, OutputData
 from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 
 logger = logging.getLogger(__name__)
@@ -133,7 +133,7 @@ class PipelineManager:
         processor = self._component_factory.create_processor(
             inbound_bcast,
             outbound_bcast,
-            config.processor,
+            MatcherConfig(),
             reference_batch,
         )
         sink = self._component_factory.create_sink(outbound_bcast, config.writer)

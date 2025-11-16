@@ -65,7 +65,7 @@ def load_sam_model(
     elif sam in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
         model: SamHQ = sam_model_registry[registry_name]()
         with checkpoint_path.open("rb") as checkpoint:
-            state_dict = torch.load(checkpoint, map_location=device)
+            state_dict = torch.load(checkpoint, map_location=device, weights_only=True)
         model.load_state_dict(state_dict)
         model.to(device).eval()
         predictor = SamPredictor(model)
