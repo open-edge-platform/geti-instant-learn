@@ -21,7 +21,7 @@ from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.factories.components import ComponentFactory, DefaultComponentFactory
 from runtime.core.components.pipeline import Pipeline
 from runtime.core.components.schemas.pipeline import PipelineConfig
-from runtime.core.components.schemas.processor import InputData, MatcherConfig, OutputData
+from runtime.core.components.schemas.processor import InputData, OutputData
 from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 
 logger = logging.getLogger(__name__)
