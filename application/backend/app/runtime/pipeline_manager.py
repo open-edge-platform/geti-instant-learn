@@ -3,11 +3,11 @@
 
 import logging
 import queue
-from contextlib import contextmanager
 from uuid import UUID
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from domain.db.models import PromptType
 from domain.dispatcher import (
     ComponentConfigChangeEvent,
     ConfigChangeDispatcher,
@@ -16,11 +16,12 @@ from domain.dispatcher import (
     ProjectDeactivationEvent,
 )
 from domain.services.project import ProjectService
+from domain.services.prompt import PromptService
 from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.factories.components import ComponentFactory, DefaultComponentFactory
 from runtime.core.components.pipeline import Pipeline
 from runtime.core.components.schemas.pipeline import PipelineConfig
-from runtime.core.components.schemas.processor import InputData, OutputData
+from runtime.core.components.schemas.processor import InputData, MatcherConfig, OutputData
 from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 
 logger = logging.getLogger(__name__)
@@ -54,20 +55,12 @@ class PipelineManager:
         self._pipeline: Pipeline | None = None
         self._current_config: PipelineConfig | None = None
 
-    @contextmanager
-    def _project_service(self):
-        """
-        Context manager yielding a short-lived ProjectService, ensures session cleanup.
-        """
-        with self._session_factory() as session:
-            svc = ProjectService(session=session, config_change_dispatcher=self._event_dispatcher)
-            yield svc
-
     def start(self) -> None:
         """
         Start pipeline for active project if present; subscribe to config events.
         """
-        with self._project_service() as svc:
+        with self._session_factory() as session:
+            svc = ProjectService(session=session, config_change_dispatcher=self._event_dispatcher)
             cfg = svc.get_active_pipeline_config()
         if cfg:
             self._current_config = cfg
@@ -93,7 +86,8 @@ class PipelineManager:
         """
         match event:
             case ProjectActivationEvent() as e:
-                with self._project_service() as svc:
+                with self._session_factory() as session:
+                    svc = ProjectService(session=session, config_change_dispatcher=self._event_dispatcher)
                     cfg = svc.get_pipeline_config(e.project_id)
                 if self._pipeline:
                     self._pipeline.stop()
@@ -111,7 +105,8 @@ class PipelineManager:
 
             case ComponentConfigChangeEvent() as e:
                 if self._pipeline and self._pipeline.project_id == e.project_id:
-                    with self._project_service() as svc:
+                    with self._session_factory() as session:
+                        svc = ProjectService(session=session, config_change_dispatcher=self._event_dispatcher)
                         new_cfg = svc.get_pipeline_config(self._pipeline.project_id)
                     self._update_pipeline_components(new_cfg)
                     self._current_config = new_cfg
@@ -130,8 +125,16 @@ class PipelineManager:
         inbound_bcast = FrameBroadcaster[InputData]()
         outbound_bcast = FrameBroadcaster[OutputData]()
 
+        with self._session_factory() as session:
+            prompt_svc = PromptService(session)
+            reference_batch = prompt_svc.get_training_data(config.project_id, PromptType.VISUAL)
+
+        # todo: replace with reading the model configuration from the database when it is integrated
+        # model = ModelFactory.create(config.processor)
         source = self._component_factory.create_source(config.reader, inbound_bcast)
-        processor = self._component_factory.create_processor(inbound_bcast, outbound_bcast, config.processor)
+        processor = self._component_factory.create_processor(
+            inbound_bcast, outbound_bcast, MatcherConfig(), reference_batch
+        )
         sink = self._component_factory.create_sink(outbound_bcast, config.writer)
 
         return Pipeline(
@@ -160,10 +163,16 @@ class PipelineManager:
 
         if new_config.processor != self._current_config.processor:
             logger.info(f"Processor config changed: {self._current_config.processor} -> {new_config.processor}")
+
+            with self._session_factory() as session:
+                prompt_svc = PromptService(session)
+                reference_batch = prompt_svc.get_training_data(new_config.project_id, PromptType.VISUAL)
+
             new_processor = self._component_factory.create_processor(
                 self._pipeline._inbound_broadcaster,
                 self._pipeline._outbound_broadcaster,
                 new_config.processor,
+                reference_batch,
             )
             self._pipeline.update_component(new_processor)
 

@@ -4,6 +4,7 @@
 import logging
 from uuid import UUID
 
+from getiprompt.data.base.batch import Batch
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -21,16 +22,15 @@ from domain.repositories.frame import FrameRepository
 from domain.repositories.label import LabelRepository
 from domain.repositories.project import ProjectRepository
 from domain.repositories.prompt import PromptRepository
-from domain.services.image import generate_thumbnail
 from domain.services.schemas.annotation import AnnotationSchema
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.mappers.label import label_db_to_schema
 from domain.services.schemas.mappers.prompt import (
     prompt_create_schema_to_db,
     prompt_db_to_schema,
-    prompt_db_to_training_sample,
     prompt_update_schema_to_db,
     prompts_db_to_schemas,
+    visual_prompt_to_sample,
 )
 from domain.services.schemas.prompt import (
     PromptCreateSchema,
@@ -38,10 +38,10 @@ from domain.services.schemas.prompt import (
     PromptsListSchema,
     PromptUpdateSchema,
     TextPromptCreateSchema,
-    TrainingSample,
     VisualPromptCreateSchema,
     VisualPromptUpdateSchema,
 )
+from domain.services.thumbnail import generate_thumbnail
 
 logger = logging.getLogger(__name__)
 
@@ -103,34 +103,49 @@ class PromptService:
 
         return PromptsListSchema(prompts=prompts, pagination=pagination)
 
-    def get_training_data(self, project_id: UUID, prompt_type: PromptType) -> list[TrainingSample]:
+    def get_training_data(self, project_id: UUID, prompt_type: PromptType) -> Batch | None:
         """
         Get all prompts of a specific type for a project, formatted for model training.
 
         Parameters:
             project_id: Owning project UUID.
-            prompt_type: The type of prompts to retrieve (TEXT or VISUAL).
+            prompt_type: The type of prompts to retrieve (currently only VISUAL is supported).
 
         Returns:
-            A list of TrainingSample objects.
-
-        Raises:
-            ResourceNotFoundError: If the project does not exist.
+            A Batch containing Sample objects ready for training, or None if no valid samples found.
         """
+        if prompt_type == PromptType.TEXT:
+            raise ServiceError("Text prompts are not supported for training data generation.")
+
         self._ensure_project(project_id)
         db_prompts = self.prompt_repository.get_all_by_project(project_id, prompt_type=prompt_type)
 
-        training_samples: list[TrainingSample] = []
+        samples = []
         for prompt in db_prompts:
-            frame = None
-            if prompt.type == PromptType.VISUAL and prompt.frame_id:
-                frame = self.frame_repository.get_frame(project_id, prompt.frame_id)
+            if prompt.frame_id:
+                try:
+                    frame = self.frame_repository.get_frame(project_id, prompt.frame_id)
+                    if frame is None:
+                        logger.warning(
+                            "Frame not found for prompt: prompt_id=%s, frame_id=%s, project_id=%s",
+                            prompt.id,
+                            prompt.frame_id,
+                            project_id,
+                        )
+                        continue
+                    samples.append(visual_prompt_to_sample(prompt, frame))
+                except ServiceError as exc:
+                    logger.warning(
+                        "Failed to convert prompt to sample: prompt_id=%s, error=%s",
+                        prompt.id,
+                        str(exc),
+                    )
+                    continue
 
-            sample = prompt_db_to_training_sample(prompt, frame=frame)
-            if sample:
-                training_samples.append(sample)
+        if not samples:
+            return None
 
-        return training_samples
+        return Batch.collate(samples)
 
     def get_prompt(self, project_id: UUID, prompt_id: UUID) -> PromptSchema:
         """
@@ -329,7 +344,14 @@ class PromptService:
         prompt = prompt_update_schema_to_db(prompt, update_data)
 
         if regenerate_thumbnail and prompt.frame_id:
-            annotations = [AnnotationSchema(config=ann.config, label_id=ann.label_id) for ann in prompt.annotations]
+            # Convert annotations from DB to schema
+            annotations: list[AnnotationSchema] = []
+            for ann in prompt.annotations:
+                if ann.label_id is not None:
+                    annotation_schema = AnnotationSchema.model_validate(
+                        {"config": ann.config, "label_id": ann.label_id}
+                    )
+                    annotations.append(annotation_schema)
             prompt.thumbnail = self._generate_thumbnail(project_id, prompt.frame_id, annotations)
 
         try:

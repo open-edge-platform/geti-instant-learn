@@ -2,12 +2,15 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import logging
+import time
 from queue import Empty, Queue
 
+import torch
 from getiprompt.data.base.batch import Batch
 from getiprompt.data.base.sample import Sample
 from getiprompt.models.base import Model
 from getiprompt.types.results import Results
+from torchvision import tv_tensors
 
 from runtime.core.components.base import PipelineComponent
 from runtime.core.components.broadcaster import FrameBroadcaster
@@ -53,7 +56,17 @@ class Processor(PipelineComponent):
             try:
                 data = self._in_queue.get(timeout=0.1)
                 if model is not None:
-                    results = model.infer(Batch.collate(Sample(image=data.frame)))
+                    # Convert HWC (numpy) to CHW (tensor) for model
+                    image_chw = tv_tensors.Image(torch.from_numpy(data.frame).permute(2, 0, 1))
+                    sample = Sample(image=image_chw)
+                    batch = Batch.collate([sample])
+
+                    start_time = time.perf_counter()
+                    results = model.infer(batch)
+                    inference_time_ms = (time.perf_counter() - start_time) * 1000
+                    logger.info("Model inference took %.2f ms", inference_time_ms)
+                    print(f"Model inference took {inference_time_ms} ms")
+
                     output_data = OutputData(frame=data.frame, results=results)
                 else:
                     output_data = OutputData(frame=data.frame, results=Results())

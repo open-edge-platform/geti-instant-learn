@@ -5,9 +5,15 @@ from collections.abc import Iterable
 from uuid import UUID, uuid4
 
 import numpy as np
+from getiprompt.data.base.sample import Sample
+from torch import from_numpy
+from torchvision import tv_tensors
 
 from domain.db.models import AnnotationDB, PromptDB, PromptType
-from domain.services.schemas.annotation import AnnotationSchema
+from domain.errors import ServiceError
+from domain.services.schemas.annotation import AnnotationSchema, AnnotationType
+from domain.services.schemas.mappers.annotation import annotations_db_to_schemas
+from domain.services.schemas.mappers.mask import polygons_to_masks
 from domain.services.schemas.prompt import (
     PromptCreateSchema,
     PromptListItemSchema,
@@ -16,11 +22,8 @@ from domain.services.schemas.prompt import (
     TextPromptCreateSchema,
     TextPromptSchema,
     TextPromptUpdateSchema,
-    TextTrainingSample,
-    TrainingSample,
     VisualPromptListItemSchema,
     VisualPromptSchema,
-    VisualTrainingSample,
 )
 
 
@@ -139,20 +142,55 @@ def prompt_update_schema_to_db(prompt_db: PromptDB, schema: PromptUpdateSchema) 
     return prompt_db
 
 
-def prompt_db_to_training_sample(prompt: PromptDB, frame: np.ndarray | None = None) -> TrainingSample | None:
+def visual_prompt_to_sample(prompt: PromptDB, frame: np.ndarray) -> Sample:
     """
-    Map a PromptDB instance to a TrainingSample object.
+    Convert a visual PromptDB and its frame to a training Sample.
+
+    Pure mapper function that performs validation and delegates to build_sample_from_annotations.
 
     Args:
-        prompt: The prompt database entity.
-        frame: The frame as a numpy array (for visual prompts).
+        prompt: Database prompt entity (must be VISUAL type with annotations)
+        frame: Image array in HWC format corresponding to prompt.frame_id
 
     Returns:
-        A TrainingSample object or None if the prompt is not valid for training.
+        Sample object ready for training
+
+    Raises:
+        ServiceError: If prompt is not VISUAL type, has no frame_id, or has no valid annotations
+
+    Note:
+        This function only handles conversion. Frame fetching should be done by the service layer.
     """
-    if prompt.type == PromptType.TEXT and prompt.text:
-        return TextTrainingSample(content=prompt.text)
-    if prompt.type == PromptType.VISUAL and frame is not None:
-        annotations = [AnnotationSchema(config=ann.config, label_id=ann.label_id) for ann in prompt.annotations]
-        return VisualTrainingSample(frame=frame, annotations=annotations)
-    return None
+    if prompt.type != PromptType.VISUAL:
+        raise ServiceError(f"Cannot convert non-visual prompt to sample: prompt type is {prompt.type}")
+
+    annotations = annotations_db_to_schemas(prompt.annotations)
+
+    if not annotations:
+        raise ServiceError(
+            f"Cannot convert visual prompt to sample: prompt {prompt.id} has no valid annotations with labels"
+        )
+
+    polygons = [ann.config for ann in annotations if ann.config.type == AnnotationType.POLYGON]
+
+    if not polygons:
+        raise ServiceError(
+            "Cannot create training sample: visual prompt must have at least one polygon annotation to generate masks."
+        )
+
+    # Convert frame: HWC numpy → CHW tensor
+    frame_chw = tv_tensors.Image(from_numpy(frame).permute(2, 0, 1))
+
+    # Convert polygons to binary masks
+    height, width = frame.shape[:2]
+    masks = polygons_to_masks(polygons, height, width)
+
+    categories = sorted([str(ann.label_id) for ann in annotations])
+    category_ids = np.arange(len(categories), dtype=np.int32)
+
+    return Sample(
+        image=frame_chw,
+        masks=masks,
+        categories=categories,
+        category_ids=category_ids,
+    )

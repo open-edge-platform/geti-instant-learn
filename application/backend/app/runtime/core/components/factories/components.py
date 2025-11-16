@@ -4,12 +4,14 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+from getiprompt.data.base.batch import Batch
+
 from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.factories.model import ModelFactory
 from runtime.core.components.factories.reader import StreamReaderFactory
 from runtime.core.components.factories.writer import StreamWriterFactory
 from runtime.core.components.processor import Processor
-from runtime.core.components.schemas.processor import InputData, OutputData
+from runtime.core.components.schemas.processor import InputData, ModelConfig, OutputData
 from runtime.core.components.sink import Sink
 from runtime.core.components.source import Source
 
@@ -23,7 +25,8 @@ class ComponentFactory(ABC):
         self,
         inbound_broadcaster: FrameBroadcaster[InputData],
         outbound_broadcaster: FrameBroadcaster[OutputData],
-        model_config: Any,
+        model_config: ModelConfig | None,
+        reference_batch: Batch | None,
     ) -> Processor: ...
 
     @abstractmethod
@@ -38,9 +41,10 @@ class DefaultComponentFactory(ComponentFactory):
         self,
         inbound_broadcaster: FrameBroadcaster[InputData],
         outbound_broadcaster: FrameBroadcaster[OutputData],
-        model_config: Any,
+        model_config: ModelConfig | None,
+        reference_batch: Batch | None,
     ) -> Processor:
-        return Processor(inbound_broadcaster, outbound_broadcaster, ModelFactory.create(model_config))
+        return Processor(inbound_broadcaster, outbound_broadcaster, ModelFactory.create(model_config), reference_batch)
 
     def create_sink(self, outbound_broadcaster: FrameBroadcaster[OutputData], writer_conf: Any) -> Sink:
         return Sink(outbound_broadcaster, StreamWriterFactory.create(writer_conf))

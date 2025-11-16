@@ -18,7 +18,13 @@ from domain.errors import (
     ServiceError,
 )
 from domain.services.prompt import PromptService
-from domain.services.schemas.annotation import AnnotationSchema, Point, RectangleAnnotation
+from domain.services.schemas.annotation import (
+    AnnotationSchema,
+    AnnotationType,
+    Point,
+    PolygonAnnotation,
+    RectangleAnnotation,
+)
 from domain.services.schemas.prompt import (
     TextPromptCreateSchema,
     TextPromptUpdateSchema,
@@ -554,31 +560,31 @@ def test_project_not_found(service):
 
 
 def test_get_training_data_text_prompts(service):
+    """Test that TEXT prompts raise ServiceError (unsupported operation)."""
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
 
-    text_prompt_1 = make_text_prompt_db(project_id=project_id, text="red car")
-    text_prompt_2 = make_text_prompt_db(project_id=project_id, text="blue truck")
-    service.prompt_repository.get_all_by_project.return_value = [text_prompt_1, text_prompt_2]
+    with pytest.raises(ServiceError) as exc_info:
+        service.get_training_data(project_id, PromptType.TEXT)
 
-    result = service.get_training_data(project_id, PromptType.TEXT)
-
-    assert len(result) == 2
-    assert result[0].content == "red car"
-    assert result[1].content == "blue truck"
-    service.prompt_repository.get_all_by_project.assert_called_once_with(project_id, prompt_type=PromptType.TEXT)
+    assert "Text prompts are not supported" in str(exc_info.value)
 
 
 def test_get_training_data_visual_prompts(service):
+    """Test that VISUAL prompts are converted to a Batch of Samples."""
     project_id = uuid.uuid4()
     frame_id = uuid.uuid4()
     label_id = uuid.uuid4()
 
     service.project_repository.get_by_id.return_value = make_project(project_id)
 
+    # Use polygon annotation (required for mask generation)
     annotation_db = SimpleNamespace(
         id=uuid.uuid4(),
-        config=RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]),
+        config=PolygonAnnotation(
+            type="polygon",
+            points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.1), Point(x=0.5, y=0.5), Point(x=0.1, y=0.5)],
+        ),
         label_id=label_id,
     )
     visual_prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id, annotations=[annotation_db])
@@ -589,36 +595,43 @@ def test_get_training_data_visual_prompts(service):
 
     result = service.get_training_data(project_id, PromptType.VISUAL)
 
+    # Result is a Batch containing Samples
     assert len(result) == 1
-    assert np.array_equal(result[0].frame, frame)
-    assert len(result[0].annotations) == 1
-    assert result[0].annotations[0].label_id == label_id
+    sample = result[0]
+
+    # Check Sample has expected attributes
+    assert sample.image is not None
+    assert sample.masks is not None
+    assert len(sample.masks) == 1  # One polygon annotation
+    assert str(label_id) in sample.categories
+
     service.frame_repository.get_frame.assert_called_once_with(project_id, frame_id)
 
 
 def test_get_training_data_text_prompts_empty(service):
+    """Test that empty TEXT prompt list still raises ServiceError."""
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
-    service.prompt_repository.get_all_by_project.return_value = []
 
-    result = service.get_training_data(project_id, PromptType.TEXT)
+    with pytest.raises(ServiceError) as exc_info:
+        service.get_training_data(project_id, PromptType.TEXT)
 
-    assert len(result) == 0
-    assert result == []
+    assert "Text prompts are not supported" in str(exc_info.value)
 
 
 def test_get_training_data_visual_prompts_empty(service):
+    """Test that empty VISUAL prompt list returns None."""
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
     service.prompt_repository.get_all_by_project.return_value = []
 
     result = service.get_training_data(project_id, PromptType.VISUAL)
 
-    assert len(result) == 0
-    assert result == []
+    assert result is None
 
 
 def test_get_training_data_visual_prompt_frame_not_found(service):
+    """Test that prompts with missing frames are skipped with warning."""
     project_id = uuid.uuid4()
     frame_id = uuid.uuid4()
 
@@ -629,14 +642,43 @@ def test_get_training_data_visual_prompt_frame_not_found(service):
 
     result = service.get_training_data(project_id, PromptType.VISUAL)
 
-    assert len(result) == 0
+    assert result is None
 
 
 def test_get_training_data_project_not_found(service):
+    """Test that missing project raises ResourceNotFoundError."""
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = None
 
     with pytest.raises(ResourceNotFoundError) as exc_info:
-        service.get_training_data(project_id, PromptType.TEXT)
+        service.get_training_data(project_id, PromptType.VISUAL)
 
     assert exc_info.value.resource_type == ResourceType.PROJECT
+
+
+def test_get_training_data_visual_prompt_no_polygon_annotations(service):
+    """Test that prompts with only non-polygon annotations are skipped."""
+    project_id = uuid.uuid4()
+    frame_id = uuid.uuid4()
+    label_id = uuid.uuid4()
+
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+
+    # Rectangle annotation (not polygon - won't generate masks)
+    annotation_db = SimpleNamespace(
+        id=uuid.uuid4(),
+        config=RectangleAnnotation(
+            type=AnnotationType.RECTANGLE, points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]
+        ).model_dump(),
+        label_id=label_id,
+    )
+    visual_prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id, annotations=[annotation_db])
+    service.prompt_repository.get_all_by_project.return_value = [visual_prompt]
+
+    frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+    service.frame_repository.get_frame.return_value = frame
+
+    result = service.get_training_data(project_id, PromptType.VISUAL)
+
+    # Should skip prompt without polygon annotations
+    assert result is None

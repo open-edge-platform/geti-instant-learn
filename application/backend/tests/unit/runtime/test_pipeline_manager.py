@@ -77,15 +77,22 @@ class TestPipelineManager:
     ):
         with (
             patch("runtime.pipeline_manager.ProjectService") as svc_cls,
+            patch("runtime.pipeline_manager.PromptService") as prompt_svc_cls,
             patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
         ):
             svc_inst = svc_cls.return_value
             svc_inst.get_active_pipeline_config.return_value = pipeline_cfg
 
+            # Mock the training data batch
+            prompt_svc_inst = prompt_svc_cls.return_value
+            mock_batch = Mock()
+            prompt_svc_inst.get_training_data.return_value = mock_batch
+
             mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
             mgr.start()
 
             svc_inst.get_active_pipeline_config.assert_called_once()
+            prompt_svc_inst.get_training_data.assert_called_once()
             mock_component_factory.create_source.assert_called_once()
             mock_component_factory.create_processor.assert_called_once()
             mock_component_factory.create_sink.assert_called_once()
@@ -119,6 +126,7 @@ class TestPipelineManager:
     def test_on_activation_event_starts_new_pipeline(self, dispatcher, session_factory, mock_component_factory):
         with (
             patch("runtime.pipeline_manager.ProjectService") as svc_cls,
+            patch("runtime.pipeline_manager.PromptService") as prompt_svc_cls,
             patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
         ):
             svc_inst = svc_cls.return_value
@@ -126,11 +134,17 @@ class TestPipelineManager:
             cfg = PipelineConfig(project_id=pid, reader=None, processor=None, writer=None)
             svc_inst.get_pipeline_config.return_value = cfg
 
+            # Mock the training data batch
+            prompt_svc_inst = prompt_svc_cls.return_value
+            mock_batch = Mock()
+            prompt_svc_inst.get_training_data.return_value = mock_batch
+
             mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
             ev = ProjectActivationEvent(project_id=pid)
             mgr.on_config_change(ev)
 
             svc_inst.get_pipeline_config.assert_called_once_with(pid)
+            prompt_svc_inst.get_training_data.assert_called_once()
             mock_component_factory.create_source.assert_called_once()
             mock_component_factory.create_processor.assert_called_once()
             mock_component_factory.create_sink.assert_called_once()
@@ -148,6 +162,7 @@ class TestPipelineManager:
     def test_on_activation_replaces_existing_pipeline(self, dispatcher, session_factory, mock_component_factory):
         with (
             patch("runtime.pipeline_manager.ProjectService") as svc_cls,
+            patch("runtime.pipeline_manager.PromptService") as prompt_svc_cls,
             patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
         ):
             # Existing pipeline
@@ -158,6 +173,11 @@ class TestPipelineManager:
             svc_inst = svc_cls.return_value
             svc_inst.get_pipeline_config.return_value = cfg_new
 
+            # Mock the training data batch
+            prompt_svc_inst = prompt_svc_cls.return_value
+            mock_batch = Mock()
+            prompt_svc_inst.get_training_data.return_value = mock_batch
+
             mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
             mgr._pipeline = old_pipeline
 
@@ -165,6 +185,7 @@ class TestPipelineManager:
             mgr.on_config_change(ev)
 
             old_pipeline.stop.assert_called_once()
+            prompt_svc_inst.get_training_data.assert_called_once()
             mock_component_factory.create_source.assert_called_once()
             mock_component_factory.create_processor.assert_called_once()
             mock_component_factory.create_sink.assert_called_once()

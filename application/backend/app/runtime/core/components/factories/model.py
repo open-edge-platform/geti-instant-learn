@@ -21,6 +21,7 @@ class ModelFactory:
                     num_background_points=config.num_background_points,
                     mask_similarity_threshold=config.mask_similarity_threshold,
                     precision=config.precision,
+                    device="cpu",
                 )
             case _:
                 return None
