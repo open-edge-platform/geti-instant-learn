@@ -3,7 +3,6 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
-from getiprompt.types.results import Results
 
 from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.processor import Processor
@@ -21,7 +20,7 @@ def create_input_data(frame_id: int) -> InputData:
 def create_output_data(frame_id: int) -> OutputData:
     return OutputData(
         frame=np.zeros((480, 640, 3), dtype=np.uint8),
-        results=Results(),
+        results=[],
     )
 
 
@@ -79,6 +78,6 @@ class TestProcessor:
 
             assert isinstance(actual_output, OutputData)
             assert np.array_equal(actual_output.frame, expected_output.frame)
-            assert isinstance(actual_output.results, Results)
+            assert isinstance(actual_output.results, list)
 
         self.mock_inbound_broadcaster.unregister.assert_called_once_with(self.mock_in_queue)

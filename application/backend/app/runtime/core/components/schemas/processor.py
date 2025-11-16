@@ -6,7 +6,7 @@ from enum import StrEnum
 from typing import Annotated, Any, Literal
 
 import numpy as np
-from getiprompt.types.results import Results
+import torch
 from pydantic import BaseModel, Field
 
 
@@ -46,6 +46,6 @@ class InputData:
 
 @dataclass(kw_only=True)
 class OutputData:
-    results: Results
+    results: list[dict[str, torch.Tensor]]
     frame: np.ndarray  # frame loaded as numpy array in RGB HWC format (H, W, 3) with dtype=uint8
     # the rest will be defined later.

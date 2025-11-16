@@ -8,7 +8,6 @@ import torch
 from getiprompt.data.base.batch import Batch
 from getiprompt.data.base.sample import Sample
 from getiprompt.models.base import Model
-from getiprompt.types.results import Results
 from torchvision import tv_tensors
 
 from runtime.core.components.base import PipelineComponent
@@ -62,7 +61,7 @@ class Processor(PipelineComponent):
                     results = model.infer(batch)
                     output_data = OutputData(frame=data.frame, results=results)
                 else:
-                    output_data = OutputData(frame=data.frame, results=Results())
+                    output_data = OutputData(frame=data.frame, results=[])
 
                 self._outbound_broadcaster.broadcast(output_data)
             except Empty:
