@@ -183,8 +183,8 @@ class PipelineManager:
             self._pipeline.update_component(new_sink)
 
     # todo:
-    # 1. unify methods for registring/unregistring all types of consumers.
-    # 2. use context manager to automaticaly unregister a queue when it exists the scope
+    # 1. unify methods for registering/unregistering all types of consumers.
+    # 2. use context manager to automatically unregister a queue when it exits the scope
 
     def register_webrtc(self, project_id: UUID) -> queue.Queue:
         """Register webRTC in pipeline."""
