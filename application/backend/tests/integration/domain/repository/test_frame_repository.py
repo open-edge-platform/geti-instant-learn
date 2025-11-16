@@ -24,9 +24,8 @@ def frame_repository(temp_frame_dir):
 
 @pytest.fixture
 def sample_frame():
-    # Create a simple 100x100 RGB image with a blue background
     frame = np.zeros((100, 100, 3), dtype=np.uint8)
-    frame[:, :] = [0, 0, 255]  # RGB format: Red=0, Green=0, Blue=255
+    frame[:, :] = [0, 0, 255]
     return frame
 
 
