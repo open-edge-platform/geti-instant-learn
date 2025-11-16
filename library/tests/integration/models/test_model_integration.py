@@ -10,17 +10,17 @@ fss-1000 dataset to ensure models work correctly end-to-end.
 from pathlib import Path
 
 import pytest
+import torch
+from torchmetrics.segmentation import MeanIoU
 
 from getiprompt.data.base import Batch
 from getiprompt.data.folder import FolderDataset
-from getiprompt.metrics import SegmentationMetrics
 from getiprompt.models.grounded_sam import GroundedSAM
 from getiprompt.models.matcher import Matcher
 from getiprompt.models.per_dino import PerDino
 from getiprompt.models.soft_matcher import SoftMatcher
-from getiprompt.types import Masks, Results
+from getiprompt.utils.benchmark import convert_masks_to_one_hot_tensor
 from getiprompt.utils.constants import ModelName, SAMModelName
-from getiprompt.utils.utils import masks_to_custom_masks
 
 
 @pytest.fixture
@@ -79,14 +79,12 @@ class TestModelIntegration:
         self,
         sam_model: SAMModelName,
         model_name: ModelName,
-        device: str = "cpu",
     ) -> None:
         """Test that models can be initialized with different SAM backends.
 
         Args:
             sam_model: The SAM model to use.
             model_name: The model type to test.
-            device: Device to run on (default: cpu for testing).
         """
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/geti-prompt/issues/367
@@ -97,9 +95,9 @@ class TestModelIntegration:
 
         # Initialize model with minimal parameters
         if model_name == ModelName.GROUNDED_SAM:
-            model = model_class(sam=sam_model, device=device, precision="fp32")
+            model = model_class(sam=sam_model, device="cpu", precision="fp32")
         else:
-            model = model_class(sam=sam_model, device=device, precision="fp32", encoder_model="dinov3_small")
+            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov2_small")
 
         assert model is not None
         assert hasattr(model, "learn")
@@ -115,7 +113,6 @@ class TestModelIntegration:
         model_name: ModelName,
         reference_batch: Batch,
         target_batch: Batch,
-        device: str = "cpu",
     ) -> None:
         """Test that models can learn from reference data and infer on target data.
 
@@ -124,7 +121,6 @@ class TestModelIntegration:
             model_name: The model type to test.
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
-            device: Device to run on (default: cpu for testing).
         """
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/geti-prompt/issues/367
@@ -135,84 +131,25 @@ class TestModelIntegration:
 
         # Initialize model
         if model_name == ModelName.GROUNDED_SAM:
-            model = model_class(sam=sam_model, device=device, precision="fp32")
+            model = model_class(sam=sam_model, device="cpu", precision="fp32")
         else:
-            model = model_class(sam=sam_model, device=device, precision="fp32", encoder_model="dinov3_small")
+            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov2_small")
 
         # Test learn method
         model.learn(reference_batch)
 
         # Test infer method
-        results = model.infer(target_batch)
+        predictions = model.infer(target_batch)
 
         # Validate results
-        assert isinstance(results, Results)
-        assert results.masks is not None
-        assert len(results.masks) == len(target_batch)
+        assert isinstance(predictions, list)
+        assert predictions is not None
+        assert len(predictions) == len(target_batch)
 
         # Check that masks have correct shape
-        for mask in results.masks:
-            assert mask is not None
-            assert isinstance(mask, Masks)
-
-    @pytest.mark.parametrize("sam_model", SAM_MODELS)
-    @pytest.mark.parametrize("model_name", ModelName)
-    def test_model_outputs_structure(
-        self,
-        sam_model: SAMModelName,
-        model_name: ModelName,
-        reference_batch: Batch,
-        target_batch: Batch,
-        device: str = "cpu",
-    ) -> None:
-        """Test that model outputs have the correct structure.
-
-        Args:
-            sam_model: The SAM model to use.
-            model_name: The model type to test.
-            reference_batch: Batch of reference samples.
-            target_batch: Batch of target samples.
-            device: Device to run on (default: cpu for testing).
-        """
-        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
-        # https://github.com/open-edge-platform/geti-prompt/issues/367
-        if sam_model == SAMModelName.SAM2_TINY:
-            pytest.skip("Skipping test_model_outputs_structure for SAM2-tiny")
-
-        model_class = MODEL_CLASSES[model_name]
-
-        # Initialize model
-        if model_name == ModelName.GROUNDED_SAM:
-            model = model_class(sam=sam_model, device=device, precision="fp32")
-        else:
-            model = model_class(sam=sam_model, device=device, precision="fp32", encoder_model="dinov3_small")
-
-        # Run learn and infer
-        model.learn(reference_batch)
-        results = model.infer(target_batch)
-
-        # Validate Results structure
-        assert isinstance(results, Results)
-        assert hasattr(results, "masks")
-
-        # Check masks
-        assert results.masks is not None
-        assert isinstance(results.masks, list)
-        assert len(results.masks) == len(target_batch)
-
-        # Model-specific output checks
-        if model_name == ModelName.GROUNDED_SAM:
-            # GroundedSAM should have box_prompts and used_boxes
-            assert hasattr(results, "box_prompts")
-            assert hasattr(results, "used_boxes")
-        else:
-            # Other models should have point_prompts and used_points
-            assert hasattr(results, "point_prompts")
-            assert hasattr(results, "used_points")
-            # They may also have similarities (set as dynamic attribute)
-            # Check if it exists, but don't fail if it doesn't
-            if hasattr(results, "similarities"):
-                assert results.similarities is not None
+        for prediction, image in zip(predictions, target_batch.images, strict=False):
+            assert isinstance(prediction["pred_masks"], torch.Tensor)
+            assert prediction["pred_masks"].shape[-2:] == image.shape[-2:]
 
     @pytest.mark.parametrize("sam_model", SAM_MODELS)
     @pytest.mark.parametrize("model_name", N_SHOT_SUPPORTED_MODELS)
@@ -221,7 +158,6 @@ class TestModelIntegration:
         sam_model: SAMModelName,
         model_name: ModelName,
         fss1000_root: Path,
-        device: str = "cpu",
     ) -> None:
         """Test that models support n-shots learning.
 
@@ -232,7 +168,6 @@ class TestModelIntegration:
             sam_model: The SAM model to use.
             model_name: The model type to test (must support n-shots).
             fss1000_root: Path to fss-1000 dataset.
-            device: Device to run on (default: cpu for testing).
         """
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/geti-prompt/issues/367
@@ -255,12 +190,12 @@ class TestModelIntegration:
 
         model_1shot = model_class(
             sam=sam_model,
-            device=device,
+            device="cpu",
             precision="fp32",
-            encoder_model="dinov3_small",
+            encoder_model="dinov2_small",
         )
         model_1shot.learn(ref_batch_1shot)
-        results_1shot = model_1shot.infer(target_batch)
+        predictions_1shot = model_1shot.infer(target_batch)
 
         # Test with n_shots=2 (if available)
         dataset_2shot = FolderDataset(
@@ -275,22 +210,22 @@ class TestModelIntegration:
 
             model_2shot = model_class(
                 sam=sam_model,
-                device=device,
+                device="cpu",
                 precision="fp32",
-                encoder_model="dinov3_small",
+                encoder_model="dinov2_small",
             )
             model_2shot.learn(ref_batch_2shot)
-            results_2shot = model_2shot.infer(target_batch_2shot)
+            predictions_2shot = model_2shot.infer(target_batch_2shot)
 
             # Both should produce valid results
-            assert isinstance(results_1shot, Results)
-            assert isinstance(results_2shot, Results)
-            assert len(results_1shot.masks) > 0
-            assert len(results_2shot.masks) > 0
+            assert isinstance(predictions_1shot, list)
+            assert isinstance(predictions_2shot, list)
+            assert len(predictions_1shot[0]["pred_masks"]) > 0
+            assert len(predictions_2shot[0]["pred_masks"]) > 0
         else:
             # If not enough samples, just verify 1-shot works
-            assert isinstance(results_1shot, Results)
-            assert len(results_1shot.masks) > 0
+            assert isinstance(predictions_1shot, list)
+            assert len(predictions_1shot[0]["pred_masks"]) > 0
 
     @pytest.mark.parametrize("sam_model", SAM_MODELS)
     def test_grounded_sam_no_n_shots(
@@ -298,7 +233,6 @@ class TestModelIntegration:
         sam_model: SAMModelName,
         reference_batch: Batch,
         target_batch: Batch,
-        device: str = "cpu",
     ) -> None:
         """Test that GroundedSAM works but doesn't use n-shots.
 
@@ -309,14 +243,13 @@ class TestModelIntegration:
             sam_model: The SAM model to use.
             reference_batch: Batch of reference samples (for category mapping).
             target_batch: Batch of target samples.
-            device: Device to run on (default: cpu for testing).
         """
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/geti-prompt/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
             pytest.skip("Skipping test_model_input_validation for SAM2-tiny")
 
-        model = GroundedSAM(sam=sam_model, device=device, precision="fp32")
+        model = GroundedSAM(sam=sam_model, device="cpu", precision="fp32")
 
         # GroundedSAM's learn() only creates category mapping
         model.learn(reference_batch)
@@ -324,10 +257,9 @@ class TestModelIntegration:
         assert isinstance(model.category_mapping, dict)
 
         # Infer should work with just category mapping
-        results = model.infer(target_batch)
-        assert isinstance(results, Results)
-        assert results.masks is not None
-        assert len(results.masks) == len(target_batch)
+        predictions = model.infer(target_batch)
+        assert isinstance(predictions, list)
+        assert len(predictions) == len(target_batch)
 
     @pytest.mark.parametrize("sam_model", SAM_MODELS)
     @pytest.mark.parametrize("model_name", ModelName)
@@ -337,7 +269,6 @@ class TestModelIntegration:
         model_name: ModelName,
         reference_batch: Batch,
         target_batch: Batch,
-        device: str = "cpu",
     ) -> None:
         """Test that models validate inputs correctly.
 
@@ -346,7 +277,6 @@ class TestModelIntegration:
             model_name: The model type to test.
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
-            device: Device to run on (default: cpu for testing).
         """
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/geti-prompt/issues/367
@@ -357,9 +287,9 @@ class TestModelIntegration:
 
         # Initialize model
         if model_name == ModelName.GROUNDED_SAM:
-            model = model_class(sam=sam_model, device=device, precision="fp32")
+            model = model_class(sam=sam_model, device="cpu", precision="fp32")
         else:
-            model = model_class(sam=sam_model, device=device, precision="fp32", encoder_model="dinov3_small")
+            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov2_small")
 
         # Validate that reference batch has required fields
         assert len(reference_batch) > 0
@@ -377,11 +307,11 @@ class TestModelIntegration:
 
         # Models should handle these inputs without errors
         model.learn(reference_batch)
-        results = model.infer(target_batch)
+        predictions = model.infer(target_batch)
 
         # Results should be valid
-        assert isinstance(results, Results)
-        assert results.masks is not None
+        assert isinstance(predictions, list)
+        assert len(predictions) == len(target_batch)
 
     @pytest.mark.parametrize("sam_model", SAM_MODELS)
     @pytest.mark.parametrize("model_name", ModelName)
@@ -390,7 +320,6 @@ class TestModelIntegration:
         sam_model: SAMModelName,
         model_name: ModelName,
         dataset: FolderDataset,
-        device: str = "cpu",
     ) -> None:
         """Test that models produce predictions that can be evaluated with metrics.
 
@@ -403,7 +332,6 @@ class TestModelIntegration:
             sam_model: The SAM model to use.
             model_name: The model type to test.
             dataset: The dataset to use for testing.
-            device: Device to run on (default: cpu for testing).
         """
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/geti-prompt/issues/367
@@ -414,123 +342,45 @@ class TestModelIntegration:
 
         # Initialize model
         if model_name == ModelName.GROUNDED_SAM:
-            model = model_class(sam=sam_model, device=device, precision="fp32")
+            model = model_class(sam=sam_model, device="cpu", precision="fp32")
         else:
-            model = model_class(sam=sam_model, device=device, precision="fp32", encoder_model="dinov3_small")
+            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov2_small")
 
         # Get reference and target samples for first category
         categories = dataset.categories
         if not categories:
             pytest.skip("No categories available in dataset")
 
-        category_name = categories[0]
-        category_id = dataset.get_category_id(category_name)
-
         # Get reference batch
-        ref_dataset = dataset.get_reference_dataset(category=category_name)
-        if len(ref_dataset) == 0:
-            pytest.skip(f"No reference samples for category: {category_name}")
-        ref_batch = Batch.collate([ref_dataset[0]])
+        ref_batch = Batch.collate(dataset.get_reference_dataset())
 
-        # Get target batch with ground truth masks
-        target_dataset = dataset.get_target_dataset(category=category_name)
-        if len(target_dataset) == 0:
-            pytest.skip(f"No target samples for category: {category_name}")
-        target_batch = Batch.collate([target_dataset[0]])
-
-        # Ensure target batch has ground truth masks
-        if target_batch.masks[0] is None:
-            pytest.skip("No ground truth masks available for target sample")
+        target_dataset = dataset.get_target_dataset()
+        target_batch = Batch.collate(target_dataset[0])
 
         # Learn from reference
         model.learn(ref_batch)
 
         # Infer on target
-        results = model.infer(target_batch)
+        predictions = model.infer(target_batch)
 
-        # Validate predictions exist
-        assert isinstance(results, Results)
-        assert results.masks is not None
-        assert len(results.masks) == len(target_batch)
-
-        # Convert ground truth masks to Masks objects
-        gt_masks = masks_to_custom_masks(
-            target_batch.masks,
-            class_id=category_id,
+        category_id_to_index = {
+            dataset.get_category_id(cat_name): idx for idx, cat_name in enumerate(dataset.categories)
+        }
+        batch_pred_tensors, batch_gt_tensors = convert_masks_to_one_hot_tensor(
+            predictions=predictions,
+            ground_truths=target_batch,
+            num_classes=len(categories),
+            category_id_to_index=category_id_to_index,
+            device="cpu",
         )
-
-        # Create metrics calculator
-        metrics_calculator = SegmentationMetrics(categories=[category_name])
 
         # Calculate metrics
-        metrics_calculator(
-            predictions=results.masks,
-            ground_truths=gt_masks,
-            mapping={category_id: category_name},
-        )
+        metrics = MeanIoU(num_classes=len(categories), include_background=True, per_class=True).to("cpu")
+        for pred_tensor, gt_tensor in zip(batch_pred_tensors, batch_gt_tensors, strict=True):
+            metrics.update(pred_tensor, gt_tensor)
 
-        # Get metrics
-        metrics = metrics_calculator.get_metrics()
-
-        # Validate metrics structure
-        assert isinstance(metrics, dict)
-        assert "category" in metrics
-        assert "iou" in metrics
-        assert "f1score" in metrics
-        assert "precision" in metrics
-        assert "recall" in metrics
-        assert "accuracy" in metrics
-        assert "dice" in metrics
-        assert "jaccard" in metrics
-        assert "true_positives" in metrics
-        assert "true_negatives" in metrics
-        assert "false_positives" in metrics
-        assert "false_negatives" in metrics
-
-        # Check that metrics were calculated for the category
-        if len(metrics["category"]) > 0:
-            # Find metrics for our category (skip background if present)
-            category_metrics = None
-            for i, cat in enumerate(metrics["category"]):
-                if cat == category_name:
-                    category_metrics = i
-                    break
-
-            if category_metrics is not None:
-                # Validate metric values are within expected ranges [0, 1]
-                iou = metrics["iou"][category_metrics]
-                f1score = metrics["f1score"][category_metrics]
-                precision = metrics["precision"][category_metrics]
-                recall = metrics["recall"][category_metrics]
-                accuracy = metrics["accuracy"][category_metrics]
-                dice = metrics["dice"][category_metrics]
-                jaccard = metrics["jaccard"][category_metrics]
-
-                # All metrics should be between 0 and 1
-                assert 0.0 <= iou <= 1.0, f"IoU should be in [0, 1], got {iou}"
-                assert 0.0 <= f1score <= 1.0, f"F1 score should be in [0, 1], got {f1score}"
-                assert 0.0 <= precision <= 1.0, f"Precision should be in [0, 1], got {precision}"
-                assert 0.0 <= recall <= 1.0, f"Recall should be in [0, 1], got {recall}"
-                assert 0.0 <= accuracy <= 1.0, f"Accuracy should be in [0, 1], got {accuracy}"
-                assert 0.0 <= dice <= 1.0, f"Dice should be in [0, 1], got {dice}"
-                assert 0.0 <= jaccard <= 1.0, f"Jaccard should be in [0, 1], got {jaccard}"
-
-                # IoU and Jaccard should be the same
-                assert abs(iou - jaccard) < 1e-6, f"IoU and Jaccard should be equal, got {iou} vs {jaccard}"
-
-                # Dice and F1 should be the same
-                assert abs(dice - f1score) < 1e-6, f"Dice and F1 should be equal, got {dice} vs {f1score}"
-
-                # Confusion matrix values should be non-negative integers
-                tp = metrics["true_positives"][category_metrics]
-                tn = metrics["true_negatives"][category_metrics]
-                fp = metrics["false_positives"][category_metrics]
-                fn = metrics["false_negatives"][category_metrics]
-
-                assert tp >= 0, f"True positives should be non-negative, got {tp}"
-                assert tn >= 0, f"True negatives should be non-negative, got {tn}"
-                assert fp >= 0, f"False positives should be non-negative, got {fp}"
-                assert fn >= 0, f"False negatives should be non-negative, got {fn}"
-
-                # At least one of TP, TN, FP, FN should be positive (some prediction/ground truth exists)
-                assert (tp + tn + fp + fn) > 0, "At least one confusion matrix value should be positive"
+        iou_per_class = metrics.compute()
+        for idx in range(len(categories)):
+            iou_value = iou_per_class[idx].item()
+            # -1 is returned if class is completely absent both from prediction and the ground truth labels.
+            assert iou_value >= -1

@@ -7,10 +7,10 @@ import { useState } from 'react';
 
 import { $api } from '@geti-prompt/api';
 
-import { MutationMeta } from '../../../query-client/query-client.interface';
+import { Meta } from '../../../query-client/query-client.interface';
 
 const useProjectActivationMutation = (projectId: string, currentActiveProjectId: string | undefined) => {
-    const invalidates: MutationMeta['invalidates'] =
+    const invalidates: Meta['invalidates'] =
         currentActiveProjectId === undefined
             ? [
                   ['get', '/api/v1/projects'],

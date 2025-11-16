@@ -192,28 +192,6 @@ class TestEncoder:
     @patch("getiprompt.utils.optimization.optimize_model")
     @patch("getiprompt.components.encoders.image_encoder.AutoModel")
     @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
-    def test_encoder_with_benchmark_inference_speed(
-        self,
-        mock_processor: Mock,
-        mock_model: Mock,
-        mock_optimize: Mock,
-    ) -> None:
-        """Test encoder with benchmark inference speed enabled."""
-        # Setup mocks with proper structure
-        mock_model_instance = self._setup_mock_model(mock_model, mock_processor)
-        mock_optimize.return_value = mock_model_instance
-
-        # Test with benchmark_inference_speed=True
-        encoder = ImageEncoder(model_id="dinov2_small", device="cpu", benchmark_inference_speed=True, input_size=224)
-        pytest.assume(encoder.model == mock_model_instance)
-        # Verify optimize_model was called with benchmark_inference_speed=True
-        mock_optimize.assert_called_once()
-        call_args = mock_optimize.call_args
-        pytest.assume(call_args[1]["benchmark_inference_speed"] is True)
-
-    @patch("getiprompt.utils.optimization.optimize_model")
-    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
     def test_encoder_device_handling(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
         """Test encoder device handling."""
         # Setup mocks with proper structure
@@ -228,42 +206,6 @@ class TestEncoder:
             mock_optimize.assert_called()
             call_args = mock_optimize.call_args
             pytest.assume(call_args[1]["device"] == device)
-
-    @patch("getiprompt.utils.optimization.optimize_model")
-    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
-    def test_encoder_all_parameters(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
-        """Test encoder with all parameters specified."""
-        # Setup mocks with proper structure
-        mock_model_instance = self._setup_mock_model(mock_model, mock_processor)
-        mock_optimize.return_value = mock_model_instance
-
-        expected_input_size = 384
-
-        # Test with all parameters
-        encoder = ImageEncoder(
-            model_id="dinov2_base",
-            device="cpu",
-            precision="fp16",
-            compile_models=True,
-            benchmark_inference_speed=True,
-            input_size=expected_input_size,
-        )
-
-        # Verify all parameters are set correctly
-        pytest.assume(encoder.model_id == "dinov2_base")
-        pytest.assume(encoder.device == "cpu")
-        pytest.assume(encoder.precision == torch.float16)
-        pytest.assume(encoder.input_size == expected_input_size)
-        pytest.assume(encoder.model == mock_model_instance)
-
-        # Verify optimize_model was called with all parameters
-        mock_optimize.assert_called_once()
-        call_args = mock_optimize.call_args
-        pytest.assume(call_args[1]["precision"] == torch.float16)
-        pytest.assume(call_args[1]["device"] == "cpu")
-        pytest.assume(call_args[1]["compile_models"] is True)
-        pytest.assume(call_args[1]["benchmark_inference_speed"] is True)
 
     @staticmethod
     def test_error_handling_invalid_model_id() -> None:

@@ -4,8 +4,8 @@
  */
 
 import { Flex, Grid } from '@geti/ui';
-import { useSelectedFrame } from 'src/features/stream/selected-frame-provider.component';
 
+import { useSelectedFrame } from '../../../shared/selected-frame-provider.component';
 import { CapturedFramePlaceholder } from './captured-frame/captured-frame-placeholder.component';
 import { CapturedFrame, CapturedFrameProviders } from './captured-frame/captured-frame.component';
 import { PromptThumbnailList } from './prompt-thumbnails/prompt-thumbnail-list/prompt-thumbnail-list.component';

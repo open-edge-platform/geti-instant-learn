@@ -6,6 +6,7 @@ on:
         description: "Specifies the build version to apply to all binaries produced by this workflow"
         type: string
         required: true
+        default: "latest"
   workflow_dispatch:
 jobs:
   component-check:

@@ -3,15 +3,41 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { matchQuery, MutationCache, Query, QueryClient } from '@tanstack/react-query';
+import { toast } from '@geti/ui';
+import { matchQuery, MutationCache, Query, QueryCache, QueryClient } from '@tanstack/react-query';
 
-import { MutationMeta } from './query-client.interface';
+import { Meta } from './query-client.interface';
 
 declare module '@tanstack/react-query' {
     interface Register {
-        mutationMeta: MutationMeta;
+        mutationMeta: Meta;
+        queryMeta: Meta;
     }
 }
+
+const TOAST_DURATION = 5000;
+
+const getErrorMessage = (error: unknown, customMessage?: string): string => {
+    if (customMessage) {
+        return customMessage;
+    }
+
+    if (error && typeof error === 'object') {
+        if ('detail' in error && typeof error.detail === 'string') {
+            return error.detail;
+        }
+
+        if ('message' in error && typeof error.message === 'string') {
+            if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+                return 'Network error. Please check your connection and try again.';
+            }
+
+            return error.message;
+        }
+    }
+
+    return 'An unexpected error occurred. Please try again.';
+};
 
 export const queryClient: QueryClient = new QueryClient({
     defaultOptions: {
@@ -19,6 +45,15 @@ export const queryClient: QueryClient = new QueryClient({
             retry: false,
         },
     },
+    queryCache: new QueryCache({
+        onError: (error, query) => {
+            toast({
+                type: 'error',
+                message: getErrorMessage(error, query.meta?.errorMessage),
+                duration: TOAST_DURATION,
+            });
+        },
+    }),
     mutationCache: new MutationCache({
         onSuccess: (_data, _variables, _context, mutation): void | Promise<void> => {
             // Fire-and-forget invalidation
@@ -45,6 +80,13 @@ export const queryClient: QueryClient = new QueryClient({
                     { cancelRefetch: false }
                 );
             }
+        },
+        onError: (error, _variables, _context, mutation) => {
+            toast({
+                type: 'error',
+                message: getErrorMessage(error, mutation.meta?.errorMessage),
+                duration: TOAST_DURATION,
+            });
         },
     }),
 });

@@ -4,12 +4,11 @@
 """Grid-based prompt generator."""
 
 import torch
+from torch import nn
 from torchvision import tv_tensors
 
-from getiprompt.components.prompt_generators.base import PromptGenerator
 
-
-class GridPromptGenerator(PromptGenerator):
+class GridPromptGenerator(nn.Module):
     """This class generates prompts for the segmenter.
 
     This is based on the similarities between the reference and target images.
@@ -71,10 +70,7 @@ class GridPromptGenerator(PromptGenerator):
             return torch.empty((0, 3), device=similarity_map.device)
 
         point_coords = torch.where(similarity_map > self.similarity_threshold)  # (x_indices, y_indices)
-        foreground_coords = torch.stack(
-            (point_coords[1], point_coords[0], similarity_map[point_coords]),
-            axis=0,
-        ).T
+        foreground_coords = torch.stack((point_coords[1], point_coords[0], similarity_map[point_coords]), axis=0).T
 
         if len(foreground_coords) == 0:
             return torch.empty((0, 3), device=similarity_map.device)

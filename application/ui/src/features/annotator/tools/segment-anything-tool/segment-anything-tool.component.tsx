@@ -12,13 +12,13 @@ import { useVisualPrompt } from '../../../prompts/visual-prompt/visual-prompt-pr
 import { AnnotationShape } from '../../annotations/annotation-shape.component';
 import { Annotation } from '../../annotations/annotation.component';
 import { MaskAnnotations } from '../../annotations/mask-annotations.component';
-import { AnnotatorLoading } from '../../annotator-loading.component';
 import { useAnnotationActions } from '../../providers/annotation-actions-provider.component';
 import { useAnnotationVisibility } from '../../providers/annotation-visibility-provider.component';
 import { useAnnotator } from '../../providers/annotator-provider.component';
 import { type Annotation as AnnotationType, type Shape } from '../../types';
 import { SvgToolCanvas } from '../svg-tool-canvas.component';
 import { getRelativePoint, removeOffLimitPoints } from '../utils';
+import { SAMLoading } from './sam-loading.component';
 import { InteractiveAnnotationPoint } from './segment-anything.interface';
 import { useDecodingMutation } from './use-decoding-query.hook';
 import { useSegmentAnythingModel } from './use-segment-anything.hook';
@@ -122,7 +122,7 @@ export const SegmentAnythingTool = () => {
     });
 
     if (isLoading) {
-        return <AnnotatorLoading isLoading={isLoading} />;
+        return <SAMLoading isLoading={isLoading} />;
     }
 
     return (

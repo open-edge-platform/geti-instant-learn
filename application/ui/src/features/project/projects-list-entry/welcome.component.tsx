@@ -9,7 +9,7 @@ import { Button, Content, Flex, Heading, IllustratedMessage, Text } from '@geti/
 import { Navigate, useNavigate } from 'react-router';
 import { v4 as uuid } from 'uuid';
 
-import { paths } from '../../../routes/paths';
+import { paths } from '../../../constants/paths';
 import { useCreateProjectMutation } from '../hooks/use-create-project-mutation.hook';
 import { Layout } from './layout.component';
 

@@ -3,27 +3,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { WebcamSourceType } from '@geti-prompt/api';
 import { expect, http, test } from '@geti-prompt/test-fixtures';
+import { Page } from '@playwright/test';
 
 import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations } from '../annotator/utils';
 import { LabelsPage } from '../labels/labels-page';
 import { registerApiLabels } from '../labels/mocks';
 import { initializeWebRTC } from './initialize-webrtc';
+import { MOCK_PROMPT, MOCK_PROMPT_ID, SECOND_PROMPT, WEBCAM_SOURCE } from './mocks';
 
-const DEVICE_ID = 0;
-const WEBCAM_SOURCE: WebcamSourceType = {
-    connected: true,
-    id: 'webcam-id',
-    config: {
-        seekable: false,
-        device_id: DEVICE_ID,
-        source_type: 'webcam',
-    },
+const waitForSAM = async (page: Page) => {
+    await expect(page.getByText('Processing image, please wait...')).toBeVisible({
+        timeout: ANNOTATOR_PAGE_TIMEOUT,
+    });
+    await expect(page.getByText('Processing image, please wait...')).toBeHidden({
+        timeout: ANNOTATOR_PAGE_TIMEOUT,
+    });
 };
-const MOCK_PROMPT_ID = '123e4567-e89b-12d3-a456-426614174002';
 
 test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, promptPage }) => {
+    test.setTimeout(ANNOTATOR_PAGE_TIMEOUT);
     await initializeWebRTC({ page, context, network });
 
     registerApiLabels({ network });
@@ -54,12 +53,7 @@ test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, 
     });
 
     await test.step('Waits for SAM to load', async () => {
-        await expect(page.getByText('Processing image, please wait...')).toBeVisible({
-            timeout: ANNOTATOR_PAGE_TIMEOUT,
-        });
-        await expect(page.getByText('Processing image, please wait...')).toBeHidden({
-            timeout: ANNOTATOR_PAGE_TIMEOUT,
-        });
+        await waitForSAM(page);
     });
 
     await test.step('Adds a label', async () => {
@@ -83,36 +77,7 @@ test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, 
         network.use(
             http.get('/api/v1/projects/{project_id}/prompts', ({ response }) => {
                 return response(200).json({
-                    prompts: [
-                        {
-                            id: MOCK_PROMPT_ID,
-                            annotations: [
-                                {
-                                    config: {
-                                        points: [
-                                            {
-                                                x: 0.1,
-                                                y: 0.1,
-                                            },
-                                            {
-                                                x: 0.5,
-                                                y: 0.1,
-                                            },
-                                            {
-                                                x: 0.5,
-                                                y: 0.5,
-                                            },
-                                        ],
-                                        type: 'polygon',
-                                    },
-                                    label_id: '123e4567-e89b-12d3-a456-426614174001',
-                                },
-                            ],
-                            frame_id: '123e4567-e89b-12d3-a456-426614174000',
-                            type: 'VISUAL',
-                            thumbnail: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ',
-                        },
-                    ],
+                    prompts: [MOCK_PROMPT],
                     pagination: {
                         total: 1,
                         count: 1,
@@ -128,13 +93,61 @@ test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, 
         await expect(promptPage.thumbnail).toHaveCount(1);
     });
 
-    await test.step('Deletes prompt', async () => {
-        await expect(promptPage.thumbnail).toHaveCount(1);
+    await test.step('Edits prompt', async () => {
+        // Create a second prompt (we already have one from previous steps)
+        await streamPage.captureFrame();
+        await expect(annotatorPage.getCapturedFrame()).toBeVisible();
+        await annotatorPage.addAnnotation();
 
         network.use(
             http.get('/api/v1/projects/{project_id}/prompts', ({ response }) => {
                 return response(200).json({
-                    prompts: [],
+                    prompts: [MOCK_PROMPT, SECOND_PROMPT],
+                    pagination: {
+                        total: 2,
+                        count: 2,
+                        offset: 0,
+                        limit: 10,
+                    },
+                });
+            })
+        );
+
+        await promptPage.savePrompt();
+        await expect(promptPage.thumbnail).toHaveCount(2);
+
+        // Edit the first prompt
+        network.use(
+            http.get('/api/v1/projects/{project_id}/prompts/{prompt_id}', ({ response }) => {
+                return response(200).json(MOCK_PROMPT);
+            })
+        );
+
+        await promptPage.editPrompt(MOCK_PROMPT_ID);
+
+        await waitForSAM(page);
+
+        // Add an annotation
+        await annotatorPage.addAnnotation();
+
+        network.use(
+            http.put('/api/v1/projects/{project_id}/prompts/{prompt_id}', ({ response }) => {
+                return response(200).json(MOCK_PROMPT);
+            })
+        );
+
+        await promptPage.savePrompt();
+
+        await expect(promptPage.thumbnail).toHaveCount(2);
+    });
+
+    await test.step('Deletes prompt', async () => {
+        await expect(promptPage.thumbnail).toHaveCount(2);
+
+        network.use(
+            http.get('/api/v1/projects/{project_id}/prompts', ({ response }) => {
+                return response(200).json({
+                    prompts: [MOCK_PROMPT],
                     pagination: {
                         total: 0,
                         count: 0,
@@ -145,8 +158,8 @@ test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, 
             })
         );
 
-        await promptPage.deletePrompt();
+        await promptPage.deletePrompt(MOCK_PROMPT_ID);
 
-        await expect(promptPage.thumbnail).toHaveCount(0);
+        await expect(promptPage.thumbnail).toHaveCount(1);
     });
 });

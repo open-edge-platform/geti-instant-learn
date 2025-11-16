@@ -8,10 +8,8 @@ from logging import getLogger
 
 import torch
 from scipy.optimize import linear_sum_assignment
+from torch import nn
 from torch.nn import functional
-
-from getiprompt.components.prompt_generators.base import PromptGenerator
-from getiprompt.types import Masks
 
 logger = getLogger("Geti Prompt")
 
@@ -23,7 +21,7 @@ def _empty_match_result(similarity_map: torch.Tensor) -> tuple[list, torch.Tenso
     return empty_idx, empty_scores
 
 
-class BidirectionalPromptGenerator(PromptGenerator):
+class BidirectionalPromptGenerator(nn.Module):
     """Generates point prompts for segmentation based on bidirectional matching.
 
     This prompt generator uses bidirectional matching between reference and target image features
@@ -94,12 +92,12 @@ class BidirectionalPromptGenerator(PromptGenerator):
                 valid_indices: torch.Tensor - Indices of matched reference features
                 valid_scores: torch.Tensor - Similarity scores of matched reference features
         """
-        ref_mask_idx = ref_mask.flatten().nonzero(as_tuple=True)[0]
-        if ref_mask_idx.numel() == 0:
+        ref_idx = ref_mask.nonzero(as_tuple=True)[0]
+        if ref_idx.numel() == 0:
             return _empty_match_result(similarity_map)
 
         # Forward pass (ref → target)
-        (fw_indices, fw_scores) = BidirectionalPromptGenerator.ref_to_target_matching(similarity_map, ref_mask_idx)
+        (fw_indices, fw_scores) = BidirectionalPromptGenerator.ref_to_target_matching(similarity_map, ref_idx)
         target_idx_fw = fw_indices[1]
         if target_idx_fw.numel() == 0:
             return _empty_match_result(similarity_map)
@@ -110,7 +108,7 @@ class BidirectionalPromptGenerator(PromptGenerator):
         row_ind, col_ind = torch.as_tensor(row_ind, dtype=torch.int64), torch.as_tensor(col_ind, dtype=torch.int64)
 
         # Consistency filter
-        valid_ref = torch.isin(col_ind, ref_mask_idx)
+        valid_ref = torch.isin(col_ind, ref_idx)
         if not valid_ref.any():
             return _empty_match_result(similarity_map)
 
@@ -122,13 +120,13 @@ class BidirectionalPromptGenerator(PromptGenerator):
     def _select_background_points(
         self,
         similarity_map: torch.Tensor,
-        mask: torch.Tensor,
+        ref_mask: torch.Tensor,
     ) -> tuple[torch.Tensor | None, torch.Tensor | None, torch.Tensor | None]:
         """Select the N background points based on lowest average similarity to masked reference features.
 
         Args:
             similarity_map: torch.Tensor - Similarity matrix [num_ref_features, num_target_features]
-            mask: torch.Tensor - Mask indicating relevant reference features [num_ref_features]
+            ref_mask: torch.Tensor - Mask indicating relevant reference features [num_ref_features]
 
         Returns: tuple containing:
 
@@ -139,7 +137,7 @@ class BidirectionalPromptGenerator(PromptGenerator):
         bg_similarity_scores: torch.Tensor[
         N] | None - Similarity scores of background points or None.
         """
-        ref_idx = mask.flatten().nonzero(as_tuple=True)[0]
+        ref_idx = ref_mask.nonzero(as_tuple=True)[0]
         if ref_idx.numel() == 0:
             return None, None, None
 
@@ -208,32 +206,6 @@ class BidirectionalPromptGenerator(PromptGenerator):
             dim=1,
         )
 
-    @staticmethod
-    def _merge_masks(reference_masks: list[Masks]) -> Masks:
-        """Merge n-shot masks into a single mask.
-
-        Args:
-            reference_masks: List[Masks] - List of reference masks, one per reference image instance
-        Returns:
-            Masks: n-shot merged masks
-        """
-        if not reference_masks:
-            return Masks()
-
-        _, w = next(iter(reference_masks[0].data.values())).shape[-2:]
-
-        class_masks = defaultdict(list)
-        for mask in reference_masks:
-            for class_id, mask_tensor in mask.data.items():
-                class_masks[class_id].append(mask_tensor)
-
-        merged_masks = Masks()
-        # Concatenate the masks for each class
-        for class_id, masks in class_masks.items():
-            merged_masks.add(torch.cat(masks).reshape(-1, w).unsqueeze(0), class_id)
-
-        return merged_masks
-
     def _resize_similarity_map(self, similarity_map: torch.Tensor, ori_size: torch.Tensor) -> torch.Tensor:
         """Resize the similarity map to the original image size.
 
@@ -258,7 +230,7 @@ class BidirectionalPromptGenerator(PromptGenerator):
         self,
         ref_embeddings: torch.Tensor,
         masked_ref_embeddings: dict[int, torch.Tensor],
-        reference_masks: list[Masks],
+        flatten_ref_masks: dict[int, torch.Tensor],
         target_embeddings: torch.Tensor,
         original_sizes: list[tuple[int, int]],
     ) -> tuple[list[dict[int, torch.Tensor]], list[dict[int, torch.Tensor]]]:
@@ -271,9 +243,10 @@ class BidirectionalPromptGenerator(PromptGenerator):
 
         Args:
             ref_embeddings(torch.Tensor): Reference embeddings.
-            masked_ref_embeddings(dict[int, torch.Tensor]): Dictionary of masked reference embeddings, with class_id as key
-                and masked reference embeddings as value.
-            reference_masks(list[Masks]): List of reference masks, one per reference image instance
+            masked_ref_embeddings(dict[int, torch.Tensor]): Dictionary with class_id as key and
+                masked reference embeddings as value.
+            flatten_ref_masks(dict[int, torch.Tensor]): Dictionary of flattened reference masks, with class_id as key
+                and flattened reference masks as value.
             target_embeddings(torch.Tensor): Target embeddings
             original_sizes(list[tuple[int, int]]): Original sizes of the target images
 
@@ -287,7 +260,6 @@ class BidirectionalPromptGenerator(PromptGenerator):
 
         # this basically makes a vertical stack + flatten
         flattened_ref_embeds = ref_embeddings.reshape(-1, ref_embeddings.shape[-1])
-        reference_masks = self._merge_masks(reference_masks)
 
         for target_embed, original_size in zip(target_embeddings, original_sizes, strict=False):
             class_point_prompts: dict[int, torch.Tensor] = {}
@@ -295,17 +267,20 @@ class BidirectionalPromptGenerator(PromptGenerator):
             similarity_map = flattened_ref_embeds @ target_embed.T
             h, w = original_size
 
-            for class_id, ref_mask in reference_masks.data.items():
-                local_reference_feature = masked_ref_embeddings[class_id]
-                local_similarity = local_reference_feature @ target_embed.T
+            for class_id, flatten_ref_mask in flatten_ref_masks.items():
+                local_ref_embedding = masked_ref_embeddings[class_id]
+                local_similarity = local_ref_embedding @ target_embed.T
                 local_similarity = self._resize_similarity_map(local_similarity, original_size)
                 similarities[class_id].append(local_similarity)
 
                 # Select background points based on similarity to averaged local feature
-                _, background_indices, background_scores = self._select_background_points(similarity_map, ref_mask)
+                _, background_indices, background_scores = self._select_background_points(
+                    similarity_map,
+                    flatten_ref_mask,
+                )
 
                 # Perform foreground matching
-                foreground_indices, foreground_scores = self._perform_matching(similarity_map, ref_mask)
+                foreground_indices, foreground_scores = self._perform_matching(similarity_map, flatten_ref_mask)
 
                 # Process foreground points
                 if len(foreground_scores) > 0:

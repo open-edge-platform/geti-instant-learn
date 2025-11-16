@@ -3,6 +3,7 @@
 
 """DINOTxt model."""
 
+import os
 from pathlib import Path
 
 import torch
@@ -77,6 +78,66 @@ class DinoTextEncoder(nn.Module):
         ])
 
     @staticmethod
+    def _find_weights_in_cache(filename: str) -> Path | None:
+        """Search for weight files in common cache directories.
+
+        Uses official PyTorch and Hugging Face APIs to get cache directories,
+        then searches recursively for the specified filename.
+
+        Searches in:
+        - PyTorch Hub cache (via torch.hub.get_dir())
+        - Hugging Face cache (via HF_HOME or default location)
+        - General cache directory (~/.cache)
+
+        Args:
+            filename: The name of the weight file to search for.
+
+        Returns:
+            Path to the found file, or None if not found.
+        """
+        cache_dirs = []
+
+        # PyTorch hub cache - use official API
+        try:
+            torch_hub_dir = torch.hub.get_dir()
+            cache_dirs.append(Path(torch_hub_dir))
+        except Exception:
+            # Fallback to manual construction if API fails
+            torch_home = os.environ.get("TORCH_HOME")
+            if torch_home:
+                cache_dirs.append(Path(torch_home).expanduser() / "hub")
+            else:
+                cache_dirs.append(Path.home() / ".cache" / "torch" / "hub")
+
+        # Hugging Face cache
+        # Note: huggingface_hub doesn't have a direct get_dir() equivalent,
+        # but we can check for HF_HOME or use default location
+        hf_home = os.environ.get("HF_HOME")
+        if hf_home:
+            cache_dirs.append(Path(hf_home).expanduser())
+        else:
+            # Default Hugging Face cache location
+            cache_dirs.append(Path.home() / ".cache" / "huggingface")
+
+        # General cache directory
+        cache_dirs.append(Path.home() / ".cache")
+
+        # Search recursively in each cache directory
+        for cache_dir in cache_dirs:
+            if not cache_dir.exists():
+                continue
+            try:
+                # Use rglob to search recursively
+                for found_file in cache_dir.rglob(filename):
+                    if found_file.is_file():
+                        return found_file
+            except (PermissionError, OSError):
+                # Skip directories we can't access
+                continue
+
+        return None
+
+    @staticmethod
     def _load_model(
         weights_location: str | Path,
         backbone_size: str = "large",
@@ -107,37 +168,46 @@ class DinoTextEncoder(nn.Module):
             raise ValueError(msg)
         backbone_path = weights_location / backbone_filename
 
-        # Check if txt head weights exist
+        # Check if txt head weights exist, search cache if not found
         if not txt_head_path.exists():
-            msg = (
-                f"DINOv3 txt head weights not found at {txt_head_path}.\n"
-                f"Please download the DINOv3 weights from Meta's official website:\n"
-                f"https://ai.meta.com/resources/models-and-libraries/dinov3-downloads/\n"
-                f"Save the weights file 'dinov3_vitl16_dinotxt_vision_head_and_text_encoder-a442d8f5.pth' "
-                f"in the directory: {txt_head_path.parent}\n"
-                f"Then rerun geti-prompt."
-            )
-            raise FileNotFoundError(msg)
+            cached_txt_head = DinoTextEncoder._find_weights_in_cache(DINOV3_TXT_HEAD_FILENAME)
+            if cached_txt_head:
+                txt_head_path = cached_txt_head
+            else:
+                msg = (
+                    f"DINOv3 txt head weights not found at {weights_location / DINOV3_TXT_HEAD_FILENAME}.\n"
+                    f"Searched cache directories (~/.cache/torch/hub, ~/.cache/huggingface, ~/.cache) but not found.\n"
+                    f"Please download the DINOv3 weights from Meta's official website:\n"
+                    f"https://ai.meta.com/resources/models-and-libraries/dinov3-downloads/\n"
+                    f"Save the weights file '{DINOV3_TXT_HEAD_FILENAME}' "
+                    f"in the directory: {weights_location}\n"
+                    f"Then rerun geti-prompt."
+                )
+                raise FileNotFoundError(msg)
 
-        # Check if backbone weights exist
+        # Check if backbone weights exist, search cache if not found
         if not backbone_path.exists():
-            msg = (
-                f"DINOv3 backbone weights not found at {backbone_path}.\n"
-                f"Please download the DINOv3 backbone weights from Meta's official website:\n"
-                f"https://ai.meta.com/resources/models-and-libraries/dinov3-downloads/\n"
-                f"Save the weights file '{backbone_filename}' "
-                f"in the directory: {backbone_path.parent}\n"
-                f"Then rerun geti-prompt."
-            )
-            raise FileNotFoundError(msg)
+            cached_backbone = DinoTextEncoder._find_weights_in_cache(backbone_filename)
+            if cached_backbone:
+                backbone_path = cached_backbone
+            else:
+                msg = (
+                    f"DINOv3 backbone weights not found at {weights_location / backbone_filename}.\n"
+                    f"Searched cache directories (~/.cache/torch/hub, ~/.cache/huggingface, ~/.cache) but not found.\n"
+                    f"Please download the DINOv3 backbone weights from Meta's official website:\n"
+                    f"https://ai.meta.com/resources/models-and-libraries/dinov3-downloads/\n"
+                    f"Save the weights file '{backbone_filename}' "
+                    f"in the directory: {weights_location}\n"
+                    f"Then rerun geti-prompt."
+                )
+                raise FileNotFoundError(msg)
 
         try:
             # Initialize model architecture using torch.hub.load with both weights
             model, tokenizer = torch.hub.load(
                 "facebookresearch/dinov3",
                 "dinov3_vitl16_dinotxt_tet1280d20h24l",
-                pretrained=False,  # weights are loaded from local weights
-                weights=str(txt_head_path),
+                dinotxt_weights=str(txt_head_path),
                 backbone_weights=str(backbone_path),
             )
             model = model.to(device)

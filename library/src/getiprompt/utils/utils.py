@@ -3,19 +3,14 @@
 
 """Utility functions for Geti Prompt."""
 
-import colorsys
 import hashlib
 import logging
 import sys
-from itertools import starmap
 from pathlib import Path
 
-import numpy as np
 import requests
 import torch
 from rich.progress import BarColumn, DownloadColumn, Progress, TextColumn, TimeRemainingColumn, TransferSpeedColumn
-
-from getiprompt.types import Masks
 
 logger = logging.getLogger("Geti Prompt")
 
@@ -125,46 +120,3 @@ def check_file_hash(file_path: Path, expected_hash: str) -> None:
     if file_hash != expected_hash:
         msg = f"File {file_path} has incorrect hash. Expected {expected_hash}, got {file_hash}"
         raise ValueError(msg)
-
-
-def get_colors(n: int) -> np.ndarray:
-    """Generate colors for a mask.
-
-    Args:
-        n: Number of colors to generate
-
-    Returns:
-        Colors for a mask
-    """
-    hsv_tuples = [(x / n, 0.5, 0.5) for x in range(n)]
-    rgb_tuples = starmap(colorsys.hsv_to_rgb, hsv_tuples)
-    return (np.array(list(rgb_tuples)) * 255).astype(np.uint8)
-
-
-def masks_to_custom_masks(
-    masks: list[torch.Tensor | None],
-    class_id: int = 0,
-) -> list[Masks]:
-    """Converts torch masks to Masks objects.
-
-    Args:
-        masks: List of torch tensors with shape (N, H, W) containing masks,
-                or None for samples without masks
-        class_id: The class id to use for all masks
-
-    Returns:
-        List of Masks objects
-    """
-    mask_list = []
-    for mask in masks:
-        if mask is None:
-            # Create empty Masks object for samples without masks
-            mask_list.append(Masks())
-        else:
-            # mask_array has shape (N, H, W) - already binary masks per instance
-            masks_obj = Masks()
-            for instance_idx in range(mask.shape[0]):
-                # Add each instance mask with the same class_id
-                masks_obj.add(mask[instance_idx], class_id=class_id)
-            mask_list.append(masks_obj)
-    return mask_list

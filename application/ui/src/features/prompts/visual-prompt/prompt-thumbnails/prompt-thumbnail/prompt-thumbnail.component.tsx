@@ -6,7 +6,7 @@
 import { VisualPromptItemType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { ActionMenu, Item, Key, View } from '@geti/ui';
-import { useSelectedFrame } from 'src/features/stream/selected-frame-provider.component';
+import { useSelectedFrame } from 'src/shared/selected-frame-provider.component';
 
 import { useDeletePrompt } from '../../api/use-delete-prompt';
 import { useVisualPrompt } from '../../visual-prompt-provider.component';
@@ -59,7 +59,7 @@ export const PromptThumbnail = ({ prompt }: PromptThumbnailProps) => {
                 backgroundColor={'gray-50'}
                 UNSAFE_className={styles.actionMenu}
             >
-                <ActionMenu isQuiet onAction={onAction} aria-label={'Prompt actions'}>
+                <ActionMenu isQuiet onAction={onAction} aria-label={`Prompt actions ${prompt.id}`}>
                     {PROMPT_OPTIONS.map((option) => {
                         return <Item key={option}>{option}</Item>;
                     })}

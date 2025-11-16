@@ -5,11 +5,11 @@
 
 import { Flex, Grid, Text } from '@geti/ui';
 
-import { useGetPrompts } from '../../api/use-get-prompts';
+import { useVisualPrompt } from '../../visual-prompt-provider.component';
 import { PromptThumbnail } from '../prompt-thumbnail/prompt-thumbnail.component';
 
 export const PromptThumbnailList = () => {
-    const prompts = useGetPrompts();
+    const { prompts } = useVisualPrompt();
 
     if (prompts.length === 0) {
         return (

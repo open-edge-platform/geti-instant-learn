@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import torch
 
 from getiprompt.scripts.benchmark import load_dataset_by_name, perform_benchmark_experiment, predict_on_dataset
 from getiprompt.utils.args import get_arguments
@@ -103,7 +104,7 @@ class TestBenchmarkModelHandling:
         """Test running prediction on dataset with single model."""
         with (
             patch("getiprompt.scripts.benchmark.load_model") as mock_load_model,
-            patch("getiprompt.scripts.benchmark.SegmentationMetrics") as mock_metrics,
+            patch("getiprompt.scripts.benchmark.MeanIoU") as mock_metrics,
             patch("getiprompt.scripts.benchmark.learn_from_category") as mock_learn,
             patch("getiprompt.scripts.benchmark.infer_on_category") as mock_infer,
             patch("getiprompt.scripts.benchmark.prepare_output_directory") as mock_handle_path,
@@ -112,15 +113,11 @@ class TestBenchmarkModelHandling:
             mock_load_model.return_value = mock_model
             mock_handle_path.return_value = Path(tempfile.mkdtemp())
 
-            # Create mock metrics that returns a proper dict
+            # Create mock MeanIoU instance that returns IoU values
             mock_metrics_instance = MagicMock()
-            mock_metrics_instance.get_metrics.return_value = {
-                "category": ["cat", "dog"],
-                "accuracy": [0.8, 0.9],
-                "precision": [0.7, 0.8],
-                "recall": [0.6, 0.7],
-                "f1": [0.65, 0.75],
-            }
+            # MeanIoU.compute() returns a tensor of shape (num_classes,)
+            mock_metrics_instance.compute.return_value = torch.tensor([0.8, 0.9], dtype=torch.float32)
+            mock_metrics_instance.update.return_value = None
             mock_metrics.return_value = mock_metrics_instance
 
             # Create mock dataset
@@ -149,6 +146,7 @@ class TestBenchmarkModelHandling:
                 model_name="Matcher",
                 backbone_name="SAM-HQ-tiny",
                 number_of_priors_tests=1,
+                device=torch.device("cpu"),
             )
 
             # Should return a DataFrame
@@ -172,6 +170,7 @@ class TestBenchmarkModelHandling:
                     model_name="Matcher",
                     backbone_name="SAM-HQ-tiny",
                     number_of_priors_tests=1,
+                    device=torch.device("cpu"),
                 )
 
 

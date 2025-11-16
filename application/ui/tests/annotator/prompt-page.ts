@@ -20,9 +20,19 @@ export class PromptPage {
         await this.savePromptButton.click();
     }
 
-    async deletePrompt() {
-        await this.page.getByLabel(/prompt thumbnail/i).hover();
-        await this.page.getByLabel('Prompt actions').click();
+    async deletePrompt(promptId: string) {
+        const thumbnail = this.page.getByLabel(`prompt thumbnail ${promptId}`);
+        await thumbnail.hover();
+
+        await this.page.getByLabel(`Prompt actions ${promptId}`).click();
         await this.page.getByText('Delete').click();
+    }
+
+    async editPrompt(promptId: string) {
+        const thumbnail = this.page.getByLabel(`prompt thumbnail ${promptId}`);
+        await thumbnail.hover();
+
+        await this.page.getByLabel(`Prompt actions ${promptId}`).click();
+        await this.page.getByText('Edit').click();
     }
 }

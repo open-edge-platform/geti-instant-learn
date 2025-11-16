@@ -5,14 +5,14 @@
 
 from typing import TYPE_CHECKING
 
+import torch
+
 from getiprompt.components import SamDecoder
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.data.base.batch import Batch
-from getiprompt.types import Results
-from getiprompt.utils.benchmark import track_duration
 from getiprompt.utils.constants import SAMModelName
 
 from .base import Model
@@ -20,9 +20,6 @@ from .foundation import load_sam_model
 
 if TYPE_CHECKING:
     from getiprompt.components.prompt_generators.base import PromptGenerator
-
-
-DEBUG = True
 
 
 class Matcher(Model):
@@ -91,7 +88,6 @@ class Matcher(Model):
         mask_similarity_threshold: float | None = 0.38,
         precision: str = "bf16",
         compile_models: bool = False,
-        benchmark_inference_speed: bool = False,
         device: str = "cuda",
     ) -> None:
         """Initialize the Matcher model.
@@ -104,7 +100,6 @@ class Matcher(Model):
             encoder_model: ImageEncoder model ID to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
-            benchmark_inference_speed: Whether to benchmark the inference speed.
             device: The device to use for the model.
         """
         super().__init__()
@@ -113,14 +108,12 @@ class Matcher(Model):
             device,
             precision=precision,
             compile_models=compile_models,
-            benchmark_inference_speed=benchmark_inference_speed,
         )
         self.encoder: ImageEncoder = ImageEncoder(
             model_id=encoder_model,
             device=device,
             precision=precision,
             compile_models=compile_models,
-            benchmark_inference_speed=benchmark_inference_speed,
         )
         # Local feature extraction with mask pooling
         self.masked_feature_extractor = MaskedFeatureExtractor(
@@ -142,7 +135,6 @@ class Matcher(Model):
         self.masked_ref_embeddings = None
         self.ref_masks = None
 
-    @track_duration
     def learn(self, reference_batch: Batch) -> None:
         """Perform learning step on the reference images and priors."""
         # Encode reference images to batched tensor
@@ -154,9 +146,20 @@ class Matcher(Model):
             reference_batch.category_ids,
         )
 
-    @track_duration
-    def infer(self, target_batch: Batch) -> Results:
-        """Perform inference step on the target images."""
+    def infer(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
+        """Perform inference step on the target images.
+
+        Args:
+            target_batch(Batch): The target batch.
+
+        Returns:
+            predictions(list[dict[str, torch.Tensor]]): A list of predictions.
+            Each prediction contains:
+                "pred_masks": torch.Tensor of shape [num_masks, H, W]
+                "pred_points": torch.Tensor of shape [num_points, 4] with last dimension [x, y, score, fg_label]
+                "pred_boxes": torch.Tensor of shape [num_boxes, 5] with last dimension [x1, y1, x2, y2, score]
+                "pred_labels": torch.Tensor of shape [num_masks]
+        """
         target_images = target_batch.images
         original_sizes = [image.shape[-2:] for image in target_images]
         target_embeddings = self.encoder(images=target_batch.images)
@@ -168,16 +171,8 @@ class Matcher(Model):
             original_sizes,
         )
         point_prompts = self.prompt_filter(point_prompts)
-        masks, used_points, _ = self.segmenter(
+        return self.segmenter(
             target_images,
             point_prompts=point_prompts,
             similarities=similarities_per_image,
         )
-
-        # write output
-        results = Results()
-        results.point_prompts = point_prompts
-        results.used_points = used_points
-        results.masks = masks
-        results.similarities = similarities_per_image
-        return results
