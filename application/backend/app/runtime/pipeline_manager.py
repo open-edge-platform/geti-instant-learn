@@ -133,7 +133,7 @@ class PipelineManager:
         processor = self._component_factory.create_processor(
             inbound_bcast,
             outbound_bcast,
-            MatcherConfig(),
+            config.processor,
             reference_batch,
         )
         sink = self._component_factory.create_sink(outbound_bcast, config.writer)
