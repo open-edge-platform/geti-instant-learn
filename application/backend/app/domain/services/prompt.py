@@ -140,11 +140,10 @@ class PromptService:
                         )
                         continue
                     samples.append(visual_prompt_to_sample(prompt, frame))
-                except ServiceError as exc:
-                    logger.warning(
-                        "Failed to convert prompt to sample: prompt_id=%s, error=%s",
+                except ServiceError:
+                    logger.exception(
+                        "Failed to convert prompt to sample: prompt_id=%s",
                         prompt.id,
-                        str(exc),
                     )
                     continue
 
