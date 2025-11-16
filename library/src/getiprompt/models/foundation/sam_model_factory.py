@@ -7,7 +7,6 @@ from logging import getLogger
 from typing import TYPE_CHECKING
 
 import torch
-from safetensors.torch import load_file
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 from segment_anything_hq import sam_model_registry
