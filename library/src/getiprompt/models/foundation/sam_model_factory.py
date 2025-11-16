@@ -7,6 +7,7 @@ from logging import getLogger
 from typing import TYPE_CHECKING
 
 import torch
+from safetensors.torch import load_file
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 from segment_anything_hq import sam_model_registry
@@ -65,6 +66,7 @@ def load_sam_model(
     elif sam in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
         model: SamHQ = sam_model_registry[registry_name]()
         with checkpoint_path.open("rb") as checkpoint:
+            # Safe: weights_only=True prevents arbitrary code execution
             state_dict = torch.load(checkpoint, map_location=device, weights_only=True)
         model.load_state_dict(state_dict)
         model.to(device).eval()
