@@ -23,8 +23,7 @@ def polygons_to_masks(polygons: list[PolygonAnnotation], image_height: int, imag
     if not polygons:
         raise RuntimeError("Cannot convert empty polygons list to masks")
 
-    N = len(polygons)
-    masks = np.zeros((N, image_height, image_width), dtype=np.uint8)
+    masks = np.zeros((len(polygons), image_height, image_width), dtype=np.uint8)
 
     for i, polygon in enumerate(polygons):
         pixel_points = np.array(
