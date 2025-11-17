@@ -6,9 +6,8 @@
 import { useRef, useState } from 'react';
 
 import { useEventListener, usePromptMode } from '@geti-prompt/hooks';
-import { ActionButton, Grid, minmax, View } from '@geti/ui';
+import { ActionButton, dimensionValue, Grid, minmax, View } from '@geti/ui';
 import { ChevronLeft, ChevronRight } from '@geti/ui/icons';
-import { dimensionValue } from '@react-spectrum/utils';
 
 import { CaptureFrameButton } from '../capture-frame-button.component';
 import { FramesList, useFrames, type Frame } from '../frames-list/frames-list.component';
