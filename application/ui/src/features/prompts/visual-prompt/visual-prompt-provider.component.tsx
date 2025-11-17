@@ -5,7 +5,7 @@
 
 import { createContext, ReactNode, use, useEffect, useState } from 'react';
 
-import { LabelType, VisualPromptListType, VisualPromptType } from '@geti-prompt/api';
+import { LabelType, VisualPromptType } from '@geti-prompt/api';
 
 import { useSelectedFrame } from '../../../shared/selected-frame-provider.component';
 import { useGetPrompt } from './api/use-get-prompt';
@@ -29,21 +29,12 @@ interface VisualPromptProviderProps {
     children: ReactNode;
 }
 
-export const VisualPromptProvider = ({ children }: VisualPromptProviderProps) => {
+const useSelectedLabel = (prompt: VisualPromptType | undefined) => {
     const labels = useProjectLabels();
+
     const [selectedLabelId, setSelectedLabelId] = useState<string | null>(null);
+
     const selectedLabel: LabelType | null = labels.find(({ id }) => id === selectedLabelId) ?? null;
-
-    const { promptId, setPromptId } = usePromptIdFromUrl();
-    const { selectedFrameId, setSelectedFrameId } = useSelectedFrame();
-    const prompt = useGetPrompt(promptId);
-
-    // Auto-load frame
-    useEffect(() => {
-        if (prompt?.frame_id && selectedFrameId !== prompt.frame_id) {
-            setSelectedFrameId(prompt.frame_id);
-        }
-    }, [prompt?.frame_id, selectedFrameId, setSelectedFrameId]);
 
     // Auto-select label
     useEffect(() => {
@@ -59,6 +50,28 @@ export const VisualPromptProvider = ({ children }: VisualPromptProviderProps) =>
             setSelectedLabelId(labels[0].id);
         }
     }, [labels, prompt?.annotations]);
+
+    return {
+        selectedLabel,
+        selectedLabelId,
+        setSelectedLabelId,
+        labels,
+    };
+};
+
+export const VisualPromptProvider = ({ children }: VisualPromptProviderProps) => {
+    const { promptId, setPromptId } = usePromptIdFromUrl();
+    const { selectedFrameId, setSelectedFrameId } = useSelectedFrame();
+    const prompt = useGetPrompt(promptId);
+
+    const { selectedLabel, selectedLabelId, setSelectedLabelId, labels } = useSelectedLabel(prompt);
+
+    // Auto-load frame
+    useEffect(() => {
+        if (prompt?.frame_id && selectedFrameId !== prompt.frame_id) {
+            setSelectedFrameId(prompt.frame_id);
+        }
+    }, [prompt?.frame_id, selectedFrameId, setSelectedFrameId]);
 
     return (
         <VisualPromptContext
