@@ -158,8 +158,18 @@ test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, 
             })
         );
 
+        let promptIdToBeDeleted = null;
+
+        network.use(
+            http.delete('/api/v1/projects/{project_id}/prompts/{prompt_id}', async ({ response, params }) => {
+                promptIdToBeDeleted = params.prompt_id;
+                return response(204).empty();
+            })
+        );
+
         await promptPage.deletePrompt(MOCK_PROMPT_ID);
 
         await expect(promptPage.thumbnail).toHaveCount(1);
+        expect(promptIdToBeDeleted).toBe(MOCK_PROMPT_ID);
     });
 });
