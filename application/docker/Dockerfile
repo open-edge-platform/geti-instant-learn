@@ -204,6 +204,7 @@ RUN apt-get update  \
     libze-dev \
     intel-ocloc \
     && rm -rf /var/lib/apt/lists/* \
+    && apt-get remove -y wget gpg \
     && apt-get clean
 
 # needed to define it here to allow installation of packages
