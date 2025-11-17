@@ -24,11 +24,6 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-def get_supported_image_extensions() -> set[str]:
-    """Provides configuration for ImageFolderReader."""
-    return settings.supported_extensions
-
-
 # --- Core singletons ---
 def get_pipeline_manager(request: Request) -> PipelineManager:
     """Dependency that provides access to the PipelineManager."""

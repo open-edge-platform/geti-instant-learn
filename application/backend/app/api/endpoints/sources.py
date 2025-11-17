@@ -102,7 +102,7 @@ def delete_source(project_id: UUID, source_id: UUID, source_service: SourceServi
     },
 )
 def get_frames(
-    project_id: UUID, pipeline_manager: PipelineManagerDep, page: int = 1, page_size: int = 30
+    project_id: UUID, source_id: UUID, pipeline_manager: PipelineManagerDep, page: int = 1, page_size: int = 30
 ) -> FrameListResponse:
     """
     Retrieve a paginated list of frames from the source.
@@ -122,7 +122,7 @@ def get_frames(
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
     },
 )
-def get_frame_index(project_id: UUID, pipeline_manager: PipelineManagerDep) -> FrameIndexResponse:
+def get_frame_index(project_id: UUID, source_id: UUID, pipeline_manager: PipelineManagerDep) -> FrameIndexResponse:
     """
     Get the current frame index from the source.
     Only available for seekable sources (e.g., image folders, video files).
@@ -142,7 +142,8 @@ def get_frame_index(project_id: UUID, pipeline_manager: PipelineManagerDep) -> F
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
     },
 )
-def seek_frame(project_id: UUID, index: int, pipeline_manager: PipelineManagerDep) -> FrameIndexResponse:
+def seek_frame(project_id: UUID, source_id: UUID, index: int, pipeline_manager: PipelineManagerDep) -> (
+        FrameIndexResponse):
     """
     Seek to a specific frame in the source.
     Only available for seekable sources (e.g., image folders, video files).

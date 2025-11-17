@@ -6,12 +6,16 @@ import logging
 import re
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import cv2
 
 from runtime.core.components.base import StreamReader
 from runtime.core.components.schemas.processor import InputData
 from runtime.core.components.schemas.reader import FrameListResponse, FrameMetadata, ReaderConfig
+
+if TYPE_CHECKING:
+    import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +33,8 @@ class ImageFolderReader(StreamReader):
         self._supported_extensions = supported_extensions
         self._image_paths: list[Path] = []
         self._current_index: int = 0
+        self._last_image: np.ndarray | None = None
+        self._last_image_path: Path | None = None
         self._thumbnail_cache: dict[int, str] = {}
         super().__init__()
 
@@ -115,6 +121,9 @@ class ImageFolderReader(StreamReader):
             raise IndexError(f"Index {index} out of range [0, {len(self._image_paths)})")
 
         self._current_index = index
+        # clear cache to force reload on next read()
+        self._last_image = None
+        self._last_image_path = None
 
     def __len__(self) -> int:
         """Return the total number of images in the folder."""
@@ -161,24 +170,24 @@ class ImageFolderReader(StreamReader):
 
     def read(self) -> InputData | None:
         """Read the current image and advance to the next."""
-        if not self._image_paths or self._current_index >= len(self._image_paths):
+        if not self._image_paths:
             return None
 
         image_path = self._image_paths[self._current_index]
-        image = cv2.imread(str(image_path))
 
-        current_idx = self._current_index
-        self._current_index += 1
-
-        if image is None:
-            # Log the error but maintain index synchronization
-            logger.warning(f"Failed to load image: {image_path}")
-            return None
+        # cache image to avoid repeated disk reads
+        if self._last_image is None or self._last_image_path != image_path:
+            image = cv2.imread(str(image_path))
+            if image is None:
+                logger.error(f"Failed to read image: {image_path}")
+                return None
+            self._last_image = image
+            self._last_image_path = image_path
 
         return InputData(
             timestamp=int(time.time() * 1000),
-            frame=image,
-            context={"path": str(image_path), "index": current_idx},
+            frame=self._last_image,
+            context={"path": str(image_path), "index": self._current_index},
         )
 
     def close(self) -> None:
