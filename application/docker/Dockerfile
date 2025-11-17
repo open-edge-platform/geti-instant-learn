@@ -94,9 +94,9 @@ ENV ASSET_PREFIX=${ASSET_PREFIX}
 # build with --no-cache in case of sub-dependency changes (from geti)
 RUN npm run build
 
-#####################################
-# Base for CPU and GPU runtime images
-#####################################
+##########################################
+# Base for CPU, GPU and XPU runtime images
+##########################################
 FROM python:3.12-slim-bookworm@sha256:874450e1da63e36bf5c1ca8b0a13cb9eb0bbb1c4015151e376978f9aa6ae3bc2 AS runtime-base
 
 ARG STATIC_FILES_DIR=""
