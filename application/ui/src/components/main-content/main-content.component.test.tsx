@@ -6,6 +6,7 @@
 import { getMockedProject, getMockedSource, render } from '@geti-prompt/test-utils';
 import { screen } from '@testing-library/react';
 import { HttpResponse } from 'msw';
+import { WebRTCConnectionProvider } from 'src/features/stream/web-rtc/web-rtc-connection-provider';
 
 import { http, server } from '../../setup-test';
 import { MainContent } from './main-content.component';
@@ -37,14 +38,20 @@ describe('MainContent', () => {
     });
 
     it('renders StreamContainer otherwise', async () => {
-        http.get('/api/v1/projects/{project_id}/sources', () => {
-            return HttpResponse.json({
-                sources: [getMockedSource({ id: 'source-1' })],
-            });
-        });
+        server.use(
+            http.get('/api/v1/projects/{project_id}/sources', () => {
+                return HttpResponse.json({
+                    sources: [getMockedSource({ id: 'source-1' })],
+                });
+            })
+        );
 
-        render(<MainContent />);
+        render(
+            <WebRTCConnectionProvider>
+                <MainContent />
+            </WebRTCConnectionProvider>
+        );
 
-        expect(await screen.findByText(/Setup your input source/i)).toBeInTheDocument();
+        expect(await screen.findByLabelText('Start stream')).toBeInTheDocument();
     });
 });
