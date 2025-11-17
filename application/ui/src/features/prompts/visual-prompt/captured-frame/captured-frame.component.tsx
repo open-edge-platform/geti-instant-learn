@@ -7,11 +7,11 @@ import { ReactNode, Suspense } from 'react';
 
 import { Flex, Grid, Loading, minmax } from '@geti/ui';
 
-import { AnnotationProviders } from '../../../../components/annotation-providers/annotation-providers.component';
-import { CapturedFrameContent } from '../../../../components/captured-frame-content/captured-frame-content.component';
-import { CapturedFrameFullScreen } from '../../../../components/captured-frame-fullscreen/captured-frame-full-screen.component';
+import { AnnotationProviders } from '../../../annotator/annotation-providers/annotation-providers.component';
 import { useProjectLabels } from '../use-project-labels.hook';
 import { useVisualPrompt } from '../visual-prompt-provider.component';
+import { CapturedFrameContent } from './captured-frame-content.component';
+import { CapturedFrameFullScreen } from './captured-frame-full-screen.component';
 
 interface CapturedFrameAnnotatorProps {
     children: ReactNode;

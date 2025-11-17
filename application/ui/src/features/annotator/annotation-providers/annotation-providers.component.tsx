@@ -7,12 +7,12 @@ import { ReactNode } from 'react';
 
 import type { AnnotationType, LabelType } from '@geti-prompt/api';
 
-import { FullScreenModeProvider } from '../../features/annotator/actions/full-screen-mode.component';
-import { CanvasSettingsProvider } from '../../features/annotator/actions/settings/canvas-settings-provider.component';
-import { AnnotationActionsProvider } from '../../features/annotator/providers/annotation-actions-provider.component';
-import { AnnotationVisibilityProvider } from '../../features/annotator/providers/annotation-visibility-provider.component';
-import { AnnotatorProvider } from '../../features/annotator/providers/annotator-provider.component';
-import { SelectAnnotationProvider } from '../../features/annotator/providers/select-annotation-provider.component';
+import { FullScreenModeProvider } from '../actions/full-screen-mode.component';
+import { CanvasSettingsProvider } from '../actions/settings/canvas-settings-provider.component';
+import { AnnotationActionsProvider } from '../providers/annotation-actions-provider.component';
+import { AnnotationVisibilityProvider } from '../providers/annotation-visibility-provider.component';
+import { AnnotatorProvider } from '../providers/annotator-provider.component';
+import { SelectAnnotationProvider } from '../providers/select-annotation-provider.component';
 
 interface AnnotationProvidersProps {
     children: ReactNode;

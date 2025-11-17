@@ -6,8 +6,8 @@
 import { Button } from '@geti/ui';
 import { isEmpty } from 'lodash-es';
 
-import { useAnnotationActions } from '../../features/annotator/providers/annotation-actions-provider.component';
-import { useSavePrompt } from '../../features/prompts/visual-prompt/api/use-save-prompt';
+import { useAnnotationActions } from '../../../annotator/providers/annotation-actions-provider.component';
+import { useSavePrompt } from '../api/use-save-prompt';
 
 export const SavePrompt = () => {
     const savePrompt = useSavePrompt();
