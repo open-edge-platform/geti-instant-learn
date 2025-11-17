@@ -5,10 +5,27 @@
 
 import { useSearchParams } from 'react-router-dom';
 
-type PromptMode = 'visual' | 'text';
+export type PromptMode = 'visual' | 'text';
 
-export const usePromptMode = (): PromptMode => {
-    const [searchParams] = useSearchParams();
+const getSelectedPromptMode = (mode: string): PromptMode => {
+    if (mode.toLocaleLowerCase().includes('visual')) {
+        return 'visual';
+    }
+    return 'text';
+};
 
-    return (searchParams.get('mode') as PromptMode) ?? 'visual';
+export const usePromptMode = (): [PromptMode, (mode: string) => void] => {
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    const mode = (searchParams.get('mode') as PromptMode) ?? 'visual';
+
+    const handleModeChange = (option: string) => {
+        const newMode = getSelectedPromptMode(option);
+        const newSearchParams = new URLSearchParams(searchParams);
+
+        newSearchParams.set('mode', newMode);
+        setSearchParams(newSearchParams);
+    };
+
+    return [mode, handleModeChange] as const;
 };

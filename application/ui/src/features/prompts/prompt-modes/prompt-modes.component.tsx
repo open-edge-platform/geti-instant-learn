@@ -5,13 +5,11 @@
 
 import { useEffect } from 'react';
 
-import { usePromptMode } from '@geti-prompt/hooks';
+import { usePromptMode, type PromptMode } from '@geti-prompt/hooks';
 import { Flex, Text, ToggleButtons } from '@geti/ui';
 import { useSearchParams } from 'react-router-dom';
 
 import styles from './prompt-modes.module.scss';
-
-type PromptMode = 'visual' | 'text';
 
 const VISUAL_PROMPT_MODE = 'Visual Prompt';
 const TEXT_PROMPT_MODE = 'Text Prompt';
@@ -25,38 +23,23 @@ const getSelectedUIPromptMode = (mode: PromptMode = 'visual') => {
     return TEXT_PROMPT_MODE;
 };
 
-const getSelectedPromptMode = (mode: string): PromptMode => {
-    if (mode === VISUAL_PROMPT_MODE) {
-        return 'visual';
-    }
-    return 'text';
-};
-
 export const PromptModes = () => {
-    const [searchParams, setSearchParams] = useSearchParams();
-    const mode = usePromptMode();
+    const [searchParams] = useSearchParams();
+    const [mode, setPromptMode] = usePromptMode();
+    const localMode = searchParams.get('mode');
 
     const selectedMode = getSelectedUIPromptMode(mode);
 
-    const handleModeChange = (option: string) => {
-        const newMode = getSelectedPromptMode(option);
-        searchParams.set('mode', newMode);
-        setSearchParams(searchParams);
-    };
-
     useEffect(() => {
-        const localMode = searchParams.get('mode');
-
         if (localMode === null) {
-            searchParams.set('mode', 'visual');
-            setSearchParams(searchParams);
+            setPromptMode('visual');
         }
-    }, [searchParams, setSearchParams]);
+    }, [localMode, setPromptMode]);
 
     return (
         <Flex direction={'column'} gap={'size-100'}>
             <Text UNSAFE_className={styles.label}>Prompt Mode</Text>
-            <ToggleButtons options={OPTIONS} selectedOption={selectedMode} onOptionChange={handleModeChange} />
+            <ToggleButtons options={OPTIONS} selectedOption={selectedMode} onOptionChange={setPromptMode} />
         </Flex>
     );
 };

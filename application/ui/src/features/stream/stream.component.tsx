@@ -17,7 +17,7 @@ const useActiveSource = () => {
 };
 
 const WebcamStream = () => {
-    const promptMode = usePromptMode();
+    const [promptMode] = usePromptMode();
 
     return (
         <Grid

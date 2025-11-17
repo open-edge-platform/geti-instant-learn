@@ -75,7 +75,7 @@ describe('PromptModes', () => {
 
 describe('usePromptMode', () => {
     const TestComponent = () => {
-        const mode = usePromptMode();
+        const [mode] = usePromptMode();
 
         return <div aria-label='mode'>{mode}</div>;
     };
