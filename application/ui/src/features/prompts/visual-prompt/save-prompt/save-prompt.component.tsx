@@ -8,12 +8,14 @@ import { isEmpty } from 'lodash-es';
 
 import { useAnnotationActions } from '../../../annotator/providers/annotation-actions-provider.component';
 import { useSavePrompt } from '../api/use-save-prompt';
+import { useVisualPrompt } from '../visual-prompt-provider.component';
 
 export const SavePrompt = () => {
     const savePrompt = useSavePrompt();
     const { annotations } = useAnnotationActions();
+    const { selectedLabelId } = useVisualPrompt();
 
-    const isSavePromptDisabled = isEmpty(annotations) || savePrompt.isPending;
+    const isSavePromptDisabled = isEmpty(annotations) || savePrompt.isPending || selectedLabelId === null;
 
     return (
         <Button
