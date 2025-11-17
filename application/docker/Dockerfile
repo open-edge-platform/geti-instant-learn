@@ -137,6 +137,8 @@ WORKDIR /geti_prompt
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD uv run python -c "import urllib.request; urllib.request.urlopen('${PUBLIC_API_URL}/health')" || exit 1
 
+USER ${USER_NAME}
+
 CMD ["uv", "run", "app/main.py"]
 
 ######################
@@ -144,15 +146,14 @@ CMD ["uv", "run", "app/main.py"]
 ######################
 FROM runtime-base AS geti-prompt-cpu
 
-# needed to define it here to allow installation of packages
-USER ${USER_NAME}
-
 COPY --from=cpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
 
 ######################
 # Server (GPU version)
 ######################
 FROM runtime-base AS geti-prompt-gpu
+
+USER root
 
 RUN apt-get update  \
     && apt-get install -y --no-install-recommends wget=1.21.3-1+deb12u1 \
