@@ -44,6 +44,16 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-dev --no-editable --extra cu126
 
+##########
+# XPU Base
+##########
+FROM backend-base AS xpu-base
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=backend/uv.lock,target=uv.lock \
+    --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-dev --no-editable --extra xpu
+
 ##################
 # Geti UI packages
 ##################
@@ -172,3 +182,29 @@ RUN apt-get update \
 USER ${USER_NAME}
 
 COPY --from=gpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
+
+######################
+# Server (XPU version)
+######################
+FROM runtime-base AS geti-prompt-xpu
+
+USER root
+
+RUN apt-get update && apt-get install -y software-properties-common \
+    && add-apt-repository -y ppa:kobuk-team/intel-graphics \
+    && apt-get install -y --no-install-recommends \
+    libze-intel-gpu1 \
+    libze1 \
+    intel-metrics-discovery \
+    intel-opencl-icd \
+    clinfo \
+    intel-gsc \
+    libze-dev \
+    intel-ocloc \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# needed to define it here to allow installation of packages
+USER ${USER_NAME}
+
+COPY --from=xpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
