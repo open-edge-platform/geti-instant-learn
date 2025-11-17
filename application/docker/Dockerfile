@@ -190,15 +190,17 @@ FROM runtime-base AS geti-prompt-xpu
 
 USER root
 
-RUN apt-get update && apt-get install -y software-properties-common \
-    && add-apt-repository -y ppa:kobuk-team/intel-graphics \
+RUN apt-get update  \
+    && apt-get install -y --no-install-recommends wget=1.21.3-1+deb12u1 gpg=2.2.40-1.1+deb12u1 \
+    && wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
+       gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg \
+    && echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy unified" | \
+      tee /etc/apt/sources.list.d/intel-gpu-jammy.list \
     && apt-get update && apt-get install -y --no-install-recommends \
-    libze-intel-gpu1 \
-    libze1 \
-    intel-metrics-discovery \
-    intel-opencl-icd \
+    libze-intel-gpu1  \
+    libze1  \
+    intel-opencl-icd  \
     clinfo \
-    intel-gsc \
     libze-dev \
     intel-ocloc \
     && rm -rf /var/lib/apt/lists/* \
