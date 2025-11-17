@@ -7,7 +7,7 @@ import { $api } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Button } from '@geti/ui';
 
-import { useSelectedFrame } from './selected-frame-provider.component';
+import { useSelectedFrame } from '../../shared/selected-frame-provider.component';
 
 const useCaptureFrameMutation = () => {
     return $api.useMutation('post', '/api/v1/projects/{project_id}/frames');

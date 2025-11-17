@@ -44,7 +44,6 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 mask_similarity_threshold=args.mask_similarity_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
-                benchmark_inference_speed=args.benchmark_inference_speed,
                 device=args.device,
             )
         case ModelName.MATCHER:
@@ -56,7 +55,6 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 mask_similarity_threshold=args.mask_similarity_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
-                benchmark_inference_speed=args.benchmark_inference_speed,
                 device=args.device,
             )
         case ModelName.SOFT_MATCHER:
@@ -73,7 +71,6 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 softmatching_bidirectional=args.softmatching_bidirectional,
                 precision=args.precision,
                 compile_models=args.compile_models,
-                benchmark_inference_speed=args.benchmark_inference_speed,
                 device=args.device,
             )
         case ModelName.GROUNDED_SAM:
@@ -84,7 +81,6 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 text_threshold=args.text_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
-                benchmark_inference_speed=args.benchmark_inference_speed,
                 device=args.device,
             )
         case _:

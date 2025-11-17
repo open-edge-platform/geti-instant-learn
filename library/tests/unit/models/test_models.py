@@ -14,7 +14,6 @@ from getiprompt.models.grounded_sam import GroundedSAM
 from getiprompt.models.matcher import Matcher
 from getiprompt.models.per_dino import PerDino
 from getiprompt.models.soft_matcher import SoftMatcher
-from getiprompt.types import Results
 
 
 class TestPerDino:
@@ -68,15 +67,30 @@ class TestPerDino:
         model = PerDino(device="cpu")
 
         # Mock the learn method to set up the model
-        model.learn = MagicMock(return_value=Results())
-        model.infer = MagicMock(return_value=Results())
+        model.learn = MagicMock(return_value=None)
+        model.infer = MagicMock(
+            return_value=[
+                {
+                    "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
+                    "pred_points": torch.zeros((0, 4), dtype=torch.float32),
+                    "pred_boxes": torch.zeros((0, 6), dtype=torch.float32),
+                    "pred_labels": torch.zeros((0,), dtype=torch.long),
+                },
+            ],
+        )
 
         # Create test data
         target_images = [Image(torch.zeros((224, 224, 3), dtype=torch.uint8))]
 
-        result = model.infer(target_images)
+        predictions = model.infer(target_images)
 
-        assert isinstance(result, Results)
+        assert isinstance(predictions, list)
+        assert len(predictions) == 1
+        assert isinstance(predictions[0], dict)
+        assert "pred_masks" in predictions[0]
+        assert "pred_points" in predictions[0]
+        assert "pred_boxes" in predictions[0]
+        assert "pred_labels" in predictions[0]
         model.infer.assert_called_once_with(target_images)
 
     @patch("getiprompt.models.per_dino.load_sam_model")
@@ -94,8 +108,17 @@ class TestPerDino:
         model = PerDino(device="cpu")
 
         # Mock the learn and infer methods
-        model.learn = MagicMock(return_value=Results())
-        model.infer = MagicMock(return_value=Results())
+        model.learn = MagicMock(return_value=None)
+        model.infer = MagicMock(
+            return_value=[
+                {
+                    "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
+                    "pred_points": torch.zeros((0, 4), dtype=torch.float32),
+                    "pred_boxes": torch.zeros((0, 6), dtype=torch.float32),
+                    "pred_labels": torch.zeros((0,), dtype=torch.long),
+                },
+            ],
+        )
 
         target_images = [Image(torch.zeros((224, 224, 3), dtype=torch.uint8))]
 
@@ -156,15 +179,30 @@ class TestMatcher:
         model = Matcher(device="cpu")
 
         # Mock the learn and infer methods
-        model.learn = MagicMock(return_value=Results())
-        model.infer = MagicMock(return_value=Results())
+        model.learn = MagicMock(return_value=None)
+        model.infer = MagicMock(
+            return_value=[
+                {
+                    "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
+                    "pred_points": torch.zeros((0, 4), dtype=torch.float32),
+                    "pred_boxes": torch.zeros((0, 6), dtype=torch.float32),
+                    "pred_labels": torch.zeros((0,), dtype=torch.long),
+                },
+            ],
+        )
 
         # Create test data
         target_images = [Image(torch.zeros((224, 224, 3), dtype=torch.uint8))]
 
-        result = model.infer(target_images)
+        predictions = model.infer(target_images)
 
-        assert isinstance(result, Results)
+        assert isinstance(predictions, list)
+        assert len(predictions) == 1
+        assert isinstance(predictions[0], dict)
+        assert "pred_masks" in predictions[0]
+        assert "pred_points" in predictions[0]
+        assert "pred_boxes" in predictions[0]
+        assert "pred_labels" in predictions[0]
         model.infer.assert_called_once_with(target_images)
 
     @patch("getiprompt.models.matcher.load_sam_model")
@@ -182,8 +220,17 @@ class TestMatcher:
         model = Matcher(device="cpu")
 
         # Mock the learn and infer methods
-        model.learn = MagicMock(return_value=Results())
-        model.infer = MagicMock(return_value=Results())
+        model.learn = MagicMock(return_value=None)
+        model.infer = MagicMock(
+            return_value=[
+                {
+                    "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
+                    "pred_points": torch.zeros((0, 4), dtype=torch.float32),
+                    "pred_boxes": torch.zeros((0, 6), dtype=torch.float32),
+                    "pred_labels": torch.zeros((0,), dtype=torch.long),
+                },
+            ],
+        )
 
         target_images = [Image(torch.zeros((224, 224, 3), dtype=torch.uint8))]
 
@@ -244,15 +291,30 @@ class TestSoftMatcher:
         model = SoftMatcher(device="cpu")
 
         # Mock the learn and infer methods
-        model.learn = MagicMock(return_value=Results())
-        model.infer = MagicMock(return_value=Results())
+        model.learn = MagicMock(return_value=None)
+        model.infer = MagicMock(
+            return_value=[
+                {
+                    "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
+                    "pred_points": torch.zeros((0, 4), dtype=torch.float32),
+                    "pred_boxes": torch.zeros((0, 6), dtype=torch.float32),
+                    "pred_labels": torch.zeros((0,), dtype=torch.long),
+                },
+            ],
+        )
 
         # Create test data
         target_images = [Image(torch.zeros((224, 224, 3), dtype=torch.uint8))]
 
-        result = model.infer(target_images)
+        predictions = model.infer(target_images)
 
-        assert isinstance(result, Results)
+        assert isinstance(predictions, list)
+        assert len(predictions) == 1
+        assert isinstance(predictions[0], dict)
+        assert "pred_masks" in predictions[0]
+        assert "pred_points" in predictions[0]
+        assert "pred_boxes" in predictions[0]
+        assert "pred_labels" in predictions[0]
         model.infer.assert_called_once_with(target_images)
 
     @patch("getiprompt.models.matcher.load_sam_model")
@@ -270,8 +332,17 @@ class TestSoftMatcher:
         model = SoftMatcher(device="cpu")
 
         # Mock the learn and infer methods
-        model.learn = MagicMock(return_value=Results())
-        model.infer = MagicMock(return_value=Results())
+        model.learn = MagicMock(return_value=None)
+        model.infer = MagicMock(
+            return_value=[
+                {
+                    "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
+                    "pred_points": torch.zeros((0, 4), dtype=torch.float32),
+                    "pred_boxes": torch.zeros((0, 6), dtype=torch.float32),
+                    "pred_labels": torch.zeros((0,), dtype=torch.long),
+                },
+            ],
+        )
 
         target_images = [Image(torch.zeros((224, 224, 3), dtype=torch.uint8))]
 
@@ -314,15 +385,30 @@ class TestGroundedSAM:
         model = GroundedSAM(device="cpu")
 
         # Mock the learn and infer methods
-        model.learn = MagicMock(return_value=Results())
-        model.infer = MagicMock(return_value=Results())
+        model.learn = MagicMock(return_value=None)
+        model.infer = MagicMock(
+            return_value=[
+                {
+                    "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
+                    "pred_points": torch.zeros((0, 4), dtype=torch.float32),
+                    "pred_boxes": torch.zeros((0, 6), dtype=torch.float32),
+                    "pred_labels": torch.zeros((0,), dtype=torch.long),
+                },
+            ],
+        )
 
         # Create test data
         target_images = [Image(torch.zeros((224, 224, 3), dtype=torch.uint8))]
 
-        result = model.infer(target_images)
+        predictions = model.infer(target_images)
 
-        assert isinstance(result, Results)
+        assert isinstance(predictions, list)
+        assert len(predictions) == 1
+        assert isinstance(predictions[0], dict)
+        assert "pred_masks" in predictions[0]
+        assert "pred_points" in predictions[0]
+        assert "pred_boxes" in predictions[0]
+        assert "pred_labels" in predictions[0]
         model.infer.assert_called_once_with(target_images)
 
     @patch("getiprompt.models.grounded_sam.load_sam_model")
@@ -337,8 +423,17 @@ class TestGroundedSAM:
         model = GroundedSAM(device="cpu")
 
         # Mock the learn and infer methods
-        model.learn = MagicMock(return_value=Results())
-        model.infer = MagicMock(return_value=Results())
+        model.learn = MagicMock(return_value=None)
+        model.infer = MagicMock(
+            return_value=[
+                {
+                    "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
+                    "pred_points": torch.zeros((0, 4), dtype=torch.float32),
+                    "pred_boxes": torch.zeros((0, 6), dtype=torch.float32),
+                    "pred_labels": torch.zeros((0,), dtype=torch.long),
+                },
+            ],
+        )
 
         target_images = [Image(torch.zeros((224, 224, 3), dtype=torch.uint8))]
 
@@ -379,8 +474,17 @@ class TestModelIntegration:
             model = model_class(device="cpu")
 
             # Mock the learn and infer methods
-            model.learn = MagicMock(return_value=Results())
-            model.infer = MagicMock(return_value=Results())
+            model.learn = MagicMock(return_value=None)
+            model.infer = MagicMock(
+                return_value=[
+                    {
+                        "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
+                        "pred_points": torch.zeros((0, 4), dtype=torch.float32),
+                        "pred_boxes": torch.zeros((0, 6), dtype=torch.float32),
+                        "pred_labels": torch.zeros((0,), dtype=torch.long),
+                    },
+                ],
+            )
 
             # Test forward pass
             target_images = [Image(torch.zeros((224, 224, 3), dtype=torch.uint8))]
@@ -459,11 +563,26 @@ class TestModelIntegration:
             model = model_class(device="cpu")
 
             # Mock the learn and infer methods
-            model.learn = MagicMock(return_value=Results())
-            model.infer = MagicMock(return_value=Results())
+            model.learn = MagicMock(return_value=None)
+            model.infer = MagicMock(
+                return_value=[
+                    {
+                        "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
+                        "pred_points": torch.zeros((0, 4), dtype=torch.float32),
+                        "pred_boxes": torch.zeros((0, 6), dtype=torch.float32),
+                        "pred_labels": torch.zeros((0,), dtype=torch.long),
+                    },
+                ],
+            )
 
             # Test that models can be called without errors
             target_images = [Image(torch.zeros((224, 224, 3), dtype=torch.uint8))]
-            result = model.infer(target_images)
+            predictions = model.infer(target_images)
 
-            assert isinstance(result, Results)
+            assert isinstance(predictions, list)
+            assert len(predictions) == 1
+            assert isinstance(predictions[0], dict)
+            assert "pred_masks" in predictions[0]
+            assert "pred_points" in predictions[0]
+            assert "pred_boxes" in predictions[0]
+            assert "pred_labels" in predictions[0]

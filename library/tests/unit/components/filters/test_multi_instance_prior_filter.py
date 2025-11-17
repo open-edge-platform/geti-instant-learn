@@ -7,7 +7,6 @@ import pytest
 import torch
 
 from getiprompt.components.filters import BoxPromptFilter
-from getiprompt.types import Boxes
 
 
 def test_multi_instance_prior_filter() -> None:
@@ -16,7 +15,7 @@ def test_multi_instance_prior_filter() -> None:
 
     # Create a scenario where one large box contains three smaller boxes
     # that almost fill it. The large box should be filtered out.
-    boxes1 = Boxes()
+    boxes1 = {0: []}
     # Large box
     large_box1 = torch.tensor([[10, 10, 110, 110, 0.9, 1]])  # Area: 10000
     # Small boxes
@@ -26,18 +25,18 @@ def test_multi_instance_prior_filter() -> None:
         [11, 51, 109, 109, 0.8, 1],  # Area: 5684
     ])
     # Total area: 9467. This should trigger the filter for the large box.
-    boxes1.add(torch.cat([large_box1, small_boxes1]))
+    boxes1[0].append(torch.cat([large_box1, small_boxes1]))
     # Convert Boxes to dict format expected by BoxPromptFilter
-    prompts1: dict[int, torch.Tensor] = {0: boxes1.get(0)[0]}
+    prompts1: dict[int, torch.Tensor] = {0: boxes1[0][0]}
 
     # Create a second scenario where the contained boxes are too small
     # to trigger the filter.
-    boxes2 = Boxes()
+    boxes2 = {0: []}
     large_box2 = torch.tensor([[0, 0, 100, 100, 0.9, 1]])
     small_boxes2 = torch.tensor([[10, 10, 20, 20, 0.8, 1]])
-    boxes2.add(torch.cat([large_box2, small_boxes2]))
+    boxes2[0].append(torch.cat([large_box2, small_boxes2]))
     # Convert Boxes to dict format expected by BoxPromptFilter
-    prompts2: dict[int, torch.Tensor] = {0: boxes2.get(0)[0]}
+    prompts2: dict[int, torch.Tensor] = {0: boxes2[0][0]}
 
     filtered_prompts_list = filt([prompts1, prompts2])
 

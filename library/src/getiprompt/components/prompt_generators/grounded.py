@@ -8,10 +8,10 @@ from difflib import SequenceMatcher
 from enum import Enum
 
 import torch
+from torch import nn
 from torchvision import tv_tensors
 from transformers import AutoModelForZeroShotObjectDetection, AutoProcessor
 
-from getiprompt.components.prompt_generators import PromptGenerator
 from getiprompt.utils.utils import precision_to_torch_dtype
 
 
@@ -25,7 +25,7 @@ class GroundingModel(Enum):
     LLMDET_LARGE = "fushh7/llmdet_swin_large_hf"
 
 
-class TextToBoxPromptGenerator(PromptGenerator):
+class TextToBoxPromptGenerator(nn.Module):
     """This class generates text-to-box prompts for the segmenter."""
 
     class Template:
@@ -44,7 +44,6 @@ class TextToBoxPromptGenerator(PromptGenerator):
         device: str = "cuda",
         precision: str = "bf16",
         compile_models: bool = False,
-        benchmark_inference_speed: bool = False,
     ) -> None:
         """Initialize the GroundingBoxGenerator.
 
@@ -58,7 +57,6 @@ class TextToBoxPromptGenerator(PromptGenerator):
             device: The device to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
-            benchmark_inference_speed: Whether to benchmark the inference speed.
         """
         super().__init__()
         self.model_id = model_id.value
@@ -68,7 +66,6 @@ class TextToBoxPromptGenerator(PromptGenerator):
             precision,
             device,
             compile_models,
-            benchmark_inference_speed,
         )
         self.box_threshold = box_threshold
         self.text_threshold = text_threshold
@@ -80,7 +77,6 @@ class TextToBoxPromptGenerator(PromptGenerator):
         precision: str,
         device: str,
         compile_models: bool,
-        benchmark_inference_speed: bool,
     ) -> tuple[AutoModelForZeroShotObjectDetection, AutoProcessor]:
         """Load the grounding model and processor.
 
@@ -89,7 +85,6 @@ class TextToBoxPromptGenerator(PromptGenerator):
             precision: The precision to use for the model.
             device: The device to use for the model.
             compile_models: Whether to compile the models.
-            benchmark_inference_speed: Whether to benchmark the inference speed.
         """
         from getiprompt.utils.optimization import optimize_model
 
@@ -112,7 +107,6 @@ class TextToBoxPromptGenerator(PromptGenerator):
             device=device,
             precision=precision_to_torch_dtype(precision),
             compile_models=compile_models,
-            benchmark_inference_speed=benchmark_inference_speed,
         )
         return model, processor
 

@@ -88,7 +88,6 @@ class SoftMatcher(Matcher):
         encoder_model: str = "dinov3_large",
         precision: str = "bf16",
         compile_models: bool = False,
-        benchmark_inference_speed: bool = False,
         device: str = "cuda",
     ) -> None:
         """Initialize the SoftMatcher model.
@@ -106,7 +105,6 @@ class SoftMatcher(Matcher):
             encoder_model: The encoder model to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
-            benchmark_inference_speed: Whether to benchmark the inference speed.
             device: The device to use for the model.
         """
         super().__init__(
@@ -117,7 +115,6 @@ class SoftMatcher(Matcher):
             encoder_model=encoder_model,
             precision=precision,
             compile_models=compile_models,
-            benchmark_inference_speed=benchmark_inference_speed,
             device=device,
         )
         self.prompt_generator: PromptGenerator = SoftmatcherPromptGenerator(

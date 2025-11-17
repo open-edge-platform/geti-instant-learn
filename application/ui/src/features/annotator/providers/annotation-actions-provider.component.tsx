@@ -8,9 +8,9 @@ import { createContext, ReactNode, useContext, useRef } from 'react';
 import { LabelType } from '@geti-prompt/api';
 import { v4 as uuid } from 'uuid';
 
+import { UndoRedoProvider } from '../actions/undo-redo/undo-redo-provider.component';
+import useUndoRedoState from '../actions/undo-redo/use-undo-redo-state';
 import type { Annotation, Shape } from '../types';
-import { UndoRedoProvider } from '../undo-redo/undo-redo-provider.component';
-import useUndoRedoState from '../undo-redo/use-undo-redo-state';
 
 interface AnnotationsContextValue {
     annotations: Annotation[];

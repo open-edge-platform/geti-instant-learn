@@ -10,7 +10,7 @@ import { ActionButton, Flex, Grid, Heading, PhotoPlaceholder, repeat, Text, View
 import { AddCircle } from '@geti/ui/icons';
 import { Link } from 'react-router-dom';
 
-import { paths } from '../../../routes/paths';
+import { paths } from '../../../constants/paths';
 import { ActivateProjectDialog } from '../activate-project-dialog/activate-project-dialog.component';
 import { CreateProjectConfirmDialog } from '../create-project-confirm-dialog.component';
 import { useCreateProjectWithConfirmation } from '../hooks/use-create-project-with-confirmation.hook';

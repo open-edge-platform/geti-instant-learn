@@ -3,11 +3,9 @@
 
 """Filters."""
 
-from .mask_filter import ClassOverlapMaskFilter
 from .prompt_filter import BoxPromptFilter, PointPromptFilter
 
 __all__ = [
     "BoxPromptFilter",
-    "ClassOverlapMaskFilter",
     "PointPromptFilter",
 ]

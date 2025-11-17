@@ -11,7 +11,7 @@ import { GraphChart } from '@geti/ui/icons';
 
 import { useCurrentProject } from '../../features/project/hooks/use-current-project.hook';
 import { Prompt } from '../../features/prompts/prompt.component';
-import { Graphs } from '../graphs/graphs.component';
+import { Graphs } from './graphs/graphs.component';
 
 import styles from './sidebar.module.scss';
 

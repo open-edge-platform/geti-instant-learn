@@ -6,11 +6,11 @@
 import { createContext, ReactNode, use, useEffect, useState } from 'react';
 
 import { LabelType, VisualPromptListType, VisualPromptType } from '@geti-prompt/api';
-import { useProjectLabels } from '@geti-prompt/hooks';
 
-import { useSelectedFrame } from '../../stream/selected-frame-provider.component';
+import { useSelectedFrame } from '../../../shared/selected-frame-provider.component';
 import { useGetPrompt } from './api/use-get-prompt';
 import { useGetPrompts } from './api/use-get-prompts';
+import { useProjectLabels } from './use-project-labels.hook';
 import { usePromptIdFromUrl } from './use-prompt-id-from-url';
 
 interface VisualPromptContextProps {

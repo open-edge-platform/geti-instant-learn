@@ -4,22 +4,14 @@
 """Benchmark utilities."""
 
 import shutil
-import time
-import warnings
-from collections.abc import Callable
-from functools import wraps
 from logging import getLogger
 from pathlib import Path
-from typing import Any
 
 import polars as pl
+import torch
 
-from getiprompt.types.results import Results
+from getiprompt.data.base import Batch
 from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
-
-warnings.filterwarnings("ignore", category=UserWarning)
-warnings.filterwarnings("ignore", category=FutureWarning)
-
 
 logger = getLogger("Geti Prompt")
 
@@ -109,15 +101,57 @@ def _save_results(all_results: list[pl.DataFrame], output_path: Path) -> None:
     logger.info(msg)
 
 
-def track_duration(func: Callable[..., Results]) -> Callable[..., Results]:
-    """Decorator to track the duration of a method."""
+def convert_masks_to_one_hot_tensor(
+    predictions: list[dict[str, torch.Tensor | None]],
+    ground_truths: Batch,
+    num_classes: int,
+    category_id_to_index: dict[int, int],
+    device: torch.device,
+) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
+    """Convert predictions and ground truths to one-hot boolean tensors for torchmetrics.
 
-    @wraps(func)
-    def wrapper(self, *args, **kwargs) -> Any:  # noqa: ANN001,ANN401, ANN003, ANN002
-        start_time = time.perf_counter()
-        result = func(self, *args, **kwargs)
-        if isinstance(result, Results):
-            result.duration = time.perf_counter() - start_time
-        return result
+    Args:
+        predictions: List of prediction dictionaries containing 'pred_masks' and 'pred_labels'
+        ground_truths: Batch of ground truth samples
+        num_classes: Total number of classes in the dataset
+        category_id_to_index: Mapping from category ID to class index (0-based)
+        device: Device to place tensors on
 
-    return wrapper
+    Returns:
+        Tuple of (pred_tensors, gt_tensors) where each is a list of tensors in one-hot format:
+        - Each tensor has shape (C, H, W) where:
+          - C is number of classes
+          - H, W are height and width (can vary per image)
+    """
+    batch_pred_tensors: list[torch.Tensor] = []
+    batch_gt_tensors: list[torch.Tensor] = []
+
+    for prediction, gt_sample in zip(predictions, ground_truths.samples, strict=True):
+        # Get image dimensions from this sample
+        h, w = gt_sample.masks.shape[-2:]
+
+        # Initialize tensors (C, H, W) for this image
+        pred_tensor = torch.zeros(num_classes, h, w, dtype=torch.bool, device=device)
+        gt_tensor = torch.zeros(num_classes, h, w, dtype=torch.bool, device=device)
+
+        # Process ground truth masks
+        for gt_mask, cat_id in zip(gt_sample.masks, gt_sample.category_ids, strict=True):
+            if cat_id in category_id_to_index:
+                class_idx = category_id_to_index[cat_id]
+                # Apply logical OR to handle multiple instances of same class
+                gt_tensor[class_idx] = gt_tensor[class_idx] | gt_mask.to(device)  # noqa: PLR6104
+
+        # Process prediction masks
+        pred_masks = prediction["pred_masks"]
+        pred_labels = prediction["pred_labels"]
+        for pred_mask, pred_label in zip(pred_masks, pred_labels, strict=True):
+            pred_label_id = pred_label.item()
+            if pred_label_id in category_id_to_index:
+                class_idx = category_id_to_index[pred_label_id]
+                # Apply logical OR to handle multiple instances of same class
+                pred_tensor[class_idx] = pred_tensor[class_idx] | pred_mask.to(device)  # noqa: PLR6104
+
+        batch_pred_tensors.append(pred_tensor.unsqueeze(0))
+        batch_gt_tensors.append(gt_tensor.unsqueeze(0))
+
+    return batch_pred_tensors, batch_gt_tensors
