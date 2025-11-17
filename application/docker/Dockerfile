@@ -192,7 +192,7 @@ USER root
 
 RUN apt-get update && apt-get install -y software-properties-common \
     && add-apt-repository -y ppa:kobuk-team/intel-graphics \
-    && apt-get install -y --no-install-recommends \
+    && apt-get update && apt-get install -y --no-install-recommends \
     libze-intel-gpu1 \
     libze1 \
     intel-metrics-discovery \
