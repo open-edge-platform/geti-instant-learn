@@ -4,18 +4,13 @@
 """Load SAM models."""
 
 from logging import getLogger
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import Literal
 
-from sam2.build_sam import build_sam2
-from sam2.sam2_image_predictor import SAM2ImagePredictor
-from segment_anything_hq import sam_model_registry
-from segment_anything_hq.predictor import SamPredictor
-
-from getiprompt.utils.constants import DATA_PATH, MODEL_MAP, SAMModelName
-from getiprompt.utils.utils import download_file, precision_to_torch_dtype
-
-if TYPE_CHECKING:
-    from segment_anything_hq.modeling.sam import Sam as SamHQ
+from getiprompt.components.sam import BaseSAMPredictor, OpenVINOSAMPredictor, PyTorchSAMPredictor
+from getiprompt.utils.constants import MODEL_MAP, SAMModelName
+from getiprompt.utils.optimization import optimize_model
+from getiprompt.utils.utils import precision_to_torch_dtype
 
 logger = getLogger("Geti Prompt")
 
@@ -25,83 +20,89 @@ def load_sam_model(
     device: str = "cuda",
     precision: str = "bf16",
     compile_models: bool = False,
-) -> SamPredictor | SAM2ImagePredictor:
-    """Load and optimize a SAM model.
+    backend: Literal["pytorch", "openvino"] = "pytorch",
+    model_path: Path | None = None,
+) -> BaseSAMPredictor:
+    """Load and return a SAM predictor with specified backend.
+
+    This function provides a unified interface for loading SAM models with
+    different backends (PyTorch, OpenVINO, etc.). The backend parameter
+    determines which implementation to use.
 
     Args:
-        sam: The name of the SAM model.
-        device: The device to use for the model.
-        precision: The precision of the model.
-        compile_models: Whether to compile the model.
-
-    Raises:
-        ValueError: If the model is not implemented yet.
-        NotImplementedError: If the model is not implemented yet.
+        sam: The SAM model architecture to load (e.g., SAM_HQ_TINY, SAM2_BASE)
+        device: Device to run inference on:
+            - PyTorch backend: "cuda", "cpu"
+            - OpenVINO backend: "CPU", "GPU", "AUTO"
+        precision: Model precision for PyTorch backend ("bf16", "fp32", "fp16")
+            Ignored for OpenVINO backend (precision is baked into IR)
+        compile_models: Whether to compile model (PyTorch only)
+            Ignored for OpenVINO backend
+        backend: Which backend to use:
+            - "pytorch": Use PyTorch for inference (default)
+            - "openvino": Use OpenVINO Runtime for inference
+        model_path: Optional path to model weights:
+            - PyTorch: Path to .pth checkpoint (auto-downloads if None)
+            - OpenVINO: Path to .xml IR file (uses default path if None)
 
     Returns:
-        The loaded model.
-    """
-    from getiprompt.utils.optimization import optimize_model
+        BaseSAMPredictor: A predictor implementing the common interface
 
+    Raises:
+        ValueError: If the model type is invalid
+        FileNotFoundError: If OpenVINO model path doesn't exist
+
+    Examples:
+        >>> # PyTorch backend with auto-download
+        >>> predictor = load_sam_model(
+        ...     SAMModelName.SAM_HQ_TINY,
+        ...     device="cuda",
+        ...     backend="pytorch"
+        ... )
+
+        >>> # PyTorch backend with custom checkpoint
+        >>> predictor = load_sam_model(
+        ...     SAMModelName.SAM_HQ_TINY,
+        ...     backend="pytorch",
+        ...     model_path=Path("custom_weights.pth")
+        ... )
+
+        >>> # OpenVINO backend
+        >>> predictor = load_sam_model(
+        ...     SAMModelName.SAM_HQ_TINY,
+        ...     device="CPU",
+        ...     backend="openvino",
+        ...     model_path=Path("exported/sam_hq_tiny.xml")
+        ... )
+    """
     if sam not in MODEL_MAP:
         msg = f"Invalid model type: {sam}"
         raise ValueError(msg)
 
-    model_info = MODEL_MAP[sam]
-    check_model_weights(sam)
+    if backend == "pytorch":
+        # Create PyTorch predictor
+        predictor = PyTorchSAMPredictor(
+            sam_model_name=sam,
+            device=device,
+            model_path=model_path,
+        )
 
-    registry_name = model_info["registry_name"]
-    local_filename = model_info["local_filename"]
-    checkpoint_path = DATA_PATH.joinpath(local_filename)
+        # Apply PyTorch-specific optimizations
+        predictor._predictor = optimize_model(
+            model=predictor._predictor,
+            device=device,
+            precision=precision_to_torch_dtype(precision),
+            compile_models=compile_models,
+        )
+        return predictor
 
-    msg = f"Loading segmentation model: {sam} from {checkpoint_path}"
-    logger.info(msg)
+    if backend == "openvino":
+        # Create OpenVINO predictor (no additional optimization needed)
+        return OpenVINOSAMPredictor(
+            sam_model_name=sam,
+            device=device,
+            model_path=model_path,
+        )
 
-    if sam in {SAMModelName.SAM2_TINY, SAMModelName.SAM2_SMALL, SAMModelName.SAM2_BASE, SAMModelName.SAM2_LARGE}:
-        config_path = "configs/sam2.1/" + model_info["config_filename"]
-        sam_model = build_sam2(config_path, str(checkpoint_path))
-        predictor = SAM2ImagePredictor(sam_model)
-    elif sam in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
-        model: SamHQ = sam_model_registry[registry_name](checkpoint=str(checkpoint_path)).to(device).eval()
-        predictor = SamPredictor(model)
-    else:
-        msg = f"Model {sam} not implemented yet"
-        raise NotImplementedError(msg)
-
-    return optimize_model(
-        model=predictor,
-        device=device,
-        precision=precision_to_torch_dtype(precision),
-        compile_models=compile_models,
-    )
-
-
-def check_model_weights(model_name: SAMModelName) -> None:
-    """Check if model weights exist locally, download if necessary.
-
-    Args:
-        model_name: The name of the model.
-
-    Raises:
-        ValueError: If the model is not found in MODEL_MAP.
-        ValueError: If the model weights are missing.
-    """
-    if model_name not in MODEL_MAP:
-        msg = f"Model '{model_name.value}' not found in MODEL_MAP for weight checking."
-        raise ValueError(msg)
-
-    model_info = MODEL_MAP[model_name]
-    local_filename = model_info["local_filename"]
-    download_url = model_info["download_url"]
-    sha_sum = model_info["sha_sum"]
-
-    if not local_filename or not download_url:
-        msg = f"Missing 'local_filename' or 'download_url' for {model_name.value} in MODEL_MAP."
-        raise ValueError(msg)
-
-    target_path = DATA_PATH.joinpath(local_filename)
-
-    if not target_path.exists():
-        msg = f"Model weights for {model_name.value} not found at {target_path}, downloading..."
-        logger.info(msg)
-        download_file(download_url, target_path, sha_sum)
+    msg = f"Unknown backend: {backend}. Must be 'pytorch' or 'openvino'"
+    raise ValueError(msg)

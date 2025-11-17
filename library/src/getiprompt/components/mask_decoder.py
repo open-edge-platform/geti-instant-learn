@@ -6,12 +6,11 @@
 from logging import getLogger
 
 import torch
-from segment_anything_hq.predictor import SamPredictor
 from torch import nn
 from torchvision import tv_tensors
 from torchvision.ops import masks_to_boxes, nms
 
-from getiprompt.components.inference import SamExportableModel
+from getiprompt.components.sam import BaseSAMPredictor
 from getiprompt.data import ResizeLongestSide
 
 logger = getLogger("Geti Prompt")
@@ -43,14 +42,14 @@ class SamDecoder(nn.Module):
 
     def __init__(
         self,
-        sam_predictor: SamPredictor,
+        sam_predictor: BaseSAMPredictor,
         mask_similarity_threshold: float = 0.38,
         nms_iou_threshold: float = 0.1,
     ) -> None:
         """This Segmenter uses SAM to create masks based on points.
 
         Args:
-            sam_predictor: The SAM predictor.
+            sam_predictor: The SAM predictor (any backend: PyTorch, OpenVINO, etc.).
             mask_similarity_threshold: The similarity threshold for the mask.
             nms_iou_threshold: The IoU threshold for the NMS.
         """
@@ -59,16 +58,7 @@ class SamDecoder(nn.Module):
         self.mask_similarity_threshold = mask_similarity_threshold
         self.nms_iou_threshold = nms_iou_threshold
 
-        if hasattr(self.predictor.model.image_encoder, "img_size"):
-            img_size = self.predictor.model.image_encoder.img_size
-        elif hasattr(self.predictor.model, "image_size"):
-            img_size = self.predictor.model.image_size
-        else:
-            # fallback to 1024
-            logger.warning("Image size not found in the model. Using 1024 as default.")
-            img_size = 1024
-
-        self.transform = ResizeLongestSide(img_size)
+        self.transform = ResizeLongestSide(self.predictor.target_length)
         self.device = sam_predictor.device
 
     def preprocess_inputs(
@@ -313,7 +303,7 @@ class SamDecoder(nn.Module):
         if boxes_per_class is not None:
             input_boxes = boxes_per_class
 
-        masks, _, low_res_logits = self.predictor.predict_torch(
+        masks, _, low_res_logits = self.predictor.predict(
             point_coords=input_coords[:, :, :2] if input_coords is not None else None,
             boxes=input_boxes[:, :4] if input_boxes is not None else None,
             point_labels=input_labels,
@@ -385,7 +375,7 @@ class SamDecoder(nn.Module):
         boxes = boxes.reshape(-1, 4)
         boxes = boxes.unsqueeze(1)
 
-        masks, mask_weights, _ = self.predictor.predict_torch(
+        masks, mask_weights, _ = self.predictor.predict(
             point_coords=input_coords[:, :, :2],  # Extract only x, y coordinates for SAM predictor
             point_labels=input_labels,
             boxes=boxes,
@@ -474,7 +464,7 @@ class SamDecoder(nn.Module):
             strict=True,
         ):
             # Set the preprocessed image in the predictor
-            self.predictor.set_torch_image(image, original_size)
+            self.predictor.set_image(image, original_size)
             prediction = self.predict_single(
                 class_point_prompts,
                 class_box_prompts,
@@ -484,11 +474,3 @@ class SamDecoder(nn.Module):
             )
             predictions.append(prediction)
         return predictions
-
-    @torch.inference_mode()
-    def export(self, output_path: str) -> None:
-        """Export the model to ONNX format."""
-        if not output_path.exists():
-            output_path.mkdir(parents=True, exist_ok=True)
-        sam_exportable_model = SamExportableModel(self.predictor)
-        sam_exportable_model.export(output_path)
