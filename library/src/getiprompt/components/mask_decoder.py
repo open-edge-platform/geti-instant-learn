@@ -11,6 +11,7 @@ from torch import nn
 from torchvision import tv_tensors
 from torchvision.ops import masks_to_boxes, nms
 
+from getiprompt.components.inference import SamExportableModel
 from getiprompt.data import ResizeLongestSide
 
 logger = getLogger("Geti Prompt")
@@ -483,3 +484,11 @@ class SamDecoder(nn.Module):
             )
             predictions.append(prediction)
         return predictions
+
+    @torch.inference_mode()
+    def export(self, output_path: str) -> None:
+        """Export the model to ONNX format."""
+        if not output_path.exists():
+            output_path.mkdir(parents=True, exist_ok=True)
+        sam_exportable_model = SamExportableModel(self.predictor)
+        sam_exportable_model.export(output_path)

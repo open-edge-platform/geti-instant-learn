@@ -3,7 +3,7 @@
 
 """Matcher model, based on the paper 'Segment Anything with One Shot Using All-Purpose Feature Matching'."""
 
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import torch
 
@@ -17,9 +17,6 @@ from getiprompt.utils.constants import SAMModelName
 
 from .base import Model
 from .foundation import load_sam_model
-
-if TYPE_CHECKING:
-    from getiprompt.components.prompt_generators.base import PromptGenerator
 
 
 class Matcher(Model):
@@ -121,7 +118,7 @@ class Matcher(Model):
             patch_size=self.encoder.patch_size,
             device=device,
         )
-        self.prompt_generator: PromptGenerator = BidirectionalPromptGenerator(
+        self.prompt_generator = BidirectionalPromptGenerator(
             encoder_input_size=self.encoder.input_size,
             encoder_patch_size=self.encoder.patch_size,
             encoder_feature_size=self.encoder.feature_size,
@@ -176,3 +173,7 @@ class Matcher(Model):
             point_prompts=point_prompts,
             similarities=similarities_per_image,
         )
+
+    def export(self, output_path: Path) -> None:
+        self.encoder.export(output_path)
+        self.sam_predictor.export(output_path)

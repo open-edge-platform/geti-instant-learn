@@ -4,6 +4,7 @@
 """Base class for all models."""
 
 from abc import abstractmethod
+from pathlib import Path
 
 import torch
 from torch import nn
@@ -36,4 +37,12 @@ class Model(nn.Module):
                 "pred_points": torch.Tensor of shape [num_points, 4] with last dimension [x, y, score, fg_label]
                 "pred_boxes": torch.Tensor of shape [num_boxes, 5] with last dimension [x1, y1, x2, y2, score]
                 "pred_labels": torch.Tensor of shape [num_masks]
+        """
+
+    @abstractmethod
+    def export(self, output_path: Path) -> None:
+        """This method exports the model to a given path.
+
+        Args:
+            output_path(Path): The path to export the model to.
         """
