@@ -53,8 +53,6 @@ class FrameBroadcaster[T]:
                     try:
                         queue.get_nowait()
                         queue.put_nowait(frame)
-                    except Empty:  # queue was emptied by another thread, skip
-                        pass
                     except Exception:
                         logger.exception("Error replacing frame in full queue")
                 except Exception:
