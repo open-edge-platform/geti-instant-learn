@@ -90,6 +90,7 @@ test-image:
     CONTAINER_ID=$(docker run -d --rm \
         --publish {{ host-port }}:{{ container-port }} \
         --env PORT={{ container-port }} \
+        --env HOST={{ host }} \
         "{{ docker-image }}")
     echo "Started container: $CONTAINER_ID"
 
