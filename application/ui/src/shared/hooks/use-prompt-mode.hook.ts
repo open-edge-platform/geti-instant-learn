@@ -22,12 +22,14 @@ export const usePromptMode = (): [PromptMode, (mode: string) => void] => {
     const handleModeChange = useCallback(
         (option: string) => {
             const newMode = getSelectedPromptMode(option);
-            const newSearchParams = new URLSearchParams(searchParams);
 
-            newSearchParams.set('mode', newMode);
-            setSearchParams(newSearchParams);
+            setSearchParams((previousSearchParams) => {
+                previousSearchParams.set('mode', newMode);
+
+                return previousSearchParams;
+            });
         },
-        [searchParams, setSearchParams]
+        [setSearchParams]
     );
 
     const mode = searchParams.get('mode');
