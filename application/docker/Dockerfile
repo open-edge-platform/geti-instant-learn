@@ -68,6 +68,7 @@ VOLUME ${DB_DATA_DIR}
 
 # Install OpenGL libraries for opencv-python
 RUN apt-get update && apt-get install -y --no-install-recommends \
+      git=1:2.39.5-0+deb12u2 \
       libgl1=1.6.0-1 \
       libglib2.0-0=2.74.6-2+deb12u7 \
     && rm -rf /var/lib/apt/lists/* \
