@@ -6,16 +6,13 @@ import logging
 import re
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import cv2
+import numpy as np  # noqa: TC002
 
 from runtime.core.components.base import StreamReader
 from runtime.core.components.schemas.processor import InputData
 from runtime.core.components.schemas.reader import FrameListResponse, FrameMetadata, ReaderConfig
-
-if TYPE_CHECKING:
-    import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +166,7 @@ class ImageFolderReader(StreamReader):
         return FrameListResponse(total=len(self._image_paths), page=page, page_size=page_size, frames=frames)
 
     def read(self) -> InputData | None:
-        """Read the current image and advance to the next."""
+        """Read the current image."""
         if not self._image_paths:
             return None
 
@@ -196,3 +193,5 @@ class ImageFolderReader(StreamReader):
         """Clean up resources."""
         self._image_paths = []
         self._current_index = 0
+        self._last_image  = None
+        self._last_image_path = None
