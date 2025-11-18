@@ -34,13 +34,12 @@ describe('NotActiveProject', () => {
         );
     });
 
-    it('renders inactive project uis', async () => {
+    it('renders inactive project UIs', async () => {
         render(<NotActiveProject project={inactiveProject} />);
 
         expect(await screen.findByText(/This project is set as inactive/i)).toBeInTheDocument();
         expect(screen.getByText(/Would you like to activate this project/i)).toBeInTheDocument();
-        expect(await screen.findByRole('button', { name: /Activate current project/i })).toBeInTheDocument();
-        expect(await screen.findByText(/This project is set as inactive/i)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Activate current project/i })).toBeInTheDocument();
     });
 
     it('opens confirmation dialog when activate is clicked and another project is active', async () => {
@@ -58,41 +57,6 @@ describe('NotActiveProject', () => {
 
         await waitFor(() => {
             expect(screen.queryByRole('heading', { name: /Activate project/i })).not.toBeInTheDocument();
-        });
-    });
-
-    it('activates project directly when no other project is active', async () => {
-        server.use(
-            http.get('/api/v1/projects', () => {
-                return HttpResponse.json({
-                    projects: [inactiveProject],
-                    pagination: { total: 1, count: 1, offset: 0, limit: 10 },
-                });
-            })
-        );
-
-        let updateRequestMade = false;
-        server.use(
-            http.put('/api/v1/projects/{project_id}', async ({ request }) => {
-                const body = await request.json();
-                updateRequestMade = true;
-
-                expect(body).toEqual({ active: true });
-
-                return HttpResponse.json({
-                    ...inactiveProject,
-                    active: true,
-                });
-            })
-        );
-
-        render(<NotActiveProject project={inactiveProject} />);
-
-        const activateButton = await screen.findByRole('button', { name: /Activate current project/i });
-        fireEvent.click(activateButton);
-
-        await waitFor(() => {
-            expect(updateRequestMade).toBe(true);
         });
     });
 

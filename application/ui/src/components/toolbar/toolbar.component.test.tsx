@@ -53,6 +53,6 @@ describe('Toolbar', () => {
             </WebRTCConnectionProvider>
         );
 
-        expect(await screen.findByRole('button')).toBeInTheDocument();
+        expect(await screen.findByRole('button', { name: 'Input/Output Setup' })).toBeInTheDocument();
     });
 });
