@@ -137,7 +137,7 @@ RUN apt-get update  \
     && wget -q https://developer.download.nvidia.com/compute/cuda/repos/debian12/x86_64/cuda-keyring_1.1-1_all.deb \
     && dpkg -i cuda-keyring_1.1-1_all.deb \
     && rm -rf cuda-keyring_1.1-1_all.deb \
-    && apt-get remove -y wget git
+    && apt-get remove -y wget
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -207,6 +207,11 @@ RUN set -e; \
     \
     # Clean up package manager traces
     apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get remove -y git \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 ######################
 # Server (GPU version)
