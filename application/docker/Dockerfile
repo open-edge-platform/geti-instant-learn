@@ -53,8 +53,9 @@ ARG DB_DATA_DIR=""
 ENV DB_DATA_DIR=${DB_DATA_DIR}
 ARG MOCKED_FILE=""
 ENV MOCKED_FILE=${MOCKED_FILE}
-ENV PATH="/geti_prompt/app/backend/.venv/bin:$PATH"
-ENV PYTHONPATH=/geti_prompt/app
+ENV PYTHONPATH=${WORKDIR_PATH}/app
+ENV PATH="${PYTHONPATH}/backend/.venv/bin:$PATH"
+ENV LIBRARY_PATH="${WORKDIR_PATH}/library"
 ARG UID=10001
 ENV UID=${UID}
 ARG USER_NAME="non-root"
@@ -84,14 +85,14 @@ RUN useradd -l -u ${UID} ${USER_NAME} \
     && rm -rf /root/.cache/pip
 
 # Change to a subdirectory so ../../library resolves correctly
-RUN mkdir -p /geti_prompt/app/backend
-WORKDIR /geti_prompt/app/backend
+RUN mkdir -p ${PYTHONPATH}/backend
+WORKDIR ${PYTHONPATH}/backend
 
 # Copy library and create proper directory structure
-COPY --link --from=libs --chown=${UID} ./src /geti_prompt/library/src
-COPY --link --from=libs --chown=${UID} ./pyproject.toml /geti_prompt/library/pyproject.toml
+COPY --link --from=libs --chown=${UID} ./src ${LIBRARY_PATH}/src
+COPY --link --from=libs --chown=${UID} ./pyproject.toml ${LIBRARY_PATH}/pyproject.toml
 # Copy backend source code
-COPY --link --chown=${UID} backend/app /geti_prompt/app
+COPY --link --chown=${UID} backend/app ${PYTHONPATH}
 COPY --chown=${UID} --from=ghcr.io/astral-sh/uv:0.9.7@sha256:ba4857bf2a068e9bc0e64eed8563b065908a4cd6bfb66b531a9c424c8e25e142 /uv /bin/uv
 COPY --from=web-ui --chown=${UID} /home/app/web_ui/dist/ ${STATIC_FILES_DIR}
 # temporary file for testing
@@ -119,11 +120,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 RUN apt-get remove -y git \
     && apt-get autoremove -y \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* ${LIBRARY_PATH}/pyproject.toml
 
 USER ${USER_NAME}
 
-WORKDIR /geti_prompt
+WORKDIR ${WORKDIR_PATH}
 
 #######################
 # Intermediary GPU Base
@@ -173,7 +174,7 @@ RUN set -e; \
     echo "Removing non-redistributable CUDA components per NVIDIA EULA..."; \
     \
     # Remove development tools (non-redistributable)
-    find /usr /opt /geti_prompt -type f \( \
+    find /usr /opt ${WORKDIR_PATH} -type f \( \
         -name "nvcc" -o \
         -name "cuda-gdb" -o \
         -name "nvprof" -o \
@@ -185,16 +186,16 @@ RUN set -e; \
     \) -delete 2>/dev/null || true; \
     \
     # Remove static libraries (typically non-redistributable)
-    find /usr /opt /geti_prompt -name "*.a" -path "*cuda*" -delete 2>/dev/null || true; \
+    find /usr /opt ${WORKDIR_PATH} -name "*.a" -path "*cuda*" -delete 2>/dev/null || true; \
     \
     # Remove headers and include directories (non-redistributable)
-    find /usr /opt /geti_prompt -type d \( \
+    find /usr /opt ${WORKDIR_PATH} -type d \( \
         -name "include" -o \
         -name "headers" \
     \) -path "*cuda*" -exec rm -rf {} + 2>/dev/null || true; \
     \
     # Remove documentation and samples (non-redistributable)
-    find /usr /opt /geti_prompt -type d \( \
+    find /usr /opt ${WORKDIR_PATH} -type d \( \
         -name "doc" -o \
         -name "docs" -o \
         -name "documentation" -o \
@@ -203,7 +204,7 @@ RUN set -e; \
     \) -path "*cuda*" -exec rm -rf {} + 2>/dev/null || true; \
     \
     # Remove compiler-related directories
-    find /usr /opt /geti_prompt -type d -name "*nvcc*" -exec rm -rf {} + 2>/dev/null || true; \
+    find /usr /opt ${WORKDIR_PATH} -type d -name "*nvcc*" -exec rm -rf {} + 2>/dev/null || true; \
     \
     # Clean up package manager traces
     apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -220,4 +221,4 @@ FROM gpu-base AS geti-prompt-gpu
 
 USER ${USER_NAME}
 
-WORKDIR /geti_prompt
+WORKDIR ${WORKDIR_PATH}
