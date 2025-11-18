@@ -6,6 +6,7 @@ container-port := "9100"
 host-port := container-port
 webcam-device := "/dev/video0"
 docker-volume := ""
+host := "0.0.0.0"
 
 # -------------------------------------------------------------------------------------------------
 # Common variables used in the Justfile
@@ -69,6 +70,7 @@ run-image: build-image
     @docker run --rm \
         --publish {{ host-port }}:{{ container-port }} \
         --env PORT={{ container-port }} \
+        --env HOST={{ host }} \
         {{ if docker-volume != "" { " --volume " + docker-volume + ":" + workdir-path + data-dir } else { "" } }} \
         {{ if path_exists(webcam-device) == "true" { " --device " + webcam-device + ":" + webcam-device } else { "" } }} \
         --name "{{ component-name }}-{{ version }}" \
