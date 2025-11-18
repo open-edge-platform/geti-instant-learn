@@ -193,5 +193,5 @@ class ImageFolderReader(StreamReader):
         """Clean up resources."""
         self._image_paths = []
         self._current_index = 0
-        self._last_image  = None
+        self._last_image = None
         self._last_image_path = None
