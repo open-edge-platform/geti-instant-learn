@@ -6,7 +6,6 @@ on:
         description: "Specifies the build version to apply to all binaries produced by this workflow"
         type: string
         required: true
-        default: "latest"
   workflow_dispatch:
 jobs:
   component-check:
@@ -15,7 +14,9 @@ jobs:
     permissions:
       contents: read
     timeout-minutes: 30
-
+    strategy:
+      matrix:
+        ai-device: [cpu, gpu]
     steps:
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -36,16 +37,26 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
-      - name: Build docker image
+      - name: Build docker image for ${{ matrix.ai-device }}
         working-directory: application
         env:
-          BUILD_VERSION: ${{ inputs.build_version }}
+          BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
+          DEVICE: ${{ matrix.ai-device }}
         run: |
-          just version="${BUILD_VERSION}" docker-build-context="--no-cache" build-image
+          just ai-device="${DEVICE}" version="${BUILD_VERSION}" docker-build-context="--no-cache" build-image
 
-      - name: Show size of the image
+      - name: Show size of the image for ${{ matrix.ai-device }}
         working-directory: application
         env:
-          BUILD_VERSION: ${{ inputs.build_version }}
+          BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
+          DEVICE: ${{ matrix.ai-device }}
         run: |
-          just version="${BUILD_VERSION}" show-size
+          just ai-device="${DEVICE}" version="${BUILD_VERSION}" show-size
+
+      - name: Test image for ${{ matrix.ai-device }}
+        working-directory: application
+        env:
+          BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
+          DEVICE: ${{ matrix.ai-device }}
+        run: |
+          just ai-device="${DEVICE}" version="${BUILD_VERSION}" test-image

@@ -35,4 +35,8 @@ export class PromptPage {
         await this.page.getByLabel(`Prompt actions ${promptId}`).click();
         await this.page.getByText('Edit').click();
     }
+
+    getCapturedFrame(frameId: string) {
+        return this.page.getByTestId(`captured-frame-${frameId}`);
+    }
 }

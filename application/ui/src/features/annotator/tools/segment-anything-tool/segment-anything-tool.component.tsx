@@ -27,7 +27,7 @@ import { useThrottledCallback } from './use-throttle-callback.hook';
 
 import classes from './segment-anything.module.scss';
 
-// Whenever the user moves their mouse over the canvas  we compute a preview of
+// Whenever the user moves their mouse over the canvas, we compute a preview of
 // SAM being applied to the user's mouse position.
 // The decoding step of SAM takes on average 100ms with 150-250ms being a high
 // exception. We throttle the mouse update based on this so that we don't overload
@@ -51,7 +51,7 @@ export const SegmentAnythingTool = () => {
     const { isLoading, decodingQueryFn } = useSegmentAnythingModel();
     const throttledDecodingQueryFn = useSingleStackFn(decodingQueryFn);
 
-    const decodingMutation = useDecodingMutation(decodingQueryFn, [selectedLabel]);
+    const decodingMutation = useDecodingMutation(decodingQueryFn, selectedLabel ? [selectedLabel] : []);
 
     const ref = useRef<SVGRectElement>(null);
 

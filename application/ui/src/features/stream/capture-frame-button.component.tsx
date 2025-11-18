@@ -8,6 +8,7 @@ import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Button } from '@geti/ui';
 
 import { useSelectedFrame } from '../../shared/selected-frame-provider.component';
+import { usePromptIdFromUrl } from '../prompts/visual-prompt/use-prompt-id-from-url';
 
 const useCaptureFrameMutation = () => {
     return $api.useMutation('post', '/api/v1/projects/{project_id}/frames');
@@ -17,6 +18,12 @@ const useCaptureFrame = () => {
     const { projectId } = useProjectIdentifier();
     const captureFrameMutation = useCaptureFrameMutation();
     const { setSelectedFrameId } = useSelectedFrame();
+    const { setPromptId } = usePromptIdFromUrl();
+
+    const changeSelectedFrame = (id: string | null) => {
+        setPromptId(null);
+        setSelectedFrameId(id);
+    };
 
     const captureFrame = async () => {
         captureFrameMutation.mutate(
@@ -29,7 +36,7 @@ const useCaptureFrame = () => {
             },
             {
                 onSuccess: ({ frame_id }) => {
-                    setSelectedFrameId(frame_id);
+                    changeSelectedFrame(frame_id);
                 },
             }
         );

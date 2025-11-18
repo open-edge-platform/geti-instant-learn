@@ -47,11 +47,15 @@ export const queryClient: QueryClient = new QueryClient({
     },
     queryCache: new QueryCache({
         onError: (error, query) => {
-            toast({
-                type: 'error',
-                message: getErrorMessage(error, query.meta?.errorMessage),
-                duration: TOAST_DURATION,
-            });
+            const errorMessage = query.meta?.errorMessage;
+
+            if (errorMessage) {
+                toast({
+                    type: 'error',
+                    message: getErrorMessage(error, query.meta?.errorMessage),
+                    duration: TOAST_DURATION,
+                });
+            }
         },
     }),
     mutationCache: new MutationCache({
@@ -82,11 +86,15 @@ export const queryClient: QueryClient = new QueryClient({
             }
         },
         onError: (error, _variables, _context, mutation) => {
-            toast({
-                type: 'error',
-                message: getErrorMessage(error, mutation.meta?.errorMessage),
-                duration: TOAST_DURATION,
-            });
+            const errorMessage = mutation.meta?.errorMessage;
+
+            if (errorMessage) {
+                toast({
+                    type: 'error',
+                    message: getErrorMessage(error, mutation.meta?.errorMessage),
+                    duration: TOAST_DURATION,
+                });
+            }
         },
     }),
 });

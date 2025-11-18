@@ -5,8 +5,8 @@
 
 import { components, type SchemaSourceSchema, type SchemaSourcesListSchema } from './openapi-spec';
 
-export type SourcesListType = SchemaSourcesListSchema['sources'];
-export type SourceType = SourcesListType[number]['config']['source_type'];
+export type SourcesType = SchemaSourcesListSchema['sources'];
+export type SourceType = SourcesType[number]['config']['source_type'];
 
 type SourceWithoutConfig = Omit<SchemaSourceSchema, 'config'>;
 
@@ -29,6 +29,7 @@ export {
     type SchemaSourceSchema as Source,
     type SchemaLabelSchema as LabelType,
     type SchemaLabelsListSchema as LabelListType,
+    type SchemaSourcesListSchema as SourcesListType,
     type SchemaSourceCreateSchema as SourceCreateType,
     type SchemaSourceUpdateSchema as SourceUpdateType,
     type SchemaAnnotationSchemaInput as AnnotationPostType,

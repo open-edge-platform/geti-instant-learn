@@ -12,7 +12,7 @@ import { LabelListItem } from './label-list-item/label-list-item.component';
 
 interface LabelsListProps {
     labels: LabelType[];
-    selectedLabelId: string;
+    selectedLabelId: string | null;
     setSelectedLabelId: (label: string) => void;
 }
 

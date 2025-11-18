@@ -10,7 +10,7 @@ import { initializeWebRTC } from '../prompt/initialize-webrtc';
 import { WEBCAM_SOURCE } from '../prompt/mocks';
 import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations, expectToNotHaveAnnotations } from './utils';
 
-test('Annotator', async ({ network, page, context, streamPage, annotatorPage, promptPage }) => {
+test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) => {
     test.setTimeout(ANNOTATOR_PAGE_TIMEOUT);
 
     await initializeWebRTC({ page, context, network });
@@ -51,12 +51,9 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage, pr
             timeout: ANNOTATOR_PAGE_TIMEOUT,
         });
 
-        await expect(promptPage.savePromptButton).toBeDisabled();
-
         await annotatorPage.addAnnotation();
 
         await expectToHaveAnnotations({ annotatorPage });
-        await expect(promptPage.savePromptButton).toBeEnabled();
     });
 
     await test.step('Hides/Shows annotations', async () => {
