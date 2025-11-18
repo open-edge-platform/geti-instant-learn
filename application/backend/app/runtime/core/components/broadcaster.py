@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from queue import Full, Queue
+from queue import Empty, Full, Queue
 from threading import Lock
 
 logger = logging.getLogger(__name__)
@@ -53,6 +53,8 @@ class FrameBroadcaster[T]:
                     try:
                         queue.get_nowait()
                         queue.put_nowait(frame)
+                    except Empty:  # queue was emptied by another thread, skip
+                        pass
                     except Exception:
                         logger.exception("Error replacing frame in full queue")
                 except Exception:

@@ -184,6 +184,8 @@ class ImageFolderReader(StreamReader):
             self._last_image = image
             self._last_image_path = image_path
 
+        time.sleep(0.033)  # a small delay (~30 FPS) to prevent overwhelming consumers
+
         return InputData(
             timestamp=int(time.time() * 1000),
             frame=self._last_image,
