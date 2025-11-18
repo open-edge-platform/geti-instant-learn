@@ -14,7 +14,12 @@ from domain.errors import (
     ResourceNotFoundError,
     ResourceUpdateConflictError,
 )
-from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError, SourceNotSeekableError
+from runtime.errors import (
+    PipelineNotActiveError,
+    PipelineProjectMismatchError,
+    SourceMismatchError,
+    SourceNotSeekableError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +63,7 @@ def custom_exception_handler(request: Request, exc: Exception) -> JSONResponse:
             ResourceUpdateConflictError
             | PipelineNotActiveError
             | PipelineProjectMismatchError
+            | SourceMismatchError
             | SourceNotSeekableError
             | ValueError
             | IndexError

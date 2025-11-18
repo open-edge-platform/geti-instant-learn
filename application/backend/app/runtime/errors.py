@@ -16,3 +16,7 @@ class PipelineProjectMismatchError(PipelineManagerError):
 
 class SourceNotSeekableError(PipelineManagerError):
     """Exception raised when the source is not seekable but a seekable operation is attempted."""
+
+
+class SourceMismatchError(PipelineManagerError):
+    """Exception raised when the provided source_id does not match the active pipeline's connected source."""

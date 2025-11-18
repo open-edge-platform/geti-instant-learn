@@ -20,7 +20,11 @@ from runtime.core.components.errors import UnsupportedOperationError
 from runtime.core.components.pipeline import Pipeline
 from runtime.core.components.schemas.processor import InputData
 from runtime.core.components.schemas.reader import FrameListResponse
-from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError, SourceNotSeekableError
+from runtime.errors import (
+    PipelineNotActiveError,
+    PipelineProjectMismatchError,
+    SourceNotSeekableError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -172,7 +176,7 @@ class PipelineManager:
             IndexError: If index is out of bounds.
         """
         if self._pipeline is None:
-            raise PipelineNotActiveError("No active pipeline to seek in.")
+            raise PipelineNotActiveError("No active pipeline.")
         if project_id != self._pipeline.config.project_id:
             raise PipelineProjectMismatchError(
                 f"Project ID {project_id} does not match the active pipeline's project ID."
@@ -198,7 +202,7 @@ class PipelineManager:
             SourceNotSeekableError: If the source doesn't support indexing.
         """
         if self._pipeline is None:
-            raise PipelineNotActiveError("No active pipeline to get frame index from.")
+            raise PipelineNotActiveError("No active pipeline.")
         if project_id != self._pipeline.config.project_id:
             raise PipelineProjectMismatchError(
                 f"Project ID {project_id} does not match the active pipeline's project ID."
@@ -226,7 +230,7 @@ class PipelineManager:
             SourceNotSeekableError: If the source doesn't support frame listing.
         """
         if self._pipeline is None:
-            raise PipelineNotActiveError("No active pipeline to list frames from.")
+            raise PipelineNotActiveError("No active pipeline.")
         if project_id != self._pipeline.config.project_id:
             raise PipelineProjectMismatchError(
                 f"Project ID {project_id} does not match the active pipeline's project ID."

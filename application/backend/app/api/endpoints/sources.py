@@ -10,6 +10,9 @@ from api.routers import projects_router
 from dependencies import PipelineManagerDep, SourceServiceDep
 from domain.services.schemas.source import SourceCreateSchema, SourceSchema, SourcesListSchema, SourceUpdateSchema
 from runtime.core.components.schemas.reader import FrameIndexResponse, FrameListResponse
+from runtime.errors import (
+    SourceMismatchError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -96,18 +99,30 @@ def delete_source(project_id: UUID, source_id: UUID, source_service: SourceServi
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {"description": "Successfully retrieved the list of frames for the project's source."},
-        status.HTTP_400_BAD_REQUEST: {"description": "Source does not support frame navigation."},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Source does not support frame navigation or source is not connected."
+        },
         status.HTTP_404_NOT_FOUND: {"description": "Project or source not found."},
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
     },
 )
 def get_frames(
-    project_id: UUID, source_id: UUID, pipeline_manager: PipelineManagerDep, page: int = 1, page_size: int = 30
+    project_id: UUID,
+    source_id: UUID,
+    source_service: SourceServiceDep,
+    pipeline_manager: PipelineManagerDep,
+    page: int = 1,
+    page_size: int = 30,
 ) -> FrameListResponse:
     """
     Retrieve a paginated list of frames from the source.
     Only available for seekable sources (e.g., image folders, video files).
+    The source must be the currently connected source in the project.
     """
+    source = source_service.get_source(project_id, source_id)
+    if not source.connected:
+        raise SourceMismatchError(f"Source {source_id} is not currently connected. Please connect the source first.")
+
     return pipeline_manager.list_frames(project_id, page, page_size)
 
 
@@ -117,16 +132,25 @@ def get_frames(
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {"description": "Successfully retrieved the current frame index."},
-        status.HTTP_400_BAD_REQUEST: {"description": "Source does not support frame navigation."},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Source does not support frame navigation or source is not connected."
+        },
         status.HTTP_404_NOT_FOUND: {"description": "Project or source not found."},
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
     },
 )
-def get_frame_index(project_id: UUID, source_id: UUID, pipeline_manager: PipelineManagerDep) -> FrameIndexResponse:
+def get_frame_index(
+    project_id: UUID, source_id: UUID, source_service: SourceServiceDep, pipeline_manager: PipelineManagerDep
+) -> FrameIndexResponse:
     """
     Get the current frame index from the source.
     Only available for seekable sources (e.g., image folders, video files).
+    The source must be the currently connected source in the project.
     """
+    source = source_service.get_source(project_id, source_id)
+    if not source.connected:
+        raise SourceMismatchError(f"Source {source_id} is not currently connected. Please connect the source first.")
+
     index = pipeline_manager.get_frame_index(project_id)
     return FrameIndexResponse(index=index)
 
@@ -137,16 +161,24 @@ def get_frame_index(project_id: UUID, source_id: UUID, pipeline_manager: Pipelin
     status_code=status.HTTP_200_OK,
     responses={
         status.HTTP_200_OK: {"description": "Successfully seeked to the specified frame."},
-        status.HTTP_400_BAD_REQUEST: {"description": "Invalid frame index or source does not support seeking."},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Invalid frame index, source does not support seeking, or source is not connected."
+        },
         status.HTTP_404_NOT_FOUND: {"description": "Project or source not found."},
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
     },
 )
-def seek_frame(project_id: UUID, source_id: UUID, index: int, pipeline_manager: PipelineManagerDep) -> (
-        FrameIndexResponse):
+def seek_frame(
+    project_id: UUID,
+    source_id: UUID,
+    index: int,
+    source_service: SourceServiceDep,
+    pipeline_manager: PipelineManagerDep,
+) -> FrameIndexResponse:
     """
     Seek to a specific frame in the source.
     Only available for seekable sources (e.g., image folders, video files).
+    The source must be the currently connected source in the project.
 
     The UI can use this for "Next", "Prev", "First", "Last" navigation:
     - First: index = 0
@@ -154,5 +186,9 @@ def seek_frame(project_id: UUID, source_id: UUID, index: int, pipeline_manager: 
     - Next: Get current index, then seek to index + 1
     - Prev: Get current index, then seek to index - 1
     """
+    source = source_service.get_source(project_id, source_id)
+    if not source.connected:
+        raise SourceMismatchError(f"Source {source_id} is not currently connected. Please connect the source first.")
+
     pipeline_manager.seek(project_id, index)
     return FrameIndexResponse(index=index)
