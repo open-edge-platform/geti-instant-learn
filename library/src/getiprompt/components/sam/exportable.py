@@ -41,6 +41,19 @@ class ExportableSAMPredictor(nn.Module):
         This class is typically used via PyTorchSAMPredictor.export() convenience method,
         but can also be instantiated directly for advanced use cases.
 
+        **Optional Prompts**: The exported model requires boxes and mask_input as inputs
+        for ONNX compatibility, but supports "not provided" scenarios using sentinel values:
+
+        - **Boxes**: Pass all-zero boxes (e.g., [[0, 0, 0, 0]]) to indicate "no boxes".
+          The prompt encoder detects these and zeros out box embeddings.
+
+        - **Mask Input**: Pass all-zero masks (e.g., zeros((B, 1, 256, 256))) to indicate
+          "no mask input". The prompt encoder detects these and uses the default no_mask_embed.
+
+        This allows the same traced model to handle all prompt combinations:
+        - Stage 1: Points only (boxes and masks are zeros)
+        - Stage 2: Points + boxes + mask refinement (all non-zero)
+
     Example:
         >>> # Method 1: Via convenience method (recommended)
         >>> predictor = load_sam_model(SAMModelName.SAM_HQ_TINY, backend="pytorch")
@@ -74,6 +87,89 @@ class ExportableSAMPredictor(nn.Module):
             point_embedding += mask_0 * self.point_embeddings[0].weight
             point_embedding += mask_1 * self.point_embeddings[1].weight
             return point_embedding
+
+        def forward(
+            self,
+            points: tuple[torch.Tensor, torch.Tensor] | None,
+            boxes: torch.Tensor | None,
+            masks: torch.Tensor | None,
+        ) -> tuple[torch.Tensor, torch.Tensor]:
+            """ONNX-traceable forward pass with optional box and mask prompts.
+
+            Uses sentinel values (all-zero tensors) to handle optional inputs:
+            - All-zero boxes → skip box embedding (zero out embeddings)
+            - All-zero masks → use default no_mask_embed (blend to default)
+
+            All operations are pure tensor operations (no .item(), no Python
+            conditionals on tensor values) to ensure ONNX traceability.
+            """
+            bs = self._get_batch_size(points, boxes, masks)
+            sparse_embeddings = torch.empty((bs, 0, self.embed_dim), device=self._get_device())
+
+            if points is not None:
+                coords, labels = points
+                # Always pad points when boxes input exists (even if dummy)
+                # The box embeddings will be masked out later if they're dummy
+                point_embeddings = self._embed_points(coords, labels, pad=(boxes is None))
+                sparse_embeddings = torch.cat([sparse_embeddings, point_embeddings], dim=1)
+
+            if boxes is not None:
+                # Embed boxes first
+                box_embeddings = self._embed_boxes(boxes)
+
+                # Detect dummy boxes: check if all coordinates are zero
+                # Shape: boxes is typically [B, 4] or [B, 1, 4]
+                boxes_flat = boxes.reshape(boxes.shape[0], -1)  # [B, 4] or [B, num_boxes*4]
+                boxes_sum = boxes_flat.abs().sum(dim=1, keepdim=True)  # [B, 1]
+
+                # Create mask: 1.0 if boxes are valid (non-zero), 0.0 if dummy (all zeros)
+                has_valid_boxes = (boxes_sum > 0).float()  # [B, 1]
+                has_valid_boxes = has_valid_boxes.unsqueeze(-1)  # [B, 1, 1]
+                has_valid_boxes = has_valid_boxes.expand(-1, box_embeddings.shape[1], -1)  # [B, num_boxes, 1]
+                has_valid_boxes = has_valid_boxes.expand_as(box_embeddings)  # [B, num_boxes, embed_dim]
+
+                # Zero out box embeddings for dummy boxes (element-wise multiplication)
+                box_embeddings = box_embeddings * has_valid_boxes
+
+                # Concatenate (zeros will be concatenated if boxes were dummy)
+                sparse_embeddings = torch.cat([sparse_embeddings, box_embeddings], dim=1)
+
+            if masks is not None:
+                # Compute mask embeddings
+                mask_embeddings = self._embed_masks(masks)
+
+                # Detect dummy masks: check if all values are zero
+                # Shape: masks is [B, 1, H, W]
+                masks_flat = masks.reshape(masks.shape[0], -1)  # [B, H*W]
+                masks_sum = masks_flat.abs().sum(dim=1, keepdim=True)  # [B, 1]
+
+                # Create mask: 1.0 if masks are valid (non-zero), 0.0 if dummy (all zeros)
+                has_valid_masks = (masks_sum > 0).float()  # [B, 1]
+
+                # Get default "no mask" embedding
+                no_mask_embed = self.no_mask_embed.weight.reshape(1, -1, 1, 1).expand(
+                    bs,
+                    -1,
+                    self.image_embedding_size[0],
+                    self.image_embedding_size[1],
+                )
+
+                # Blend between mask embeddings and no_mask embeddings
+                # has_valid_masks: [B, 1] -> [B, 1, 1, 1] -> [B, embed_dim, H, W]
+                has_valid_masks = has_valid_masks.view(bs, 1, 1, 1)  # [B, 1, 1, 1]
+                has_valid_masks = has_valid_masks.expand_as(mask_embeddings)  # [B, embed_dim, H, W]
+
+                # If masks are valid, use mask_embeddings; otherwise use no_mask_embed
+                dense_embeddings = has_valid_masks * mask_embeddings + (1 - has_valid_masks) * no_mask_embed
+            else:
+                dense_embeddings = self.no_mask_embed.weight.reshape(1, -1, 1, 1).expand(
+                    bs,
+                    -1,
+                    self.image_embedding_size[0],
+                    self.image_embedding_size[1],
+                )
+
+            return sparse_embeddings, dense_embeddings
 
     def __init__(self, sam_predictor: SamPredictor):
         super().__init__()
@@ -141,6 +237,8 @@ class ExportableSAMPredictor(nn.Module):
         transformed_image: torch.Tensor,
         point_coords: torch.Tensor,
         point_labels: torch.Tensor,
+        boxes: torch.Tensor,
+        mask_input: torch.Tensor,
         original_size: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         h, w = original_size
@@ -149,6 +247,8 @@ class ExportableSAMPredictor(nn.Module):
         return self.sam_predictor.predict_torch(
             point_coords=point_coords,
             point_labels=point_labels,
+            boxes=boxes,
+            mask_input=mask_input,
             multimask_output=True,
             return_logits=False,
         )
@@ -158,8 +258,6 @@ class ExportableSAMPredictor(nn.Module):
 
         Args:
             output_path: The path to export the model to.
-
-        TODO: Add support for boxes and mask_input in prompt encoder.
         """
         self._freeze_modules([
             self.sam_predictor.model.mask_decoder,
@@ -170,6 +268,8 @@ class ExportableSAMPredictor(nn.Module):
         dummy_image = torch.zeros((1, 3, self.input_size, self.input_size), dtype=torch.float32)
         dummpy_coords = torch.rand((10, 1, 2), dtype=torch.float32) * self.input_size
         dummy_labels = torch.ones((10, 1), dtype=torch.float32)
+        dummy_boxes = torch.rand((10, 1, 4), dtype=torch.float32) * self.input_size
+        dummy_mask_input = torch.rand((10, 1, 256, 256), dtype=torch.float32)
         original_size = torch.tensor((self.input_size, self.input_size), dtype=torch.int32)
 
         # Define input and output names
@@ -177,6 +277,8 @@ class ExportableSAMPredictor(nn.Module):
             "transformed_image",
             "point_coords",
             "point_labels",
+            "boxes",
+            "mask_input",
             "original_size",
         ]
         output_names = ["masks", "iou_predictions", "low_res_logits"]
@@ -186,6 +288,8 @@ class ExportableSAMPredictor(nn.Module):
             "transformed_image": {0: "batch_size", 2: "height", 3: "width"},
             "point_coords": {0: "num_masks", 1: "num_points"},
             "point_labels": {0: "num_masks", 1: "num_points"},
+            "boxes": {0: "num_masks", 1: "num_boxes"},
+            "mask_input": {0: "num_masks"},
         }
 
         with torch.no_grad():
@@ -193,7 +297,7 @@ class ExportableSAMPredictor(nn.Module):
                 # Export to ONNX
                 torch.onnx.export(
                     self,
-                    (dummy_image, dummpy_coords, dummy_labels, original_size),
+                    (dummy_image, dummpy_coords, dummy_labels, dummy_boxes, dummy_mask_input, original_size),
                     output_path / "exported_sam.onnx",
                     opset_version=20,
                     input_names=input_names,

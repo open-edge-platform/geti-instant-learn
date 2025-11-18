@@ -96,8 +96,8 @@ class OpenVINOSAMPredictor(BaseSAMPredictor):
 
     def predict(
         self,
-        point_coords: torch.Tensor | None,
-        point_labels: torch.Tensor | None,
+        point_coords: torch.Tensor,
+        point_labels: torch.Tensor,
         boxes: torch.Tensor | None = None,
         mask_input: torch.Tensor | None = None,
         multimask_output: bool = True,
@@ -128,26 +128,28 @@ class OpenVINOSAMPredictor(BaseSAMPredictor):
             raise RuntimeError(msg)
 
         # Prepare inputs - convert torch tensors to numpy
-        # Handle None values by providing default empty arrays
+        num_masks = len(point_coords)
+
+        # Pass dummy all-zero to satisfy ONNX model input requirements
+        # The ExportableSAMPredictor prompt encoder is designed to detect
+        # all-zero values and skip embedding, treating them as "no values"
+        boxes = np.zeros((num_masks, 1, 4), dtype=np.float32) if boxes is None else boxes.cpu().numpy()
+        mask_input = (
+            np.zeros((num_masks, 1, 256, 256), dtype=np.float32) if mask_input is None else mask_input.cpu().numpy()
+        )
+
         inputs = {
             "transformed_image": self._current_image.cpu().numpy(),
-            "point_coords": (point_coords.cpu().numpy() if point_coords is not None else np.empty((0, 1, 2))),
-            "point_labels": (point_labels.cpu().numpy() if point_labels is not None else np.empty((0, 1))),
+            "point_coords": point_coords.cpu().numpy(),
+            "point_labels": point_labels.cpu().numpy(),
+            "boxes": boxes,
+            "mask_input": mask_input,
             "original_size": np.array(self._original_size),
         }
 
         # Run OpenVINO inference
         outputs = self.compiled_model(inputs)
-
-        # Convert outputs back to torch tensors
-        # Output names should match ExportableSAMPredictor: masks, iou_predictions, low_res_logits
         masks = torch.from_numpy(outputs["masks"]).to(self._device)
         iou_predictions = torch.from_numpy(outputs["iou_predictions"])
         low_res_logits = torch.from_numpy(outputs["low_res_logits"])
-
-        # Apply thresholding if binary masks are requested
-        if not return_logits:
-            # Match PyTorch behavior: masks > threshold
-            masks = masks > 0.0
-
         return masks, iou_predictions, low_res_logits
