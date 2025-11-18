@@ -8,10 +8,8 @@ import { ReactNode, useState } from 'react';
 import { useCurrentProject } from '@geti-prompt/hooks';
 import { Wand } from '@geti-prompt/icons';
 import { Flex, Grid, ToggleButton, View } from '@geti/ui';
-import { GraphChart } from '@geti/ui/icons';
 
 import { Prompt } from '../../features/prompts/prompt.component';
-import { Graphs } from './graphs/graphs.component';
 
 import styles from './sidebar.module.scss';
 
@@ -65,7 +63,7 @@ export const Sidebar = () => {
 
     const TABS: TabItem[] = [
         { label: 'Prompt', icon: <Wand />, content: <Prompt />, isDisabled: !data.active },
-        { label: 'Model statistics', icon: <GraphChart />, content: <Graphs /> },
+        //{ label: 'Model statistics', icon: <GraphChart />, content: <Graphs /> },
     ];
 
     return (
