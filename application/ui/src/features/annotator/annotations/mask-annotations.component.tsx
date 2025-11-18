@@ -16,6 +16,11 @@ type MaskAnnotationsProps = {
     isEnabled: boolean;
 };
 
+const SELECT_ANNOTATION_STYLES = {
+    stroke: 'var(--energy-blue-shade)',
+    strokeWidth: 'calc(2px / var(--zoom-scale))',
+};
+
 export const MaskAnnotations = ({ annotations, children, width, height, isEnabled }: MaskAnnotationsProps) => {
     const id = useId();
     const maskOpacity = isEnabled ? 0.8 : 0.0;
@@ -36,6 +41,7 @@ export const MaskAnnotations = ({ annotations, children, width, height, isEnable
                                 transitionTimingFunction: 'ease-in-out',
                                 transitionDuration: isEnabled ? '0.2s' : '0.1s',
                                 transitionDelay: isEnabled ? '0s' : '.25s',
+                                ...SELECT_ANNOTATION_STYLES,
                             } as CSSProperties
                         }
                     >
