@@ -8,12 +8,15 @@ ONNX and OpenVINO IR formats. It handles ONNX-incompatible operations
 and ensures the exported models can be used with OpenVINOSAMPredictor.
 """
 
+import logging
+
 import openvino
 import torch
 from segment_anything_hq.modeling.prompt_encoder import PromptEncoder
 from segment_anything_hq.predictor import SamPredictor
 from torch import nn
 
+logger = logging.getLogger("Geti Prompt")
 
 
 class ExportableSAMPredictor(nn.Module):
@@ -48,6 +51,7 @@ class ExportableSAMPredictor(nn.Module):
         >>> exportable = ExportableSAMPredictor(predictor._predictor)
         >>> exportable.export(Path("./exported"))
     """
+
     class _ExportablePromptEncoder(PromptEncoder):
         def _embed_points(self, points: torch.Tensor, labels: torch.Tensor, pad: bool) -> torch.Tensor:
             points += 0.5  # Shift to center of pixel
@@ -56,6 +60,7 @@ class ExportableSAMPredictor(nn.Module):
                 padding_label = -torch.ones((labels.shape[0], 1), device=labels.device)
                 points = torch.cat([points, padding_point], dim=1)
                 labels = torch.cat([labels, padding_label], dim=1)
+
             point_embedding = self.pe_layer.forward_with_coords(points, self.input_image_size)
             # Use ONNX-compatible operations instead of boolean indexing
             # Create masks for each label type
@@ -73,18 +78,10 @@ class ExportableSAMPredictor(nn.Module):
     def __init__(self, sam_predictor: SamPredictor):
         super().__init__()
         self.sam_predictor = sam_predictor
-        self.set_prompt_encoder()
+        self.input_size = sam_predictor.model.image_encoder.img_size
+        self._patch_prompt_encoder()
 
-        for p in self.sam_predictor.model.mask_decoder.parameters():
-            p.requires_grad_(False)
-
-        for p in self.sam_predictor.model.prompt_encoder.parameters():
-            p.requires_grad_(False)
-
-        for p in self.sam_predictor.model.image_encoder.parameters():
-            p.requires_grad_(False)
-
-    def set_prompt_encoder(self) -> PromptEncoder:
+    def _patch_prompt_encoder(self) -> PromptEncoder:
         """Set the prompt encoder to the exportable prompt encoder."""
         prompt_encoder = self._ExportablePromptEncoder(
             embed_dim=self.sam_predictor.model.prompt_encoder.embed_dim,
@@ -92,7 +89,51 @@ class ExportableSAMPredictor(nn.Module):
             input_image_size=self.sam_predictor.model.prompt_encoder.input_image_size,
             mask_in_chans=16,  # It's always 16
         )
+
+        # need to load patched prompt encoder with the original prompt encoder weights
+        prompt_encoder.load_state_dict(self.sam_predictor.model.prompt_encoder.state_dict(), strict=True)
         self.sam_predictor.model.prompt_encoder = prompt_encoder
+
+    def _freeze_modules(self, modules: list[nn.Module]) -> None:
+        """Freeze the modules."""
+        for module in modules:
+            for p in module.parameters():
+                p.requires_grad_(False)
+
+    def _validate_and_set_names(
+        self,
+        model_ports: list,
+        expected_names: list[str],
+        port_type: str,
+        arg_name: str,
+    ) -> None:
+        """Validate and set names for model inputs or outputs.
+
+        Args:
+            model_ports: List of model input or output ports from OpenVINO model.
+            expected_names: List of expected names to validate against.
+            port_type: Type of port ("input" or "output") for error messages.
+            arg_name: Name of the argument ("input_names" or "output_names") for error messages.
+
+        Raises:
+            ValueError: If a name is not found in the traced names.
+        """
+        for i, name in enumerate(expected_names):
+            traced_names = model_ports[i].get_names()
+            name_found = False
+            for traced_name in traced_names:
+                if name in traced_name:
+                    name_found = True
+                    break
+            name_found = name_found and bool(len(traced_names))
+
+            if not name_found:
+                msg = (
+                    f"{name} is not matched with the converted model's traced {port_type} names: {traced_names}."
+                    f" Please check {arg_name} argument of the exporter's constructor."
+                )
+                raise ValueError(msg)
+            model_ports[i].tensor.set_names({name})
 
     @torch.no_grad()
     def forward(
@@ -100,66 +141,51 @@ class ExportableSAMPredictor(nn.Module):
         transformed_image: torch.Tensor,
         point_coords: torch.Tensor,
         point_labels: torch.Tensor,
-        boxes: torch.Tensor,
-        mask_input: torch.Tensor,
-        original_size: tuple[int, int],
+        original_size: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        if isinstance(original_size, torch.Tensor):
-            original_size = tuple(original_size)
-
-        input_size = tuple(transformed_image.shape[-2:])
-        input_image = self.sam_predictor.model.preprocess(transformed_image)
-        features, interm_features = self.sam_predictor.model.image_encoder(input_image)
-        points = (point_coords, point_labels)
-
-        # Embed prompts
-        sparse_embeddings, dense_embeddings = self.sam_predictor.model.prompt_encoder(
-            points=points,
-            boxes=boxes,
-            masks=mask_input,
-        )
-
-        low_res_masks, iou_predictions = self.sam_predictor.model.mask_decoder(
-            image_embeddings=features,
-            image_pe=self.sam_predictor.model.prompt_encoder.get_dense_pe(),
-            sparse_prompt_embeddings=sparse_embeddings,
-            dense_prompt_embeddings=dense_embeddings,
+        h, w = original_size
+        original_size = (h, w)
+        self.sam_predictor.set_torch_image(transformed_image, original_size)
+        return self.sam_predictor.predict_torch(
+            point_coords=point_coords,
+            point_labels=point_labels,
             multimask_output=True,
-            hq_token_only=False,
-            interm_embeddings=interm_features,
+            return_logits=False,
         )
-
-        # Upscale the masks to the original image resolution
-        masks = self.sam_predictor.model.postprocess_masks(low_res_masks, input_size, original_size)
-        masks = masks > self.sam_predictor.model.mask_threshold
-        return masks, iou_predictions, low_res_masks
 
     def export(self, output_path: str) -> None:
-        transformed_image = torch.zeros((1, 3, 1024, 1024), dtype=torch.float32)
-        point_coords = torch.rand((1, 3, 2), dtype=torch.float32)
-        point_labels = torch.randint(0, 2, (1, 3), dtype=torch.int32)
-        boxes = torch.rand((1, 4), dtype=torch.float32)
-        mask_input = torch.rand((1, 1, 256, 256), dtype=torch.float32)
-        original_size = torch.tensor((1024, 1024), dtype=torch.int32)
+        """Export the model to ONNX and OpenVINO IR format.
+
+        Args:
+            output_path: The path to export the model to.
+
+        TODO: Add support for boxes and mask_input in prompt encoder.
+        """
+        self._freeze_modules([
+            self.sam_predictor.model.mask_decoder,
+            self.sam_predictor.model.prompt_encoder,
+            self.sam_predictor.model.image_encoder,
+        ])
+
+        dummy_image = torch.zeros((1, 3, self.input_size, self.input_size), dtype=torch.float32)
+        dummpy_coords = torch.rand((10, 1, 2), dtype=torch.float32) * self.input_size
+        dummy_labels = torch.ones((10, 1), dtype=torch.float32)
+        original_size = torch.tensor((self.input_size, self.input_size), dtype=torch.int32)
 
         # Define input and output names
         input_names = [
             "transformed_image",
             "point_coords",
             "point_labels",
-            "boxes",
-            "mask_input",
             "original_size",
         ]
         output_names = ["masks", "iou_predictions", "low_res_logits"]
 
         # Define dynamic axes
         dynamic_axes = {
-            "transformed_image": {0: "batch_size"},
-            "point_coords": {0: "num_masks"},
-            "point_labels": {0: "num_masks"},
-            "boxes": {0: "num_masks"},
-            "mask_input": {0: "num_masks"},
+            "transformed_image": {0: "batch_size", 2: "height", 3: "width"},
+            "point_coords": {0: "num_masks", 1: "num_points"},
+            "point_labels": {0: "num_masks", 1: "num_points"},
         }
 
         with torch.no_grad():
@@ -167,7 +193,7 @@ class ExportableSAMPredictor(nn.Module):
                 # Export to ONNX
                 torch.onnx.export(
                     self,
-                    (transformed_image, point_coords, point_labels, boxes, mask_input, original_size),
+                    (dummy_image, dummpy_coords, dummy_labels, original_size),
                     output_path / "exported_sam.onnx",
                     opset_version=20,
                     input_names=input_names,
@@ -176,42 +202,21 @@ class ExportableSAMPredictor(nn.Module):
                     verbose=True,
                 )
             except Exception as e:
-                print(f"Error exporting to ONNX: {e}")
+                msg = f"Error exporting to ONNX: {e}"
+                logger.exception(msg)
                 raise e
 
         exported_model = openvino.convert_model(output_path / "exported_sam.onnx")
-        for i, name in enumerate(output_names):
-            traced_names = exported_model.outputs[i].get_names()
-            name_found = False
-            for traced_name in traced_names:
-                if name in traced_name:
-                    name_found = True
-                    break
-            name_found = name_found and bool(len(traced_names))
-
-            if not name_found:
-                msg = (
-                    f"{name} is not matched with the converted model's traced output names: {traced_names}."
-                    " Please check output_names argument of the exporter's constructor."
-                )
-                raise ValueError(msg)
-            exported_model.outputs[i].tensor.set_names({name})
-
-        for i, name in enumerate(input_names):
-            traced_names = exported_model.inputs[i].get_names()
-            name_found = False
-            for traced_name in traced_names:
-                if name in traced_name:
-                    name_found = True
-                    break
-            name_found = name_found and bool(len(traced_names))
-
-            if not name_found:
-                msg = (
-                    f"{name} is not matched with the converted model's traced input names: {traced_names}."
-                    " Please check input_names argument of the exporter's constructor."
-                )
-                raise ValueError(msg)
-
-            exported_model.inputs[i].tensor.set_names({name})
+        self._validate_and_set_names(
+            exported_model.outputs,
+            output_names,
+            "output",
+            "output_names",
+        )
+        self._validate_and_set_names(
+            exported_model.inputs,
+            input_names,
+            "input",
+            "input_names",
+        )
         openvino.save_model(exported_model, output_path / "exported_sam.xml")

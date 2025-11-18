@@ -10,7 +10,7 @@ from .pytorch_predictor import PyTorchSAMPredictor
 
 __all__ = [
     "BaseSAMPredictor",
-    "PyTorchSAMPredictor",
-    "OpenVINOSAMPredictor",
     "ExportableSAMPredictor",
+    "OpenVINOSAMPredictor",
+    "PyTorchSAMPredictor",
 ]

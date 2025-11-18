@@ -175,5 +175,10 @@ class Matcher(Model):
         )
 
     def export(self, output_path: Path) -> None:
+        """Export the model to ONNX and OpenVINO IR format.
+
+        Args:
+            output_path: The path to export the model to.
+        """
         self.encoder.export(output_path)
         self.sam_predictor.export(output_path)

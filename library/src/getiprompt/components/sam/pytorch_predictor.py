@@ -53,15 +53,15 @@ def check_model_weights(model_name: SAMModelName) -> None:
 
 class PyTorchSAMPredictor(BaseSAMPredictor):
     """PyTorch implementation of SAM predictor.
-    
+
     This implementation wraps the original SAM predictor from segment_anything_hq
     and SAM2 predictors, providing a unified interface while delegating to the
     appropriate backend predictor.
     """
-    
+
     def _initialize_backend(self) -> None:
         """Load PyTorch model from checkpoint.
-        
+
         Loads the appropriate SAM model based on the model name and creates
         the corresponding predictor. Supports both SAM-HQ and SAM2 variants.
         """
@@ -69,15 +69,15 @@ class PyTorchSAMPredictor(BaseSAMPredictor):
         if self.model_path is None:
             # Auto-download if needed
             check_model_weights(self.sam_model_name)
-            
+
             model_info = MODEL_MAP[self.sam_model_name]
             checkpoint_path = DATA_PATH.joinpath(model_info["local_filename"])
         else:
             checkpoint_path = self.model_path
-        
+
         msg = f"Loading PyTorch SAM: {self.sam_model_name} from {checkpoint_path}"
         logger.info(msg)
-        
+
         # Load model based on type
         if self.sam_model_name in {
             SAMModelName.SAM2_TINY,
@@ -91,31 +91,35 @@ class PyTorchSAMPredictor(BaseSAMPredictor):
             self._predictor = SAM2ImagePredictor(sam_model)
         elif self.sam_model_name in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
             registry_name = MODEL_MAP[self.sam_model_name]["registry_name"]
-            sam_model = sam_model_registry[registry_name](
-                checkpoint=str(checkpoint_path)
-            ).to(self._device).eval()
+            sam_model = (
+                sam_model_registry[registry_name](
+                    checkpoint=str(checkpoint_path),
+                )
+                .to(self._device)
+                .eval()
+            )
             self._predictor = SamPredictor(sam_model)
             self.target_length = self._predictor.model.image_encoder.img_size
         else:
             msg = f"Model {self.sam_model_name} not implemented"
             raise NotImplementedError(msg)
-    
+
     def set_image(
         self,
         image: torch.Tensor,
         original_size: tuple[int, int],
     ) -> None:
         """Set image using PyTorch backend.
-        
+
         Delegates to the underlying predictor's set_torch_image method,
         which computes and caches image embeddings for efficient inference.
-        
+
         Args:
             image: Preprocessed image tensor of shape (C, H, W)
             original_size: Original image size (H, W) before preprocessing
         """
         return self._predictor.set_torch_image(image, original_size)
-    
+
     def predict(
         self,
         point_coords: torch.Tensor | None,
@@ -126,9 +130,9 @@ class PyTorchSAMPredictor(BaseSAMPredictor):
         return_logits: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Predict masks using PyTorch backend.
-        
+
         Delegates to the underlying predictor's predict_torch method.
-        
+
         Args:
             point_coords: Point coordinates [B, N, 2] in (x, y) format
             point_labels: Point labels [B, N] (1=foreground, 0=background, -1=padding)
@@ -136,7 +140,7 @@ class PyTorchSAMPredictor(BaseSAMPredictor):
             mask_input: Low-res mask input [B, 1, 256, 256]
             multimask_output: Whether to return multiple masks
             return_logits: Whether to return logits instead of binary masks
-            
+
         Returns:
             Tuple of (masks, iou_predictions, low_res_logits)
         """
@@ -148,28 +152,28 @@ class PyTorchSAMPredictor(BaseSAMPredictor):
             multimask_output=multimask_output,
             return_logits=return_logits,
         )
-    
+
     def export(self, output_path: Path) -> Path:
         """Export this PyTorch predictor to ONNX and OpenVINO IR format.
-        
+
         This is a convenience method that wraps the predictor in an
         ExportableSAMPredictor and performs the export. The exported
         model can then be loaded using load_sam_model() with backend="openvino".
-        
+
         Args:
             output_path: Directory to save exported models.
                 Creates the directory if it doesn't exist.
-        
+
         Returns:
             Path to the exported OpenVINO IR file (.xml)
-        
+
         Example:
             >>> predictor = load_sam_model(
             ...     SAMModelName.SAM_HQ_TINY,
             ...     backend="pytorch"
             ... )
             >>> ov_path = predictor.export(Path("./exported"))
-            >>> 
+            >>>
             >>> # Now load with OpenVINO backend
             >>> ov_predictor = load_sam_model(
             ...     SAMModelName.SAM_HQ_TINY,
@@ -178,17 +182,16 @@ class PyTorchSAMPredictor(BaseSAMPredictor):
             ... )
         """
         from .exportable import ExportableSAMPredictor
-        
+
         # Ensure output directory exists
         output_path = Path(output_path)
         output_path.mkdir(parents=True, exist_ok=True)
-        
+
         # Wrap and export
         exportable = ExportableSAMPredictor(self._predictor)
         exportable.export(output_path)
-        
+
         exported_xml = output_path / "exported_sam.xml"
         logger.info(f"Successfully exported to {exported_xml}")
-        
-        return exported_xml
 
+        return exported_xml
