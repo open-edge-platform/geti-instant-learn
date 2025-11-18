@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Divider, Flex, Heading, View } from '@geti/ui';
+import { Flex, Heading, View } from '@geti/ui';
 
 import { ModelToolbar } from './model-toolbar/model-toolbar.component';
 import { PromptMode } from './prompt-modes/prompt-mode.component';

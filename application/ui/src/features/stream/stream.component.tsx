@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useGetSources, usePromptMode } from '@geti-prompt/hooks';
+import { useGetSources } from '@geti-prompt/hooks';
 import { dimensionValue, Grid, minmax, View } from '@geti/ui';
 
 import { CaptureFrameButton } from './capture-frame-button.component';
@@ -17,7 +17,7 @@ const useActiveSource = () => {
 };
 
 const WebcamStream = () => {
-    const [promptMode] = usePromptMode();
+    // const [promptMode] = usePromptMode();
 
     return (
         <Grid
@@ -33,7 +33,10 @@ const WebcamStream = () => {
                 <Video />
             </View>
             <View gridArea={'capture'} justifySelf={'center'}>
-                {promptMode === 'visual' && <CaptureFrameButton />}
+                {/* TODO: Uncomment when we support text prompt
+                    {promptMode === 'visual' && <CaptureFrameButton />}
+                */}
+                <CaptureFrameButton />
             </View>
         </Grid>
     );
