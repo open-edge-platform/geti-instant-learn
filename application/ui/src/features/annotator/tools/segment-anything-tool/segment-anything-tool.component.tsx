@@ -103,7 +103,6 @@ export const SegmentAnythingTool = () => {
         decodingMutation.mutate([{ ...point, positive: true }], {
             onSuccess: () => {
                 setMousePosition(undefined);
-                setPreviewShapes([]);
             },
             onError: (error) => {
                 console.error('Failed to create annotation:', error);
