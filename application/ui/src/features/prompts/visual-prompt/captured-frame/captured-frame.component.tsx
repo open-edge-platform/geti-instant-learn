@@ -43,7 +43,11 @@ export const CapturedFrameProviders = ({ children, frameId }: CapturedFrameAnnot
     );
 };
 
-export const CapturedFrame = () => {
+interface CapturedFrameProps {
+    frameId: string;
+}
+
+export const CapturedFrame = ({ frameId }: CapturedFrameProps) => {
     return (
         <>
             <Grid
@@ -54,6 +58,7 @@ export const CapturedFrame = () => {
                 UNSAFE_style={{
                     backgroundColor: 'var(--spectrum-global-color-gray-200)',
                 }}
+                data-testid={`captured-frame-${frameId}`}
             >
                 <CapturedFrameContent />
             </Grid>

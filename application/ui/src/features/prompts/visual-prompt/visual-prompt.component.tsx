@@ -21,7 +21,7 @@ export const VisualPrompt = () => {
                     <CapturedFramePlaceholder />
                 ) : (
                     <CapturedFrameProviders frameId={selectedFrameId}>
-                        <CapturedFrame />
+                        <CapturedFrame frameId={selectedFrameId} />
                         <SavePrompt />
                     </CapturedFrameProviders>
                 )}
