@@ -3,12 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { PointerEvent, useEffect, useRef, useState } from 'react';
+import { CSSProperties, PointerEvent, useEffect, useRef, useState } from 'react';
 
 import { clampPointBetweenImage } from '@geti/smart-tools/utils';
 
 import { useZoom } from '../../../../components/zoom/zoom.provider';
 import { useVisualPrompt } from '../../../prompts/visual-prompt/visual-prompt-provider.component';
+import { AnnotationShape } from '../../annotations/annotation-shape.component';
 import { Annotation } from '../../annotations/annotation.component';
 import { MaskAnnotations } from '../../annotations/mask-annotations.component';
 import { useAnnotationActions } from '../../providers/annotation-actions-provider.component';
@@ -24,12 +25,19 @@ import { useSegmentAnythingModel } from './use-segment-anything.hook';
 import { useSingleStackFn } from './use-single-stack-fn.hook';
 import { useThrottledCallback } from './use-throttle-callback.hook';
 
+import classes from './segment-anything.module.scss';
+
 // Whenever the user moves their mouse over the canvas, we compute a preview of
 // SAM being applied to the user's mouse position.
 // The decoding step of SAM takes on average 100ms with 150-250ms being a high
 // exception. We throttle the mouse update based on this so that we don't overload
 // the user's cpu with too many decoding requests
 const THROTTLE_TIME = 150;
+
+const SELECT_ANNOTATION_STYLES = {
+    stroke: 'var(--energy-blue-shade)',
+    strokeWidth: 'calc(2px / var(--zoom-scale))',
+};
 
 export const SegmentAnythingTool = () => {
     const [mousePosition, setMousePosition] = useState<InteractiveAnnotationPoint>();
@@ -137,6 +145,25 @@ export const SegmentAnythingTool = () => {
                 {isVisible &&
                     annotations.map((annotation) => <Annotation annotation={annotation} key={annotation.id} />)}
             </g>
+
+            {previewAnnotations.length > 0 &&
+                previewAnnotations.map((annotation) => (
+                    <g
+                        key={annotation.id}
+                        aria-label='Segment anything preview'
+                        style={
+                            {
+                                '--energy-blue-shade': '#0095ca',
+                            } as CSSProperties
+                        }
+                        {...SELECT_ANNOTATION_STYLES}
+                        strokeWidth={'calc(3px / var(--zoom-scale))'}
+                        fill={'transparent'}
+                        className={classes.animateStroke}
+                    >
+                        <AnnotationShape annotation={annotation} />
+                    </g>
+                ))}
         </SvgToolCanvas>
     );
 };
