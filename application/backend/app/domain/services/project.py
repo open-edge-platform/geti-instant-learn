@@ -246,12 +246,12 @@ class ProjectService:
                     "Invalid connected source config ignored: source_id=%s err=%s", connected_source.id, exc
                 )
         processor_cfg: ModelConfig | None = None
-        active_model = next((m for m in project.processors if m.active), None)
-        if active_model:
+        model = next((m for m in project.processors if m.project_id == project_id and m.active), None)
+        if model:
             try:
-                processor_cfg = TypeAdapter(ModelConfig).validate_python(active_model.config)
+                processor_cfg = TypeAdapter(ModelConfig).validate_python(model.config)
             except Exception as exc:
-                logger.exception("Invalid active model config ignored: model_id=%s err=%s", active_model.id, exc)
+                logger.exception("Invalid active model config ignored: model_id=%s err=%s", model.id, exc)
 
         return PipelineConfig(
             project_id=project.id,

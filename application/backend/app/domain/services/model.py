@@ -13,8 +13,6 @@ from domain.db.models import ProcessorDB, ProjectDB
 from domain.dispatcher import (
     ComponentConfigChangeEvent,
     ConfigChangeDispatcher,
-    ModelActivationEvent,
-    ModelDeactivationEvent,
 )
 from domain.errors import (
     ResourceAlreadyExistsError,
@@ -338,11 +336,19 @@ class ModelService(BaseService):
         Queue project activation event (dispatched after commit).
         """
         if self._dispatcher:
-            self._pending_events.append(ModelActivationEvent(project_id=project_id, model_id=model_id))
+            self._pending_events.append(
+                ComponentConfigChangeEvent(
+                    project_id=project_id, component_id=str(model_id), component_type="processor"
+                )
+            )
 
     def _emit_deactivation(self, project_id: UUID, model_id: UUID) -> None:
         """
         Queue project deactivation event (dispatched after commit).
         """
         if self._dispatcher:
-            self._pending_events.append(ModelDeactivationEvent(project_id=project_id, model_id=model_id))
+            self._pending_events.append(
+                ComponentConfigChangeEvent(
+                    project_id=project_id, component_id=str(model_id), component_type="processor"
+                )
+            )

@@ -12,8 +12,6 @@ from domain.dispatcher import (
     ComponentConfigChangeEvent,
     ConfigChangeDispatcher,
     ConfigChangeEvent,
-    ModelActivationEvent,
-    ModelDeactivationEvent,
     ProjectActivationEvent,
     ProjectDeactivationEvent,
 )
@@ -80,7 +78,7 @@ class PipelineManager:
             self._pipeline.stop()
             self._pipeline = None
 
-    def on_config_change(self, event: ConfigChangeEvent) -> None:  # noqa: C901
+    def on_config_change(self, event: ConfigChangeEvent) -> None:
         """
         React to configuration change events.
         """
@@ -99,24 +97,6 @@ class PipelineManager:
                     self._pipeline.stop()
                     self._pipeline = None
                     logger.info("Pipeline stopped due to project deactivation %s", e.project_id)
-
-            case ModelDeactivationEvent() as e:
-                with self._project_service() as svc:
-                    cfg = svc.get_pipeline_config(e.project_id)
-                if self._pipeline:
-                    cfg.processor = None
-                    self._pipeline.update_config(cfg)
-                    logger.info(f"Model {e.model_id} deactivated in pipeline for project {e.project_id}")
-
-            case ModelActivationEvent() as e:
-                with self._project_service() as project_svc:
-                    pipeline_cfg = project_svc.get_pipeline_config(e.project_id)
-                with self._model_service() as model_svc:
-                    model = model_svc.get_model(project_id=e.project_id, model_id=e.model_id)
-                if self._pipeline:
-                    pipeline_cfg.processor = model.config
-                    self._pipeline.update_config(pipeline_cfg)
-                    logger.info(f"Model {e.model_id} activated in pipeline for project {e.project_id}")
 
             case ComponentConfigChangeEvent() as e:
                 if self._pipeline and self._pipeline.config.project_id == e.project_id:

@@ -19,20 +19,6 @@ class ProjectDeactivationEvent(BaseModel):
     project_id: UUID
 
 
-class ModelDeactivationEvent(BaseModel):
-    """Event fired when the current model should be deactivated."""
-
-    model_id: UUID
-    project_id: UUID
-
-
-class ModelActivationEvent(BaseModel):
-    """Event fired when the current model should be activated."""
-
-    model_id: UUID
-    project_id: UUID
-
-
 class ComponentConfigChangeEvent(BaseModel):
     """Event fired when a component of the active pipeline changes."""
 
@@ -41,13 +27,7 @@ class ComponentConfigChangeEvent(BaseModel):
     component_id: str
 
 
-ConfigChangeEvent = (
-    ProjectActivationEvent
-    | ProjectDeactivationEvent
-    | ComponentConfigChangeEvent
-    | ModelDeactivationEvent
-    | ModelActivationEvent
-)
+ConfigChangeEvent = ProjectActivationEvent | ProjectDeactivationEvent | ComponentConfigChangeEvent
 
 
 class ConfigChangeListener(Protocol):
