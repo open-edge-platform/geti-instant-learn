@@ -34,15 +34,12 @@ const TestProviders = ({ children }: { children: ReactNode }) => {
     );
 };
 
-export const render = (
-    ui: ReactNode,
-    options: RenderOptions = { route: paths.project({ projectId: '1' }), path: paths.project.pattern }
-) => {
-    const router = createMemoryRouter(
+const createTestRouter = (children: ReactNode, options: RenderOptions) => {
+    return createMemoryRouter(
         [
             {
                 path: options.path,
-                element: <TestProviders>{ui}</TestProviders>,
+                element: <TestProviders>{children}</TestProviders>,
             },
         ],
         {
@@ -50,6 +47,13 @@ export const render = (
             initialIndex: 0,
         }
     );
+};
+
+export const render = (
+    ui: ReactNode,
+    options: RenderOptions = { route: paths.project({ projectId: '1' }), path: paths.project.pattern }
+) => {
+    const router = createTestRouter(ui, options);
 
     return rtlRender(<RouterProvider router={router} />);
 };
@@ -59,18 +63,7 @@ export const renderHook = <TProps, TResult>(
     options: RenderOptions = { route: paths.project({ projectId: '1' }), path: paths.project.pattern }
 ) => {
     const Wrapper = ({ children }: { children: ReactNode }) => {
-        const router = createMemoryRouter(
-            [
-                {
-                    path: options.path,
-                    element: <TestProviders>{children}</TestProviders>,
-                },
-            ],
-            {
-                initialEntries: [options.route],
-                initialIndex: 0,
-            }
-        );
+        const router = createTestRouter(children, options);
 
         return <RouterProvider router={router} />;
     };
