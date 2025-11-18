@@ -110,6 +110,7 @@ export const ImagesFolderStream = () => {
                 UNSAFE_className={styles.button}
                 isDisabled={isPrevFrameButtonDisabled}
                 onPress={prevFrame}
+                aria-label={'Previous Frame'}
             >
                 <ChevronLeft />
             </ActionButton>
@@ -119,6 +120,7 @@ export const ImagesFolderStream = () => {
                 UNSAFE_className={styles.button}
                 isDisabled={isNextFrameButtonDisabled}
                 onPress={nextFrame}
+                aria-label={'Next Frame'}
             >
                 <ChevronRight />
             </ActionButton>
