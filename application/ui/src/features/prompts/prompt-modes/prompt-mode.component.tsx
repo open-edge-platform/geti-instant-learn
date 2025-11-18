@@ -3,13 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { usePromptMode } from '@geti-prompt/hooks';
-
-import { TextPrompt } from '../text-prompt/text-prompt.component';
 import { VisualPromptProvider } from '../visual-prompt/visual-prompt-provider.component';
 import { VisualPrompt } from '../visual-prompt/visual-prompt.component';
 
 export const PromptMode = () => {
+    return (
+        <VisualPromptProvider>
+            <VisualPrompt />
+        </VisualPromptProvider>
+    );
+
+    /* TODO: Uncomment when we support text prompt
     const [mode] = usePromptMode();
 
     if (mode === 'visual') {
@@ -20,5 +24,5 @@ export const PromptMode = () => {
         );
     }
 
-    return <TextPrompt />;
+    return <TextPrompt />;*/
 };

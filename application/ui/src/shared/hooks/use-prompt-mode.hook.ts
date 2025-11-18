@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useCallback, useEffect } from 'react';
+
 import { useSearchParams } from 'react-router-dom';
 
 export type PromptMode = 'visual' | 'text';
@@ -17,15 +19,24 @@ const getSelectedPromptMode = (mode: string): PromptMode => {
 export const usePromptMode = (): [PromptMode, (mode: string) => void] => {
     const [searchParams, setSearchParams] = useSearchParams();
 
-    const mode = (searchParams.get('mode') as PromptMode) ?? 'visual';
+    const handleModeChange = useCallback(
+        (option: string) => {
+            const newMode = getSelectedPromptMode(option);
+            const newSearchParams = new URLSearchParams(searchParams);
 
-    const handleModeChange = (option: string) => {
-        const newMode = getSelectedPromptMode(option);
-        const newSearchParams = new URLSearchParams(searchParams);
+            newSearchParams.set('mode', newMode);
+            setSearchParams(newSearchParams);
+        },
+        [searchParams, setSearchParams]
+    );
 
-        newSearchParams.set('mode', newMode);
-        setSearchParams(newSearchParams);
-    };
+    const mode = searchParams.get('mode');
 
-    return [mode, handleModeChange] as const;
+    useEffect(() => {
+        if (mode === null) {
+            handleModeChange('visual');
+        }
+    }, [mode, handleModeChange]);
+
+    return [(mode ?? 'visual') as PromptMode, handleModeChange] as const;
 };
