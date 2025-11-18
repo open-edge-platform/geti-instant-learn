@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from queue import Empty, Full, Queue
+from queue import Full, Queue
 from threading import Lock
 
 logger = logging.getLogger(__name__)
