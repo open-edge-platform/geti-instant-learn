@@ -50,7 +50,6 @@ class ImageEncoder(nn.Module):
         device: str = "cuda",
         precision: str = "bf16",
         compile_models: bool = False,
-        benchmark_inference_speed: bool = False,
         input_size: int = 518,
     ) -> None:
         """Initialize the encoder.
@@ -60,7 +59,6 @@ class ImageEncoder(nn.Module):
             device: The device to use.
             precision: The precision to use.
             compile_models: Whether to compile the models.
-            benchmark_inference_speed: Whether to benchmark the inference speed.
             input_size: The input size to use.
 
         Raises:
@@ -94,7 +92,6 @@ class ImageEncoder(nn.Module):
             precision=self.precision,
             device=device,
             compile_models=compile_models,
-            benchmark_inference_speed=benchmark_inference_speed,
         ).eval()
 
     @staticmethod

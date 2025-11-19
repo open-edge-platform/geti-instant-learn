@@ -8,16 +8,17 @@ import { CSSProperties, PointerEvent, useEffect, useRef, useState } from 'react'
 import { clampPointBetweenImage } from '@geti/smart-tools/utils';
 
 import { useZoom } from '../../../../components/zoom/zoom.provider';
+import { useVisualPrompt } from '../../../prompts/visual-prompt/visual-prompt-provider.component';
 import { AnnotationShape } from '../../annotations/annotation-shape.component';
 import { Annotation } from '../../annotations/annotation.component';
 import { MaskAnnotations } from '../../annotations/mask-annotations.component';
-import { AnnotatorLoading } from '../../annotator-loading.component';
 import { useAnnotationActions } from '../../providers/annotation-actions-provider.component';
 import { useAnnotationVisibility } from '../../providers/annotation-visibility-provider.component';
 import { useAnnotator } from '../../providers/annotator-provider.component';
 import { type Annotation as AnnotationType, type Shape } from '../../types';
 import { SvgToolCanvas } from '../svg-tool-canvas.component';
 import { getRelativePoint, removeOffLimitPoints } from '../utils';
+import { SAMLoading } from './sam-loading.component';
 import { InteractiveAnnotationPoint } from './segment-anything.interface';
 import { useDecodingMutation } from './use-decoding-query.hook';
 import { useSegmentAnythingModel } from './use-segment-anything.hook';
@@ -26,7 +27,7 @@ import { useThrottledCallback } from './use-throttle-callback.hook';
 
 import classes from './segment-anything.module.scss';
 
-// Whenever the user moves their mouse over the canvas  we compute a preview of
+// Whenever the user moves their mouse over the canvas, we compute a preview of
 // SAM being applied to the user's mouse position.
 // The decoding step of SAM takes on average 100ms with 150-250ms being a high
 // exception. We throttle the mouse update based on this so that we don't overload
@@ -43,13 +44,14 @@ export const SegmentAnythingTool = () => {
     const [previewShapes, setPreviewShapes] = useState<Shape[]>([]);
 
     const zoom = useZoom();
-    const { roi, image, selectedLabel } = useAnnotator();
+    const { roi, image } = useAnnotator();
+    const { selectedLabel } = useVisualPrompt();
     const { annotations } = useAnnotationActions();
     const { isVisible } = useAnnotationVisibility();
     const { isLoading, decodingQueryFn } = useSegmentAnythingModel();
     const throttledDecodingQueryFn = useSingleStackFn(decodingQueryFn);
 
-    const decodingMutation = useDecodingMutation(decodingQueryFn, [selectedLabel]);
+    const decodingMutation = useDecodingMutation(decodingQueryFn, selectedLabel ? [selectedLabel] : []);
 
     const ref = useRef<SVGRectElement>(null);
 
@@ -120,7 +122,7 @@ export const SegmentAnythingTool = () => {
     });
 
     if (isLoading) {
-        return <AnnotatorLoading isLoading={isLoading} />;
+        return <SAMLoading isLoading={isLoading} />;
     }
 
     return (

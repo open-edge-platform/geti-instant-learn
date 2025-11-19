@@ -5,8 +5,8 @@
 
 import { components, type SchemaSourceSchema, type SchemaSourcesListSchema } from './openapi-spec';
 
-export type SourcesListType = SchemaSourcesListSchema['sources'];
-export type SourceType = SourcesListType[number]['config']['source_type'];
+export type SourcesType = SchemaSourcesListSchema['sources'];
+export type SourceType = SourcesType[number]['config']['source_type'];
 
 type SourceWithoutConfig = Omit<SchemaSourceSchema, 'config'>;
 
@@ -22,13 +22,19 @@ export type ImagesFolderSourceType = SourceWithoutConfig & { config: ImagesFolde
 
 export { $api, client } from './client';
 export {
+    type paths,
     type SchemaProjectSchema as ProjectType,
     type SchemaProjectsListSchema as ProjectsListType,
     type SchemaProjectUpdateSchema as ProjectUpdateType,
     type SchemaSourceSchema as Source,
     type SchemaLabelSchema as LabelType,
     type SchemaLabelsListSchema as LabelListType,
-    type paths,
+    type SchemaSourcesListSchema as SourcesListType,
     type SchemaSourceCreateSchema as SourceCreateType,
     type SchemaSourceUpdateSchema as SourceUpdateType,
+    type SchemaAnnotationSchemaInput as AnnotationPostType,
+    type SchemaAnnotationSchemaOutput as AnnotationType,
+    type SchemaVisualPromptSchema as VisualPromptType,
+    type SchemaPromptsListSchema as VisualPromptListType,
+    type SchemaVisualPromptListItemSchema as VisualPromptItemType,
 } from './openapi-spec';

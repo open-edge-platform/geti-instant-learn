@@ -14,7 +14,12 @@ from domain.errors import (
     ResourceNotFoundError,
     ResourceUpdateConflictError,
 )
-from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
+from runtime.errors import (
+    PipelineNotActiveError,
+    PipelineProjectMismatchError,
+    SourceMismatchError,
+    SourceNotSeekableError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +58,16 @@ def custom_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={"detail": message})
 
     if isinstance(
-        exc, (ResourceUpdateConflictError | PipelineNotActiveError | PipelineProjectMismatchError | ValueError)
+        exc,
+        (
+            ResourceUpdateConflictError
+            | PipelineNotActiveError
+            | PipelineProjectMismatchError
+            | SourceMismatchError
+            | SourceNotSeekableError
+            | ValueError
+            | IndexError
+        ),
     ):
         logger.debug(
             f"Exception handler called: {request.method} {request.url.path} "

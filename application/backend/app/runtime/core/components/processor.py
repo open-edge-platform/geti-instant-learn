@@ -28,6 +28,7 @@ class Processor(PipelineComponent):
         # it is a placeholder for a vision prompt model instance
         self._model = model
         self.inbound_broadcaster = inbound_broadcaster
+        logger.debug("Processor registering to InboundBroadcaster for raw frames")
         self._in_queue: Queue[InputData] = inbound_broadcaster.register()
         self._outbound_broadcaster = outbound_broadcaster
 

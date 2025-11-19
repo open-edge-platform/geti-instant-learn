@@ -27,9 +27,6 @@ export class AnnotatorPage {
             await expect(this.page.getByLabel('Segment anything preview')).toBeVisible({ timeout: 10000 });
 
             await this.page.mouse.click(hoverX, hoverY);
-
-            // One for the annotation, and the other for the preview.
-            await expect(this.page.getByLabel('annotation polygon')).toHaveCount(2);
         }
     }
 

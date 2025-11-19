@@ -358,14 +358,14 @@ class TestFolderDatasetFiltering:
         ref_dataset = multi_category_dataset.get_reference_dataset()
         assert len(ref_dataset) == 3
         # All should have at least one reference
-        assert ref_dataset.df["is_reference"].list.contains(True).all()
+        assert ref_dataset.df["is_reference"].list.contains(item=True).all()
 
     def test_get_target_dataset(self, multi_category_dataset: FolderDataset) -> None:
         """Test getting target dataset."""
         target_dataset = multi_category_dataset.get_target_dataset()
         assert len(target_dataset) == 6
         # All should have no reference instances
-        assert not target_dataset.df["is_reference"].list.contains(True).any()
+        assert not target_dataset.df["is_reference"].list.contains(item=True).any()
 
 
 class TestFolderDatasetBatch:

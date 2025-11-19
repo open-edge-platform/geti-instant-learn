@@ -11,6 +11,7 @@ from runtime.core.components.factories.components import ComponentFactory, Defau
 from runtime.core.components.processor import Processor
 from runtime.core.components.schemas.pipeline import PipelineConfig
 from runtime.core.components.schemas.processor import InputData, OutputData
+from runtime.core.components.schemas.reader import FrameListResponse
 from runtime.core.components.sink import Sink
 from runtime.core.components.source import Source
 
@@ -66,6 +67,9 @@ class Pipeline:
         logger.debug(f"A streaming job created for a project config: {pipeline_conf}")
 
     def register_webrtc(self) -> Queue:
+        logger.debug(
+            "WebRTC registering to OutboundBroadcaster for processed frames (project_id=%s)", self._config.project_id
+        )
         return self._outbound_broadcaster.register()
 
     def unregister_webrtc(self, queue: Queue) -> None:
@@ -152,3 +156,23 @@ class Pipeline:
         thread = Thread(target=new_component)
         thread.start()
         self._threads[component_cls] = thread
+
+    def seek(self, index: int) -> None:
+        """Seek to a specific frame in the source."""
+        source: Source = self._components.get(Source)
+        if source:
+            source.seek(index)
+
+    def get_frame_index(self) -> int:
+        """Get current frame position from the source."""
+        source: Source = self._components.get(Source)
+        if source:
+            return source.index()
+        return 0
+
+    def list_frames(self, page: int = 1, page_size: int = 30) -> FrameListResponse:
+        """Get paginated list of frames from the source."""
+        source: Source = self._components.get(Source)
+        if source:
+            return source.list_frames(page, page_size)
+        raise ValueError("No source component available")

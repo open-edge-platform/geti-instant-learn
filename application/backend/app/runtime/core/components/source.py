@@ -42,12 +42,12 @@ class Source(PipelineComponent):
                     time.sleep(0.1)
         logger.debug("Stopping the source loop")
 
-    def seek(self, index: int) -> InputData | None:
+    def seek(self, index: int) -> None:
         """
         Seek to a specific frame index.
-        Delegates to reader.seek() and returns the frame data.
+        Delegates to reader.seek().
         """
-        return self._reader.seek(index)
+        self._reader.seek(index)
 
     def index(self) -> int:
         """
@@ -56,7 +56,7 @@ class Source(PipelineComponent):
         """
         return self._reader.index()
 
-    def list_frames(self, page: int = 1, page_size: int = 100) -> FrameListResponse:
+    def list_frames(self, page: int = 1, page_size: int = 30) -> FrameListResponse:
         """
         Get paginated list of all frames.
         Delegates to reader.list_frames().

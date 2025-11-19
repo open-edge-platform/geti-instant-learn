@@ -9,23 +9,24 @@ from logging import getLogger
 from pathlib import Path
 
 import polars as pl
+import torch
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from torch.utils.data import DataLoader
+from torchmetrics.segmentation import MeanIoU
 
 from getiprompt.data import Dataset, LVISDataset, PerSegDataset
 from getiprompt.data.base import Batch
-from getiprompt.metrics import SegmentationMetrics
 from getiprompt.models import Model, load_model
 from getiprompt.utils import setup_logger
 from getiprompt.utils.args import get_arguments, parse_experiment_args
 from getiprompt.utils.benchmark import (
     _get_output_path_for_experiment,
     _save_results,
+    convert_masks_to_one_hot_tensor,
     prepare_output_directory,
 )
 from getiprompt.utils.constants import get_category_presets
-from getiprompt.utils.utils import masks_to_custom_masks
-from getiprompt.visualize import ExportMaskVisualization
+from getiprompt.visualizer import Visualizer
 
 logger = getLogger("Geti Prompt")
 
@@ -35,12 +36,13 @@ def infer_on_category(
     model: Model,
     category_name: str,
     priors_batch_index: int,
-    visualizer: ExportMaskVisualization,
-    metrics_calculators: dict[int, SegmentationMetrics],
+    visualizer: Visualizer,
+    metrics_calculators: dict[int, MeanIoU],
     progress: Progress,
-    batch_size: int = 4,
+    batch_size: int,
+    device: torch.device,
     visualize: bool = True,
-) -> tuple[int, int]:
+) -> None:
     """Perform inference on all samples of a category.
 
     Args:
@@ -52,10 +54,8 @@ def infer_on_category(
         metrics_calculators: The calculator for the metrics
         progress: The progress bar
         batch_size: Batch size for DataLoader
+        device: The device to use.
         visualize: Whether to visualize the results
-
-    Returns:
-        The number of samples that were processed and the total time it took.
 
     Raises:
         ValueError: If no target samples are found for the category.
@@ -67,8 +67,6 @@ def infer_on_category(
         msg = f"No target samples found for category: {category_name}"
         logger.warning(msg)
         raise ValueError(msg)
-
-    category_id = target_dataset.get_category_id(category_name)
 
     # Create DataLoader
     dataloader = DataLoader(
@@ -85,26 +83,29 @@ def infer_on_category(
         transient=True,
     )
 
-    total_time = 0
-    n_samples = 0
+    # Create category ID to index mapping
+    num_classes = len(dataset.categories)
+    category_id_to_index = {dataset.get_category_id(cat_name): idx for idx, cat_name in enumerate(dataset.categories)}
+
     for batch in dataloader:
         # Run inference
-        results = model.infer(batch)
-        total_time += results.duration
-        n_samples += len(batch)
+        predictions = model.infer(batch)
 
-        # Convert ground truth masks to Masks objects
-        gt_masks = masks_to_custom_masks(
-            batch.masks,
-            class_id=category_id,
+        # Convert masks to one-hot boolean tensors for torchmetrics
+        # Returns lists of tensors, each with shape (C, H, W)
+        batch_pred_tensors, batch_gt_tensors = convert_masks_to_one_hot_tensor(
+            predictions=predictions,
+            ground_truths=batch,
+            num_classes=num_classes,
+            category_id_to_index=category_id_to_index,
+            device=device,
         )
 
-        # Calculate metrics
-        metrics_calculators[priors_batch_index](
-            predictions=results.masks,
-            ground_truths=gt_masks,
-            mapping={category_id: category_name},
-        )
+        # Update IoU metric for each image in the batch
+        # MeanIoU expects (N, C, H, W) but images have different sizes
+        # So we update with (1, C, H, W) for each image
+        for pred_tensor, gt_tensor in zip(batch_pred_tensors, batch_gt_tensors, strict=True):
+            metrics_calculators[priors_batch_index].update(pred_tensor, gt_tensor)
 
         if visualize:
             # Generate export paths
@@ -114,31 +115,17 @@ def infer_on_category(
                 )
                 for img_path in batch.image_paths
             ]
-            file_names_gt = [
-                str(
-                    Path("ground_truth") / f"priors_batch_{priors_batch_index}" / category_name / Path(img_path).name,
-                )
-                for img_path in batch.image_paths
-            ]
 
             # Visualize predictions and ground truth
-            visualizer(
+            visualizer.visualize(
                 images=batch.images,
-                masks=results.masks,
+                predictions=predictions,
                 file_names=file_names,
-                points=results.used_points,
-                boxes=results.used_boxes,
-            )
-            visualizer(
-                images=batch.images,
-                masks=gt_masks,
-                file_names=file_names_gt,
             )
 
         progress.update(batches_task, advance=1)
 
     progress.remove_task(batches_task)
-    return total_time, n_samples
 
 
 def learn_from_category(dataset: Dataset, model: Model, category_name: str) -> None:
@@ -164,6 +151,7 @@ def predict_on_dataset(
     model_name: str,
     backbone_name: str,
     number_of_priors_tests: int,
+    device: torch.device,
 ) -> pl.DataFrame:
     """Run predictions on the dataset and evaluate them.
 
@@ -176,6 +164,7 @@ def predict_on_dataset(
         model_name: The algorithm name
         backbone_name: The model name
         number_of_priors_tests: The number of priors to try
+        device: The device to use.
 
     Returns:
         The timing DataFrame
@@ -184,10 +173,13 @@ def predict_on_dataset(
     msg = f"Output path: {output_path}"
     logger.info(msg)
 
-    visualizer = ExportMaskVisualization(
+    visualizer = Visualizer(
         output_folder=str(output_path),
+        class_map={dataset.get_category_id(category): category for category in dataset.categories},
     )
-    metrics_calculators: dict[int, SegmentationMetrics] = {}  # keep metrics per prior
+    # Keep metrics per prior: dict[prior_index, MeanIoU]
+    # Single MeanIoU instance computes IoU for all classes
+    metrics_calculators: dict[int, MeanIoU] = {}
 
     time_sum = 0
     time_count = 0
@@ -216,9 +208,13 @@ def predict_on_dataset(
 
             # For now, only use 1 prior batch (can be extended for multiple prior batches)
             for priors_batch_index in range(number_of_priors_tests):
-                # Add a new metrics calculator if needed
+                # Initialize MeanIoU metric for this prior if needed
                 if priors_batch_index not in metrics_calculators:
-                    metrics_calculators[priors_batch_index] = SegmentationMetrics(categories=categories)
+                    metrics_calculators[priors_batch_index] = MeanIoU(
+                        num_classes=len(dataset.categories),
+                        include_background=True,
+                        per_class=True,
+                    ).to(device)
 
                 # Learn from reference samples
                 learn_from_category(
@@ -229,7 +225,7 @@ def predict_on_dataset(
                 progress.update(priors_task, advance=1)
 
                 # Infer on target samples
-                total_time, n_samples = infer_on_category(
+                infer_on_category(
                     dataset=dataset,
                     model=model,
                     category_name=category_name,
@@ -238,24 +234,33 @@ def predict_on_dataset(
                     metrics_calculators=metrics_calculators,
                     progress=progress,
                     batch_size=args.batch_size,
+                    device=device,
                 )
-
-                time_sum += total_time
-                time_count += n_samples
 
             progress.remove_task(priors_task)
             progress.update(categories_task, advance=1)
 
     # Construct the output metrics file from the calculated metrics
     all_metrics = None
-    for prior_index, calculator in metrics_calculators.items():
-        metrics = calculator.get_metrics()
+    for prompt_index, iou_metric in metrics_calculators.items():
+        metrics = {"category": [], "iou": []}
+
+        # Compute IoU for all classes (returns tensor of shape (C,))
+        iou_per_class = iou_metric.compute()
+
+        # Map each class index back to category name
+        for idx, cat_name in enumerate(categories):
+            iou_value = iou_per_class[idx].item()
+            metrics["category"].append(cat_name)
+            metrics["iou"].append(iou_value)
+
         ln = len(metrics["category"])
-        metrics["prior_index"] = [prior_index] * ln
+        metrics["prior_index"] = [prompt_index] * ln
         metrics["inference_time"] = [time_sum / time_count if time_count > 0 else 0] * ln
         metrics["dataset_name"] = [dataset_name] * ln
         metrics["model_name"] = [model_name] * ln
         metrics["backbone_name"] = [backbone_name] * ln
+
         if all_metrics is None:
             all_metrics = metrics
         else:
@@ -445,6 +450,7 @@ def perform_benchmark_experiment(args: Namespace | None = None) -> None:
             model_name=model_enum.value,
             backbone_name=backbone_enum.value,
             number_of_priors_tests=args.num_priors,
+            device=args.device,
         )
         all_results.append(all_metrics_df)
 

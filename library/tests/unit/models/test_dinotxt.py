@@ -14,7 +14,6 @@ from torchvision.tv_tensors import Image
 from getiprompt.data.base.batch import Batch
 from getiprompt.data.base.sample import Sample
 from getiprompt.models.dinotxt import DinoTxtZeroShotClassification
-from getiprompt.types import Results
 
 
 @pytest.fixture
@@ -136,7 +135,7 @@ class TestDinoTxtZeroShotClassification:
         sample_reference_batch: Batch,
     ) -> None:
         """Test the full learn and infer cycle of the pipeline."""
-        sample_images, sample_labels = sample_dataset
+        sample_images, _ = sample_dataset
 
         # Learn first
         model_instance.learn(sample_reference_batch)
@@ -147,14 +146,12 @@ class TestDinoTxtZeroShotClassification:
         target_batch = Batch.collate(samples)
 
         # Then infer
-        result = model_instance.infer(target_batch)
+        predictions = model_instance.infer(target_batch)
 
         # Verify results
-        pytest.assume(isinstance(result, Results))
-        pytest.assume(hasattr(result, "masks"))
-        pytest.assume(len(result.masks) == len(sample_images))
-
-        pred_labels = [mask.class_ids()[0] for mask in result.masks]
-        pred_labels = torch.tensor(pred_labels)
-        gt_labels = torch.tensor(sample_labels)
-        pytest.assume((pred_labels.eq(gt_labels) / len(sample_labels)).mean() >= 0.0)
+        pytest.assume(isinstance(predictions, list))
+        pytest.assume(len(predictions) == len(sample_images))
+        for prediction in predictions:
+            pytest.assume(isinstance(prediction, dict))
+            pytest.assume(isinstance(prediction["pred_scores"], torch.Tensor))
+            pytest.assume(isinstance(prediction["pred_labels"], torch.Tensor))

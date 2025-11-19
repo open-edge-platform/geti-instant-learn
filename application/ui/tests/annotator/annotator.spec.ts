@@ -3,32 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { WebcamSourceType } from '@geti-prompt/api';
 import { expect, http, test } from '@geti-prompt/test-fixtures';
 
 import { registerApiLabels } from '../labels/mocks';
 import { initializeWebRTC } from '../prompt/initialize-webrtc';
-import { AnnotatorPage } from './annotator-page';
-
-const DEVICE_ID = 10;
-const WEBCAM_SOURCE: WebcamSourceType = {
-    connected: true,
-    id: 'webcam-id',
-    config: {
-        seekable: false,
-        device_id: DEVICE_ID,
-        source_type: 'webcam',
-    },
-};
-const ANNOTATOR_PAGE_TIMEOUT = 10 * 60 * 1000;
-
-const expectToNotHaveAnnotations = async ({ annotatorPage }: { annotatorPage: AnnotatorPage }) => {
-    await expect(annotatorPage.getAnnotation()).toHaveCount(0);
-};
-
-const expectToHaveAnnotations = async ({ annotatorPage }: { annotatorPage: AnnotatorPage }) => {
-    await expect(annotatorPage.getAnnotation()).not.toHaveCount(0, { timeout: 10000 });
-};
+import { WEBCAM_SOURCE } from '../prompt/mocks';
+import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations, expectToNotHaveAnnotations } from './utils';
 
 test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) => {
     test.setTimeout(ANNOTATOR_PAGE_TIMEOUT);
@@ -72,6 +52,7 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
         });
 
         await annotatorPage.addAnnotation();
+
         await expectToHaveAnnotations({ annotatorPage });
     });
 

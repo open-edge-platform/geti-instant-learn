@@ -7,7 +7,8 @@ import { expect, http, test } from '@geti-prompt/test-fixtures';
 import { NetworkFixture } from '@msw/playwright';
 
 import { ProjectType } from '../../src/api';
-import { paths } from '../../src/routes/paths';
+import { paths } from '../../src/constants/paths';
+import { getMockedProject } from '../../src/test-utils/mocks/mock-project';
 
 const registerApiProjects = ({
     network,
@@ -97,11 +98,11 @@ test.describe('Projects', () => {
             network,
             projectPage,
         }) => {
-            const project: ProjectType = {
+            const project: ProjectType = getMockedProject({
                 id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                 name: 'Cool project',
                 active: true,
-            };
+            });
 
             registerApiProjects({ network, defaultProjects: [project] });
 
@@ -111,11 +112,11 @@ test.describe('Projects', () => {
         });
 
         test('Shows error page when the URL contains invalid project ID', async ({ network, page, projectPage }) => {
-            const project: ProjectType = {
+            const project: ProjectType = getMockedProject({
                 id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                 name: 'Cool project',
                 active: true,
-            };
+            });
 
             registerApiProjects({ network, defaultProjects: [project] });
 
@@ -149,16 +150,16 @@ test.describe('Projects', () => {
                 'at least two projects, none of them are active',
             async ({ page, network, projectPage }) => {
                 const projects: ProjectType[] = [
-                    {
+                    getMockedProject({
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
                         active: false,
-                    },
-                    {
+                    }),
+                    getMockedProject({
                         id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #2',
                         active: false,
-                    },
+                    }),
                 ];
 
                 registerApiProjects({ network, defaultProjects: projects });
@@ -183,16 +184,16 @@ test.describe('Projects', () => {
                 'ID and there are at least two projects, one of them is active',
             async ({ page, network, projectPage }) => {
                 const projects: ProjectType[] = [
-                    {
+                    getMockedProject({
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
                         active: true,
-                    },
-                    {
+                    }),
+                    getMockedProject({
                         id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #2',
                         active: false,
-                    },
+                    }),
                 ];
 
                 registerApiProjects({ network, defaultProjects: projects });
@@ -209,11 +210,11 @@ test.describe('Projects', () => {
                 'only one project',
             async ({ network, page, projectPage }) => {
                 const projects: ProjectType[] = [
-                    {
+                    getMockedProject({
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
                         active: true,
-                    },
+                    }),
                 ];
 
                 registerApiProjects({ network, defaultProjects: projects });
@@ -231,11 +232,11 @@ test.describe('Projects', () => {
             projectPage,
         }) => {
             const projects: ProjectType[] = [
-                {
+                getMockedProject({
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
                     active: true,
-                },
+                }),
             ];
 
             registerApiProjects({ network, defaultProjects: projects });
@@ -258,16 +259,16 @@ test.describe('Projects', () => {
             const projects = registerApiProjects({
                 network,
                 defaultProjects: [
-                    {
+                    getMockedProject({
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
                         active: true,
-                    },
-                    {
+                    }),
+                    getMockedProject({
                         id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #2',
                         active: false,
-                    },
+                    }),
                 ],
             });
 
@@ -292,16 +293,16 @@ test.describe('Projects', () => {
             const projects = registerApiProjects({
                 network,
                 defaultProjects: [
-                    {
+                    getMockedProject({
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
                         active: false,
-                    },
-                    {
+                    }),
+                    getMockedProject({
                         id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #2',
                         active: false,
-                    },
+                    }),
                 ],
             });
 
@@ -322,11 +323,11 @@ test.describe('Projects', () => {
             const projects = registerApiProjects({
                 network,
                 defaultProjects: [
-                    {
+                    getMockedProject({
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
                         active: true,
-                    },
+                    }),
                 ],
             });
 
@@ -357,11 +358,11 @@ test.describe('Projects', () => {
             const projects = registerApiProjects({
                 network,
                 defaultProjects: [
-                    {
+                    getMockedProject({
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
                         active: false,
-                    },
+                    }),
                 ],
             });
 
@@ -385,16 +386,16 @@ test.describe('Projects', () => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
-                {
+                getMockedProject({
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
                     active: true,
-                },
-                {
+                }),
+                getMockedProject({
                     id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #2',
                     active: false,
-                },
+                }),
             ],
         });
 
@@ -415,16 +416,16 @@ test.describe('Projects', () => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
-                {
+                getMockedProject({
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
                     active: true,
-                },
-                {
+                }),
+                getMockedProject({
                     id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #2',
                     active: false,
-                },
+                }),
             ],
         });
 
@@ -447,16 +448,16 @@ test.describe('Projects', () => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
-                {
+                getMockedProject({
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
                     active: true,
-                },
-                {
+                }),
+                getMockedProject({
                     id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #2',
                     active: false,
-                },
+                }),
             ],
         });
 
@@ -476,16 +477,16 @@ test.describe('Projects', () => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
-                {
+                getMockedProject({
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
                     active: true,
-                },
-                {
+                }),
+                getMockedProject({
                     id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #2',
                     active: false,
-                },
+                }),
             ],
         });
         const [project] = projects;
@@ -508,16 +509,16 @@ test.describe('Projects', () => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
-                {
+                getMockedProject({
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
                     active: true,
-                },
-                {
+                }),
+                getMockedProject({
                     id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #2',
                     active: false,
-                },
+                }),
             ],
         });
         const [project, secondProject] = projects;
@@ -545,11 +546,11 @@ test.describe('Projects', () => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
-                {
+                getMockedProject({
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
                     active: true,
-                },
+                }),
             ],
         });
 
@@ -576,16 +577,16 @@ test.describe('Projects', () => {
             const projects = registerApiProjects({
                 network,
                 defaultProjects: [
-                    {
+                    getMockedProject({
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
                         active: true,
-                    },
-                    {
+                    }),
+                    getMockedProject({
                         id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #2',
                         active: false,
-                    },
+                    }),
                 ],
             });
 
@@ -614,16 +615,16 @@ test.describe('Projects', () => {
             const projects = registerApiProjects({
                 network,
                 defaultProjects: [
-                    {
+                    getMockedProject({
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
                         active: false,
-                    },
-                    {
+                    }),
+                    getMockedProject({
                         id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #2',
                         active: false,
-                    },
+                    }),
                 ],
             });
 
@@ -652,16 +653,16 @@ test.describe('Projects', () => {
             const projects = registerApiProjects({
                 network,
                 defaultProjects: [
-                    {
+                    getMockedProject({
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
                         active: false,
-                    },
-                    {
+                    }),
+                    getMockedProject({
                         id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #2',
                         active: true,
-                    },
+                    }),
                 ],
             });
 
@@ -689,16 +690,16 @@ test.describe('Projects', () => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
-                {
+                getMockedProject({
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
                     active: false,
-                },
-                {
+                }),
+                getMockedProject({
                     id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #2',
                     active: false,
-                },
+                }),
             ],
         });
 
@@ -723,16 +724,16 @@ test.describe('Projects', () => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
-                {
+                getMockedProject({
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
                     active: true,
-                },
-                {
+                }),
+                getMockedProject({
                     id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #2',
                     active: false,
-                },
+                }),
             ],
         });
 
@@ -759,16 +760,16 @@ test.describe('Projects', () => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
-                {
+                getMockedProject({
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
                     active: true,
-                },
-                {
+                }),
+                getMockedProject({
                     id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #2',
                     active: false,
-                },
+                }),
             ],
         });
 
@@ -790,16 +791,16 @@ test.describe('Projects', () => {
             const projects = registerApiProjects({
                 network,
                 defaultProjects: [
-                    {
+                    getMockedProject({
                         id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #1',
                         active: true,
-                    },
-                    {
+                    }),
+                    getMockedProject({
                         id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                         name: 'Cool project #2',
                         active: false,
-                    },
+                    }),
                 ],
             });
 
@@ -820,16 +821,16 @@ test.describe('Projects', () => {
         const projects = registerApiProjects({
             network,
             defaultProjects: [
-                {
+                getMockedProject({
                     id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #1',
                     active: true,
-                },
-                {
+                }),
+                getMockedProject({
                     id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
                     name: 'Cool project #2',
                     active: false,
-                },
+                }),
             ],
         });
 

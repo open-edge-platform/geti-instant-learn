@@ -23,6 +23,8 @@ export const useUpdateSource = () => {
                     },
                 ],
             ],
+            errorMessage:
+                'Only one source can be connected per project at a time. Please disconnect the current source first.',
         },
     });
 

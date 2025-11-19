@@ -9,7 +9,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
 
-import { paths } from '../../../../../routes/paths';
+import { paths } from '../../../../../constants/paths';
 import { http, server } from '../../../../../setup-test';
 import { AddLabel } from './add-label.component';
 

@@ -25,7 +25,6 @@ def load_sam_model(
     device: str = "cuda",
     precision: str = "bf16",
     compile_models: bool = False,
-    benchmark_inference_speed: bool = False,
 ) -> SamPredictor | SAM2ImagePredictor:
     """Load and optimize a SAM model.
 
@@ -34,7 +33,6 @@ def load_sam_model(
         device: The device to use for the model.
         precision: The precision of the model.
         compile_models: Whether to compile the model.
-        benchmark_inference_speed: Whether to benchmark the inference speed.
 
     Raises:
         ValueError: If the model is not implemented yet.
@@ -75,7 +73,6 @@ def load_sam_model(
         device=device,
         precision=precision_to_torch_dtype(precision),
         compile_models=compile_models,
-        benchmark_inference_speed=benchmark_inference_speed,
     )
 
 

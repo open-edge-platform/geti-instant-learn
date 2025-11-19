@@ -17,6 +17,7 @@ class Sink(PipelineComponent):
         super().__init__()
         self._writer = stream_writer
         self.broadcaster = broadcaster
+        logger.debug("Sink registering to OutboundBroadcaster for processed frames")
         self._out_queue = broadcaster.register()
 
     def run(self) -> None:

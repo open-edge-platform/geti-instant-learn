@@ -5,11 +5,10 @@
 
 import { useRef, useState } from 'react';
 
-import { useEventListener } from '@geti-prompt/hooks';
-import { ActionButton, Grid, minmax, View } from '@geti/ui';
+import { useEventListener, usePromptMode } from '@geti-prompt/hooks';
+import { ActionButton, dimensionValue, Grid, minmax, View } from '@geti/ui';
 import { ChevronLeft, ChevronRight } from '@geti/ui/icons';
 
-import { usePromptMode } from '../../prompts/prompt-modes/prompt-modes.component';
 import { CaptureFrameButton } from '../capture-frame-button.component';
 import { FramesList, useFrames, type Frame } from '../frames-list/frames-list.component';
 import { Video } from '../video.component';
@@ -82,7 +81,7 @@ const useActiveFrameSelection = (frames: Frame[]) => {
 };
 
 export const ImagesFolderStream = () => {
-    const promptMode = usePromptMode();
+    const [promptMode] = usePromptMode();
     const frames = useFrames();
     const { activeFrameIdx, activateFrame, nextFrame, prevFrame, framesRef } = useActiveFrameSelection(frames);
 
@@ -102,7 +101,7 @@ export const ImagesFolderStream = () => {
             ]}
             gap={'size-200'}
             UNSAFE_style={{
-                paddingTop: '48px',
+                paddingTop: dimensionValue('size-600'),
             }}
         >
             <ActionButton

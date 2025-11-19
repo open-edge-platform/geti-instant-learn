@@ -4,7 +4,6 @@
 import logging
 from uuid import UUID
 
-import cv2
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -24,6 +23,7 @@ from domain.repositories.project import ProjectRepository
 from domain.repositories.prompt import PromptRepository
 from domain.services.schemas.annotation import AnnotationSchema
 from domain.services.schemas.base import Pagination
+from domain.services.schemas.mappers.label import label_db_to_schema
 from domain.services.schemas.mappers.prompt import (
     prompt_create_schema_to_db,
     prompt_db_to_schema,
@@ -381,21 +381,18 @@ class PromptService:
 
     def _generate_thumbnail(self, project_id: UUID, frame_id: UUID, annotations: list[AnnotationSchema]) -> str:
         """Generate thumbnail with annotations overlay."""
-        frame_path = self.frame_repository.get_frame_path(project_id, frame_id)
-        if not frame_path:
+        frame = self.frame_repository.read_frame(project_id, frame_id)
+        if frame is None:
             raise ResourceNotFoundError(
                 resource_type=ResourceType.FRAME,
                 resource_id=str(frame_id),
+                message=f"Failed to read frame {frame_id}",
             )
-
-        frame = cv2.imread(str(frame_path))
-        if frame is None:
-            raise ServiceError(f"Failed to read frame from {frame_path}")
 
         # fetch labels and pair with annotations
         label_ids = [ann.label_id for ann in annotations]
         labels_by_id = {
-            label.id: label
+            label.id: label_db_to_schema(label)
             for label_id in label_ids
             if (label := self.label_repository.get_by_id(project_id, label_id))
         }

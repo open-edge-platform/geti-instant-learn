@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { Button, Flex, TextArea, View } from '@geti/ui';
 
 export const TextPrompt = () => {
-    const [prompt, setPrompt] = useState<string>('');
+    const [prompt, setPrompt] = useState<string>('Enter your text prompt here');
 
     const isSubmitDisabled = prompt.trim() === '';
 
@@ -27,7 +27,6 @@ export const TextPrompt = () => {
                     onChange={setPrompt}
                     width={'100%'}
                     height={'100%'}
-                    placeholder={'Enter a prompt'}
                 />
             </View>
             <Flex justifyContent={'end'}>

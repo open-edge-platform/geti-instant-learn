@@ -4,14 +4,11 @@
 """Base class for all models."""
 
 from abc import abstractmethod
-from logging import getLogger
 
+import torch
 from torch import nn
 
 from getiprompt.data.base.batch import Batch
-from getiprompt.types import Results
-
-logger = getLogger("Geti Prompt")
 
 
 class Model(nn.Module):
@@ -26,12 +23,17 @@ class Model(nn.Module):
         """
 
     @abstractmethod
-    def infer(self, target_batch: Batch) -> Results:
+    def infer(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
         """This method uses the learned context to infer object locations.
 
         Args:
             target_batch(Batch): A batch of target samples to infer.
 
         Returns:
-            Results: The results of the inference.
+            predictions(list[dict[str, torch.Tensor]]): A list of predictions.
+            Each prediction contains:
+                "pred_masks": torch.Tensor of shape [num_masks, H, W]
+                "pred_points": torch.Tensor of shape [num_points, 4] with last dimension [x, y, score, fg_label]
+                "pred_boxes": torch.Tensor of shape [num_boxes, 5] with last dimension [x1, y1, x2, y2, score]
+                "pred_labels": torch.Tensor of shape [num_masks]
         """

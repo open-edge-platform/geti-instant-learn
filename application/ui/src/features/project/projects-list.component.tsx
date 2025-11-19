@@ -8,7 +8,7 @@ import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { isEmpty } from 'lodash-es';
 import { useNavigate } from 'react-router';
 
-import { paths } from '../../routes/paths';
+import { paths } from '../../constants/paths';
 import { useDeleteProject } from './hooks/use-delete-project.hook';
 import { useUpdateProject } from './hooks/use-update-project.hook';
 import { ProjectListItem } from './project-list-item/project-list-item.component';

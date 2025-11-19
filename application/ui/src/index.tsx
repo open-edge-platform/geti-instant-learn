@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import { StrictMode } from 'react';
 
 import { createRoot } from 'react-dom/client';
 
@@ -17,8 +17,8 @@ if (rootEl) {
     const root = createRoot(rootEl);
 
     root.render(
-        <React.StrictMode>
+        <StrictMode>
             <Providers />
-        </React.StrictMode>
+        </StrictMode>
     );
 }

@@ -1286,7 +1286,15 @@ class GroundingDinoMultiheadAttention(nn.Module):
     """Equivalent implementation of nn.MultiheadAttention with `batch_first=True`."""
 
     def __init__(self, config: GroundingDinoConfig, num_attention_heads: int | None = None) -> None:
-        """Initialize the GroundingDinoMultiheadAttention."""
+        """Initialize the GroundingDinoMultiheadAttention.
+
+        Args:
+            config: The configuration object.
+            num_attention_heads: The number of attention heads.
+
+        Raises:
+            ValueError: If the hidden size is not a multiple of the number of attention heads.
+        """
         super().__init__()
         if config.hidden_size % num_attention_heads != 0 and not hasattr(config, "embedding_size"):
             msg = (
@@ -1838,14 +1846,14 @@ class GroundingDinoDecoder(GroundingDinoPreTrainedModel):
     """Grounding DINO Decoder."""
 
     def __init__(self, config: GroundingDinoConfig) -> None:
-        """Transformer decoder consisting of *config.decoder_layers* layers. Each layer is a [`GroundingDinoDecoderLayer`].
+        """Transformer decoder consisting of *config.decoder_layers* layers.
 
-        The decoder updates the query embeddings through multiple self-attention and cross-attention layers.
+        Each layer is a [`GroundingDinoDecoderLayer`]. The decoder updates the query embeddings through
+        multiple self-attention and cross-attention layers.
 
         Some tweaks for Grounding DINO:
-
-        - `position_embeddings`, `reference_points`, `spatial_shapes` and `valid_ratios` are added to the forward pass.
-        - it also returns a stack of intermediate outputs and reference points from all decoding layers.
+            - `position_embeddings`, `reference_points`, `spatial_shapes` and `valid_ratios` are added to the forward pass.
+            - it also returns a stack of intermediate outputs and reference points from all decoding layers.
 
         Args:
             config: GroundingDinoConfig

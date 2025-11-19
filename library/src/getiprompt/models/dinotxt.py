@@ -8,7 +8,6 @@ import torch
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.base import Model
 from getiprompt.models.foundation.dinotxt import IMAGENET_TEMPLATES, DinoTextEncoder
-from getiprompt.types import Masks, Results
 from getiprompt.utils import precision_to_torch_dtype
 from getiprompt.utils.constants import DINOv3BackboneSize
 
@@ -133,7 +132,7 @@ class DinoTxtZeroShotClassification(Model):
         self.reference_features = self.dino_encoder.encode_text(category_mapping, self.prompt_templates)
 
     @torch.no_grad()
-    def infer(self, target_batch: Batch) -> Results:
+    def infer(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference on the target batch.
 
         Args:
@@ -176,15 +175,10 @@ class DinoTxtZeroShotClassification(Model):
         scores = logits.softmax(dim=1)
         _, max_class_ids = scores.max(dim=1)
 
-        masks = []
-        for target_image, max_class_id in zip(target_images, max_class_ids, strict=False):
-            m = torch.zeros(target_image.shape[-2:], dtype=torch.bool)
-            # NOTE: Due to the current type contract, for zero-shot classification,
-            # we need to create a mask for each target image
-            # This part should be refactored when we have a Label type class
-            mask_type = Masks()
-            mask_type.add(mask=m, class_id=max_class_id.item())
-            masks.append(mask_type)
-        result = Results()
-        result.masks = masks
-        return result
+        predictions = []
+        for max_class_id, score in zip(max_class_ids, scores, strict=False):
+            predictions.append({
+                "pred_scores": score[max_class_id],
+                "pred_labels": max_class_id,
+            })
+        return predictions

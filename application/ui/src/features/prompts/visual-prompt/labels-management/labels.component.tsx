@@ -4,16 +4,15 @@
  */
 
 import { LabelType } from '@geti-prompt/api';
-import { useProjectLabels } from '@geti-prompt/hooks';
 import { Flex } from '@geti/ui';
-import { useAnnotator } from 'src/features/annotator/providers/annotator-provider.component';
 
+import { useVisualPrompt } from '../visual-prompt-provider.component';
 import { AddLabel } from './add-label/add-label.component';
 import { LabelListItem } from './label-list-item/label-list-item.component';
 
 interface LabelsListProps {
     labels: LabelType[];
-    selectedLabelId: string;
+    selectedLabelId: string | null;
     setSelectedLabelId: (label: string) => void;
 }
 
@@ -30,8 +29,7 @@ const LabelsList = ({ labels, selectedLabelId, setSelectedLabelId }: LabelsListP
 };
 
 export const Labels = () => {
-    const { selectedLabelId, setSelectedLabelId } = useAnnotator();
-    const labels = useProjectLabels();
+    const { selectedLabelId, setSelectedLabelId, labels } = useVisualPrompt();
 
     return (
         <Flex height={'100%'} alignItems={'center'} width={'100%'}>

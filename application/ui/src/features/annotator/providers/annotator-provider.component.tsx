@@ -3,50 +3,48 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { createContext, ReactNode, useContext, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { createContext, ReactNode, useContext } from 'react';
 
-import { LabelType } from '@geti-prompt/api';
-import { useProjectLabels } from '@geti-prompt/hooks';
+import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { useSuspenseQuery, UseSuspenseQueryResult } from '@tanstack/react-query';
 
-import { useLoadImageQuery } from '../hooks/use-load-image-query.hook';
+import { getImageData, loadImage } from '../tools/utils';
 import type { RegionOfInterest } from '../types';
 
+const useLoadImageQuery = (frameId: string): UseSuspenseQueryResult<ImageData, unknown> => {
+    const { projectId } = useProjectIdentifier();
+
+    return useSuspenseQuery({
+        queryKey: ['mediaItem', frameId, projectId],
+        queryFn: async () => {
+            if (frameId === undefined) {
+                throw new Error("Can't fetch undefined media item");
+            }
+
+            const imageUrl = `${import.meta.env.PUBLIC_API_URL}/api/v1/projects/${projectId}/frames/${frameId}`;
+            const image = await loadImage(imageUrl);
+
+            return getImageData(image);
+        },
+        // The image of a media item never changes so we don't want to refetch stale data
+        staleTime: Infinity,
+    });
+};
+
 type AnnotatorContext = {
-    // Media items
     roi: RegionOfInterest;
     frameId: string;
     image: ImageData;
-
-    // Labels
-    selectedLabel: LabelType;
-    selectedLabelId: string;
-    setSelectedLabelId: Dispatch<SetStateAction<string>>;
 };
 
 const AnnotatorProviderContext = createContext<AnnotatorContext | null>(null);
 
-const PLACEHOLDER_LABEL: LabelType = { id: 'placeholder', name: 'No label', color: 'var(--annotation-fill)' };
-
 export const AnnotatorProvider = ({ frameId, children }: { frameId: string; children: ReactNode }) => {
-    const labels = useProjectLabels();
-    const [selectedLabelId, setSelectedLabelId] = useState<string>(PLACEHOLDER_LABEL.id);
-
     const imageQuery = useLoadImageQuery(frameId);
-    const selectedLabel = labels.find(({ id }) => id === selectedLabelId) || PLACEHOLDER_LABEL;
-
-    useEffect(() => {
-        if (labels.length > 0) {
-            setSelectedLabelId(labels[0].id);
-        }
-    }, [labels]);
 
     return (
         <AnnotatorProviderContext
             value={{
-                setSelectedLabelId,
-                selectedLabelId,
-                selectedLabel,
-
                 image: imageQuery.data,
                 frameId,
                 roi: { x: 0, y: 0, width: imageQuery.data.width, height: imageQuery.data.height },

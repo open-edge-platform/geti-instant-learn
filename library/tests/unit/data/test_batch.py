@@ -61,7 +61,7 @@ def sample_no_masks() -> Sample:
     )
 
 
-class TestBatchBasic:
+class TestBatchBasic:  # noqa: PLR0904 Too many public methods (21 > 20)
     """Test Batch basic functionality."""
 
     def test_batch_creation(self, sample_single_instance: Sample, sample_multi_instance: Sample) -> None:

@@ -7,10 +7,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "getiprompt"
 version = "0.1.0"
-authors = [
-  { name="Daan Krol", email="daan.krol@intel.com" },
-  { name="Klaas Dijkstra", email="klaas.dijkstra@intel.com" },
-]
+authors = [{ name = "Geti Prompt Contributors" }]
 description = "Geti Prompt - A modular framework for visual prompting"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -43,6 +40,7 @@ dependencies = [
     "jsonargparse",
     "sam-2",
     "ftfy",
+    "torchmetrics==1.8.2",
 ]
 
 [dependency-groups]
@@ -81,11 +79,9 @@ dev = [
     "build>=1.2.2.post1",
     "twine>=6.1.0",
 ]
-dev_ui = [
-    "flask==3.1.1",
-]
+
 full = [
-    "getiprompt[dev, extras, notebook, dev_ui]",
+    "getiprompt[dev, extras, notebook]",
 ]
 
 [project.scripts]
@@ -177,14 +173,13 @@ exclude = [
     "dist",
     "node_modules",
     "venv",
-    "per_segment_anything",
     "src/getiprompt/models/grounding_dino.py",
 ]
 
 # Same as Black.
 line-length = 120
 
-# Assume Python 3.10.
+# Minimum supported Python version.
 target-version = "py310"
 
 # Allow imports relative to the "src" directory.
