@@ -134,6 +134,9 @@ RUN useradd -l -u ${UID} ${USER_NAME} \
     && pip3 uninstall -y setuptools pip wheel \
     && rm -rf /root/.cache/pip
 
+# Add sample dataset with coffee berries
+COPY --link --chown=${UID} backend/.data/default_dataset ${DB_DATA_DIR}
+
 # Copy backend source code
 COPY --link --chown=${UID} backend/app /geti_prompt/app
 COPY --from=backend-base --chown=${UID} /geti_prompt/library/src /geti_prompt/library/src

@@ -29,6 +29,7 @@ data-dir := "/data"
 static-files-dir := workdir-path + asset-prefix
 db-data-dir := workdir-path + data-dir
 target-stage := component-name + "-" + ai-device
+default-dataset := "https://storage.geti.intel.com/geti-prompt/Frames.zip"
 
 # -------------------------------------------------------------------------------------------------
 # Proxy settings
@@ -46,8 +47,16 @@ docker-extra-args := http-proxy-build-arg + https-proxy-build-arg + no-proxy-bui
 # Justfile recipes
 # -------------------------------------------------------------------------------------------------
 
+download-dataset:
+    echo "Downloading default dataset from {{ default-dataset }}"
+    wget -q --show-progress {{ default-dataset }}
+    echo "Unpacking default dataset to backend/.data/default_dataset"
+    unzip -j -q -o Frames.zip -d backend/.data/default_dataset
+    echo "Removing downloaded dataset archive Frames.zip"
+    rm Frames.zip
+
 # build geti prompt with optional port mapping
-build-image:
+build-image: download-dataset
     @echo "Building docker image for component: {{ component-name }}"
     @docker build \
         {{ docker-extra-args }} \
