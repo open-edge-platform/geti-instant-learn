@@ -4,7 +4,7 @@
  */
 
 import { renderHook } from '@geti-prompt/test-utils';
-import { waitFor } from '@testing-library/react';
+import { act } from '@testing-library/react';
 
 import { usePromptIdFromUrl } from './use-prompt-id-from-url';
 
@@ -18,11 +18,11 @@ describe('usePromptIdFromUrl', () => {
     it('handles empty string promptId', async () => {
         const { result } = renderHook(() => usePromptIdFromUrl(), { route: '/', path: '' });
 
-        result.current.setPromptId('');
-
-        await waitFor(() => {
-            expect(result.current.promptId).toBe('');
+        act(() => {
+            result.current.setPromptId('');
         });
+
+        expect(result.current.promptId).toBe('');
     });
 
     it('returns promptId when it exists in URL', () => {
@@ -39,11 +39,11 @@ describe('usePromptIdFromUrl', () => {
 
         expect(result.current.promptId).toBeNull();
 
-        result.current.setPromptId('mega-prompt');
-
-        await waitFor(() => {
-            expect(result.current.promptId).toBe('mega-prompt');
+        act(() => {
+            result.current.setPromptId('mega-prompt');
         });
+
+        expect(result.current.promptId).toBe('mega-prompt');
     });
 
     it('updates promptId in URL when it already exists', async () => {
@@ -54,11 +54,11 @@ describe('usePromptIdFromUrl', () => {
 
         expect(result.current.promptId).toBe('previous-prompt');
 
-        result.current.setPromptId('current-prompt');
-
-        await waitFor(() => {
-            expect(result.current.promptId).toBe('current-prompt');
+        act(() => {
+            result.current.setPromptId('current-prompt');
         });
+
+        expect(result.current.promptId).toBe('current-prompt');
     });
 
     it('removes promptId from URL when setPromptId is called with null', async () => {
@@ -69,10 +69,10 @@ describe('usePromptIdFromUrl', () => {
 
         expect(result.current.promptId).toBe('to-be-removed');
 
-        result.current.setPromptId(null);
-
-        await waitFor(() => {
-            expect(result.current.promptId).toBeNull();
+        act(() => {
+            result.current.setPromptId(null);
         });
+
+        expect(result.current.promptId).toBeNull();
     });
 });
