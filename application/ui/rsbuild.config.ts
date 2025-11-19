@@ -37,7 +37,6 @@ export default defineConfig({
     source: {
         define: {
             ...publicVars,
-            'process.env.TARGET_DEFAULT_DATASET_DIR': `'${process.env.TARGET_DEFAULT_DATASET_DIR}'`,
             'import.meta.env.PUBLIC_API_URL': publicVars['import.meta.env.PUBLIC_API_URL'] ?? '"http://localhost:9100"',
             'process.env.PUBLIC_API_URL': publicVars['import.meta.env.PUBLIC_API_URL'] ?? '"http://localhost:9100"',
             // Needed to prevent an issue with spectrum's picker
