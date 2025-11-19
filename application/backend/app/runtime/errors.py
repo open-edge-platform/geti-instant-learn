@@ -1,5 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+
 class PipelineManagerError(Exception):
     """Base exception for PipelineManager errors."""
 
@@ -10,3 +12,11 @@ class PipelineNotActiveError(PipelineManagerError):
 
 class PipelineProjectMismatchError(PipelineManagerError):
     """Exception raised when the project ID does not match the active pipeline's project ID."""
+
+
+class SourceNotSeekableError(PipelineManagerError):
+    """Exception raised when the source is not seekable but a seekable operation is attempted."""
+
+
+class SourceMismatchError(PipelineManagerError):
+    """Exception raised when the provided source_id does not match the active pipeline's connected source."""

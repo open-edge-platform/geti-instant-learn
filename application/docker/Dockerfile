@@ -44,6 +44,16 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-dev --no-editable --extra cu126
 
+##########
+# XPU Base
+##########
+FROM backend-base AS xpu-base
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=backend/uv.lock,target=uv.lock \
+    --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-dev --no-editable --extra xpu
+
 ##################
 # Geti UI packages
 ##################
@@ -84,9 +94,9 @@ ENV ASSET_PREFIX=${ASSET_PREFIX}
 # build with --no-cache in case of sub-dependency changes (from geti)
 RUN npm run build
 
-#####################################
-# Base for CPU and GPU runtime images
-#####################################
+##########################################
+# Base for CPU, GPU and XPU runtime images
+##########################################
 FROM python:3.12-slim-bookworm@sha256:874450e1da63e36bf5c1ca8b0a13cb9eb0bbb1c4015151e376978f9aa6ae3bc2 AS runtime-base
 
 ARG STATIC_FILES_DIR=""
@@ -172,3 +182,32 @@ RUN apt-get update \
 USER ${USER_NAME}
 
 COPY --from=gpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
+
+######################
+# Server (XPU version)
+######################
+FROM runtime-base AS geti-prompt-xpu
+
+USER root
+
+RUN apt-get update  \
+    && apt-get install -y --no-install-recommends wget=1.21.3-1+deb12u1 gpg=2.2.40-1.1+deb12u1 \
+    && wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
+       gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg \
+    && echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy unified" | \
+      tee /etc/apt/sources.list.d/intel-gpu-jammy.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    libze-intel-gpu1  \
+    libze1  \
+    intel-opencl-icd  \
+    clinfo \
+    libze-dev \
+    intel-ocloc \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get remove -y wget gpg \
+    && apt-get clean
+
+# needed to define it here to allow installation of packages
+USER ${USER_NAME}
+
+COPY --from=xpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv

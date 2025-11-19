@@ -6,6 +6,7 @@ container-port := "9100"
 host-port := container-port
 webcam-device := "/dev/video0"
 docker-volume := ""
+host := "0.0.0.0"
 
 # -------------------------------------------------------------------------------------------------
 # Common variables used in the Justfile
@@ -27,7 +28,6 @@ asset-prefix := "/html"
 data-dir := "/data"
 static-files-dir := workdir-path + asset-prefix
 db-data-dir := workdir-path + data-dir
-mocked-file := static-files-dir + "/assets/test.webp"
 target-stage := component-name + "-" + ai-device
 
 # -------------------------------------------------------------------------------------------------
@@ -58,7 +58,6 @@ build-image:
         --build-arg DB_DATA_DIR={{ db-data-dir }} \
         --build-arg ASSET_PREFIX={{ asset-prefix }} \
         --build-arg WORKDIR_PATH={{ workdir-path }} \
-        --build-arg MOCKED_FILE={{ mocked-file }} \
         --tag "{{ docker-image }}" \
         --file docker/Dockerfile . \
         --target {{ target-stage }}
@@ -69,6 +68,7 @@ run-image: build-image
     @docker run --rm \
         --publish {{ host-port }}:{{ container-port }} \
         --env PORT={{ container-port }} \
+        --env HOST={{ host }} \
         {{ if docker-volume != "" { " --volume " + docker-volume + ":" + workdir-path + data-dir } else { "" } }} \
         {{ if path_exists(webcam-device) == "true" { " --device " + webcam-device + ":" + webcam-device } else { "" } }} \
         --name "{{ component-name }}-{{ version }}" \
@@ -88,6 +88,7 @@ test-image:
     CONTAINER_ID=$(docker run -d --rm \
         --publish {{ host-port }}:{{ container-port }} \
         --env PORT={{ container-port }} \
+        --env HOST={{ host }} \
         "{{ docker-image }}")
     echo "Started container: $CONTAINER_ID"
 

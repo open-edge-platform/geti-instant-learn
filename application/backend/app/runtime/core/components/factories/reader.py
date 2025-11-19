@@ -2,9 +2,11 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 from runtime.core.components.base import StreamReader
+from runtime.core.components.readers.image_folder_reader import ImageFolderReader
 from runtime.core.components.readers.noop_reader import NoOpReader
 from runtime.core.components.readers.webcam_reader import WebCamReader
-from runtime.core.components.schemas.reader import ReaderConfig, WebCamConfig
+from runtime.core.components.schemas.reader import ImagesFolderConfig, ReaderConfig, WebCamConfig
+from settings import get_settings
 
 
 class StreamReaderFactory:
@@ -21,5 +23,8 @@ class StreamReaderFactory:
         match config:
             case WebCamConfig() as config:
                 return WebCamReader(config)
+            case ImagesFolderConfig() as config:
+                settings = get_settings()
+                return ImageFolderReader(config, supported_extensions=settings.supported_extensions)
             case _:
                 return NoOpReader()
