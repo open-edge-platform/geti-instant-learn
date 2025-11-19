@@ -3,14 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { createContext, ReactNode, useContext, useRef } from 'react';
+import { createContext, ReactNode, useContext, useMemo, useRef } from 'react';
 
-import { LabelType } from '@geti-prompt/api';
+import { AnnotationType, LabelType } from '@geti-prompt/api';
 import { v4 as uuid } from 'uuid';
 
+import { convertAnnotationsFromDTO } from '../../../shared/utils';
 import { UndoRedoProvider } from '../actions/undo-redo/undo-redo-provider.component';
 import useUndoRedoState from '../actions/undo-redo/use-undo-redo-state';
 import type { Annotation, Shape } from '../types';
+import { useAnnotator } from './annotator-provider.component';
 
 interface AnnotationsContextValue {
     annotations: Annotation[];
@@ -24,26 +26,44 @@ const AnnotationsContext = createContext<AnnotationsContextValue | null>(null);
 
 type AnnotationActionsProviderProps = {
     children: ReactNode;
-    initialAnnotations?: Annotation[];
+    initialAnnotationsDTO?: AnnotationType[];
+    labels?: LabelType[];
 };
-export const AnnotationActionsProvider = ({ children, initialAnnotations = [] }: AnnotationActionsProviderProps) => {
+export const AnnotationActionsProvider = ({
+    children,
+    initialAnnotationsDTO,
+    labels = [],
+}: AnnotationActionsProviderProps) => {
     const isDirty = useRef<boolean>(false);
+    const { roi } = useAnnotator();
 
-    const [state, setState, undoRedoActions] = useUndoRedoState<Annotation[]>(initialAnnotations);
+    const convertedAnnotations = useMemo(() => {
+        if (initialAnnotationsDTO && roi.width > 0 && roi.height > 0) {
+            return convertAnnotationsFromDTO(initialAnnotationsDTO, labels, roi);
+        }
+
+        return [];
+    }, [initialAnnotationsDTO, labels, roi]);
+
+    const [annotations, setAnnotations, undoRedoActions] = useUndoRedoState<Annotation[]>(convertedAnnotations);
 
     const updateAnnotations = (updatedAnnotations: Annotation[]) => {
         const updatedMap = new Map(updatedAnnotations.map((ann) => [ann.id, ann]));
-        setState((prevAnnotations) => prevAnnotations.map((annotation) => updatedMap.get(annotation.id) ?? annotation));
+
+        setAnnotations((prevAnnotations) =>
+            prevAnnotations.map((annotation) => updatedMap.get(annotation.id) ?? annotation)
+        );
+
         isDirty.current = true;
     };
 
-    const addAnnotations = (shapes: Shape[], labels: LabelType[]) => {
-        setState((prevAnnotations) => [
+    const addAnnotations = (shapes: Shape[], annotationLabels: LabelType[]) => {
+        setAnnotations((prevAnnotations) => [
             ...prevAnnotations,
             ...shapes.map((shape) => ({
                 shape,
                 id: uuid(),
-                labels,
+                labels: annotationLabels,
             })),
         ]);
 
@@ -51,7 +71,9 @@ export const AnnotationActionsProvider = ({ children, initialAnnotations = [] }:
     };
 
     const deleteAnnotations = (annotationIds: string[]) => {
-        setState((prevAnnotations) => prevAnnotations.filter((annotation) => !annotationIds.includes(annotation.id)));
+        setAnnotations((prevAnnotations) =>
+            prevAnnotations.filter((annotation) => !annotationIds.includes(annotation.id))
+        );
 
         isDirty.current = true;
     };
@@ -60,7 +82,7 @@ export const AnnotationActionsProvider = ({ children, initialAnnotations = [] }:
         <AnnotationsContext.Provider
             value={{
                 isUserReviewed: false,
-                annotations: state,
+                annotations,
 
                 // Local
                 addAnnotations,

@@ -6,10 +6,10 @@
 import { FormEvent, useState } from 'react';
 
 import { WebcamSourceType } from '@geti-prompt/api';
+import { useCurrentProject } from '@geti-prompt/hooks';
 import { Button, TextField, View } from '@geti/ui';
 import { isInteger } from 'lodash-es';
 
-import { useCurrentProject } from '../../../project/hooks/use-current-project.hook';
 import { useCreateSource } from '../hooks/use-create-source';
 import { useUpdateSource } from '../hooks/use-update-source';
 

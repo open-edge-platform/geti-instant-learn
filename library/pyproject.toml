@@ -64,6 +64,11 @@ cu126 = [
     "torch==2.8.0",
     "torchvision==0.23.0",
 ]
+xpu = [
+    "torch==2.8.0",
+    "torchvision==0.23.0",
+    "pytorch-triton-xpu==3.4.0",
+]
 extras = [
     "xformers==0.0.32.post2",
 ]
@@ -97,6 +102,7 @@ conflicts = [
     [
         { extra = "cpu" },
         { extra = "cu126" },
+        { extra = "xpu" },
     ],
 ]
 
@@ -110,16 +116,25 @@ name = "pytorch-cu126"
 url = "https://download.pytorch.org/whl/cu126"
 explicit = true
 
+[[tool.uv.index]]
+name = "pytorch-xpu"
+url = "https://download.pytorch.org/whl/xpu"
+explicit = true
 
 [tool.uv.sources]
 sam-2 = { git = "https://github.com/facebookresearch/sam2.git", rev = "2b90b9f"}
 torch = [
     { index = "pytorch-cpu", extra = "cpu" },
     { index = "pytorch-cu126", extra = "cu126" },
+    { index = "pytorch-xpu", extra = "xpu" },
 ]
 torchvision = [
     { index = "pytorch-cpu", extra = "cpu" },
     { index = "pytorch-cu126", extra = "cu126" },
+    { index = "pytorch-xpu", extra = "xpu" },
+]
+pytorch-triton-xpu = [
+    { index = "pytorch-xpu", extra = "xpu" },
 ]
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #

@@ -9,12 +9,10 @@ import { useSelectedFrame } from '../../../shared/selected-frame-provider.compon
 import { CapturedFramePlaceholder } from './captured-frame/captured-frame-placeholder.component';
 import { CapturedFrame, CapturedFrameProviders } from './captured-frame/captured-frame.component';
 import { PromptThumbnailList } from './prompt-thumbnails/prompt-thumbnail-list/prompt-thumbnail-list.component';
-import { SavePrompt } from './save-prompt.component';
-import { useVisualPrompt } from './visual-prompt-provider.component';
+import { SavePrompt } from './save-prompt/save-prompt.component';
 
 export const VisualPrompt = () => {
     const { selectedFrameId } = useSelectedFrame();
-    const { prompt } = useVisualPrompt();
 
     return (
         <Flex direction={'column'} gap={'size-300'} height={'100%'}>
@@ -22,8 +20,8 @@ export const VisualPrompt = () => {
                 {selectedFrameId === null ? (
                     <CapturedFramePlaceholder />
                 ) : (
-                    <CapturedFrameProviders frameId={prompt?.frame_id ?? selectedFrameId}>
-                        <CapturedFrame />
+                    <CapturedFrameProviders frameId={selectedFrameId}>
+                        <CapturedFrame frameId={selectedFrameId} />
                         <SavePrompt />
                     </CapturedFrameProviders>
                 )}

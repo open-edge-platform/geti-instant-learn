@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
 
     # Server
-    host: str = Field(default="0.0.0.0", alias="HOST")  # noqa: S104
+    host: str = Field(default="localhost", alias="HOST")
     port: int = Field(default=9100, alias="PORT")
 
     # Database
@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     no_proxy: str = Field(default="localhost,127.0.0.1,::1", alias="no_proxy")
 
     # Supported file formats
-    supported_extension: set[str] = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif"}
+    supported_extensions: set[str] = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif"}
 
     # Thumbnail generation
     thumbnail_max_dimension: int = 300

@@ -6,6 +6,7 @@
 import { useState } from 'react';
 
 import { $api, type ProjectType } from '@geti-prompt/api';
+import { useCurrentProject } from '@geti-prompt/hooks';
 import {
     ActionButton,
     Button,
@@ -26,7 +27,6 @@ import { AddCircle } from '@geti/ui/icons';
 import { ActivateProjectDialog } from './activate-project-dialog/activate-project-dialog.component';
 import { CreateProjectConfirmDialog } from './create-project-confirm-dialog.component';
 import { useCreateProjectWithConfirmation } from './hooks/use-create-project-with-confirmation.hook';
-import { useCurrentProject } from './hooks/use-current-project.hook';
 import { useProjectActivityManagement } from './hooks/use-project-activity-management.hook';
 import { ProjectActivityStatus } from './project-activity-status/project-activity-status.component';
 import { ProjectsList } from './projects-list.component';
