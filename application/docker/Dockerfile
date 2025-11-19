@@ -245,11 +245,22 @@ RUN apt-get update  \
     clinfo \
     libze-dev \
     intel-ocloc \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get remove -y wget gpg \
-    && apt-get clean
+    && apt-get clean \
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=backend/uv.lock,target=uv.lock \
+    --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-dev --no-editable --extra xpu
+
+RUN apt-get remove -y git \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* ${LIBRARY_PATH}/pyproject.toml
 
 # needed to define it here to allow installation of packages
 USER ${USER_NAME}
 
-COPY --from=xpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
+WORKDIR ${WORKDIR_PATH}
