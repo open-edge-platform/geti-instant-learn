@@ -11,7 +11,6 @@ import styles from './model-toolbar.module.scss';
 
 const useModels = () => {
     // TODO: replace with actual data
-
     const mockDate = new Date().toLocaleString('en-US', {
         day: '2-digit',
         month: 'numeric',

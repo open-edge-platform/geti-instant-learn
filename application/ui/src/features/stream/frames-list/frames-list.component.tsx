@@ -117,7 +117,7 @@ export const FramesList = ({ activeFrameIndex, frames, onSetActiveFrame, ref }: 
                             key={frame.index}
                             className={styles.frameItem}
                             aria-label={`Frame #${frame.index}`}
-                            aria-selected={frame.index === activeFrameIndex}
+                            data-isSelected={frame.index === activeFrameIndex}
                             onAction={() => onSetActiveFrame(frame.index)}
                         >
                             <FrameThumbnail frame={frame} isSelected={frame.index === activeFrameIndex} />

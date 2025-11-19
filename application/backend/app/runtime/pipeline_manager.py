@@ -16,9 +16,15 @@ from domain.dispatcher import (
     ProjectDeactivationEvent,
 )
 from domain.services.project import ProjectService
+from runtime.core.components.errors import UnsupportedOperationError
 from runtime.core.components.pipeline import Pipeline
 from runtime.core.components.schemas.processor import InputData
-from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
+from runtime.core.components.schemas.reader import FrameListResponse
+from runtime.errors import (
+    PipelineNotActiveError,
+    PipelineProjectMismatchError,
+    SourceNotSeekableError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -154,3 +160,82 @@ class PipelineManager:
                 f"{self._pipeline.config.project_id}."
             )
         self._pipeline.unregister_inbound_consumer(target_queue)
+
+    def seek(self, project_id: UUID, index: int) -> None:
+        """
+        Seek to a specific frame in the active pipeline's source.
+
+        Args:
+            project_id: The project ID to verify against the active pipeline.
+            index: The target frame index.
+
+        Raises:
+            PipelineNotActiveError: If no pipeline is running.
+            PipelineProjectMismatchError: If project_id doesn't match the active pipeline.
+            SourceNotSeekableError: If the source doesn't support seeking.
+            IndexError: If index is out of bounds.
+        """
+        if self._pipeline is None:
+            raise PipelineNotActiveError("No active pipeline.")
+        if project_id != self._pipeline.config.project_id:
+            raise PipelineProjectMismatchError(
+                f"Project ID {project_id} does not match the active pipeline's project ID."
+            )
+        try:
+            self._pipeline.seek(index)
+        except UnsupportedOperationError:
+            raise SourceNotSeekableError("The active source does not support frame navigation.")
+
+    def get_frame_index(self, project_id: UUID) -> int:
+        """
+        Get the current frame index from the active pipeline's source.
+
+        Args:
+            project_id: The project ID to verify against the active pipeline.
+
+        Returns:
+            The current frame index.
+
+        Raises:
+            PipelineNotActiveError: If no pipeline is running.
+            PipelineProjectMismatchError: If project_id doesn't match the active pipeline.
+            SourceNotSeekableError: If the source doesn't support indexing.
+        """
+        if self._pipeline is None:
+            raise PipelineNotActiveError("No active pipeline.")
+        if project_id != self._pipeline.config.project_id:
+            raise PipelineProjectMismatchError(
+                f"Project ID {project_id} does not match the active pipeline's project ID."
+            )
+        try:
+            return self._pipeline.get_frame_index()
+        except UnsupportedOperationError:
+            raise SourceNotSeekableError("The active source does not support frame indexing.")
+
+    def list_frames(self, project_id: UUID, page: int = 1, page_size: int = 30) -> FrameListResponse:
+        """
+        Get a paginated list of frames from the active pipeline's source.
+
+        Args:
+            project_id: The project ID to verify against the active pipeline.
+            page: The page number (1-based).
+            page_size: Number of frames per page.
+
+        Returns:
+            FrameListResponse with frame metadata.
+
+        Raises:
+            PipelineNotActiveError: If no pipeline is running.
+            PipelineProjectMismatchError: If project_id doesn't match the active pipeline.
+            SourceNotSeekableError: If the source doesn't support frame listing.
+        """
+        if self._pipeline is None:
+            raise PipelineNotActiveError("No active pipeline.")
+        if project_id != self._pipeline.config.project_id:
+            raise PipelineProjectMismatchError(
+                f"Project ID {project_id} does not match the active pipeline's project ID."
+            )
+        try:
+            return self._pipeline.list_frames(page, page_size)
+        except UnsupportedOperationError:
+            raise SourceNotSeekableError("The active source does not support frame listing.")
