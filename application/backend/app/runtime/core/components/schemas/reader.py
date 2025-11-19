@@ -6,6 +6,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
+INITIAL_DATASET_DIR = os.getenv("PUBLIC_INITIAL_DATASET_DIR", "/path/to/images")
 
 class SourceType(StrEnum):
     WEBCAM = "webcam"
@@ -55,7 +56,7 @@ class ImagesFolderConfig(BaseModel):
             "example": {
                 "seekable": True,
                 "source_type": "images_folder",
-                "images_folder_path": os.getenv("PUBLIC_INITIAL_DATASET_DIR", "/path/to/images"),
+                "images_folder_path": INITIAL_DATASET_DIR,
             }
         }
     }
