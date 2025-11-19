@@ -282,7 +282,7 @@ test.describe('Projects', () => {
 
             await expect(projectPage.getSelectedProject('Project #1')).toBeVisible();
 
-            expect(page.url()).toContain(paths.project({ projectId: projects[projects.length - 1].id }));
+            await expect(page).toHaveURL(new RegExp(projects[projects.length - 1].id));
         });
 
         test('Creates a new project via the project list page with no active project', async ({
@@ -535,7 +535,7 @@ test.describe('Projects', () => {
 
         await expect(projectPage.projectsHeader).toBeHidden();
 
-        expect(page.url()).toContain(paths.project({ projectId: project.id }));
+        await expect(page).toHaveURL(new RegExp(project.id));
     });
 
     test('Deletes a project via the project details page (the last project)', async ({

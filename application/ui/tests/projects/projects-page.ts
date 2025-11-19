@@ -35,7 +35,7 @@ export class ProjectPage {
     }
 
     async createConfirmation() {
-        await this.page.getByRole('button', { name: 'Create' }).click();
+        await this.page.getByTestId('modal').getByRole('button', { name: 'Create' }).click();
     }
 
     getProjectInTheList(projectName: string) {
@@ -68,11 +68,12 @@ export class ProjectPage {
     }
 
     async activate() {
-        await this.page.getByRole('button', { name: 'Activate' }).click();
+        await this.page.getByTestId('modal').getByRole('button', { name: 'Activate' }).click();
     }
 
     async activateCurrentProject() {
-        await this.page.getByRole('button', { name: 'Activate current project' }).click();
+        // eslint-disable-next-line playwright/no-force-option
+        await this.page.getByRole('button', { name: 'Activate current project' }).first().click({ force: true });
     }
 
     async deactivateCurrentProject() {
