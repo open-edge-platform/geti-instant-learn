@@ -558,15 +558,15 @@ def test_project_not_found(service):
     assert exc_info.value.resource_type == ResourceType.PROJECT
 
 
-def test_get_training_data_text_prompts(service):
+def test_get_reference_batch_text_prompts(service):
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
 
-    batch = service.get_training_data(project_id, PromptType.TEXT)
+    batch = service.get_reference_batch(project_id, PromptType.TEXT)
     assert batch is None
 
 
-def test_get_training_data_for_visual_prompts(service):
+def test_get_reference_batch_for_visual_prompts(service):
     project_id = uuid.uuid4()
     frame_id = uuid.uuid4()
     label_id = uuid.uuid4()
@@ -588,7 +588,7 @@ def test_get_training_data_for_visual_prompts(service):
     frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
     service.frame_repository.get_frame.return_value = frame
 
-    result = service.get_training_data(project_id, PromptType.VISUAL)
+    result = service.get_reference_batch(project_id, PromptType.VISUAL)
 
     # Result is a Batch containing Samples
     assert len(result) == 1
@@ -603,17 +603,17 @@ def test_get_training_data_for_visual_prompts(service):
     service.frame_repository.get_frame.assert_called_once_with(project_id, frame_id)
 
 
-def test_get_training_data_visual_prompts_empty(service):
+def test_get_reference_batch_visual_prompts_empty(service):
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
     service.prompt_repository.get_all_by_project.return_value = []
 
-    result = service.get_training_data(project_id, PromptType.VISUAL)
+    result = service.get_reference_batch(project_id, PromptType.VISUAL)
 
     assert result is None
 
 
-def test_get_training_data_visual_prompt_frame_not_found(service):
+def test_get_reference_batch_visual_prompt_frame_not_found(service):
     project_id = uuid.uuid4()
     frame_id = uuid.uuid4()
 
@@ -622,20 +622,20 @@ def test_get_training_data_visual_prompt_frame_not_found(service):
     service.prompt_repository.get_all_by_project.return_value = [visual_prompt]
     service.frame_repository.get_frame.return_value = None
 
-    result = service.get_training_data(project_id, PromptType.VISUAL)
+    result = service.get_reference_batch(project_id, PromptType.VISUAL)
 
     assert result is None
 
 
-def test_get_training_data_project_not_found(service):
+def test_get_reference_batch_project_not_found(service):
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = None
 
-    batch = service.get_training_data(project_id, PromptType.VISUAL)
+    batch = service.get_reference_batch(project_id, PromptType.VISUAL)
     assert batch is None
 
 
-def test_get_training_data_visual_prompt_mapper_error_handled(service):
+def test_get_reference_batch_visual_prompt_mapper_error_handled(service):
     project_id = uuid.uuid4()
     frame_id = uuid.uuid4()
 
@@ -649,6 +649,6 @@ def test_get_training_data_visual_prompt_mapper_error_handled(service):
     from unittest.mock import patch
 
     with patch("domain.services.prompt.visual_prompt_to_sample", side_effect=ServiceError("Mapper error")):
-        result = service.get_training_data(project_id, PromptType.VISUAL)
+        result = service.get_reference_batch(project_id, PromptType.VISUAL)
 
     assert result is None

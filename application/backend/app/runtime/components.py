@@ -46,7 +46,7 @@ class DefaultComponentFactory(ComponentFactory):
             prompt_svc = PromptService(session)
             svc = ProjectService(session=session)
             cfg = svc.get_pipeline_config(project_id)
-            reference_batch = prompt_svc.get_training_data(project_id, PromptType.VISUAL)
+            reference_batch = prompt_svc.get_reference_batch(project_id, PromptType.VISUAL)
         return Processor(ModelFactory.create(reference_batch, cfg.processor))
 
     def create_sink(self, project_id: UUID) -> Sink:

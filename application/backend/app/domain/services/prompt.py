@@ -104,7 +104,7 @@ class PromptService:
 
         return PromptsListSchema(prompts=prompts, pagination=pagination)
 
-    def get_training_data(self, project_id: UUID, prompt_type: PromptType) -> Batch | None:
+    def get_reference_batch(self, project_id: UUID, prompt_type: PromptType) -> Batch | None:
         """
         Get all prompts of a specific type for a project, formatted for model training.
 
