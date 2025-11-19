@@ -72,7 +72,7 @@ export class AnnotatorPage {
     }
 
     async openSettings() {
-        await this.page.getByTestId('captured-frame-1').getByRole('button', { name: 'Settings' }).click();
+        await this.page.getByRole('button', { name: 'Settings' }).click();
     }
 
     async closeSettings() {
