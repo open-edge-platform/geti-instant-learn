@@ -77,34 +77,38 @@ class TestPipelineManager:
     ):
         with (
             patch("runtime.pipeline_manager.ProjectService") as svc_cls,
-            patch("runtime.pipeline_manager.PromptService") as prompt_svc_cls,
             patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
+            patch("runtime.pipeline_manager.FrameBroadcaster"),
         ):
             svc_inst = svc_cls.return_value
             svc_inst.get_active_pipeline_config.return_value = pipeline_cfg
 
-            # Mock the training data batch
-            prompt_svc_inst = prompt_svc_cls.return_value
-            mock_batch = Mock()
-            prompt_svc_inst.get_training_data.return_value = mock_batch
+            # Configure the mock Pipeline to support method chaining
+            pipeline_inst = pipeline_cls.return_value
+            pipeline_inst.set_source.return_value = pipeline_inst
+            pipeline_inst.set_processor.return_value = pipeline_inst
+            pipeline_inst.set_sink.return_value = pipeline_inst
 
             mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
             mgr.start()
 
             svc_inst.get_active_pipeline_config.assert_called_once()
-            prompt_svc_inst.get_training_data.assert_called_once()
-            mock_component_factory.create_source.assert_called_once()
-            mock_component_factory.create_processor.assert_called_once()
-            mock_component_factory.create_sink.assert_called_once()
+            mock_component_factory.create_source.assert_called_once_with(pipeline_cfg.project_id)
+            mock_component_factory.create_processor.assert_called_once_with(pipeline_cfg.project_id)
+            mock_component_factory.create_sink.assert_called_once_with(pipeline_cfg.project_id)
 
+            # Pipeline is called with project_id and two FrameBroadcasters
             pipeline_cls.assert_called_once()
-            call_kwargs = pipeline_cls.call_args.kwargs
-            assert call_kwargs["project_id"] == pipeline_cfg.project_id
-            assert call_kwargs["source"] == mock_component_factory.create_source.return_value
-            assert call_kwargs["processor"] == mock_component_factory.create_processor.return_value
-            assert call_kwargs["sink"] == mock_component_factory.create_sink.return_value
+            call_args = pipeline_cls.call_args.args
+            assert call_args[0] == pipeline_cfg.project_id
+            assert len(call_args) == 3  # project_id + 2 broadcasters
 
-            pipeline_cls.return_value.start.assert_called_once()
+            # Check fluent API calls
+            pipeline_inst.set_source.assert_called_once()
+            pipeline_inst.set_processor.assert_called_once()
+            pipeline_inst.set_sink.assert_called_once()
+
+            pipeline_inst.start.assert_called_once()
             assert dispatcher._listeners == [mgr.on_config_change]
 
     def test_start_without_active_project_only_subscribes(self, dispatcher, session_factory):
@@ -125,58 +129,53 @@ class TestPipelineManager:
 
     def test_on_activation_event_starts_new_pipeline(self, dispatcher, session_factory, mock_component_factory):
         with (
-            patch("runtime.pipeline_manager.ProjectService") as svc_cls,
-            patch("runtime.pipeline_manager.PromptService") as prompt_svc_cls,
             patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
+            patch("runtime.pipeline_manager.FrameBroadcaster"),
         ):
-            svc_inst = svc_cls.return_value
             pid = uuid4()
-            cfg = PipelineConfig(project_id=pid, reader=None, processor=None, writer=None)
-            svc_inst.get_pipeline_config.return_value = cfg
 
-            # Mock the training data batch
-            prompt_svc_inst = prompt_svc_cls.return_value
-            mock_batch = Mock()
-            prompt_svc_inst.get_training_data.return_value = mock_batch
+            # Configure the mock Pipeline to support method chaining
+            pipeline_inst = pipeline_cls.return_value
+            pipeline_inst.set_source.return_value = pipeline_inst
+            pipeline_inst.set_processor.return_value = pipeline_inst
+            pipeline_inst.set_sink.return_value = pipeline_inst
 
             mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
             ev = ProjectActivationEvent(project_id=pid)
             mgr.on_config_change(ev)
 
-            svc_inst.get_pipeline_config.assert_called_once_with(pid)
-            prompt_svc_inst.get_training_data.assert_called_once()
-            mock_component_factory.create_source.assert_called_once()
-            mock_component_factory.create_processor.assert_called_once()
-            mock_component_factory.create_sink.assert_called_once()
+            mock_component_factory.create_source.assert_called_once_with(pid)
+            mock_component_factory.create_processor.assert_called_once_with(pid)
+            mock_component_factory.create_sink.assert_called_once_with(pid)
 
+            # Pipeline is called with project_id and two FrameBroadcasters
             pipeline_cls.assert_called_once()
-            call_kwargs = pipeline_cls.call_args.kwargs
-            assert call_kwargs["project_id"] == pid
-            assert call_kwargs["source"] == mock_component_factory.create_source.return_value
-            assert call_kwargs["processor"] == mock_component_factory.create_processor.return_value
-            assert call_kwargs["sink"] == mock_component_factory.create_sink.return_value
+            call_args = pipeline_cls.call_args.args
+            assert call_args[0] == pid
+            assert len(call_args) == 3  # project_id + 2 broadcasters
 
-            pipeline_cls.return_value.start.assert_called_once()
-            assert mgr._pipeline == pipeline_cls.return_value
+            # Check fluent API calls
+            pipeline_inst.set_source.assert_called_once()
+            pipeline_inst.set_processor.assert_called_once()
+            pipeline_inst.set_sink.assert_called_once()
+
+            pipeline_inst.start.assert_called_once()
+            assert mgr._pipeline == pipeline_inst
 
     def test_on_activation_replaces_existing_pipeline(self, dispatcher, session_factory, mock_component_factory):
         with (
-            patch("runtime.pipeline_manager.ProjectService") as svc_cls,
-            patch("runtime.pipeline_manager.PromptService") as prompt_svc_cls,
             patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
+            patch("runtime.pipeline_manager.FrameBroadcaster"),
         ):
             # Existing pipeline
             old_pipeline = Mock()
             pid_new = uuid4()
-            cfg_new = PipelineConfig(project_id=pid_new, reader=None, processor=None, writer=None)
 
-            svc_inst = svc_cls.return_value
-            svc_inst.get_pipeline_config.return_value = cfg_new
-
-            # Mock the training data batch
-            prompt_svc_inst = prompt_svc_cls.return_value
-            mock_batch = Mock()
-            prompt_svc_inst.get_training_data.return_value = mock_batch
+            # Configure the mock Pipeline to support method chaining
+            pipeline_inst = pipeline_cls.return_value
+            pipeline_inst.set_source.return_value = pipeline_inst
+            pipeline_inst.set_processor.return_value = pipeline_inst
+            pipeline_inst.set_sink.return_value = pipeline_inst
 
             mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
             mgr._pipeline = old_pipeline
@@ -185,20 +184,21 @@ class TestPipelineManager:
             mgr.on_config_change(ev)
 
             old_pipeline.stop.assert_called_once()
-            prompt_svc_inst.get_training_data.assert_called_once()
-            mock_component_factory.create_source.assert_called_once()
-            mock_component_factory.create_processor.assert_called_once()
-            mock_component_factory.create_sink.assert_called_once()
+            mock_component_factory.create_source.assert_called_once_with(pid_new)
+            mock_component_factory.create_processor.assert_called_once_with(pid_new)
+            mock_component_factory.create_sink.assert_called_once_with(pid_new)
 
+            # Pipeline is called with project_id and two FrameBroadcasters
             pipeline_cls.assert_called_once()
-            call_kwargs = pipeline_cls.call_args.kwargs
-            assert call_kwargs["project_id"] == pid_new
-            assert call_kwargs["source"] == mock_component_factory.create_source.return_value
-            assert call_kwargs["processor"] == mock_component_factory.create_processor.return_value
-            assert call_kwargs["sink"] == mock_component_factory.create_sink.return_value
+            call_args = pipeline_cls.call_args.args
+            assert call_args[0] == pid_new
+            assert len(call_args) == 3  # project_id + 2 broadcasters
 
-            pipeline_cls.return_value.start.assert_called_once()
-            assert mgr._pipeline == pipeline_cls.return_value
+            pipeline_inst.set_source.assert_called_once()
+            pipeline_inst.set_processor.assert_called_once()
+            pipeline_inst.set_sink.assert_called_once()
+            pipeline_inst.start.assert_called_once()
+            assert mgr._pipeline == pipeline_inst
 
     def test_on_deactivation_stops_matching_pipeline(self, dispatcher, session_factory):
         with patch("runtime.pipeline_manager.ProjectService"), patch("runtime.pipeline_manager.Pipeline"):
@@ -228,39 +228,25 @@ class TestPipelineManager:
             running.stop.assert_not_called()
             assert mgr._pipeline is running
 
-    def test_on_component_update_applies_config_for_matching_project(self, dispatcher, session_factory):
-        with patch("runtime.pipeline_manager.ProjectService") as svc_cls:
+    def test_on_component_update_applies_config_for_matching_project(
+        self, dispatcher, session_factory, mock_component_factory
+    ):
+        with patch("runtime.pipeline_manager.Pipeline"):
             pid = uuid4()
             running = Mock()
             running.project_id = pid
 
-            old_cfg = PipelineConfig(
-                project_id=pid, reader={"source_type": "webcam", "device_id": 0}, processor=None, writer=None
-            )
-            new_cfg = PipelineConfig(
-                project_id=pid, reader={"source_type": "webcam", "device_id": 1}, processor=None, writer=None
-            )
-
-            svc_cls.return_value.get_pipeline_config.return_value = new_cfg
-
-            mock_factory = Mock()
-            mock_new_source = Mock()
-            mock_factory.create_source.return_value = mock_new_source
-
-            mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_factory)
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
             mgr._pipeline = running
-            mgr._current_config = old_cfg
 
             ev = ComponentConfigChangeEvent(project_id=pid, component_type="source", component_id="abc")
             mgr.on_config_change(ev)
 
-            svc_cls.return_value.get_pipeline_config.assert_called_once_with(pid)
-            mock_factory.create_source.assert_called_once()
-            running.update_component.assert_called_once_with(mock_new_source)
-            assert mgr._current_config == new_cfg
+            mock_component_factory.create_source.assert_called_once_with(pid)
+            running.set_source.assert_called_once()
 
     def test_on_component_update_ignores_mismatch(self, dispatcher, session_factory):
-        with patch("runtime.pipeline_manager.ProjectService") as svc_cls:
+        with patch("runtime.pipeline_manager.Pipeline"):
             pid_running = uuid4()
             pid_event = uuid4()
             running = Mock()
@@ -272,7 +258,7 @@ class TestPipelineManager:
             ev = ComponentConfigChangeEvent(project_id=pid_event, component_type="source", component_id="abc")
             mgr.on_config_change(ev)
 
-            svc_cls.return_value.get_pipeline_config.assert_not_called()
+            running.set_source.assert_not_called()
 
     def test_stop_stops_pipeline_if_present(self, dispatcher, session_factory):
         mgr = PipelineManager(dispatcher, session_factory)

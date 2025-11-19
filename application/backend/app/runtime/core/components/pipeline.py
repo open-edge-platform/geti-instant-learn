@@ -4,6 +4,7 @@
 import logging
 from queue import Queue
 from threading import Thread
+from typing import Self
 from uuid import UUID
 
 from runtime.core.components.base import PipelineComponent
@@ -49,9 +50,6 @@ class Pipeline:
     def __init__(
         self,
         project_id: UUID,
-        source: Source,
-        processor: Processor,
-        sink: Sink,
         inbound_broadcaster: FrameBroadcaster[InputData] = FrameBroadcaster[InputData](),
         outbound_broadcaster: FrameBroadcaster[OutputData] = FrameBroadcaster[OutputData](),
     ):
@@ -60,12 +58,7 @@ class Pipeline:
         self._inbound_broadcaster = inbound_broadcaster
         self._outbound_broadcaster = outbound_broadcaster
         self._threads: dict[type[PipelineComponent], Thread] = {}
-
-        self._components: dict[type[PipelineComponent], PipelineComponent] = {
-            Source: source,
-            Processor: processor,
-            Sink: sink,
-        }
+        self._components: dict[type[PipelineComponent], PipelineComponent] = {}
         logger.debug(f"Pipeline created for project_id={project_id}")
 
     @property
@@ -110,7 +103,22 @@ class Pipeline:
 
         logger.debug(f"Pipeline stopped for project_id={self._project_id}")
 
-    def update_component(self, new_component: PipelineComponent) -> None:
+    def set_source(self, source: Source, start: bool = False) -> Self:
+        source.setup(self._inbound_broadcaster)
+        self._register_component(source, start)
+        return self
+
+    def set_sink(self, sink: Sink, start: bool = False) -> Self:
+        sink.setup(self._outbound_broadcaster)
+        self._register_component(sink, start)
+        return self
+
+    def set_processor(self, processor: Processor, start: bool = False) -> Self:
+        processor.setup(self._inbound_broadcaster, self._outbound_broadcaster)
+        self._register_component(processor, start)
+        return self
+
+    def _register_component(self, new_component: PipelineComponent, start: bool = True) -> None:
         """
         A method to replace a component with a new one.
 
@@ -121,10 +129,7 @@ class Pipeline:
         """
         component_cls = new_component.__class__
 
-        if component_cls not in self._components:
-            raise ValueError(f"Unknown component type: {component_cls}")
-
-        # Stop the current component
+        # Stop the current component if one exists
         current_component = self._components.get(component_cls)
         if current_component:
             current_component.stop()
@@ -134,5 +139,6 @@ class Pipeline:
 
         self._components[component_cls] = new_component
         thread = Thread(target=new_component, daemon=False)
-        thread.start()
         self._threads[component_cls] = thread
+        if start:
+            thread.start()

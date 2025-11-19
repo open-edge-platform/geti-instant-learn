@@ -7,10 +7,9 @@ from queue import Empty, Queue
 import torch
 from getiprompt.data.base.batch import Batch
 from getiprompt.data.base.sample import Sample
-from getiprompt.models.base import Model
 from torchvision import tv_tensors
 
-from runtime.core.components.base import PipelineComponent
+from runtime.core.components.base import ModelHandler, PipelineComponent
 from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.schemas.processor import InputData, OutputData
 
@@ -23,46 +22,27 @@ class Processor(PipelineComponent):
     sending them to a processor for inference, and broadcasting the processed results to subscribed consumers.
     """
 
-    def __init__(
-        self,
-        inbound_broadcaster: FrameBroadcaster[InputData],
-        outbound_broadcaster: FrameBroadcaster[OutputData],
-        model: Model | None = None,
-        reference_batch: Batch | None = None,
-    ):
+    def __init__(self, model_handler: ModelHandler):
         super().__init__()
-        self._model = model
-        self._reference_batch = reference_batch
-        self.inbound_broadcaster = inbound_broadcaster
-        self._in_queue: Queue[InputData] = inbound_broadcaster.register()
-        self._outbound_broadcaster = outbound_broadcaster
+        self._model_handler = model_handler
 
-    def _train_model(self) -> Model | None:
-        if self._model is None or self._reference_batch is None:
-            logger.debug("No model context provided, running in pass-through mode")
-            return None
-        model = self._model
-        model.learn(self._reference_batch)
-        return model
+    def setup(
+        self, inbound_broadcaster: FrameBroadcaster[InputData], outbound_broadcaster: FrameBroadcaster[OutputData]
+    ) -> None:
+        self._inbound_broadcaster = inbound_broadcaster
+        self._outbound_broadcaster = outbound_broadcaster
+        self._in_queue: Queue[InputData] = inbound_broadcaster.register()
+        self._initialized = True
 
     def run(self) -> None:
         logger.debug("Starting a pipeline runner loop")
-
-        model = self._train_model()
-
+        self._model_handler.initialise()
         while not self._stop_event.is_set():
             try:
                 data = self._in_queue.get(timeout=0.1)
-                if model is not None:
-                    # Convert HWC (numpy) to CHW (tensor) for model
-                    image_chw = tv_tensors.Image(torch.from_numpy(data.frame).permute(2, 0, 1))
-                    sample = Sample(image=image_chw)
-                    batch = Batch.collate([sample])
-                    results = model.infer(batch)
-                    output_data = OutputData(frame=data.frame, results=results)
-                else:
-                    output_data = OutputData(frame=data.frame, results=[])
-
+                batch = self._create_batch(data)
+                results = self._model_handler.infer(batch)
+                output_data = OutputData(frame=data.frame, results=results)
                 self._outbound_broadcaster.broadcast(output_data)
             except Empty:
                 continue
@@ -71,5 +51,11 @@ class Processor(PipelineComponent):
                 continue
         logger.debug("Stopping the pipeline runner loop")
 
+    def _create_batch(self, data: InputData):
+        # Convert HWC (numpy) to CHW (tensor) for model
+        image_chw = tv_tensors.Image(torch.from_numpy(data.frame).permute(2, 0, 1))
+        sample = Sample(image=image_chw)
+        return Batch.collate([sample])
+
     def _stop(self) -> None:
-        self.inbound_broadcaster.unregister(self._in_queue)
+        self._inbound_broadcaster.unregister(self._in_queue)

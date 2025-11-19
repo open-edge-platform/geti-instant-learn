@@ -7,6 +7,9 @@ from multiprocessing import Event
 from types import TracebackType
 from typing import Any, TypeVar
 
+import torch
+from getiprompt.data.base.batch import Batch
+
 from runtime.core.components.errors import UnsupportedOperationError
 from runtime.core.components.schemas.processor import InputData
 from runtime.core.components.schemas.reader import FrameListResponse
@@ -116,3 +119,13 @@ class StreamWriter(AbstractContextManager, ABC):
         self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None, /
     ) -> None:
         self.close()
+
+
+class ModelHandler(ABC):
+    @abstractmethod
+    def initialise(self) -> None:
+        pass
+
+    @abstractmethod
+    def infer(self, batch: Batch) -> list[dict[str, torch.Tensor]]:
+        pass

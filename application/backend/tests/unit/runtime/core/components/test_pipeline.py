@@ -4,32 +4,11 @@ from uuid import uuid4
 
 import pytest
 
+from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.pipeline import Pipeline
 from runtime.core.components.processor import Processor
 from runtime.core.components.sink import Sink
 from runtime.core.components.source import Source
-
-
-def create_mock_component(component_class):
-    mock = Mock()
-    mock.stop = Mock()
-    mock.__class__ = component_class
-    return mock
-
-
-@pytest.fixture
-def mock_source():
-    return create_mock_component(Source)
-
-
-@pytest.fixture
-def mock_processor():
-    return create_mock_component(Processor)
-
-
-@pytest.fixture
-def mock_sink():
-    return create_mock_component(Sink)
 
 
 @pytest.fixture
@@ -38,8 +17,32 @@ def project_id():
 
 
 @pytest.fixture
+def mock_source():
+    mock = Mock(spec=Source)
+    mock.stop = Mock()
+    mock.setup = Mock()
+    return mock
+
+
+@pytest.fixture
+def mock_processor():
+    mock = Mock(spec=Processor)
+    mock.stop = Mock()
+    mock.setup = Mock()
+    return mock
+
+
+@pytest.fixture
+def mock_sink():
+    mock = Mock(spec=Sink)
+    mock.stop = Mock()
+    mock.setup = Mock()
+    return mock
+
+
+@pytest.fixture
 def mock_inbound_broadcaster():
-    mock_broadcaster = Mock()
+    mock_broadcaster = Mock(spec=FrameBroadcaster)
     mock_broadcaster.register = Mock(return_value=Queue())
     mock_broadcaster.unregister = Mock()
     return mock_broadcaster
@@ -47,23 +50,71 @@ def mock_inbound_broadcaster():
 
 @pytest.fixture
 def mock_outbound_broadcaster():
-    mock_broadcaster = Mock()
+    mock_broadcaster = Mock(spec=FrameBroadcaster)
     mock_broadcaster.register = Mock(return_value=Queue())
     mock_broadcaster.unregister = Mock()
     return mock_broadcaster
 
 
 class TestPipeline:
-    def test_pipeline_registers_and_unregisters_inbound_consumer(
-        self, project_id, mock_source, mock_processor, mock_sink, mock_inbound_broadcaster
-    ):
+    def test_pipeline_initialization_with_no_components(self, project_id):
+        """Test that Pipeline initializes with empty component dictionary."""
+        pipeline = Pipeline(project_id=project_id)
+        assert pipeline.project_id == project_id
+        assert pipeline._components == {}
+        pipeline.stop()
+
+    def test_set_source_registers_component(self, project_id, mock_source, mock_inbound_broadcaster):
+        """Test that set_source registers the source component."""
         pipeline = Pipeline(
             project_id=project_id,
-            source=mock_source,
-            processor=mock_processor,
-            sink=mock_sink,
             inbound_broadcaster=mock_inbound_broadcaster,
         )
+
+        result = pipeline.set_source(mock_source)
+
+        assert result is pipeline
+        assert Source in pipeline._components
+        assert pipeline._components[Source] == mock_source
+        mock_source.setup.assert_called_once_with(mock_inbound_broadcaster)
+        pipeline.stop()
+
+    def test_set_processor_registers_component(
+        self, project_id, mock_processor, mock_inbound_broadcaster, mock_outbound_broadcaster
+    ):
+        """Test that set_processor registers the processor component."""
+        pipeline = Pipeline(
+            project_id=project_id,
+            inbound_broadcaster=mock_inbound_broadcaster,
+            outbound_broadcaster=mock_outbound_broadcaster,
+        )
+
+        result = pipeline.set_processor(mock_processor)
+
+        assert result is pipeline
+        assert Processor in pipeline._components
+        assert pipeline._components[Processor] == mock_processor
+        mock_processor.setup.assert_called_once_with(mock_inbound_broadcaster, mock_outbound_broadcaster)
+        pipeline.stop()
+
+    def test_set_sink_registers_component(self, project_id, mock_sink, mock_outbound_broadcaster):
+        """Test that set_sink registers the sink component."""
+        pipeline = Pipeline(
+            project_id=project_id,
+            outbound_broadcaster=mock_outbound_broadcaster,
+        )
+
+        result = pipeline.set_sink(mock_sink)
+
+        assert result is pipeline
+        assert Sink in pipeline._components
+        assert pipeline._components[Sink] == mock_sink
+        mock_sink.setup.assert_called_once_with(mock_outbound_broadcaster)
+        pipeline.stop()
+
+    def test_pipeline_registers_and_unregisters_inbound_consumer(self, project_id, mock_inbound_broadcaster):
+        """Test registering and unregistering inbound consumers."""
+        pipeline = Pipeline(project_id=project_id, inbound_broadcaster=mock_inbound_broadcaster)
 
         consumer_queue = pipeline.register_inbound_consumer()
         mock_inbound_broadcaster.register.assert_called_once()
@@ -73,16 +124,9 @@ class TestPipeline:
         mock_inbound_broadcaster.unregister.assert_called_once_with(consumer_queue)
         pipeline.stop()
 
-    def test_pipeline_registers_and_unregisters_webrtc_consumer(
-        self, project_id, mock_source, mock_processor, mock_sink, mock_outbound_broadcaster
-    ):
-        pipeline = Pipeline(
-            project_id=project_id,
-            source=mock_source,
-            processor=mock_processor,
-            sink=mock_sink,
-            outbound_broadcaster=mock_outbound_broadcaster,
-        )
+    def test_pipeline_registers_and_unregisters_webrtc_consumer(self, project_id, mock_outbound_broadcaster):
+        """Test registering and unregistering WebRTC consumers."""
+        pipeline = Pipeline(project_id=project_id, outbound_broadcaster=mock_outbound_broadcaster)
 
         webrtc_queue = pipeline.register_webrtc()
         mock_outbound_broadcaster.register.assert_called_once()
@@ -93,13 +137,18 @@ class TestPipeline:
         pipeline.stop()
 
     def test_pipeline_start_creates_threads_for_all_components(
-        self, project_id, mock_source, mock_processor, mock_sink
+        self, project_id, mock_source, mock_processor, mock_sink, mock_inbound_broadcaster, mock_outbound_broadcaster
     ):
-        pipeline = Pipeline(
-            project_id=project_id,
-            source=mock_source,
-            processor=mock_processor,
-            sink=mock_sink,
+        """Test that start() creates threads for all registered components."""
+        pipeline = (
+            Pipeline(
+                project_id=project_id,
+                inbound_broadcaster=mock_inbound_broadcaster,
+                outbound_broadcaster=mock_outbound_broadcaster,
+            )
+            .set_source(mock_source)
+            .set_processor(mock_processor)
+            .set_sink(mock_sink)
         )
 
         with patch("runtime.core.components.pipeline.Thread") as mock_thread_class:
@@ -112,12 +161,19 @@ class TestPipeline:
             for mock_thread in mock_thread_instances:
                 mock_thread.start.assert_called_once()
 
-    def test_pipeline_stop_stops_components(self, project_id, mock_source, mock_processor, mock_sink):
-        pipeline = Pipeline(
-            project_id=project_id,
-            source=mock_source,
-            processor=mock_processor,
-            sink=mock_sink,
+    def test_pipeline_stop_stops_components(
+        self, project_id, mock_source, mock_processor, mock_sink, mock_inbound_broadcaster, mock_outbound_broadcaster
+    ):
+        """Test that stop() stops all components."""
+        pipeline = (
+            Pipeline(
+                project_id=project_id,
+                inbound_broadcaster=mock_inbound_broadcaster,
+                outbound_broadcaster=mock_outbound_broadcaster,
+            )
+            .set_source(mock_source)
+            .set_processor(mock_processor)
+            .set_sink(mock_sink)
         )
 
         with patch("runtime.core.components.pipeline.Thread"):
@@ -128,43 +184,3 @@ class TestPipeline:
         mock_source.stop.assert_called_once()
         mock_processor.stop.assert_called_once()
         mock_sink.stop.assert_called_once()
-
-    @pytest.mark.parametrize(
-        "component_class",
-        [Source, Processor, Sink],
-    )
-    def test_update_component_replaces_correct_type(
-        self, project_id, mock_source, mock_processor, mock_sink, component_class
-    ):
-        pipeline = Pipeline(
-            project_id=project_id,
-            source=mock_source,
-            processor=mock_processor,
-            sink=mock_sink,
-        )
-
-        new_component = create_mock_component(component_class)
-
-        with patch("runtime.core.components.pipeline.Thread"):
-            pipeline.start()
-            pipeline.update_component(new_component)
-
-            # Check that only the matching component was stopped
-            for component in (mock_source, mock_processor, mock_sink):
-                if component.__class__ == component_class:
-                    component.stop.assert_called_once()
-                else:
-                    component.stop.assert_not_called()
-
-    def test_update_component_with_unknown_type_raises_error(self, project_id, mock_source, mock_processor, mock_sink):
-        pipeline = Pipeline(
-            project_id=project_id,
-            source=mock_source,
-            processor=mock_processor,
-            sink=mock_sink,
-        )
-
-        unknown_component = Mock()  # Not a known component type
-
-        with pytest.raises(ValueError, match="Unknown component type"):
-            pipeline.update_component(unknown_component)

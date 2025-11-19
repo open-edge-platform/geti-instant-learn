@@ -7,7 +7,6 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from domain.db.models import PromptType
 from domain.dispatcher import (
     ComponentConfigChangeEvent,
     ConfigChangeDispatcher,
@@ -16,9 +15,8 @@ from domain.dispatcher import (
     ProjectDeactivationEvent,
 )
 from domain.services.project import ProjectService
-from domain.services.prompt import PromptService
+from runtime.components import ComponentFactory, DefaultComponentFactory
 from runtime.core.components.broadcaster import FrameBroadcaster
-from runtime.core.components.factories.components import ComponentFactory, DefaultComponentFactory
 from runtime.core.components.pipeline import Pipeline
 from runtime.core.components.schemas.pipeline import PipelineConfig
 from runtime.core.components.schemas.processor import InputData, OutputData
@@ -50,7 +48,7 @@ class PipelineManager:
     ):
         self._event_dispatcher = event_dispatcher
         self._session_factory = session_factory
-        self._component_factory = component_factory or DefaultComponentFactory()
+        self._component_factory = component_factory or DefaultComponentFactory(session_factory)
         # todo: bundle refs to pipeline and pipeline config together.
         self._pipeline: Pipeline | None = None
         self._current_config: PipelineConfig | None = None
@@ -64,7 +62,7 @@ class PipelineManager:
             cfg = svc.get_active_pipeline_config()
         if cfg:
             self._current_config = cfg
-            self._pipeline = self._create_pipeline(cfg)
+            self._pipeline = self._create_pipeline(cfg.project_id)
             self._pipeline.start()
             logger.info("Pipeline started: project_id=%s", cfg.project_id)
         else:
@@ -86,13 +84,9 @@ class PipelineManager:
         """
         match event:
             case ProjectActivationEvent() as e:
-                with self._session_factory() as session:
-                    svc = ProjectService(session=session, config_change_dispatcher=self._event_dispatcher)
-                    cfg = svc.get_pipeline_config(e.project_id)
                 if self._pipeline:
                     self._pipeline.stop()
-                self._current_config = cfg
-                self._pipeline = self._create_pipeline(cfg)
+                self._pipeline = self._create_pipeline(e.project_id)
                 self._pipeline.start()
                 logger.info("Pipeline started for activated project %s", e.project_id)
 
@@ -105,14 +99,10 @@ class PipelineManager:
 
             case ComponentConfigChangeEvent() as e:
                 if self._pipeline and self._pipeline.project_id == e.project_id:
-                    with self._session_factory() as session:
-                        svc = ProjectService(session=session, config_change_dispatcher=self._event_dispatcher)
-                        new_cfg = svc.get_pipeline_config(self._pipeline.project_id)
-                    self._update_pipeline_components(new_cfg)
-                    self._current_config = new_cfg
+                    self._update_pipeline_components(e.project_id, e.component_type)
                     logger.info("Pipeline components updated for project %s", e.project_id)
 
-    def _create_pipeline(self, config: PipelineConfig) -> Pipeline:
+    def _create_pipeline(self, project_id: UUID) -> Pipeline:
         """
         Create a new Pipeline instance with components built from the given configuration.
 
@@ -122,65 +112,39 @@ class PipelineManager:
         Returns:
             A fully initialized Pipeline instance (not yet started).
         """
-        inbound_bcast = FrameBroadcaster[InputData]()
-        outbound_bcast = FrameBroadcaster[OutputData]()
+        source = self._component_factory.create_source(project_id)
+        processor = self._component_factory.create_processor(project_id)
+        sink = self._component_factory.create_sink(project_id)
 
-        with self._session_factory() as session:
-            prompt_svc = PromptService(session)
-            reference_batch = prompt_svc.get_training_data(config.project_id, PromptType.VISUAL)
-
-        source = self._component_factory.create_source(config.reader, inbound_bcast)
-        processor = self._component_factory.create_processor(
-            inbound_bcast,
-            outbound_bcast,
-            config.processor,
-            reference_batch,
-        )
-        sink = self._component_factory.create_sink(outbound_bcast, config.writer)
-
-        return Pipeline(
-            project_id=config.project_id,
-            source=source,
-            processor=processor,
-            sink=sink,
-            inbound_broadcaster=inbound_bcast,
-            outbound_broadcaster=outbound_bcast,
+        return (
+            Pipeline(project_id, FrameBroadcaster[InputData](), FrameBroadcaster[OutputData]())
+            .set_source(source)
+            .set_processor(processor)
+            .set_sink(sink)
         )
 
-    def _update_pipeline_components(self, new_config: PipelineConfig) -> None:
+    def _update_pipeline_components(self, project_id: UUID, component_type: str) -> None:
         """
         Compare current and new configurations, updating only changed components.
 
         Args:
             new_config: The new pipeline configuration.
         """
-        if not self._pipeline or not self._current_config:
+        if not self._pipeline:
             return
 
-        if new_config.reader != self._current_config.reader:
-            logger.info(f"Source config changed: {self._current_config.reader} -> {new_config.reader}")
-            new_source = self._component_factory.create_source(new_config.reader, self._pipeline._inbound_broadcaster)
-            self._pipeline.update_component(new_source)
-
-        if new_config.processor != self._current_config.processor:
-            logger.info(f"Processor config changed: {self._current_config.processor} -> {new_config.processor}")
-
-            with self._session_factory() as session:
-                prompt_svc = PromptService(session)
-                reference_batch = prompt_svc.get_training_data(new_config.project_id, PromptType.VISUAL)
-
-            new_processor = self._component_factory.create_processor(
-                self._pipeline._inbound_broadcaster,
-                self._pipeline._outbound_broadcaster,
-                new_config.processor,
-                reference_batch,
-            )
-            self._pipeline.update_component(new_processor)
-
-        if new_config.writer != self._current_config.writer:
-            logger.info(f"Sink config changed: {self._current_config.writer} -> {new_config.writer}")
-            new_sink = self._component_factory.create_sink(self._pipeline._outbound_broadcaster, new_config.writer)
-            self._pipeline.update_component(new_sink)
+        match component_type:
+            case "source":
+                source = self._component_factory.create_source(project_id)
+                self._pipeline.set_source(source, True)
+            case "processor":
+                processor = self._component_factory.create_processor(project_id)
+                self._pipeline.set_processor(processor, True)
+            case "sink":
+                sink = self._component_factory.create_sink(project_id)
+                self._pipeline.set_sink(sink, True)
+            case _ as unknown:
+                logger.error(f"Unknown component type {unknown}")
 
     # todo:
     # 1. unify methods for registering/unregistering all types of consumers.

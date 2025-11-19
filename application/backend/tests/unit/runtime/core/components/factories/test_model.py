@@ -2,7 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import os
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -43,14 +43,15 @@ class TestModelFactory:
             mask_similarity_threshold=0.5,
             precision="fp32",
         )
+        mock_reference_batch = MagicMock()
 
         with patch.object(ModelFactory, "_resolve_device", return_value="cpu"):
             with patch("runtime.core.components.factories.model.Matcher") as mock_matcher:
                 mock_instance = mock_matcher.return_value
 
-                result = ModelFactory.create(config)
+                result = ModelFactory.create(mock_reference_batch, config)
 
-                assert result == mock_instance
+                assert result is not mock_instance  # Returns a ModelHandler wrapping the model
                 mock_matcher.assert_called_once_with(
                     num_foreground_points=50,
                     num_background_points=3,
@@ -60,6 +61,6 @@ class TestModelFactory:
                 )
 
     def test_factory_returns_none_for_unknown_config(self):
-        result = ModelFactory.create(None)
+        result = ModelFactory.create(None, None)
 
-        assert result is None
+        assert result is not None  # Returns PassThroughModelHandler instead of None

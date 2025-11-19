@@ -45,7 +45,10 @@ class TestProcessor:
         self.mock_in_queue = MagicMock(spec=Queue)
         self.mock_inbound_broadcaster.register.return_value = self.mock_in_queue
         self.mock_outbound_broadcaster = MagicMock(spec=FrameBroadcaster)
-        self.runner = Processor(self.mock_inbound_broadcaster, self.mock_outbound_broadcaster, None)
+        self.mock_model_handler = MagicMock()
+        self.mock_model_handler.infer.return_value = []  # Return empty results list
+        self.runner = Processor(self.mock_model_handler)
+        self.runner.setup(self.mock_inbound_broadcaster, self.mock_outbound_broadcaster)
 
     @pytest.mark.parametrize(
         "test_id, queue_effects, expected_broadcasts",

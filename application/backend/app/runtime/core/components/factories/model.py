@@ -3,9 +3,12 @@
 
 import os
 
-from getiprompt.models.base import Model
+from getiprompt.data.base.batch import Batch
 from getiprompt.models.matcher import Matcher
 
+from runtime.core.components.base import ModelHandler
+from runtime.core.components.models.inference_model import InferenceModelHandler
+from runtime.core.components.models.passthrough_model import PassThroughModelHandler
 from runtime.core.components.schemas.processor import MatcherConfig, ModelConfig
 
 DEVICE_MAP = {
@@ -26,15 +29,18 @@ class ModelFactory:
         return device
 
     @classmethod
-    def create(cls, config: ModelConfig | None) -> Model | None:
+    def create(cls, reference_batch: Batch | None, config: ModelConfig | None) -> ModelHandler:
+        if reference_batch is None:
+            return PassThroughModelHandler()
         match config:
             case MatcherConfig() as config:
-                return Matcher(
+                model = Matcher(
                     num_foreground_points=config.num_foreground_points,
                     num_background_points=config.num_background_points,
                     mask_similarity_threshold=config.mask_similarity_threshold,
                     precision=config.precision,
                     device=cls._resolve_device(),
                 )
+                return InferenceModelHandler(model, reference_batch)
             case _:
-                return None
+                return PassThroughModelHandler()
