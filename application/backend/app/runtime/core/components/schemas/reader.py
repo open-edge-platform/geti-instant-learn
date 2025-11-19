@@ -49,14 +49,13 @@ class ImagesFolderConfig(BaseModel):
     source_type: Literal[SourceType.IMAGES_FOLDER]
     images_folder_path: str
     seekable: bool = True
-    initial_folder_path: str = os.getenv("PUBLIC_INITIAL_DATASET_DIR", "/path/to/images")
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "seekable": True,
                 "source_type": "images_folder",
-                "images_folder_path": initial_folder_path,
+                "images_folder_path": os.getenv("PUBLIC_INITIAL_DATASET_DIR", "/path/to/images"),
             }
         }
     }

@@ -52,6 +52,7 @@ export const ImagesFolder = ({ source }: ImagesFolderProps) => {
             source_type: 'images_folder',
             images_folder_path: folderPath,
             seekable: true,
+            initial_folder_path: initialFolderPath,
         };
 
         if (source === undefined) {

@@ -22,6 +22,7 @@ const getImagesFolderSource = (
             seekable: true,
             images_folder_path: source.imagesFolderPath ?? '',
             source_type: 'images_folder',
+            initial_folder_path: '',
         },
     };
 };
