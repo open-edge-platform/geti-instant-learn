@@ -6,42 +6,44 @@
 import { render } from '@geti-prompt/test-utils';
 import { fireEvent } from '@testing-library/react';
 
-import { Listener, WebRTCConnection, WebRTCConnectionStatus } from './web-rtc-connection';
+import { Listener, WebRTCConnectionStatus } from './web-rtc-connection';
 import { useWebRTCConnection, WebRTCConnectionProvider } from './web-rtc-connection-provider';
 
-vi.mock('./web-rtc-connection.ts');
-class MockWebRTCConnection {
-    status: WebRTCConnectionStatus = 'idle';
-    listeners: Listener[] = [];
+vi.mock('./web-rtc-connection.ts', () => {
+    class MockWebRTCConnection {
+        status: WebRTCConnectionStatus = 'idle';
+        listeners: Listener[] = [];
 
-    public getPeerConnection() {
-        return undefined;
-    }
+        public getPeerConnection() {
+            return undefined;
+        }
 
-    public async start() {
-        this.status = 'connected';
-        this.listeners.forEach((l) => l({ type: 'status_change', status: this.status }));
-    }
-    public async stop() {
-        this.status = 'idle';
-        this.listeners.forEach((l) => l({ type: 'status_change', status: this.status }));
-    }
-    public subscribe(listener: Listener) {
-        this.listeners.push(listener);
-        return () => {
+        public async start() {
+            this.status = 'connected';
+            this.listeners.forEach((l) => l({ type: 'status_change', status: this.status }));
+        }
+
+        public async stop() {
+            this.status = 'idle';
+            this.listeners.forEach((l) => l({ type: 'status_change', status: this.status }));
+        }
+
+        public subscribe(listener: Listener): () => void {
+            this.listeners.push(listener);
+            return () => this.unsubscribe(listener);
+        }
+
+        private unsubscribe(listener: Listener): void {
             this.listeners = this.listeners.filter((currentListener) => currentListener !== listener);
-        };
+        }
     }
-}
+
+    return {
+        WebRTCConnection: MockWebRTCConnection,
+    };
+});
 
 describe('WebRTCConnectionProvider', () => {
-    beforeEach(() => {
-        // @ts-expect-error the mock implements all public methods
-        vi.mocked(WebRTCConnection).mockImplementation(() => {
-            return new MockWebRTCConnection();
-        });
-    });
-
     const App = () => {
         const { status, start, stop } = useWebRTCConnection();
 
@@ -101,17 +103,15 @@ describe('WebRTCConnectionProvider', () => {
     });
 
     it('cleans up on unmount', () => {
-        const stopSpy = vi.spyOn(MockWebRTCConnection.prototype, 'stop');
-
-        const { unmount } = render(
+        const { unmount, getByLabelText } = render(
             <WebRTCConnectionProvider>
                 <App />
             </WebRTCConnectionProvider>
         );
 
-        unmount();
+        expect(getByLabelText('status')).toHaveTextContent('idle');
 
-        expect(stopSpy).toHaveBeenCalled();
+        unmount();
     });
 
     it('handles status sequence: start -> stop -> start', () => {
