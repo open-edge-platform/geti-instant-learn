@@ -116,7 +116,6 @@ class ModelService(BaseService):
 
         if create_data.active:
             self._deactivate_existing_active_model(project_id=project_id)
-            self._emit_component_change(project_id=project_id, model_id=create_data.id)
 
         new_model: ProcessorDB = processor_schema_to_db(schema=create_data, project_id=project_id)
         self.processor_repository.add(new_model)
