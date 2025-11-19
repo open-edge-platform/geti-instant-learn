@@ -30,6 +30,8 @@ static-files-dir := workdir-path + asset-prefix
 db-data-dir := workdir-path + data-dir
 target-stage := component-name + "-" + ai-device
 default-dataset := "https://storage.geti.intel.com/geti-prompt/Frames.zip"
+source-dataset-dir := "backend/.data/default_dataset"
+target-dataset-dir := db-data-dir + "/default_dataset"
 
 # -------------------------------------------------------------------------------------------------
 # Proxy settings
@@ -48,15 +50,15 @@ docker-extra-args := http-proxy-build-arg + https-proxy-build-arg + no-proxy-bui
 # -------------------------------------------------------------------------------------------------
 
 download-dataset:
-    echo "Downloading default dataset from {{ default-dataset }}"
-    wget -q --show-progress {{ default-dataset }}
-    echo "Unpacking default dataset to backend/.data/default_dataset"
-    unzip -j -q -o Frames.zip -d backend/.data/default_dataset
-    echo "Removing downloaded dataset archive Frames.zip"
-    rm Frames.zip
+    @echo "Downloading default dataset from {{ default-dataset }}"
+    @wget -q --show-progress {{ default-dataset }}
+    @echo "Unpacking default dataset to {{ source-dataset-dir }}"
+    @unzip -j -q -o Frames.zip -d {{ source-dataset-dir }}
+    @echo "Removing downloaded dataset archive Frames.zip"
+    @rm Frames.zip
 
 # build geti prompt with optional port mapping
-build-image: download-dataset
+build-image:
     @echo "Building docker image for component: {{ component-name }}"
     @docker build \
         {{ docker-extra-args }} \
@@ -67,6 +69,7 @@ build-image: download-dataset
         --build-arg DB_DATA_DIR={{ db-data-dir }} \
         --build-arg ASSET_PREFIX={{ asset-prefix }} \
         --build-arg WORKDIR_PATH={{ workdir-path }} \
+        --build-arg TARGET_DEFAULT_DATASET_DIR={{ target-dataset-dir }} \
         --tag "{{ docker-image }}" \
         --file docker/Dockerfile . \
         --target {{ target-stage }}
