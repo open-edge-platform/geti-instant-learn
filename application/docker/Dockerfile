@@ -248,7 +248,7 @@ RUN apt-get update  \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get remove -y wget gpg \
-    && apt-get clean \
+    && apt-get clean
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
