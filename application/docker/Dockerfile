@@ -241,12 +241,12 @@ RUN apt-get update  \
     && echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy unified" | \
       tee /etc/apt/sources.list.d/intel-gpu-jammy.list \
     && apt-get update && apt-get install -y --no-install-recommends \
-    libze-intel-gpu1  \
-    libze1  \
-    intel-opencl-icd  \
-    clinfo \
-    libze-dev \
-    intel-ocloc \
+    libze-intel-gpu1=25.18.33578.15-1146~22.04  \
+    libze1=1.21.9.0-1136~22.04  \
+    intel-opencl-icd=25.18.33578.15-1146~22.04  \
+    clinfo=3.0.23.01.25-1 \
+    libze-dev=1.21.9.0-1136~22.04 \
+    intel-ocloc=25.18.33578.15-1146~22.04 \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get remove -y wget gpg \
