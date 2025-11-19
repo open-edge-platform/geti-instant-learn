@@ -53,6 +53,7 @@ export const NotActiveProject = ({ project }: NotActiveProjectProps) => {
                             isPending={isPending}
                             onPress={activate}
                             aria-label={'Activate current project'}
+                            data-testid={'activate-current-project-banner'}
                         >
                             Activate project
                         </Button>

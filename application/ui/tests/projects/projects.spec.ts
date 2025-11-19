@@ -673,7 +673,7 @@ test.describe('Projects', () => {
             await expect(projectPage.inactiveStatus).toBeVisible();
             await projectPage.openProjectManagementPanel();
 
-            await projectPage.activateCurrentProject();
+            await projectPage.activateCurrentProjectFromPanel();
 
             await expect(projectPage.activateProjectDialogHeading).toBeVisible();
 
@@ -744,7 +744,7 @@ test.describe('Projects', () => {
         await expect(projectPage.inactiveStatus).toBeVisible();
         await expect(page.getByText('Would you like to activate this project?')).toBeVisible();
 
-        await projectPage.activateCurrentProject();
+        await projectPage.activateCurrentProjectFromBanner();
 
         await expect(projectPage.activateProjectDialogHeading).toBeVisible();
 
@@ -811,7 +811,7 @@ test.describe('Projects', () => {
             await expect(projectPage.activeStatus).toBeVisible();
             await projectPage.openProjectManagementPanel();
 
-            await projectPage.deactivateCurrentProject();
+            await projectPage.deactivateCurrentProjectFromPanel();
 
             await expect(projectPage.inactiveStatus).toBeVisible();
         }

@@ -140,6 +140,7 @@ const CurrentProjectCard = ({ selectedProject, activeProject }: CurrentProjectCa
                         onPress={handleClick}
                         isPending={isPending}
                         aria-label={`${buttonText} current project`}
+                        data-testid={`${buttonText.toLowerCase()}-current-project-panel`}
                     >
                         {buttonText}
                     </Button>

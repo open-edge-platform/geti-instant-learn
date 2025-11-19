@@ -71,13 +71,16 @@ export class ProjectPage {
         await this.page.getByTestId('modal').getByRole('button', { name: 'Activate' }).click();
     }
 
-    async activateCurrentProject() {
-        // eslint-disable-next-line playwright/no-force-option
-        await this.page.getByRole('button', { name: 'Activate current project' }).first().click({ force: true });
+    async activateCurrentProjectFromBanner() {
+        await this.page.getByTestId('activate-current-project-banner').click();
     }
 
-    async deactivateCurrentProject() {
-        await this.page.getByRole('button', { name: 'Deactivate current project' }).click();
+    async activateCurrentProjectFromPanel() {
+        await this.page.getByTestId('activate-current-project-panel').click();
+    }
+
+    async deactivateCurrentProjectFromPanel() {
+        await this.page.getByTestId('deactivate-current-project-panel').click();
     }
 
     get inactiveStatus() {
@@ -97,6 +100,6 @@ export class ProjectPage {
     }
 
     get activateProjectDialogHeading() {
-        return this.page.getByTestId('modal').getByRole('heading', { name: 'Activate project' });
+        return this.page.getByRole('heading', { name: 'Activate project' });
     }
 }
