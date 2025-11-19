@@ -1,6 +1,6 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
-
+import os
 from enum import StrEnum
 from typing import Annotated, Literal
 
@@ -49,13 +49,14 @@ class ImagesFolderConfig(BaseModel):
     source_type: Literal[SourceType.IMAGES_FOLDER]
     images_folder_path: str
     seekable: bool = True
+    initial_folder_path: str = os.getenv("PUBLIC_INITIAL_DATASET_DIR", "/path/to/images")
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "seekable": True,
                 "source_type": "images_folder",
-                "images_folder_path": "/path/to/images",
+                "images_folder_path": initial_folder_path,
             }
         }
     }

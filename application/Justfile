@@ -69,7 +69,7 @@ build-image:
         --build-arg DB_DATA_DIR={{ db-data-dir }} \
         --build-arg ASSET_PREFIX={{ asset-prefix }} \
         --build-arg WORKDIR_PATH={{ workdir-path }} \
-        --build-arg PUBLIC_TARGET_DEFAULT_DATASET_DIR={{ target-dataset-dir }} \
+        --build-arg PUBLIC_INITIAL_DATASET_DIR={{ target-dataset-dir }} \
         --tag "{{ docker-image }}" \
         --file docker/Dockerfile . \
         --target {{ target-stage }}
