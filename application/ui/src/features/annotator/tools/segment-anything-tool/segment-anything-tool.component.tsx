@@ -92,11 +92,7 @@ export const SegmentAnythingTool = () => {
             return;
         }
 
-        const point = clampPoint(getRelativePoint(ref.current, { x: event.clientX, y: event.clientY }, zoom.scale));
-
-        decodingQueryFn([{ ...point, positive: true }]).then((shapes) => {
-            addAnnotations(shapes, selectedLabel ? [selectedLabel] : []);
-        });
+        addAnnotations(previewShapes, selectedLabel ? [selectedLabel] : []);
     };
 
     const previewAnnotations = previewShapes.map((shape, idx): AnnotationType => {
