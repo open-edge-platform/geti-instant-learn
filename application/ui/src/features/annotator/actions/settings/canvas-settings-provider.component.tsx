@@ -27,8 +27,8 @@ const CanvasSettingsContext = createContext<CanvasSettingsContextProps | null>(n
 
 export const DEFAULT_CANVAS_SETTINGS: CanvasSettingsState = {
     annotationFillOpacity: {
-        value: 0.2,
-        defaultValue: 0.2,
+        value: 0.5,
+        defaultValue: 0.5,
     },
     annotationBorderOpacity: {
         value: 1,

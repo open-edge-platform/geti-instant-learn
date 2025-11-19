@@ -23,7 +23,7 @@ export const MaskAnnotations = ({ annotations, children, width, height, isEnable
     return (
         <>
             <mask id={`mask-${id}`}>
-                <rect x='0' y='0' width={width} height={height} fill={'white'} fillOpacity={0.4} />
+                <rect x='0' y='0' width={width} height={height} fill={'white'} fillOpacity={1 - maskOpacity} />
                 {annotations.map((annotation, idx) => (
                     <g
                         key={idx}
