@@ -62,7 +62,7 @@ jobs:
         id: setup-node
         with:
           node-version-file: application/ui/.nvmrc
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: application/ui/package-lock.json
 
       - name: Install dependencies
@@ -99,7 +99,7 @@ jobs:
         id: setup-node
         with:
           node-version-file: application/ui/.nvmrc
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: application/ui/package-lock.json
 
       - name: Install dependencies
@@ -151,7 +151,7 @@ jobs:
         id: setup-node
         with:
           node-version-file: application/ui/.nvmrc
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: application/ui/package-lock.json
 
       - name: Install dependencies
@@ -249,7 +249,7 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     container:
-      image: mcr.microsoft.com/playwright:v1.55.0-noble
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
     steps:
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -261,7 +261,7 @@ jobs:
         id: setup-node
         with:
           node-version-file: application/ui/.nvmrc
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: application/ui/package-lock.json
 
       - name: Install dependencies
