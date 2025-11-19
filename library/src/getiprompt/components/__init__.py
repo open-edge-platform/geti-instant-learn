@@ -4,11 +4,11 @@
 """Components."""
 
 from .cosine_similarity import CosineSimilarity
-from .encoders import ImageEncoder
+from .encoders import load_image_encoder
 from .mask_decoder import SamDecoder
 
 __all__ = [
     "CosineSimilarity",
-    "ImageEncoder",
     "SamDecoder",
+    "load_image_encoder",
 ]

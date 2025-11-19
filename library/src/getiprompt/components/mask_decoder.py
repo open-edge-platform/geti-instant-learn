@@ -126,7 +126,7 @@ class SamDecoder(nn.Module):
         """
         # Separate Positive and Negative Points ---
         positive_mask = (labels == 1).squeeze(1)
-        negative_mask = (labels == 0).squeeze(1)
+        negative_mask = (labels == -1).squeeze(1)
 
         # Get the corresponding coordinates and scores
         positive_coords = points[positive_mask]
@@ -140,7 +140,7 @@ class SamDecoder(nn.Module):
 
         if num_negative == 0:
             final_point_coords = torch.cat([positive_coords, positive_scores.unsqueeze(-1)], dim=-1)
-            return positive_coords, labels
+            return final_point_coords, labels
 
         # Combine each positive point with all negative points
         expanded_negative_coords = negative_coords.squeeze(1).expand(num_positive, -1, -1)
@@ -158,7 +158,7 @@ class SamDecoder(nn.Module):
         final_point_coords = torch.cat([final_point_coords_2d, final_point_scores], dim=-1)
 
         positive_label = torch.tensor([1], device=points.device, dtype=torch.float32)
-        negative_labels = torch.zeros(num_negative, device=points.device, dtype=torch.float32)
+        negative_labels = -torch.ones(num_negative, device=points.device, dtype=torch.float32)
         single_group_labels = torch.cat([positive_label, negative_labels])
         final_point_labels = single_group_labels.expand(num_positive, -1)
 
@@ -187,7 +187,7 @@ class SamDecoder(nn.Module):
         positive_points = torch.cat([positive_points, positive_labels], dim=-1)
 
         negative_points = preprocessed_points[0, 1:]
-        negative_labels = torch.zeros(num_neg, device=preprocessed_points.device, dtype=torch.float32).unsqueeze(-1)
+        negative_labels = -torch.ones(num_neg, device=preprocessed_points.device, dtype=torch.float32).unsqueeze(-1)
         negative_points = torch.cat([negative_points, negative_labels], dim=-1)
 
         remapped_points[:num_pos, :] = positive_points

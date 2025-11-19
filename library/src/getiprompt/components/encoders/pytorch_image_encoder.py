@@ -1,11 +1,12 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Wrapper class that uses a DINO model to encode images into normalized patch embeddings."""
+"""PyTorch backend implementation for ImageEncoder."""
 
 from logging import getLogger
 from pathlib import Path
 
+import openvino
 import torch
 from torch import nn
 from torch.nn import functional
@@ -29,17 +30,20 @@ AVAILABLE_IMAGE_ENCODERS = {
 }
 
 
-class ImageEncoder(nn.Module):
-    """This encoder uses a model from HuggingFace to encode the images.
+class PyTorchImageEncoder(nn.Module):
+    """PyTorch backend for DINO image encoder.
+
+    This encoder uses a model from HuggingFace to encode images into
+    normalized patch embeddings.
 
     Examples:
-        >>> from getiprompt.components.encoders import ImageEncoder
+        >>> from getiprompt.components.encoders import PyTorchImageEncoder
         >>> from torchvision import tv_tensors
         >>> import torch
-
+        >>>
         >>> # Create a sample image
         >>> sample_image = torch.zeros((3, 518, 518))
-        >>> encoder = ImageEncoder(model_id="dinov2_large")
+        >>> encoder = PyTorchImageEncoder(model_id="dinov2_large")
         >>> features = encoder(images=[sample_image])
         >>> features.shape
         torch.Size([1369, 1024])
@@ -153,5 +157,75 @@ class ImageEncoder(nn.Module):
         features = last_hidden_state[:, self.ignore_token_length :, :]  # Remove CLS token (and register tokens if used)
         return functional.normalize(features, p=2, dim=-1)
 
-    def export(self, output_path: Path) -> None:
-        pass
+    def export(self, output_path: Path) -> Path:
+        """Export this PyTorch encoder to OpenVINO IR format.
+
+        This uses direct ONNX + OpenVINO conversion to export the DINO model.
+        The exported model can then be loaded using OpenVINOImageEncoder.
+
+        Args:
+            output_path: Directory to save exported model.
+                Creates the directory if it doesn't exist.
+
+        Returns:
+            Path to the exported OpenVINO IR directory.
+
+        Example:
+            >>> encoder = PyTorchImageEncoder(
+            ...     model_id="dinov2_large",
+            ...     device="cuda"
+            ... )
+            >>> ov_path = encoder.export(Path("./exported/dinov2_large"))
+            >>>
+            >>> # Now load with OpenVINO backend
+            >>> ov_encoder = OpenVINOImageEncoder(
+            ...     model_path=ov_path,
+            ...     input_size=518
+            ... )
+        """
+
+        # Ensure output directory exists
+        output_path = Path(output_path)
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        logger.info(f"Exporting {self.model_id} to OpenVINO IR format at {output_path}")
+
+        # Create dummy input that matches the processor output
+        dummy_image = [torch.zeros((3, self.input_size, self.input_size))]
+        inputs = self.processor(images=dummy_image, return_tensors="pt")
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+
+        # Freeze model parameters
+        for param in self.model.parameters():
+            param.requires_grad_(False)
+
+        onnx_path = output_path / "image_encoder.onnx"
+
+        # Export to ONNX
+        logger.info("Exporting to ONNX...")
+        with torch.no_grad():
+            torch.onnx.export(
+                self.model,
+                (inputs,),
+                onnx_path,
+                input_names=["pixel_values"],
+                output_names=["last_hidden_state"],
+                dynamic_axes={
+                    "pixel_values": {0: "batch_size"},
+                    "last_hidden_state": {0: "batch_size"},
+                },
+                opset_version=20,
+            )
+
+        # Convert ONNX to OpenVINO IR
+        logger.info("Converting to OpenVINO IR...")
+        ov_model = openvino.convert_model(onnx_path)
+
+        # Save OpenVINO model
+        xml_path = output_path / "image_encoder.xml"
+        openvino.save_model(ov_model, xml_path)
+
+        # Save config and processor for later loading
+        self.model.config.save_pretrained(output_path)
+        self.processor.save_pretrained(output_path)
+        return output_path

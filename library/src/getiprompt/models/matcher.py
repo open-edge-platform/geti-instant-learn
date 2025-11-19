@@ -8,7 +8,7 @@ from pathlib import Path
 import torch
 
 from getiprompt.components import SamDecoder
-from getiprompt.components.encoders import ImageEncoder
+from getiprompt.components.encoders import load_image_encoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
@@ -106,7 +106,7 @@ class Matcher(Model):
             precision=precision,
             compile_models=compile_models,
         )
-        self.encoder: ImageEncoder = ImageEncoder(
+        self.encoder = load_image_encoder(
             model_id=encoder_model,
             device=device,
             precision=precision,
