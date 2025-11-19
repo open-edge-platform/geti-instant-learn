@@ -15,7 +15,6 @@ from domain.dispatcher import (
     ProjectActivationEvent,
     ProjectDeactivationEvent,
 )
-from domain.services.model import ModelService
 from domain.services.project import ProjectService
 from runtime.core.components.errors import UnsupportedOperationError
 from runtime.core.components.pipeline import Pipeline
@@ -51,15 +50,6 @@ class PipelineManager:
         """
         with self._session_factory() as session:
             svc = ProjectService(session=session, config_change_dispatcher=self._event_dispatcher)
-            yield svc
-
-    @contextmanager
-    def _model_service(self):
-        """
-        Context manager yielding a short-lived ModelService, ensures session cleanup.
-        """
-        with self._session_factory() as session:
-            svc = ModelService(session=session, config_change_dispatcher=self._event_dispatcher)
             yield svc
 
     def start(self) -> None:

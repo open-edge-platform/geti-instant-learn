@@ -116,7 +116,7 @@ class ModelService(BaseService):
 
         if create_data.active:
             self._deactivate_existing_active_model(project_id=project_id)
-            self._emit_activation(project_id=project_id, model_id=create_data.id)
+            self._emit_component_change(project_id=project_id, model_id=create_data.id)
 
         new_model: ProcessorDB = processor_schema_to_db(schema=create_data, project_id=project_id)
         self.processor_repository.add(new_model)
@@ -175,9 +175,6 @@ class ModelService(BaseService):
 
         if update_data.active:
             self._deactivate_existing_active_model(project_id=project_id)
-            self._emit_activation(project_id=project_id, model_id=model_id)
-        else:
-            self._emit_deactivation(project_id=project_id, model_id=model_id)
 
         # Update name if provided and different
         if update_data.name is not None and model.name != update_data.name:
@@ -222,9 +219,6 @@ class ModelService(BaseService):
             logger.error(f"Cannot delete model: id={model_id} not found in project_id={project_id}")
             raise ResourceNotFoundError(resource_type=ResourceType.PROCESSOR, resource_id=str(model_id))
 
-        if model.active:
-            self._emit_deactivation(project_id=project_id, model_id=model.id)
-
         self.processor_repository.delete(model)
         self.session.commit()
         self._emit_component_change(project_id=project_id, model_id=model_id)
@@ -259,18 +253,16 @@ class ModelService(BaseService):
         if active_model:
             logger.info(f"Deactivated previously active model: id={active_model.id} project_id={project_id}")
             active_model.active = False
-            self._emit_deactivation(project_id=project_id, model_id=active_model.id)
+            self._emit_component_change(project_id=project_id, model_id=active_model.id)
 
     def _emit_component_change(self, project_id: UUID, model_id: UUID) -> None:
         """
         Emit a component configuration change event for model to trigger pipeline updates.
         """
         if self._dispatcher:
-            self._dispatcher.dispatch(
+            self._pending_events.append(
                 ComponentConfigChangeEvent(
-                    project_id=project_id,
-                    component_type="processor",
-                    component_id=str(model_id),
+                    project_id=project_id, component_id=str(model_id), component_type="processor"
                 )
             )
 
@@ -330,25 +322,3 @@ class ModelService(BaseService):
             for ev in self._pending_events:
                 self._dispatcher.dispatch(ev)
         self._pending_events.clear()
-
-    def _emit_activation(self, project_id: UUID, model_id: UUID) -> None:
-        """
-        Queue project activation event (dispatched after commit).
-        """
-        if self._dispatcher:
-            self._pending_events.append(
-                ComponentConfigChangeEvent(
-                    project_id=project_id, component_id=str(model_id), component_type="processor"
-                )
-            )
-
-    def _emit_deactivation(self, project_id: UUID, model_id: UUID) -> None:
-        """
-        Queue project deactivation event (dispatched after commit).
-        """
-        if self._dispatcher:
-            self._pending_events.append(
-                ComponentConfigChangeEvent(
-                    project_id=project_id, component_id=str(model_id), component_type="processor"
-                )
-            )

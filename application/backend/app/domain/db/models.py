@@ -129,6 +129,13 @@ class ProcessorDB(Base):
             unique=True,
             sqlite_where=sa_text("name IS NOT NULL"),
         ),
+        Index(
+            UniqueConstraintName.SINGLE_ACTIVE_PROCESSOR_PER_PROJECT,
+            "project_id",
+            "active",
+            unique=True,
+            sqlite_where=sa_text("active IS 1"),
+        ),
     )
 
 
