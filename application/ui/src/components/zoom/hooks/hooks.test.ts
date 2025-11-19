@@ -82,10 +82,10 @@ describe('usePanning', () => {
 });
 
 describe('useWheelPanning', () => {
-    let setIsPanning: ReturnType<typeof vi.fn>;
+    let setIsPanning: ReturnType<typeof vi.fn<(value: boolean) => void>>;
 
     beforeEach(() => {
-        setIsPanning = vi.fn();
+        setIsPanning = vi.fn<(value: boolean) => void>();
     });
 
     it('returns initial isGrabbing state as false', () => {
