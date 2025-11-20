@@ -17,6 +17,7 @@ from domain.errors import (
 )
 from domain.repositories.label import LabelRepository
 from domain.repositories.project import ProjectRepository
+from domain.services.base import BaseService
 from domain.services.schemas.label import (
     LabelCreateSchema,
     LabelSchema,
@@ -28,7 +29,7 @@ from domain.services.schemas.mappers.label import label_db_to_schema, label_sche
 logger = logging.getLogger(__name__)
 
 
-class LabelService:
+class LabelService(BaseService):
     """
     Service layer orchestrating label operations within a project.
     Responsibilities:
@@ -46,7 +47,7 @@ class LabelService:
         """
         Initialize the service with a SQLAlchemy session.
         """
-        self.session = session
+        super().__init__(session=session)
         self.label_repository = label_repository or LabelRepository(session=session)
         self.project_repository = project_repository or ProjectRepository(session=session)
 
@@ -85,12 +86,10 @@ class LabelService:
         label: LabelDB = label_schema_to_db(create_data)
         label.project_id = project_id
 
-        self.label_repository.add(label=label)
-
         try:
-            self.session.commit()
+            with self.transaction():
+                self.label_repository.add(label=label)
         except IntegrityError as exc:
-            self.session.rollback()
             logger.error("Label creation failed due to constraint violation: %s", exc)
             self._handle_label_integrity_error(exc, label.id, project_id, create_data.name, "create")
 
@@ -141,8 +140,8 @@ class LabelService:
             logger.error("Label not found id=%s for project_id=%s", label_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.LABEL, resource_id=str(label_id))
 
-        self.label_repository.delete(project_id=project_id, label=label)
-        self.session.commit()
+        with self.transaction():
+            self.label_repository.delete(project_id=project_id, label=label)
         logger.info("Label deleted id=%s project_id=%s", label_id, project_id)
 
     def update_label(self, project_id: UUID, label_id: UUID, update_data: LabelUpdateSchema) -> LabelSchema:
@@ -164,28 +163,26 @@ class LabelService:
             logger.error("Update failed; label not found id=%s in project=%s", label_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.LABEL, resource_id=str(label_id))
 
-        changed = False
-
-        # Update name if provided and different
-        if update_data.name is not None and label.name != update_data.name:
-            label.name = update_data.name
-            changed = True
-
-        # Update color if provided and different
-        if update_data.color is not None:
-            color = update_data.color.as_hex(format="long").lower()
-            if label.color != color:
-                label.color = color
-                changed = True
-
-        if not changed:
-            logger.debug("No changes detected for label id=%s in project=%s", label.id, project_id)
-            return label_db_to_schema(label=label)
-
         try:
-            self.session.commit()
+            with self.transaction():
+                changed = False
+
+                # Update name if provided and different
+                if update_data.name is not None and label.name != update_data.name:
+                    label.name = update_data.name
+                    changed = True
+
+                # Update color if provided and different
+                if update_data.color is not None:
+                    color = update_data.color.as_hex(format="long").lower()
+                    if label.color != color:
+                        label.color = color
+                        changed = True
+
+                if not changed:
+                    logger.debug("No changes detected for label id=%s in project=%s", label.id, project_id)
+                    return label_db_to_schema(label=label)
         except IntegrityError as exc:
-            self.session.rollback()
             logger.error("Label update failed due to constraint violation: %s", exc)
             self._handle_label_integrity_error(exc, label.id, project_id, update_data.name, "update")
 

@@ -22,6 +22,7 @@ from domain.errors import (
     ResourceType,
 )
 from domain.repositories.project import ProjectRepository
+from domain.services.base import BaseService
 from domain.services.schemas.mappers.project import (
     project_db_to_schema,
     project_schema_to_db,
@@ -40,7 +41,7 @@ from domain.services.schemas.reader import ReaderConfig
 logger = logging.getLogger(__name__)
 
 
-class ProjectService:
+class ProjectService(BaseService):
     """
     Service layer orchestrating project configs use cases.
 
@@ -60,10 +61,8 @@ class ProjectService:
         """
         Initialize the service with a SQLAlchemy session.
         """
-        self.session = session
+        super().__init__(session=session, config_change_dispatcher=config_change_dispatcher)
         self.project_repository = project_repository or ProjectRepository(session=session)
-        self._dispatcher = config_change_dispatcher
-        self._pending_events: list[ProjectActivationEvent | ProjectDeactivationEvent] = []
 
     def create_project(self, create_data: ProjectCreateSchema) -> ProjectSchema:
         """
@@ -80,16 +79,14 @@ class ProjectService:
         self.project_repository.add(project)
 
         try:
-            self.session.flush()
-            self._activate_project(project)
-            self.session.commit()
+            with self.transaction():
+                self.session.flush()
+                self._activate_project(project)
         except IntegrityError as exc:
-            self.session.rollback()
             logger.error("Project creation failed due to constraint violation: %s", exc)
             self._handle_project_integrity_error(exc, project.id, create_data.name)
 
         self.session.refresh(project)
-        self._dispatch_pending_events()
         logger.info(
             "Project created: id=%s name=%s active=%s",
             project.id,
@@ -144,34 +141,35 @@ class ProjectService:
             logger.error("Update failed; project not found id=%s", project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
 
-        changed = False
 
-        if update_data.name is not None and update_data.name != project.name:
-            logger.debug("Renaming project id=%s from '%s' to '%s'", project_id, project.name, update_data.name)
-            project.name = update_data.name
-            changed = True
+        try:
+            with self.transaction():
+                if update_data.name is not None and update_data.name != project.name:
+                    logger.debug("Renaming project id=%s from '%s' to '%s'", project_id, project.name, update_data.name)
+                    project.name = update_data.name
 
-        if update_data.active is not None and project.active != update_data.active:
-            if update_data.active:
-                logger.debug("Activating project id=%s via update request", project_id)
-                self._activate_project(project)
-            else:
-                logger.debug("Deactivating project id=%s via update request", project_id)
-                project.active = False
-                self.session.flush()
-                self._emit_deactivation(project.id)
-            changed = True
-
-        if changed:
-            try:
-                self.session.commit()
-            except IntegrityError as exc:
-                self.session.rollback()
-                logger.error("Project update failed due to constraint violation: %s", exc)
-                self._handle_project_integrity_error(exc, project_id, update_data.name)
+                if update_data.active is not None and project.active != update_data.active:
+                    if update_data.active:
+                        logger.debug("Activating project id=%s via update request", project_id)
+                        try:
+                            self._activate_project(project)
+                        except Exception as exc:
+                            logger.error("Failed to activate project: %s", exc)
+                            raise
+                    else:
+                        logger.debug("Deactivating project id=%s via update request", project_id)
+                        project.active = False
+                        try:
+                            self.session.flush()
+                        except Exception as exc:
+                            logger.error("Failed to flush project deactivation: %s", exc)
+                            raise
+                        self._emit_deactivation(project.id)
+        except IntegrityError as exc:
+            logger.error("Project update failed due to constraint violation: %s", exc)
+            self._handle_project_integrity_error(exc, project_id, update_data.name)
 
             self.session.refresh(project)
-            self._dispatch_pending_events()
             logger.info(
                 "Project updated: id=%s name=%s active=%s",
                 project.id,
@@ -200,9 +198,8 @@ class ProjectService:
                 resource_type=ResourceType.PROJECT,
                 resource_id=str(project_id),
             )
-        self._activate_project(project)
-        self.session.commit()
-        self._dispatch_pending_events()
+        with self.transaction():
+            self._activate_project(project)
         logger.info("Project activated: id=%s", project.id)
 
     def get_active_project_info(self) -> ProjectSchema:
@@ -288,17 +285,18 @@ class ProjectService:
                 resource_id=str(project_id),
             )
 
-        if project.active:
-            self._emit_deactivation(project.id)
-        self.project_repository.delete(project)
-        self.session.commit()
-        self._dispatch_pending_events()
+
+        with self.transaction():
+            if project.active:
+                self._emit_deactivation(project.id)
+            self.project_repository.delete(project)
         logger.info("Project deleted: id=%s", project_id)
 
     def _activate_project(self, project: ProjectDB) -> None:
         """
         Ensure only one project is active.
         Deactivate the currently active project (if different) and activate the target.
+        Flushes changes to DB.
         """
         current = self.project_repository.get_active()
 
@@ -312,11 +310,19 @@ class ProjectService:
                 project.id,
             )
             current.active = False
-            self.session.flush()
+            try:
+                self.session.flush()
+            except Exception as exc:
+                logger.error("Failed to flush project deactivation: %s", exc)
+                raise
             self._emit_deactivation(current.id)
 
         project.active = True
-        self.session.flush()
+        try:
+            self.session.flush()
+        except Exception as exc:
+            logger.error("Failed to flush project activation: %s", exc)
+            raise
         self._emit_activation(project.id)
 
     def _emit_activation(self, project_id: UUID) -> None:
@@ -333,14 +339,6 @@ class ProjectService:
         if self._dispatcher:
             self._pending_events.append(ProjectDeactivationEvent(project_id=project_id))
 
-    def _dispatch_pending_events(self) -> None:
-        """
-        Dispatch and clear queued events (call only after a successful commit).
-        """
-        if self._dispatcher and self._pending_events:
-            for ev in self._pending_events:
-                self._dispatcher.dispatch(ev)
-        self._pending_events.clear()
 
     def _handle_project_integrity_error(
         self, exc: IntegrityError, project_id: UUID, project_name: str | None = None

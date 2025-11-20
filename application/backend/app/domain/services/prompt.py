@@ -22,6 +22,7 @@ from domain.repositories.frame import FrameRepository
 from domain.repositories.label import LabelRepository
 from domain.repositories.project import ProjectRepository
 from domain.repositories.prompt import PromptRepository
+from domain.services.base import BaseService
 from domain.services.schemas.annotation import AnnotationSchema
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.mappers.annotation import annotations_db_to_schemas
@@ -47,7 +48,7 @@ from domain.services.thumbnail import generate_thumbnail
 logger = logging.getLogger(__name__)
 
 
-class PromptService:
+class PromptService(BaseService):
     """
     Service layer orchestrating Prompt use cases.
 
@@ -69,7 +70,7 @@ class PromptService:
         """
         Initialize the service with a SQLAlchemy session.
         """
-        self.session = session
+        super().__init__(session=session)
         self.prompt_repository = prompt_repository or PromptRepository(session=session)
         self.project_repository = project_repository or ProjectRepository(session=session)
         self.frame_repository = frame_repository or FrameRepository()
@@ -124,7 +125,7 @@ class PromptService:
             logger.error("Project not found id=%s", project_id)
             return None
 
-        db_prompts = self.prompt_repository.get_all_by_project(project_id, prompt_type=prompt_type)
+        db_prompts = self.prompt_repository.list_all_by_project(project_id, prompt_type)
 
         samples = []
         for prompt in db_prompts:
@@ -234,16 +235,16 @@ class PromptService:
             self._validate_annotation_labels(create_data.annotations, project_id)
             thumbnail = self._generate_thumbnail(project_id, create_data.frame_id, create_data.annotations)
 
-        new_prompt: PromptDB = prompt_create_schema_to_db(
-            schema=create_data, project_id=project_id, thumbnail=thumbnail
-        )
 
-        self.prompt_repository.add(new_prompt)
 
         try:
-            self.session.commit()
+            with self.transaction():
+                new_prompt: PromptDB = prompt_create_schema_to_db(
+                    schema=create_data, project_id=project_id, thumbnail=thumbnail
+                )
+
+                self.prompt_repository.add(new_prompt)
         except IntegrityError as exc:
-            self.session.rollback()
             logger.error("Prompt creation failed due to constraint violation: %s", exc)
             self._handle_prompt_integrity_error(exc, new_prompt.id, project_id, new_prompt.type, new_prompt.frame_id)
 
@@ -278,23 +279,24 @@ class PromptService:
             logger.error("Cannot delete prompt: prompt_id=%s not found in project_id=%s", prompt_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.PROMPT, resource_id=str(prompt_id))
 
-        if prompt.type == PromptType.VISUAL and prompt.frame_id:
-            frame_deleted = self.frame_repository.delete_frame(project_id, prompt.frame_id)
-            if frame_deleted:
-                logger.info(
-                    "Deleted frame file for visual prompt: frame_id=%s project_id=%s",
-                    prompt.frame_id,
-                    project_id,
-                )
-            else:
-                logger.warning(
-                    "Frame file not found for deletion: frame_id=%s project_id=%s",
-                    prompt.frame_id,
-                    project_id,
-                )
 
-        self.prompt_repository.delete(prompt)
-        self.session.commit()
+        with self.transaction():
+            if prompt.type == PromptType.VISUAL and prompt.frame_id:
+                frame_deleted = self.frame_repository.delete_frame(project_id, prompt.frame_id)
+                if frame_deleted:
+                    logger.info(
+                        "Deleted frame file for visual prompt: frame_id=%s project_id=%s",
+                        prompt.frame_id,
+                        project_id,
+                    )
+                else:
+                    logger.warning(
+                        "Frame file not found for deletion: frame_id=%s project_id=%s",
+                        prompt.frame_id,
+                        project_id,
+                    )
+
+            self.prompt_repository.delete(prompt)
         logger.info("Prompt deleted: prompt_id=%s project_id=%s", prompt_id, project_id)
 
     def update_prompt(self, project_id: UUID, prompt_id: UUID, update_data: PromptUpdateSchema) -> PromptSchema:
@@ -346,15 +348,16 @@ class PromptService:
         if isinstance(update_data, VisualPromptUpdateSchema):
             regenerate_thumbnail = self._handle_visual_prompt_update(prompt, update_data, project_id)
 
-        prompt = prompt_update_schema_to_db(prompt, update_data)
 
-        if regenerate_thumbnail and prompt.frame_id:
-            annotations = annotations_db_to_schemas(prompt.annotations)
-            prompt.thumbnail = self._generate_thumbnail(project_id, prompt.frame_id, annotations)
+
         try:
-            self.session.commit()
+            with self.transaction():
+                prompt = prompt_update_schema_to_db(prompt, update_data)
+
+                if regenerate_thumbnail and prompt.frame_id:
+                    annotations = annotations_db_to_schemas(prompt.annotations)
+                    prompt.thumbnail = self._generate_thumbnail(project_id, prompt.frame_id, annotations)
         except IntegrityError as exc:
-            self.session.rollback()
             logger.error("Prompt update failed due to constraint violation: %s", exc)
             self._handle_prompt_integrity_error(exc, prompt.id, project_id, prompt.type)
 

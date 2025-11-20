@@ -19,6 +19,7 @@ from domain.errors import (
 )
 from domain.repositories.project import ProjectRepository
 from domain.repositories.source import SourceRepository
+from domain.services.base import BaseService
 from domain.services.schemas.mappers.source import (
     source_db_to_schema,
     source_schema_to_db,
@@ -34,7 +35,7 @@ from domain.services.schemas.source import (
 logger = logging.getLogger(__name__)
 
 
-class SourceService:
+class SourceService(BaseService):
     """
     Service layer orchestrating Source configs use cases.
 
@@ -55,10 +56,9 @@ class SourceService:
         """
         Initialize the service with a SQLAlchemy session.
         """
-        self.session = session
+        super().__init__(session=session, config_change_dispatcher=config_change_dispatcher)
         self.source_repository = source_repository or SourceRepository(session=session)
         self.project_repository = project_repository or ProjectRepository(session=session)
-        self._dispatcher = config_change_dispatcher
 
     def list_sources(self, project_id: UUID) -> SourcesListSchema:
         """
@@ -111,16 +111,15 @@ class SourceService:
             create_data.connected,
         )
 
-        if create_data.connected:
-            self._disconnect_existing_connected_source(project_id=project_id)
 
-        new_source: SourceDB = source_schema_to_db(schema=create_data, project_id=project_id)
-        self.source_repository.add(new_source)
 
         try:
-            self.session.commit()
+            with self.transaction():
+                if create_data.connected:
+                    self._disconnect_existing_connected_source(project_id=project_id)
+                new_source: SourceDB = source_schema_to_db(schema=create_data, project_id=project_id)
+                self.source_repository.add(new_source)
         except IntegrityError as exc:
-            self.session.rollback()
             logger.error("Source creation failed due to constraint violation: %s", exc)
             self._handle_source_integrity_error(exc, new_source.id, project_id, source_type, source_name)
 
@@ -169,16 +168,16 @@ class SourceService:
                 resource_id=str(source_id),
                 field="source_type",
             )
-        if update_data.connected and not source.connected:
-            self._disconnect_existing_connected_source(project_id=project_id)
 
-        source.connected = update_data.connected
-        source.config = update_data.config.model_dump()
+
 
         try:
-            self.session.commit()
+            with self.transaction():
+                if update_data.connected and not source.connected:
+                    self._disconnect_existing_connected_source(project_id=project_id)
+                source.connected = update_data.connected
+                source.config = update_data.config.model_dump()
         except IntegrityError as exc:
-            self.session.rollback()
             logger.error("Source update failed due to constraint violation: %s", exc)
             self._handle_source_integrity_error(exc, source.id, project_id, existing_type, source_name)
 
@@ -210,10 +209,11 @@ class SourceService:
         if not source:
             logger.error("Cannot delete source: source_id=%s not found in project_id=%s", source_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.SOURCE, resource_id=str(source_id))
-        self.source_repository.delete(source)
-        self.session.commit()
+
+        with self.transaction():
+            self.source_repository.delete(source)
+            self._emit_component_change(project_id=project_id, source_id=source_id)
         logger.info("Source deleted: source_id=%s project_id=%s", source_id, project_id)
-        self._emit_component_change(project_id=project_id, source_id=source_id)
 
     def _ensure_project(self, project_id: UUID) -> ProjectDB:
         """
@@ -237,6 +237,7 @@ class SourceService:
     def _disconnect_existing_connected_source(self, project_id: UUID) -> None:
         """
         Disconnect any currently connected source in the project.
+        Flushes changes to DB and emits deactivation event.
         Does not commit by itself; caller commits.
         """
         connected_source = self.source_repository.get_connected_in_project(project_id)
@@ -247,13 +248,19 @@ class SourceService:
                 project_id,
             )
             connected_source.connected = False
+            try:
+                self.session.flush()
+            except Exception as exc:
+                logger.error("Failed to flush source disconnection: %s", exc)
+                raise
+            self._emit_component_change(project_id=project_id, source_id=connected_source.id)
 
     def _emit_component_change(self, project_id: UUID, source_id: UUID) -> None:
         """
         Emit a component configuration change event for sources to trigger pipeline updates.
         """
         if self._dispatcher:
-            self._dispatcher.dispatch(
+            self._pending_events.append(
                 ComponentConfigChangeEvent(
                     project_id=project_id,
                     component_type="source",
