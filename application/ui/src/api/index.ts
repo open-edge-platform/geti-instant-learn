@@ -23,6 +23,8 @@ export type ImagesFolderSourceType = SourceWithoutConfig & { config: ImagesFolde
 export { $api, client } from './client';
 export {
     type paths,
+    type SchemaProcessorSchema as ModelType,
+    type SchemaProcessorListSchema as ModelListType,
     type SchemaProjectSchema as ProjectType,
     type SchemaProjectsListSchema as ProjectsListType,
     type SchemaProjectUpdateSchema as ProjectUpdateType,
