@@ -72,7 +72,7 @@ class Settings(BaseSettings):
     def prefix_paths(cls, v: str | None) -> str | None:
         if v and getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
             # If application is running in pyinstaller bundle, adjust the path accordingly.
-            return os.path.join(sys._MEIPASS, v)
+            return os.path.join(getattr(sys, "_MEIPASS", ""), v)
         return v
 
 

@@ -70,7 +70,7 @@ jobs:
         # Build UI with Tauri
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6d9817901c499d6b02debbb57edb38d33daa680b
         with:
           toolchain: stable
 
