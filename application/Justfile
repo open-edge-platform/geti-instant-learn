@@ -51,7 +51,6 @@ docker-extra-args := http-proxy-build-arg + https-proxy-build-arg + no-proxy-bui
 
 download-dataset:
     #!/usr/bin/env bash
-    echo "Checking if dataset directory {{ source-dataset-dir }} exists and is not empty"
     if [ -d "{{ source-dataset-dir }}" ] && [ "$(ls -A {{ source-dataset-dir }})" ]; then
         echo "Dataset directory {{ source-dataset-dir }} already exists and is not empty. Skipping download."
         exit 0
