@@ -20,17 +20,19 @@ def masks_to_boxes(masks: torch.Tensor, obj_ids: list[int]):
 
         masks_with_obj = masks != 0  # N, H, W
         masks_with_obj_x = masks_with_obj.amax(
-            dim=1
+            dim=1,
         )  # N, H (which columns have objects)
         masks_with_obj_y = masks_with_obj.amax(dim=2)  # N, W (which rows have objects)
         masks_without_obj_x = ~masks_with_obj_x
         masks_without_obj_y = ~masks_with_obj_y
 
         bounding_boxes_0 = torch.amin(
-            (masks_without_obj_x * W) + (masks_with_obj_x * x), dim=1
+            (masks_without_obj_x * W) + (masks_with_obj_x * x),
+            dim=1,
         )
         bounding_boxes_1 = torch.amin(
-            (masks_without_obj_y * H) + (masks_with_obj_y * y), dim=1
+            (masks_without_obj_y * H) + (masks_with_obj_y * y),
+            dim=1,
         )
         bounding_boxes_2 = torch.amax(masks_with_obj_x * x, dim=1)
         bounding_boxes_3 = torch.amax(masks_with_obj_y * y, dim=1)
@@ -46,8 +48,8 @@ def masks_to_boxes(masks: torch.Tensor, obj_ids: list[int]):
 
 
 def mask_iou(pred_masks: torch.Tensor, gt_masks: torch.Tensor) -> torch.Tensor:
-    """
-    Compute the IoU (Intersection over Union) between predicted masks and ground truth masks.
+    """Compute the IoU (Intersection over Union) between predicted masks and ground truth masks.
+
     Args:
       - pred_masks: (N, H, W) bool Tensor, containing binary predicted segmentation masks
       - gt_masks: (M, H, W) bool Tensor, containing binary ground truth segmentation masks

@@ -1,18 +1,16 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates. All Rights Reserved
 # Based on https://github.com/IDEA-Research/GroundingDINO
 
-from typing import Any, Dict, List, Optional, Tuple
 
 import torch
-from torch import nn, Tensor
+from torch import Tensor, nn
 
 from .act_ckpt_utils import activation_ckpt_wrapper
 from .model_misc import get_activation_fn, get_clones, get_valid_ratio
 
 
 class TransformerEncoderLayer(nn.Module):
-    """
-    Transformer encoder layer that performs self-attention followed by cross-attention.
+    """Transformer encoder layer that performs self-attention followed by cross-attention.
 
     This layer was previously called TransformerDecoderLayer but was renamed to better
     reflect its role in the architecture. It processes input sequences through self-attention
@@ -35,8 +33,7 @@ class TransformerEncoderLayer(nn.Module):
         pre_norm: bool,
         self_attention: nn.Module,
     ):
-        """
-        Initialize a transformer encoder layer.
+        """Initialize a transformer encoder layer.
 
         Args:
             activation: Activation function to use in the feedforward network
@@ -83,16 +80,15 @@ class TransformerEncoderLayer(nn.Module):
         self,
         tgt: Tensor,
         memory: Tensor,
-        tgt_mask: Optional[Tensor] = None,
-        memory_mask: Optional[Tensor] = None,
-        tgt_key_padding_mask: Optional[Tensor] = None,
-        memory_key_padding_mask: Optional[Tensor] = None,
-        pos: Optional[Tensor] = None,
-        query_pos: Optional[Tensor] = None,
+        tgt_mask: Tensor | None = None,
+        memory_mask: Tensor | None = None,
+        tgt_key_padding_mask: Tensor | None = None,
+        memory_key_padding_mask: Tensor | None = None,
+        pos: Tensor | None = None,
+        query_pos: Tensor | None = None,
         **kwargs,
     ) -> Tensor:
-        """
-        Forward pass for post-norm architecture.
+        """Forward pass for post-norm architecture.
 
         In post-norm architecture, normalization is applied after attention and feedforward operations.
 
@@ -114,7 +110,11 @@ class TransformerEncoderLayer(nn.Module):
 
         # Self attention
         tgt2 = self.self_attn(
-            q, k, value=tgt, attn_mask=tgt_mask, key_padding_mask=tgt_key_padding_mask
+            q,
+            k,
+            value=tgt,
+            attn_mask=tgt_mask,
+            key_padding_mask=tgt_key_padding_mask,
         )[0]
         tgt = tgt + self.dropout1(tgt2)
         tgt = self.norm1(tgt)
@@ -141,17 +141,16 @@ class TransformerEncoderLayer(nn.Module):
         tgt: Tensor,
         memory: Tensor,
         dac: bool = False,
-        tgt_mask: Optional[Tensor] = None,
-        memory_mask: Optional[Tensor] = None,
-        tgt_key_padding_mask: Optional[Tensor] = None,
-        memory_key_padding_mask: Optional[Tensor] = None,
-        pos: Optional[Tensor] = None,
-        query_pos: Optional[Tensor] = None,
+        tgt_mask: Tensor | None = None,
+        memory_mask: Tensor | None = None,
+        tgt_key_padding_mask: Tensor | None = None,
+        memory_key_padding_mask: Tensor | None = None,
+        pos: Tensor | None = None,
+        query_pos: Tensor | None = None,
         # attn_bias: Optional[Tensor] = None,
         # **kwargs,
     ) -> Tensor:
-        """
-        Forward pass for pre-norm architecture.
+        """Forward pass for pre-norm architecture.
 
         In pre-norm architecture, normalization is applied before attention and feedforward operations.
 
@@ -179,7 +178,11 @@ class TransformerEncoderLayer(nn.Module):
         tgt2 = self.norm1(tgt)
         q = k = tgt2 + query_pos if self.pos_enc_at_attn else tgt2
         tgt2 = self.self_attn(
-            q, k, value=tgt2, attn_mask=tgt_mask, key_padding_mask=tgt_key_padding_mask
+            q,
+            k,
+            value=tgt2,
+            attn_mask=tgt_mask,
+            key_padding_mask=tgt_key_padding_mask,
         )[0]
         tgt = tgt + self.dropout1(tgt2)
         if dac:
@@ -205,17 +208,16 @@ class TransformerEncoderLayer(nn.Module):
         tgt: Tensor,
         memory: Tensor,
         dac: bool = False,
-        tgt_mask: Optional[Tensor] = None,
-        memory_mask: Optional[Tensor] = None,
-        tgt_key_padding_mask: Optional[Tensor] = None,
-        memory_key_padding_mask: Optional[Tensor] = None,
-        pos: Optional[Tensor] = None,
-        query_pos: Optional[Tensor] = None,
+        tgt_mask: Tensor | None = None,
+        memory_mask: Tensor | None = None,
+        tgt_key_padding_mask: Tensor | None = None,
+        memory_key_padding_mask: Tensor | None = None,
+        pos: Tensor | None = None,
+        query_pos: Tensor | None = None,
         # attn_bias: Optional[Tensor] = None,
         # **kwds: Any,
     ) -> torch.Tensor:
-        """
-        Forward pass for the transformer encoder layer.
+        """Forward pass for the transformer encoder layer.
 
         Args:
             tgt: Input tensor to be processed
@@ -250,8 +252,7 @@ class TransformerEncoderLayer(nn.Module):
 
 
 class TransformerEncoder(nn.Module):
-    """
-    Transformer encoder that processes multi-level features.
+    """Transformer encoder that processes multi-level features.
 
     This encoder takes multi-level features (e.g., from a backbone network) and processes
     them through a stack of transformer encoder layers. It supports features from multiple
@@ -304,10 +305,18 @@ class TransformerEncoder(nn.Module):
             for lvl, (H_, W_) in enumerate(spatial_shapes):
                 ref_y, ref_x = torch.meshgrid(
                     torch.linspace(
-                        0.5, H_ - 0.5, H_, dtype=torch.float32, device=device
+                        0.5,
+                        H_ - 0.5,
+                        H_,
+                        dtype=torch.float32,
+                        device=device,
                     ),
                     torch.linspace(
-                        0.5, W_ - 0.5, W_, dtype=torch.float32, device=device
+                        0.5,
+                        W_ - 0.5,
+                        W_,
+                        dtype=torch.float32,
+                        device=device,
                     ),
                 )
                 ref_y = ref_y.reshape(-1)[None] / (valid_ratios[:, None, lvl, 1] * H_)
@@ -320,16 +329,14 @@ class TransformerEncoder(nn.Module):
         return reference_points
 
     def _prepare_multilevel_features(self, srcs, masks, pos_embeds):
-        assert (
-            len(srcs) == self.num_feature_levels
-        ), "mismatch between expected and received # of feature levels"
+        assert len(srcs) == self.num_feature_levels, "mismatch between expected and received # of feature levels"
 
         src_flatten = []
         mask_flatten = []
         lvl_pos_embed_flatten = []
         spatial_shapes = []
         has_mask = masks is not None and masks[0] is not None
-        for lvl, (src, mask, pos_embed) in enumerate(zip(srcs, masks, pos_embeds)):
+        for lvl, (src, mask, pos_embed) in enumerate(zip(srcs, masks, pos_embeds, strict=False)):
             bs, c, h, w = src.shape
             spatial_shape = (h, w)
             spatial_shapes.append(spatial_shape)
@@ -350,13 +357,15 @@ class TransformerEncoder(nn.Module):
         mask_flatten = torch.cat(mask_flatten, 1) if has_mask else None  # bs, \sum{hxw}
         lvl_pos_embed_flatten = torch.cat(lvl_pos_embed_flatten, 1)  # bs, \sum{hxw}, c
         spatial_shapes = torch.tensor(
-            spatial_shapes, dtype=torch.long, device=src_flatten.device
+            spatial_shapes,
+            dtype=torch.long,
+            device=src_flatten.device,
         )
         level_start_index = torch.cat(
             (
                 spatial_shapes.new_zeros((1,)),
                 spatial_shapes.prod(1).cumsum(0)[:-1],
-            )
+            ),
         )
         if has_mask:
             valid_ratios = torch.stack([get_valid_ratio(m) for m in masks], 1)
@@ -377,15 +386,14 @@ class TransformerEncoder(nn.Module):
 
     def forward(
         self,
-        src: List[Tensor],
-        src_key_padding_masks: Optional[List[Tensor]] = None,
-        pos: Optional[List[Tensor]] = None,
-        prompt: Optional[Tensor] = None,
-        prompt_key_padding_mask: Optional[Tensor] = None,
-        encoder_extra_kwargs: Optional[Dict] = None,
-    ) -> Tuple[Tensor, Optional[Tensor], Tensor, Tensor, Tensor, Tensor]:
-        """
-        Process multi-level features through the transformer encoder.
+        src: list[Tensor],
+        src_key_padding_masks: list[Tensor] | None = None,
+        pos: list[Tensor] | None = None,
+        prompt: Tensor | None = None,
+        prompt_key_padding_mask: Tensor | None = None,
+        encoder_extra_kwargs: dict | None = None,
+    ) -> tuple[Tensor, Tensor | None, Tensor, Tensor, Tensor, Tensor]:
+        """Process multi-level features through the transformer encoder.
 
         Args:
             src: List of multi-level features, each with shape (batch_size, channels, height, width)
@@ -404,9 +412,7 @@ class TransformerEncoder(nn.Module):
             - spatial_shapes: Spatial dimensions of each feature level
             - valid_ratios: Valid ratios for each feature level
         """
-        assert (
-            len(src) == self.num_feature_levels
-        ), "must be equal to num_feature_levels"
+        assert len(src) == self.num_feature_levels, "must be equal to num_feature_levels"
         if src_key_padding_masks is not None:
             assert len(src_key_padding_masks) == self.num_feature_levels
         if pos is not None:
@@ -422,7 +428,9 @@ class TransformerEncoder(nn.Module):
         ) = self._prepare_multilevel_features(src, src_key_padding_masks, pos)
 
         reference_points = self.get_reference_points(
-            spatial_shapes, valid_ratios, device=src_flatten.device
+            spatial_shapes,
+            valid_ratios,
+            device=src_flatten.device,
         )
 
         output = src_flatten
@@ -447,11 +455,7 @@ class TransformerEncoder(nn.Module):
         # return as seq first
         return (
             output.transpose(0, 1),
-            (
-                key_padding_masks_flatten.transpose(0, 1)
-                if key_padding_masks_flatten is not None
-                else None
-            ),
+            (key_padding_masks_flatten.transpose(0, 1) if key_padding_masks_flatten is not None else None),
             lvl_pos_embed_flatten.transpose(0, 1),
             level_start_index,
             spatial_shapes,
@@ -460,8 +464,7 @@ class TransformerEncoder(nn.Module):
 
 
 class TransformerEncoderFusion(TransformerEncoder):
-    """
-    Transformer encoder that fuses text and image features.
+    """Transformer encoder that fuses text and image features.
 
     This encoder extends TransformerEncoder to handle both text and image features,
     with the ability to add pooled text features to image features for better
@@ -486,7 +489,7 @@ class TransformerEncoderFusion(TransformerEncoder):
         num_feature_levels: int,
         add_pooled_text_to_img_feat: bool = True,
         pool_text_with_mask: bool = False,
-        compile_mode: Optional[str] = None,
+        compile_mode: str | None = None,
         **kwargs,
     ):
         super().__init__(
@@ -502,7 +505,9 @@ class TransformerEncoderFusion(TransformerEncoder):
         self.pool_text_with_mask = pool_text_with_mask
         if compile_mode is not None:
             self.forward = torch.compile(
-                self.forward, mode=compile_mode, fullgraph=True
+                self.forward,
+                mode=compile_mode,
+                fullgraph=True,
             )
 
     @staticmethod
@@ -512,14 +517,14 @@ class TransformerEncoderFusion(TransformerEncoder):
 
     def forward(
         self,
-        src: List[Tensor],
+        src: list[Tensor],
         prompt: Tensor,
-        src_key_padding_mask: Optional[List[Tensor]] = None,
-        src_pos: Optional[List[Tensor]] = None,
-        prompt_key_padding_mask: Optional[Tensor] = None,
-        prompt_pos: Optional[Tensor] = None,
-        feat_sizes: Optional[List[int]] = None,
-        encoder_extra_kwargs: Optional[Dict] = None,
+        src_key_padding_mask: list[Tensor] | None = None,
+        src_pos: list[Tensor] | None = None,
+        prompt_key_padding_mask: Tensor | None = None,
+        prompt_pos: Tensor | None = None,
+        feat_sizes: list[int] | None = None,
+        encoder_extra_kwargs: dict | None = None,
     ):
         # Restore spatial shapes of vision
         bs = src[0].shape[1]  # seq first
@@ -536,17 +541,19 @@ class TransformerEncoderFusion(TransformerEncoder):
                     else None
                 )
         else:
-            assert all(
-                x.dim == 4 for x in src
-            ), "expected list of (bs, c, h, w) tensors"
+            assert all(x.dim == 4 for x in src), "expected list of (bs, c, h, w) tensors"
 
         if self.add_pooled_text_to_img_feat:
             # Fusion: Add mean pooled text to image features
             pooled_text = pool_text_feat(
-                prompt, prompt_key_padding_mask, self.pool_text_with_mask
+                prompt,
+                prompt_key_padding_mask,
+                self.pool_text_with_mask,
             )
             pooled_text = self.text_pooling_proj(pooled_text)[
-                ..., None, None
+                ...,
+                None,
+                None,
             ]  # prompt is seq first
             src = [x.add_(pooled_text) for x in src]
 

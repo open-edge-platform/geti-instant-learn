@@ -17,8 +17,7 @@ def nms_masks(
     prob_threshold: float,
     iou_threshold: float,
 ) -> torch.Tensor:
-    """
-    Args:
+    """Args:
       - pred_probs: (num_det,) float Tensor, containing the score (probability) of each detection
       - pred_masks: (num_det, H_mask, W_mask) float Tensor, containing the binary segmentation mask of each detection
       - prob_threshold: float, score threshold to prefilter detections (NMS is performed on detections above threshold)
@@ -44,10 +43,11 @@ def nms_masks(
 
 
 def generic_nms(
-    ious: torch.Tensor, scores: torch.Tensor, iou_threshold=0.5
+    ious: torch.Tensor,
+    scores: torch.Tensor,
+    iou_threshold=0.5,
 ) -> torch.Tensor:
     """A generic version of `torchvision.ops.nms` that takes a pairwise IoU matrix."""
-
     assert ious.dim() == 2 and ious.size(0) == ious.size(1)
     assert scores.dim() == 1 and scores.size(0) == ious.size(0)
     return nms_triton(ious, scores, iou_threshold)

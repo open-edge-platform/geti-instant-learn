@@ -1,42 +1,51 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates. All Rights Reserved
-"""
-Misc functions, including distributed helpers.
-"""
+"""Misc functions, including distributed helpers."""
 
 from dataclasses import dataclass, fields, is_dataclass
-from typing import Any, get_args, get_origin, List, Optional, Union
+from typing import Any, Union, get_args, get_origin
 
 import torch
 
-
-MyTensor = Union[torch.Tensor, List[Any]]
+MyTensor = Union[torch.Tensor, list[Any]]
 
 
 def interpolate(
-    input, size=None, scale_factor=None, mode="nearest", align_corners=None
+    input,
+    size=None,
+    scale_factor=None,
+    mode="nearest",
+    align_corners=None,
 ):
     # type: (Tensor, Optional[List[int]], Optional[float], str, Optional[bool]) -> Tensor
-    """
-    Equivalent to nn.functional.interpolate, but with support for empty channel sizes.
-    """
+    """Equivalent to nn.functional.interpolate, but with support for empty channel sizes."""
     if input.numel() > 0:
         return torch.nn.functional.interpolate(
-            input, size, scale_factor, mode, align_corners
+            input,
+            size,
+            scale_factor,
+            mode,
+            align_corners,
         )
 
-    assert (
-        input.shape[0] != 0 or input.shape[1] != 0
-    ), "At least one of the two first dimensions must be non zero"
+    assert input.shape[0] != 0 or input.shape[1] != 0, "At least one of the two first dimensions must be non zero"
 
     if input.shape[1] == 0:
         # Pytorch doesn't support null dimension on the channel dimension, so we transpose to fake a null batch dim
         return torch.nn.functional.interpolate(
-            input.transpose(0, 1), size, scale_factor, mode, align_corners
+            input.transpose(0, 1),
+            size,
+            scale_factor,
+            mode,
+            align_corners,
         ).transpose(0, 1)
 
     # empty batch dimension is now supported in pytorch
     return torch.nn.functional.interpolate(
-        input, size, scale_factor, mode, align_corners
+        input,
+        size,
+        scale_factor,
+        mode,
+        align_corners,
     )
 
 
@@ -75,7 +84,7 @@ class FindStage:
 
     # We track the object ids referred to by this query.
     # This is beneficial for tracking in videos without the need for pointers.
-    object_ids: Optional[List[List]] = None  # List of objects per query
+    object_ids: list[list] | None = None  # List of objects per query
 
 
 @dataclass
@@ -97,14 +106,14 @@ class BatchedFindTarget:
     repeated_boxes__type = torch.float
 
     # Target Segmentation masks
-    segments: Optional[MyTensor]
+    segments: MyTensor | None
     segments__type = torch.bool
 
     # Target Semantic Segmentation masks
-    semantic_segments: Optional[MyTensor]
+    semantic_segments: MyTensor | None
     semantic_segments__type = torch.bool
 
-    is_valid_segment: Optional[MyTensor]
+    is_valid_segment: MyTensor | None
     is_valid_segment__type = torch.bool
 
     # Whether annotations are exhaustive for each query
@@ -150,17 +159,17 @@ class BatchedInferenceMetadata:
     # get_text_input: List[Optional[str]]
 
     # Adding for TA conditional inference
-    is_conditioning_only: List[Optional[bool]]
+    is_conditioning_only: list[bool | None]
 
 
 @dataclass
 class BatchedDatapoint:
     img_batch: torch.Tensor
-    find_text_batch: List[str]
-    find_inputs: List[FindStage]
-    find_targets: List[BatchedFindTarget]
-    find_metadatas: List[BatchedInferenceMetadata]
-    raw_images: Optional[List[Any]] = None
+    find_text_batch: list[str]
+    find_inputs: list[FindStage]
+    find_targets: list[BatchedFindTarget]
+    find_metadatas: list[BatchedInferenceMetadata]
+    raw_images: list[Any] | None = None
 
 
 def convert_my_tensors(obj):
@@ -179,8 +188,9 @@ def convert_my_tensors(obj):
         if field_type != MyTensor or getattr(obj, field.name) is None:
             continue
 
-        elif len(getattr(obj, field.name)) and isinstance(
-            getattr(obj, field.name)[0], torch.Tensor
+        if len(getattr(obj, field.name)) and isinstance(
+            getattr(obj, field.name)[0],
+            torch.Tensor,
         ):
             stack_dim = 0
             if field.name in [
@@ -192,7 +202,7 @@ def convert_my_tensors(obj):
                 obj,
                 field.name,
                 torch.stack(getattr(obj, field.name), dim=stack_dim).to(
-                    getattr(obj, field.name + "__type")
+                    getattr(obj, field.name + "__type"),
                 ),
             )
         else:
@@ -200,7 +210,8 @@ def convert_my_tensors(obj):
                 obj,
                 field.name,
                 torch.as_tensor(
-                    getattr(obj, field.name), dtype=getattr(obj, field.name + "__type")
+                    getattr(obj, field.name),
+                    dtype=getattr(obj, field.name + "__type"),
                 ),
             )
     return obj
