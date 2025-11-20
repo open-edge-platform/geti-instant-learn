@@ -41,8 +41,6 @@ export const ModelToolbar = () => {
             >
                 {(item) => <Item key={item.id}>{item.name}</Item>}
             </Picker>
-            {/* TODO: Enable for development only. We dont have a design for model creation */}
-            {/* <Button onPress={() => createModel()}>Create Model</Button> */}
         </Flex>
     );
 };
