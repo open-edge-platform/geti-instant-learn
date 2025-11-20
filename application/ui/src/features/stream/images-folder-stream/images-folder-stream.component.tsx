@@ -5,7 +5,7 @@
 
 import { useRef, useState } from 'react';
 
-import { useEventListener, usePromptMode } from '@geti-prompt/hooks';
+import { useEventListener } from '@geti-prompt/hooks';
 import { ActionButton, dimensionValue, Grid, minmax, View } from '@geti/ui';
 import { ChevronLeft, ChevronRight } from '@geti/ui/icons';
 
@@ -81,7 +81,7 @@ const useActiveFrameSelection = (frames: Frame[]) => {
 };
 
 export const ImagesFolderStream = () => {
-    const [promptMode] = usePromptMode();
+    // const [promptMode] = usePromptMode();
     const frames = useFrames();
     const { activeFrameIdx, activateFrame, nextFrame, prevFrame, framesRef } = useActiveFrameSelection(frames);
 
@@ -127,11 +127,15 @@ export const ImagesFolderStream = () => {
             <View gridArea={'stream'}>
                 <Video />
             </View>
+            {/* TODO: Uncomment when we support text prompt
             {promptMode === 'visual' && (
                 <View gridArea={'capture'} justifySelf={'center'}>
                     <CaptureFrameButton />
                 </View>
-            )}
+            )}*/}
+            <View gridArea={'capture'} justifySelf={'center'}>
+                <CaptureFrameButton />
+            </View>
             <View gridArea={'frames'}>
                 <FramesList
                     ref={framesRef}

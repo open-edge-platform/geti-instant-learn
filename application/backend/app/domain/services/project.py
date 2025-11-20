@@ -34,6 +34,7 @@ from domain.services.schemas.project import (
     ProjectUpdateSchema,
 )
 from runtime.core.components.schemas.pipeline import PipelineConfig
+from runtime.core.components.schemas.processor import ModelConfig
 from runtime.core.components.schemas.reader import ReaderConfig
 
 logger = logging.getLogger(__name__)
@@ -244,11 +245,18 @@ class ProjectService:
                 logger.exception(
                     "Invalid connected source config ignored: source_id=%s err=%s", connected_source.id, exc
                 )
+        processor_cfg: ModelConfig | None = None
+        model = next((m for m in project.processors if m.project_id == project_id and m.active), None)
+        if model:
+            try:
+                processor_cfg = TypeAdapter(ModelConfig).validate_python(model.config)
+            except Exception as exc:
+                logger.exception("Invalid active model config ignored: model_id=%s err=%s", model.id, exc)
 
         return PipelineConfig(
             project_id=project.id,
             reader=reader_cfg,
-            processor=None,  # TODO: populate from future processor configs
+            processor=processor_cfg,
             writer=None,  # TODO: populate from future sink/writer configs
         )
 

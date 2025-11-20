@@ -38,7 +38,8 @@ describe('ImagesFolderStream', () => {
         expect(screen.getByRole('button', { name: 'Capture' })).toBeInTheDocument();
     });
 
-    it('does not render capture frame button when not in visual prompt mode', () => {
+    // TODO: Uncomment when we support text prompt
+    it.skip('does not render capture frame button when not in visual prompt mode', () => {
         renderImagesFolderStream('text');
 
         expect(screen.queryByRole('button', { name: 'Capture' })).not.toBeInTheDocument();

@@ -3,11 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect } from 'react';
-
 import { usePromptMode, type PromptMode } from '@geti-prompt/hooks';
 import { Flex, Text, ToggleButtons } from '@geti/ui';
-import { useSearchParams } from 'react-router-dom';
 
 import styles from './prompt-modes.module.scss';
 
@@ -24,17 +21,9 @@ const getSelectedUIPromptMode = (mode: PromptMode = 'visual') => {
 };
 
 export const PromptModes = () => {
-    const [searchParams] = useSearchParams();
     const [mode, setPromptMode] = usePromptMode();
-    const localMode = searchParams.get('mode');
 
     const selectedMode = getSelectedUIPromptMode(mode);
-
-    useEffect(() => {
-        if (localMode === null) {
-            setPromptMode('visual');
-        }
-    }, [localMode, setPromptMode]);
 
     return (
         <Flex direction={'column'} gap={'size-100'}>

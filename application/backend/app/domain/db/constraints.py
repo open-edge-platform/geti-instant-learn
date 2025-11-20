@@ -10,6 +10,7 @@ class UniqueConstraintName(StrEnum):
     PROJECT_NAME = "uq_project_name"
     SINGLE_TEXT_PROMPT_PER_PROJECT = "uq_single_text_prompt_per_project"
     PROCESSOR_NAME_PER_PROJECT = "uq_processor_name_per_project"
+    SINGLE_ACTIVE_PROCESSOR_PER_PROJECT = "uq_single_active_processor_per_project"
     SOURCE_NAME_PER_PROJECT = "uq_source_name_per_project"
     SOURCE_TYPE_PER_PROJECT = "uq_source_type_per_project"
     LABEL_NAME_PER_PROJECT = "uq_label_name_per_project"

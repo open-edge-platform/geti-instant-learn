@@ -117,6 +117,7 @@ class PromptDB(Base):
 class ProcessorDB(Base):
     __tablename__ = "Processor"
     name: Mapped[str | None] = mapped_column(nullable=True)
+    active: Mapped[bool] = mapped_column(nullable=False, default=False)
     config: Mapped[dict] = mapped_column(JSON, nullable=False)
     project_id: Mapped[UUID] = mapped_column(ForeignKey("Project.id", ondelete="CASCADE"))
     project: Mapped["ProjectDB"] = relationship(back_populates="processors", single_parent=True)
@@ -127,6 +128,13 @@ class ProcessorDB(Base):
             "name",
             unique=True,
             sqlite_where=sa_text("name IS NOT NULL"),
+        ),
+        Index(
+            UniqueConstraintName.SINGLE_ACTIVE_PROCESSOR_PER_PROJECT,
+            "project_id",
+            "active",
+            unique=True,
+            sqlite_where=sa_text("active IS 1"),
         ),
     )
 

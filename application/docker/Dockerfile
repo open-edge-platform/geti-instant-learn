@@ -64,6 +64,8 @@ ARG USER_NAME="non-root"
 ENV USER_NAME=${USER_NAME}
 ARG PUBLIC_API_URL=""
 ENV PUBLIC_API_URL=${PUBLIC_API_URL}
+ARG INITIAL_DATASET_DIR=""
+ARG SOURCE_DATASET_DIR=""
 
 # Create directory and set ownership before VOLUME instruction
 RUN mkdir -p ${DB_DATA_DIR} && chown ${UID}:${UID} ${DB_DATA_DIR}
@@ -89,6 +91,9 @@ RUN useradd -l -u ${UID} ${USER_NAME} \
 # Change to a subdirectory so ../../library resolves correctly
 RUN mkdir -p ${PYTHONPATH}/backend
 WORKDIR ${PYTHONPATH}/backend
+
+# Add sample dataset with coffee berries
+COPY --link --chown=${UID} ${SOURCE_DATASET_DIR} ${INITIAL_DATASET_DIR}
 
 # Copy library and create proper directory structure
 COPY --link --from=libs --chown=${UID} ./src ${LIBRARY_PATH}/src

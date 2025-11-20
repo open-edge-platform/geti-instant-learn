@@ -10,8 +10,8 @@ import { useCurrentProject } from '@geti-prompt/hooks';
 import { Button, TextField, View } from '@geti/ui';
 import { isInteger } from 'lodash-es';
 
-import { useCreateSource } from '../hooks/use-create-source';
-import { useUpdateSource } from '../hooks/use-update-source';
+import { useCreateSource } from '../api/use-create-source';
+import { useUpdateSource } from '../api/use-update-source';
 
 interface WebcamSourceProps {
     source: WebcamSourceType | undefined;

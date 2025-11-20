@@ -1,8 +1,3 @@
-.stroke {
-    stroke-dasharray: 10;
-    stroke-dashoffset: 10;
-}
-
 .animateStroke {
     stroke-dasharray: 10;
     stroke-dashoffset: 10;
@@ -13,12 +8,4 @@
     to {
         stroke-dashoffset: 1000;
     }
-}
-
-.layer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    right: 0;
 }

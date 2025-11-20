@@ -8,8 +8,8 @@ import { FormEvent, useState } from 'react';
 import { ImagesFolderConfig, ImagesFolderSourceType } from '@geti-prompt/api';
 import { Button, Content, ContextualHelp, Heading, Text, TextField } from '@geti/ui';
 
-import { useCreateSource } from '../hooks/use-create-source';
-import { useUpdateSource } from '../hooks/use-update-source';
+import { useCreateSource } from '../api/use-create-source';
+import { useUpdateSource } from '../api/use-update-source';
 
 interface ImagesFolderProps {
     source: ImagesFolderSourceType | undefined;

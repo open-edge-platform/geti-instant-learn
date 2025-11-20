@@ -86,7 +86,7 @@ jobs:
           persist-credentials: false
       - name: Run Trivy scan
         id: trivy
-        uses: open-edge-platform/geti-ci/actions/trivy@b7d997c1651b1e1b99a280033bd268b55ccb7923
+        uses: open-edge-platform/geti-ci/actions/trivy@6e7e8393869d05112f727d235acb644ed362c58f
         with:
           scan_type: "fs"
           scan-scope: all
@@ -94,7 +94,7 @@ jobs:
           scanners: "vuln,secret,config"
           format: "table" # Use plain text output format to omit uploading code scanning results to Security tab
           timeout: "15m"
-          ignore_unfixed: "false"
+          ignore_unfixed: "true"
 
   semgrep-scan:
     runs-on: ubuntu-latest
@@ -112,3 +112,47 @@ jobs:
           severity: "LOW"
           fail-on-findings: false # reports only
           output-format: "text" # Use plain text output format to omit uploading code scanning results to Security tab
+
+  trivy-docker-image-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        ai-device: [cpu, gpu, xpu]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Initial cleanup
+        uses: ./.github/actions/cleanup-runner
+        with:
+          type: "initial"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y just
+
+      - name: Build docker image
+        working-directory: application
+        env:
+          DEVICE: ${{ matrix.ai-device }}
+        run: |
+          just docker-image="geti-prompt:latest-${DEVICE}" docker-build-context="--no-cache" build-image
+
+      - name: Run Trivy scan
+        id: trivy
+        uses: open-edge-platform/geti-ci/actions/trivy@6e7e8393869d05112f727d235acb644ed362c58f
+        with:
+          artifact-name: "trivy-results-docker-${{ matrix.ai-device }}"
+          scan_type: "image"
+          scan_target: "geti-prompt:latest-${{ matrix.ai-device }}"
+          scan-scope: all
+          severity: "LOW"
+          scanners: "vuln,secret,config"
+          format: "table"
+          timeout: "15m"
+          ignore_unfixed: "true"

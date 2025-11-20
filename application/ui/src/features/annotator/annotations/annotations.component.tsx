@@ -53,9 +53,11 @@ export const Annotations = ({ annotations, width, height }: AnnotationsProps) =>
         >
             {!isEmpty(annotations) && isVisible && (
                 <MaskAnnotations annotations={annotations} width={width} height={height} isEnabled={false}>
-                    {annotations.map((annotation) => (
-                        <Annotation annotation={annotation} key={annotation.id} />
-                    ))}
+                    <g aria-label={'annotation list'}>
+                        {annotations.map((annotation) => (
+                            <Annotation annotation={annotation} key={annotation.id} />
+                        ))}
+                    </g>
                 </MaskAnnotations>
             )}
         </svg>

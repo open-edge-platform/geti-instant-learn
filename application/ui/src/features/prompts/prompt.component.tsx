@@ -3,11 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Divider, Flex, Heading, View } from '@geti/ui';
+import { Flex, Heading, View } from '@geti/ui';
 
 import { ModelToolbar } from './model-toolbar/model-toolbar.component';
 import { PromptMode } from './prompt-modes/prompt-mode.component';
-import { PromptModes } from './prompt-modes/prompt-modes.component';
 
 export const Prompt = () => {
     return (
@@ -23,11 +22,13 @@ export const Prompt = () => {
                 <Heading margin={0}>Prompt</Heading>
                 <View padding={'size-300'} flex={1}>
                     <Flex direction={'column'} gap={'size-300'} height={'100%'}>
-                        <PromptModes />
+                        {/* TODO: Uncomment when we support text prompt
+                            <PromptModes />
 
-                        <Divider size={'S'} />
+                            <Divider size={'S'} />
+                        */}
 
-                        <Flex direction={'column'} gap={'size-200'}>
+                        <Flex flex={1} direction={'column'} gap={'size-200'}>
                             <ModelToolbar />
                             <View flex={1}>
                                 <PromptMode />

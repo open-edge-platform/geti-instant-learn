@@ -29,6 +29,9 @@ data-dir := "/data"
 static-files-dir := workdir-path + asset-prefix
 db-data-dir := workdir-path + data-dir
 target-stage := component-name + "-" + ai-device
+coffee-berries-dataset := "https://storage.geti.intel.com/geti-prompt/Frames.zip"
+source-dataset-dir := "backend/.data/templates/datasets/coffee-berries"
+target-dataset-dir := db-data-dir + "/templates/datasets/coffee-berries"
 
 # -------------------------------------------------------------------------------------------------
 # Proxy settings
@@ -46,8 +49,22 @@ docker-extra-args := http-proxy-build-arg + https-proxy-build-arg + no-proxy-bui
 # Justfile recipes
 # -------------------------------------------------------------------------------------------------
 
+download-dataset:
+    #!/usr/bin/env bash
+    if [ -d "{{ source-dataset-dir }}" ] && [ "$(ls -A {{ source-dataset-dir }})" ]; then
+        echo "Dataset directory {{ source-dataset-dir }} already exists and is not empty. Skipping download."
+        exit 0
+    fi
+    mkdir -p {{ source-dataset-dir }}
+    echo "Downloading default dataset from {{ coffee-berries-dataset }}"
+    wget -q --show-progress {{ coffee-berries-dataset }}
+    echo "Unpacking default dataset to {{ source-dataset-dir }}"
+    unzip -j -q -o Frames.zip -d {{ source-dataset-dir }}
+    echo "Removing downloaded dataset archive Frames.zip"
+    rm Frames*.zip
+
 # build geti prompt with optional port mapping
-build-image:
+build-image: download-dataset
     @echo "Building docker image for component: {{ component-name }}"
     @docker build \
         {{ docker-extra-args }} \
@@ -58,6 +75,8 @@ build-image:
         --build-arg DB_DATA_DIR={{ db-data-dir }} \
         --build-arg ASSET_PREFIX={{ asset-prefix }} \
         --build-arg WORKDIR_PATH={{ workdir-path }} \
+        --build-arg SOURCE_DATASET_DIR={{ source-dataset-dir }} \
+        --build-arg INITIAL_DATASET_DIR={{ target-dataset-dir }} \
         --tag "{{ docker-image }}" \
         --file docker/Dockerfile . \
         --target {{ target-stage }}

@@ -8,7 +8,7 @@ import { CSSProperties } from 'react';
 import { useGetSources } from '@geti-prompt/hooks';
 import { Button, Flex, StatusLight, View } from '@geti/ui';
 
-import { SourcesSinksConfiguration } from '../../features/sources-sinks-configuration/sources-sinks-configuration.component';
+import { SourcesSinks } from '../../features/sources-sinks/sources-sinks.component';
 import { useWebRTCConnection } from '../../features/stream/web-rtc/web-rtc-connection-provider';
 
 const StreamStatus = () => {
@@ -86,7 +86,7 @@ export const Toolbar = () => {
             <Flex justifyContent={'space-between'} alignItems={'center'} height={'100%'} width={'100%'}>
                 <StreamStatus />
                 <View marginStart={'auto'}>
-                    <SourcesSinksConfiguration />
+                    <SourcesSinks />
                 </View>
             </Flex>
         </View>
