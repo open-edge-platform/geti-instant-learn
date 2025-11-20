@@ -9,8 +9,8 @@ from PIL import Image
 from torchvision import tv_tensors
 
 from getiprompt.data.base.batch import Batch
-from getiprompt.models.sam3.model_builder import build_sam3_image_model
-from getiprompt.models.sam3.sam3_image_processor import Sam3Processor
+from getiprompt.models.foundation import build_sam3_image_model
+from getiprompt.models.foundation import Sam3Processor
 
 from .base import Model
 
