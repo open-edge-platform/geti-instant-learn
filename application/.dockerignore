@@ -8,4 +8,4 @@
 !ui/tsconfig.json
 !ui/rsbuild.config.ts
 # default dataset
-!backend/.data/default_dataset
+!backend/.data/templates/datasets/coffee-berries

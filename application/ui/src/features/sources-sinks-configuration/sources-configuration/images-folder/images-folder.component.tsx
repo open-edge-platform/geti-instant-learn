@@ -31,10 +31,8 @@ const FolderPathDescription = () => {
     );
 };
 
-const initialFolderPath = import.meta.env.PUBLIC_INITIAL_DATASET_DIR ?? '';
-
 export const ImagesFolder = ({ source }: ImagesFolderProps) => {
-    const [folderPath, setFolderPath] = useState(source?.config?.images_folder_path ?? initialFolderPath);
+    const [folderPath, setFolderPath] = useState(source?.config?.images_folder_path ?? '');
     const createImagesFolderSource = useCreateSource();
     const updateImagesFolderSource = useUpdateSource();
 

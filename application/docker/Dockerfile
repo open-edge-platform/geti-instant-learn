@@ -90,8 +90,6 @@ FROM web-ui-base AS web-ui
 
 ARG ASSET_PREFIX=""
 ENV ASSET_PREFIX=${ASSET_PREFIX}
-ARG PUBLIC_INITIAL_DATASET_DIR=""
-ENV PUBLIC_INITIAL_DATASET_DIR=${PUBLIC_INITIAL_DATASET_DIR}
 
 # build with --no-cache in case of sub-dependency changes (from geti)
 RUN npm run build
@@ -115,8 +113,10 @@ ARG USER_NAME="non-root"
 ENV USER_NAME=${USER_NAME}
 ARG PUBLIC_API_URL=""
 ENV PUBLIC_API_URL=${PUBLIC_API_URL}
-ARG PUBLIC_INITIAL_DATASET_DIR=""
-ENV PUBLIC_INITIAL_DATASET_DIR=${PUBLIC_INITIAL_DATASET_DIR}
+ARG INITIAL_DATASET_DIR=""
+ENV INITIAL_DATASET_DIR=${INITIAL_DATASET_DIR}
+ARG SOURCE_DATASET_DIR=""
+ENV SOURCE_DATASET_DIR=${SOURCE_DATASET_DIR}
 
 # Create directory and set ownership before VOLUME instruction
 RUN mkdir -p ${DB_DATA_DIR} && chown ${UID}:${UID} ${DB_DATA_DIR}
@@ -139,7 +139,7 @@ RUN useradd -l -u ${UID} ${USER_NAME} \
     && rm -rf /root/.cache/pip
 
 # Add sample dataset with coffee berries
-COPY --link --chown=${UID} backend/.data/default_dataset ${PUBLIC_INITIAL_DATASET_DIR}
+COPY --link --chown=${UID} ${SOURCE_DATASET_DIR} ${INITIAL_DATASET_DIR}
 
 # Copy backend source code
 COPY --link --chown=${UID} backend/app /geti_prompt/app

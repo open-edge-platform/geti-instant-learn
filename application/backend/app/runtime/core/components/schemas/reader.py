@@ -1,12 +1,9 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
-import os
 from enum import StrEnum
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
-
-INITIAL_DATASET_DIR = os.getenv("PUBLIC_INITIAL_DATASET_DIR", "/path/to/images")
 
 
 class SourceType(StrEnum):
@@ -57,7 +54,7 @@ class ImagesFolderConfig(BaseModel):
             "example": {
                 "seekable": True,
                 "source_type": "images_folder",
-                "images_folder_path": INITIAL_DATASET_DIR,
+                "images_folder_path": "/path/to/images",
             }
         }
     }
