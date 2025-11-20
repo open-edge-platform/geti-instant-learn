@@ -10,6 +10,7 @@ from .grounded_sam import GroundedSAM
 from .matcher import Matcher
 from .per_dino import PerDino
 from .soft_matcher import SoftMatcher
+from .sam3_model import SAM3
 
 __all__ = [
     "GroundedSAM",
@@ -19,4 +20,5 @@ __all__ = [
     "SoftMatcher",
     "load_model",
     "load_sam_model",
-]
+    "SAM3",
+    ]

@@ -15,7 +15,7 @@ from getiprompt.models.sam3.sam3_image_processor import Sam3Processor
 from .base import Model
 
 
-class SAM3Model(Model):
+class SAM3(Model):
     """SAM3 model for text and visual prompting.
 
     This model uses SAM3 (Segment Anything Model 3) for zero-shot segmentation
