@@ -9,10 +9,11 @@ from .foundation import load_sam_model
 from .grounded_sam import GroundedSAM
 from .matcher import Matcher
 from .per_dino import PerDino
-from .soft_matcher import SoftMatcher
 from .sam3_model import SAM3
+from .soft_matcher import SoftMatcher
 
 __all__ = [
+    "SAM3",
     "GroundedSAM",
     "Matcher",
     "Model",
@@ -20,5 +21,4 @@ __all__ = [
     "SoftMatcher",
     "load_model",
     "load_sam_model",
-    "SAM3",
-    ]
+]

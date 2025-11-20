@@ -1,9 +1,5 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates. All Rights Reserved
-"""
-Utilities for bounding box manipulation and GIoU.
-"""
-
-from typing import Tuple
+"""Utilities for bounding box manipulation and GIoU."""
 
 import torch
 
@@ -45,8 +41,7 @@ def box_xyxy_to_cxcywh(x):
 
 
 def box_area(boxes):
-    """
-    Batched version of box area. Boxes should be in [x0, y0, x1, y1] format.
+    """Batched version of box area. Boxes should be in [x0, y0, x1, y1] format.
 
     Inputs:
     - boxes: Tensor of shape (..., 4)
@@ -89,8 +84,7 @@ def masks_to_boxes(masks):
 
 
 def box_iou(boxes1, boxes2):
-    """
-    Batched version of box_iou. Boxes should be in [x0, y0, x1, y1] format.
+    """Batched version of box_iou. Boxes should be in [x0, y0, x1, y1] format.
 
     Inputs:
     - boxes1: Tensor of shape (..., N, 4)
@@ -117,8 +111,7 @@ def box_iou(boxes1, boxes2):
 
 
 def generalized_box_iou(boxes1, boxes2):
-    """
-    Batched version of Generalized IoU from https://giou.stanford.edu/
+    """Batched version of Generalized IoU from https://giou.stanford.edu/
 
     Boxes should be in [x0, y0, x1, y1] format
 
@@ -194,8 +187,9 @@ def fast_diag_box_iou(boxes1, boxes2):
 
 
 def box_xywh_inter_union(
-    boxes1: torch.Tensor, boxes2: torch.Tensor
-) -> Tuple[torch.Tensor, torch.Tensor]:
+    boxes1: torch.Tensor,
+    boxes2: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
     # Asuumes boxes in xywh format
     assert boxes1.size(-1) == 4 and boxes2.size(-1) == 4
     boxes1 = box_xywh_to_xyxy(boxes1)

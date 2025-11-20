@@ -100,7 +100,7 @@ class SAM3(Model):
         # Build the SAM3 model
         self.model = build_sam3_image_model(
             bpe_path=bpe_path,
-            device=device,            
+            device=device,
             checkpoint_path=checkpoint_path,
             load_from_HF=load_from_HF,
             enable_segmentation=enable_segmentation,
@@ -173,14 +173,15 @@ class SAM3(Model):
                         state=inference_state,
                         prompt=combined_prompt,
                     )
-                else:
-                    # If no text prompts, use visual prompts (bounding boxes) if available
-                    if sample.bboxes is not None and len(sample.bboxes) > 0:
-                        inference_state = self._add_box_prompts(
-                            sample.bboxes,
-                            inference_state,
-                            image.size if isinstance(image, Image.Image) else (sample.image.shape[-1], sample.image.shape[-2]),
-                        )
+                # If no text prompts, use visual prompts (bounding boxes) if available
+                elif sample.bboxes is not None and len(sample.bboxes) > 0:
+                    inference_state = self._add_box_prompts(
+                        sample.bboxes,
+                        inference_state,
+                        image.size
+                        if isinstance(image, Image.Image)
+                        else (sample.image.shape[-1], sample.image.shape[-2]),
+                    )
 
                 # Extract results
                 pred_result = self._extract_predictions(inference_state, sample)
@@ -219,14 +220,13 @@ class SAM3(Model):
 
         # Convert to PIL
         if image.ndim == 2:
-            return Image.fromarray(image, mode='L')
-        elif image.shape[-1] == 1:
-            return Image.fromarray(image.squeeze(-1), mode='L')
-        elif image.shape[-1] == 3:
-            return Image.fromarray(image, mode='RGB')
-        else:
-            # Handle 4-channel images
-            return Image.fromarray(image[..., :3], mode='RGB')
+            return Image.fromarray(image, mode="L")
+        if image.shape[-1] == 1:
+            return Image.fromarray(image.squeeze(-1), mode="L")
+        if image.shape[-1] == 3:
+            return Image.fromarray(image, mode="RGB")
+        # Handle 4-channel images
+        return Image.fromarray(image[..., :3], mode="RGB")
 
     def _add_box_prompts(
         self,
@@ -320,4 +320,3 @@ class SAM3(Model):
             "pred_labels": pred_labels,
             "pred_points": torch.empty(0, 4),  # SAM3 doesn't output points directly
         }
-

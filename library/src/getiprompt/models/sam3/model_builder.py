@@ -3,23 +3,24 @@
 from pathlib import Path
 
 import torch
-import torch.nn as nn
 from huggingface_hub import hf_hub_download
 from iopath.common.file_io import g_pathmgr
+from torch import nn
+
 from getiprompt.models.sam3.model.decoder import (
     TransformerDecoder,
     TransformerDecoderLayer,
 )
-
 from getiprompt.models.sam3.model.encoder import TransformerEncoderFusion, TransformerEncoderLayer
 from getiprompt.models.sam3.model.geometry_encoders import SequenceGeometryEncoder
 from getiprompt.models.sam3.model.maskformer_segmentation import PixelDecoder, UniversalSegmentationHead
-
 from getiprompt.models.sam3.model.model_misc import (
-    DotProductScoring,
     MLP,
-    MultiheadAttentionWrapper as MultiheadAttention,
+    DotProductScoring,
     TransformerWrapper,
+)
+from getiprompt.models.sam3.model.model_misc import (
+    MultiheadAttentionWrapper as MultiheadAttention,
 )
 from getiprompt.models.sam3.model.necks import Sam3DualViTDetNeck
 from getiprompt.models.sam3.model.position_encoding import PositionEmbeddingSine
@@ -27,7 +28,6 @@ from getiprompt.models.sam3.model.text_encoder_ve import VETextEncoder
 from getiprompt.models.sam3.model.tokenizer_ve import SimpleTokenizer
 from getiprompt.models.sam3.model.vitdet import ViT
 from getiprompt.models.sam3.model.vl_combiner import SAM3VLBackbone
-
 from getiprompt.models.sam3.sam3_image import Sam3Image
 
 
@@ -303,7 +303,8 @@ def _create_text_encoder(bpe_path: str) -> VETextEncoder:
 
 
 def _create_vision_backbone(
-    compile_mode=None, enable_inst_interactivity=True
+    compile_mode=None,
+    enable_inst_interactivity=True,
 ) -> Sam3DualViTDetNeck:
     """Create SAM3 visual backbone with ViT and neck."""
     # Position encoding
@@ -333,14 +334,11 @@ def _load_checkpoint(model, checkpoint_path):
         ckpt = torch.load(f, map_location="cpu", weights_only=True)
     if "model" in ckpt and isinstance(ckpt["model"], dict):
         ckpt = ckpt["model"]
-    sam3_image_ckpt = {
-        k.replace("detector.", ""): v for k, v in ckpt.items() if "detector" in k
-    }
+    sam3_image_ckpt = {k.replace("detector.", ""): v for k, v in ckpt.items() if "detector" in k}
     missing_keys, _ = model.load_state_dict(sam3_image_ckpt, strict=False)
     if len(missing_keys) > 0:
         print(
-            f"loaded {checkpoint_path} and found "
-            f"missing and/or unexpected keys:\n{missing_keys=}"
+            f"loaded {checkpoint_path} and found missing and/or unexpected keys:\n{missing_keys=}",
         )
 
 
@@ -362,8 +360,7 @@ def build_sam3_image_model(
     enable_inst_interactivity=False,
     compile=False,
 ):
-    """
-    Build SAM3 image model
+    """Build SAM3 image model
 
     Args:
         bpe_path: Path to the BPE tokenizer vocabulary
@@ -379,15 +376,15 @@ def build_sam3_image_model(
     """
     if bpe_path is None:
         bpe_path = Path(__file__).parent / "assets" / "bpe_simple_vocab_16e6.txt.gz"
-    
+
     if not bpe_path.exists():
         raise FileNotFoundError(f"BPE path {bpe_path} does not exist")
-
 
     # Create visual components
     compile_mode = "default" if compile else None
     vision_encoder = _create_vision_backbone(
-        compile_mode=compile_mode, enable_inst_interactivity=enable_inst_interactivity
+        compile_mode=compile_mode,
+        enable_inst_interactivity=enable_inst_interactivity,
     )
 
     # Create text components
@@ -403,11 +400,7 @@ def build_sam3_image_model(
     dot_prod_scoring = _create_dot_product_scoring()
 
     # Create segmentation head if enabled
-    segmentation_head = (
-        _create_segmentation_head(compile_mode=compile_mode)
-        if enable_segmentation
-        else None
-    )
+    segmentation_head = _create_segmentation_head(compile_mode=compile_mode) if enable_segmentation else None
 
     # Create geometry encoder
     input_geometry_encoder = _create_geometry_encoder()

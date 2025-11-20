@@ -1,22 +1,21 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates. All Rights Reserved
 
 import inspect
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, TypeVar, Union
+from typing import TypeVar
 
 import torch
-import torch.nn as nn
-import torch.utils.checkpoint as checkpoint
-from torch.utils._pytree import tree_map_only
+from torch import nn
+from torch.utils import checkpoint
 
 # Type variables for better type hinting
 T = TypeVar("T")
 Module = TypeVar("Module", bound=nn.Module)
 
 
-def activation_ckpt_wrapper(module: Union[nn.Module, Callable]) -> Callable:
-    """
-    Wraps a given module to enable or disable activation checkpointing.
+def activation_ckpt_wrapper(module: nn.Module | Callable) -> Callable:
+    """Wraps a given module to enable or disable activation checkpointing.
 
     Activation checkpointing (gradient checkpointing) trades compute for memory by
     recomputing intermediate activations during the backward pass instead of storing
@@ -45,30 +44,29 @@ def activation_ckpt_wrapper(module: Union[nn.Module, Callable]) -> Callable:
 
     @wraps(module)
     def act_ckpt_wrapper(
-        *args, act_ckpt_enable: bool = True, use_reentrant: bool = False, **kwargs
+        *args,
+        act_ckpt_enable: bool = True,
+        use_reentrant: bool = False,
+        **kwargs,
     ):
         if act_ckpt_enable:
             if len(args) > 0:
                 raise ValueError(
-                    "This wrapper expects keyword arguments only when `act_ckpt_enable=True`"
+                    "This wrapper expects keyword arguments only when `act_ckpt_enable=True`",
                 )
             # Get the signature of the target function/module
             callable_fn = module.forward if isinstance(module, nn.Module) else module
             sig = inspect.signature(callable_fn)
             # Create a mapping of parameter names to their default values
-            param_defaults = {
-                name: param.default for name, param in sig.parameters.items()
-            }
+            param_defaults = {name: param.default for name, param in sig.parameters.items()}
             args = []
-            for p_name in param_defaults.keys():
+            for p_name in param_defaults:
                 if p_name in kwargs:
                     args.append(kwargs.pop(p_name))
                 elif param_defaults[p_name] is not inspect.Parameter.empty:
                     # Set arg to default value if it's not in kwargs. Useful for primitive types or args that default to None
                     args.append(param_defaults[p_name])
-                elif (
-                    sig.parameters[p_name].kind is not inspect.Parameter.VAR_KEYWORD
-                ):  # Skip **kwargs parameter
+                elif sig.parameters[p_name].kind is not inspect.Parameter.VAR_KEYWORD:  # Skip **kwargs parameter
                     raise ValueError(f"Missing positional argument: {p_name}")
 
             # Scan remaining kwargs for torch.Tensor
@@ -80,7 +78,10 @@ def activation_ckpt_wrapper(module: Union[nn.Module, Callable]) -> Callable:
                     kwargs[key] = "_REMOVED_BY_ACT_CKPT_WRAPPER_"
 
             ret = checkpoint.checkpoint(
-                module, *args, use_reentrant=use_reentrant, **kwargs
+                module,
+                *args,
+                use_reentrant=use_reentrant,
+                **kwargs,
             )
         else:
             ret = module(*args, **kwargs)

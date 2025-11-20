@@ -1,7 +1,6 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates. All Rights Reserved
 
-"""
-Text Tokenizer.
+"""Text Tokenizer.
 
 Copied and lightly adapted from VE repo, which in turn copied
 from open_clip and openAI CLIP.
@@ -13,23 +12,20 @@ import io
 import os
 import string
 from functools import lru_cache
-from typing import List, Optional, Union
 
 import ftfy
 import regex as re
 import torch
 from iopath.common.file_io import g_pathmgr
 
-
 # https://stackoverflow.com/q/62691279
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 DEFAULT_CONTEXT_LENGTH = 77
 
 
-@lru_cache()
+@lru_cache
 def bytes_to_unicode():
-    """
-    Returns list of utf-8 byte and a corresponding list of unicode strings.
+    """Returns list of utf-8 byte and a corresponding list of unicode strings.
     The reversible bpe codes work on unicode strings.
     This means you need a large # of unicode characters in your vocab if you want to avoid UNKs.
     When you're at something like a 10B token dataset you end up needing around 5K for decent coverage.
@@ -37,11 +33,7 @@ def bytes_to_unicode():
     To avoid that, we want lookup tables between utf-8 bytes and unicode strings.
     And avoids mapping to whitespace/control characters the bpe code barfs on.
     """
-    bs = (
-        list(range(ord("!"), ord("~") + 1))
-        + list(range(ord("¡"), ord("¬") + 1))
-        + list(range(ord("®"), ord("ÿ") + 1))
-    )
+    bs = list(range(ord("!"), ord("~") + 1)) + list(range(ord("¡"), ord("¬") + 1)) + list(range(ord("®"), ord("ÿ") + 1))
     cs = bs[:]
     n = 0
     for b in range(2**8):
@@ -50,7 +42,7 @@ def bytes_to_unicode():
             cs.append(2**8 + n)
             n += 1
     cs = [chr(n) for n in cs]
-    return dict(zip(bs, cs))
+    return dict(zip(bs, cs, strict=False))
 
 
 def get_pairs(word):
@@ -95,12 +87,11 @@ def _clean_whitespace(x):
 def get_clean_fn(type: str):
     if type == "canonicalize":
         return _clean_canonicalize
-    elif type == "lower":
+    if type == "lower":
         return _clean_lower
-    elif type == "whitespace":
+    if type == "whitespace":
         return _clean_whitespace
-    else:
-        assert False, f"Invalid clean function ({type})."
+    assert False, f"Invalid clean function ({type})."
 
 
 def canonicalize_text(text, *, keep_punctuation_exact_string=None):
@@ -125,12 +116,12 @@ def canonicalize_text(text, *, keep_punctuation_exact_string=None):
     return text.strip()
 
 
-class SimpleTokenizer(object):
+class SimpleTokenizer:
     def __init__(
         self,
-        bpe_path: Union[str, os.PathLike],
-        additional_special_tokens: Optional[List[str]] = None,
-        context_length: Optional[int] = DEFAULT_CONTEXT_LENGTH,
+        bpe_path: str | os.PathLike,
+        additional_special_tokens: list[str] | None = None,
+        context_length: int | None = DEFAULT_CONTEXT_LENGTH,
         clean: str = "lower",
     ):
         self.byte_encoder = bytes_to_unicode()
@@ -149,9 +140,9 @@ class SimpleTokenizer(object):
         if additional_special_tokens:
             special_tokens += additional_special_tokens
         vocab.extend(special_tokens)
-        self.encoder = dict(zip(vocab, range(len(vocab))))
+        self.encoder = dict(zip(vocab, range(len(vocab)), strict=False))
         self.decoder = {v: k for k, v in self.encoder.items()}
-        self.bpe_ranks = dict(zip(merges, range(len(merges))))
+        self.bpe_ranks = dict(zip(merges, range(len(merges)), strict=False))
         self.cache = {t: t for t in special_tokens}
         special = "|".join(special_tokens)
         self.pat = re.compile(
@@ -197,8 +188,7 @@ class SimpleTokenizer(object):
             word = new_word
             if len(word) == 1:
                 break
-            else:
-                pairs = get_pairs(word)
+            pairs = get_pairs(word)
         word = " ".join(word)
         self.cache[token] = word
         return word
@@ -208,22 +198,18 @@ class SimpleTokenizer(object):
         text = self.clean_fn(text)
         for token in re.findall(self.pat, text):
             token = "".join(self.byte_encoder[b] for b in token.encode("utf-8"))
-            bpe_tokens.extend(
-                self.encoder[bpe_token] for bpe_token in self.bpe(token).split(" ")
-            )
+            bpe_tokens.extend(self.encoder[bpe_token] for bpe_token in self.bpe(token).split(" "))
         return bpe_tokens
 
     def decode(self, tokens):
         text = "".join([self.decoder[token] for token in tokens])
-        text = (
-            bytearray([self.byte_decoder[c] for c in text])
-            .decode("utf-8", errors="replace")
-            .replace("</w>", " ")
-        )
+        text = bytearray([self.byte_decoder[c] for c in text]).decode("utf-8", errors="replace").replace("</w>", " ")
         return text
 
     def __call__(
-        self, texts: Union[str, List[str]], context_length: Optional[int] = None
+        self,
+        texts: str | list[str],
+        context_length: int | None = None,
     ) -> torch.LongTensor:
         """Returns the tokenized representation of given input string(s)
         Parameters
@@ -232,7 +218,8 @@ class SimpleTokenizer(object):
             An input string or a list of input strings to tokenize
         context_length : int
             The context length to use; all CLIP models use 77 as the context length
-        Returns
+
+        Returns:
         -------
         A two-dimensional tensor containing the resulting tokens, shape = [number of input strings, context_length]
         """
@@ -240,10 +227,7 @@ class SimpleTokenizer(object):
             texts = [texts]
         context_length = context_length or self.context_length
         assert context_length, "Please set a valid context length"
-        all_tokens = [
-            [self.sot_token_id] + self.encode(text) + [self.eot_token_id]
-            for text in texts
-        ]
+        all_tokens = [[self.sot_token_id] + self.encode(text) + [self.eot_token_id] for text in texts]
         result = torch.zeros(len(all_tokens), context_length, dtype=torch.long)
         for i, tokens in enumerate(all_tokens):
             if len(tokens) > context_length:

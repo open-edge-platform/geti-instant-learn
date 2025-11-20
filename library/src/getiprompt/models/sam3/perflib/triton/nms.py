@@ -71,7 +71,9 @@ def _nms_suppression_kernel(
 
                 # Conditionally store suppression result for high-IoU boxes
                 tl.store(
-                    keep_mask_ptr + target_box_offsets, False, mask=suppression_mask
+                    keep_mask_ptr + target_box_offsets,
+                    False,
+                    mask=suppression_mask,
                 )
 
             # Potential race condition: we need to ensure all threads complete the store before the next
