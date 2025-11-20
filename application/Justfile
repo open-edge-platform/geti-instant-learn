@@ -76,7 +76,7 @@ build-image: download-dataset
         --build-arg ASSET_PREFIX={{ asset-prefix }} \
         --build-arg WORKDIR_PATH={{ workdir-path }} \
         --build-arg SOURCE_DATASET_DIR={{ source-dataset-dir }} \
-        --build-arg INITIAL_DATASET_DIR={{ target-dataset-dir }} \
+        --build-arg TARGET_DATASET_DIR={{ target-dataset-dir }} \
         --tag "{{ docker-image }}" \
         --file docker/Dockerfile . \
         --target {{ target-stage }}
