@@ -5,7 +5,14 @@
 
 import '@testing-library/jest-dom/vitest';
 
-import { LabelListType, ProjectsListType, ProjectType, SourcesListType, VisualPromptListType } from '@geti-prompt/api';
+import {
+    LabelListType,
+    ModelListType,
+    ProjectsListType,
+    ProjectType,
+    SourcesListType,
+    VisualPromptListType,
+} from '@geti-prompt/api';
 import { HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import fetchPolyfill, { Request as RequestPolyfill } from 'node-fetch';
@@ -49,6 +56,28 @@ const MOCKED_PROMPTS_RESPONSE: VisualPromptListType = {
 const MOCKED_SOURCES_RESPONSE: SourcesListType = {
     sources: [],
 };
+const MOCKED_MODELS_RESPONSE: ModelListType = {
+    models: [
+        {
+            id: 'some-id',
+            config: {
+                mask_similarity_threshold: 0.38,
+                model_type: 'matcher',
+                num_background_points: 2,
+                num_foreground_points: 40,
+                precision: 'bf16',
+            },
+            active: true,
+            name: 'Mega model',
+        },
+    ],
+    pagination: {
+        count: 0,
+        total: 0,
+        offset: 0,
+        limit: 10,
+    },
+};
 
 const initialHandlers = [
     http.get('/api/v1/projects', () => {
@@ -69,6 +98,10 @@ const initialHandlers = [
 
     http.get('/api/v1/projects/{project_id}/sources', () => {
         return HttpResponse.json(MOCKED_SOURCES_RESPONSE);
+    }),
+
+    http.get('/api/v1/projects/{project_id}/models', () => {
+        return HttpResponse.json(MOCKED_MODELS_RESPONSE);
     }),
 ];
 

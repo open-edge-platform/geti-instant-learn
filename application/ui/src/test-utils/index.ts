@@ -7,3 +7,4 @@ export { getMockedLabel } from './mocks/mock-label';
 export { getMockedAnnotation } from './mocks/mock-annotation';
 export { getMockedProject } from './mocks/mock-project';
 export { getMockedSource } from './mocks/mock-source';
+export { getMockedModel } from './mocks/mock-model';
