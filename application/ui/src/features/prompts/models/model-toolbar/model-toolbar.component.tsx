@@ -10,8 +10,6 @@ import { Flex, Item, Picker, Text } from '@geti/ui';
 import { useGetModels } from '../api/use-get-models';
 import { useSetActiveModel } from '../api/use-set-active-model';
 
-import styles from './model-toolbar.module.scss';
-
 export const ModelToolbar = () => {
     const models = useGetModels();
     const setActiveModel = useSetActiveModel();
@@ -43,12 +41,8 @@ export const ModelToolbar = () => {
             >
                 {(item) => <Item key={item.id}>{item.name}</Item>}
             </Picker>
-
-            <Flex UNSAFE_className={styles.deployedText}>
-                <Text>Deployed: at some point</Text>
-                {/* TODO: Enable for development only. We dont have a design for model creation */}
-                {/* <Button onPress={() => createModel()}>Create Model</Button> */}
-            </Flex>
+            {/* TODO: Enable for development only. We dont have a design for model creation */}
+            {/* <Button onPress={() => createModel()}>Create Model</Button> */}
         </Flex>
     );
 };
