@@ -5,8 +5,8 @@ import PIL
 import torch
 from torchvision.transforms import v2
 
-from getiprompt.models.sam3.data_misc import FindStage, interpolate
-from getiprompt.models.sam3.model.box_ops import box_cxcywh_to_xyxy
+from getiprompt.models.foundation.sam3.data_misc import FindStage, interpolate
+from getiprompt.models.foundation.sam3.model.box_ops import box_cxcywh_to_xyxy
 
 
 class Sam3Processor:

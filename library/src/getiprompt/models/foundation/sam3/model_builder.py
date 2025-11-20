@@ -7,28 +7,28 @@ from huggingface_hub import hf_hub_download
 from iopath.common.file_io import g_pathmgr
 from torch import nn
 
-from getiprompt.models.sam3.model.decoder import (
+from getiprompt.models.foundation.sam3.model.decoder import (
     TransformerDecoder,
     TransformerDecoderLayer,
 )
-from getiprompt.models.sam3.model.encoder import TransformerEncoderFusion, TransformerEncoderLayer
-from getiprompt.models.sam3.model.geometry_encoders import SequenceGeometryEncoder
-from getiprompt.models.sam3.model.maskformer_segmentation import PixelDecoder, UniversalSegmentationHead
-from getiprompt.models.sam3.model.model_misc import (
+from getiprompt.models.foundation.sam3.model.encoder import TransformerEncoderFusion, TransformerEncoderLayer
+from getiprompt.models.foundation.sam3.model.geometry_encoders import SequenceGeometryEncoder
+from getiprompt.models.foundation.sam3.model.maskformer_segmentation import PixelDecoder, UniversalSegmentationHead
+from getiprompt.models.foundation.sam3.model.model_misc import (
     MLP,
     DotProductScoring,
     TransformerWrapper,
 )
-from getiprompt.models.sam3.model.model_misc import (
+from getiprompt.models.foundation.sam3.model.model_misc import (
     MultiheadAttentionWrapper as MultiheadAttention,
 )
-from getiprompt.models.sam3.model.necks import Sam3DualViTDetNeck
-from getiprompt.models.sam3.model.position_encoding import PositionEmbeddingSine
-from getiprompt.models.sam3.model.text_encoder_ve import VETextEncoder
-from getiprompt.models.sam3.model.tokenizer_ve import SimpleTokenizer
-from getiprompt.models.sam3.model.vitdet import ViT
-from getiprompt.models.sam3.model.vl_combiner import SAM3VLBackbone
-from getiprompt.models.sam3.sam3_image import Sam3Image
+from getiprompt.models.foundation.sam3.model.necks import Sam3DualViTDetNeck
+from getiprompt.models.foundation.sam3.model.position_encoding import PositionEmbeddingSine
+from getiprompt.models.foundation.sam3.model.text_encoder_ve import VETextEncoder
+from getiprompt.models.foundation.sam3.model.tokenizer_ve import SimpleTokenizer
+from getiprompt.models.foundation.sam3.model.vitdet import ViT
+from getiprompt.models.foundation.sam3.model.vl_combiner import SAM3VLBackbone
+from getiprompt.models.foundation.sam3.sam3_image import Sam3Image
 
 
 # Setup TensorFloat-32 for Ampere GPUs if available

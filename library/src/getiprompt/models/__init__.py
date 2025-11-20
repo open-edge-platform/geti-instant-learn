@@ -9,7 +9,7 @@ from .grounded_sam import GroundedSAM
 # Inference model imports
 from .matcher import InferenceMatcher, Matcher
 from .per_dino import PerDino
-from .sam3_model import SAM3
+from .sam3 import SAM3
 from .soft_matcher import SoftMatcher
 
 __all__ = [

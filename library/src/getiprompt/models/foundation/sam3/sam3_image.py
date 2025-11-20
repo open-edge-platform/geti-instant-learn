@@ -9,8 +9,8 @@ from copy import deepcopy
 
 import torch
 
-from getiprompt.models.sam3.data_misc import BatchedDatapoint
-from getiprompt.models.sam3.model import (
+from getiprompt.models.foundation.sam3.data_misc import BatchedDatapoint
+from getiprompt.models.foundation.sam3.model import (
     Prompt,
     SAM3Output,
     SAM3VLBackbone,
