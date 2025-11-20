@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { Suspense } from 'react';
+
 import { useGetSources } from '@geti-prompt/hooks';
-import { dimensionValue, Grid, minmax, View } from '@geti/ui';
+import { dimensionValue, Grid, Loading, minmax, View } from '@geti/ui';
 
 import { CaptureFrameButton } from './capture-frame-button.component';
 import { ImagesFolderStream } from './images-folder-stream/images-folder-stream.component';
@@ -55,6 +57,10 @@ export const Stream = () => {
     }
 
     if (activeSource.config.source_type === 'images_folder') {
-        return <ImagesFolderStream />;
+        return (
+            <Suspense fallback={<Loading mode={'inline'} style={{ height: '100%', width: '100%' }} />}>
+                <ImagesFolderStream sourceId={activeSource.id} />
+            </Suspense>
+        );
     }
 };

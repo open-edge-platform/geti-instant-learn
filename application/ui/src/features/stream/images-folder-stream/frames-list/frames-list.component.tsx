@@ -5,57 +5,24 @@
 
 import { RefObject } from 'react';
 
+import { type FrameType } from '@geti-prompt/api';
 import {
     AriaComponentsListBox,
+    Collection,
     HorizontalLayout,
     HorizontalLayoutOptions,
     ListBoxItem,
+    ListBoxLoadMoreItem,
+    Loading,
     View,
     Virtualizer,
 } from '@geti/ui';
 import { clsx } from 'clsx';
 
-import TestImg from '../../../assets/test.webp';
-
 import styles from './frames-list.module.scss';
 
-export const useFrames = (): Frame[] => {
-    // TODO: replace with actual frames
-    return [
-        TestImg,
-        TestImg,
-        TestImg,
-        TestImg,
-        TestImg,
-        TestImg,
-        TestImg,
-        TestImg,
-        TestImg,
-        TestImg,
-        TestImg,
-        TestImg,
-        TestImg,
-        TestImg,
-        TestImg,
-        TestImg,
-        TestImg,
-        TestImg,
-    ].map((url, idx) => {
-        return {
-            thumbnail: url,
-            index: idx,
-        };
-    });
-};
-
-export interface Frame {
-    // it's a base 64 encoded string
-    thumbnail: string;
-    index: number;
-}
-
 interface FrameThumbnailProps {
-    frame: Frame;
+    frame: FrameType;
     isSelected: boolean;
 }
 
@@ -80,7 +47,7 @@ const FrameThumbnail = ({ frame, isSelected }: FrameThumbnailProps) => {
             >
                 <img
                     alt={'Frame'}
-                    src={thumbnail}
+                    src={`data:image/jpeg;base64,${thumbnail}`}
                     style={{ objectFit: 'cover', height: '100%', width: '100%', display: 'block' }}
                 />
             </View>
@@ -91,8 +58,10 @@ const FrameThumbnail = ({ frame, isSelected }: FrameThumbnailProps) => {
 interface FramesListProps {
     activeFrameIndex: number;
     onSetActiveFrame: (index: number) => void;
-    frames: Frame[];
+    frames: FrameType[];
     ref: RefObject<HTMLDivElement | null>;
+    onLoadMore: () => void;
+    isLoadingMore: boolean;
 }
 
 const LAYOUT_OPTIONS: HorizontalLayoutOptions = {
@@ -102,7 +71,14 @@ const LAYOUT_OPTIONS: HorizontalLayoutOptions = {
     overscan: 5,
 };
 
-export const FramesList = ({ activeFrameIndex, frames, onSetActiveFrame, ref }: FramesListProps) => {
+export const FramesList = ({
+    activeFrameIndex,
+    frames,
+    onSetActiveFrame,
+    ref,
+    onLoadMore,
+    isLoadingMore,
+}: FramesListProps) => {
     return (
         <View height={'100%'} padding={'size-200'} backgroundColor={'gray-100'}>
             <Virtualizer<HorizontalLayoutOptions> layout={HorizontalLayout} layoutOptions={LAYOUT_OPTIONS}>
@@ -110,19 +86,32 @@ export const FramesList = ({ activeFrameIndex, frames, onSetActiveFrame, ref }: 
                     orientation={'horizontal'}
                     className={styles.framesList}
                     aria-label={'Frames list'}
+                    items={frames}
                     ref={ref}
                 >
-                    {frames.map((frame) => (
-                        <ListBoxItem
-                            key={frame.index}
-                            className={styles.frameItem}
-                            aria-label={`Frame #${frame.index}`}
-                            data-isSelected={frame.index === activeFrameIndex}
-                            onAction={() => onSetActiveFrame(frame.index)}
-                        >
-                            <FrameThumbnail frame={frame} isSelected={frame.index === activeFrameIndex} />
-                        </ListBoxItem>
-                    ))}
+                    <Collection items={frames}>
+                        {(frame) => (
+                            <ListBoxItem
+                                id={frame.index}
+                                key={frame.index}
+                                className={styles.frameItem}
+                                aria-label={`Frame #${frame.index}`}
+                                data-isSelected={frame.index === activeFrameIndex}
+                                onAction={() => onSetActiveFrame(frame.index)}
+                            >
+                                <FrameThumbnail frame={frame} isSelected={frame.index === activeFrameIndex} />
+                            </ListBoxItem>
+                        )}
+                    </Collection>
+
+                    <ListBoxLoadMoreItem
+                        onLoadMore={onLoadMore}
+                        isLoading={isLoadingMore}
+                        aria-label={'Load more frames'}
+                        data-testid={'load-more-frames'}
+                    >
+                        <Loading mode={'inline'} />
+                    </ListBoxLoadMoreItem>
                 </AriaComponentsListBox>
             </Virtualizer>
         </View>
