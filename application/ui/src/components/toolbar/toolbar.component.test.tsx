@@ -46,13 +46,13 @@ describe('Toolbar', () => {
         expect(await screen.findByRole('status')).toBeInTheDocument();
     });
 
-    it('always renders SourcesSinksConfiguration button', async () => {
+    it('always renders SourcesSinks button', async () => {
         render(
             <WebRTCConnectionProvider>
                 <Toolbar />
             </WebRTCConnectionProvider>
         );
 
-        expect(await screen.findByRole('button', { name: 'Input/Output Setup' })).toBeInTheDocument();
+        expect(await screen.findByRole('button', { name: 'Pipeline configuration' })).toBeInTheDocument();
     });
 });

@@ -14,7 +14,7 @@ import { ImagesFolder } from './images-folder/images-folder.component';
 import { getImagesFolderSource, getWebcamSource } from './utils';
 import { WebcamSource } from './webcam/webcam-source.component';
 
-export const SourcesConfiguration = () => {
+export const Sources = () => {
     const { data } = useGetSources();
 
     const sources: {
