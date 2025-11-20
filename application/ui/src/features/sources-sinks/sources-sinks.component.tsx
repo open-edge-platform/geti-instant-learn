@@ -10,7 +10,7 @@ import { Sources } from './sources/sources.component';
 
 const ITEMS = [
     {
-        label: 'Sources Setup',
+        label: 'Input Setup',
         content: <Sources />,
     },
 ];
