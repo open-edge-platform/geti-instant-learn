@@ -10,19 +10,19 @@ import { SourcesConfiguration } from './sources-configuration/sources-configurat
 
 const ITEMS = [
     {
-        label: 'Input Setup',
+        label: 'Sources Setup',
         content: <SourcesConfiguration />,
     },
 ];
 
-type InputOutputTabProps = (typeof ITEMS)[number];
+type SourcesSinksTabProps = (typeof ITEMS)[number];
 
-const InputOutputTabs = () => {
+const SourcesSinksTabs = () => {
     return (
-        <Tabs aria-label={'Input and output configuration tabs'} items={ITEMS}>
-            <TabList>{(tab: InputOutputTabProps) => <Item key={tab.label}>{tab.label}</Item>}</TabList>
+        <Tabs aria-label={'Sources and sinks tabs'} items={ITEMS}>
+            <TabList>{(tab: SourcesSinksTabProps) => <Item key={tab.label}>{tab.label}</Item>}</TabList>
             <TabPanels marginTop={'size-200'}>
-                {(tab: InputOutputTabProps) => <Item key={tab.label}>{tab.content}</Item>}
+                {(tab: SourcesSinksTabProps) => <Item key={tab.label}>{tab.content}</Item>}
             </TabPanels>
         </Tabs>
     );
@@ -31,19 +31,17 @@ const InputOutputTabs = () => {
 export const SourcesSinksConfiguration = () => {
     return (
         <DialogTrigger type={'popover'} hideArrow placement={'bottom right'}>
-            <Button variant={'secondary'} style={'fill'}>
+            <Button variant={'secondary'}>
                 <Flex alignItems={'center'} gap={'size-50'}>
                     <InputOutput />
-                    <Text>Input/Output Setup</Text>
+                    <Text>Pipeline configuration</Text>
                 </Flex>
             </Button>
-            {(_close) => (
-                <Dialog>
-                    <Content>
-                        <InputOutputTabs />
-                    </Content>
-                </Dialog>
-            )}
+            <Dialog>
+                <Content>
+                    <SourcesSinksTabs />
+                </Content>
+            </Dialog>
         </DialogTrigger>
     );
 };
