@@ -8,12 +8,13 @@ from pathlib import Path
 import torch
 
 from getiprompt.components import SamDecoder
-from getiprompt.components.encoders import load_image_encoder
+from getiprompt.components.encoders import PyTorchImageEncoder, load_image_encoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
+from getiprompt.components.sam import PyTorchSAMPredictor
 from getiprompt.data.base.batch import Batch
-from getiprompt.utils.constants import SAMModelName
+from getiprompt.utils.constants import Backend, SAMModelName
 
 from .base import Model
 from .foundation import load_sam_model
@@ -100,13 +101,13 @@ class Matcher(Model):
             device: The device to use for the model.
         """
         super().__init__()
-        self.sam_predictor = load_sam_model(
+        self.sam_predictor: PyTorchSAMPredictor = load_sam_model(
             sam,
             device,
             precision=precision,
             compile_models=compile_models,
         )
-        self.encoder = load_image_encoder(
+        self.encoder: PyTorchImageEncoder = load_image_encoder(
             model_id=encoder_model,
             device=device,
             precision=precision,
@@ -174,11 +175,16 @@ class Matcher(Model):
             similarities=similarities_per_image,
         )
 
-    def export(self, output_path: Path) -> None:
-        """Export the model to ONNX and OpenVINO IR format.
+    def export(
+        self,
+        export_dir: str | Path,
+        backend: Backend = Backend.ONNX,
+        **kwargs,
+    ) -> Path:
+        """Export the model to a given path.
 
         Args:
-            output_path: The path to export the model to.
+            export_dir: The directory to export the model to.
+            backend: The backend to export the model to.
+            **kwargs: Additional arguments to pass to the export method.
         """
-        self.encoder.export(output_path)
-        self.sam_predictor.export(output_path)

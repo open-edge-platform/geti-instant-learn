@@ -78,7 +78,7 @@ def load_image_encoder(
             compile_models=compile_models,
             input_size=input_size,
         )
-    elif backend == "openvino":
+    if backend == "openvino":
         from .openvino_image_encoder import OpenVINOImageEncoder
 
         if model_path is None:
@@ -97,6 +97,5 @@ def load_image_encoder(
             device=device,
             input_size=input_size,
         )
-    else:
-        msg = f"Invalid backend: {backend}. Must be 'pytorch' or 'openvino'."
-        raise ValueError(msg)
+    msg = f"Invalid backend: {backend}. Must be 'pytorch' or 'openvino'."
+    raise ValueError(msg)

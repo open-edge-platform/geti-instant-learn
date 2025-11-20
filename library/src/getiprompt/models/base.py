@@ -10,6 +10,7 @@ import torch
 from torch import nn
 
 from getiprompt.data.base.batch import Batch
+from getiprompt.utils.constants import Backend
 
 
 class Model(nn.Module):
@@ -40,9 +41,19 @@ class Model(nn.Module):
         """
 
     @abstractmethod
-    def export(self, output_path: Path) -> None:
+    def export(
+        self,
+        export_dir: str | Path,
+        backend: Backend = Backend.ONNX,
+        **kwargs,
+    ) -> Path:
         """This method exports the model to a given path.
 
         Args:
-            output_path(Path): The path to export the model to.
+            export_dir: The directory to export the model to.
+            backend: The backend to export the model to.
+            **kwargs: Additional arguments to pass to the export method.
+
+        Returns:
+            The path to the exported model.
         """

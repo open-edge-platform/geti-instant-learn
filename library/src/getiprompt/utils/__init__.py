@@ -3,6 +3,7 @@
 
 """Utils."""
 
+from .constants import Backend
 from .similarity_resize import resize_similarity_maps
 from .utils import (
     download_file,
@@ -11,6 +12,7 @@ from .utils import (
 )
 
 __all__ = [
+    "Backend",
     "download_file",
     "precision_to_torch_dtype",
     "resize_similarity_maps",

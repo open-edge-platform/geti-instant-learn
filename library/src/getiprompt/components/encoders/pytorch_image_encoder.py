@@ -175,7 +175,7 @@ class PyTorchImageEncoder(nn.Module):
             ...     model_id="dinov2_large",
             ...     device="cuda"
             ... )
-            >>> ov_path = encoder.export(Path("./exported/dinov2_large"))
+            >>> ov_path = encoder.export(Path("./exported"))
             >>>
             >>> # Now load with OpenVINO backend
             >>> ov_encoder = OpenVINOImageEncoder(
@@ -183,7 +183,6 @@ class PyTorchImageEncoder(nn.Module):
             ...     input_size=518
             ... )
         """
-
         # Ensure output directory exists
         output_path = Path(output_path)
         output_path.mkdir(parents=True, exist_ok=True)

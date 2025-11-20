@@ -11,8 +11,8 @@ import torch
 from torch import nn
 from torch.nn import functional
 from torchvision import tv_tensors
-from transformers import AutoImageProcessor
-from transformers import AutoConfig
+from transformers import AutoConfig, AutoImageProcessor
+
 logger = getLogger("Geti Prompt")
 
 
@@ -80,7 +80,7 @@ class OpenVINOImageEncoder(nn.Module):
             config = AutoConfig.from_pretrained(model_path.parent)
             self.patch_size = config.patch_size
             self.feature_size = input_size // self.patch_size
-            self.ignore_token_length = 1 + getattr(config, "num_register_tokens", 0)            
+            self.ignore_token_length = 1 + getattr(config, "num_register_tokens", 0)
         except Exception as e:
             msg = (
                 f"Could not load config from {model_path} and model_id not provided. "
@@ -152,6 +152,3 @@ class OpenVINOImageEncoder(nn.Module):
         features = last_hidden_state[:, self.ignore_token_length :, :]
 
         return functional.normalize(features, p=2, dim=-1)
-
-
-
