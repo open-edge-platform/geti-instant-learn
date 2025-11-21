@@ -14,7 +14,7 @@ import { isEmpty } from 'lodash-es';
 
 import { DisclosureGroup } from '../disclosure-group/disclosure-group.component';
 import { EditSource } from './edit-sources-list.component';
-import { ExistingSourcesList } from './existing-sources-list.component';
+import { ExistingSources } from './existing-sources/existing-sources.component';
 import { ImagesFolder } from './images-folder/images-folder.component';
 import { getImagesFolderSource, getWebcamSource, SourcesViews } from './utils';
 import { WebcamSource } from './webcam/webcam-source.component';
@@ -90,7 +90,7 @@ export const Sources = () => {
 
     if (view === 'existing') {
         return (
-            <ExistingSourcesList
+            <ExistingSources
                 sources={data.sources}
                 activeSource={activeSource}
                 onViewChange={setView}
