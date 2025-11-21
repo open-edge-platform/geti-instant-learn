@@ -3,7 +3,6 @@
 
 import logging
 import queue
-from contextlib import contextmanager
 from uuid import UUID
 
 from sqlalchemy.orm import Session, sessionmaker
@@ -16,50 +15,56 @@ from domain.dispatcher import (
     ProjectDeactivationEvent,
 )
 from domain.services.project import ProjectService
+from runtime.components import ComponentFactory, DefaultComponentFactory
+from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.errors import UnsupportedOperationError
 from runtime.core.components.pipeline import Pipeline
-from runtime.core.components.schemas.processor import InputData
+from runtime.core.components.schemas.pipeline import PipelineConfig
+from runtime.core.components.schemas.processor import InputData, OutputData
 from runtime.core.components.schemas.reader import FrameListResponse
-from runtime.errors import (
-    PipelineNotActiveError,
-    PipelineProjectMismatchError,
-    SourceNotSeekableError,
-)
+from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError, SourceNotSeekableError
 
 logger = logging.getLogger(__name__)
 
 
 class PipelineManager:
     """
-    Glues the app configuration and runtime layers together by managing the active Pipeline.
+    Manages the active Pipeline and its lifecycle, handling configuration changes.
 
-    This class listens for configuration change events and translates them into
-    lifecycle actions for the running Job instance, such as starting, stopping,
-    or performing a live configuration update.
+    This class is responsible for:
+    - Creating and managing the active Pipeline instance
+    - Tracking the current pipeline configuration
+    - Reacting to configuration change events and determining which components need updates
+    - Creating new component instances and instructing the pipeline to update them
+
+    The Pipeline itself only manages component lifecycle (start/stop/replace), while
+    the PipelineManager handles the business logic of configuration comparison and
+    component instantiation.
     """
 
-    def __init__(self, event_dispatcher: ConfigChangeDispatcher, session_factory: sessionmaker[Session]):
+    def __init__(
+        self,
+        event_dispatcher: ConfigChangeDispatcher,
+        session_factory: sessionmaker[Session],
+        component_factory: ComponentFactory | None = None,
+    ):
         self._event_dispatcher = event_dispatcher
         self._session_factory = session_factory
+        self._component_factory = component_factory or DefaultComponentFactory(session_factory)
+        # todo: bundle refs to pipeline and pipeline config together.
         self._pipeline: Pipeline | None = None
-
-    @contextmanager
-    def _project_service(self):
-        """
-        Context manager yielding a short-lived ProjectService, ensures session cleanup.
-        """
-        with self._session_factory() as session:
-            svc = ProjectService(session=session, config_change_dispatcher=self._event_dispatcher)
-            yield svc
+        self._current_config: PipelineConfig | None = None
 
     def start(self) -> None:
         """
         Start pipeline for active project if present; subscribe to config events.
         """
-        with self._project_service() as svc:
+        with self._session_factory() as session:
+            svc = ProjectService(session=session, config_change_dispatcher=self._event_dispatcher)
             cfg = svc.get_active_pipeline_config()
         if cfg:
-            self._pipeline = Pipeline(pipeline_conf=cfg)
+            self._current_config = cfg
+            self._pipeline = self._create_pipeline(cfg.project_id)
             self._pipeline.start()
             logger.info("Pipeline started: project_id=%s", cfg.project_id)
         else:
@@ -73,6 +78,7 @@ class PipelineManager:
         if self._pipeline:
             self._pipeline.stop()
             self._pipeline = None
+        self._current_config = None
 
     def on_config_change(self, event: ConfigChangeEvent) -> None:
         """
@@ -80,32 +86,77 @@ class PipelineManager:
         """
         match event:
             case ProjectActivationEvent() as e:
-                with self._project_service() as svc:
-                    cfg = svc.get_pipeline_config(e.project_id)
                 if self._pipeline:
                     self._pipeline.stop()
-                self._pipeline = Pipeline(pipeline_conf=cfg)
+                self._pipeline = self._create_pipeline(e.project_id)
                 self._pipeline.start()
                 logger.info("Pipeline started for activated project %s", e.project_id)
 
             case ProjectDeactivationEvent() as e:
-                if self._pipeline and self._pipeline.config.project_id == e.project_id:
+                if self._pipeline and self._pipeline.project_id == e.project_id:
                     self._pipeline.stop()
                     self._pipeline = None
+                    self._current_config = None
                     logger.info("Pipeline stopped due to project deactivation %s", e.project_id)
 
             case ComponentConfigChangeEvent() as e:
-                if self._pipeline and self._pipeline.config.project_id == e.project_id:
-                    with self._project_service() as svc:
-                        new_cfg = svc.get_pipeline_config(self._pipeline.config.project_id)
-                    self._pipeline.update_config(new_cfg)
-                    logger.info("Pipeline config updated for project %s", e.project_id)
+                if self._pipeline and self._pipeline.project_id == e.project_id:
+                    self._update_pipeline_components(e.project_id, e.component_type)
+                    logger.info("Pipeline components updated for project %s", e.project_id)
+
+    def _create_pipeline(self, project_id: UUID) -> Pipeline:
+        """
+        Create a new Pipeline instance with components built from the given configuration.
+
+        Args:
+            config: The pipeline configuration.
+
+        Returns:
+            A fully initialized Pipeline instance (not yet started).
+        """
+        source = self._component_factory.create_source(project_id)
+        processor = self._component_factory.create_processor(project_id)
+        sink = self._component_factory.create_sink(project_id)
+
+        return (
+            Pipeline(project_id, FrameBroadcaster[InputData](), FrameBroadcaster[OutputData]())
+            .set_source(source)
+            .set_processor(processor)
+            .set_sink(sink)
+        )
+
+    def _update_pipeline_components(self, project_id: UUID, component_type: str) -> None:
+        """
+        Compare current and new configurations, updating only changed components.
+
+        Args:
+            new_config: The new pipeline configuration.
+        """
+        if not self._pipeline:
+            return
+
+        match component_type:
+            case "source":
+                source = self._component_factory.create_source(project_id)
+                self._pipeline.set_source(source, True)
+            case "processor":
+                processor = self._component_factory.create_processor(project_id)
+                self._pipeline.set_processor(processor, True)
+            case "sink":
+                sink = self._component_factory.create_sink(project_id)
+                self._pipeline.set_sink(sink, True)
+            case _ as unknown:
+                logger.error(f"Unknown component type {unknown}")
+
+    # todo:
+    # 1. unify methods for registering/unregistering all types of consumers.
+    # 2. use context manager to automatically unregister a queue when it exits the scope
 
     def register_webrtc(self, project_id: UUID) -> queue.Queue:
         """Register webRTC in pipeline."""
         if self._pipeline is None:
             raise PipelineNotActiveError("No active pipeline to register to.")
-        if project_id != self._pipeline.config.project_id:
+        if project_id != self._pipeline.project_id:
             raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
         return self._pipeline.register_webrtc()
 
@@ -113,7 +164,7 @@ class PipelineManager:
         """Unregister webRTC in pipeline."""
         if self._pipeline is None:
             raise PipelineNotActiveError("No active pipeline to unregister from.")
-        if project_id != self._pipeline.config.project_id:
+        if project_id != self._pipeline.project_id:
             raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
         return self._pipeline.unregister_webrtc(queue=target_queue)
 
@@ -133,10 +184,9 @@ class PipelineManager:
         """
         if self._pipeline is None:
             raise PipelineNotActiveError("No active pipeline to register inbound consumer.")
-        if project_id != self._pipeline.config.project_id:
+        if project_id != self._pipeline.project_id:
             raise PipelineProjectMismatchError(
-                f"Project ID {project_id} does not match the active pipeline's project ID "
-                f"{self._pipeline.config.project_id}."
+                f"Project ID {project_id} does not match the active pipeline's project ID {self._pipeline.project_id}."
             )
         return self._pipeline.register_inbound_consumer()
 
@@ -154,10 +204,9 @@ class PipelineManager:
         """
         if self._pipeline is None:
             raise PipelineNotActiveError("No active pipeline to unregister inbound consumer from.")
-        if project_id != self._pipeline.config.project_id:
+        if project_id != self._pipeline.project_id:
             raise PipelineProjectMismatchError(
-                f"Project ID {project_id} does not match the active pipeline's project ID "
-                f"{self._pipeline.config.project_id}."
+                f"Project ID {project_id} does not match the active pipeline's project ID {self._pipeline.project_id}."
             )
         self._pipeline.unregister_inbound_consumer(target_queue)
 
@@ -177,7 +226,7 @@ class PipelineManager:
         """
         if self._pipeline is None:
             raise PipelineNotActiveError("No active pipeline.")
-        if project_id != self._pipeline.config.project_id:
+        if project_id != self._pipeline.project_id:
             raise PipelineProjectMismatchError(
                 f"Project ID {project_id} does not match the active pipeline's project ID."
             )
@@ -203,7 +252,7 @@ class PipelineManager:
         """
         if self._pipeline is None:
             raise PipelineNotActiveError("No active pipeline.")
-        if project_id != self._pipeline.config.project_id:
+        if project_id != self._pipeline.project_id:
             raise PipelineProjectMismatchError(
                 f"Project ID {project_id} does not match the active pipeline's project ID."
             )
@@ -231,7 +280,7 @@ class PipelineManager:
         """
         if self._pipeline is None:
             raise PipelineNotActiveError("No active pipeline.")
-        if project_id != self._pipeline.config.project_id:
+        if project_id != self._pipeline.project_id:
             raise PipelineProjectMismatchError(
                 f"Project ID {project_id} does not match the active pipeline's project ID."
             )

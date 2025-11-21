@@ -19,7 +19,7 @@ class StreamReaderFactory:
     """
 
     @classmethod
-    def create(cls, config: ReaderConfig) -> StreamReader:
+    def create(cls, config: ReaderConfig | None) -> StreamReader:
         match config:
             case WebCamConfig() as config:
                 return WebCamReader(config)

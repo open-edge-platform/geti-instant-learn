@@ -6,6 +6,7 @@ from queue import Empty
 
 from runtime.core.components.base import PipelineComponent, StreamWriter
 from runtime.core.components.broadcaster import FrameBroadcaster
+from runtime.core.components.schemas.processor import OutputData
 
 logger = logging.getLogger(__name__)
 
@@ -13,14 +14,19 @@ logger = logging.getLogger(__name__)
 class Sink(PipelineComponent):
     """Gets data from a queue and writes it using a StreamWriter."""
 
-    def __init__(self, broadcaster: FrameBroadcaster, stream_writer: StreamWriter):
+    def __init__(self, stream_writer: StreamWriter):
         super().__init__()
         self._writer = stream_writer
-        self.broadcaster = broadcaster
-        logger.debug("Sink registering to OutboundBroadcaster for processed frames")
-        self._out_queue = broadcaster.register()
+        self._initialized = False
+
+    def setup(self, outbound_broadcaster: FrameBroadcaster[OutputData]) -> None:
+        self._out_queue = outbound_broadcaster.register()
+        self._outbound_broadcaster = outbound_broadcaster
+        self._initialized = True
 
     def run(self) -> None:
+        if not self._initialized:
+            raise RuntimeError("The sink should be initialized before being used")
         logger.debug("Starting a sink loop")
         with self._writer:
             while not self._stop_event.is_set():
@@ -32,4 +38,4 @@ class Sink(PipelineComponent):
             logger.debug("Stopping the sink loop")
 
     def _stop(self) -> None:
-        self.broadcaster.unregister(self._out_queue)
+        self._outbound_broadcaster.unregister(self._out_queue)

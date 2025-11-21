@@ -18,7 +18,8 @@ class TestSource:
         self.mock_stream_reader = MagicMock(spec=StreamReader)
         self.mock_stream_reader.__enter__.return_value = self.mock_stream_reader
         self.mock_broadcaster = MagicMock(spec=FrameBroadcaster)
-        self.source = Source(self.mock_stream_reader, self.mock_broadcaster)
+        self.source = Source(self.mock_stream_reader)
+        self.source.setup(self.mock_broadcaster)
 
     @pytest.mark.parametrize(
         "test_id, input_data, expected_broadcasts", test_cases, ids=[case[0] for case in test_cases]

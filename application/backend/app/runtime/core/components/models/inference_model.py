@@ -1,0 +1,17 @@
+import torch
+from getiprompt.data.base.batch import Batch
+from getiprompt.models.base import Model
+
+from runtime.core.components.base import ModelHandler
+
+
+class InferenceModelHandler(ModelHandler):
+    def __init__(self, model: Model, reference_batch: Batch) -> None:
+        self._model = model
+        self._reference_batch = reference_batch
+
+    def initialise(self) -> None:
+        self._model.learn(self._reference_batch)
+
+    def infer(self, batch: Batch) -> list[dict[str, torch.Tensor]]:
+        return self._model.infer(batch)

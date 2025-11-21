@@ -1,26 +1,39 @@
 from queue import Empty, Queue
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
 
 from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.processor import Processor
+from runtime.core.components.schemas.processor import InputData, OutputData
+
+
+def create_input_data(frame_id: int) -> InputData:
+    return InputData(
+        timestamp=frame_id * 1000,
+        frame=np.zeros((480, 640, 3), dtype=np.uint8),
+        context={"frame_id": frame_id},
+    )
+
+
+def create_output_data(frame_id: int) -> OutputData:
+    return OutputData(
+        frame=np.zeros((480, 640, 3), dtype=np.uint8),
+        results=[],
+    )
+
 
 runner_test_cases = [
     (
         "processes_and_broadcasts_all_data",
-        ["data1", "data2"],
-        ["data1", "data2"],
-    ),
-    (
-        "skips_broadcasting_for_none_results",
-        ["data1", None, "data3"],
-        ["data1", "data3"],
+        [create_input_data(1), create_input_data(2)],
+        [create_output_data(1), create_output_data(2)],
     ),
     (
         "handles_intermittent_empty_queue",
-        [Empty(), "data1", Empty(), "data2"],
-        ["data1", "data2"],
+        [Empty(), create_input_data(1), Empty(), create_input_data(2)],
+        [create_output_data(1), create_output_data(2)],
     ),
     ("handles_empty_input", [], []),
 ]
@@ -32,7 +45,10 @@ class TestProcessor:
         self.mock_in_queue = MagicMock(spec=Queue)
         self.mock_inbound_broadcaster.register.return_value = self.mock_in_queue
         self.mock_outbound_broadcaster = MagicMock(spec=FrameBroadcaster)
-        self.runner = Processor(self.mock_inbound_broadcaster, self.mock_outbound_broadcaster, None)
+        self.mock_model_handler = MagicMock()
+        self.mock_model_handler.infer.return_value = []  # Return empty results list
+        self.runner = Processor(self.mock_model_handler)
+        self.runner.setup(self.mock_inbound_broadcaster, self.mock_outbound_broadcaster)
 
     @pytest.mark.parametrize(
         "test_id, queue_effects, expected_broadcasts",
@@ -53,15 +69,18 @@ class TestProcessor:
                 raise Empty
 
         self.mock_in_queue.get.side_effect = mock_get
-
-        # Verify that register was called during __init__
         self.mock_inbound_broadcaster.register.assert_called_once()
 
         self.runner.run()
 
-        # Check that the broadcaster was called with the correct processed data.
-        expected_broadcast_calls = [call(item) for item in expected_broadcasts]
-        assert self.mock_outbound_broadcaster.broadcast.call_args_list == expected_broadcast_calls
+        assert self.mock_outbound_broadcaster.broadcast.call_count == len(expected_broadcasts)
 
-        # Verify that unregister was called during stop
+        for i, expected_output in enumerate(expected_broadcasts):
+            actual_call = self.mock_outbound_broadcaster.broadcast.call_args_list[i]
+            actual_output = actual_call[0][0]
+
+            assert isinstance(actual_output, OutputData)
+            assert np.array_equal(actual_output.frame, expected_output.frame)
+            assert isinstance(actual_output.results, list)
+
         self.mock_inbound_broadcaster.unregister.assert_called_once_with(self.mock_in_queue)
