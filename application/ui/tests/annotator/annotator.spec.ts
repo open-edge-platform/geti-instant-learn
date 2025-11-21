@@ -107,10 +107,18 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
 
         await expectToHaveAnnotations({ annotatorPage });
 
-        // Open settings just for fun
-        await annotatorPage.openSettings();
-        await annotatorPage.closeSettings();
-
         await annotatorPage.closeFullscreen();
+    });
+
+    await test.step('Adjusts settings', async () => {
+        await annotatorPage.openSettings();
+
+        const pixelViewSwitch = page.getByRole('switch', { name: 'Pixel view' });
+        await expect(pixelViewSwitch).toBeVisible();
+
+        await pixelViewSwitch.check();
+        await expect(pixelViewSwitch).toBeChecked();
+
+        await annotatorPage.closeSettings();
     });
 });

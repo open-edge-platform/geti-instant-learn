@@ -68,18 +68,19 @@ export class AnnotatorPage {
     }
 
     async closeFullscreen() {
-        await this.page.getByRole('button', { name: 'Close full screen' }).click();
+        await this.page.getByRole('button', { name: 'Close full screen' }).last().click();
+        // Wait for fullscreen to fully closed
+        await expect(this.page.getByRole('button', { name: 'Settings' })).toHaveCount(1);
     }
 
     async openSettings() {
-        await this.page
-            .getByTestId(/captured-frame/)
-            .getByRole('button', { name: 'Settings' })
-            .click();
+        await this.page.getByRole('button', { name: 'Settings' }).click();
+        await expect(this.page.getByRole('button', { name: 'Close settings' })).toBeVisible();
     }
 
     async closeSettings() {
         await this.page.getByRole('button', { name: 'Close settings' }).click();
+        await expect(this.page.getByRole('button', { name: 'Close settings' })).toBeHidden();
     }
 
     async zoomIn() {
