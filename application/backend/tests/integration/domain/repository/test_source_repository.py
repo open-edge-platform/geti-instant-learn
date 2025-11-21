@@ -4,11 +4,11 @@
 from uuid import uuid4
 
 import pytest
-from runtime.core.components.schemas.reader import SourceType
 from sqlalchemy.exc import IntegrityError
 
 from domain.db.models import ProjectDB, SourceDB
 from domain.repositories.source import SourceRepository
+from domain.services.schemas.reader import SourceType
 
 
 @pytest.fixture

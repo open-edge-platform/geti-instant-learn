@@ -13,7 +13,7 @@ from domain.dispatcher import (
     ProjectActivationEvent,
     ProjectDeactivationEvent,
 )
-from runtime.core.components.schemas.pipeline import PipelineConfig
+from domain.services.schemas.pipeline import PipelineConfig
 from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 from runtime.pipeline_manager import PipelineManager
 

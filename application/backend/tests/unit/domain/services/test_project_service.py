@@ -11,8 +11,8 @@ from sqlalchemy.exc import IntegrityError
 from domain.dispatcher import ProjectActivationEvent, ProjectDeactivationEvent
 from domain.errors import ResourceAlreadyExistsError, ResourceNotFoundError
 from domain.services.project import ProjectService
+from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.project import ProjectCreateSchema, ProjectSchema, ProjectUpdateSchema
-from runtime.core.components.schemas.pipeline import PipelineConfig
 
 
 def make_connected_source(device_id: int = 0):

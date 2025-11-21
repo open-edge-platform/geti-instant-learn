@@ -27,6 +27,7 @@ from domain.services.schemas.mappers.project import (
     project_schema_to_db,
     projects_db_to_list_items,
 )
+from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.processor import ModelConfig
 from domain.services.schemas.project import (
     ProjectCreateSchema,
@@ -35,7 +36,6 @@ from domain.services.schemas.project import (
     ProjectUpdateSchema,
 )
 from domain.services.schemas.reader import ReaderConfig
-from runtime.core.components.schemas.pipeline import PipelineConfig
 
 logger = logging.getLogger(__name__)
 

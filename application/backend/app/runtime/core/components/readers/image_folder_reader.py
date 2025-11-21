@@ -50,9 +50,10 @@ class ImageFolderReader(StreamReader):
             new_w, new_h = int(w * scale), int(h * scale)
             thumbnail = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
-            # Encode to base64
+            # Encode to base64 with data URI prefix
             _, buffer = cv2.imencode(".jpg", thumbnail, [cv2.IMWRITE_JPEG_QUALITY, 80])
-            return base64.b64encode(buffer).decode("utf-8")
+            base64_string = base64.b64encode(buffer).decode("utf-8")
+            return f"data:image/jpeg;base64,{base64_string}"
         except Exception as e:
             logger.warning(f"Failed to generate thumbnail for {image_path}: {e}")
             return None
@@ -96,6 +97,9 @@ class ImageFolderReader(StreamReader):
             raise ValueError(f"Invalid folder path: {self._config.images_folder_path}")
 
         image_files = self._get_image_files(folder_path)
+        if not image_files:
+            logger.warning(f"No supported image files found in {folder_path}")
+
         self._image_paths = sorted(image_files, key=self._natural_sort_key)
         self._current_index = 0
 

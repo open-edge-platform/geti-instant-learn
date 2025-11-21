@@ -67,4 +67,4 @@ class Source(PipelineComponent):
         Get paginated list of all frames.
         Delegates to reader.list_frames().
         """
-        return self._reader.list_frames(offset, limit)
+        return self._reader.list_frames(offset=offset, limit=limit)

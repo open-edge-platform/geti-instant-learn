@@ -1,10 +1,10 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
+from domain.services.schemas.reader import SourceType, WebCamConfig
 from runtime.core.components.factories.reader import StreamReaderFactory
 from runtime.core.components.readers.noop_reader import NoOpReader
 from runtime.core.components.readers.webcam_reader import WebCamReader
-from runtime.core.components.schemas.reader import SourceType, WebCamConfig
 
 
 class TestReader:
