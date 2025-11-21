@@ -45,17 +45,11 @@ const getMenuItems = ({ isActiveProject, isActiveSource }: { isActiveProject: bo
 
 interface ExistingSourcesListProps {
     sources: Source[];
-    activeSource: Source | undefined;
     onViewChange: (view: SourcesViews) => void;
     onSetSourceInEditionId: (sourceId: string) => void;
 }
 
-const ExistingSourcesList = ({
-    sources,
-    activeSource,
-    onSetSourceInEditionId,
-    onViewChange,
-}: ExistingSourcesListProps) => {
+const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: ExistingSourcesListProps) => {
     const { data: project } = useCurrentProject();
     const isActiveProject = project.active;
 
@@ -88,13 +82,12 @@ const ExistingSourcesList = ({
     return (
         <Flex direction={'column'} gap={'size-100'}>
             {sources.map((source) => {
-                const isActiveSource = activeSource?.id === source.id;
+                const isActiveSource = source.connected;
 
                 if (isWebcamSource(source)) {
                     return (
                         <WebcamSourceCard
                             key={source.id}
-                            isActive={isActiveSource}
                             source={source}
                             menuItems={getMenuItems({ isActiveSource, isActiveProject })}
                             onAction={handleAction(source)}
@@ -106,7 +99,6 @@ const ExistingSourcesList = ({
                     return (
                         <ImagesFolderSourceCard
                             key={source.id}
-                            isActive={isActiveSource}
                             source={source}
                             menuItems={getMenuItems({ isActiveSource, isActiveProject })}
                             onAction={handleAction(source)}
@@ -120,17 +112,11 @@ const ExistingSourcesList = ({
 
 interface ExistingSourcesProps {
     sources: Source[];
-    activeSource: Source | undefined;
     onViewChange: (view: SourcesViews) => void;
     onSetSourceInEditionId: (sourceId: string) => void;
 }
 
-export const ExistingSources = ({
-    sources,
-    onViewChange,
-    activeSource,
-    onSetSourceInEditionId,
-}: ExistingSourcesProps) => {
+export const ExistingSources = ({ sources, onViewChange, onSetSourceInEditionId }: ExistingSourcesProps) => {
     return (
         <Flex direction={'column'} gap={'size-200'}>
             <Button
@@ -142,7 +128,6 @@ export const ExistingSources = ({
             </Button>
             <ExistingSourcesList
                 sources={sources}
-                activeSource={activeSource}
                 onViewChange={onViewChange}
                 onSetSourceInEditionId={onSetSourceInEditionId}
             />

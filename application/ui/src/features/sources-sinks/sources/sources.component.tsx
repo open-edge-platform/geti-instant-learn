@@ -82,7 +82,6 @@ const AddSource = ({ onViewChange }: AddSourceProps) => {
 
 export const Sources = () => {
     const { data } = useGetSources();
-    const activeSource = data.sources.find((source) => source.connected);
     const [view, setView] = useState<SourcesViews>(isEmpty(data.sources) ? 'list' : 'existing');
     const [sourceInEditionId, setSourceInEditionId] = useState<string | null>(null);
     const sourceInEdition = data.sources.find((source) => source.id === sourceInEditionId);
@@ -91,7 +90,6 @@ export const Sources = () => {
         return (
             <ExistingSources
                 sources={data.sources}
-                activeSource={activeSource}
                 onViewChange={setView}
                 onSetSourceInEditionId={setSourceInEditionId}
             />

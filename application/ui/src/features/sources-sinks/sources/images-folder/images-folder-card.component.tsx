@@ -9,22 +9,22 @@ import { ImagesFolder } from '@geti-prompt/icons';
 import { SourceCard } from '../source-card/source-card.component';
 
 interface ImagesFolderSourceCardProps {
-    isActive: boolean;
     source: ImagesFolderSourceType;
     menuItems: { key: string; label: string }[];
     onAction: (action: string) => void;
 }
 
-export const ImagesFolderSourceCard = ({ isActive, source, onAction, menuItems }: ImagesFolderSourceCardProps) => {
+export const ImagesFolderSourceCard = ({ source, onAction, menuItems }: ImagesFolderSourceCardProps) => {
     const parameters = [`Folder path: ${source.config.images_folder_path}`];
+    const isActiveSource = source.connected;
 
     return (
         <SourceCard
-            isActive={isActive}
+            isActive={source.connected}
             parameters={parameters}
             icon={<ImagesFolder />}
             title={'Images folder'}
-            menu={<SourceCard.Menu onAction={onAction} isActive={isActive} items={menuItems} />}
+            menu={<SourceCard.Menu onAction={onAction} isActive={isActiveSource} items={menuItems} />}
         />
     );
 };
