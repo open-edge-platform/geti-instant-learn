@@ -6,12 +6,17 @@
 import { InputOutput } from '@geti-prompt/icons';
 import { Button, Content, Dialog, DialogTrigger, Flex, Item, TabList, TabPanels, Tabs, Text } from '@geti/ui';
 
+import { ModelToolbar } from '../prompts/models/model-toolbar/model-toolbar.component';
 import { Sources } from './sources/sources.component';
 
 const ITEMS = [
     {
         label: 'Sources Setup',
         content: <Sources />,
+    },
+    {
+        label: 'Model',
+        content: <ModelToolbar />,
     },
 ];
 

@@ -5,7 +5,6 @@
 
 import { Flex, Heading, View } from '@geti/ui';
 
-import { ModelToolbar } from './models/model-toolbar/model-toolbar.component';
 import { PromptMode } from './prompt-modes/prompt-mode.component';
 
 export const Prompt = () => {
@@ -29,7 +28,6 @@ export const Prompt = () => {
                         */}
 
                         <Flex flex={1} direction={'column'} gap={'size-200'}>
-                            <ModelToolbar />
                             <View flex={1}>
                                 <PromptMode />
                             </View>
