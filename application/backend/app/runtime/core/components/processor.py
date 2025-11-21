@@ -9,9 +9,9 @@ from getiprompt.data.base.batch import Batch
 from getiprompt.data.base.sample import Sample
 from torchvision import tv_tensors
 
+from domain.services.schemas.processor import InputData, OutputData
 from runtime.core.components.base import ModelHandler, PipelineComponent
 from runtime.core.components.broadcaster import FrameBroadcaster
-from runtime.core.components.schemas.processor import InputData, OutputData
 
 logger = logging.getLogger(__name__)
 

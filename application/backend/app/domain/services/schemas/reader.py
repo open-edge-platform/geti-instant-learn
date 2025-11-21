@@ -6,6 +6,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
+from domain.services.schemas.base import Pagination
+
 
 class SourceType(StrEnum):
     WEBCAM = "webcam"
@@ -74,10 +76,8 @@ class FrameMetadata(BaseModel):
 class FrameListResponse(BaseModel):
     """Paginated response for frame listing."""
 
-    total: int
-    page: int
-    page_size: int
     frames: list[FrameMetadata]
+    pagination: Pagination
 
 
 class FrameIndexResponse(BaseModel):

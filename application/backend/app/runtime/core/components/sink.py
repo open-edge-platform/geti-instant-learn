@@ -4,9 +4,9 @@
 import logging
 from queue import Empty
 
+from domain.services.schemas.processor import OutputData
 from runtime.core.components.base import PipelineComponent, StreamWriter
 from runtime.core.components.broadcaster import FrameBroadcaster
-from runtime.core.components.schemas.processor import OutputData
 
 logger = logging.getLogger(__name__)
 

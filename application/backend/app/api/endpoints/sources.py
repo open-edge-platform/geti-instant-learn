@@ -8,8 +8,8 @@ from fastapi import Response, status
 
 from api.routers import projects_router
 from dependencies import PipelineManagerDep, SourceServiceDep
+from domain.services.schemas.reader import FrameIndexResponse, FrameListResponse
 from domain.services.schemas.source import SourceCreateSchema, SourceSchema, SourcesListSchema, SourceUpdateSchema
-from runtime.core.components.schemas.reader import FrameIndexResponse, FrameListResponse
 from runtime.errors import (
     SourceMismatchError,
 )
@@ -111,8 +111,8 @@ def get_frames(
     source_id: UUID,
     source_service: SourceServiceDep,
     pipeline_manager: PipelineManagerDep,
-    page: int = 1,
-    page_size: int = 30,
+    offset: int = 0,
+    limit: int = 30,
 ) -> FrameListResponse:
     """
     Retrieve a paginated list of frames from the source.
@@ -123,7 +123,7 @@ def get_frames(
     if not source.connected:
         raise SourceMismatchError(f"Source {source_id} is not currently connected. Please connect the source first.")
 
-    return pipeline_manager.list_frames(project_id, page, page_size)
+    return pipeline_manager.list_frames(project_id, offset, limit)
 
 
 @projects_router.get(

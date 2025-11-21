@@ -5,8 +5,8 @@ from abc import ABC, abstractmethod
 
 import cv2
 
+from domain.services.schemas.processor import InputData
 from runtime.core.components.base import StreamReader
-from runtime.core.components.schemas.processor import InputData
 
 
 class BaseOpenCVReader(StreamReader, ABC):

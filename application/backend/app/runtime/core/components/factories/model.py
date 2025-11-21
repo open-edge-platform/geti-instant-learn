@@ -6,10 +6,10 @@ import os
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.matcher import Matcher
 
+from domain.services.schemas.processor import MatcherConfig, ModelConfig
 from runtime.core.components.base import ModelHandler
 from runtime.core.components.models.inference_model import InferenceModelHandler
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
-from runtime.core.components.schemas.processor import MatcherConfig, ModelConfig
 
 DEVICE_MAP = {
     "cpu": "cpu",  # OpenVINO on CPU

@@ -10,9 +10,9 @@ from typing import Any, TypeVar
 import torch
 from getiprompt.data.base.batch import Batch
 
+from domain.services.schemas.processor import InputData
+from domain.services.schemas.reader import FrameListResponse
 from runtime.core.components.errors import UnsupportedOperationError
-from runtime.core.components.schemas.processor import InputData
-from runtime.core.components.schemas.reader import FrameListResponse
 
 IN = TypeVar("IN")
 OUT = TypeVar("OUT")
@@ -95,7 +95,7 @@ class StreamReader(AbstractContextManager, ABC):
         """
         raise UnsupportedOperationError
 
-    def list_frames(self, page: int = 1, page_size: int = 30) -> FrameListResponse:  # noqa: ARG002
+    def list_frames(self, offset: int = 0, limit: int = 30) -> FrameListResponse:  # noqa: ARG002
         """
         Get a paginated list of all available frames.
         """

@@ -4,10 +4,10 @@
 import logging
 import time
 
+from domain.services.schemas.processor import InputData
+from domain.services.schemas.reader import FrameListResponse
 from runtime.core.components.base import PipelineComponent, StreamReader
 from runtime.core.components.broadcaster import FrameBroadcaster
-from runtime.core.components.schemas.processor import InputData
-from runtime.core.components.schemas.reader import FrameListResponse
 
 logger = logging.getLogger(__name__)
 
@@ -62,9 +62,9 @@ class Source(PipelineComponent):
         """
         return self._reader.index()
 
-    def list_frames(self, page: int = 1, page_size: int = 30) -> FrameListResponse:
+    def list_frames(self, offset: int = 0, limit: int = 30) -> FrameListResponse:
         """
         Get paginated list of all frames.
         Delegates to reader.list_frames().
         """
-        return self._reader.list_frames(page, page_size)
+        return self._reader.list_frames(offset, limit)

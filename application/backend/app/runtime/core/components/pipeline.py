@@ -7,11 +7,11 @@ from threading import Thread
 from typing import Self
 from uuid import UUID
 
+from domain.services.schemas.processor import InputData, OutputData
+from domain.services.schemas.reader import FrameListResponse
 from runtime.core.components.base import PipelineComponent
 from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.processor import Processor
-from runtime.core.components.schemas.processor import InputData, OutputData
-from runtime.core.components.schemas.reader import FrameListResponse
 from runtime.core.components.sink import Sink
 from runtime.core.components.source import Source
 
@@ -158,9 +158,9 @@ class Pipeline:
             return source.index()
         return 0
 
-    def list_frames(self, page: int = 1, page_size: int = 30) -> FrameListResponse:
+    def list_frames(self, offset: int = 0, limit: int = 30) -> FrameListResponse:
         """Get paginated list of frames from the source."""
         source: Source = self._components.get(Source)
         if source:
-            return source.list_frames(page, page_size)
+            return source.list_frames(offset, limit)
         raise ValueError("No source component available")

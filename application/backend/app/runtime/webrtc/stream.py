@@ -9,7 +9,7 @@ import numpy as np
 from aiortc import VideoStreamTrack
 from av import VideoFrame
 
-from runtime.core.components.schemas.processor import InputData
+from domain.services.schemas.processor import InputData
 
 logger = logging.getLogger(__name__)
 

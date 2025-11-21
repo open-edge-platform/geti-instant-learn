@@ -15,13 +15,13 @@ from domain.dispatcher import (
     ProjectDeactivationEvent,
 )
 from domain.services.project import ProjectService
+from domain.services.schemas.processor import InputData, OutputData
+from domain.services.schemas.reader import FrameListResponse
 from runtime.components import ComponentFactory, DefaultComponentFactory
 from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.errors import UnsupportedOperationError
 from runtime.core.components.pipeline import Pipeline
 from runtime.core.components.schemas.pipeline import PipelineConfig
-from runtime.core.components.schemas.processor import InputData, OutputData
-from runtime.core.components.schemas.reader import FrameListResponse
 from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError, SourceNotSeekableError
 
 logger = logging.getLogger(__name__)
@@ -261,14 +261,14 @@ class PipelineManager:
         except UnsupportedOperationError:
             raise SourceNotSeekableError("The active source does not support frame indexing.")
 
-    def list_frames(self, project_id: UUID, page: int = 1, page_size: int = 30) -> FrameListResponse:
+    def list_frames(self, project_id: UUID, offset: int = 0, limit: int = 30) -> FrameListResponse:
         """
         Get a paginated list of frames from the active pipeline's source.
 
         Args:
             project_id: The project ID to verify against the active pipeline.
-            page: The page number (1-based).
-            page_size: Number of frames per page.
+            offset: Number of items to skip (0-based index).
+            limit: Maximum number of frames to return.
 
         Returns:
             FrameListResponse with frame metadata.
@@ -285,6 +285,6 @@ class PipelineManager:
                 f"Project ID {project_id} does not match the active pipeline's project ID."
             )
         try:
-            return self._pipeline.list_frames(page, page_size)
+            return self._pipeline.list_frames(offset, limit)
         except UnsupportedOperationError:
             raise SourceNotSeekableError("The active source does not support frame listing.")

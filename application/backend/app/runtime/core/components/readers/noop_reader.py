@@ -1,8 +1,8 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
+from domain.services.schemas.processor import InputData
 from runtime.core.components.base import StreamReader
-from runtime.core.components.schemas.processor import InputData
 
 
 class NoOpReader(StreamReader):
