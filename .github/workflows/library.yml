@@ -34,11 +34,11 @@ jobs:
           cache-dependency-glob: "application/library/uv.lock"
 
       - name: Lint library
-        working-directory: library
+        working-directory: application/library
         run: |
           just lint || exit 0
 
       - name: Run library tests
-        working-directory: library
+        working-directory: application/library
         run: |
           just tests || exit 0

@@ -1,9 +1,9 @@
 #!/usr/bin/env just --justfile
-set fallback
+import "../Justfile"
+
 set shell := ["bash", "-cu"]
 
 py_path := "tests:app"
-python_version := "python3.13"
 # Ensure version in GHA workflow matches uv version here
 uv_version := "0.9.7"
 
@@ -17,8 +17,7 @@ gen-openapi: venv
 # -------------------------------------------------------------------------------------------------
 #  Run FastAPI development server with auto-reload
 # -------------------------------------------------------------------------------------------------
-dev: venv
-    just download-dataset
+dev: venv download-dataset
     PYTHONPATH=app uv run uvicorn main:app --reload --host localhost --port 9100
 
 
