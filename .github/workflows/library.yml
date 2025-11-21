@@ -31,14 +31,14 @@ jobs:
         with:
           version: "0.9.7"
           enable-cache: true
-          cache-dependency-glob: "application/library/uv.lock"
+          cache-dependency-glob: "library/uv.lock"
 
       - name: Lint library
-        working-directory: application/library
+        working-directory: library
         run: |
           just lint || exit 0
 
       - name: Run library tests
-        working-directory: application/library
+        working-directory: library
         run: |
           just tests || exit 0
