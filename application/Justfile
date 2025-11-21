@@ -18,7 +18,7 @@ ai-device := "cpu"  # options: cpu, gpu
 component-name := "geti-prompt"
 images-registry := 'localhost:5000/open-edge-platform'
 top-level-dir := `git rev-parse --show-toplevel 2>/dev/null`
-version := read(top-level-dir / "VERSION")
+version := trim(read(top-level-dir / "VERSION"))
 docker-image := images-registry / component-name + ":" + version + "-" + ai-device
 
 # -------------------------------------------------------------------------------------------------
@@ -33,7 +33,7 @@ static-files-dir := workdir-path + asset-prefix
 db-data-dir := workdir-path + data-dir
 target-stage := component-name + "-" + ai-device
 coffee-berries-dataset := "https://storage.geti.intel.com/geti-prompt/Frames.zip"
-source-dataset-dir := top-level-dir / "application/backend/.data/templates/datasets/coffee-berries"
+source-dataset-dir := "backend/.data/templates/datasets/coffee-berries"
 target-dataset-dir := db-data-dir + "/templates/datasets/coffee-berries"
 
 # -------------------------------------------------------------------------------------------------
