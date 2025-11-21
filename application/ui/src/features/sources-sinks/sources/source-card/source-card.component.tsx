@@ -8,15 +8,7 @@ import { ReactNode } from 'react';
 import { ActionMenu, Flex, Heading, Item, View } from '@geti/ui';
 import { clsx } from 'clsx';
 
-import styles from './source-read-only.module.scss';
-
-interface SourceReadOnlyProps {
-    isActive: boolean;
-    parameters: string[];
-    icon: ReactNode;
-    title: string;
-    menu?: ReactNode;
-}
+import styles from './source-card.module.scss';
 
 interface SourceMenuProps {
     isActive: boolean;
@@ -39,7 +31,15 @@ const SourceMenu = ({ onAction, isActive, items }: SourceMenuProps) => {
     );
 };
 
-export const SourceReadOnly = ({ isActive, parameters, icon, menu, title }: SourceReadOnlyProps) => {
+interface SourceCardProps {
+    isActive: boolean;
+    parameters: string[];
+    icon: ReactNode;
+    title: string;
+    menu?: ReactNode;
+}
+
+export const SourceCard = ({ isActive, parameters, icon, menu, title }: SourceCardProps) => {
     return (
         <View padding={'size-250'} UNSAFE_className={isActive ? styles.sourceActive : styles.sourceInactive}>
             <Flex alignItems={'center'} gap={'size-200'}>
@@ -54,7 +54,7 @@ export const SourceReadOnly = ({ isActive, parameters, icon, menu, title }: Sour
                 minWidth={0}
                 gap={'size-50'}
             >
-                <ul className={styles.sourceReadOnlyList}>
+                <ul className={styles.sourceParametersList}>
                     {parameters.map((parameter) => (
                         <li key={parameter}>{parameter}</li>
                     ))}
@@ -65,4 +65,4 @@ export const SourceReadOnly = ({ isActive, parameters, icon, menu, title }: Sour
     );
 };
 
-SourceReadOnly.Menu = SourceMenu;
+SourceCard.Menu = SourceMenu;

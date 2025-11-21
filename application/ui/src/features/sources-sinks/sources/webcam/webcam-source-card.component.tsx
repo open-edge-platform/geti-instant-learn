@@ -6,25 +6,25 @@
 import { WebcamSourceType } from '@geti-prompt/api';
 import { WebCam } from '@geti-prompt/icons';
 
-import { SourceReadOnly } from '../source-read-only/source-read-only.component';
+import { SourceCard } from '../source-card/source-card.component';
 
-interface WebcamSourceReadOnlyProps {
+interface WebcamSourceCardProps {
     isActive: boolean;
     source: WebcamSourceType;
     menuItems: { key: string; label: string }[];
     onAction: (action: string) => void;
 }
 
-export const WebcamSourceReadOnly = ({ isActive, source, onAction, menuItems }: WebcamSourceReadOnlyProps) => {
+export const WebcamSourceCard = ({ isActive, source, onAction, menuItems }: WebcamSourceCardProps) => {
     const parameters = [`Device ID: ${source.config.device_id}`];
 
     return (
-        <SourceReadOnly
+        <SourceCard
             isActive={isActive}
             parameters={parameters}
             icon={<WebCam />}
             title={'Webcam'}
-            menu={<SourceReadOnly.Menu isActive={isActive} items={menuItems} onAction={onAction} />}
+            menu={<SourceCard.Menu isActive={isActive} items={menuItems} onAction={onAction} />}
         />
     );
 };

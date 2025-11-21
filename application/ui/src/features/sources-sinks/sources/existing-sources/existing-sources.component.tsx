@@ -10,9 +10,9 @@ import { Add as AddIcon } from '@geti/ui/icons';
 
 import { useDeleteSource } from '../api/use-delete-source';
 import { useUpdateSource } from '../api/use-update-source';
-import { ImagesFolderSourceReadOnly } from '../images-folder/images-folder-read-only.component';
+import { ImagesFolderSourceCard } from '../images-folder/images-folder-card.component';
 import { isImagesFolderSource, isWebcamSource, SourcesViews } from '../utils';
-import { WebcamSourceReadOnly } from '../webcam/webcam-source-read-only.component';
+import { WebcamSourceCard } from '../webcam/webcam-source-card.component';
 
 import styles from './existing-sources.module.scss';
 
@@ -83,7 +83,7 @@ const ExistingSourcesList = ({
 
                 if (isWebcamSource(source)) {
                     return (
-                        <WebcamSourceReadOnly
+                        <WebcamSourceCard
                             key={source.id}
                             isActive={isActiveSource}
                             source={source}
@@ -95,7 +95,7 @@ const ExistingSourcesList = ({
 
                 if (isImagesFolderSource(source)) {
                     return (
-                        <ImagesFolderSourceReadOnly
+                        <ImagesFolderSourceCard
                             key={source.id}
                             isActive={isActiveSource}
                             source={source}
