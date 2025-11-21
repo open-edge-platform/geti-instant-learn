@@ -54,7 +54,7 @@ docker-extra-args := http-proxy-build-arg + https-proxy-build-arg + no-proxy-bui
 check-proxy:
     #!/usr/bin/env bash
     if [ -z ${https_proxy+x} ]; then
-      echo "https_proxy is unset";
+      echo "Error: https_proxy is unset";
     else
       echo "https_proxy is set to '$https_proxy'";
     fi
