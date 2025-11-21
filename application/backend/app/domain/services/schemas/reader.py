@@ -74,7 +74,7 @@ class ImagesFolderConfig(BaseModel):
         if not path.is_dir():
             raise ValueError(f"Path is not a directory: {v}")
 
-        if not any(path.iterdir()):
+        if next(path.iterdir(), None) is None:
             raise ValueError(f"Images folder is empty: {v}")
 
         return v
