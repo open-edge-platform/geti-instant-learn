@@ -27,19 +27,24 @@ export const useCreateSource = () => {
         },
     });
 
-    const createSource = (config: SourceConfig) => {
-        createSourceMutation.mutate({
-            body: {
-                id: uuid(),
-                connected: true,
-                config,
-            },
-            params: {
-                path: {
-                    project_id: projectId,
+    const createSource = (config: SourceConfig, onSuccess?: () => void) => {
+        createSourceMutation.mutate(
+            {
+                body: {
+                    id: uuid(),
+                    connected: true,
+                    config,
+                },
+                params: {
+                    path: {
+                        project_id: projectId,
+                    },
                 },
             },
-        });
+            {
+                onSuccess,
+            }
+        );
     };
 
     return {

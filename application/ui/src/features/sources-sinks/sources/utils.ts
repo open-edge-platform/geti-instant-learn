@@ -27,3 +27,11 @@ export const getVideoSource = (sources: SourcesType | undefined) => {
 export const getImagesFolderSource = (sources: SourcesType | undefined) => {
     return getSource<ImagesFolderSourceType>(sources, 'images_folder');
 };
+
+export type SourcesViews = 'add' | 'edit' | 'list' | 'existing';
+
+export const isWebcamSource = (source: Source | undefined): source is WebcamSourceType =>
+    source?.config.source_type === 'webcam';
+
+export const isImagesFolderSource = (source: Source | undefined): source is ImagesFolderSourceType =>
+    source?.config.source_type === 'images_folder';

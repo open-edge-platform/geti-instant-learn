@@ -13,6 +13,7 @@ import { useUpdateSource } from '../api/use-update-source';
 
 interface ImagesFolderProps {
     source: ImagesFolderSourceType | undefined;
+    onSaved?: () => void;
 }
 
 const FolderPathDescription = () => {
@@ -31,7 +32,7 @@ const FolderPathDescription = () => {
     );
 };
 
-export const ImagesFolder = ({ source }: ImagesFolderProps) => {
+export const ImagesFolder = ({ source, onSaved }: ImagesFolderProps) => {
     const [folderPath, setFolderPath] = useState(source?.config?.images_folder_path ?? '');
     const createImagesFolderSource = useCreateSource();
     const updateImagesFolderSource = useUpdateSource();
@@ -54,9 +55,16 @@ export const ImagesFolder = ({ source }: ImagesFolderProps) => {
         };
 
         if (source === undefined) {
-            createImagesFolderSource.mutate(config);
+            createImagesFolderSource.mutate(config, onSaved);
         } else {
-            updateImagesFolderSource.mutate(source.id, config);
+            updateImagesFolderSource.mutate(
+                source.id,
+                {
+                    config,
+                    connected: true,
+                },
+                onSaved
+            );
         }
     };
 

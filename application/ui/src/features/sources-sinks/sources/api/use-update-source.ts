@@ -28,19 +28,25 @@ export const useUpdateSource = () => {
         },
     });
 
-    const updateSource = (sourceId: string, config: SourceConfig) => {
-        updateSourceMutation.mutate({
-            body: {
-                connected: true,
-                config,
-            },
-            params: {
-                path: {
-                    project_id: projectId,
-                    source_id: sourceId,
+    const updateSource = (
+        sourceId: string,
+        body: { config: SourceConfig; connected: boolean },
+        onSuccess?: () => void
+    ) => {
+        updateSourceMutation.mutate(
+            {
+                body,
+                params: {
+                    path: {
+                        project_id: projectId,
+                        source_id: sourceId,
+                    },
                 },
             },
-        });
+            {
+                onSuccess,
+            }
+        );
     };
 
     return {

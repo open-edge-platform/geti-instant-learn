@@ -6,7 +6,6 @@
 import { FormEvent, useState } from 'react';
 
 import { WebcamSourceType } from '@geti-prompt/api';
-import { useCurrentProject } from '@geti-prompt/hooks';
 import { Button, TextField, View } from '@geti/ui';
 import { isInteger } from 'lodash-es';
 
@@ -15,15 +14,15 @@ import { useUpdateSource } from '../api/use-update-source';
 
 interface WebcamSourceProps {
     source: WebcamSourceType | undefined;
+    onSaved?: () => void;
 }
 
-export const WebcamSource = ({ source }: WebcamSourceProps) => {
+export const WebcamSource = ({ source, onSaved }: WebcamSourceProps) => {
     const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>(
         source?.config?.device_id?.toString() ?? '0'
     );
     const createWebcamSource = useCreateSource();
     const updateWebcamSource = useUpdateSource();
-    const { data } = useCurrentProject();
 
     const isApplyPending = createWebcamSource.isPending || updateWebcamSource.isPending;
 
@@ -40,23 +39,29 @@ export const WebcamSource = ({ source }: WebcamSourceProps) => {
         const deviceId = parseInt(selectedDeviceId);
 
         if (source === undefined) {
-            createWebcamSource.mutate({
-                source_type: 'webcam',
-                device_id: deviceId,
-                seekable: false,
-            });
+            createWebcamSource.mutate(
+                {
+                    source_type: 'webcam',
+                    device_id: deviceId,
+                    seekable: false,
+                },
+                onSaved
+            );
         } else {
-            updateWebcamSource.mutate(source.id, {
-                source_type: 'webcam',
-                device_id: deviceId,
-                seekable: false,
-            });
+            updateWebcamSource.mutate(
+                source.id,
+                {
+                    config: {
+                        source_type: 'webcam',
+                        device_id: deviceId,
+                        seekable: false,
+                    },
+                    connected: true,
+                },
+                onSaved
+            );
         }
     };
-
-    if (!data.active) {
-        return <TextField label={'Device ID'} value={selectedDeviceId} isReadOnly />;
-    }
 
     return (
         <form onSubmit={handleApply}>
