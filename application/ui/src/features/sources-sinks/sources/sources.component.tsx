@@ -5,7 +5,7 @@
 
 import { ReactNode, useState } from 'react';
 
-import { Source, SourceType } from '@geti-prompt/api';
+import { SourceType } from '@geti-prompt/api';
 import { useGetSources } from '@geti-prompt/hooks';
 import { ImagesFolder as ImagesFolderIcon, WebCam } from '@geti-prompt/icons';
 import { ActionButton, Divider, Flex, Heading, View } from '@geti/ui';
@@ -16,16 +16,14 @@ import { DisclosureGroup } from '../disclosure-group/disclosure-group.component'
 import { EditSource } from './edit-sources/edit-sources.component';
 import { ExistingSources } from './existing-sources/existing-sources.component';
 import { ImagesFolder } from './images-folder/images-folder.component';
-import { getImagesFolderSource, getWebcamSource, SourcesViews } from './utils';
+import { SourcesViews } from './utils';
 import { WebcamSource } from './webcam/webcam-source.component';
 
 interface SourcesList {
-    sources: Source[] | undefined;
-    activeSource: Source | undefined;
     onViewChange: (view: SourcesViews) => void;
 }
 
-const SourcesList = ({ sources, activeSource, onViewChange }: SourcesList) => {
+const SourcesList = ({ onViewChange }: SourcesList) => {
     const sourcesList: {
         label: string;
         value: SourceType;
@@ -35,7 +33,7 @@ const SourcesList = ({ sources, activeSource, onViewChange }: SourcesList) => {
         {
             label: 'Webcam',
             value: 'webcam',
-            content: <WebcamSource source={getWebcamSource(sources)} onSaved={() => onViewChange('existing')} />,
+            content: <WebcamSource onSaved={() => onViewChange('existing')} />,
             icon: <WebCam width={'24px'} />,
         },
         /*{
@@ -54,12 +52,12 @@ const SourcesList = ({ sources, activeSource, onViewChange }: SourcesList) => {
         {
             label: 'Image folder',
             value: 'images_folder',
-            content: <ImagesFolder source={getImagesFolderSource(sources)} onSaved={() => onViewChange('existing')} />,
+            content: <ImagesFolder onSaved={() => onViewChange('existing')} />,
             icon: <ImagesFolderIcon width={'24px'} />,
         },
     ];
 
-    return <DisclosureGroup items={sourcesList} value={activeSource?.config.source_type} />;
+    return <DisclosureGroup items={sourcesList} />;
 };
 
 interface AddSourceProps {
@@ -76,7 +74,7 @@ const AddSource = ({ onViewChange }: AddSourceProps) => {
             </ActionButton>
             <Divider size={'S'} marginY={'size-200'} />
 
-            <SourcesList sources={[]} activeSource={undefined} onViewChange={onViewChange} />
+            <SourcesList onViewChange={onViewChange} />
         </View>
     );
 };
@@ -107,5 +105,5 @@ export const Sources = () => {
         return <AddSource onViewChange={setView} />;
     }
 
-    return <SourcesList sources={data.sources} activeSource={activeSource} onViewChange={setView} />;
+    return <SourcesList onViewChange={setView} />;
 };
