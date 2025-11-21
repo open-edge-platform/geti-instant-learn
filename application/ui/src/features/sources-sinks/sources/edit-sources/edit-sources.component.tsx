@@ -22,11 +22,12 @@ interface EditSourceContainerProps {
 const EditSourceContainer = ({ children, onBackClick, title }: EditSourceContainerProps) => {
     return (
         <View>
-            <ActionButton isQuiet onPress={onBackClick} width={'100%'}>
-                <Flex alignItems={'center'} gap={'size-100'} width={'100%'} justifyContent={'start'}>
-                    <Back /> <Heading margin={0}>Edit input source</Heading>
-                </Flex>
-            </ActionButton>
+            <Flex alignItems={'center'} gap={'size-75'}>
+                <ActionButton isQuiet onPress={onBackClick}>
+                    <Back />
+                </ActionButton>
+                <Heading margin={0}>Edit input source</Heading>
+            </Flex>
             <Divider size={'S'} marginY={'size-200'} />
             <View
                 padding={'size-200'}

@@ -67,11 +67,12 @@ interface AddSourceProps {
 const AddSource = ({ onViewChange }: AddSourceProps) => {
     return (
         <View>
-            <ActionButton isQuiet onPress={() => onViewChange('existing')} width={'100%'}>
-                <Flex alignItems={'center'} gap={'size-100'} width={'100%'} justifyContent={'start'}>
-                    <Back /> <Heading margin={0}>Add new input source</Heading>
-                </Flex>
-            </ActionButton>
+            <Flex alignItems={'center'} gap={'size-75'}>
+                <ActionButton isQuiet onPress={() => onViewChange('existing')}>
+                    <Back />
+                </ActionButton>
+                <Heading margin={0}>Add new input source</Heading>
+            </Flex>
             <Divider size={'S'} marginY={'size-200'} />
 
             <SourcesList onViewChange={onViewChange} />
