@@ -9,10 +9,9 @@ import { Source } from '@geti-prompt/api';
 import { ActionButton, Divider, Flex, Heading, View } from '@geti/ui';
 import { Back } from '@geti/ui/icons';
 
-import { ImagesFolder } from '../images-folder/images-folder.component';
+import { EditImagesFolder } from '../images-folder/edit-images-folder.component';
 import { isImagesFolderSource, isWebcamSource, SourcesViews } from '../utils';
 import { EditWebcamSource } from '../webcam/edit-webcam-source.component';
-import { WebcamSource } from '../webcam/webcam-source.component';
 
 interface EditSourceContainerProps {
     children: ReactNode;
@@ -64,7 +63,7 @@ export const EditSource = ({ source, onViewChange }: EditSourceProps) => {
     if (isImagesFolderSource(source)) {
         return (
             <EditSourceContainer onBackClick={handleGoBack} title={'Images folder'}>
-                <ImagesFolder source={source} />
+                <EditImagesFolder source={source} onSaved={handleGoBack} />
             </EditSourceContainer>
         );
     }

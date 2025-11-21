@@ -5,7 +5,6 @@
 
 import { FormEvent, useState } from 'react';
 
-import { WebcamSourceType } from '@geti-prompt/api';
 import { Button } from '@geti/ui';
 
 import { useCreateSource } from '../api/use-create-source';
@@ -13,18 +12,14 @@ import { isDeviceIdValid } from './utils';
 import { WebcamSourceFields } from './webcam-source-fields.component';
 
 interface WebcamSourceProps {
-    source: WebcamSourceType | undefined;
-    onSaved?: () => void;
+    onSaved: () => void;
 }
 
-export const WebcamSource = ({ source, onSaved }: WebcamSourceProps) => {
-    const [selectedDeviceId, setSelectedDeviceId] = useState<string>(source?.config?.device_id?.toString() ?? '0');
+export const WebcamSource = ({ onSaved }: WebcamSourceProps) => {
+    const [selectedDeviceId, setSelectedDeviceId] = useState<string>('0');
     const createWebcamSource = useCreateSource();
 
-    const isApplyDisabled =
-        !isDeviceIdValid(selectedDeviceId) ||
-        createWebcamSource.isPending ||
-        (selectedDeviceId == source?.config?.device_id.toString() && source?.connected);
+    const isApplyDisabled = !isDeviceIdValid(selectedDeviceId) || createWebcamSource.isPending;
 
     const handleApply = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();

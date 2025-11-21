@@ -5,84 +5,44 @@
 
 import { FormEvent, useState } from 'react';
 
-import { ImagesFolderConfig, ImagesFolderSourceType } from '@geti-prompt/api';
-import { Button, Content, ContextualHelp, Heading, Text, TextField } from '@geti/ui';
+import { Button } from '@geti/ui';
 
 import { useCreateSource } from '../api/use-create-source';
-import { useUpdateSource } from '../api/use-update-source';
+import { ImagesFolderFields } from './images-folder-fields.component';
+import { isFolderPathValid } from './utils';
 
 interface ImagesFolderProps {
-    source: ImagesFolderSourceType | undefined;
-    onSaved?: () => void;
+    onSaved: () => void;
 }
 
-const FolderPathDescription = () => {
-    return (
-        <ContextualHelp variant='info'>
-            <Heading>What is a folder path?</Heading>
-            <Content>
-                <Text>
-                    A folder path is the location of a directory on your system.
-                    <br />
-                    Enter the absolute path (e.g. /Users/username/images) or relative path (e.g. ./data/images) to the
-                    folder containing your images.
-                </Text>
-            </Content>
-        </ContextualHelp>
-    );
-};
-
-export const ImagesFolder = ({ source, onSaved }: ImagesFolderProps) => {
-    const [folderPath, setFolderPath] = useState(source?.config?.images_folder_path ?? '');
+export const ImagesFolder = ({ onSaved }: ImagesFolderProps) => {
+    const [folderPath, setFolderPath] = useState<string>('');
     const createImagesFolderSource = useCreateSource();
-    const updateImagesFolderSource = useUpdateSource();
 
-    const isFolderPathValid = folderPath.trim().length > 0;
-
-    const isApplyDisabled =
-        !isFolderPathValid ||
-        createImagesFolderSource.isPending ||
-        updateImagesFolderSource.isPending ||
-        (folderPath === source?.config?.images_folder_path && source?.connected);
+    const isApplyDisabled = !isFolderPathValid(folderPath) || createImagesFolderSource.isPending;
 
     const submit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
-        const config: ImagesFolderConfig = {
-            source_type: 'images_folder',
-            images_folder_path: folderPath,
-            seekable: true,
-        };
-
-        if (source === undefined) {
-            createImagesFolderSource.mutate(config, onSaved);
-        } else {
-            updateImagesFolderSource.mutate(
-                source.id,
-                {
-                    config,
-                    connected: true,
-                },
-                onSaved
-            );
-        }
+        createImagesFolderSource.mutate(
+            {
+                source_type: 'images_folder',
+                images_folder_path: folderPath,
+                seekable: true,
+            },
+            onSaved
+        );
     };
 
     return (
         <form onSubmit={submit}>
-            <TextField
-                label={'Folder path'}
-                value={folderPath}
-                onChange={setFolderPath}
-                width={'100%'}
-                contextualHelp={<FolderPathDescription />}
-            />
+            <ImagesFolderFields folderPath={folderPath} onSetFolderPath={setFolderPath} />
 
             <Button
                 type={'submit'}
                 variant={'accent'}
                 isDisabled={isApplyDisabled}
-                isPending={createImagesFolderSource.isPending || updateImagesFolderSource.isPending}
+                isPending={createImagesFolderSource.isPending}
                 marginTop={'size-200'}
             >
                 Apply
