@@ -55,7 +55,6 @@ check-proxy:
     #!/usr/bin/env bash
     if [ -z ${https_proxy+x} ]; then
       echo "https_proxy is unset";
-      exit 1
     else
       echo "https_proxy is set to '$https_proxy'";
     fi
@@ -68,7 +67,10 @@ download-dataset: check-proxy
     fi
     mkdir -p {{ source-dataset-dir }}
     echo "Downloading default dataset from {{ coffee-berries-dataset }}"
-    wget -q --show-progress {{ coffee-berries-dataset }}
+    if ! wget -q --show-progress {{ coffee-berries-dataset }}; then
+        echo "Error: Failed to download dataset from {{ coffee-berries-dataset }}"
+        exit 1
+    fi
     echo "Unpacking default dataset to {{ source-dataset-dir }}"
     unzip -j -q -o Frames.zip -d {{ source-dataset-dir }}
     echo "Removing downloaded dataset archive Frames.zip"
