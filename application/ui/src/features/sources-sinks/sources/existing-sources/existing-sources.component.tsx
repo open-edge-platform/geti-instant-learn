@@ -72,7 +72,16 @@ const ExistingSourcesList = ({
                 connected: true,
             });
         } else if (action === 'delete') {
-            deleteSource.mutate({ params: { path: { project_id: project.id, source_id: source.id } } });
+            deleteSource.mutate(
+                { params: { path: { project_id: project.id, source_id: source.id } } },
+                {
+                    onSuccess: () => {
+                        if (sources.length === 1) {
+                            onViewChange('list');
+                        }
+                    },
+                }
+            );
         }
     };
 
