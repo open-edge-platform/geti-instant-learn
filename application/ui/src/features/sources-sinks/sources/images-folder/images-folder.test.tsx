@@ -3,28 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ImagesFolderSourceType, SourceCreateType, SourceUpdateType } from '@geti-prompt/api';
+import { SourceCreateType } from '@geti-prompt/api';
 import { render } from '@geti-prompt/test-utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
+import { vi } from 'vitest';
 
 import { http, server } from '../../../../setup-test';
 import { ImagesFolder } from './images-folder.component';
-
-const getImagesFolderSource = (
-    source: Partial<{ connected: boolean; imagesFolderPath: string }> = {}
-): ImagesFolderSourceType => {
-    return {
-        id: '123',
-        connected: source.connected ?? true,
-        config: {
-            seekable: true,
-            images_folder_path: source.imagesFolderPath ?? '',
-            source_type: 'images_folder',
-        },
-    };
-};
 
 class ImagesFolderSourcePage {
     constructor() {}
@@ -47,8 +34,8 @@ class ImagesFolderSourcePage {
     }
 }
 
-const renderImagesFolder = (source: ImagesFolderSourceType | undefined) => {
-    const result = render(<ImagesFolder source={source} />);
+const renderImagesFolder = (onSaved = vi.fn()) => {
+    const result = render(<ImagesFolder onSaved={onSaved} />);
 
     return {
         result,
@@ -58,41 +45,16 @@ const renderImagesFolder = (source: ImagesFolderSourceType | undefined) => {
 
 describe('ImagesFolder', () => {
     it('disables submit button when path is empty', () => {
-        const { imagesFolderSourcePage } = renderImagesFolder(undefined);
+        const { imagesFolderSourcePage } = renderImagesFolder();
 
         expect(imagesFolderSourcePage.folderPathField).toHaveValue('');
         expect(imagesFolderSourcePage.applyButton).toBeDisabled();
     });
 
-    it('disables submit button when path is equal to source path', () => {
-        const source = getImagesFolderSource({ imagesFolderPath: '/path/to/folder' });
-
-        const { imagesFolderSourcePage } = renderImagesFolder(source);
-
-        expect(imagesFolderSourcePage.folderPathField).toHaveValue(source.config.images_folder_path);
-        expect(imagesFolderSourcePage.applyButton).toBeDisabled();
-    });
-
-    it('enables submit button when path is different from source path', async () => {
-        const imagesFolderPath = '/path/to/folder';
-        const source = getImagesFolderSource({ imagesFolderPath: '/another/path' });
-
-        const { imagesFolderSourcePage } = renderImagesFolder(source);
-
-        expect(imagesFolderSourcePage.folderPathField).toHaveValue(source.config.images_folder_path);
-        expect(imagesFolderSourcePage.applyButton).toBeDisabled();
-
-        await imagesFolderSourcePage.setFolderPath(imagesFolderPath);
-
-        expect(imagesFolderSourcePage.folderPathField).toHaveValue(imagesFolderPath);
-        expect(imagesFolderSourcePage.applyButton).toBeEnabled();
-    });
-
-    it('creates source with provided path when source does not exist', async () => {
+    it('creates source with provided path', async () => {
         const imagesFolderPath = '/path/to/folder';
 
         let body: SourceCreateType | null = null;
-        let updateSourceCalled = false;
 
         server.use(
             http.post('/api/v1/projects/{project_id}/sources', async ({ request }) => {
@@ -102,22 +64,16 @@ describe('ImagesFolder', () => {
             })
         );
 
-        server.use(
-            http.put('/api/v1/projects/{project_id}/sources/{source_id}', async () => {
-                updateSourceCalled = true;
-
-                return HttpResponse.json({}, { status: 200 });
-            })
-        );
-
-        const { imagesFolderSourcePage } = renderImagesFolder(undefined);
+        const onSaved = vi.fn();
+        const { imagesFolderSourcePage } = renderImagesFolder(onSaved);
 
         await imagesFolderSourcePage.setFolderPath(imagesFolderPath);
+
+        expect(imagesFolderSourcePage.applyButton).toBeEnabled();
+
         await imagesFolderSourcePage.submit();
 
         await waitFor(() => {
-            expect(updateSourceCalled).toBe(false);
-
             expect(body).toEqual(
                 expect.objectContaining({
                     connected: true,
@@ -129,48 +85,7 @@ describe('ImagesFolder', () => {
                 })
             );
         });
-    });
 
-    it('updates source with provided path when source exists', async () => {
-        const imagesFolderPath = '/path/to/folder';
-        const source = getImagesFolderSource({ imagesFolderPath: '/another/path' });
-
-        let body: SourceUpdateType | null = null;
-        let createSourceCalled = false;
-
-        server.use(
-            http.post('/api/v1/projects/{project_id}/sources', async () => {
-                createSourceCalled = true;
-                return HttpResponse.json({}, { status: 201 });
-            })
-        );
-
-        server.use(
-            http.put('/api/v1/projects/{project_id}/sources/{source_id}', async ({ request }) => {
-                body = await request.json();
-
-                return HttpResponse.json({}, { status: 200 });
-            })
-        );
-
-        const { imagesFolderSourcePage } = renderImagesFolder(source);
-
-        await imagesFolderSourcePage.setFolderPath(imagesFolderPath);
-        await imagesFolderSourcePage.submit();
-
-        await waitFor(() => {
-            expect(createSourceCalled).toBe(false);
-
-            expect(body).toEqual(
-                expect.objectContaining({
-                    connected: true,
-                    config: {
-                        seekable: true,
-                        source_type: 'images_folder',
-                        images_folder_path: imagesFolderPath,
-                    },
-                })
-            );
-        });
+        expect(onSaved).toHaveBeenCalled();
     });
 });
