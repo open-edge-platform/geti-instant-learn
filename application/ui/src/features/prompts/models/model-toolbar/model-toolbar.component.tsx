@@ -3,14 +3,24 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Key } from 'react';
+import { Key, Suspense } from 'react';
 
-import { Flex, Item, Picker, Text } from '@geti/ui';
+import { Flex, Item, Loading, Picker, Text, View } from '@geti/ui';
 
 import { useGetModels } from '../api/use-get-models';
 import { useSetActiveModel } from '../api/use-set-active-model';
 
 export const ModelToolbar = () => {
+    return (
+        <View position={'relative'} minHeight={'size-700'}>
+            <Suspense fallback={<Loading size={'M'} />}>
+                <ModelToolbarContent />
+            </Suspense>
+        </View>
+    );
+};
+
+const ModelToolbarContent = () => {
     const models = useGetModels();
     const setActiveModel = useSetActiveModel();
     const activeModel = models.find((model) => model.active) || models[0];
