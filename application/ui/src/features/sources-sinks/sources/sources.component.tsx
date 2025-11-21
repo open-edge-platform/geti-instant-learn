@@ -13,7 +13,7 @@ import { Back } from '@geti/ui/icons';
 import { isEmpty } from 'lodash-es';
 
 import { DisclosureGroup } from '../disclosure-group/disclosure-group.component';
-import { EditSource } from './edit-sources-list.component';
+import { EditSource } from './edit-sources/edit-sources.component';
 import { ExistingSources } from './existing-sources/existing-sources.component';
 import { ImagesFolder } from './images-folder/images-folder.component';
 import { getImagesFolderSource, getWebcamSource, SourcesViews } from './utils';
