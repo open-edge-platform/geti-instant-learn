@@ -39,7 +39,9 @@ vi.mock('./web-rtc-connection.ts', () => {
     }
 
     return {
-        WebRTCConnection: MockWebRTCConnection,
+        WebRTCConnection: vi.fn().mockImplementation(function () {
+            return new MockWebRTCConnection();
+        }),
     };
 });
 
@@ -102,16 +104,22 @@ describe('WebRTCConnectionProvider', () => {
         expect(getByLabelText('status')).toHaveTextContent('idle');
     });
 
-    it('cleans up on unmount', () => {
-        const { unmount, getByLabelText } = render(
+    it('cleans up on unmount', async () => {
+        const { unmount } = render(
             <WebRTCConnectionProvider>
                 <App />
             </WebRTCConnectionProvider>
         );
 
-        expect(getByLabelText('status')).toHaveTextContent('idle');
+        // Access the mock constructor and spy on its instance
+        const { WebRTCConnection } = await import('./web-rtc-connection');
+        const mockConstructor = vi.mocked(WebRTCConnection);
+        const mockInstance = mockConstructor.mock.instances[0];
+        const stopSpy = vi.spyOn(mockInstance, 'stop');
 
         unmount();
+
+        expect(stopSpy).toHaveBeenCalled();
     });
 
     it('handles status sequence: start -> stop -> start', () => {
