@@ -1,0 +1,13 @@
+/**
+ * Copyright (C) 2025 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+.thumbnail {
+    width: var(--spectrum-global-dimension-size-400);
+    height: var(--spectrum-global-dimension-size-400);
+    border-radius: var(--spectrum-global-dimension-size-50);
+    flex-shrink: 0;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    display: block;
+}

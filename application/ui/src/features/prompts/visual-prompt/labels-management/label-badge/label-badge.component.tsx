@@ -10,6 +10,8 @@ import { Text } from '@geti/ui';
 import { clsx } from 'clsx';
 import { usePress } from 'react-aria';
 
+import { LabelThumbnail } from './label-thumbnail.component';
+
 import classes from './label-badge.module.scss';
 
 interface LabelIndicatorProps {
@@ -32,6 +34,7 @@ export const LabelBadge = ({ label, isSelected, onClick, children: actionButtons
             aria-selected={isSelected}
             aria-label={`Label ${label.name}`}
         >
+            <LabelThumbnail label={label} />
             <Text UNSAFE_className={classes.buttonText}>{label.name}</Text>
             {actionButtons}
         </div>
