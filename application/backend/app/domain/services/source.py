@@ -111,19 +111,17 @@ class SourceService(BaseService):
             create_data.connected,
         )
 
-
-
         try:
-            with self.transaction():
+            with self.db_transaction():
                 if create_data.connected:
                     self._disconnect_existing_connected_source(project_id=project_id)
                 new_source: SourceDB = source_schema_to_db(schema=create_data, project_id=project_id)
                 self.source_repository.add(new_source)
+                self._emit_component_change(project_id=project_id, source_id=new_source.id)
         except IntegrityError as exc:
             logger.error("Source creation failed due to constraint violation: %s", exc)
             self._handle_source_integrity_error(exc, new_source.id, project_id, source_type, source_name)
 
-        self.session.refresh(new_source)
         logger.info(
             "Source created: source_id=%s project_id=%s source_type=%s connected=%s config=%s",
             new_source.id,
@@ -132,7 +130,6 @@ class SourceService(BaseService):
             new_source.connected,
             new_source.config,
         )
-        self._emit_component_change(project_id=project_id, source_id=new_source.id)
         return source_db_to_schema(new_source)
 
     def update_source(
@@ -169,10 +166,8 @@ class SourceService(BaseService):
                 field="source_type",
             )
 
-
-
         try:
-            with self.transaction():
+            with self.db_transaction():
                 if update_data.connected and not source.connected:
                     self._disconnect_existing_connected_source(project_id=project_id)
                 source.connected = update_data.connected
@@ -210,7 +205,7 @@ class SourceService(BaseService):
             logger.error("Cannot delete source: source_id=%s not found in project_id=%s", source_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.SOURCE, resource_id=str(source_id))
 
-        with self.transaction():
+        with self.db_transaction():
             self.source_repository.delete(source)
             self._emit_component_change(project_id=project_id, source_id=source_id)
         logger.info("Source deleted: source_id=%s project_id=%s", source_id, project_id)

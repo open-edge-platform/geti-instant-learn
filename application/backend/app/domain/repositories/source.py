@@ -34,6 +34,7 @@ class SourceRepository(BaseRepository):
         """
         logger.debug(f"Adding source id={source.id} project_id={source.project_id}")
         self.session.add(source)
+        self.session.flush()
 
     def get_by_id(self, source_id: UUID) -> SourceDB | None:
         """
@@ -64,6 +65,7 @@ class SourceRepository(BaseRepository):
         """
         logger.debug(f"Deleting source id={source.id} project_id={source.project_id}")
         self.session.delete(source)
+        self.session.flush()
 
     def get_connected_in_project(self, project_id: UUID) -> SourceDB | None:
         """

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+from collections.abc import Generator
 from contextlib import contextmanager
 
 from sqlalchemy.orm import Session
@@ -23,16 +24,15 @@ class BaseService:
         self._pending_events: list[ConfigChangeEvent] = []
 
     @contextmanager
-    def transaction(self):
+    def db_transaction(self) -> Generator[None, None, None]:
         """
         Context manager for database transactions with automatic event dispatching.
+        Commit happens automatically at the end, events are dispatched after successful commit.
 
         Usage:
-            with self.transaction():
+            with self.db_transaction():
                 # perform DB operations
-                self._emit_event(...)
-                # commit happens automatically at the end
-                # events are dispatched after successful commit
+                # create relevant events and add them to self._pending_events
         """
         try:
             yield

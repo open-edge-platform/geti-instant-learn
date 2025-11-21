@@ -196,12 +196,7 @@ class PromptService(BaseService):
             ServiceError: If validation fails.
         """
         self._ensure_project(project_id)
-
-        logger.debug(
-            "Prompt create requested: project_id=%s type=%s",
-            project_id,
-            create_data.type,
-        )
+        logger.debug("Prompt create requested: project_id=%s type=%s", project_id, create_data.type)
 
         if isinstance(create_data, TextPromptCreateSchema):
             existing_text_prompt = self.prompt_repository.get_text_prompt_by_project(project_id)
@@ -235,14 +230,11 @@ class PromptService(BaseService):
             self._validate_annotation_labels(create_data.annotations, project_id)
             thumbnail = self._generate_thumbnail(project_id, create_data.frame_id, create_data.annotations)
 
-
-
         try:
-            with self.transaction():
+            with self.db_transaction():
                 new_prompt: PromptDB = prompt_create_schema_to_db(
                     schema=create_data, project_id=project_id, thumbnail=thumbnail
                 )
-
                 self.prompt_repository.add(new_prompt)
         except IntegrityError as exc:
             logger.error("Prompt creation failed due to constraint violation: %s", exc)
@@ -279,8 +271,7 @@ class PromptService(BaseService):
             logger.error("Cannot delete prompt: prompt_id=%s not found in project_id=%s", prompt_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.PROMPT, resource_id=str(prompt_id))
 
-
-        with self.transaction():
+        with self.db_transaction():
             if prompt.type == PromptType.VISUAL and prompt.frame_id:
                 frame_deleted = self.frame_repository.delete_frame(project_id, prompt.frame_id)
                 if frame_deleted:
@@ -295,7 +286,6 @@ class PromptService(BaseService):
                         prompt.frame_id,
                         project_id,
                     )
-
             self.prompt_repository.delete(prompt)
         logger.info("Prompt deleted: prompt_id=%s project_id=%s", prompt_id, project_id)
 
@@ -336,7 +326,6 @@ class PromptService(BaseService):
                 message=f"Cannot change prompt type from {prompt.type} to {update_data.type}. "
                 "Delete and recreate the prompt instead.",
             )
-
         logger.debug(
             "Prompt update requested: prompt_id=%s project_id=%s type=%s",
             prompt_id,
@@ -348,12 +337,9 @@ class PromptService(BaseService):
         if isinstance(update_data, VisualPromptUpdateSchema):
             regenerate_thumbnail = self._handle_visual_prompt_update(prompt, update_data, project_id)
 
-
-
         try:
-            with self.transaction():
+            with self.db_transaction():
                 prompt = prompt_update_schema_to_db(prompt, update_data)
-
                 if regenerate_thumbnail and prompt.frame_id:
                     annotations = annotations_db_to_schemas(prompt.annotations)
                     prompt.thumbnail = self._generate_thumbnail(project_id, prompt.frame_id, annotations)

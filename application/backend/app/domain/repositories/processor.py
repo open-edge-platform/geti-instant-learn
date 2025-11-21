@@ -34,6 +34,7 @@ class ProcessorRepository(BaseRepository):
         """
         logger.debug(f"Adding processor id={processor.id} project_id={processor.project_id}")
         self.session.add(processor)
+        self.session.flush()
 
     def get_by_id(self, processor_id: UUID) -> ProcessorDB | None:
         """
@@ -64,6 +65,7 @@ class ProcessorRepository(BaseRepository):
         """
         logger.debug(f"Deleting model configuration id={processor.id} project_id={processor.project_id}")
         self.session.delete(processor)
+        self.session.flush()
 
     def get_activated_in_project(self, project_id: UUID) -> ProcessorDB | None:
         """

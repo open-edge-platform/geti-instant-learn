@@ -52,6 +52,7 @@ class ProjectRepository(BaseRepository):
         """Mark a project entity for deletion (not committed)."""
         logger.debug(f"Deleting project id={project.id} name={project.name}")
         self.session.delete(project)
+        self.session.flush()
 
     def get_paginated(self, offset: int = 0, limit: int = 20) -> tuple[Sequence[ProjectDB], int]:
         """

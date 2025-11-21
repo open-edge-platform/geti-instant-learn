@@ -105,19 +105,12 @@ class ModelService(BaseService):
         Database constraints enforce uniqueness of model configuration name per project.
         """
         self._ensure_project(project_id)
-
-        model_type = create_data.config.model_type.value
-        model_name = create_data.name
-
         logger.debug(
-            f"Model configuration create requested: "
-            f"project_id={project_id} model_type={model_type} name={model_name} active={create_data.active}"
+            f"Model configuration create requested: project_id={project_id} "
+            f"model_type={create_data.config.model_type.value} name={create_data.name} active={create_data.active}"
         )
-
-
-
         try:
-            with self.transaction():
+            with self.db_transaction():
                 if create_data.active:
                     self._deactivate_existing_active_model(project_id=project_id)
                 new_model: ProcessorDB = processor_schema_to_db(schema=create_data, project_id=project_id)
@@ -125,7 +118,7 @@ class ModelService(BaseService):
                 self._emit_component_change(project_id=project_id, model_id=new_model.id)
         except IntegrityError as exc:
             logger.error("Model configuration creation failed due to constraint violation: %s", exc)
-            self._handle_source_integrity_error(exc, new_model.id, project_id, model_name)
+            self._handle_source_integrity_error(exc, new_model.id, project_id, create_data.name)
 
         self.session.refresh(new_model)
         logger.info(
@@ -171,15 +164,12 @@ class ModelService(BaseService):
             logger.error(f"Update failed; model configuration not found id={model_id} project_id={project_id}")
             raise ResourceNotFoundError(resource_type=ResourceType.PROCESSOR, resource_id=str(model_id))
 
-
-
         try:
-            with self.transaction():
+            with self.db_transaction():
                 if update_data.active:
                     self._deactivate_existing_active_model(project_id=project_id)
                 if update_data.name is not None and model.name != update_data.name:
                     model.name = update_data.name
-
                 model.active = update_data.active
                 model.config = update_data.config.model_dump()
                 self._emit_component_change(project_id=project_id, model_id=model_id)
@@ -214,7 +204,7 @@ class ModelService(BaseService):
             logger.error(f"Cannot delete model: id={model_id} not found in project_id={project_id}")
             raise ResourceNotFoundError(resource_type=ResourceType.PROCESSOR, resource_id=str(model_id))
 
-        with self.transaction():
+        with self.db_transaction():
             self.processor_repository.delete(model)
             self._emit_component_change(project_id=project_id, model_id=model_id)
         logger.info(f"Model deleted: id={model_id} project_id={project_id}")
@@ -250,8 +240,8 @@ class ModelService(BaseService):
             active_model.active = False
             try:
                 self.session.flush()
-            except Exception as exc:
-                logger.error("Failed to flush model deactivation: %s", exc)
+            except Exception:
+                logger.exception(f"Failed to flush deactivation of model id={active_model.id}, project_id={project_id}")
                 raise
             self._emit_component_change(project_id=project_id, model_id=active_model.id)
 
@@ -313,4 +303,3 @@ class ModelService(BaseService):
 
         logger.error(f"Unmapped constraint violation for model configuration (id={model_id}): {error_msg}")
         raise ValueError("Database constraint violation. Please check your input and try again.")
-

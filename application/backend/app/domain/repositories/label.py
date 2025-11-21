@@ -32,6 +32,7 @@ class LabelRepository(BaseRepository):
         """Add a new label instance to the session (not committed)."""
         logger.debug(f"Adding label entity {label.id} (name={label.name})")
         self.session.add(label)
+        self.session.flush()
 
     def get_by_id(self, project_id: UUID, label_id: UUID) -> LabelDB | None:
         """Retrieve a label by its ID."""
@@ -47,6 +48,7 @@ class LabelRepository(BaseRepository):
         """Mark a label entity for deletion (not committed)."""
         logger.debug(f"Deleting label id={label.id} name={label.name}")
         self.session.execute(delete(LabelDB).where(LabelDB.id == label.id, LabelDB.project_id == project_id))
+        self.session.flush()
 
     def get_paginated(self, project_id: UUID, offset: int = 0, limit: int = 20) -> tuple[Sequence[LabelDB], int]:
         """

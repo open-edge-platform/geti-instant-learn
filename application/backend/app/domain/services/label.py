@@ -87,7 +87,7 @@ class LabelService(BaseService):
         label.project_id = project_id
 
         try:
-            with self.transaction():
+            with self.db_transaction():
                 self.label_repository.add(label=label)
         except IntegrityError as exc:
             logger.error("Label creation failed due to constraint violation: %s", exc)
@@ -140,7 +140,7 @@ class LabelService(BaseService):
             logger.error("Label not found id=%s for project_id=%s", label_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.LABEL, resource_id=str(label_id))
 
-        with self.transaction():
+        with self.db_transaction():
             self.label_repository.delete(project_id=project_id, label=label)
         logger.info("Label deleted id=%s project_id=%s", label_id, project_id)
 
@@ -164,24 +164,15 @@ class LabelService(BaseService):
             raise ResourceNotFoundError(resource_type=ResourceType.LABEL, resource_id=str(label_id))
 
         try:
-            with self.transaction():
-                changed = False
-
-                # Update name if provided and different
+            with self.db_transaction():
                 if update_data.name is not None and label.name != update_data.name:
                     label.name = update_data.name
-                    changed = True
 
-                # Update color if provided and different
                 if update_data.color is not None:
                     color = update_data.color.as_hex(format="long").lower()
                     if label.color != color:
                         label.color = color
-                        changed = True
 
-                if not changed:
-                    logger.debug("No changes detected for label id=%s in project=%s", label.id, project_id)
-                    return label_db_to_schema(label=label)
         except IntegrityError as exc:
             logger.error("Label update failed due to constraint violation: %s", exc)
             self._handle_label_integrity_error(exc, label.id, project_id, update_data.name, "update")

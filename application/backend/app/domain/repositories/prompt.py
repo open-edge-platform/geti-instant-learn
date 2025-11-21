@@ -34,6 +34,7 @@ class PromptRepository(BaseRepository):
         """
         logger.debug(f"Adding prompt id={prompt.id} project_id={prompt.project_id}")
         self.session.add(prompt)
+        self.session.flush()
 
     def get_by_id(self, prompt_id: UUID) -> PromptDB | None:
         """
@@ -85,6 +86,7 @@ class PromptRepository(BaseRepository):
         """
         logger.debug(f"Deleting prompt id={prompt.id} project_id={prompt.project_id}")
         self.session.delete(prompt)
+        self.session.flush()
 
     def get_paginated(self, project_id: UUID, offset: int = 0, limit: int = 10) -> tuple[Sequence[PromptDB], int]:
         """
