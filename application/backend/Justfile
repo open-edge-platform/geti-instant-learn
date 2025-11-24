@@ -77,16 +77,16 @@ _mypy:
 # -------------------------------------------------------------------------------------------------
 
 [windows]
-pyinstaller ai-device='xpu': venv
-    uv sync --extra installer --extra {{ai-device}} --extra windows-installer --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
+pyinstaller ai_device='xpu': venv
+    uv sync --extra installer --extra {{ai_device}} --extra windows-installer --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
     uv run pyinstaller --noconfirm geti-prompt.spec
 
 [linux]
-pyinstaller ai-device='xpu': venv
-    uv sync --extra installer --extra {{ai-device}} --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
+pyinstaller ai_device='xpu': venv
+    uv sync --extra installer --extra {{ai_device}} --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
     uv run pyinstaller --noconfirm geti-prompt.spec
 
 [macos]
-pyinstaller ai-device='xpu': venv
-    uv sync --extra installer --extra {{ai-device}} --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
+pyinstaller ai_device='xpu': venv
+    uv sync --extra installer --extra {{ai_device}} --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
     uv run pyinstaller --noconfirm geti-prompt.spec

@@ -82,7 +82,7 @@ jobs:
       - name: Build executable
         working-directory: application/backend
         run: |
-          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c pyinstaller ai_device=${{ inputs.ai_device }}
+          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c pyinstaller ai_device=${{ inputs.ai_device || 'xpu' }}
 
       # Copy backend artifacts to UI
 
