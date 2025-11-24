@@ -23,7 +23,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=['pyinstaller/hook-setenv.py'],
-    excludes=[],
+    excludes=['torch.utils.benchmark.utils.valgrind_wrapper'],
     noarchive=False,
     optimize=0,
 )
