@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = "==3.12.*"
 resolution-markers = [
     "sys_platform == 'darwin'",
@@ -510,6 +510,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "ftfy" },
+    { name = "iopath" },
     { name = "jsonargparse" },
     { name = "lvis" },
     { name = "markupsafe" },
@@ -551,6 +552,7 @@ dev = [
     { name = "twine" },
 ]
 extras = [
+    { name = "triton" },
     { name = "xformers" },
 ]
 full = [
@@ -561,6 +563,7 @@ full = [
     { name = "pytest" },
     { name = "pytest-assume" },
     { name = "ruff" },
+    { name = "triton" },
     { name = "twine" },
     { name = "xformers" },
 ]
@@ -590,6 +593,7 @@ requires-dist = [
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.2.2.post1" },
     { name = "ftfy" },
     { name = "getiprompt", extras = ["dev", "extras", "notebook"], marker = "extra == 'full'" },
+    { name = "iopath" },
     { name = "ipykernel", marker = "extra == 'notebook'", specifier = "==6.30.1" },
     { name = "jsonargparse" },
     { name = "jupyter", marker = "extra == 'notebook'", specifier = "==1.1.1" },
@@ -622,6 +626,7 @@ requires-dist = [
     { name = "torchvision", marker = "extra == 'cu126'", specifier = "==0.23.0", index = "https://download.pytorch.org/whl/cu126", conflict = { package = "getiprompt", extra = "cu126" } },
     { name = "torchvision", marker = "extra == 'xpu'", specifier = "==0.23.0", index = "https://download.pytorch.org/whl/xpu", conflict = { package = "getiprompt", extra = "xpu" } },
     { name = "transformers", specifier = "==4.56.2" },
+    { name = "triton", marker = "extra == 'extras'" },
     { name = "twine", marker = "extra == 'dev'", specifier = ">=6.1.0" },
     { name = "xformers", marker = "extra == 'extras'", specifier = "==0.0.32.post2" },
 ]
@@ -3253,7 +3258,7 @@ name = "triton"
 version = "3.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "setuptools", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'extra-10-getiprompt-cu126') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-10-getiprompt-cu126') or (sys_platform == 'darwin' and extra == 'extra-10-getiprompt-cu126' and extra == 'extra-10-getiprompt-xpu') or (sys_platform == 'linux' and extra == 'extra-10-getiprompt-cu126' and extra == 'extra-10-getiprompt-xpu') or (extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-cu126') or (extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-xpu')" },
+    { name = "setuptools" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d0/66/b1eb52839f563623d185f0927eb3530ee4d5ffe9d377cdaf5346b306689e/triton-3.4.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:31c1d84a5c0ec2c0f8e8a072d7fd150cab84a9c239eaddc6706c081bfae4eb04", size = 155560068, upload-time = "2025-07-30T19:58:37.081Z" },

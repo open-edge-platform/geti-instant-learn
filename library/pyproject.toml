@@ -41,6 +41,7 @@ dependencies = [
     "sam-2",
     "ftfy",
     "torchmetrics==1.8.2",
+    "iopath",
 ]
 
 [dependency-groups]
@@ -71,6 +72,7 @@ xpu = [
 ]
 extras = [
     "xformers==0.0.32.post2",
+    "triton",
 ]
 notebook = [
     "jupyter==1.1.1",
