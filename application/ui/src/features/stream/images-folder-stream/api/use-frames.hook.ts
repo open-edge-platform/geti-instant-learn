@@ -6,9 +6,6 @@
 import { $api, FramesResponseType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 
-const INITIAL_OFFSET = 0;
-const LIMIT = 30;
-
 const useFramesQuery = (sourceId: string) => {
     const { projectId } = useProjectIdentifier();
 
@@ -19,8 +16,8 @@ const useFramesQuery = (sourceId: string) => {
             params: {
                 path: { project_id: projectId, source_id: sourceId },
                 query: {
-                    offset: INITIAL_OFFSET,
-                    limit: LIMIT,
+                    offset: 0,
+                    limit: 30,
                 },
             },
         },

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 
 import { useEventListener } from '@geti-prompt/hooks';
 import { ActionButton, dimensionValue, Grid, minmax, View } from '@geti/ui';
@@ -13,14 +13,15 @@ import { CaptureFrameButton } from '../capture-frame-button.component';
 import { Video } from '../video.component';
 import { useActivateFrame } from './api/use-activate-frame.hook';
 import { useGetFrames } from './api/use-frames.hook';
+import { useGetActiveFrame } from './api/use-get-active-frame.hook';
 import { FramesList } from './frames-list/frames-list.component';
 
 import styles from './images-folder-stream.module.scss';
 
 const useActiveFrameSelection = (sourceId: string, framesCount: number) => {
     const activateFrameMutation = useActivateFrame();
+    const { data: activeFrame } = useGetActiveFrame(sourceId);
     const framesRef = useRef<HTMLDivElement>(null);
-    const [activeFrameIdx, setActiveFrameIdx] = useState<number>(0);
 
     useEventListener('keydown', (event) => {
         if (event.key === 'ArrowLeft') {
@@ -55,15 +56,13 @@ const useActiveFrameSelection = (sourceId: string, framesCount: number) => {
             sourceId,
             index: frameIdx,
             onSuccess: () => {
-                setActiveFrameIdx(frameIdx);
-
                 scrollFrameIntoView(frameIdx);
             },
         });
     };
 
     const nextFrame = () => {
-        const nextFrameIdx = activeFrameIdx + 1;
+        const nextFrameIdx = activeFrame.index + 1;
 
         if (nextFrameIdx >= framesCount) {
             return;
@@ -73,7 +72,7 @@ const useActiveFrameSelection = (sourceId: string, framesCount: number) => {
     };
 
     const prevFrame = () => {
-        const prevFrameIdx = activeFrameIdx - 1;
+        const prevFrameIdx = activeFrame.index - 1;
         if (prevFrameIdx < 0) {
             return;
         }
@@ -82,7 +81,7 @@ const useActiveFrameSelection = (sourceId: string, framesCount: number) => {
 
     return {
         framesRef,
-        activeFrameIdx,
+        activeFrameIdx: activeFrame.index,
         activateFrame,
         nextFrame,
         prevFrame,

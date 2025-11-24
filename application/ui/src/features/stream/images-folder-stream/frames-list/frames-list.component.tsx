@@ -78,13 +78,13 @@ export const FramesList = ({ activeFrameIndex, frames, onSetActiveFrame, ref, on
                     ref={ref}
                     onScroll={(event) => {
                         const target = event.target as HTMLDivElement;
-                        const fetchNextPageDistance = 500;
+                        const fetchMoreDistance = 500;
 
                         const { scrollWidth, scrollLeft, clientWidth } = target;
 
                         const distance = scrollWidth - (clientWidth + scrollLeft);
 
-                        if (distance <= fetchNextPageDistance) {
+                        if (distance <= fetchMoreDistance) {
                             onLoadMore();
                         }
                     }}
