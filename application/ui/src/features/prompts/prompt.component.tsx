@@ -5,7 +5,7 @@
 
 import { Flex, Heading, View } from '@geti/ui';
 
-import { ModelToolbar } from './model-toolbar/model-toolbar.component';
+import { ModelToolbar } from './models/model-toolbar/model-toolbar.component';
 import { PromptMode } from './prompt-modes/prompt-mode.component';
 
 export const Prompt = () => {

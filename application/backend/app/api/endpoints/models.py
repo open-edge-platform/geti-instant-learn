@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 @projects_router.get(
-    path="/{project_id}/models/",
+    path="/{project_id}/models",
     tags=["Models"],
     status_code=status.HTTP_200_OK,
     responses={

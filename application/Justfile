@@ -1,3 +1,5 @@
+#!/usr/bin/env just --justfile
+
 # -------------------------------------------------------------------------------------------------
 # Runtime variables
 # -------------------------------------------------------------------------------------------------
@@ -15,7 +17,7 @@ host := "0.0.0.0"
 ai-device := "cpu"  # options: cpu, gpu
 component-name := "geti-prompt"
 images-registry := 'localhost:5000/open-edge-platform'
-version := `cat ../VERSION`
+version := trim(read(`git rev-parse --show-toplevel 2>/dev/null` / "VERSION"))
 docker-image := images-registry / component-name + ":" + version + "-" + ai-device
 
 # -------------------------------------------------------------------------------------------------
@@ -48,8 +50,15 @@ docker-extra-args := http-proxy-build-arg + https-proxy-build-arg + no-proxy-bui
 # -------------------------------------------------------------------------------------------------
 # Justfile recipes
 # -------------------------------------------------------------------------------------------------
+check-proxy:
+    #!/usr/bin/env bash
+    if [ -z ${https_proxy+x} ]; then
+      echo "Error: https_proxy is unset";
+    else
+      echo "https_proxy is set to '$https_proxy'";
+    fi
 
-download-dataset:
+download-dataset: check-proxy
     #!/usr/bin/env bash
     if [ -d "{{ source-dataset-dir }}" ] && [ "$(ls -A {{ source-dataset-dir }})" ]; then
         echo "Dataset directory {{ source-dataset-dir }} already exists and is not empty. Skipping download."
@@ -57,7 +66,10 @@ download-dataset:
     fi
     mkdir -p {{ source-dataset-dir }}
     echo "Downloading default dataset from {{ coffee-berries-dataset }}"
-    wget -q --show-progress {{ coffee-berries-dataset }}
+    if ! wget -q --show-progress {{ coffee-berries-dataset }}; then
+        echo "Error: Failed to download dataset from {{ coffee-berries-dataset }}"
+        exit 1
+    fi
     echo "Unpacking default dataset to {{ source-dataset-dir }}"
     unzip -j -q -o Frames.zip -d {{ source-dataset-dir }}
     echo "Removing downloaded dataset archive Frames.zip"

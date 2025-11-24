@@ -25,7 +25,8 @@ class TestSink:
         self.broadcaster.register.return_value = self.out_queue
         self.mock_stream_writer = MagicMock(spec=StreamWriter)
         self.mock_stream_writer.__enter__.return_value = self.mock_stream_writer
-        self.sink = Sink(self.broadcaster, self.mock_stream_writer)
+        self.sink = Sink(self.mock_stream_writer)
+        self.sink.setup(self.broadcaster)
 
     @pytest.mark.parametrize(
         "test_id, get_side_effects, expected_writes", test_cases, ids=[case[0] for case in test_cases]

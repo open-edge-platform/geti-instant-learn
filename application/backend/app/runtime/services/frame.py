@@ -11,7 +11,7 @@ from domain.errors import ResourceNotFoundError, ResourceType, ServiceError
 from domain.repositories.frame import FrameRepository
 from domain.repositories.project import ProjectRepository
 from domain.repositories.source import SourceRepository
-from runtime.core.components.schemas.processor import InputData
+from domain.services.schemas.processor import InputData
 from runtime.errors import PipelineNotActiveError
 
 logger = logging.getLogger(__name__)

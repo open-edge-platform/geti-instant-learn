@@ -5,9 +5,9 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from runtime.core.components.schemas.processor import ModelConfig
-from runtime.core.components.schemas.reader import ReaderConfig
-from runtime.core.components.schemas.writer import WriterConfig
+from domain.services.schemas.processor import ModelConfig
+from domain.services.schemas.reader import ReaderConfig
+from domain.services.schemas.writer import WriterConfig
 
 
 class PipelineConfig(BaseModel):

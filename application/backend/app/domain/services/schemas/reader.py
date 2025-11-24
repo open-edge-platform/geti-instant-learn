@@ -2,9 +2,12 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 from enum import StrEnum
+from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from domain.services.schemas.base import Pagination
 
 
 class SourceType(StrEnum):
@@ -34,6 +37,17 @@ class VideoFileConfig(BaseModel):
     video_path: str
     seekable: bool = True
 
+    @field_validator("video_path")
+    @classmethod
+    def validate_video_path(cls, v: str) -> str:
+        """Validate that the video file exists and is a file."""
+        path = Path(v)
+        if not path.exists():
+            raise ValueError(f"Video file does not exist: {v}")
+        if not path.is_file():
+            raise ValueError(f"Path is not a file: {v}")
+        return v
+
     model_config = {
         "json_schema_extra": {
             "example": {
@@ -49,6 +63,21 @@ class ImagesFolderConfig(BaseModel):
     source_type: Literal[SourceType.IMAGES_FOLDER]
     images_folder_path: str
     seekable: bool = True
+
+    @field_validator("images_folder_path")
+    @classmethod
+    def validate_images_folder_path(cls, v: str) -> str:
+        """Validate that the folder path exists and is a directory."""
+        path = Path(v)
+        if not path.exists():
+            raise ValueError(f"Images folder does not exist: {v}")
+        if not path.is_dir():
+            raise ValueError(f"Path is not a directory: {v}")
+
+        if next(path.iterdir(), None) is None:
+            raise ValueError(f"Images folder is empty: {v}")
+
+        return v
 
     model_config = {
         "json_schema_extra": {
@@ -74,10 +103,8 @@ class FrameMetadata(BaseModel):
 class FrameListResponse(BaseModel):
     """Paginated response for frame listing."""
 
-    total: int
-    page: int
-    page_size: int
     frames: list[FrameMetadata]
+    pagination: Pagination
 
 
 class FrameIndexResponse(BaseModel):

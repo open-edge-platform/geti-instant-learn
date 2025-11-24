@@ -3,7 +3,7 @@
 
 import uuid
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy.exc import IntegrityError
@@ -15,9 +15,9 @@ from domain.errors import (
     ResourceType,
     ResourceUpdateConflictError,
 )
+from domain.services.schemas.reader import SourceType, VideoFileConfig, WebCamConfig
 from domain.services.schemas.source import SourceCreateSchema, SourceUpdateSchema
 from domain.services.source import SourceService
-from runtime.core.components.schemas.reader import SourceType, VideoFileConfig, WebCamConfig
 
 
 def make_project(project_id=None, name="proj"):
@@ -36,7 +36,7 @@ def make_source(
     if source_type == SourceType.WEBCAM:
         base_cfg |= {"device_id": 0}
     elif source_type == SourceType.VIDEO_FILE:
-        base_cfg |= {"video_path": "/path/to/video.mp4"}
+        base_cfg |= {"video_path": "/tmp/video.mp4"}
     if config_extra:
         base_cfg |= config_extra
     return SimpleNamespace(
@@ -72,7 +72,8 @@ def test_list_sources_success(service):
     s2 = make_source(project_id=project_id, source_type=SourceType.VIDEO_FILE)
     service.source_repository.get_all_by_project.return_value = [s1, s2]
 
-    result = service.list_sources(project_id)
+    with patch("pathlib.Path.exists", return_value=True), patch("pathlib.Path.is_file", return_value=True):
+        result = service.list_sources(project_id)
 
     assert len(result.sources) == 2
     service.project_repository.get_by_id.assert_called_once_with(project_id)
@@ -206,16 +207,20 @@ def test_create_source_disconnects_previous_connected(service):
     assert prev_connected.connected is False
 
 
-def test_create_connected_source_violates_single_connected_constraint(service):
+def test_create_connected_source_violates_single_connected_constraint(service, tmp_path):
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
 
     service.source_repository.get_connected_in_project.return_value = None  # assume no connected source found
 
+    # Create a temporary video file for validation
+    video_file = tmp_path / "video.mp4"
+    video_file.write_bytes(b"fake video content")
+
     create_schema = SourceCreateSchema(
         id=uuid.uuid4(),
         connected=True,
-        config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path="/video.mp4"),
+        config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path=str(video_file)),
     )
 
     # simulate IntegrityError from database constraint
@@ -261,15 +266,20 @@ def test_update_source_success(service, dispatcher_mock):
     assert ev.component_id == str(source_id)
 
 
-def test_update_source_type_change_conflict(service):
+def test_update_source_type_change_conflict(service, tmp_path):
     project_id = uuid.uuid4()
     source_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
     existing = make_source(project_id=project_id, source_id=source_id, source_type=SourceType.WEBCAM)
     service.source_repository.get_by_id_and_project.return_value = existing
+
+    # Create a temporary video file for validation
+    video_file = tmp_path / "video.mp4"
+    video_file.write_bytes(b"fake video content")
+
     update_schema = SourceUpdateSchema(
         connected=False,
-        config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path="/new/path/to/video.mp4"),
+        config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path=str(video_file)),
     )
 
     with pytest.raises(ResourceUpdateConflictError):

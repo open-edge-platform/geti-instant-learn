@@ -1,8 +1,8 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
+from domain.services.schemas.writer import WriterConfig
 from runtime.core.components.base import StreamWriter
-from runtime.core.components.schemas.writer import WriterConfig
 from runtime.core.components.writers.noop_writer import NoOpWriter
 
 

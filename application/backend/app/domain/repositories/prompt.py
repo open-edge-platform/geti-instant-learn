@@ -55,12 +55,16 @@ class PromptRepository(BaseRepository):
         )
         return self.session.scalars(stmt).unique().first()
 
-    def get_all_by_project(self, project_id: UUID) -> Sequence[PromptDB]:
+    def get_all_by_project(self, project_id: UUID, prompt_type: PromptType | None = None) -> Sequence[PromptDB]:
         """
         Retrieve all prompts belonging to a project.
         """
         logger.debug(f"Fetching all prompts for project_id={project_id}")
         stmt = select(PromptDB).where(PromptDB.project_id == project_id).options(joinedload(PromptDB.annotations))
+
+        if prompt_type is not None:
+            stmt = stmt.where(PromptDB.type == prompt_type)
+
         return self.session.scalars(stmt).unique().all()
 
     def get_text_prompt_by_project(self, project_id: UUID) -> PromptDB | None:

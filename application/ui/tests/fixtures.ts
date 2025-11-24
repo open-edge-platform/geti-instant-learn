@@ -115,6 +115,17 @@ const test = testBase.extend<Fixtures>({
 
                 return HttpResponse.json({ id: promptId, ...body } as never);
             }),
+            http.get('/api/v1/projects/{project_id}/models', ({ response }) => {
+                return response(200).json({
+                    models: [],
+                    pagination: {
+                        total: 0,
+                        count: 0,
+                        offset: 0,
+                        limit: 10,
+                    },
+                });
+            }),
         ],
     }),
     streamPage: async ({ page }, use) => {

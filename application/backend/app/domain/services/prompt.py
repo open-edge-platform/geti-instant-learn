@@ -4,6 +4,7 @@
 import logging
 from uuid import UUID
 
+from getiprompt.data.base.batch import Batch
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -23,12 +24,14 @@ from domain.repositories.project import ProjectRepository
 from domain.repositories.prompt import PromptRepository
 from domain.services.schemas.annotation import AnnotationSchema
 from domain.services.schemas.base import Pagination
+from domain.services.schemas.mappers.annotation import annotations_db_to_schemas
 from domain.services.schemas.mappers.label import label_db_to_schema
 from domain.services.schemas.mappers.prompt import (
     prompt_create_schema_to_db,
     prompt_db_to_schema,
     prompt_update_schema_to_db,
     prompts_db_to_schemas,
+    visual_prompt_to_sample,
 )
 from domain.services.schemas.prompt import (
     PromptCreateSchema,
@@ -100,6 +103,54 @@ class PromptService:
         )
 
         return PromptsListSchema(prompts=prompts, pagination=pagination)
+
+    def get_reference_batch(self, project_id: UUID, prompt_type: PromptType) -> Batch | None:
+        """
+        Get all prompts of a specific type for a project, formatted for model training.
+
+        Parameters:
+            project_id: Owning project UUID.
+            prompt_type: The type of prompts to retrieve (currently only VISUAL is supported).
+
+        Returns:
+            A Batch containing Sample objects ready for training, or None if no valid samples found.
+        """
+        if prompt_type == PromptType.TEXT:
+            logger.warning("Text prompts are not supported for training data generation for project_id=%s", project_id)
+            return None
+
+        project = self.project_repository.get_by_id(project_id)
+        if not project:
+            logger.error("Project not found id=%s", project_id)
+            return None
+
+        db_prompts = self.prompt_repository.get_all_by_project(project_id, prompt_type=prompt_type)
+
+        samples = []
+        for prompt in db_prompts:
+            if prompt.frame_id:
+                try:
+                    frame = self.frame_repository.get_frame(project_id, prompt.frame_id)
+                    if frame is None:
+                        logger.warning(
+                            "Frame not found for prompt: prompt_id=%s, frame_id=%s, project_id=%s",
+                            prompt.id,
+                            prompt.frame_id,
+                            project_id,
+                        )
+                        continue
+                    samples.append(visual_prompt_to_sample(prompt, frame))
+                except ServiceError:
+                    logger.exception(
+                        "Failed to convert prompt to sample: prompt_id=%s",
+                        prompt.id,
+                    )
+                    continue
+
+        if not samples:
+            return None
+
+        return Batch.collate(samples)
 
     def get_prompt(self, project_id: UUID, prompt_id: UUID) -> PromptSchema:
         """
@@ -298,9 +349,8 @@ class PromptService:
         prompt = prompt_update_schema_to_db(prompt, update_data)
 
         if regenerate_thumbnail and prompt.frame_id:
-            annotations = [AnnotationSchema(config=ann.config, label_id=ann.label_id) for ann in prompt.annotations]
+            annotations = annotations_db_to_schemas(prompt.annotations)
             prompt.thumbnail = self._generate_thumbnail(project_id, prompt.frame_id, annotations)
-
         try:
             self.session.commit()
         except IntegrityError as exc:
