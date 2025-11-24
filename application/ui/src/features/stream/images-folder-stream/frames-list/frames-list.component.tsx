@@ -8,12 +8,9 @@ import { RefObject } from 'react';
 import { type FrameType } from '@geti-prompt/api';
 import {
     AriaComponentsListBox,
-    Collection,
     HorizontalLayout,
     HorizontalLayoutOptions,
     ListBoxItem,
-    ListBoxLoadMoreItem,
-    Loading,
     View,
     Virtualizer,
 } from '@geti/ui';
@@ -47,7 +44,7 @@ const FrameThumbnail = ({ frame, isSelected }: FrameThumbnailProps) => {
             >
                 <img
                     alt={'Frame'}
-                    src={`data:image/jpeg;base64,${thumbnail}`}
+                    src={thumbnail}
                     style={{ objectFit: 'cover', height: '100%', width: '100%', display: 'block' }}
                 />
             </View>
@@ -61,7 +58,6 @@ interface FramesListProps {
     frames: FrameType[];
     ref: RefObject<HTMLDivElement | null>;
     onLoadMore: () => void;
-    isLoadingMore: boolean;
 }
 
 const LAYOUT_OPTIONS: HorizontalLayoutOptions = {
@@ -71,14 +67,7 @@ const LAYOUT_OPTIONS: HorizontalLayoutOptions = {
     overscan: 5,
 };
 
-export const FramesList = ({
-    activeFrameIndex,
-    frames,
-    onSetActiveFrame,
-    ref,
-    onLoadMore,
-    isLoadingMore,
-}: FramesListProps) => {
+export const FramesList = ({ activeFrameIndex, frames, onSetActiveFrame, ref, onLoadMore }: FramesListProps) => {
     return (
         <View height={'100%'} padding={'size-200'} backgroundColor={'gray-100'}>
             <Virtualizer<HorizontalLayoutOptions> layout={HorizontalLayout} layoutOptions={LAYOUT_OPTIONS}>
@@ -86,32 +75,31 @@ export const FramesList = ({
                     orientation={'horizontal'}
                     className={styles.framesList}
                     aria-label={'Frames list'}
-                    items={frames}
                     ref={ref}
-                >
-                    <Collection items={frames}>
-                        {(frame) => (
-                            <ListBoxItem
-                                id={frame.index}
-                                key={frame.index}
-                                className={styles.frameItem}
-                                aria-label={`Frame #${frame.index}`}
-                                data-isSelected={frame.index === activeFrameIndex}
-                                onAction={() => onSetActiveFrame(frame.index)}
-                            >
-                                <FrameThumbnail frame={frame} isSelected={frame.index === activeFrameIndex} />
-                            </ListBoxItem>
-                        )}
-                    </Collection>
+                    onScroll={(event) => {
+                        const target = event.target as HTMLDivElement;
+                        const fetchMoreDistance = 500;
 
-                    <ListBoxLoadMoreItem
-                        onLoadMore={onLoadMore}
-                        isLoading={isLoadingMore}
-                        aria-label={'Load more frames'}
-                        data-testid={'load-more-frames'}
-                    >
-                        <Loading mode={'inline'} />
-                    </ListBoxLoadMoreItem>
+                        const { scrollWidth, scrollLeft, clientWidth } = target;
+
+                        const distance = scrollWidth - (clientWidth + scrollLeft);
+
+                        if (distance <= fetchMoreDistance) {
+                            onLoadMore();
+                        }
+                    }}
+                >
+                    {frames.map((frame) => (
+                        <ListBoxItem
+                            key={frame.index}
+                            className={styles.frameItem}
+                            aria-label={`Frame #${frame.index}`}
+                            data-isSelected={frame.index === activeFrameIndex}
+                            onAction={() => onSetActiveFrame(frame.index)}
+                        >
+                            <FrameThumbnail frame={frame} isSelected={frame.index === activeFrameIndex} />
+                        </ListBoxItem>
+                    ))}
                 </AriaComponentsListBox>
             </Virtualizer>
         </View>

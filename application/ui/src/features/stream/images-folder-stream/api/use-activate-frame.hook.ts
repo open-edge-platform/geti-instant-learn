@@ -42,9 +42,14 @@ export const useActivateFrame = () => {
                     await queryClient.invalidateQueries({
                         queryKey: [
                             'get',
-                            '/api/v1/projects/{project_id}/sources/{source_id}/frames/{index}',
+                            '/api/v1/projects/{project_id}/sources/{source_id}/frames/index',
                             {
-                                params,
+                                params: {
+                                    path: {
+                                        project_id: projectId,
+                                        source_id: sourceId,
+                                    },
+                                },
                             },
                         ],
                     });

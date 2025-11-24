@@ -63,44 +63,44 @@ describe('ImagesFolderStream', () => {
         renderImagesFolderStream();
 
         const frame0 = screen.getByRole('option', { name: 'Frame #0' });
-        expect(frame0).toHaveAttribute('data-isSelected', 'true');
+        expect(frame0).toHaveAttribute('data-isselected', 'true');
 
         fireEvent.click(screen.getByRole('button', { name: 'Next Frame' }));
 
-        expect(screen.getByRole('option', { name: 'Frame #1' })).toHaveAttribute('data-isSelected', 'true');
+        expect(screen.getByRole('option', { name: 'Frame #1' })).toHaveAttribute('data-isselected', 'true');
 
         fireEvent.click(screen.getByRole('button', { name: 'Previous Frame' }));
 
-        expect(screen.getByRole('option', { name: 'Frame #0' })).toHaveAttribute('data-isSelected', 'true');
+        expect(screen.getByRole('option', { name: 'Frame #0' })).toHaveAttribute('data-isselected', 'true');
     });
 
     it('supports keyboard navigation with arrow keys', () => {
         renderImagesFolderStream();
 
         const frame0 = screen.getByRole('option', { name: 'Frame #0' });
-        expect(frame0).toHaveAttribute('data-isSelected', 'true');
+        expect(frame0).toHaveAttribute('data-isselected', 'true');
 
         fireEvent.keyDown(document, { key: 'ArrowRight' });
 
         const frame1 = screen.getByRole('option', { name: 'Frame #1' });
-        expect(frame1).toHaveAttribute('data-isSelected', 'true');
+        expect(frame1).toHaveAttribute('data-isselected', 'true');
 
         // Simulate ArrowLeft key press
         fireEvent.keyDown(document, { key: 'ArrowLeft' });
 
-        expect(frame0).toHaveAttribute('data-isSelected', 'true');
+        expect(frame0).toHaveAttribute('data-isselected', 'true');
     });
 
     it('does not navigate beyond first frame when pressing ArrowLeft', () => {
         renderImagesFolderStream();
 
         const frame0 = screen.getByRole('option', { name: 'Frame #0' });
-        expect(frame0).toHaveAttribute('data-isSelected', 'true');
+        expect(frame0).toHaveAttribute('data-isselected', 'true');
 
         // Try to navigate left from first frame
         fireEvent.keyDown(document, { key: 'ArrowLeft' });
 
-        expect(frame0).toHaveAttribute('data-isSelected', 'true');
+        expect(frame0).toHaveAttribute('data-isselected', 'true');
     });
 
     it('does not navigate beyond last frame when pressing ArrowRight', () => {
@@ -110,11 +110,11 @@ describe('ImagesFolderStream', () => {
         const frame17 = screen.getByRole('option', { name: 'Frame #17' });
         fireEvent.click(frame17);
 
-        expect(frame17).toHaveAttribute('data-isSelected', 'true');
+        expect(frame17).toHaveAttribute('data-isselected', 'true');
 
         // Try to navigate right from last frame
         fireEvent.keyDown(document, { key: 'ArrowRight' });
 
-        expect(frame17).toHaveAttribute('data-isSelected', 'true');
+        expect(frame17).toHaveAttribute('data-isselected', 'true');
     });
 });

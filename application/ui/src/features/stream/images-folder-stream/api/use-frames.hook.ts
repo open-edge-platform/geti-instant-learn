@@ -16,18 +16,19 @@ const useFramesQuery = (sourceId: string) => {
             params: {
                 path: { project_id: projectId, source_id: sourceId },
                 query: {
-                    page: 0,
-                    page_size: 20,
+                    offset: 0,
+                    limit: 30,
                 },
             },
         },
         {
-            pageParamName: 'page',
+            pageParamName: 'offset',
             initialPageParam: 0,
-            getNextPageParam: ({ page, page_size, total }: FramesResponseType) => {
-                const nextPage = page + 1;
+            getNextPageParam: ({ pagination }: FramesResponseType) => {
+                const { offset, limit, total } = pagination;
+                const nextPage = offset + limit;
 
-                return page_size * page < total ? nextPage : undefined;
+                return nextPage < total ? nextPage : undefined;
             },
         }
     );
@@ -44,10 +45,13 @@ export const useGetFrames = (sourceId: string) => {
         }
     };
 
+    const framesCount = data?.pages?.at(0)?.pagination?.total ?? 0;
+
     return {
         frames,
         loadMoreFrames,
         isFetchingNextFrames: isFetchingNextPage,
         isPending,
+        framesCount,
     } as const;
 };

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { use, useRef } from 'react';
+import { useRef } from 'react';
 
 import { useEventListener } from '@geti-prompt/hooks';
 import { ActionButton, dimensionValue, Grid, minmax, View } from '@geti/ui';
@@ -94,14 +94,14 @@ interface ImagesFolderStreamProps {
 
 export const ImagesFolderStream = ({ sourceId }: ImagesFolderStreamProps) => {
     // const [promptMode] = usePromptMode();
-    const { frames, loadMoreFrames, isFetchingNextFrames } = useGetFrames(sourceId);
+    const { frames, loadMoreFrames, framesCount } = useGetFrames(sourceId);
     const { activeFrameIdx, activateFrame, nextFrame, prevFrame, framesRef } = useActiveFrameSelection(
         sourceId,
-        frames.length
+        framesCount
     );
 
     const isPrevFrameButtonDisabled = activeFrameIdx === 0;
-    const isNextFrameButtonDisabled = activeFrameIdx === frames.length - 1;
+    const isNextFrameButtonDisabled = activeFrameIdx === framesCount - 1;
 
     return (
         <Grid
@@ -157,7 +157,6 @@ export const ImagesFolderStream = ({ sourceId }: ImagesFolderStreamProps) => {
                     activeFrameIndex={activeFrameIdx}
                     onSetActiveFrame={activateFrame}
                     frames={frames}
-                    isLoadingMore={isFetchingNextFrames}
                     onLoadMore={loadMoreFrames}
                 />
             </View>
