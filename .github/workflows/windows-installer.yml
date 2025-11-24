@@ -82,14 +82,14 @@ jobs:
         env:
           AI_DEVICE: ${{ inputs.ai_device || 'xpu' }}
         run: |
-          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c ai-device="${{ env.AI_DEVICE }}" gen-openapi
+          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c ai-device="$env:AI_DEVICE" gen-openapi
 
       - name: Build executable
         working-directory: application/backend
         env:
           AI_DEVICE: ${{ inputs.ai_device || 'xpu' }}
         run: |
-          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c ai-device="${{ env.AI_DEVICE }}" pyinstaller
+          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c ai-device="$env:AI_DEVICE" pyinstaller
 
       # Copy backend artifacts to UI
 
@@ -143,7 +143,7 @@ jobs:
           cp ${{ env.UI_TARGET_RELEASE_PATH }}\geti_prompt_ui.exe ${{ env.UI_MSIX_BUNDLE_PATH }}
           cp -r ${{ env.UI_TARGET_RELEASE_PATH }}\_internal ${{ env.UI_MSIX_BUNDLE_PATH }}
           cp -r ${{ env.UI_SRC_TAURI_PATH }}\msix\* ${{ env.UI_MSIX_BUNDLE_PATH }}
-          & "${{ env.MAKEAPP_PATH }}" pack /d ${{ env.UI_MSIX_BUNDLE_PATH }} /p ${{ env.UI_MSIX_BUNDLE_PATH }}\geti-prompt-${{ env.BUILD_VERSION }}.msix
+          & "${{ env.MAKEAPP_PATH }}" pack /d ${{ env.UI_MSIX_BUNDLE_PATH }} /p ${{ env.UI_MSIX_BUNDLE_PATH }}\geti-prompt-$env:BUILD_VERSION.msix
 
       - name: Upload MSIX package
         uses: actions/upload-artifact@v4
