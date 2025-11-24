@@ -1,0 +1,147 @@
+name: Collect source for GPL/MPL licensed code (combined)
+
+on:
+  workflow_dispatch:
+
+permissions: {} # No permissions by default on workflow level
+
+jobs:
+  collect-packages-names:
+    name: Generate SBOM with Syft
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        ai-device: [cpu, gpu, xpu]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Initial cleanup
+        uses: ./.github/actions/cleanup-runner
+        with:
+          type: "initial"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Install Just
+        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3.0.0
+        with:
+          just-version: '1.43.1'
+
+      - name: Build docker image
+        working-directory: application
+        env:
+          DEVICE: ${{ matrix.ai-device }}
+        run: |
+          just ai-device="${DEVICE}" docker-image="geti-prompt:latest-${DEVICE}" docker-build-context="--no-cache" build-image
+
+      - name: Cleanup docker cache
+        run: docker builder prune -f
+
+      - name: Scan ${{ matrix.ai-device }}
+        shell: bash
+        env:
+          TARGET: geti-prompt:latest-${{ matrix.ai-device }}
+          DEVICE: ${{ matrix.ai-device }}
+        run: |
+          # install Syft
+          curl -sSfL https://get.anchore.io/syft | sudo sh -s -- -b /usr/local/bin
+          NAME=$(echo "$TARGET" | cut -d'/' -f 4 | cut -d':' -f 1)
+          echo "name=$NAME" >> $GITHUB_ENV
+
+          syft "$TARGET" -o json |
+          jq -r '[
+            .artifacts[] |
+            select(.type == "deb" and ((.licenses // [])[]?.value | test("GPL|AGPL|LGPL|EPL|MPL"; "i"))) |
+            .name
+          ] | unique[]' > pkg_list_$DEVICE.txt
+
+      - name: Upload packages list
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: pkg_list_${{ matrix.ai-device }}
+          path: pkg_list_*
+          retention-days: 5
+
+  get-unique-names:
+    runs-on: ubuntu-latest
+    needs:
+      - collect-packages-names
+    outputs:
+      unique_package_names_oneline: ${{ steps.transform-list.outputs.unique_package_names_oneline }}
+    steps:
+      # Create directory first
+      - name: Create results directory
+        run: mkdir -p all-pkg_list
+
+      # Download all reports
+      - name: Download all reports
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          pattern: "pkg_list_*"
+          merge-multiple: true
+          path: all-pkg_list
+
+      - name: Get unique names
+        id: transform-list
+        shell: bash
+        run: |
+          cat all-pkg_list/* | sort -u > merged_unique.txt
+          cat merged_unique.txt
+          awk 'ORS=","{print}' merged_unique.txt | sed 's/,$//' > unique_package_names_oneline.txt
+          echo "unique_package_names_oneline=$(cat unique_package_names_oneline.txt)" >> $GITHUB_OUTPUT
+
+  collect-source-code:
+    runs-on: ubuntu-latest
+    needs: get-unique-names
+    container:
+      image: debian:bookworm-slim@sha256:936abff852736f951dab72d91a1b6337cf04217b2a77a5eaadc7c0f2f1ec1758
+    steps:
+    - name: Add apt sources for deb-src
+      shell: bash
+      run: |
+        sed -Ei "s/^Types: deb$/Types: deb deb-src/" /etc/apt/sources.list.d/debian.sources
+        apt-get update
+
+    - name: Find GPL/MPL licensed packages
+      shell: bash
+      env:
+        PACKAGES: ${{ needs.get-unique-names.outputs.unique_package_names_oneline }}
+      run: |
+        OUTPUT_DIR="output"
+        ARCHIVE_NAME="source_code.tar.gz"
+        mkdir -p "$OUTPUT_DIR"
+        cd "$OUTPUT_DIR"
+        # Split comma-separated list into an array
+        IFS=',' read -r -a PACKAGES_ARR <<< "$PACKAGES"
+        # Collect missing packages
+        # Install GNU Parallel for faster downloads
+        apt-get update && apt-get install -y parallel
+
+        # Download sources for GPL/MPL packages in parallel with error handling
+        if [ ${#PACKAGES_ARR[@]} -gt 0 ]; then
+          export OUTPUT_DIR
+          printf "%s\n" "${PACKAGES_ARR[@]}" | parallel --jobs 4 '
+            echo "Downloading source for {}"
+            if ! apt-get source -q --download-only "{}"; then
+              echo "Warning: Source not available for {}" >&2
+            fi
+          '
+        fi
+        cd ..
+        tar -czf "$ARCHIVE_NAME" -C "$OUTPUT_DIR" .
+
+    - name: Upload source code archive
+      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+      with:
+        name: source-code-archive
+        path: source_code.tar.gz
+        retention-days: 3
