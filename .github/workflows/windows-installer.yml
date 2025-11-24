@@ -20,8 +20,11 @@ on:
         required: true
       ai_device:
         description: "Specifies the AI device to build the backend for (cpu, xpu, gpu)"
-        type: string
         required: true
+        options:
+          - xpu
+          - cpu
+          - gpu
         default: "xpu"
 
 env:
@@ -82,7 +85,7 @@ jobs:
       - name: Build executable
         working-directory: application/backend
         run: |
-          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c pyinstaller ai_device=${{ inputs.ai_device || 'xpu' }}
+          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c ai-device="${{ inputs.ai_device || 'xpu' }}" pyinstaller
 
       # Copy backend artifacts to UI
 
