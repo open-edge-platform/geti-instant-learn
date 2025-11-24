@@ -8,10 +8,7 @@ datas = [
 binaries = []
 hiddenimports = []
 
-tmp_ret = collect_all('getiprompt')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-
-tmp_ret = collect_all('torch')
+tmp_ret = collect_all('getiprompt') + collect_all('torch')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 a = Analysis(
@@ -23,7 +20,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=['pyinstaller/hook-setenv.py'],
-    excludes=['torch.utils.benchmark.utils.valgrind_wrapper'],
+    excludes=['torch.utils.benchmark'],
     noarchive=False,
     optimize=0,
 )
