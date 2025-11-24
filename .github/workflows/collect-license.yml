@@ -27,15 +27,22 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            just \
             jq
+
+      - name: Install Just
+        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3.0.0
+        with:
+          just-version: '1.43.1'
 
       - name: Build docker image
         working-directory: application
         env:
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just docker-image="geti-prompt:latest-${DEVICE}" docker-build-context="--no-cache" build-image
+          just ai-device="${DEVICE}" docker-image="geti-prompt:latest-${DEVICE}" docker-build-context="--no-cache" build-image
+
+      - name: Cleanup docker cache
+        run: docker builder prune -f
 
       - name: Generate SBOM for container image
         uses: anchore/sbom-action@8e94d75ddd33f69f691467e42275782e4bfefe84 # v0.20.9

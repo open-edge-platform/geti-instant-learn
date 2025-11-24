@@ -131,17 +131,20 @@ jobs:
         with:
           type: "initial"
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y just
+      - name: Install Just
+        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3.0.0
+        with:
+          just-version: '1.43.1'
 
       - name: Build docker image
         working-directory: application
         env:
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just docker-image="geti-prompt:latest-${DEVICE}" docker-build-context="--no-cache" build-image
+          just ai-device="${DEVICE}" docker-image="geti-prompt:latest-${DEVICE}" docker-build-context="--no-cache" build-image
+
+      - name: Cleanup docker cache
+        run: docker builder prune -f
 
       - name: Run Trivy scan
         id: trivy
