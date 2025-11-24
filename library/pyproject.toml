@@ -44,6 +44,7 @@ dependencies = [
     "openvino==2025.3.0",
     "onnx>=1.19.1",
     "onnxruntime>=1.23.2",
+    "iopath",
 ]
 
 [dependency-groups]
@@ -71,6 +72,10 @@ xpu = [
     "torch==2.10.0.dev20251202+xpu",
     "torchvision==0.25.0.dev20251203+xpu",
     "pytorch-triton-xpu==3.5.0+gitaa01f5c2",
+]
+extras = [
+    "xformers==0.0.32.post2",
+    "triton",
 ]
 notebook = [
     "jupyter==1.1.1",
