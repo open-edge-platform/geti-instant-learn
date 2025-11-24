@@ -74,7 +74,7 @@ class PerDino(Model):
         num_background_points: int = 2,
         num_grid_cells: int = 16,
         similarity_threshold: float = 0.65,
-        mask_similarity_threshold: float | None = 0.42,
+        confidence_threshold: float | None = 0.42,
         precision: str = "bf16",
         compile_models: bool = False,
         device: str = "cuda",
@@ -87,7 +87,7 @@ class PerDino(Model):
             num_background_points: The number of background points to use.
             num_grid_cells: The number of grid cells to use.
             similarity_threshold: The similarity threshold for the similarity matcher.
-            mask_similarity_threshold: The similarity threshold for the mask.
+            confidence_threshold: The confidence threshold for filtering masks.
             encoder_model: ImageEncoder model ID to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
@@ -124,7 +124,7 @@ class PerDino(Model):
         self.prompt_filter = PointPromptFilter(num_foreground_points=num_foreground_points)
         self.segmenter: SamDecoder = SamDecoder(
             sam_predictor=self.sam_predictor,
-            mask_similarity_threshold=mask_similarity_threshold,
+            confidence_threshold=confidence_threshold,
         )
         self.masked_ref_embeddings = None
 

@@ -81,7 +81,7 @@ class Matcher(Model):
         num_foreground_points: int = 40,
         num_background_points: int = 2,
         encoder_model: str = "dinov3_large",
-        mask_similarity_threshold: float | None = 0.38,
+        confidence_threshold: float | None = 0.38,
         use_mask_refinement: bool = True,
         precision: str = "bf16",
         compile_models: bool = False,
@@ -93,7 +93,7 @@ class Matcher(Model):
             sam: The name of the SAM model to use.
             num_foreground_points: The number of foreground points to use.
             num_background_points: The number of background points to use.
-            mask_similarity_threshold: The similarity threshold for the mask.
+            confidence_threshold: The confidence threshold for filtering masks.
             encoder_model: ImageEncoder model ID to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
@@ -130,7 +130,7 @@ class Matcher(Model):
         self.prompt_filter = PointPromptFilter(num_foreground_points=num_foreground_points)
         self.segmenter: SamDecoder = SamDecoder(
             sam_predictor=self.sam_predictor,
-            mask_similarity_threshold=mask_similarity_threshold,
+            confidence_threshold=confidence_threshold,
             use_mask_refinement=use_mask_refinement,
         )
         self.masked_ref_embeddings = None

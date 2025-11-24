@@ -42,7 +42,7 @@ class SamDecoder(nn.Module):
     def __init__(
         self,
         sam_predictor: PyTorchSAMPredictor | OpenVINOSAMPredictor,
-        mask_similarity_threshold: float = 0.38,
+        confidence_threshold: float = 0.38,
         nms_iou_threshold: float = 0.1,
         use_mask_refinement: bool = False,
     ) -> None:
@@ -50,13 +50,13 @@ class SamDecoder(nn.Module):
 
         Args:
             sam_predictor: The SAM predictor (any backend: PyTorch, OpenVINO, etc.).
-            mask_similarity_threshold: The similarity threshold for the mask.
+            confidence_threshold: The confidence threshold for filtering masks.
             nms_iou_threshold: The IoU threshold for the NMS.
             use_mask_refinement: Whether to use 2-stage mask refinement. Defaults to False for better FPS.
         """
         super().__init__()
         self.predictor = sam_predictor
-        self.mask_similarity_threshold = mask_similarity_threshold
+        self.confidence_threshold = confidence_threshold
         self.nms_iou_threshold = nms_iou_threshold
         self.use_mask_refinement = use_mask_refinement
         self.device = sam_predictor.device
@@ -293,7 +293,7 @@ class SamDecoder(nn.Module):
                 input_coords=input_coords,
                 input_labels=input_labels,
                 similarity_map=similarity_map,
-                score_threshold=self.mask_similarity_threshold,
+                score_threshold=self.confidence_threshold,
                 nms_iou_threshold=self.nms_iou_threshold,
                 use_box_refinement=self.use_mask_refinement,
             )
