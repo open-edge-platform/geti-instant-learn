@@ -43,19 +43,19 @@ class SamDecoder(nn.Module):
     def __init__(
         self,
         sam_predictor: SamPredictor,
-        mask_similarity_threshold: float = 0.38,
+        confidence_threshold: float = 0.38,
         nms_iou_threshold: float = 0.1,
     ) -> None:
         """This Segmenter uses SAM to create masks based on points.
 
         Args:
             sam_predictor: The SAM predictor.
-            mask_similarity_threshold: The similarity threshold for the mask.
+            confidence_threshold: The confidence threshold for filtering masks.
             nms_iou_threshold: The IoU threshold for the NMS.
         """
         super().__init__()
         self.predictor = sam_predictor
-        self.mask_similarity_threshold = mask_similarity_threshold
+        self.confidence_threshold = confidence_threshold
         self.nms_iou_threshold = nms_iou_threshold
 
         if hasattr(self.predictor.model.image_encoder, "img_size"):
@@ -328,7 +328,7 @@ class SamDecoder(nn.Module):
                 input_labels=input_labels,
                 similarity_map=similarity_map,
                 original_size=original_size,
-                score_threshold=self.mask_similarity_threshold,
+                score_threshold=self.confidence_threshold,
                 nms_iou_threshold=self.nms_iou_threshold,
             )
         else:

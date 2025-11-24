@@ -13,11 +13,13 @@ import pytest
 import torch
 from torchmetrics.segmentation import MeanIoU
 
-from getiprompt.data.base import Batch
+from getiprompt.data.base import Batch, Sample
 from getiprompt.data.folder import FolderDataset
+from getiprompt.data.utils import read_image
 from getiprompt.models.grounded_sam import GroundedSAM
 from getiprompt.models.matcher import Matcher
 from getiprompt.models.per_dino import PerDino
+from getiprompt.models.sam3 import SAM3
 from getiprompt.models.soft_matcher import SoftMatcher
 from getiprompt.utils.benchmark import convert_masks_to_one_hot_tensor
 from getiprompt.utils.constants import ModelName, SAMModelName
@@ -30,7 +32,7 @@ def fss1000_root() -> Path:
 
 
 @pytest.fixture
-def dataset(fss1000_root: Path) -> FolderDataset:
+def fss1000_dataset(fss1000_root: Path) -> FolderDataset:
     """Create a FolderDataset for testing."""
     return FolderDataset(
         root=fss1000_root,
@@ -40,7 +42,7 @@ def dataset(fss1000_root: Path) -> FolderDataset:
 
 
 @pytest.fixture
-def reference_batch(dataset: FolderDataset) -> Batch:
+def fss1000_reference_batch(dataset: FolderDataset) -> Batch:
     """Get reference batch from dataset."""
     ref_dataset = dataset.get_reference_dataset()
     samples = [ref_dataset[i] for i in range(min(2, len(ref_dataset)))]  # Use up to 2 reference samples
@@ -48,11 +50,18 @@ def reference_batch(dataset: FolderDataset) -> Batch:
 
 
 @pytest.fixture
-def target_batch(dataset: FolderDataset) -> Batch:
+def fss1000_target_batch(dataset: FolderDataset) -> Batch:
     """Get target batch from dataset."""
     target_dataset = dataset.get_target_dataset()
     samples = [target_dataset[i] for i in range(min(2, len(target_dataset)))]  # Use up to 2 target samples
     return Batch.collate(samples)
+
+
+@pytest.fixture
+def aerial_maritime_root() -> Path:
+    """Return path to aerial maritime test dataset."""
+    # /home/yuchunli/git/geti-prompt/library/tests/assets/aerial_maritime/images/train
+    return Path(__file__).parent.parent.parent.parent / "tests" / "assets" / "aerial_maritime"
 
 
 # Model classes mapping
@@ -63,10 +72,10 @@ MODEL_CLASSES = {
     ModelName.SOFT_MATCHER: SoftMatcher,
 }
 
-# SAM models to test
+# SAM models to test (SAM3 doesn't use SAM backend, will be handled separately)
 SAM_MODELS = [SAMModelName.SAM_HQ_TINY, SAMModelName.SAM2_TINY]
 
-# Models that support n-shots (all except GroundedSAM)
+# Models that support n-shots (all except GroundedSAM and SAM3)
 N_SHOT_SUPPORTED_MODELS = [ModelName.MATCHER, ModelName.PER_DINO, ModelName.SOFT_MATCHER]
 
 
@@ -86,6 +95,10 @@ class TestModelIntegration:
             sam_model: The SAM model to use.
             model_name: The model type to test.
         """
+        # Skip SAM3 as it doesn't use SAM backend
+        if model_name == ModelName.SAM3:
+            pytest.skip("SAM3 doesn't use SAM backend, tested separately")
+
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/geti-prompt/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
@@ -122,6 +135,10 @@ class TestModelIntegration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
+        # Skip SAM3 as it doesn't use SAM backend
+        if model_name == ModelName.SAM3:
+            pytest.skip("SAM3 doesn't use SAM backend, tested separately")
+
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/geti-prompt/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
@@ -171,8 +188,8 @@ class TestModelIntegration:
         """
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/geti-prompt/issues/367
-        if sam_model == SAMModelName.SAM2_TINY:
-            pytest.skip("Skipping test_n_shots_capability for SAM2-tiny")
+        if sam_model == SAMModelName.SAM2_TINY or model_name == ModelName.SAM3:
+            pytest.skip("Skipping test_n_shots_capability for SAM2-tiny or SAM3")
 
         if not fss1000_root.exists():
             pytest.skip("fss-1000 dataset not found")
@@ -278,6 +295,10 @@ class TestModelIntegration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
+        # Skip SAM3 as it doesn't use SAM backend
+        if model_name == ModelName.SAM3:
+            pytest.skip("SAM3 doesn't use SAM backend, tested separately")
+
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/geti-prompt/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
@@ -333,6 +354,10 @@ class TestModelIntegration:
             model_name: The model type to test.
             dataset: The dataset to use for testing.
         """
+        # Skip SAM3 as it doesn't use SAM backend
+        if model_name == ModelName.SAM3:
+            pytest.skip("SAM3 doesn't use SAM backend, tested separately")
+
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/geti-prompt/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
@@ -384,3 +409,45 @@ class TestModelIntegration:
             iou_value = iou_per_class[idx].item()
             # -1 is returned if class is completely absent both from prediction and the ground truth labels.
             assert iou_value >= -1
+
+
+class TestSAM3Integration:
+    """Integration tests for SAM3."""
+
+    def test_sam3_with_text_prompts(self, aerial_maritime_root: Path) -> None:
+        """Test SAM3 works with text prompts through learn-infer workflow.
+
+        Args:
+            reference_batch: Batch with category information.
+            target_batch: Batch of target samples.
+        """
+        image_folder = aerial_maritime_root / "images"
+        learn_categories = ["boat", "jetski", "lift", "car", "dock"]
+
+        # get all images under image_folder
+        images = list(image_folder.glob("*.jpg"))
+        images = [read_image(image) for image in images]
+
+        ref_batch = Batch.collate(
+            [
+                Sample(
+                    categories=learn_categories,
+                    category_ids=[i for i in range(len(learn_categories))],
+                    is_reference=[True],
+                ),
+            ],
+        )
+
+        # create a batch of images
+        target_batch = Batch.collate([Sample(image=image, is_reference=[False]) for image in images])
+
+        model = SAM3(device="cuda", precision="fp32")
+        model.learn(ref_batch)
+        predictions = model.infer(target_batch)
+
+        assert isinstance(predictions, list)
+        assert len(predictions) == len(target_batch)
+
+        for prediction in predictions:
+            assert isinstance(prediction["pred_masks"], torch.Tensor)
+            assert prediction["pred_masks"].shape[-2:] == images[0].shape[-2:]

@@ -7,12 +7,13 @@ from torchvision.transforms import v2
 
 from getiprompt.models.foundation.sam3.data_misc import FindStage, interpolate
 from getiprompt.models.foundation.sam3.model.box_ops import box_cxcywh_to_xyxy
+from getiprompt.models.foundation.sam3.sam3_image import Sam3Image
 
 
 class Sam3Processor:
     """ """
 
-    def __init__(self, model, resolution=1008, device="cuda", confidence_threshold=0.5):
+    def __init__(self, model: Sam3Image, resolution=1008, device="cuda", confidence_threshold=0.5):
         self.model = model
         self.resolution = resolution
         self.device = device

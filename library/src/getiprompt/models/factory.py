@@ -14,6 +14,7 @@ from .base import Model
 from .grounded_sam import GroundedSAM
 from .matcher import Matcher
 from .per_dino import PerDino
+from .sam3 import SAM3
 from .soft_matcher import SoftMatcher
 
 logger = logging.getLogger("Geti Prompt")
@@ -41,7 +42,7 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 num_background_points=args.num_background_points,
                 num_grid_cells=args.num_grid_cells,
                 similarity_threshold=args.similarity_threshold,
-                mask_similarity_threshold=args.mask_similarity_threshold,
+                confidence_threshold=args.confidence_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
                 device=args.device,
@@ -52,7 +53,7 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 encoder_model=args.encoder_model,
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
-                mask_similarity_threshold=args.mask_similarity_threshold,
+                confidence_threshold=args.confidence_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
                 device=args.device,
@@ -63,7 +64,7 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 encoder_model=args.encoder_model,
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
-                mask_similarity_threshold=args.mask_similarity_threshold,
+                confidence_threshold=args.confidence_threshold,
                 use_sampling=args.use_sampling,
                 use_spatial_sampling=args.use_spatial_sampling,
                 approximate_matching=args.approximate_matching,
@@ -82,6 +83,20 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 precision=args.precision,
                 compile_models=args.compile_models,
                 device=args.device,
+            )
+        case ModelName.SAM3:
+            # SAM3 doesn't use the SAM backend parameter - it has its own architecture
+            return SAM3(
+                bpe_path=getattr(args, "bpe_path", None),
+                device=args.device,
+                confidence_threshold=getattr(args, "confidence_threshold", 0.5),
+                resolution=getattr(args, "resolution", 1008),
+                precision=args.precision,
+                checkpoint_path=getattr(args, "checkpoint_path", None),
+                load_from_HF=getattr(args, "load_from_HF", True),
+                enable_segmentation=getattr(args, "enable_segmentation", True),
+                enable_inst_interactivity=getattr(args, "enable_inst_interactivity", False),
+                compile_models=args.compile_models,
             )
         case _:
             msg = f"Algorithm {model_name.value} not implemented yet"

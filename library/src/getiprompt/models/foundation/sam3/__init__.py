@@ -3,9 +3,9 @@
 
 """SAM3 model foundation."""
 
+from .model_builder import build_sam3_image_model
 from .sam3_image import Sam3Image
 from .sam3_image_processor import Sam3Processor
-from .model_builder import build_sam3_image_model
 
 __all__ = [
     "Sam3Image",
