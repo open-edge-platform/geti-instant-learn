@@ -18,7 +18,12 @@ from domain.errors import (
     ServiceError,
 )
 from domain.services.prompt import PromptService
-from domain.services.schemas.annotation import AnnotationSchema, Point, RectangleAnnotation
+from domain.services.schemas.annotation import (
+    AnnotationSchema,
+    Point,
+    PolygonAnnotation,
+    RectangleAnnotation,
+)
 from domain.services.schemas.prompt import (
     TextPromptCreateSchema,
     TextPromptUpdateSchema,
@@ -551,3 +556,99 @@ def test_project_not_found(service):
         service.list_prompts(uuid.uuid4())
 
     assert exc_info.value.resource_type == ResourceType.PROJECT
+
+
+def test_get_reference_batch_text_prompts(service):
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+
+    batch = service.get_reference_batch(project_id, PromptType.TEXT)
+    assert batch is None
+
+
+def test_get_reference_batch_for_visual_prompts(service):
+    project_id = uuid.uuid4()
+    frame_id = uuid.uuid4()
+    label_id = uuid.uuid4()
+
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+
+    # Use polygon annotation (required for mask generation)
+    annotation_db = SimpleNamespace(
+        id=uuid.uuid4(),
+        config=PolygonAnnotation(
+            type="polygon",
+            points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.1), Point(x=0.5, y=0.5), Point(x=0.1, y=0.5)],
+        ),
+        label_id=label_id,
+    )
+    visual_prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id, annotations=[annotation_db])
+    service.prompt_repository.get_all_by_project.return_value = [visual_prompt]
+
+    frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+    service.frame_repository.get_frame.return_value = frame
+
+    result = service.get_reference_batch(project_id, PromptType.VISUAL)
+
+    # Result is a Batch containing Samples
+    assert len(result) == 1
+    sample = result[0]
+
+    # Check Sample has expected attributes
+    assert sample.image is not None
+    assert sample.masks is not None
+    assert len(sample.masks) == 1  # One polygon annotation
+    assert str(label_id) in sample.categories
+
+    service.frame_repository.get_frame.assert_called_once_with(project_id, frame_id)
+
+
+def test_get_reference_batch_visual_prompts_empty(service):
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.prompt_repository.get_all_by_project.return_value = []
+
+    result = service.get_reference_batch(project_id, PromptType.VISUAL)
+
+    assert result is None
+
+
+def test_get_reference_batch_visual_prompt_frame_not_found(service):
+    project_id = uuid.uuid4()
+    frame_id = uuid.uuid4()
+
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    visual_prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id)
+    service.prompt_repository.get_all_by_project.return_value = [visual_prompt]
+    service.frame_repository.get_frame.return_value = None
+
+    result = service.get_reference_batch(project_id, PromptType.VISUAL)
+
+    assert result is None
+
+
+def test_get_reference_batch_project_not_found(service):
+    project_id = uuid.uuid4()
+    service.project_repository.get_by_id.return_value = None
+
+    batch = service.get_reference_batch(project_id, PromptType.VISUAL)
+    assert batch is None
+
+
+def test_get_reference_batch_visual_prompt_mapper_error_handled(service):
+    project_id = uuid.uuid4()
+    frame_id = uuid.uuid4()
+
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    visual_prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id)
+    service.prompt_repository.get_all_by_project.return_value = [visual_prompt]
+
+    frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+    service.frame_repository.get_frame.return_value = frame
+
+    from unittest.mock import patch
+
+    with patch("domain.services.prompt.visual_prompt_to_sample", side_effect=ServiceError("Mapper error")):
+        result = service.get_reference_batch(project_id, PromptType.VISUAL)
+
+    assert result is None

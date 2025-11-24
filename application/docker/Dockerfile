@@ -41,7 +41,7 @@ RUN npm run build
 ##########################################
 # Base for CPU, GPU and XPU runtime images
 ##########################################
-FROM python:3.12-slim-bookworm@sha256:874450e1da63e36bf5c1ca8b0a13cb9eb0bbb1c4015151e376978f9aa6ae3bc2 AS runtime-base
+FROM python:3.12-slim-bookworm@sha256:78e702aee4d693e769430f0d7b4f4858d8ea3f1118dc3f57fee3f757d0ca64b1 AS runtime-base
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 # Disable Python downloads, because we want to use the system interpreter

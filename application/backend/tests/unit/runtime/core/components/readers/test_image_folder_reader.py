@@ -5,8 +5,8 @@ import cv2
 import numpy as np
 import pytest
 
+from domain.services.schemas.reader import FrameListResponse, FrameMetadata, ReaderConfig
 from runtime.core.components.readers.image_folder_reader import ImageFolderReader
-from runtime.core.components.schemas.reader import FrameListResponse, FrameMetadata, ReaderConfig
 from settings import get_settings
 
 settings = get_settings()
@@ -228,47 +228,52 @@ class TestImageFolderReaderListFrames:
     def test_list_frames_first_page(self, reader):
         """Test listing first page of frames."""
         reader.connect()
-        result = reader.list_frames(page=1, page_size=3)
+        result = reader.list_frames(offset=0, limit=3)
 
         assert isinstance(result, FrameListResponse)
-        assert result.total == 7
-        assert result.page == 1
-        assert result.page_size == 3
+        assert result.pagination.total == 7
+        assert result.pagination.offset == 0
+        assert result.pagination.limit == 3
+        assert result.pagination.count == 3
         assert len(result.frames) == 3
 
     def test_list_frames_second_page(self, reader):
         """Test listing second page of frames."""
         reader.connect()
-        result = reader.list_frames(page=2, page_size=3)
+        result = reader.list_frames(offset=3, limit=3)
 
-        assert result.total == 7
-        assert result.page == 2
+        assert result.pagination.total == 7
+        assert result.pagination.offset == 3
+        assert result.pagination.count == 3
         assert len(result.frames) == 3
 
     def test_list_frames_last_page_partial(self, reader):
         """Test listing last page with fewer items."""
         reader.connect()
-        result = reader.list_frames(page=3, page_size=3)
+        result = reader.list_frames(offset=6, limit=3)
 
-        assert len(result.frames) == 1  # 7 total, 3 per page, last page has 1
+        assert result.pagination.count == 1  # 7 total, offset 6, only 1 remaining
+        assert len(result.frames) == 1
 
     def test_list_frames_beyond_available(self, reader):
         """Test listing page beyond available frames."""
         reader.connect()
-        result = reader.list_frames(page=10, page_size=30)
+        result = reader.list_frames(offset=300, limit=30)
 
         assert len(result.frames) == 0
+        assert result.pagination.count == 0
 
     def test_list_frames_metadata_structure(self, reader):
         """Test that frame metadata has correct structure."""
         reader.connect()
-        result = reader.list_frames(page=1, page_size=1)
+        result = reader.list_frames(offset=0, limit=1)
 
         assert len(result.frames) == 1
         frame = result.frames[0]
         assert isinstance(frame, FrameMetadata)
         assert isinstance(frame.index, int)
-        assert isinstance(frame.thumbnail, str)  # base64 encoded
+        assert isinstance(frame.thumbnail, str)
+        assert frame.thumbnail.startswith("data:image/jpeg;base64,")
         assert frame.index == 0
 
     def test_list_frames_uses_cache(self, reader):
@@ -277,7 +282,7 @@ class TestImageFolderReaderListFrames:
 
         # First call should use pre-generated cache
         with patch.object(ImageFolderReader, "_generate_thumbnail") as mock_gen:
-            result = reader.list_frames(page=1, page_size=3)
+            result = reader.list_frames(offset=0, limit=3)
             assert len(result.frames) == 3
             # Should not call _generate_thumbnail since thumbnails are cached
             mock_gen.assert_not_called()
@@ -293,13 +298,14 @@ class TestImageFolderReaderListFrames:
         reader = ImageFolderReader(config, settings.supported_extensions)
         reader.connect()
 
-        # Request page 2 (indexes 30-34) - should generate thumbnails
-        result = reader.list_frames(page=2, page_size=30)
+        # Request frames 30-34 - should generate thumbnails
+        result = reader.list_frames(offset=30, limit=30)
 
         # All frames should have thumbnails (generated on demand)
         assert len(result.frames) == 5
         for frame in result.frames:
             assert frame.thumbnail is not None
+            assert frame.thumbnail.startswith("data:image/jpeg;base64,")
 
         # Cache should now include indexes 30-34
         for idx in range(30, 35):

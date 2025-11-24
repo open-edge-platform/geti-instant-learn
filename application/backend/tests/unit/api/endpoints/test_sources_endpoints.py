@@ -17,8 +17,9 @@ from domain.errors import (
     ResourceType,
     ResourceUpdateConflictError,
 )
+from domain.services.schemas.base import Pagination
+from domain.services.schemas.reader import FrameListResponse, FrameMetadata, SourceType, WebCamConfig
 from domain.services.schemas.source import SourceSchema, SourcesListSchema
-from runtime.core.components.schemas.reader import FrameListResponse, FrameMetadata, SourceType, WebCamConfig
 from runtime.errors import PipelineNotActiveError, SourceNotSeekableError
 
 PROJECT_ID = uuid4()
@@ -279,11 +280,15 @@ def test_get_frames(client, behavior, expected_status, expected_total):
             return make_source_schema(SOURCE_ID_1, 0, connected)
 
     class FakePipelineManager:
-        def list_frames(self, project_id: UUID, page: int, page_size: int):
+        def list_frames(self, project_id: UUID, offset: int = 0, limit: int = 30):
             assert project_id == PROJECT_ID
             if behavior == "success":
-                frames = [FrameMetadata(index=i, thumbnail=f"thumb_{i}") for i in range(30)]
-                return FrameListResponse(total=100, page=page, page_size=page_size, frames=frames)
+                frames = [
+                    FrameMetadata(index=i, thumbnail=f"data:image/jpeg;base64,thumb_{i}")
+                    for i in range(offset, min(offset + limit, 100))
+                ]
+                pagination = Pagination(count=len(frames), total=100, offset=offset, limit=limit)
+                return FrameListResponse(frames=frames, pagination=pagination)
             if behavior == "not_seekable":
                 raise SourceNotSeekableError("The active source does not support frame listing.")
             if behavior == "no_pipeline":
@@ -295,16 +300,18 @@ def test_get_frames(client, behavior, expected_status, expected_total):
     client.app.dependency_overrides[get_source_service] = lambda: FakeService(None, None)
     client.app.dependency_overrides[get_pipeline_manager] = lambda: FakePipelineManager()
 
-    resp = client.get(f"/api/v1/projects/{PROJECT_ID}/sources/{SOURCE_ID_1}/frames?page=1&page_size=30")
+    resp = client.get(f"/api/v1/projects/{PROJECT_ID}/sources/{SOURCE_ID_1}/frames?offset=0&limit=30")
     assert resp.status_code == expected_status
     if behavior == "success":
         data = resp.json()
-        assert data["total"] == expected_total
-        assert data["page"] == 1
-        assert data["page_size"] == 30
+        assert data["pagination"]["total"] == expected_total
+        assert data["pagination"]["offset"] == 0
+        assert data["pagination"]["limit"] == 30
+        assert data["pagination"]["count"] == 30
         assert len(data["frames"]) == 30
         assert data["frames"][0]["index"] == 0
         assert "thumbnail" in data["frames"][0]
+        assert data["frames"][0]["thumbnail"].startswith("data:image/jpeg;base64,")
     else:
         assert "detail" in resp.json()
 

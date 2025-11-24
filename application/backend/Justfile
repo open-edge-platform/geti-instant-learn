@@ -1,14 +1,25 @@
 #!/usr/bin/env just --justfile
+import "../Justfile"
 
 set shell := ["bash", "-cu"]
 
-py_path := "tests:src"
-python_version := "python3.13"
+py_path := "tests:app"
 # Ensure version in GHA workflow matches uv version here
-uv_version := "0.7.13"
+uv_version := "0.9.7"
 
 default:
     @just --list
+
+# OpenAPI generation
+gen-openapi: venv
+    PYTHONPATH=app uv run --no-sync openapi.py .build
+
+# -------------------------------------------------------------------------------------------------
+#  Run FastAPI development server with auto-reload
+# -------------------------------------------------------------------------------------------------
+dev: venv download-dataset
+    PYTHONPATH=app uv run uvicorn main:app --reload --host localhost --port 9100
+
 
 # -------------------------------------------------------------------------------------------------
 # Environment
@@ -20,7 +31,7 @@ pre-venv:
 
 venv: pre-venv
     uv lock --check
-    uv sync --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
+    uv sync --extra cpu --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
 
 venv-lock: pre-venv
     uv lock

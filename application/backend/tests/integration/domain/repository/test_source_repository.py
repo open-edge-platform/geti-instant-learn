@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from domain.db.models import ProjectDB, SourceDB
 from domain.repositories.source import SourceRepository
-from runtime.core.components.schemas.reader import SourceType
+from domain.services.schemas.reader import SourceType
 
 
 @pytest.fixture
@@ -150,27 +150,6 @@ def test_get_connected_in_project_none(source_repo, fxt_session, clean_after):
     assert connected is None
 
 
-def test_get_by_type_in_project(source_repo, fxt_session, clean_after):
-    project = ProjectDB(name="proj")
-    fxt_session.add(project)
-    fxt_session.commit()
-
-    types = list(SourceType)
-    primary_type = types[0]
-    other_type = types[1] if len(types) > 1 else primary_type
-
-    primary_src = make_source(project.id, source_type=primary_type, tag="primary")
-    other_src = make_source(project.id, source_type=other_type, tag="other")
-    source_repo.add(primary_src)
-    source_repo.add(other_src)
-    fxt_session.commit()
-
-    fetched = source_repo.get_by_type_in_project(project.id, primary_type)
-    assert fetched is not None
-    assert fetched.config["source_type"] == primary_type
-    assert fetched.config.get("tag") == "primary"
-
-
 def test_project_deletion_cascades_sources(source_repo, fxt_session, clean_after):
     project = ProjectDB(name="proj")
     fxt_session.add(project)
@@ -193,28 +172,6 @@ def test_project_deletion_cascades_sources(source_repo, fxt_session, clean_after
     for sid in created_ids:
         assert source_repo.get_by_id(sid) is None
     assert source_repo.get_all_by_project(project.id) == []
-
-
-def test_unique_source_type_per_project(source_repo, fxt_session, clean_after):
-    project = ProjectDB(name="unique")
-    fxt_session.add(project)
-    fxt_session.commit()
-
-    st = any_source_type()
-    first = make_source(project.id, source_type=st, label="first")
-    second = make_source(project.id, source_type=st, label="second")
-
-    source_repo.add(first)
-    fxt_session.commit()
-    source_repo.add(second)
-
-    with pytest.raises(IntegrityError):
-        fxt_session.commit()
-    fxt_session.rollback()
-
-    fetched = source_repo.get_by_type_in_project(project.id, st)
-    assert fetched is not None
-    assert fetched.config.get("label") == "first"
 
 
 def test_single_connected_source_per_project(source_repo, fxt_session, clean_after):

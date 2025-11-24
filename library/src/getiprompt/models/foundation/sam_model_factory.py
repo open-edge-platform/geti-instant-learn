@@ -6,6 +6,7 @@
 from logging import getLogger
 from typing import TYPE_CHECKING
 
+import torch
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 from segment_anything_hq import sam_model_registry
@@ -59,10 +60,15 @@ def load_sam_model(
 
     if sam in {SAMModelName.SAM2_TINY, SAMModelName.SAM2_SMALL, SAMModelName.SAM2_BASE, SAMModelName.SAM2_LARGE}:
         config_path = "configs/sam2.1/" + model_info["config_filename"]
-        sam_model = build_sam2(config_path, str(checkpoint_path))
+        sam_model = build_sam2(config_path, str(checkpoint_path), device=device)
         predictor = SAM2ImagePredictor(sam_model)
     elif sam in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
-        model: SamHQ = sam_model_registry[registry_name](checkpoint=str(checkpoint_path)).to(device).eval()
+        model: SamHQ = sam_model_registry[registry_name]()
+        with checkpoint_path.open("rb") as checkpoint:
+            # nosem: trailofbits.python.pickles-in-pytorch.pickles-in-pytorch
+            state_dict = torch.load(checkpoint, map_location=device, weights_only=True)
+        model.load_state_dict(state_dict)
+        model.to(device).eval()
         predictor = SamPredictor(model)
     else:
         msg = f"Model {sam} not implemented yet"
