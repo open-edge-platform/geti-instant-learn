@@ -118,7 +118,12 @@ def _handle_validation_error(request: Request, exc: RequestValidationError, body
         if error_type == "missing":
             error_messages.append(f"Field '{field_path}' is required.")
         elif error_type == "value_error":
-            error_messages.append(f"{msg}")
+            if "ctx" in error and "error" in error["ctx"]:
+                actual_error = error["ctx"]["error"]
+                error_messages.append(str(actual_error))
+            else:
+                cleaned_msg = msg.replace("Value error, ", "", 1) if msg.startswith("Value error, ") else msg
+                error_messages.append(cleaned_msg)
         elif error_type in ("string_type", "int_type", "float_type", "bool_type"):
             error_messages.append(f"Field '{field_path}' has invalid type: {msg}")
         else:
