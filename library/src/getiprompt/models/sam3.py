@@ -152,12 +152,7 @@ class SAM3(Model):
         # Handle 4-channel images
         return Image.fromarray(image[..., :3], mode="RGB")
 
-    def _process_predictions(
-        self,
-        inference_state: dict,
-        img_size: tuple[int, int],
-        apply_threshold: bool = False,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def _process_predictions(self, inference_state: dict, img_size: tuple[int, int]) -> tuple[torch.Tensor, torch.Tensor]:
         """Process predictions from inference state.
 
         Args:
@@ -172,17 +167,13 @@ class SAM3(Model):
         masks = inference_state.get("masks", torch.empty(0, *img_size))
         boxes = inference_state.get("boxes", torch.empty(0, 4))
         scores = inference_state.get("scores", torch.empty(0))
-
         # Process masks
         if masks.ndim == 4 and masks.shape[1] == 1:
             masks = masks.squeeze(1)  # [N, 1, H, W] -> [N, H, W]
-        if apply_threshold and masks.numel() > 0:
-            masks = masks > 0.5  # Convert to boolean
 
         # Add scores to boxes
         if boxes.numel() > 0 and scores.numel() > 0:
             boxes = torch.cat([boxes, scores.unsqueeze(-1)], dim=-1)  # [N, 4] -> [N, 5]
-
         return masks, boxes
 
     def _aggregate_results(
@@ -234,7 +225,7 @@ class SAM3(Model):
             )
 
             # Process predictions
-            masks, boxes = self._process_predictions(inference_state, img_size, apply_threshold=False)
+            masks, boxes = self._process_predictions(inference_state, img_size)
 
             # Collect results
             num_predictions = len(masks) if masks.numel() > 0 else 0
@@ -278,7 +269,7 @@ class SAM3(Model):
             )
 
             # Process predictions
-            masks, boxes = self._process_predictions(inference_state, img_size, apply_threshold=True)
+            masks, boxes = self._process_predictions(inference_state, img_size)
 
             # Collect results
             num_predictions = len(masks) if masks.numel() > 0 else 0
