@@ -12,11 +12,11 @@ import { WebRTCConnectionProvider } from '../web-rtc/web-rtc-connection-provider
 import { ImagesFolderStream } from './images-folder-stream.component';
 
 describe('ImagesFolderStream', () => {
-    const renderImagesFolderStream = (mode = 'visual') => {
+    const renderImagesFolderStream = (mode = 'visual', sourceId = '123') => {
         return render(
             <SelectedFrameProvider>
                 <WebRTCConnectionProvider>
-                    <ImagesFolderStream />
+                    <ImagesFolderStream sourceId={sourceId} />
                 </WebRTCConnectionProvider>
             </SelectedFrameProvider>,
             {

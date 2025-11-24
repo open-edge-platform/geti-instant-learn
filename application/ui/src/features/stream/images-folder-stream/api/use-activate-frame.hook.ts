@@ -5,14 +5,12 @@
 
 import { $api } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
-import { useQueryClient } from '@tanstack/react-query';
 
 export const useActivateFrameMutation = () => {
     return $api.useMutation('post', '/api/v1/projects/{project_id}/sources/{source_id}/frames/{index}');
 };
 
 export const useActivateFrame = () => {
-    const queryClient = useQueryClient();
     const { projectId } = useProjectIdentifier();
     const activateFrameMutation = useActivateFrameMutation();
 
@@ -25,36 +23,18 @@ export const useActivateFrame = () => {
         index: number;
         onSuccess: () => void;
     }) => {
-        const params = {
-            path: {
-                project_id: projectId,
-                source_id: sourceId,
-                index,
-            },
-        };
-
         activateFrameMutation.mutate(
             {
-                params,
+                params: {
+                    path: {
+                        project_id: projectId,
+                        source_id: sourceId,
+                        index,
+                    },
+                },
             },
             {
-                onSuccess: async () => {
-                    await queryClient.invalidateQueries({
-                        queryKey: [
-                            'get',
-                            '/api/v1/projects/{project_id}/sources/{source_id}/frames/index',
-                            {
-                                params: {
-                                    path: {
-                                        project_id: projectId,
-                                        source_id: sourceId,
-                                    },
-                                },
-                            },
-                        ],
-                    });
-                    onSuccess();
-                },
+                onSuccess,
             }
         );
     };
