@@ -152,7 +152,9 @@ class SAM3(Model):
         # Handle 4-channel images
         return Image.fromarray(image[..., :3], mode="RGB")
 
-    def _process_predictions(self, inference_state: dict, img_size: tuple[int, int]) -> tuple[torch.Tensor, torch.Tensor]:
+    def _process_predictions(
+        self, inference_state: dict, img_size: tuple[int, int]
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Process predictions from inference state.
 
         Args:
