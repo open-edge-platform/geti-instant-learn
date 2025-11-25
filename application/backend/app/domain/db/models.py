@@ -74,7 +74,7 @@ class SinkDB(Base):
         Index(
             UniqueConstraintName.SINK_TYPE_PER_PROJECT,
             "project_id",
-            sa_text("json_extract(config, '$.source_type')"),
+            sa_text("json_extract(config, '$.sink_type')"),
             unique=True,
         ),
         Index(

@@ -246,7 +246,7 @@ class SinkService:
 
     def _emit_component_change(self, project_id: UUID, sink_id: UUID) -> None:
         """
-        Emit a component configuration change event for sources to trigger pipeline updates.
+        Emit a component configuration change event for sinks to trigger pipeline updates.
         """
         if self._dispatcher:
             self._dispatcher.dispatch(
@@ -266,7 +266,7 @@ class SinkService:
         sink_name: str | None,
     ) -> None:
         """
-        Handle IntegrityError with context-aware messages for sources.
+        Handle IntegrityError with context-aware messages for sinks.
 
         Args:
             exc: The IntegrityError from SQLAlchemy
