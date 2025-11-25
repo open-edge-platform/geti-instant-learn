@@ -31,7 +31,6 @@ class Settings(BaseSettings):
     )
     openapi_url: str = "/api/openapi.json"
     debug: bool = Field(default=False, alias="DEBUG")
-    log_file: Path = Field(default=current_dir.parent / "geti-prompt-backend.log", alias="LOG_FILE")
     environment: Literal["dev", "prod"] = "dev"
 
     static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
@@ -48,6 +47,14 @@ class Settings(BaseSettings):
     def database_url(self) -> str:
         """Database connection URL"""
         return f"sqlite:///{self.db_data_dir / self.db_filename}"
+
+    # Logs
+    logs_dir: Path = Field(default=current_dir.parent / ".logs", alias="LOGS_DIR")
+
+    @property
+    def log_file(self) -> str:
+        """Log file location"""
+        return str(self.logs_dir / "geti-prompt-backend.log")
 
     db_echo: bool = Field(default=False, alias="DB_ECHO")
 

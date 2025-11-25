@@ -103,6 +103,8 @@ ARG STATIC_FILES_DIR=""
 ENV STATIC_FILES_DIR=${STATIC_FILES_DIR}
 ARG DB_DATA_DIR=""
 ENV DB_DATA_DIR=${DB_DATA_DIR}
+ARG LOGS_DIR=""
+ENV LOGS_DIR=${LOGS_DIR}
 ARG MOCKED_FILE=""
 ENV MOCKED_FILE=${MOCKED_FILE}
 ENV PATH="/geti_prompt/.venv/bin:$PATH"
@@ -119,6 +121,8 @@ ARG SOURCE_DATASET_DIR=""
 # Create directory and set ownership before VOLUME instruction
 RUN mkdir -p ${DB_DATA_DIR} && chown ${UID}:${UID} ${DB_DATA_DIR}
 VOLUME ${DB_DATA_DIR}
+RUN mkdir -p ${LOGS_DIR} && chown ${UID}:${UID} ${LOGS_DIR}
+VOLUME ${LOGS_DIR}
 
 # Install OpenGL libraries for opencv-python
 RUN apt-get update && apt-get install -y --no-install-recommends \

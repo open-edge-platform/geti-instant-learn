@@ -15,9 +15,8 @@ if system == "Windows":
         print("Setup Hook: Using WinRT ApplicationData local folder:", app_data_folder)
         os.environ["DB_DATA_DIR"] = app_data_folder
 
-        log_file = app_data_folder + "\\geti_prompt-backend.log"
         print("Setup Hook: Writing log to:", app_data_folder)
-        os.environ["LOG_FILE"] = log_file
+        os.environ["LOGS_DIR"] = app_data_folder
     except ImportError:
         print("Setup Hook: WinRT module not found. Make sure to include it in the PyInstaller build.")
     except OSError:
