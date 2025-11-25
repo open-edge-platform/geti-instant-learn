@@ -4,11 +4,13 @@ Get up and running with Geti Prompt Application in minutes.
 
 ## Installation
 
-### Option 1: Local Installation
+Geti Prompt can be used the way you want: as a desktop application on your pc or local workstation or installed as a Docker image on your edge server which you can access via a web browser.
+
+### Option 1: Desktop Application
 
 ```bash
-# Start the application
-# See application README for specific startup instructions
+#
+
 ```
 
 ### Option 2: Docker
@@ -18,7 +20,13 @@ Get up and running with Geti Prompt Application in minutes.
 
 ```
 
-The application will be available at `http://localhost:8000`
+### Option 3: Run from source code
+
+```bash
+# Start the application
+# See application README for specific startup instructions
+```
+
 
 ## Your First Prompt
 
