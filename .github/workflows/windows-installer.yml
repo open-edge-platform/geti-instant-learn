@@ -137,13 +137,14 @@ jobs:
       - name: Create MSIX package
         env:
           BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
+          AI_DEVICE: ${{ inputs.ai_device || 'xpu' }}
         run: |
           mkdir ${{ env.UI_MSIX_BUNDLE_PATH }}
           cp ${{ env.UI_TARGET_RELEASE_PATH }}\geti-prompt-backend.exe ${{ env.UI_MSIX_BUNDLE_PATH }}
           cp ${{ env.UI_TARGET_RELEASE_PATH }}\geti_prompt_ui.exe ${{ env.UI_MSIX_BUNDLE_PATH }}
           cp -r ${{ env.UI_TARGET_RELEASE_PATH }}\_internal ${{ env.UI_MSIX_BUNDLE_PATH }}
           cp -r ${{ env.UI_SRC_TAURI_PATH }}\msix\* ${{ env.UI_MSIX_BUNDLE_PATH }}
-          & "${{ env.MAKEAPP_PATH }}" pack /d ${{ env.UI_MSIX_BUNDLE_PATH }} /p ${{ env.UI_MSIX_BUNDLE_PATH }}\geti-prompt-$env:BUILD_VERSION.msix
+          & "${{ env.MAKEAPP_PATH }}" pack /d ${{ env.UI_MSIX_BUNDLE_PATH }} /p ${{ env.UI_MSIX_BUNDLE_PATH }}\geti-prompt-$env:AI_DEVICE-$env:BUILD_VERSION.msix
 
       - name: Upload MSIX package
         uses: actions/upload-artifact@v4
