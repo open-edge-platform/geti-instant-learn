@@ -15,7 +15,7 @@ dependencies = [
     "alembic~=1.16.5",
     "numpy~=2.2.6",
     "opencv-python-headless~=4.12.0",
-    "aiortc~=1.13.0",
+    "aiortc~=1.14.0",
     "pydantic-extra-types~=2.10.6",
 ]
 
