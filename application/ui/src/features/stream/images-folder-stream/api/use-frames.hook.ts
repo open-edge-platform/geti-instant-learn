@@ -3,11 +3,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useRef } from 'react';
+
 import { $api, FramesResponseType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { uniqBy } from 'lodash-es';
 
-const useFramesQuery = (sourceId: string) => {
+const LIMIT = 30;
+const INITIAL_OFFSET = 0;
+
+const ACTIVE_FRAME_OFFSET = 5;
+
+const useFramesQuery = (sourceId: string, activeFrameIdx: number) => {
     const { projectId } = useProjectIdentifier();
+    const activeFrameIdxRef = useRef(activeFrameIdx);
+
+    const queryOffset = Math.max(activeFrameIdxRef.current - ACTIVE_FRAME_OFFSET, INITIAL_OFFSET);
 
     return $api.useInfiniteQuery(
         'get',
@@ -16,32 +27,57 @@ const useFramesQuery = (sourceId: string) => {
             params: {
                 path: { project_id: projectId, source_id: sourceId },
                 query: {
-                    offset: 0,
-                    limit: 30,
+                    limit: LIMIT,
                 },
             },
         },
         {
             pageParamName: 'offset',
-            initialPageParam: 0,
+            initialPageParam: queryOffset,
             getNextPageParam: ({ pagination }: FramesResponseType) => {
                 const { offset, limit, total } = pagination;
                 const nextPage = offset + limit;
 
                 return nextPage < total ? nextPage : undefined;
             },
+            getPreviousPageParam: ({ pagination }: FramesResponseType) => {
+                const { offset, limit } = pagination;
+
+                if (offset === 0) {
+                    return undefined;
+                }
+
+                const previousPage = Math.max(0, offset - limit);
+
+                return previousPage;
+            },
         }
     );
 };
 
-export const useGetFrames = (sourceId: string) => {
-    const { data, hasNextPage, isFetchingNextPage, isPending, fetchNextPage } = useFramesQuery(sourceId);
+export const useGetFrames = (sourceId: string, activeFrameIdx: number) => {
+    const {
+        data,
+        hasNextPage,
+        isFetchingNextPage,
+        isPending,
+        fetchNextPage,
+        isFetchingPreviousPage,
+        fetchPreviousPage,
+        hasPreviousPage,
+    } = useFramesQuery(sourceId, activeFrameIdx);
 
-    const frames = data?.pages.flatMap((page) => page.frames) ?? [];
+    const frames = uniqBy(data?.pages.flatMap((page) => page.frames) ?? [], (frame) => frame.index);
 
-    const loadMoreFrames = async () => {
+    const handleFetchNextPage = async () => {
         if (hasNextPage && !isFetchingNextPage) {
             await fetchNextPage();
+        }
+    };
+
+    const handleFetchPreviousPage = async () => {
+        if (hasPreviousPage && !isFetchingPreviousPage) {
+            await fetchPreviousPage();
         }
     };
 
@@ -49,8 +85,9 @@ export const useGetFrames = (sourceId: string) => {
 
     return {
         frames,
-        loadMoreFrames,
+        fetchNextPage: handleFetchNextPage,
         isFetchingNextFrames: isFetchingNextPage,
+        fetchPreviousPage: handleFetchPreviousPage,
         isPending,
         framesCount,
     } as const;

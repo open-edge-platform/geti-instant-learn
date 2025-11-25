@@ -5,6 +5,7 @@
 
 import { useRef } from 'react';
 
+import { FrameType } from '@geti-prompt/api';
 import { useEventListener } from '@geti-prompt/hooks';
 import { ActionButton, dimensionValue, Grid, minmax, View } from '@geti/ui';
 import { ChevronLeft, ChevronRight } from '@geti/ui/icons';
@@ -18,10 +19,24 @@ import { FramesList } from './frames-list/frames-list.component';
 
 import styles from './images-folder-stream.module.scss';
 
-const useActiveFrameSelection = (sourceId: string, framesCount: number) => {
+const OFFSET = 3;
+
+const useActiveFrameSelection = ({
+    sourceId,
+    activeFrameIdx,
+    onFetchPreviousPage,
+    onFetchNextPage,
+    frames,
+}: {
+    sourceId: string;
+    activeFrameIdx: number;
+    onFetchNextPage: () => Promise<void>;
+    onFetchPreviousPage: () => Promise<void>;
+    frames: FrameType[];
+}) => {
     const activateFrameMutation = useActivateFrame();
-    const { data: activeFrame } = useGetActiveFrame(sourceId);
     const framesRef = useRef<HTMLDivElement>(null);
+    const framesCount = frames.length;
 
     useEventListener('keydown', (event) => {
         if (event.key === 'ArrowLeft') {
@@ -62,26 +77,35 @@ const useActiveFrameSelection = (sourceId: string, framesCount: number) => {
     };
 
     const nextFrame = () => {
-        const nextFrameIdx = activeFrame.index + 1;
+        const nextFrameIdx = activeFrameIdx + 1;
 
         if (nextFrameIdx >= framesCount) {
             return;
+        }
+
+        if (nextFrameIdx === frames[frames.length - 1].index) {
+            onFetchNextPage();
         }
 
         activateFrame(nextFrameIdx);
     };
 
     const prevFrame = () => {
-        const prevFrameIdx = activeFrame.index - 1;
+        const prevFrameIdx = activeFrameIdx - 1;
+
         if (prevFrameIdx < 0) {
             return;
         }
+
+        if (prevFrameIdx === frames[0].index) {
+            onFetchPreviousPage();
+        }
+
         activateFrame(prevFrameIdx);
     };
 
     return {
         framesRef,
-        activeFrameIdx: activeFrame.index,
         activateFrame,
         nextFrame,
         prevFrame,
@@ -94,11 +118,16 @@ interface ImagesFolderStreamProps {
 
 export const ImagesFolderStream = ({ sourceId }: ImagesFolderStreamProps) => {
     // const [promptMode] = usePromptMode();
-    const { frames, loadMoreFrames, framesCount } = useGetFrames(sourceId);
-    const { activeFrameIdx, activateFrame, nextFrame, prevFrame, framesRef } = useActiveFrameSelection(
+    const { data: activeFrame } = useGetActiveFrame(sourceId);
+    const activeFrameIdx = activeFrame.index;
+    const { frames, fetchNextPage, fetchPreviousPage, framesCount } = useGetFrames(sourceId, activeFrameIdx);
+    const { activateFrame, nextFrame, prevFrame, framesRef } = useActiveFrameSelection({
         sourceId,
-        framesCount
-    );
+        frames,
+        activeFrameIdx,
+        onFetchNextPage: fetchNextPage,
+        onFetchPreviousPage: fetchPreviousPage,
+    });
 
     const isPrevFrameButtonDisabled = activeFrameIdx === 0;
     const isNextFrameButtonDisabled = activeFrameIdx === framesCount - 1;
@@ -157,7 +186,8 @@ export const ImagesFolderStream = ({ sourceId }: ImagesFolderStreamProps) => {
                     activeFrameIndex={activeFrameIdx}
                     onSetActiveFrame={activateFrame}
                     frames={frames}
-                    onLoadMore={loadMoreFrames}
+                    fetchNextPage={fetchNextPage}
+                    fetchPreviousPage={fetchPreviousPage}
                 />
             </View>
         </Grid>

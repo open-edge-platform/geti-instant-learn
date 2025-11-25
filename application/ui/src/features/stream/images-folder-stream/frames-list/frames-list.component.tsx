@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { RefObject } from 'react';
+import { RefObject, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
 import { type FrameType } from '@geti-prompt/api';
 import {
     AriaComponentsListBox,
+    DOMRefValue,
     HorizontalLayout,
     HorizontalLayoutOptions,
     ListBoxItem,
@@ -21,10 +22,47 @@ import styles from './frames-list.module.scss';
 interface FrameThumbnailProps {
     frame: FrameType;
     isSelected: boolean;
+    onIntersect: (() => void) | undefined;
+    rootRef: RefObject<HTMLDivElement | null>;
 }
 
-const FrameThumbnail = ({ frame, isSelected }: FrameThumbnailProps) => {
-    const { thumbnail } = frame;
+const FrameThumbnail = ({ frame, isSelected, onIntersect, rootRef }: FrameThumbnailProps) => {
+    const handleIntersectionRef = useRef(onIntersect);
+
+    useLayoutEffect(() => {
+        handleIntersectionRef.current = onIntersect;
+    }, [onIntersect]);
+
+    const handleRef = useCallback((domRefValue: DOMRefValue<HTMLElement> | null) => {
+        const ref = domRefValue?.UNSAFE_getDOMNode();
+
+        if (ref == null || rootRef.current === null) {
+            return;
+        }
+
+        if (handleIntersectionRef.current === undefined) {
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries.length === 0) {
+                    return;
+                }
+
+                if (entries[0].isIntersecting) {
+                    handleIntersectionRef.current?.();
+                }
+            },
+            {
+                threshold: 0.01,
+                rootMargin: '200px',
+                root: rootRef.current,
+            }
+        );
+
+        observer.observe(ref);
+    }, []);
 
     return (
         <View
@@ -33,6 +71,7 @@ const FrameThumbnail = ({ frame, isSelected }: FrameThumbnailProps) => {
             borderXWidth={isSelected ? 'thick' : undefined}
             height={'100%'}
             width={'100%'}
+            ref={handleRef}
         >
             <View
                 UNSAFE_className={clsx(styles.frame, {
@@ -44,7 +83,7 @@ const FrameThumbnail = ({ frame, isSelected }: FrameThumbnailProps) => {
             >
                 <img
                     alt={'Frame'}
-                    src={thumbnail}
+                    src={frame.thumbnail}
                     style={{ objectFit: 'cover', height: '100%', width: '100%', display: 'block' }}
                 />
             </View>
@@ -57,17 +96,75 @@ interface FramesListProps {
     onSetActiveFrame: (index: number) => void;
     frames: FrameType[];
     ref: RefObject<HTMLDivElement | null>;
-    onLoadMore: () => void;
+    fetchNextPage: () => void;
+    fetchPreviousPage: () => void;
 }
 
-const LAYOUT_OPTIONS: HorizontalLayoutOptions = {
+const LAYOUT_OPTIONS = {
     size: 80,
     gap: 0,
     // number of items to render before and after the visible area
     overscan: 5,
+} satisfies HorizontalLayoutOptions;
+
+const fulfillWithEmptyFrames = (frames: FrameType[]): FrameType[] => {
+    if (frames.length === 0) {
+        return frames;
+    }
+
+    if (frames[0].index === 0) {
+        return frames;
+    }
+
+    const emptyFrames: FrameType[] = [];
+
+    for (let i = 0; i < frames[0].index; i++) {
+        emptyFrames.push({
+            index: i,
+            thumbnail: frames[0].thumbnail,
+        });
+    }
+
+    return [...emptyFrames, ...frames];
 };
 
-export const FramesList = ({ activeFrameIndex, frames, onSetActiveFrame, ref, onLoadMore }: FramesListProps) => {
+const useScrollToActiveFrame = (ref: RefObject<HTMLDivElement | null>, activeFrameIndex: number) => {
+    useLayoutEffect(() => {
+        setTimeout(() => {
+            if (ref.current === null) {
+                return;
+            }
+            const itemWidth = LAYOUT_OPTIONS.size + LAYOUT_OPTIONS.gap;
+            const activeFrameIndexPosition = activeFrameIndex * itemWidth;
+
+            const isActiveFrameVisible =
+                ref.current.scrollLeft <= activeFrameIndexPosition &&
+                activeFrameIndexPosition < ref.current.scrollLeft + ref.current.clientWidth;
+
+            if (isActiveFrameVisible) {
+                return;
+            }
+
+            ref.current.scrollTo({ left: activeFrameIndexPosition, behavior: 'smooth' });
+        }, 100);
+
+        // Delay to allow Virtualizer to render items and then scroll to the active frame
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+};
+
+export const FramesList = ({
+    activeFrameIndex,
+    frames,
+    onSetActiveFrame,
+    ref,
+    fetchNextPage,
+    fetchPreviousPage,
+}: FramesListProps) => {
+    const framesList = useMemo(() => fulfillWithEmptyFrames(frames), [frames]);
+
+    useScrollToActiveFrame(ref, activeFrameIndex);
+
     return (
         <View height={'100%'} padding={'size-200'} backgroundColor={'gray-100'}>
             <Virtualizer<HorizontalLayoutOptions> layout={HorizontalLayout} layoutOptions={LAYOUT_OPTIONS}>
@@ -76,30 +173,40 @@ export const FramesList = ({ activeFrameIndex, frames, onSetActiveFrame, ref, on
                     className={styles.framesList}
                     aria-label={'Frames list'}
                     ref={ref}
-                    onScroll={(event) => {
-                        const target = event.target as HTMLDivElement;
-                        const fetchMoreDistance = 500;
-
-                        const { scrollWidth, scrollLeft, clientWidth } = target;
-
-                        const distance = scrollWidth - (clientWidth + scrollLeft);
-
-                        if (distance <= fetchMoreDistance) {
-                            onLoadMore();
-                        }
-                    }}
+                    items={framesList}
                 >
-                    {frames.map((frame) => (
-                        <ListBoxItem
-                            key={frame.index}
-                            className={styles.frameItem}
-                            aria-label={`Frame #${frame.index}`}
-                            data-isSelected={frame.index === activeFrameIndex}
-                            onAction={() => onSetActiveFrame(frame.index)}
-                        >
-                            <FrameThumbnail frame={frame} isSelected={frame.index === activeFrameIndex} />
-                        </ListBoxItem>
-                    ))}
+                    {framesList.map((frame) => {
+                        return (
+                            <ListBoxItem
+                                key={frame.index}
+                                className={styles.frameItem}
+                                aria-label={`Frame #${frame.index}`}
+                                data-isSelected={frame.index === activeFrameIndex}
+                                onAction={() => onSetActiveFrame(frame.index)}
+                            >
+                                <FrameThumbnail
+                                    frame={frame}
+                                    isSelected={frame.index === activeFrameIndex}
+                                    /*
+                                    onIntersect={
+                                        index === 0
+                                            ? fetchPreviousPage
+                                            : index === frames.length - 1
+                                              ? fetchNextPage
+                                              : undefined
+                                    }*/
+                                    onIntersect={
+                                        frame.index === frames[0].index - 3
+                                            ? fetchPreviousPage
+                                            : frame.index === frames[frames.length - 1].index + 3
+                                              ? fetchNextPage
+                                              : undefined
+                                    }
+                                    rootRef={ref}
+                                />
+                            </ListBoxItem>
+                        );
+                    })}
                 </AriaComponentsListBox>
             </Virtualizer>
         </View>
