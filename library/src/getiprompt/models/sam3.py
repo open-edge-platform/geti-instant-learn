@@ -253,14 +253,13 @@ class SAM3(Model):
 
         for i, bbox in enumerate(bboxes):
             # Convert from [x, y, w, h] to [cx, cy, w, h] normalized format
-            x, y, w, h = bbox.tolist()
-            cx = (x + w / 2) / width
-            cy = (y + h / 2) / height
-            norm_w = w / width
-            norm_h = h / height
+            x1, y1, x2, y2 = bbox.tolist()
+            cx = (x1 + x2) / 2 / width
+            cy = (y1 + y2) / 2 / height
+            norm_w = (x2 - x1) / width
+            norm_h = (y2 - y1) / height
 
             norm_box_cxcywh = [cx, cy, norm_w, norm_h]
-
             # Add as positive box prompt
             inference_state = self.processor.add_geometric_prompt(
                 state=inference_state,

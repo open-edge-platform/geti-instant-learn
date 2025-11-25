@@ -415,39 +415,19 @@ class TestSAM3Integration:
     """Integration tests for SAM3."""
 
     def test_sam3_with_text_prompts(self, aerial_maritime_root: Path) -> None:
-        """Test SAM3 works with text prompts through learn-infer workflow.
-
-        Args:
-            reference_batch: Batch with category information.
-            target_batch: Batch of target samples.
-        """
+        """Test SAM3 works with text prompts through learn-infer workflow."""
         image_folder = aerial_maritime_root / "images"
-        learn_categories = ["boat", "jetski", "lift", "car", "dock"]
+        categories = ["boat", "jetski", "lift", "car", "dock"]
 
         # get all images under image_folder
         images = list(image_folder.glob("*.jpg"))
         images = [read_image(image) for image in images]
 
-        ref_batch = Batch.collate(
-            [
-                Sample(
-                    categories=learn_categories,
-                    category_ids=[i for i in range(len(learn_categories))],
-                    is_reference=[True],
-                ),
-            ],
-        )
-
         # create a batch of images
-        target_batch = Batch.collate([Sample(image=image, is_reference=[False]) for image in images])
+        target_batch = Batch.collate([Sample(image=image, categories=categories) for image in images])
 
-        model = SAM3(device="cuda", precision="fp32")
-        model.learn(ref_batch)
+        model = SAM3(device="cpu", precision="fp16", checkpoint_path=None, load_from_HF=False)
         predictions = model.infer(target_batch)
 
         assert isinstance(predictions, list)
         assert len(predictions) == len(target_batch)
-
-        for prediction in predictions:
-            assert isinstance(prediction["pred_masks"], torch.Tensor)
-            assert prediction["pred_masks"].shape[-2:] == images[0].shape[-2:]

@@ -34,7 +34,7 @@ def visualize_single_image(
     file_name: str,
     output_folder: str,
     color_map: dict[int, list[int]],
-) -> None:
+) -> np.ndarray:
     """Process a single image for visualization.
 
     This function can be used standalone for visualizing a single image,
@@ -116,6 +116,7 @@ def visualize_single_image(
 
     # Save visualization
     cv2.imwrite(output_path, cv2.cvtColor(image_vis, cv2.COLOR_RGB2BGR))
+    return image_vis
 
 
 class Visualizer:
