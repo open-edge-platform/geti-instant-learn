@@ -160,6 +160,13 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-dev --no-editable --extra cu126
 
+RUN apt-get remove -y git \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* ${LIBRARY_PATH}/pyproject.toml
+
+FROM gpu-base AS cleanup-gpu
+
 # Remove Specific Non-Distributable Components
 RUN apt-get update && apt-get remove -y \
     cuda-compiler-* \
@@ -218,15 +225,11 @@ RUN set -e; \
     # Clean up package manager traces
     apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get remove -y git \
-    && apt-get autoremove -y \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* ${LIBRARY_PATH}/pyproject.toml
 
 ######################
 # Server (GPU version)
 ######################
-FROM gpu-base AS geti-prompt-gpu
+FROM cleanup-gpu AS geti-prompt-gpu
 
 USER ${USER_NAME}
 
