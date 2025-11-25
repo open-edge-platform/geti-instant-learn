@@ -96,11 +96,32 @@ def upgrade() -> None:
     )
 
     op.create_table('Sink',
+    sa.Column('connected', sa.Boolean(), nullable=False),
     sa.Column('config', sqlite.JSON(), nullable=False),
     sa.Column('project_id', sa.Uuid(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.ForeignKeyConstraint(['project_id'], ['Project.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
+    )
+    op.execute(
+        sa.text(
+            f"CREATE UNIQUE INDEX IF NOT EXISTS {UniqueConstraintName.SINK_TYPE_PER_PROJECT} "
+            "ON Sink (project_id, json_extract(config, '$.sink_type'))"
+        )
+    )
+    op.execute(
+        sa.text(
+            f"CREATE UNIQUE INDEX IF NOT EXISTS {UniqueConstraintName.SINK_NAME_PER_PROJECT} "
+            "ON Sink (project_id, json_extract(config, '$.name')) "
+            "WHERE json_extract(config, '$.name') IS NOT NULL"
+        )
+    )
+    op.create_index(
+        UniqueConstraintName.SINGLE_CONNECTED_SINK_PER_PROJECT,
+        'Sink',
+        ['project_id', 'connected'],
+        unique=True,
+        sqlite_where=sa.text('connected IS 1')
     )
 
     op.create_table('Source',
@@ -161,6 +182,9 @@ def downgrade() -> None:
     op.execute(sa.text(f"DROP INDEX IF EXISTS {UniqueConstraintName.SOURCE_TYPE_PER_PROJECT}"))
     op.drop_index(UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT, table_name='Source')
     op.drop_table('Source')
+    op.execute(sa.text(f"DROP INDEX IF EXISTS {UniqueConstraintName.SINK_NAME_PER_PROJECT}"))
+    op.execute(sa.text(f"DROP INDEX IF EXISTS {UniqueConstraintName.SINK_TYPE_PER_PROJECT}"))
+    op.drop_index(UniqueConstraintName.SINGLE_CONNECTED_SINK_PER_PROJECT, table_name='Sink')
     op.drop_table('Sink')
     op.drop_index(UniqueConstraintName.SINGLE_TEXT_PROMPT_PER_PROJECT, table_name='Prompt')
     op.drop_index(UniqueConstraintName.UNIQUE_FRAME_ID_PER_PROMPT, table_name='Prompt')
