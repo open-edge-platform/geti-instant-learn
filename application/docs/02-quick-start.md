@@ -26,34 +26,59 @@ Geti Prompt can be used the way you want: as a desktop application on your pc or
 # Start the application
 # See application README for specific startup instructions
 ```
+## Start using Geti Prompt
+
+### Input Configuration
+
+To begin using the application, configure the input stream for the application to process.
+>TODO: Insert a step-by-step guide with screenshots/GIFs demonstrating how to select and configure input sources (e.g., IP Camera, Web Camera, local video file).
+
+### Prompting Models
+Geti Prompt provides users with two ways to prompt a model: using visual prompting and text prompting. Depending on the use case and performance requirements, you can select the prompting approach of choice at any time in the UI. Each prompting method comes with its own set of pipelines, i.e. models, that can be configured.
+
+#### Models
+Geti Prompt is built upon its own VisionPrompt framework, which supports the latest state-of-the-art foundation models from the literature. These foundation models have been selected based on their benchmarking performance as well as their permissive licenses, so that they can be deployed by users without restrictions.
+> TODO: include what pipelines are supported for visual prompt & text prompt, how pipelines are configured, where to find more info about the pipeline benchmarks and characteristics, etc. Finish by redirecting user to dedicated “VisionPrompt framework” section.
+
+#### Visual prompting
+For visual prompting, users will be able to teach the model what it should be looking for by highlighting the object(s) of interest on an image. You can manually capture one or few reference images, define the label that correspond to the object that needs to be detected, and annotate the object accordingly to create a prompt. Based on this prompt, the model will then infer on the input data to try to detect the object of interest.
+
+- **Capture Image:** Capture a reference frame directly from the input stream.
+- **Define Labels:** Create a class label for the object (e.g., "defect," "person").
+- **Annotate:** Use the annotation tools to select the object.
+- **Save prompt:** This creates the prompt immediately used by the model for inference.
+- **Manage Prompts:** TODO
+
+> TODO:
+> - Add a GIF showing the capture process and best practices for selecting clear reference frames.
+> - Add a GIF showing label creation.
+> - Explanation of how modifying prompts affects real-time inference.
 
 
-## Your First Prompt
+#### Text prompting
+For text prompting, users will be able to teach the model what it should be looking for by simply providing a query in the UI.
+> TODO: include how to prompt by text, what the difference is with visual prompting, how to manage prompts, etc – short gif
 
-### Step 1: Set Up Input Source
+### Inference
 
-1. Open the web interface
-2. Navigate to **Pipeline** → **Sources setup**
-3. Choose one of the test datasets or configure your data source (local files, cloud storage, etc.)
+- **Live View:** Once a model is prompted, Geti Prompt processes the visual input stream immediately. Results appear in the Live View overlay.
+- **Output configuration:** Configure how the generated model output is stored or consumed.
+    - **Destination:** Select where data is sent (e.g., local disk, network stream, API endpoint).
+    - **Format:** Choose the prediction format (JSON, CSV).
+    - **Rate:** Define the inference frequency (FPS).
+> TODO: include the different output destination & prediction options, with gif to show how this works and how the stored output looks like as an example]
 
-### Step 2: Create Your First Prompt
+### Deployment
+Once the prompted model meets the user’s performance requirements, the user can deploy the Geti Prompt application, including the prompted model, in different ways: as a containerized Docker image for deployment on remote edge servers and devices, or run the application & model directly on a local pc.
+> TODO: include steps for each deployment option, and gifs/screenshots where applicable
 
-1. Go to **Prompts** section
-2. Click **New Prompt**
-3. Select reference images that show examples of what you want to find
-4. Assign appropriate labels
-5. Save your prompt
+### Monitoring
+Geti Prompt provides inference statistics in real-time to inform the user about the model performance during deployment.
+> TODO: include the different inference performance statistics, how to interpret, how to configure, etc, with gif
 
-### Step 3: Run Inference
-
-1. Saved prompt is applied instantly
-4. View generated masks and predictions in the livestream.
-
-## Setting Up Output
-
-1. Go to **Pipeline** → **Sink setup**
-3. Configure export destination
-4. Export your annotated dataset
+### Business logic implementation
+The generated output from the deployed model can be consumed by custom business logic flows built by users, so that action can be taken upon the inference results in an automated way.
+> TODO: include boilerplate flows by using Node-RED for standard use cases like counting, measuring polygon/bounding box size and orientation, filtering labels or confidence thresholds
 
 ## Next Steps
 
