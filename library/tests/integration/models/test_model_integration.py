@@ -60,7 +60,6 @@ def fss1000_target_batch(dataset: FolderDataset) -> Batch:
 @pytest.fixture
 def aerial_maritime_root() -> Path:
     """Return path to aerial maritime test dataset."""
-    # /home/yuchunli/git/geti-prompt/library/tests/assets/aerial_maritime/images/train
     return Path(__file__).parent.parent.parent.parent / "tests" / "assets" / "aerial_maritime"
 
 
