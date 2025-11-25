@@ -3,13 +3,8 @@
 
 import logging
 import os
-import warnings
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-
-# Suppress third-party library warnings
-warnings.filterwarnings('ignore', category=FutureWarning, module='timm')
-warnings.filterwarnings('ignore', category=UserWarning, message='.*Overwriting.*in registry.*')
 
 import uvicorn
 from fastapi import FastAPI
