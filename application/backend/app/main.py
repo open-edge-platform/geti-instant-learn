@@ -23,6 +23,7 @@ from runtime.webrtc.manager import WebRTCManager
 from settings import get_settings
 
 settings = get_settings()
+settings.logs_dir.mkdir(parents=True, exist_ok=True)
 
 console_handler = logging.StreamHandler()
 file_handler = logging.FileHandler(filename=settings.log_file, encoding="utf8")
