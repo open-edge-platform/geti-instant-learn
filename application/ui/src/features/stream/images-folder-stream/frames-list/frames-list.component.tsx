@@ -33,36 +33,43 @@ const FrameThumbnail = ({ frame, isSelected, onIntersect, rootRef }: FrameThumbn
         handleIntersectionRef.current = onIntersect;
     }, [onIntersect]);
 
-    const handleRef = useCallback((domRefValue: DOMRefValue<HTMLElement> | null) => {
-        const ref = domRefValue?.UNSAFE_getDOMNode();
+    const handleRef = useCallback(
+        (domRefValue: DOMRefValue<HTMLElement> | null) => {
+            const ref = domRefValue?.UNSAFE_getDOMNode();
 
-        if (ref == null || rootRef.current === null) {
-            return;
-        }
-
-        if (handleIntersectionRef.current === undefined) {
-            return;
-        }
-
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (entries.length === 0) {
-                    return;
-                }
-
-                if (entries[0].isIntersecting) {
-                    handleIntersectionRef.current?.();
-                }
-            },
-            {
-                threshold: 0.01,
-                rootMargin: '200px',
-                root: rootRef.current,
+            if (ref == null || rootRef.current === null) {
+                return;
             }
-        );
 
-        observer.observe(ref);
-    }, []);
+            if (handleIntersectionRef.current === undefined) {
+                return;
+            }
+
+            const observer = new IntersectionObserver(
+                (entries) => {
+                    if (entries.length === 0) {
+                        return;
+                    }
+
+                    if (entries[0].isIntersecting) {
+                        handleIntersectionRef.current?.();
+                    }
+                },
+                {
+                    threshold: 0.01,
+                    rootMargin: '200px',
+                    root: rootRef.current,
+                }
+            );
+
+            observer.observe(ref);
+
+            return () => {
+                observer.disconnect();
+            };
+        },
+        [rootRef]
+    );
 
     return (
         <View
@@ -139,19 +146,21 @@ const useScrollToActiveFrame = (ref: RefObject<HTMLDivElement | null>, activeFra
 
             const isActiveFrameVisible =
                 ref.current.scrollLeft <= activeFrameIndexPosition &&
-                activeFrameIndexPosition < ref.current.scrollLeft + ref.current.clientWidth;
+                activeFrameIndexPosition + itemWidth < ref.current.scrollLeft + ref.current.clientWidth;
 
             if (isActiveFrameVisible) {
                 return;
             }
 
-            ref.current.scrollTo({ left: activeFrameIndexPosition, behavior: 'smooth' });
+            ref.current.scrollLeft = activeFrameIndexPosition;
         }, 100);
 
         // Delay to allow Virtualizer to render items and then scroll to the active frame
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 };
+
+const OFFSET_TO_FETCH_NEW_PAGE = 4;
 
 export const FramesList = ({
     activeFrameIndex,
@@ -173,7 +182,6 @@ export const FramesList = ({
                     className={styles.framesList}
                     aria-label={'Frames list'}
                     ref={ref}
-                    items={framesList}
                 >
                     {framesList.map((frame) => {
                         return (
@@ -187,18 +195,10 @@ export const FramesList = ({
                                 <FrameThumbnail
                                     frame={frame}
                                     isSelected={frame.index === activeFrameIndex}
-                                    /*
                                     onIntersect={
-                                        index === 0
+                                        frame.index === frames[0].index + OFFSET_TO_FETCH_NEW_PAGE
                                             ? fetchPreviousPage
-                                            : index === frames.length - 1
-                                              ? fetchNextPage
-                                              : undefined
-                                    }*/
-                                    onIntersect={
-                                        frame.index === frames[0].index - 3
-                                            ? fetchPreviousPage
-                                            : frame.index === frames[frames.length - 1].index + 3
+                                            : frame.index === frames[frames.length - 1].index - OFFSET_TO_FETCH_NEW_PAGE
                                               ? fetchNextPage
                                               : undefined
                                     }

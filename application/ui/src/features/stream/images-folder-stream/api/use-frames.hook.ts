@@ -12,7 +12,7 @@ import { uniqBy } from 'lodash-es';
 const LIMIT = 30;
 const INITIAL_OFFSET = 0;
 
-const ACTIVE_FRAME_OFFSET = 5;
+const ACTIVE_FRAME_OFFSET = Math.floor(LIMIT / 2);
 
 const useFramesQuery = (sourceId: string, activeFrameIdx: number) => {
     const { projectId } = useProjectIdentifier();

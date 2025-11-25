@@ -19,19 +19,13 @@ import { FramesList } from './frames-list/frames-list.component';
 
 import styles from './images-folder-stream.module.scss';
 
-const OFFSET = 3;
-
 const useActiveFrameSelection = ({
     sourceId,
     activeFrameIdx,
-    onFetchPreviousPage,
-    onFetchNextPage,
     frames,
 }: {
     sourceId: string;
     activeFrameIdx: number;
-    onFetchNextPage: () => Promise<void>;
-    onFetchPreviousPage: () => Promise<void>;
     frames: FrameType[];
 }) => {
     const activateFrameMutation = useActivateFrame();
@@ -83,10 +77,6 @@ const useActiveFrameSelection = ({
             return;
         }
 
-        if (nextFrameIdx === frames[frames.length - 1].index) {
-            onFetchNextPage();
-        }
-
         activateFrame(nextFrameIdx);
     };
 
@@ -95,10 +85,6 @@ const useActiveFrameSelection = ({
 
         if (prevFrameIdx < 0) {
             return;
-        }
-
-        if (prevFrameIdx === frames[0].index) {
-            onFetchPreviousPage();
         }
 
         activateFrame(prevFrameIdx);
@@ -125,8 +111,6 @@ export const ImagesFolderStream = ({ sourceId }: ImagesFolderStreamProps) => {
         sourceId,
         frames,
         activeFrameIdx,
-        onFetchNextPage: fetchNextPage,
-        onFetchPreviousPage: fetchPreviousPage,
     });
 
     const isPrevFrameButtonDisabled = activeFrameIdx === 0;
