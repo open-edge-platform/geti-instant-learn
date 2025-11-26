@@ -16,7 +16,6 @@ Technical background and architectural concepts to help developers and advanced 
 
 - **[Tutorials](../tutorials/)**: Step-by-step guides for common tasks
 - **[How-To Guides](../how-to-guides/)**: Task-focused guides for specific features
-- **[API Reference](../api-reference.md)**: Complete API documentation
 - **[Architecture Guide](DEVELOPMENT.MD)**: Original architecture documentation
 - **[Geti Prompt Library](../../library/)**: Reusable components and algorithms
 

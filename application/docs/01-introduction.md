@@ -36,7 +36,6 @@ This documentation is organized into the following sections:
 - **[Tutorials](./tutorials/)**: Step-by-step guides for common tasks
 - **[How-to Guides](./how-to-guides/)**: In-depth feature documentation
 - **[Concepts](./concepts/)**: Technical background and architecture
-- **[API Reference](./api-reference.md)**: REST API and Python SDK documentation
 - **[FAQ](./faq.md)**: Common questions and troubleshooting
 
 ## Next Steps

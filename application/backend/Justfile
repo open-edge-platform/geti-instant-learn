@@ -16,7 +16,7 @@ gen-openapi: _venv
 
 # Generate OpenAPI specification and convert to markdown
 gen-openapi-md: gen-openapi
-    uv run --no-sync openapi2markdown .build/openapi-spec.json ../docs/api-reference.md
+    uv run --no-sync openapi2markdown .build/openapi-spec.json .build/api-reference.md
 
 
 # Start FastAPI development server with auto-reload

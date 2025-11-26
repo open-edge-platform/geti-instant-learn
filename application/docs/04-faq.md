@@ -9,5 +9,4 @@ Answers to common questions about Geti Prompt Application.
 - Search the [How-to Guides](./how-to-guides/) for your topic
 - Review [Concepts](./concepts/) for technical details
 - Check [Tutorials](./tutorials/) for step-by-step help
-- Check [API Reference](./api-reference.md) for technical specs
 - Open an issue on GitHub

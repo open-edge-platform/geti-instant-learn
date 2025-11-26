@@ -84,7 +84,6 @@ The generated output from the deployed model can be consumed by custom business 
 
 - **Learn by Example**: Explore the [Tutorials](../tutorials/) for specific workflows
 - **Deep Dive**: Read the [How-to Guides](../how-to-guides/) for feature documentation
-- **Integrate Programmatically**: Check the [API Reference](../api-reference.md)
 - **Understand the Architecture**: Review the [Concepts](../concepts/) section
 
 ## Troubleshooting
