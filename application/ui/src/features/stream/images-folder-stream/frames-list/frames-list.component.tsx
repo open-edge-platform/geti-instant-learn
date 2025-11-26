@@ -26,7 +26,7 @@ interface FrameThumbnailProps {
     rootRef: RefObject<HTMLDivElement | null>;
 }
 
-const FrameThumbnail = ({ frame, isSelected, onIntersect, rootRef }: FrameThumbnailProps) => {
+const useObserveThumbnail = (rootRef: RefObject<HTMLDivElement | null>, onIntersect: (() => void) | undefined) => {
     const handleIntersectionRef = useRef(onIntersect);
 
     useLayoutEffect(() => {
@@ -71,6 +71,12 @@ const FrameThumbnail = ({ frame, isSelected, onIntersect, rootRef }: FrameThumbn
         [rootRef]
     );
 
+    return handleRef;
+};
+
+const FrameThumbnail = ({ frame, isSelected, onIntersect, rootRef }: FrameThumbnailProps) => {
+    const ref = useObserveThumbnail(rootRef, onIntersect);
+
     return (
         <View
             borderColor={'gray-100'}
@@ -78,7 +84,7 @@ const FrameThumbnail = ({ frame, isSelected, onIntersect, rootRef }: FrameThumbn
             borderXWidth={isSelected ? 'thick' : undefined}
             height={'100%'}
             width={'100%'}
-            ref={handleRef}
+            ref={ref}
         >
             <View
                 UNSAFE_className={clsx(styles.frame, {
