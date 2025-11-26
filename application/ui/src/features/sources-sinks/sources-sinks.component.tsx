@@ -38,7 +38,7 @@ export const SourcesSinks = () => {
                 </Flex>
             </Button>
             <Dialog>
-                <Content>
+                <Content UNSAFE_style={{ scrollbarGutter: 'stable' }}>
                     <SourcesSinksTabs />
                 </Content>
             </Dialog>
