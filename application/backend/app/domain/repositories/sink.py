@@ -16,12 +16,10 @@ logger = logging.getLogger(__name__)
 
 class SinkRepository(BaseRepository):
     """
-    Repository responsible for low-level persistence of `SinkDB` entities.
+    Data access layer for SinkDB entities.
 
-    Responsibilities:
-      - Build and execute SQLAlchemy queries.
-      - Add / delete ORM entities to the session.
-      - No business logic, no commits, no domain exceptions.
+    Provides methods to add, retrieve, and delete sinks in the database, scoped by project.
+    Contains no business logic or transaction management.
     """
 
     def __init__(self, session: Session):
