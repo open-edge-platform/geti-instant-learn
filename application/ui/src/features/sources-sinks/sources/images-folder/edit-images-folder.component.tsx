@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { FormEvent, useState } from 'react';
 
 import { ImagesFolderSourceType } from '@geti-prompt/api';
 import { Flex } from '@geti/ui';
@@ -45,24 +45,32 @@ export const EditImagesFolder = ({ source, onSaved }: EditImagesFolderProps) => 
     };
 
     const handleSave = () => {
-        handleUpdateImagesFolder(false);
+        handleUpdateImagesFolder(source.connected);
     };
 
     const handleSaveAndConnect = () => {
         handleUpdateImagesFolder(true);
     };
 
-    return (
-        <Flex direction={'column'} gap={'size-200'}>
-            <ImagesFolderFields folderPath={folderPath} onSetFolderPath={setFolderPath} />
+    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
 
-            <EditSourceButtons
-                isActiveSource={isActiveSource}
-                onSave={handleSave}
-                onSaveAndConnect={handleSaveAndConnect}
-                isDisabled={isButtonDisabled}
-                isPending={updateImagesFolderSource.isPending}
-            />
-        </Flex>
+        handleSave();
+    };
+
+    return (
+        <form onSubmit={handleSubmit}>
+            <Flex direction={'column'} gap={'size-200'}>
+                <ImagesFolderFields folderPath={folderPath} onSetFolderPath={setFolderPath} />
+
+                <EditSourceButtons
+                    isActiveSource={isActiveSource}
+                    onSave={handleSave}
+                    onSaveAndConnect={handleSaveAndConnect}
+                    isDisabled={isButtonDisabled}
+                    isPending={updateImagesFolderSource.isPending}
+                />
+            </Flex>
+        </form>
     );
 };
