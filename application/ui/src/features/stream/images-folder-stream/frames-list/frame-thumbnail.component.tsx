@@ -2,10 +2,13 @@
  * Copyright (C) 2025 Intel Corporation
  * SPDX-License-Identifier: Apache-2.0
  */
-import type { FrameType } from '@geti-prompt/api';
+
 import { RefObject, useCallback, useLayoutEffect, useRef } from 'react';
+
+import type { FrameType } from '@geti-prompt/api';
 import { DOMRefValue, View } from '@geti/ui';
 import { clsx } from 'clsx';
+
 import styles from './frames-list.module.scss';
 
 interface FrameThumbnailProps {
@@ -83,11 +86,7 @@ export const FrameThumbnail = ({ frame, isSelected, onIntersect, rootRef }: Fram
                 height={'100%'}
                 width={'100%'}
             >
-                <img
-                    alt={'Frame'}
-                    src={frame.thumbnail}
-                    style={{ objectFit: 'cover', height: '100%', width: '100%', display: 'block' }}
-                />
+                <img alt={'Frame'} src={frame.thumbnail} className={styles.frameImg} />
             </View>
         </View>
     );
