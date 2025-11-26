@@ -6,10 +6,14 @@
 """SAM3 Image model."""
 
 from copy import deepcopy
+from logging import getLogger
 
 import torch
 
-from getiprompt.models.foundation.sam3.data_misc import BatchedDatapoint
+from getiprompt.models.foundation.sam3.data_misc import (
+    BatchedDatapoint,
+    BatchedFindTarget,
+)
 from getiprompt.models.foundation.sam3.model import (
     Prompt,
     SAM3Output,
@@ -18,6 +22,8 @@ from getiprompt.models.foundation.sam3.model import (
     box_cxcywh_to_xyxy,
     inverse_sigmoid,
 )
+
+logger = getLogger("Geti Prompt")
 
 
 def _update_out(out, out_name, out_value, auxiliary=True, update_aux=True):
@@ -499,8 +505,9 @@ class Sam3Image(torch.nn.Module):
             self._compute_matching(out, self.back_convert(find_target))
         return out
 
-    def _postprocess_out(self, out: dict, multimask_output: bool = False):
-        # For multimask output, during eval we return the single best mask with the dict keys expected by the evaluators, but also return the multimasks output with new keys.
+    def _postprocess_out(self, out: dict, multimask_output: bool = False) -> dict:
+        # For multimask output, during eval we return the single best mask with the dict keys expected by the evaluators,
+        # but also return the multimasks output with new keys.
         num_mask_boxes = out["pred_boxes"].size(1)
         if not self.training and multimask_output and num_mask_boxes > 1:
             out["multi_pred_logits"] = out["pred_logits"]
@@ -528,15 +535,14 @@ class Sam3Image(torch.nn.Module):
 
         return out
 
-    def _get_dummy_prompt(self, num_prompts=1):
+    def _get_dummy_prompt(self, num_prompts: int = 1) -> Prompt:
         device = self.device
-        geometric_prompt = Prompt(
+        return Prompt(
             box_embeddings=torch.zeros(0, num_prompts, 4, device=device),
             box_mask=torch.zeros(num_prompts, 0, device=device, dtype=torch.bool),
         )
-        return geometric_prompt
 
-    def forward(self, input: BatchedDatapoint):
+    def forward(self, input: BatchedDatapoint) -> SAM3Output:
         device = self.device
         backbone_out = {"img_batch_all_stages": input.img_batch}
         backbone_out.update(self.backbone.forward_image(input.img_batch))
@@ -554,7 +560,7 @@ class Sam3Image(torch.nn.Module):
         find_target = input.find_targets[0]
 
         if find_input.input_points is not None and find_input.input_points.numel() > 0:
-            print("Warning: Point prompts are ignored in PCS.")
+            logger.warning("Point prompts are ignored in PCS.")
 
         num_interactive_steps = 0 if self.training else self.num_interactive_steps_val
         geometric_prompt = Prompt(
@@ -584,13 +590,13 @@ class Sam3Image(torch.nn.Module):
         previous_stages_out.append(stage_outs)
         return previous_stages_out
 
-    def _compute_matching(self, out, targets):
+    def _compute_matching(self, out: dict, targets: dict) -> None:
         out["indices"] = self.matcher(out, targets)
         for aux_out in out.get("aux_outputs", []):
             aux_out["indices"] = self.matcher(aux_out, targets)
 
-    def back_convert(self, targets):
-        batched_targets = {
+    def back_convert(self, targets: BatchedFindTarget) -> dict:
+        return {
             "boxes": targets.boxes.view(-1, 4),
             "boxes_xyxy": box_cxcywh_to_xyxy(targets.boxes.view(-1, 4)),
             "boxes_padded": targets.boxes_padded,
@@ -603,4 +609,3 @@ class Sam3Image(torch.nn.Module):
             "object_ids_packed": targets.object_ids,
             "object_ids_padded": targets.object_ids_padded,
         }
-        return batched_targets

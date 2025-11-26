@@ -44,7 +44,7 @@ def _setup_tf32() -> None:
 _setup_tf32()
 
 
-def _create_position_encoding(precompute_resolution=None):
+def _create_position_encoding(precompute_resolution=None, device="cuda"):
     """Create position encoding for visual backbone."""
     return PositionEmbeddingSine(
         num_pos_feats=256,
@@ -52,10 +52,11 @@ def _create_position_encoding(precompute_resolution=None):
         scale=None,
         temperature=10000,
         precompute_resolution=precompute_resolution,
+        device=device,
     )
 
 
-def _create_vit_backbone(compile_mode=None):
+def _create_vit_backbone(compile_mode: str | None = None):
     """Create ViT backbone for visual feature extraction."""
     return ViT(
         img_size=1008,
@@ -190,7 +191,7 @@ def _create_dot_product_scoring():
     return DotProductScoring(d_model=256, d_proj=256, prompt_mlp=prompt_mlp)
 
 
-def _create_segmentation_head(compile_mode=None):
+def _create_segmentation_head(compile_mode: str | None = None):
     """Create segmentation head with pixel decoder."""
     pixel_decoder = PixelDecoder(
         num_upsampling_stages=3,
@@ -218,10 +219,10 @@ def _create_segmentation_head(compile_mode=None):
     return segmentation_head
 
 
-def _create_geometry_encoder():
+def _create_geometry_encoder(device: str = "cuda"):
     """Create geometry encoder with all its components."""
     # Create position encoding for geometry encoder
-    geo_pos_enc = _create_position_encoding()
+    geo_pos_enc = _create_position_encoding(device=device)
     # Create geometry encoder layer
     geo_layer = TransformerEncoderLayer(
         activation="relu",
@@ -303,12 +304,13 @@ def _create_text_encoder(bpe_path: str) -> VETextEncoder:
 
 
 def _create_vision_backbone(
-    compile_mode=None,
+    compile_mode: str | None = None,
     enable_inst_interactivity=True,
+    device: str = "cuda",
 ) -> Sam3DualViTDetNeck:
     """Create SAM3 visual backbone with ViT and neck."""
     # Position encoding
-    position_encoding = _create_position_encoding(precompute_resolution=1008)
+    position_encoding = _create_position_encoding(precompute_resolution=1008, device=device)
     # ViT backbone
     vit_backbone: ViT = _create_vit_backbone(compile_mode=compile_mode)
     vit_neck: Sam3DualViTDetNeck = _create_vit_neck(
@@ -353,12 +355,12 @@ def _setup_device_and_mode(model, device, eval_mode):
 
 def build_sam3_image_model(
     bpe_path: Path | None = None,
-    device="cuda" if torch.cuda.is_available() else "cpu",
-    checkpoint_path=None,
-    load_from_HF=True,
-    enable_segmentation=True,
-    enable_inst_interactivity=False,
-    compile=False,
+    device: str = "cuda",
+    checkpoint_path: Path | None = None,
+    load_from_HF: bool = True,
+    enable_segmentation: bool = True,
+    enable_inst_interactivity: bool = False,
+    compile: bool = False,
 ):
     """Build SAM3 image model
 
@@ -385,6 +387,7 @@ def build_sam3_image_model(
     vision_encoder = _create_vision_backbone(
         compile_mode=compile_mode,
         enable_inst_interactivity=enable_inst_interactivity,
+        device=device,
     )
 
     # Create text components
@@ -403,7 +406,7 @@ def build_sam3_image_model(
     segmentation_head = _create_segmentation_head(compile_mode=compile_mode) if enable_segmentation else None
 
     # Create geometry encoder
-    input_geometry_encoder = _create_geometry_encoder()
+    input_geometry_encoder = _create_geometry_encoder(device=device)
     # Create the SAM3 model
     model = _create_sam3_model(
         backbone,

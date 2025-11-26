@@ -189,7 +189,7 @@ class PixelDecoder(nn.Module):
         num_upsampling_stages,
         interpolation_mode="nearest",
         shared_conv=False,
-        compile_mode=None,
+        compile_mode: str | None = None,
     ):
         super().__init__()
         self.hidden_dim = hidden_dim

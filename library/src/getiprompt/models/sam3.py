@@ -57,6 +57,34 @@ class SAM3(Model):
         True
     """
 
+    @staticmethod
+    def _setup_autocast(device: str, precision: str) -> torch.autocast:
+        """Setup autocast context based on device and precision.
+
+        Args:
+            device: The device to use ('cuda', 'xpu', or 'cpu').
+            precision: The precision to use ('bf16' or 'fp32').
+
+        Returns:
+            Autocast context manager.
+        """
+        # Determine device type and availability
+        if device == "xpu" and hasattr(torch, "xpu") and torch.xpu.is_available():
+            device_type = "xpu"
+            supports_bf16 = precision == "bf16"
+        elif device == "cuda" and torch.cuda.is_available():
+            device_type = "cuda"
+            supports_bf16 = precision == "bf16"
+        else:
+            # CPU or unsupported device
+            device_type = "cpu"
+            supports_bf16 = False
+
+        # Setup autocast context
+        if supports_bf16:
+            return torch.autocast(device_type=device_type, dtype=torch.bfloat16)
+        return torch.autocast(device_type=device_type, dtype=torch.float32)
+
     def __init__(
         self,
         bpe_path: str | None = None,
@@ -74,7 +102,7 @@ class SAM3(Model):
 
         Args:
             bpe_path: Path to the BPE tokenizer vocabulary.
-            device: The device to use ('cuda' or 'cpu').
+            device: The device to use ('cuda', 'xpu', or 'cpu').
             confidence_threshold: The confidence threshold for filtering predictions.
             resolution: The input image resolution.
             precision: The precision to use for the model ('bf16' or 'fp32').
@@ -92,10 +120,7 @@ class SAM3(Model):
         self.resolution = resolution
 
         # Setup precision
-        if precision == "bf16" and torch.cuda.is_available():
-            self.autocast_ctx = torch.autocast("cuda", dtype=torch.bfloat16)
-        else:
-            self.autocast_ctx = torch.autocast("cuda", dtype=torch.float32)
+        self.autocast_ctx = self._setup_autocast(device=device, precision=precision)
 
         # Build the SAM3 model
         self.model = build_sam3_image_model(
@@ -153,7 +178,9 @@ class SAM3(Model):
         return Image.fromarray(image[..., :3], mode="RGB")
 
     def _process_predictions(
-        self, inference_state: dict, img_size: tuple[int, int]
+        self,
+        inference_state: dict,
+        img_size: tuple[int, int],
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Process predictions from inference state.
 

@@ -13,7 +13,13 @@ from getiprompt.models.foundation.sam3.sam3_image import Sam3Image
 class Sam3Processor:
     """ """
 
-    def __init__(self, model: Sam3Image, resolution=1008, device="cuda", confidence_threshold=0.5):
+    def __init__(
+        self,
+        model: Sam3Image,
+        resolution: int = 1008,
+        device: str = "cuda",
+        confidence_threshold: float = 0.5,
+    ):
         self.model = model
         self.resolution = resolution
         self.device = device
@@ -38,7 +44,7 @@ class Sam3Processor:
         )
 
     @torch.inference_mode()
-    def set_image(self, image, state=None):
+    def set_image(self, image, state: dict | None = None) -> dict:
         """Sets the image on which we want to do predictions."""
         if state is None:
             state = {}
@@ -59,7 +65,7 @@ class Sam3Processor:
         return state
 
     @torch.inference_mode()
-    def set_image_batch(self, images: list[np.ndarray], state=None):
+    def set_image_batch(self, images: list[np.ndarray], state: dict | None = None):
         """Sets the image batch on which we want to do predictions."""
         if state is None:
             state = {}
@@ -81,7 +87,7 @@ class Sam3Processor:
         return state
 
     @torch.inference_mode()
-    def set_text_prompt(self, prompt: str, state: dict):
+    def set_text_prompt(self, prompt: str, state: dict) -> dict:
         """Sets the text prompt and run the inference"""
         if "backbone_out" not in state:
             raise ValueError("You must call set_image before set_text_prompt")
@@ -122,7 +128,7 @@ class Sam3Processor:
 
         return self._forward_grounding(state)
 
-    def reset_all_prompts(self, state: dict):
+    def reset_all_prompts(self, state: dict) -> None:
         """Removes all the prompts and results"""
         if "backbone_out" in state:
             backbone_keys_to_del = [
@@ -139,7 +145,7 @@ class Sam3Processor:
             state.pop(key, None)
 
     @torch.inference_mode()
-    def set_confidence_threshold(self, threshold: float, state=None):
+    def set_confidence_threshold(self, threshold: float, state: dict | None = None) -> dict:
         """Sets the confidence threshold for the masks"""
         self.confidence_threshold = threshold
         if state is not None and "boxes" in state:
@@ -150,7 +156,7 @@ class Sam3Processor:
         return state
 
     @torch.inference_mode()
-    def _forward_grounding(self, state: dict):
+    def _forward_grounding(self, state: dict) -> dict:
         outputs = self.model.forward_grounding(
             backbone_out=state["backbone_out"],
             find_input=self.find_stage,
