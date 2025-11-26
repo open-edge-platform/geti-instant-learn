@@ -9,13 +9,15 @@ import { SourceType } from '@geti-prompt/api';
 import { useGetSources } from '@geti-prompt/hooks';
 import { ImagesFolder as ImagesFolderIcon, WebCam } from '@geti-prompt/icons';
 import { ActionButton, Divider, Flex, Heading, View } from '@geti/ui';
-import { Back } from '@geti/ui/icons';
+import { Back, Datasets } from '@geti/ui/icons';
 import { isEmpty } from 'lodash-es';
 
+import TestDatasetImg from '../../../../../backend/backend/.data/templates/datasets/coffee-berries/scene00001.png';
 import { DisclosureGroup } from '../disclosure-group/disclosure-group.component';
 import { EditSource } from './edit-sources/edit-sources.component';
 import { ExistingSources } from './existing-sources/existing-sources.component';
 import { ImagesFolder } from './images-folder/images-folder.component';
+import { TestDataset } from './test-dataset/test-dataset.component';
 import { SourcesViews } from './utils';
 import { WebcamSource } from './webcam/webcam-source.component';
 
@@ -54,6 +56,24 @@ const SourcesList = ({ onViewChange }: SourcesList) => {
             value: 'images_folder',
             content: <ImagesFolder onSaved={() => onViewChange('existing')} />,
             icon: <ImagesFolderIcon width={'24px'} />,
+        },
+        {
+            label: 'Test dataset',
+            value: 'images_folder',
+            content: (
+                <TestDataset
+                    title={'Coffee Bean Quality Dataset'}
+                    description={
+                        'A ready-to-use collection of coffee bean images—ripe and unripe—for instant inference and ' +
+                        'testing. Select it to experience the pipeline in action right away.'
+                    }
+                    // TODO: update the path once backend supports it
+                    folderPath={'backend/backend/.data/templates/datasets/' + 'coffee-berries'}
+                    imgSrc={TestDatasetImg}
+                    onSaved={() => onViewChange('existing')}
+                />
+            ),
+            icon: <Datasets width={'24px'} />,
         },
     ];
 

@@ -4,17 +4,17 @@
  */
 
 import { ImagesFolderSourceType } from '@geti-prompt/api';
-import { ImagesFolder } from '@geti-prompt/icons';
+import { Datasets } from '@geti/ui/icons';
 
 import { SourceCard } from '../source-card/source-card.component';
 
-interface ImagesFolderSourceCardProps {
+interface TestDatasetCardProps {
     source: ImagesFolderSourceType;
     menuItems: { key: string; label: string }[];
     onAction: (action: string) => void;
 }
 
-export const ImagesFolderSourceCard = ({ source, onAction, menuItems }: ImagesFolderSourceCardProps) => {
+export const TestDatasetCard = ({ source, onAction, menuItems }: TestDatasetCardProps) => {
     const parameters = [`Folder path: ${source.config.images_folder_path}`];
     const isActiveSource = source.connected;
 
@@ -22,9 +22,9 @@ export const ImagesFolderSourceCard = ({ source, onAction, menuItems }: ImagesFo
         <SourceCard
             isActive={isActiveSource}
             parameters={<SourceCard.Parameters parameters={parameters} />}
-            icon={<ImagesFolder />}
-            title={'Images folder'}
-            menu={<SourceCard.Menu onAction={onAction} isActive={isActiveSource} items={menuItems} />}
+            icon={<Datasets width={'32px'} />}
+            title={'Test dataset'}
+            menu={<SourceCard.Menu isActive={isActiveSource} items={menuItems} onAction={onAction} />}
         />
     );
 };

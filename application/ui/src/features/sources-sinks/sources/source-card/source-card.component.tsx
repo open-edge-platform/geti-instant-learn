@@ -33,18 +33,30 @@ const SourceMenu = ({ onAction, isActive, items }: SourceMenuProps) => {
 
 interface SourceCardProps {
     isActive: boolean;
-    parameters: string[];
+    parameters: ReactNode;
     icon: ReactNode;
     title: string;
     menu?: ReactNode;
 }
 
+const SourceCardParametersList = ({ parameters }: { parameters: string[] }) => {
+    return (
+        <ul className={styles.sourceParametersList}>
+            {parameters.map((parameter) => (
+                <li key={parameter}>{parameter}</li>
+            ))}
+        </ul>
+    );
+};
+
 export const SourceCard = ({ isActive, parameters, icon, menu, title }: SourceCardProps) => {
     return (
         <View padding={'size-250'} UNSAFE_className={isActive ? styles.sourceActive : styles.sourceInactive}>
-            <Flex alignItems={'center'} gap={'size-200'}>
+            <Flex alignItems={'center'} gap={'size-100'}>
                 {icon}
-                <Heading margin={0}>{title}</Heading>
+                <Heading margin={0} UNSAFE_className={styles.sourceTitle}>
+                    {title}
+                </Heading>
             </Flex>
             <Flex
                 width={'100%'}
@@ -54,11 +66,7 @@ export const SourceCard = ({ isActive, parameters, icon, menu, title }: SourceCa
                 minWidth={0}
                 gap={'size-50'}
             >
-                <ul className={styles.sourceParametersList}>
-                    {parameters.map((parameter) => (
-                        <li key={parameter}>{parameter}</li>
-                    ))}
-                </ul>
+                {parameters}
                 <View alignSelf={'end'}>{menu}</View>
             </Flex>
         </View>
@@ -66,3 +74,4 @@ export const SourceCard = ({ isActive, parameters, icon, menu, title }: SourceCa
 };
 
 SourceCard.Menu = SourceMenu;
+SourceCard.Parameters = SourceCardParametersList;
