@@ -3,106 +3,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { RefObject, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import { RefObject, useLayoutEffect, useMemo } from 'react';
 
 import { type FrameType } from '@geti-prompt/api';
 import {
     AriaComponentsListBox,
-    DOMRefValue,
     HorizontalLayout,
     HorizontalLayoutOptions,
     ListBoxItem,
     View,
     Virtualizer,
 } from '@geti/ui';
-import { clsx } from 'clsx';
+
+import { FrameThumbnail } from './frame-thumbnail.component';
 
 import styles from './frames-list.module.scss';
-
-interface FrameThumbnailProps {
-    frame: FrameType;
-    isSelected: boolean;
-    onIntersect: (() => void) | undefined;
-    rootRef: RefObject<HTMLDivElement | null>;
-}
-
-const useObserveThumbnail = (rootRef: RefObject<HTMLDivElement | null>, onIntersect: (() => void) | undefined) => {
-    const handleIntersectionRef = useRef(onIntersect);
-
-    useLayoutEffect(() => {
-        handleIntersectionRef.current = onIntersect;
-    }, [onIntersect]);
-
-    const handleRef = useCallback(
-        (domRefValue: DOMRefValue<HTMLElement> | null) => {
-            const ref = domRefValue?.UNSAFE_getDOMNode();
-
-            if (ref == null || rootRef.current === null) {
-                return;
-            }
-
-            if (handleIntersectionRef.current === undefined) {
-                return;
-            }
-
-            const observer = new IntersectionObserver(
-                (entries) => {
-                    if (entries.length === 0) {
-                        return;
-                    }
-
-                    if (entries[0].isIntersecting) {
-                        handleIntersectionRef.current?.();
-                    }
-                },
-                {
-                    threshold: 0.01,
-                    rootMargin: '200px',
-                    root: rootRef.current,
-                }
-            );
-
-            observer.observe(ref);
-
-            return () => {
-                observer.disconnect();
-            };
-        },
-        [rootRef]
-    );
-
-    return handleRef;
-};
-
-const FrameThumbnail = ({ frame, isSelected, onIntersect, rootRef }: FrameThumbnailProps) => {
-    const ref = useObserveThumbnail(rootRef, onIntersect);
-
-    return (
-        <View
-            borderColor={'gray-100'}
-            borderYWidth={'thick'}
-            borderXWidth={isSelected ? 'thick' : undefined}
-            height={'100%'}
-            width={'100%'}
-            ref={ref}
-        >
-            <View
-                UNSAFE_className={clsx(styles.frame, {
-                    [styles.selected]: isSelected,
-                    [styles.notSelected]: !isSelected,
-                })}
-                height={'100%'}
-                width={'100%'}
-            >
-                <img
-                    alt={'Frame'}
-                    src={frame.thumbnail}
-                    style={{ objectFit: 'cover', height: '100%', width: '100%', display: 'block' }}
-                />
-            </View>
-        </View>
-    );
-};
 
 interface FramesListProps {
     activeFrameIndex: number;
