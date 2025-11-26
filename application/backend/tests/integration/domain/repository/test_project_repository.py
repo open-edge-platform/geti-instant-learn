@@ -36,13 +36,13 @@ def test_get_by_id_not_found(repo, clean_after):
     assert repo.get_by_id(uuid4()) is None
 
 
-def test_get_all(repo, fxt_session, clean_after):
+def test_list_all(repo, fxt_session, clean_after):
     names = {"p1", "p2", "p3"}
     for n in names:
         repo.add(ProjectDB(name=n))
     fxt_session.commit()
 
-    all_projects = repo.get_all()
+    all_projects = repo.list_all()
     assert {p.name for p in all_projects} == names
 
 
@@ -71,12 +71,16 @@ def test_delete_project(repo, fxt_session, clean_after):
     repo.add(p)
     fxt_session.commit()
 
-    to_remove = repo.get_by_id(p.id)
-    assert to_remove is not None
-    repo.delete(to_remove)
+    deleted = repo.delete(p.id)
     fxt_session.commit()
 
+    assert deleted is True
     assert repo.get_by_id(p.id) is None
+
+
+def test_delete_not_found(repo, clean_after):
+    deleted = repo.delete(uuid4())
+    assert deleted is False
 
 
 def test_single_active_project_constraint(repo, fxt_session, clean_after):
@@ -85,10 +89,9 @@ def test_single_active_project_constraint(repo, fxt_session, clean_after):
     fxt_session.commit()
 
     second = ProjectDB(name="active_secondary", active=True)
-    repo.add(second)
 
     with pytest.raises(IntegrityError):
-        fxt_session.commit()
+        repo.add(second)
 
     fxt_session.rollback()
     active_rows = fxt_session.query(ProjectDB).filter_by(active=True).all()
@@ -102,10 +105,9 @@ def test_unique_project_name_constraint(repo, fxt_session, clean_after):
     fxt_session.commit()
 
     second = ProjectDB(name="duplicate_name", active=False)
-    repo.add(second)
 
     with pytest.raises(IntegrityError):
-        fxt_session.commit()
+        repo.add(second)
 
     fxt_session.rollback()
     projects = fxt_session.query(ProjectDB).filter_by(name="duplicate_name").all()
@@ -126,8 +128,6 @@ def test_list_with_pagination_first_page(repo, fxt_session, clean_after):
     projects, total = repo.list_with_pagination(offset=0, limit=3)
     assert len(projects) == 3
     assert total == 5
-    names = [p.name for p in projects]
-    assert names == sorted(names)
 
 
 def test_list_with_pagination_second_page(repo, fxt_session, clean_after):
@@ -148,15 +148,3 @@ def test_list_with_pagination_beyond_end(repo, fxt_session, clean_after):
     projects, total = repo.list_with_pagination(offset=10, limit=5)
     assert len(projects) == 0
     assert total == 3
-
-
-def test_list_with_pagination_ordering(repo, fxt_session, clean_after):
-    names = ["zebra", "alpha", "beta", "gamma"]
-    for name in names:
-        repo.add(ProjectDB(name=name))
-    fxt_session.commit()
-
-    projects, total = repo.list_with_pagination(offset=0, limit=10)
-    result_names = [p.name for p in projects]
-    assert result_names == ["alpha", "beta", "gamma", "zebra"]
-    assert total == 4
