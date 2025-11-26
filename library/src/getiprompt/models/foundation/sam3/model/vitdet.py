@@ -34,6 +34,7 @@ def init_t_xy(
     scale: float = 1.0,
     offset: int = 0,
 ) -> tuple[torch.Tensor, torch.Tensor]:
+    """Initialize the t_x and t_y coordinates for the axial cis."""
     t = torch.arange(end_x * end_y, dtype=torch.float32)
     t_x = (t % end_x).float()
     t_y = torch.div(t, end_x, rounding_mode="floor").float()
@@ -48,6 +49,7 @@ def compute_axial_cis(
     scale_pos: float = 1.0,
     offset: int = 0,
 ) -> torch.Tensor:
+    """Compute the axial cis."""
     freqs_x = 1.0 / (theta ** (torch.arange(0, dim, 4)[: (dim // 4)].float() / dim))
     freqs_y = 1.0 / (theta ** (torch.arange(0, dim, 4)[: (dim // 4)].float() / dim))
 
@@ -60,6 +62,7 @@ def compute_axial_cis(
 
 
 def reshape_for_broadcast(freqs_cis: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
+    """Reshape the frequency cis for broadcasting."""
     ndim = x.ndim
     assert 0 <= 1 < ndim
     assert freqs_cis.shape == (x.shape[-2], x.shape[-1])
@@ -73,6 +76,7 @@ def apply_rotary_enc(
     freqs_cis: torch.Tensor,
     repeat_freqs_k: bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor]:
+    """Apply rotary encoding to the query and key."""
     xq_ = torch.view_as_complex(xq.float().reshape(*xq.shape[:-1], -1, 2))
     xk_ = torch.view_as_complex(xk.float().reshape(*xk.shape[:-1], -1, 2)) if xk.shape[-2] != 0 else None
     freqs_cis = reshape_for_broadcast(freqs_cis, xq_)
@@ -88,7 +92,7 @@ def apply_rotary_enc(
     return xq_out.type_as(xq).to(xq.device), xk_out.type_as(xk).to(xk.device)
 
 
-def window_partition(x: Tensor, window_size: int) -> tuple[Tensor, tuple[int, int]]:
+def window_partition(x: torch.Tensor, window_size: int) -> tuple[torch.Tensor, tuple[int, int]]:
     """Partition into non-overlapping windows with padding if needed.
 
     Args:
