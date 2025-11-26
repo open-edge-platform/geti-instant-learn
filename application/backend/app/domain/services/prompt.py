@@ -408,7 +408,7 @@ class PromptService(BaseService):
         label_ids = {ann.label_id for ann in annotations if ann.label_id is not None}
 
         for label_id in label_ids:
-            label = self.label_repository.get_by_id(project_id, label_id)
+            label = self.label_repository.get_by_id_and_project(label_id, project_id)
             if not label:
                 logger.error(
                     "Label not found: label_id=%s in project_id=%s",
@@ -436,7 +436,7 @@ class PromptService(BaseService):
         labels_by_id = {
             label.id: label_db_to_schema(label)
             for label_id in label_ids
-            if (label := self.label_repository.get_by_id(project_id, label_id))
+            if (label := self.label_repository.get_by_id_and_project(label_id, project_id))
         }
 
         # create annotation-label pairs

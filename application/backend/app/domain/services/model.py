@@ -238,7 +238,7 @@ class ModelService(BaseService):
             logger.info(f"Deactivated previously active model: id={active_model.id} project_id={project_id}")
             active_model.active = False
             try:
-                self.processor_repository.update(active_model)
+                active_model = self.processor_repository.update(active_model)
             except Exception:
                 logger.exception(f"Failed to flush deactivation of model id={active_model.id}, project_id={project_id}")
                 raise

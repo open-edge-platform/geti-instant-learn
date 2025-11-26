@@ -51,6 +51,6 @@ class BaseService:
             for event in self._pending_events:
                 try:
                     self._dispatcher.dispatch(event)
-                except Exception as exc:
-                    logger.error("Failed to dispatch event %s: %s", event, exc, exc_info=True)
+                except Exception:
+                    logger.exception("Failed to dispatch event %s", event)
         self._pending_events.clear()
