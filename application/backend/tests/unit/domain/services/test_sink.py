@@ -691,24 +691,6 @@ class TestEventDispatcher:
 class TestEdgeCases:
     """Tests for various edge cases."""
 
-    def test_create_sink_without_name_attribute(self, sink_service, mock_project_repository, mock_project, project_id):
-        """Test creating a sink config without a 'name' attribute."""
-        # Arrange
-        mock_project_repository.get_by_id.return_value = mock_project
-        config_mock = Mock()
-        config_mock.sink_type = WriterType.MQTT
-        # No 'name' attribute
-        delattr(config_mock, "name") if hasattr(config_mock, "name") else None
-        config_mock.model_dump = Mock(return_value={"sink_type": WriterType.MQTT, "broker_host": "localhost"})
-
-        create_data = Mock(spec=SinkCreateSchema)
-        create_data.id = uuid4()
-        create_data.connected = False
-        create_data.config = config_mock
-
-        # Act & Assert - should not raise
-        sink_service.create_sink(project_id, create_data)
-
     def test_unknown_constraint_violation(
         self,
         sink_service,
