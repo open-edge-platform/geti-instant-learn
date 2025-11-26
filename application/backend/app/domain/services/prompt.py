@@ -93,7 +93,9 @@ class PromptService(BaseService):
             ResourceNotFoundError: If the project does not exist.
         """
         self._ensure_project(project_id)
-        db_prompts, total_count = self.prompt_repository.get_paginated(project_id, offset=offset, limit=limit)
+        db_prompts, total_count = self.prompt_repository.list_with_pagination_by_project(
+            project_id=project_id, offset=offset, limit=limit
+        )
         prompts = prompts_db_to_schemas(db_prompts, include_thumbnail=True)
 
         pagination = Pagination(
@@ -125,7 +127,7 @@ class PromptService(BaseService):
             logger.error("Project not found id=%s", project_id)
             return None
 
-        db_prompts = self.prompt_repository.list_all_by_project(project_id, prompt_type)
+        db_prompts = self.prompt_repository.list_all_by_project(project_id=project_id, prompt_type=prompt_type)
 
         samples = []
         for prompt in db_prompts:
@@ -168,7 +170,7 @@ class PromptService(BaseService):
             ResourceNotFoundError: If project or prompt does not exist.
         """
         self._ensure_project(project_id)
-        prompt = self.prompt_repository.get_by_id_and_project(prompt_id=prompt_id, project_id=project_id)
+        prompt = self.prompt_repository.get_by_id_and_project(prompt_id, project_id)
         if not prompt:
             logger.error("Prompt not found: id=%s project_id=%s", prompt_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.PROMPT, resource_id=str(prompt_id))
@@ -201,7 +203,7 @@ class PromptService(BaseService):
         if isinstance(create_data, TextPromptCreateSchema):
             existing_text_prompt = self.prompt_repository.get_text_prompt_by_project(project_id)
             if existing_text_prompt:
-                logger.warning(
+                logger.error(
                     "Text prompt creation failed: text prompt already exists for project_id=%s (prompt_id=%s)",
                     project_id,
                     existing_text_prompt.id,
@@ -266,7 +268,7 @@ class PromptService(BaseService):
             ResourceNotFoundError: If project or prompt does not exist.
         """
         self._ensure_project(project_id)
-        prompt = self.prompt_repository.get_by_id_and_project(prompt_id=prompt_id, project_id=project_id)
+        prompt = self.prompt_repository.get_by_id_and_project(prompt_id, project_id)
         if not prompt:
             logger.error("Cannot delete prompt: prompt_id=%s not found in project_id=%s", prompt_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.PROMPT, resource_id=str(prompt_id))
@@ -286,7 +288,7 @@ class PromptService(BaseService):
                         prompt.frame_id,
                         project_id,
                     )
-            self.prompt_repository.delete(prompt)
+            self.prompt_repository.delete(prompt.id)
         logger.info("Prompt deleted: prompt_id=%s project_id=%s", prompt_id, project_id)
 
     def update_prompt(self, project_id: UUID, prompt_id: UUID, update_data: PromptUpdateSchema) -> PromptSchema:
@@ -312,7 +314,7 @@ class PromptService(BaseService):
         """
         self._ensure_project(project_id)
 
-        prompt = self.prompt_repository.get_by_id_and_project(prompt_id=prompt_id, project_id=project_id)
+        prompt = self.prompt_repository.get_by_id_and_project(prompt_id, project_id)
         if not prompt:
             logger.error("Cannot update prompt: prompt_id=%s not found in project_id=%s", prompt_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.PROMPT, resource_id=str(prompt_id))
@@ -343,6 +345,7 @@ class PromptService(BaseService):
                 if regenerate_thumbnail and prompt.frame_id:
                     annotations = annotations_db_to_schemas(prompt.annotations)
                     prompt.thumbnail = self._generate_thumbnail(project_id, prompt.frame_id, annotations)
+                prompt = self.prompt_repository.update(prompt)
         except IntegrityError as exc:
             logger.error("Prompt update failed due to constraint violation: %s", exc)
             self._handle_prompt_integrity_error(exc, prompt.id, project_id, prompt.type)

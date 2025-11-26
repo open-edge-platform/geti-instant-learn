@@ -215,7 +215,7 @@ def test_delete_prompt(prompt_repo, fxt_session, clean_after):
     assert prompt_repo.get_by_id(prompt.id) is None
 
 
-def test_get_paginated(prompt_repo, fxt_session, clean_after):
+def test_list_with_pagination(prompt_repo, fxt_session, clean_after):
     project = ProjectDB(name="proj")
     fxt_session.add(project)
     fxt_session.commit()
@@ -225,11 +225,11 @@ def test_get_paginated(prompt_repo, fxt_session, clean_after):
         prompt_repo.add(p)
     fxt_session.commit()
 
-    page1, total = prompt_repo.get_paginated(project.id, offset=0, limit=10)
+    page1, total = prompt_repo.list_with_pagination(project.id, offset=0, limit=10)
     assert len(page1) == 10
     assert total == 15
 
-    page2, total = prompt_repo.get_paginated(project.id, offset=10, limit=10)
+    page2, total = prompt_repo.list_with_pagination(project.id, offset=10, limit=10)
     assert len(page2) == 5
     assert total == 15
 

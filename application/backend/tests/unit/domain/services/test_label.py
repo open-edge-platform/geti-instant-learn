@@ -124,24 +124,24 @@ def test_get_all_labels(label_service, mock_label_repository, mock_project_repos
     label_2.id = uuid4()
     label_2.name = "Label 2"
     label_2.color = "#00ff00"
-    mock_label_repository.get_paginated.return_value = ([label_1, label_2], 2)
+    mock_label_repository.list_with_pagination.return_value = ([label_1, label_2], 2)
 
     result = label_service.get_all_labels(PROJECT_ID)
 
     assert isinstance(result, LabelsListSchema)
     assert len(result.labels) == 2
-    mock_label_repository.get_paginated.assert_called_once()
+    mock_label_repository.list_with_pagination.assert_called_once()
 
 
 def test_get_all_labels_empty_list(label_service, mock_label_repository, mock_project_repository):
     mock_project_repository.get_by_id.return_value = MagicMock()
-    mock_label_repository.get_paginated.return_value = ([], 0)
+    mock_label_repository.list_with_pagination.return_value = ([], 0)
 
     result = label_service.get_all_labels(PROJECT_ID)
 
     assert isinstance(result, LabelsListSchema)
     assert len(result.labels) == 0
-    mock_label_repository.get_paginated.assert_called_once()
+    mock_label_repository.list_with_pagination.assert_called_once()
 
 
 def test_delete_label(label_service, mock_label_repository, mock_project_repository):

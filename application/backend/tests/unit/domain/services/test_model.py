@@ -106,7 +106,7 @@ class TestListModels:
     ):
         """Test successfully listing models."""
         mock_project_repository.get_by_id.return_value = sample_project_db
-        mock_processor_repository.get_paginated.return_value = ([], 0)
+        mock_processor_repository.list_with_pagination.return_value = ([], 0)
 
         result = service.list_models(sample_project_id, offset=0, limit=20)
 
@@ -115,7 +115,7 @@ class TestListModels:
         assert result.pagination.total == 0
         assert result.pagination.count == 0
         mock_project_repository.get_by_id.assert_called_once_with(sample_project_id)
-        mock_processor_repository.get_paginated.assert_called_once_with(
+        mock_processor_repository.list_with_pagination.assert_called_once_with(
             project_id=sample_project_id, offset=0, limit=20
         )
 

@@ -74,7 +74,7 @@ class SourceService(BaseService):
             ResourceNotFoundError: If the project does not exist.
         """
         self._ensure_project(project_id)
-        db_sources = self.source_repository.get_all_by_project(project_id)
+        db_sources = self.source_repository.list_all_by_project(project_id)
         return SourcesListSchema(sources=sources_db_to_schemas(db_sources))
 
     def get_source(self, project_id: UUID, source_id: UUID) -> SourceSchema:
@@ -87,7 +87,7 @@ class SourceService(BaseService):
             ResourceNotFoundError: If project or source does not exist.
         """
         self._ensure_project(project_id)
-        source = self.source_repository.get_by_id_and_project(source_id=source_id, project_id=project_id)
+        source = self.source_repository.get_by_id_and_project(source_id, project_id)
         if not source:
             logger.error("Source not found id=%s project_id=%s", source_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.SOURCE, resource_id=str(source_id))
@@ -104,7 +104,7 @@ class SourceService(BaseService):
         source_name = create_data.config.name if hasattr(create_data.config, "name") else None
 
         logger.debug(
-            "Source create requested: project_id=%s source_type=%s name=%s connected=%s",
+            "Source create requested: project_id=%s source_type=%s name=%s active=%s",
             project_id,
             source_type,
             source_name,
@@ -114,7 +114,7 @@ class SourceService(BaseService):
         try:
             with self.db_transaction():
                 if create_data.connected:
-                    self._disconnect_existing_connected_source(project_id=project_id)
+                    self._disconnect_existing_active_source(project_id=project_id)
                 new_source: SourceDB = source_schema_to_db(schema=create_data, project_id=project_id)
                 self.source_repository.add(new_source)
                 self._emit_component_change(project_id=project_id, source_id=new_source.id)
@@ -123,11 +123,11 @@ class SourceService(BaseService):
             self._handle_source_integrity_error(exc, new_source.id, project_id, source_type, source_name)
 
         logger.info(
-            "Source created: source_id=%s project_id=%s source_type=%s connected=%s config=%s",
+            "Source created: source_id=%s project_id=%s source_type=%s active=%s config=%s",
             new_source.id,
             project_id,
             new_source.config.get("source_type"),
-            new_source.connected,
+            new_source.active,
             new_source.config,
         )
         return source_db_to_schema(new_source)
@@ -142,7 +142,7 @@ class SourceService(BaseService):
         Update existing source config (cannot change source_type).
         """
         self._ensure_project(project_id)
-        source = self.source_repository.get_by_id_and_project(source_id, project_id)
+        source: SourceDB = self.source_repository.get_by_id_and_project(source_id, project_id)
         if not source:
             logger.error("Update failed; source not found id=%s project_id=%s", source_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.SOURCE, resource_id=str(source_id))
@@ -168,21 +168,21 @@ class SourceService(BaseService):
 
         try:
             with self.db_transaction():
-                if update_data.connected and not source.connected:
-                    self._disconnect_existing_connected_source(project_id=project_id)
-                source.connected = update_data.connected
+                if update_data.connected and not source.active:
+                    self._disconnect_existing_active_source(project_id=project_id)
+                source.active = update_data.connected
                 source.config = update_data.config.model_dump()
+                source = self.source_repository.update(source)
         except IntegrityError as exc:
             logger.error("Source update failed due to constraint violation: %s", exc)
             self._handle_source_integrity_error(exc, source.id, project_id, existing_type, source_name)
 
-        self.session.refresh(source)
         logger.info(
-            "Source updated: source_id=%s project_id=%s source_type=%s connected=%s config=%s",
+            "Source updated: source_id=%s project_id=%s source_type=%s active=%s config=%s",
             source_id,
             project_id,
             existing_type,
-            source.connected,
+            source.active,
             source.config,
         )
         self._emit_component_change(project_id=project_id, source_id=source.id)
@@ -200,13 +200,13 @@ class SourceService(BaseService):
             ResourceNotFoundError: If project or source does not exist.
         """
         self._ensure_project(project_id)
-        source = self.source_repository.get_by_id_and_project(source_id=source_id, project_id=project_id)
+        source = self.source_repository.get_by_id_and_project(source_id, project_id)
         if not source:
             logger.error("Cannot delete source: source_id=%s not found in project_id=%s", source_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.SOURCE, resource_id=str(source_id))
 
         with self.db_transaction():
-            self.source_repository.delete(source)
+            self.source_repository.delete(source.id)
             self._emit_component_change(project_id=project_id, source_id=source_id)
         logger.info("Source deleted: source_id=%s project_id=%s", source_id, project_id)
 
@@ -229,26 +229,26 @@ class SourceService(BaseService):
             raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
         return project
 
-    def _disconnect_existing_connected_source(self, project_id: UUID) -> None:
+    def _disconnect_existing_active_source(self, project_id: UUID) -> None:
         """
-        Disconnect any currently connected source in the project.
+        Disconnect any currently active source in the project.
         Flushes changes to DB and emits deactivation event.
         Does not commit by itself; caller commits.
         """
-        connected_source = self.source_repository.get_connected_in_project(project_id)
-        if connected_source:
+        active_source: SourceDB = self.source_repository.get_active_in_project(project_id)
+        if active_source:
             logger.info(
-                "Disconnecting previously connected source: source_id=%s project_id=%s",
-                connected_source.id,
+                "Disconnecting previously active source: source_id=%s project_id=%s",
+                active_source.id,
                 project_id,
             )
-            connected_source.connected = False
+            active_source.active = False
             try:
-                self.session.flush()
+                self.source_repository.update(active_source)
             except Exception as exc:
                 logger.error("Failed to flush source disconnection: %s", exc)
                 raise
-            self._emit_component_change(project_id=project_id, source_id=connected_source.id)
+            self._emit_component_change(project_id=project_id, source_id=active_source.id)
 
     def _emit_component_change(self, project_id: UUID, source_id: UUID) -> None:
         """

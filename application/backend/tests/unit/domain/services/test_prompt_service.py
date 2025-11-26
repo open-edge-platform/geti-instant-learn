@@ -97,19 +97,19 @@ def test_list_prompts_success(service):
     service.project_repository.get_by_id.return_value = make_project(project_id)
     text_prompt = make_text_prompt_db(project_id=project_id)
     visual_prompt = make_visual_prompt_db(project_id=project_id)
-    service.prompt_repository.get_paginated.return_value = ([text_prompt, visual_prompt], 2)
+    service.prompt_repository.list_with_pagination.return_value = ([text_prompt, visual_prompt], 2)
 
     result = service.list_prompts(project_id, offset=0, limit=10)
 
     assert len(result.prompts) == 2
     assert result.pagination.total == 2
-    service.prompt_repository.get_paginated.assert_called_once_with(project_id, offset=0, limit=10)
+    service.prompt_repository.list_with_pagination.assert_called_once_with(project_id, offset=0, limit=10)
 
 
 def test_list_prompts_empty(service):
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
-    service.prompt_repository.get_paginated.return_value = ([], 0)
+    service.prompt_repository.list_with_pagination.return_value = ([], 0)
 
     result = service.list_prompts(project_id)
 

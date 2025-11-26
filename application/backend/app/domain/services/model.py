@@ -80,7 +80,9 @@ class ModelService(BaseService):
             ResourceNotFoundError: If the project does not exist.
         """
         self._ensure_project(project_id)
-        db_models, total = self.processor_repository.get_paginated(project_id=project_id, offset=offset, limit=limit)
+        db_models, total = self.processor_repository.list_with_pagination_by_project(
+            project_id=project_id, offset=offset, limit=limit
+        )
         return processors_db_to_list_items(db_models, total=total, offset=offset, limit=limit)
 
     def get_model(self, project_id: UUID, model_id: UUID) -> ProcessorSchema:
@@ -93,7 +95,7 @@ class ModelService(BaseService):
             ResourceNotFoundError: If project or model configuration does not exist.
         """
         self._ensure_project(project_id)
-        model = self.processor_repository.get_by_id_and_project(processor_id=model_id, project_id=project_id)
+        model = self.processor_repository.get_by_id_and_project(model_id, project_id)
         if not model:
             logger.error(f"Model configuration not found id={model_id} project_id={project_id}")
             raise ResourceNotFoundError(resource_type=ResourceType.PROCESSOR, resource_id=str(model_id))
@@ -139,7 +141,7 @@ class ModelService(BaseService):
             project_id: Owning project UUID.
         """
         self._ensure_project(project_id)
-        active_model = self.processor_repository.get_activated_in_project(project_id)
+        active_model = self.processor_repository.get_active_in_project(project_id)
         if not active_model:
             logger.error(f"No active model configuration found for project_id={project_id}")
             raise ResourceNotFoundError(
@@ -172,17 +174,14 @@ class ModelService(BaseService):
                     model.name = update_data.name
                 model.active = update_data.active
                 model.config = update_data.config.model_dump()
+                model = self.processor_repository.update(model)
                 self._emit_component_change(project_id=project_id, model_id=model_id)
         except IntegrityError as exc:
             logger.error("Model configuration update failed due to constraint violation: %s", exc)
             self._handle_source_integrity_error(exc, model.id, project_id, update_data.name)
 
-        self.session.refresh(model)
         logger.info(
-            f"Model configuration updated: "
-            f"id={model_id} "
-            f"project_id={project_id} "
-            f"active={model.active} "
+            f"Model configuration updated: id={model_id} project_id={project_id} active={model.active} "
             f"config={model.config}"
         )
         return processor_db_to_schema(model)
@@ -199,13 +198,13 @@ class ModelService(BaseService):
             ResourceNotFoundError: If project or model configuration does not exist.
         """
         self._ensure_project(project_id)
-        model = self.processor_repository.get_by_id_and_project(processor_id=model_id, project_id=project_id)
+        model = self.processor_repository.get_by_id_and_project(model_id, project_id)
         if not model:
             logger.error(f"Cannot delete model: id={model_id} not found in project_id={project_id}")
             raise ResourceNotFoundError(resource_type=ResourceType.PROCESSOR, resource_id=str(model_id))
 
         with self.db_transaction():
-            self.processor_repository.delete(model)
+            self.processor_repository.delete(model.id)
             self._emit_component_change(project_id=project_id, model_id=model_id)
         logger.info(f"Model deleted: id={model_id} project_id={project_id}")
 
@@ -234,12 +233,12 @@ class ModelService(BaseService):
         Flushes changes to DB and emits deactivation event.
         Does not commit by itself; caller commits.
         """
-        active_model = self.processor_repository.get_activated_in_project(project_id)
+        active_model = self.processor_repository.get_active_in_project(project_id)
         if active_model:
             logger.info(f"Deactivated previously active model: id={active_model.id} project_id={project_id}")
             active_model.active = False
             try:
-                self.session.flush()
+                self.processor_repository.update(active_model)
             except Exception:
                 logger.exception(f"Failed to flush deactivation of model id={active_model.id}, project_id={project_id}")
                 raise

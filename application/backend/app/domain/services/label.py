@@ -88,7 +88,7 @@ class LabelService(BaseService):
 
         try:
             with self.db_transaction():
-                self.label_repository.add(label=label)
+                self.label_repository.add(label)
         except IntegrityError as exc:
             logger.error("Label creation failed due to constraint violation: %s", exc)
             self._handle_label_integrity_error(exc, label.id, project_id, create_data.name, "create")
@@ -107,7 +107,7 @@ class LabelService(BaseService):
         Retrieve a label by its ID.
         """
         self._ensure_project(project_id)
-        label = self.label_repository.get_by_id(project_id=project_id, label_id=label_id)
+        label = self.label_repository.get_by_id_and_project(label_id, project_id)
         if not label:
             logger.error("Label not found id=%s for project_id=%s", label_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.LABEL, resource_id=str(label_id))
@@ -127,7 +127,9 @@ class LabelService(BaseService):
         """
         self._ensure_project(project_id)
         logger.debug("Labels list for project %s requested with offset=%s, limit=%s", project_id, offset, limit)
-        labels, total = self.label_repository.get_paginated(project_id=project_id, offset=offset, limit=limit)
+        labels, total = self.label_repository.list_with_pagination_by_project(
+            project_id=project_id, offset=offset, limit=limit
+        )
         return labels_db_to_list_items(labels, total=total, offset=offset, limit=limit)
 
     def delete_label(self, project_id: UUID, label_id: UUID) -> None:
@@ -135,13 +137,13 @@ class LabelService(BaseService):
         Delete a label by its ID.
         """
         self._ensure_project(project_id)
-        label = self.label_repository.get_by_id(project_id=project_id, label_id=label_id)
+        label = self.label_repository.get_by_id_and_project(label_id, project_id)
         if not label:
             logger.error("Label not found id=%s for project_id=%s", label_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.LABEL, resource_id=str(label_id))
 
         with self.db_transaction():
-            self.label_repository.delete(project_id=project_id, label=label)
+            self.label_repository.delete(label_id)
         logger.info("Label deleted id=%s project_id=%s", label_id, project_id)
 
     def update_label(self, project_id: UUID, label_id: UUID, update_data: LabelUpdateSchema) -> LabelSchema:
@@ -157,7 +159,7 @@ class LabelService(BaseService):
             update_data.name,
         )
         self._ensure_project(project_id)
-        label = self.label_repository.get_by_id(project_id=project_id, label_id=label_id)
+        label = self.label_repository.get_by_id_and_project(label_id, project_id)
 
         if not label:
             logger.error("Update failed; label not found id=%s in project=%s", label_id, project_id)
@@ -173,11 +175,12 @@ class LabelService(BaseService):
                     if label.color != color:
                         label.color = color
 
+                label = self.label_repository.update(label)
+
         except IntegrityError as exc:
             logger.error("Label update failed due to constraint violation: %s", exc)
             self._handle_label_integrity_error(exc, label.id, project_id, update_data.name, "update")
 
-        self.session.refresh(label)
         logger.info("Label updated in project=%s label_id=%s name=%s", project_id, label.id, label.name)
         return label_db_to_schema(label=label)
 

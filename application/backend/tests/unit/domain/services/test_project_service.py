@@ -134,7 +134,7 @@ def test_get_project_not_found(service, repo_mock):
 
 def test_list_projects(service, repo_mock):
     p1, p2 = make_project(), make_project()
-    repo_mock.get_paginated.return_value = ([p1, p2], 2)
+    repo_mock.list_with_pagination.return_value = ([p1, p2], 2)
 
     result = service.list_projects(offset=0, limit=20)
 
@@ -145,12 +145,12 @@ def test_list_projects(service, repo_mock):
     assert result.pagination.total == 2
     assert result.pagination.offset == 0
     assert result.pagination.limit == 20
-    repo_mock.get_paginated.assert_called_once_with(offset=0, limit=20)
+    repo_mock.list_with_pagination.assert_called_once_with(offset=0, limit=20)
 
 
 def test_list_projects_with_pagination(service, repo_mock):
     p1 = make_project(name="project_1")
-    repo_mock.get_paginated.return_value = ([p1], 10)
+    repo_mock.list_with_pagination.return_value = ([p1], 10)
 
     result = service.list_projects(offset=5, limit=1)
 
@@ -160,11 +160,11 @@ def test_list_projects_with_pagination(service, repo_mock):
     assert result.pagination.total == 10
     assert result.pagination.offset == 5
     assert result.pagination.limit == 1
-    repo_mock.get_paginated.assert_called_once_with(offset=5, limit=1)
+    repo_mock.list_with_pagination.assert_called_once_with(offset=5, limit=1)
 
 
 def test_list_projects_empty(service, repo_mock):
-    repo_mock.get_paginated.return_value = ([], 0)
+    repo_mock.list_with_pagination.return_value = ([], 0)
 
     result = service.list_projects()
 
@@ -173,7 +173,7 @@ def test_list_projects_empty(service, repo_mock):
     assert result.pagination.total == 0
     assert result.pagination.offset == 0
     assert result.pagination.limit == 20
-    repo_mock.get_paginated.assert_called_once_with(offset=0, limit=20)
+    repo_mock.list_with_pagination.assert_called_once_with(offset=0, limit=20)
 
 
 def test_update_project_success(service, repo_mock, session_mock):

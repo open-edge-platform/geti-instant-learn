@@ -77,8 +77,8 @@ class ProjectService(BaseService):
         project: ProjectDB = project_schema_to_db(create_data)
         try:
             with self.db_transaction():
-                self.project_repository.add(project)
                 self._activate_project(project)
+                self.project_repository.add(project)
         except IntegrityError as exc:
             logger.error("Project creation failed due to constraint violation: %s", exc)
             self._handle_project_integrity_error(exc, project.id, create_data.name)
@@ -118,7 +118,7 @@ class ProjectService(BaseService):
             ProjectsListSchema with paginated results and metadata
         """
         logger.debug(f"Projects list requested with offset={offset}, limit={limit}")
-        projects, total = self.project_repository.get_paginated(offset=offset, limit=limit)
+        projects, total = self.project_repository.list_with_pagination(offset=offset, limit=limit)
         return projects_db_to_list_items(projects, total=total, offset=offset, limit=limit)
 
     def update_project(self, project_id: UUID, update_data: ProjectUpdateSchema) -> ProjectSchema:
@@ -157,11 +157,13 @@ class ProjectService(BaseService):
                         project.active = False
                         self.session.flush()
                         self._emit_deactivation(project.id)
+
+                project = self.project_repository.update(project)
+
         except IntegrityError as exc:
             logger.error("Project update failed due to constraint violation: %s", exc)
             self._handle_project_integrity_error(exc, project_id, update_data.name)
 
-        self.session.refresh(project)
         logger.info(
             "Project updated: id=%s name=%s active=%s",
             project.id,
@@ -188,8 +190,13 @@ class ProjectService(BaseService):
                 resource_type=ResourceType.PROJECT,
                 resource_id=str(project_id),
             )
-        with self.db_transaction():
-            self._activate_project(project)
+        try:
+            with self.db_transaction():
+                self._activate_project(project)
+                self.project_repository.update(project)
+        except IntegrityError as exc:
+            logger.error("Project update failed due to constraint violation: %s", exc)
+            self._handle_project_integrity_error(exc, project_id)
         logger.info("Project activated: id=%s", project.id)
 
     def get_active_project_info(self) -> ProjectSchema:
@@ -223,20 +230,20 @@ class ProjectService(BaseService):
         if not project:
             raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
 
-        connected_source = next((s for s in project.sources if s.connected), None)
+        active_source = next((s for s in project.sources if s.active), None)
         reader_cfg: ReaderConfig | None = None
-        if connected_source:
+        if active_source:
             try:
-                reader_cfg = TypeAdapter(ReaderConfig).validate_python(connected_source.config)
+                reader_cfg = TypeAdapter(ReaderConfig).validate_python(active_source.config)
             except Exception:
-                logger.exception("Invalid connected source config ignored: source_id=%s", connected_source.id)
+                logger.exception("Invalid connected source config ignored: source_id=%s", active_source.id)
         processor_cfg: ModelConfig | None = None
-        model = next((m for m in project.processors if m.project_id == project_id and m.active), None)
-        if model:
+        active_model = next((m for m in project.processors if m.active), None)
+        if active_model:
             try:
-                processor_cfg = TypeAdapter(ModelConfig).validate_python(model.config)
+                processor_cfg = TypeAdapter(ModelConfig).validate_python(active_model.config)
             except Exception:
-                logger.exception("Invalid active model config ignored: model_id=%s", model.id)
+                logger.exception("Invalid active model config ignored: model_id=%s", active_model.id)
 
         return PipelineConfig(
             project_id=project.id,
@@ -275,7 +282,7 @@ class ProjectService(BaseService):
         with self.db_transaction():
             if project.active:
                 self._emit_deactivation(project.id)
-            self.project_repository.delete(project)
+            self.project_repository.delete(project.id)
         logger.info("Project deleted: id=%s", project_id)
 
     def _activate_project(self, project: ProjectDB) -> None:
@@ -297,18 +304,13 @@ class ProjectService(BaseService):
             )
             current.active = False
             try:
-                self.session.flush()
+                self.project_repository.update(current)
             except Exception as exc:
                 logger.error("Failed to flush project deactivation: %s", exc)
                 raise
             self._emit_deactivation(current.id)
 
         project.active = True
-        try:
-            self.session.flush()
-        except Exception as exc:
-            logger.error("Failed to flush project activation: %s", exc)
-            raise
         self._emit_activation(project.id)
 
     def _emit_activation(self, project_id: UUID) -> None:
