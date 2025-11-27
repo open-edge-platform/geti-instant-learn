@@ -273,7 +273,7 @@ def _create_sam3_model(
     input_geometry_encoder,
     segmentation_head,
     dot_prod_scoring,
-):
+) -> Sam3Image:
     """Create the SAM3 image model."""
     common_params = {
         "backbone": backbone,
@@ -344,10 +344,19 @@ def _load_checkpoint(model, checkpoint_path):
         )
 
 
-def _setup_device_and_mode(model, device, eval_mode):
-    """Setup model device and evaluation mode."""
+def _setup_device_and_mode(
+    model: Sam3Image,
+    device: str, 
+    eval_mode: bool, 
+    dtype: torch.dtype | None = None,
+) -> Sam3Image:
+    """Setup model device, evaluation mode, and dtype."""
     if device == "cuda":
         model = model.cuda()
+    elif device == "xpu":
+        model = model.to("xpu")
+    if dtype is not None:
+        model = model.to(dtype=dtype)
     if eval_mode:
         model.eval()
     return model
@@ -356,6 +365,7 @@ def _setup_device_and_mode(model, device, eval_mode):
 def build_sam3_image_model(
     bpe_path: Path | None = None,
     device: str = "cuda",
+    dtype: torch.dtype | None = None,
     checkpoint_path: Path | None = None,
     load_from_HF: bool = True,
     enable_segmentation: bool = True,
@@ -367,11 +377,11 @@ def build_sam3_image_model(
     Args:
         bpe_path: Path to the BPE tokenizer vocabulary
         device: Device to load the model on ('cuda' or 'cpu')
-        eval_mode: Whether to set the model to evaluation mode
+        dtype: Data type for model parameters (e.g., torch.float16, torch.bfloat16)
         checkpoint_path: Optional path to model checkpoint
         enable_segmentation: Whether to enable segmentation head
         enable_inst_interactivity: Whether to enable instance interactivity (SAM 1 task)
-        compile_mode: To enable compilation, set to "default"
+        compile: To enable compilation, set to True
 
     Returns:
         A SAM3 image model
@@ -422,7 +432,7 @@ def build_sam3_image_model(
         _load_checkpoint(model, checkpoint_path)
 
     # Setup device and mode
-    model = _setup_device_and_mode(model, device, eval_mode=True)
+    model = _setup_device_and_mode(model, device, eval_mode=True, dtype=dtype)
 
     return model
 
