@@ -16,6 +16,7 @@ import {
 } from '@geti/ui';
 
 import { FrameThumbnail } from './frame-thumbnail.component';
+import { fulfillWithEmptyFrames } from './utils';
 
 import styles from './frames-list.module.scss';
 
@@ -34,27 +35,6 @@ const LAYOUT_OPTIONS = {
     // number of items to render before and after the visible area
     overscan: 5,
 } satisfies HorizontalLayoutOptions;
-
-const fulfillWithEmptyFrames = (frames: FrameType[]): FrameType[] => {
-    if (frames.length === 0) {
-        return frames;
-    }
-
-    if (frames[0].index === 0) {
-        return frames;
-    }
-
-    const emptyFrames: FrameType[] = [];
-
-    for (let i = 0; i < frames[0].index; i++) {
-        emptyFrames.push({
-            index: i,
-            thumbnail: frames[0].thumbnail,
-        });
-    }
-
-    return [...emptyFrames, ...frames];
-};
 
 const useScrollToActiveFrame = (ref: RefObject<HTMLDivElement | null>, activeFrameIndex: number) => {
     useLayoutEffect(() => {
