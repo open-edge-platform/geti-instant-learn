@@ -8,17 +8,17 @@ from domain.services.schemas.writer import WriterConfig
 
 
 class SinkCreateSchema(BaseIDPayload):
-    connected: bool
+    active: bool
     config: WriterConfig
 
 
 class SinkUpdateSchema(BaseModel):
-    connected: bool
+    active: bool
     config: WriterConfig
 
 
 class SinkSchema(BaseIDSchema):
-    connected: bool
+    active: bool
     config: WriterConfig
 
 

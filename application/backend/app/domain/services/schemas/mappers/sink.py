@@ -15,7 +15,7 @@ def sink_db_to_schema(sink: SinkDB) -> SinkSchema:
     """
     return SinkSchema(
         id=sink.id,
-        connected=sink.connected,
+        active=sink.active,
         config=sink.config,
     )
 
@@ -34,6 +34,6 @@ def sink_schema_to_db(schema: SinkCreateSchema, project_id: UUID) -> SinkDB:
     return SinkDB(
         id=schema.id,
         config=schema.config.model_dump(),
-        connected=schema.connected,
+        active=schema.active,
         project_id=project_id,
     )

@@ -96,7 +96,7 @@ def upgrade() -> None:
     )
 
     op.create_table('Sink',
-    sa.Column('connected', sa.Boolean(), nullable=False),
+    sa.Column('active', sa.Boolean(), nullable=False),
     sa.Column('config', sqlite.JSON(), nullable=False),
     sa.Column('project_id', sa.Uuid(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
@@ -117,11 +117,11 @@ def upgrade() -> None:
         )
     )
     op.create_index(
-        UniqueConstraintName.SINGLE_CONNECTED_SINK_PER_PROJECT,
+        UniqueConstraintName.SINGLE_ACTIVE_SINK_PER_PROJECT,
         'Sink',
-        ['project_id', 'connected'],
+        ['project_id', 'active'],
         unique=True,
-        sqlite_where=sa.text('connected IS 1')
+        sqlite_where=sa.text('active IS 1')
     )
 
     op.create_table('Source',
@@ -184,7 +184,7 @@ def downgrade() -> None:
     op.drop_table('Source')
     op.execute(sa.DDL(f"DROP INDEX IF EXISTS {UniqueConstraintName.SINK_NAME_PER_PROJECT}"))
     op.execute(sa.DDL(f"DROP INDEX IF EXISTS {UniqueConstraintName.SINK_TYPE_PER_PROJECT}"))
-    op.drop_index(UniqueConstraintName.SINGLE_CONNECTED_SINK_PER_PROJECT, table_name='Sink')
+    op.drop_index(UniqueConstraintName.SINGLE_ACTIVE_SINK_PER_PROJECT, table_name='Sink')
     op.drop_table('Sink')
     op.drop_index(UniqueConstraintName.SINGLE_TEXT_PROMPT_PER_PROJECT, table_name='Prompt')
     op.drop_index(UniqueConstraintName.UNIQUE_FRAME_ID_PER_PROMPT, table_name='Prompt')

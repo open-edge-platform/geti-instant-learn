@@ -63,9 +63,9 @@ class SinkRepository(BaseRepository):
         logger.debug(f"Deleting sink id={sink.id} project_id={sink.project_id}")
         self.session.delete(sink)
 
-    def get_connected_in_project(self, project_id: UUID) -> SinkDB | None:
+    def get_active_in_project(self, project_id: UUID) -> SinkDB | None:
         """
-        Retrieve the connected sink in a project (if any).
+        Retrieve the active sink in a project (if any).
         """
-        stmt = select(SinkDB).where(SinkDB.project_id == project_id, SinkDB.connected.is_(True))
+        stmt = select(SinkDB).where(SinkDB.project_id == project_id, SinkDB.active.is_(True))
         return self.session.scalars(stmt).first()

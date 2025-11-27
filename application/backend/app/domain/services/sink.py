@@ -119,11 +119,11 @@ class SinkService:
             f"project_id={project_id} "
             f"sink_type={sink_type} "
             f"name={sink_name} "
-            f"connected={create_data.connected}"
+            f"active={create_data.active}"
         )
 
-        if create_data.connected:
-            self._disconnect_existing_connected_sink(project_id=project_id)
+        if create_data.active:
+            self._disconnect_existing_active_sink(project_id=project_id)
 
         new_sink: SinkDB = sink_schema_to_db(schema=create_data, project_id=project_id)
         self.sink_repository.add(new_sink)
@@ -141,7 +141,7 @@ class SinkService:
             f"sink_id={new_sink.id} "
             f"project_id={project_id} "
             f"sink_type={new_sink.config.get('sink_type')} "
-            f"connected={new_sink.connected} "
+            f"active={new_sink.active} "
             f"config={new_sink.config}"
         )
         self._emit_component_change(project_id=project_id, sink_id=new_sink.id)
@@ -189,10 +189,10 @@ class SinkService:
                 resource_id=str(sink_id),
                 field="sink_type",
             )
-        if update_data.connected and not sink.connected:
-            self._disconnect_existing_connected_sink(project_id=project_id)
+        if update_data.active and not sink.active:
+            self._disconnect_existing_active_sink(project_id=project_id)
 
-        sink.connected = update_data.connected
+        sink.active = update_data.active
         sink.config = update_data.config.model_dump()
 
         try:
@@ -208,7 +208,7 @@ class SinkService:
             f"sink_id={sink_id} "
             f"project_id={project_id} "
             f"sink_type={existing_type} "
-            f"connected={sink.connected} "
+            f"active={sink.active} "
             f"config={sink.config}"
         )
         self._emit_component_change(project_id=project_id, sink_id=sink.id)
@@ -254,17 +254,17 @@ class SinkService:
             raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
         return project
 
-    def _disconnect_existing_connected_sink(self, project_id: UUID) -> None:
+    def _disconnect_existing_active_sink(self, project_id: UUID) -> None:
         """
-        Disconnect any currently connected sink in the project.
+        Disconnect any currently active sink in the project.
 
         Args:
             project_id: UUID of the project.
         """
-        connected_sink = self.sink_repository.get_connected_in_project(project_id)
-        if connected_sink:
-            logger.info(f"Disconnecting previously connected sink: sink_id={connected_sink.id} project_id={project_id}")
-            connected_sink.connected = False
+        active_sink = self.sink_repository.get_active_in_project(project_id)
+        if active_sink:
+            logger.info(f"Disconnecting previously active sink: sink_id={active_sink.id} project_id={project_id}")
+            active_sink.active = False
 
     def _emit_component_change(self, project_id: UUID, sink_id: UUID) -> None:
         """
@@ -340,11 +340,11 @@ class SinkService:
                     if sink_type
                     else "A sink of this type already exists in this project.",
                 )
-            if constraint_name == UniqueConstraintName.SINGLE_CONNECTED_SINK_PER_PROJECT or "connected" in error_msg:
+            if constraint_name == UniqueConstraintName.SINGLE_ACTIVE_SINK_PER_PROJECT or "active" in error_msg:
                 raise ResourceAlreadyExistsError(
                     resource_type=ResourceType.SINK,
-                    field="connected",
-                    message="Only one sink can be connected per project at a time. "
+                    field="active",
+                    message="Only one sink can be active per project at a time. "
                     "Please disconnect the current sink first.",
                 )
 

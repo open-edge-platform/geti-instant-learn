@@ -94,7 +94,7 @@ def mock_sink(sink_id, project_id):
     sink = Mock(spec=SinkDB)
     sink.id = sink_id
     sink.project_id = project_id
-    sink.connected = False
+    sink.active = False
     sink.config = {"sink_type": WriterType.MQTT, "broker_host": "localhost"}
     return sink
 
@@ -109,7 +109,7 @@ def sink_create_data():
 
     schema = Mock(spec=SinkCreateSchema)
     schema.id = uuid4()
-    schema.connected = False
+    schema.active = False
     schema.config = config_mock
     return schema
 
@@ -124,7 +124,7 @@ def sink_update_data():
 
     schema = Mock(spec=SinkUpdateSchema)
     schema.id = uuid4()
-    schema.connected = False
+    schema.active = False
     schema.config = config_mock
     return schema
 
@@ -241,7 +241,7 @@ class TestCreateSink:
         new_sink = Mock(spec=SinkDB)
         new_sink.id = uuid4()
         new_sink.config = {"sink_type": WriterType.MQTT}
-        new_sink.connected = False
+        new_sink.active = False
         mock_sink_repository.add.return_value = None
         mock_session.refresh.side_effect = lambda x: setattr(x, "id", new_sink.id)
 
@@ -264,21 +264,21 @@ class TestCreateSink:
         mock_project,
         sink_create_data,
     ):
-        """Test creating a connected sink disconnects existing connected sink."""
+        """Test creating a active sink disconnects existing active sink."""
         # Arrange
-        sink_create_data.connected = True
+        sink_create_data.active = True
         mock_project_repository.get_by_id.return_value = mock_project
         existing_connected_sink = Mock(spec=SinkDB)
-        existing_connected_sink.connected = True
+        existing_connected_sink.active = True
         existing_connected_sink.id = uuid4()
-        mock_sink_repository.get_connected_in_project.return_value = existing_connected_sink
+        mock_sink_repository.get_active_in_project.return_value = existing_connected_sink
 
         # Act
         sink_service.create_sink(project_id, sink_create_data)
 
         # Assert
-        assert existing_connected_sink.connected is False
-        mock_sink_repository.get_connected_in_project.assert_called_once_with(project_id)
+        assert existing_connected_sink.active is False
+        mock_sink_repository.get_active_in_project.assert_called_once_with(project_id)
 
     def test_create_sink_project_not_found(self, sink_service, mock_project_repository, project_id, sink_create_data):
         """Test creating a sink when project doesn't exist."""
@@ -340,7 +340,7 @@ class TestCreateSink:
         assert exc_info.value.resource_type == ResourceType.SINK
         assert exc_info.value.field == "sink_type"
 
-    def test_create_sink_multiple_connected(
+    def test_create_sink_multiple_active(
         self,
         sink_service,
         mock_project_repository,
@@ -350,20 +350,20 @@ class TestCreateSink:
         mock_project,
         sink_create_data,
     ):
-        """Test creating a second connected sink violates constraint."""
+        """Test creating a second active sink violates constraint."""
         # Arrange
-        sink_create_data.connected = True
+        sink_create_data.active = True
         mock_project_repository.get_by_id.return_value = mock_project
-        mock_sink_repository.get_connected_in_project.return_value = None
+        mock_sink_repository.get_active_in_project.return_value = None
         mock_session.commit.side_effect = IntegrityError(
-            "statement", "params", orig=Exception("unique constraint uq_single_connected_sink_per_project")
+            "statement", "params", orig=Exception("unique constraint uq_single_active_sink_per_project")
         )
 
         # Act & Assert
         with pytest.raises(ResourceAlreadyExistsError) as exc_info:
             sink_service.create_sink(project_id, sink_create_data)
 
-        assert exc_info.value.field == "connected"
+        assert exc_info.value.field == "active"
 
     def test_create_sink_foreign_key_violation(
         self,
@@ -429,24 +429,24 @@ class TestUpdateSink:
         mock_sink,
         sink_update_data,
     ):
-        """Test updating sink to connected disconnects other connected sink."""
+        """Test updating sink to active disconnects other active sink."""
         # Arrange
-        sink_update_data.connected = True
-        mock_sink.connected = False
+        sink_update_data.active = True
+        mock_sink.active = False
         mock_project_repository.get_by_id.return_value = mock_project
         mock_sink_repository.get_by_id_and_project.return_value = mock_sink
 
         existing_connected = Mock(spec=SinkDB)
-        existing_connected.connected = True
+        existing_connected.active = True
         existing_connected.id = uuid4()
-        mock_sink_repository.get_connected_in_project.return_value = existing_connected
+        mock_sink_repository.get_active_in_project.return_value = existing_connected
 
         # Act
         sink_service.update_sink(project_id, sink_id, sink_update_data)
 
         # Assert
-        assert existing_connected.connected is False
-        assert mock_sink.connected is True
+        assert existing_connected.active is False
+        assert mock_sink.active is True
 
     def test_update_sink_not_found(
         self,
@@ -715,11 +715,11 @@ class TestEdgeCases:
         assert "Database constraint violation" in str(exc_info.value)
 
     def test_disconnect_when_no_connected_sink(self, sink_service, mock_sink_repository, project_id):
-        """Test disconnecting when there's no currently connected sink."""
+        """Test disconnecting when there's no currently active sink."""
         # Arrange
-        mock_sink_repository.get_connected_in_project.return_value = None
+        mock_sink_repository.get_active_in_project.return_value = None
 
         # Act & Assert - should not raise
-        sink_service._disconnect_existing_connected_sink(project_id)
+        sink_service._disconnect_existing_active_sink(project_id)
 
-        mock_sink_repository.get_connected_in_project.assert_called_once_with(project_id)
+        mock_sink_repository.get_active_in_project.assert_called_once_with(project_id)

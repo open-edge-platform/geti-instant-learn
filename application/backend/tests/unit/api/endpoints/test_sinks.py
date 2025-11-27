@@ -52,11 +52,11 @@ def client(app):
 
 def make_sink_schema(
     sink_id: UUID,
-    connected: bool = False,
+    active: bool = False,
 ) -> SinkSchema:
     return SinkSchema(
         id=sink_id,
-        connected=connected,
+        active=active,
         config=MqttConfig(sink_type=WriterType.MQTT),
     )
 
@@ -80,8 +80,8 @@ def test_get_sinks(client, behavior, expected_status, expected_len):
             if behavior == "some":
                 return SinksListSchema(
                     sinks=[
-                        make_sink_schema(sink_id=SINK_ID_1, connected=True),
-                        make_sink_schema(sink_id=SINK_ID_2, connected=False),
+                        make_sink_schema(sink_id=SINK_ID_1, active=True),
+                        make_sink_schema(sink_id=SINK_ID_2, active=False),
                     ]
                 )
             if behavior == "notfound":
@@ -128,7 +128,7 @@ def test_create_sink(client, behavior, expected_status):
             assert project_id == PROJECT_ID
             assert create_data.config.sink_type == WriterType.MQTT
             if behavior == "success":
-                return make_sink_schema(sink_id=CREATED_ID, connected=create_data.connected)
+                return make_sink_schema(sink_id=CREATED_ID, active=create_data.active)
             if behavior == "conflict_type":
                 raise ResourceAlreadyExistsError(
                     resource_type=ResourceType.SINK,
@@ -139,9 +139,9 @@ def test_create_sink(client, behavior, expected_status):
             if behavior == "conflict_connected":
                 raise ResourceAlreadyExistsError(
                     resource_type=ResourceType.SINK,
-                    resource_value="connected",
-                    field="connected",
-                    message="Only one sink can be connected per project at a time.",
+                    resource_value="active",
+                    field="active",
+                    message="Only one sink can be active per project at a time.",
                 )
             if behavior == "notfound":
                 raise ResourceNotFoundError(ResourceType.PROJECT, str(project_id))
@@ -153,7 +153,7 @@ def test_create_sink(client, behavior, expected_status):
 
     payload = {
         "id": str(CREATED_ID),
-        "connected": True,
+        "active": True,
         "config": {"sink_type": "mqtt"},
     }
     resp = client.post(f"/api/v1/projects/{PROJECT_ID}/sinks", json=payload)
@@ -161,7 +161,7 @@ def test_create_sink(client, behavior, expected_status):
     if behavior == "success":
         data = resp.json()
         assert data["id"] == str(CREATED_ID)
-        assert data["connected"] is True
+        assert data["active"] is True
         assert data["config"]["sink_type"] == WriterType.MQTT
     else:
         assert "detail" in resp.json()
@@ -186,7 +186,7 @@ def test_update_sink(client, behavior, expected_status):
             assert sink_id == SINK_ID_1
             assert update_data.config.sink_type == WriterType.MQTT
             if behavior == "success":
-                return make_sink_schema(sink_id=sink_id, connected=update_data.connected)
+                return make_sink_schema(sink_id=sink_id, active=update_data.active)
             if behavior == "conflict":
                 raise ResourceUpdateConflictError(
                     resource_type=ResourceType.SINK,
@@ -203,7 +203,7 @@ def test_update_sink(client, behavior, expected_status):
     client.app.dependency_overrides[get_sink_service] = lambda: FakeService(None, None)
 
     payload = {
-        "connected": False,
+        "active": False,
         "config": {"sink_type": "mqtt"},
     }
     resp = client.put(f"/api/v1/projects/{PROJECT_ID}/sinks/{SINK_ID_1}", json=payload)
