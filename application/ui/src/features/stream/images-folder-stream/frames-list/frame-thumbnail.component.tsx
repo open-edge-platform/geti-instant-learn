@@ -5,9 +5,10 @@
 
 import { RefObject, useCallback, useLayoutEffect, useRef } from 'react';
 
-import type { FrameType } from '@geti-prompt/api';
-import { DOMRefValue, View } from '@geti/ui';
+import { DOMRefValue, Loading, View } from '@geti/ui';
 import { clsx } from 'clsx';
+
+import { type FrameType } from '../api/interface';
 
 import styles from './frames-list.module.scss';
 
@@ -66,6 +67,10 @@ const useObserveThumbnail = (rootRef: RefObject<HTMLDivElement | null>, onInters
     return handleRef;
 };
 
+const FrameThumbnailPlaceholder = () => {
+    return <Loading mode={'inline'} size={'S'} UNSAFE_style={{ height: '100%', width: '100%' }} />;
+};
+
 export const FrameThumbnail = ({ frame, isSelected, onIntersect, rootRef }: FrameThumbnailProps) => {
     const ref = useObserveThumbnail(rootRef, onIntersect);
 
@@ -86,7 +91,11 @@ export const FrameThumbnail = ({ frame, isSelected, onIntersect, rootRef }: Fram
                 height={'100%'}
                 width={'100%'}
             >
-                <img alt={'Frame'} src={frame.thumbnail} className={styles.frameImg} />
+                {frame.thumbnail === null ? (
+                    <FrameThumbnailPlaceholder />
+                ) : (
+                    <img alt={'Frame'} src={frame.thumbnail} className={styles.frameImg} />
+                )}
             </View>
         </View>
     );

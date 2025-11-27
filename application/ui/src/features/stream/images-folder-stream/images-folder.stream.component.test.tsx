@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { FrameType } from '@geti-prompt/api';
+import { FrameAPIType } from '@geti-prompt/api';
 import { render } from '@geti-prompt/test-utils';
 import { fireEvent, screen, waitForElementToBeRemoved } from '@testing-library/react';
 import { HttpResponse } from 'msw';
@@ -15,7 +15,7 @@ import { http, server } from '../../../setup-test';
 import { WebRTCConnectionProvider } from '../web-rtc/web-rtc-connection-provider';
 import { ImagesFolderStream } from './images-folder-stream.component';
 
-const getMockedFrame = (frame: Partial<FrameType> = {}): FrameType => {
+const getMockedFrame = (frame: Partial<FrameAPIType> = {}): FrameAPIType => {
     return {
         index: 0,
         thumbnail: '',

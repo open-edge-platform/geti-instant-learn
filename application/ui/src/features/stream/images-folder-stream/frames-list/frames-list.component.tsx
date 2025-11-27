@@ -5,7 +5,7 @@
 
 import { RefObject, useLayoutEffect, useMemo } from 'react';
 
-import { type FrameType } from '@geti-prompt/api';
+import { type FrameAPIType } from '@geti-prompt/api';
 import {
     AriaComponentsListBox,
     HorizontalLayout,
@@ -23,7 +23,7 @@ import styles from './frames-list.module.scss';
 interface FramesListProps {
     activeFrameIndex: number;
     onSetActiveFrame: (index: number) => void;
-    frames: FrameType[];
+    frames: FrameAPIType[];
     ref: RefObject<HTMLDivElement | null>;
     fetchNextPage: () => void;
     fetchPreviousPage: () => void;

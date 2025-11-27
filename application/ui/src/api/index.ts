@@ -39,6 +39,6 @@ export {
     type SchemaVisualPromptSchema as VisualPromptType,
     type SchemaPromptsListSchema as VisualPromptListType,
     type SchemaVisualPromptListItemSchema as VisualPromptItemType,
-    type SchemaFrameMetadata as FrameType,
+    type SchemaFrameMetadata as FrameAPIType,
     type SchemaFrameListResponse as FramesResponseType,
 } from './openapi-spec';

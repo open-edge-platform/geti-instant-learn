@@ -5,7 +5,7 @@
 
 import { useRef } from 'react';
 
-import { FrameType } from '@geti-prompt/api';
+import { FrameAPIType } from '@geti-prompt/api';
 import { useEventListener } from '@geti-prompt/hooks';
 import { ActionButton, dimensionValue, Grid, minmax, View } from '@geti/ui';
 import { ChevronLeft, ChevronRight } from '@geti/ui/icons';
@@ -26,7 +26,7 @@ const useActiveFrameSelection = ({
 }: {
     sourceId: string;
     activeFrameIdx: number;
-    frames: FrameType[];
+    frames: FrameAPIType[];
 }) => {
     const activateFrameMutation = useActivateFrame();
     const framesRef = useRef<HTMLDivElement>(null);
