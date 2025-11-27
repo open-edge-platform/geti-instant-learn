@@ -5,19 +5,33 @@
 
 import { Button, Flex, Heading, Text, View } from '@geti/ui';
 
+import TestDatasetImg from '../../../../assets/coffee-berries-placeholder.webp';
 import { useCreateSource } from '../api/use-create-source';
 
 import styles from './test-dataset.module.scss';
 
 interface TestDatasetProps {
-    title: string;
-    description: string;
     folderPath: string;
-    imgSrc: string;
     onSaved: () => void;
 }
 
-export const TestDataset = ({ title, description, folderPath, imgSrc, onSaved }: TestDatasetProps) => {
+export const TestDatasetTitle = () => {
+    return (
+        <Heading margin={0} UNSAFE_className={styles.title}>
+            Coffee Bean Quality Dataset
+        </Heading>
+    );
+};
+
+export const TestDatasetDescription = () => {
+    return (
+        <Text UNSAFE_className={styles.description}>
+            This dataset contains information about the quality of coffee beans.
+        </Text>
+    );
+};
+
+export const TestDataset = ({ folderPath, onSaved }: TestDatasetProps) => {
     const createTestDataset = useCreateSource();
 
     const handleCreateTestDataset = () => {
@@ -36,14 +50,12 @@ export const TestDataset = ({ title, description, folderPath, imgSrc, onSaved }:
     return (
         <View borderRadius={'small'}>
             <View>
-                <img src={imgSrc} alt={title} className={styles.img} />
+                <img src={TestDatasetImg} alt={'Coffee Bean Quality Dataset'} className={styles.img} />
             </View>
             <View padding={'size-200'} backgroundColor={'gray-200'}>
                 <Flex direction={'column'} gap={'size-200'}>
-                    <Heading margin={0} UNSAFE_className={styles.title}>
-                        {title}
-                    </Heading>
-                    <Text UNSAFE_className={styles.description}>{description}</Text>
+                    <TestDatasetTitle />
+                    <TestDatasetDescription />
                     <Flex>
                         <Button
                             isPending={createTestDataset.isPending}

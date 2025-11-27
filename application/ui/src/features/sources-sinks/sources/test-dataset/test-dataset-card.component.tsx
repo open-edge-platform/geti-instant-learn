@@ -4,9 +4,12 @@
  */
 
 import { ImagesFolderSourceType } from '@geti-prompt/api';
+import { Flex, View } from '@geti/ui';
 import { Datasets } from '@geti/ui/icons';
 
+import TestDatasetImg from '../../../../assets/coffee-berries-placeholder.webp';
 import { SourceCard } from '../source-card/source-card.component';
+import { TestDatasetDescription, TestDatasetTitle } from './test-dataset.component';
 
 interface TestDatasetCardProps {
     source: ImagesFolderSourceType;
@@ -15,16 +18,20 @@ interface TestDatasetCardProps {
 }
 
 export const TestDatasetCard = ({ source, onAction, menuItems }: TestDatasetCardProps) => {
-    const parameters = [`Folder path: ${source.config.images_folder_path}`];
     const isActiveSource = source.connected;
 
     return (
-        <SourceCard
-            isActive={isActiveSource}
-            parameters={<SourceCard.Parameters parameters={parameters} />}
-            icon={<Datasets width={'32px'} />}
-            title={'Test dataset'}
-            menu={<SourceCard.Menu isActive={isActiveSource} items={menuItems} onAction={onAction} />}
-        />
+        <SourceCard isActive={isActiveSource} icon={<Datasets width={'32px'} />} title={'Test dataset'}>
+            <Flex direction={'column'} gap={'size-200'}>
+                <img src={TestDatasetImg} alt={'Test dataset'} style={{ display: 'block', width: '100%' }} />
+                <TestDatasetTitle />
+                <Flex>
+                    <TestDatasetDescription />
+                    <View alignSelf={'end'}>
+                        <SourceCard.Menu isActive={isActiveSource} items={menuItems} onAction={onAction} />
+                    </View>
+                </Flex>
+            </Flex>
+        </SourceCard>
     );
 };

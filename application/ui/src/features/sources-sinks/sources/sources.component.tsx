@@ -12,7 +12,6 @@ import { ActionButton, Divider, Flex, Heading, View } from '@geti/ui';
 import { Back, Datasets } from '@geti/ui/icons';
 import { isEmpty } from 'lodash-es';
 
-import TestDatasetImg from '../../../../../backend/backend/.data/templates/datasets/coffee-berries/scene00001.png';
 import { DisclosureGroup } from '../disclosure-group/disclosure-group.component';
 import { EditSource } from './edit-sources/edit-sources.component';
 import { ExistingSources } from './existing-sources/existing-sources.component';
@@ -62,14 +61,8 @@ const SourcesList = ({ onViewChange }: SourcesList) => {
             value: 'images_folder',
             content: (
                 <TestDataset
-                    title={'Coffee Bean Quality Dataset'}
-                    description={
-                        'A ready-to-use collection of coffee bean images—ripe and unripe—for instant inference and ' +
-                        'testing. Select it to experience the pipeline in action right away.'
-                    }
-                    // TODO: update the path once backend supports it
-                    folderPath={'backend/backend/.data/templates/datasets/' + 'coffee-berries'}
-                    imgSrc={TestDatasetImg}
+                    // TODO: Remove the path once backend is ready
+                    folderPath={'/geti-prompt/application/backend/backend/.data/templates/datasets/coffee-berries'}
                     onSaved={() => onViewChange('existing')}
                 />
             ),

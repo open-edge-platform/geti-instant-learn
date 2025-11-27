@@ -33,7 +33,7 @@ const SourceMenu = ({ onAction, isActive, items }: SourceMenuProps) => {
 
 interface SourceCardProps {
     isActive: boolean;
-    parameters: ReactNode;
+    children: ReactNode;
     icon: ReactNode;
     title: string;
     menu?: ReactNode;
@@ -49,7 +49,7 @@ const SourceCardParametersList = ({ parameters }: { parameters: string[] }) => {
     );
 };
 
-export const SourceCard = ({ isActive, parameters, icon, menu, title }: SourceCardProps) => {
+export const SourceCard = ({ isActive, children, icon, menu, title }: SourceCardProps) => {
     return (
         <View padding={'size-250'} UNSAFE_className={isActive ? styles.sourceActive : styles.sourceInactive}>
             <Flex alignItems={'center'} gap={'size-100'}>
@@ -66,7 +66,7 @@ export const SourceCard = ({ isActive, parameters, icon, menu, title }: SourceCa
                 minWidth={0}
                 gap={'size-50'}
             >
-                {parameters}
+                <View flex={1}>{children}</View>
                 <View alignSelf={'end'}>{menu}</View>
             </Flex>
         </View>
