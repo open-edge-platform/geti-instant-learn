@@ -18,6 +18,7 @@ const PROMPT_OPTIONS = ['Edit', 'Delete'] as const;
 interface PromptThumbnailProps {
     prompt: VisualPromptItemType;
 }
+
 export const PromptThumbnail = ({ prompt }: PromptThumbnailProps) => {
     const { projectId } = useProjectIdentifier();
     const { setSelectedFrameId } = useSelectedFrame();
