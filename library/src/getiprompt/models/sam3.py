@@ -3,10 +3,13 @@
 
 """SAM3 model for text and visual prompting."""
 
+from itertools import zip_longest
+
 import numpy as np
 import torch
 from PIL import Image
 from torchvision import tv_tensors
+from torchvision.ops import box_convert
 
 from getiprompt.data.base.batch import Batch
 
@@ -180,8 +183,9 @@ class SAM3(Model):
     def _process_predictions(
         self,
         inference_state: dict,
+        cat_id: int,
         img_size: tuple[int, int],
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Process predictions from inference state.
 
         Args:
@@ -190,12 +194,13 @@ class SAM3(Model):
             apply_threshold: Whether to apply threshold to masks.
 
         Returns:
-            Tuple of (processed_masks, boxes_with_scores).
+            Tuple of (processed_masks, boxes_with_scores, labels).
         """
         # Get predictions from state
         masks = inference_state.get("masks", torch.empty(0, *img_size))
         boxes = inference_state.get("boxes", torch.empty(0, 4))
         scores = inference_state.get("scores", torch.empty(0))
+        labels = torch.full((boxes.shape[0],), cat_id, dtype=torch.long, device=boxes.device)
         # Process masks
         if masks.ndim == 4 and masks.shape[1] == 1:
             masks = masks.squeeze(1)  # [N, 1, H, W] -> [N, H, W]
@@ -203,13 +208,13 @@ class SAM3(Model):
         # Add scores to boxes
         if boxes.numel() > 0 and scores.numel() > 0:
             boxes = torch.cat([boxes, scores.unsqueeze(-1)], dim=-1)  # [N, 4] -> [N, 5]
-        return masks, boxes
+        return masks, boxes, labels
 
     def _aggregate_results(
         self,
         all_masks: list[torch.Tensor],
         all_boxes: list[torch.Tensor],
-        all_labels: list,
+        all_labels: list[torch.Tensor],
         img_size: tuple[int, int],
     ) -> dict[str, torch.Tensor]:
         """Aggregate results from multiple predictions.
@@ -226,139 +231,52 @@ class SAM3(Model):
         if all_masks:
             aggregated_masks = torch.cat(all_masks, dim=0)
             aggregated_boxes = torch.cat(all_boxes, dim=0)
+            aggregated_labels = torch.cat(all_labels, dim=0)
         else:
             # No predictions found
             aggregated_masks = torch.empty(0, *img_size)
             aggregated_boxes = torch.empty(0, 5)
+            aggregated_labels = torch.empty(0, dtype=torch.long)
+
         return {
             "pred_masks": aggregated_masks,
             "pred_boxes": aggregated_boxes,
-            "pred_labels": all_labels,
+            "pred_labels": aggregated_labels,
         }
 
-    def _infer_with_text_prompts(
-        self,
-        categories: list[str],
-        inference_state: dict,
-        img_size: tuple[int, int],
-    ) -> dict[str, torch.Tensor]:
-        all_masks = []
-        all_boxes = []
-        all_labels: list[str] = []
-
-        for category in categories:
-            # Set text prompt for single category
-            inference_state = self.processor.set_text_prompt(
-                state=inference_state,
-                prompt=category,  # Single category only
-            )
-
-            # Process predictions
-            masks, boxes = self._process_predictions(inference_state, img_size)
-
-            # Collect results
-            num_predictions = len(masks) if masks.numel() > 0 else 0
-            if num_predictions > 0:
-                all_masks.append(masks)
-                all_boxes.append(boxes)
-                all_labels.extend([category] * num_predictions)
-            self.processor.reset_all_prompts(inference_state)
-
-        return self._aggregate_results(all_masks, all_boxes, all_labels, img_size)
-
-    def _infer_with_box_prompts(
-        self,
-        bboxes: torch.Tensor | np.ndarray,
-        inference_state: dict,
-        img_size: tuple[int, int],
-    ) -> dict[str, torch.Tensor]:
-        if isinstance(bboxes, np.ndarray):
-            bboxes = torch.from_numpy(bboxes)
-
-        all_masks = []
-        all_boxes = []
-        all_labels: list[int] = []
-        height, width = img_size
-
-        for i, bbox in enumerate(bboxes):
-            # Convert from [x, y, w, h] to [cx, cy, w, h] normalized format
-            x1, y1, x2, y2 = bbox.tolist()
-            cx = (x1 + x2) / 2 / width
-            cy = (y1 + y2) / 2 / height
-            norm_w = (x2 - x1) / width
-            norm_h = (y2 - y1) / height
-
-            norm_box_cxcywh = [cx, cy, norm_w, norm_h]
-            # Add as positive box prompt
-            inference_state = self.processor.add_geometric_prompt(
-                state=inference_state,
-                box=norm_box_cxcywh,
-                label=True,
-            )
-
-            # Process predictions
-            masks, boxes = self._process_predictions(inference_state, img_size)
-
-            # Collect results
-            num_predictions = len(masks) if masks.numel() > 0 else 0
-            if num_predictions > 0:
-                all_masks.append(masks)
-                all_boxes.append(boxes)
-                all_labels.extend([i] * num_predictions)
-            self.processor.reset_all_prompts(inference_state)
-
-        return self._aggregate_results(all_masks, all_boxes, all_labels, img_size)
-
-    def learn(self, reference_batch: Batch) -> None:
-        """SAM3 is a zero-shot model and does NOT actually learn from reference samples."""
+    @staticmethod
+    def normalize_boxes(boxes: torch.Tensor, img_size: tuple[int, int]) -> torch.Tensor:
+        """Normalize boxes from absolute to relative coordinates."""
+        img_h, img_w = img_size
+        boxes = boxes.clone().to(torch.float32)
+        boxes[:, [0, 2]] /= img_w  # x1, x2
+        boxes[:, [1, 3]] /= img_h  # y1, y2
+        return box_convert(boxes, "xyxy", "cxcywh")
 
     def infer(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images."""
         results = []
         with self.autocast_ctx:
             for sample in target_batch.samples:
-                # Convert image to PIL if needed
                 img_size = sample.image.shape[-2:]
+                bboxes = self.normalize_boxes(sample.bboxes, img_size) if sample.bboxes is not None else []
+                texts = sample.categories
+                category_ids = sample.category_ids
                 image = self._prepare_image(sample.image)
                 inference_state = self.processor.set_image(image)
 
-                # Extract text prompts from sample's categories or use dataset categories from learn()
-                has_text_prompts = sample.categories is not None and len(sample.categories) > 0
-                has_box_prompts = sample.bboxes is not None and len(sample.bboxes) > 0
+                all_masks: list[torch.Tensor] = []
+                all_boxes: list[torch.Tensor] = []
+                all_labels: list[torch.Tensor] = []
+                for text, bbox, cat_id in zip_longest(texts, bboxes, category_ids, fillvalue=None):
+                    inference_state = self.processor.set_prompt(inference_state, text=text, box=bbox)
+                    pred_masks, pred_boxes, pred_labels = self._process_predictions(inference_state, cat_id, img_size)
+                    all_masks.append(pred_masks)
+                    all_boxes.append(pred_boxes)
+                    all_labels.append(pred_labels)
+                    self.processor.reset_all_prompts(inference_state)
 
-                # Validate that at least one prompt type is provided
-                if not has_text_prompts and not has_box_prompts:
-                    msg = (
-                        "SAM3 requires at least one prompt type for inference. "
-                        "Please provide either 'categories' (text prompts) or 'bboxes' (visual prompts) in each sample, "
-                    )
-                    raise ValueError(msg)
-
-                if has_text_prompts and has_box_prompts:
-                    msg = (
-                        "SAM3 does not support both text and box prompts at the same time. "
-                        "Please provide either 'categories' (text prompts) or 'bboxes' (visual prompts) in each sample, "
-                    )
-                    raise ValueError(msg)
-
-                if has_text_prompts:
-                    pred_result = self._infer_with_text_prompts(
-                        categories=sample.categories,
-                        inference_state=inference_state,
-                        img_size=img_size,
-                    )
-                elif has_box_prompts:
-                    pred_result = self._infer_with_box_prompts(
-                        bboxes=sample.bboxes,
-                        inference_state=inference_state,
-                        img_size=img_size,
-                    )
-                else:
-                    # Should never reach here due to validation above
-                    pred_result = {
-                        "pred_masks": torch.empty(0, *img_size),
-                        "pred_boxes": torch.empty(0, 5),
-                    }
+                pred_result = self._aggregate_results(all_masks, all_boxes, all_labels, img_size)
                 self.processor.reset_all_prompts(inference_state)
                 results.append(pred_result)
 

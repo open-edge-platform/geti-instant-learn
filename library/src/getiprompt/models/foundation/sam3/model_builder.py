@@ -346,8 +346,8 @@ def _load_checkpoint(model, checkpoint_path):
 
 def _setup_device_and_mode(
     model: Sam3Image,
-    device: str, 
-    eval_mode: bool, 
+    device: str,
+    eval_mode: bool,
     dtype: torch.dtype | None = None,
 ) -> Sam3Image:
     """Setup model device, evaluation mode, and dtype."""
