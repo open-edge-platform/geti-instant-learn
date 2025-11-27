@@ -6,7 +6,9 @@
 import { useState } from 'react';
 
 import { ImagesFolderSourceType } from '@geti-prompt/api';
+import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Flex } from '@geti/ui';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useUpdateSource } from '../api/use-update-source';
 import { EditSourceButtons } from '../edit-sources/edit-source-buttons.component';
@@ -18,10 +20,68 @@ interface EditImagesFolderProps {
     onSaved: () => void;
 }
 
+const useUpdateImagesFolderSource = (sourceId: string) => {
+    const updateSource = useUpdateSource();
+    const queryClient = useQueryClient();
+    const { projectId } = useProjectIdentifier();
+
+    const updateImagesFolderSource = (
+        { folderPath, connected }: { folderPath: string; connected: boolean },
+        onSuccess: () => void
+    ) => {
+        updateSource.mutate(
+            sourceId,
+            {
+                config: {
+                    source_type: 'images_folder',
+                    seekable: true,
+                    images_folder_path: folderPath,
+                },
+                connected,
+            },
+            () => {
+                const params = {
+                    path: {
+                        project_id: projectId,
+                        source_id: sourceId,
+                    },
+                };
+
+                queryClient.invalidateQueries({
+                    queryKey: [
+                        'get',
+                        '/api/v1/projects/{project_id}/sources/{source_id}/frames',
+                        {
+                            params,
+                        },
+                    ],
+                });
+
+                queryClient.invalidateQueries({
+                    queryKey: [
+                        'get',
+                        '/api/v1/projects/{project_id}/sources/{source_id}/frames/index',
+                        {
+                            params,
+                        },
+                    ],
+                });
+
+                onSuccess();
+            }
+        );
+    };
+
+    return {
+        mutate: updateImagesFolderSource,
+        isPending: updateSource.isPending,
+    };
+};
+
 export const EditImagesFolder = ({ source, onSaved }: EditImagesFolderProps) => {
     const [folderPath, setFolderPath] = useState<string>(source.config.images_folder_path);
 
-    const updateImagesFolderSource = useUpdateSource();
+    const updateImagesFolderSource = useUpdateImagesFolderSource(source.id);
     const isActiveSource = source.connected;
 
     const isButtonDisabled =
@@ -30,18 +90,7 @@ export const EditImagesFolder = ({ source, onSaved }: EditImagesFolderProps) => 
         updateImagesFolderSource.isPending;
 
     const handleUpdateImagesFolder = (connected: boolean) => {
-        updateImagesFolderSource.mutate(
-            source.id,
-            {
-                config: {
-                    source_type: 'images_folder',
-                    images_folder_path: folderPath,
-                    seekable: true,
-                },
-                connected,
-            },
-            onSaved
-        );
+        updateImagesFolderSource.mutate({ folderPath, connected }, onSaved);
     };
 
     const handleSave = () => {

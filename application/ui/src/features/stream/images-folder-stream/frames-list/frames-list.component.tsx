@@ -47,7 +47,7 @@ const useScrollToActiveFrame = (ref: RefObject<HTMLDivElement | null>, activeFra
 
             const isActiveFrameVisible =
                 ref.current.scrollLeft <= activeFrameIndexPosition &&
-                activeFrameIndexPosition + itemWidth < ref.current.scrollLeft + ref.current.clientWidth;
+                activeFrameIndexPosition < ref.current.scrollLeft + ref.current.clientWidth;
 
             if (isActiveFrameVisible) {
                 return;
@@ -57,8 +57,7 @@ const useScrollToActiveFrame = (ref: RefObject<HTMLDivElement | null>, activeFra
         }, 100);
 
         // Delay to allow Virtualizer to render items and then scroll to the active frame
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [ref, activeFrameIndex]);
 };
 
 const OFFSET_TO_FETCH_NEW_PAGE = 4;
