@@ -128,6 +128,36 @@ class Sam3Processor:
 
         return self._forward_grounding(state)
 
+    @torch.inference_mode()
+    def set_prompt(
+        self,
+        state: dict,
+        text: str | None = None,
+        box: list | None = None,
+        label: bool | None = None,
+    ) -> dict:
+        """Sets the prompt (text and/or box) and run the inference"""
+        if "backbone_out" not in state:
+            raise ValueError("You must call set_image before set_prompt")
+
+        if text is not None:
+            text_outputs = self.model.backbone.forward_text([text], device=self.device)
+            # will erase the previous text prompt if any
+        else:
+            text_outputs = self.model.backbone.forward_text(["visual"], device=self.device)
+        state["backbone_out"].update(text_outputs)
+
+        if "geometric_prompt" not in state:
+            state["geometric_prompt"] = self.model._get_dummy_prompt()
+
+        if box is not None and label is not None:
+            # adding a batch and sequence dimension
+            boxes = torch.tensor(box, device=self.device, dtype=torch.float32).view(1, 1, 4)
+            labels = torch.tensor([label], device=self.device, dtype=torch.bool).view(1, 1)
+            state["geometric_prompt"].append_boxes(boxes, labels)
+
+        return self._forward_grounding(state)
+
     def reset_all_prompts(self, state: dict) -> None:
         """Removes all the prompts and results"""
         if "backbone_out" in state:
