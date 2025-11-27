@@ -68,7 +68,7 @@ download-dataset: check-proxy
     echo "Downloading default dataset from {{ coffee-berries-dataset }}"
     if ! wget -q --show-progress {{ coffee-berries-dataset }}; then
         echo "Error: Failed to download dataset from {{ coffee-berries-dataset }}"
-        exit 1
+        exit 0  # proceed without dataset
     fi
     echo "Unpacking default dataset to {{ source-dataset-dir }}"
     unzip -j -q -o Frames.zip -d {{ source-dataset-dir }}
