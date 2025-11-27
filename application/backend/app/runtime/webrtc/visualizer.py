@@ -42,6 +42,7 @@ class InferenceVisualizer:
             If visualization is disabled, returns the input frame unchanged.
         """
         if not self._enabled or not results:
+            logger.info("NO RESULTS TO VISUALIZE")
             return frame
 
         annotated = frame.copy()
@@ -65,7 +66,7 @@ class InferenceVisualizer:
         frame: np.ndarray,
         masks: torch.Tensor,
         labels: torch.Tensor | None,
-        label_colors: dict[str, tuple[int, int, int]],
+        label_colors: dict[str, tuple[int, int, int]] | None,
     ) -> np.ndarray:
         """
         Draw segmentation masks on the frame.
@@ -82,41 +83,33 @@ class InferenceVisualizer:
 
         # Convert to numpy and ensure correct shape
         masks_np = masks.detach().cpu().numpy()
-        labels_np = labels.detach().cpu().numpy() if labels is not None else None
+        # labels_np = labels.detach().cpu().numpy() if labels is not None else None
 
-        for i in range(masks_np.shape[0]):
-            mask_2d = masks_np[i]
+        overlay = frame.copy()
 
-            # Ensure 2D binary mask
-            while mask_2d.ndim > 2:
-                mask_2d = mask_2d.squeeze(0)
+        for idx, mask in enumerate(masks_np):
+            # Get label for this mask
+            label_id = labels[idx].item() if idx < len(labels) else None
 
-            if mask_2d.ndim != 2:
-                logger.warning("Skipping mask %d: unexpected shape %s", i, mask_2d.shape)
-                continue
+            # Get color - use default if label_colors is None or label not found
+            if label_colors and label_id is not None:
+                color = label_colors.get(label_id)
+            else:
+                color = None
 
-            # Convert to binary uint8
-            binary_mask = (mask_2d > 0.5).astype(np.uint8)
-
-            # Find contours
-            contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-            # Get color from label_id or fallback
-            label_id = str(labels_np[i]) if labels_np is not None and i < len(labels_np) else None
-            color = label_colors.get(label_id) if label_id else None
             if color is None:
-                logger.info("GENERATING MASK color for mask %d", i)
-                color = self._generate_color(i)
+                # Generate a deterministic color based on index if no color is provided
+                np.random.seed(idx)
+                color = tuple(np.random.randint(0, 255, 3).tolist())
 
-            # Draw filled mask with transparency
-            overlay = frame.copy()
-            cv2.drawContours(overlay, contours, -1, color, thickness=cv2.FILLED)
-            frame = cv2.addWeighted(frame, 0.7, overlay, 0.3, 0)
+            # Apply mask overlay
+            mask_bool = mask.astype(bool)
+            overlay[mask_bool] = (
+                    overlay[mask_bool] * (1 - 0.5) + np.array(color) * 0.5
+            ).astype(np.uint8)
 
-            # Draw contour outline
-            cv2.drawContours(frame, contours, -1, color, thickness=2)
+        return overlay
 
-        return frame
 
     def _draw_boxes(
         self,

@@ -3,8 +3,10 @@ import numpy as np
 import torch
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.base import Model
-
+import logging
 from runtime.core.components.base import ModelHandler
+
+logger=logging.getLogger(__name__)
 
 
 class InferenceModelHandler(ModelHandler):
@@ -20,7 +22,10 @@ class InferenceModelHandler(ModelHandler):
         self._model.learn(self._reference_batch)
 
     def infer(self, batch: Batch) -> list[dict[str, torch.Tensor]]:
+
+        logger.info("InferenceModelHandler infer called with batch of size %d", len(batch.samples))
         results = self._model.infer(batch)
+
 
         # results = []
         # for sample in batch:
