@@ -7,6 +7,7 @@ import { Source } from '@geti-prompt/api';
 import { useCurrentProject } from '@geti-prompt/hooks';
 import { Button, Flex } from '@geti/ui';
 import { Add as AddIcon } from '@geti/ui/icons';
+import { orderBy } from 'lodash-es';
 
 import { useDeleteSource } from '../api/use-delete-source';
 import { useUpdateSource } from '../api/use-update-source';
@@ -41,6 +42,10 @@ const getMenuItems = ({ isActiveProject, isActiveSource }: { isActiveProject: bo
         }
         return true;
     });
+};
+
+const sortSources = (sources: Source[]): Source[] => {
+    return orderBy(sources, (source) => source.connected, 'desc');
 };
 
 interface ExistingSourcesListProps {
@@ -81,7 +86,7 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
 
     return (
         <Flex direction={'column'} gap={'size-100'}>
-            {sources.map((source) => {
+            {sortSources(sources).map((source) => {
                 const isActiveSource = source.connected;
 
                 if (isWebcamSource(source)) {
