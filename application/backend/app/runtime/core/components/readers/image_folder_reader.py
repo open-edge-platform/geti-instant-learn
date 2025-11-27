@@ -99,7 +99,7 @@ class ImageFolderReader(StreamReader):
         image_files = self._get_image_files(folder_path)
         if not image_files:
             logger.warning(f"No supported image files found in {folder_path}")
-
+        
         self._image_paths = sorted(image_files, key=self._natural_sort_key)
         self._current_index = 0
 
@@ -193,7 +193,7 @@ class ImageFolderReader(StreamReader):
             self._last_image = image
             self._last_image_path = image_path
 
-        time.sleep(0.033)  # a small delay (~30 FPS) to prevent overwhelming consumers
+        # time.sleep(0.033)  # a small delay (~30 FPS) to prevent overwhelming consumers
 
         image_rgb = cv2.cvtColor(self._last_image, cv2.COLOR_BGR2RGB)
 

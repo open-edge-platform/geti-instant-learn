@@ -50,7 +50,7 @@ class InputData:
 class OutputData:
     results: list[dict[str, torch.Tensor]]
     frame: np.ndarray  # frame loaded as numpy array in RGB HWC format (H, W, 3) with dtype=uint8
-    # the rest will be defined later.
+    labels_colors: dict[str, tuple[int, int, int]] | None = None  # mapping from label IDs to RGB color tuples
 
 
 class ProcessorSchema(BaseIDSchema):

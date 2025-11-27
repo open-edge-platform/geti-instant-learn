@@ -130,7 +130,7 @@ class PromptService:
         for prompt in db_prompts:
             if prompt.frame_id:
                 try:
-                    frame = self.frame_repository.get_frame(project_id, prompt.frame_id)
+                    frame = self.frame_repository.read_frame(project_id, prompt.frame_id)
                     if frame is None:
                         logger.warning(
                             "Frame not found for prompt: prompt_id=%s, frame_id=%s, project_id=%s",
@@ -147,9 +147,9 @@ class PromptService:
                     )
                     continue
 
+        logger.info(f"REFERENCE BATCH: Created batch with {len(samples)} samples: {samples}")
         if not samples:
             return None
-
         return Batch.collate(samples)
 
     def get_prompt(self, project_id: UUID, prompt_id: UUID) -> PromptSchema:
