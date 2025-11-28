@@ -1,43 +1,46 @@
-# Geti Prompt - Overview
+# Introduction to the Application
 
-## Introduction
+This documentation covers the **Geti Prompt Application**, a full-stack solution (UI + Backend) that wraps the core library into a deployable, user-friendly platform.
 
-### What is Geti Prompt?
+While the [root README](../../README.md) provides a high-level overview of the entire project, this section focuses specifically on the **Application experience**—how to use the interface to solve real-world computer vision problems without writing code.
 
-Geti Prompt is an open-source Python application designed to empower edge users—from domain experts to developers and data scientists—to build computer vision models efficiently. It streamlines the creation, deployment, and management of configurable zero-shot and few-shot AI pipelines. With flexible deployment options, Geti Prompt can be installed as a desktop application or containerized as a Docker image for edge deployment.
+---
 
-Built on the Geti Apps ecosystem, Geti Prompt utilizes a modular, open-source architecture designed for advanced zero-shot learning. It integrates and optimizes foundation models such as Segment Anything and DINO for Intel hardware, enabling single-click deployment of ready-to-use models on industrial edge devices.
+## Built for Operations and Deployment
 
-![model lifecycle](assets/model-lifecycle.png)
+The Geti Prompt Application is designed for users who need to deploy computer vision solutions in the real world. It wraps the powerful algorithms of the core library into a robust platform focused on **live inference** and **edge integration**.
 
-## How It Works
+*   **Visual Interface**: Interact with state-of-the-art models through a web UI. No Python knowledge required.
+*   **Real-World Data**: Connect directly to IP cameras, USB webcams, and GenICam devices instead of static datasets.
+*   **Actionable Insights**: Stream inference results to external systems (MQTT, REST APIs) to trigger real-world actions.
+*   **Hardware Optimized**: Built-in support for Intel® OpenVINO™ ensures your models run efficiently on industrial edge hardware.
 
-Geti Prompt provides an integrated workflow that seamlessly connects data ingestion with actionable insights:
+## Interactive Workflow
 
-1. **Connect Input** – Connect your data source directly in the UI, whether it's a webcam, IP camera, GenICam, or a folder of images.
+The Application transforms the complex capabilities of foundation models (like SAM 2 and DINOv3) into a simple three-step workflow:
 
-2. **Prompt** – Define what to detect using text descriptions or visual examples captured from your stream.
+### 1. Connect & Visualize
+Instead of dealing with file paths and scripts, you connect directly to live sensors. The application handles the complexity of video decoding, buffering, and stream management, giving you a real-time view of your environment.
 
-3. **Test** – See how your prompts perform in real-time and refine them instantly to improve accuracy.
+### 2. Interactive Prompting
+"Training" a model becomes an interactive conversation with the AI:
+*   **Visual Prompting:** Simply click on an object in the video feed. The app captures that visual signature and tracks it across future frames.
+*   **Text Prompting:** Type what you are looking for (e.g., "safety vest").
+*   **Instant Feedback:** See the results immediately overlaid on the video. If the model makes a mistake, correct it with another click.
 
-4. **Deploy** – Once your model meets performance requirements, deploy the full application as a containerized Docker image for edge devices, or run it directly on your local PC.
+### 3. Deploy & Integrate
+Once your prompts are working, the Application acts as an edge server. It runs continuously, optimized for Intel hardware (using OpenVINO™), and broadcasts the detection results to your other systems (PLCs, Dashboards, or Databases).
 
-5. **Inference** – Route your results to the right place, such as APIs, message queues, or file systems.
+## Architecture at a Glance
 
-6. **Monitor** – Track real-time performance metrics like throughput and latency to ensure smooth operation.
+The Application is built on a modern stack designed for performance and extensibility:
 
-7. **Act** – Trigger automated workflows or alerts in external systems (like Node-RED) based on model detections.
-
-## Documentation Structure
-
-This documentation is organized into the following sections:
-
-- **[Quick Start](./quick-start.md)**: Installation and first steps
-- **[Tutorials](./tutorials/)**: Step-by-step guides for common tasks
-- **[How-to Guides](./how-to-guides/)**: In-depth feature documentation
-- **[Concepts](./concepts/)**: Technical background and architecture
-- **[FAQ](./faq.md)**: Common questions and troubleshooting
+*   **Frontend**: A React-based Single Page Application (SPA) that provides the interactive canvas for video and prompting.
+*   **Backend**: A FastAPI service that manages the model lifecycle, video pipelines, and hardware acceleration.
+*   **Communication**: Uses WebSockets for low-latency video streaming and real-time inference updates.
 
 ## Next Steps
 
-Start with the [Quick Start Guide](./quick-start.md) to install and run the application, or explore the [Tutorials](./tutorials/) for hands-on learning.
+*   **[Quick Start Guide](02-quick-start.md)**: Spin up the application locally or via Docker.
+*   **[Tutorials](tutorials/01-tutorials.md)**: Walk through a complete end-to-end example.
+*   **[Concepts](concepts/01-concepts.md)**: Understand the underlying technology (Pipelines, Sources, Sinks).
