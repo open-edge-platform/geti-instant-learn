@@ -101,4 +101,4 @@ Transform raw inference results into actionable workflows. You can pipe model ou
 
 ## Troubleshooting
 
-For common issues, see the [FAQ](04-faq.md) or the [DEVELOPMENT.md](../DEVELOPMENT.md) file.
+For common issues, see the [FAQ](03-faq.md) or the [Development Guide](concepts/02-development.md).
