@@ -46,17 +46,19 @@ class TestStreamReaderFactory:
         image_file = tmp_path / "test.jpg"
         image_file.touch()
 
-        with patch("domain.services.schemas.reader.get_settings") as mock_settings:
-            mock_settings.return_value.template_dataset_dir = tmp_path
-            config = TemplateDatasetConfig(source_type=SourceType.TEMPLATE_DATASET)
+        config = TemplateDatasetConfig(source_type=SourceType.TEMPLATE_DATASET)
 
-        result = StreamReaderFactory.create(config)
+        with patch("runtime.core.components.factories.reader.get_settings") as mock_settings:
+            mock_settings.return_value.template_dataset_dir = tmp_path
+            mock_settings.return_value.supported_extensions = {".jpg", ".jpeg", ".png"}
+            result = StreamReaderFactory.create(config)
 
         assert isinstance(result, ImageFolderReader)
-        assert result._config == config
+        assert isinstance(result._config, ImagesFolderConfig)
+        assert result._config.images_folder_path == str(tmp_path)
 
 
-class TestFolderConfigValidation:
+class TestImagesFolderConfigValidation:
     @pytest.mark.parametrize(
         "path_setup,error_match",
         [
@@ -79,22 +81,13 @@ class TestFolderConfigValidation:
             ),
         ],
     )
-    @pytest.mark.parametrize(
-        "config_class,source_type",
-        [
-            pytest.param(ImagesFolderConfig, SourceType.IMAGES_FOLDER, id="images_folder"),
-            pytest.param(TemplateDatasetConfig, SourceType.TEMPLATE_DATASET, id="template_dataset"),
-        ],
-    )
-    def test_folder_config_validation_fails(
+    def test_images_folder_config_validation_fails(
         self,
         tmp_path: Path,
         path_setup: Callable[[Path], str],
         error_match: str,
-        config_class: type,
-        source_type: SourceType,
     ) -> None:
         path = path_setup(tmp_path)
 
         with pytest.raises(ValueError, match=error_match):
-            config_class(source_type=source_type, images_folder_path=path)
+            ImagesFolderConfig(source_type=SourceType.IMAGES_FOLDER, images_folder_path=path)
