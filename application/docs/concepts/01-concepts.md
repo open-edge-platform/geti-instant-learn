@@ -19,7 +19,7 @@ Technical background and architectural concepts to help developers and advanced 
 ## Related Documentation
 
 - **[Tutorials](../tutorials/01-tutorials.md)**: Step-by-step guides for common tasks
-- **[How-To Guides](../how-to-guides/01-how-to-guids.md)**: Task-focused guides for specific features
+- **[How-To Guides](../how-to-guides/01-how-to-guides.md)**: Task-focused guides for specific features
 - **[Architecture Guide](02-development.md)**: Original architecture documentation
 - **[Geti Prompt Library](../../../library/docs/01-introduction.md)**: Reusable components and algorithms
 
