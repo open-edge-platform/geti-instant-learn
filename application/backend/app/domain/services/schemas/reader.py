@@ -8,12 +8,14 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field, field_validator
 
 from domain.services.schemas.base import Pagination
+from settings import get_settings
 
 
 class SourceType(StrEnum):
     WEBCAM = "webcam"
     VIDEO_FILE = "video_file"
     IMAGES_FOLDER = "images_folder"
+    TEMPLATE_DATASET = "template_dataset"
 
 
 class WebCamConfig(BaseModel):
@@ -90,7 +92,41 @@ class ImagesFolderConfig(BaseModel):
     }
 
 
-ReaderConfig = Annotated[WebCamConfig | VideoFileConfig | ImagesFolderConfig, Field(discriminator="source_type")]
+class TemplateDatasetConfig(BaseModel):
+    source_type: Literal[SourceType.TEMPLATE_DATASET]
+    images_folder_path: str = Field(default_factory=lambda: str(get_settings().template_dataset_dir))
+    seekable: bool = True
+
+    @field_validator("images_folder_path")
+    @classmethod
+    def validate_images_folder_path(cls, v: str) -> str:
+        """Validate that the folder path exists and is a directory."""
+        path = Path(v)
+        if not path.exists():
+            raise ValueError(f"Images folder does not exist: {v}")
+        if not path.is_dir():
+            raise ValueError(f"Path is not a directory: {v}")
+
+        if next(path.iterdir(), None) is None:
+            raise ValueError(f"Images folder is empty: {v}")
+
+        return v
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "seekable": True,
+                "source_type": "template_dataset",
+                "images_folder_path": "/path/to/images",
+            }
+        }
+    }
+
+
+ReaderConfig = Annotated[
+    WebCamConfig | VideoFileConfig | ImagesFolderConfig | TemplateDatasetConfig,
+    Field(discriminator="source_type"),
+]
 
 
 class FrameMetadata(BaseModel):

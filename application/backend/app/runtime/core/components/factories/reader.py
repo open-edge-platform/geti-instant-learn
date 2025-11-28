@@ -1,7 +1,7 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
-from domain.services.schemas.reader import ImagesFolderConfig, ReaderConfig, WebCamConfig
+from domain.services.schemas.reader import ImagesFolderConfig, ReaderConfig, TemplateDatasetConfig, WebCamConfig
 from runtime.core.components.base import StreamReader
 from runtime.core.components.readers.image_folder_reader import ImageFolderReader
 from runtime.core.components.readers.noop_reader import NoOpReader
@@ -23,7 +23,7 @@ class StreamReaderFactory:
         match config:
             case WebCamConfig() as config:
                 return WebCamReader(config)
-            case ImagesFolderConfig() as config:
+            case ImagesFolderConfig() | TemplateDatasetConfig() as config:
                 settings = get_settings()
                 return ImageFolderReader(config, supported_extensions=settings.supported_extensions)
             case _:
