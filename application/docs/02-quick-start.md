@@ -96,7 +96,7 @@ Transform raw inference results into actionable workflows. You can pipe model ou
 ## Next Steps
 
 - **Learn by Example**: Explore the [Tutorials](tutorials/01-tutorials.md) for specific workflows
-- **Deep Dive**: Read the [How-to Guides](how-to-guides/01-how-to-guids.md) for feature documentation
+- **Deep Dive**: Read the [How-to Guides](how-to-guides/01-how-to-guides.md) for feature documentation
 - **Understand the Architecture**: Review the [Concepts](concepts/01-concepts.md) section
 
 ## Troubleshooting
