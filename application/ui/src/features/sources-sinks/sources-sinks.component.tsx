@@ -6,12 +6,17 @@
 import { InputOutput } from '@geti-prompt/icons';
 import { Button, Content, Dialog, DialogTrigger, Flex, Item, TabList, TabPanels, Tabs, Text } from '@geti/ui';
 
+import { Sinks } from './sinks/sinks.component';
 import { Sources } from './sources/sources.component';
 
 const ITEMS = [
     {
         label: 'Input Setup',
         content: <Sources />,
+    },
+    {
+        label: 'Output Setup',
+        content: <Sinks />,
     },
 ];
 
