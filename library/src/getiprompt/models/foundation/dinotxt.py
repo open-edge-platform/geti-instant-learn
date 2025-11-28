@@ -209,7 +209,7 @@ class DinoTextEncoder(nn.Module):
                 "dinov3_vitl16_dinotxt_tet1280d20h24l",
                 dinotxt_weights=str(txt_head_path),
                 backbone_weights=str(backbone_path),
-            )
+            ) # nosec B614 (trusted model id is hardcoded)
             model = model.to(device)
 
         except Exception as e:

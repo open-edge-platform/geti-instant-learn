@@ -12,4 +12,6 @@ ui:
   - .github/workflows/**
 
 distrib:
-  - application/docker/**
+  - application/**
+  - library/**
+  - .github/workflows/**

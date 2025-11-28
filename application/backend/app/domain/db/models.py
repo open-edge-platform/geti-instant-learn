@@ -66,9 +66,32 @@ class SourceDB(Base):
 
 class SinkDB(Base):
     __tablename__ = "Sink"
+    active: Mapped[bool] = mapped_column(nullable=False, default=False)
     config: Mapped[dict] = mapped_column(JSON, nullable=False)
     project_id: Mapped[UUID] = mapped_column(ForeignKey("Project.id", ondelete="CASCADE"))
     project: Mapped["ProjectDB"] = relationship(back_populates="sinks", single_parent=True)
+    __table_args__ = (
+        Index(
+            UniqueConstraintName.SINK_TYPE_PER_PROJECT,
+            "project_id",
+            sa_text("json_extract(config, '$.sink_type')"),
+            unique=True,
+        ),
+        Index(
+            UniqueConstraintName.SINK_NAME_PER_PROJECT,
+            "project_id",
+            sa_text("json_extract(config, '$.name')"),
+            unique=True,
+            sqlite_where=sa_text("json_extract(config, '$.name') IS NOT NULL"),
+        ),
+        Index(
+            UniqueConstraintName.SINGLE_ACTIVE_SINK_PER_PROJECT,
+            "project_id",
+            "active",
+            unique=True,
+            sqlite_where=sa_text("active IS 1"),
+        ),
+    )
 
 
 class PromptType(StrEnum):

@@ -86,7 +86,7 @@ jobs:
           persist-credentials: false
       - name: Run Trivy scan
         id: trivy
-        uses: open-edge-platform/geti-ci/actions/trivy@6e7e8393869d05112f727d235acb644ed362c58f
+        uses: open-edge-platform/geti-ci/actions/trivy@829f7148f9f70bd4ffbb367f7374d78c32aef2a2
         with:
           scan_type: "fs"
           scan-scope: all
@@ -131,21 +131,24 @@ jobs:
         with:
           type: "initial"
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y just
+      - name: Install Just
+        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3.0.0
+        with:
+          just-version: '1.43.1'
 
       - name: Build docker image
         working-directory: application
         env:
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just docker-image="geti-prompt:latest-${DEVICE}" docker-build-context="--no-cache" build-image
+          just ai-device="${DEVICE}" docker-image="geti-prompt:latest-${DEVICE}" docker-build-context="--no-cache" build-image
+
+      - name: Cleanup docker cache
+        run: docker builder prune -f
 
       - name: Run Trivy scan
         id: trivy
-        uses: open-edge-platform/geti-ci/actions/trivy@6e7e8393869d05112f727d235acb644ed362c58f
+        uses: open-edge-platform/geti-ci/actions/trivy@829f7148f9f70bd4ffbb367f7374d78c32aef2a2
         with:
           artifact-name: "trivy-results-docker-${{ matrix.ai-device }}"
           scan_type: "image"

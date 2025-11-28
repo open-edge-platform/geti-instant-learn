@@ -8,6 +8,7 @@ import { useProjectIdentifier } from '@geti-prompt/hooks';
 
 export const useUpdateSource = () => {
     const { projectId } = useProjectIdentifier();
+
     const updateSourceMutation = $api.useMutation('put', '/api/v1/projects/{project_id}/sources/{source_id}', {
         meta: {
             invalidates: [
@@ -23,24 +24,31 @@ export const useUpdateSource = () => {
                     },
                 ],
             ],
-            errorMessage:
-                'Only one source can be connected per project at a time. Please disconnect the current source first.',
+            error: {
+                notify: true,
+            },
         },
     });
 
-    const updateSource = (sourceId: string, config: SourceConfig) => {
-        updateSourceMutation.mutate({
-            body: {
-                connected: true,
-                config,
-            },
-            params: {
-                path: {
-                    project_id: projectId,
-                    source_id: sourceId,
+    const updateSource = (
+        sourceId: string,
+        body: { config: SourceConfig; connected: boolean },
+        onSuccess?: () => void
+    ) => {
+        updateSourceMutation.mutate(
+            {
+                body,
+                params: {
+                    path: {
+                        project_id: projectId,
+                        source_id: sourceId,
+                    },
                 },
             },
-        });
+            {
+                onSuccess,
+            }
+        );
     };
 
     return {

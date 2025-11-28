@@ -73,19 +73,10 @@ jobs:
 
   distrib:
     name: Distrib build
-    needs: [build-parameters, library, backend, ui]
+    needs: [build-parameters]
     permissions:
       contents: read
-    if: |
-      always() &&
-      !cancelled() &&
-      !contains(needs.*.result, 'failure') &&
-      (
-        contains(fromJson(needs.build-parameters.outputs.components-list), 'distrib') ||
-        contains(fromJson(needs.build-parameters.outputs.components-list), 'library') ||
-        contains(fromJson(needs.build-parameters.outputs.components-list), 'backend') ||
-        contains(fromJson(needs.build-parameters.outputs.components-list), 'ui')
-      )
+    if: needs.build-parameters.outputs.components-list && contains(fromJson(needs.build-parameters.outputs.components-list), 'distrib')
     uses: ./.github/workflows/distrib.yml
     with:
       build_version: ${{ needs.build-parameters.outputs.build_version }}
