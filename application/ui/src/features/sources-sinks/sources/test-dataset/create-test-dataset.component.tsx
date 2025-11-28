@@ -10,11 +10,6 @@ import { useCreateSource } from '../api/use-create-source';
 
 import styles from './test-dataset.module.scss';
 
-interface TestDatasetProps {
-    folderPath: string;
-    onSaved: () => void;
-}
-
 export const TestDatasetTitle = () => {
     return (
         <Heading margin={0} UNSAFE_className={styles.title}>
@@ -31,7 +26,12 @@ export const TestDatasetDescription = () => {
     );
 };
 
-export const TestDataset = ({ folderPath, onSaved }: TestDatasetProps) => {
+interface CreateTestDatasetProps {
+    folderPath: string;
+    onSaved: () => void;
+}
+
+export const CreateTestDataset = ({ folderPath, onSaved }: CreateTestDatasetProps) => {
     const createTestDataset = useCreateSource();
 
     const handleCreateTestDataset = () => {

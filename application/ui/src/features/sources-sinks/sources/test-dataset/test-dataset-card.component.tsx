@@ -9,7 +9,7 @@ import { Datasets } from '@geti/ui/icons';
 
 import TestDatasetImg from '../../../../assets/coffee-berries-placeholder.webp';
 import { SourceCard } from '../source-card/source-card.component';
-import { TestDatasetDescription, TestDatasetTitle } from './test-dataset.component';
+import { TestDatasetDescription, TestDatasetTitle } from './create-test-dataset.component';
 
 interface TestDatasetCardProps {
     source: ImagesFolderSourceType;
