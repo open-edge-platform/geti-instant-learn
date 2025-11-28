@@ -112,7 +112,7 @@ Best for users who want an end-to-end production-ready platform with a web inter
 The project is structured as follows:
 
 - **`library/`**: Contains the `getiprompt` Python package.
-- **`application/backend/`**: Contains the FastAPI backend service.
+- **`application/backend/`**: Contains the inference runtime and API service.
 - **`application/ui/`**: Contains the React frontend application.
 
 ## 🎡 Community
