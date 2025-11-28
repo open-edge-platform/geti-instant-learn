@@ -45,7 +45,7 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: read
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
@@ -139,7 +139,7 @@ jobs:
           BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
           AI_DEVICE: ${{ inputs.ai_device || 'xpu' }}
         run: |
-          mkdir ${{ env.UI_MSIX_BUNDLE_PATH }}
+          mkdir -p ${{ env.UI_MSIX_BUNDLE_PATH }}
           cp ${{ env.UI_TARGET_RELEASE_PATH }}\geti-prompt-backend.exe ${{ env.UI_MSIX_BUNDLE_PATH }}
           cp ${{ env.UI_TARGET_RELEASE_PATH }}\geti_prompt_ui.exe ${{ env.UI_MSIX_BUNDLE_PATH }}
           cp -r ${{ env.UI_TARGET_RELEASE_PATH }}\_internal ${{ env.UI_MSIX_BUNDLE_PATH }}
@@ -149,5 +149,4 @@ jobs:
       - name: Upload MSIX package
         uses: actions/upload-artifact@v4
         with:
-          name: geti-prompt.msix
-          path: ${{ env.UI_MSIX_BUNDLE_PATH }}\geti-prompt.msix
+          path: ${{ env.UI_MSIX_BUNDLE_PATH }}\*.msix
