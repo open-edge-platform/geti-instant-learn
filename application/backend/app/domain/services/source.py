@@ -23,7 +23,7 @@ from domain.services.base import BaseService
 from domain.services.schemas.mappers.source import (
     source_db_to_schema,
     source_schema_to_db,
-    sources_db_to_schemas,
+    sources_db_to_list_items,
 )
 from domain.services.schemas.source import (
     SourceCreateSchema,
@@ -60,22 +60,26 @@ class SourceService(BaseService):
         self.source_repository = source_repository or SourceRepository(session=session)
         self.project_repository = project_repository or ProjectRepository(session=session)
 
-    def list_sources(self, project_id: UUID) -> SourcesListSchema:
+    def list_sources(self, project_id: UUID, offset: int = 0, limit: int = 20) -> SourcesListSchema:
         """
-        List all sources belonging to a project.
+        List sources for the specified project with pagination.
 
-        Parameters:
-            project_id: Owning project UUID.
+        Args:
+            project_id: UUID of the project.
+            offset: Starting index of the returned items.
+            limit: Maximum number of items requested.
 
         Returns:
-            Pydantic list wrapper with source schemas.
+            A schema containing a list of sources with pagination metadata.
 
         Raises:
             ResourceNotFoundError: If the project does not exist.
         """
         self._ensure_project(project_id)
-        db_sources = self.source_repository.list_all_by_project(project_id)
-        return SourcesListSchema(sources=sources_db_to_schemas(db_sources))
+        sources, total = self.source_repository.list_with_pagination_by_project(
+            project_id=project_id, offset=offset, limit=limit
+        )
+        return sources_db_to_list_items(sources, total, offset, limit)
 
     def get_source(self, project_id: UUID, source_id: UUID) -> SourceSchema:
         """
@@ -173,6 +177,7 @@ class SourceService(BaseService):
                 source.active = update_data.connected
                 source.config = update_data.config.model_dump()
                 source = self.source_repository.update(source)
+                self._emit_component_change(project_id=project_id, source_id=source.id)
         except IntegrityError as exc:
             logger.error("Source update failed due to constraint violation: %s", exc)
             self._handle_source_integrity_error(exc, source.id, project_id, existing_type, source_name)
@@ -185,7 +190,6 @@ class SourceService(BaseService):
             source.active,
             source.config,
         )
-        self._emit_component_change(project_id=project_id, source_id=source.id)
         return source_db_to_schema(source)
 
     def delete_source(self, project_id: UUID, source_id: UUID) -> None:
@@ -245,8 +249,8 @@ class SourceService(BaseService):
             active_source.active = False
             try:
                 self.source_repository.update(active_source)
-            except Exception as exc:
-                logger.error("Failed to flush source disconnection: %s", exc)
+            except Exception:
+                logger.exception("Failed to flush source disconnection")
                 raise
             self._emit_component_change(project_id=project_id, source_id=active_source.id)
 
@@ -263,8 +267,8 @@ class SourceService(BaseService):
                 )
             )
 
+    @staticmethod
     def _handle_source_integrity_error(
-        self,
         exc: IntegrityError,
         source_id: UUID,
         project_id: UUID,

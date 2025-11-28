@@ -5,7 +5,8 @@ from collections.abc import Iterable
 from uuid import UUID
 
 from domain.db.models import SinkDB
-from domain.services.schemas.sink import SinkCreateSchema, SinkSchema
+from domain.services.schemas.base import Pagination
+from domain.services.schemas.sink import SinkCreateSchema, SinkSchema, SinksListSchema
 
 
 def sink_db_to_schema(sink: SinkDB) -> SinkSchema:
@@ -37,3 +38,19 @@ def sink_schema_to_db(schema: SinkCreateSchema, project_id: UUID) -> SinkDB:
         active=schema.active,
         project_id=project_id,
     )
+
+
+def sinks_db_to_list_items(sinks: Iterable[SinkDB], total: int, offset: int = 0, limit: int = 20) -> SinksListSchema:
+    """
+    Map an iterable of SinkDB entities to SinksListSchema with pagination metadata.
+    """
+    items = [sink_db_to_schema(sink) for sink in sinks]
+
+    pagination = Pagination(
+        count=len(items),
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
+
+    return SinksListSchema(sinks=items, pagination=pagination)

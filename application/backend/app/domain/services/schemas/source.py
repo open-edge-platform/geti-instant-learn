@@ -3,7 +3,7 @@
 
 from pydantic import BaseModel
 
-from domain.services.schemas.base import BaseIDPayload, BaseIDSchema
+from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, Pagination
 from domain.services.schemas.reader import ReaderConfig
 
 
@@ -24,3 +24,4 @@ class SourceSchema(BaseIDSchema):
 
 class SourcesListSchema(BaseModel):
     sources: list[SourceSchema]
+    pagination: Pagination
