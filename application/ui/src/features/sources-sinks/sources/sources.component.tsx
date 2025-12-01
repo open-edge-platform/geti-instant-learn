@@ -16,7 +16,7 @@ import { DisclosureGroup } from '../disclosure-group/disclosure-group.component'
 import { EditSource } from './edit-sources/edit-sources.component';
 import { ExistingSources } from './existing-sources/existing-sources.component';
 import { CreateImagesFolder } from './images-folder/create-images-folder.component';
-import { CreateTestDataset } from './test-dataset/create-test-dataset.component';
+import { CreateSampleDataset } from './sample-dataset/create-sample-dataset.component';
 import { SourcesViews } from './utils';
 import { CreateWebcamSource } from './webcam/create-webcam-source.component';
 
@@ -60,7 +60,7 @@ const SourcesList = ({ onViewChange }: SourcesList) => {
             label: 'Test dataset',
             value: 'images_folder',
             content: (
-                <CreateTestDataset
+                <CreateSampleDataset
                     // TODO: Remove the path once backend is ready
                     folderPath={'/geti-prompt/application/backend/backend/.data/templates/datasets/coffee-berries'}
                     onSaved={() => onViewChange('existing')}

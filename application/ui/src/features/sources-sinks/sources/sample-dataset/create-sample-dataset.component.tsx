@@ -8,9 +8,9 @@ import { Button, Flex, Heading, Text, View } from '@geti/ui';
 import TestDatasetImg from '../../../../assets/coffee-berries-placeholder.webp';
 import { useCreateSource } from '../api/use-create-source';
 
-import styles from './test-dataset.module.scss';
+import styles from './sample-dataset.module.scss';
 
-export const TestDatasetTitle = () => {
+export const SampleDatasetTitle = () => {
     return (
         <Heading margin={0} UNSAFE_className={styles.title}>
             Coffee Bean Quality Dataset
@@ -18,7 +18,7 @@ export const TestDatasetTitle = () => {
     );
 };
 
-export const TestDatasetDescription = () => {
+export const SampleDatasetDescription = () => {
     return (
         <Text UNSAFE_className={styles.description}>
             This dataset contains information about the quality of coffee beans.
@@ -26,16 +26,16 @@ export const TestDatasetDescription = () => {
     );
 };
 
-interface CreateTestDatasetProps {
+interface CreateSampleDatasetProps {
     folderPath: string;
     onSaved: () => void;
 }
 
-export const CreateTestDataset = ({ folderPath, onSaved }: CreateTestDatasetProps) => {
-    const createTestDataset = useCreateSource();
+export const CreateSampleDataset = ({ folderPath, onSaved }: CreateSampleDatasetProps) => {
+    const createSampleDataset = useCreateSource();
 
-    const handleCreateTestDataset = () => {
-        createTestDataset.mutate(
+    const handleCreateSampleDataset = () => {
+        createSampleDataset.mutate(
             {
                 images_folder_path: folderPath,
                 seekable: true,
@@ -45,7 +45,7 @@ export const CreateTestDataset = ({ folderPath, onSaved }: CreateTestDatasetProp
         );
     };
 
-    const isApplyDisabled = createTestDataset.isPending;
+    const isApplyDisabled = createSampleDataset.isPending;
 
     return (
         <View borderRadius={'small'}>
@@ -54,13 +54,13 @@ export const CreateTestDataset = ({ folderPath, onSaved }: CreateTestDatasetProp
             </View>
             <View padding={'size-200'} backgroundColor={'gray-200'}>
                 <Flex direction={'column'} gap={'size-200'}>
-                    <TestDatasetTitle />
-                    <TestDatasetDescription />
+                    <SampleDatasetTitle />
+                    <SampleDatasetDescription />
                     <Flex>
                         <Button
-                            isPending={createTestDataset.isPending}
+                            isPending={createSampleDataset.isPending}
                             isDisabled={isApplyDisabled}
-                            onPress={handleCreateTestDataset}
+                            onPress={handleCreateSampleDataset}
                         >
                             Apply
                         </Button>
