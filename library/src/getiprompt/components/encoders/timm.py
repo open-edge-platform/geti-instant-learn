@@ -28,13 +28,13 @@ class TimmImageEncoder(nn.Module):
     """This encoder uses a model from timm to encode the images.
 
     Examples:
-        >>> from getiprompt.components.encoders import TimmImageEncoder
+        >>> from getiprompt.components.encoders.timm import TimmImageEncoder
         >>> from torchvision import tv_tensors
         >>> import torch
 
         >>> # Create a sample image
-        >>> sample_image = torch.zeros((3, 512, 512))
-        >>> encoder = TimmImageEncoder(model_id="dinov3_large")
+        >>> sample_image = torch.zeros((3, 518, 518))
+        >>> encoder = TimmImageEncoder(model_id="dinov2_large")
         >>> features = encoder(images=[sample_image])
         >>> features.shape
         torch.Size([1, 1369, 1024])
