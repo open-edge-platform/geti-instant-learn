@@ -5,25 +5,26 @@
 
 from logging import getLogger
 
-
+import timm
 import torch
 from torch import nn
 from torchvision import tv_tensors
-from torchvision.transforms.v2 import ToDtype, Compose
-from torchvision.transforms import Normalize
-from transformers import AutoImageProcessor
+from torchvision.transforms.v2 import Compose, Normalize, Resize, ToDtype
 
 from getiprompt.utils import precision_to_torch_dtype
-import timm
 
 logger = getLogger("Geti Prompt")
 
 AVAILABLE_IMAGE_ENCODERS = {
+    "dinov3_small": "timm/vit_small_patch16_dinov3.lvd1689m",
+    "dinov3_small_plus": "timm/vit_small_plus_patch16_dinov3.lvd1689m",
+    "dinov3_base": "timm/vit_base_patch16_dinov3.lvd1689m",
     "dinov3_large": "timm/vit_large_patch16_dinov3.lvd1689m",
+    "dinov3_huge": "timm/vit_huge_plus_patch16_dinov3.lvd1689m",
 }
 
 
-class ImageEncoder(nn.Module):
+class TimmImageEncoder(nn.Module):
     """This encoder uses a model from HuggingFace to encode the images.
 
     Examples:
@@ -74,7 +75,11 @@ class ImageEncoder(nn.Module):
         msg = f"Loading DINO model {model_id}"
         logger.info(msg)
         self.precision = precision_to_torch_dtype(precision)
-        self.model, self.processor = self._load_timm_model(AVAILABLE_IMAGE_ENCODERS[model_id], input_size, self.precision)
+        self.model, self.processor = self._load_timm_model(
+            AVAILABLE_IMAGE_ENCODERS[model_id],
+            input_size,
+            self.precision,
+        )
         self.model = self.model.to(device).eval()
         self.patch_size = self.model.patch_embed.patch_size[0]
         self.feature_size = self.input_size // self.patch_size
@@ -99,12 +104,13 @@ class ImageEncoder(nn.Module):
             The model and processor.
         """
         model = timm.create_model(model_id, pretrained=True, num_classes=0)
-        processor = AutoImageProcessor.from_pretrained(
-            "facebook/dinov3-vitl16-pretrain-lvd1689m",
-            size={"height": input_size, "width": input_size},
-            do_center_crop=False,
-            use_fast=True,  # uses Rust based image processor
-        )
+        data_config = timm.data.resolve_model_data_config(model)
+        data_config["input_size"] = (3, input_size, input_size)
+        processor = Compose([
+            ToDtype(dtype=precision, scale=True),
+            Resize(size=(input_size, input_size)),
+            Normalize(mean=data_config["mean"], std=data_config["std"]),
+        ])
         return model, processor
 
     @torch.inference_mode()
@@ -118,8 +124,7 @@ class ImageEncoder(nn.Module):
             torch.Tensor: Normalized patch-grid feature tensor of shape
                 (batch_size, num_patches, embedding_dim).
         """
-        inputs = self.processor(images=images, return_tensors="pt")
-        inputs = inputs["pixel_values"].to(self.device).to(self.precision)
-        features = self.model.forward_features(inputs)  # (B, N, D)
+        images = torch.stack([self.processor(image.to(self.device)) for image in images])
+        features = self.model.forward_features(images)  # (B, N, D)
         features = features[:, self.ignore_token_length :, :]  # ignore CLS and other tokens
-        return features 
+        return features
