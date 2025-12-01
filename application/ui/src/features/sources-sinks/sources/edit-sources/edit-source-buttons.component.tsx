@@ -23,12 +23,12 @@ export const EditSourceButtons = ({
     return (
         <ButtonGroup>
             {isActiveSource ? (
-                <Button onPress={onSaveAndConnect} isPending={isPending} isDisabled={isDisabled}>
+                <Button type={'submit'} onPress={onSave} isPending={isPending} isDisabled={isDisabled}>
                     Save
                 </Button>
             ) : (
                 <>
-                    <Button onPress={onSave} isPending={isPending} isDisabled={isDisabled}>
+                    <Button type={'submit'} onPress={onSave} isPending={isPending} isDisabled={isDisabled}>
                         Save
                     </Button>
                     <Button onPress={onSaveAndConnect} isPending={isPending} isDisabled={isDisabled}>

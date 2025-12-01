@@ -9,15 +9,16 @@ import { SourceType } from '@geti-prompt/api';
 import { useGetSources } from '@geti-prompt/hooks';
 import { ImagesFolder as ImagesFolderIcon, WebCam } from '@geti-prompt/icons';
 import { ActionButton, Divider, Flex, Heading, View } from '@geti/ui';
-import { Back } from '@geti/ui/icons';
+import { Back, Datasets } from '@geti/ui/icons';
 import { isEmpty } from 'lodash-es';
 
 import { DisclosureGroup } from '../disclosure-group/disclosure-group.component';
 import { EditSource } from './edit-sources/edit-sources.component';
 import { ExistingSources } from './existing-sources/existing-sources.component';
-import { ImagesFolder } from './images-folder/images-folder.component';
+import { CreateImagesFolder } from './images-folder/create-images-folder.component';
+import { CreateTestDataset } from './test-dataset/create-test-dataset.component';
 import { SourcesViews } from './utils';
-import { WebcamSource } from './webcam/webcam-source.component';
+import { CreateWebcamSource } from './webcam/create-webcam-source.component';
 
 interface SourcesList {
     onViewChange: (view: SourcesViews) => void;
@@ -33,7 +34,7 @@ const SourcesList = ({ onViewChange }: SourcesList) => {
         {
             label: 'Webcam',
             value: 'webcam',
-            content: <WebcamSource onSaved={() => onViewChange('existing')} />,
+            content: <CreateWebcamSource onSaved={() => onViewChange('existing')} />,
             icon: <WebCam width={'24px'} />,
         },
         /*{
@@ -52,8 +53,20 @@ const SourcesList = ({ onViewChange }: SourcesList) => {
         {
             label: 'Image folder',
             value: 'images_folder',
-            content: <ImagesFolder onSaved={() => onViewChange('existing')} />,
+            content: <CreateImagesFolder onSaved={() => onViewChange('existing')} />,
             icon: <ImagesFolderIcon width={'24px'} />,
+        },
+        {
+            label: 'Test dataset',
+            value: 'images_folder',
+            content: (
+                <CreateTestDataset
+                    // TODO: Remove the path once backend is ready
+                    folderPath={'/geti-prompt/application/backend/backend/.data/templates/datasets/coffee-berries'}
+                    onSaved={() => onViewChange('existing')}
+                />
+            ),
+            icon: <Datasets width={'24px'} />,
         },
     ];
 

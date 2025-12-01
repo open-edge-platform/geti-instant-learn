@@ -31,11 +31,6 @@ import classes from './segment-anything.module.scss';
 // the user's cpu with too many decoding requests
 const THROTTLE_TIME = 150;
 
-const SELECT_ANNOTATION_STYLES = {
-    stroke: 'var(--energy-blue-shade)',
-    strokeWidth: 'calc(2px / var(--zoom-scale))',
-};
-
 export const SegmentAnythingTool = () => {
     const [mousePosition, setMousePosition] = useState<InteractiveAnnotationPoint>();
     const [previewShapes, setPreviewShapes] = useState<Shape[]>([]);
@@ -136,7 +131,7 @@ export const SegmentAnythingTool = () => {
                                     '--energy-blue-shade': '#0095ca',
                                 } as CSSProperties
                             }
-                            {...SELECT_ANNOTATION_STYLES}
+                            stroke={'var(--energy-blue-shade)'}
                             strokeWidth={'calc(3px / var(--zoom-scale))'}
                             fill={'transparent'}
                             className={classes.animateStroke}

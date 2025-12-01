@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     db_data_dir: Path = Field(default=current_dir.parent / ".data", alias="DB_DATA_DIR")
     db_filename: str = "geti_prompt.db"
 
+    # Template datasets
+    template_dataset_path: str = Field(default="templates/datasets/coffee-berries", alias="TEMPLATE_DATASET_PATH")
+
+    @property
+    def template_dataset_dir(self) -> Path:
+        """Full path to the template dataset directory"""
+        return self.db_data_dir / self.template_dataset_path
+
     @property
     def database_url(self) -> str:
         """Database connection URL"""

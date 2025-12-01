@@ -14,6 +14,7 @@ class SourceType(StrEnum):
     WEBCAM = "webcam"
     VIDEO_FILE = "video_file"
     IMAGES_FOLDER = "images_folder"
+    SAMPLE_DATASET = "sample_dataset"
 
 
 class WebCamConfig(BaseModel):
@@ -90,7 +91,30 @@ class ImagesFolderConfig(BaseModel):
     }
 
 
-ReaderConfig = Annotated[WebCamConfig | VideoFileConfig | ImagesFolderConfig, Field(discriminator="source_type")]
+class SampleDatasetConfig(BaseModel):
+    """Configuration for using the pre-configured template dataset.
+
+    The actual dataset path is resolved from application settings at the factory level,
+    making this config UI-agnostic.
+    """
+
+    source_type: Literal[SourceType.SAMPLE_DATASET]
+    seekable: bool = True
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "seekable": True,
+                "source_type": "template_dataset",
+            }
+        }
+    }
+
+
+ReaderConfig = Annotated[
+    WebCamConfig | VideoFileConfig | ImagesFolderConfig | SampleDatasetConfig,
+    Field(discriminator="source_type"),
+]
 
 
 class FrameMetadata(BaseModel):

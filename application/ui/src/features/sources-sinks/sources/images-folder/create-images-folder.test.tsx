@@ -11,7 +11,7 @@ import { HttpResponse } from 'msw';
 import { vi } from 'vitest';
 
 import { http, server } from '../../../../setup-test';
-import { ImagesFolder } from './images-folder.component';
+import { CreateImagesFolder } from './create-images-folder.component';
 
 class ImagesFolderSourcePage {
     constructor() {}
@@ -35,7 +35,7 @@ class ImagesFolderSourcePage {
 }
 
 const renderImagesFolder = (onSaved = vi.fn()) => {
-    const result = render(<ImagesFolder onSaved={onSaved} />);
+    const result = render(<CreateImagesFolder onSaved={onSaved} />);
 
     return {
         result,

@@ -20,11 +20,12 @@ export const ImagesFolderSourceCard = ({ source, onAction, menuItems }: ImagesFo
 
     return (
         <SourceCard
-            isActive={source.connected}
-            parameters={parameters}
+            isActive={isActiveSource}
             icon={<ImagesFolder />}
             title={'Images folder'}
             menu={<SourceCard.Menu onAction={onAction} isActive={isActiveSource} items={menuItems} />}
-        />
+        >
+            <SourceCard.Parameters parameters={parameters} />
+        </SourceCard>
     );
 };
