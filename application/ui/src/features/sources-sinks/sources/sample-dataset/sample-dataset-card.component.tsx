@@ -21,9 +21,9 @@ export const SampleDatasetCard = ({ source, onAction, menuItems }: SampleDataset
     const isActiveSource = source.connected;
 
     return (
-        <SourceCard isActive={isActiveSource} icon={<Datasets width={'32px'} />} title={'Test dataset'}>
+        <SourceCard isActive={isActiveSource} icon={<Datasets width={'32px'} />} title={'Sample dataset'}>
             <Flex direction={'column'} gap={'size-200'}>
-                <img src={SampleDatasetImg} alt={'Test dataset'} style={{ display: 'block', width: '100%' }} />
+                <img src={SampleDatasetImg} alt={'Sample dataset'} style={{ display: 'block', width: '100%' }} />
                 <SampleDatasetTitle />
                 <Flex>
                     <SampleDatasetDescription />
