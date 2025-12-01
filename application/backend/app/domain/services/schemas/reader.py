@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from domain.services.schemas.base import Pagination
+from domain.services.schemas.base import PaginatedResponse
 
 
 class SourceType(StrEnum):
@@ -124,11 +124,10 @@ class FrameMetadata(BaseModel):
     thumbnail: str
 
 
-class FrameListResponse(BaseModel):
+class FrameListResponse(PaginatedResponse):
     """Paginated response for frame listing."""
 
     frames: list[FrameMetadata]
-    pagination: Pagination
 
 
 class FrameIndexResponse(BaseModel):
