@@ -12,7 +12,7 @@ import { orderBy } from 'lodash-es';
 import { useDeleteSource } from '../api/use-delete-source';
 import { useUpdateSource } from '../api/use-update-source';
 import { ImagesFolderSourceCard } from '../images-folder/images-folder-card.component';
-import { TestDatasetCard } from '../test-dataset/test-dataset-card.component';
+import { SampleDatasetCard } from '../sample-dataset/sample-dataset-card.component';
 import { isImagesFolderSource, isTestDatasetSource, isWebcamSource, SourcesViews } from '../utils';
 import { WebcamSourceCard } from '../webcam/webcam-source-card.component';
 
@@ -103,7 +103,7 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
 
                 if (isTestDatasetSource(source)) {
                     return (
-                        <TestDatasetCard
+                        <SampleDatasetCard
                             key={source.id}
                             source={source}
                             menuItems={getMenuItems({ isActiveSource, isActiveProject, isTestDataset: true })}
