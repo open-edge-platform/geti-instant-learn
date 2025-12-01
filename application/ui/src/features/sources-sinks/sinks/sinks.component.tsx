@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { MQTT } from '@geti-prompt/icons';
 
 import { DisclosureGroup } from '../disclosure-group/disclosure-group.component';
+import { PipelineEntityPanel } from '../pipeline-entity-panel/pipeline-entity-panel.component';
 import { useSinks } from './api/use-sinks';
 import { CreateMQTTSink } from './mqtt-sink/create-mqtt-sink.component';
 import { SinkViews } from './utils';
@@ -29,10 +30,29 @@ const SinksList = ({ onViewChange }: SinksListProps) => {
     return <DisclosureGroup items={items} value={'mqtt'} />;
 };
 
+interface AddSinkProps {
+    onViewChange: (view: SinkViews) => void;
+}
+
+const AddSink = ({ onViewChange }: AddSinkProps) => {
+    return (
+        <PipelineEntityPanel
+            title={<PipelineEntityPanel.Title>Add new output sink</PipelineEntityPanel.Title>}
+            onBackClick={() => onViewChange('existing')}
+        >
+            <SinksList onViewChange={onViewChange} />
+        </PipelineEntityPanel>
+    );
+};
+
 export const Sinks = () => {
     const { data } = useSinks();
 
     const [view, setView] = useState<SinkViews>('list');
+
+    if (view === 'add') {
+        return <AddSink onViewChange={setView} />;
+    }
 
     return <SinksList onViewChange={setView} />;
 };
