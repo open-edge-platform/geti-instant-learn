@@ -14,7 +14,7 @@ class SourceType(StrEnum):
     WEBCAM = "webcam"
     VIDEO_FILE = "video_file"
     IMAGES_FOLDER = "images_folder"
-    TEMPLATE_DATASET = "template_dataset"
+    SAMPLE_DATASET = "sample_dataset"
 
 
 class WebCamConfig(BaseModel):
@@ -91,14 +91,14 @@ class ImagesFolderConfig(BaseModel):
     }
 
 
-class TemplateDatasetConfig(BaseModel):
+class SampleDatasetConfig(BaseModel):
     """Configuration for using the pre-configured template dataset.
 
     The actual dataset path is resolved from application settings at the factory level,
     making this config UI-agnostic.
     """
 
-    source_type: Literal[SourceType.TEMPLATE_DATASET]
+    source_type: Literal[SourceType.SAMPLE_DATASET]
     seekable: bool = True
 
     model_config = {
@@ -112,7 +112,7 @@ class TemplateDatasetConfig(BaseModel):
 
 
 ReaderConfig = Annotated[
-    WebCamConfig | VideoFileConfig | ImagesFolderConfig | TemplateDatasetConfig,
+    WebCamConfig | VideoFileConfig | ImagesFolderConfig | SampleDatasetConfig,
     Field(discriminator="source_type"),
 ]
 

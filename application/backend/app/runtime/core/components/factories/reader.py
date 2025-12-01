@@ -4,8 +4,8 @@
 from domain.services.schemas.reader import (
     ImagesFolderConfig,
     ReaderConfig,
+    SampleDatasetConfig,
     SourceType,
-    TemplateDatasetConfig,
     WebCamConfig,
 )
 from runtime.core.components.base import StreamReader
@@ -32,7 +32,7 @@ class StreamReaderFactory:
                 return WebCamReader(config)
             case ImagesFolderConfig() as config:
                 return ImageFolderReader(config, supported_extensions=settings.supported_extensions)
-            case TemplateDatasetConfig() as config:
+            case SampleDatasetConfig() as config:
                 template_config = ImagesFolderConfig(
                     source_type=SourceType.IMAGES_FOLDER,
                     images_folder_path=str(settings.template_dataset_dir),

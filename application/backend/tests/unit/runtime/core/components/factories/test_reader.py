@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from domain.services.schemas.reader import ImagesFolderConfig, SourceType, TemplateDatasetConfig, WebCamConfig
+from domain.services.schemas.reader import ImagesFolderConfig, SampleDatasetConfig, SourceType, WebCamConfig
 from runtime.core.components.factories.reader import StreamReaderFactory
 from runtime.core.components.readers.image_folder_reader import ImageFolderReader
 from runtime.core.components.readers.noop_reader import NoOpReader
@@ -46,7 +46,7 @@ class TestStreamReaderFactory:
         image_file = tmp_path / "test.jpg"
         image_file.touch()
 
-        config = TemplateDatasetConfig(source_type=SourceType.TEMPLATE_DATASET)
+        config = SampleDatasetConfig(source_type=SourceType.SAMPLE_DATASET)
 
         with patch("runtime.core.components.factories.reader.get_settings") as mock_settings:
             mock_settings.return_value.template_dataset_dir = tmp_path
