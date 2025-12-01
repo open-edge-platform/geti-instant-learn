@@ -27,19 +27,17 @@ export const SampleDatasetDescription = () => {
 };
 
 interface CreateSampleDatasetProps {
-    folderPath: string;
     onSaved: () => void;
 }
 
-export const CreateSampleDataset = ({ folderPath, onSaved }: CreateSampleDatasetProps) => {
+export const CreateSampleDataset = ({ onSaved }: CreateSampleDatasetProps) => {
     const createSampleDataset = useCreateSource();
 
     const handleCreateSampleDataset = () => {
         createSampleDataset.mutate(
             {
-                images_folder_path: folderPath,
                 seekable: true,
-                source_type: 'images_folder',
+                source_type: 'sample_dataset',
             },
             onSaved
         );

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ImagesFolderSourceType } from '@geti-prompt/api';
+import { ImagesFolderSourceType, SampleDatasetSourceType } from '@geti-prompt/api';
 import { Flex, View } from '@geti/ui';
 import { Datasets } from '@geti/ui/icons';
 
@@ -12,7 +12,7 @@ import { SourceCard } from '../source-card/source-card.component';
 import { SampleDatasetDescription, SampleDatasetTitle } from './create-sample-dataset.component';
 
 interface SampleDatasetCardProps {
-    source: ImagesFolderSourceType;
+    source: SampleDatasetSourceType;
     menuItems: { key: string; label: string }[];
     onAction: (action: string) => void;
 }
