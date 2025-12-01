@@ -6,7 +6,7 @@
 import torch
 
 from getiprompt.components import CosineSimilarity, SamDecoder
-from getiprompt.components.encoders import ImageEncoder
+from getiprompt.components.encoders import TimmImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import GridPromptGenerator
@@ -72,7 +72,7 @@ class PerDino(Model):
         sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
         encoder_model: str = "dinov3_large",
         num_foreground_points: int = 40,
-        num_background_points: ImageEncoder = 2,
+        num_background_points: int = 2,
         num_grid_cells: int = 16,
         similarity_threshold: float = 0.65,
         mask_similarity_threshold: float | None = 0.42,
@@ -102,7 +102,7 @@ class PerDino(Model):
             compile_models=compile_models,
         )
 
-        self.encoder: ImageEncoder = ImageEncoder(
+        self.encoder = TimmImageEncoder(
             model_id=encoder_model,
             device=device,
             precision=precision,

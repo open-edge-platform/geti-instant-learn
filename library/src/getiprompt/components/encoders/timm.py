@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Wrapper class that uses a DINO model to encode images into normalized patch embeddings."""
+"""Image encoder using TIMM models."""
 
 from logging import getLogger
 
@@ -25,19 +25,19 @@ AVAILABLE_IMAGE_ENCODERS = {
 
 
 class TimmImageEncoder(nn.Module):
-    """This encoder uses a model from HuggingFace to encode the images.
+    """This encoder uses a model from timm to encode the images.
 
     Examples:
-        >>> from getiprompt.components.encoders import ImageEncoder
+        >>> from getiprompt.components.encoders import TimmImageEncoder
         >>> from torchvision import tv_tensors
         >>> import torch
 
         >>> # Create a sample image
-        >>> sample_image = torch.zeros((3, 518, 518))
-        >>> encoder = ImageEncoder(model_id="dinov2_large")
+        >>> sample_image = torch.zeros((3, 512, 512))
+        >>> encoder = TimmImageEncoder(model_id="dinov3_large")
         >>> features = encoder(images=[sample_image])
         >>> features.shape
-        torch.Size([1369, 1024])
+        torch.Size([1, 1369, 1024])
     """
 
     def __init__(
@@ -94,7 +94,7 @@ class TimmImageEncoder(nn.Module):
 
     @staticmethod
     def _load_timm_model(model_id: str, input_size: int, precision: torch.dtype) -> tuple[nn.Module, Compose]:
-        """Load DINO model from HuggingFace TIMM with error handling.
+        """Load DINO model from timm with error handling.
 
         Args:
             model_id: The model id of the model.
@@ -115,14 +115,13 @@ class TimmImageEncoder(nn.Module):
 
     @torch.inference_mode()
     def forward(self, images: list[tv_tensors.Image]) -> torch.Tensor:
-        """Encode images into normalized patch embeddings.
+        """Encode images into patch embeddings.
 
         Args:
             images(list[tv_tensors.Image]): A list of images.
 
         Returns:
-            torch.Tensor: Normalized patch-grid feature tensor of shape
-                (batch_size, num_patches, embedding_dim).
+            torch.Tensor: patch-grid feature tensor of shape (batch_size, num_patches, embedding_dim).
         """
         images = torch.stack([self.processor(image.to(self.device)) for image in images])
         features = self.model.forward_features(images)  # (B, N, D)
