@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { MQTT } from '@geti-prompt/icons';
 
 import { DisclosureGroup } from '../disclosure-group/disclosure-group.component';
-import { useSinks } from './api/use-sinks.hook';
+import { useSinks } from './api/use-sinks';
 import { CreateMQTTSink } from './mqtt-sink/create-mqtt-sink.component';
 import { SinkViews } from './utils';
 
