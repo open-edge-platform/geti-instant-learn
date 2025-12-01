@@ -103,12 +103,11 @@ class Sam3DualViTDetNeck(nn.Module):
         list[torch.Tensor] | None,
         list[torch.Tensor] | None,
     ]:
-        xs = self.trunk(tensor_list)
+        x = self.trunk(tensor_list)
         sam3_out, sam3_pos = [], []
         sam2_out, sam2_pos = None, None
         if self.sam2_convs is not None:
             sam2_out, sam2_pos = [], []
-        x = xs[-1]  # simpleFPN
         for i in range(len(self.convs)):
             sam3_x_out = self.convs[i](x)
             sam3_pos_out = self.position_encoding(sam3_x_out).to(sam3_x_out.dtype)

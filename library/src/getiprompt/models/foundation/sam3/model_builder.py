@@ -83,6 +83,7 @@ def _create_vit_backbone(compile_mode: str | None = None):
         return_interm_layers=False,
         bias_patch_embed=False,
         compile_mode=compile_mode,
+        use_act_checkpoint=False,
     )
 
 
