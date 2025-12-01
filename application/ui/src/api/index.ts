@@ -51,4 +51,5 @@ export {
     type SchemaFrameListResponse as FramesResponseType,
     type SchemaSinkCreateSchema as SinkCreateType,
     type SchemaSinkUpdateSchema as SinkUpdateType,
+    type SchemaSinksListSchema as SinksListType,
 } from './openapi-spec';
