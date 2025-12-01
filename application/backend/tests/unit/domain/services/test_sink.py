@@ -138,7 +138,7 @@ class TestListSinks:
         """Test successfully listing all sinks in a project."""
         # Arrange
         mock_project_repository.get_by_id.return_value = mock_project
-        mock_sink_repository.get_all_by_project.return_value = [mock_sink]
+        mock_sink_repository.list_with_pagination_by_project.return_value = ([mock_sink], 1)
 
         # Act
         result = sink_service.list_sinks(project_id)
@@ -146,7 +146,7 @@ class TestListSinks:
         # Assert
         assert isinstance(result, SinksListSchema)
         mock_project_repository.get_by_id.assert_called_once_with(project_id)
-        mock_sink_repository.get_all_by_project.assert_called_once_with(project_id)
+        mock_sink_repository.list_with_pagination_by_project.assert_called_once()
 
     def test_list_sinks_empty_list(
         self, sink_service, mock_project_repository, mock_sink_repository, project_id, mock_project
@@ -154,7 +154,7 @@ class TestListSinks:
         """Test listing sinks when project has no sinks."""
         # Arrange
         mock_project_repository.get_by_id.return_value = mock_project
-        mock_sink_repository.get_all_by_project.return_value = []
+        mock_sink_repository.list_with_pagination_by_project.return_value = ([], 0)
 
         # Act
         result = sink_service.list_sinks(project_id)
@@ -192,7 +192,7 @@ class TestGetSink:
 
         # Assert
         assert isinstance(result, SinkSchema)
-        mock_sink_repository.get_by_id_and_project.assert_called_once_with(sink_id=sink_id, project_id=project_id)
+        mock_sink_repository.get_by_id_and_project.assert_called_once_with(sink_id, project_id)
 
     def test_get_sink_not_found(
         self, sink_service, mock_project_repository, mock_sink_repository, project_id, sink_id, mock_project
@@ -407,6 +407,7 @@ class TestUpdateSink:
         # Arrange
         mock_project_repository.get_by_id.return_value = mock_project
         mock_sink_repository.get_by_id_and_project.return_value = mock_sink
+        mock_sink_repository.update.return_value = mock_sink
 
         # Act
         result = sink_service.update_sink(project_id, sink_id, sink_update_data)
@@ -435,6 +436,7 @@ class TestUpdateSink:
         mock_sink.active = False
         mock_project_repository.get_by_id.return_value = mock_project
         mock_sink_repository.get_by_id_and_project.return_value = mock_sink
+        mock_sink_repository.update.return_value = mock_sink
 
         existing_connected = Mock(spec=SinkDB)
         existing_connected.active = True
@@ -560,7 +562,7 @@ class TestDeleteSink:
         sink_service.delete_sink(project_id, sink_id)
 
         # Assert
-        mock_sink_repository.delete.assert_called_once_with(mock_sink)
+        mock_sink_repository.delete.assert_called_once_with(mock_sink.id)
         mock_session.commit.assert_called_once()
         mock_dispatcher.dispatch.assert_called_once()
 
@@ -640,6 +642,7 @@ class TestEventDispatcher:
         # Arrange
         mock_project_repository.get_by_id.return_value = mock_project
         mock_sink_repository.get_by_id_and_project.return_value = mock_sink
+        mock_sink_repository.update.return_value = mock_sink
 
         # Act
         sink_service.update_sink(project_id, sink_id, sink_update_data)

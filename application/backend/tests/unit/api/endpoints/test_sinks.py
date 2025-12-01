@@ -17,6 +17,7 @@ from domain.errors import (
     ResourceType,
     ResourceUpdateConflictError,
 )
+from domain.services.schemas.base import Pagination
 from domain.services.schemas.sink import SinkSchema, SinksListSchema
 from domain.services.schemas.writer import MqttConfig, WriterType
 
@@ -75,14 +76,15 @@ def test_get_sinks(client, behavior, expected_status, expected_len):
             pass
 
         @staticmethod
-        def list_sinks(project_id: UUID):
+        def list_sinks(project_id: UUID, offset: int = 0, limit: int = 20):
             assert project_id == PROJECT_ID
             if behavior == "some":
+                sinks = [
+                    make_sink_schema(sink_id=SINK_ID_1, active=True),
+                    make_sink_schema(sink_id=SINK_ID_2, active=False),
+                ]
                 return SinksListSchema(
-                    sinks=[
-                        make_sink_schema(sink_id=SINK_ID_1, active=True),
-                        make_sink_schema(sink_id=SINK_ID_2, active=False),
-                    ]
+                    sinks=sinks, pagination=Pagination(count=len(sinks), total=len(sinks), offset=offset, limit=limit)
                 )
             if behavior == "notfound":
                 raise ResourceNotFoundError(ResourceType.PROJECT, str(project_id))
@@ -103,6 +105,7 @@ def test_get_sinks(client, behavior, expected_status, expected_len):
         first = data["sinks"][0]
         assert "config" in first
         assert first["config"]["sink_type"] == "mqtt"
+        assert "pagination" in data
     else:
         assert "detail" in resp.json()
 

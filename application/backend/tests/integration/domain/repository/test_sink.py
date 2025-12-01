@@ -18,12 +18,19 @@ def repository(fxt_session):
 
 
 @pytest.fixture
+def clean_after(request, fxt_clean_table):
+    request.addfinalizer(lambda: fxt_clean_table(SinkDB))
+    request.addfinalizer(lambda: fxt_clean_table(ProjectDB))
+
+
+@pytest.fixture
 def sample_project_id(fxt_session):
     """Generate a sample project ID and create the project in the database."""
     project_id = uuid4()
     project = ProjectDB(
         id=project_id,
-        name=f"Test Project {project_id}",  # Make name unique
+        name=f"Test Project {project_id}",
+        active=False,
     )
     fxt_session.add(project)
     fxt_session.commit()
@@ -36,7 +43,8 @@ def other_project_id(fxt_session):
     project_id = uuid4()
     project = ProjectDB(
         id=project_id,
-        name=f"Other Project {project_id}",  # Make name unique
+        name=f"Other Project {project_id}",
+        active=False,
     )
     fxt_session.add(project)
     fxt_session.commit()
@@ -62,7 +70,7 @@ class TestSinkRepositoryAdd:
         repository.add(sample_sink)
         fxt_session.commit()
 
-        result = repository.get_by_id(sink_id=sample_sink.id)
+        result = repository.get_by_id(sample_sink.id)
         assert result is not None
         assert result.id == sample_sink.id
         assert result.project_id == sample_sink.project_id
@@ -117,7 +125,7 @@ class TestSinkRepositoryGetByIdAndProject:
 
 
 class TestSinkRepositoryGetAllByProject:
-    """Tests for the get_all_by_project method."""
+    """Tests for the list_all_by_project method."""
 
     def test_get_all_by_project(self, repository, sample_project_id, fxt_session):
         """Test retrieving all sinks for a project."""
@@ -137,13 +145,13 @@ class TestSinkRepositoryGetAllByProject:
         fxt_session.add_all([sink1, sink2])
         fxt_session.commit()
 
-        results = repository.get_all_by_project(sample_project_id)
+        results = repository.list_all_by_project(sample_project_id)
         assert len(results) == 2
         assert {r.id for r in results} == {sink1.id, sink2.id}
 
     def test_get_all_by_project_empty(self, repository, sample_project_id):
         """Test retrieving sinks when project has none."""
-        results = repository.get_all_by_project(sample_project_id)
+        results = repository.list_all_by_project(sample_project_id)
         assert len(results) == 0
         assert isinstance(results, Sequence)
 
@@ -167,7 +175,7 @@ class TestSinkRepositoryGetAllByProject:
         fxt_session.add_all([sink1, sink2])
         fxt_session.commit()
 
-        results = repository.get_all_by_project(sample_project_id)
+        results = repository.list_all_by_project(sample_project_id)
         assert len(results) == 1
         assert results[0].id == sink1.id
 
@@ -180,11 +188,11 @@ class TestSinkRepositoryDelete:
         fxt_session.add(sample_sink)
         fxt_session.commit()
 
-        repository.delete(sample_sink)
+        result = repository.delete(sample_sink.id)
         fxt_session.commit()
 
-        result = fxt_session.get(SinkDB, sample_sink.id)
-        assert result is None
+        assert result is True
+        assert fxt_session.get(SinkDB, sample_sink.id) is None
 
     def test_delete_multiple_sinks(self, repository, sample_project_id, fxt_session):
         """Test deleting one sink while keeping others."""
@@ -204,7 +212,7 @@ class TestSinkRepositoryDelete:
         fxt_session.add_all([sink1, sink2])
         fxt_session.commit()
 
-        repository.delete(sink1)
+        repository.delete(sink1.id)
         fxt_session.commit()
 
         assert fxt_session.get(SinkDB, sink1.id) is None
@@ -214,18 +222,22 @@ class TestSinkRepositoryDelete:
 class TestSinkRepositoryGetConnectedInProject:
     """Tests for the get_active_in_project method."""
 
-    def test_get_active_in_project(self, repository, sample_project_id, fxt_session):
-        """Test retrieving the active sink in a project."""
+    def test_get_active_in_project(self, repository, fxt_session, clean_after):
+        """Test retrieving the active sink in an active project."""
+        project = ProjectDB(name=f"Active Project {uuid4()}", active=True)
+        fxt_session.add(project)
+        fxt_session.commit()
+
         # Use different sink types to avoid unique constraint violation
         active_sink = SinkDB(
             id=uuid4(),
-            project_id=sample_project_id,
+            project_id=project.id,
             active=True,
             config={"sink_type": WriterType.MQTT, "broker_host": "localhost"},
         )
         deactivated_sink = SinkDB(
             id=uuid4(),
-            project_id=sample_project_id,
+            project_id=project.id,
             active=False,
             config={"sink_type": "kafka", "broker_host": "localhost"},
         )
@@ -233,16 +245,20 @@ class TestSinkRepositoryGetConnectedInProject:
         fxt_session.add_all([active_sink, deactivated_sink])
         fxt_session.commit()
 
-        result = repository.get_active_in_project(sample_project_id)
+        result = repository.get_active_in_project(project.id)
         assert result is not None
         assert result.id == active_sink.id
         assert result.active is True
 
-    def test_get_active_in_project_none_active(self, repository, sample_project_id, fxt_session):
+    def test_get_active_in_project_none_active(self, repository, fxt_session, clean_after):
         """Test when no sinks are active."""
+        project = ProjectDB(name=f"Active Project No Sinks {uuid4()}", active=True)
+        fxt_session.add(project)
+        fxt_session.commit()
+
         sink = SinkDB(
             id=uuid4(),
-            project_id=sample_project_id,
+            project_id=project.id,
             active=False,
             config={"sink_type": WriterType.MQTT, "broker_host": "localhost"},
         )
@@ -250,21 +266,29 @@ class TestSinkRepositoryGetConnectedInProject:
         fxt_session.add(sink)
         fxt_session.commit()
 
-        result = repository.get_active_in_project(sample_project_id)
+        result = repository.get_active_in_project(project.id)
         assert result is None
 
-    def test_get_active_in_project_empty_project(self, repository, sample_project_id):
+    def test_get_active_in_project_empty_project(self, repository, fxt_session, clean_after):
         """Test when project has no sinks at all."""
-        result = repository.get_active_in_project(sample_project_id)
+        project = ProjectDB(name=f"Active Project Empty {uuid4()}", active=True)
+        fxt_session.add(project)
+        fxt_session.commit()
+
+        result = repository.get_active_in_project(project.id)
         assert result is None
 
     def test_get_active_in_project_filters_other_projects(
-        self, repository, sample_project_id, other_project_id, fxt_session
+        self, repository, sample_project_id, fxt_session, clean_after
     ):
         """Test that active sinks from other projects are not returned."""
+        other_project = ProjectDB(name=f"Other Active Project {uuid4()}", active=True)
+        fxt_session.add(other_project)
+        fxt_session.commit()
+
         connected_sink_other = SinkDB(
             id=uuid4(),
-            project_id=other_project_id,
+            project_id=other_project.id,
             active=True,
             config={"sink_type": WriterType.MQTT, "broker_host": "localhost"},
         )
@@ -283,12 +307,16 @@ class TestSinkRepositoryGetConnectedInProject:
 
 
 class TestSinkRepositoryExceptions:
-    def test_unique_active_constraint(self, repository, sample_project_id, fxt_session):
+    def test_unique_active_constraint(self, repository, fxt_session, clean_after):
         """Test that only one sink can be active per project (business rule)."""
+        project = ProjectDB(name=f"Unique Active Project {uuid4()}", active=True)
+        fxt_session.add(project)
+        fxt_session.commit()
+
         # Create first active sink
         sink1 = SinkDB(
             id=uuid4(),
-            project_id=sample_project_id,
+            project_id=project.id,
             active=True,
             config={"sink_type": WriterType.MQTT, "broker_host": "localhost"},
         )
@@ -296,14 +324,14 @@ class TestSinkRepositoryExceptions:
         fxt_session.commit()
 
         # Verify first sink is active
-        active = repository.get_active_in_project(sample_project_id)
+        active = repository.get_active_in_project(project.id)
         assert active is not None
         assert active.id == sink1.id
 
         # Try to create second active sink - should violate constraint
         sink2 = SinkDB(
             id=uuid4(),
-            project_id=sample_project_id,
+            project_id=project.id,
             active=True,
             config={"sink_type": "kafka", "broker_host": "localhost"},
         )
