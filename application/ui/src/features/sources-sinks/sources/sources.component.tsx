@@ -8,8 +8,7 @@ import { ReactNode, useState } from 'react';
 import { SourceType } from '@geti-prompt/api';
 import { useGetSources } from '@geti-prompt/hooks';
 import { ImagesFolder as ImagesFolderIcon, WebCam } from '@geti-prompt/icons';
-import { ActionButton, Divider, Flex, Heading, View } from '@geti/ui';
-import { Back, Datasets } from '@geti/ui/icons';
+import { Datasets } from '@geti/ui/icons';
 import { isEmpty } from 'lodash-es';
 
 import { DisclosureGroup } from '../disclosure-group/disclosure-group.component';

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Button, Checkbox, CheckboxGroup, Flex, Form, NumberField, TextField, View } from '@geti/ui';
+import { Button, Form } from '@geti/ui';
 
 import { MQTTSinkFields } from './mqtt-sink-fields.component';
 
@@ -12,13 +12,18 @@ interface CreateMQTTSinkProps {
 }
 
 export const CreateMQTTSink = ({ onSaved }: CreateMQTTSinkProps) => {
-    return (
-        <View>
-            <Form>
-                <MQTTSinkFields />
+    const createSink = () => {
+        //createSinkMutation.mutate({})
+        onSaved();
+    };
 
-                <Button width={'max-content'}>Apply</Button>
-            </Form>
-        </View>
+    return (
+        <Form>
+            <MQTTSinkFields />
+
+            <Button width={'max-content'} onPress={createSink}>
+                Apply
+            </Button>
+        </Form>
     );
 };
