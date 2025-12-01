@@ -134,16 +134,12 @@ def get_frame_service_with_queue(
 
 def get_prompt_service(
     session: SessionDep,
-    prompt_repo: Annotated[PromptRepository, Depends(get_prompt_repository)],
-    project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
-    frame_repo: Annotated[FrameRepository, Depends(get_frame_repository)],
+    dispatcher: Annotated[ConfigChangeDispatcher, Depends(get_config_dispatcher)],
 ) -> PromptService:
     """Dependency that provides a PromptService instance."""
     return PromptService(
         session=session,
-        prompt_repository=prompt_repo,
-        project_repository=project_repo,
-        frame_repository=frame_repo,
+        config_change_dispatcher=dispatcher,
     )
 
 

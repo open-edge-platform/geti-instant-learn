@@ -11,6 +11,10 @@ from sqlalchemy.orm import Session
 from api.error_handler import extract_constraint_name
 from domain.db.constraints import CheckConstraintName, UniqueConstraintName
 from domain.db.models import ProjectDB, PromptDB, PromptType
+from domain.dispatcher import (
+    ComponentConfigChangeEvent,
+    ConfigChangeDispatcher,
+)
 from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
@@ -20,6 +24,7 @@ from domain.errors import (
 )
 from domain.repositories.frame import FrameRepository
 from domain.repositories.label import LabelRepository
+from domain.repositories.processor import ProcessorRepository
 from domain.repositories.project import ProjectRepository
 from domain.repositories.prompt import PromptRepository
 from domain.services.base import BaseService
@@ -66,15 +71,18 @@ class PromptService(BaseService):
         project_repository: ProjectRepository | None = None,
         frame_repository: FrameRepository | None = None,
         label_repository: LabelRepository | None = None,
+        processor_repository: ProcessorRepository | None = None,
+        config_change_dispatcher: ConfigChangeDispatcher | None = None,
     ):
         """
         Initialize the service with a SQLAlchemy session.
         """
-        super().__init__(session=session)
+        super().__init__(session=session, config_change_dispatcher=config_change_dispatcher)
         self.prompt_repository = prompt_repository or PromptRepository(session=session)
         self.project_repository = project_repository or ProjectRepository(session=session)
         self.frame_repository = frame_repository or FrameRepository()
         self.label_repository = label_repository or LabelRepository(session=session)
+        self.processor_repository = processor_repository or ProcessorRepository(session=session)
 
     def list_prompts(self, project_id: UUID, offset: int = 0, limit: int = 10) -> PromptsListSchema:
         """
@@ -238,6 +246,7 @@ class PromptService(BaseService):
                     schema=create_data, project_id=project_id, thumbnail=thumbnail
                 )
                 self.prompt_repository.add(new_prompt)
+                self._emit_processor_change_event(project_id)
         except IntegrityError as exc:
             logger.error("Prompt creation failed due to constraint violation: %s", exc)
             self._handle_prompt_integrity_error(exc, new_prompt.id, project_id, new_prompt.type, new_prompt.frame_id)
@@ -289,6 +298,7 @@ class PromptService(BaseService):
                         project_id,
                     )
             self.prompt_repository.delete(prompt.id)
+            self._emit_processor_change_event(project_id)
         logger.info("Prompt deleted: prompt_id=%s project_id=%s", prompt_id, project_id)
 
     def update_prompt(self, project_id: UUID, prompt_id: UUID, update_data: PromptUpdateSchema) -> PromptSchema:
@@ -346,6 +356,7 @@ class PromptService(BaseService):
                     annotations = annotations_db_to_schemas(prompt.annotations)
                     prompt.thumbnail = self._generate_thumbnail(project_id, prompt.frame_id, annotations)
                 prompt = self.prompt_repository.update(prompt)
+                self._emit_processor_change_event(project_id)
         except IntegrityError as exc:
             logger.error("Prompt update failed due to constraint violation: %s", exc)
             self._handle_prompt_integrity_error(exc, prompt.id, project_id, prompt.type)
@@ -528,3 +539,17 @@ class PromptService(BaseService):
 
         logger.error(f"Unmapped constraint violation for prompt (prompt_id={prompt_id}): {error_msg}")
         raise ServiceError("Database constraint violation. Please check your input and try again.")
+
+    def _emit_processor_change_event(self, project_id: UUID) -> None:
+        """
+        Emit a ComponentConfigChangeEvent for the active processor in the project.
+        """
+        active_processor = self.processor_repository.get_active_in_project(project_id)
+        if active_processor and self._dispatcher:
+            self._pending_events.append(
+                ComponentConfigChangeEvent(
+                    project_id=project_id,
+                    component_id=str(active_processor.id),
+                    component_type="processor",
+                )
+            )
