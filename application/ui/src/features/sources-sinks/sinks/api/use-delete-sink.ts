@@ -12,6 +12,9 @@ const useDeleteSinkMutation = (projectId: string) => {
             invalidates: [
                 ['get', '/api/v1/projects/{project_id}/sinks', { params: { path: { project_id: projectId } } }],
             ],
+            error: {
+                notify: true,
+            },
         },
     });
 };
