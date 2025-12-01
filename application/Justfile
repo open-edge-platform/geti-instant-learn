@@ -24,6 +24,9 @@ docker-image := images-registry / component-name + ":" + version + "-" + ai-devi
 # Variables used in the Justfile to build in Docker image for Geti Prompt
 # -------------------------------------------------------------------------------------------------
 
+# ensures paths work when recipes are imported from subdirectories
+application-dir := justfile_directory()
+
 docker-build-context := ""
 workdir-path := "/geti_prompt"
 asset-prefix := "/html"
@@ -32,7 +35,7 @@ static-files-dir := workdir-path + asset-prefix
 db-data-dir := workdir-path + data-dir
 target-stage := component-name + "-" + ai-device
 coffee-berries-dataset := "https://storage.geti.intel.com/geti-prompt/Frames.zip"
-source-dataset-dir := ".data/templates/datasets/coffee-berries"
+source-dataset-dir := application-dir / ".data/templates/datasets/coffee-berries"
 target-dataset-dir := db-data-dir + "/templates/datasets/coffee-berries"
 
 # -------------------------------------------------------------------------------------------------
@@ -81,7 +84,7 @@ build-image: download-dataset
     @docker build \
         {{ docker-extra-args }} \
         {{ docker-build-context }} \
-        --build-context libs=../library \
+        --build-context libs={{ application-dir }}/../library \
         --build-arg PUBLIC_API_URL=http://localhost:{{ container-port }} \
         --build-arg STATIC_FILES_DIR={{ static-files-dir }} \
         --build-arg DB_DATA_DIR={{ db-data-dir }} \
@@ -90,7 +93,7 @@ build-image: download-dataset
         --build-arg SOURCE_DATASET_DIR={{ source-dataset-dir }} \
         --build-arg INITIAL_DATASET_DIR={{ target-dataset-dir }} \
         --tag "{{ docker-image }}" \
-        --file docker/Dockerfile . \
+        --file {{ application-dir }}/docker/Dockerfile {{ application-dir }} \
         --target {{ target-stage }}
 
 # launch geti prompt with optional webcam, volume and port mapping
