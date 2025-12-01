@@ -14,7 +14,7 @@ LIMITED EDGE SOFTWARE DISTRIBUTION LICENSE
 
 A production-ready platform for Visual Prompting on live video streams.
 
-Geti Prompt bridges the gap between research and production. It is a comprehensive platform that enables users to explore, develop, and deploy visual prompting algorithms. Whether you are experimenting with new foundation models or deploying them for real-time inference on IP cameras and GenICams, Geti Prompt provides the modular architecture you need.
+Geti Prompt bridges the gap between research and production. It is a comprehensive platform that enables users to explore, develop, and deploy visual prompting algorithms. Whether you are experimenting with new foundation models or deploying them for real-time inference, Geti Prompt provides a modular architecture extensible to various streaming sources, designed to support inputs such as IP cameras and GenICams.
 
 ## 💡 What is Visual Prompting?
 
@@ -43,7 +43,7 @@ The core logic is encapsulated in the getiprompt library. Developers can mix and
 </details>
 <details>
 <summary>🖥️ Interactive UI</summary>
-A React-based web interface for real-time interaction. Upload images, define prompts visually, and validate model performance instantly.
+A modern React interface for real-time visual prompting. Seamlessly capture frames, annotate objects with a click, and instantly validate model performance on live video streams.
 </details>
 
 ## 🧮 Supported models

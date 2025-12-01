@@ -25,7 +25,7 @@ Instead of dealing with file paths and scripts, you connect directly to live sen
 ### 2. Interactive Prompting
 "Training" a model becomes an interactive conversation with the AI:
 *   **Visual Prompting:** Simply click on an object in the video feed. The app captures that visual signature and tracks it across future frames.
-*   **Text Prompting:** Type what you are looking for (e.g., "safety vest").
+*   **Text Prompting (Coming Soon):** Type what you are looking for (e.g., "safety vest").
 *   **Instant Feedback:** See the results immediately overlaid on the video. If the model makes a mistake, correct it with another click.
 
 ### 3. Deploy & Integrate
