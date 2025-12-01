@@ -46,9 +46,9 @@ const AddSink = ({ onViewChange }: AddSinkProps) => {
 };
 
 export const Sinks = () => {
-    const { data: _sinks } = useSinks();
+    const { data } = useSinks();
 
-    const [view, setView] = useState<SinkViews>('list');
+    const [view, setView] = useState<SinkViews>(data.sinks.length === 0 ? 'list' : 'existing');
 
     if (view === 'add') {
         return <AddSink onViewChange={setView} />;
