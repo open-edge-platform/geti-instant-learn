@@ -32,7 +32,7 @@ coffee-berries-dataset := "https://storage.geti.intel.com/geti-prompt/Frames.zip
 
 # Dataset paths
 application-dir := justfile_directory()
-source-dataset-dir := "backend/.data/templates/datasets/coffee-berries"
+source-dataset-dir := ".data/templates/datasets/coffee-berries"
 target-dataset-dir := "/geti_prompt/data/templates/datasets/coffee-berries"
 
 # -------------------------------------------------------------------------------------------------
