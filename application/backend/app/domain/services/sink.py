@@ -133,7 +133,7 @@ class SinkService(BaseService):
                 self.sink_repository.add(new_sink)
                 self._emit_component_change(project_id=project_id, sink_id=new_sink.id)
         except IntegrityError as exc:
-            logger.error("Source creation failed due to constraint violation: %s", exc)
+            logger.error("Sink creation failed due to constraint violation: %s", exc)
             self._handle_sink_integrity_error(exc, new_sink.id, project_id, sink_type, sink_name)
 
         logger.info(
