@@ -17,7 +17,7 @@ interface VisualPromptContextProps {
     prompt: VisualPromptType | undefined;
 
     selectedLabelId: string | null;
-    setSelectedLabelId: (id: string) => void;
+    setSelectedLabelId: (id: string | null) => void;
     selectedLabel: LabelType | null;
     labels: LabelType[];
 }
@@ -31,7 +31,7 @@ interface VisualPromptProviderProps {
 const useSelectedLabel = (prompt: VisualPromptType | undefined) => {
     const labels = useProjectLabels();
 
-    const [selectedLabelId, setSelectedLabelId] = useState<string | null>(null);
+    const [selectedLabelId, setSelectedLabelId] = useState<string | null>(labels.length === 0 ? null : labels[0].id);
 
     const selectedLabel: LabelType | null = labels.find(({ id }) => id === selectedLabelId) ?? null;
 
@@ -43,10 +43,6 @@ const useSelectedLabel = (prompt: VisualPromptType | undefined) => {
             labelId && setSelectedLabelId(labelId);
 
             return;
-        }
-
-        if (labels.length > 0) {
-            setSelectedLabelId(labels[0].id);
         }
     }, [labels, prompt?.annotations]);
 
