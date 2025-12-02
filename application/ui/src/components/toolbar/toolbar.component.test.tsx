@@ -33,6 +33,12 @@ describe('Toolbar', () => {
                             connected: true,
                         }),
                     ],
+                    pagination: {
+                        count: 1,
+                        total: 1,
+                        limit: 10,
+                        offset: 0,
+                    },
                 });
             })
         );
