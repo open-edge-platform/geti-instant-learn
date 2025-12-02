@@ -56,9 +56,21 @@ const MOCKED_PROMPTS_RESPONSE: VisualPromptListType = {
 };
 const MOCKED_SOURCES_RESPONSE: SourcesListType = {
     sources: [],
+    pagination: {
+        count: 0,
+        total: 0,
+        limit: 10,
+        offset: 0,
+    },
 };
 const MOCKED_SINKS_RESPONSE: SinksListType = {
     sinks: [],
+    pagination: {
+        count: 0,
+        total: 0,
+        limit: 10,
+        offset: 0,
+    },
 };
 const MOCKED_MODELS_RESPONSE: ModelListType = {
     models: [
