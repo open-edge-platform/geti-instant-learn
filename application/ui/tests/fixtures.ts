@@ -51,6 +51,11 @@ const test = testBase.extend<Fixtures>({
                     sources: [],
                 });
             }),
+            http.get('/api/v1/projects/{project_id}/sinks', ({ response }) => {
+                return response(200).json({
+                    sinks: [],
+                });
+            }),
             http.get('/api/v1/projects/{project_id}/labels', ({ response }) => {
                 return response(200).json({
                     labels: [],

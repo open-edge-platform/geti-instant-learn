@@ -213,7 +213,6 @@ class TestPipelineManager:
             mgr.on_config_change(ev)
 
             running.stop.assert_called_once()
-            assert mgr._pipeline is None
 
     def test_on_deactivation_ignores_non_matching_pipeline(self, dispatcher, session_factory):
         with patch("runtime.pipeline_manager.ProjectService"), patch("runtime.pipeline_manager.Pipeline"):

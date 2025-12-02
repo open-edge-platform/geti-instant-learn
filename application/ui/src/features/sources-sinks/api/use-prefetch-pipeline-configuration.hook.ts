@@ -1,0 +1,27 @@
+/**
+ * Copyright (C) 2025 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { $api } from '@geti-prompt/api';
+import { useProjectIdentifier } from '@geti-prompt/hooks';
+
+export const usePrefetchPipelineConfiguration = () => {
+    const { projectId } = useProjectIdentifier();
+
+    $api.useQuery('get', '/api/v1/projects/{project_id}/sources', {
+        params: {
+            path: {
+                project_id: projectId,
+            },
+        },
+    });
+
+    $api.useQuery('get', '/api/v1/projects/{project_id}/sinks', {
+        params: {
+            path: {
+                project_id: projectId,
+            },
+        },
+    });
+};

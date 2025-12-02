@@ -6,7 +6,7 @@
 import { ImagesFolderSourceType } from '@geti-prompt/api';
 import { ImagesFolder } from '@geti-prompt/icons';
 
-import { SourceCard } from '../source-card/source-card.component';
+import { PipelineEntityCard } from '../../pipeline-entity-card/pipeline-entity-card.component';
 
 interface ImagesFolderSourceCardProps {
     source: ImagesFolderSourceType;
@@ -19,13 +19,13 @@ export const ImagesFolderSourceCard = ({ source, onAction, menuItems }: ImagesFo
     const isActiveSource = source.connected;
 
     return (
-        <SourceCard
+        <PipelineEntityCard
             isActive={isActiveSource}
             icon={<ImagesFolder />}
             title={'Images folder'}
-            menu={<SourceCard.Menu onAction={onAction} isActive={isActiveSource} items={menuItems} />}
+            menu={<PipelineEntityCard.Menu onAction={onAction} isActive={isActiveSource} items={menuItems} />}
         >
-            <SourceCard.Parameters parameters={parameters} />
-        </SourceCard>
+            <PipelineEntityCard.Parameters parameters={parameters} />
+        </PipelineEntityCard>
     );
 };

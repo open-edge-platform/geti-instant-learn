@@ -113,7 +113,7 @@ ARG USER_NAME="non-root"
 ENV USER_NAME=${USER_NAME}
 ARG PUBLIC_API_URL=""
 ENV PUBLIC_API_URL=${PUBLIC_API_URL}
-ARG INITIAL_DATASET_DIR=""
+ARG TARGET_DATASET_DIR=""
 ARG SOURCE_DATASET_DIR=""
 
 # Create directory and set ownership before VOLUME instruction
@@ -137,7 +137,7 @@ RUN useradd -l -u ${UID} ${USER_NAME} \
     && rm -rf /root/.cache/pip
 
 # Add sample dataset with coffee berries
-COPY --link --chown=${UID} ${SOURCE_DATASET_DIR} ${INITIAL_DATASET_DIR}
+COPY --link --chown=${UID} ${SOURCE_DATASET_DIR} ${TARGET_DATASET_DIR}
 
 # Copy backend source code
 COPY --link --chown=${UID} backend/app /geti_prompt/app

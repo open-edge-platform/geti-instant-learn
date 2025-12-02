@@ -1,17 +1,17 @@
-.sourceParametersList {
+.parametersList {
     padding-inline-start: var(--spectrum-global-dimension-size-200);
     margin: 0;
     word-break: break-all;
 }
 
-.sourceActive {
+.active {
     --dark-blue: #0c1e29;
     background-color: var(--dark-blue);
     border: var(--spectrum-alias-border-size-thin) solid var(--energy-blue);
     border-radius: var(--spectrum-alias-border-radius-regular);
 }
 
-.sourceInactive {
+.inactive {
     transition:
         background-color 0.2s ease-in-out,
         border 0.2s ease-in-out;
@@ -20,18 +20,18 @@
     border-radius: var(--spectrum-alias-border-radius-regular);
 }
 
-.sourceMenu {
+.menu {
     svg {
         transform: rotate(90deg);
     }
 }
 
-.sourceTitle {
+.title {
     font-weight: 500;
 }
 
-.sourceActiveMenu,
-.sourceActiveMenu[class*='is-hovered'],
-.sourceActiveMenu[class*='is-active'] {
+.activeMenu,
+.activeMenu[class*='is-hovered'],
+.activeMenu[class*='is-active'] {
     background-color: var(--dark-blue) !important;
 }
