@@ -91,7 +91,7 @@ class TestMqtt:
 
     def test_connect_without_credentials(self, mqtt_broker):
         host, port = mqtt_broker
-        topic = "imqtt/no-auth"
+        topic = "mqtt/no-auth"
         writer = MqttWriter(host=host, port=port, topic=topic, auth_required=False)
         queue, teardown = _subscribe(host, port, topic)
 

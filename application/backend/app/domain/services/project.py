@@ -250,8 +250,8 @@ class ProjectService(BaseService):
         if active_sink:
             try:
                 writer_cfg = TypeAdapter(WriterConfig).validate_python(active_sink.config)
-            except Exception as exc:
-                logger.exception(f"Invalid active sink config ignored: sink_id={active_sink.id} err={exc}")
+            except Exception:
+                logger.exception(f"Invalid active sink config ignored: sink_id={active_sink.id}")
         return PipelineConfig(
             project_id=project.id,
             reader=reader_cfg,
