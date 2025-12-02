@@ -11,6 +11,7 @@ ui:
   - application/ui/**
   - .github/workflows/**
   - application/backend/app/domain/services/schemas/**
+  - application/backend/app/api/**
 
 distrib:
   - application/**
