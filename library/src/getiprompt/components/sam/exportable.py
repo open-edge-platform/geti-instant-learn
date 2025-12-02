@@ -9,6 +9,7 @@ and ensures the exported models can be used with OpenVINOSAMPredictor.
 """
 
 import logging
+from pathlib import Path
 
 import openvino
 import torch
@@ -253,11 +254,12 @@ class ExportableSAMPredictor(nn.Module):
             return_logits=False,
         )
 
-    def export(self, output_path: str) -> None:
+    def export(self, output_path: str, backend: str = "onnx") -> Path:
         """Export the model to ONNX and OpenVINO IR format.
 
         Args:
             output_path: The path to export the model to.
+            backend: The backend to export to ("onnx" or "openvino").
         """
         self._freeze_modules([
             self.sam_predictor.model.mask_decoder,
@@ -272,6 +274,15 @@ class ExportableSAMPredictor(nn.Module):
         dummy_mask_input = torch.rand((10, 1, 256, 256), dtype=torch.float32)
         original_size = torch.tensor((self.input_size, self.input_size), dtype=torch.int32)
 
+        model_inputs = (
+            dummy_image,
+            dummpy_coords,
+            dummy_labels,
+            dummy_boxes,
+            dummy_mask_input,
+            original_size,
+        )
+
         # Define input and output names
         input_names = [
             "transformed_image",
@@ -283,44 +294,54 @@ class ExportableSAMPredictor(nn.Module):
         ]
         output_names = ["masks", "iou_predictions", "low_res_logits"]
 
-        # Define dynamic axes
-        dynamic_axes = {
-            "transformed_image": {0: "batch_size", 2: "height", 3: "width"},
-            "point_coords": {0: "num_masks", 1: "num_points"},
-            "point_labels": {0: "num_masks", 1: "num_points"},
-            "boxes": {0: "num_masks", 1: "num_boxes"},
-            "mask_input": {0: "num_masks"},
-        }
+        if backend.lower() == "onnx":
+            # Define dynamic axes
+            dynamic_axes = {
+                "transformed_image": {0: "batch_size", 2: "height", 3: "width"},
+                "point_coords": {0: "num_masks", 1: "num_points"},
+                "point_labels": {0: "num_masks", 1: "num_points"},
+                "boxes": {0: "num_masks", 1: "num_boxes"},
+                "mask_input": {0: "num_masks"},
+            }
+            with torch.no_grad():
+                try:
+                    # Export to ONNX
+                    torch.onnx.export(
+                        self,
+                        model_inputs,
+                        output_path / "exported_sam.onnx",
+                        opset_version=20,
+                        input_names=input_names,
+                        output_names=output_names,
+                        dynamic_axes=dynamic_axes,
+                        verbose=True,
+                    )
+                    return output_path / "exported_sam.onnx"
+                except Exception as e:
+                    msg = f"Error exporting to ONNX: {e}"
+                    logger.exception(msg)
+                    raise e
 
-        with torch.no_grad():
+        if backend.lower() == "openvino":
+            dynamic_shapes = {
+                "transformed_image": openvino.PartialShape([-1, 3, -1, -1]),
+                "point_coords": openvino.PartialShape([-1, 1, 2]),
+                "point_labels": openvino.PartialShape([-1, 1]),
+                "boxes": openvino.PartialShape([-1, 1, 4]),
+                "mask_input": openvino.PartialShape([-1, 1, 256, 256]),
+                "original_size": openvino.PartialShape([2]),
+            }
             try:
-                # Export to ONNX
-                torch.onnx.export(
-                    self,
-                    (dummy_image, dummpy_coords, dummy_labels, dummy_boxes, dummy_mask_input, original_size),
-                    output_path / "exported_sam.onnx",
-                    opset_version=20,
-                    input_names=input_names,
-                    output_names=output_names,
-                    dynamic_axes=dynamic_axes,
-                    verbose=True,
+                ov_model = openvino.convert_model(
+                    input_model=self,
+                    example_input=model_inputs,
+                    input=dynamic_shapes,
                 )
+                for i, ov_output in enumerate(ov_model.outputs):
+                    ov_output.get_tensor().set_names({output_names[i]})
+                openvino.save_model(ov_model, output_path / "exported_sam.xml")
+                return output_path / "exported_sam.xml"
             except Exception as e:
-                msg = f"Error exporting to ONNX: {e}"
+                msg = f"Error exporting to OpenVINO IR: {e}"
                 logger.exception(msg)
                 raise e
-
-        exported_model = openvino.convert_model(output_path / "exported_sam.onnx")
-        self._validate_and_set_names(
-            exported_model.outputs,
-            output_names,
-            "output",
-            "output_names",
-        )
-        self._validate_and_set_names(
-            exported_model.inputs,
-            input_names,
-            "input",
-            "input_names",
-        )
-        openvino.save_model(exported_model, output_path / "exported_sam.xml")

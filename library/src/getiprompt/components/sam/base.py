@@ -109,3 +109,12 @@ class BaseSAMPredictor(ABC):
             Device string (e.g., "cuda", "cpu", "CPU", "GPU")
         """
         return self._device
+
+    @abstractmethod
+    def export(self, export_path: Path, backend: str) -> None:
+        """Export the model to the specified path.
+
+        Args:
+            export_path: Path to save the exported model
+            backend: Backend format to export to (e.g., "openvino", "onnx")
+        """

@@ -157,74 +157,121 @@ class HuggingFaceImageEncoder(nn.Module):
         features = last_hidden_state[:, self.ignore_token_length :, :]  # Remove CLS token (and register tokens if used)
         return functional.normalize(features, p=2, dim=-1)
 
-    def export(self, output_path: Path) -> Path:
-        """Export this PyTorch encoder to OpenVINO IR format.
+    def export(self, output_path: Path, backend: str = "openvino") -> Path:
+        """Export this PyTorch encoder to ONNX or OpenVINO IR format.
 
-        This uses direct ONNX + OpenVINO conversion to export the DINO model.
+        This uses direct ONNX export or OpenVINO conversion to export the DINO model.
         The exported model can then be loaded using OpenVINOImageEncoder.
 
         Args:
             output_path: Directory to save exported model.
                 Creates the directory if it doesn't exist.
+            backend: The backend to export to ("onnx" or "openvino").
 
         Returns:
-            Path to the exported OpenVINO IR directory.
+            Path to the exported model file.
 
         Example:
             >>> encoder = HuggingFaceImageEncoder(
             ...     model_id="dinov2_large",
             ...     device="cuda"
             ... )
-            >>> ov_path = encoder.export(Path("./exported"))
+            >>> ov_path = encoder.export(Path("./exported"), backend="openvino")
             >>>
             >>> # Now load with OpenVINO backend
             >>> ov_encoder = OpenVINOImageEncoder(
             ...     model_path=ov_path,
-            ...     input_size=518
             ... )
         """
+
+        # Wrapper to export only the feature extraction (without CLS/register tokens)
+        class ForwardFeaturesWrapper(nn.Module):
+            def __init__(self, model: nn.Module, ignore_token_length: int):
+                super().__init__()
+                self.model = model
+                self.ignore_token_length = ignore_token_length
+
+            def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:
+                last_hidden_state = self.model(pixel_values).last_hidden_state
+                features = last_hidden_state[:, self.ignore_token_length :, :]
+                return functional.normalize(features, p=2, dim=-1)
+
         # Ensure output directory exists
         output_path = Path(output_path)
         output_path.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Exporting {self.model_id} to OpenVINO IR format at {output_path}")
+        logger.info(f"Exporting {self.model_id} to {backend.upper()} format at {output_path}")
 
         # Create dummy input that matches the processor output
         dummy_image = [torch.zeros((3, self.input_size, self.input_size))]
         inputs = self.processor(images=dummy_image, return_tensors="pt")
-        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        dummy_pixel_values = inputs["pixel_values"].to(self.device)
 
         # Freeze model parameters
         for param in self.model.parameters():
             param.requires_grad_(False)
 
-        onnx_path = output_path / "image_encoder.onnx"
+        # Wrap model to export with token removal and normalization
+        export_model = ForwardFeaturesWrapper(self.model, self.ignore_token_length)
+        export_model.eval()
 
-        # Export to ONNX
-        logger.info("Exporting to ONNX...")
-        with torch.no_grad():
-            torch.onnx.export(
-                self.model,
-                (inputs,),
-                onnx_path,
-                input_names=["pixel_values"],
-                output_names=["last_hidden_state"],
-                dynamic_axes={
-                    "pixel_values": {0: "batch_size"},
-                    "last_hidden_state": {0: "batch_size"},
-                },
-                opset_version=20,
-            )
+        # Define input and output names
+        input_names = ["x"]
+        output_names = ["features"]
 
-        # Convert ONNX to OpenVINO IR
-        logger.info("Converting to OpenVINO IR...")
-        ov_model = openvino.convert_model(onnx_path)
+        if backend.lower() == "onnx":
+            onnx_path = output_path / "image_encoder.onnx"
+            dynamic_axes = {
+                "x": {0: "batch_size"},
+                "features": {0: "batch_size"},
+            }
+            with torch.no_grad():
+                try:
+                    logger.info("Exporting to ONNX...")
+                    torch.onnx.export(
+                        export_model,
+                        (dummy_pixel_values,),
+                        onnx_path,
+                        input_names=input_names,
+                        output_names=output_names,
+                        dynamic_axes=dynamic_axes,
+                        opset_version=20,
+                    )
+                    logger.info(f"Export complete. Model saved to {onnx_path}")
+                    return onnx_path
+                except Exception as e:
+                    msg = f"Error exporting to ONNX: {e}"
+                    logger.exception(msg)
+                    raise
 
-        # Save OpenVINO model
-        xml_path = output_path / "image_encoder.xml"
-        openvino.save_model(ov_model, xml_path)
+        if backend.lower() == "openvino":
+            xml_path = output_path / "image_encoder.xml"
+            dynamic_shapes = {
+                "x": openvino.PartialShape([-1, 3, self.input_size, self.input_size]),
+            }
+            try:
+                logger.info("Converting to OpenVINO IR...")
+                ov_model = openvino.convert_model(
+                    input_model=export_model,
+                    example_input=(dummy_pixel_values,),
+                    input=dynamic_shapes,
+                )
+                for i, ov_output in enumerate(ov_model.outputs):
+                    ov_output.get_tensor().set_names({output_names[i]})
 
-        # Save config and processor for later loading
-        self.model.config.save_pretrained(output_path)
-        self.processor.save_pretrained(output_path)
-        return output_path
+                # Store model configuration as runtime info in the IR
+                ov_model.set_rt_info(self.patch_size, ["model_info", "patch_size"])
+                ov_model.set_rt_info(self.feature_size, ["model_info", "feature_size"])
+                ov_model.set_rt_info(self.ignore_token_length, ["model_info", "ignore_token_length"])
+                ov_model.set_rt_info(self.input_size, ["model_info", "input_size"])
+
+                openvino.save_model(ov_model, xml_path)
+                logger.info(f"Export complete. Model saved to {xml_path}")
+                return xml_path
+            except Exception as e:
+                msg = f"Error exporting to OpenVINO IR: {e}"
+                logger.exception(msg)
+                raise
+
+        msg = f"Invalid backend: {backend}. Valid backends: ['onnx', 'openvino']"
+        raise ValueError(msg)

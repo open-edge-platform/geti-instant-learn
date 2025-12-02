@@ -10,7 +10,12 @@ import torch
 from torch import nn
 from torchvision import tv_tensors
 
+from getiprompt.components.encoders.huggingface import HuggingFaceImageEncoder
+from getiprompt.components.encoders.openvino import OpenVINOImageEncoder
+from getiprompt.components.encoders.timm import TimmImageEncoder
+
 logger = getLogger("Geti Prompt")
+
 
 def load_image_encoder(
     model_id: str = "dinov3_large",
@@ -20,7 +25,7 @@ def load_image_encoder(
     precision: str = "bf16",
     compile_models: bool = False,
     input_size: int = 512,
-) -> nn.Module:
+) -> HuggingFaceImageEncoder | TimmImageEncoder | OpenVINOImageEncoder:
     """Load an image encoder with specified backend.
 
     This factory function creates an image encoder using HuggingFace, TIMM,
@@ -111,9 +116,7 @@ def load_image_encoder(
 
         return OpenVINOImageEncoder(
             model_path=model_path,
-            model_id=model_id,
             device=device,
-            input_size=input_size,
         )
     msg = f"Invalid backend: {backend}. Must be 'huggingface', 'timm', or 'openvino'."
     raise ValueError(msg)
@@ -179,7 +182,7 @@ class ImageEncoder(nn.Module):
         """
         super().__init__()
         self.backend = backend
-        self._model = load_image_encoder(
+        self._model: OpenVINOImageEncoder | HuggingFaceImageEncoder | TimmImageEncoder = load_image_encoder(
             model_id=model_id,
             device=device,
             backend=backend,
@@ -227,13 +230,14 @@ class ImageEncoder(nn.Module):
         """
         return self._model(images)
 
-    def export(self, output_path: Path) -> Path:
+    def export(self, output_path: Path, backend: str = "onnx") -> Path:
         """Export the encoder to OpenVINO IR format.
 
         Only available for HuggingFace backend.
 
         Args:
             output_path: Directory to save exported model.
+            backend: Backend format to export to (e.g., "onnx", "openvino").
 
         Returns:
             Path to the exported OpenVINO IR directory.
@@ -244,7 +248,4 @@ class ImageEncoder(nn.Module):
         if not hasattr(self._model, "export"):
             msg = f"Export is not supported for backend '{self.backend}'."
             raise NotImplementedError(msg)
-        return self._model.export(output_path)
-
-
-
+        return self._model.export(output_path, backend=backend)

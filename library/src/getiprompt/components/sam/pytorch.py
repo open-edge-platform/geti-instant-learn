@@ -15,7 +15,7 @@ from segment_anything_hq.predictor import SamPredictor
 from getiprompt.utils.constants import DATA_PATH, MODEL_MAP, SAMModelName
 from getiprompt.utils.utils import download_file
 
-from .base_predictor import BaseSAMPredictor
+from .base import BaseSAMPredictor
 
 logger = getLogger("Geti Prompt")
 
@@ -153,7 +153,7 @@ class PyTorchSAMPredictor(BaseSAMPredictor):
             return_logits=return_logits,
         )
 
-    def export(self, output_path: Path) -> Path:
+    def export(self, output_path: Path, backend: str = "onnx") -> Path:
         """Export this PyTorch predictor to ONNX and OpenVINO IR format.
 
         This is a convenience method that wraps the predictor in an
@@ -163,6 +163,7 @@ class PyTorchSAMPredictor(BaseSAMPredictor):
         Args:
             output_path: Directory to save exported models.
                 Creates the directory if it doesn't exist.
+            backend: The backend format to export to. Currently only "onnx" is supported.
 
         Returns:
             Path to the exported OpenVINO IR file (.xml)
@@ -172,7 +173,7 @@ class PyTorchSAMPredictor(BaseSAMPredictor):
             ...     SAMModelName.SAM_HQ_TINY,
             ...     backend="pytorch"
             ... )
-            >>> ov_path = predictor.export(Path("./exported"))
+            >>> ov_path = predictor.export(Path("./exported"), backend="openvino")
             >>>
             >>> # Now load with OpenVINO backend
             >>> ov_predictor = load_sam_model(
@@ -189,9 +190,4 @@ class PyTorchSAMPredictor(BaseSAMPredictor):
 
         # Wrap and export
         exportable = ExportableSAMPredictor(self._predictor)
-        exportable.export(output_path)
-
-        exported_xml = output_path / "exported_sam.xml"
-        logger.info(f"Successfully exported to {exported_xml}")
-
-        return exported_xml
+        return exportable.export(output_path, backend=backend)

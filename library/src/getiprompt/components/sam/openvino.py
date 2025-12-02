@@ -9,7 +9,7 @@ import numpy as np
 import openvino as ov
 import torch
 
-from .base_predictor import BaseSAMPredictor
+from .base import BaseSAMPredictor
 
 logger = getLogger("Geti Prompt")
 
@@ -93,6 +93,20 @@ class OpenVINOSAMPredictor(BaseSAMPredictor):
         self._current_image = image
         self._original_size = original_size
         self._input_size = tuple(image.shape[-2:])
+
+    def export(self, export_path: str, backend: str):
+        """Dummy export method.
+
+        This is OV SAM predictor implementation for running inference with
+        OpenVINO models. To export OpenVINO models, please use the
+        ExportableSAMPredictor class from PyTorchSAMPredictor backend.
+
+        Args:
+            export_path: Path to save the exported model
+            backend: Backend format to export to (e.g., "openvino", "onnx")
+        """
+        msg = "Exporting OpenVINO models is not supported. Please export from PyTorchSAMPredictor."
+        raise NotImplementedError(msg)
 
     def predict(
         self,
