@@ -42,7 +42,7 @@ class InferenceVisualizer:
             If visualization is disabled, returns the input frame unchanged.
         """
         if not self._enabled or not results:
-            logger.info("NO RESULTS TO VISUALIZE")
+            logger.debug("No inference results to visualize or visualization disabled.")
             return frame
 
         annotated = frame.copy()
