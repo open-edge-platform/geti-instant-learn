@@ -31,7 +31,9 @@ class Processor(PipelineComponent):
         self._project_id: UUID | None = project_id
 
     def setup(
-        self, inbound_broadcaster: FrameBroadcaster[InputData], outbound_broadcaster: FrameBroadcaster[OutputData],
+        self,
+        inbound_broadcaster: FrameBroadcaster[InputData],
+        outbound_broadcaster: FrameBroadcaster[OutputData],
     ) -> None:
         self._inbound_broadcaster = inbound_broadcaster
         self._outbound_broadcaster = outbound_broadcaster
@@ -51,8 +53,11 @@ class Processor(PipelineComponent):
                 output_data = OutputData(frame=data.frame, results=results, labels_colors=None)
                 if results:
                     logger.info("Received INFERENCE results: %s", results)
-                    logger.info("Prepared OUTPUT DATA results: %s, label colors %s", output_data.results,
-                                output_data.labels_colors)
+                    logger.info(
+                        "Prepared OUTPUT DATA results: %s, label colors %s",
+                        output_data.results,
+                        output_data.labels_colors,
+                    )
                 self._outbound_broadcaster.broadcast(output_data)
             except Empty:
                 continue

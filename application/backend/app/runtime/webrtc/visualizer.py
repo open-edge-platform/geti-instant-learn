@@ -104,12 +104,9 @@ class InferenceVisualizer:
 
             # Apply mask overlay
             mask_bool = mask.astype(bool)
-            overlay[mask_bool] = (
-                    overlay[mask_bool] * (1 - 0.5) + np.array(color) * 0.5
-            ).astype(np.uint8)
+            overlay[mask_bool] = (overlay[mask_bool] * (1 - 0.5) + np.array(color) * 0.5).astype(np.uint8)
 
         return overlay
-
 
     def _draw_boxes(
         self,

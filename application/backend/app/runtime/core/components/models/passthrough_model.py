@@ -1,6 +1,8 @@
+import logging
+
 import torch
 from getiprompt.data.base.batch import Batch
-import logging
+
 from runtime.core.components.base import ModelHandler
 
 logger = logging.getLogger(__name__)

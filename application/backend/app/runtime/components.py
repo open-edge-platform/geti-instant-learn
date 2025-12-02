@@ -1,22 +1,22 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
+import logging
 from abc import ABC, abstractmethod
 from uuid import UUID
 
 from sqlalchemy.orm import Session, sessionmaker
-import logging
+
 from domain.db.models import PromptType
+from domain.services.label import LabelService
 from domain.services.project import ProjectService
 from domain.services.prompt import PromptService
-from domain.services.label import LabelService
 from runtime.core.components.factories.model import ModelFactory
 from runtime.core.components.factories.reader import StreamReaderFactory
 from runtime.core.components.factories.writer import StreamWriterFactory
 from runtime.core.components.processor import Processor
 from runtime.core.components.sink import Sink
 from runtime.core.components.source import Source
-
 
 logger = logging.getLogger(__name__)
 

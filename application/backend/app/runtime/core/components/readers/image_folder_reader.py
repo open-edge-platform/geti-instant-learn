@@ -99,7 +99,7 @@ class ImageFolderReader(StreamReader):
         image_files = self._get_image_files(folder_path)
         if not image_files:
             logger.warning(f"No supported image files found in {folder_path}")
-        
+
         self._image_paths = sorted(image_files, key=self._natural_sort_key)
         self._current_index = 0
 

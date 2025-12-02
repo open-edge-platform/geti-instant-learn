@@ -4,6 +4,7 @@
 import logging
 from uuid import UUID
 
+import cv2
 from getiprompt.data.base.batch import Batch
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -150,7 +151,9 @@ class PromptService(BaseService):
                             project_id,
                         )
                         continue
-                    samples.append(visual_prompt_to_sample(prompt, frame))
+                    # convert BGR to RGB to conform to the InputData contract
+                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    samples.append(visual_prompt_to_sample(prompt, frame_rgb))
                 except ServiceError:
                     logger.exception(
                         "Failed to convert prompt to sample: prompt_id=%s",

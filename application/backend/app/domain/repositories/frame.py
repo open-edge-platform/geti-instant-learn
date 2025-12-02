@@ -66,9 +66,7 @@ class FrameRepository:
             frame = cv2.imread(str(path))
             if frame is None:
                 logger.error(f"Failed to read frame from {path}")
-                return None
-            # convert BGR to RGB to conform to the InputData contract
-            return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            return frame
         except cv2.error:
             logger.exception(f"OpenCV error while reading frame {frame_id} from {path}")
             return None
