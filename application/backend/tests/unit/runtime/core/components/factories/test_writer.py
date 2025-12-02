@@ -14,10 +14,10 @@ class TestWriter:
         result = StreamWriterFactory.create(mqtt_config)
 
         assert isinstance(result, MqttWriter)
-        assert result.broker_host == mqtt_config.broker_host
-        assert result.broker_port == mqtt_config.broker_port
-        assert result.topic == mqtt_config.topic
-        assert result.auth_required == mqtt_config.auth_required
+        assert result._config.broker_host == mqtt_config.broker_host
+        assert result._config.broker_port == mqtt_config.broker_port
+        assert result._config.topic == mqtt_config.topic
+        assert result._config.auth_required == mqtt_config.auth_required
 
     def test_factory_returns_noop_writer_for_other_config(self):
         result = StreamWriterFactory.create(None)

@@ -1,6 +1,8 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
+import os
+
 from domain.services.schemas.writer import MqttConfig, WriterConfig
 from runtime.core.components.base import StreamWriter
 from runtime.core.components.writers.mqtt_writer import MqttWriter
@@ -21,10 +23,9 @@ class StreamWriterFactory:
         match config:
             case MqttConfig() as config:
                 return MqttWriter(
-                    host=config.broker_host,
-                    port=config.broker_port,
-                    topic=config.topic,
-                    auth_required=config.auth_required,
+                    config=config,
+                    username=os.getenv("MQTT_USERNAME", "username"),
+                    password=os.getenv("MQTT_PASSWORD", "password"),
                 )
             case _:
                 return NoOpWriter()

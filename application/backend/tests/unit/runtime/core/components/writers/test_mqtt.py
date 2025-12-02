@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from domain.services.schemas.writer import WriterConfig
 from runtime.core.components.writers import mqtt_writer
 from runtime.core.components.writers.mqtt_writer import MqttWriter
 
@@ -12,15 +13,15 @@ def mocked_writer(monkeypatch):
     client_instance = MagicMock()
     client_factory = MagicMock(return_value=client_instance)
     monkeypatch.setattr(mqtt_writer.mqtt, "Client", client_factory)
-
-    writer = MqttWriter("mqtt.example", "topic/1", port=1884)
-    writer._topic = writer.topic
+    config = WriterConfig(broker_host="mqtt.example", topic="topic/1", port=1884)
+    writer = MqttWriter(config=config)
     return writer, client_instance
 
 
 class TestMqttWriter:
     def test_write_connects_and_publishes(self, mocked_writer):
         writer, client = mocked_writer
+        writer._client = client
         writer._connect = MagicMock(side_effect=lambda: setattr(writer, "_connected", True))
 
         writer.write(SimpleNamespace(results={"foo": "bar"}))
@@ -39,6 +40,7 @@ class TestMqttWriter:
 
     def test_connect_retries_and_raises_after_failures(self, mocked_writer):
         writer, client = mocked_writer
+        writer._client = client
         client.connect.side_effect = Exception("boom")
 
         with pytest.raises(ConnectionError, match="Failed to connect"):

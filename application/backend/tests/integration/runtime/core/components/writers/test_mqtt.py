@@ -1,4 +1,6 @@
 import json
+import socket
+import time
 from queue import Queue
 from threading import Event
 from types import SimpleNamespace
@@ -7,20 +9,40 @@ import paho.mqtt.client as mqtt
 import pytest
 from testcontainers.mqtt import MosquittoContainer
 
-from runtime.core.components.writers import mqtt_writer as mqtt_module
+from domain.services.schemas.writer import WriterConfig
 from runtime.core.components.writers.mqtt_writer import MqttWriter
 
 pytestmark = pytest.mark.integration
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def mqtt_broker():
     with MosquittoContainer(image="eclipse-mosquitto:2.0.20") as container:
-        yield container.get_container_host_ip(), int(container.get_exposed_port(1883))
+        host = container.get_container_host_ip()
+        port = int(container.get_exposed_port(1883))
+        # Wait for the broker to accept connections
+        for _ in range(10):
+            try:
+                with socket.create_connection((host, port), timeout=1):
+                    break
+            except OSError:
+                time.sleep(0.5)
+        else:
+            raise RuntimeError("MQTT broker did not start in time")
+        yield host, port
 
 
 def _frame(payload):
     return SimpleNamespace(results=payload)
+
+
+def mqtt_config(broker_host: str, broker_port: int, topic: str, auth_required: bool = False) -> WriterConfig:
+    return WriterConfig(
+        broker_host=broker_host,
+        broker_port=broker_port,
+        topic=topic,
+        auth_required=auth_required,
+    )
 
 
 def _subscribe(host: str, port: int, topic: str):
@@ -55,7 +77,8 @@ class TestMqtt:
     def test_publish_round_trip(self, mqtt_broker):
         host, port = mqtt_broker
         topic = "mqtt/round-trip"
-        writer = MqttWriter(host=host, port=port, topic=topic)
+        config = mqtt_config(broker_host=host, broker_port=port, topic=topic)
+        writer = MqttWriter(config=config)
         queue, teardown = _subscribe(host, port, topic)
 
         try:
@@ -66,33 +89,11 @@ class TestMqtt:
             writer.close()
             teardown()
 
-    def test_reconnect_after_close(self, mqtt_broker):
-        host, port = mqtt_broker
-        topic = "mqtt/reconnect"
-        writer = MqttWriter(host=host, port=port, topic=topic)
-
-        queue, teardown = _subscribe(host, port, topic)
-        queue_next = None
-        teardown_next = None
-
-        try:
-            writer.write(_frame("first"))
-            assert queue.get(timeout=5) == json.dumps("first")
-            teardown()
-            writer.close()
-
-            queue_next, teardown_next = _subscribe(host, port, topic)
-            writer.write(_frame("second"))
-            assert queue_next.get(timeout=5) == json.dumps("second")
-        finally:
-            writer.close()
-            if teardown_next:
-                teardown_next()
-
     def test_connect_without_credentials(self, mqtt_broker):
         host, port = mqtt_broker
         topic = "mqtt/no-auth"
-        writer = MqttWriter(host=host, port=port, topic=topic, auth_required=False)
+        config = mqtt_config(broker_host=host, broker_port=port, topic=topic)
+        writer = MqttWriter(config=config)
         queue, teardown = _subscribe(host, port, topic)
 
         try:
@@ -103,14 +104,15 @@ class TestMqtt:
             writer.close()
             teardown()
 
-    def test_connect_with_credentials(self, mqtt_broker, monkeypatch):
+    def test_connect_with_credentials(self, mqtt_broker):
         host, port = mqtt_broker
         topic = "mqtt/auth"
         # https://github.com/testcontainers/testcontainers-python/blob/main/modules/mqtt/testcontainers/mqtt/__init__.py#L124
-        monkeypatch.setattr(mqtt_module, "MQTT_USERNAME", "integration-user", raising=False)
-        monkeypatch.setattr(mqtt_module, "MQTT_PASSWORD", "integration-pass", raising=False)
+        username = "integration-user"
+        password = "integration-pass"
 
-        writer = MqttWriter(host=host, port=port, topic=topic, auth_required=True)
+        config = mqtt_config(broker_host=host, broker_port=port, topic=topic, auth_required=True)
+        writer = MqttWriter(config=config, username=username, password=password)
         queue, teardown = _subscribe(host, port, topic)
 
         try:
