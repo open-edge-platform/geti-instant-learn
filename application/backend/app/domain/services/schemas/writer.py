@@ -13,21 +13,21 @@ class WriterType(StrEnum):
 
 class MqttConfig(BaseModel):
     sink_type: Literal[WriterType.MQTT] = WriterType.MQTT
+    name: str = "MQTT Broker"
     broker_host: str = "localhost"
     broker_port: int = 1883
     topic: str = "predictions"
     auth_required: bool = True
-    output_formats: list[str] = ["predictions"]
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "sink_type": "mqtt",
+                "name": "MQTT Broker",
                 "broker_host": "localhost",
                 "broker_port": 1883,
                 "topic": "predictions",
                 "auth_required": True,
-                "output_formats": ["predictions"],
             }
         }
     }
