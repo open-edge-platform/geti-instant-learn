@@ -3,8 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Tooltip, TooltipTrigger } from '@adobe/react-spectrum';
-import { ActionButton, Flex } from '@geti/ui';
+import { ActionButton, Flex, Tooltip, TooltipTrigger } from '@geti/ui';
 import { Redo, Undo } from '@geti/ui/icons';
 import { useHotkeys } from 'react-hotkeys-hook';
 
