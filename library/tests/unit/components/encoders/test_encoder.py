@@ -61,8 +61,8 @@ class TestEncoder:
         return mock_model_instance
 
     @patch("getiprompt.utils.optimization.optimize_model")
-    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
+    @patch("getiprompt.components.encoders.huggingface.AutoModel")
+    @patch("getiprompt.components.encoders.huggingface.AutoImageProcessor")
     def test_encoder_initialization(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
         """Test that encoder initializes correctly."""
         # Setup mocks with proper structure
@@ -75,14 +75,14 @@ class TestEncoder:
         encoder = ImageEncoder(model_id="dinov2_small", device="cpu", input_size=224)
 
         # Test initialization
-        pytest.assume(encoder.model == mock_model_instance)
-        pytest.assume(encoder.processor == self.mock_processor)
+        pytest.assume(encoder._model.model == mock_model_instance)
+        pytest.assume(encoder._model.processor == self.mock_processor)
         pytest.assume(encoder.input_size == expected_input_size)
         pytest.assume(encoder.patch_size == expected_patch_size)
 
     @patch("getiprompt.utils.optimization.optimize_model")
-    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
+    @patch("getiprompt.components.encoders.huggingface.AutoModel")
+    @patch("getiprompt.components.encoders.huggingface.AutoImageProcessor")
     def test_call_without_priors(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
         """Test encoder call without priors."""
         # Setup mocks with proper structure
@@ -115,8 +115,8 @@ class TestEncoder:
         for model_id in AVAILABLE_IMAGE_ENCODERS:
             with (
                 patch("getiprompt.utils.optimization.optimize_model") as mock_optimize,
-                patch("getiprompt.components.encoders.image_encoder.AutoModel") as mock_model,
-                patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor") as mock_processor,
+                patch("getiprompt.components.encoders.huggingface.AutoModel") as mock_model,
+                patch("getiprompt.components.encoders.huggingface.AutoImageProcessor") as mock_processor,
             ):
                 # Setup mocks with proper structure
                 mock_model_instance = Mock()
@@ -134,8 +134,8 @@ class TestEncoder:
                 pytest.assume(encoder.model_id == model_id)
 
     @patch("getiprompt.utils.optimization.optimize_model")
-    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
+    @patch("getiprompt.components.encoders.huggingface.AutoModel")
+    @patch("getiprompt.components.encoders.huggingface.AutoImageProcessor")
     def test_encoder_with_different_input_sizes(
         self,
         mock_processor: Mock,
@@ -153,8 +153,8 @@ class TestEncoder:
             pytest.assume(encoder.input_size == input_size)
 
     @patch("getiprompt.utils.optimization.optimize_model")
-    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
+    @patch("getiprompt.components.encoders.huggingface.AutoModel")
+    @patch("getiprompt.components.encoders.huggingface.AutoImageProcessor")
     def test_encoder_with_different_precisions(
         self,
         mock_processor: Mock,
@@ -170,11 +170,11 @@ class TestEncoder:
         precision_mapping = {"fp32": torch.float32, "fp16": torch.float16, "bf16": torch.bfloat16}
         for precision_str, expected_dtype in precision_mapping.items():
             encoder = ImageEncoder(model_id="dinov2_small", device="cpu", precision=precision_str, input_size=224)
-            pytest.assume(encoder.precision == expected_dtype)
+            pytest.assume(encoder._model.precision == expected_dtype)
 
     @patch("getiprompt.utils.optimization.optimize_model")
-    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
+    @patch("getiprompt.components.encoders.huggingface.AutoModel")
+    @patch("getiprompt.components.encoders.huggingface.AutoImageProcessor")
     def test_encoder_with_compile_models(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
         """Test encoder with model compilation enabled."""
         # Setup mocks with proper structure
@@ -183,15 +183,15 @@ class TestEncoder:
 
         # Test with compile_models=True
         encoder = ImageEncoder(model_id="dinov2_small", device="cpu", compile_models=True, input_size=224)
-        pytest.assume(encoder.model == mock_model_instance)
+        pytest.assume(encoder._model.model == mock_model_instance)
         # Verify optimize_model was called with compile_models=True
         mock_optimize.assert_called_once()
         call_args = mock_optimize.call_args
         pytest.assume(call_args[1]["compile_models"] is True)
 
     @patch("getiprompt.utils.optimization.optimize_model")
-    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
-    @patch("getiprompt.components.encoders.image_encoder.AutoImageProcessor")
+    @patch("getiprompt.components.encoders.huggingface.AutoModel")
+    @patch("getiprompt.components.encoders.huggingface.AutoImageProcessor")
     def test_encoder_device_handling(self, mock_processor: Mock, mock_model: Mock, mock_optimize: Mock) -> None:
         """Test encoder device handling."""
         # Setup mocks with proper structure
@@ -214,7 +214,7 @@ class TestEncoder:
             ImageEncoder(model_id="nonexistent_model")
 
     @staticmethod
-    @patch("getiprompt.components.encoders.image_encoder.AutoModel")
+    @patch("getiprompt.components.encoders.huggingface.AutoModel")
     def test_huggingface_access_error(mock_model: Mock) -> None:
         """Test error handling for HuggingFace access issues."""
         # Mock OSError for gated repo
@@ -270,7 +270,7 @@ class TestEncoderIntegration:
 
         pytest.assume(encoder.patch_size == expected_patch_size)
         pytest.assume(encoder.feature_size == expected_feature_size)
-        pytest.assume(encoder.ignore_token_length == expected_ignore_token_length)
+        pytest.assume(encoder._model.ignore_token_length == expected_ignore_token_length)
 
         # Test with different input size
         encoder_384 = ImageEncoder(model_id="dinov2_small", device="cpu", input_size=384)

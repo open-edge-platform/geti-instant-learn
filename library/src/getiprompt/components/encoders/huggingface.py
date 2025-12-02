@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""PyTorch backend implementation for ImageEncoder."""
+"""HuggingFace backend implementation for ImageEncoder."""
 
 from logging import getLogger
 from pathlib import Path
@@ -30,20 +30,20 @@ AVAILABLE_IMAGE_ENCODERS = {
 }
 
 
-class PyTorchImageEncoder(nn.Module):
-    """PyTorch backend for DINO image encoder.
+class HuggingFaceImageEncoder(nn.Module):
+    """HuggingFace backend for DINO image encoder.
 
     This encoder uses a model from HuggingFace to encode images into
     normalized patch embeddings.
 
     Examples:
-        >>> from getiprompt.components.encoders import PyTorchImageEncoder
+        >>> from getiprompt.components.encoders import HuggingFaceImageEncoder
         >>> from torchvision import tv_tensors
         >>> import torch
         >>>
         >>> # Create a sample image
         >>> sample_image = torch.zeros((3, 518, 518))
-        >>> encoder = PyTorchImageEncoder(model_id="dinov2_large")
+        >>> encoder = HuggingFaceImageEncoder(model_id="dinov2_large")
         >>> features = encoder(images=[sample_image])
         >>> features.shape
         torch.Size([1369, 1024])
@@ -171,7 +171,7 @@ class PyTorchImageEncoder(nn.Module):
             Path to the exported OpenVINO IR directory.
 
         Example:
-            >>> encoder = PyTorchImageEncoder(
+            >>> encoder = HuggingFaceImageEncoder(
             ...     model_id="dinov2_large",
             ...     device="cuda"
             ... )

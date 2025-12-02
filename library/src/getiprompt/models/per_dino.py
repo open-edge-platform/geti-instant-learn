@@ -6,7 +6,7 @@
 import torch
 
 from getiprompt.components import CosineSimilarity, SamDecoder
-from getiprompt.components.encoders import load_image_encoder
+from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import GridPromptGenerator
@@ -102,8 +102,9 @@ class PerDino(Model):
             compile_models=compile_models,
         )
 
-        self.encoder = load_image_encoder(
+        self.encoder: ImageEncoder = ImageEncoder(
             model_id=encoder_model,
+            backend="timm",
             device=device,
             precision=precision,
             compile_models=compile_models,

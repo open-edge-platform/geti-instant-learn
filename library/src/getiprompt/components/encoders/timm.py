@@ -8,6 +8,7 @@ from logging import getLogger
 import timm
 import torch
 from torch import nn
+from torch.nn import functional
 from torchvision import tv_tensors
 from torchvision.transforms.v2 import Compose, Normalize, Resize, ToDtype
 
@@ -126,4 +127,4 @@ class TimmImageEncoder(nn.Module):
         images = torch.stack([self.processor(image.to(self.device)) for image in images])
         features = self.model.forward_features(images)  # (B, N, D)
         features = features[:, self.ignore_token_length :, :]  # ignore CLS and other tokens
-        return features
+        return functional.normalize(features, p=2, dim=-1)

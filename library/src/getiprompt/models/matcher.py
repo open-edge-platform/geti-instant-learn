@@ -8,11 +8,7 @@ from pathlib import Path
 import torch
 
 from getiprompt.components import SamDecoder
-from getiprompt.components.encoders import PyTorchImageEncoder, load_image_encoder
-import torch
-
-from getiprompt.components import SamDecoder
-from getiprompt.components.encoders.timm import TimmImageEncoder
+from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
@@ -111,8 +107,9 @@ class Matcher(Model):
             precision=precision,
             compile_models=compile_models,
         )
-        self.encoder: PyTorchImageEncoder = load_image_encoder(
+        self.encoder: ImageEncoder = ImageEncoder(
             model_id=encoder_model,
+            backend="timm",
             device=device,
             precision=precision,
             compile_models=compile_models,

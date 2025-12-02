@@ -21,14 +21,14 @@ class OpenVINOImageEncoder(nn.Module):
 
     This implementation uses OpenVINO Runtime for efficient inference on
     Intel hardware (CPU, GPU, VPU). It expects an exported OpenVINO IR model
-    created by PyTorchImageEncoder.export().
+    created by HuggingFaceImageEncoder.export().
 
     Examples:
         >>> from getiprompt.components.encoders import OpenVINOImageEncoder
         >>> from pathlib import Path
         >>> import torch
         >>>
-        >>> # First export from PyTorch (see PyTorchImageEncoder.export)
+        >>> # First export from HuggingFace (see HuggingFaceImageEncoder.export)
         >>> encoder = OpenVINOImageEncoder(
         ...     model_path=Path("./exported/dinov2_large"),
         ...     input_size=518
@@ -63,10 +63,10 @@ class OpenVINOImageEncoder(nn.Module):
         if not model_path.exists():
             msg = (
                 f"OpenVINO model not found at {model_path}. "
-                f"Please export the model first using PyTorchImageEncoder.export(). "
+                f"Please export the model first using HuggingFaceImageEncoder.export(). "
                 f"Example:\n"
-                f"  from getiprompt.components.encoders import PyTorchImageEncoder\n"
-                f"  encoder = PyTorchImageEncoder(model_id='dinov2_large')\n"
+                f"  from getiprompt.components.encoders import HuggingFaceImageEncoder\n"
+                f"  encoder = HuggingFaceImageEncoder(model_id='dinov2_large')\n"
                 f"  encoder.export(Path('{model_path}'))"
             )
             raise FileNotFoundError(msg)
@@ -149,6 +149,4 @@ class OpenVINOImageEncoder(nn.Module):
         # Convert to torch and post-process
         last_hidden_state = torch.from_numpy(last_hidden_state)
         # Remove CLS token and register tokens
-        features = last_hidden_state[:, self.ignore_token_length :, :]
-
-        return functional.normalize(features, p=2, dim=-1)
+        return last_hidden_state[:, self.ignore_token_length :, :]
