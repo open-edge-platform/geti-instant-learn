@@ -3,7 +3,7 @@
 
 from pydantic import BaseModel
 
-from domain.services.schemas.base import BaseIDPayload, BaseIDSchema
+from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
 from domain.services.schemas.writer import WriterConfig
 
 
@@ -22,5 +22,5 @@ class SinkSchema(BaseIDSchema):
     config: WriterConfig
 
 
-class SinksListSchema(BaseModel):
+class SinksListSchema(PaginatedResponse):
     sinks: list[SinkSchema]

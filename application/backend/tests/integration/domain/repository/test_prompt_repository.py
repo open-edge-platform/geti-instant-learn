@@ -137,7 +137,7 @@ def test_get_all_by_project(prompt_repo, fxt_session, clean_after):
     prompt_repo.add(other_prompt)
     fxt_session.commit()
 
-    result = prompt_repo.get_all_by_project(project_main.id)
+    result = prompt_repo.list_all_by_project(project_main.id)
     assert len(result) == 3
     assert {p.id for p in result} == {text_prompt.id, visual_prompt_1.id, visual_prompt_2.id}
 
@@ -155,15 +155,15 @@ def test_get_all_by_project_with_type_filter(prompt_repo, fxt_session, clean_aft
         prompt_repo.add(p)
     fxt_session.commit()
 
-    all_prompts = prompt_repo.get_all_by_project(project.id)
+    all_prompts = prompt_repo.list_all_by_project(project.id)
     assert len(all_prompts) == 3
 
-    text_prompts = prompt_repo.get_all_by_project(project.id, prompt_type=PromptType.TEXT)
+    text_prompts = prompt_repo.list_all_by_project(project.id, prompt_type=PromptType.TEXT)
     assert len(text_prompts) == 1
     assert text_prompts[0].id == text_prompt.id
     assert text_prompts[0].type == PromptType.TEXT
 
-    visual_prompts = prompt_repo.get_all_by_project(project.id, prompt_type=PromptType.VISUAL)
+    visual_prompts = prompt_repo.list_all_by_project(project.id, prompt_type=PromptType.VISUAL)
     assert len(visual_prompts) == 2
     assert {p.id for p in visual_prompts} == {visual_prompt_1.id, visual_prompt_2.id}
     assert all(p.type == PromptType.VISUAL for p in visual_prompts)
@@ -210,12 +210,13 @@ def test_delete_prompt(prompt_repo, fxt_session, clean_after):
     fxt_session.commit()
 
     assert prompt_repo.get_by_id(prompt.id) is not None
-    prompt_repo.delete(prompt)
+    deleted = prompt_repo.delete(prompt.id)
     fxt_session.commit()
+    assert deleted is True
     assert prompt_repo.get_by_id(prompt.id) is None
 
 
-def test_get_paginated(prompt_repo, fxt_session, clean_after):
+def test_list_with_pagination(prompt_repo, fxt_session, clean_after):
     project = ProjectDB(name="proj")
     fxt_session.add(project)
     fxt_session.commit()
@@ -225,11 +226,11 @@ def test_get_paginated(prompt_repo, fxt_session, clean_after):
         prompt_repo.add(p)
     fxt_session.commit()
 
-    page1, total = prompt_repo.get_paginated(project.id, offset=0, limit=10)
+    page1, total = prompt_repo.list_with_pagination_by_project(project.id, offset=0, limit=10)
     assert len(page1) == 10
     assert total == 15
 
-    page2, total = prompt_repo.get_paginated(project.id, offset=10, limit=10)
+    page2, total = prompt_repo.list_with_pagination_by_project(project.id, offset=10, limit=10)
     assert len(page2) == 5
     assert total == 15
 
@@ -264,10 +265,9 @@ def test_single_text_prompt_per_project_constraint(prompt_repo, fxt_session, cle
 
     prompt_repo.add(first)
     fxt_session.commit()
-    prompt_repo.add(second)
 
     with pytest.raises(IntegrityError):
-        fxt_session.commit()
+        prompt_repo.add(second)
     fxt_session.rollback()
 
     fetched = prompt_repo.get_text_prompt_by_project(project.id)
@@ -285,7 +285,7 @@ def test_multiple_visual_prompts_allowed(prompt_repo, fxt_session, clean_after):
         prompt_repo.add(prompt)
     fxt_session.commit()
 
-    result = prompt_repo.get_all_by_project(project.id)
+    result = prompt_repo.list_all_by_project(project.id)
     assert len(result) == 5
     assert all(p.type == PromptType.VISUAL for p in result)
 
@@ -301,10 +301,8 @@ def test_prompt_content_check_constraint_text(prompt_repo, fxt_session, clean_af
         frame_id=None,
         project_id=project.id,
     )
-    prompt_repo.add(invalid_prompt)
-
     with pytest.raises(IntegrityError):
-        fxt_session.commit()
+        prompt_repo.add(invalid_prompt)
     fxt_session.rollback()
 
 
@@ -319,10 +317,8 @@ def test_prompt_content_check_constraint_visual(prompt_repo, fxt_session, clean_
         frame_id=None,
         project_id=project.id,
     )
-    prompt_repo.add(invalid_prompt)
-
     with pytest.raises(IntegrityError):
-        fxt_session.commit()
+        prompt_repo.add(invalid_prompt)
     fxt_session.rollback()
 
 
@@ -337,10 +333,8 @@ def test_prompt_content_check_constraint_mixed(prompt_repo, fxt_session, clean_a
         frame_id=uuid4(),
         project_id=project.id,
     )
-    prompt_repo.add(invalid_prompt)
-
     with pytest.raises(IntegrityError):
-        fxt_session.commit()
+        prompt_repo.add(invalid_prompt)
     fxt_session.rollback()
 
 
@@ -358,7 +352,7 @@ def test_annotations_cascade_delete_with_prompt(prompt_repo, fxt_session, clean_
 
     annotation_ids = [ann1.id, ann2.id]
 
-    prompt_repo.delete(prompt)
+    prompt_repo.delete(prompt.id)
     fxt_session.commit()
 
     for ann_id in annotation_ids:
@@ -437,14 +431,13 @@ def test_unique_frame_id_constraint(prompt_repo, fxt_session, clean_after):
 
     prompt_repo.add(first_prompt)
     fxt_session.commit()
-    prompt_repo.add(second_prompt)
 
     with pytest.raises(IntegrityError):
-        fxt_session.commit()
+        prompt_repo.add(second_prompt)
     fxt_session.rollback()
 
     # verify only first prompt exists
-    all_prompts = prompt_repo.get_all_by_project(project.id)
+    all_prompts = prompt_repo.list_all_by_project(project.id)
     assert len(all_prompts) == 1
     assert all_prompts[0].frame_id == frame_id
 
@@ -467,6 +460,6 @@ def test_different_frames_allowed(prompt_repo, fxt_session, clean_after):
         prompt_repo.add(p)
     fxt_session.commit()
 
-    all_prompts = prompt_repo.get_all_by_project(project.id)
+    all_prompts = prompt_repo.list_all_by_project(project.id)
     assert len(all_prompts) == 3
     assert {p.frame_id for p in all_prompts} == {frame_id_1, frame_id_2, frame_id_3}

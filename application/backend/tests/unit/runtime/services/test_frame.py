@@ -116,13 +116,13 @@ def test_capture_frame_success(
     expected_source = make_source(connected=True)
 
     project_repository_mock.get_by_id.return_value = expected_project
-    source_repository_mock.get_connected_in_project.return_value = expected_source
+    source_repository_mock.get_active_in_project.return_value = expected_source
 
     captured_frame_id = frame_service_with_queue.capture_frame(project_id)
 
     assert isinstance(captured_frame_id, uuid.UUID)
     project_repository_mock.get_by_id.assert_called_once_with(project_id)
-    source_repository_mock.get_connected_in_project.assert_called_once_with(project_id)
+    source_repository_mock.get_active_in_project.assert_called_once_with(project_id)
     frame_repository_mock.save_frame.assert_called_once()
 
     call_args = frame_repository_mock.save_frame.call_args
@@ -165,7 +165,7 @@ def test_capture_frame_no_connected_source(
     project_id = uuid.uuid4()
     active_project = make_project(project_id=project_id, active=True)
     project_repository_mock.get_by_id.return_value = active_project
-    source_repository_mock.get_connected_in_project.return_value = None
+    source_repository_mock.get_active_in_project.return_value = None
 
     with pytest.raises(ResourceNotFoundError) as exc_info:
         frame_service_with_queue.capture_frame(project_id)
@@ -185,7 +185,7 @@ def test_capture_frame_timeout(
     empty_queue = Queue()
 
     project_repository_mock.get_by_id.return_value = active_project
-    source_repository_mock.get_connected_in_project.return_value = connected_source
+    source_repository_mock.get_active_in_project.return_value = connected_source
 
     frame_service = FrameService(
         frame_repo=frame_repository_mock,
@@ -211,7 +211,7 @@ def test_capture_frame_save_failure(
     consumer_queue.put(sample_input_data)
 
     project_repository_mock.get_by_id.return_value = active_project
-    source_repository_mock.get_connected_in_project.return_value = connected_source
+    source_repository_mock.get_active_in_project.return_value = connected_source
     frame_repository_mock.save_frame.side_effect = RuntimeError("Disk full")
 
     frame_service = FrameService(
@@ -237,7 +237,7 @@ def test_capture_frame_queue_get_exception(
     consumer_queue.get.side_effect = RuntimeError("Queue error")
 
     project_repository_mock.get_by_id.return_value = active_project
-    source_repository_mock.get_connected_in_project.return_value = connected_source
+    source_repository_mock.get_active_in_project.return_value = connected_source
 
     frame_service = FrameService(
         frame_repo=frame_repository_mock,

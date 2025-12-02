@@ -19,10 +19,11 @@ from domain.errors import (
 )
 from domain.repositories.project import ProjectRepository
 from domain.repositories.sink import SinkRepository
+from domain.services.base import BaseService
 from domain.services.schemas.mappers.sink import (
     sink_db_to_schema,
     sink_schema_to_db,
-    sinks_db_to_schemas,
+    sinks_db_to_list_items,
 )
 from domain.services.schemas.sink import (
     SinkCreateSchema,
@@ -34,7 +35,7 @@ from domain.services.schemas.sink import (
 logger = logging.getLogger(__name__)
 
 
-class SinkService:
+class SinkService(BaseService):
     """
     Coordinates sink configuration workflows by:
     - enforcing domain constraints before repository operations
@@ -51,27 +52,30 @@ class SinkService:
         project_repository: ProjectRepository | None = None,
         config_change_dispatcher: ConfigChangeDispatcher | None = None,
     ):
-        self.session = session
+        super().__init__(session=session, config_change_dispatcher=config_change_dispatcher)
         self.sink_repository = sink_repository or SinkRepository(session=session)
         self.project_repository = project_repository or ProjectRepository(session=session)
-        self._dispatcher = config_change_dispatcher
 
-    def list_sinks(self, project_id: UUID) -> SinksListSchema:
+    def list_sinks(self, project_id: UUID, offset: int = 0, limit: int = 20) -> SinksListSchema:
         """
-        List all sinks for the specified project.
+        List sinks for the specified project with pagination.
 
         Args:
             project_id: UUID of the project.
+            offset: Starting index of the returned items.
+            limit: Maximum number of items requested.
 
         Returns:
-            A schema containing a list of sinks.
+            A schema containing a list of sinks with pagination metadata.
 
         Raises:
             ResourceNotFoundError: If the project does not exist.
         """
         self._ensure_project(project_id)
-        db_sinks = self.sink_repository.get_all_by_project(project_id)
-        return SinksListSchema(sinks=sinks_db_to_schemas(db_sinks))
+        sinks, total = self.sink_repository.list_with_pagination_by_project(
+            project_id=project_id, offset=offset, limit=limit
+        )
+        return sinks_db_to_list_items(sinks, total, offset, limit)
 
     def get_sink(self, project_id: UUID, sink_id: UUID) -> SinkSchema:
         """
@@ -88,7 +92,7 @@ class SinkService:
             ResourceNotFoundError: If the project or sink does not exist.
         """
         self._ensure_project(project_id)
-        sink = self.sink_repository.get_by_id_and_project(sink_id=sink_id, project_id=project_id)
+        sink = self.sink_repository.get_by_id_and_project(sink_id, project_id)
         if not sink:
             logger.error(f"Sink not found id={sink_id} project_id={project_id}")
             raise ResourceNotFoundError(resource_type=ResourceType.SINK, resource_id=str(sink_id))
@@ -121,21 +125,17 @@ class SinkService:
             f"name={sink_name} "
             f"active={create_data.active}"
         )
-
-        if create_data.active:
-            self._disconnect_existing_active_sink(project_id=project_id)
-
-        new_sink: SinkDB = sink_schema_to_db(schema=create_data, project_id=project_id)
-        self.sink_repository.add(new_sink)
-
         try:
-            self.session.commit()
+            with self.db_transaction():
+                if create_data.active:
+                    self._disconnect_existing_active_sink(project_id=project_id)
+                new_sink: SinkDB = sink_schema_to_db(schema=create_data, project_id=project_id)
+                self.sink_repository.add(new_sink)
+                self._emit_component_change(project_id=project_id, sink_id=new_sink.id)
         except IntegrityError as exc:
-            self.session.rollback()
-            logger.error(f"Sink creation failed due to constraint violation: {exc}")
+            logger.error("Sink creation failed due to constraint violation: %s", exc)
             self._handle_sink_integrity_error(exc, new_sink.id, project_id, sink_type, sink_name)
 
-        self.session.refresh(new_sink)
         logger.info(
             "Sink created: "
             f"sink_id={new_sink.id} "
@@ -170,7 +170,7 @@ class SinkService:
             ResourceAlreadyExistsError: If uniqueness constraints are violated.
         """
         self._ensure_project(project_id)
-        sink = self.sink_repository.get_by_id_and_project(sink_id, project_id)
+        sink: SinkDB = self.sink_repository.get_by_id_and_project(sink_id, project_id)
         if not sink:
             logger.error(f"Update failed; sink not found id={sink_id} project_id={project_id}")
             raise ResourceNotFoundError(resource_type=ResourceType.SINK, resource_id=str(sink_id))
@@ -189,20 +189,19 @@ class SinkService:
                 resource_id=str(sink_id),
                 field="sink_type",
             )
-        if update_data.active and not sink.active:
-            self._disconnect_existing_active_sink(project_id=project_id)
-
-        sink.active = update_data.active
-        sink.config = update_data.config.model_dump()
 
         try:
-            self.session.commit()
+            with self.db_transaction():
+                if update_data.active and not sink.active:
+                    self._disconnect_existing_active_sink(project_id=project_id)
+                sink.active = update_data.active
+                sink.config = update_data.config.model_dump()
+                sink = self.sink_repository.update(sink)
+                self._emit_component_change(project_id=project_id, sink_id=sink.id)
         except IntegrityError as exc:
-            self.session.rollback()
-            logger.error(f"Sink update failed due to constraint violation: {exc}")
+            logger.error("Sink update failed due to constraint violation: %s", exc)
             self._handle_sink_integrity_error(exc, sink.id, project_id, existing_type, sink_name)
 
-        self.session.refresh(sink)
         logger.info(
             "Sink updated: "
             f"sink_id={sink_id} "
@@ -211,7 +210,6 @@ class SinkService:
             f"active={sink.active} "
             f"config={sink.config}"
         )
-        self._emit_component_change(project_id=project_id, sink_id=sink.id)
         return sink_db_to_schema(sink)
 
     def delete_sink(self, project_id: UUID, sink_id: UUID) -> None:
@@ -226,14 +224,14 @@ class SinkService:
             ResourceNotFoundError: If the project or sink does not exist.
         """
         self._ensure_project(project_id)
-        sink = self.sink_repository.get_by_id_and_project(sink_id=sink_id, project_id=project_id)
+        sink = self.sink_repository.get_by_id_and_project(sink_id, project_id)
         if not sink:
             logger.error(f"Cannot delete sink: sink_id={sink_id} not found in project_id={project_id}")
             raise ResourceNotFoundError(resource_type=ResourceType.SINK, resource_id=str(sink_id))
-        self.sink_repository.delete(sink)
-        self.session.commit()
+        with self.db_transaction():
+            self.sink_repository.delete(sink.id)
+            self._emit_component_change(project_id=project_id, sink_id=sink_id)
         logger.info(f"Sink deleted: sink_id={sink_id} project_id={project_id}")
-        self._emit_component_change(project_id=project_id, sink_id=sink_id)
 
     def _ensure_project(self, project_id: UUID) -> ProjectDB:
         """
@@ -265,17 +263,19 @@ class SinkService:
         if active_sink:
             logger.info(f"Disconnecting previously active sink: sink_id={active_sink.id} project_id={project_id}")
             active_sink.active = False
+            try:
+                self.sink_repository.update(active_sink)
+            except Exception:
+                logger.exception("Failed to flush sink disconnection")
+                raise
+            self._emit_component_change(project_id=project_id, sink_id=active_sink.id)
 
     def _emit_component_change(self, project_id: UUID, sink_id: UUID) -> None:
         """
-        Emit a configuration change event for sinks.
-
-        Args:
-            project_id: UUID of the project.
-            sink_id: UUID of the sink.
+        Emit a component configuration change event for sinks to trigger pipeline updates.
         """
         if self._dispatcher:
-            self._dispatcher.dispatch(
+            self._pending_events.append(
                 ComponentConfigChangeEvent(
                     project_id=project_id,
                     component_type="sink",

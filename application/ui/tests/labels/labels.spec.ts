@@ -37,7 +37,15 @@ test.describe('Labels', () => {
 
         network.use(
             http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {
-                return response(200).json({ sources: [WEBCAM_SOURCE] });
+                return response(200).json({
+                    sources: [WEBCAM_SOURCE],
+                    pagination: {
+                        count: 1,
+                        total: 1,
+                        limit: 10,
+                        offset: 0,
+                    },
+                });
             }),
 
             http.put('/api/v1/projects/{project_id}/sources/{source_id}', ({ response }) =>

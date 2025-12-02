@@ -32,7 +32,7 @@ class TestPerDino:
         }
 
     @patch("getiprompt.models.per_dino.load_sam_model")
-    @patch("getiprompt.models.per_dino.ImageEncoder")
+    @patch("getiprompt.models.per_dino.TimmImageEncoder")
     def test_per_dino_initialization(
         self,
         mock_image_encoder: MagicMock,
@@ -53,7 +53,7 @@ class TestPerDino:
         assert hasattr(model, "segmenter")
 
     @patch("getiprompt.models.per_dino.load_sam_model")
-    @patch("getiprompt.models.per_dino.ImageEncoder")
+    @patch("getiprompt.models.per_dino.TimmImageEncoder")
     def test_per_dino_forward_pass(
         self,
         mock_image_encoder: MagicMock,
@@ -94,7 +94,7 @@ class TestPerDino:
         model.infer.assert_called_once_with(target_images)
 
     @patch("getiprompt.models.per_dino.load_sam_model")
-    @patch("getiprompt.models.per_dino.ImageEncoder")
+    @patch("getiprompt.models.per_dino.TimmImageEncoder")
     def test_per_dino_multi_instance_filtering(
         self,
         mock_image_encoder: MagicMock,
@@ -144,7 +144,7 @@ class TestMatcher:
         }
 
     @patch("getiprompt.models.matcher.load_sam_model")
-    @patch("getiprompt.models.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.TimmImageEncoder")
     def test_matcher_initialization(
         self,
         mock_image_encoder: MagicMock,
@@ -165,7 +165,7 @@ class TestMatcher:
         assert hasattr(model, "segmenter")
 
     @patch("getiprompt.models.matcher.load_sam_model")
-    @patch("getiprompt.models.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.TimmImageEncoder")
     def test_matcher_forward_pass(
         self,
         mock_image_encoder: MagicMock,
@@ -206,7 +206,7 @@ class TestMatcher:
         model.infer.assert_called_once_with(target_images)
 
     @patch("getiprompt.models.matcher.load_sam_model")
-    @patch("getiprompt.models.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.TimmImageEncoder")
     def test_matcher_multi_instance_filtering(
         self,
         mock_image_encoder: MagicMock,
@@ -256,7 +256,7 @@ class TestSoftMatcher:
         }
 
     @patch("getiprompt.models.matcher.load_sam_model")
-    @patch("getiprompt.models.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.TimmImageEncoder")
     def test_soft_matcher_initialization(
         self,
         mock_image_encoder: MagicMock,
@@ -277,7 +277,7 @@ class TestSoftMatcher:
         assert hasattr(model, "segmenter")
 
     @patch("getiprompt.models.matcher.load_sam_model")
-    @patch("getiprompt.models.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.TimmImageEncoder")
     def test_soft_matcher_forward_pass(
         self,
         mock_image_encoder: MagicMock,
@@ -318,7 +318,7 @@ class TestSoftMatcher:
         model.infer.assert_called_once_with(target_images)
 
     @patch("getiprompt.models.matcher.load_sam_model")
-    @patch("getiprompt.models.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.TimmImageEncoder")
     def test_soft_matcher_multi_instance_filtering(
         self,
         mock_image_encoder: MagicMock,
@@ -447,9 +447,9 @@ class TestModelIntegration:
     """Test integration across all models."""
 
     @patch("getiprompt.models.per_dino.load_sam_model")
-    @patch("getiprompt.models.per_dino.ImageEncoder")
+    @patch("getiprompt.models.per_dino.TimmImageEncoder")
     @patch("getiprompt.models.matcher.load_sam_model")
-    @patch("getiprompt.models.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.TimmImageEncoder")
     @patch("getiprompt.models.grounded_sam.load_sam_model")
     def test_all_models_use_multi_instance_filtering(
         self,
@@ -494,9 +494,9 @@ class TestModelIntegration:
             model.infer.assert_called_once_with(target_images)
 
     @patch("getiprompt.models.per_dino.load_sam_model")
-    @patch("getiprompt.models.per_dino.ImageEncoder")
+    @patch("getiprompt.models.per_dino.TimmImageEncoder")
     @patch("getiprompt.models.matcher.load_sam_model")
-    @patch("getiprompt.models.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.TimmImageEncoder")
     @patch("getiprompt.models.grounded_sam.load_sam_model")
     def test_model_consistency(
         self,
@@ -536,9 +536,9 @@ class TestModelIntegration:
                 model_class(device="invalid_device")
 
     @patch("getiprompt.models.per_dino.load_sam_model")
-    @patch("getiprompt.models.per_dino.ImageEncoder")
+    @patch("getiprompt.models.per_dino.TimmImageEncoder")
     @patch("getiprompt.models.matcher.load_sam_model")
-    @patch("getiprompt.models.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.TimmImageEncoder")
     @patch("getiprompt.models.grounded_sam.load_sam_model")
     def test_model_performance_tracking(
         self,

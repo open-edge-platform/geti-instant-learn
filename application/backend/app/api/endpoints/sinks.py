@@ -26,8 +26,7 @@ logger = logging.getLogger(__name__)
                         "sinks": [
                             {
                                 "id": "550e8400-e29b-41d4-a716-446655440000",
-                                "name": "Active Sink",
-                                "connected": True,
+                                "active": True,
                                 "config": {
                                     "sink_type": "mqtt",
                                     "broker_host": "localhost",
@@ -37,7 +36,13 @@ logger = logging.getLogger(__name__)
                                     "output_formats": ["predictions"],
                                 },
                             }
-                        ]
+                        ],
+                        "pagination": {
+                            "count": 1,
+                            "total": 1,
+                            "offset": 0,
+                            "limit": 20,
+                        },
                     },
                 }
             },
@@ -67,11 +72,11 @@ logger = logging.getLogger(__name__)
         },
     },
 )
-def get_sinks(project_id: UUID, sink_service: SinkServiceDep) -> SinksListSchema:
+def get_sinks(project_id: UUID, sink_service: SinkServiceDep, offset: int = 0, limit: int = 20) -> SinksListSchema:
     """
     Retrieve the sink configuration of the project.
     """
-    return sink_service.list_sinks(project_id=project_id)
+    return sink_service.list_sinks(project_id=project_id, offset=offset, limit=limit)
 
 
 @projects_router.put(

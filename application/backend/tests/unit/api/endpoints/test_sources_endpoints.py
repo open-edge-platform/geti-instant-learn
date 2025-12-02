@@ -77,14 +77,16 @@ def test_get_sources(client, behavior, expected_status, expected_len):
         def __init__(self, session, config_change_dispatcher):
             pass
 
-        def list_sources(self, project_id: UUID):
+        def list_sources(self, project_id: UUID, offset: int = 0, limit: int = 20):
             assert project_id == PROJECT_ID
             if behavior == "some":
+                sources = [
+                    make_source_schema(SOURCE_ID_1, 0, True),
+                    make_source_schema(SOURCE_ID_2, 1, False),
+                ]
                 return SourcesListSchema(
-                    sources=[
-                        make_source_schema(SOURCE_ID_1, 0, True),
-                        make_source_schema(SOURCE_ID_2, 1, False),
-                    ]
+                    sources=sources,
+                    pagination=Pagination(count=len(sources), total=len(sources), offset=offset, limit=limit),
                 )
             if behavior == "notfound":
                 raise ResourceNotFoundError(ResourceType.PROJECT, str(project_id))
@@ -106,6 +108,7 @@ def test_get_sources(client, behavior, expected_status, expected_len):
         assert "config" in first
         assert first["config"]["source_type"] == "webcam"
         assert "device_id" in first["config"]
+        assert "pagination" in data
     else:
         assert "detail" in resp.json()
 
