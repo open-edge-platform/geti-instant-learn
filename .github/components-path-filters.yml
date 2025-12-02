@@ -10,7 +10,7 @@ backend:
 ui:
   - application/ui/**
   - .github/workflows/**
-  - application/backend/app/domain/services/**
+  - application/backend/app/domain/services/schemas/**
 
 distrib:
   - application/**
