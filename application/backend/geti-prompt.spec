@@ -1,14 +1,27 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import collect_all
+import glob
+from PyInstaller.utils.hooks import collect_all, collect_dynamic_libs, collect_submodules, collect_data_files
 
 datas = [
     ('app/domain/alembic/*', 'domain/alembic'),
     ('app/alembic.ini', '.'),
 ]
-binaries = []
+binaries = [(dll, 'Library/bin/') for dll in glob.glob('.venv/Library/bin/*')]
 hiddenimports = []
 
-tmp_ret = collect_all('getiprompt') + collect_all('torch')
+tmp_ret = collect_all('torch')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+tmp_ret = collect_all('torchvision')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+tmp_ret = collect_all('triton')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+tmp_ret = collect_all('transformers')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+tmp_ret = collect_all('getiprompt')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 a = Analysis(
@@ -20,7 +33,12 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=['pyinstaller/hook-setenv.py'],
-    excludes=['torch.utils.benchmark'],
+    excludes=[
+        'torch.utils.benchmark',
+        'torchmetrics',
+        'torchmetrics.segmentation',
+        'winrt',
+    ],
     noarchive=False,
     optimize=0,
 )
