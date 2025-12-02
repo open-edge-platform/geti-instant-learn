@@ -6,10 +6,10 @@
 import { View } from '@geti/ui';
 
 import { ZoomProvider } from '../../../../components/zoom/zoom.provider';
-import { AnnotatorCanvas } from '../../../annotator/annotator-canvas';
-import { AnnotatorCanvasSettings } from '../../../annotator/settings/annotator-canvas-settings.component';
+import { AnnotatorActions } from '../../../annotator/actions/annotator-actions.component';
+import { AnnotatorCanvasSettings } from '../../../annotator/actions/settings/annotator-canvas-settings.component';
+import { AnnotatorCanvas } from '../../../annotator/annotator-canvas/annotator-canvas';
 import { Labels } from '../labels-management/labels.component';
-import { CapturedFrameActions } from './captured-frame-actions.component';
 
 export const CapturedFrameContent = () => {
     return (
@@ -24,7 +24,7 @@ export const CapturedFrameContent = () => {
                 </AnnotatorCanvasSettings>
             </View>
             <View gridArea={'actions'} backgroundColor={'gray-200'} padding={'size-100'}>
-                <CapturedFrameActions />
+                <AnnotatorActions />
             </View>
         </ZoomProvider>
     );

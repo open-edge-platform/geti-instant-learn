@@ -81,7 +81,7 @@ app.add_middleware(  # TODO restrict settings in production
 )
 
 
-@app.get("/health")
+@app.get(path="/health", tags=["Health"])
 async def health_check() -> dict[str, str]:
     """Health check endpoint"""
     return {"status": "ok"}

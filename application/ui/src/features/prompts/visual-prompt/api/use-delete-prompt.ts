@@ -7,11 +7,13 @@ import { $api } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { toast } from '@geti/ui';
 
+import { useSelectedFrame } from '../../../../shared/selected-frame-provider.component';
 import { useVisualPrompt } from '../visual-prompt-provider.component';
 
 export const useDeletePrompt = () => {
     const { projectId } = useProjectIdentifier();
-    const { setPromptId } = useVisualPrompt();
+    const { prompt, setPromptId } = useVisualPrompt();
+    const { selectedFrameId, setSelectedFrameId } = useSelectedFrame();
 
     return $api.useMutation('delete', '/api/v1/projects/{project_id}/prompts/{prompt_id}', {
         meta: {
@@ -20,6 +22,10 @@ export const useDeletePrompt = () => {
             ],
         },
         onSuccess: () => {
+            if (selectedFrameId === prompt?.frame_id) {
+                setSelectedFrameId(null);
+            }
+
             setPromptId(null);
             toast({
                 type: 'success',

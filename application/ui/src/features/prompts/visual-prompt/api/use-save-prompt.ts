@@ -8,11 +8,11 @@ import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { toast } from '@geti/ui';
 import { v4 as uuid } from 'uuid';
 
+import { convertAnnotationsToDTO } from '../../../../shared/utils';
 import { useAnnotationActions } from '../../../annotator/providers/annotation-actions-provider.component';
 import { useAnnotator } from '../../../annotator/providers/annotator-provider.component';
 import { useVisualPrompt } from '../visual-prompt-provider.component';
 import { useEditPrompt } from './use-edit-prompt';
-import { convertAnnotationsToDTO } from './utils';
 
 const useSavePromptMutation = () => {
     const { projectId } = useProjectIdentifier();
@@ -22,7 +22,9 @@ const useSavePromptMutation = () => {
             invalidates: [
                 ['get', '/api/v1/projects/{project_id}/prompts', { params: { path: { project_id: projectId } } }],
             ],
-            errorMessage: 'Failed to create prompt. Make sure you created at least one label.',
+            error: {
+                notify: true,
+            },
         },
     });
 };

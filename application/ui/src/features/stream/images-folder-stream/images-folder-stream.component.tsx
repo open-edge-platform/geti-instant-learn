@@ -3,23 +3,34 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 
+import { FrameAPIType } from '@geti-prompt/api';
 import { useEventListener } from '@geti-prompt/hooks';
-import { ActionButton, Grid, minmax, View } from '@geti/ui';
+import { ActionButton, dimensionValue, Grid, minmax, View } from '@geti/ui';
 import { ChevronLeft, ChevronRight } from '@geti/ui/icons';
 
-import { usePromptMode } from '../../prompts/prompt-modes/prompt-modes.component';
 import { CaptureFrameButton } from '../capture-frame-button.component';
-import { FramesList, useFrames, type Frame } from '../frames-list/frames-list.component';
 import { Video } from '../video.component';
+import { useActivateFrame } from './api/use-activate-frame.hook';
+import { useGetFrames } from './api/use-frames.hook';
+import { useGetActiveFrame } from './api/use-get-active-frame.hook';
+import { FramesList } from './frames-list/frames-list.component';
 
 import styles from './images-folder-stream.module.scss';
 
-const useActiveFrameSelection = (frames: Frame[]) => {
-    // TODO: replace with actual active frame index
-    const [activeFrameIdx, setActiveFrameIdx] = useState(0);
+const useActiveFrameSelection = ({
+    sourceId,
+    activeFrameIdx,
+    frames,
+}: {
+    sourceId: string;
+    activeFrameIdx: number;
+    frames: FrameAPIType[];
+}) => {
+    const activateFrameMutation = useActivateFrame();
     const framesRef = useRef<HTMLDivElement>(null);
+    const framesCount = frames.length;
 
     useEventListener('keydown', (event) => {
         if (event.key === 'ArrowLeft') {
@@ -50,14 +61,19 @@ const useActiveFrameSelection = (frames: Frame[]) => {
     };
 
     const activateFrame = (frameIdx: number) => {
-        setActiveFrameIdx(frameIdx);
-        scrollFrameIntoView(frameIdx);
+        activateFrameMutation.mutate({
+            sourceId,
+            index: frameIdx,
+            onSuccess: () => {
+                scrollFrameIntoView(frameIdx);
+            },
+        });
     };
 
     const nextFrame = () => {
         const nextFrameIdx = activeFrameIdx + 1;
 
-        if (nextFrameIdx >= frames.length) {
+        if (nextFrameIdx >= framesCount) {
             return;
         }
 
@@ -66,28 +82,39 @@ const useActiveFrameSelection = (frames: Frame[]) => {
 
     const prevFrame = () => {
         const prevFrameIdx = activeFrameIdx - 1;
+
         if (prevFrameIdx < 0) {
             return;
         }
+
         activateFrame(prevFrameIdx);
     };
 
     return {
         framesRef,
-        activeFrameIdx,
         activateFrame,
         nextFrame,
         prevFrame,
     };
 };
 
-export const ImagesFolderStream = () => {
-    const promptMode = usePromptMode();
-    const frames = useFrames();
-    const { activeFrameIdx, activateFrame, nextFrame, prevFrame, framesRef } = useActiveFrameSelection(frames);
+interface ImagesFolderStreamProps {
+    sourceId: string;
+}
+
+export const ImagesFolderStream = ({ sourceId }: ImagesFolderStreamProps) => {
+    // const [promptMode] = usePromptMode();
+    const { data: activeFrame } = useGetActiveFrame(sourceId);
+    const activeFrameIdx = activeFrame.index;
+    const { frames, fetchNextPage, fetchPreviousPage, framesCount } = useGetFrames(sourceId, activeFrameIdx);
+    const { activateFrame, nextFrame, prevFrame, framesRef } = useActiveFrameSelection({
+        sourceId,
+        frames,
+        activeFrameIdx,
+    });
 
     const isPrevFrameButtonDisabled = activeFrameIdx === 0;
-    const isNextFrameButtonDisabled = activeFrameIdx === frames.length - 1;
+    const isNextFrameButtonDisabled = activeFrameIdx === framesCount - 1;
 
     return (
         <Grid
@@ -102,7 +129,7 @@ export const ImagesFolderStream = () => {
             ]}
             gap={'size-200'}
             UNSAFE_style={{
-                paddingTop: '48px',
+                paddingTop: dimensionValue('size-600'),
             }}
         >
             <ActionButton
@@ -111,6 +138,7 @@ export const ImagesFolderStream = () => {
                 UNSAFE_className={styles.button}
                 isDisabled={isPrevFrameButtonDisabled}
                 onPress={prevFrame}
+                aria-label={'Previous Frame'}
             >
                 <ChevronLeft />
             </ActionButton>
@@ -120,23 +148,30 @@ export const ImagesFolderStream = () => {
                 UNSAFE_className={styles.button}
                 isDisabled={isNextFrameButtonDisabled}
                 onPress={nextFrame}
+                aria-label={'Next Frame'}
             >
                 <ChevronRight />
             </ActionButton>
             <View gridArea={'stream'}>
                 <Video />
             </View>
+            {/* TODO: Uncomment when we support text prompt
             {promptMode === 'visual' && (
                 <View gridArea={'capture'} justifySelf={'center'}>
                     <CaptureFrameButton />
                 </View>
-            )}
+            )}*/}
+            <View gridArea={'capture'} justifySelf={'center'}>
+                <CaptureFrameButton />
+            </View>
             <View gridArea={'frames'}>
                 <FramesList
                     ref={framesRef}
                     activeFrameIndex={activeFrameIdx}
                     onSetActiveFrame={activateFrame}
                     frames={frames}
+                    fetchNextPage={fetchNextPage}
+                    fetchPreviousPage={fetchPreviousPage}
                 />
             </View>
         </Grid>

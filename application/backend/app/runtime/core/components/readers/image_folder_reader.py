@@ -5,21 +5,20 @@ import base64
 import logging
 import re
 import time
-from abc import ABC
 from pathlib import Path
 
 import cv2
+import numpy as np  # noqa: TC002
 
+from domain.services.schemas.base import Pagination
+from domain.services.schemas.processor import InputData
+from domain.services.schemas.reader import FrameListResponse, FrameMetadata, ReaderConfig
 from runtime.core.components.base import StreamReader
-from runtime.core.components.schemas.processor import InputData
-from runtime.core.components.schemas.reader import FrameListResponse, FrameMetadata, ReaderConfig
-from settings import get_settings
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 
-class ImageFolderReader(StreamReader, ABC):
+class ImageFolderReader(StreamReader):
     """
     A reader implementation for loading images from a folder.
 
@@ -27,10 +26,13 @@ class ImageFolderReader(StreamReader, ABC):
     supporting common image formats (jpg, jpeg, png, bmp, tiff).
     """
 
-    def __init__(self, config: ReaderConfig) -> None:
+    def __init__(self, config: ReaderConfig, supported_extensions: set[str]) -> None:
         self._config = config
+        self._supported_extensions = supported_extensions
         self._image_paths: list[Path] = []
         self._current_index: int = 0
+        self._last_image: np.ndarray | None = None
+        self._last_image_path: Path | None = None
         self._thumbnail_cache: dict[int, str] = {}
         super().__init__()
 
@@ -48,15 +50,15 @@ class ImageFolderReader(StreamReader, ABC):
             new_w, new_h = int(w * scale), int(h * scale)
             thumbnail = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
-            # Encode to base64
+            # Encode to base64 with data URI prefix
             _, buffer = cv2.imencode(".jpg", thumbnail, [cv2.IMWRITE_JPEG_QUALITY, 80])
-            return base64.b64encode(buffer).decode("utf-8")
+            base64_string = base64.b64encode(buffer).decode("utf-8")
+            return f"data:image/jpeg;base64,{base64_string}"
         except Exception as e:
             logger.warning(f"Failed to generate thumbnail for {image_path}: {e}")
             return None
 
-    @staticmethod
-    def _get_image_files(folder_path: Path) -> list[Path]:
+    def _get_image_files(self, folder_path: Path) -> list[Path]:
         """
         Filter and collect supported image files from the given folder.
 
@@ -69,7 +71,7 @@ class ImageFolderReader(StreamReader, ABC):
         return [
             path
             for path in folder_path.iterdir()
-            if path.is_file() and path.suffix.lower() in settings.supported_extension
+            if path.is_file() and path.suffix.lower() in self._supported_extensions
         ]
 
     @staticmethod
@@ -95,6 +97,9 @@ class ImageFolderReader(StreamReader, ABC):
             raise ValueError(f"Invalid folder path: {self._config.images_folder_path}")
 
         image_files = self._get_image_files(folder_path)
+        if not image_files:
+            logger.warning(f"No supported image files found in {folder_path}")
+
         self._image_paths = sorted(image_files, key=self._natural_sort_key)
         self._current_index = 0
 
@@ -118,6 +123,9 @@ class ImageFolderReader(StreamReader, ABC):
             raise IndexError(f"Index {index} out of range [0, {len(self._image_paths)})")
 
         self._current_index = index
+        # clear cache to force reload on next read()
+        self._last_image = None
+        self._last_image_path = None
 
     def __len__(self) -> int:
         """Return the total number of images in the folder."""
@@ -127,22 +135,22 @@ class ImageFolderReader(StreamReader, ABC):
         """Return the current frame position."""
         return self._current_index
 
-    def list_frames(self, page: int = 1, page_size: int = 30) -> FrameListResponse:
+    def list_frames(self, offset: int = 0, limit: int = 30) -> FrameListResponse:
         """
         Return a paginated list of frames with thumbnails.
 
         Args:
-            page: The page number (1-based).
-            page_size: Number of frames per page.
+            offset: Number of items to skip (0-based index).
+            limit: Maximum number of frames to return.
 
         Returns:
-            FrameListResponse with frame metadata including thumbnails.
+            FrameListResponse with frame metadata including thumbnails and pagination info.
         """
-        start_idx = (page - 1) * page_size
-        end_idx = min(start_idx + page_size, len(self._image_paths))
+        total = len(self._image_paths)
+        end_idx = min(offset + limit, total)
 
         frames = []
-        for idx in range(start_idx, end_idx):
+        for idx in range(offset, end_idx):
             image_path = self._image_paths[idx]
 
             # Check cache first, generate if not cached
@@ -155,42 +163,49 @@ class ImageFolderReader(StreamReader, ABC):
                     self._thumbnail_cache[idx] = thumbnail
 
             if thumbnail is None:
-                # Skip invalid images or provide placeholder
+                # Skip invalid images
                 continue
 
-            frames.append(
-                FrameMetadata(
-                    index=idx,
-                    thumbnail=thumbnail,
-                    path=str(image_path),
-                )
-            )
+            frames.append(FrameMetadata(index=idx, thumbnail=thumbnail))
 
-        return FrameListResponse(total=len(self._image_paths), page=page, page_size=page_size, frames=frames)
+        pagination = Pagination(
+            count=len(frames),
+            total=total,
+            offset=offset,
+            limit=limit,
+        )
+
+        return FrameListResponse(frames=frames, pagination=pagination)
 
     def read(self) -> InputData | None:
-        """Read the current image and advance to the next."""
-        if not self._image_paths or self._current_index >= len(self._image_paths):
+        """Read the current image."""
+        if not self._image_paths:
             return None
 
         image_path = self._image_paths[self._current_index]
-        image = cv2.imread(str(image_path))
 
-        current_idx = self._current_index
-        self._current_index += 1
+        # cache image to avoid repeated disk reads
+        if self._last_image is None or self._last_image_path != image_path:
+            image = cv2.imread(str(image_path))
+            if image is None:
+                logger.error(f"Failed to read image: {image_path}")
+                return None
+            self._last_image = image
+            self._last_image_path = image_path
 
-        if image is None:
-            # Log the error but maintain index synchronization
-            logger.warning(f"Failed to load image: {image_path}")
-            return None
+        time.sleep(0.033)  # a small delay (~30 FPS) to prevent overwhelming consumers
+
+        image_rgb = cv2.cvtColor(self._last_image, cv2.COLOR_BGR2RGB)
 
         return InputData(
             timestamp=int(time.time() * 1000),
-            frame=image,
-            context={"path": str(image_path), "index": current_idx},
+            frame=image_rgb,
+            context={"path": str(image_path), "index": self._current_index},
         )
 
     def close(self) -> None:
         """Clean up resources."""
         self._image_paths = []
         self._current_index = 0
+        self._last_image = None
+        self._last_image_path = None

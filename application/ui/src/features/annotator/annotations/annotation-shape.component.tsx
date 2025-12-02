@@ -18,6 +18,7 @@ export const AnnotationShape = ({ annotation }: AnnotationShapeProps) => {
     const styles = {
         fill: color,
         fillOpacity: 'var(--annotation-fill-opacity)',
+        stroke: `hsl(from ${color} h s calc(l - 20))`,
     };
 
     if (shape.type === 'rectangle') {

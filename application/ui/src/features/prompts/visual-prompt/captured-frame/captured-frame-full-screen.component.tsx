@@ -5,8 +5,8 @@
 
 import { Content, Dialog, DialogContainer, Divider, Grid, Heading, minmax } from '@geti/ui';
 
+import { useFullScreenMode } from '../../../annotator/actions/full-screen-mode.component';
 import { CapturedFrameContent } from './captured-frame-content.component';
-import { useFullScreenMode } from './full-screen-mode.component';
 
 export const CapturedFrameFullScreen = () => {
     const { isFullScreenMode, setIsFullScreenMode } = useFullScreenMode();

@@ -6,8 +6,8 @@
 import { VisualPromptItemType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { ActionMenu, Item, Key, View } from '@geti/ui';
-import { useSelectedFrame } from 'src/features/stream/selected-frame-provider.component';
 
+import { useSelectedFrame } from '../../../../../shared/selected-frame-provider.component';
 import { useDeletePrompt } from '../../api/use-delete-prompt';
 import { useVisualPrompt } from '../../visual-prompt-provider.component';
 
@@ -18,6 +18,7 @@ const PROMPT_OPTIONS = ['Edit', 'Delete'] as const;
 interface PromptThumbnailProps {
     prompt: VisualPromptItemType;
 }
+
 export const PromptThumbnail = ({ prompt }: PromptThumbnailProps) => {
     const { projectId } = useProjectIdentifier();
     const { setSelectedFrameId } = useSelectedFrame();

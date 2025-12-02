@@ -3,7 +3,7 @@
 
 import uuid
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy.exc import IntegrityError
@@ -15,9 +15,9 @@ from domain.errors import (
     ResourceType,
     ResourceUpdateConflictError,
 )
+from domain.services.schemas.reader import SourceType, VideoFileConfig, WebCamConfig
 from domain.services.schemas.source import SourceCreateSchema, SourceUpdateSchema
 from domain.services.source import SourceService
-from runtime.core.components.schemas.reader import SourceType, VideoFileConfig, WebCamConfig
 
 
 def make_project(project_id=None, name="proj"):
@@ -36,14 +36,14 @@ def make_source(
     if source_type == SourceType.WEBCAM:
         base_cfg |= {"device_id": 0}
     elif source_type == SourceType.VIDEO_FILE:
-        base_cfg |= {"video_path": "/path/to/video.mp4"}
+        base_cfg |= {"video_path": "/tmp/video.mp4"}
     if config_extra:
         base_cfg |= config_extra
     return SimpleNamespace(
         id=source_id or uuid.uuid4(),
         project_id=project_id or uuid.uuid4(),
         config=base_cfg,
-        connected=connected,
+        active=connected,
     )
 
 
@@ -70,25 +70,30 @@ def test_list_sources_success(service):
     service.project_repository.get_by_id.return_value = make_project(project_id)
     s1 = make_source(project_id=project_id)
     s2 = make_source(project_id=project_id, source_type=SourceType.VIDEO_FILE)
-    service.source_repository.get_all_by_project.return_value = [s1, s2]
+    service.source_repository.list_with_pagination_by_project.return_value = ([s1, s2], 2)
 
-    result = service.list_sources(project_id)
+    with patch("pathlib.Path.exists", return_value=True), patch("pathlib.Path.is_file", return_value=True):
+        result = service.list_sources(project_id)
 
     assert len(result.sources) == 2
     service.project_repository.get_by_id.assert_called_once_with(project_id)
-    service.source_repository.get_all_by_project.assert_called_once_with(project_id)
+    service.source_repository.list_with_pagination_by_project.assert_called_once_with(
+        project_id=project_id, offset=0, limit=20
+    )
 
 
 def test_list_sources_empty_list(service):
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
-    service.source_repository.get_all_by_project.return_value = []
+    service.source_repository.list_with_pagination_by_project.return_value = ([], 0)
 
     result = service.list_sources(project_id)
 
     assert result.sources == []
     service.project_repository.get_by_id.assert_called_once_with(project_id)
-    service.source_repository.get_all_by_project.assert_called_once_with(project_id)
+    service.source_repository.list_with_pagination_by_project.assert_called_once_with(
+        project_id=project_id, offset=0, limit=20
+    )
 
 
 def test_get_source_success(service):
@@ -101,7 +106,7 @@ def test_get_source_success(service):
 
     assert schema.id == source.id
     assert schema.config.source_type == SourceType(source.config["source_type"])
-    service.source_repository.get_by_id_and_project.assert_called_once_with(source_id=source.id, project_id=project_id)
+    service.source_repository.get_by_id_and_project.assert_called_once_with(source.id, project_id)
 
 
 def test_get_source_not_found(service):
@@ -117,7 +122,11 @@ def test_create_source_success(service, dispatcher_mock):
     new_id = uuid.uuid4()
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
-    service.source_repository.get_connected_in_project.return_value = None
+    service.source_repository.get_active_in_project.return_value = None
+
+    new_source = make_source(source_id=new_id, project_id=project_id, connected=True)
+    service.source_repository.add.return_value = new_source
+
     create_schema = SourceCreateSchema(
         id=new_id,
         connected=True,
@@ -131,7 +140,6 @@ def test_create_source_success(service, dispatcher_mock):
     assert result.config.device_id == 2
     service.source_repository.add.assert_called_once()
     service.session.commit.assert_called_once()
-    service.session.refresh.assert_called_once()
     dispatcher_mock.dispatch.assert_called_once()
     ev = dispatcher_mock.dispatch.call_args_list[0].args[0]
     assert isinstance(ev, ComponentConfigChangeEvent)
@@ -143,7 +151,7 @@ def test_create_source_success(service, dispatcher_mock):
 def test_create_source_type_conflict_raises_integrity_error(service):
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
-    service.source_repository.get_connected_in_project.return_value = None
+    service.source_repository.get_active_in_project.return_value = None
 
     create_schema = SourceCreateSchema(
         id=uuid.uuid4(),
@@ -167,7 +175,7 @@ def test_create_source_type_conflict_raises_integrity_error(service):
 def test_create_source_name_conflict_raises_integrity_error(service):
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
-    service.source_repository.get_connected_in_project.return_value = None
+    service.source_repository.get_active_in_project.return_value = None
 
     create_schema = SourceCreateSchema(
         id=uuid.uuid4(),
@@ -194,7 +202,12 @@ def test_create_source_disconnects_previous_connected(service):
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
     prev_connected = make_source(project_id=project_id, connected=True)
-    service.source_repository.get_connected_in_project.return_value = prev_connected
+    service.source_repository.get_active_in_project.return_value = prev_connected
+    service.source_repository.update.return_value = prev_connected
+
+    new_source = make_source(project_id=project_id, connected=True)
+    service.source_repository.add.return_value = new_source
+
     create_schema = SourceCreateSchema(
         id=uuid.uuid4(),
         connected=True,
@@ -203,19 +216,23 @@ def test_create_source_disconnects_previous_connected(service):
 
     service.create_source(project_id=project_id, create_data=create_schema)
 
-    assert prev_connected.connected is False
+    assert prev_connected.active is False
 
 
-def test_create_connected_source_violates_single_connected_constraint(service):
+def test_create_connected_source_violates_single_connected_constraint(service, tmp_path):
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
 
-    service.source_repository.get_connected_in_project.return_value = None  # assume no connected source found
+    service.source_repository.get_active_in_project.return_value = None
+
+    # Create a temporary video file for validation
+    video_file = tmp_path / "video.mp4"
+    video_file.write_bytes(b"fake video content")
 
     create_schema = SourceCreateSchema(
         id=uuid.uuid4(),
         connected=True,
-        config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path="/video.mp4"),
+        config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path=str(video_file)),
     )
 
     # simulate IntegrityError from database constraint
@@ -239,7 +256,9 @@ def test_update_source_success(service, dispatcher_mock):
     existing = make_source(project_id=project_id, source_id=source_id, source_type=SourceType.WEBCAM, connected=False)
     service.source_repository.get_by_id_and_project.return_value = existing
     prev_connected = make_source(project_id=project_id, connected=True)
-    service.source_repository.get_connected_in_project.return_value = prev_connected
+    service.source_repository.get_active_in_project.return_value = prev_connected
+    service.source_repository.update.return_value = existing
+
     update_schema = SourceUpdateSchema(
         connected=True,
         config=WebCamConfig(source_type=SourceType.WEBCAM, name="Renamed", device_id=5),
@@ -248,28 +267,35 @@ def test_update_source_success(service, dispatcher_mock):
     result = service.update_source(project_id=project_id, source_id=source_id, update_data=update_schema)
 
     assert result.id == source_id
-    assert existing.connected is True
+    assert existing.active is True
     assert existing.config["device_id"] == 5
-    assert prev_connected.connected is False
+    assert prev_connected.active is False
     service.session.commit.assert_called_once()
-    service.session.refresh.assert_called_once_with(existing)
-    dispatcher_mock.dispatch.assert_called_once()
-    ev = dispatcher_mock.dispatch.call_args_list[0].args[0]
-    assert isinstance(ev, ComponentConfigChangeEvent)
-    assert ev.project_id == project_id
-    assert ev.component_type == "source"
-    assert ev.component_id == str(source_id)
+
+    # two events should be dispatched: one for disconnecting the previous source, one for updating the current
+    assert dispatcher_mock.dispatch.call_count == 2
+    events = [call.args[0] for call in dispatcher_mock.dispatch.call_args_list]
+    assert all(isinstance(ev, ComponentConfigChangeEvent) for ev in events)
+    assert all(ev.project_id == project_id for ev in events)
+    assert all(ev.component_type == "source" for ev in events)
+    assert events[0].component_id == str(prev_connected.id)
+    assert events[1].component_id == str(source_id)
 
 
-def test_update_source_type_change_conflict(service):
+def test_update_source_type_change_conflict(service, tmp_path):
     project_id = uuid.uuid4()
     source_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
     existing = make_source(project_id=project_id, source_id=source_id, source_type=SourceType.WEBCAM)
     service.source_repository.get_by_id_and_project.return_value = existing
+
+    # Create a temporary video file for validation
+    video_file = tmp_path / "video.mp4"
+    video_file.write_bytes(b"fake video content")
+
     update_schema = SourceUpdateSchema(
         connected=False,
-        config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path="/new/path/to/video.mp4"),
+        config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path=str(video_file)),
     )
 
     with pytest.raises(ResourceUpdateConflictError):
@@ -300,7 +326,7 @@ def test_delete_source_success(service, dispatcher_mock):
 
     service.delete_source(project_id=project_id, source_id=source_id)
 
-    service.source_repository.delete.assert_called_once_with(existing)
+    service.source_repository.delete.assert_called_once_with(existing.id)
     service.session.commit.assert_called_once()
     dispatcher_mock.dispatch.assert_called_once()
     ev = dispatcher_mock.dispatch.call_args_list[0].args[0]
@@ -332,7 +358,11 @@ def test_create_source_emits_event_when_connected_false(service, dispatcher_mock
     project_id = uuid.uuid4()
     new_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
-    service.source_repository.get_connected_in_project.return_value = None
+    service.source_repository.get_active_in_project.return_value = None
+
+    new_source = make_source(source_id=new_id, project_id=project_id, connected=False)
+    service.source_repository.add.return_value = new_source
+
     create_schema = SourceCreateSchema(
         id=new_id,
         connected=False,
@@ -355,7 +385,9 @@ def test_update_source_emits_event_when_no_connection_change(service, dispatcher
     service.project_repository.get_by_id.return_value = make_project(project_id)
     existing = make_source(project_id=project_id, source_id=source_id, source_type=SourceType.WEBCAM, connected=True)
     service.source_repository.get_by_id_and_project.return_value = existing
-    service.source_repository.get_connected_in_project.return_value = existing  # already connected
+    service.source_repository.get_active_in_project.return_value = existing  # already connected
+    service.source_repository.update.return_value = existing
+
     update_schema = SourceUpdateSchema(
         connected=True,
         config=WebCamConfig(source_type=SourceType.WEBCAM, device_id=7),

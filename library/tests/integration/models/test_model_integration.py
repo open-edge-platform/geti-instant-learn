@@ -97,7 +97,7 @@ class TestModelIntegration:
         if model_name == ModelName.GROUNDED_SAM:
             model = model_class(sam=sam_model, device="cpu", precision="fp32")
         else:
-            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov2_small")
+            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov3_small")
 
         assert model is not None
         assert hasattr(model, "learn")
@@ -133,7 +133,7 @@ class TestModelIntegration:
         if model_name == ModelName.GROUNDED_SAM:
             model = model_class(sam=sam_model, device="cpu", precision="fp32")
         else:
-            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov2_small")
+            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov3_small")
 
         # Test learn method
         model.learn(reference_batch)
@@ -192,7 +192,7 @@ class TestModelIntegration:
             sam=sam_model,
             device="cpu",
             precision="fp32",
-            encoder_model="dinov2_small",
+            encoder_model="dinov3_small",
         )
         model_1shot.learn(ref_batch_1shot)
         predictions_1shot = model_1shot.infer(target_batch)
@@ -212,7 +212,7 @@ class TestModelIntegration:
                 sam=sam_model,
                 device="cpu",
                 precision="fp32",
-                encoder_model="dinov2_small",
+                encoder_model="dinov3_small",
             )
             model_2shot.learn(ref_batch_2shot)
             predictions_2shot = model_2shot.infer(target_batch_2shot)
@@ -289,7 +289,7 @@ class TestModelIntegration:
         if model_name == ModelName.GROUNDED_SAM:
             model = model_class(sam=sam_model, device="cpu", precision="fp32")
         else:
-            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov2_small")
+            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov3_small")
 
         # Validate that reference batch has required fields
         assert len(reference_batch) > 0
@@ -344,7 +344,7 @@ class TestModelIntegration:
         if model_name == ModelName.GROUNDED_SAM:
             model = model_class(sam=sam_model, device="cpu", precision="fp32")
         else:
-            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov2_small")
+            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov3_small")
 
         # Get reference and target samples for first category
         categories = dataset.categories

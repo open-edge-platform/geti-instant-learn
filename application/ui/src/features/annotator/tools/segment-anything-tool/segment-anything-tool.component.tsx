@@ -10,34 +10,26 @@ import { clampPointBetweenImage } from '@geti/smart-tools/utils';
 import { useZoom } from '../../../../components/zoom/zoom.provider';
 import { useVisualPrompt } from '../../../prompts/visual-prompt/visual-prompt-provider.component';
 import { AnnotationShape } from '../../annotations/annotation-shape.component';
-import { Annotation } from '../../annotations/annotation.component';
 import { MaskAnnotations } from '../../annotations/mask-annotations.component';
-import { AnnotatorLoading } from '../../annotator-loading.component';
 import { useAnnotationActions } from '../../providers/annotation-actions-provider.component';
-import { useAnnotationVisibility } from '../../providers/annotation-visibility-provider.component';
 import { useAnnotator } from '../../providers/annotator-provider.component';
 import { type Annotation as AnnotationType, type Shape } from '../../types';
 import { SvgToolCanvas } from '../svg-tool-canvas.component';
 import { getRelativePoint, removeOffLimitPoints } from '../utils';
+import { SAMLoading } from './sam-loading.component';
 import { InteractiveAnnotationPoint } from './segment-anything.interface';
-import { useDecodingMutation } from './use-decoding-query.hook';
 import { useSegmentAnythingModel } from './use-segment-anything.hook';
 import { useSingleStackFn } from './use-single-stack-fn.hook';
 import { useThrottledCallback } from './use-throttle-callback.hook';
 
 import classes from './segment-anything.module.scss';
 
-// Whenever the user moves their mouse over the canvas  we compute a preview of
+// Whenever the user moves their mouse over the canvas, we compute a preview of
 // SAM being applied to the user's mouse position.
 // The decoding step of SAM takes on average 100ms with 150-250ms being a high
 // exception. We throttle the mouse update based on this so that we don't overload
 // the user's cpu with too many decoding requests
 const THROTTLE_TIME = 150;
-
-const SELECT_ANNOTATION_STYLES = {
-    stroke: 'var(--energy-blue-shade)',
-    strokeWidth: 'calc(2px / var(--zoom-scale))',
-};
 
 export const SegmentAnythingTool = () => {
     const [mousePosition, setMousePosition] = useState<InteractiveAnnotationPoint>();
@@ -45,13 +37,10 @@ export const SegmentAnythingTool = () => {
 
     const zoom = useZoom();
     const { roi, image } = useAnnotator();
+    const { addAnnotations } = useAnnotationActions();
     const { selectedLabel } = useVisualPrompt();
-    const { annotations } = useAnnotationActions();
-    const { isVisible } = useAnnotationVisibility();
     const { isLoading, decodingQueryFn } = useSegmentAnythingModel();
     const throttledDecodingQueryFn = useSingleStackFn(decodingQueryFn);
-
-    const decodingMutation = useDecodingMutation(decodingQueryFn, [selectedLabel]);
 
     const ref = useRef<SVGRectElement>(null);
 
@@ -98,17 +87,7 @@ export const SegmentAnythingTool = () => {
             return;
         }
 
-        const point = clampPoint(getRelativePoint(ref.current, { x: event.clientX, y: event.clientY }, zoom.scale));
-
-        decodingMutation.mutate([{ ...point, positive: true }], {
-            onSuccess: () => {
-                setMousePosition(undefined);
-                setPreviewShapes([]);
-            },
-            onError: (error) => {
-                console.error('Failed to create annotation:', error);
-            },
-        });
+        addAnnotations(previewShapes, selectedLabel ? [selectedLabel] : []);
     };
 
     const previewAnnotations = previewShapes.map((shape, idx): AnnotationType => {
@@ -122,7 +101,7 @@ export const SegmentAnythingTool = () => {
     });
 
     if (isLoading) {
-        return <AnnotatorLoading isLoading={isLoading} />;
+        return <SAMLoading isLoading={isLoading} />;
     }
 
     return (
@@ -142,32 +121,26 @@ export const SegmentAnythingTool = () => {
             }}
         >
             {previewAnnotations.length > 0 && (
-                <MaskAnnotations isEnabled annotations={previewAnnotations} width={image.width} height={image.height} />
+                <MaskAnnotations isEnabled annotations={previewAnnotations} width={image.width} height={image.height}>
+                    {previewAnnotations.map((annotation) => (
+                        <g
+                            key={annotation.id}
+                            aria-label='Segment anything preview'
+                            style={
+                                {
+                                    '--energy-blue-shade': '#0095ca',
+                                } as CSSProperties
+                            }
+                            stroke={'var(--energy-blue-shade)'}
+                            strokeWidth={'calc(3px / var(--zoom-scale))'}
+                            fill={'transparent'}
+                            className={classes.animateStroke}
+                        >
+                            <AnnotationShape annotation={annotation} />
+                        </g>
+                    ))}
+                </MaskAnnotations>
             )}
-
-            <g aria-label={'annotation list'}>
-                {isVisible &&
-                    annotations.map((annotation) => <Annotation annotation={annotation} key={annotation.id} />)}
-            </g>
-
-            {previewAnnotations.length > 0 &&
-                previewAnnotations.map((annotation) => (
-                    <g
-                        key={annotation.id}
-                        aria-label='Segment anything preview'
-                        style={
-                            {
-                                '--energy-blue-shade': '#0095ca',
-                            } as CSSProperties
-                        }
-                        {...SELECT_ANNOTATION_STYLES}
-                        strokeWidth={'calc(3px / var(--zoom-scale))'}
-                        fill={'transparent'}
-                        className={classes.animateStroke}
-                    >
-                        <AnnotationShape annotation={annotation} />
-                    </g>
-                ))}
         </SvgToolCanvas>
     );
 };

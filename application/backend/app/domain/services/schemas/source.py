@@ -3,8 +3,8 @@
 
 from pydantic import BaseModel
 
-from domain.services.schemas.base import BaseIDPayload, BaseIDSchema
-from runtime.core.components.schemas.reader import ReaderConfig
+from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
+from domain.services.schemas.reader import ReaderConfig
 
 
 class SourceCreateSchema(BaseIDPayload):
@@ -22,5 +22,5 @@ class SourceSchema(BaseIDSchema):
     config: ReaderConfig
 
 
-class SourcesListSchema(BaseModel):
+class SourcesListSchema(PaginatedResponse):
     sources: list[SourceSchema]

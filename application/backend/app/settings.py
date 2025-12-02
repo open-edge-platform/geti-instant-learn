@@ -31,13 +31,21 @@ class Settings(BaseSettings):
     static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
 
     # Server
-    host: str = Field(default="0.0.0.0", alias="HOST")  # noqa: S104
+    host: str = Field(default="localhost", alias="HOST")
     port: int = Field(default=9100, alias="PORT")
 
     # Database
     current_dir: Path = Path(__file__).parent.resolve()
     db_data_dir: Path = Field(default=current_dir.parent / ".data", alias="DB_DATA_DIR")
     db_filename: str = "geti_prompt.db"
+
+    # Template datasets
+    template_dataset_path: str = Field(default="templates/datasets/coffee-berries", alias="TEMPLATE_DATASET_PATH")
+
+    @property
+    def template_dataset_dir(self) -> Path:
+        """Full path to the template dataset directory"""
+        return self.db_data_dir / self.template_dataset_path
 
     @property
     def database_url(self) -> str:
@@ -54,7 +62,7 @@ class Settings(BaseSettings):
     no_proxy: str = Field(default="localhost,127.0.0.1,::1", alias="no_proxy")
 
     # Supported file formats
-    supported_extension: set[str] = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif"}
+    supported_extensions: set[str] = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif"}
 
     # Thumbnail generation
     thumbnail_max_dimension: int = 300

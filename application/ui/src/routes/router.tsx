@@ -7,11 +7,11 @@ import { $api } from '@geti-prompt/api';
 import { Navigate } from 'react-router';
 import { createBrowserRouter } from 'react-router-dom';
 
+import { paths } from '../constants/paths';
 import { ProjectsListEntry } from '../features/project/projects-list-entry/projects-list-entry.component';
 import { Welcome } from '../features/project/projects-list-entry/welcome.component';
-import { ErrorPage } from './error-page.component';
-import { paths } from './paths';
-import { ProjectLayout } from './project-layout.component';
+import { ErrorRoute } from './error-route.component';
+import { ProjectRoute } from './project-route.component';
 import { RootLayout } from './root-layout.component';
 
 const Redirect = () => {
@@ -40,7 +40,7 @@ export const router = createBrowserRouter([
     {
         path: paths.root.pattern,
         element: <RootLayout />,
-        errorElement: <ErrorPage />,
+        errorElement: <ErrorRoute />,
         children: [
             {
                 index: true,
@@ -56,7 +56,7 @@ export const router = createBrowserRouter([
             },
             {
                 path: paths.project.pattern,
-                element: <ProjectLayout />,
+                element: <ProjectRoute />,
             },
             {
                 path: '*',

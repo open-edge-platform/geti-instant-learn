@@ -7,3 +7,5 @@
 !ui/package-lock.json
 !ui/tsconfig.json
 !ui/rsbuild.config.ts
+# default dataset
+!backend/.data/templates/datasets/coffee-berries

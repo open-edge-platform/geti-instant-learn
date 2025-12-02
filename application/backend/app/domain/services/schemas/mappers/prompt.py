@@ -4,8 +4,16 @@
 from collections.abc import Iterable
 from uuid import UUID, uuid4
 
+import numpy as np
+from getiprompt.data.base.sample import Sample
+from torch import from_numpy
+from torchvision import tv_tensors
+
 from domain.db.models import AnnotationDB, PromptDB, PromptType
-from domain.services.schemas.annotation import AnnotationSchema
+from domain.errors import ServiceError
+from domain.services.schemas.annotation import AnnotationSchema, AnnotationType
+from domain.services.schemas.mappers.annotation import annotations_db_to_schemas
+from domain.services.schemas.mappers.mask import polygons_to_masks
 from domain.services.schemas.prompt import (
     PromptCreateSchema,
     PromptListItemSchema,
@@ -132,3 +140,42 @@ def prompt_update_schema_to_db(prompt_db: PromptDB, schema: PromptUpdateSchema) 
                 )
                 prompt_db.annotations.append(annotation_entity)
     return prompt_db
+
+
+def visual_prompt_to_sample(prompt: PromptDB, frame: np.ndarray) -> Sample:
+    """
+    Convert a visual PromptDB and its frame to a training Sample.
+    """
+    if prompt.type != PromptType.VISUAL:
+        raise ServiceError(f"Cannot convert non-visual prompt to sample: prompt type is {prompt.type}")
+
+    annotations = annotations_db_to_schemas(prompt.annotations)
+
+    if not annotations:
+        raise ServiceError(
+            f"Cannot convert visual prompt to sample: prompt {prompt.id} has no valid annotations with labels"
+        )
+
+    polygons = [ann.config for ann in annotations if ann.config.type == AnnotationType.POLYGON]
+
+    if not polygons:
+        raise ServiceError(
+            "Cannot create training sample: visual prompt must have at least one polygon annotation to generate masks."
+        )
+
+    # Convert frame: HWC numpy → CHW tensor
+    frame_chw = tv_tensors.Image(from_numpy(frame).permute(2, 0, 1))
+
+    # Convert polygons to binary masks
+    height, width = frame.shape[:2]
+    masks = polygons_to_masks(polygons, height, width)
+
+    categories = sorted([str(ann.label_id) for ann in annotations])
+    category_ids = np.arange(len(categories), dtype=np.int32)
+
+    return Sample(
+        image=frame_chw,
+        masks=masks,
+        categories=categories,
+        category_ids=category_ids,
+    )

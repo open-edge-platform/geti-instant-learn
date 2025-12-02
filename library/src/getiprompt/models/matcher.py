@@ -9,6 +9,10 @@ import torch
 
 from getiprompt.components import SamDecoder
 from getiprompt.components.encoders import PyTorchImageEncoder, load_image_encoder
+import torch
+
+from getiprompt.components import SamDecoder
+from getiprompt.components.encoders.timm import TimmImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator

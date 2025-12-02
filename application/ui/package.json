@@ -15,7 +15,7 @@
         "cyclic-deps-check": "npx madge --circular ./**/*.ts*",
         "dev": "concurrently -n Server,UI -c blue,yellow \"npm run server\" \"npm start\"",
         "start": "rsbuild dev --open",
-        "server": "uv --directory ../backend/app run main.py",
+        "server": "just ../backend/dev",
         "format": "prettier --write .",
         "format:check": "prettier --check --cache \"./**/*.{js,ts,jsx,tsx,css,scss,sass}\"",
         "lint": "eslint ./src ./tests --max-warnings 0",

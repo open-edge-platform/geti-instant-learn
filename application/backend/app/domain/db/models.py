@@ -1,13 +1,15 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from datetime import datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Text, UniqueConstraint
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Text, UniqueConstraint
 from sqlalchemy import text as sa_text
 from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.sql import func
 
 from domain.db.constraints import CheckConstraintName, UniqueConstraintName
 
@@ -15,6 +17,8 @@ from domain.db.constraints import CheckConstraintName, UniqueConstraintName
 class Base(DeclarativeBase):
     __abstract__ = True
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.current_timestamp())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.current_timestamp())
 
 
 class LabelDB(Base):
@@ -36,7 +40,7 @@ class AnnotationDB(Base):
 
 class SourceDB(Base):
     __tablename__ = "Source"
-    connected: Mapped[bool] = mapped_column(nullable=False, default=False)
+    active: Mapped[bool] = mapped_column(nullable=False, default=False)
     config: Mapped[dict] = mapped_column(JSON, nullable=False)
     project_id: Mapped[UUID] = mapped_column(ForeignKey("Project.id", ondelete="CASCADE"))
     project: Mapped["ProjectDB"] = relationship(back_populates="sources")
@@ -57,18 +61,41 @@ class SourceDB(Base):
         Index(
             UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT,
             "project_id",
-            "connected",
+            "active",
             unique=True,
-            sqlite_where=sa_text("connected IS 1"),
+            sqlite_where=sa_text("active IS 1"),
         ),
     )
 
 
 class SinkDB(Base):
     __tablename__ = "Sink"
+    active: Mapped[bool] = mapped_column(nullable=False, default=False)
     config: Mapped[dict] = mapped_column(JSON, nullable=False)
     project_id: Mapped[UUID] = mapped_column(ForeignKey("Project.id", ondelete="CASCADE"))
     project: Mapped["ProjectDB"] = relationship(back_populates="sinks", single_parent=True)
+    __table_args__ = (
+        Index(
+            UniqueConstraintName.SINK_TYPE_PER_PROJECT,
+            "project_id",
+            sa_text("json_extract(config, '$.sink_type')"),
+            unique=True,
+        ),
+        Index(
+            UniqueConstraintName.SINK_NAME_PER_PROJECT,
+            "project_id",
+            sa_text("json_extract(config, '$.name')"),
+            unique=True,
+            sqlite_where=sa_text("json_extract(config, '$.name') IS NOT NULL"),
+        ),
+        Index(
+            UniqueConstraintName.SINGLE_ACTIVE_SINK_PER_PROJECT,
+            "project_id",
+            "active",
+            unique=True,
+            sqlite_where=sa_text("active IS 1"),
+        ),
+    )
 
 
 class PromptType(StrEnum):
@@ -117,6 +144,7 @@ class PromptDB(Base):
 class ProcessorDB(Base):
     __tablename__ = "Processor"
     name: Mapped[str | None] = mapped_column(nullable=True)
+    active: Mapped[bool] = mapped_column(nullable=False, default=False)
     config: Mapped[dict] = mapped_column(JSON, nullable=False)
     project_id: Mapped[UUID] = mapped_column(ForeignKey("Project.id", ondelete="CASCADE"))
     project: Mapped["ProjectDB"] = relationship(back_populates="processors", single_parent=True)
@@ -127,6 +155,13 @@ class ProcessorDB(Base):
             "name",
             unique=True,
             sqlite_where=sa_text("name IS NOT NULL"),
+        ),
+        Index(
+            UniqueConstraintName.SINGLE_ACTIVE_PROCESSOR_PER_PROJECT,
+            "project_id",
+            "active",
+            unique=True,
+            sqlite_where=sa_text("active IS 1"),
         ),
     )
 

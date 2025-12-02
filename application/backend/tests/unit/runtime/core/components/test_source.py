@@ -2,10 +2,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from domain.services.schemas.base import Pagination
 from runtime.core.components.base import StreamReader
 from runtime.core.components.broadcaster import FrameBroadcaster
-from runtime.core.components.schemas.processor import InputData
-from runtime.core.components.schemas.reader import FrameListResponse, FrameMetadata
 from runtime.core.components.source import Source
 
 test_cases = [
@@ -20,7 +19,8 @@ class TestSource:
         self.mock_stream_reader = MagicMock(spec=StreamReader)
         self.mock_stream_reader.__enter__.return_value = self.mock_stream_reader
         self.mock_broadcaster = MagicMock(spec=FrameBroadcaster)
-        self.source = Source(self.mock_stream_reader, self.mock_broadcaster)
+        self.source = Source(self.mock_stream_reader)
+        self.source.setup(self.mock_broadcaster)
 
     @pytest.mark.parametrize(
         "test_id, input_data, expected_broadcasts", test_cases, ids=[case[0] for case in test_cases]
@@ -46,17 +46,10 @@ class TestSource:
         assert broadcast_calls == expected_broadcasts
 
     def test_seek_delegates_to_reader(self):
-        """Test that seek() calls the reader's seek method."""
-        expected_frame = InputData(frame=MagicMock(), timestamp=1, context={})
-        self.mock_stream_reader.seek.return_value = expected_frame
-
-        result = self.source.seek(42)
-
+        self.source.seek(42)
         self.mock_stream_reader.seek.assert_called_once_with(42)
-        assert result == expected_frame
 
     def test_index_delegates_to_reader(self):
-        """Test that index() calls the reader's index method."""
         self.mock_stream_reader.index.return_value = 10
 
         result = self.source.index()
@@ -65,16 +58,15 @@ class TestSource:
         assert result == 10
 
     def test_list_frames_delegates_to_reader(self):
-        """Test that list_frames() calls the reader's list_frames method."""
+        from domain.services.schemas.reader import FrameListResponse, FrameMetadata
+
         expected_response = FrameListResponse(
-            frames=[FrameMetadata(index=1, thumbnail="base64string", path="/path/to/frame1")],
-            total=1,
-            page=1,
-            page_size=100,
+            frames=[FrameMetadata(index=1, thumbnail="data:image/jpeg;base64,base64string")],
+            pagination=Pagination(count=1, total=1, offset=0, limit=100),
         )
         self.mock_stream_reader.list_frames.return_value = expected_response
 
-        result = self.source.list_frames(page=1, page_size=100)
+        result = self.source.list_frames(offset=0, limit=100)
 
-        self.mock_stream_reader.list_frames.assert_called_once_with(1, 100)
+        self.mock_stream_reader.list_frames.assert_called_once_with(offset=0, limit=100)
         assert result == expected_response

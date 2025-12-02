@@ -18,12 +18,12 @@ type MaskAnnotationsProps = {
 
 export const MaskAnnotations = ({ annotations, children, width, height, isEnabled }: MaskAnnotationsProps) => {
     const id = useId();
-    const maskOpacity = isEnabled ? 0.8 : 0.0;
+    const maskOpacity = isEnabled ? 0.6 : 0.0;
 
     return (
         <>
             <mask id={`mask-${id}`}>
-                <rect x='0' y='0' width={width} height={height} fill={'white'} fillOpacity={0.4} />
+                <rect x='0' y='0' width={width} height={height} fill={'white'} fillOpacity={1 - maskOpacity} />
                 {annotations.map((annotation, idx) => (
                     <g
                         key={idx}

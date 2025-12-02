@@ -10,15 +10,17 @@ from fastapi.testclient import TestClient
 
 from api.error_handler import custom_exception_handler
 from api.routers import projects_router
-from dependencies import SessionDep, get_config_dispatcher, get_source_service
+from dependencies import SessionDep, get_config_dispatcher, get_pipeline_manager, get_source_service
 from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
     ResourceType,
     ResourceUpdateConflictError,
 )
+from domain.services.schemas.base import Pagination
+from domain.services.schemas.reader import FrameListResponse, FrameMetadata, SourceType, WebCamConfig
 from domain.services.schemas.source import SourceSchema, SourcesListSchema
-from runtime.core.components.schemas.reader import SourceType, WebCamConfig
+from runtime.errors import PipelineNotActiveError, SourceNotSeekableError
 
 PROJECT_ID = uuid4()
 SOURCE_ID_1 = uuid4()
@@ -75,14 +77,16 @@ def test_get_sources(client, behavior, expected_status, expected_len):
         def __init__(self, session, config_change_dispatcher):
             pass
 
-        def list_sources(self, project_id: UUID):
+        def list_sources(self, project_id: UUID, offset: int = 0, limit: int = 20):
             assert project_id == PROJECT_ID
             if behavior == "some":
+                sources = [
+                    make_source_schema(SOURCE_ID_1, 0, True),
+                    make_source_schema(SOURCE_ID_2, 1, False),
+                ]
                 return SourcesListSchema(
-                    sources=[
-                        make_source_schema(SOURCE_ID_1, 0, True),
-                        make_source_schema(SOURCE_ID_2, 1, False),
-                    ]
+                    sources=sources,
+                    pagination=Pagination(count=len(sources), total=len(sources), offset=offset, limit=limit),
                 )
             if behavior == "notfound":
                 raise ResourceNotFoundError(ResourceType.PROJECT, str(project_id))
@@ -104,6 +108,7 @@ def test_get_sources(client, behavior, expected_status, expected_len):
         assert "config" in first
         assert first["config"]["source_type"] == "webcam"
         assert "device_id" in first["config"]
+        assert "pagination" in data
     else:
         assert "detail" in resp.json()
 
@@ -251,3 +256,190 @@ def test_delete_source(client, behavior, expected_status):
         assert resp.text == ""
     else:
         assert "detail" in resp.json()
+
+
+@pytest.mark.parametrize(
+    "behavior,expected_status,expected_total",
+    [
+        ("success", 200, 100),
+        ("not_connected", 400, None),
+        ("not_seekable", 400, None),
+        ("no_pipeline", 400, None),
+        ("source_not_found", 404, None),
+        ("error", 500, None),
+    ],
+)
+def test_get_frames(client, behavior, expected_status, expected_total):
+    class FakeService:
+        def __init__(self, session, config_change_dispatcher):
+            pass
+
+        def get_source(self, project_id: UUID, source_id: UUID):
+            assert project_id == PROJECT_ID
+            assert source_id == SOURCE_ID_1
+            if behavior == "source_not_found":
+                raise ResourceNotFoundError(ResourceType.SOURCE, str(source_id))
+            connected = behavior not in ("not_connected",)
+            return make_source_schema(SOURCE_ID_1, 0, connected)
+
+    class FakePipelineManager:
+        def list_frames(self, project_id: UUID, offset: int = 0, limit: int = 30):
+            assert project_id == PROJECT_ID
+            if behavior == "success":
+                frames = [
+                    FrameMetadata(index=i, thumbnail=f"data:image/jpeg;base64,thumb_{i}")
+                    for i in range(offset, min(offset + limit, 100))
+                ]
+                pagination = Pagination(count=len(frames), total=100, offset=offset, limit=limit)
+                return FrameListResponse(frames=frames, pagination=pagination)
+            if behavior == "not_seekable":
+                raise SourceNotSeekableError("The active source does not support frame listing.")
+            if behavior == "no_pipeline":
+                raise PipelineNotActiveError("No active pipeline.")
+            if behavior == "error":
+                raise RuntimeError("Pipeline error")
+            raise AssertionError("Unhandled behavior")
+
+    client.app.dependency_overrides[get_source_service] = lambda: FakeService(None, None)
+    client.app.dependency_overrides[get_pipeline_manager] = lambda: FakePipelineManager()
+
+    resp = client.get(f"/api/v1/projects/{PROJECT_ID}/sources/{SOURCE_ID_1}/frames?offset=0&limit=30")
+    assert resp.status_code == expected_status
+    if behavior == "success":
+        data = resp.json()
+        assert data["pagination"]["total"] == expected_total
+        assert data["pagination"]["offset"] == 0
+        assert data["pagination"]["limit"] == 30
+        assert data["pagination"]["count"] == 30
+        assert len(data["frames"]) == 30
+        assert data["frames"][0]["index"] == 0
+        assert "thumbnail" in data["frames"][0]
+        assert data["frames"][0]["thumbnail"].startswith("data:image/jpeg;base64,")
+    else:
+        assert "detail" in resp.json()
+
+
+@pytest.mark.parametrize(
+    "behavior,expected_status,expected_index",
+    [
+        ("success", 200, 42),
+        ("not_connected", 400, None),
+        ("not_seekable", 400, None),
+        ("no_pipeline", 400, None),
+        ("source_not_found", 404, None),
+        ("error", 500, None),
+    ],
+)
+def test_get_frame_index(client, behavior, expected_status, expected_index):
+    class FakeService:
+        def __init__(self, session, config_change_dispatcher):
+            pass
+
+        def get_source(self, project_id: UUID, source_id: UUID):
+            assert project_id == PROJECT_ID
+            assert source_id == SOURCE_ID_1
+            if behavior == "source_not_found":
+                raise ResourceNotFoundError(ResourceType.SOURCE, str(source_id))
+            connected = behavior not in ("not_connected",)
+            return make_source_schema(SOURCE_ID_1, 0, connected)
+
+    class FakePipelineManager:
+        def get_frame_index(self, project_id: UUID):
+            assert project_id == PROJECT_ID
+            if behavior == "success":
+                return 42
+            if behavior == "not_seekable":
+                raise SourceNotSeekableError("The active source does not support frame indexing.")
+            if behavior == "no_pipeline":
+                raise PipelineNotActiveError("No active pipeline.")
+            if behavior == "error":
+                raise RuntimeError("Pipeline error")
+            raise AssertionError("Unhandled behavior")
+
+    client.app.dependency_overrides[get_source_service] = lambda: FakeService(None, None)
+    client.app.dependency_overrides[get_pipeline_manager] = lambda: FakePipelineManager()
+
+    resp = client.get(f"/api/v1/projects/{PROJECT_ID}/sources/{SOURCE_ID_1}/frames/index")
+    assert resp.status_code == expected_status
+    if behavior == "success":
+        data = resp.json()
+        assert data["index"] == expected_index
+    else:
+        assert "detail" in resp.json()
+
+
+@pytest.mark.parametrize(
+    "behavior,expected_status,seek_index",
+    [
+        ("success", 200, 10),
+        ("not_connected", 400, 10),
+        ("not_seekable", 400, 10),
+        ("out_of_bounds", 400, 999),
+        ("no_pipeline", 400, 10),
+        ("source_not_found", 404, 10),
+        ("error", 500, 10),
+    ],
+)
+def test_seek_frame(client, behavior, expected_status, seek_index):  # noqa: C901
+    class FakeService:
+        def __init__(self, session, config_change_dispatcher):
+            pass
+
+        def get_source(self, project_id: UUID, source_id: UUID):
+            assert project_id == PROJECT_ID
+            assert source_id == SOURCE_ID_1
+            if behavior == "source_not_found":
+                raise ResourceNotFoundError(ResourceType.SOURCE, str(source_id))
+            connected = behavior not in ("not_connected",)
+            return make_source_schema(SOURCE_ID_1, 0, connected)
+
+    class FakePipelineManager:
+        def seek(self, project_id: UUID, index: int):
+            assert project_id == PROJECT_ID
+            assert index == seek_index
+            if behavior == "success":
+                return
+            if behavior == "not_seekable":
+                raise SourceNotSeekableError("The active source does not support frame navigation.")
+            if behavior == "out_of_bounds":
+                raise IndexError(f"Index {index} out of range")
+            if behavior == "no_pipeline":
+                raise PipelineNotActiveError("No active pipeline.")
+            if behavior == "error":
+                raise RuntimeError("Pipeline error")
+            raise AssertionError("Unhandled behavior")
+
+    client.app.dependency_overrides[get_source_service] = lambda: FakeService(None, None)
+    client.app.dependency_overrides[get_pipeline_manager] = lambda: FakePipelineManager()
+
+    resp = client.post(f"/api/v1/projects/{PROJECT_ID}/sources/{SOURCE_ID_1}/frames/{seek_index}")
+    assert resp.status_code == expected_status
+    if behavior == "success":
+        data = resp.json()
+        assert data["index"] == seek_index
+    else:
+        assert "detail" in resp.json()
+
+
+def test_seek_frame_not_connected_error_message(client):
+    """Test that seeking a non-connected source returns appropriate error message."""
+
+    class FakeService:
+        def __init__(self, session, config_change_dispatcher):
+            pass
+
+        def get_source(self, project_id: UUID, source_id: UUID):
+            return make_source_schema(SOURCE_ID_1, 0, connected=False)
+
+    class FakePipelineManager:
+        def seek(self, project_id: UUID, index: int):
+            pass
+
+    client.app.dependency_overrides[get_source_service] = lambda: FakeService(None, None)
+    client.app.dependency_overrides[get_pipeline_manager] = lambda: FakePipelineManager()
+
+    resp = client.post(f"/api/v1/projects/{PROJECT_ID}/sources/{SOURCE_ID_1}/frames/10")
+    assert resp.status_code == 400
+    data = resp.json()
+    assert "not currently connected" in data["detail"]
+    assert str(SOURCE_ID_1) in data["detail"]

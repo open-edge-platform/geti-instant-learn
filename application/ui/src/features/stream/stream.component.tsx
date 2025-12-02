@@ -3,10 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { dimensionValue, Grid, minmax, View } from '@geti/ui';
+import { Suspense } from 'react';
 
-import { usePromptMode } from '../prompts/prompt-modes/prompt-modes.component';
-import { useGetSources } from '../sources-sinks-configuration/sources-configuration/hooks/use-get-sources';
+import { useGetSources } from '@geti-prompt/hooks';
+import { dimensionValue, Grid, Loading, minmax, View } from '@geti/ui';
+
+import { isImagesFolderSource, isTestDatasetSource, isWebcamSource } from '../sources-sinks/sources/utils';
 import { CaptureFrameButton } from './capture-frame-button.component';
 import { ImagesFolderStream } from './images-folder-stream/images-folder-stream.component';
 import { Video } from './video.component';
@@ -18,7 +20,7 @@ const useActiveSource = () => {
 };
 
 const WebcamStream = () => {
-    const promptMode = usePromptMode();
+    // const [promptMode] = usePromptMode();
 
     return (
         <Grid
@@ -34,7 +36,10 @@ const WebcamStream = () => {
                 <Video />
             </View>
             <View gridArea={'capture'} justifySelf={'center'}>
-                {promptMode === 'visual' && <CaptureFrameButton />}
+                {/* TODO: Uncomment when we support text prompt
+                    {promptMode === 'visual' && <CaptureFrameButton />}
+                */}
+                <CaptureFrameButton />
             </View>
         </Grid>
     );
@@ -48,11 +53,15 @@ export const Stream = () => {
         return null;
     }
 
-    if (activeSource.config.source_type === 'webcam') {
+    if (isWebcamSource(activeSource)) {
         return <WebcamStream />;
     }
 
-    if (activeSource.config.source_type === 'images_folder') {
-        return <ImagesFolderStream />;
+    if (isTestDatasetSource(activeSource) || isImagesFolderSource(activeSource)) {
+        return (
+            <Suspense fallback={<Loading mode={'inline'} style={{ height: '100%', width: '100%' }} />}>
+                <ImagesFolderStream sourceId={activeSource.id} />
+            </Suspense>
+        );
     }
 };

@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from domain.db.models import PromptType
 from domain.services.schemas.annotation import AnnotationSchema
-from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, Pagination
+from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
 
 
 class TextPromptCreateSchema(BaseIDPayload):
@@ -143,8 +143,7 @@ class VisualPromptListItemSchema(BaseIDSchema):
 PromptListItemSchema = Annotated[VisualPromptListItemSchema | TextPromptSchema, Field(discriminator="type")]
 
 
-class PromptsListSchema(BaseModel):
+class PromptsListSchema(PaginatedResponse):
     """Schema for listing prompts."""
 
     prompts: list[PromptListItemSchema]
-    pagination: Pagination = Field(default_factory=lambda: Pagination(count=0, total=0, offset=0, limit=20))
