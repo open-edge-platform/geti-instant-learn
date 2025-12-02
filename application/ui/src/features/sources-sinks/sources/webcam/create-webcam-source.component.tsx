@@ -11,11 +11,11 @@ import { useCreateSource } from '../api/use-create-source';
 import { isDeviceIdValid } from './utils';
 import { WebcamSourceFields } from './webcam-source-fields.component';
 
-interface WebcamSourceProps {
+interface CreateWebcamSourceProps {
     onSaved: () => void;
 }
 
-export const WebcamSource = ({ onSaved }: WebcamSourceProps) => {
+export const CreateWebcamSource = ({ onSaved }: CreateWebcamSourceProps) => {
     const [selectedDeviceId, setSelectedDeviceId] = useState<string>('0');
     const createWebcamSource = useCreateSource();
 

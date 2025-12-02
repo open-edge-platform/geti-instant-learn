@@ -59,7 +59,7 @@ class FrameService:
                 "Please activate the project before capturing frames."
             )
 
-        connected_source = self._source_repo.get_connected_in_project(project_id)
+        connected_source = self._source_repo.get_active_in_project(project_id)
         if not connected_source:
             raise ResourceNotFoundError(
                 resource_type=ResourceType.SOURCE,

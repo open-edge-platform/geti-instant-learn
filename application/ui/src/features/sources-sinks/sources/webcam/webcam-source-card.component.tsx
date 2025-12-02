@@ -21,10 +21,11 @@ export const WebcamSourceCard = ({ source, onAction, menuItems }: WebcamSourceCa
     return (
         <SourceCard
             isActive={isActiveSource}
-            parameters={parameters}
             icon={<WebCam />}
             title={'Webcam'}
             menu={<SourceCard.Menu isActive={isActiveSource} items={menuItems} onAction={onAction} />}
-        />
+        >
+            <SourceCard.Parameters parameters={parameters} />
+        </SourceCard>
     );
 };

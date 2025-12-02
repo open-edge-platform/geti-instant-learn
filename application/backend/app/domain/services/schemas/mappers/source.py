@@ -5,7 +5,12 @@ from collections.abc import Iterable
 from uuid import UUID
 
 from domain.db.models import SourceDB
-from domain.services.schemas.source import SourceCreateSchema, SourceSchema
+from domain.services.schemas.base import Pagination
+from domain.services.schemas.source import (
+    SourceCreateSchema,
+    SourceSchema,
+    SourcesListSchema,
+)
 
 
 def source_db_to_schema(source: SourceDB) -> SourceSchema:
@@ -15,7 +20,7 @@ def source_db_to_schema(source: SourceDB) -> SourceSchema:
     """
     return SourceSchema(
         id=source.id,
-        connected=source.connected,
+        connected=source.active,
         config=source.config,
     )
 
@@ -34,6 +39,24 @@ def source_schema_to_db(schema: SourceCreateSchema, project_id: UUID) -> SourceD
     return SourceDB(
         id=schema.id,
         config=schema.config.model_dump(),
-        connected=schema.connected,
+        active=schema.connected,
         project_id=project_id,
     )
+
+
+def sources_db_to_list_items(
+    sources: Iterable[SourceDB], total: int, offset: int = 0, limit: int = 20
+) -> SourcesListSchema:
+    """
+    Map an iterable of SourceDB entities to SourcesListSchema with pagination metadata.
+    """
+    items = [source_db_to_schema(source) for source in sources]
+
+    pagination = Pagination(
+        count=len(items),
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
+
+    return SourcesListSchema(sources=items, pagination=pagination)

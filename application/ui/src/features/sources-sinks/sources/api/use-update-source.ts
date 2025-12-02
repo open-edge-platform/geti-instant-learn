@@ -8,6 +8,7 @@ import { useProjectIdentifier } from '@geti-prompt/hooks';
 
 export const useUpdateSource = () => {
     const { projectId } = useProjectIdentifier();
+
     const updateSourceMutation = $api.useMutation('put', '/api/v1/projects/{project_id}/sources/{source_id}', {
         meta: {
             invalidates: [

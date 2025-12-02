@@ -106,7 +106,7 @@ class TestListModels:
     ):
         """Test successfully listing models."""
         mock_project_repository.get_by_id.return_value = sample_project_db
-        mock_processor_repository.get_paginated.return_value = ([], 0)
+        mock_processor_repository.list_with_pagination_by_project.return_value = ([], 0)
 
         result = service.list_models(sample_project_id, offset=0, limit=20)
 
@@ -115,7 +115,7 @@ class TestListModels:
         assert result.pagination.total == 0
         assert result.pagination.count == 0
         mock_project_repository.get_by_id.assert_called_once_with(sample_project_id)
-        mock_processor_repository.get_paginated.assert_called_once_with(
+        mock_processor_repository.list_with_pagination_by_project.assert_called_once_with(
             project_id=sample_project_id, offset=0, limit=20
         )
 
@@ -151,9 +151,7 @@ class TestGetModel:
             result = service.get_model(sample_project_id, sample_model_id)
 
             assert result is not None
-            mock_processor_repository.get_by_id_and_project.assert_called_once_with(
-                processor_id=sample_model_id, project_id=sample_project_id
-            )
+            mock_processor_repository.get_by_id_and_project.assert_called_once_with(sample_model_id, sample_project_id)
 
     def test_get_model_not_found(
         self,
@@ -228,7 +226,8 @@ class TestCreateModel:
         existing_active = Mock(spec=ProcessorDB)
         existing_active.id = uuid4()
         existing_active.active = True
-        mock_processor_repository.get_activated_in_project.return_value = existing_active
+        mock_processor_repository.get_active_in_project.return_value = existing_active
+        mock_processor_repository.update.return_value = existing_active
 
         create_data = Mock(spec=ProcessorCreateSchema)
         create_data.name = "new_processor"
@@ -241,7 +240,10 @@ class TestCreateModel:
             patch("domain.services.model.processor_schema_to_db") as mock_schema_to_db,
             patch("domain.services.model.processor_db_to_schema"),
         ):
-            mock_schema_to_db.return_value = Mock(spec=ProcessorDB, id=uuid4(), active=True)
+            new_processor = Mock(spec=ProcessorDB)
+            new_processor.id = uuid4()
+            new_processor.active = True
+            mock_schema_to_db.return_value = new_processor
 
             service.create_model(sample_project_id, create_data)
 
@@ -295,21 +297,21 @@ class TestGetActiveModel:
     ):
         """Test successfully retrieving active model configuration."""
         mock_project_repository.get_by_id.return_value = sample_project_db
-        mock_processor_repository.get_activated_in_project.return_value = sample_processor_db
+        mock_processor_repository.get_active_in_project.return_value = sample_processor_db
 
         with patch("domain.services.model.processor_db_to_schema") as mock_mapper:
             mock_mapper.return_value = Mock(spec=ProcessorSchema)
             result = service.get_active_model(sample_project_id)
 
             assert result is not None
-            mock_processor_repository.get_activated_in_project.assert_called_once_with(sample_project_id)
+            mock_processor_repository.get_active_in_project.assert_called_once_with(sample_project_id)
 
     def test_get_active_model_not_found(
         self, service, mock_project_repository, mock_processor_repository, sample_project_id, sample_project_db
     ):
         """Test getting active model configuration when none exists."""
         mock_project_repository.get_by_id.return_value = sample_project_db
-        mock_processor_repository.get_activated_in_project.return_value = None
+        mock_processor_repository.get_active_in_project.return_value = None
 
         with pytest.raises(ResourceNotFoundError) as exc_info:
             service.get_active_model(sample_project_id)
@@ -335,13 +337,12 @@ class TestUpdateModel:
         mock_project_repository.get_by_id.return_value = sample_project_db
         mock_processor_repository.get_by_id_and_project.return_value = sample_processor_db
 
-        # Ensure the mock processor has a valid UUID for its id
         sample_processor_db.id = uuid4()
 
-        # Mock the active model returned by get_activated_in_project
         active_model = Mock(spec=ProcessorDB)
         active_model.id = uuid4()
-        mock_processor_repository.get_activated_in_project.return_value = active_model
+        mock_processor_repository.get_active_in_project.return_value = active_model
+        mock_processor_repository.update.return_value = sample_processor_db
 
         update_data = Mock(spec=ProcessorUpdateSchema)
         update_data.name = "updated_name"
@@ -397,7 +398,7 @@ class TestDeleteModel:
 
         service.delete_model(sample_project_id, sample_model_id)
 
-        mock_processor_repository.delete.assert_called_once_with(sample_processor_db)
+        mock_processor_repository.delete.assert_called_once_with(sample_processor_db.id)
         mock_session.commit.assert_called_once()
 
     def test_delete_model_not_found(

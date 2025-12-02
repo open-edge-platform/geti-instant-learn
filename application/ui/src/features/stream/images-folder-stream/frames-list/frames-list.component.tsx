@@ -5,7 +5,7 @@
 
 import { RefObject, useLayoutEffect, useMemo } from 'react';
 
-import { type FrameType } from '@geti-prompt/api';
+import { type FrameAPIType } from '@geti-prompt/api';
 import {
     AriaComponentsListBox,
     HorizontalLayout,
@@ -16,13 +16,14 @@ import {
 } from '@geti/ui';
 
 import { FrameThumbnail } from './frame-thumbnail.component';
+import { fulfillWithEmptyFrames } from './utils';
 
 import styles from './frames-list.module.scss';
 
 interface FramesListProps {
     activeFrameIndex: number;
     onSetActiveFrame: (index: number) => void;
-    frames: FrameType[];
+    frames: FrameAPIType[];
     ref: RefObject<HTMLDivElement | null>;
     fetchNextPage: () => void;
     fetchPreviousPage: () => void;
@@ -35,27 +36,6 @@ const LAYOUT_OPTIONS = {
     overscan: 5,
 } satisfies HorizontalLayoutOptions;
 
-const fulfillWithEmptyFrames = (frames: FrameType[]): FrameType[] => {
-    if (frames.length === 0) {
-        return frames;
-    }
-
-    if (frames[0].index === 0) {
-        return frames;
-    }
-
-    const emptyFrames: FrameType[] = [];
-
-    for (let i = 0; i < frames[0].index; i++) {
-        emptyFrames.push({
-            index: i,
-            thumbnail: frames[0].thumbnail,
-        });
-    }
-
-    return [...emptyFrames, ...frames];
-};
-
 const useScrollToActiveFrame = (ref: RefObject<HTMLDivElement | null>, activeFrameIndex: number) => {
     useLayoutEffect(() => {
         setTimeout(() => {
@@ -67,7 +47,7 @@ const useScrollToActiveFrame = (ref: RefObject<HTMLDivElement | null>, activeFra
 
             const isActiveFrameVisible =
                 ref.current.scrollLeft <= activeFrameIndexPosition &&
-                activeFrameIndexPosition + itemWidth < ref.current.scrollLeft + ref.current.clientWidth;
+                activeFrameIndexPosition < ref.current.scrollLeft + ref.current.clientWidth;
 
             if (isActiveFrameVisible) {
                 return;
@@ -77,8 +57,7 @@ const useScrollToActiveFrame = (ref: RefObject<HTMLDivElement | null>, activeFra
         }, 100);
 
         // Delay to allow Virtualizer to render items and then scroll to the active frame
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [ref, activeFrameIndex]);
 };
 
 const OFFSET_TO_FETCH_NEW_PAGE = 4;

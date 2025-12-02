@@ -5,6 +5,7 @@
 
 import {
     ImagesFolderSourceType,
+    SampleDatasetSourceType,
     type Source,
     type SourcesType,
     type SourceType,
@@ -35,3 +36,7 @@ export const isWebcamSource = (source: Source | undefined): source is WebcamSour
 
 export const isImagesFolderSource = (source: Source | undefined): source is ImagesFolderSourceType =>
     source?.config.source_type === 'images_folder';
+
+// TODO: Update this guard once backend supports test datasets
+export const isTestDatasetSource = (source: Source | undefined): source is SampleDatasetSourceType =>
+    source?.config.source_type === 'sample_dataset';

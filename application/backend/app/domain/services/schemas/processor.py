@@ -9,7 +9,7 @@ import numpy as np
 import torch
 from pydantic import BaseModel, Field
 
-from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, Pagination
+from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
 
 
 class ModelType(StrEnum):
@@ -59,9 +59,8 @@ class ProcessorSchema(BaseIDSchema):
     name: str = Field(max_length=80, min_length=1)
 
 
-class ProcessorListSchema(BaseModel):
+class ProcessorListSchema(PaginatedResponse):
     models: list[ProcessorSchema]
-    pagination: Pagination
 
 
 class ProcessorCreateSchema(BaseIDPayload):

@@ -24,6 +24,9 @@ export const useCreateSource = () => {
                     },
                 ],
             ],
+            error: {
+                notify: true,
+            },
         },
     });
 

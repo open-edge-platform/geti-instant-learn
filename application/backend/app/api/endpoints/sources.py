@@ -27,11 +27,13 @@ logger = logging.getLogger(__name__)
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
     },
 )
-def get_sources(project_id: UUID, source_service: SourceServiceDep) -> SourcesListSchema:
+def get_sources(
+    project_id: UUID, source_service: SourceServiceDep, offset: int = 0, limit: int = 20
+) -> SourcesListSchema:
     """
     Retrieve the source configuration of the project.
     """
-    return source_service.list_sources(project_id)
+    return source_service.list_sources(project_id, offset, limit)
 
 
 @projects_router.post(

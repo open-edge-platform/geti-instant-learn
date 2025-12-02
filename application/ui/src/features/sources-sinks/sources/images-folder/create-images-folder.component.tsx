@@ -11,11 +11,11 @@ import { useCreateSource } from '../api/use-create-source';
 import { ImagesFolderFields } from './images-folder-fields.component';
 import { isFolderPathValid } from './utils';
 
-interface ImagesFolderProps {
+interface CreateImagesFolderProps {
     onSaved: () => void;
 }
 
-export const ImagesFolder = ({ onSaved }: ImagesFolderProps) => {
+export const CreateImagesFolder = ({ onSaved }: CreateImagesFolderProps) => {
     const [folderPath, setFolderPath] = useState<string>('');
     const createImagesFolderSource = useCreateSource();
 

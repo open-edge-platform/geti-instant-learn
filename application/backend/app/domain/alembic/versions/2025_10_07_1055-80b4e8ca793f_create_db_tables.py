@@ -31,6 +31,8 @@ def upgrade() -> None:
     sa.Column('name', sa.String(), nullable=False),
     sa.Column('active', sa.Boolean(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column("created_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
+    sa.Column("updated_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name', name=UniqueConstraintName.PROJECT_NAME)
     )
@@ -48,6 +50,8 @@ def upgrade() -> None:
     sa.Column('project_id', sa.Uuid(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('active', sa.Boolean(), nullable=False),
+    sa.Column("created_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
+    sa.Column("updated_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
     sa.ForeignKeyConstraint(['project_id'], ['Project.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
@@ -73,6 +77,8 @@ def upgrade() -> None:
     sa.Column('frame_id', sa.Uuid(), nullable=True),
     sa.Column('thumbnail', sa.Text(), nullable=True),
     sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column("created_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
+    sa.Column("updated_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
     sa.ForeignKeyConstraint(['project_id'], ['Project.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
     sa.CheckConstraint(
@@ -96,29 +102,54 @@ def upgrade() -> None:
     )
 
     op.create_table('Sink',
+    sa.Column('active', sa.Boolean(), nullable=False),
     sa.Column('config', sqlite.JSON(), nullable=False),
     sa.Column('project_id', sa.Uuid(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
-    sa.ForeignKeyConstraint(['project_id'], ['Project.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
-    )
-
-    op.create_table('Source',
-    sa.Column('connected', sa.Boolean(), nullable=False),
-    sa.Column('config', sqlite.JSON(), nullable=False),
-    sa.Column('project_id', sa.Uuid(), nullable=False),
-    sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column("created_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
+    sa.Column("updated_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
     sa.ForeignKeyConstraint(['project_id'], ['Project.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.execute(
-        sa.text(
+        sa.DDL(
+            f"CREATE UNIQUE INDEX IF NOT EXISTS {UniqueConstraintName.SINK_TYPE_PER_PROJECT} "
+            "ON Sink (project_id, json_extract(config, '$.sink_type'))"
+        )
+    )
+    op.execute(
+        sa.DDL(
+            f"CREATE UNIQUE INDEX IF NOT EXISTS {UniqueConstraintName.SINK_NAME_PER_PROJECT} "
+            "ON Sink (project_id, json_extract(config, '$.name')) "
+            "WHERE json_extract(config, '$.name') IS NOT NULL"
+        )
+    )
+    op.create_index(
+        UniqueConstraintName.SINGLE_ACTIVE_SINK_PER_PROJECT,
+        'Sink',
+        ['project_id', 'active'],
+        unique=True,
+        sqlite_where=sa.text('active IS 1')
+    )
+
+    op.create_table('Source',
+    sa.Column('active', sa.Boolean(), nullable=False),
+    sa.Column('config', sqlite.JSON(), nullable=False),
+    sa.Column('project_id', sa.Uuid(), nullable=False),
+    sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column("created_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
+    sa.Column("updated_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
+    sa.ForeignKeyConstraint(['project_id'], ['Project.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.execute(
+        sa.DDL(
             f"CREATE UNIQUE INDEX IF NOT EXISTS {UniqueConstraintName.SOURCE_TYPE_PER_PROJECT} "
             "ON Source (project_id, json_extract(config, '$.source_type'))"
         )
     )
     op.execute(
-        sa.text(
+        sa.DDL(
             f"CREATE UNIQUE INDEX IF NOT EXISTS {UniqueConstraintName.SOURCE_NAME_PER_PROJECT} "
             "ON Source (project_id, json_extract(config, '$.name')) "
             "WHERE json_extract(config, '$.name') IS NOT NULL"
@@ -127,9 +158,9 @@ def upgrade() -> None:
     op.create_index(
         UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT,
         'Source',
-        ['project_id', 'connected'],
+        ['project_id', 'active'],
         unique=True,
-        sqlite_where=sa.text('connected IS 1')
+        sqlite_where=sa.text('active IS 1')
     )
 
     op.create_table('Annotation',
@@ -137,6 +168,8 @@ def upgrade() -> None:
     sa.Column('label_id', sa.Uuid(), nullable=True),
     sa.Column('prompt_id', sa.Uuid(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column("created_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
+    sa.Column("updated_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
     sa.ForeignKeyConstraint(['label_id'], ['Label.id'], ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['prompt_id'], ['Prompt.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
@@ -147,6 +180,8 @@ def upgrade() -> None:
     sa.Column('color', sa.String(), nullable=False),
     sa.Column('project_id', sa.Uuid(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column("created_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
+    sa.Column("updated_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
     sa.UniqueConstraint('name', 'project_id', name=UniqueConstraintName.LABEL_NAME_PER_PROJECT),
     sa.ForeignKeyConstraint(['project_id'], ['Project.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
@@ -157,10 +192,13 @@ def downgrade() -> None:
     op.drop_index(UniqueConstraintName.LABEL_NAME_PER_PROJECT, table_name='Label')
     op.drop_table('Label')
     op.drop_table('Annotation')
-    op.execute(sa.text(f"DROP INDEX IF EXISTS {UniqueConstraintName.SOURCE_NAME_PER_PROJECT}"))
-    op.execute(sa.text(f"DROP INDEX IF EXISTS {UniqueConstraintName.SOURCE_TYPE_PER_PROJECT}"))
+    op.execute(sa.DDL(f"DROP INDEX IF EXISTS {UniqueConstraintName.SOURCE_NAME_PER_PROJECT}"))
+    op.execute(sa.DDL(f"DROP INDEX IF EXISTS {UniqueConstraintName.SOURCE_TYPE_PER_PROJECT}"))
     op.drop_index(UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT, table_name='Source')
     op.drop_table('Source')
+    op.execute(sa.DDL(f"DROP INDEX IF EXISTS {UniqueConstraintName.SINK_NAME_PER_PROJECT}"))
+    op.execute(sa.DDL(f"DROP INDEX IF EXISTS {UniqueConstraintName.SINK_TYPE_PER_PROJECT}"))
+    op.drop_index(UniqueConstraintName.SINGLE_ACTIVE_SINK_PER_PROJECT, table_name='Sink')
     op.drop_table('Sink')
     op.drop_index(UniqueConstraintName.SINGLE_TEXT_PROMPT_PER_PROJECT, table_name='Prompt')
     op.drop_index(UniqueConstraintName.UNIQUE_FRAME_ID_PER_PROMPT, table_name='Prompt')

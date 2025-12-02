@@ -7,16 +7,26 @@ import { Source } from '@geti-prompt/api';
 import { useCurrentProject } from '@geti-prompt/hooks';
 import { Button, Flex } from '@geti/ui';
 import { Add as AddIcon } from '@geti/ui/icons';
+import { orderBy } from 'lodash-es';
 
 import { useDeleteSource } from '../api/use-delete-source';
 import { useUpdateSource } from '../api/use-update-source';
 import { ImagesFolderSourceCard } from '../images-folder/images-folder-card.component';
-import { isImagesFolderSource, isWebcamSource, SourcesViews } from '../utils';
+import { SampleDatasetCard } from '../sample-dataset/sample-dataset-card.component';
+import { isImagesFolderSource, isTestDatasetSource, isWebcamSource, SourcesViews } from '../utils';
 import { WebcamSourceCard } from '../webcam/webcam-source-card.component';
 
 import styles from './existing-sources.module.scss';
 
-const getMenuItems = ({ isActiveProject, isActiveSource }: { isActiveProject: boolean; isActiveSource: boolean }) => {
+const getMenuItems = ({
+    isActiveProject,
+    isActiveSource,
+    isTestDataset,
+}: {
+    isActiveProject: boolean;
+    isActiveSource: boolean;
+    isTestDataset: boolean;
+}) => {
     const items = [
         {
             key: 'connect',
@@ -39,8 +49,15 @@ const getMenuItems = ({ isActiveProject, isActiveSource }: { isActiveProject: bo
         if (item.key === 'edit' && !isActiveProject) {
             return false;
         }
+        if (item.key === 'edit' && isTestDataset) {
+            return false;
+        }
         return true;
     });
+};
+
+const sortSources = (sources: Source[]): Source[] => {
+    return orderBy(sources, (source) => source.connected, 'desc');
 };
 
 interface ExistingSourcesListProps {
@@ -81,15 +98,26 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
 
     return (
         <Flex direction={'column'} gap={'size-100'}>
-            {sources.map((source) => {
+            {sortSources(sources).map((source) => {
                 const isActiveSource = source.connected;
+
+                if (isTestDatasetSource(source)) {
+                    return (
+                        <SampleDatasetCard
+                            key={source.id}
+                            source={source}
+                            menuItems={getMenuItems({ isActiveSource, isActiveProject, isTestDataset: true })}
+                            onAction={handleAction(source)}
+                        />
+                    );
+                }
 
                 if (isWebcamSource(source)) {
                     return (
                         <WebcamSourceCard
                             key={source.id}
                             source={source}
-                            menuItems={getMenuItems({ isActiveSource, isActiveProject })}
+                            menuItems={getMenuItems({ isActiveSource, isActiveProject, isTestDataset: false })}
                             onAction={handleAction(source)}
                         />
                     );
@@ -100,7 +128,7 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
                         <ImagesFolderSourceCard
                             key={source.id}
                             source={source}
-                            menuItems={getMenuItems({ isActiveSource, isActiveProject })}
+                            menuItems={getMenuItems({ isActiveSource, isActiveProject, isTestDataset: false })}
                             onAction={handleAction(source)}
                         />
                     );

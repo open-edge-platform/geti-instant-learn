@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { FormEvent, useState } from 'react';
 
 import { WebcamSourceType } from '@geti-prompt/api';
 import { Flex } from '@geti/ui';
@@ -44,24 +44,32 @@ export const EditWebcamSource = ({ source, onSaved }: EditWebcamSourceProps) => 
     };
 
     const handleSave = () => {
-        handleUpdateWebcamSource(false);
+        handleUpdateWebcamSource(source.connected);
     };
 
     const handleSaveAndConnect = () => {
         handleUpdateWebcamSource(true);
     };
 
-    return (
-        <Flex direction={'column'} gap={'size-200'}>
-            <WebcamSourceFields selectedDeviceId={selectedDeviceId} onSetSelectedDeviceId={setSelectedDeviceId} />
+    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
 
-            <EditSourceButtons
-                isActiveSource={isActiveSource}
-                onSave={handleSave}
-                onSaveAndConnect={handleSaveAndConnect}
-                isDisabled={isButtonDisabled}
-                isPending={updateWebcamSource.isPending}
-            />
-        </Flex>
+        handleSave();
+    };
+
+    return (
+        <form onSubmit={handleSubmit}>
+            <Flex direction={'column'} gap={'size-200'}>
+                <WebcamSourceFields selectedDeviceId={selectedDeviceId} onSetSelectedDeviceId={setSelectedDeviceId} />
+
+                <EditSourceButtons
+                    isActiveSource={isActiveSource}
+                    onSave={handleSave}
+                    onSaveAndConnect={handleSaveAndConnect}
+                    isDisabled={isButtonDisabled}
+                    isPending={updateWebcamSource.isPending}
+                />
+            </Flex>
+        </form>
     );
 };
