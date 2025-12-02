@@ -1,55 +1,22 @@
-# Architecture Guidelines
+# Architecture
 
-## Overview
+The backend uses a 3-layer architecture with strict unidirectional dependencies. This keeps the codebase modular, testable, and easy to reason about.
 
-The application follows a strict **3-layer architecture** with unidirectional dependency flow.
+## Layers
 
-```
-┌─────────────────────────────────┐
-│    API (Presentation) Layer     │  ← Entry point
-├─────────────────────────────────┤
-│    Runtime Layer                │  ← Live state & execution
-├─────────────────────────────────┤
-│    Domain Layer                 │  ← Foundation (data & config)
-└─────────────────────────────────┘
-```
+| Layer | Responsibility | Can Import | Cannot Import |
+|-------|----------------|------------|---------------|
+| **API** | Provide the interface for interacting with the zero-shot learning framework | Runtime, Domain | — |
+| **Runtime** | Execute zero-shot inference pipelines, manage video streams, broadcast predictions | Domain | API |
+| **Domain** | Persist projects, prompts, labels, and model configurations | None | API, Runtime |
 
----
+> **Rule:** Dependencies flow top-to-bottom only. Never import from a layer above.
 
-## Layer Definitions
+## Testing
 
-### 1. API (Presentation) Layer
-**Purpose:** Entry point for external communication.
-- **Responsibilities:** Input validation, response formatting, HTTP handling.
-- **Components:** FastAPI endpoints, Pydantic models.
-- **Dependencies:** Can import `Runtime` and `Domain`.
+The layered architecture simplifies testing by providing clear boundaries for mocking.
 
-### 2. Runtime Layer
-**Purpose:** Manages live state and ML pipeline execution.
-- **Responsibilities:** Pipeline lifecycle, real-time coordination.
-- **Components:**
-  - `PipelineManager`: Singleton for active pipeline state.
-  - Control Services: Frame capture, runtime orchestration.
-- **Dependencies:** Can import `Domain`. Cannot import `API`.
-
-### 3. Domain Layer
-**Purpose:** Foundation for data persistence and business logic.
-- **Responsibilities:** Data retrieval, business rules, transactions.
-- **Components:**
-  - **Data Services**: Orchestrate logic and manage transactions (e.g., `ProjectService`).
-  - **Repositories**: Interfaces for data access (e.g., `IProjectRepository`).
-- **Dependencies:** No external dependencies.
-
----
-
-## Key Rules
-
-1.  **Unidirectional Flow:** Dependencies **must** flow top-to-bottom (API → Runtime → Domain).
-2.  **Transactions:** Only **Data Services** in the Domain Layer manage transaction boundaries.
-3.  **Interfaces:** Always define Repositories as interfaces to enable mocking.
-4.  **State:** `PipelineManager` is the **only** allowed stateful singleton.
-
-## Testing Strategy
-
--   **Unit Tests:** Mock dependencies (e.g., API tests mock Runtime; Runtime tests mock Domain).
--   **Integration Tests:** Test Repositories with a real database.
+| Type | Scope | Approach |
+|------|-------|----------|
+| Unit | Single layer | Mock dependencies from the layer below |
+| Integration | Data layer | Test repositories against a real database |
