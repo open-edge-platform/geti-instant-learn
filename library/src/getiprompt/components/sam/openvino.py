@@ -4,17 +4,19 @@
 """OpenVINO backend implementation for SAM predictor."""
 
 from logging import getLogger
+from pathlib import Path
 
 import numpy as np
 import openvino as ov
 import torch
+from torch import nn
 
-from .base import BaseSAMPredictor
+from getiprompt.utils.constants import Backend, SAMModelName
 
 logger = getLogger("Geti Prompt")
 
 
-class OpenVINOSAMPredictor(BaseSAMPredictor):
+class OpenVINOSAMPredictor(nn.Module):
     """OpenVINO implementation of SAM predictor.
 
     This implementation uses OpenVINO Runtime for efficient inference on
@@ -22,40 +24,51 @@ class OpenVINOSAMPredictor(BaseSAMPredictor):
     (.xml/.bin files) created by ExportableSAMPredictor.
     """
 
-    def _initialize_backend(self) -> None:
-        """Load OpenVINO IR model.
+    def __init__(
+        self,
+        sam_model_name: SAMModelName,
+        device: str,
+        model_path: Path,
+    ) -> None:
+        """Initialize SAM predictor.
 
-        Loads the compiled OpenVINO model and prepares it for inference.
-        If no model path is provided, uses a default path convention based
-        on the model name.
+        Args:
+            sam_model_name: The SAM model architecture (e.g., SAM_HQ_TINY, SAM2_BASE)
+            device: Device to run inference on ("CPU", "GPU", "AUTO")
+            model_path: Path to .xml IR file (required)
+
+        Raises:
+            FileNotFoundError: If the model path doesn't exist.
         """
-        if not self.model_path.exists():
+        super().__init__()
+        self.device = device
+
+        # Validate model path
+        if not model_path.exists():
             msg = (
-                f"OpenVINO model not found at {self.model_path}. "
+                f"OpenVINO model not found at {model_path}. "
                 f"Please export the model first using ExportableSAMPredictor.export(). "
                 f"Example:\n"
-                f"  from getiprompt.components.inference import ExportableSAMPredictor\n"
-                f"  from getiprompt.models.foundation import load_sam_model\n"
-                f"  predictor = load_sam_model(SAMModelName.{self.sam_model_name.name}, backend='pytorch')\n"
-                f"  exportable = ExportableSAMPredictor(predictor)\n"
-                f"  exportable.export(output_path)"
+                f"  from getiprompt.components.sam import load_sam_model\n"
+                f"  predictor = load_sam_model(SAMModelName.{sam_model_name.name}, backend=Backend.PYTORCH)\n"
+                f"  predictor.export(output_path)"
             )
             raise FileNotFoundError(msg)
 
-        logger.info(f"Loading OpenVINO SAM: {self.sam_model_name} from {self.model_path}")
+        msg = f"Loading OpenVINO SAM: {sam_model_name} from {model_path}"
+        logger.info(msg)
 
         # Load and compile model
-        self.core = ov.Core()
-        ov_model = self.core.read_model(self.model_path)
+        core = ov.Core()
+        ov_model = core.read_model(model_path)
 
         # Map device names (PyTorch style -> OpenVINO style)
-        ov_device = self._map_device_name(self._device)
-        self.compiled_model = self.core.compile_model(ov_model, ov_device)
+        ov_device = self._map_device_name(device)
+        self.compiled_model = core.compile_model(ov_model, ov_device)
 
         # Store state (OpenVINO model does full inference, not separate encoding)
         self._current_image = None
         self._original_size = None
-        self._input_size = None
 
     def _map_device_name(self, device: str) -> str:
         """Map PyTorch device names to OpenVINO device names.
@@ -92,9 +105,8 @@ class OpenVINOSAMPredictor(BaseSAMPredictor):
         """
         self._current_image = image
         self._original_size = original_size
-        self._input_size = tuple(image.shape[-2:])
 
-    def export(self, export_path: str, backend: str):
+    def export(self, export_path: Path, backend: Backend = Backend.ONNX) -> None:
         """Dummy export method.
 
         This is OV SAM predictor implementation for running inference with
@@ -163,7 +175,7 @@ class OpenVINOSAMPredictor(BaseSAMPredictor):
 
         # Run OpenVINO inference
         outputs = self.compiled_model(inputs)
-        masks = torch.from_numpy(outputs["masks"]).to(self._device)
+        masks = torch.from_numpy(outputs["masks"])
         iou_predictions = torch.from_numpy(outputs["iou_predictions"])
         low_res_logits = torch.from_numpy(outputs["low_res_logits"])
         return masks, iou_predictions, low_res_logits

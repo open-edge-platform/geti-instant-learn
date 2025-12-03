@@ -67,7 +67,7 @@ class OpenVINOImageEncoder(nn.Module):
                 f"Example:\n"
                 f"  from getiprompt.components.encoders import TimmImageEncoder\n"
                 f"  encoder = TimmImageEncoder(model_id='dinov3_large')\n"
-                f"  encoder.export(Path('./exported'), backend='openvino')"
+                f"  encoder.export(Path('./exported'), backend=Backend.OPENVINO)"
             )
             raise FileNotFoundError(msg)
 

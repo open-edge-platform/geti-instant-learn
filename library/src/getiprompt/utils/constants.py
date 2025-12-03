@@ -15,6 +15,8 @@ class Backend(Enum):
     TORCHSCRIPT = "torchscript"
     OPENVINO = "openvino"
     PYTORCH = "pytorch"
+    HUGGINGFACE = "huggingface"
+    TIMM = "timm"
 
 
 class SAMModelName(Enum):

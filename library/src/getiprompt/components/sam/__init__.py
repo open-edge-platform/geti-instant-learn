@@ -3,14 +3,15 @@
 
 """SAM predictor implementations for different backends."""
 
-from .base import BaseSAMPredictor
+from .base import SAMPredictor, load_sam_model
 from .exportable import ExportableSAMPredictor
 from .openvino import OpenVINOSAMPredictor
 from .pytorch import PyTorchSAMPredictor
 
 __all__ = [
-    "BaseSAMPredictor",
     "ExportableSAMPredictor",
     "OpenVINOSAMPredictor",
     "PyTorchSAMPredictor",
+    "SAMPredictor",
+    "load_sam_model",
 ]

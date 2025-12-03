@@ -11,11 +11,10 @@ from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 from segment_anything_hq import sam_model_registry
 from segment_anything_hq.predictor import SamPredictor
+from torch import nn
 
-from getiprompt.utils.constants import DATA_PATH, MODEL_MAP, SAMModelName
+from getiprompt.utils.constants import DATA_PATH, MODEL_MAP, Backend, SAMModelName
 from getiprompt.utils.utils import download_file
-
-from .base import BaseSAMPredictor
 
 logger = getLogger("Geti Prompt")
 
@@ -51,7 +50,7 @@ def check_model_weights(model_name: SAMModelName) -> None:
         download_file(download_url, target_path, sha_sum)
 
 
-class PyTorchSAMPredictor(BaseSAMPredictor):
+class PyTorchSAMPredictor(nn.Module):
     """PyTorch implementation of SAM predictor.
 
     This implementation wraps the original SAM predictor from segment_anything_hq
@@ -59,49 +58,58 @@ class PyTorchSAMPredictor(BaseSAMPredictor):
     appropriate backend predictor.
     """
 
-    def _initialize_backend(self) -> None:
-        """Load PyTorch model from checkpoint.
+    def __init__(
+        self,
+        sam_model_name: SAMModelName,
+        device: str,
+        model_path: Path | None = None,
+    ) -> None:
+        """Initialize SAM predictor.
 
-        Loads the appropriate SAM model based on the model name and creates
-        the corresponding predictor. Supports both SAM-HQ and SAM2 variants.
+        Args:
+            sam_model_name: The SAM model architecture (e.g., SAM_HQ_TINY, SAM2_BASE)
+            device: Device to run inference on ("cuda", "cpu")
+            model_path: Path to .pth checkpoint file (optional, auto-downloads if None)
+
+        Raises:
+            NotImplementedError: If the model type is not supported.
         """
-        # Determine checkpoint path
-        if self.model_path is None:
-            # Auto-download if needed
-            check_model_weights(self.sam_model_name)
+        super().__init__()
+        self.device = device
 
-            model_info = MODEL_MAP[self.sam_model_name]
+        # Determine checkpoint path
+        if model_path is None:
+            check_model_weights(sam_model_name)
+            model_info = MODEL_MAP[sam_model_name]
             checkpoint_path = DATA_PATH.joinpath(model_info["local_filename"])
         else:
-            checkpoint_path = self.model_path
+            checkpoint_path = model_path
 
-        msg = f"Loading PyTorch SAM: {self.sam_model_name} from {checkpoint_path}"
-        logger.info(msg)
+        logger.info(f"Loading PyTorch SAM: {sam_model_name} from {checkpoint_path}")
 
         # Load model based on type
-        if self.sam_model_name in {
+        if sam_model_name in {
             SAMModelName.SAM2_TINY,
             SAMModelName.SAM2_SMALL,
             SAMModelName.SAM2_BASE,
             SAMModelName.SAM2_LARGE,
         }:
-            model_info = MODEL_MAP[self.sam_model_name]
+            model_info = MODEL_MAP[sam_model_name]
             config_path = "configs/sam2.1/" + model_info["config_filename"]
             sam_model = build_sam2(config_path, str(checkpoint_path))
             self._predictor = SAM2ImagePredictor(sam_model)
-        elif self.sam_model_name in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
-            registry_name = MODEL_MAP[self.sam_model_name]["registry_name"]
+        elif sam_model_name in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
+            registry_name = MODEL_MAP[sam_model_name]["registry_name"]
             sam_model = (
                 sam_model_registry[registry_name](
                     checkpoint=str(checkpoint_path),
                 )
-                .to(self._device)
+                .to(device)
                 .eval()
             )
             self._predictor = SamPredictor(sam_model)
-            self.target_length = self._predictor.model.image_encoder.img_size
         else:
-            msg = f"Model {self.sam_model_name} not implemented"
+            msg = f"Model {sam_model_name} not implemented"
             raise NotImplementedError(msg)
 
     def set_image(
@@ -153,17 +161,17 @@ class PyTorchSAMPredictor(BaseSAMPredictor):
             return_logits=return_logits,
         )
 
-    def export(self, output_path: Path, backend: str = "onnx") -> Path:
-        """Export this PyTorch predictor to ONNX and OpenVINO IR format.
+    def export(self, output_path: Path, backend: Backend = Backend.ONNX) -> Path:
+        """Export this PyTorch predictor to the specified format.
 
         This is a convenience method that wraps the predictor in an
         ExportableSAMPredictor and performs the export. The exported
-        model can then be loaded using load_sam_model() with backend="openvino".
+        model can then be loaded using load_sam_model() with backend=Backend.OPENVINO.
 
         Args:
             output_path: Directory to save exported models.
                 Creates the directory if it doesn't exist.
-            backend: The backend format to export to. Currently only "onnx" is supported.
+            backend: The backend format to export to. Currently only Backend.ONNX is supported.
 
         Returns:
             Path to the exported OpenVINO IR file (.xml)
@@ -171,14 +179,14 @@ class PyTorchSAMPredictor(BaseSAMPredictor):
         Example:
             >>> predictor = load_sam_model(
             ...     SAMModelName.SAM_HQ_TINY,
-            ...     backend="pytorch"
+            ...     backend=Backend.PYTORCH
             ... )
             >>> ov_path = predictor.export(Path("./exported"), backend="openvino")
             >>>
             >>> # Now load with OpenVINO backend
             >>> ov_predictor = load_sam_model(
             ...     SAMModelName.SAM_HQ_TINY,
-            ...     backend="openvino",
+            ...     backend=Backend.OPENVINO,
             ...     model_path=ov_path
             ... )
         """

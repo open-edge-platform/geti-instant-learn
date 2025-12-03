@@ -14,6 +14,7 @@ from torchvision import tv_tensors
 from transformers import AutoImageProcessor, AutoModel
 
 from getiprompt.utils import precision_to_torch_dtype
+from getiprompt.utils.constants import Backend
 
 logger = getLogger("Geti Prompt")
 
@@ -157,7 +158,7 @@ class HuggingFaceImageEncoder(nn.Module):
         features = last_hidden_state[:, self.ignore_token_length :, :]  # Remove CLS token (and register tokens if used)
         return functional.normalize(features, p=2, dim=-1)
 
-    def export(self, output_path: Path, backend: str = "openvino") -> Path:
+    def export(self, output_path: Path, backend: Backend = Backend.OPENVINO) -> Path:
         """Export this PyTorch encoder to ONNX or OpenVINO IR format.
 
         This uses direct ONNX export or OpenVINO conversion to export the DINO model.
@@ -166,7 +167,7 @@ class HuggingFaceImageEncoder(nn.Module):
         Args:
             output_path: Directory to save exported model.
                 Creates the directory if it doesn't exist.
-            backend: The backend to export to ("onnx" or "openvino").
+            backend: The backend to export to (Backend.ONNX or Backend.OPENVINO).
 
         Returns:
             Path to the exported model file.
@@ -176,7 +177,7 @@ class HuggingFaceImageEncoder(nn.Module):
             ...     model_id="dinov2_large",
             ...     device="cuda"
             ... )
-            >>> ov_path = encoder.export(Path("./exported"), backend="openvino")
+            >>> ov_path = encoder.export(Path("./exported"), backend=Backend.OPENVINO)
             >>>
             >>> # Now load with OpenVINO backend
             >>> ov_encoder = OpenVINOImageEncoder(
@@ -219,7 +220,7 @@ class HuggingFaceImageEncoder(nn.Module):
         input_names = ["x"]
         output_names = ["features"]
 
-        if backend.lower() == "onnx":
+        if backend == Backend.ONNX:
             onnx_path = output_path / "image_encoder.onnx"
             dynamic_axes = {
                 "x": {0: "batch_size"},
@@ -244,7 +245,7 @@ class HuggingFaceImageEncoder(nn.Module):
                     logger.exception(msg)
                     raise
 
-        if backend.lower() == "openvino":
+        if backend == Backend.OPENVINO:
             xml_path = output_path / "image_encoder.xml"
             dynamic_shapes = {
                 "x": openvino.PartialShape([-1, 3, self.input_size, self.input_size]),

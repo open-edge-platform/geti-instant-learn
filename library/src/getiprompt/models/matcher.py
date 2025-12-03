@@ -129,6 +129,7 @@ class Matcher(Model):
         self.prompt_filter = PointPromptFilter(num_foreground_points=num_foreground_points)
         self.segmenter: SamDecoder = SamDecoder(
             sam_predictor=self.sam_predictor,
+            target_length=1024,
             mask_similarity_threshold=mask_similarity_threshold,
         )
         self.masked_ref_embeddings = None
@@ -176,16 +177,10 @@ class Matcher(Model):
             similarities=similarities_per_image,
         )
 
-    def export(
-        self,
-        export_dir: str | Path,
-        backend: Backend = Backend.ONNX,
-        **kwargs,
-    ) -> Path:
+    def export(self, export_dir: str | Path, backend: Backend = Backend.ONNX) -> Path:
         """Export the model to a given path.
 
         Args:
             export_dir: The directory to export the model to.
             backend: The backend to export the model to.
-            **kwargs: Additional arguments to pass to the export method.
         """

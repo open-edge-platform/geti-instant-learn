@@ -17,6 +17,8 @@ from segment_anything_hq.modeling.prompt_encoder import PromptEncoder
 from segment_anything_hq.predictor import SamPredictor
 from torch import nn
 
+from getiprompt.utils.constants import Backend
+
 logger = logging.getLogger("Geti Prompt")
 
 
@@ -57,7 +59,7 @@ class ExportableSAMPredictor(nn.Module):
 
     Example:
         >>> # Method 1: Via convenience method (recommended)
-        >>> predictor = load_sam_model(SAMModelName.SAM_HQ_TINY, backend="pytorch")
+        >>> predictor = load_sam_model(SAMModelName.SAM_HQ_TINY, backend=Backend.PYTORCH)
         >>> ov_path = predictor.export(Path("./exported"))
 
         >>> # Method 2: Direct instantiation (advanced)
@@ -254,12 +256,12 @@ class ExportableSAMPredictor(nn.Module):
             return_logits=False,
         )
 
-    def export(self, output_path: str, backend: str = "onnx") -> Path:
-        """Export the model to ONNX and OpenVINO IR format.
+    def export(self, output_path: str, backend: Backend = Backend.ONNX) -> Path:
+        """Export the model to the specified format.
 
         Args:
             output_path: The path to export the model to.
-            backend: The backend to export to ("onnx" or "openvino").
+            backend: The backend to export to (Backend.ONNX or Backend.OPENVINO).
         """
         self._freeze_modules([
             self.sam_predictor.model.mask_decoder,
@@ -294,7 +296,7 @@ class ExportableSAMPredictor(nn.Module):
         ]
         output_names = ["masks", "iou_predictions", "low_res_logits"]
 
-        if backend.lower() == "onnx":
+        if backend == Backend.ONNX:
             # Define dynamic axes
             dynamic_axes = {
                 "transformed_image": {0: "batch_size", 2: "height", 3: "width"},
@@ -322,7 +324,7 @@ class ExportableSAMPredictor(nn.Module):
                     logger.exception(msg)
                     raise e
 
-        if backend.lower() == "openvino":
+        if backend == Backend.OPENVINO:
             dynamic_shapes = {
                 "transformed_image": openvino.PartialShape([-1, 3, -1, -1]),
                 "point_coords": openvino.PartialShape([-1, 1, 2]),

@@ -55,7 +55,7 @@ class GroundedSAM(Model):
             precision=precision,
             compile_models=compile_models,
         )
-        self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor)
+        self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor, target_length=1024)
         self.prompt_filter: BoxPromptFilter = BoxPromptFilter()
 
     def learn(self, reference_batch: Batch) -> None:

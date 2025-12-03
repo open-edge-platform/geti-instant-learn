@@ -10,7 +10,7 @@ from torch import nn
 from torchvision import tv_tensors
 from torchvision.ops import masks_to_boxes, nms
 
-from getiprompt.components.sam import BaseSAMPredictor
+from getiprompt.components.sam import OpenVINOSAMPredictor, PyTorchSAMPredictor
 from getiprompt.data import ResizeLongestSide
 
 logger = getLogger("Geti Prompt")
@@ -42,7 +42,8 @@ class SamDecoder(nn.Module):
 
     def __init__(
         self,
-        sam_predictor: BaseSAMPredictor,
+        sam_predictor: PyTorchSAMPredictor | OpenVINOSAMPredictor,
+        target_length: int = 1024,
         mask_similarity_threshold: float = 0.38,
         nms_iou_threshold: float = 0.1,
     ) -> None:
@@ -50,6 +51,7 @@ class SamDecoder(nn.Module):
 
         Args:
             sam_predictor: The SAM predictor (any backend: PyTorch, OpenVINO, etc.).
+            target_length: Target length for the longest side of the image (for image transform).
             mask_similarity_threshold: The similarity threshold for the mask.
             nms_iou_threshold: The IoU threshold for the NMS.
         """
@@ -58,7 +60,7 @@ class SamDecoder(nn.Module):
         self.mask_similarity_threshold = mask_similarity_threshold
         self.nms_iou_threshold = nms_iou_threshold
 
-        self.transform = ResizeLongestSide(self.predictor.target_length)
+        self.transform = ResizeLongestSide(target_length)
         self.device = sam_predictor.device
 
     def preprocess_inputs(
