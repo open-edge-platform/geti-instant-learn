@@ -10,10 +10,10 @@ from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import GridPromptGenerator
-from getiprompt.components.sam.base import load_sam_model
+from getiprompt.components.sam.base import SAMPredictor
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.base import Model
-from getiprompt.utils.constants import SAMModelName
+from getiprompt.utils.constants import Backend, SAMModelName
 
 
 class PerDino(Model):
@@ -94,16 +94,17 @@ class PerDino(Model):
             device: The device to use for the model.
         """
         super().__init__()
-        self.sam_predictor = load_sam_model(
+        self.sam_predictor = SAMPredictor(
             sam,
-            device,
+            backend=Backend.PYTORCH,
+            device=device,
             precision=precision,
             compile_models=compile_models,
         )
 
-        self.encoder: ImageEncoder = ImageEncoder(
+        self.encoder = ImageEncoder(
             model_id=encoder_model,
-            backend="timm",
+            backend=Backend.TIMM,
             device=device,
             precision=precision,
             compile_models=compile_models,

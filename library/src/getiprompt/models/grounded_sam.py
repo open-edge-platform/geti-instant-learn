@@ -8,10 +8,10 @@ import torch
 from getiprompt.components import SamDecoder
 from getiprompt.components.filters import BoxPromptFilter
 from getiprompt.components.prompt_generators import GroundingModel, TextToBoxPromptGenerator
-from getiprompt.components.sam.base import load_sam_model
+from getiprompt.components.sam.base import SAMPredictor
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.base import Model
-from getiprompt.utils.constants import SAMModelName
+from getiprompt.utils.constants import Backend, SAMModelName
 
 
 class GroundedSAM(Model):
@@ -39,9 +39,10 @@ class GroundedSAM(Model):
             device: The device to use.
         """
         super().__init__()
-        self.sam_predictor = load_sam_model(
+        self.sam_predictor = SAMPredictor(
             sam,
-            device,
+            backend=Backend.PYTORCH,
+            device=device,
             precision=precision,
             compile_models=compile_models,
         )

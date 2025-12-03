@@ -12,8 +12,7 @@ from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
-from getiprompt.components.sam import PyTorchSAMPredictor
-from getiprompt.components.sam.base import load_sam_model
+from getiprompt.components.sam.base import SAMPredictor
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.base import Model
 from getiprompt.utils.constants import Backend, SAMModelName
@@ -100,15 +99,17 @@ class Matcher(Model):
             device: The device to use for the model.
         """
         super().__init__()
-        self.sam_predictor: PyTorchSAMPredictor = load_sam_model(
+        self.sam_predictor = SAMPredictor(
             sam,
-            device,
+            backend=Backend.PYTORCH,
+            device=device,
             precision=precision,
             compile_models=compile_models,
         )
-        self.encoder: ImageEncoder = ImageEncoder(
+
+        self.encoder = ImageEncoder(
             model_id=encoder_model,
-            backend="timm",
+            backend=Backend.TIMM,
             device=device,
             precision=precision,
             compile_models=compile_models,
@@ -176,10 +177,10 @@ class Matcher(Model):
             similarities=similarities_per_image,
         )
 
-    def export(self, export_dir: str | Path, backend: Backend = Backend.ONNX) -> Path:
-        """Export the model to a given path.
-
-        Args:
-            export_dir: The directory to export the model to.
-            backend: The backend to export the model to.
-        """
+    def export(
+        self, 
+        export_dir: str | Path = Path("./exports/matcher"), 
+        backend: Backend = Backend.ONNX,
+    ) -> Path:
+        self.encoder.export(export_dir, backend=backend)
+        self.sam_predictor.export(export_dir, backend=backend)

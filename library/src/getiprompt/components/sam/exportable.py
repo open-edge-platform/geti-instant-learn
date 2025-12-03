@@ -263,18 +263,23 @@ class ExportableSAMPredictor(nn.Module):
             output_path: The path to export the model to.
             backend: The backend to export to (Backend.ONNX or Backend.OPENVINO).
         """
+        # Move all model components to CPU for export compatibility
+        logger.info("Moving SAM model to CPU for export...")
+        self.sam_predictor.model.to("cpu")
+        
         self._freeze_modules([
             self.sam_predictor.model.mask_decoder,
             self.sam_predictor.model.prompt_encoder,
             self.sam_predictor.model.image_encoder,
         ])
 
-        dummy_image = torch.zeros((1, 3, self.input_size, self.input_size), dtype=torch.float32)
-        dummpy_coords = torch.rand((10, 1, 2), dtype=torch.float32) * self.input_size
-        dummy_labels = torch.ones((10, 1), dtype=torch.float32)
-        dummy_boxes = torch.rand((10, 1, 4), dtype=torch.float32) * self.input_size
-        dummy_mask_input = torch.rand((10, 1, 256, 256), dtype=torch.float32)
-        original_size = torch.tensor((self.input_size, self.input_size), dtype=torch.int32)
+        # Create dummy inputs on CPU to match model device
+        dummy_image = torch.zeros((1, 3, self.input_size, self.input_size), dtype=torch.float32, device="cpu")
+        dummpy_coords = torch.rand((10, 1, 2), dtype=torch.float32, device="cpu") * self.input_size
+        dummy_labels = torch.ones((10, 1), dtype=torch.float32, device="cpu")
+        dummy_boxes = torch.rand((10, 1, 4), dtype=torch.float32, device="cpu") * self.input_size
+        dummy_mask_input = torch.rand((10, 1, 256, 256), dtype=torch.float32, device="cpu")
+        original_size = torch.tensor((self.input_size, self.input_size), dtype=torch.int32, device="cpu")
 
         model_inputs = (
             dummy_image,
@@ -327,7 +332,7 @@ class ExportableSAMPredictor(nn.Module):
         if backend == Backend.OPENVINO:
             dynamic_shapes = {
                 "transformed_image": openvino.PartialShape([-1, 3, -1, -1]),
-                "point_coords": openvino.PartialShape([-1, 1, 2]),
+                "point_coords": openvino.PartialShape([-1, -1, 2]),
                 "point_labels": openvino.PartialShape([-1, 1]),
                 "boxes": openvino.PartialShape([-1, 1, 4]),
                 "mask_input": openvino.PartialShape([-1, 1, 256, 256]),

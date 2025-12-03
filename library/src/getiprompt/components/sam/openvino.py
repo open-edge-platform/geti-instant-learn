@@ -13,6 +13,8 @@ from torch import nn
 
 from getiprompt.utils.constants import Backend, SAMModelName
 
+from openvino.properties import hint
+
 logger = getLogger("Geti Prompt")
 
 
@@ -29,6 +31,7 @@ class OpenVINOSAMPredictor(nn.Module):
         sam_model_name: SAMModelName,
         device: str,
         model_path: Path,
+        precision: str = "fp32",
     ) -> None:
         """Initialize SAM predictor.
 
@@ -36,6 +39,7 @@ class OpenVINOSAMPredictor(nn.Module):
             sam_model_name: The SAM model architecture (e.g., SAM_HQ_TINY, SAM2_BASE)
             device: Device to run inference on ("CPU", "GPU", "AUTO")
             model_path: Path to .xml IR file (required)
+            precision: Precision to use for the model
 
         Raises:
             FileNotFoundError: If the model path doesn't exist.
@@ -58,17 +62,35 @@ class OpenVINOSAMPredictor(nn.Module):
         msg = f"Loading OpenVINO SAM: {sam_model_name} from {model_path}"
         logger.info(msg)
 
+        ov_device = self._map_device_name(device)
         # Load and compile model
         core = ov.Core()
+        core.set_property(ov_device, {hint.inference_precision: self._map_precision_name(precision)})
         ov_model = core.read_model(model_path)
-
+        
         # Map device names (PyTorch style -> OpenVINO style)
-        ov_device = self._map_device_name(device)
+        
         self.compiled_model = core.compile_model(ov_model, ov_device)
 
         # Store state (OpenVINO model does full inference, not separate encoding)
         self._current_image = None
         self._original_size = None
+
+    def _map_precision_name(self, precision: str) -> str:
+        """Map precision names to OpenVINO precision names.
+
+        Args:
+            precision: Precision name in PyTorch style
+
+        Returns:
+            Precision name in OpenVINO style
+        """
+        precision_map = {
+            "fp32": ov.Type.f32,
+            "fp16": ov.Type.f16,
+            "bf16": ov.Type.f16,
+        }
+        return precision_map.get(precision.lower(), ov.Type.f32)
 
     def _map_device_name(self, device: str) -> str:
         """Map PyTorch device names to OpenVINO device names.

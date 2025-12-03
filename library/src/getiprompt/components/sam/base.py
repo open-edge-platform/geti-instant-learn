@@ -112,6 +112,7 @@ def load_sam_model(
             sam_model_name=sam,
             device=device,
             model_path=model_path,
+            precision=precision,
         )
 
     msg = f"Unknown backend: {backend}. Must be Backend.PYTORCH or Backend.OPENVINO"
@@ -173,6 +174,7 @@ class SAMPredictor:
             ValueError: If backend is invalid or model_path missing for OpenVINO.
         """
         self.backend = backend
+        self.device = device
         self._predictor: PyTorchSAMPredictor | OpenVINOSAMPredictor = load_sam_model(
             sam=sam_model_name,
             device=device,
@@ -181,11 +183,6 @@ class SAMPredictor:
             backend=backend,
             model_path=model_path,
         )
-
-    @property
-    def device(self) -> str:
-        """The device the predictor is running on."""
-        return self._predictor.device
 
     def set_image(
         self,
@@ -249,4 +246,5 @@ class SAMPredictor:
         if not hasattr(self._predictor, "export"):
             msg = f"Export is not supported for backend '{self.backend}'."
             raise NotImplementedError(msg)
+        self._predictor = self._predictor.to(device="cpu")  # Force to CPU for export
         return self._predictor.export(output_path, backend=backend)

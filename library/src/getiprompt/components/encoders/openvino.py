@@ -13,6 +13,8 @@ from torch import nn
 from torchvision import tv_tensors
 from torchvision.transforms.v2 import Compose, Normalize, Resize, ToDtype
 
+from openvino.properties import hint
+
 logger = getLogger("Geti Prompt")
 
 # Default normalization values for DINO models
@@ -45,14 +47,15 @@ class OpenVINOImageEncoder(nn.Module):
     def __init__(
         self,
         model_path: Path,
-        device: str = "CPU",
+        device: str = "cpu",
+        precision: str = "fp32",
     ) -> None:
         """Initialize the OpenVINO encoder.
 
         Args:
             model_path: Path to the exported OpenVINO IR model (.xml file).
             device: OpenVINO device to use (CPU, GPU, AUTO).
-
+            precision: Precision to use for the model
         Raises:
             FileNotFoundError: If the model path doesn't exist.
             ValueError: If required model metadata is not found in the IR.
@@ -77,8 +80,10 @@ class OpenVINOImageEncoder(nn.Module):
         # Load OpenVINO model
         msg = f"Loading OpenVINO DINO encoder from {model_path}"
         logger.info(msg)
-        self.core = ov.Core()
-        ov_model = self.core.read_model(model_path)
+        ov_device = self._map_device_name(device)
+        core = ov.Core()
+        core.set_property(ov_device, {hint.inference_precision: self._map_precision_name(precision)})
+        ov_model = core.read_model(model_path)
 
         # Load model configuration from runtime info
         try:
@@ -102,12 +107,27 @@ class OpenVINOImageEncoder(nn.Module):
         ])
 
         # Compile model
-        ov_device = self._map_device_name(device)
-        self.compiled_model = self.core.compile_model(ov_model, ov_device)
+        self.compiled_model = core.compile_model(ov_model, ov_device)
 
         # Store input/output names
         self.input_name = self.compiled_model.input(0).any_name
         self.output_name = self.compiled_model.output(0).any_name
+
+    def _map_precision_name(self, precision: str) -> str:
+        """Map precision names to OpenVINO precision names.
+
+        Args:
+            precision: Precision name in PyTorch style
+
+        Returns:
+            Precision name in OpenVINO style
+        """
+        precision_map = {
+            "fp32": ov.Type.f32,
+            "fp16": ov.Type.f16,
+            "bf16": ov.Type.f16,
+        }
+        return precision_map.get(precision.lower(), ov.Type.f32)
 
     def _map_device_name(self, device: str) -> str:
         """Map PyTorch device names to OpenVINO device names.
