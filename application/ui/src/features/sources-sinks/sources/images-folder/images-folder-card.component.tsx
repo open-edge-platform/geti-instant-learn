@@ -16,7 +16,7 @@ interface ImagesFolderSourceCardProps {
 
 export const ImagesFolderSourceCard = ({ source, onAction, menuItems }: ImagesFolderSourceCardProps) => {
     const parameters = [`Folder path: ${source.config.images_folder_path}`];
-    const isActiveSource = source.connected;
+    const isActiveSource = source.active;
 
     return (
         <PipelineEntityCard

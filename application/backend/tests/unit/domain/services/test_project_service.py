@@ -15,7 +15,7 @@ from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.project import ProjectCreateSchema, ProjectSchema, ProjectUpdateSchema
 
 
-def make_connected_source(device_id: int = 0):
+def make_active_source(device_id: int = 0):
     return SimpleNamespace(
         id=uuid.uuid4(),
         active=True,
@@ -273,10 +273,10 @@ def test_get_pipeline_config_project_not_found(service, repo_mock):
         service.get_pipeline_config(pid)
 
 
-def test_pipeline_config_with_connected_source(service, repo_mock):
+def test_pipeline_config_with_active_source(service, repo_mock):
     pid = uuid.uuid4()
-    source_connected = make_connected_source()
-    project_active = make_project(project_id=pid, active=True, sources=[source_connected])
+    source_active = make_active_source()
+    project_active = make_project(project_id=pid, active=True, sources=[source_active])
     repo_mock.get_by_id.return_value = project_active
 
     cfg = service.get_pipeline_config(pid)
@@ -289,14 +289,14 @@ def test_pipeline_config_with_connected_source(service, repo_mock):
     assert cfg.writer is None
 
 
-def test_pipeline_config_without_connected_source(service, repo_mock):
+def test_pipeline_config_without_active_source(service, repo_mock):
     pid = uuid.uuid4()
-    source_disconnected = SimpleNamespace(
+    source_disactive = SimpleNamespace(
         id=uuid.uuid4(),
         active=False,
         config={"source_type": "webcam"},
     )
-    project_active = make_project(project_id=pid, active=True, sources=[source_disconnected])
+    project_active = make_project(project_id=pid, active=True, sources=[source_disactive])
     repo_mock.get_by_id.return_value = project_active
 
     cfg = service.get_pipeline_config(pid)
@@ -315,8 +315,8 @@ def test_active_pipeline_config_none(service, repo_mock):
 
 
 def test_active_pipeline_config_success(service, repo_mock):
-    source_connected = make_connected_source()
-    project_active = make_project(active=True, sources=[source_connected])
+    source_active = make_active_source()
+    project_active = make_project(active=True, sources=[source_active])
     repo_mock.get_active.return_value = project_active
     repo_mock.get_by_id.return_value = project_active
 

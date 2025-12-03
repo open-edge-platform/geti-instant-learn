@@ -85,12 +85,12 @@ def make_project(project_id=None, name="test_project", active=True):
     return SimpleNamespace(id=project_id, name=name, active=active)
 
 
-def make_source(source_id=None, connected=True):
+def make_source(source_id=None, active=True):
     if source_id is None:
         source_id = uuid.uuid4()
     return SimpleNamespace(
         id=source_id,
-        connected=connected,
+        active=active,
         config={"source_type": "webcam", "device_id": 0},
     )
 
@@ -113,7 +113,7 @@ def test_capture_frame_success(
 ):
     project_id = uuid.uuid4()
     expected_project = make_project(project_id=project_id, active=True)
-    expected_source = make_source(connected=True)
+    expected_source = make_source(active=True)
 
     project_repository_mock.get_by_id.return_value = expected_project
     source_repository_mock.get_active_in_project.return_value = expected_source
@@ -157,7 +157,7 @@ def test_capture_frame_project_not_active(
         frame_service_with_queue.capture_frame(project_id)
 
 
-def test_capture_frame_no_connected_source(
+def test_capture_frame_no_active_source(
     frame_service_with_queue,
     project_repository_mock,
     source_repository_mock,
@@ -171,7 +171,7 @@ def test_capture_frame_no_connected_source(
         frame_service_with_queue.capture_frame(project_id)
 
     assert exc_info.value.resource_type == ResourceType.SOURCE
-    assert "no connected source" in str(exc_info.value).lower()
+    assert "no active source" in str(exc_info.value).lower()
 
 
 def test_capture_frame_timeout(
@@ -181,11 +181,11 @@ def test_capture_frame_timeout(
 ):
     project_id = uuid.uuid4()
     active_project = make_project(project_id=project_id, active=True)
-    connected_source = make_source(connected=True)
+    active_source = make_source(active=True)
     empty_queue = Queue()
 
     project_repository_mock.get_by_id.return_value = active_project
-    source_repository_mock.get_active_in_project.return_value = connected_source
+    source_repository_mock.get_active_in_project.return_value = active_source
 
     frame_service = FrameService(
         frame_repo=frame_repository_mock,
@@ -206,12 +206,12 @@ def test_capture_frame_save_failure(
 ):
     project_id = uuid.uuid4()
     active_project = make_project(project_id=project_id, active=True)
-    connected_source = make_source(connected=True)
+    active_source = make_source(active=True)
     consumer_queue = Queue()
     consumer_queue.put(sample_input_data)
 
     project_repository_mock.get_by_id.return_value = active_project
-    source_repository_mock.get_active_in_project.return_value = connected_source
+    source_repository_mock.get_active_in_project.return_value = active_source
     frame_repository_mock.save_frame.side_effect = RuntimeError("Disk full")
 
     frame_service = FrameService(
@@ -232,12 +232,12 @@ def test_capture_frame_queue_get_exception(
 ):
     project_id = uuid.uuid4()
     active_project = make_project(project_id=project_id, active=True)
-    connected_source = make_source(connected=True)
+    active_source = make_source(active=True)
     consumer_queue = MagicMock(spec=Queue)
     consumer_queue.get.side_effect = RuntimeError("Queue error")
 
     project_repository_mock.get_by_id.return_value = active_project
-    source_repository_mock.get_active_in_project.return_value = connected_source
+    source_repository_mock.get_active_in_project.return_value = active_source
 
     frame_service = FrameService(
         frame_repo=frame_repository_mock,

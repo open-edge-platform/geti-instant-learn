@@ -156,7 +156,7 @@ def upgrade() -> None:
         )
     )
     op.create_index(
-        UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT,
+        UniqueConstraintName.SINGLE_ACTIVE_SOURCE_PER_PROJECT,
         'Source',
         ['project_id', 'active'],
         unique=True,
@@ -194,7 +194,7 @@ def downgrade() -> None:
     op.drop_table('Annotation')
     op.execute(sa.DDL(f"DROP INDEX IF EXISTS {UniqueConstraintName.SOURCE_NAME_PER_PROJECT}"))
     op.execute(sa.DDL(f"DROP INDEX IF EXISTS {UniqueConstraintName.SOURCE_TYPE_PER_PROJECT}"))
-    op.drop_index(UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT, table_name='Source')
+    op.drop_index(UniqueConstraintName.SINGLE_ACTIVE_SOURCE_PER_PROJECT, table_name='Source')
     op.drop_table('Source')
     op.execute(sa.DDL(f"DROP INDEX IF EXISTS {UniqueConstraintName.SINK_NAME_PER_PROJECT}"))
     op.execute(sa.DDL(f"DROP INDEX IF EXISTS {UniqueConstraintName.SINK_TYPE_PER_PROJECT}"))

@@ -20,7 +20,7 @@ interface EditWebcamSourceProps {
 
 export const EditWebcamSource = ({ source, onSaved }: EditWebcamSourceProps) => {
     const [selectedDeviceId, setSelectedDeviceId] = useState<string>(source.config.device_id.toString());
-    const isActiveSource = source.connected;
+    const isActiveSource = source.active;
 
     const updateWebcamSource = useUpdateSource();
     const isButtonDisabled =
@@ -28,7 +28,7 @@ export const EditWebcamSource = ({ source, onSaved }: EditWebcamSourceProps) => 
         !isDeviceIdValid(selectedDeviceId) ||
         updateWebcamSource.isPending;
 
-    const handleUpdateWebcamSource = (connected: boolean) => {
+    const handleUpdateWebcamSource = (active: boolean) => {
         updateWebcamSource.mutate(
             source.id,
             {
@@ -37,14 +37,14 @@ export const EditWebcamSource = ({ source, onSaved }: EditWebcamSourceProps) => 
                     device_id: parseInt(selectedDeviceId),
                     seekable: false,
                 },
-                connected,
+                active,
             },
             onSaved
         );
     };
 
     const handleSave = () => {
-        handleUpdateWebcamSource(source.connected);
+        handleUpdateWebcamSource(source.active);
     };
 
     const handleSaveAndConnect = () => {

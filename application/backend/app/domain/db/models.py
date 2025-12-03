@@ -59,7 +59,7 @@ class SourceDB(Base):
             sqlite_where=sa_text("json_extract(config, '$.name') IS NOT NULL"),
         ),
         Index(
-            UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT,
+            UniqueConstraintName.SINGLE_ACTIVE_SOURCE_PER_PROJECT,
             "project_id",
             "active",
             unique=True,
