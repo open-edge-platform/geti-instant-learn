@@ -58,9 +58,6 @@ docker-extra-args := http-proxy-build-arg + https-proxy-build-arg + no-proxy-bui
 # Justfile recipes
 # -------------------------------------------------------------------------------------------------
 
-testc:
-  echo {{ice-servers}}
-
 check-proxy:
     #!/usr/bin/env bash
     if [ -z ${https_proxy+x} ]; then
