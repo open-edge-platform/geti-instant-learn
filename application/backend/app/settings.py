@@ -72,7 +72,7 @@ class Settings(BaseSettings):
     thumbnail_jpeg_quality: int = 85
 
     # WebRTC
-    ice_servers: Json[list[dict]] = Field(default=[], alias="ICE_SERVERS")
+    ice_servers: list[dict] = Field(default=[], alias="ICE_SERVERS")
 
 
 @lru_cache
