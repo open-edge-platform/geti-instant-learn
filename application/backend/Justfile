@@ -75,17 +75,6 @@ _mypy:
 # Installer
 # -------------------------------------------------------------------------------------------------
 
-[windows]
-pyinstaller: _venv
-    uv sync --extra installer --extra {{ai-device}} --extra windows-installer --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
-    uv run pyinstaller --noconfirm geti-prompt.spec
-
-[linux]
-pyinstaller: _venv
-    uv sync --extra installer --extra {{ai-device}} --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
-    uv run pyinstaller --noconfirm geti-prompt.spec
-
-[macos]
 pyinstaller: _venv
     uv sync --extra installer --extra {{ai-device}} --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
     uv run pyinstaller --noconfirm geti-prompt.spec

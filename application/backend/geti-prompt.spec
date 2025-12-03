@@ -37,7 +37,6 @@ a = Analysis(
         'torch.utils.benchmark',
         'torchmetrics',
         'torchmetrics.segmentation',
-        'winrt',
     ],
     noarchive=False,
     optimize=0,
