@@ -3,15 +3,10 @@
 
 """SoftMatcher model."""
 
-from typing import TYPE_CHECKING
-
 from getiprompt.components.prompt_generators import SoftmatcherPromptGenerator
 from getiprompt.utils.constants import SAMModelName
 
 from .matcher import Matcher
-
-if TYPE_CHECKING:
-    from getiprompt.components.prompt_generators import PromptGenerator
 
 
 class SoftMatcher(Matcher):
@@ -117,7 +112,7 @@ class SoftMatcher(Matcher):
             compile_models=compile_models,
             device=device,
         )
-        self.prompt_generator: PromptGenerator = SoftmatcherPromptGenerator(
+        self.prompt_generator = SoftmatcherPromptGenerator(
             encoder_input_size=self.encoder.input_size,
             encoder_patch_size=self.encoder.patch_size,
             encoder_feature_size=self.encoder.feature_size,

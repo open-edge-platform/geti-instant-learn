@@ -25,15 +25,15 @@ docker-image := images-registry / component-name + ":" + version + "-" + ai-devi
 # -------------------------------------------------------------------------------------------------
 
 docker-build-context := ""
-workdir-path := "/geti_prompt"
 asset-prefix := "/html"
-data-dir := "/data"
-static-files-dir := workdir-path + asset-prefix
-db-data-dir := workdir-path + data-dir
-target-stage := component-name + "-" + ai-device
+static-files-dir := "/geti_prompt/html"
+db-data-dir := "/geti_prompt/data"
 coffee-berries-dataset := "https://storage.geti.intel.com/geti-prompt/Frames.zip"
-source-dataset-dir := "backend/.data/templates/datasets/coffee-berries"
-target-dataset-dir := db-data-dir + "/templates/datasets/coffee-berries"
+
+# Dataset paths
+application-dir := justfile_directory()
+source-dataset-dir := ".data/templates/datasets/coffee-berries"
+target-dataset-dir := "/geti_prompt/data/templates/datasets/coffee-berries"
 
 # -------------------------------------------------------------------------------------------------
 # Proxy settings
@@ -60,18 +60,19 @@ check-proxy:
 
 download-dataset: check-proxy
     #!/usr/bin/env bash
-    if [ -d "{{ source-dataset-dir }}" ] && [ "$(ls -A {{ source-dataset-dir }})" ]; then
-        echo "Dataset directory {{ source-dataset-dir }} already exists and is not empty. Skipping download."
+    DATASET_DIR="{{ application-dir }}/{{ source-dataset-dir }}"
+    if [ -d "$DATASET_DIR" ] && [ "$(ls -A $DATASET_DIR)" ]; then
+        echo "Dataset directory $DATASET_DIR already exists and is not empty. Skipping download."
         exit 0
     fi
-    mkdir -p {{ source-dataset-dir }}
+    mkdir -p $DATASET_DIR
     echo "Downloading default dataset from {{ coffee-berries-dataset }}"
     if ! wget -q --show-progress {{ coffee-berries-dataset }}; then
         echo "Error: Failed to download dataset from {{ coffee-berries-dataset }}"
         exit 0  # proceed without dataset
     fi
-    echo "Unpacking default dataset to {{ source-dataset-dir }}"
-    unzip -j -q -o Frames.zip -d {{ source-dataset-dir }}
+    echo "Unpacking default dataset to $DATASET_DIR"
+    unzip -j -q -o Frames.zip -d $DATASET_DIR
     echo "Removing downloaded dataset archive Frames.zip"
     rm Frames*.zip
 
@@ -86,12 +87,11 @@ build-image: download-dataset
         --build-arg STATIC_FILES_DIR={{ static-files-dir }} \
         --build-arg DB_DATA_DIR={{ db-data-dir }} \
         --build-arg ASSET_PREFIX={{ asset-prefix }} \
-        --build-arg WORKDIR_PATH={{ workdir-path }} \
         --build-arg SOURCE_DATASET_DIR={{ source-dataset-dir }} \
-        --build-arg INITIAL_DATASET_DIR={{ target-dataset-dir }} \
+        --build-arg TARGET_DATASET_DIR={{ target-dataset-dir }} \
         --tag "{{ docker-image }}" \
         --file docker/Dockerfile . \
-        --target {{ target-stage }}
+        --target {{ component-name }}-{{ ai-device }}
 
 # launch geti prompt with optional webcam, volume and port mapping
 run-image: build-image
@@ -100,7 +100,7 @@ run-image: build-image
         --publish {{ host-port }}:{{ container-port }} \
         --env PORT={{ container-port }} \
         --env HOST={{ host }} \
-        {{ if docker-volume != "" { " --volume " + docker-volume + ":" + workdir-path + data-dir } else { "" } }} \
+        {{ if docker-volume != "" { " --volume " + docker-volume + ":" + db-data-dir } else { "" } }} \
         {{ if path_exists(webcam-device) == "true" { " --device " + webcam-device + ":" + webcam-device } else { "" } }} \
         --name "{{ component-name }}-{{ version }}" \
         "{{ docker-image }}"

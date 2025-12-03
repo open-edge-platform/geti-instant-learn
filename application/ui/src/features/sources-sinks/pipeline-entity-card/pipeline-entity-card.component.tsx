@@ -8,20 +8,20 @@ import { ReactNode } from 'react';
 import { ActionMenu, Flex, Heading, Item, View } from '@geti/ui';
 import { clsx } from 'clsx';
 
-import styles from './source-card.module.scss';
+import styles from './pipeline-entity-card.module.scss';
 
-interface SourceMenuProps {
+interface PipelineEntityMenuProps {
     isActive: boolean;
     onAction: (action: string) => void;
     items: { key: string; label: string }[];
 }
 
-const SourceMenu = ({ onAction, isActive, items }: SourceMenuProps) => {
+const PipelineEntityMenu = ({ onAction, isActive, items }: PipelineEntityMenuProps) => {
     return (
         <ActionMenu
             isQuiet
-            UNSAFE_className={clsx(styles.sourceMenu, {
-                [styles.sourceActiveMenu]: isActive,
+            UNSAFE_className={clsx(styles.menu, {
+                [styles.activeMenu]: isActive,
             })}
             onAction={(key) => onAction(String(key))}
             items={items}
@@ -31,7 +31,7 @@ const SourceMenu = ({ onAction, isActive, items }: SourceMenuProps) => {
     );
 };
 
-interface SourceCardProps {
+interface PipelineEntityCardProps {
     isActive: boolean;
     children: ReactNode;
     icon: ReactNode;
@@ -39,9 +39,9 @@ interface SourceCardProps {
     menu?: ReactNode;
 }
 
-const SourceCardParametersList = ({ parameters }: { parameters: string[] }) => {
+const PipelineEntityCardParametersList = ({ parameters }: { parameters: string[] }) => {
     return (
-        <ul className={styles.sourceParametersList}>
+        <ul className={styles.parametersList}>
             {parameters.map((parameter) => (
                 <li key={parameter}>{parameter}</li>
             ))}
@@ -49,12 +49,12 @@ const SourceCardParametersList = ({ parameters }: { parameters: string[] }) => {
     );
 };
 
-export const SourceCard = ({ isActive, children, icon, menu, title }: SourceCardProps) => {
+export const PipelineEntityCard = ({ isActive, children, icon, menu, title }: PipelineEntityCardProps) => {
     return (
-        <View padding={'size-250'} UNSAFE_className={isActive ? styles.sourceActive : styles.sourceInactive}>
+        <View padding={'size-250'} UNSAFE_className={isActive ? styles.active : styles.inactive}>
             <Flex alignItems={'center'} gap={'size-100'}>
                 {icon}
-                <Heading margin={0} UNSAFE_className={styles.sourceTitle}>
+                <Heading margin={0} UNSAFE_className={styles.title}>
                     {title}
                 </Heading>
             </Flex>
@@ -73,5 +73,5 @@ export const SourceCard = ({ isActive, children, icon, menu, title }: SourceCard
     );
 };
 
-SourceCard.Menu = SourceMenu;
-SourceCard.Parameters = SourceCardParametersList;
+PipelineEntityCard.Menu = PipelineEntityMenu;
+PipelineEntityCard.Parameters = PipelineEntityCardParametersList;

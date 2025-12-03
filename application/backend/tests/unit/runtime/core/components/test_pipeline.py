@@ -58,11 +58,64 @@ def mock_outbound_broadcaster():
 
 class TestPipeline:
     def test_pipeline_initialization_with_no_components(self, project_id):
-        """Test that Pipeline initializes with empty component dictionary."""
         pipeline = Pipeline(project_id=project_id)
         assert pipeline.project_id == project_id
         assert pipeline._components == {}
+        assert pipeline.is_running is False
         pipeline.stop()
+
+    def test_is_running_is_false_after_initialization(self, project_id):
+        pipeline = Pipeline(project_id=project_id)
+        assert pipeline.is_running is False
+        pipeline.stop()
+
+    def test_is_running_is_true_after_start(
+        self, project_id, mock_source, mock_processor, mock_sink, mock_inbound_broadcaster, mock_outbound_broadcaster
+    ):
+        pipeline = (
+            Pipeline(
+                project_id=project_id,
+                inbound_broadcaster=mock_inbound_broadcaster,
+                outbound_broadcaster=mock_outbound_broadcaster,
+            )
+            .set_source(mock_source)
+            .set_processor(mock_processor)
+            .set_sink(mock_sink)
+        )
+
+        with patch("runtime.core.components.pipeline.Thread") as mock_thread_class:
+            mock_thread_instances = [Mock() for _ in range(3)]
+            mock_thread_class.side_effect = mock_thread_instances
+
+            pipeline.start()
+
+            assert pipeline.is_running is True
+
+        pipeline.stop()
+
+    def test_is_running_is_false_after_stop(
+        self, project_id, mock_source, mock_processor, mock_sink, mock_inbound_broadcaster, mock_outbound_broadcaster
+    ):
+        pipeline = (
+            Pipeline(
+                project_id=project_id,
+                inbound_broadcaster=mock_inbound_broadcaster,
+                outbound_broadcaster=mock_outbound_broadcaster,
+            )
+            .set_source(mock_source)
+            .set_processor(mock_processor)
+            .set_sink(mock_sink)
+        )
+
+        with patch("runtime.core.components.pipeline.Thread") as mock_thread_class:
+            mock_thread_instances = [Mock() for _ in range(3)]
+            mock_thread_class.side_effect = mock_thread_instances
+
+            pipeline.start()
+            assert pipeline.is_running is True
+
+            pipeline.stop()
+            assert pipeline.is_running is False
 
     def test_set_source_registers_component(self, project_id, mock_source, mock_inbound_broadcaster):
         """Test that set_source registers the source component."""
@@ -184,3 +237,54 @@ class TestPipeline:
         mock_source.stop.assert_called_once()
         mock_processor.stop.assert_called_once()
         mock_sink.stop.assert_called_once()
+
+    def test_start_does_nothing_if_already_running(
+        self, project_id, mock_source, mock_processor, mock_sink, mock_inbound_broadcaster, mock_outbound_broadcaster
+    ):
+        pipeline = (
+            Pipeline(
+                project_id=project_id,
+                inbound_broadcaster=mock_inbound_broadcaster,
+                outbound_broadcaster=mock_outbound_broadcaster,
+            )
+            .set_source(mock_source)
+            .set_processor(mock_processor)
+            .set_sink(mock_sink)
+        )
+
+        with patch("runtime.core.components.pipeline.Thread") as mock_thread_class:
+            mock_thread_instances = [Mock() for _ in range(3)]
+            mock_thread_class.side_effect = mock_thread_instances
+
+            pipeline.start()
+            assert mock_thread_class.call_count == 3
+
+            mock_thread_class.reset_mock()
+
+            pipeline.start()
+            assert mock_thread_class.call_count == 0
+            assert pipeline.is_running is True
+
+        pipeline.stop()
+
+    def test_stop_does_nothing_if_already_stopped(
+        self, project_id, mock_source, mock_processor, mock_sink, mock_inbound_broadcaster, mock_outbound_broadcaster
+    ):
+        pipeline = (
+            Pipeline(
+                project_id=project_id,
+                inbound_broadcaster=mock_inbound_broadcaster,
+                outbound_broadcaster=mock_outbound_broadcaster,
+            )
+            .set_source(mock_source)
+            .set_processor(mock_processor)
+            .set_sink(mock_sink)
+        )
+
+        assert pipeline.is_running is False
+        pipeline.stop()
+
+        mock_source.stop.assert_not_called()
+        mock_processor.stop.assert_not_called()
+        mock_sink.stop.assert_not_called()
+        assert pipeline.is_running is False

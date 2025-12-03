@@ -6,7 +6,7 @@
 import { WebcamSourceType } from '@geti-prompt/api';
 import { WebCam } from '@geti-prompt/icons';
 
-import { SourceCard } from '../source-card/source-card.component';
+import { PipelineEntityCard } from '../../pipeline-entity-card/pipeline-entity-card.component';
 
 interface WebcamSourceCardProps {
     source: WebcamSourceType;
@@ -19,13 +19,13 @@ export const WebcamSourceCard = ({ source, onAction, menuItems }: WebcamSourceCa
     const isActiveSource = source.connected;
 
     return (
-        <SourceCard
+        <PipelineEntityCard
             isActive={isActiveSource}
             icon={<WebCam />}
             title={'Webcam'}
-            menu={<SourceCard.Menu isActive={isActiveSource} items={menuItems} onAction={onAction} />}
+            menu={<PipelineEntityCard.Menu isActive={isActiveSource} items={menuItems} onAction={onAction} />}
         >
-            <SourceCard.Parameters parameters={parameters} />
-        </SourceCard>
+            <PipelineEntityCard.Parameters parameters={parameters} />
+        </PipelineEntityCard>
     );
 };

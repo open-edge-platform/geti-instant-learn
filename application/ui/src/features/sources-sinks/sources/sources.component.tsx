@@ -8,11 +8,11 @@ import { ReactNode, useState } from 'react';
 import { SourceType } from '@geti-prompt/api';
 import { useGetSources } from '@geti-prompt/hooks';
 import { ImagesFolder as ImagesFolderIcon, WebCam } from '@geti-prompt/icons';
-import { ActionButton, Divider, Flex, Heading, View } from '@geti/ui';
-import { Back, Datasets } from '@geti/ui/icons';
+import { Datasets } from '@geti/ui/icons';
 import { isEmpty } from 'lodash-es';
 
 import { DisclosureGroup } from '../disclosure-group/disclosure-group.component';
+import { PipelineEntityPanel } from '../pipeline-entity-panel/pipeline-entity-panel.component';
 import { EditSource } from './edit-sources/edit-sources.component';
 import { ExistingSources } from './existing-sources/existing-sources.component';
 import { CreateImagesFolder } from './images-folder/create-images-folder.component';
@@ -77,17 +77,12 @@ interface AddSourceProps {
 
 const AddSource = ({ onViewChange }: AddSourceProps) => {
     return (
-        <View>
-            <Flex alignItems={'center'} gap={'size-75'}>
-                <ActionButton isQuiet onPress={() => onViewChange('existing')}>
-                    <Back />
-                </ActionButton>
-                <Heading margin={0}>Add new input source</Heading>
-            </Flex>
-            <Divider size={'S'} marginY={'size-200'} />
-
+        <PipelineEntityPanel
+            title={<PipelineEntityPanel.Title>Add new input source</PipelineEntityPanel.Title>}
+            onBackClick={() => onViewChange('existing')}
+        >
             <SourcesList onViewChange={onViewChange} />
-        </View>
+        </PipelineEntityPanel>
     );
 };
 

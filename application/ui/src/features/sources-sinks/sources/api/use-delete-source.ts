@@ -14,6 +14,9 @@ export const useDeleteSource = () => {
             invalidates: [
                 ['get', '/api/v1/projects/{project_id}/sources', { params: { path: { project_id: projectId } } }],
             ],
+            error: {
+                notify: true,
+            },
         },
     });
 };

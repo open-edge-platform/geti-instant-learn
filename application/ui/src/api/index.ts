@@ -22,6 +22,12 @@ export type VideoFileSourceType = SourceWithoutConfig & { config: VideoFileConfi
 export type ImagesFolderSourceType = SourceWithoutConfig & { config: ImagesFolderConfig };
 export type SampleDatasetSourceType = SourceWithoutConfig & { config: SampleDatasetConfig };
 
+export type SinkType = components['schemas']['SinkSchema'];
+type SinkWithoutConfig = Omit<SinkType, 'config'>;
+
+export type MQTTConfig = components['schemas']['MqttConfig'];
+export type MQTTSinkType = SinkWithoutConfig & { config: MQTTConfig };
+
 export { $api, client } from './client';
 export {
     type paths,
@@ -43,4 +49,7 @@ export {
     type SchemaVisualPromptListItemSchema as VisualPromptItemType,
     type SchemaFrameMetadata as FrameAPIType,
     type SchemaFrameListResponse as FramesResponseType,
+    type SchemaSinkCreateSchema as SinkCreateType,
+    type SchemaSinkUpdateSchema as SinkUpdateType,
+    type SchemaSinksListSchema as SinksListType,
 } from './openapi-spec';
