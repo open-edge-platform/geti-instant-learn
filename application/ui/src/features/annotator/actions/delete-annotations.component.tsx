@@ -8,19 +8,15 @@ import { Refresh } from '@geti/ui/icons';
 
 import { useAnnotationActions } from '../providers/annotation-actions-provider.component';
 
-export const ResetAnnotations = () => {
+export const DeleteAnnotations = () => {
     const { deleteAllAnnotations } = useAnnotationActions();
-
-    const resetAnnotations = () => {
-        deleteAllAnnotations();
-    };
 
     return (
         <TooltipTrigger>
-            <ActionButton isQuiet aria-label={'Reset annotations'} onPress={resetAnnotations}>
+            <ActionButton isQuiet aria-label={'Delete annotations'} onPress={deleteAllAnnotations}>
                 <Refresh />
             </ActionButton>
-            <Tooltip>Reset annotations</Tooltip>
+            <Tooltip>Delete annotations</Tooltip>
         </TooltipTrigger>
     );
 };
