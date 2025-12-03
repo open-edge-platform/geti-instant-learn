@@ -85,7 +85,8 @@ class PyTorchSAMPredictor(nn.Module):
         else:
             checkpoint_path = model_path
 
-        logger.info(f"Loading PyTorch SAM: {sam_model_name} from {checkpoint_path}")
+        msg = f"Loading PyTorch SAM: {sam_model_name} from {checkpoint_path}"
+        logger.info(msg)
 
         # Load model based on type
         if sam_model_name in {
@@ -181,9 +182,7 @@ class PyTorchSAMPredictor(nn.Module):
             ...     SAMModelName.SAM_HQ_TINY,
             ...     backend=Backend.PYTORCH
             ... )
-            >>> ov_path = predictor.export(Path("./exported"), backend="openvino")
-            >>>
-            >>> # Now load with OpenVINO backend
+            >>> ov_path = predictor.export(Path("./exported"), backend=Backend.OPENVINO)
             >>> ov_predictor = load_sam_model(
             ...     SAMModelName.SAM_HQ_TINY,
             ...     backend=Backend.OPENVINO,

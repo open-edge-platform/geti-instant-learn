@@ -75,7 +75,8 @@ class OpenVINOImageEncoder(nn.Module):
         self.device = device
 
         # Load OpenVINO model
-        logger.info(f"Loading OpenVINO DINO encoder from {model_path}")
+        msg = f"Loading OpenVINO DINO encoder from {model_path}"
+        logger.info(msg)
         self.core = ov.Core()
         ov_model = self.core.read_model(model_path)
 

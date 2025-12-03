@@ -10,11 +10,10 @@ from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import GridPromptGenerator
+from getiprompt.components.sam.base import load_sam_model
 from getiprompt.data.base.batch import Batch
+from getiprompt.models.base import Model
 from getiprompt.utils.constants import SAMModelName
-
-from .base import Model
-from .foundation import load_sam_model
 
 
 class PerDino(Model):

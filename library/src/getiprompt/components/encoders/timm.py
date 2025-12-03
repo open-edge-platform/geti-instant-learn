@@ -175,7 +175,8 @@ class TimmImageEncoder(nn.Module):
         output_path = Path(output_path)
         output_path.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Exporting {self.model_id} to {backend.upper()} format at {output_path}")
+        msg = f"Exporting {self.model_id} to {backend.name} format at {output_path}"
+        logger.info(msg)
 
         # Create dummy input that matches the processor output
         dummy_image = torch.rand((1, 3, self.input_size, self.input_size), device=self.device, dtype=self.precision)
@@ -200,7 +201,8 @@ class TimmImageEncoder(nn.Module):
             }
             with torch.no_grad():
                 try:
-                    logger.info("Exporting to ONNX...")
+                    msg = f"Exporting {self.model_id} to ONNX format at {onnx_path}"
+                    logger.info(msg)
                     torch.onnx.export(
                         export_model,
                         (dummy_image,),
@@ -210,7 +212,8 @@ class TimmImageEncoder(nn.Module):
                         dynamic_axes=dynamic_axes,
                         opset_version=20,
                     )
-                    logger.info(f"Export complete. Model saved to {onnx_path}")
+                    msg = f"Export complete. Model saved to {onnx_path}"
+                    logger.info(msg)
                     return onnx_path
                 except Exception as e:
                     msg = f"Error exporting to ONNX: {e}"
@@ -223,7 +226,8 @@ class TimmImageEncoder(nn.Module):
                 "x": openvino.PartialShape([-1, 3, self.input_size, self.input_size]),
             }
             try:
-                logger.info("Converting to OpenVINO IR...")
+                msg = f"Converting {self.model_id} to OpenVINO IR format at {xml_path}"
+                logger.info(msg)
                 ov_model = openvino.convert_model(
                     input_model=export_model,
                     example_input=(dummy_image,),
@@ -239,7 +243,8 @@ class TimmImageEncoder(nn.Module):
                 ov_model.set_rt_info(self.input_size, ["model_info", "input_size"])
 
                 openvino.save_model(ov_model, xml_path)
-                logger.info(f"Export complete. Model saved to {xml_path}")
+                msg = f"Export complete. Model saved to {xml_path}"
+                logger.info(msg)
                 return xml_path
             except Exception as e:
                 msg = f"Error exporting to OpenVINO IR: {e}"
