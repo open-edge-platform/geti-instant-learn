@@ -22,7 +22,7 @@ if system == "Windows":
         package_family_name = package_family_name_buffer.value
         print("Setup Hook: Application runs in a UWP context. Package Family Name:", package_family_name)
 
-        local_app_data = os.getenv('LOCALAPPDATA')
+        local_app_data = os.getenv("LOCALAPPDATA")
         app_data_folder = os.path.join(local_app_data, "Packages", package_family_name, "LocalState")
 
         print("Setup Hook: Using local state folder:", app_data_folder)
