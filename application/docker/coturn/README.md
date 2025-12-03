@@ -31,7 +31,7 @@ If your video stream fails to load in these environments, it is likely because t
 
 ### What is Coturn?
 
-**Coturn** is a mature, open-source implementation of a TURN and STUN server. It is widely used in the industry to power WebRTC infrastructure.
+**Coturn** is a mature, [open-source implementation](https://github.com/coturn/coturn) of a TURN and STUN server. It is widely used in the industry to power WebRTC infrastructure.
 
 In this project, we provide a Dockerized version of Coturn configured specifically to bypass strict firewalls by masquerading as standard web traffic.
 
