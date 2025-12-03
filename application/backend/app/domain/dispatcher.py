@@ -61,7 +61,6 @@ class ConfigChangeDispatcher:
 
     def dispatch(self, event: ConfigChangeEvent) -> None:
         for listener in self._listeners:
-            # listener(event)
             self._executor.submit(self._safe_notify, listener, event)
 
     def _safe_notify(self, listener: ConfigChangeListener, event: ConfigChangeEvent) -> None:
