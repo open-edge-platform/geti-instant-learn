@@ -6,6 +6,7 @@ set shell := ["bash", "-cu"]
 py_path := "tests:app"
 # Ensure version in GHA workflow matches uv version here
 uv_version := "0.9.7"
+ai_extra := "cpu" # cpu, cu126, xpu
 
 default:
     @just --list
@@ -31,7 +32,7 @@ _pre-venv:
 
 _venv: _pre-venv
     uv lock --check
-    uv sync --extra cpu --extra mqtt --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
+    uv sync --extra {{ ai_extra }} --extra mqtt --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
 
 # Generate uv lock file
 venv-lock: _pre-venv

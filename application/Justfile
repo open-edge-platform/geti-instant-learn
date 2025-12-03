@@ -14,10 +14,10 @@ host := "0.0.0.0"
 # Common variables used in the Justfile
 # -------------------------------------------------------------------------------------------------
 
-ai-device := "cpu"  # options: cpu, gpu
+ai-device := "cpu"  # options: cpu, gpu, xpu
 component-name := "geti-prompt"
 images-registry := 'localhost:5000/open-edge-platform'
-version := trim(read(`git rev-parse --show-toplevel 2>/dev/null` / "VERSION"))
+version := `cat $(git rev-parse --show-toplevel 2>/dev/null)/VERSION`
 docker-image := images-registry / component-name + ":" + version + "-" + ai-device
 
 # -------------------------------------------------------------------------------------------------
@@ -50,6 +50,7 @@ docker-extra-args := http-proxy-build-arg + https-proxy-build-arg + no-proxy-bui
 # -------------------------------------------------------------------------------------------------
 # Justfile recipes
 # -------------------------------------------------------------------------------------------------
+
 check-proxy:
     #!/usr/bin/env bash
     if [ -z ${https_proxy+x} ]; then
