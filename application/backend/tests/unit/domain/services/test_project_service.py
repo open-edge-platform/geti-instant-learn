@@ -18,7 +18,7 @@ from domain.services.schemas.project import ProjectCreateSchema, ProjectSchema, 
 def make_connected_source(device_id: int = 0):
     return SimpleNamespace(
         id=uuid.uuid4(),
-        connected=True,
+        active=True,
         config={"source_type": "webcam", "device_id": device_id},
     )
 
@@ -76,7 +76,6 @@ def test_create_project_success(service, repo_mock, session_mock, explicit_id):
     assert result.name == "alpha"
     assert result.active is True
     repo_mock.add.assert_called_once()
-    assert session_mock.flush.call_count == 2  # flushes: initial add + activation
     session_mock.commit.assert_called_once()
     session_mock.refresh.assert_called_once()
 
@@ -87,7 +86,7 @@ def test_create_project_duplicate_name_raises_integrity_error(service, repo_mock
 
     mock_error = IntegrityError("statement", "params", "orig")
     mock_error.orig = Exception("UNIQUE constraint failed: uq_project_name")
-    session_mock.flush.side_effect = mock_error
+    session_mock.commit.side_effect = mock_error
 
     with pytest.raises(ResourceAlreadyExistsError) as exc_info:
         service.create_project(data)
@@ -97,7 +96,7 @@ def test_create_project_duplicate_name_raises_integrity_error(service, repo_mock
     assert "project with the name 'dup' already exists" in str(exc_info.value).lower()
     repo_mock.add.assert_called_once()
     session_mock.rollback.assert_called_once()
-    session_mock.commit.assert_not_called()
+    session_mock.commit.assert_called_once()
 
 
 def test_create_project_single_active_constraint_violation(service, repo_mock, session_mock):
@@ -134,7 +133,7 @@ def test_get_project_not_found(service, repo_mock):
 
 def test_list_projects(service, repo_mock):
     p1, p2 = make_project(), make_project()
-    repo_mock.get_paginated.return_value = ([p1, p2], 2)
+    repo_mock.list_with_pagination.return_value = ([p1, p2], 2)
 
     result = service.list_projects(offset=0, limit=20)
 
@@ -145,12 +144,12 @@ def test_list_projects(service, repo_mock):
     assert result.pagination.total == 2
     assert result.pagination.offset == 0
     assert result.pagination.limit == 20
-    repo_mock.get_paginated.assert_called_once_with(offset=0, limit=20)
+    repo_mock.list_with_pagination.assert_called_once_with(offset=0, limit=20)
 
 
 def test_list_projects_with_pagination(service, repo_mock):
     p1 = make_project(name="project_1")
-    repo_mock.get_paginated.return_value = ([p1], 10)
+    repo_mock.list_with_pagination.return_value = ([p1], 10)
 
     result = service.list_projects(offset=5, limit=1)
 
@@ -160,11 +159,11 @@ def test_list_projects_with_pagination(service, repo_mock):
     assert result.pagination.total == 10
     assert result.pagination.offset == 5
     assert result.pagination.limit == 1
-    repo_mock.get_paginated.assert_called_once_with(offset=5, limit=1)
+    repo_mock.list_with_pagination.assert_called_once_with(offset=5, limit=1)
 
 
 def test_list_projects_empty(service, repo_mock):
-    repo_mock.get_paginated.return_value = ([], 0)
+    repo_mock.list_with_pagination.return_value = ([], 0)
 
     result = service.list_projects()
 
@@ -173,13 +172,14 @@ def test_list_projects_empty(service, repo_mock):
     assert result.pagination.total == 0
     assert result.pagination.offset == 0
     assert result.pagination.limit == 20
-    repo_mock.get_paginated.assert_called_once_with(offset=0, limit=20)
+    repo_mock.list_with_pagination.assert_called_once_with(offset=0, limit=20)
 
 
 def test_update_project_success(service, repo_mock, session_mock):
     pid = uuid.uuid4()
     existing = make_project(project_id=pid, name="old")
     repo_mock.get_by_id.return_value = existing
+    repo_mock.update.return_value = existing
 
     data = ProjectUpdateSchema(name="new", active=existing.active)
     updated = service.update_project(pid, data)
@@ -187,7 +187,7 @@ def test_update_project_success(service, repo_mock, session_mock):
     assert updated.name == "new"
     assert updated.active is False
     session_mock.commit.assert_called_once()
-    session_mock.refresh.assert_called_once()
+    repo_mock.update.assert_called_once()
 
 
 def test_update_project_duplicate_name_raises_integrity_error(service, repo_mock, session_mock):
@@ -256,7 +256,7 @@ def test_delete_project_success(service, repo_mock, session_mock):
     service.delete_project(pid)
 
     repo_mock.get_by_id.assert_called_once_with(pid)
-    repo_mock.delete.assert_called_once_with(project)
+    repo_mock.delete.assert_called_once_with(pid)
     session_mock.commit.assert_called_once()
 
 
@@ -293,7 +293,7 @@ def test_pipeline_config_without_connected_source(service, repo_mock):
     pid = uuid.uuid4()
     source_disconnected = SimpleNamespace(
         id=uuid.uuid4(),
-        connected=False,
+        active=False,
         config={"source_type": "webcam"},
     )
     project_active = make_project(project_id=pid, active=True, sources=[source_disconnected])
@@ -381,6 +381,7 @@ def test_update_activate_emits_activation_event(service, repo_mock, dispatcher_m
     project_inactive = make_project(active=False)
     repo_mock.get_by_id.return_value = project_inactive
     repo_mock.get_active.return_value = None
+    repo_mock.update.return_value = project_inactive
 
     service.update_project(project_inactive.id, ProjectUpdateSchema(active=True))
 
@@ -393,6 +394,7 @@ def test_update_activate_emits_activation_event(service, repo_mock, dispatcher_m
 def test_update_deactivate_emits_deactivation_event(service, repo_mock, dispatcher_mock):
     project_active = make_project(active=True)
     repo_mock.get_by_id.return_value = project_active
+    repo_mock.update.return_value = project_active
 
     service.update_project(project_active.id, ProjectUpdateSchema(active=False))
 
@@ -407,6 +409,7 @@ def test_update_activate_replaces_existing_active_emits_two_events(service, repo
     project_target = make_project(active=False)
     repo_mock.get_by_id.return_value = project_target
     repo_mock.get_active.return_value = project_current_active
+    repo_mock.update.return_value = project_target
 
     service.update_project(project_target.id, ProjectUpdateSchema(active=True))
 

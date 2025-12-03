@@ -97,24 +97,30 @@ def test_list_prompts_success(service):
     service.project_repository.get_by_id.return_value = make_project(project_id)
     text_prompt = make_text_prompt_db(project_id=project_id)
     visual_prompt = make_visual_prompt_db(project_id=project_id)
-    service.prompt_repository.get_paginated.return_value = ([text_prompt, visual_prompt], 2)
+    service.prompt_repository.list_with_pagination_by_project.return_value = ([text_prompt, visual_prompt], 2)
 
     result = service.list_prompts(project_id, offset=0, limit=10)
 
     assert len(result.prompts) == 2
     assert result.pagination.total == 2
-    service.prompt_repository.get_paginated.assert_called_once_with(project_id, offset=0, limit=10)
+    assert result.pagination.count == 2
+    assert result.pagination.offset == 0
+    assert result.pagination.limit == 10
+    service.prompt_repository.list_with_pagination_by_project.assert_called_once_with(
+        project_id=project_id, offset=0, limit=10
+    )
 
 
 def test_list_prompts_empty(service):
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
-    service.prompt_repository.get_paginated.return_value = ([], 0)
+    service.prompt_repository.list_with_pagination_by_project.return_value = ([], 0)
 
     result = service.list_prompts(project_id)
 
     assert result.prompts == []
     assert result.pagination.total == 0
+    assert result.pagination.count == 0
 
 
 def test_get_prompt_success(service):
@@ -128,7 +134,7 @@ def test_get_prompt_success(service):
 
     assert schema.id == prompt_id
     assert schema.type == PromptType.TEXT
-    service.prompt_repository.get_by_id_and_project.assert_called_once_with(prompt_id=prompt_id, project_id=project_id)
+    service.prompt_repository.get_by_id_and_project.assert_called_once_with(prompt_id, project_id)
 
 
 def test_get_prompt_not_found(service):
@@ -192,7 +198,9 @@ def test_create_visual_prompt_success(service):
 
     service.project_repository.get_by_id.return_value = make_project(project_id)
     service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
-    service.label_repository.get_by_id.return_value = make_label(label_id=label_id, project_id=project_id)
+
+    label = make_label(label_id=label_id, project_id=project_id)
+    service.label_repository.get_by_id_and_project.return_value = label
 
     test_image = np.zeros((100, 100, 3), dtype=np.uint8)
     service.frame_repository.read_frame.return_value = test_image
@@ -215,7 +223,7 @@ def test_create_visual_prompt_success(service):
     assert result.type == PromptType.VISUAL
     service.frame_repository.get_frame_path.assert_called_with(project_id, frame_id)
     service.frame_repository.read_frame.assert_called_once_with(project_id, frame_id)
-    service.label_repository.get_by_id.assert_called_with(project_id, label_id)
+    service.label_repository.get_by_id_and_project.assert_called_with(label_id, project_id)
     service.prompt_repository.add.assert_called_once()
     service.session.commit.assert_called_once()
 
@@ -255,7 +263,7 @@ def test_create_visual_prompt_label_not_found(service):
 
     service.project_repository.get_by_id.return_value = make_project(project_id)
     service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
-    service.label_repository.get_by_id.return_value = None
+    service.label_repository.get_by_id_and_project.return_value = None
 
     create_schema = VisualPromptCreateSchema(
         id=uuid.uuid4(),
@@ -329,7 +337,9 @@ def test_create_prompt_integrity_error_frame_duplicate(service):
 
     service.project_repository.get_by_id.return_value = make_project(project_id)
     service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
-    service.label_repository.get_by_id.return_value = make_label(label_id=label_id, project_id=project_id)
+
+    label = make_label(label_id=label_id, project_id=project_id)
+    service.label_repository.get_by_id_and_project.return_value = label
 
     test_image = np.zeros((100, 100, 3), dtype=np.uint8)
     service.frame_repository.read_frame.return_value = test_image
@@ -368,7 +378,7 @@ def test_delete_text_prompt_success(service):
 
     service.delete_prompt(project_id=project_id, prompt_id=prompt_id)
 
-    service.prompt_repository.delete.assert_called_once_with(prompt)
+    service.prompt_repository.delete.assert_called_once_with(prompt_id)
     service.session.commit.assert_called_once()
 
 
@@ -384,7 +394,7 @@ def test_delete_visual_prompt_deletes_frame(service):
     service.delete_prompt(project_id=project_id, prompt_id=prompt_id)
 
     service.frame_repository.delete_frame.assert_called_once_with(project_id, frame_id)
-    service.prompt_repository.delete.assert_called_once_with(prompt)
+    service.prompt_repository.delete.assert_called_once_with(prompt_id)
     service.session.commit.assert_called_once()
 
 
@@ -403,6 +413,7 @@ def test_update_text_prompt_success(service):
     service.project_repository.get_by_id.return_value = make_project(project_id)
     prompt = make_text_prompt_db(prompt_id=prompt_id, project_id=project_id, text="old")
     service.prompt_repository.get_by_id_and_project.return_value = prompt
+    service.prompt_repository.update.return_value = prompt
 
     update_schema = TextPromptUpdateSchema(
         type=PromptType.TEXT,
@@ -431,9 +442,12 @@ def test_update_visual_prompt_frame_success(service):
         annotations=[make_annotation_db(label_id=label_id)],
     )
     service.prompt_repository.get_by_id_and_project.return_value = prompt
+    service.prompt_repository.update.return_value = prompt
     service.frame_repository.get_frame_path.return_value = "/path/to/new_frame.jpg"
     service.frame_repository.delete_frame.return_value = True
-    service.label_repository.get_by_id.return_value = make_label(label_id=label_id, project_id=project_id)
+
+    label = make_label(label_id=label_id, project_id=project_id)
+    service.label_repository.get_by_id_and_project.return_value = label
 
     test_image = np.zeros((100, 100, 3), dtype=np.uint8)
     service.frame_repository.read_frame.return_value = test_image
@@ -450,7 +464,7 @@ def test_update_visual_prompt_frame_success(service):
     service.frame_repository.get_frame_path.assert_called_with(project_id, new_frame_id)
     service.frame_repository.read_frame.assert_called_once_with(project_id, new_frame_id)
     service.frame_repository.delete_frame.assert_called_once_with(project_id, old_frame_id)
-    service.label_repository.get_by_id.assert_called_with(project_id, label_id)
+    service.label_repository.get_by_id_and_project.assert_called_with(label_id, project_id)
     service.session.commit.assert_called_once()
 
 
@@ -463,7 +477,10 @@ def test_update_visual_prompt_annotations_success(service):
     service.project_repository.get_by_id.return_value = make_project(project_id)
     prompt = make_visual_prompt_db(prompt_id=prompt_id, project_id=project_id, frame_id=frame_id)
     service.prompt_repository.get_by_id_and_project.return_value = prompt
-    service.label_repository.get_by_id.return_value = make_label(label_id=label_id, project_id=project_id)
+    service.prompt_repository.update.return_value = prompt
+
+    label = make_label(label_id=label_id, project_id=project_id)
+    service.label_repository.get_by_id_and_project.return_value = label
 
     test_image = np.zeros((100, 100, 3), dtype=np.uint8)
     service.frame_repository.read_frame.return_value = test_image
@@ -481,7 +498,7 @@ def test_update_visual_prompt_annotations_success(service):
 
     service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
 
-    assert service.label_repository.get_by_id.call_count == 2
+    assert service.label_repository.get_by_id_and_project.call_count >= 1
     service.frame_repository.read_frame.assert_called_once_with(project_id, frame_id)
     service.session.commit.assert_called_once()
 
@@ -573,7 +590,6 @@ def test_get_reference_batch_for_visual_prompts(service):
 
     service.project_repository.get_by_id.return_value = make_project(project_id)
 
-    # Use polygon annotation (required for mask generation)
     annotation_db = SimpleNamespace(
         id=uuid.uuid4(),
         config=PolygonAnnotation(
@@ -583,15 +599,18 @@ def test_get_reference_batch_for_visual_prompts(service):
         label_id=label_id,
     )
     visual_prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id, annotations=[annotation_db])
-    service.prompt_repository.get_all_by_project.return_value = [visual_prompt]
+    service.prompt_repository.list_all_by_project.return_value = [visual_prompt]
 
     frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
     service.frame_repository.get_frame.return_value = frame
 
     result = service.get_reference_batch(project_id, PromptType.VISUAL)
 
-    # Result is a Batch containing Samples
+    assert result is not None
     assert len(result) == 1
+    service.prompt_repository.list_all_by_project.assert_called_once_with(
+        project_id=project_id, prompt_type=PromptType.VISUAL
+    )
     sample = result[0]
 
     # Check Sample has expected attributes

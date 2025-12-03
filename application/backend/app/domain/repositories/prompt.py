@@ -9,55 +9,23 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from domain.db.models import PromptDB, PromptType
-from domain.repositories.base import BaseRepository
+from domain.repositories.base import ProjectComponentRepository
 
 logger = logging.getLogger(__name__)
 
 
-class PromptRepository(BaseRepository):
+class PromptRepository(ProjectComponentRepository[PromptDB]):
     """
     Repository responsible for low-level persistence of `PromptDB` entities.
-
-    Responsibilities:
-      - Build and execute SQLAlchemy queries.
-      - Add / delete ORM entities to the session.
-      - No business logic, no commits, no domain exceptions.
     """
 
     def __init__(self, session: Session):
         """Initialize the repository."""
-        super().__init__(session)
+        super().__init__(session=session, model=PromptDB)
 
-    def add(self, prompt: PromptDB) -> None:
+    def list_all_by_project(self, project_id: UUID, prompt_type: PromptType | None = None) -> Sequence[PromptDB]:
         """
-        Add a new PromptDB entity to the session (not committed).
-        """
-        logger.debug(f"Adding prompt id={prompt.id} project_id={prompt.project_id}")
-        self.session.add(prompt)
-
-    def get_by_id(self, prompt_id: UUID) -> PromptDB | None:
-        """
-        Retrieve a prompt by primary key.
-        """
-        logger.debug(f"Fetching prompt by id={prompt_id}")
-        stmt = select(PromptDB).where(PromptDB.id == prompt_id).options(joinedload(PromptDB.annotations))
-        return self.session.scalars(stmt).unique().first()
-
-    def get_by_id_and_project(self, prompt_id: UUID, project_id: UUID) -> PromptDB | None:
-        """
-        Retrieve a prompt by id constrained to a project.
-        """
-        logger.debug(f"Fetching prompt id={prompt_id} in project_id={project_id}")
-        stmt = (
-            select(PromptDB)
-            .where(PromptDB.id == prompt_id, PromptDB.project_id == project_id)
-            .options(joinedload(PromptDB.annotations))
-        )
-        return self.session.scalars(stmt).unique().first()
-
-    def get_all_by_project(self, project_id: UUID, prompt_type: PromptType | None = None) -> Sequence[PromptDB]:
-        """
-        Retrieve all prompts belonging to a project.
+        Retrieve all prompts belonging to a project with optional filtering by prompt type.
         """
         logger.debug(f"Fetching all prompts for project_id={project_id}")
         stmt = select(PromptDB).where(PromptDB.project_id == project_id).options(joinedload(PromptDB.annotations))
@@ -79,14 +47,9 @@ class PromptRepository(BaseRepository):
         )
         return self.session.scalars(stmt).unique().first()
 
-    def delete(self, prompt: PromptDB) -> None:
-        """
-        Mark a PromptDB entity for deletion (not committed).
-        """
-        logger.debug(f"Deleting prompt id={prompt.id} project_id={prompt.project_id}")
-        self.session.delete(prompt)
-
-    def get_paginated(self, project_id: UUID, offset: int = 0, limit: int = 10) -> tuple[Sequence[PromptDB], int]:
+    def list_with_pagination_by_project(
+        self, project_id: UUID, offset: int = 0, limit: int = 10
+    ) -> tuple[Sequence[PromptDB], int]:
         """
         Retrieve prompts with pagination.
 

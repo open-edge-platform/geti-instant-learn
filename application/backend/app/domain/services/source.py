@@ -19,10 +19,11 @@ from domain.errors import (
 )
 from domain.repositories.project import ProjectRepository
 from domain.repositories.source import SourceRepository
+from domain.services.base import BaseService
 from domain.services.schemas.mappers.source import (
     source_db_to_schema,
     source_schema_to_db,
-    sources_db_to_schemas,
+    sources_db_to_list_items,
 )
 from domain.services.schemas.source import (
     SourceCreateSchema,
@@ -34,7 +35,7 @@ from domain.services.schemas.source import (
 logger = logging.getLogger(__name__)
 
 
-class SourceService:
+class SourceService(BaseService):
     """
     Service layer orchestrating Source configs use cases.
 
@@ -55,27 +56,30 @@ class SourceService:
         """
         Initialize the service with a SQLAlchemy session.
         """
-        self.session = session
+        super().__init__(session=session, config_change_dispatcher=config_change_dispatcher)
         self.source_repository = source_repository or SourceRepository(session=session)
         self.project_repository = project_repository or ProjectRepository(session=session)
-        self._dispatcher = config_change_dispatcher
 
-    def list_sources(self, project_id: UUID) -> SourcesListSchema:
+    def list_sources(self, project_id: UUID, offset: int = 0, limit: int = 20) -> SourcesListSchema:
         """
-        List all sources belonging to a project.
+        List sources for the specified project with pagination.
 
-        Parameters:
-            project_id: Owning project UUID.
+        Args:
+            project_id: UUID of the project.
+            offset: Starting index of the returned items.
+            limit: Maximum number of items requested.
 
         Returns:
-            Pydantic list wrapper with source schemas.
+            A schema containing a list of sources with pagination metadata.
 
         Raises:
             ResourceNotFoundError: If the project does not exist.
         """
         self._ensure_project(project_id)
-        db_sources = self.source_repository.get_all_by_project(project_id)
-        return SourcesListSchema(sources=sources_db_to_schemas(db_sources))
+        sources, total = self.source_repository.list_with_pagination_by_project(
+            project_id=project_id, offset=offset, limit=limit
+        )
+        return sources_db_to_list_items(sources, total, offset, limit)
 
     def get_source(self, project_id: UUID, source_id: UUID) -> SourceSchema:
         """
@@ -87,7 +91,7 @@ class SourceService:
             ResourceNotFoundError: If project or source does not exist.
         """
         self._ensure_project(project_id)
-        source = self.source_repository.get_by_id_and_project(source_id=source_id, project_id=project_id)
+        source = self.source_repository.get_by_id_and_project(source_id, project_id)
         if not source:
             logger.error("Source not found id=%s project_id=%s", source_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.SOURCE, resource_id=str(source_id))
@@ -104,36 +108,32 @@ class SourceService:
         source_name = create_data.config.name if hasattr(create_data.config, "name") else None
 
         logger.debug(
-            "Source create requested: project_id=%s source_type=%s name=%s connected=%s",
+            "Source create requested: project_id=%s source_type=%s name=%s active=%s",
             project_id,
             source_type,
             source_name,
             create_data.connected,
         )
 
-        if create_data.connected:
-            self._disconnect_existing_connected_source(project_id=project_id)
-
-        new_source: SourceDB = source_schema_to_db(schema=create_data, project_id=project_id)
-        self.source_repository.add(new_source)
-
         try:
-            self.session.commit()
+            with self.db_transaction():
+                if create_data.connected:
+                    self._disconnect_existing_active_source(project_id=project_id)
+                new_source: SourceDB = source_schema_to_db(schema=create_data, project_id=project_id)
+                self.source_repository.add(new_source)
+                self._emit_component_change(project_id=project_id, source_id=new_source.id)
         except IntegrityError as exc:
-            self.session.rollback()
             logger.error("Source creation failed due to constraint violation: %s", exc)
             self._handle_source_integrity_error(exc, new_source.id, project_id, source_type, source_name)
 
-        self.session.refresh(new_source)
         logger.info(
-            "Source created: source_id=%s project_id=%s source_type=%s connected=%s config=%s",
+            "Source created: source_id=%s project_id=%s source_type=%s active=%s config=%s",
             new_source.id,
             project_id,
             new_source.config.get("source_type"),
-            new_source.connected,
+            new_source.active,
             new_source.config,
         )
-        self._emit_component_change(project_id=project_id, source_id=new_source.id)
         return source_db_to_schema(new_source)
 
     def update_source(
@@ -146,7 +146,7 @@ class SourceService:
         Update existing source config (cannot change source_type).
         """
         self._ensure_project(project_id)
-        source = self.source_repository.get_by_id_and_project(source_id, project_id)
+        source: SourceDB = self.source_repository.get_by_id_and_project(source_id, project_id)
         if not source:
             logger.error("Update failed; source not found id=%s project_id=%s", source_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.SOURCE, resource_id=str(source_id))
@@ -169,29 +169,27 @@ class SourceService:
                 resource_id=str(source_id),
                 field="source_type",
             )
-        if update_data.connected and not source.connected:
-            self._disconnect_existing_connected_source(project_id=project_id)
-
-        source.connected = update_data.connected
-        source.config = update_data.config.model_dump()
 
         try:
-            self.session.commit()
+            with self.db_transaction():
+                if update_data.connected and not source.active:
+                    self._disconnect_existing_active_source(project_id=project_id)
+                source.active = update_data.connected
+                source.config = update_data.config.model_dump()
+                source = self.source_repository.update(source)
+                self._emit_component_change(project_id=project_id, source_id=source.id)
         except IntegrityError as exc:
-            self.session.rollback()
             logger.error("Source update failed due to constraint violation: %s", exc)
             self._handle_source_integrity_error(exc, source.id, project_id, existing_type, source_name)
 
-        self.session.refresh(source)
         logger.info(
-            "Source updated: source_id=%s project_id=%s source_type=%s connected=%s config=%s",
+            "Source updated: source_id=%s project_id=%s source_type=%s active=%s config=%s",
             source_id,
             project_id,
             existing_type,
-            source.connected,
+            source.active,
             source.config,
         )
-        self._emit_component_change(project_id=project_id, source_id=source.id)
         return source_db_to_schema(source)
 
     def delete_source(self, project_id: UUID, source_id: UUID) -> None:
@@ -206,14 +204,15 @@ class SourceService:
             ResourceNotFoundError: If project or source does not exist.
         """
         self._ensure_project(project_id)
-        source = self.source_repository.get_by_id_and_project(source_id=source_id, project_id=project_id)
+        source = self.source_repository.get_by_id_and_project(source_id, project_id)
         if not source:
             logger.error("Cannot delete source: source_id=%s not found in project_id=%s", source_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.SOURCE, resource_id=str(source_id))
-        self.source_repository.delete(source)
-        self.session.commit()
+
+        with self.db_transaction():
+            self.source_repository.delete(source.id)
+            self._emit_component_change(project_id=project_id, source_id=source_id)
         logger.info("Source deleted: source_id=%s project_id=%s", source_id, project_id)
-        self._emit_component_change(project_id=project_id, source_id=source_id)
 
     def _ensure_project(self, project_id: UUID) -> ProjectDB:
         """
@@ -234,26 +233,33 @@ class SourceService:
             raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
         return project
 
-    def _disconnect_existing_connected_source(self, project_id: UUID) -> None:
+    def _disconnect_existing_active_source(self, project_id: UUID) -> None:
         """
-        Disconnect any currently connected source in the project.
+        Disconnect any currently active source in the project.
+        Flushes changes to DB and emits deactivation event.
         Does not commit by itself; caller commits.
         """
-        connected_source = self.source_repository.get_connected_in_project(project_id)
-        if connected_source:
+        active_source: SourceDB = self.source_repository.get_active_in_project(project_id)
+        if active_source:
             logger.info(
-                "Disconnecting previously connected source: source_id=%s project_id=%s",
-                connected_source.id,
+                "Disconnecting previously active source: source_id=%s project_id=%s",
+                active_source.id,
                 project_id,
             )
-            connected_source.connected = False
+            active_source.active = False
+            try:
+                self.source_repository.update(active_source)
+            except Exception:
+                logger.exception("Failed to flush source disconnection")
+                raise
+            self._emit_component_change(project_id=project_id, source_id=active_source.id)
 
     def _emit_component_change(self, project_id: UUID, source_id: UUID) -> None:
         """
         Emit a component configuration change event for sources to trigger pipeline updates.
         """
         if self._dispatcher:
-            self._dispatcher.dispatch(
+            self._pending_events.append(
                 ComponentConfigChangeEvent(
                     project_id=project_id,
                     component_type="source",
@@ -261,8 +267,8 @@ class SourceService:
                 )
             )
 
+    @staticmethod
     def _handle_source_integrity_error(
-        self,
         exc: IntegrityError,
         source_id: UUID,
         project_id: UUID,

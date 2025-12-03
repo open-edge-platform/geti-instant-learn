@@ -95,7 +95,6 @@ class PipelineManager:
             case ProjectDeactivationEvent() as e:
                 if self._pipeline and self._pipeline.project_id == e.project_id:
                     self._pipeline.stop()
-                    self._pipeline = None
                     self._current_config = None
                     logger.info("Pipeline stopped due to project deactivation %s", e.project_id)
 

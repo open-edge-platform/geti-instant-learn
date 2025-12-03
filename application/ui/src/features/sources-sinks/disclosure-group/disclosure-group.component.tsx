@@ -6,12 +6,11 @@
 import { ReactNode, useState } from 'react';
 
 import { Disclosure, DisclosurePanel, DisclosureTitle, Flex, Text } from '@geti/ui';
-import { clsx } from 'clsx';
 
 import styles from './disclosure-group.module.scss';
 
 interface DisclosureGroupProps<Value extends string> {
-    value: Value | null | undefined;
+    value?: Value | null | undefined;
     onChange?: (value: Value) => void;
     items: { value: Value; label: string; icon: ReactNode; content?: ReactNode }[];
 }
@@ -35,9 +34,7 @@ const DisclosureItem = <Value extends string>({ item, value, onChange }: Disclos
             isQuiet
             key={item.label}
             isExpanded={isExpanded}
-            UNSAFE_className={clsx(styles.disclosure, {
-                [styles.selected]: item.value === value,
-            })}
+            UNSAFE_className={styles.disclosure}
             onExpandedChange={handleExpandedChange}
         >
             <DisclosureTitle UNSAFE_className={styles.disclosureTitleContainer}>

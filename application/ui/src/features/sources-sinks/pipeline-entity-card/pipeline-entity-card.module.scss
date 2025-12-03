@@ -1,0 +1,37 @@
+.parametersList {
+    padding-inline-start: var(--spectrum-global-dimension-size-200);
+    margin: 0;
+    word-break: break-all;
+}
+
+.active {
+    --dark-blue: #0c1e29;
+    background-color: var(--dark-blue);
+    border: var(--spectrum-alias-border-size-thin) solid var(--energy-blue);
+    border-radius: var(--spectrum-alias-border-radius-regular);
+}
+
+.inactive {
+    transition:
+        background-color 0.2s ease-in-out,
+        border 0.2s ease-in-out;
+    background-color: var(--spectrum-global-color-gray-200);
+    border: var(--spectrum-alias-border-size-thin) solid var(--spectrum-global-color-gray-200);
+    border-radius: var(--spectrum-alias-border-radius-regular);
+}
+
+.menu {
+    svg {
+        transform: rotate(90deg);
+    }
+}
+
+.title {
+    font-weight: 500;
+}
+
+.activeMenu,
+.activeMenu[class*='is-hovered'],
+.activeMenu[class*='is-active'] {
+    background-color: var(--dark-blue) !important;
+}

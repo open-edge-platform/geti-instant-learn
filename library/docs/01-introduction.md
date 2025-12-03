@@ -1,4 +1,4 @@
-# Geti Prompt
+# Geti Prompt Library
 
 **A flexible and modular framework for exploring, developing, and evaluating visual prompting algorithms.**
 
@@ -205,33 +205,6 @@ getiprompt benchmark --dataset_root /custom/path --class_name benchmark
 
 See [`src/getiprompt/utils/args.py`](src/getiprompt/utils/args.py) or run `getiprompt benchmark --help` for all available command-line options. Results (metrics and visualizations) are saved to `~/outputs/` by default.
 
-### Development UI (Optional)
-
-An interactive web-based development UI is available as a separate application for visual debugging and qualitative analysis. The UI allows you to select different pipelines, datasets, and images to inspect outputs like similarity maps, masks, and points.
-
-To use the Development UI, first install the optional dev_ui dependencies:
-
-```bash
-# Install with dev_ui support
-uv sync --extra dev_ui
-
-# Or install all optional dependencies
-uv sync --extra full
-```
-
-Then navigate to the `dev_ui` directory and run it independently:
-
-```bash
-cd dev_ui
-python app.py
-```
-
-By default, it runs on `http://127.0.0.1:5050`. For detailed usage instructions and configuration options, see [`dev_ui/README.md`](dev_ui/README.md)
-
 ## Acknowledgements
 
-This project builds upon and utilizes code from several excellent open-source repositories. We thank the authors for their contributions. A full list of third party software can be found in the [third-party-programs.txt](third-party-programs.txt) file.
-
-## License
-
-This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
+This project builds upon and utilizes code from several excellent open-source repositories. We thank the authors for their contributions. A full list of third party software can be found in the [third-party-programs.txt](../../third-party-programs.txt) file.

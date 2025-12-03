@@ -3,12 +3,10 @@
 
 """Matcher model, based on the paper 'Segment Anything with One Shot Using All-Purpose Feature Matching'."""
 
-from typing import TYPE_CHECKING
-
 import torch
 
 from getiprompt.components import SamDecoder
-from getiprompt.components.encoders import ImageEncoder
+from getiprompt.components.encoders.timm import TimmImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
@@ -17,9 +15,6 @@ from getiprompt.utils.constants import SAMModelName
 
 from .base import Model
 from .foundation import load_sam_model
-
-if TYPE_CHECKING:
-    from getiprompt.components.prompt_generators.base import PromptGenerator
 
 
 class Matcher(Model):
@@ -109,7 +104,7 @@ class Matcher(Model):
             precision=precision,
             compile_models=compile_models,
         )
-        self.encoder: ImageEncoder = ImageEncoder(
+        self.encoder = TimmImageEncoder(
             model_id=encoder_model,
             device=device,
             precision=precision,
@@ -121,7 +116,7 @@ class Matcher(Model):
             patch_size=self.encoder.patch_size,
             device=device,
         )
-        self.prompt_generator: PromptGenerator = BidirectionalPromptGenerator(
+        self.prompt_generator = BidirectionalPromptGenerator(
             encoder_input_size=self.encoder.input_size,
             encoder_patch_size=self.encoder.patch_size,
             encoder_feature_size=self.encoder.feature_size,

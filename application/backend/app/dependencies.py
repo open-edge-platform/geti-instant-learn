@@ -14,8 +14,9 @@ from domain.repositories.frame import FrameRepository
 from domain.repositories.processor import ProcessorRepository
 from domain.repositories.project import ProjectRepository
 from domain.repositories.prompt import PromptRepository
+from domain.repositories.sink import SinkRepository
 from domain.repositories.source import SourceRepository
-from domain.services import LabelService, ModelService, ProjectService, PromptService, SourceService
+from domain.services import LabelService, ModelService, ProjectService, PromptService, SinkService, SourceService
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.frame import FrameService
 from runtime.webrtc.manager import WebRTCManager
@@ -69,6 +70,11 @@ def get_prompt_repository(session: SessionDep) -> PromptRepository:
 def get_processor_repository(session: SessionDep) -> ProcessorRepository:
     """Provides a ProcessorRepository instance."""
     return ProcessorRepository(session)
+
+
+def get_sink_repository(session: SessionDep) -> SinkRepository:
+    """Provides a SinkRepository instance."""
+    return SinkRepository(session)
 
 
 # --- Service providers ---
@@ -128,16 +134,12 @@ def get_frame_service_with_queue(
 
 def get_prompt_service(
     session: SessionDep,
-    prompt_repo: Annotated[PromptRepository, Depends(get_prompt_repository)],
-    project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
-    frame_repo: Annotated[FrameRepository, Depends(get_frame_repository)],
+    dispatcher: Annotated[ConfigChangeDispatcher, Depends(get_config_dispatcher)],
 ) -> PromptService:
     """Dependency that provides a PromptService instance."""
     return PromptService(
         session=session,
-        prompt_repository=prompt_repo,
-        project_repository=project_repo,
-        frame_repository=frame_repo,
+        config_change_dispatcher=dispatcher,
     )
 
 
@@ -153,6 +155,14 @@ def get_model_service(
     return ModelService(session=session, config_change_dispatcher=dispatcher)
 
 
+def get_sink_service(
+    session: SessionDep,
+    dispatcher: Annotated[ConfigChangeDispatcher, Depends(get_config_dispatcher)],
+) -> SinkService:
+    """Dependency that provides a SinkService instance."""
+    return SinkService(session=session, config_change_dispatcher=dispatcher)
+
+
 # --- Dependency aliases ---
 ProjectServiceDep = Annotated[ProjectService, Depends(get_project_service)]
 SourceServiceDep = Annotated[SourceService, Depends(get_source_service)]
@@ -162,3 +172,4 @@ LabelServiceDep = Annotated[LabelService, Depends(get_label_service)]
 PromptServiceDep = Annotated[PromptService, Depends(get_prompt_service)]
 PipelineManagerDep = Annotated[PipelineManager, Depends(get_pipeline_manager)]
 ModelServiceDep = Annotated[ModelService, Depends(get_model_service)]
+SinkServiceDep = Annotated[SinkService, Depends(get_sink_service)]

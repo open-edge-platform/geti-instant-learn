@@ -11,6 +11,10 @@ from sqlalchemy.orm import Session
 from api.error_handler import extract_constraint_name
 from domain.db.constraints import CheckConstraintName, UniqueConstraintName
 from domain.db.models import ProjectDB, PromptDB, PromptType
+from domain.dispatcher import (
+    ComponentConfigChangeEvent,
+    ConfigChangeDispatcher,
+)
 from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
@@ -20,8 +24,10 @@ from domain.errors import (
 )
 from domain.repositories.frame import FrameRepository
 from domain.repositories.label import LabelRepository
+from domain.repositories.processor import ProcessorRepository
 from domain.repositories.project import ProjectRepository
 from domain.repositories.prompt import PromptRepository
+from domain.services.base import BaseService
 from domain.services.schemas.annotation import AnnotationSchema
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.mappers.annotation import annotations_db_to_schemas
@@ -47,7 +53,7 @@ from domain.services.thumbnail import generate_thumbnail
 logger = logging.getLogger(__name__)
 
 
-class PromptService:
+class PromptService(BaseService):
     """
     Service layer orchestrating Prompt use cases.
 
@@ -65,15 +71,18 @@ class PromptService:
         project_repository: ProjectRepository | None = None,
         frame_repository: FrameRepository | None = None,
         label_repository: LabelRepository | None = None,
+        processor_repository: ProcessorRepository | None = None,
+        config_change_dispatcher: ConfigChangeDispatcher | None = None,
     ):
         """
         Initialize the service with a SQLAlchemy session.
         """
-        self.session = session
+        super().__init__(session=session, config_change_dispatcher=config_change_dispatcher)
         self.prompt_repository = prompt_repository or PromptRepository(session=session)
         self.project_repository = project_repository or ProjectRepository(session=session)
         self.frame_repository = frame_repository or FrameRepository()
         self.label_repository = label_repository or LabelRepository(session=session)
+        self.processor_repository = processor_repository or ProcessorRepository(session=session)
 
     def list_prompts(self, project_id: UUID, offset: int = 0, limit: int = 10) -> PromptsListSchema:
         """
@@ -92,7 +101,9 @@ class PromptService:
             ResourceNotFoundError: If the project does not exist.
         """
         self._ensure_project(project_id)
-        db_prompts, total_count = self.prompt_repository.get_paginated(project_id, offset=offset, limit=limit)
+        db_prompts, total_count = self.prompt_repository.list_with_pagination_by_project(
+            project_id=project_id, offset=offset, limit=limit
+        )
         prompts = prompts_db_to_schemas(db_prompts, include_thumbnail=True)
 
         pagination = Pagination(
@@ -124,7 +135,7 @@ class PromptService:
             logger.error("Project not found id=%s", project_id)
             return None
 
-        db_prompts = self.prompt_repository.get_all_by_project(project_id, prompt_type=prompt_type)
+        db_prompts = self.prompt_repository.list_all_by_project(project_id=project_id, prompt_type=prompt_type)
 
         samples = []
         for prompt in db_prompts:
@@ -167,7 +178,7 @@ class PromptService:
             ResourceNotFoundError: If project or prompt does not exist.
         """
         self._ensure_project(project_id)
-        prompt = self.prompt_repository.get_by_id_and_project(prompt_id=prompt_id, project_id=project_id)
+        prompt = self.prompt_repository.get_by_id_and_project(prompt_id, project_id)
         if not prompt:
             logger.error("Prompt not found: id=%s project_id=%s", prompt_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.PROMPT, resource_id=str(prompt_id))
@@ -195,17 +206,12 @@ class PromptService:
             ServiceError: If validation fails.
         """
         self._ensure_project(project_id)
-
-        logger.debug(
-            "Prompt create requested: project_id=%s type=%s",
-            project_id,
-            create_data.type,
-        )
+        logger.debug("Prompt create requested: project_id=%s type=%s", project_id, create_data.type)
 
         if isinstance(create_data, TextPromptCreateSchema):
             existing_text_prompt = self.prompt_repository.get_text_prompt_by_project(project_id)
             if existing_text_prompt:
-                logger.warning(
+                logger.error(
                     "Text prompt creation failed: text prompt already exists for project_id=%s (prompt_id=%s)",
                     project_id,
                     existing_text_prompt.id,
@@ -234,16 +240,14 @@ class PromptService:
             self._validate_annotation_labels(create_data.annotations, project_id)
             thumbnail = self._generate_thumbnail(project_id, create_data.frame_id, create_data.annotations)
 
-        new_prompt: PromptDB = prompt_create_schema_to_db(
-            schema=create_data, project_id=project_id, thumbnail=thumbnail
-        )
-
-        self.prompt_repository.add(new_prompt)
-
         try:
-            self.session.commit()
+            with self.db_transaction():
+                new_prompt: PromptDB = prompt_create_schema_to_db(
+                    schema=create_data, project_id=project_id, thumbnail=thumbnail
+                )
+                self.prompt_repository.add(new_prompt)
+                self._emit_processor_change_event(project_id)
         except IntegrityError as exc:
-            self.session.rollback()
             logger.error("Prompt creation failed due to constraint violation: %s", exc)
             self._handle_prompt_integrity_error(exc, new_prompt.id, project_id, new_prompt.type, new_prompt.frame_id)
 
@@ -273,28 +277,28 @@ class PromptService:
             ResourceNotFoundError: If project or prompt does not exist.
         """
         self._ensure_project(project_id)
-        prompt = self.prompt_repository.get_by_id_and_project(prompt_id=prompt_id, project_id=project_id)
+        prompt = self.prompt_repository.get_by_id_and_project(prompt_id, project_id)
         if not prompt:
             logger.error("Cannot delete prompt: prompt_id=%s not found in project_id=%s", prompt_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.PROMPT, resource_id=str(prompt_id))
 
-        if prompt.type == PromptType.VISUAL and prompt.frame_id:
-            frame_deleted = self.frame_repository.delete_frame(project_id, prompt.frame_id)
-            if frame_deleted:
-                logger.info(
-                    "Deleted frame file for visual prompt: frame_id=%s project_id=%s",
-                    prompt.frame_id,
-                    project_id,
-                )
-            else:
-                logger.warning(
-                    "Frame file not found for deletion: frame_id=%s project_id=%s",
-                    prompt.frame_id,
-                    project_id,
-                )
-
-        self.prompt_repository.delete(prompt)
-        self.session.commit()
+        with self.db_transaction():
+            if prompt.type == PromptType.VISUAL and prompt.frame_id:
+                frame_deleted = self.frame_repository.delete_frame(project_id, prompt.frame_id)
+                if frame_deleted:
+                    logger.info(
+                        "Deleted frame file for visual prompt: frame_id=%s project_id=%s",
+                        prompt.frame_id,
+                        project_id,
+                    )
+                else:
+                    logger.warning(
+                        "Frame file not found for deletion: frame_id=%s project_id=%s",
+                        prompt.frame_id,
+                        project_id,
+                    )
+            self.prompt_repository.delete(prompt.id)
+            self._emit_processor_change_event(project_id)
         logger.info("Prompt deleted: prompt_id=%s project_id=%s", prompt_id, project_id)
 
     def update_prompt(self, project_id: UUID, prompt_id: UUID, update_data: PromptUpdateSchema) -> PromptSchema:
@@ -320,7 +324,7 @@ class PromptService:
         """
         self._ensure_project(project_id)
 
-        prompt = self.prompt_repository.get_by_id_and_project(prompt_id=prompt_id, project_id=project_id)
+        prompt = self.prompt_repository.get_by_id_and_project(prompt_id, project_id)
         if not prompt:
             logger.error("Cannot update prompt: prompt_id=%s not found in project_id=%s", prompt_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.PROMPT, resource_id=str(prompt_id))
@@ -334,7 +338,6 @@ class PromptService:
                 message=f"Cannot change prompt type from {prompt.type} to {update_data.type}. "
                 "Delete and recreate the prompt instead.",
             )
-
         logger.debug(
             "Prompt update requested: prompt_id=%s project_id=%s type=%s",
             prompt_id,
@@ -346,15 +349,15 @@ class PromptService:
         if isinstance(update_data, VisualPromptUpdateSchema):
             regenerate_thumbnail = self._handle_visual_prompt_update(prompt, update_data, project_id)
 
-        prompt = prompt_update_schema_to_db(prompt, update_data)
-
-        if regenerate_thumbnail and prompt.frame_id:
-            annotations = annotations_db_to_schemas(prompt.annotations)
-            prompt.thumbnail = self._generate_thumbnail(project_id, prompt.frame_id, annotations)
         try:
-            self.session.commit()
+            with self.db_transaction():
+                prompt = prompt_update_schema_to_db(prompt, update_data)
+                if regenerate_thumbnail and prompt.frame_id:
+                    annotations = annotations_db_to_schemas(prompt.annotations)
+                    prompt.thumbnail = self._generate_thumbnail(project_id, prompt.frame_id, annotations)
+                prompt = self.prompt_repository.update(prompt)
+                self._emit_processor_change_event(project_id)
         except IntegrityError as exc:
-            self.session.rollback()
             logger.error("Prompt update failed due to constraint violation: %s", exc)
             self._handle_prompt_integrity_error(exc, prompt.id, project_id, prompt.type)
 
@@ -416,7 +419,7 @@ class PromptService:
         label_ids = {ann.label_id for ann in annotations if ann.label_id is not None}
 
         for label_id in label_ids:
-            label = self.label_repository.get_by_id(project_id, label_id)
+            label = self.label_repository.get_by_id_and_project(label_id, project_id)
             if not label:
                 logger.error(
                     "Label not found: label_id=%s in project_id=%s",
@@ -444,7 +447,7 @@ class PromptService:
         labels_by_id = {
             label.id: label_db_to_schema(label)
             for label_id in label_ids
-            if (label := self.label_repository.get_by_id(project_id, label_id))
+            if (label := self.label_repository.get_by_id_and_project(label_id, project_id))
         }
 
         # create annotation-label pairs
@@ -536,3 +539,17 @@ class PromptService:
 
         logger.error(f"Unmapped constraint violation for prompt (prompt_id={prompt_id}): {error_msg}")
         raise ServiceError("Database constraint violation. Please check your input and try again.")
+
+    def _emit_processor_change_event(self, project_id: UUID) -> None:
+        """
+        Emit a ComponentConfigChangeEvent for the active processor in the project.
+        """
+        active_processor = self.processor_repository.get_active_in_project(project_id)
+        if active_processor and self._dispatcher:
+            self._pending_events.append(
+                ComponentConfigChangeEvent(
+                    project_id=project_id,
+                    component_id=str(active_processor.id),
+                    component_type="processor",
+                )
+            )

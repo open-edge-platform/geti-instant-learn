@@ -17,6 +17,9 @@ class UniqueConstraintName(StrEnum):
     SINGLE_ACTIVE_PROJECT = "uq_single_active_project"
     SINGLE_CONNECTED_SOURCE_PER_PROJECT = "uq_single_connected_source_per_project"
     UNIQUE_FRAME_ID_PER_PROMPT = "uq_unique_frame_id_per_prompt"
+    SINK_NAME_PER_PROJECT = "uq_sink_name_per_project"
+    SINK_TYPE_PER_PROJECT = "uq_sink_type_per_project"
+    SINGLE_ACTIVE_SINK_PER_PROJECT = "uq_single_active_sink_per_project"
 
 
 class CheckConstraintName(StrEnum):
