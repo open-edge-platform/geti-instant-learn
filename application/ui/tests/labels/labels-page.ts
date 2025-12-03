@@ -8,7 +8,7 @@ import { Page } from '@playwright/test';
 export class LabelsPage {
     constructor(private page: Page) {}
 
-    private async showDialog() {
+    async showDialog() {
         await this.page.getByRole('button', { name: 'Add Label' }).click();
     }
 
@@ -29,7 +29,6 @@ export class LabelsPage {
     }
 
     async addLabel(name: string) {
-        await this.showDialog();
         await this.enterName(name);
         await this.confirmLabel();
     }
