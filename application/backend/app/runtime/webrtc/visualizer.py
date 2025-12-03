@@ -22,9 +22,7 @@ class InferenceVisualizer:
         """
         self._enabled = enable_visualization
 
-    def visualize(
-        self, frame: np.ndarray, results: list[dict[str, torch.Tensor]], labels_colors: dict[str, tuple[int, int, int]]
-    ) -> np.ndarray:
+    def visualize(self, frame: np.ndarray, results: list[dict[str, torch.Tensor]]) -> np.ndarray:
         """
         Overlay inference results on the frame.
 
@@ -51,23 +49,17 @@ class InferenceVisualizer:
         for prediction in results:
             masks = prediction.get("pred_masks")
             boxes = prediction.get("pred_boxes")
-            labels = prediction.get("pred_labels")  # label_ids as tensor
+            # labels = prediction.get("pred_labels")  # label_ids as tensor
 
             if masks is not None:
-                annotated = self._draw_masks(annotated, masks, labels, labels_colors)
+                annotated = self._draw_masks(annotated, masks)
 
             if boxes is not None:
-                annotated = self._draw_boxes(annotated, boxes, labels, labels_colors)
+                annotated = self._draw_boxes(annotated, boxes)
 
         return annotated
 
-    def _draw_masks(
-        self,
-        frame: np.ndarray,
-        masks: torch.Tensor,
-        labels: torch.Tensor | None,
-        label_colors: dict[str, tuple[int, int, int]] | None,
-    ) -> np.ndarray:
+    def _draw_masks(self, frame: np.ndarray, masks: torch.Tensor) -> np.ndarray:
         """
         Draw segmentation masks on the frame.
 
@@ -89,18 +81,18 @@ class InferenceVisualizer:
 
         for idx, mask in enumerate(masks_np):
             # Get label for this mask
-            label_id = labels[idx].item() if idx < len(labels) else None
+            # label_id = labels[idx].item() if idx < len(labels) else None
 
             # Get color - use default if label_colors is None or label not found
-            if label_colors and label_id is not None:
-                color = label_colors.get(label_id)
-            else:
-                color = None
+            # if label_colors and label_id is not None:
+            #     color = label_colors.get(label_id)
+            # else:
+            #     color = None
 
-            if color is None:
-                # Generate a deterministic color based on index if no color is provided
-                np.random.seed(idx)
-                color = tuple(np.random.randint(0, 255, 3).tolist())
+            # if color is None:
+            # Generate a deterministic color based on index if no color is provided
+            np.random.seed(idx)
+            color = tuple(np.random.randint(0, 255, 3).tolist())
 
             # Apply mask overlay
             mask_bool = mask.astype(bool)
@@ -108,13 +100,7 @@ class InferenceVisualizer:
 
         return overlay
 
-    def _draw_boxes(
-        self,
-        frame: np.ndarray,
-        boxes: torch.Tensor,
-        labels: torch.Tensor | None,
-        label_colors: dict[str, tuple[int, int, int]],
-    ) -> np.ndarray:
+    def _draw_boxes(self, frame: np.ndarray, boxes: torch.Tensor) -> np.ndarray:
         """
         Draw bounding boxes on the frame.
 
@@ -129,16 +115,17 @@ class InferenceVisualizer:
             return frame
 
         boxes_np = boxes.detach().cpu().numpy()
-        labels_np = labels.detach().cpu().numpy() if labels is not None else None
+        # labels_np = labels.detach().cpu().numpy() if labels is not None else None
 
         for i, box in enumerate(boxes_np):
             x1, y1, x2, y2, score = box
             # Get color from label_id or fallback
-            label_id = str(labels_np[i]) if labels_np is not None and i < len(labels_np) else None
-            color = label_colors.get(label_id) if label_id else None
-            if color is None:
-                logger.info("GENERATING BOX color for box %d", i)
-                color = self._generate_color(i)
+            # label_id = str(labels_np[i]) if labels_np is not None and i < len(labels_np) else None
+            # color = label_colors.get(label_id) if label_id else None
+            # if color is None:
+
+            logger.info("GENERATING BOX color for box %d", i)
+            color = self._generate_color(i)
 
             # Draw rectangle
             cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), color, thickness=2)
@@ -164,6 +151,6 @@ class InferenceVisualizer:
             RGB color tuple with values in range [0, 255].
         """
         hue = (index * 67) % 180  # Spread colors across hue spectrum
-        hsv = np.uint8([[[hue, 255, 255]]])
+        hsv = np.array([[[hue, 255, 255]]], dtype=np.uint8)
         rgb = cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)[0, 0]
         return int(rgb[0]), int(rgb[1]), int(rgb[2])
