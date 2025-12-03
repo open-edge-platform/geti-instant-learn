@@ -82,14 +82,14 @@ jobs:
         env:
           AI_DEVICE: ${{ inputs.ai_device || 'xpu' }}
         run: |
-          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c ai-device="$env:AI_DEVICE" gen-openapi
+          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c ai_extra="$env:AI_DEVICE" gen-openapi
 
       - name: Build executable
         working-directory: application/backend
         env:
           AI_DEVICE: ${{ inputs.ai_device || 'xpu' }}
         run: |
-          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c ai-device="$env:AI_DEVICE" pyinstaller
+          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c ai_extra="$env:AI_DEVICE" pyinstaller
 
       # Copy backend artifacts to UI
 

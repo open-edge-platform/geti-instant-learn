@@ -4,6 +4,7 @@
 import logging
 from uuid import UUID
 
+import cv2
 from getiprompt.data.base.batch import Batch
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -141,7 +142,7 @@ class PromptService(BaseService):
         for prompt in db_prompts:
             if prompt.frame_id:
                 try:
-                    frame = self.frame_repository.get_frame(project_id, prompt.frame_id)
+                    frame = self.frame_repository.read_frame(project_id, prompt.frame_id)
                     if frame is None:
                         logger.warning(
                             "Frame not found for prompt: prompt_id=%s, frame_id=%s, project_id=%s",
@@ -150,7 +151,9 @@ class PromptService(BaseService):
                             project_id,
                         )
                         continue
-                    samples.append(visual_prompt_to_sample(prompt, frame))
+                    # convert BGR to RGB to conform to the InputData contract
+                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    samples.append(visual_prompt_to_sample(prompt, frame_rgb))
                 except ServiceError:
                     logger.exception(
                         "Failed to convert prompt to sample: prompt_id=%s",
@@ -158,9 +161,9 @@ class PromptService(BaseService):
                     )
                     continue
 
+        logger.info(f"REFERENCE BATCH: Created batch with {len(samples)} samples: {samples}")
         if not samples:
             return None
-
         return Batch.collate(samples)
 
     def get_prompt(self, project_id: UUID, prompt_id: UUID) -> PromptSchema:

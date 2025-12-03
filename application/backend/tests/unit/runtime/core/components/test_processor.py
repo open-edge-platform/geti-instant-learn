@@ -47,7 +47,8 @@ class TestProcessor:
         self.mock_outbound_broadcaster = MagicMock(spec=FrameBroadcaster)
         self.mock_model_handler = MagicMock()
         self.mock_model_handler.infer.return_value = []  # Return empty results list
-        self.runner = Processor(self.mock_model_handler)
+        self.mock_label_service = MagicMock()
+        self.runner = Processor(self.mock_model_handler, self.mock_label_service)
         self.runner.setup(self.mock_inbound_broadcaster, self.mock_outbound_broadcaster)
 
     @pytest.mark.parametrize(

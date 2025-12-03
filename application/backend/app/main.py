@@ -25,13 +25,10 @@ from settings import get_settings
 settings = get_settings()
 settings.logs_dir.mkdir(parents=True, exist_ok=True)
 
-console_handler = logging.StreamHandler()
-file_handler = logging.FileHandler(filename=settings.log_file, encoding="utf8")
-logging.basicConfig(
-    handlers=[console_handler, file_handler],
-    level=logging.INFO if not settings.debug else logging.DEBUG,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+# logging.basicConfig(
+#     level=logging.INFO if not settings.debug else logging.DEBUG,
+#     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+# )
 logger = logging.getLogger(__name__)
 
 
@@ -39,6 +36,14 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """FastAPI lifespan context manager"""
     # Startup actions
+    console_handler = logging.StreamHandler()
+    file_handler = logging.FileHandler(filename=settings.log_file, encoding="utf8")
+    logging.basicConfig(
+        handlers=[console_handler, file_handler],
+        level=logging.DEBUG if settings.debug else logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        force=True,
+    )
     logger.info(f"Starting {settings.app_name} application...")
     run_db_migrations()
 
@@ -56,6 +61,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     # Shutdown actions
     logger.info(f"Shutting down {settings.app_name} application...")
+    app.state.config_dispatcher.shutdown()
     await app.state.webrtc_manager.cleanup()
     app.state.pipeline_manager.stop()
 
@@ -114,12 +120,17 @@ if (
 
 def main() -> None:
     """Main application entry point"""
+    log_config = uvicorn.config.LOGGING_CONFIG
+    log_config["formatters"]["default"]["fmt"] = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    log_config["formatters"]["access"]["fmt"] = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
     logger.info(f"Starting {settings.app_name} in {settings.environment} mode")
     uvicorn.run(
         app,
         host=settings.host,
         port=settings.port,
-        log_config=None,
+        log_level="debug" if settings.debug else "info",
+        log_config=log_config,
     )
 
 

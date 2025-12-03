@@ -44,7 +44,7 @@ class WebRTCManager:
         self._pcs[offer.webrtc_id] = ConnectionData(connection=pc, queue=rtc_queue)
 
         # Add video track
-        track = InferenceVideoStreamTrack(rtc_queue)
+        track = InferenceVideoStreamTrack(stream_queue=rtc_queue, enable_visualization=True)
         pc.addTrack(track)
 
         @pc.on("connectionstatechange")
