@@ -5,7 +5,7 @@
 
 import { ReactNode, useState } from 'react';
 
-import { Source } from '@geti-prompt/api';
+import { Source, SourceType } from '@geti-prompt/api';
 import { useGetSources } from '@geti-prompt/hooks';
 import { ImagesFolder as ImagesFolderIcon, WebCam } from '@geti-prompt/icons';
 import { Datasets } from '@geti/ui/icons';
@@ -30,12 +30,7 @@ const SourcesList = ({ onViewChange, sources }: SourcesList) => {
         onViewChange('existing');
     };
 
-    const sourcesList: {
-        label: string;
-        value: string;
-        content: ReactNode;
-        icon: ReactNode;
-    }[] = [
+    const sourcesList = [
         {
             label: 'Webcam',
             value: 'webcam',
@@ -67,11 +62,15 @@ const SourcesList = ({ onViewChange, sources }: SourcesList) => {
             content: <CreateSampleDataset onSaved={navigateToExistingView} />,
             icon: <Datasets width={'24px'} />,
         },
-    ].filter((source) => !sources.some((existingSource) => existingSource.config.source_type === source.value));
+    ] satisfies { label: string; value: SourceType; content: ReactNode; icon: ReactNode }[];
 
-    const defaultOpenSource = sourcesList.length === 1 ? sourcesList[0].value : undefined;
+    const visibleSourcesList = sourcesList.filter(
+        (source) => !sources.some((existingSource) => existingSource.config.source_type === source.value)
+    );
 
-    return <DisclosureGroup items={sourcesList} value={defaultOpenSource} />;
+    const defaultOpenSource = visibleSourcesList.length === 1 ? visibleSourcesList[0].value : undefined;
+
+    return <DisclosureGroup items={visibleSourcesList} value={defaultOpenSource} />;
 };
 
 interface AddSourceProps {

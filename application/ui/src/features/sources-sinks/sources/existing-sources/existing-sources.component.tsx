@@ -147,7 +147,9 @@ interface ExistingSourcesProps {
 const AVAILABLE_SOURCE_TYPES: SourceType[] = ['webcam', 'images_folder', 'sample_dataset'];
 
 export const ExistingSources = ({ sources, onViewChange, onSetSourceInEditionId }: ExistingSourcesProps) => {
-    const canCreateSource = sources.length < AVAILABLE_SOURCE_TYPES.length;
+    const canCreateSource = !AVAILABLE_SOURCE_TYPES.every((type) =>
+        sources.some((source) => source.config.source_type === type)
+    );
 
     return (
         <Flex direction={'column'} gap={'size-200'}>
