@@ -5,7 +5,7 @@
 
 import { ReactNode, useState } from 'react';
 
-import { SourceType } from '@geti-prompt/api';
+import { Source } from '@geti-prompt/api';
 import { useGetSources } from '@geti-prompt/hooks';
 import { ImagesFolder as ImagesFolderIcon, WebCam } from '@geti-prompt/icons';
 import { Datasets } from '@geti/ui/icons';
@@ -22,16 +22,17 @@ import { CreateWebcamSource } from './webcam/create-webcam-source.component';
 
 interface SourcesList {
     onViewChange: (view: SourcesViews) => void;
+    sources: Source[];
 }
 
-const SourcesList = ({ onViewChange }: SourcesList) => {
+const SourcesList = ({ onViewChange, sources }: SourcesList) => {
     const navigateToExistingView = () => {
         onViewChange('existing');
     };
 
     const sourcesList: {
         label: string;
-        value: SourceType;
+        value: string;
         content: ReactNode;
         icon: ReactNode;
     }[] = [
@@ -66,22 +67,25 @@ const SourcesList = ({ onViewChange }: SourcesList) => {
             content: <CreateSampleDataset onSaved={navigateToExistingView} />,
             icon: <Datasets width={'24px'} />,
         },
-    ];
+    ].filter((source) => !sources.some((existingSource) => existingSource.config.source_type === source.value));
 
-    return <DisclosureGroup items={sourcesList} />;
+    const defaultOpenSource = sourcesList.length === 1 ? sourcesList[0].value : undefined;
+
+    return <DisclosureGroup items={sourcesList} value={defaultOpenSource} />;
 };
 
 interface AddSourceProps {
+    sources: Source[];
     onViewChange: (view: SourcesViews) => void;
 }
 
-const AddSource = ({ onViewChange }: AddSourceProps) => {
+const AddSource = ({ onViewChange, sources }: AddSourceProps) => {
     return (
         <PipelineEntityPanel
             title={<PipelineEntityPanel.Title>Add new input source</PipelineEntityPanel.Title>}
             onBackClick={() => onViewChange('existing')}
         >
-            <SourcesList onViewChange={onViewChange} />
+            <SourcesList onViewChange={onViewChange} sources={sources} />
         </PipelineEntityPanel>
     );
 };
@@ -107,8 +111,8 @@ export const Sources = () => {
     }
 
     if (view === 'add') {
-        return <AddSource onViewChange={setView} />;
+        return <AddSource onViewChange={setView} sources={data.sources} />;
     }
 
-    return <SourcesList onViewChange={setView} />;
+    return <SourcesList onViewChange={setView} sources={data.sources} />;
 };
