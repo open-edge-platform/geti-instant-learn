@@ -73,7 +73,7 @@ fn main() {
                 Ok(())
             }
         })
-        .invoke_handler(tauri::generate_handler![geti_prompt_lib::py_api])
+        .invoke_handler(tauri::generate_handler![])
         .build(tauri::generate_context!())
         .expect("error building Tauri");
 
