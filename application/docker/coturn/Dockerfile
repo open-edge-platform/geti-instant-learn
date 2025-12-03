@@ -8,7 +8,10 @@ COPY turnserver.conf /etc/turnserver.conf
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+RUN useradd -m -u 1000 turnserver
+
 EXPOSE 443
 
+USER non-root
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["turnserver", "-c", "/etc/turnserver.conf"]
