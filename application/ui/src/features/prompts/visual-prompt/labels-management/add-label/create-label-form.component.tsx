@@ -54,15 +54,13 @@ export const CreateLabelForm = ({ onClose, existingLabels = [], onSuccess }: Cre
             },
             {
                 onSuccess: async () => {
-                    // await new Promise((r) => setTimeout(r, 5000));
-
                     if (selectedLabelId === null) {
                         setSelectedLabelId(label.id);
                     }
 
-                    onClose();
-
                     onSuccess?.(label);
+
+                    onClose();
                 },
             }
         );

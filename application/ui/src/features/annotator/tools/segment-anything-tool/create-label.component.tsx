@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { LabelType } from '@geti-prompt/api';
 import { Point } from '@geti/smart-tools/types';
-import { ActionButton, Flex, Overlay, View } from '@geti/ui';
+import { ActionButton, DOMRefValue, Flex, Overlay, View } from '@geti/ui';
 import { Close } from '@geti/ui/icons';
 
 import { CreateLabelForm } from '../../../prompts/visual-prompt/labels-management/add-label/create-label-form.component';
@@ -63,8 +63,53 @@ interface CreateLabelProps {
     existingLabels: LabelType[];
 }
 
+const useCloseOnOutsideClick = (onClose: () => void) => {
+    const labelContainerRef = useRef<DOMRefValue<HTMLDivElement>>(null);
+
+    const onClickOutsideRef = useRef(onClose);
+
+    useEffect(() => {
+        onClickOutsideRef.current = onClose;
+    }, [onClose]);
+
+    useEffect(() => {
+        const abortController = new AbortController();
+
+        document.addEventListener(
+            'click',
+            (event) => {
+                const node = labelContainerRef.current;
+
+                if (node === null) return;
+
+                const nodeBoundingBox = node.UNSAFE_getDOMNode()?.getBoundingClientRect();
+
+                if (nodeBoundingBox === undefined) return;
+
+                if (
+                    event.clientY < nodeBoundingBox.top ||
+                    event.clientY > nodeBoundingBox.bottom ||
+                    event.clientX < nodeBoundingBox.left ||
+                    event.clientX > nodeBoundingBox.right
+                ) {
+                    onClickOutsideRef.current();
+
+                    return;
+                }
+            },
+            { signal: abortController.signal }
+        );
+        return () => {
+            abortController.abort();
+        };
+    }, [labelContainerRef]);
+
+    return labelContainerRef;
+};
+
 export const CreateLabel = ({ point, onClose, onSuccess, existingLabels }: CreateLabelProps) => {
     const nodeRef = useRef(null);
+    const labelContainerRef = useCloseOnOutsideClick(onClose);
 
     if (point === undefined) return null;
 
@@ -83,6 +128,7 @@ export const CreateLabel = ({ point, onClose, onSuccess, existingLabels }: Creat
                 }}
             >
                 <View
+                    ref={labelContainerRef}
                     backgroundColor={'gray-50'}
                     padding={'size-200'}
                     height={'100%'}
