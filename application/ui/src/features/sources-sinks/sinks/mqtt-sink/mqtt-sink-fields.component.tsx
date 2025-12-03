@@ -3,23 +3,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Checkbox, CheckboxGroup, Flex, NumberField, TextField } from '@geti/ui';
+import { Flex, NumberField, Switch, TextField } from '@geti/ui';
 
 export const MQTTSinkFields = () => {
     return (
         <>
-            <TextField label={'Name'} />
-            <TextField label={'Broker Host'} />
+            <TextField isRequired label={'Name'} name={'name'} />
+            <TextField isRequired label={'Broker Host'} name={'broker_host'} />
             <Flex alignItems={'center'} gap={'size-200'}>
-                <TextField flex={1} label={'Topic'} />
-                <NumberField flexBasis={'40%'} label={'Broker port'} />
+                <TextField isRequired flex={1} label={'Topic'} name={'topic'} />
+                <NumberField isRequired flexBasis={'40%'} label={'Broker port'} name={'broker_port'} />
             </Flex>
-            <NumberField width={'40%'} label={'Rate limit'} />
-            <CheckboxGroup label={'Output formats'}>
-                <Checkbox isEmphasized>Predictions</Checkbox>
-                <Checkbox isEmphasized>Image original</Checkbox>
-                <Checkbox isEmphasized>Image with predictions</Checkbox>
-            </CheckboxGroup>
+
+            <Switch isEmphasized name={'auth_required'}>
+                Auth required
+            </Switch>
         </>
     );
 };
