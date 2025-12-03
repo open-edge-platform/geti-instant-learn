@@ -1,6 +1,6 @@
-# WebRTC Connectivity & Coturn Setup
+## WebRTC Connectivity & Coturn Setup
 
-## Understanding WebRTC Connectivity (ICE, STUN, TURN)
+### Understanding WebRTC Connectivity (ICE, STUN, TURN)
 
 WebRTC is designed to establish a direct Peer-to-Peer (P2P) connection between two devices (peers) to stream video and data with minimal latency. However, devices are rarely connected directly to the open internet; they sit behind firewalls and NAT routers.
 
@@ -20,7 +20,7 @@ To overcome this, WebRTC uses a protocol called **ICE** (Interactive Connectivit
     *   Peer A sends data to the TURN server -> TURN server relays it to Peer B.
     *   *Works if:* Almost always, as long as the TURN server itself is reachable.
 
-## When Do You Need a TURN Server?
+### When Do You Need a TURN Server?
 
 You absolutely need a TURN server in **Restrictive Network Environments**, such as:
 *   **Corporate Offices:** Where firewalls block all non-standard ports and UDP traffic.
@@ -29,17 +29,17 @@ You absolutely need a TURN server in **Restrictive Network Environments**, such 
 
 If your video stream fails to load in these environments, it is likely because the direct P2P connection is blocked, and you have no TURN server configured to relay the traffic.
 
-## What is Coturn?
+### What is Coturn?
 
 **Coturn** is a mature, open-source implementation of a TURN and STUN server. It is widely used in the industry to power WebRTC infrastructure.
 
 In this project, we provide a Dockerized version of Coturn configured specifically to bypass strict firewalls by masquerading as standard web traffic.
 
-## How to Use with Docker & Just
+### How to Use with Docker & Just
 
 We have automated the entire setup using `just` (a command runner) and Docker.
 
-### 1. Start the TURN Server
+#### 1. Start the TURN Server
 Run the following command to build the Coturn Docker image and start the server:
 
 ```bash
@@ -54,7 +54,7 @@ just run-coturn
     *   *Note:* The port is configurable. If you need to change it, update `coturn-port` in the `Justfile` AND `listening-port` in `application/docker/coturn/turnserver.conf`.
     *   It configures the server to accept **TCP** connections (since UDP is often blocked).
 
-### 2. Run the Application
+#### 2. Run the Application
 Once the TURN server is running, start the main application stack with the `enable-coturn` flag:
 
 ```bash
@@ -68,14 +68,14 @@ just enable-coturn=true run-image
 
 *Note: If you run `just run-image` without the flag, the application will start without any TURN server configuration.*
 
-### 3. Stop the Server
+#### 3. Stop the Server
 When you are finished testing, stop the server to free up port 443:
 
 ```bash
 just stop-coturn
 ```
 
-## Configuration Details (`turnserver.conf`)
+### Configuration Details (`turnserver.conf`)
 
 The server is pre-configured with settings in `application/docker/coturn/turnserver.conf`:
 
