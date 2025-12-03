@@ -18,6 +18,7 @@ interface AnnotationsContextValue {
     annotations: Annotation[];
     addAnnotations: (shapes: Shape[], labels: LabelType[]) => void;
     deleteAnnotations: (annotationIds: string[]) => void;
+    deleteAllAnnotations: () => void;
     updateAnnotations: (updatedAnnotations: Annotation[]) => void;
     isUserReviewed: boolean;
 }
@@ -78,6 +79,10 @@ export const AnnotationActionsProvider = ({
         isDirty.current = true;
     };
 
+    const deleteAllAnnotations = () => {
+        setAnnotations([]);
+    };
+
     return (
         <AnnotationsContext.Provider
             value={{
@@ -88,6 +93,7 @@ export const AnnotationActionsProvider = ({
                 addAnnotations,
                 updateAnnotations,
                 deleteAnnotations,
+                deleteAllAnnotations,
             }}
         >
             <UndoRedoProvider state={undoRedoActions}>{children}</UndoRedoProvider>

@@ -6,13 +6,13 @@
 import { ActionButton, Tooltip, TooltipTrigger } from '@geti/ui';
 import { Refresh } from '@geti/ui/icons';
 
-import { useUndoRedo } from './undo-redo/undo-redo-provider.component';
+import { useAnnotationActions } from '../providers/annotation-actions-provider.component';
 
 export const ResetAnnotations = () => {
-    const { reset } = useUndoRedo();
+    const { deleteAllAnnotations } = useAnnotationActions();
 
     const resetAnnotations = () => {
-        reset([]);
+        deleteAllAnnotations();
     };
 
     return (

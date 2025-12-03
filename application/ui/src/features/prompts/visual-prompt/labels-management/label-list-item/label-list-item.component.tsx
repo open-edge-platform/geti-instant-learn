@@ -10,7 +10,7 @@ import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { ActionButton, Tooltip, TooltipTrigger } from '@geti/ui';
 import { Close, Edit } from '@geti/ui/icons';
 
-import { useUndoRedo } from '../../../../annotator/actions/undo-redo/undo-redo-provider.component';
+import { useAnnotationActions } from '../../../../annotator/providers/annotation-actions-provider.component';
 import { useVisualPrompt } from '../../visual-prompt-provider.component';
 import { useDeleteLabel } from '../api/use-delete-label';
 import { useUpdateLabel } from '../api/use-update-label';
@@ -31,7 +31,7 @@ const LabelListItemView = ({ label, onSelect, isSelected, onEdit }: LabelListIte
     const deleteLabelMutation = useDeleteLabel();
 
     const { prompt, setSelectedLabelId } = useVisualPrompt();
-    const { reset } = useUndoRedo();
+    const { deleteAllAnnotations } = useAnnotationActions();
 
     const deleteLabel = () => {
         deleteLabelMutation.mutate(
@@ -49,7 +49,7 @@ const LabelListItemView = ({ label, onSelect, isSelected, onEdit }: LabelListIte
                     // user to delete that label.
                     setSelectedLabelId(null);
                     if (prompt === undefined) {
-                        reset([]);
+                        deleteAllAnnotations();
                     }
                 },
             }

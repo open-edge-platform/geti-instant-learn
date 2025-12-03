@@ -8,13 +8,20 @@ import { getMockedLabel, render } from '@geti-prompt/test-utils';
 import { fireEvent, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
-import { vi } from 'vitest';
+import { beforeEach, vi } from 'vitest';
 
 import { http, server } from '../../../../../setup-test';
 import { SelectedFrameProvider } from '../../../../../shared/selected-frame-provider.component';
-import { UndoRedoProvider } from '../../../../annotator/actions/undo-redo/undo-redo-provider.component';
 import { useVisualPrompt, VisualPromptProvider } from '../../visual-prompt-provider.component';
 import { LabelListItem } from './label-list-item.component';
+
+const mockDeleteAllAnnotations = vi.fn();
+
+vi.mock('../../../../annotator/providers/annotation-actions-provider.component', () => ({
+    useAnnotationActions: () => ({
+        deleteAllAnnotations: mockDeleteAllAnnotations,
+    }),
+}));
 
 const App = ({
     label,
@@ -42,20 +49,16 @@ const renderLabelListItem = async ({
     existingLabels = [],
     isSelected = true,
     onSelect = vi.fn(),
-    reset = vi.fn(),
 }: {
     label?: LabelType;
     existingLabels?: LabelType[];
     isSelected?: boolean;
     onSelect?: () => void;
-    reset?: () => void;
 }) => {
     render(
         <SelectedFrameProvider>
             <VisualPromptProvider>
-                <UndoRedoProvider state={{ undo: vi.fn(), redo: vi.fn(), canRedo: false, canUndo: false, reset }}>
-                    <App label={label} onSelect={onSelect} isSelected={isSelected} existingLabels={existingLabels} />
-                </UndoRedoProvider>
+                <App label={label} onSelect={onSelect} isSelected={isSelected} existingLabels={existingLabels} />
             </VisualPromptProvider>
         </SelectedFrameProvider>
     );
@@ -64,6 +67,10 @@ const renderLabelListItem = async ({
 };
 
 describe('LabelListItem', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
     it('deletes label and resets selected label', async () => {
         let labelIdToBeRemoved: string | null = null;
         const label = {
@@ -94,9 +101,7 @@ describe('LabelListItem', () => {
             })
         );
 
-        const mockReset = vi.fn();
-
-        await renderLabelListItem({ label, onSelect: vi.fn(), isSelected: true, existingLabels: [], reset: mockReset });
+        await renderLabelListItem({ label, onSelect: vi.fn(), isSelected: true, existingLabels: [] });
 
         expect(screen.getByLabelText('Selected label id')).toHaveTextContent(label.id);
 
@@ -106,8 +111,8 @@ describe('LabelListItem', () => {
 
         await waitFor(() => {
             expect(labelIdToBeRemoved).toBe(label.id);
-            expect(mockReset).toHaveBeenCalled();
             expect(screen.getByLabelText('Selected label id')).toHaveTextContent('Empty');
+            expect(mockDeleteAllAnnotations).toHaveBeenCalled();
         });
     });
 
