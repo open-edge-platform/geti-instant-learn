@@ -9,12 +9,24 @@ from uuid import UUID
 
 from fastapi import Depends, status
 
-from api.routers import projects_router
+from api.routers import projects_router, webrtc_router
 from dependencies import get_webrtc_manager
 from domain.services.schemas.webrtc import Answer, Offer
 from runtime.webrtc.manager import WebRTCManager
+from settings import get_settings
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
+
+
+@webrtc_router.get(
+    path="/config",
+    tags=["WebRTC"],
+    response_model=dict,
+)
+async def get_webrtc_config() -> dict:
+    """Get WebRTC configuration including ICE servers"""
+    return {"iceServers": settings.ice_servers}
 
 
 @projects_router.post(

@@ -4,3 +4,4 @@
 from fastapi import APIRouter
 
 projects_router = APIRouter(prefix="/projects")
+webrtc_router = APIRouter(prefix="/webrtc")

@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 
 import api.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
 from api.error_handler import custom_exception_handler
-from api.routers import projects_router
+from api.routers import projects_router, webrtc_router
 from domain.db.engine import get_session_factory, run_db_migrations
 from domain.dispatcher import ConfigChangeDispatcher
 from runtime.pipeline_manager import PipelineManager
@@ -94,6 +94,7 @@ async def health_check() -> dict[str, str]:
 
 
 app.include_router(projects_router, prefix="/api/v1")
+app.include_router(webrtc_router, prefix="/api/v1")
 
 if (
     settings.static_files_dir

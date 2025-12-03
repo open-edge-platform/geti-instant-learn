@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, Json
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -70,6 +70,9 @@ class Settings(BaseSettings):
     thumbnail_min_line_thickness: int = 2
     thumbnail_fill_opacity: float = 0.5  # 50% opacity for annotation fill
     thumbnail_jpeg_quality: int = 85
+
+    # WebRTC
+    ice_servers: Json[list[dict]] = Field(default=[], alias="ICE_SERVERS")
 
 
 @lru_cache
