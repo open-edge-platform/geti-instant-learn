@@ -32,7 +32,7 @@ Answers to common questions about Geti Prompt Application.
 
 **Didn't find your answer?**
 
-- Search the [How-to Guides](./how-to-guides/) for your topic
-- Review [Concepts](./concepts/) for technical details
-- Check [Tutorials](./tutorials/) for step-by-step help
+- Search the [How-to Guides](./how-to-guides/01-how-to-guides.md) for your topic
+- Review [Concepts](./concepts/01-concepts.md) for technical details
+- Check [Tutorials](./tutorials/01-tutorials.md) for step-by-step help
 - Open an issue on GitHub
