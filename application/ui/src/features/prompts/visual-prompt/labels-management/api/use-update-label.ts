@@ -12,6 +12,9 @@ const useUpdateLabelMutation = (projectId: string) => {
             invalidates: [
                 ['get', '/api/v1/projects/{project_id}/labels', { params: { path: { project_id: projectId } } }],
             ],
+            error: {
+                notify: true,
+            },
         },
     });
 };

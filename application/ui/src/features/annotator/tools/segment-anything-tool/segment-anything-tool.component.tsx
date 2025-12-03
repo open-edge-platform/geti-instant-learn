@@ -5,6 +5,7 @@
 
 import { CSSProperties, PointerEvent, useEffect, useRef, useState } from 'react';
 
+import { LabelType } from '@geti-prompt/api';
 import { clampPointBetweenImage } from '@geti/smart-tools/utils';
 
 import { useZoom } from '../../../../components/zoom/zoom.provider';
@@ -16,6 +17,7 @@ import { useAnnotator } from '../../providers/annotator-provider.component';
 import { type Annotation as AnnotationType, type Shape } from '../../types';
 import { SvgToolCanvas } from '../svg-tool-canvas.component';
 import { getRelativePoint, removeOffLimitPoints } from '../utils';
+import { CreateLabel, useCreateLabelFormPosition } from './create-label.component';
 import { SAMLoading } from './sam-loading.component';
 import { InteractiveAnnotationPoint } from './segment-anything.interface';
 import { useSegmentAnythingModel } from './use-segment-anything.hook';
@@ -34,11 +36,12 @@ const THROTTLE_TIME = 150;
 export const SegmentAnythingTool = () => {
     const [mousePosition, setMousePosition] = useState<InteractiveAnnotationPoint>();
     const [previewShapes, setPreviewShapes] = useState<Shape[]>([]);
+    const [createLabelFormPosition, setCreateLabelFormPosition] = useCreateLabelFormPosition();
 
     const zoom = useZoom();
     const { roi, image } = useAnnotator();
     const { addAnnotations } = useAnnotationActions();
-    const { selectedLabel } = useVisualPrompt();
+    const { selectedLabel, labels } = useVisualPrompt();
     const { isLoading, decodingQueryFn } = useSegmentAnythingModel();
     const throttledDecodingQueryFn = useSingleStackFn(decodingQueryFn);
 
@@ -73,12 +76,20 @@ export const SegmentAnythingTool = () => {
             return;
         }
 
+        if (createLabelFormPosition !== undefined) {
+            return;
+        }
+
         const point = clampPoint(getRelativePoint(ref.current, { x: event.clientX, y: event.clientY }, zoom.scale));
 
         throttleSetMousePosition({ ...point, positive: true });
     };
 
-    const onPointerUp = (event: PointerEvent<SVGSVGElement>) => {
+    const handleAddAnnotations = (label: LabelType) => {
+        addAnnotations(previewShapes, [label]);
+    };
+
+    const handlePointerDown = (event: PointerEvent<SVGSVGElement>) => {
         if (!ref.current) {
             return;
         }
@@ -87,7 +98,15 @@ export const SegmentAnythingTool = () => {
             return;
         }
 
-        addAnnotations(previewShapes, selectedLabel ? [selectedLabel] : []);
+        if (previewShapes.length === 0) {
+            return;
+        }
+
+        if (selectedLabel == null) {
+            setCreateLabelFormPosition({ x: event.clientX, y: event.clientY });
+        } else {
+            handleAddAnnotations(selectedLabel);
+        }
     };
 
     const previewAnnotations = previewShapes.map((shape, idx): AnnotationType => {
@@ -100,47 +119,64 @@ export const SegmentAnythingTool = () => {
         };
     });
 
+    const handleClose = () => {
+        setCreateLabelFormPosition(undefined);
+    };
+
     if (isLoading) {
         return <SAMLoading isLoading={isLoading} />;
     }
 
     return (
-        <SvgToolCanvas
-            aria-label='SAM tool canvas'
-            image={image}
-            canvasRef={ref}
-            onPointerMove={handleMouseMove}
-            onPointerUp={onPointerUp}
-            onPointerLeave={() => {
-                throttleSetMousePosition.cancel();
-                setMousePosition(undefined);
-                setPreviewShapes([]);
-            }}
-            style={{
-                cursor: `url("/icons/selection.svg") 8 8, auto`,
-            }}
-        >
-            {previewAnnotations.length > 0 && (
-                <MaskAnnotations isEnabled annotations={previewAnnotations} width={image.width} height={image.height}>
-                    {previewAnnotations.map((annotation) => (
-                        <g
-                            key={annotation.id}
-                            aria-label='Segment anything preview'
-                            style={
-                                {
-                                    '--energy-blue-shade': '#0095ca',
-                                } as CSSProperties
-                            }
-                            stroke={'var(--energy-blue-shade)'}
-                            strokeWidth={'calc(3px / var(--zoom-scale))'}
-                            fill={'transparent'}
-                            className={classes.animateStroke}
-                        >
-                            <AnnotationShape annotation={annotation} />
-                        </g>
-                    ))}
-                </MaskAnnotations>
-            )}
-        </SvgToolCanvas>
+        <>
+            <SvgToolCanvas
+                aria-label='SAM tool canvas'
+                image={image}
+                canvasRef={ref}
+                onPointerMove={handleMouseMove}
+                onPointerDown={handlePointerDown}
+                onPointerLeave={() => {
+                    throttleSetMousePosition.cancel();
+                    setMousePosition(undefined);
+                    setPreviewShapes([]);
+                }}
+                style={{
+                    cursor: `url("/icons/selection.svg") 8 8, auto`,
+                }}
+            >
+                {previewAnnotations.length > 0 && (
+                    <MaskAnnotations
+                        isEnabled
+                        annotations={previewAnnotations}
+                        width={image.width}
+                        height={image.height}
+                    >
+                        {previewAnnotations.map((annotation) => (
+                            <g
+                                key={annotation.id}
+                                aria-label='Segment anything preview'
+                                style={
+                                    {
+                                        '--energy-blue-shade': '#0095ca',
+                                    } as CSSProperties
+                                }
+                                stroke={'var(--energy-blue-shade)'}
+                                strokeWidth={'calc(3px / var(--zoom-scale))'}
+                                fill={'transparent'}
+                                className={classes.animateStroke}
+                            >
+                                <AnnotationShape annotation={annotation} />
+                            </g>
+                        ))}
+                    </MaskAnnotations>
+                )}
+                <CreateLabel
+                    point={createLabelFormPosition}
+                    onClose={handleClose}
+                    onSuccess={handleAddAnnotations}
+                    existingLabels={labels}
+                />
+            </SvgToolCanvas>
+        </>
     );
 };
