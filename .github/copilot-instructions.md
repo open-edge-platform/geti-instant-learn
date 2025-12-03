@@ -4,7 +4,7 @@
 
 ## Table of Contents
 
-- [GitHub Copilot Instructions for Geti Prompt](#github-copilot-instructions-for-geti-action)
+- [GitHub Copilot Instructions for Geti Prompt](#github-copilot-instructions-for-geti-prompt)
   - [Table of Contents](#table-of-contents)
   - [Project Overview](#project-overview)
   - [Coding Standards](#coding-standards)
@@ -30,7 +30,7 @@ Full-stack application with:
 
 - **Backend**: Python FastAPI (`application/backend/`)
 - **Frontend**: React/TypeScript (`application/ui/`)
-- **Library**: Vision-language-action policies (`library/`)
+- **Library**: Zero/Few-shot Vision and Text Prompt Models (`library/`)
 
 ## Coding Standards
 
