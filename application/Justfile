@@ -18,7 +18,7 @@ ai-device := "cpu"  # options: cpu, gpu, xpu
 component-name := "geti-prompt"
 images-registry := 'localhost:5000/open-edge-platform'
 version := `cat $(git rev-parse --show-toplevel 2>/dev/null)/VERSION`
-docker-image := images-registry / component-name + ":" + version + "-" + ai-device
+docker-image := images-registry / component-name / ai-device + ":" + version
 
 # -------------------------------------------------------------------------------------------------
 # Variables used in the Justfile to build in Docker image for Geti Prompt
@@ -92,7 +92,7 @@ build-image: download-dataset
         --build-arg TARGET_DATASET_DIR={{ target-dataset-dir }} \
         --tag "{{ docker-image }}" \
         --file docker/Dockerfile . \
-        --target {{ component-name }}-{{ ai-device }}
+        --target {{ ai-device }}
 
 # launch geti prompt with optional webcam, volume and port mapping
 run-image: build-image
