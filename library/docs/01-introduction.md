@@ -4,7 +4,7 @@
 
 ---
 
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE) [![Python Version](https://img.shields.io/badge/python-%3E%3D3.10-blue.svg)](https://www.python.org/downloads/) [![version](https://img.shields.io/badge/version-0.1.0-lightgrey.svg)](pyproject.toml)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/open-edge-platform/geti-prompt/blob/main/LICENSE) [![Python Version](https://img.shields.io/badge/python-%3E%3D3.10-blue.svg)](https://www.python.org/downloads/) [![version](https://img.shields.io/badge/version-0.1.0-lightgrey.svg)](https://github.com/open-edge-platform/geti-prompt/blob/main/library/pyproject.toml)
 
 This project provides a robust platform for experimenting with various visual prompting techniques. Its core strength lies in a highly **modular pipeline design**, allowing researchers and developers to easily combine, swap, and extend different components such as backbone networks, feature extractors, matching algorithms, and mask generators.
 
@@ -203,8 +203,8 @@ getiprompt benchmark --model all --dataset_name all --class_name all
 getiprompt benchmark --dataset_root /custom/path --class_name benchmark
 ```
 
-See [`src/getiprompt/utils/args.py`](src/getiprompt/utils/args.py) or run `getiprompt benchmark --help` for all available command-line options. Results (metrics and visualizations) are saved to `~/outputs/` by default.
+See [`src/getiprompt/utils/args.py`](https://github.com/open-edge-platform/geti-prompt/blob/main/library/src/getiprompt/utils/args.py) or run `getiprompt benchmark --help` for all available command-line options. Results (metrics and visualizations) are saved to `~/outputs/` by default.
 
 ## Acknowledgements
 
-This project builds upon and utilizes code from several excellent open-source repositories. We thank the authors for their contributions. A full list of third party software can be found in the [third-party-programs.txt](../../third-party-programs.txt) file.
+This project builds upon and utilizes code from several excellent open-source repositories. We thank the authors for their contributions. A full list of third party software can be found in the [third-party-programs.txt](https://github.com/open-edge-platform/geti-prompt/blob/main/third-party-programs.txt) file.
