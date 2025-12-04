@@ -291,12 +291,12 @@ def test_pipeline_config_with_active_source(service, repo_mock):
 
 def test_pipeline_config_without_active_source(service, repo_mock):
     pid = uuid.uuid4()
-    source_disactive = SimpleNamespace(
+    inactive_source = SimpleNamespace(
         id=uuid.uuid4(),
         active=False,
         config={"source_type": "webcam"},
     )
-    project_active = make_project(project_id=pid, active=True, sources=[source_disactive])
+    project_active = make_project(project_id=pid, active=True, sources=[inactive_source])
     repo_mock.get_by_id.return_value = project_active
 
     cfg = service.get_pipeline_config(pid)
