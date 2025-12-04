@@ -31,6 +31,7 @@ export const EditMQTTSink = ({ sink, onSaved }: EditMQTTSinkProps) => {
                 body: {
                     config: {
                         sink_type: 'mqtt',
+                        name: formData.name.toString(),
                         broker_port: Number(formData.broker_port),
                         broker_host: formData.broker_host.toString(),
                         topic: formData.topic.toString(),

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { SinkType } from '@geti-prompt/api';
+import { SinkConfig, SinkType } from '@geti-prompt/api';
 import { useCurrentProject } from '@geti-prompt/hooks';
 import { orderBy } from 'lodash-es';
 
@@ -14,12 +14,12 @@ import { MQTTSinkCard } from '../mqtt-sink/mqtt-sink-card.component';
 import { isMQTTSink, SinkViews } from '../utils';
 
 interface ExistingSinksListProps {
-    sinks: SinkType[];
+    sinks: SinkConfig[];
     onViewChange: (view: SinkViews) => void;
     onSetSinkInEditionId: (sinkId: string) => void;
 }
 
-const sortSinks = (sinks: SinkType[]): SinkType[] => {
+const sortSinks = (sinks: SinkConfig[]): SinkConfig[] => {
     return orderBy(sinks, (sink) => sink.active, 'desc');
 };
 
@@ -58,7 +58,7 @@ const ExistingSinksList = ({ sinks, onSetSinkInEditionId, onViewChange }: Existi
     const deleteSinkMutation = useDeleteSink();
     const updateSinkMutation = useUpdateSink();
 
-    const handleAction = (sink: SinkType) => (action: string) => {
+    const handleAction = (sink: SinkConfig) => (action: string) => {
         if (action === 'delete') {
             deleteSinkMutation.mutate(
                 {
@@ -115,19 +115,27 @@ const ExistingSinksList = ({ sinks, onSetSinkInEditionId, onViewChange }: Existi
 };
 
 interface ExistingSinksProps {
-    sinks: SinkType[];
+    sinks: SinkConfig[];
     onViewChange: (view: SinkViews) => void;
     onSetSinkInEditionId: (sinkId: string) => void;
 }
 
+const AVAILABLE_SINK_TYPES: SinkType[] = ['mqtt'];
+
 export const ExistingSinks = ({ sinks, onSetSinkInEditionId, onViewChange }: ExistingSinksProps) => {
+    const canAddSink = !AVAILABLE_SINK_TYPES.every((sinkType) =>
+        sinks.some((sink) => sink.config.sink_type === sinkType)
+    );
+
     return (
         <ExistingPipelineEntities
             addNewEntityButton={
-                <ExistingPipelineEntities.AddNewEntityButton
-                    text={'Add new sink'}
-                    onPress={() => onViewChange('add')}
-                />
+                canAddSink && (
+                    <ExistingPipelineEntities.AddNewEntityButton
+                        text={'Add new sink'}
+                        onPress={() => onViewChange('add')}
+                    />
+                )
             }
         >
             <ExistingSinksList sinks={sinks} onSetSinkInEditionId={onSetSinkInEditionId} onViewChange={onViewChange} />

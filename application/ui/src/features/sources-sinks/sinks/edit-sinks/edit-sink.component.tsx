@@ -5,7 +5,7 @@
 
 import { ReactNode } from 'react';
 
-import { SinkType } from '@geti-prompt/api';
+import { SinkConfig } from '@geti-prompt/api';
 
 import { PipelineEntityPanel } from '../../pipeline-entity-panel/pipeline-entity-panel.component';
 import { EditMQTTSink } from '../mqtt-sink/edit-mqtt-sink.component';
@@ -29,7 +29,7 @@ const EditSinkContainer = ({ title, children, onBackClick }: EditSinkContainerPr
 };
 
 interface EditSinkProps {
-    sink: SinkType;
+    sink: SinkConfig;
     onViewChange: (view: SinkViews) => void;
 }
 
