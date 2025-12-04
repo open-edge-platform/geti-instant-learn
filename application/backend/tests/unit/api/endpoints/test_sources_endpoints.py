@@ -422,7 +422,7 @@ def test_seek_frame(client, behavior, expected_status, seek_index):  # noqa: C90
 
 
 def test_seek_frame_not_connected_error_message(client):
-    """Test that seeking a non-connected source returns appropriate error message."""
+    """Test that seeking an inactive source returns appropriate error message."""
 
     class FakeService:
         def __init__(self, session, config_change_dispatcher):
@@ -441,5 +441,5 @@ def test_seek_frame_not_connected_error_message(client):
     resp = client.post(f"/api/v1/projects/{PROJECT_ID}/sources/{SOURCE_ID_1}/frames/10")
     assert resp.status_code == 400
     data = resp.json()
-    assert "not currently connected" in data["detail"]
+    assert "not currently active" in data["detail"]
     assert str(SOURCE_ID_1) in data["detail"]

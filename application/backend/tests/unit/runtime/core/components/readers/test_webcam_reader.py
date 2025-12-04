@@ -38,7 +38,7 @@ class TestWebCamReader:
 
         reader.connect()
 
-        assert reader._active is True
+        assert reader._connected is True
         assert reader._cap is not None
         assert reader._cap.isOpened()
 

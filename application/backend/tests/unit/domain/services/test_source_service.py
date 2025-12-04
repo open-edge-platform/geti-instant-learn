@@ -260,7 +260,7 @@ def test_update_source_success(service, dispatcher_mock):
     service.source_repository.update.return_value = existing
 
     update_schema = SourceUpdateSchema(
-        connected=True,
+        active=True,
         config=WebCamConfig(source_type=SourceType.WEBCAM, name="Renamed", device_id=5),
     )
 
@@ -294,7 +294,7 @@ def test_update_source_type_change_conflict(service, tmp_path):
     video_file.write_bytes(b"fake video content")
 
     update_schema = SourceUpdateSchema(
-        connected=False,
+        active=False,
         config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path=str(video_file)),
     )
 
@@ -309,7 +309,7 @@ def test_update_source_not_found(service):
     service.project_repository.get_by_id.return_value = make_project(project_id)
     service.source_repository.get_by_id_and_project.return_value = None
     update_schema = SourceUpdateSchema(
-        connected=False,
+        active=False,
         config=WebCamConfig(source_type=SourceType.WEBCAM, name="X", device_id=0),
     )
 
@@ -360,12 +360,12 @@ def test_create_source_emits_event_when_connected_false(service, dispatcher_mock
     service.project_repository.get_by_id.return_value = make_project(project_id)
     service.source_repository.get_active_in_project.return_value = None
 
-    new_source = make_source(source_id=new_id, project_id=project_id, connected=False)
+    new_source = make_source(source_id=new_id, project_id=project_id, active=False)
     service.source_repository.add.return_value = new_source
 
     create_schema = SourceCreateSchema(
         id=new_id,
-        connected=False,
+        active=False,
         config=WebCamConfig(source_type=SourceType.WEBCAM, device_id=3),
     )
 
@@ -383,13 +383,13 @@ def test_update_source_emits_event_when_no_connection_change(service, dispatcher
     project_id = uuid.uuid4()
     source_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
-    existing = make_source(project_id=project_id, source_id=source_id, source_type=SourceType.WEBCAM, connected=True)
+    existing = make_source(project_id=project_id, source_id=source_id, source_type=SourceType.WEBCAM, active=True)
     service.source_repository.get_by_id_and_project.return_value = existing
-    service.source_repository.get_active_in_project.return_value = existing  # already connected
+    service.source_repository.get_active_in_project.return_value = existing  # already active
     service.source_repository.update.return_value = existing
 
     update_schema = SourceUpdateSchema(
-        connected=True,
+        active=True,
         config=WebCamConfig(source_type=SourceType.WEBCAM, device_id=7),
     )
 
