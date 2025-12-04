@@ -269,7 +269,7 @@ def test_update_source_success(service, dispatcher_mock):
     assert result.id == source_id
     assert existing.active is True
     assert existing.config["device_id"] == 5
-    assert prev_connected.active is False
+    assert prev_active.active is False
     service.session.commit.assert_called_once()
 
     # two events should be dispatched: one for disconnecting the previous source, one for updating the current
@@ -278,7 +278,7 @@ def test_update_source_success(service, dispatcher_mock):
     assert all(isinstance(ev, ComponentConfigChangeEvent) for ev in events)
     assert all(ev.project_id == project_id for ev in events)
     assert all(ev.component_type == "source" for ev in events)
-    assert events[0].component_id == str(prev_connected.id)
+    assert events[0].component_id == str(prev_active.id)
     assert events[1].component_id == str(source_id)
 
 

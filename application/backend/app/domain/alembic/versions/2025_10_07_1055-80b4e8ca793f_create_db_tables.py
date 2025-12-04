@@ -163,18 +163,6 @@ def upgrade() -> None:
         sqlite_where=sa.text('active IS 1')
     )
 
-    op.create_table('Annotation',
-    sa.Column('config', sqlite.JSON(), nullable=False),
-    sa.Column('label_id', sa.Uuid(), nullable=True),
-    sa.Column('prompt_id', sa.Uuid(), nullable=False),
-    sa.Column('id', sa.Uuid(), nullable=False),
-    sa.Column("created_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
-    sa.Column("updated_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
-    sa.ForeignKeyConstraint(['label_id'], ['Label.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['prompt_id'], ['Prompt.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
-    )
-
     op.create_table('Label',
     sa.Column('name', sa.String(), nullable=False),
     sa.Column('color', sa.String(), nullable=False),
@@ -184,6 +172,20 @@ def upgrade() -> None:
     sa.Column("updated_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
     sa.UniqueConstraint('name', 'project_id', name=UniqueConstraintName.LABEL_NAME_PER_PROJECT),
     sa.ForeignKeyConstraint(['project_id'], ['Project.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+
+    op.create_table('Annotation',
+    sa.Column('config', sqlite.JSON(), nullable=False),
+    sa.Column('label_id', sa.Uuid(), nullable=True),
+    sa.Column('prompt_id', sa.Uuid(), nullable=False),
+    sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column("created_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"),
+                              nullable=False),
+    sa.Column("updated_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"),
+                              nullable=False),
+    sa.ForeignKeyConstraint(['label_id'], ['Label.id'], ondelete='RESTRICT'),
+    sa.ForeignKeyConstraint(['prompt_id'], ['Prompt.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
 

@@ -429,7 +429,7 @@ def test_seek_frame_not_connected_error_message(client):
             pass
 
         def get_source(self, project_id: UUID, source_id: UUID):
-            return make_source_schema(SOURCE_ID_1, 0, connected=False)
+            return make_source_schema(SOURCE_ID_1, 0, active=False)
 
     class FakePipelineManager:
         def seek(self, project_id: UUID, index: int):

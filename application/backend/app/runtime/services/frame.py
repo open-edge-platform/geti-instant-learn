@@ -64,8 +64,7 @@ class FrameService:
             raise ResourceNotFoundError(
                 resource_type=ResourceType.SOURCE,
                 resource_id=None,
-                message=f"Project {project_id} has no active source. "
-                "Please connect a source before capturing frames.",
+                message=f"Project {project_id} has no active source. Please connect a source before capturing frames.",
             )
 
         try:

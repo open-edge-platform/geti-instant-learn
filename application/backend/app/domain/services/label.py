@@ -12,9 +12,11 @@ from domain.db.constraints import UniqueConstraintName
 from domain.db.models import LabelDB, ProjectDB
 from domain.errors import (
     ResourceAlreadyExistsError,
+    ResourceInUseError,
     ResourceNotFoundError,
     ResourceType,
 )
+from domain.repositories.annotation import AnnotationRepository
 from domain.repositories.label import LabelRepository
 from domain.repositories.project import ProjectRepository
 from domain.services.base import BaseService
@@ -43,6 +45,7 @@ class LabelService(BaseService):
         session: Session,
         label_repository: LabelRepository | None = None,
         project_repository: ProjectRepository | None = None,
+        annotation_repository: AnnotationRepository | None = None,
     ):
         """
         Initialize the service with a SQLAlchemy session.
@@ -50,6 +53,7 @@ class LabelService(BaseService):
         super().__init__(session=session)
         self.label_repository = label_repository or LabelRepository(session=session)
         self.project_repository = project_repository or ProjectRepository(session=session)
+        self.annotation_repository = annotation_repository or AnnotationRepository(session=session)
 
     def _ensure_project(self, project_id: UUID) -> ProjectDB:
         """
@@ -134,13 +138,29 @@ class LabelService(BaseService):
 
     def delete_label(self, project_id: UUID, label_id: UUID) -> None:
         """
-        Delete a label by its ID.
+        Delete a label by its ID if not in use.
+
+        Raises:
+            ResourceInUseError: If label is referenced by any annotations.
         """
         self._ensure_project(project_id)
         label = self.label_repository.get_by_id_and_project(label_id, project_id)
         if not label:
             logger.error("Label not found id=%s for project_id=%s", label_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.LABEL, resource_id=str(label_id))
+
+        if self.annotation_repository.is_label_in_use(label_id):
+            logger.warning(
+                "Cannot delete label: label_id=%s is referenced by annotations in project_id=%s",
+                label_id,
+                project_id,
+            )
+            raise ResourceInUseError(
+                resource_type=ResourceType.LABEL,
+                resource_id=str(label_id),
+                message=f"Label '{label.name}' cannot be deleted because it is referenced by annotations. "
+                f"Please remove the prompts using this label first.",
+            )
 
         with self.db_transaction():
             self.label_repository.delete(label_id)

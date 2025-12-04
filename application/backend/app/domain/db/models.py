@@ -33,7 +33,7 @@ class LabelDB(Base):
 class AnnotationDB(Base):
     __tablename__ = "Annotation"
     config: Mapped[dict] = mapped_column(JSON, nullable=False)
-    label_id: Mapped[UUID | None] = mapped_column(ForeignKey("Label.id", ondelete="SET NULL"), nullable=True)
+    label_id: Mapped[UUID] = mapped_column(ForeignKey("Label.id", ondelete="RESTRICT"), nullable=False)
     prompt_id: Mapped[UUID] = mapped_column(ForeignKey("Prompt.id", ondelete="CASCADE"))
     prompt: Mapped["PromptDB"] = relationship(back_populates="annotations", single_parent=True)
 
