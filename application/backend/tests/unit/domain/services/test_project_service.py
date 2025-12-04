@@ -23,6 +23,23 @@ def make_connected_source(device_id: int = 0):
     )
 
 
+def make_sink(active: bool = True):
+    return SimpleNamespace(
+        id=uuid.uuid4(),
+        active=active,
+        config={"sink_type": "mqtt"},
+    )
+
+
+def make_model(project_id: uuid.UUID, active: bool = True):
+    return SimpleNamespace(
+        id=uuid.uuid4(),
+        project_id=project_id,
+        active=active,
+        config={"model_type": "matcher"},
+    )
+
+
 def make_project(
     *,
     project_id=None,
@@ -30,6 +47,7 @@ def make_project(
     active=False,
     sources=None,
     processors=None,
+    sinks=None,
 ):
     if project_id is None:
         project_id = uuid.uuid4()
@@ -37,7 +55,9 @@ def make_project(
         sources = []
     if processors is None:
         processors = []
-    return SimpleNamespace(id=project_id, name=name, active=active, sources=sources, processors=processors)
+    if sinks is None:
+        sinks = []
+    return SimpleNamespace(id=project_id, name=name, active=active, sources=sources, processors=processors, sinks=sinks)
 
 
 @pytest.fixture
@@ -306,6 +326,55 @@ def test_pipeline_config_without_connected_source(service, repo_mock):
     assert cfg.reader is None
     assert cfg.processor is None
     assert cfg.writer is None
+
+
+def test_pipeline_config_with_source_and_sink(service, repo_mock):
+    pid = uuid.uuid4()
+    source_connected = make_connected_source()
+    active_sink = make_sink(active=True)
+    project_active = make_project(
+        project_id=pid,
+        active=True,
+        sources=[source_connected],
+        sinks=[active_sink],
+    )
+    repo_mock.get_by_id.return_value = project_active
+
+    cfg = service.get_pipeline_config(pid)
+
+    assert isinstance(cfg, PipelineConfig)
+    assert cfg.project_id == pid
+    assert cfg.reader is not None
+    assert cfg.reader.source_type == "webcam"
+    assert cfg.processor is None
+    assert cfg.writer is not None
+    assert cfg.writer.sink_type == "mqtt"
+
+
+def test_pipeline_config_with_source_sink_and_model(service, repo_mock):
+    pid = uuid.uuid4()
+    source_connected = make_connected_source()
+    active_sink = make_sink(active=True)
+    active_model = make_model(project_id=pid, active=True)
+    project_active = make_project(
+        project_id=pid,
+        active=True,
+        sources=[source_connected],
+        sinks=[active_sink],
+        processors=[active_model],
+    )
+    repo_mock.get_by_id.return_value = project_active
+
+    cfg = service.get_pipeline_config(pid)
+
+    assert isinstance(cfg, PipelineConfig)
+    assert cfg.project_id == pid
+    assert cfg.reader is not None
+    assert cfg.reader.source_type == "webcam"
+    assert cfg.processor is not None
+    assert cfg.processor.model_type == "matcher"
+    assert cfg.writer is not None
+    assert cfg.writer.sink_type == "mqtt"
 
 
 def test_active_pipeline_config_none(service, repo_mock):

@@ -5,12 +5,14 @@
 
 import { LabelType } from '@geti-prompt/api';
 import { render, type RenderOptions } from '@geti-prompt/test-utils';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
 
 import { paths } from '../../../../../constants/paths';
 import { http, server } from '../../../../../setup-test';
+import { SelectedFrameProvider } from '../../../../../shared/selected-frame-provider.component';
+import { useVisualPrompt, VisualPromptProvider } from '../../visual-prompt-provider.component';
 import { AddLabel } from './add-label.component';
 
 class AddLabelPageObject {
@@ -67,13 +69,37 @@ class AddLabelPageObject {
     getValidationError() {
         return screen.getByText(/label name must be unique/i);
     }
+
+    getSelectedLabelId() {
+        return screen.getByLabelText('Selected label id');
+    }
 }
 
-const renderAddLabel = ({
+const App = ({ existingLabels = [] }: { existingLabels?: LabelType[] }) => {
+    const { selectedLabelId } = useVisualPrompt();
+
+    return (
+        <>
+            <span aria-label={'Selected label id'}>{selectedLabelId ?? 'Empty'}</span>
+            <AddLabel existingLabels={existingLabels} />
+        </>
+    );
+};
+
+const renderAddLabel = async ({
     existingLabels = [],
     options,
 }: { existingLabels?: LabelType[]; options?: RenderOptions } = {}) => {
-    const result = render(<AddLabel existingLabels={existingLabels} />, options);
+    const result = render(
+        <SelectedFrameProvider>
+            <VisualPromptProvider>
+                <App existingLabels={existingLabels} />
+            </VisualPromptProvider>
+        </SelectedFrameProvider>,
+        options
+    );
+
+    await waitForElementToBeRemoved(screen.getByRole('progressbar'));
 
     return {
         result,
@@ -93,10 +119,17 @@ describe('AddLabel', () => {
                 newLabelBody = await request.clone().json();
 
                 return HttpResponse.json(newLabelBody, { status: 201 });
+            }),
+
+            http.get('/api/v1/projects/{project_id}/labels', () => {
+                return HttpResponse.json(
+                    { labels: [], pagination: { count: 0, total: 0, offset: 0, limit: 10 } },
+                    { status: 200 }
+                );
             })
         );
 
-        const { addLabelPage } = renderAddLabel({
+        const { addLabelPage } = await renderAddLabel({
             options: {
                 route: paths.project({ projectId }),
                 path: paths.project.pattern,
@@ -107,6 +140,7 @@ describe('AddLabel', () => {
         await addLabelPage.typeInNameInput('New Label');
 
         expect(addLabelPage.getConfirmLabelButton()).toBeEnabled();
+        expect(addLabelPage.getSelectedLabelId()).toHaveTextContent('Empty');
 
         await addLabelPage.clickConfirmButton();
 
@@ -116,6 +150,8 @@ describe('AddLabel', () => {
             expect(newLabelBody?.name).toBe('New Label');
             expect(newLabelBody?.id).toBeTruthy();
             expect(newLabelBody?.color).toBeTruthy();
+
+            expect(addLabelPage.getSelectedLabelId()).toHaveTextContent(newLabelBody?.id ?? '');
         });
 
         await waitFor(() => {
@@ -134,10 +170,17 @@ describe('AddLabel', () => {
                 newLabelBody = await request.clone().json();
 
                 return HttpResponse.json(newLabelBody, { status: 201 });
+            }),
+
+            http.get('/api/v1/projects/{project_id}/labels', () => {
+                return HttpResponse.json(
+                    { labels: [], pagination: { count: 0, total: 0, offset: 0, limit: 10 } },
+                    { status: 200 }
+                );
             })
         );
 
-        const { addLabelPage } = renderAddLabel({
+        const { addLabelPage } = await renderAddLabel({
             options: {
                 route: paths.project({ projectId }),
                 path: paths.project.pattern,
@@ -148,6 +191,7 @@ describe('AddLabel', () => {
         await addLabelPage.typeInNameInput('New Label');
 
         expect(addLabelPage.getConfirmLabelButton()).toBeEnabled();
+        expect(addLabelPage.getSelectedLabelId()).toHaveTextContent('Empty');
 
         await addLabelPage.confirmLabelWithKeyboard();
 
@@ -156,6 +200,8 @@ describe('AddLabel', () => {
             expect(newLabelBody?.name).toBe('New Label');
             expect(newLabelBody?.id).toBeTruthy();
             expect(newLabelBody?.color).toBeTruthy();
+
+            expect(addLabelPage.getSelectedLabelId()).toHaveTextContent(newLabelBody?.id ?? '');
         });
 
         await waitFor(() => {
@@ -174,7 +220,7 @@ describe('AddLabel', () => {
             })
         );
 
-        const { addLabelPage } = renderAddLabel({ existingLabels });
+        const { addLabelPage } = await renderAddLabel({ existingLabels });
 
         addLabelPage.showDialog();
         await addLabelPage.typeInNameInput(existingLabels[0].name);
@@ -187,7 +233,7 @@ describe('AddLabel', () => {
     });
 
     it('closes dialog when Escape key is pressed', async () => {
-        const { addLabelPage } = renderAddLabel();
+        const { addLabelPage } = await renderAddLabel();
 
         addLabelPage.showDialog();
 
@@ -199,7 +245,7 @@ describe('AddLabel', () => {
     });
 
     it('autofocuses the name input when dialog opens', async () => {
-        const { addLabelPage } = renderAddLabel();
+        const { addLabelPage } = await renderAddLabel();
 
         addLabelPage.showDialog();
 
@@ -210,7 +256,7 @@ describe('AddLabel', () => {
     });
 
     it('disables confirm button when name is empty', async () => {
-        const { addLabelPage } = renderAddLabel();
+        const { addLabelPage } = await renderAddLabel();
 
         addLabelPage.showDialog();
 
@@ -221,7 +267,7 @@ describe('AddLabel', () => {
     it('disables confirm button when name contains only whitespace', async () => {
         const emptyName = '   ';
 
-        const { addLabelPage } = renderAddLabel();
+        const { addLabelPage } = await renderAddLabel();
 
         addLabelPage.showDialog();
         await addLabelPage.typeInNameInput(emptyName);
@@ -235,7 +281,7 @@ describe('AddLabel', () => {
             { id: '1', name: 'Existing label', color: '#000000' },
             { id: '2', name: 'Another label', color: '#FFFFFF' },
         ];
-        const { addLabelPage } = renderAddLabel({ existingLabels });
+        const { addLabelPage } = await renderAddLabel({ existingLabels });
 
         addLabelPage.showDialog();
         await addLabelPage.typeInNameInput(existingLabels[0].name);
@@ -249,7 +295,7 @@ describe('AddLabel', () => {
             { id: '1', name: 'Existing Label', color: '#000000' },
             { id: '2', name: 'Another Label', color: '#FFFFFF' },
         ];
-        const { addLabelPage } = renderAddLabel({ existingLabels });
+        const { addLabelPage } = await renderAddLabel({ existingLabels });
 
         addLabelPage.showDialog();
         await addLabelPage.typeInNameInput(existingLabels[0].name);

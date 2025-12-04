@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Source } from '@geti-prompt/api';
+import { Source, SourceType } from '@geti-prompt/api';
 import { useCurrentProject } from '@geti-prompt/hooks';
 import { Button, Flex } from '@geti/ui';
 import { Add as AddIcon } from '@geti/ui/icons';
@@ -144,16 +144,25 @@ interface ExistingSourcesProps {
     onSetSourceInEditionId: (sourceId: string) => void;
 }
 
+const AVAILABLE_SOURCE_TYPES: SourceType[] = ['webcam', 'images_folder', 'sample_dataset'];
+
 export const ExistingSources = ({ sources, onViewChange, onSetSourceInEditionId }: ExistingSourcesProps) => {
+    const canCreateSource = !AVAILABLE_SOURCE_TYPES.every((type) =>
+        sources.some((source) => source.config.source_type === type)
+    );
+
     return (
         <Flex direction={'column'} gap={'size-200'}>
-            <Button
-                variant={'secondary'}
-                onPress={() => onViewChange('add')}
-                UNSAFE_className={styles.addNewSourceButton}
-            >
-                <AddIcon /> Add new source
-            </Button>
+            {canCreateSource && (
+                <Button
+                    variant={'secondary'}
+                    onPress={() => onViewChange('add')}
+                    UNSAFE_className={styles.addNewSourceButton}
+                >
+                    <AddIcon /> Add new source
+                </Button>
+            )}
+
             <ExistingSourcesList
                 sources={sources}
                 onViewChange={onViewChange}
