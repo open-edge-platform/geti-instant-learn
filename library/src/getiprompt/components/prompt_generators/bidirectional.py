@@ -10,96 +10,11 @@ import torch
 from torch import nn
 from torch.nn import functional
 
+from getiprompt.components.linear_sum_assignment import linear_sum_assignment
+
 logger = getLogger("Geti Prompt")
 
-
-class GreedyLinearSumAssignment(nn.Module):
-    """Pure PyTorch implementation of linear sum assignment using greedy matching.
-
-    This is an export-friendly alternative to scipy.optimize.linear_sum_assignment.
-    Uses greedy matching which provides a good approximation that works with
-    ONNX and OpenVINO export.
-
-    For small matrices (which is the typical case in prompt generation), this greedy
-    approach provides results very close to the optimal Hungarian algorithm solution.
-
-    Args:
-        maximize: If True, find assignment that maximizes sum of costs. Default: True.
-
-    Example:
-        >>> import torch
-        >>> from getiprompt.components.prompt_generators.bidirectional import GreedyLinearSumAssignment
-        >>> matcher = GreedyLinearSumAssignment(maximize=True)
-        >>> cost_matrix = torch.tensor([[0.9, 0.1, 0.2], [0.3, 0.8, 0.1], [0.1, 0.2, 0.7]])
-        >>> row_ind, col_ind = matcher(cost_matrix)
-        >>> row_ind
-        tensor([0, 1, 2])
-        >>> col_ind
-        tensor([0, 1, 2])
-    """
-
-    def __init__(self, maximize: bool = True) -> None:
-        """Initialize the GreedyLinearSumAssignment module."""
-        super().__init__()
-        self.maximize = maximize
-
-    def forward(self, cost_matrix: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """Perform greedy linear sum assignment.
-
-        Args:
-            cost_matrix: 2D tensor of shape (n, m) containing assignment costs.
-
-        Returns:
-            row_ind: 1D tensor of row indices of the assignment.
-            col_ind: 1D tensor of column indices of the assignment.
-        """
-        if cost_matrix.numel() == 0:
-            return (
-                torch.empty(0, dtype=torch.int64, device=cost_matrix.device),
-                torch.empty(0, dtype=torch.int64, device=cost_matrix.device),
-            )
-
-        n_rows, n_cols = cost_matrix.shape
-        n_assignments = min(n_rows, n_cols)
-
-        # Work with maximization internally (negate if minimizing)
-        working_cost = cost_matrix.clone() if self.maximize else -cost_matrix.clone()
-
-        row_indices: list[torch.Tensor] = []
-        col_indices: list[torch.Tensor] = []
-
-        # Greedy assignment: iteratively pick the best remaining match
-        for _ in range(n_assignments):
-            # Find the maximum value in the remaining matrix
-            flat_idx = working_cost.argmax()
-            row = flat_idx // n_cols
-            col = flat_idx % n_cols
-
-            row_indices.append(row)
-            col_indices.append(col)
-
-            # Mask out the selected row and column by setting to -inf
-            working_cost[row, :] = float("-inf")
-            working_cost[:, col] = float("-inf")
-
-        if row_indices:
-            row_ind = torch.stack(row_indices)
-            col_ind = torch.stack(col_indices)
-        else:
-            row_ind = torch.empty(0, dtype=torch.int64, device=cost_matrix.device)
-            col_ind = torch.empty(0, dtype=torch.int64, device=cost_matrix.device)
-
-        # Sort by row index for consistent output
-        if row_ind.numel() > 0:
-            sort_idx = row_ind.argsort()
-            row_ind = row_ind[sort_idx]
-            col_ind = col_ind[sort_idx]
-
-        return row_ind.to(torch.int64), col_ind.to(torch.int64)
-
-
-# Module-level instance for use in static methods and functional calls
-_greedy_matcher = GreedyLinearSumAssignment(maximize=True)
+__all__ = ["BidirectionalPromptGenerator"]
 
 
 def _empty_match_result(similarity_map: torch.Tensor) -> tuple[list, torch.Tensor]:
@@ -135,7 +50,6 @@ class BidirectionalPromptGenerator(nn.Module):
         self.num_background_points = num_background_points
         self.encoder_patch_size = encoder_patch_size
         self.encoder_feature_size = encoder_feature_size
-        self.greedy_matcher = GreedyLinearSumAssignment(maximize=True)
 
     @staticmethod
     def ref_to_target_matching(
@@ -157,7 +71,7 @@ class BidirectionalPromptGenerator(nn.Module):
         if ref_to_target_sim.numel() == 0:
             return _empty_match_result(similarity_map)
 
-        row_ind, col_ind = _greedy_matcher(ref_to_target_sim)
+        row_ind, col_ind = linear_sum_assignment(ref_to_target_sim)
 
         matched_ref_idx = ref_mask_idx[row_ind]
         sim_scores = similarity_map[matched_ref_idx, col_ind]
@@ -192,7 +106,7 @@ class BidirectionalPromptGenerator(nn.Module):
 
         # Backward pass (target → ref)
         target_to_ref_sim = similarity_map.t()[target_idx_fw]
-        row_ind, col_ind = _greedy_matcher(target_to_ref_sim)
+        row_ind, col_ind = linear_sum_assignment(target_to_ref_sim)
 
         # Consistency filter
         valid_ref = torch.isin(col_ind, ref_idx)
