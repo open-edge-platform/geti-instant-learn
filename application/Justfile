@@ -117,7 +117,7 @@ run-image: build-image
 # build coturn server image
 build-coturn:
     @echo "Building coturn server image..."
-    @docker build -t {{ coturn-image }} -f docker/coturn/Dockerfile docker/coturn/
+    @docker build --tag {{ coturn-image }} --file docker/coturn/Dockerfile docker/coturn/
 
 # run coturn server
 run-coturn: build-coturn
