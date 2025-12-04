@@ -5,11 +5,15 @@
 
 import { useState } from 'react';
 
-import { $api, LabelType } from '@geti-prompt/api';
+import { LabelType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { ActionButton, Tooltip, TooltipTrigger } from '@geti/ui';
 import { Close, Edit } from '@geti/ui/icons';
 
+import { useAnnotationActions } from '../../../../annotator/providers/annotation-actions-provider.component';
+import { useVisualPrompt } from '../../visual-prompt-provider.component';
+import { useDeleteLabel } from '../api/use-delete-label';
+import { useUpdateLabel } from '../api/use-update-label';
 import { EditLabel } from '../edit-label/edit-label.component';
 import { LabelBadge } from '../label-badge/label-badge.component';
 
@@ -22,43 +26,37 @@ interface LabelListItemViewProps {
     onEdit: () => void;
 }
 
-const useDeleteLabelMutation = () => {
-    const { projectId } = useProjectIdentifier();
-
-    return $api.useMutation('delete', '/api/v1/projects/{project_id}/labels/{label_id}', {
-        meta: {
-            invalidates: [
-                ['get', '/api/v1/projects/{project_id}/labels', { params: { path: { project_id: projectId } } }],
-            ],
-        },
-    });
-};
-
-const useUpdateLabelMutation = () => {
-    const { projectId } = useProjectIdentifier();
-
-    return $api.useMutation('put', '/api/v1/projects/{project_id}/labels/{label_id}', {
-        meta: {
-            invalidates: [
-                ['get', '/api/v1/projects/{project_id}/labels', { params: { path: { project_id: projectId } } }],
-            ],
-        },
-    });
-};
-
 const LabelListItemView = ({ label, onSelect, isSelected, onEdit }: LabelListItemViewProps) => {
     const { projectId } = useProjectIdentifier();
-    const deleteLabelMutation = useDeleteLabelMutation();
+    const deleteLabelMutation = useDeleteLabel();
+
+    const { prompts, setSelectedLabelId } = useVisualPrompt();
+    const { deleteAnnotationByLabelId } = useAnnotationActions();
 
     const deleteLabel = () => {
-        deleteLabelMutation.mutate({
-            params: {
-                path: {
-                    project_id: projectId,
-                    label_id: label.id,
+        deleteLabelMutation.mutate(
+            {
+                params: {
+                    path: {
+                        project_id: projectId,
+                        label_id: label.id,
+                    },
                 },
             },
-        });
+            {
+                onSuccess: () => {
+                    setSelectedLabelId(null);
+
+                    // If we don't have any prompt, it means that we can safely delete annotations that have assigned
+                    //  a given label. If we already have at least one prompt, it's highly probable that prompt has
+                    // annotations that include such a label. Deletion of that label would lead to an inconsistent
+                    // state. The server should block that case.
+                    if (prompts.length === 0) {
+                        deleteAnnotationByLabelId(label.id);
+                    }
+                },
+            }
+        );
     };
 
     return (
@@ -100,7 +98,7 @@ export const LabelListItem = ({ label, onSelect, isSelected, existingLabels }: L
     const [isInEdition, setIsInEdition] = useState<boolean>(false);
     const { projectId } = useProjectIdentifier();
 
-    const updateLabelMutation = useUpdateLabelMutation();
+    const updateLabelMutation = useUpdateLabel();
     const updateLabel = (newLabel: LabelType) => {
         updateLabelMutation.mutate(
             {

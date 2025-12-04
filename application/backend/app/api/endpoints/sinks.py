@@ -29,11 +29,11 @@ logger = logging.getLogger(__name__)
                                 "active": True,
                                 "config": {
                                     "sink_type": "mqtt",
+                                    "name": "My Sink",
                                     "broker_host": "localhost",
                                     "broker_port": 1883,
                                     "topic": "predictions",
                                     "auth_required": True,
-                                    "output_formats": ["predictions"],
                                 },
                             }
                         ],
@@ -90,15 +90,14 @@ def get_sinks(project_id: UUID, sink_service: SinkServiceDep, offset: int = 0, l
                 "application/json": {
                     "example": {
                         "id": "550e8400-e29b-41d4-a716-446655440000",
-                        "name": "Updated Sink",
                         "connected": True,
                         "config": {
                             "sink_type": "mqtt",
+                            "name": "Updated Sink",
                             "broker_host": "localhost",
                             "broker_port": 1883,
                             "topic": "predictions",
                             "auth_required": True,
-                            "output_formats": ["predictions"],
                         },
                     },
                 }
@@ -192,15 +191,14 @@ def delete_sink(project_id: UUID, sink_id: UUID, sink_service: SinkServiceDep) -
                 "application/json": {
                     "example": {
                         "id": "550e8400-e29b-41d4-a716-446655440000",
-                        "name": "New Sink",
                         "connected": False,
                         "config": {
                             "sink_type": "mqtt",
+                            "name": "My MQTT Sink",
                             "broker_host": "localhost",
                             "broker_port": 1883,
                             "topic": "predictions",
                             "auth_required": True,
-                            "output_formats": ["predictions"],
                         },
                     },
                 }

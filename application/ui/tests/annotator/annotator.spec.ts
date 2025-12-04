@@ -10,12 +10,12 @@ import { initializeWebRTC } from '../prompt/initialize-webrtc';
 import { WEBCAM_SOURCE } from '../prompt/mocks';
 import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations, expectToNotHaveAnnotations } from './utils';
 
-test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) => {
+test('Annotator', async ({ network, page, context, streamPage, annotatorPage, labelsPage }) => {
     test.setTimeout(ANNOTATOR_PAGE_TIMEOUT);
 
     await initializeWebRTC({ page, context, network });
 
-    registerApiLabels({ network });
+    registerApiLabels({ network, defaultLabels: [] });
 
     network.use(
         http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {
@@ -60,7 +60,9 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage }) 
         });
 
         await annotatorPage.addAnnotation();
+        await labelsPage.addLabel('Label 1');
 
+        await expect(labelsPage.getLabel('Label 1')).toBeVisible();
         await expectToHaveAnnotations({ annotatorPage });
     });
 
