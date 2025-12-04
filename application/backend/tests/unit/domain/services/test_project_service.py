@@ -330,7 +330,7 @@ def test_pipeline_config_without_active_source(service, repo_mock):
 
 def test_pipeline_config_with_source_and_sink(service, repo_mock):
     pid = uuid.uuid4()
-    source_connected = make_connected_source()
+    source_connected = make_active_source()
     active_sink = make_sink(active=True)
     project_active = make_project(
         project_id=pid,
@@ -353,7 +353,7 @@ def test_pipeline_config_with_source_and_sink(service, repo_mock):
 
 def test_pipeline_config_with_source_sink_and_model(service, repo_mock):
     pid = uuid.uuid4()
-    source_connected = make_connected_source()
+    source_connected = make_active_source()
     active_sink = make_sink(active=True)
     active_model = make_model(project_id=pid, active=True)
     project_active = make_project(
