@@ -82,8 +82,11 @@ def test_add_and_get_by_id_text_prompt(prompt_repo, fxt_session, clean_after):
 
 def test_add_and_get_by_id_visual_prompt(prompt_repo, fxt_session, clean_after):
     project = make_project()
+    fxt_session.add(project)
+    fxt_session.commit()
+
     label = LabelDB(name="test", color="#FF0000", project_id=project.id)
-    fxt_session.add_all([project, label])
+    fxt_session.add(label)
     fxt_session.commit()
 
     frame_id = uuid4()
@@ -348,8 +351,11 @@ def test_prompt_content_check_constraint_mixed(prompt_repo, fxt_session, clean_a
 
 def test_annotations_cascade_delete_with_prompt(prompt_repo, fxt_session, clean_after):
     project = make_project()
+    fxt_session.add(project)
+    fxt_session.commit()
+
     label = LabelDB(name="test", color="#FF0000", project_id=project.id)
-    fxt_session.add_all([project, label])
+    fxt_session.add(label)
     fxt_session.commit()
 
     prompt = make_visual_prompt(project.id)

@@ -8,12 +8,12 @@ from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
 from domain.db.models import AnnotationDB
-from domain.repositories.base import ProjectComponentRepository
+from domain.repositories.base import BaseRepository
 
 logger = logging.getLogger(__name__)
 
 
-class AnnotationRepository(ProjectComponentRepository[AnnotationDB]):
+class AnnotationRepository(BaseRepository[AnnotationDB]):
     """
     Repository responsible for low-level persistence of `AnnotationDB` entities.
     """
