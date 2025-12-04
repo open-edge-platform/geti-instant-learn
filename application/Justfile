@@ -37,9 +37,10 @@ source-dataset-dir := ".data/templates/datasets/coffee-berries"
 target-dataset-dir := "/geti_prompt/data/templates/datasets/coffee-berries"
 
 # Coturn settings
-coturn-image := "coturn-server"
+coturn-image := "coturn/coturn"
+# Note: Binding port 443 may conflict with other services (e.g., HTTPS) on this host. Replace it with whatever prot works/open for you.
 coturn-port := "443"
-coturn-external-ip := `ipconfig getifaddr en0 || hostname -I | awk '{print $1}'`
+coturn-external-ip := `uv run python -c "import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.connect(('8.8.8.8',80)); print(s.getsockname()[0]); s.close()"`
 ice-servers := '[{"urls": "turn:' + coturn-external-ip + ':' + coturn-port + '?transport=tcp", "username": "user", "credential": "password"}]'
 
 # -------------------------------------------------------------------------------------------------
@@ -114,24 +115,26 @@ run-image: build-image
         --name "{{ component-name }}-{{ version }}" \
         "{{ docker-image }}"
 
-# build coturn server image
-build-coturn:
-    @echo "Building coturn server image..."
-    @docker build -t {{ coturn-image }} -f docker/coturn/Dockerfile docker/coturn/
-
 # run coturn server
-run-coturn: build-coturn
+run-coturn:
     @echo "Running coturn server on port {{ coturn-port }} with external IP {{ coturn-external-ip }}..."
     @docker run --rm -d \
         --network=host \
-        --name {{ coturn-image }} \
-        -e EXTERNAL_IP={{ coturn-external-ip }} \
-        {{ coturn-image }}
+        --name coturn-server \
+        {{ coturn-image }} \
+        -n \
+        --listening-port={{ coturn-port }} \
+        --external-ip={{ coturn-external-ip }} \
+        --user=user:password \
+        --realm=my-realm \
+        --no-udp \
+        --log-file=stdout \
+        --verbose
 
 # stop coturn server
 stop-coturn:
     @echo "Stopping coturn server..."
-    @docker stop {{ coturn-image }} || true
+    @docker stop coturn-server || true
 
 # show size of the built docker image
 show-size:
