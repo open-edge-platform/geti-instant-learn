@@ -177,7 +177,7 @@ def upgrade() -> None:
 
     op.create_table('Annotation',
     sa.Column('config', sqlite.JSON(), nullable=False),
-    sa.Column('label_id', sa.Uuid(), nullable=True),
+    sa.Column('label_id', sa.Uuid(), nullable=False),
     sa.Column('prompt_id', sa.Uuid(), nullable=False),
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column("created_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"),
