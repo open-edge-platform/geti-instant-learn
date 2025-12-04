@@ -22,6 +22,7 @@ gen-openapi-md: gen-openapi
 
 # Start FastAPI development server with auto-reload
 dev: _venv download-dataset
+    {{ if enable-coturn == "true" { "ICE_SERVERS='" + ice-servers + "'" } else { "" } }} \
     PYTHONPATH=app uv run uvicorn main:app --reload --host localhost --port 9100
 
 

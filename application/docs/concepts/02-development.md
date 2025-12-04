@@ -92,6 +92,16 @@ just enable-coturn=true run-image
 
 *Note: If you run `just run-image` without the flag, the application will start without any TURN server configuration.*
 
+#### For Local Development
+
+You can also use the `enable-coturn` flag with the development server:
+
+```bash
+just enable-coturn=true dev
+```
+
+This will start the FastAPI development server with hot-reload and the `ICE_SERVERS` environment variable configured to use your local Coturn instance.
+
 #### 3. Stop the Server
 
 When you are finished testing, stop the server to free up port 443:
