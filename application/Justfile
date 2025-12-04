@@ -40,7 +40,7 @@ target-dataset-dir := "/geti_prompt/data/templates/datasets/coffee-berries"
 coturn-image := "coturn/coturn"
 # Note: Binding port 443 may conflict with other services (e.g., HTTPS) on this host. Replace it with whatever prot works/open for you.
 coturn-port := "443"
-coturn-external-ip := `python3 -c "import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.connect(('8.8.8.8',80)); print(s.getsockname()[0]); s.close()"`
+coturn-external-ip := `uv run python -c "import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.connect(('8.8.8.8',80)); print(s.getsockname()[0]); s.close()"`
 ice-servers := '[{"urls": "turn:' + coturn-external-ip + ':' + coturn-port + '?transport=tcp", "username": "user", "credential": "password"}]'
 
 # -------------------------------------------------------------------------------------------------
