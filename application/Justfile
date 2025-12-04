@@ -122,7 +122,7 @@ build-coturn:
 # run coturn server
 run-coturn: build-coturn
     @echo "Running coturn server on port {{ coturn-port }} with external IP {{ coturn-external-ip }}..."
-    @docker run --rm -d \
+    @docker run --rm --detach \
         --network=host \
         --name {{ coturn-image }} \
         -e EXTERNAL_IP={{ coturn-external-ip }} \
