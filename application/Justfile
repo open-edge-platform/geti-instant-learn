@@ -83,7 +83,7 @@ download-dataset: check-proxy
     fi
     mkdir -p $DATASET_DIR
     echo "Downloading default dataset from {{ coffee-berries-dataset }}"
-    if ! wget -q --show-progress {{ coffee-berries-dataset }}; then
+    if ! curl -s {{ coffee-berries-dataset }} -o Frames.zip; then
         echo "Error: Failed to download dataset from {{ coffee-berries-dataset }}"
         exit 0  # proceed without dataset
     fi
