@@ -19,6 +19,7 @@ interface AnnotationsContextValue {
     addAnnotations: (shapes: Shape[], labels: LabelType[]) => void;
     deleteAnnotations: (annotationIds: string[]) => void;
     deleteAllAnnotations: () => void;
+    deleteAnnotationByLabelId: (labelId: string) => void;
     updateAnnotations: (updatedAnnotations: Annotation[]) => void;
     isUserReviewed: boolean;
 }
@@ -83,6 +84,12 @@ export const AnnotationActionsProvider = ({
         setAnnotations([]);
     };
 
+    const deleteAnnotationByLabelId = (labelId: string) => {
+        setAnnotations((prevAnnotations) =>
+            prevAnnotations.filter((annotation) => !annotation.labels.some((label) => label.id === labelId))
+        );
+    };
+
     return (
         <AnnotationsContext.Provider
             value={{
@@ -94,6 +101,7 @@ export const AnnotationActionsProvider = ({
                 updateAnnotations,
                 deleteAnnotations,
                 deleteAllAnnotations,
+                deleteAnnotationByLabelId,
             }}
         >
             <UndoRedoProvider state={undoRedoActions}>{children}</UndoRedoProvider>

@@ -20,7 +20,7 @@ export const ToggleAnnotationsVisibility = () => {
             <ActionButton aria-label={`${isVisible ? 'Hide' : 'Show'} annotations`} isQuiet onPress={toggleVisibility}>
                 {isVisible ? <Visible /> : <Invisible />}
             </ActionButton>
-            <Tooltip>{isVisible ? 'Hide annotations' : 'Show annotations'}</Tooltip>
+            <Tooltip>{isVisible ? 'Click to hide annotations' : 'Click to show annotations'}</Tooltip>
         </TooltipTrigger>
     );
 };

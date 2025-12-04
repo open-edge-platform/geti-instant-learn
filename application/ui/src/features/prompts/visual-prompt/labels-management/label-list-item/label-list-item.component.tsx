@@ -30,8 +30,8 @@ const LabelListItemView = ({ label, onSelect, isSelected, onEdit }: LabelListIte
     const { projectId } = useProjectIdentifier();
     const deleteLabelMutation = useDeleteLabel();
 
-    const { prompt, setSelectedLabelId } = useVisualPrompt();
-    const { deleteAllAnnotations } = useAnnotationActions();
+    const { prompts, setSelectedLabelId } = useVisualPrompt();
+    const { deleteAnnotationByLabelId } = useAnnotationActions();
 
     const deleteLabel = () => {
         deleteLabelMutation.mutate(
@@ -45,11 +45,14 @@ const LabelListItemView = ({ label, onSelect, isSelected, onEdit }: LabelListIte
             },
             {
                 onSuccess: () => {
-                    // If the label is used for at least one annotation in the created prompt, server should not allow
-                    // user to delete that label.
                     setSelectedLabelId(null);
-                    if (prompt === undefined) {
-                        deleteAllAnnotations();
+
+                    // If we don't have any prompt, it means that we can safely delete annotations that have assigned
+                    //  a given label. If we already have at least one prompt, it's highly probable that prompt has
+                    // annotations that include such a label. Deletion of that label would lead to an inconsistent
+                    // state. The server should block that case.
+                    if (prompts.length === 0) {
+                        deleteAnnotationByLabelId(label.id);
                     }
                 },
             }

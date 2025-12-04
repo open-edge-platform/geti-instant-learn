@@ -5,9 +5,10 @@
 
 import { createContext, ReactNode, use, useEffect, useState } from 'react';
 
-import { LabelType, VisualPromptType } from '@geti-prompt/api';
+import { LabelType, VisualPromptListType, VisualPromptType } from '@geti-prompt/api';
 
 import { useGetPrompt } from './api/use-get-prompt';
+import { useGetPrompts } from './api/use-get-prompts';
 import { useProjectLabels } from './use-project-labels.hook';
 import { usePromptIdFromUrl } from './use-prompt-id-from-url';
 
@@ -15,6 +16,7 @@ interface VisualPromptContextProps {
     promptId: string | null;
     setPromptId: (id: string | null) => void;
     prompt: VisualPromptType | undefined;
+    prompts: VisualPromptListType['prompts'];
 
     selectedLabelId: string | null;
     setSelectedLabelId: (id: string | null) => void;
@@ -57,6 +59,7 @@ const useSelectedLabel = (prompt: VisualPromptType | undefined) => {
 export const VisualPromptProvider = ({ children }: VisualPromptProviderProps) => {
     const { promptId, setPromptId } = usePromptIdFromUrl();
     const prompt = useGetPrompt(promptId);
+    const prompts = useGetPrompts();
 
     const { selectedLabel, selectedLabelId, setSelectedLabelId, labels } = useSelectedLabel(prompt);
 
@@ -66,6 +69,7 @@ export const VisualPromptProvider = ({ children }: VisualPromptProviderProps) =>
                 promptId,
                 setPromptId,
                 prompt,
+                prompts,
 
                 setSelectedLabelId,
                 selectedLabelId,

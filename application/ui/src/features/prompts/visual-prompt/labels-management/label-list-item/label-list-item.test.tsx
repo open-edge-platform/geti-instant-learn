@@ -15,11 +15,11 @@ import { SelectedFrameProvider } from '../../../../../shared/selected-frame-prov
 import { useVisualPrompt, VisualPromptProvider } from '../../visual-prompt-provider.component';
 import { LabelListItem } from './label-list-item.component';
 
-const mockDeleteAllAnnotations = vi.fn();
+const mockDeleteAnnotationByLabelId = vi.fn();
 
 vi.mock('../../../../annotator/providers/annotation-actions-provider.component', () => ({
     useAnnotationActions: () => ({
-        deleteAllAnnotations: mockDeleteAllAnnotations,
+        deleteAnnotationByLabelId: mockDeleteAnnotationByLabelId,
     }),
 }));
 
@@ -112,7 +112,7 @@ describe('LabelListItem', () => {
         await waitFor(() => {
             expect(labelIdToBeRemoved).toBe(label.id);
             expect(screen.getByLabelText('Selected label id')).toHaveTextContent('Empty');
-            expect(mockDeleteAllAnnotations).toHaveBeenCalled();
+            expect(mockDeleteAnnotationByLabelId).toHaveBeenCalledWith(label.id);
         });
     });
 

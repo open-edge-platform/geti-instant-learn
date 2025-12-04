@@ -16,6 +16,7 @@
     transition: width 0.3s;
     flex: 0 1 var(--spectrum-global-dimension-size-600);
     height: var(--spectrum-global-dimension-size-400);
+    cursor: pointer;
 
     & button {
         display: none;
