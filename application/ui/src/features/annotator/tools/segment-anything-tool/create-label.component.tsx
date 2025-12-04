@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { RefObject, useEffect, useRef, useState } from 'react';
 
 import { LabelType } from '@geti-prompt/api';
 import { Point } from '@geti/smart-tools/types';
@@ -11,6 +11,8 @@ import { ActionButton, DOMRefValue, Flex, Overlay, View } from '@geti/ui';
 import { Close } from '@geti/ui/icons';
 
 import { CreateLabelForm } from '../../../prompts/visual-prompt/labels-management/add-label/create-label-form.component';
+import { useVisualPrompt } from '../../../prompts/visual-prompt/visual-prompt-provider.component';
+import { Shape } from '../../types';
 
 export const useCreateLabelFormPosition = () => {
     const [point, setPoint] = useState<Point | undefined>(undefined);
@@ -56,16 +58,8 @@ export const useCreateLabelFormPosition = () => {
     return [point, setPoint] as const;
 };
 
-interface CreateLabelProps {
-    point: Point | undefined;
-    onClose: () => void;
-    onSuccess: (label: LabelType) => void;
-    existingLabels: LabelType[];
-}
-
 const useCloseOnOutsideClick = (onClose: () => void) => {
     const labelContainerRef = useRef<DOMRefValue<HTMLDivElement>>(null);
-
     const onClickOutsideRef = useRef(onClose);
 
     useEffect(() => {
@@ -107,11 +101,68 @@ const useCloseOnOutsideClick = (onClose: () => void) => {
     return labelContainerRef;
 };
 
-export const CreateLabel = ({ point, onClose, onSuccess, existingLabels }: CreateLabelProps) => {
-    const nodeRef = useRef(null);
-    const labelContainerRef = useCloseOnOutsideClick(onClose);
+interface CreateLabelProps {
+    onSuccess: (label: LabelType) => void;
+    existingLabels: LabelType[];
+    ref: RefObject<SVGSVGElement | null>;
+    previewShapes: Shape[];
+}
 
-    if (point === undefined) return null;
+export const CreateLabel = ({ onSuccess, existingLabels, ref, previewShapes }: CreateLabelProps) => {
+    const nodeRef = useRef(null);
+    const [createLabelFormPosition, setCreateLabelFormPosition] = useCreateLabelFormPosition();
+    const { selectedLabel } = useVisualPrompt();
+
+    const handleClose = () => {
+        setCreateLabelFormPosition(undefined);
+
+        if (ref.current === null) {
+            return;
+        }
+
+        ref.current.style.pointerEvents = 'auto';
+    };
+
+    const labelContainerRef = useCloseOnOutsideClick(handleClose);
+
+    useEffect(() => {
+        if (ref.current === null) return;
+
+        const abortController = new AbortController();
+
+        ref.current.addEventListener(
+            'pointerdown',
+            (event) => {
+                if (ref.current === null) {
+                    return;
+                }
+
+                if (event.button !== 0 && event.button !== 2) {
+                    return;
+                }
+
+                if (previewShapes.length === 0) {
+                    return;
+                }
+
+                if (selectedLabel != null) {
+                    return;
+                }
+
+                setCreateLabelFormPosition({ x: event.clientX, y: event.clientY });
+                ref.current.style.pointerEvents = 'none';
+            },
+            {
+                signal: abortController.signal,
+            }
+        );
+
+        return () => {
+            abortController.abort();
+        };
+    }, [ref, setCreateLabelFormPosition, previewShapes.length, selectedLabel]);
+
+    if (createLabelFormPosition === undefined) return null;
 
     return (
         <Overlay isOpen nodeRef={nodeRef}>
@@ -122,8 +173,8 @@ export const CreateLabel = ({ point, onClose, onSuccess, existingLabels }: Creat
                 onPointerMove={(event) => event.stopPropagation()}
                 style={{
                     position: 'absolute',
-                    left: point?.x,
-                    top: point?.y,
+                    left: createLabelFormPosition?.x,
+                    top: createLabelFormPosition?.y,
                     transform: 'translate(-50%, -50%)',
                 }}
             >
@@ -137,8 +188,8 @@ export const CreateLabel = ({ point, onClose, onSuccess, existingLabels }: Creat
                     borderColor={'gray-400'}
                 >
                     <Flex justifyContent={'space-between'} gap={'size-100'}>
-                        <CreateLabelForm onClose={onClose} onSuccess={onSuccess} existingLabels={existingLabels} />
-                        <ActionButton isQuiet onPress={onClose}>
+                        <CreateLabelForm onClose={handleClose} onSuccess={onSuccess} existingLabels={existingLabels} />
+                        <ActionButton isQuiet onPress={handleClose}>
                             <Close />
                         </ActionButton>
                     </Flex>

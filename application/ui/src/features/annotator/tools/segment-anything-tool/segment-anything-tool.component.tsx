@@ -17,7 +17,7 @@ import { useAnnotator } from '../../providers/annotator-provider.component';
 import { type Annotation as AnnotationType, type Shape } from '../../types';
 import { SvgToolCanvas } from '../svg-tool-canvas.component';
 import { getRelativePoint, removeOffLimitPoints } from '../utils';
-import { CreateLabel, useCreateLabelFormPosition } from './create-label.component';
+import { CreateLabel } from './create-label.component';
 import { SAMLoading } from './sam-loading.component';
 import { InteractiveAnnotationPoint } from './segment-anything.interface';
 import { useSegmentAnythingModel } from './use-segment-anything.hook';
@@ -36,7 +36,6 @@ const THROTTLE_TIME = 150;
 export const SegmentAnythingTool = () => {
     const [mousePosition, setMousePosition] = useState<InteractiveAnnotationPoint>();
     const [previewShapes, setPreviewShapes] = useState<Shape[]>([]);
-    const [createLabelFormPosition, setCreateLabelFormPosition] = useCreateLabelFormPosition();
 
     const zoom = useZoom();
     const { roi, image } = useAnnotator();
@@ -45,7 +44,8 @@ export const SegmentAnythingTool = () => {
     const { isLoading, decodingQueryFn } = useSegmentAnythingModel();
     const throttledDecodingQueryFn = useSingleStackFn(decodingQueryFn);
 
-    const ref = useRef<SVGRectElement>(null);
+    const canvasRef = useRef<SVGRectElement>(null);
+    const svgRef = useRef<SVGSVGElement>(null);
 
     const clampPoint = clampPointBetweenImage(image);
 
@@ -72,15 +72,13 @@ export const SegmentAnythingTool = () => {
     }, [mousePosition, throttledDecodingQueryFn, throttleSetMousePosition, roi]);
 
     const handleMouseMove = (event: PointerEvent<SVGSVGElement>) => {
-        if (!ref.current) {
+        if (!canvasRef.current) {
             return;
         }
 
-        if (createLabelFormPosition !== undefined) {
-            return;
-        }
-
-        const point = clampPoint(getRelativePoint(ref.current, { x: event.clientX, y: event.clientY }, zoom.scale));
+        const point = clampPoint(
+            getRelativePoint(canvasRef.current, { x: event.clientX, y: event.clientY }, zoom.scale)
+        );
 
         throttleSetMousePosition({ ...point, positive: true });
     };
@@ -90,7 +88,7 @@ export const SegmentAnythingTool = () => {
     };
 
     const handlePointerDown = (event: PointerEvent<SVGSVGElement>) => {
-        if (!ref.current) {
+        if (!canvasRef.current) {
             return;
         }
 
@@ -103,10 +101,10 @@ export const SegmentAnythingTool = () => {
         }
 
         if (selectedLabel == null) {
-            setCreateLabelFormPosition({ x: event.clientX, y: event.clientY });
-        } else {
-            handleAddAnnotations(selectedLabel);
+            return;
         }
+
+        handleAddAnnotations(selectedLabel);
     };
 
     const previewAnnotations = previewShapes.map((shape, idx): AnnotationType => {
@@ -119,10 +117,6 @@ export const SegmentAnythingTool = () => {
         };
     });
 
-    const handleClose = () => {
-        setCreateLabelFormPosition(undefined);
-    };
-
     if (isLoading) {
         return <SAMLoading isLoading={isLoading} />;
     }
@@ -130,9 +124,10 @@ export const SegmentAnythingTool = () => {
     return (
         <>
             <SvgToolCanvas
+                ref={svgRef}
                 aria-label='SAM tool canvas'
                 image={image}
-                canvasRef={ref}
+                canvasRef={canvasRef}
                 onPointerMove={handleMouseMove}
                 onPointerDown={handlePointerDown}
                 onPointerLeave={() => {
@@ -170,13 +165,13 @@ export const SegmentAnythingTool = () => {
                         ))}
                     </MaskAnnotations>
                 )}
-                <CreateLabel
-                    point={createLabelFormPosition}
-                    onClose={handleClose}
-                    onSuccess={handleAddAnnotations}
-                    existingLabels={labels}
-                />
             </SvgToolCanvas>
+            <CreateLabel
+                ref={svgRef}
+                previewShapes={previewShapes}
+                onSuccess={handleAddAnnotations}
+                existingLabels={labels}
+            />
         </>
     );
 };
