@@ -151,14 +151,14 @@ export const ExistingSources = ({ sources, onViewChange, onSetSourceInEditionId 
     return (
         <ExistingPipelineEntities
             addNewEntityButton={
-                {canCreateSource && (
-                <ExistingPipelineEntities.AddNewEntityButton
-                    text={'Add new source'}
-                    onPress={() => onViewChange('add')}
-                />)}
+                canCreateSource && (
+                    <ExistingPipelineEntities.AddNewEntityButton
+                        text={'Add new source'}
+                        onPress={() => onViewChange('add')}
+                    />
+                )
             }
         >
-            )}
             <ExistingSourcesList
                 sources={sources}
                 onViewChange={onViewChange}
