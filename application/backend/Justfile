@@ -32,7 +32,7 @@ _pre-venv:
 
 _venv: _pre-venv
     uv lock --check
-    uv sync --extra {{ ai_extra }} --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
+    uv sync --extra {{ ai_extra }} --extra mqtt --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
 
 # Generate uv lock file
 venv-lock: _pre-venv

@@ -32,7 +32,7 @@ FROM backend-base AS cpu-base
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra cpu
+    uv sync --frozen --no-dev --no-editable --extra cpu --extra mqtt
 
 ##########
 # GPU Base
@@ -42,7 +42,7 @@ FROM backend-base AS gpu-base
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra cu126
+    uv sync --frozen --no-dev --no-editable --extra cu126 --extra mqtt
 
 ##########
 # XPU Base
@@ -52,7 +52,7 @@ FROM backend-base AS xpu-base
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra xpu
+    uv sync --frozen --no-dev --no-editable --extra xpu --extra mqtt
 
 ##################
 # Geti UI packages
