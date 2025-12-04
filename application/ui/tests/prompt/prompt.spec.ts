@@ -69,6 +69,7 @@ test.describe('Prompt', () => {
             const labelsPage = new LabelsPage(page);
             const labelName = 'Label 1';
 
+            await labelsPage.showDialog();
             await labelsPage.addLabel(labelName);
             await expect(labelsPage.getLabel(labelName)).toBeVisible();
         });
