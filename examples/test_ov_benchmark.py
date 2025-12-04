@@ -6,12 +6,7 @@
 
 import sys
 from argparse import Namespace
-from pathlib import Path
-
-# Add library to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "library" / "src"))
-
-from getiprompt.models import load_model
+from getiprompt.utils.benchmark import load_model
 from getiprompt.utils.constants import ModelName, SAMModelName
 
 
@@ -48,7 +43,7 @@ def test_load_model_with_backends():
     print("\nTest 2: Loading Matcher with OpenVINO backend...")
     print("Note: This will attempt to load from ./exports/matcher")
     print("If models don't exist, you'll see an error (expected for this test)")
-    
+
     try:
         ov_args = Namespace(
             backend="openvino",
@@ -89,4 +84,3 @@ def test_load_model_with_backends():
 if __name__ == "__main__":
     success = test_load_model_with_backends()
     sys.exit(0 if success else 1)
-

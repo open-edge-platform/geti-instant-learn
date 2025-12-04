@@ -9,11 +9,10 @@ from pathlib import Path
 import numpy as np
 import openvino as ov
 import torch
+from openvino.properties import hint
 from torch import nn
 from torchvision import tv_tensors
 from torchvision.transforms.v2 import Compose, Normalize, Resize, ToDtype
-
-from openvino.properties import hint
 
 logger = getLogger("Geti Prompt")
 

@@ -13,7 +13,9 @@ from getiprompt.utils.constants import Backend, SAMModelName
 # Configuration
 EXPORT_DIR = Path("./exports/matcher")
 SAM_MODEL = SAMModelName.SAM_HQ_TINY
-DATASET_ROOT = Path(__file__).parent.parent / "library" / "tests" / "assets" / "fss-1000"
+DATASET_ROOT = (
+    Path(__file__).parent.parent / "library" / "tests" / "assets" / "fss-1000"
+)
 
 
 def export_matcher_to_openvino():
@@ -89,9 +91,9 @@ def run_ov_matcher_inference():
         print(f"  - Prediction {i}:")
         print(f"    - Masks shape: {pred['pred_masks'].shape}")
         print(f"    - Labels shape: {pred['pred_labels'].shape}")
-        if 'pred_points' in pred:
+        if "pred_points" in pred:
             print(f"    - Points shape: {pred['pred_points'].shape}")
-        if 'pred_boxes' in pred:
+        if "pred_boxes" in pred:
             print(f"    - Boxes shape: {pred['pred_boxes'].shape}")
 
 
@@ -117,5 +119,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

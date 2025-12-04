@@ -16,13 +16,14 @@ from torchmetrics.segmentation import MeanIoU
 
 from getiprompt.data import Dataset, LVISDataset, PerSegDataset
 from getiprompt.data.base import Batch
-from getiprompt.models import Matcher, Model, load_model
+from getiprompt.models import Matcher, Model
 from getiprompt.utils import setup_logger
 from getiprompt.utils.args import get_arguments, parse_experiment_args
 from getiprompt.utils.benchmark import (
     _get_output_path_for_experiment,
     _save_results,
     convert_masks_to_one_hot_tensor,
+    load_model,
     prepare_output_directory,
 )
 from getiprompt.utils.constants import Backend, ModelName, get_category_presets

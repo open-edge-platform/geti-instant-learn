@@ -13,12 +13,12 @@ from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.components.sam.openvino import OpenVINOSAMPredictor
-from getiprompt.data.base.batch import Batch
-from getiprompt.models.matcher import Matcher
 from getiprompt.utils.constants import Backend, SAMModelName
 
+from .matcher import Matcher
 
-class OVMatcher(Matcher):
+
+class InferenceModel(Matcher):
     """OpenVINO-based Matcher model for efficient inference.
 
     This class inherits from Matcher but uses OpenVINO backend for all components,
@@ -123,10 +123,7 @@ class OVMatcher(Matcher):
         # Find SAM model file
         sam_path = model_folder / "exported_sam.xml"
         if not sam_path.exists():
-            msg = (
-                f"SAM model not found at {sam_path}. "
-                f"Please export the Matcher model first using matcher.export()"
-            )
+            msg = f"SAM model not found at {sam_path}. Please export the Matcher model first using matcher.export()"
             raise FileNotFoundError(msg)
 
         # Initialize OpenVINO components
@@ -140,7 +137,7 @@ class OVMatcher(Matcher):
             sam_model_name=sam,
             device=device,
             precision=precision,
-            model_path=sam_path
+            model_path=sam_path,
         )
 
         # Initialize other components (these don't need backend changes)
@@ -190,5 +187,3 @@ class OVMatcher(Matcher):
             "  matcher.export(export_dir, backend=Backend.OPENVINO)"
         )
         raise NotImplementedError(msg)
-
-

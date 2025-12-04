@@ -83,8 +83,6 @@ def load_image_encoder(
         ... )
     """
     if backend == Backend.HUGGINGFACE:
-        from .huggingface import HuggingFaceImageEncoder
-
         return HuggingFaceImageEncoder(
             model_id=model_id,
             device=device,
@@ -92,10 +90,7 @@ def load_image_encoder(
             compile_models=compile_models,
             input_size=input_size,
         )
-
     if backend == Backend.TIMM:
-        from .timm import TimmImageEncoder
-
         return TimmImageEncoder(
             model_id=model_id,
             device=device,
@@ -105,8 +100,6 @@ def load_image_encoder(
         )
 
     if backend == Backend.OPENVINO:
-        from .openvino import OpenVINOImageEncoder
-
         if model_path is None:
             msg = (
                 "model_path is required for OpenVINO backend. "

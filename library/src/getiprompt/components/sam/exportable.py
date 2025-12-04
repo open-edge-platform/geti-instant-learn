@@ -266,7 +266,7 @@ class ExportableSAMPredictor(nn.Module):
         # Move all model components to CPU for export compatibility
         logger.info("Moving SAM model to CPU for export...")
         self.sam_predictor.model.to("cpu")
-        
+
         self._freeze_modules([
             self.sam_predictor.model.mask_decoder,
             self.sam_predictor.model.prompt_encoder,
@@ -333,7 +333,7 @@ class ExportableSAMPredictor(nn.Module):
             dynamic_shapes = {
                 "transformed_image": openvino.PartialShape([-1, 3, -1, -1]),
                 "point_coords": openvino.PartialShape([-1, -1, 2]),
-                "point_labels": openvino.PartialShape([-1, 1]),
+                "point_labels": openvino.PartialShape([-1, -1]),
                 "boxes": openvino.PartialShape([-1, 1, 4]),
                 "mask_input": openvino.PartialShape([-1, 1, 256, 256]),
                 "original_size": openvino.PartialShape([2]),

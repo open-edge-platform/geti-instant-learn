@@ -178,8 +178,8 @@ class Matcher(Model):
         )
 
     def export(
-        self, 
-        export_dir: str | Path = Path("./exports/matcher"), 
+        self,
+        export_dir: str | Path = Path("./exports/matcher"),
         backend: Backend = Backend.ONNX,
     ) -> Path:
         self.encoder.export(export_dir, backend=backend)

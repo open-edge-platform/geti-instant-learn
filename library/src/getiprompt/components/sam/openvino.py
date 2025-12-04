@@ -9,11 +9,10 @@ from pathlib import Path
 import numpy as np
 import openvino as ov
 import torch
+from openvino.properties import hint
 from torch import nn
 
 from getiprompt.utils.constants import Backend, SAMModelName
-
-from openvino.properties import hint
 
 logger = getLogger("Geti Prompt")
 
@@ -67,9 +66,9 @@ class OpenVINOSAMPredictor(nn.Module):
         core = ov.Core()
         core.set_property(ov_device, {hint.inference_precision: self._map_precision_name(precision)})
         ov_model = core.read_model(model_path)
-        
+
         # Map device names (PyTorch style -> OpenVINO style)
-        
+
         self.compiled_model = core.compile_model(ov_model, ov_device)
 
         # Store state (OpenVINO model does full inference, not separate encoding)
