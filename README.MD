@@ -1,8 +1,3 @@
-<!---
-Copyright (C) 2025 Intel Corporation
-LIMITED EDGE SOFTWARE DISTRIBUTION LICENSE
--->
-
 ![alt text](assets/geti-prompt-header.png)
 
 [![python](https://img.shields.io/badge/python-3.12%2B-green)]()

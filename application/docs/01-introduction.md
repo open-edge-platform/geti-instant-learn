@@ -2,7 +2,7 @@
 
 This documentation covers the **Geti Prompt Application**, a full-stack solution (UI + Backend) that wraps the core library into a deployable, user-friendly platform.
 
-While the [root README](../../README.md) provides a high-level overview of the entire project, this section focuses specifically on the **Application experience**—how to use the interface to solve real-world computer vision problems without writing code.
+Focus is specifically on the **Application experience**—how to use the interface to solve real-world computer vision problems without writing code.
 
 ---
 
