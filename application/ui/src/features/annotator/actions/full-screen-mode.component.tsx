@@ -5,7 +5,7 @@
 
 import { createContext, ReactNode, use, useState } from 'react';
 
-import { ActionButton } from '@geti/ui';
+import { ActionButton, Tooltip, TooltipTrigger } from '@geti/ui';
 import { Collapse, Expand } from '@geti/ui/icons';
 import { useHotkeys } from 'react-hotkeys-hook';
 
@@ -38,12 +38,15 @@ export const FullScreenMode = () => {
     useHotkeys(HOTKEYS.fullscreen, () => setIsFullScreenMode(!isFullScreenMode), [isFullScreenMode]);
 
     return (
-        <ActionButton
-            isQuiet
-            aria-label={isFullScreenMode ? 'Close full screen' : 'Open full screen'}
-            onPress={() => setIsFullScreenMode(!isFullScreenMode)}
-        >
-            {isFullScreenMode ? <Collapse /> : <Expand />}
-        </ActionButton>
+        <TooltipTrigger>
+            <ActionButton
+                isQuiet
+                aria-label={isFullScreenMode ? 'Close full screen' : 'Open full screen'}
+                onPress={() => setIsFullScreenMode(!isFullScreenMode)}
+            >
+                {isFullScreenMode ? <Collapse /> : <Expand />}
+            </ActionButton>
+            <Tooltip>{isFullScreenMode ? 'Close full screen' : 'Open full screen'}</Tooltip>
+        </TooltipTrigger>
     );
 };
