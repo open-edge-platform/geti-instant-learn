@@ -118,7 +118,7 @@ run-image: build-image
 # run coturn server
 run-coturn:
     @echo "Running coturn server on port {{ coturn-port }} with external IP {{ coturn-external-ip }}..."
-    @docker run --rm -d \
+    @docker run --rm --detach \
         --network=host \
         --name coturn-server \
         {{ coturn-image }} \
