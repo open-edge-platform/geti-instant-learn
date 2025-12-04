@@ -36,9 +36,9 @@ class LinearSumAssignment(nn.Module):
             - "auto" (recommended): Uses fast scipy during normal execution,
               automatically switches to greedy during ONNX/TorchScript export.
               Best of both worlds - fast dev, exportable deployment.
-            - "greedy": Fast O(n²×min(n,m)) approximation, ~94-100% optimal
+            - "greedy": Fast O(n^2 x min(n,m)) approximation, ~94-100% optimal
               (100% for sparse rectangular matrices). Always exportable.
-            - "hungarian": Optimal O(n³) solution, exact scipy parity.
+            - "hungarian": Optimal O(n^3) solution, exact scipy parity.
               Exportable but slow for rectangular matrices.
             Default: "auto".
 
@@ -55,6 +55,7 @@ class LinearSumAssignment(nn.Module):
         maximize: bool = True,
         method: Literal["greedy", "hungarian", "auto"] = "auto",
     ) -> None:
+        """Initialize LinearSumAssignment solver."""
         super().__init__()
         self.maximize = maximize
         self._method_str: str = method
@@ -98,7 +99,7 @@ class LinearSumAssignment(nn.Module):
         )
 
     def _greedy(self, cost_matrix: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """Greedy approximation - O(n²×min(n,m)). ONNX/OpenVINO exportable."""
+        """Greedy approximation - O(n^2 x min(n,m)). ONNX/OpenVINO exportable."""
         n_rows, n_cols = cost_matrix.shape
         device = cost_matrix.device
         dtype = cost_matrix.dtype
@@ -133,11 +134,15 @@ class LinearSumAssignment(nn.Module):
         sort_idx = row_ind.argsort()
         return row_ind[sort_idx], col_ind[sort_idx]
 
-    def _hungarian(self, cost_matrix: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """Hungarian/Munkres algorithm - O(n³) exact solution. ONNX/OpenVINO exportable.
+    def _hungarian(  # noqa: C901, PLR0915
+        self,
+        cost_matrix: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Hungarian/Munkres algorithm - O(n^3) exact solution. ONNX/OpenVINO exportable.
 
         This implementation uses tensor operations with explicit loops that are
-        compatible with TorchScript and ONNX export.
+        compatible with TorchScript and ONNX export. The algorithm is inherently
+        complex and cannot be easily simplified without losing clarity.
         """
         n_rows, n_cols = cost_matrix.shape
         device = cost_matrix.device
@@ -149,22 +154,22 @@ class LinearSumAssignment(nn.Module):
             n_rows, n_cols = n_cols, n_rows
 
         # Convert to minimization with float64 for numerical stability
-        C = (-cost_matrix if self.maximize else cost_matrix).to(torch.float64).clone()
+        cost_mat = (-cost_matrix if self.maximize else cost_matrix).to(torch.float64).clone()
 
         # Pad to square if rectangular
         n = n_cols
         real_rows = n_rows
         if n_rows < n_cols:
-            big = C.abs().max() * n + 1.0
+            big = cost_mat.abs().max() * n + 1.0
             padded = torch.full((n, n), big, dtype=torch.float64, device=device)
-            padded[:n_rows, :] = C
-            C = padded
+            padded[:n_rows, :] = cost_mat
+            cost_mat = padded
 
         eps = 1e-10
 
         # Step 1: Row and column reduction
-        C = C - C.min(dim=1, keepdim=True).values
-        C = C - C.min(dim=0, keepdim=True).values
+        cost_mat -= cost_mat.min(dim=1, keepdim=True).values
+        cost_mat -= cost_mat.min(dim=0, keepdim=True).values
 
         # Initialize tracking tensors
         starred = torch.zeros((n, n), dtype=torch.bool, device=device)
@@ -173,7 +178,7 @@ class LinearSumAssignment(nn.Module):
         col_covered = torch.zeros(n, dtype=torch.bool, device=device)
 
         # Step 2: Star zeros - find independent zeros
-        is_zero = C <= eps
+        is_zero = eps >= cost_mat
         for i in range(n):
             for j in range(n):
                 if is_zero[i, j] and not row_covered[i] and not col_covered[j]:
@@ -201,7 +206,7 @@ class LinearSumAssignment(nn.Module):
             step4_done = False
             while not step4_done:
                 # Find all uncovered zeros
-                is_zero = C <= eps
+                is_zero = eps >= cost_mat
                 uncovered_mask = (~row_covered).unsqueeze(1) & (~col_covered).unsqueeze(0)
                 uncovered_zeros = is_zero & uncovered_mask
 
@@ -209,14 +214,14 @@ class LinearSumAssignment(nn.Module):
                     # Step 6: No uncovered zeros, modify matrix
                     uncovered_vals = torch.where(
                         uncovered_mask,
-                        C,
-                        torch.full_like(C, float("inf")),
+                        cost_mat,
+                        torch.full_like(cost_mat, float("inf")),
                     )
                     min_val = uncovered_vals.min()
 
                     # Add to covered rows, subtract from uncovered columns
-                    C = C + (row_covered.to(C.dtype).unsqueeze(1) * min_val)
-                    C = C - ((~col_covered).to(C.dtype).unsqueeze(0) * min_val)
+                    cost_mat += row_covered.to(cost_mat.dtype).unsqueeze(1) * min_val
+                    cost_mat -= (~col_covered).to(cost_mat.dtype).unsqueeze(0) * min_val
                     continue
 
                 # Find first uncovered zero
@@ -248,14 +253,14 @@ class LinearSumAssignment(nn.Module):
                             star_row = star_in_col.to(torch.int64).argmax()
                             path_rows[path_len] = star_row
                             path_cols[path_len] = col_idx
-                            path_len = path_len + 1
+                            path_len += 1
 
                             # Find primed zero in this row
                             prime_in_row = primed[star_row, :]
                             prime_col = prime_in_row.to(torch.int64).argmax()
                             path_rows[path_len] = star_row
                             path_cols[path_len] = prime_col
-                            path_len = path_len + 1
+                            path_len += 1
                         else:
                             done = True
 

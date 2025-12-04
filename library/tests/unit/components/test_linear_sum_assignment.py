@@ -63,6 +63,7 @@ class TestExport:
 
     @pytest.fixture(params=["greedy", "hungarian"])
     def matcher(self, request: pytest.FixtureRequest) -> LinearSumAssignment:
+        """Create matcher fixture with greedy and hungarian methods."""
         return LinearSumAssignment(maximize=True, method=request.param)
 
     def test_torchscript(self, matcher: LinearSumAssignment) -> None:
@@ -83,7 +84,7 @@ class TestExport:
         cost = torch.rand(5, 5)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / f"matcher_{matcher._method_str}.onnx"
+            path = Path(tmpdir) / "matcher.onnx"
             torch.onnx.export(
                 matcher,
                 cost,
@@ -112,7 +113,7 @@ class TestExport:
         cost = torch.rand(5, 5)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / f"matcher_{matcher._method_str}.onnx"
+            path = Path(tmpdir) / "matcher.onnx"
             torch.onnx.export(
                 matcher,
                 cost,
@@ -139,7 +140,7 @@ class TestDevicesAndDtypes:
         matcher = LinearSumAssignment(maximize=True, method="hungarian")
         for dtype in [torch.float32, torch.float64]:
             cost = torch.rand(5, 5, dtype=dtype)
-            row, col = matcher(cost)
+            row, _col = matcher(cost)
             assert row.device.type == "cpu" and row.numel() == 5
 
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
@@ -147,7 +148,7 @@ class TestDevicesAndDtypes:
         """Test CUDA device."""
         matcher = LinearSumAssignment(maximize=True, method="hungarian")
         cost = torch.rand(5, 5, device="cuda")
-        row, col = matcher(cost)
+        row, _col = matcher(cost)
         assert row.device.type == "cuda" and row.numel() == 5
 
 
