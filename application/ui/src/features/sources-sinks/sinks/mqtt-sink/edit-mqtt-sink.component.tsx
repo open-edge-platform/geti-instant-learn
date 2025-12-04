@@ -45,15 +45,23 @@ export const EditMQTTSink = ({ sink, onSaved }: EditMQTTSinkProps) => {
     };
 
     return (
-        <Form onSubmit={editSink}>
+        <Form validationBehavior={'native'} onSubmit={editSink}>
             <MQTTSinkFields />
 
             <ButtonGroup>
-                <Button type={'submit'} onPress={() => (activeRef.current = sink.active)}>
+                <Button
+                    type={'submit'}
+                    onPress={() => (activeRef.current = sink.active)}
+                    isPending={updateSinkMutation.isPending}
+                >
                     Save
                 </Button>
                 {!sink.active && (
-                    <Button type={'submit'} onPress={() => (activeRef.current = true)}>
+                    <Button
+                        type={'submit'}
+                        onPress={() => (activeRef.current = true)}
+                        isPending={updateSinkMutation.isPending}
+                    >
                         Save & Connect
                     </Button>
                 )}

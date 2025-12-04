@@ -36,7 +36,7 @@ export const CreateMQTTSink = ({ onSaved }: CreateMQTTSinkProps) => {
     };
 
     return (
-        <Form onSubmit={createSink}>
+        <Form validationBehavior={'native'} onSubmit={createSink}>
             <MQTTSinkFields />
 
             <Button type={'submit'} width={'max-content'} isPending={createSinkMutation.isPending}>

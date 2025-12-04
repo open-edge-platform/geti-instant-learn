@@ -60,23 +60,11 @@ const ExistingSinksList = ({ sinks, onSetSinkInEditionId, onViewChange }: Existi
 
     const handleAction = (sink: SinkConfig) => (action: string) => {
         if (action === 'delete') {
-            deleteSinkMutation.mutate(
-                {
-                    params: {
-                        path: {
-                            project_id: project.id,
-                            sink_id: sink.id,
-                        },
-                    },
-                },
-                {
-                    onSuccess: () => {
-                        if (sinks.length === 1) {
-                            onViewChange('list');
-                        }
-                    },
+            deleteSinkMutation.mutate(sink.id, () => {
+                if (sinks.length === 1) {
+                    onViewChange('list');
                 }
-            );
+            });
         } else if (action === 'edit') {
             onViewChange('edit');
             onSetSinkInEditionId(sink.id);
