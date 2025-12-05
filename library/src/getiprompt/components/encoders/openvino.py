@@ -14,6 +14,8 @@ from torch import nn
 from torchvision import tv_tensors
 from torchvision.transforms.v2 import Compose, Normalize, Resize, ToDtype
 
+from getiprompt.utils.utils import device_to_openvino_device, precision_to_openvino_type
+
 logger = getLogger("Geti Prompt")
 
 # Default normalization values for DINO models
@@ -79,9 +81,9 @@ class OpenVINOImageEncoder(nn.Module):
         # Load OpenVINO model
         msg = f"Loading OpenVINO DINO encoder from {model_path}"
         logger.info(msg)
-        ov_device = self._map_device_name(device)
+        ov_device = device_to_openvino_device(device)
         core = ov.Core()
-        core.set_property(ov_device, {hint.inference_precision: self._map_precision_name(precision)})
+        core.set_property(ov_device, {hint.inference_precision: precision_to_openvino_type(precision)})
         ov_model = core.read_model(model_path)
 
         # Load model configuration from runtime info
@@ -111,40 +113,6 @@ class OpenVINOImageEncoder(nn.Module):
         # Store input/output names
         self.input_name = self.compiled_model.input(0).any_name
         self.output_name = self.compiled_model.output(0).any_name
-
-    def _map_precision_name(self, precision: str) -> str:
-        """Map precision names to OpenVINO precision names.
-
-        Args:
-            precision: Precision name in PyTorch style
-
-        Returns:
-            Precision name in OpenVINO style
-        """
-        precision_map = {
-            "fp32": ov.Type.f32,
-            "fp16": ov.Type.f16,
-            "bf16": ov.Type.f16,
-        }
-        return precision_map.get(precision.lower(), ov.Type.f32)
-
-    def _map_device_name(self, device: str) -> str:
-        """Map PyTorch device names to OpenVINO device names.
-
-        Args:
-            device: Device name in PyTorch style
-
-        Returns:
-            Device name in OpenVINO style
-        """
-        device_map = {
-            "cuda": "GPU",
-            "cpu": "CPU",
-            "GPU": "GPU",
-            "CPU": "CPU",
-            "AUTO": "AUTO",
-        }
-        return device_map.get(device.upper() if device else "CPU", "CPU")
 
     @torch.inference_mode()
     def forward(self, images: list[tv_tensors.Image]) -> torch.Tensor:

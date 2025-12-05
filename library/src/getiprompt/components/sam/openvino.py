@@ -13,6 +13,7 @@ from openvino.properties import hint
 from torch import nn
 
 from getiprompt.utils.constants import Backend, SAMModelName
+from getiprompt.utils.utils import device_to_openvino_device, precision_to_openvino_type
 
 logger = getLogger("Geti Prompt")
 
@@ -61,10 +62,10 @@ class OpenVINOSAMPredictor(nn.Module):
         msg = f"Loading OpenVINO SAM: {sam_model_name} from {model_path}"
         logger.info(msg)
 
-        ov_device = self._map_device_name(device)
+        ov_device = device_to_openvino_device(device)
         # Load and compile model
         core = ov.Core()
-        core.set_property(ov_device, {hint.inference_precision: self._map_precision_name(precision)})
+        core.set_property(ov_device, {hint.inference_precision: precision_to_openvino_type(precision)})
         ov_model = core.read_model(model_path)
 
         # Map device names (PyTorch style -> OpenVINO style)
@@ -74,40 +75,6 @@ class OpenVINOSAMPredictor(nn.Module):
         # Store state (OpenVINO model does full inference, not separate encoding)
         self._current_image = None
         self._original_size = None
-
-    def _map_precision_name(self, precision: str) -> str:
-        """Map precision names to OpenVINO precision names.
-
-        Args:
-            precision: Precision name in PyTorch style
-
-        Returns:
-            Precision name in OpenVINO style
-        """
-        precision_map = {
-            "fp32": ov.Type.f32,
-            "fp16": ov.Type.f16,
-            "bf16": ov.Type.f16,
-        }
-        return precision_map.get(precision.lower(), ov.Type.f32)
-
-    def _map_device_name(self, device: str) -> str:
-        """Map PyTorch device names to OpenVINO device names.
-
-        Args:
-            device: Device name in PyTorch style
-
-        Returns:
-            Device name in OpenVINO style
-        """
-        device_map = {
-            "cuda": "GPU",
-            "cpu": "CPU",
-            "GPU": "GPU",
-            "CPU": "CPU",
-            "AUTO": "AUTO",
-        }
-        return device_map.get(device.upper() if device else "CPU", "CPU")
 
     def set_image(
         self,
