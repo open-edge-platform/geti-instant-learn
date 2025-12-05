@@ -195,8 +195,8 @@ class SAMPredictor:
 
     def predict(
         self,
-        point_coords: torch.Tensor | None,
-        point_labels: torch.Tensor | None,
+        point_coords: torch.Tensor | None = None,
+        point_labels: torch.Tensor | None = None,
         boxes: torch.Tensor | None = None,
         mask_input: torch.Tensor | None = None,
         multimask_output: bool = True,

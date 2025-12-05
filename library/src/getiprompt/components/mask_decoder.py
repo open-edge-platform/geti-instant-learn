@@ -128,7 +128,7 @@ class SamDecoder(nn.Module):
         """
         # Separate Positive and Negative Points ---
         positive_mask = (labels == 1).squeeze(1)
-        negative_mask = (labels == 0).squeeze(1)
+        negative_mask = (labels == -1).squeeze(1)
 
         # Get the corresponding coordinates and scores
         positive_coords = points[positive_mask]
