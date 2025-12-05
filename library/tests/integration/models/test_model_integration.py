@@ -107,7 +107,7 @@ class TestModelIntegration:
 
     @pytest.mark.parametrize("sam_model", SAM_MODELS)
     @pytest.mark.parametrize("model_name", ModelName)
-    def test_model_learn_infer(
+    def test_model_fit_predict(
         self,
         sam_model: SAMModelName,
         model_name: ModelName,

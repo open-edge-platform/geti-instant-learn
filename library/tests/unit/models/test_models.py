@@ -179,8 +179,8 @@ class TestMatcher:
         model = Matcher(device="cpu")
 
         # Mock the learn and infer methods
-        model.learn = MagicMock(return_value=None)
-        model.infer = MagicMock(
+        model.fit = MagicMock(return_value=None)
+        model.predict = MagicMock(
             return_value=[
                 {
                     "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
@@ -220,8 +220,8 @@ class TestMatcher:
         model = Matcher(device="cpu")
 
         # Mock the learn and infer methods
-        model.learn = MagicMock(return_value=None)
-        model.infer = MagicMock(
+        model.fit = MagicMock(return_value=None)
+        model.predict = MagicMock(
             return_value=[
                 {
                     "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
@@ -291,8 +291,8 @@ class TestSoftMatcher:
         model = SoftMatcher(device="cpu")
 
         # Mock the learn and infer methods
-        model.learn = MagicMock(return_value=None)
-        model.infer = MagicMock(
+        model.fit = MagicMock(return_value=None)
+        model.predict = MagicMock(
             return_value=[
                 {
                     "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
@@ -332,8 +332,8 @@ class TestSoftMatcher:
         model = SoftMatcher(device="cpu")
 
         # Mock the learn and infer methods
-        model.learn = MagicMock(return_value=None)
-        model.infer = MagicMock(
+        model.fit = MagicMock(return_value=None)
+        model.predict = MagicMock(
             return_value=[
                 {
                     "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
@@ -385,8 +385,8 @@ class TestGroundedSAM:
         model = GroundedSAM(device="cpu")
 
         # Mock the learn and infer methods
-        model.learn = MagicMock(return_value=None)
-        model.infer = MagicMock(
+        model.fit = MagicMock(return_value=None)
+        model.predict = MagicMock(
             return_value=[
                 {
                     "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
@@ -423,8 +423,8 @@ class TestGroundedSAM:
         model = GroundedSAM(device="cpu")
 
         # Mock the learn and infer methods
-        model.learn = MagicMock(return_value=None)
-        model.infer = MagicMock(
+        model.fit = MagicMock(return_value=None)
+        model.predict = MagicMock(
             return_value=[
                 {
                     "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
