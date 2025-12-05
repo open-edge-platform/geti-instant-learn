@@ -110,7 +110,13 @@ if (
         Serve the Single Page Application (SPA) index.html file for any path
         """
         index_path = os.path.join(settings.static_files_dir, "index.html")
-        return FileResponse(index_path)
+        return FileResponse(
+            index_path,
+            headers={
+                "Cross-Origin-Embedder-Policy": "require-corp",
+                "Cross-Origin-Opener-Policy": "same-origin",
+            },
+        )
 
 
 def main() -> None:
