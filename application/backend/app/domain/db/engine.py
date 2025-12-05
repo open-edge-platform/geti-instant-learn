@@ -8,12 +8,12 @@ from pathlib import Path
 from sqlite3 import Connection
 from typing import Any
 
+from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from alembic import command
 from settings import get_settings
 
 logger = logging.getLogger(__name__)
