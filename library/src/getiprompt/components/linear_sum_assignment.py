@@ -1,10 +1,11 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Pure PyTorch linear sum assignment (Hungarian/Munkres algorithm).
+"""Pure PyTorch linear sum assignment solver.
 
-This module provides ONNX/OpenVINO-exportable alternatives to scipy.optimize.linear_sum_assignment.
-All implementations are device-agnostic (CPU/CUDA/XPU) and produce numerically equivalent results.
+This module provides an ONNX/OpenVINO-exportable alternative to scipy.optimize.linear_sum_assignment.
+The implementation is device-agnostic (CPU/CUDA/XPU) and achieves 99%+ optimality for rectangular
+matrices typical in feature matching applications.
 
 Example:
     >>> import torch
@@ -27,8 +28,8 @@ class LinearSumAssignment(nn.Module):
 
     Drop-in replacement for scipy.optimize.linear_sum_assignment that is:
     - Device-agnostic (CPU/CUDA/XPU)
-    - ONNX/OpenVINO exportable
-    - Numerically equivalent to scipy (with Hungarian method)
+    - ONNX/OpenVINO exportable (greedy method)
+    - 99%+ optimal for rectangular matrices (greedy achieves ~100% for sparse matrices)
 
     Args:
         maximize: If True, maximize the sum of costs. Default: True.
@@ -36,10 +37,8 @@ class LinearSumAssignment(nn.Module):
             - "auto" (recommended): Uses fast scipy during normal execution,
               automatically switches to greedy during ONNX/TorchScript export.
               Best of both worlds - fast dev, exportable deployment.
-            - "greedy": Fast O(n^2 x min(n,m)) approximation, ~94-100% optimal
-              (100% for sparse rectangular matrices). Always exportable.
-            - "hungarian": Optimal O(n^3) solution, exact scipy parity.
-              Exportable but slow for rectangular matrices.
+            - "greedy": Fast O(n² × min(n,m)) approximation, ~95-100% optimal.
+              Always exportable. Achieves 99%+ for rectangular matrices.
             Default: "auto".
 
     Example:
@@ -53,7 +52,7 @@ class LinearSumAssignment(nn.Module):
     def __init__(
         self,
         maximize: bool = True,
-        method: Literal["greedy", "hungarian", "auto"] = "auto",
+        method: Literal["greedy", "auto"] = "auto",
     ) -> None:
         """Initialize LinearSumAssignment solver."""
         super().__init__()
@@ -85,9 +84,8 @@ class LinearSumAssignment(nn.Module):
             # Normal Python execution - use fast scipy
             return self._scipy(cost_matrix)
 
-        if self._method_str == "greedy":
-            return self._greedy(cost_matrix)
-        return self._hungarian(cost_matrix)
+        # Explicit greedy
+        return self._greedy(cost_matrix)
 
     def _scipy(self, cost_matrix: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Use scipy for optimal, fast solution (not exportable)."""
@@ -133,166 +131,6 @@ class LinearSumAssignment(nn.Module):
         # Sort by row index for consistent output
         sort_idx = row_ind.argsort()
         return row_ind[sort_idx], col_ind[sort_idx]
-
-    def _hungarian(  # noqa: C901, PLR0915
-        self,
-        cost_matrix: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Hungarian/Munkres algorithm - O(n^3) exact solution. ONNX/OpenVINO exportable.
-
-        This implementation uses tensor operations with explicit loops that are
-        compatible with TorchScript and ONNX export. The algorithm is inherently
-        complex and cannot be easily simplified without losing clarity.
-        """
-        n_rows, n_cols = cost_matrix.shape
-        device = cost_matrix.device
-
-        # Transpose if more rows than columns (scipy convention)
-        transposed = n_rows > n_cols
-        if transposed:
-            cost_matrix = cost_matrix.T
-            n_rows, n_cols = n_cols, n_rows
-
-        # Convert to minimization with float64 for numerical stability
-        cost_mat = (-cost_matrix if self.maximize else cost_matrix).to(torch.float64)
-
-        # Pad to square if rectangular
-        n = n_cols
-        real_rows = n_rows
-        if n_rows < n_cols:
-            big = cost_mat.abs().max() * n + 1.0
-            padded = torch.full((n, n), big, dtype=torch.float64, device=device)
-            padded[:n_rows, :] = cost_mat
-            cost_mat = padded
-
-        eps = 1e-10
-
-        # Step 1: Row and column reduction
-        cost_mat -= cost_mat.min(dim=1, keepdim=True).values
-        cost_mat -= cost_mat.min(dim=0, keepdim=True).values
-
-        # Initialize tracking tensors
-        starred = torch.zeros((n, n), dtype=torch.bool, device=device)
-        primed = torch.zeros((n, n), dtype=torch.bool, device=device)
-        row_covered = torch.zeros(n, dtype=torch.bool, device=device)
-        col_covered = torch.zeros(n, dtype=torch.bool, device=device)
-
-        # Step 2: Star zeros - find independent zeros
-        is_zero = eps >= cost_mat
-        for i in range(n):
-            for j in range(n):
-                if is_zero[i, j] and not row_covered[i] and not col_covered[j]:
-                    starred[i, j] = True
-                    row_covered[i] = True
-                    col_covered[j] = True
-
-        # Reset covers
-        row_covered = torch.zeros(n, dtype=torch.bool, device=device)
-        col_covered = torch.zeros(n, dtype=torch.bool, device=device)
-
-        # Path storage - preallocate with max size
-        path_rows = torch.zeros(2 * n + 1, dtype=torch.int64, device=device)
-        path_cols = torch.zeros(2 * n + 1, dtype=torch.int64, device=device)
-
-        max_iter = n * n * 10
-        for _ in range(max_iter):
-            # Step 3: Cover columns with starred zeros
-            col_covered = starred.any(dim=0)
-
-            if col_covered.sum() >= n:
-                break
-
-            # Step 4: Find uncovered zeros
-            step4_done = False
-            while not step4_done:
-                # Find all uncovered zeros
-                is_zero = eps >= cost_mat
-                uncovered_mask = (~row_covered).unsqueeze(1) & (~col_covered).unsqueeze(0)
-                uncovered_zeros = is_zero & uncovered_mask
-
-                if not uncovered_zeros.any():
-                    # Step 6: No uncovered zeros, modify matrix
-                    uncovered_vals = torch.where(
-                        uncovered_mask,
-                        cost_mat,
-                        torch.full_like(cost_mat, float("inf")),
-                    )
-                    min_val = uncovered_vals.min()
-
-                    # Add to covered rows, subtract from uncovered columns
-                    cost_mat += row_covered.to(cost_mat.dtype).unsqueeze(1) * min_val
-                    cost_mat -= (~col_covered).to(cost_mat.dtype).unsqueeze(0) * min_val
-                    continue
-
-                # Find first uncovered zero (convert bool to int64 for argmax)
-                flat_idx = uncovered_zeros.flatten().to(torch.int64).argmax()
-                row = flat_idx // n
-                col = flat_idx % n
-
-                # Prime this zero
-                primed[row, col] = True
-
-                # Check for starred zero in this row
-                star_in_row = starred[row, :]
-                if star_in_row.any():
-                    star_col = star_in_row.to(torch.int64).argmax()
-                    row_covered[row] = True
-                    col_covered[star_col] = False
-                else:
-                    # Step 5: Construct augmenting path
-                    path_rows[0] = row
-                    path_cols[0] = col
-                    path_len = 1
-
-                    done = False
-                    while not done:
-                        # Find starred zero in column
-                        col_idx = path_cols[path_len - 1]
-                        star_in_col = starred[:, col_idx]
-                        if star_in_col.any():
-                            star_row = star_in_col.to(torch.int64).argmax()
-                            path_rows[path_len] = star_row
-                            path_cols[path_len] = col_idx
-                            path_len += 1
-
-                            # Find primed zero in this row
-                            prime_in_row = primed[star_row, :]
-                            prime_col = prime_in_row.to(torch.int64).argmax()
-                            path_rows[path_len] = star_row
-                            path_cols[path_len] = prime_col
-                            path_len += 1
-                        else:
-                            done = True
-
-                    # Augment: toggle starred status along path
-                    for k in range(path_len):
-                        r = path_rows[k]
-                        c = path_cols[k]
-                        starred[r, c] = ~starred[r, c]
-
-                    # Clear covers and primes
-                    row_covered = torch.zeros(n, dtype=torch.bool, device=device)
-                    col_covered = torch.zeros(n, dtype=torch.bool, device=device)
-                    primed = torch.zeros((n, n), dtype=torch.bool, device=device)
-                    step4_done = True
-
-        # Extract assignments from starred zeros (only from real rows)
-        # Use vectorized operations instead of lists
-        starred_real = starred[:real_rows, :]
-        has_assignment = starred_real.any(dim=1)
-        row_ind = torch.arange(real_rows, dtype=torch.int64, device=device)[has_assignment]
-
-        # For each row with assignment, find the column
-        col_ind = torch.zeros(row_ind.shape[0], dtype=torch.int64, device=device)
-        for idx in range(row_ind.shape[0]):
-            r = row_ind[idx]
-            col_ind[idx] = starred[r, :].to(torch.int64).argmax()
-
-        # Undo transpose if needed
-        if transposed:
-            row_ind, col_ind = col_ind, row_ind
-
-        return row_ind, col_ind
 
 
 def linear_sum_assignment(

@@ -67,6 +67,9 @@ class BidirectionalPromptGenerator(nn.Module):
                 matched_ref_idx: torch.Tensor - Indices of matched reference features
                 sim_scores: torch.Tensor - Similarity scores of matched reference features
         """
+        # Ensure ref_mask_idx is on the same device as similarity_map
+        ref_mask_idx = ref_mask_idx.to(similarity_map.device)
+
         ref_to_target_sim = similarity_map[ref_mask_idx]
         if ref_to_target_sim.numel() == 0:
             return _empty_match_result(similarity_map)
@@ -94,7 +97,8 @@ class BidirectionalPromptGenerator(nn.Module):
                 valid_indices: torch.Tensor - Indices of matched reference features
                 valid_scores: torch.Tensor - Similarity scores of matched reference features
         """
-        ref_idx = ref_mask.nonzero(as_tuple=True)[0]
+        # Ensure ref_idx is on the same device as similarity_map
+        ref_idx = ref_mask.nonzero(as_tuple=True)[0].to(similarity_map.device)
         if ref_idx.numel() == 0:
             return _empty_match_result(similarity_map)
 

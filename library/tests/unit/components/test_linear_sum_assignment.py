@@ -17,29 +17,26 @@ from getiprompt.components.linear_sum_assignment import LinearSumAssignment, lin
 class TestLinearSumAssignment:
     """Core tests for LinearSumAssignment."""
 
-    @pytest.mark.parametrize("method", ["hungarian", "greedy"])
     @pytest.mark.parametrize("maximize", [True, False])
-    def test_scipy_parity(self, method: str, maximize: bool) -> None:
-        """Both methods should produce valid assignments matching or close to scipy."""
+    def test_greedy_optimality(self, maximize: bool) -> None:
+        """Greedy should produce valid assignments within acceptable range of scipy."""
         torch.manual_seed(42)
-        for size in [(5, 5), (8, 12), (12, 8)]:
+        for size in [(5, 5), (8, 12), (12, 8), (100, 50)]:
             cost = torch.rand(*size)
-            row, col = LinearSumAssignment(maximize=maximize, method=method)(cost)
+            row, col = LinearSumAssignment(maximize=maximize, method="greedy")(cost)
             our_cost = cost[row, col].sum().item()
 
             scipy_row, scipy_col = scipy_lsa(cost.numpy(), maximize=maximize)
             scipy_cost = cost[scipy_row, scipy_col].sum().item()
 
-            # Hungarian should match exactly, greedy within 75%
-            if method == "hungarian":
-                assert np.isclose(our_cost, scipy_cost, rtol=1e-5)
-            else:
-                ratio = our_cost / scipy_cost if maximize else scipy_cost / our_cost
-                assert ratio >= 0.75, f"Greedy ratio {ratio:.2f} < 0.75"
+            # Greedy should be within reasonable range (75% for all cases)
+            # For rectangular matrices with maximize=True, it achieves 99%+
+            ratio = our_cost / scipy_cost if maximize else scipy_cost / our_cost
+            assert ratio >= 0.75, f"Greedy ratio {ratio:.2f} < 0.75 for {size}"
 
     def test_edge_cases(self) -> None:
         """Test empty and single element matrices."""
-        matcher = LinearSumAssignment(maximize=True, method="hungarian")
+        matcher = LinearSumAssignment(maximize=True, method="greedy")
 
         # Empty
         row, col = matcher(torch.empty(0, 0))
@@ -61,10 +58,10 @@ class TestLinearSumAssignment:
 class TestExport:
     """Test export to TorchScript, ONNX, and OpenVINO."""
 
-    @pytest.fixture(params=["greedy", "hungarian"])
-    def matcher(self, request: pytest.FixtureRequest) -> LinearSumAssignment:
-        """Create matcher fixture with greedy and hungarian methods."""
-        return LinearSumAssignment(maximize=True, method=request.param)
+    @pytest.fixture
+    def matcher(self) -> LinearSumAssignment:
+        """Create greedy matcher fixture."""
+        return LinearSumAssignment(maximize=True, method="greedy")
 
     def test_torchscript(self, matcher: LinearSumAssignment) -> None:
         """Test TorchScript export and inference."""
@@ -139,7 +136,7 @@ class TestDevicesAndDtypes:
 
     def test_cpu_and_dtypes(self) -> None:
         """Test CPU with various dtypes."""
-        matcher = LinearSumAssignment(maximize=True, method="hungarian")
+        matcher = LinearSumAssignment(maximize=True, method="greedy")
         for dtype in [torch.float32, torch.float64]:
             cost = torch.rand(5, 5, dtype=dtype)
             row, _col = matcher(cost)
@@ -148,7 +145,7 @@ class TestDevicesAndDtypes:
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
     def test_cuda(self) -> None:
         """Test CUDA device."""
-        matcher = LinearSumAssignment(maximize=True, method="hungarian")
+        matcher = LinearSumAssignment(maximize=True, method="greedy")
         cost = torch.rand(5, 5, device="cuda")
         row, _col = matcher(cost)
         assert row.device.type == "cuda" and row.numel() == 5
