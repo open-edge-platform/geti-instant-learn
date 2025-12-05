@@ -78,6 +78,24 @@ export class WebRTCConnection {
         return this.peerConnection !== null && this.status !== 'idle' && this.status !== 'disconnected';
     }
 
+    private async fetchIceServers(): Promise<RTCIceServer[]> {
+        try {
+            const baseUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:9100';
+            const response = await fetch(`${baseUrl}/api/v1/webrtc/config`);
+
+            if (!response.ok) {
+                console.warn('Failed to fetch WebRTC config, using defaults');
+                return [];
+            }
+
+            const data = await response.json();
+            return data.iceServers ?? [];
+        } catch (error) {
+            console.warn('Error fetching WebRTC config:', error);
+            return [];
+        }
+    }
+
     public async start(projectId: string): Promise<void> {
         if (this.hasActiveConnection()) {
             console.warn('WebRTC connection is already active or in progress.');
@@ -87,15 +105,18 @@ export class WebRTCConnection {
         try {
             this.updateStatus('connecting');
 
-            // Only set ICE server config if browser is Firefox
-            if (isFirefox()) {
-                const config: RTCConfiguration = {
-                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-                };
-                this.peerConnection = new RTCPeerConnection(config);
-            } else {
-                this.peerConnection = new RTCPeerConnection();
+            const iceServers = await this.fetchIceServers();
+
+            const config: RTCConfiguration = {
+                iceServers,
+            };
+
+            // Only set default ICE server config if browser is Firefox and no custom servers provided
+            if (isFirefox() && iceServers.length === 0) {
+                config.iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
             }
+
+            this.peerConnection = new RTCPeerConnection(config);
 
             this.timeoutId = setTimeout(() => {
                 console.warn('Connection is taking longer than usual. Are you on a VPN?');

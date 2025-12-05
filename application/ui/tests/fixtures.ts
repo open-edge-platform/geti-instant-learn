@@ -49,11 +49,23 @@ const test = testBase.extend<Fixtures>({
             http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {
                 return response(200).json({
                     sources: [],
+                    pagination: {
+                        count: 0,
+                        total: 0,
+                        limit: 10,
+                        offset: 0,
+                    },
                 });
             }),
             http.get('/api/v1/projects/{project_id}/sinks', ({ response }) => {
                 return response(200).json({
                     sinks: [],
+                    pagination: {
+                        count: 0,
+                        total: 0,
+                        limit: 10,
+                        offset: 0,
+                    },
                 });
             }),
             http.get('/api/v1/projects/{project_id}/labels', ({ response }) => {

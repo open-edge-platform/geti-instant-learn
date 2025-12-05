@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Source } from '@geti-prompt/api';
+import { Source, SourceType } from '@geti-prompt/api';
 import { useCurrentProject } from '@geti-prompt/hooks';
 import { Button, Flex } from '@geti/ui';
 import { Add as AddIcon } from '@geti/ui/icons';
@@ -57,7 +57,7 @@ const getMenuItems = ({
 };
 
 const sortSources = (sources: Source[]): Source[] => {
-    return orderBy(sources, (source) => source.connected, 'desc');
+    return orderBy(sources, (source) => source.active, 'desc');
 };
 
 interface ExistingSourcesListProps {
@@ -80,7 +80,7 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
         } else if (action === 'connect') {
             updateSource.mutate(source.id, {
                 config: source.config,
-                connected: true,
+                active: true,
             });
         } else if (action === 'delete') {
             deleteSource.mutate(
@@ -99,7 +99,7 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
     return (
         <Flex direction={'column'} gap={'size-100'}>
             {sortSources(sources).map((source) => {
-                const isActiveSource = source.connected;
+                const isActiveSource = source.active;
 
                 if (isTestDatasetSource(source)) {
                     return (
@@ -144,16 +144,25 @@ interface ExistingSourcesProps {
     onSetSourceInEditionId: (sourceId: string) => void;
 }
 
+const AVAILABLE_SOURCE_TYPES: SourceType[] = ['webcam', 'images_folder', 'sample_dataset'];
+
 export const ExistingSources = ({ sources, onViewChange, onSetSourceInEditionId }: ExistingSourcesProps) => {
+    const canCreateSource = !AVAILABLE_SOURCE_TYPES.every((type) =>
+        sources.some((source) => source.config.source_type === type)
+    );
+
     return (
         <Flex direction={'column'} gap={'size-200'}>
-            <Button
-                variant={'secondary'}
-                onPress={() => onViewChange('add')}
-                UNSAFE_className={styles.addNewSourceButton}
-            >
-                <AddIcon /> Add new source
-            </Button>
+            {canCreateSource && (
+                <Button
+                    variant={'secondary'}
+                    onPress={() => onViewChange('add')}
+                    UNSAFE_className={styles.addNewSourceButton}
+                >
+                    <AddIcon /> Add new source
+                </Button>
+            )}
+
             <ExistingSourcesList
                 sources={sources}
                 onViewChange={onViewChange}

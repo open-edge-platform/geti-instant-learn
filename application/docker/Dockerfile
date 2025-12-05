@@ -32,7 +32,7 @@ FROM backend-base AS cpu-base
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra cpu
+    uv sync --frozen --no-dev --no-editable --extra cpu --extra mqtt
 
 ##########
 # GPU Base
@@ -42,7 +42,7 @@ FROM backend-base AS gpu-base
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra cu126
+    uv sync --frozen --no-dev --no-editable --extra cu126 --extra mqtt
 
 ##########
 # XPU Base
@@ -52,7 +52,7 @@ FROM backend-base AS xpu-base
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra xpu
+    uv sync --frozen --no-dev --no-editable --extra xpu --extra mqtt
 
 ##################
 # Geti UI packages
@@ -113,7 +113,7 @@ ARG USER_NAME="non-root"
 ENV USER_NAME=${USER_NAME}
 ARG PUBLIC_API_URL=""
 ENV PUBLIC_API_URL=${PUBLIC_API_URL}
-ARG INITIAL_DATASET_DIR=""
+ARG TARGET_DATASET_DIR=""
 ARG SOURCE_DATASET_DIR=""
 
 # Create directory and set ownership before VOLUME instruction
@@ -137,7 +137,7 @@ RUN useradd -l -u ${UID} ${USER_NAME} \
     && rm -rf /root/.cache/pip
 
 # Add sample dataset with coffee berries
-COPY --link --chown=${UID} ${SOURCE_DATASET_DIR} ${INITIAL_DATASET_DIR}
+COPY --link --chown=${UID} ${SOURCE_DATASET_DIR} ${TARGET_DATASET_DIR}
 
 # Copy backend source code
 COPY --link --chown=${UID} backend/app /geti_prompt/app
@@ -159,14 +159,14 @@ CMD ["uv", "run", "app/main.py"]
 ######################
 # Server (CPU version)
 ######################
-FROM runtime-base AS geti-prompt-cpu
+FROM runtime-base AS cpu
 
 COPY --from=cpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
 
 ######################
 # Server (GPU version)
 ######################
-FROM runtime-base AS geti-prompt-gpu
+FROM runtime-base AS gpu
 
 USER root
 
@@ -191,7 +191,7 @@ COPY --from=gpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/
 ######################
 # Server (XPU version)
 ######################
-FROM runtime-base AS geti-prompt-xpu
+FROM runtime-base AS xpu
 
 USER root
 

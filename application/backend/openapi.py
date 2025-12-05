@@ -5,7 +5,7 @@ import argparse
 import json
 import pathlib
 
-from app.main import app
+from app.main import fastapi_app
 
 parser = argparse.ArgumentParser(description="Generate OpenAPI schema")
 parser.add_argument("output_path", type=pathlib.Path, help="The path where the openapi-spec.json file will be saved.")
@@ -15,7 +15,7 @@ output_file = pathlib.Path(args.output_path) / "openapi-spec.json"
 output_file.parent.mkdir(parents=True, exist_ok=True)
 
 with open(output_file, "w") as file:
-    open_api = app.openapi()
+    open_api = fastapi_app.openapi()
     json.dump(obj=open_api, fp=file, indent=2)
 
 print(f"OpenAPI schema generated at {output_file}")

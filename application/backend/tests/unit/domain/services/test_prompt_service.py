@@ -602,7 +602,7 @@ def test_get_reference_batch_for_visual_prompts(service):
     service.prompt_repository.list_all_by_project.return_value = [visual_prompt]
 
     frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
-    service.frame_repository.get_frame.return_value = frame
+    service.frame_repository.read_frame.return_value = frame
 
     result = service.get_reference_batch(project_id, PromptType.VISUAL)
 
@@ -619,13 +619,13 @@ def test_get_reference_batch_for_visual_prompts(service):
     assert len(sample.masks) == 1  # One polygon annotation
     assert str(label_id) in sample.categories
 
-    service.frame_repository.get_frame.assert_called_once_with(project_id, frame_id)
+    service.frame_repository.read_frame.assert_called_once_with(project_id, frame_id)
 
 
 def test_get_reference_batch_visual_prompts_empty(service):
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
-    service.prompt_repository.get_all_by_project.return_value = []
+    service.prompt_repository.list_all_by_project.return_value = []
 
     result = service.get_reference_batch(project_id, PromptType.VISUAL)
 
@@ -638,8 +638,8 @@ def test_get_reference_batch_visual_prompt_frame_not_found(service):
 
     service.project_repository.get_by_id.return_value = make_project(project_id)
     visual_prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id)
-    service.prompt_repository.get_all_by_project.return_value = [visual_prompt]
-    service.frame_repository.get_frame.return_value = None
+    service.prompt_repository.list_all_by_project.return_value = [visual_prompt]
+    service.frame_repository.read_frame.return_value = None
 
     result = service.get_reference_batch(project_id, PromptType.VISUAL)
 
@@ -660,10 +660,10 @@ def test_get_reference_batch_visual_prompt_mapper_error_handled(service):
 
     service.project_repository.get_by_id.return_value = make_project(project_id)
     visual_prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id)
-    service.prompt_repository.get_all_by_project.return_value = [visual_prompt]
+    service.prompt_repository.list_all_by_project.return_value = [visual_prompt]
 
     frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
-    service.frame_repository.get_frame.return_value = frame
+    service.frame_repository.read_frame.return_value = frame
 
     from unittest.mock import patch
 

@@ -9,7 +9,8 @@ import numpy as np
 from aiortc import VideoStreamTrack
 from av import VideoFrame
 
-from domain.services.schemas.processor import InputData
+from domain.services.schemas.processor import OutputData
+from runtime.webrtc.visualizer import InferenceVisualizer
 
 logger = logging.getLogger(__name__)
 
@@ -19,14 +20,16 @@ FALLBACK_FRAME = np.full((64, 64, 3), 16, dtype=np.uint8)
 class InferenceVideoStreamTrack(VideoStreamTrack):
     """A video stream track that provides frames with inference results over WebRTC.
 
-    Expects frames in RGB HWC format as per the InputData contract.
+    Expects frames in RGB HWC format as per the OutputData contract.
     Converts them to VideoFrame objects for WebRTC streaming.
     """
 
-    def __init__(self, stream_queue: queue.Queue[InputData]):
+    def __init__(self, stream_queue: queue.Queue[OutputData], enable_visualization: bool = True):
         super().__init__()
         self._stream_queue = stream_queue
         self._last_frame: np.ndarray | None = None
+        self._enable_visualization = enable_visualization
+        self._visualizer = InferenceVisualizer(enable_visualization)
 
     async def recv(self) -> VideoFrame:
         """
@@ -67,8 +70,14 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
 
         try:
             logger.debug("Getting the frame from the stream_queue...")
-            input_data = await asyncio.to_thread(self._stream_queue.get, True, 0.5)
-            np_frame = input_data.frame
+            output_data: OutputData = await asyncio.to_thread(self._stream_queue.get, True, 0.5)
+
+            if self._enable_visualization and self._visualizer:
+                logger.debug("Visualizing the output data...")
+                np_frame = self._visualizer.visualize(frame=output_data.frame, results=output_data.results)
+            else:
+                np_frame = output_data.frame
+
             self._last_frame = np_frame
         except queue.Empty:
             logger.debug("Empty queue. Using the last frame...")

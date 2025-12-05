@@ -16,7 +16,7 @@ import { Video } from './video.component';
 const useActiveSource = () => {
     const { data } = useGetSources();
 
-    return data.sources.find((source) => source.connected);
+    return data.sources.find((source) => source.active);
 };
 
 const WebcamStream = () => {

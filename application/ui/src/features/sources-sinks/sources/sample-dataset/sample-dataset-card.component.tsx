@@ -18,7 +18,7 @@ interface SampleDatasetCardProps {
 }
 
 export const SampleDatasetCard = ({ source, onAction, menuItems }: SampleDatasetCardProps) => {
-    const isActiveSource = source.connected;
+    const isActiveSource = source.active;
 
     return (
         <PipelineEntityCard isActive={isActiveSource} icon={<Datasets width={'32px'} />} title={'Sample dataset'}>

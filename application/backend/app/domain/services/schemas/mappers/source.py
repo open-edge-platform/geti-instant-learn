@@ -20,7 +20,7 @@ def source_db_to_schema(source: SourceDB) -> SourceSchema:
     """
     return SourceSchema(
         id=source.id,
-        connected=source.active,
+        active=source.active,
         config=source.config,
     )
 
@@ -39,7 +39,7 @@ def source_schema_to_db(schema: SourceCreateSchema, project_id: UUID) -> SourceD
     return SourceDB(
         id=schema.id,
         config=schema.config.model_dump(),
-        active=schema.connected,
+        active=schema.active,
         project_id=project_id,
     )
 

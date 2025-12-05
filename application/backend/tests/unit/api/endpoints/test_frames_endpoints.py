@@ -71,7 +71,7 @@ def _get_capture_frame_exception(behavior, project_id):
         return ResourceNotFoundError(
             resource_type=ResourceType.SOURCE,
             resource_id=None,
-            message=f"Project {project_id} has no connected source.",
+            message=f"Project {project_id} has no active source.",
         )
     if behavior == "project_not_active":
         return PipelineNotActiveError(f"Cannot capture frame: project {project_id} is not active.")

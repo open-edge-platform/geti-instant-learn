@@ -39,7 +39,7 @@ class FrameService:
         Returns:
             The UUID of the saved frame.
         Raises:
-            ResourceNotFoundError: If project not found or has no connected source.
+            ResourceNotFoundError: If project not found or has no active source.
             PipelineNotActiveError: If project is not active.
             ServiceError: If frame capture fails.
         """
@@ -59,13 +59,12 @@ class FrameService:
                 "Please activate the project before capturing frames."
             )
 
-        connected_source = self._source_repo.get_active_in_project(project_id)
-        if not connected_source:
+        active_source = self._source_repo.get_active_in_project(project_id)
+        if not active_source:
             raise ResourceNotFoundError(
                 resource_type=ResourceType.SOURCE,
                 resource_id=None,
-                message=f"Project {project_id} has no connected source. "
-                "Please connect a source before capturing frames.",
+                message=f"Project {project_id} has no active source. Please connect a source before capturing frames.",
             )
 
         try:

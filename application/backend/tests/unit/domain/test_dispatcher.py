@@ -1,7 +1,7 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
-
+import time
 from unittest.mock import Mock
 from uuid import uuid4
 
@@ -40,6 +40,9 @@ class TestConfigChangeDispatcher:
         dispatcher.subscribe(mock_listener_2)
 
         dispatcher.dispatch(config_change_event)
+
+        # wait for async executor to complete
+        time.sleep(0.1)
 
         mock_listener_1.assert_called_once_with(config_change_event)
         mock_listener_2.assert_called_once_with(config_change_event)

@@ -10,7 +10,7 @@ import { HttpResponse } from 'msw';
 
 const DEVICE_ID = 10;
 export const WEBCAM_SOURCE: WebcamSourceType = {
-    connected: true,
+    active: true,
     id: 'webcam-id',
     config: {
         seekable: false,

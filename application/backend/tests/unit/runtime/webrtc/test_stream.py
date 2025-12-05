@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from av import VideoFrame
 
-from domain.services.schemas.processor import InputData
+from domain.services.schemas.processor import OutputData
 from runtime.webrtc.stream import InferenceVideoStreamTrack
 
 
@@ -23,16 +23,17 @@ def fxt_sample_frame():
 
 
 @pytest.fixture
-def fxt_input_data(fxt_sample_frame):
-    input_data = MagicMock(spec=InputData)
-    input_data.frame = fxt_sample_frame
-    return input_data
+def fxt_output_data(fxt_sample_frame):
+    output_data = MagicMock(spec=OutputData)
+    output_data.frame = fxt_sample_frame
+    output_data.results = []
+    return output_data
 
 
 class TestInferenceVideoStreamTrack:
     @pytest.mark.asyncio
-    async def test_recv_with_frame_in_queue(self, fxt_stream_queue, fxt_input_data):
-        fxt_stream_queue.put(fxt_input_data)
+    async def test_recv_with_frame_in_queue(self, fxt_stream_queue, fxt_output_data):
+        fxt_stream_queue.put(fxt_output_data)
         track = InferenceVideoStreamTrack(fxt_stream_queue)
 
         frame = await track.recv()
@@ -54,8 +55,8 @@ class TestInferenceVideoStreamTrack:
         assert frame.height == 64
 
     @pytest.mark.asyncio
-    async def test_recv_with_empty_queue_uses_cache(self, fxt_stream_queue, fxt_input_data):
-        fxt_stream_queue.put(fxt_input_data)
+    async def test_recv_with_empty_queue_uses_cache(self, fxt_stream_queue, fxt_output_data):
+        fxt_stream_queue.put(fxt_output_data)
         track = InferenceVideoStreamTrack(fxt_stream_queue)
 
         # First recv gets the frame and caches it
@@ -74,9 +75,10 @@ class TestInferenceVideoStreamTrack:
         track = InferenceVideoStreamTrack(fxt_stream_queue)
 
         for i in range(3):
-            input_data = MagicMock(spec=InputData)
-            input_data.frame = fxt_sample_frame
-            fxt_stream_queue.put(input_data)
+            output_data = MagicMock(spec=OutputData)
+            output_data.frame = fxt_sample_frame
+            output_data.results = []
+            fxt_stream_queue.put(output_data)
 
         frames = []
         for _ in range(3):
@@ -90,11 +92,11 @@ class TestInferenceVideoStreamTrack:
             assert frame.height == 480
 
     @pytest.mark.asyncio
-    async def test_timestamps_increment(self, fxt_stream_queue, fxt_input_data):
+    async def test_timestamps_increment(self, fxt_stream_queue, fxt_output_data):
         track = InferenceVideoStreamTrack(fxt_stream_queue)
 
         for _ in range(3):
-            fxt_stream_queue.put(fxt_input_data)
+            fxt_stream_queue.put(fxt_output_data)
 
         pts_values = []
         for _ in range(3):

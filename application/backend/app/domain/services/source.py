@@ -112,12 +112,12 @@ class SourceService(BaseService):
             project_id,
             source_type,
             source_name,
-            create_data.connected,
+            create_data.active,
         )
 
         try:
             with self.db_transaction():
-                if create_data.connected:
+                if create_data.active:
                     self._disconnect_existing_active_source(project_id=project_id)
                 new_source: SourceDB = source_schema_to_db(schema=create_data, project_id=project_id)
                 self.source_repository.add(new_source)
@@ -172,9 +172,9 @@ class SourceService(BaseService):
 
         try:
             with self.db_transaction():
-                if update_data.connected and not source.active:
+                if update_data.active and not source.active:
                     self._disconnect_existing_active_source(project_id=project_id)
-                source.active = update_data.connected
+                source.active = update_data.active
                 source.config = update_data.config.model_dump()
                 source = self.source_repository.update(source)
                 self._emit_component_change(project_id=project_id, source_id=source.id)
@@ -322,11 +322,11 @@ class SourceService(BaseService):
                     if source_type
                     else "A source of this type already exists in this project.",
                 )
-            if constraint_name == UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT or "connected" in error_msg:
+            if constraint_name == UniqueConstraintName.SINGLE_ACTIVE_SOURCE_PER_PROJECT or "active" in error_msg:
                 raise ResourceAlreadyExistsError(
                     resource_type=ResourceType.SOURCE,
-                    field="connected",
-                    message="Only one source can be connected per project at a time. "
+                    field="active",
+                    message="Only one source can be active per project at a time. "
                     "Please disconnect the current source first.",
                 )
 

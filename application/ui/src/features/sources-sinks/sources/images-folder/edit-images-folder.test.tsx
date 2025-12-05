@@ -61,7 +61,7 @@ const renderEditImagesFolder = ({
 
 describe('EditImagesFolder', () => {
     describe('Active source', () => {
-        const activeSource = getMockedImagesFolderSource({ connected: true });
+        const activeSource = getMockedImagesFolderSource({ active: true });
 
         it('displays only save button', () => {
             const { editImagesFolderSourcePage } = renderEditImagesFolder({ source: activeSource });
@@ -78,7 +78,7 @@ describe('EditImagesFolder', () => {
         });
 
         it('disables save button when path is equal to source path', () => {
-            const source = getMockedImagesFolderSource({ imagesFolderPath: '/path/to/folder', connected: true });
+            const source = getMockedImagesFolderSource({ imagesFolderPath: '/path/to/folder', active: true });
 
             const { editImagesFolderSourcePage } = renderEditImagesFolder({ source });
 
@@ -88,7 +88,7 @@ describe('EditImagesFolder', () => {
 
         it('enables submit button when path is different from source path', async () => {
             const imagesFolderPath = '/path/to/folder';
-            const source = getMockedImagesFolderSource({ imagesFolderPath: '/another/path', connected: true });
+            const source = getMockedImagesFolderSource({ imagesFolderPath: '/another/path', active: true });
 
             const { editImagesFolderSourcePage } = renderEditImagesFolder({ source });
 
@@ -103,7 +103,7 @@ describe('EditImagesFolder', () => {
 
         it('updates source with provided path', async () => {
             const imagesFolderPath = '/path/to/folder';
-            const source = getMockedImagesFolderSource({ imagesFolderPath: '/another/path', connected: true });
+            const source = getMockedImagesFolderSource({ imagesFolderPath: '/another/path', active: true });
 
             let body: SourceUpdateType | null = null;
 
@@ -123,7 +123,7 @@ describe('EditImagesFolder', () => {
             await waitFor(() => {
                 expect(body).toEqual(
                     expect.objectContaining({
-                        connected: true,
+                        active: true,
                         config: {
                             seekable: true,
                             source_type: 'images_folder',
@@ -136,7 +136,7 @@ describe('EditImagesFolder', () => {
     });
 
     describe('Inactive source', () => {
-        const inactiveSource = getMockedImagesFolderSource({ connected: false });
+        const inactiveSource = getMockedImagesFolderSource({ active: false });
 
         it('displays save and save&connect buttons', () => {
             const { editImagesFolderSourcePage } = renderEditImagesFolder({ source: inactiveSource });
@@ -154,7 +154,7 @@ describe('EditImagesFolder', () => {
         });
 
         it('disables save buttons when path is equal to source path', () => {
-            const source = getMockedImagesFolderSource({ imagesFolderPath: '/path/to/folder', connected: false });
+            const source = getMockedImagesFolderSource({ imagesFolderPath: '/path/to/folder', active: false });
 
             const { editImagesFolderSourcePage } = renderEditImagesFolder({ source });
 
@@ -165,7 +165,7 @@ describe('EditImagesFolder', () => {
 
         it('enables submit button when path is different from source path', async () => {
             const imagesFolderPath = '/path/to/folder';
-            const source = getMockedImagesFolderSource({ imagesFolderPath: '/another/path', connected: false });
+            const source = getMockedImagesFolderSource({ imagesFolderPath: '/another/path', active: false });
 
             const { editImagesFolderSourcePage } = renderEditImagesFolder({ source });
 
@@ -182,7 +182,7 @@ describe('EditImagesFolder', () => {
 
         it('updates source with provided path', async () => {
             const imagesFolderPath = '/path/to/folder';
-            const source = getMockedImagesFolderSource({ imagesFolderPath: '/another/path', connected: false });
+            const source = getMockedImagesFolderSource({ imagesFolderPath: '/another/path', active: false });
 
             let body: SourceUpdateType | null = null;
 
@@ -202,7 +202,7 @@ describe('EditImagesFolder', () => {
             await waitFor(() => {
                 expect(body).toEqual(
                     expect.objectContaining({
-                        connected: false,
+                        active: false,
                         config: {
                             seekable: true,
                             source_type: 'images_folder',
@@ -215,7 +215,7 @@ describe('EditImagesFolder', () => {
 
         it('updates source with provided path and connect', async () => {
             const imagesFolderPath = '/path/to/folder';
-            const source = getMockedImagesFolderSource({ imagesFolderPath: '/another/path', connected: false });
+            const source = getMockedImagesFolderSource({ imagesFolderPath: '/another/path', active: false });
 
             let body: SourceUpdateType | null = null;
 
@@ -235,7 +235,7 @@ describe('EditImagesFolder', () => {
             await waitFor(() => {
                 expect(body).toEqual(
                     expect.objectContaining({
-                        connected: true,
+                        active: true,
                         config: {
                             seekable: true,
                             source_type: 'images_folder',

@@ -19,4 +19,4 @@ class SourceNotSeekableError(PipelineManagerError):
 
 
 class SourceMismatchError(PipelineManagerError):
-    """Exception raised when the provided source_id does not match the active pipeline's connected source."""
+    """Exception raised when the provided source_id does not match the active pipeline's active source."""

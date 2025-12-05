@@ -35,7 +35,7 @@ export const useCreateSource = () => {
             {
                 body: {
                     id: uuid(),
-                    connected: true,
+                    active: true,
                     config,
                 },
                 params: {
