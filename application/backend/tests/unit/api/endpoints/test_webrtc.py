@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from api.error_handler import custom_exception_handler
 from dependencies import get_webrtc_manager
 from domain.services.schemas.webrtc import Answer, Offer
-from main import app
+from main import fastapi_app
 from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 from runtime.webrtc.manager import WebRTCManager
 
@@ -21,15 +21,15 @@ PROJECT_ID = uuid4()
 @pytest.fixture
 def fxt_client():
     # Register the global exception handler
-    app.add_exception_handler(Exception, custom_exception_handler)
-    app.add_exception_handler(RequestValidationError, custom_exception_handler)
-    return TestClient(app, raise_server_exceptions=False)
+    fastapi_app.add_exception_handler(Exception, custom_exception_handler)
+    fastapi_app.add_exception_handler(RequestValidationError, custom_exception_handler)
+    return TestClient(fastapi_app, raise_server_exceptions=False)
 
 
 @pytest.fixture
 def fxt_webrtc_manager():
     webrtc_manager = MagicMock(spec=WebRTCManager)
-    app.dependency_overrides[get_webrtc_manager] = lambda: webrtc_manager
+    fastapi_app.dependency_overrides[get_webrtc_manager] = lambda: webrtc_manager
     return webrtc_manager
 
 
