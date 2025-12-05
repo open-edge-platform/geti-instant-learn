@@ -439,14 +439,14 @@ class TestInferenceMatcherIntegration:
         assert callable(inference_matcher.predict)
 
     @pytest.mark.parametrize("sam_model", SAM_MODELS)
-    def test_inference_matcher_learn_infer(
+    def test_inference_matcher_fit_predict(
         self,
         sam_model: SAMModelName,
         tmp_path: Path,
         reference_batch: Batch,
         target_batch: Batch,
     ) -> None:
-        """Test that InferenceMatcher can learn from reference data and infer on target data.
+        """Test that InferenceMatcher can fit on reference data and predict on target data.
 
         Args:
             sam_model: The SAM model to use.
