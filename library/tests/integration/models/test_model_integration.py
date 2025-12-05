@@ -482,7 +482,7 @@ class TestInferenceMatcherIntegration:
         # Test fit method
         inference_matcher.fit(reference_batch)
 
-        # Test pred method
+        # Test predict method
         predictions = inference_matcher.predict(target_batch)
 
         # Validate results
