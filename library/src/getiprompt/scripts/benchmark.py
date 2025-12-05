@@ -32,7 +32,7 @@ from getiprompt.visualizer import Visualizer
 logger = getLogger("Geti Prompt")
 
 
-def infer_on_category(
+def predict_on_category(
     dataset: Dataset,
     model: Model,
     category_name: str,
@@ -44,7 +44,7 @@ def infer_on_category(
     device: torch.device,
     visualize: bool = True,
 ) -> None:
-    """Perform inference on all samples of a category.
+    """Perform prediction on all samples of a category.
 
     Args:
         dataset: The dataset containing target samples
@@ -89,8 +89,8 @@ def infer_on_category(
     category_id_to_index = {dataset.get_category_id(cat_name): idx for idx, cat_name in enumerate(dataset.categories)}
 
     for batch in dataloader:
-        # Run inference
-        predictions = model.infer(batch)
+        # Run prediction
+        predictions = model.pred(batch)
 
         # Convert masks to one-hot boolean tensors for torchmetrics
         # Returns lists of tensors, each with shape (C, H, W)
@@ -140,7 +140,7 @@ def learn_from_category(dataset: Dataset, model: Model, category_name: str) -> N
     reference_dataset = dataset.get_reference_dataset(category=category_name)
     reference_batch = Batch.collate(reference_dataset)
     # Learn
-    model.learn(reference_batch)
+    model.fit(reference_batch)
 
 
 def predict_on_dataset(
@@ -225,8 +225,8 @@ def predict_on_dataset(
                 )
                 progress.update(priors_task, advance=1)
 
-                # Infer on target samples
-                infer_on_category(
+                # Predict on target samples
+                predict_on_category(
                     dataset=dataset,
                     model=model,
                     category_name=category_name,

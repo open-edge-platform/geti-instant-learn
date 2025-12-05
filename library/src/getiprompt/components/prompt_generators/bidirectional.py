@@ -64,12 +64,14 @@ class BidirectionalPromptGenerator(nn.Module):
                 matched_ref_idx: torch.Tensor - Indices of matched reference features
                 sim_scores: torch.Tensor - Similarity scores of matched reference features
         """
+        device = similarity_map.device
         ref_to_target_sim = similarity_map[ref_mask_idx]
         if ref_to_target_sim.numel() == 0:
             return _empty_match_result(similarity_map)
 
         row_ind, col_ind = linear_sum_assignment(ref_to_target_sim.detach().cpu().float().numpy(), maximize=True)
         row_ind, col_ind = torch.as_tensor(row_ind, dtype=torch.int64), torch.as_tensor(col_ind, dtype=torch.int64)
+        row_ind, col_ind = row_ind.to(device), col_ind.to(device)
 
         matched_ref_idx = ref_mask_idx[row_ind]
         sim_scores = similarity_map[matched_ref_idx, col_ind]
@@ -92,6 +94,7 @@ class BidirectionalPromptGenerator(nn.Module):
                 valid_indices: torch.Tensor - Indices of matched reference features
                 valid_scores: torch.Tensor - Similarity scores of matched reference features
         """
+        device = similarity_map.device
         ref_idx = ref_mask.nonzero(as_tuple=True)[0]
         if ref_idx.numel() == 0:
             return _empty_match_result(similarity_map)
@@ -106,6 +109,7 @@ class BidirectionalPromptGenerator(nn.Module):
         target_to_ref_sim = similarity_map.t()[target_idx_fw]
         row_ind, col_ind = linear_sum_assignment(target_to_ref_sim.detach().cpu().float().numpy(), maximize=True)
         row_ind, col_ind = torch.as_tensor(row_ind, dtype=torch.int64), torch.as_tensor(col_ind, dtype=torch.int64)
+        row_ind, col_ind = row_ind.to(device), col_ind.to(device)
 
         # Consistency filter
         valid_ref = torch.isin(col_ind, ref_idx)
