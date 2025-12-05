@@ -134,7 +134,7 @@ class TestDinoTxtZeroShotClassification:
         sample_dataset: tuple[list[np.ndarray], list[str]],
         sample_reference_batch: Batch,
     ) -> None:
-        """Test the full fit and pred cycle of the pipeline."""
+        """Test the full fit and predict cycle of the pipeline."""
         sample_images, _ = sample_dataset
 
         # Fit first
