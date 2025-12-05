@@ -5,16 +5,12 @@
 
 import time
 from logging import getLogger
-from typing import Any
 
 import numpy as np
 import torch
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 from segment_anything_hq.predictor import SamPredictor
-from torch import nn
 from transformers import AutoModel
-
-# ruff: noqa: ANN002, ANN003
 
 logger = getLogger("Geti Prompt")
 
@@ -49,12 +45,9 @@ def optimize_model(
     Returns:
         The optimized model.
     """
-    # Quantize
     if precision != torch.float32:
-        if is_sam_model(model):
+        if isinstance(model, SamPredictor | SAM2ImagePredictor):
             model.model.to(precision)
-            # Patch SAM model to use the correct dtype
-            _monkey_patch_dtype(model)
         else:
             model = model.to(dtype=precision)
 
@@ -62,7 +55,7 @@ def optimize_model(
     if compile_models:
         logger.debug("Compiling model, this can take a while...")
         if torch.cuda.is_available() and torch.cuda.get_device_capability() in {(7, 0), (8, 0), (9, 0)}:
-            if is_sam_model(model):
+            if isinstance(model, SamPredictor | SAM2ImagePredictor):
                 model.model.image_encoder.forward = torch.compile(
                     model.model.image_encoder.forward,
                     mode="max-autotune",
@@ -105,15 +98,19 @@ def benchmark_inference(
     # Create points in the middle of the two squares.
     points = np.array([[512, 512], [768, 768]])
 
-    if not is_sam_model(model):
+    if not isinstance(model, SamPredictor | SAM2ImagePredictor):
         image = get_dummy_input(model, precision, model.device)
-    dtype = (next(model.model.parameters()) if is_sam_model(model) else next(model.parameters())).dtype
+    dtype = (
+        next(model.model.parameters())
+        if isinstance(model, SamPredictor | SAM2ImagePredictor)
+        else next(model.parameters())
+    ).dtype
 
     with torch.autocast(model.device.type, dtype=dtype):
         start = time.time()
         for _ in range(repeat):
             torch.cuda.synchronize()
-            if is_sam_model(model):
+            if isinstance(model, SamPredictor | SAM2ImagePredictor):
                 model.set_image(image)
                 for p in points:
                     model.predict(point_coords=np.array([p]), point_labels=np.array([1]))
@@ -134,130 +131,3 @@ def benchmark_inference(
     )
     logger.debug(msg)
     return avg_duration
-
-
-def _monkey_patch_preprocess(predictor: SamPredictor, dtype: torch.dtype) -> None:
-    """Monkey patch the preprocess method to use the correct dtype."""
-    original_preprocess = predictor.model.preprocess
-
-    def preprocess_dtype_wrapper(input_tensor: torch.Tensor) -> torch.Tensor:
-        output_from_original_preprocess = original_preprocess(input_tensor)
-        return output_from_original_preprocess.to(dtype)
-
-    predictor.model.preprocess = preprocess_dtype_wrapper
-
-
-def _monkey_patch_prompt_encoder(prompt_encoder: nn.Module, dtype: torch.dtype) -> None:
-    """Monkey patch the prompt encoder methods to use the correct dtype."""
-    original_pe_encoding = prompt_encoder.pe_layer._pe_encoding  # noqa: SLF001
-
-    def pe_encoding_dtype_wrapper(*args, **kwargs) -> torch.Tensor:
-        processed_args = []
-        for arg in args:
-            if isinstance(arg, torch.Tensor) and arg.dtype == torch.float:
-                processed_args.append(arg.to(dtype))
-            else:
-                processed_args.append(arg)
-        args = tuple(processed_args)
-
-        for key, value in kwargs.items():
-            if isinstance(value, torch.Tensor) and value.dtype == torch.float:
-                kwargs[key] = value.to(dtype)
-
-        return original_pe_encoding(*args, **kwargs)
-
-    prompt_encoder.pe_layer._pe_encoding = pe_encoding_dtype_wrapper  # noqa: SLF001
-
-    original_prompt_encoder_forward = prompt_encoder.forward
-
-    def prompt_encoder_dtype_wrapper(*args, **kwargs) -> torch.Tensor:
-        outputs = original_prompt_encoder_forward(*args, **kwargs)
-        return [output.to(dtype) for output in outputs]
-
-    prompt_encoder.forward = prompt_encoder_dtype_wrapper
-
-
-def _monkey_patch_predict_torch(predictor: SamPredictor, dtype: torch.dtype) -> None:
-    """Monkey patch the predict_torch method to use the correct dtype."""
-    original_predict_torch = predictor.predict_torch
-
-    def predict_torch_dtype_wrapper(*args, **kwargs) -> torch.Tensor:
-        processed_args = []
-        for arg in args:
-            if isinstance(arg, torch.Tensor) and arg.dtype == torch.float:
-                processed_args.append(arg.to(dtype))
-            else:
-                processed_args.append(arg)
-        args = tuple(processed_args)
-
-        for key, value in kwargs.items():
-            if isinstance(value, torch.Tensor) and value.dtype == torch.float:
-                kwargs[key] = value.to(dtype)
-        outputs = original_predict_torch(*args, **kwargs)
-        # SamPredictor.predict internally converts the outputs of predict_torch to numpy, which requires floats
-        processed_outputs = []
-        for output in outputs:
-            if isinstance(output, torch.Tensor) and output.dtype == dtype:
-                processed_outputs.append(output.to(torch.float))
-            else:
-                processed_outputs.append(output)
-        return processed_outputs
-
-    predictor.predict_torch = predict_torch_dtype_wrapper
-
-
-def _monkey_patch_sam2_architecture(predictor: SAM2ImagePredictor, dtype: torch.dtype) -> None:
-    """Monkey patch the SAM2 architecture to use the correct dtype.
-
-    We adapt the transforms JIT script used and add a .to(dtype) at the end of the Sequential.
-    """
-    original_transforms = predictor._transforms.transforms  # noqa: SLF001
-
-    class DtypeWrapper(nn.Module):
-        """Wrapper to apply dtype conversion after a transformation in a JIT-compatible way."""
-
-        def __init__(self, transform: nn.Module, target_dtype_tensor: torch.Tensor):  # noqa: ANN204
-            super().__init__()
-            self.transform = transform
-            # Store a tensor with the target dtype. Using its dtype is JIT-compatible.
-            self.register_buffer("target_dtype_tensor", target_dtype_tensor)
-
-        def forward(self, x: torch.Tensor) -> torch.Tensor:
-            """Forward pass with dtype conversion."""
-            return self.transform(x).to(self.target_dtype_tensor.dtype)
-
-    # Get device from the model to ensure tensors are on the same device.
-    device = next(predictor.model.parameters()).device
-    dummy_tensor = torch.tensor([], dtype=dtype, device=device)
-
-    new_transforms_module = DtypeWrapper(original_transforms, dummy_tensor)
-    scripted_new_transforms = torch.jit.script(new_transforms_module)
-
-    predictor._transforms.transforms = scripted_new_transforms  # noqa: SLF001
-
-
-def _monkey_patch_dtype(
-    predictor: SamPredictor | SAM2ImagePredictor,
-) -> None:
-    """Monkey patch the predictor to use the correct dtype for the model.
-
-    The input to the model has to be transformed to the correct dtype before being passed to the model.
-
-    Args:
-        predictor: The predictor to monkey patch.
-    """
-    if isinstance(predictor, SAM2ImagePredictor):
-        dtype = predictor.model.sam_mask_decoder.iou_prediction_head.layers[0].weight.dtype
-        _monkey_patch_sam2_architecture(predictor, dtype)
-        _monkey_patch_prompt_encoder(predictor.model.sam_prompt_encoder, dtype)
-        return
-
-    dtype = predictor.model.mask_decoder.iou_prediction_head.layers[0].weight.dtype
-    _monkey_patch_prompt_encoder(predictor.model.prompt_encoder, dtype)
-    _monkey_patch_predict_torch(predictor, dtype)
-    _monkey_patch_preprocess(predictor, dtype)
-
-
-def is_sam_model(model: Any) -> bool:  # noqa: ANN401
-    """Check if the model is a SAM model."""
-    return hasattr(model, "set_image")

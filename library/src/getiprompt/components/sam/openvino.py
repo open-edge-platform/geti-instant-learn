@@ -23,7 +23,7 @@ class OpenVINOSAMPredictor(nn.Module):
 
     This implementation uses OpenVINO Runtime for efficient inference on
     Intel hardware (CPU, GPU, VPU). It expects an exported OpenVINO IR model
-    (.xml/.bin files) created by ExportableSAMPredictor.
+    (.xml/.bin files) created by PyTorchSAMPredictor.export().
     """
 
     def __init__(
@@ -51,7 +51,7 @@ class OpenVINOSAMPredictor(nn.Module):
         if not model_path.exists():
             msg = (
                 f"OpenVINO model not found at {model_path}. "
-                f"Please export the model first using ExportableSAMPredictor.export(). "
+                f"Please export the model first using PyTorchSAMPredictor.export(). "
                 f"Example:\n"
                 f"  from getiprompt.components.sam import load_sam_model\n"
                 f"  predictor = load_sam_model(SAMModelName.{sam_model_name.name}, backend=Backend.PYTORCH)\n"
@@ -98,8 +98,8 @@ class OpenVINOSAMPredictor(nn.Module):
         """Dummy export method.
 
         This is OV SAM predictor implementation for running inference with
-        OpenVINO models. To export OpenVINO models, please use the
-        ExportableSAMPredictor class from PyTorchSAMPredictor backend.
+        OpenVINO models. To export models, please use the PyTorchSAMPredictor
+        backend and call its export() method.
 
         Args:
             export_path: Path to save the exported model
@@ -144,9 +144,6 @@ class OpenVINOSAMPredictor(nn.Module):
         # Prepare inputs - convert torch tensors to numpy
         num_masks = len(point_coords)
 
-        # Pass dummy all-zero to satisfy ONNX model input requirements
-        # The ExportableSAMPredictor prompt encoder is designed to detect
-        # all-zero values and skip embedding, treating them as "no values"
         boxes = np.zeros((num_masks, 1, 4), dtype=np.float32) if boxes is None else boxes.cpu().numpy()
         mask_input = (
             np.zeros((num_masks, 1, 256, 256), dtype=np.float32) if mask_input is None else mask_input.cpu().numpy()
