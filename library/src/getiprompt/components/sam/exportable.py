@@ -243,7 +243,7 @@ class ExportableSAMPredictor(nn.Module):
 
         # Create dummy inputs on CPU to match model device
         dummy_image = torch.zeros((1, 3, self.input_size, self.input_size), dtype=torch.float32, device="cpu")
-        dummpy_coords = torch.rand((10, 1, 2), dtype=torch.float32, device="cpu") * self.input_size
+        dummy_coords = torch.rand((10, 1, 2), dtype=torch.float32, device="cpu") * self.input_size
         dummy_labels = torch.ones((10, 1), dtype=torch.float32, device="cpu")
         dummy_boxes = torch.rand((10, 1, 4), dtype=torch.float32, device="cpu") * self.input_size
         dummy_mask_input = torch.rand((10, 1, 256, 256), dtype=torch.float32, device="cpu")
@@ -251,7 +251,7 @@ class ExportableSAMPredictor(nn.Module):
 
         model_inputs = (
             dummy_image,
-            dummpy_coords,
+            dummy_coords,
             dummy_labels,
             dummy_boxes,
             dummy_mask_input,
