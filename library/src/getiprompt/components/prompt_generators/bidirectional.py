@@ -71,7 +71,7 @@ class BidirectionalPromptGenerator(nn.Module):
         if ref_to_target_sim.numel() == 0:
             return _empty_match_result(similarity_map)
 
-        row_ind, col_ind = linear_sum_assignment(ref_to_target_sim)
+        row_ind, col_ind = linear_sum_assignment(ref_to_target_sim, maximize=True)
 
         matched_ref_idx = ref_mask_idx[row_ind]
         sim_scores = similarity_map[matched_ref_idx, col_ind]
@@ -106,7 +106,7 @@ class BidirectionalPromptGenerator(nn.Module):
 
         # Backward pass (target → ref)
         target_to_ref_sim = similarity_map.t()[target_idx_fw]
-        row_ind, col_ind = linear_sum_assignment(target_to_ref_sim)
+        row_ind, col_ind = linear_sum_assignment(target_to_ref_sim, maximize=True)
 
         # Consistency filter
         valid_ref = torch.isin(col_ind, ref_idx)

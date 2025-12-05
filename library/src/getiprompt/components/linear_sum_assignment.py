@@ -154,7 +154,7 @@ class LinearSumAssignment(nn.Module):
             n_rows, n_cols = n_cols, n_rows
 
         # Convert to minimization with float64 for numerical stability
-        cost_mat = (-cost_matrix if self.maximize else cost_matrix).to(torch.float64).clone()
+        cost_mat = (-cost_matrix if self.maximize else cost_matrix).to(torch.float64)
 
         # Pad to square if rectangular
         n = n_cols
@@ -224,7 +224,7 @@ class LinearSumAssignment(nn.Module):
                     cost_mat -= (~col_covered).to(cost_mat.dtype).unsqueeze(0) * min_val
                     continue
 
-                # Find first uncovered zero
+                # Find first uncovered zero (convert bool to int64 for argmax)
                 flat_idx = uncovered_zeros.flatten().to(torch.int64).argmax()
                 row = flat_idx // n
                 col = flat_idx % n

@@ -71,8 +71,10 @@ class TestExport:
         cost = torch.rand(5, 5)
         scripted = torch.jit.script(matcher)
 
-        orig_cost = cost[matcher(cost)[0], matcher(cost)[1]].sum()
-        script_cost = cost[scripted(cost)[0], scripted(cost)[1]].sum()
+        orig_row, orig_col = matcher(cost)
+        script_row, script_col = scripted(cost)
+        orig_cost = cost[orig_row, orig_col].sum()
+        script_cost = cost[script_row, script_col].sum()
         assert torch.isclose(orig_cost, script_cost)
 
     def test_onnx_export_and_inference(self, matcher: LinearSumAssignment) -> None:
