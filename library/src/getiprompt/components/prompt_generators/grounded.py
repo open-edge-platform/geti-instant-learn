@@ -144,7 +144,7 @@ class TextToBoxPromptGenerator(nn.Module):
         """Map labels to their best matching category by similarity.
 
         Args:
-            labels(list[str]): The labels to map categories.
+            labels(list[str]): The labels to map to categories.
             category_mapping(dict[str, int]): The category mapping.
 
         Returns:
@@ -153,13 +153,13 @@ class TextToBoxPromptGenerator(nn.Module):
         processed_labels = []
         for label in labels:
             if label not in category_mapping:
-                matched_label = max(
+                label_to_append = max(
                     category_mapping.keys(),
                     key=lambda x: SequenceMatcher(None, x, label).ratio(),
                 )
-                processed_labels.append(matched_label)
             else:
-                processed_labels.append(label)
+                label_to_append = label
+            processed_labels.append(label_to_append)
         return processed_labels
 
     def forward(

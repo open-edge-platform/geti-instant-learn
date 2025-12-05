@@ -52,15 +52,15 @@ class ImageEncoderModel(Enum):
     )
     DINOV3_SMALL = ModelConfig(
         model_id="facebook/dinov3-vits16-pretrain-lvd1689m",
-        revision="114c1379950215c8b35dfcd4e90a5c251dde0d32"
+        revision="114c1379950215c8b35dfcd4e90a5c251dde0d32",
     )
     DINOV3_SMALL_PLUS = ModelConfig(
         model_id="facebook/dinov3-vits16plus-pretrain-lvd1689m",
-        revision="c93d816fc9e567563bc068f01475bec89cc634a6"
+        revision="c93d816fc9e567563bc068f01475bec89cc634a6",
     )
     DINOV3_BASE = ModelConfig(
         model_id="facebook/dinov3-vitb16-pretrain-lvd1689m",
-        revision="5931719e67bbdb9737e363e781fb0c67687896bc"
+        revision="5931719e67bbdb9737e363e781fb0c67687896bc",
     )
     DINOV3_LARGE = ModelConfig(
         model_id="facebook/dinov3-vitl16-pretrain-lvd1689m",
@@ -68,7 +68,7 @@ class ImageEncoderModel(Enum):
     )
     DINOV3_HUGE = ModelConfig(
         model_id="facebook/dinov3-vith16plus-pretrain-lvd1689m",
-        revision="c807c9eeea853df70aec4069e6f56b28ddc82acc"
+        revision="c807c9eeea853df70aec4069e6f56b28ddc82acc",
     )
 
 
