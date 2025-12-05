@@ -90,7 +90,7 @@ def predict_on_category(
 
     for batch in dataloader:
         # Run prediction
-        predictions = model.pred(batch)
+        predictions = model.predict(batch)
 
         # Convert masks to one-hot boolean tensors for torchmetrics
         # Returns lists of tensors, each with shape (C, H, W)

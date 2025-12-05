@@ -101,9 +101,9 @@ class TestModelIntegration:
 
         assert model is not None
         assert hasattr(model, "fit")
-        assert hasattr(model, "pred")
+        assert hasattr(model, "predict")
         assert callable(model.fit)
-        assert callable(model.pred)
+        assert callable(model.predict)
 
     @pytest.mark.parametrize("sam_model", SAM_MODELS)
     @pytest.mark.parametrize("model_name", ModelName)
@@ -138,8 +138,8 @@ class TestModelIntegration:
         # Test fit method
         model.fit(reference_batch)
 
-        # Test pred method
-        predictions = model.pred(target_batch)
+        # Test predict method
+        predictions = model.predict(target_batch)
 
         # Validate results
         assert isinstance(predictions, list)
@@ -195,7 +195,7 @@ class TestModelIntegration:
             encoder_model="dinov3_small",
         )
         model_1shot.fit(ref_batch_1shot)
-        predictions_1shot = model_1shot.pred(target_batch)
+        predictions_1shot = model_1shot.predict(target_batch)
 
         # Test with n_shots=2 (if available)
         dataset_2shot = FolderDataset(
@@ -215,7 +215,7 @@ class TestModelIntegration:
                 encoder_model="dinov3_small",
             )
             model_2shot.fit(ref_batch_2shot)
-            predictions_2shot = model_2shot.pred(target_batch_2shot)
+            predictions_2shot = model_2shot.predict(target_batch_2shot)
 
             # Both should produce valid results
             assert isinstance(predictions_1shot, list)
@@ -256,8 +256,8 @@ class TestModelIntegration:
         assert hasattr(model, "category_mapping")
         assert isinstance(model.category_mapping, dict)
 
-        # pred should work with just category mapping
-        predictions = model.pred(target_batch)
+        # predict should work with just category mapping
+        predictions = model.predict(target_batch)
         assert isinstance(predictions, list)
         assert len(predictions) == len(target_batch)
 
@@ -307,7 +307,7 @@ class TestModelIntegration:
 
         # Models should handle these inputs without errors
         model.fit(reference_batch)
-        predictions = model.pred(target_batch)
+        predictions = model.predict(target_batch)
 
         # Results should be valid
         assert isinstance(predictions, list)
@@ -360,8 +360,8 @@ class TestModelIntegration:
         # Fit from reference
         model.fit(ref_batch)
 
-        # pred on target
-        predictions = model.pred(target_batch)
+        # predict on target
+        predictions = model.predict(target_batch)
 
         category_id_to_index = {
             dataset.get_category_id(cat_name): idx for idx, cat_name in enumerate(dataset.categories)
@@ -434,9 +434,9 @@ class TestInferenceMatcherIntegration:
 
         assert inference_matcher is not None
         assert hasattr(inference_matcher, "fit")
-        assert hasattr(inference_matcher, "pred")
+        assert hasattr(inference_matcher, "predict")
         assert callable(inference_matcher.fit)
-        assert callable(inference_matcher.pred)
+        assert callable(inference_matcher.predict)
 
     @pytest.mark.parametrize("sam_model", SAM_MODELS)
     def test_inference_matcher_learn_infer(
@@ -483,7 +483,7 @@ class TestInferenceMatcherIntegration:
         inference_matcher.fit(reference_batch)
 
         # Test pred method
-        predictions = inference_matcher.pred(target_batch)
+        predictions = inference_matcher.predict(target_batch)
 
         # Validate results
         assert isinstance(predictions, list)

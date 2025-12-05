@@ -68,7 +68,7 @@ class TestPerDino:
 
         # Mock the fit method to set up the model
         model.fit = MagicMock(return_value=None)
-        model.pred = MagicMock(
+        model.predict = MagicMock(
             return_value=[
                 {
                     "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
@@ -82,7 +82,7 @@ class TestPerDino:
         # Create test data
         target_images = [Image(torch.zeros((3, 224, 224), dtype=torch.uint8))]
 
-        predictions = model.pred(target_images)
+        predictions = model.predict(target_images)
 
         assert isinstance(predictions, list)
         assert len(predictions) == 1
@@ -91,7 +91,7 @@ class TestPerDino:
         assert "pred_points" in predictions[0]
         assert "pred_boxes" in predictions[0]
         assert "pred_labels" in predictions[0]
-        model.pred.assert_called_once_with(target_images)
+        model.predict.assert_called_once_with(target_images)
 
     @patch("getiprompt.models.per_dino.SAMPredictor")
     @patch("getiprompt.models.per_dino.ImageEncoder")
@@ -107,9 +107,9 @@ class TestPerDino:
 
         model = PerDino(device="cpu")
 
-        # Mock the learn and infer methods
-        model.learn = MagicMock(return_value=None)
-        model.infer = MagicMock(
+        # Mock the fit and predict methods
+        model.fit = MagicMock(return_value=None)
+        model.predict = MagicMock(
             return_value=[
                 {
                     "pred_masks": torch.zeros((0, 224, 224), dtype=torch.bool),
@@ -122,10 +122,10 @@ class TestPerDino:
 
         target_images = [Image(torch.zeros((3, 224, 224), dtype=torch.uint8))]
 
-        model.pred(target_images)
+        model.predict(target_images)
 
-        # Verify that pred was called
-        model.pred.assert_called_once_with(target_images)
+        # Verify that predict was called
+        model.predict.assert_called_once_with(target_images)
 
 
 class TestMatcher:
@@ -194,7 +194,7 @@ class TestMatcher:
         # Create test data
         target_images = [Image(torch.zeros((3, 224, 224), dtype=torch.uint8))]
 
-        predictions = model.pred(target_images)
+        predictions = model.predict(target_images)
 
         assert isinstance(predictions, list)
         assert len(predictions) == 1
@@ -203,7 +203,7 @@ class TestMatcher:
         assert "pred_points" in predictions[0]
         assert "pred_boxes" in predictions[0]
         assert "pred_labels" in predictions[0]
-        model.pred.assert_called_once_with(target_images)
+        model.predict.assert_called_once_with(target_images)
 
     @patch("getiprompt.models.matcher.matcher.SAMPredictor")
     @patch("getiprompt.models.matcher.matcher.ImageEncoder")
@@ -234,10 +234,10 @@ class TestMatcher:
 
         target_images = [Image(torch.zeros((3, 224, 224), dtype=torch.uint8))]
 
-        model.pred(target_images)
+        model.predict(target_images)
 
         # Verify that pred was called
-        model.pred.assert_called_once_with(target_images)
+        model.predict.assert_called_once_with(target_images)
 
 
 class TestSoftMatcher:
@@ -306,7 +306,7 @@ class TestSoftMatcher:
         # Create test data
         target_images = [Image(torch.zeros((3, 224, 224), dtype=torch.uint8))]
 
-        predictions = model.pred(target_images)
+        predictions = model.predict(target_images)
 
         assert isinstance(predictions, list)
         assert len(predictions) == 1
@@ -315,7 +315,7 @@ class TestSoftMatcher:
         assert "pred_points" in predictions[0]
         assert "pred_boxes" in predictions[0]
         assert "pred_labels" in predictions[0]
-        model.pred.assert_called_once_with(target_images)
+        model.predict.assert_called_once_with(target_images)
 
     @patch("getiprompt.models.matcher.matcher.SAMPredictor")
     @patch("getiprompt.models.matcher.matcher.ImageEncoder")
@@ -346,10 +346,10 @@ class TestSoftMatcher:
 
         target_images = [Image(torch.zeros((3, 224, 224), dtype=torch.uint8))]
 
-        model.pred(target_images)
+        model.predict(target_images)
 
         # Verify that pred was called
-        model.pred.assert_called_once_with(target_images)
+        model.predict.assert_called_once_with(target_images)
 
 
 class TestGroundedSAM:
@@ -400,7 +400,7 @@ class TestGroundedSAM:
         # Create test data
         target_images = [Image(torch.zeros((3, 224, 224), dtype=torch.uint8))]
 
-        predictions = model.pred(target_images)
+        predictions = model.predict(target_images)
 
         assert isinstance(predictions, list)
         assert len(predictions) == 1
@@ -409,7 +409,7 @@ class TestGroundedSAM:
         assert "pred_points" in predictions[0]
         assert "pred_boxes" in predictions[0]
         assert "pred_labels" in predictions[0]
-        model.pred.assert_called_once_with(target_images)
+        model.predict.assert_called_once_with(target_images)
 
     @patch("getiprompt.models.grounded_sam.SAMPredictor")
     def test_grounded_sam_multi_instance_filtering(
@@ -437,7 +437,7 @@ class TestGroundedSAM:
 
         target_images = [Image(torch.zeros((3, 224, 224), dtype=torch.uint8))]
 
-        model.pred(target_images)
+        model.predict(target_images)
 
-        # Verify that pred was called
-        model.pred.assert_called_once_with(target_images)
+        # Verify that predict was called
+        model.predict.assert_called_once_with(target_images)

@@ -126,7 +126,7 @@ class TestDinoTxtZeroShotClassification:
         samples = [Sample(image=img, is_reference=[False], categories=["object"]) for img in image_objects]
         target_batch = Batch.collate(samples)
         with pytest.raises(AttributeError):
-            model_instance.pred(target_batch)
+            model_instance.predict(target_batch)
 
     @staticmethod
     def test_infer(
@@ -145,8 +145,8 @@ class TestDinoTxtZeroShotClassification:
         samples = [Sample(image=img, is_reference=[False], categories=["object"]) for img in image_objects]
         target_batch = Batch.collate(samples)
 
-        # Then pred
-        predictions = model_instance.pred(target_batch)
+        # Then predict
+        predictions = model_instance.predict(target_batch)
 
         # Verify results
         pytest.assume(isinstance(predictions, list))

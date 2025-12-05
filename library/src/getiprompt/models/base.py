@@ -25,7 +25,7 @@ class Model(nn.Module):
         """
 
     @abstractmethod
-    def pred(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
         """This method uses the learned context to infer object locations.
 
         Args:

@@ -139,7 +139,7 @@ class PerDino(Model):
             reference_batch.category_ids,
         )
 
-    def pred(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
 
         Args:

@@ -70,7 +70,7 @@ class GroundedSAM(Model):
                 if category not in self.category_mapping:
                     self.category_mapping[category] = int(category_id)
 
-    def pred(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
 
         Args:

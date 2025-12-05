@@ -132,7 +132,7 @@ class DinoTxtZeroShotClassification(Model):
         self.reference_features = self.dino_encoder.encode_text(category_mapping, self.prompt_templates)
 
     @torch.no_grad()
-    def pred(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference on the target batch.
 
         Args:
@@ -162,7 +162,7 @@ class DinoTxtZeroShotClassification(Model):
             ...     categories=["object"],
             ... )
             >>> target_batch = Batch.collate([target_sample])
-            >>> result = dinotxt.pred(target_batch)
+            >>> result = dinotxt.predict(target_batch)
             >>> isinstance(result, Results)
             True
             >>> result.masks is not None
