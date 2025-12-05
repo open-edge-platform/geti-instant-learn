@@ -348,7 +348,7 @@ class TestSoftMatcher:
 
         model.predict(target_images)
 
-        # Verify that pred was called
+        # Verify that predict was called
         model.predict.assert_called_once_with(target_images)
 
 
