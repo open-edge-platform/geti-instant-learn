@@ -100,10 +100,12 @@ if (
         return FileResponse(index_path)
 
 
-raw = os.getenv("CORS_ORIGINS", "http://localhost:3000, http://localhost:9100")
-allowed_origins = [o.strip() for o in raw.split(",") if o.strip()]
 app = CORSMiddleware(  # TODO restrict settings in production
-    app=fastapi_app, allow_origins=allowed_origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+    app=fastapi_app,
+    allow_origins=settings.cors_allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
