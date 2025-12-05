@@ -52,7 +52,6 @@ def load_sam_model(
 
     Raises:
         ValueError: If the model type or backend is invalid.
-        FileNotFoundError: If OpenVINO model path doesn't exist.
 
     Examples:
         >>> # PyTorch backend with auto-download
@@ -169,9 +168,6 @@ class SAMPredictor:
             compile_models: Whether to compile model with torch.compile.
                 Ignored for OpenVINO.
             model_path: Path to model weights (required for OpenVINO backend).
-
-        Raises:
-            ValueError: If backend is invalid or model_path missing for OpenVINO.
         """
         self.backend = backend
         self.device = device

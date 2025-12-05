@@ -146,6 +146,9 @@ class TimmImageEncoder(nn.Module):
         Returns:
             Path to the exported model file.
 
+        Raises:
+            ValueError: If the backend is invalid.
+
         Example:
             >>> encoder = TimmImageEncoder(
             ...     model_id="dinov3_large",

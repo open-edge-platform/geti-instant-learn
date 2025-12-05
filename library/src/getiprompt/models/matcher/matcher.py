@@ -135,7 +135,7 @@ class Matcher(Model):
         self.masked_ref_embeddings = None
         self.ref_masks = None
 
-    def learn(self, reference_batch: Batch) -> None:
+    def fit(self, reference_batch: Batch) -> None:
         """Perform learning step on the reference images and priors."""
         # Encode reference images to batched tensor
         self.ref_embeddings = self.encoder(images=reference_batch.images)
@@ -146,7 +146,7 @@ class Matcher(Model):
             reference_batch.category_ids,
         )
 
-    def infer(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def pred(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
 
         Args:

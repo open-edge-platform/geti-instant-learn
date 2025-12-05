@@ -17,7 +17,7 @@ class Model(nn.Module):
     """This class is the base class for all models."""
 
     @abstractmethod
-    def learn(self, reference_batch: Batch) -> None:
+    def fit(self, reference_batch: Batch) -> None:
         """This method learns the context.
 
         Args:
@@ -25,7 +25,7 @@ class Model(nn.Module):
         """
 
     @abstractmethod
-    def infer(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def pred(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
         """This method uses the learned context to infer object locations.
 
         Args:

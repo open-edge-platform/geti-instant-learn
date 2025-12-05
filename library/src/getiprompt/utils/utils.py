@@ -107,7 +107,7 @@ def device_to_openvino_device(device: str) -> str:
     if device_upper == "CUDA":
         return "GPU"
     # OpenVINO names pass through unchanged
-    if device_upper in ("CPU", "GPU", "AUTO"):
+    if device_upper in {"CPU", "GPU", "AUTO"}:
         return device_upper
     # Default fallback
     return "CPU"

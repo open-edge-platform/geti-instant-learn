@@ -58,7 +58,7 @@ class GroundedSAM(Model):
         self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor, target_length=1024)
         self.prompt_filter: BoxPromptFilter = BoxPromptFilter()
 
-    def learn(self, reference_batch: Batch) -> None:
+    def fit(self, reference_batch: Batch) -> None:
         """Perform learning step on the reference images and priors.
 
         Args:
@@ -70,7 +70,7 @@ class GroundedSAM(Model):
                 if category not in self.category_mapping:
                     self.category_mapping[category] = int(category_id)
 
-    def infer(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def pred(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
 
         Args:

@@ -121,7 +121,7 @@ class ExportableSAMPredictor(nn.Module):
                 box_embeddings = self._embed_boxes(boxes)
 
                 # Detect dummy boxes: check if all coordinates are zero
-                # Shape: boxes is typically [B, 4] or [B, 1, 4]
+                # box shape is typically [B, 4] or [B, 1, 4]
                 boxes_flat = boxes.reshape(boxes.shape[0], -1)  # [B, 4] or [B, num_boxes*4]
                 boxes_sum = boxes_flat.abs().sum(dim=1, keepdim=True)  # [B, 1]
 
@@ -132,7 +132,7 @@ class ExportableSAMPredictor(nn.Module):
                 has_valid_boxes = has_valid_boxes.expand_as(box_embeddings)  # [B, num_boxes, embed_dim]
 
                 # Zero out box embeddings for dummy boxes (element-wise multiplication)
-                box_embeddings = box_embeddings * has_valid_boxes
+                box_embeddings *= has_valid_boxes
 
                 # Concatenate (zeros will be concatenated if boxes were dummy)
                 sparse_embeddings = torch.cat([sparse_embeddings, box_embeddings], dim=1)
@@ -142,7 +142,7 @@ class ExportableSAMPredictor(nn.Module):
                 mask_embeddings = self._embed_masks(masks)
 
                 # Detect dummy masks: check if all values are zero
-                # Shape: masks is [B, 1, H, W]
+                # mask shape is [B, 1, H, W]
                 masks_flat = masks.reshape(masks.shape[0], -1)  # [B, H*W]
                 masks_sum = masks_flat.abs().sum(dim=1, keepdim=True)  # [B, 1]
 
@@ -174,7 +174,8 @@ class ExportableSAMPredictor(nn.Module):
 
             return sparse_embeddings, dense_embeddings
 
-    def __init__(self, sam_predictor: SamPredictor):
+    def __init__(self, sam_predictor: SamPredictor) -> None:
+        """Initialize the exportable SAM predictor."""
         super().__init__()
         self.sam_predictor = sam_predictor
         self.input_size = sam_predictor.model.image_encoder.img_size
@@ -193,46 +194,12 @@ class ExportableSAMPredictor(nn.Module):
         prompt_encoder.load_state_dict(self.sam_predictor.model.prompt_encoder.state_dict(), strict=True)
         self.sam_predictor.model.prompt_encoder = prompt_encoder
 
-    def _freeze_modules(self, modules: list[nn.Module]) -> None:
+    @staticmethod
+    def _freeze_modules(modules: list[nn.Module]) -> None:
         """Freeze the modules."""
         for module in modules:
             for p in module.parameters():
-                p.requires_grad_(False)
-
-    def _validate_and_set_names(
-        self,
-        model_ports: list,
-        expected_names: list[str],
-        port_type: str,
-        arg_name: str,
-    ) -> None:
-        """Validate and set names for model inputs or outputs.
-
-        Args:
-            model_ports: List of model input or output ports from OpenVINO model.
-            expected_names: List of expected names to validate against.
-            port_type: Type of port ("input" or "output") for error messages.
-            arg_name: Name of the argument ("input_names" or "output_names") for error messages.
-
-        Raises:
-            ValueError: If a name is not found in the traced names.
-        """
-        for i, name in enumerate(expected_names):
-            traced_names = model_ports[i].get_names()
-            name_found = False
-            for traced_name in traced_names:
-                if name in traced_name:
-                    name_found = True
-                    break
-            name_found = name_found and bool(len(traced_names))
-
-            if not name_found:
-                msg = (
-                    f"{name} is not matched with the converted model's traced {port_type} names: {traced_names}."
-                    f" Please check {arg_name} argument of the exporter's constructor."
-                )
-                raise ValueError(msg)
-            model_ports[i].tensor.set_names({name})
+                p.requires_grad_(requires_grad=False)
 
     @torch.no_grad()
     def forward(
@@ -244,6 +211,7 @@ class ExportableSAMPredictor(nn.Module):
         mask_input: torch.Tensor,
         original_size: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Forward pass for the exportable SAM predictor."""
         h, w = original_size
         original_size = (h, w)
         self.sam_predictor.set_torch_image(transformed_image, original_size)
@@ -352,3 +320,6 @@ class ExportableSAMPredictor(nn.Module):
                 msg = f"Error exporting to OpenVINO IR: {e}"
                 logger.exception(msg)
                 raise e
+
+        msg = f"Invalid backend: {backend}. Valid backends: ['onnx', 'openvino']"
+        raise ValueError(msg)

@@ -57,9 +57,9 @@ class OpenVINOImageEncoder(nn.Module):
             model_path: Path to the exported OpenVINO IR model (.xml file).
             device: OpenVINO device to use (CPU, GPU, AUTO).
             precision: Precision to use for the model
+
         Raises:
             FileNotFoundError: If the model path doesn't exist.
-            ValueError: If required model metadata is not found in the IR.
         """
         super().__init__()
 
@@ -87,18 +87,10 @@ class OpenVINOImageEncoder(nn.Module):
         ov_model = core.read_model(model_path)
 
         # Load model configuration from runtime info
-        try:
-            self.patch_size = ov_model.get_rt_info(["model_info", "patch_size"]).astype(int)
-            self.feature_size = ov_model.get_rt_info(["model_info", "feature_size"]).astype(int)
-            self.ignore_token_length = ov_model.get_rt_info(["model_info", "ignore_token_length"]).astype(int)
-            self.input_size = ov_model.get_rt_info(["model_info", "input_size"]).astype(int)
-        except RuntimeError as e:
-            msg = (
-                f"Could not load model configuration from {model_path}. "
-                f"The model may have been exported with an older version. "
-                f"Please re-export the model using TimmImageEncoder.export()."
-            )
-            raise ValueError(msg) from e
+        self.patch_size = ov_model.get_rt_info(["model_info", "patch_size"]).astype(int)
+        self.feature_size = ov_model.get_rt_info(["model_info", "feature_size"]).astype(int)
+        self.ignore_token_length = ov_model.get_rt_info(["model_info", "ignore_token_length"]).astype(int)
+        self.input_size = ov_model.get_rt_info(["model_info", "input_size"]).astype(int)
 
         # Create processor with default ImageNet normalization
         self.processor = Compose([
