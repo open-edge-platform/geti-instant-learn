@@ -10,6 +10,7 @@ from .mask_decoder import SamDecoder
 
 __all__ = [
     "CosineSimilarity",
+    "ImageEncoder",
     "SamDecoder",
     "linear_sum_assignment",
 ]
