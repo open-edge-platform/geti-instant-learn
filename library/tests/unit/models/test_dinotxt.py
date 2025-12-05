@@ -119,7 +119,7 @@ class TestDinoTxtZeroShotClassification:
         model_instance: DinoTxtZeroShotClassification,
         sample_dataset: tuple[list[np.ndarray], list[str]],
     ) -> None:
-        """Test that pred raises AttributeError when fit hasn't been called."""
+        """Test that predict raises AttributeError when fit hasn't been called."""
         sample_images, _ = sample_dataset
         # Convert numpy arrays to Image objects and create Batch
         image_objects = [Image(img) for img in sample_images]
