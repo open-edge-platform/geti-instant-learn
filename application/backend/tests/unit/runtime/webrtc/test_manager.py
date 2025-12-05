@@ -43,7 +43,7 @@ async def test_handle_offer_success(webrtc_manager, mock_pipeline_manager, sampl
     ):
         mock_pc = AsyncMock(spec=RTCPeerConnection)
         mock_pc.localDescription = Mock(sdp="answer-sdp", type="answer")
-        mock_pc.connectionState = "connected"
+        mock_pc.connectionState = "active"
         MockRTCPeerConnection.return_value = mock_pc
         MockTrack.return_value = Mock()
 
@@ -144,7 +144,7 @@ async def test_connection_state_change_triggers_cleanup(webrtc_manager, mock_pip
 
         mock_pc = AsyncMock(spec=RTCPeerConnection)
         mock_pc.localDescription = Mock(sdp="answer-sdp", type="answer")
-        mock_pc.connectionState = "connected"
+        mock_pc.connectionState = "active"
         MockRTCPeerConnection.return_value = mock_pc
 
         # Capture the state change callback
@@ -202,7 +202,7 @@ async def test_cleanup_all_connections(webrtc_manager, mock_pipeline_manager):
         for _ in range(num_connections):
             mock_pc = AsyncMock(spec=RTCPeerConnection)
             mock_pc.localDescription = Mock(sdp="answer-sdp", type="answer")
-            mock_pc.connectionState = "connected"
+            mock_pc.connectionState = "active"
             mock_pcs.append(mock_pc)
 
         MockRTCPeerConnection.side_effect = mock_pcs

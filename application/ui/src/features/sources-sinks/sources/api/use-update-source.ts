@@ -32,7 +32,7 @@ export const useUpdateSource = () => {
 
     const updateSource = (
         sourceId: string,
-        body: { config: SourceConfig; connected: boolean },
+        body: { config: SourceConfig; active: boolean },
         onSuccess?: () => void
     ) => {
         updateSourceMutation.mutate(

@@ -221,7 +221,7 @@ class ProjectService(BaseService):
         Build and return the PipelineConfig for a specific project.
 
         Rules:
-          - Reader: first connected source's ReaderConfig (if any), else None (NoOpReader).
+          - Reader: first active source's ReaderConfig (if any), else None (NoOpReader).
           - Processor / Writer: placeholders (None) until implemented.
 
         Raises:
@@ -237,7 +237,7 @@ class ProjectService(BaseService):
             try:
                 reader_cfg = TypeAdapter(ReaderConfig).validate_python(active_source.config)
             except Exception:
-                logger.exception("Invalid connected source config ignored: source_id=%s", active_source.id)
+                logger.exception("Invalid active source config ignored: source_id=%s", active_source.id)
         processor_cfg: ModelConfig | None = None
         active_model = next((m for m in project.processors if m.active), None)
         if active_model:

@@ -90,7 +90,7 @@ def get_sinks(project_id: UUID, sink_service: SinkServiceDep, offset: int = 0, l
                 "application/json": {
                     "example": {
                         "id": "550e8400-e29b-41d4-a716-446655440000",
-                        "connected": True,
+                        "active": True,
                         "config": {
                             "sink_type": "mqtt",
                             "name": "Updated Sink",
@@ -191,7 +191,7 @@ def delete_sink(project_id: UUID, sink_id: UUID, sink_service: SinkServiceDep) -
                 "application/json": {
                     "example": {
                         "id": "550e8400-e29b-41d4-a716-446655440000",
-                        "connected": False,
+                        "active": False,
                         "config": {
                             "sink_type": "mqtt",
                             "name": "My MQTT Sink",

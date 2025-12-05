@@ -57,7 +57,7 @@ const getMenuItems = ({
 };
 
 const sortSources = (sources: Source[]): Source[] => {
-    return orderBy(sources, (source) => source.connected, 'desc');
+    return orderBy(sources, (source) => source.active, 'desc');
 };
 
 interface ExistingSourcesListProps {
@@ -80,7 +80,7 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
         } else if (action === 'connect') {
             updateSource.mutate(source.id, {
                 config: source.config,
-                connected: true,
+                active: true,
             });
         } else if (action === 'delete') {
             deleteSource.mutate(
@@ -99,7 +99,7 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
     return (
         <Flex direction={'column'} gap={'size-100'}>
             {sortSources(sources).map((source) => {
-                const isActiveSource = source.connected;
+                const isActiveSource = source.active;
 
                 if (isTestDatasetSource(source)) {
                     return (

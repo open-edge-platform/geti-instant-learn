@@ -16,7 +16,7 @@ interface WebcamSourceCardProps {
 
 export const WebcamSourceCard = ({ source, onAction, menuItems }: WebcamSourceCardProps) => {
     const parameters = [`Device ID: ${source.config.device_id}`];
-    const isActiveSource = source.connected;
+    const isActiveSource = source.active;
 
     return (
         <PipelineEntityCard
