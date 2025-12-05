@@ -76,7 +76,7 @@ describe('ImagesFolder', () => {
         await waitFor(() => {
             expect(body).toEqual(
                 expect.objectContaining({
-                    connected: true,
+                    active: true,
                     config: {
                         seekable: true,
                         source_type: 'images_folder',

@@ -8,17 +8,17 @@ from domain.services.schemas.reader import ReaderConfig
 
 
 class SourceCreateSchema(BaseIDPayload):
-    connected: bool
+    active: bool
     config: ReaderConfig  # type: ignore[valid-type]
 
 
 class SourceUpdateSchema(BaseModel):
-    connected: bool
+    active: bool
     config: ReaderConfig  # type: ignore[valid-type]
 
 
 class SourceSchema(BaseIDSchema):
-    connected: bool
+    active: bool
     config: ReaderConfig
 
 

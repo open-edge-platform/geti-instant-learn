@@ -6,11 +6,11 @@
 import { ImagesFolderSourceType } from '@geti-prompt/api';
 
 export const getMockedImagesFolderSource = (
-    source: Partial<{ connected: boolean; imagesFolderPath: string }> = {}
+    source: Partial<{ active: boolean; imagesFolderPath: string }> = {}
 ): ImagesFolderSourceType => {
     return {
         id: '123',
-        connected: source.connected ?? true,
+        active: source.active ?? true,
         config: {
             seekable: true,
             images_folder_path: source.imagesFolderPath ?? '',

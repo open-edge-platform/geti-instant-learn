@@ -30,7 +30,7 @@ describe('Toolbar', () => {
                     sources: [
                         getMockedSource({
                             id: 'source-1',
-                            connected: true,
+                            active: true,
                         }),
                     ],
                     pagination: {

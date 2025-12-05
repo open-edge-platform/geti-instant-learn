@@ -37,6 +37,7 @@ from domain.services.schemas.project import (
     ProjectUpdateSchema,
 )
 from domain.services.schemas.reader import ReaderConfig
+from domain.services.schemas.writer import WriterConfig
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +221,7 @@ class ProjectService(BaseService):
         Build and return the PipelineConfig for a specific project.
 
         Rules:
-          - Reader: first connected source's ReaderConfig (if any), else None (NoOpReader).
+          - Reader: first active source's ReaderConfig (if any), else None (NoOpReader).
           - Processor / Writer: placeholders (None) until implemented.
 
         Raises:
@@ -236,7 +237,7 @@ class ProjectService(BaseService):
             try:
                 reader_cfg = TypeAdapter(ReaderConfig).validate_python(active_source.config)
             except Exception:
-                logger.exception("Invalid connected source config ignored: source_id=%s", active_source.id)
+                logger.exception("Invalid active source config ignored: source_id=%s", active_source.id)
         processor_cfg: ModelConfig | None = None
         active_model = next((m for m in project.processors if m.active), None)
         if active_model:
@@ -244,12 +245,18 @@ class ProjectService(BaseService):
                 processor_cfg = TypeAdapter(ModelConfig).validate_python(active_model.config)
             except Exception:
                 logger.exception("Invalid active model config ignored: model_id=%s", active_model.id)
-
+        active_sink = next((s for s in project.sinks if s.active), None)
+        writer_cfg: WriterConfig | None = None
+        if active_sink:
+            try:
+                writer_cfg = TypeAdapter(WriterConfig).validate_python(active_sink.config)
+            except Exception:
+                logger.exception(f"Invalid active sink config ignored: sink_id={active_sink.id}")
         return PipelineConfig(
             project_id=project.id,
             reader=reader_cfg,
             processor=processor_cfg,
-            writer=None,  # TODO: populate from future sink/writer configs
+            writer=writer_cfg,
         )
 
     def get_active_pipeline_config(self) -> PipelineConfig | None:

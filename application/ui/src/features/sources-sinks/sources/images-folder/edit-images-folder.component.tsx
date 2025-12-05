@@ -26,7 +26,7 @@ const useUpdateImagesFolderSource = (sourceId: string) => {
     const { projectId } = useProjectIdentifier();
 
     const updateImagesFolderSource = (
-        { folderPath, connected }: { folderPath: string; connected: boolean },
+        { folderPath, active }: { folderPath: string; active: boolean },
         onSuccess: () => void
     ) => {
         updateSource.mutate(
@@ -37,7 +37,7 @@ const useUpdateImagesFolderSource = (sourceId: string) => {
                     seekable: true,
                     images_folder_path: folderPath,
                 },
-                connected,
+                active,
             },
             () => {
                 const params = {
@@ -82,19 +82,19 @@ export const EditImagesFolder = ({ source, onSaved }: EditImagesFolderProps) => 
     const [folderPath, setFolderPath] = useState<string>(source.config.images_folder_path);
 
     const updateImagesFolderSource = useUpdateImagesFolderSource(source.id);
-    const isActiveSource = source.connected;
+    const isActiveSource = source.active;
 
     const isButtonDisabled =
         !isFolderPathValid(folderPath) ||
         folderPath === source.config.images_folder_path ||
         updateImagesFolderSource.isPending;
 
-    const handleUpdateImagesFolder = (connected: boolean) => {
-        updateImagesFolderSource.mutate({ folderPath, connected }, onSaved);
+    const handleUpdateImagesFolder = (active: boolean) => {
+        updateImagesFolderSource.mutate({ folderPath, active }, onSaved);
     };
 
     const handleSave = () => {
-        handleUpdateImagesFolder(source.connected);
+        handleUpdateImagesFolder(source.active);
     };
 
     const handleSaveAndConnect = () => {

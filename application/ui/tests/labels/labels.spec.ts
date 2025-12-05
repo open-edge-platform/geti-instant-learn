@@ -59,6 +59,7 @@ test.describe('Labels', () => {
 
         const newLabelName = 'Cool label';
 
+        await labelsPage.showDialog();
         await labelsPage.addLabel(newLabelName);
 
         await expect(labelsPage.getLabel(newLabelName)).toBeVisible();

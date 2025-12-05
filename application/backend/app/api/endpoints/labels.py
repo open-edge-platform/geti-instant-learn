@@ -92,6 +92,7 @@ def get_all_labels(
         status.HTTP_204_NO_CONTENT: {
             "description": "Successfully deleted the label.",
         },
+        status.HTTP_403_FORBIDDEN: {"description": "Label is being used in prompts and cannot be deleted."},
         status.HTTP_404_NOT_FOUND: {"description": "Project or label not found."},
         status.HTTP_500_INTERNAL_SERVER_ERROR: {
             "description": "Unexpected error occurred while deleting the label.",

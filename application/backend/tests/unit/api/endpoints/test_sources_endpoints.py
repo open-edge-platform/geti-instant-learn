@@ -30,11 +30,11 @@ SOURCE_ID_2 = uuid4()
 def make_source_schema(
     source_id: UUID,
     device_id: int,
-    connected: bool = False,
+    active: bool = False,
 ) -> SourceSchema:
     return SourceSchema(
         id=source_id,
-        connected=connected,
+        active=active,
         config=WebCamConfig(source_type=SourceType.WEBCAM, device_id=device_id),
     )
 
@@ -118,7 +118,7 @@ def test_get_sources(client, behavior, expected_status, expected_len):
     [
         ("success", 201),
         ("conflict_type", 409),
-        ("conflict_connected", 409),
+        ("conflict_active", 409),
         ("notfound", 404),
         ("error", 500),
     ],
@@ -134,7 +134,7 @@ def test_create_source(client, behavior, expected_status):
             assert project_id == PROJECT_ID
             assert create_data.config.source_type == SourceType.WEBCAM
             if behavior == "success":
-                return make_source_schema(CREATED_ID, create_data.config.device_id, create_data.connected)
+                return make_source_schema(CREATED_ID, create_data.config.device_id, create_data.active)
             if behavior == "conflict_type":
                 raise ResourceAlreadyExistsError(
                     resource_type=ResourceType.SOURCE,
@@ -142,12 +142,12 @@ def test_create_source(client, behavior, expected_status):
                     field="source_type",
                     message="A source with this type already exists in the project.",
                 )
-            if behavior == "conflict_connected":
+            if behavior == "conflict_active":
                 raise ResourceAlreadyExistsError(
                     resource_type=ResourceType.SOURCE,
-                    resource_value="connected",
-                    field="connected",
-                    message="Only one source can be connected per project at a time.",
+                    resource_value="active",
+                    field="active",
+                    message="Only one source can be active per project at a time.",
                 )
             if behavior == "notfound":
                 raise ResourceNotFoundError(ResourceType.PROJECT, str(project_id))
@@ -159,7 +159,7 @@ def test_create_source(client, behavior, expected_status):
 
     payload = {
         "id": str(CREATED_ID),
-        "connected": True,
+        "active": True,
         "config": {"source_type": "webcam", "device_id": 3},
     }
     resp = client.post(f"/api/v1/projects/{PROJECT_ID}/sources", json=payload)
@@ -167,7 +167,7 @@ def test_create_source(client, behavior, expected_status):
     if behavior == "success":
         data = resp.json()
         assert data["id"] == str(CREATED_ID)
-        assert data["connected"] is True
+        assert data["active"] is True
         assert data["config"]["source_type"] == "webcam"
         assert data["config"]["device_id"] == 3
     else:
@@ -193,7 +193,7 @@ def test_update_source(client, behavior, expected_status):
             assert source_id == SOURCE_ID_1
             assert update_data.config.source_type == SourceType.WEBCAM
             if behavior == "success":
-                return make_source_schema(source_id, update_data.config.device_id, update_data.connected)
+                return make_source_schema(source_id, update_data.config.device_id, update_data.active)
             if behavior == "conflict":
                 raise ResourceUpdateConflictError(
                     resource_type=ResourceType.SOURCE,
@@ -210,7 +210,7 @@ def test_update_source(client, behavior, expected_status):
     client.app.dependency_overrides[get_source_service] = lambda: FakeService(None, None)
 
     payload = {
-        "connected": False,
+        "active": False,
         "config": {"source_type": "webcam", "device_id": 7},
     }
     resp = client.put(f"/api/v1/projects/{PROJECT_ID}/sources/{SOURCE_ID_1}", json=payload)
@@ -262,7 +262,7 @@ def test_delete_source(client, behavior, expected_status):
     "behavior,expected_status,expected_total",
     [
         ("success", 200, 100),
-        ("not_connected", 400, None),
+        ("not_active", 400, None),
         ("not_seekable", 400, None),
         ("no_pipeline", 400, None),
         ("source_not_found", 404, None),
@@ -279,8 +279,8 @@ def test_get_frames(client, behavior, expected_status, expected_total):
             assert source_id == SOURCE_ID_1
             if behavior == "source_not_found":
                 raise ResourceNotFoundError(ResourceType.SOURCE, str(source_id))
-            connected = behavior not in ("not_connected",)
-            return make_source_schema(SOURCE_ID_1, 0, connected)
+            active = behavior not in ("not_active",)
+            return make_source_schema(SOURCE_ID_1, 0, active)
 
     class FakePipelineManager:
         def list_frames(self, project_id: UUID, offset: int = 0, limit: int = 30):
@@ -323,7 +323,7 @@ def test_get_frames(client, behavior, expected_status, expected_total):
     "behavior,expected_status,expected_index",
     [
         ("success", 200, 42),
-        ("not_connected", 400, None),
+        ("not_active", 400, None),
         ("not_seekable", 400, None),
         ("no_pipeline", 400, None),
         ("source_not_found", 404, None),
@@ -340,8 +340,8 @@ def test_get_frame_index(client, behavior, expected_status, expected_index):
             assert source_id == SOURCE_ID_1
             if behavior == "source_not_found":
                 raise ResourceNotFoundError(ResourceType.SOURCE, str(source_id))
-            connected = behavior not in ("not_connected",)
-            return make_source_schema(SOURCE_ID_1, 0, connected)
+            active = behavior not in ("not_active",)
+            return make_source_schema(SOURCE_ID_1, 0, active)
 
     class FakePipelineManager:
         def get_frame_index(self, project_id: UUID):
@@ -372,7 +372,7 @@ def test_get_frame_index(client, behavior, expected_status, expected_index):
     "behavior,expected_status,seek_index",
     [
         ("success", 200, 10),
-        ("not_connected", 400, 10),
+        ("not_active", 400, 10),
         ("not_seekable", 400, 10),
         ("out_of_bounds", 400, 999),
         ("no_pipeline", 400, 10),
@@ -390,8 +390,8 @@ def test_seek_frame(client, behavior, expected_status, seek_index):  # noqa: C90
             assert source_id == SOURCE_ID_1
             if behavior == "source_not_found":
                 raise ResourceNotFoundError(ResourceType.SOURCE, str(source_id))
-            connected = behavior not in ("not_connected",)
-            return make_source_schema(SOURCE_ID_1, 0, connected)
+            active = behavior not in ("not_active",)
+            return make_source_schema(SOURCE_ID_1, 0, active)
 
     class FakePipelineManager:
         def seek(self, project_id: UUID, index: int):
@@ -422,14 +422,14 @@ def test_seek_frame(client, behavior, expected_status, seek_index):  # noqa: C90
 
 
 def test_seek_frame_not_connected_error_message(client):
-    """Test that seeking a non-connected source returns appropriate error message."""
+    """Test that seeking an inactive source returns appropriate error message."""
 
     class FakeService:
         def __init__(self, session, config_change_dispatcher):
             pass
 
         def get_source(self, project_id: UUID, source_id: UUID):
-            return make_source_schema(SOURCE_ID_1, 0, connected=False)
+            return make_source_schema(SOURCE_ID_1, 0, active=False)
 
     class FakePipelineManager:
         def seek(self, project_id: UUID, index: int):
@@ -441,5 +441,5 @@ def test_seek_frame_not_connected_error_message(client):
     resp = client.post(f"/api/v1/projects/{PROJECT_ID}/sources/{SOURCE_ID_1}/frames/10")
     assert resp.status_code == 400
     data = resp.json()
-    assert "not currently connected" in data["detail"]
+    assert "not currently active" in data["detail"]
     assert str(SOURCE_ID_1) in data["detail"]

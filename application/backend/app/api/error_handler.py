@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 
 from domain.errors import (
     ResourceAlreadyExistsError,
+    ResourceInUseError,
     ResourceNotFoundError,
     ResourceUpdateConflictError,
 )
@@ -24,7 +25,7 @@ from runtime.errors import (
 logger = logging.getLogger(__name__)
 
 
-def custom_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+def custom_exception_handler(request: Request, exc: Exception) -> JSONResponse:  # noqa: PLR0911
     """
     Centralized exception handler for FastAPI routes.
     Maps domain exceptions to appropriate HTTP status codes and returns consistent error responses.
@@ -75,6 +76,14 @@ def custom_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         )
         message = str(exc) if str(exc) else "Invalid request. Please check your input and try again."
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"detail": message})
+
+    if isinstance(exc, ResourceInUseError):
+        logger.debug(
+            f"Exception handler called: {request.method} {request.url.path} "
+            f"raised {type(exc).__name__}: {str(exc)}. Body: {body_str}"
+        )
+        message = str(exc) if str(exc) else "The resource cannot be modified because it is currently in use."
+        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": message})
 
     if isinstance(exc, RequestValidationError):
         return _handle_validation_error(request, exc, body_str)

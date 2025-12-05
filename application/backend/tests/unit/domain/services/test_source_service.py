@@ -30,7 +30,7 @@ def make_source(
     project_id=None,
     source_type: SourceType = SourceType.WEBCAM,
     config_extra: dict | None = None,
-    connected: bool = False,
+    active: bool = False,
 ):
     base_cfg = {"source_type": source_type.value}
     if source_type == SourceType.WEBCAM:
@@ -43,7 +43,7 @@ def make_source(
         id=source_id or uuid.uuid4(),
         project_id=project_id or uuid.uuid4(),
         config=base_cfg,
-        active=connected,
+        active=active,
     )
 
 
@@ -124,19 +124,19 @@ def test_create_source_success(service, dispatcher_mock):
     service.project_repository.get_by_id.return_value = make_project(project_id)
     service.source_repository.get_active_in_project.return_value = None
 
-    new_source = make_source(source_id=new_id, project_id=project_id, connected=True)
+    new_source = make_source(source_id=new_id, project_id=project_id, active=True)
     service.source_repository.add.return_value = new_source
 
     create_schema = SourceCreateSchema(
         id=new_id,
-        connected=True,
+        active=True,
         config=WebCamConfig(source_type=SourceType.WEBCAM, name="Webcam A", device_id=2),
     )
 
     result = service.create_source(project_id=project_id, create_data=create_schema)
 
     assert result.id == new_id
-    assert result.connected is True
+    assert result.active is True
     assert result.config.device_id == 2
     service.source_repository.add.assert_called_once()
     service.session.commit.assert_called_once()
@@ -155,7 +155,7 @@ def test_create_source_type_conflict_raises_integrity_error(service):
 
     create_schema = SourceCreateSchema(
         id=uuid.uuid4(),
-        connected=False,
+        active=False,
         config=WebCamConfig(source_type=SourceType.WEBCAM, name="Dup", device_id=0),
     )
 
@@ -179,7 +179,7 @@ def test_create_source_name_conflict_raises_integrity_error(service):
 
     create_schema = SourceCreateSchema(
         id=uuid.uuid4(),
-        connected=False,
+        active=False,
         config=WebCamConfig(source_type=SourceType.WEBCAM, name="DupName", device_id=0),
     )
 
@@ -198,28 +198,28 @@ def test_create_source_name_conflict_raises_integrity_error(service):
     service.session.rollback.assert_called_once()
 
 
-def test_create_source_disconnects_previous_connected(service):
+def test_create_source_disconnects_previous_active(service):
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
-    prev_connected = make_source(project_id=project_id, connected=True)
-    service.source_repository.get_active_in_project.return_value = prev_connected
-    service.source_repository.update.return_value = prev_connected
+    prev_active = make_source(project_id=project_id, active=True)
+    service.source_repository.get_active_in_project.return_value = prev_active
+    service.source_repository.update.return_value = prev_active
 
-    new_source = make_source(project_id=project_id, connected=True)
+    new_source = make_source(project_id=project_id, active=True)
     service.source_repository.add.return_value = new_source
 
     create_schema = SourceCreateSchema(
         id=uuid.uuid4(),
-        connected=True,
+        active=True,
         config=WebCamConfig(source_type=SourceType.WEBCAM, name="Primary", device_id=1),
     )
 
     service.create_source(project_id=project_id, create_data=create_schema)
 
-    assert prev_connected.active is False
+    assert prev_active.active is False
 
 
-def test_create_connected_source_violates_single_connected_constraint(service, tmp_path):
+def test_create_active_source_violates_single_active_constraint(service, tmp_path):
     project_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
 
@@ -231,21 +231,21 @@ def test_create_connected_source_violates_single_connected_constraint(service, t
 
     create_schema = SourceCreateSchema(
         id=uuid.uuid4(),
-        connected=True,
+        active=True,
         config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path=str(video_file)),
     )
 
     # simulate IntegrityError from database constraint
     mock_error = IntegrityError("statement", "params", "orig")
-    mock_error.orig = Exception("UNIQUE constraint failed: uq_single_connected_source_per_project")
+    mock_error.orig = Exception("UNIQUE constraint failed: uq_single_active_source_per_project")
     service.session.commit.side_effect = mock_error
 
     with pytest.raises(ResourceAlreadyExistsError) as exc_info:
         service.create_source(project_id=project_id, create_data=create_schema)
 
     assert exc_info.value.resource_type == ResourceType.SOURCE
-    assert exc_info.value.field == "connected"
-    assert "only one source can be connected per project" in str(exc_info.value).lower()
+    assert exc_info.value.field == "active"
+    assert "only one source can be active per project" in str(exc_info.value).lower()
     service.session.rollback.assert_called_once()
 
 
@@ -253,14 +253,14 @@ def test_update_source_success(service, dispatcher_mock):
     project_id = uuid.uuid4()
     source_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
-    existing = make_source(project_id=project_id, source_id=source_id, source_type=SourceType.WEBCAM, connected=False)
+    existing = make_source(project_id=project_id, source_id=source_id, source_type=SourceType.WEBCAM, active=False)
     service.source_repository.get_by_id_and_project.return_value = existing
-    prev_connected = make_source(project_id=project_id, connected=True)
-    service.source_repository.get_active_in_project.return_value = prev_connected
+    prev_active = make_source(project_id=project_id, active=True)
+    service.source_repository.get_active_in_project.return_value = prev_active
     service.source_repository.update.return_value = existing
 
     update_schema = SourceUpdateSchema(
-        connected=True,
+        active=True,
         config=WebCamConfig(source_type=SourceType.WEBCAM, name="Renamed", device_id=5),
     )
 
@@ -269,7 +269,7 @@ def test_update_source_success(service, dispatcher_mock):
     assert result.id == source_id
     assert existing.active is True
     assert existing.config["device_id"] == 5
-    assert prev_connected.active is False
+    assert prev_active.active is False
     service.session.commit.assert_called_once()
 
     # two events should be dispatched: one for disconnecting the previous source, one for updating the current
@@ -278,7 +278,7 @@ def test_update_source_success(service, dispatcher_mock):
     assert all(isinstance(ev, ComponentConfigChangeEvent) for ev in events)
     assert all(ev.project_id == project_id for ev in events)
     assert all(ev.component_type == "source" for ev in events)
-    assert events[0].component_id == str(prev_connected.id)
+    assert events[0].component_id == str(prev_active.id)
     assert events[1].component_id == str(source_id)
 
 
@@ -294,7 +294,7 @@ def test_update_source_type_change_conflict(service, tmp_path):
     video_file.write_bytes(b"fake video content")
 
     update_schema = SourceUpdateSchema(
-        connected=False,
+        active=False,
         config=VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path=str(video_file)),
     )
 
@@ -309,7 +309,7 @@ def test_update_source_not_found(service):
     service.project_repository.get_by_id.return_value = make_project(project_id)
     service.source_repository.get_by_id_and_project.return_value = None
     update_schema = SourceUpdateSchema(
-        connected=False,
+        active=False,
         config=WebCamConfig(source_type=SourceType.WEBCAM, name="X", device_id=0),
     )
 
@@ -360,12 +360,12 @@ def test_create_source_emits_event_when_connected_false(service, dispatcher_mock
     service.project_repository.get_by_id.return_value = make_project(project_id)
     service.source_repository.get_active_in_project.return_value = None
 
-    new_source = make_source(source_id=new_id, project_id=project_id, connected=False)
+    new_source = make_source(source_id=new_id, project_id=project_id, active=False)
     service.source_repository.add.return_value = new_source
 
     create_schema = SourceCreateSchema(
         id=new_id,
-        connected=False,
+        active=False,
         config=WebCamConfig(source_type=SourceType.WEBCAM, device_id=3),
     )
 
@@ -383,13 +383,13 @@ def test_update_source_emits_event_when_no_connection_change(service, dispatcher
     project_id = uuid.uuid4()
     source_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
-    existing = make_source(project_id=project_id, source_id=source_id, source_type=SourceType.WEBCAM, connected=True)
+    existing = make_source(project_id=project_id, source_id=source_id, source_type=SourceType.WEBCAM, active=True)
     service.source_repository.get_by_id_and_project.return_value = existing
-    service.source_repository.get_active_in_project.return_value = existing  # already connected
+    service.source_repository.get_active_in_project.return_value = existing  # already active
     service.source_repository.update.return_value = existing
 
     update_schema = SourceUpdateSchema(
-        connected=True,
+        active=True,
         config=WebCamConfig(source_type=SourceType.WEBCAM, device_id=7),
     )
 

@@ -68,7 +68,7 @@ export const mockRTCPeerConnectionScript = () => {
 
 export const DEVICE_ID = 0;
 export const WEBCAM_SOURCE: WebcamSourceType = {
-    connected: true,
+    active: true,
     id: 'webcam-id',
     config: {
         seekable: false,

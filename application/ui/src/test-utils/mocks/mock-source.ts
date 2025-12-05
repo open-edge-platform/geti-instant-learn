@@ -8,7 +8,7 @@ import { Source } from '@geti-prompt/api';
 export const getMockedSource = (source?: Partial<Source>): Source => {
     return {
         id: 'source-1',
-        connected: false,
+        active: false,
         config: {
             source_type: 'webcam',
             device_id: 0,

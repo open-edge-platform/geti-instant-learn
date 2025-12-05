@@ -48,7 +48,7 @@ class FrameCaptureResponse(BaseModel):
             },
         },
         status.HTTP_404_NOT_FOUND: {
-            "description": "Project not found or no connected source",
+            "description": "Project not found or no active source",
             "content": {
                 "application/json": {
                     "examples": {
@@ -59,9 +59,9 @@ class FrameCaptureResponse(BaseModel):
                             },
                         },
                         "source_missing": {
-                            "summary": "No connected source",
+                            "summary": "No active source",
                             "value": {
-                                "detail": "Project 123e4567-e89b-12d3-a456-426614174000 has no connected source. "
+                                "detail": "Project 123e4567-e89b-12d3-a456-426614174000 has no active source. "
                                 "Please connect a source before capturing frames."
                             },
                         },

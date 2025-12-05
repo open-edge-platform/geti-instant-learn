@@ -156,23 +156,11 @@ def upgrade() -> None:
         )
     )
     op.create_index(
-        UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT,
+        UniqueConstraintName.SINGLE_ACTIVE_SOURCE_PER_PROJECT,
         'Source',
         ['project_id', 'active'],
         unique=True,
         sqlite_where=sa.text('active IS 1')
-    )
-
-    op.create_table('Annotation',
-    sa.Column('config', sqlite.JSON(), nullable=False),
-    sa.Column('label_id', sa.Uuid(), nullable=True),
-    sa.Column('prompt_id', sa.Uuid(), nullable=False),
-    sa.Column('id', sa.Uuid(), nullable=False),
-    sa.Column("created_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
-    sa.Column("updated_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"), nullable=False),
-    sa.ForeignKeyConstraint(['label_id'], ['Label.id'], ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['prompt_id'], ['Prompt.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
     )
 
     op.create_table('Label',
@@ -187,6 +175,20 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
 
+    op.create_table('Annotation',
+    sa.Column('config', sqlite.JSON(), nullable=False),
+    sa.Column('label_id', sa.Uuid(), nullable=False),
+    sa.Column('prompt_id', sa.Uuid(), nullable=False),
+    sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column("created_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"),
+                              nullable=False),
+    sa.Column("updated_at", sa.DateTime(), server_default=sa.text("(CURRENT_TIMESTAMP)"),
+                              nullable=False),
+    sa.ForeignKeyConstraint(['label_id'], ['Label.id'], ondelete='RESTRICT'),
+    sa.ForeignKeyConstraint(['prompt_id'], ['Prompt.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+
 
 def downgrade() -> None:
     op.drop_index(UniqueConstraintName.LABEL_NAME_PER_PROJECT, table_name='Label')
@@ -194,7 +196,7 @@ def downgrade() -> None:
     op.drop_table('Annotation')
     op.execute(sa.DDL(f"DROP INDEX IF EXISTS {UniqueConstraintName.SOURCE_NAME_PER_PROJECT}"))
     op.execute(sa.DDL(f"DROP INDEX IF EXISTS {UniqueConstraintName.SOURCE_TYPE_PER_PROJECT}"))
-    op.drop_index(UniqueConstraintName.SINGLE_CONNECTED_SOURCE_PER_PROJECT, table_name='Source')
+    op.drop_index(UniqueConstraintName.SINGLE_ACTIVE_SOURCE_PER_PROJECT, table_name='Source')
     op.drop_table('Source')
     op.execute(sa.DDL(f"DROP INDEX IF EXISTS {UniqueConstraintName.SINK_NAME_PER_PROJECT}"))
     op.execute(sa.DDL(f"DROP INDEX IF EXISTS {UniqueConstraintName.SINK_TYPE_PER_PROJECT}"))
