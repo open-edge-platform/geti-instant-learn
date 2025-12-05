@@ -71,9 +71,9 @@ class InferenceModel(Matcher):
         ... )
         >>> target_batch = Batch.collate([target_sample])
 
-        >>> # Run learn and infer
-        >>> ov_matcher.learn(ref_batch)
-        >>> infer_results = ov_matcher.infer(target_batch)
+        >>> # Run fit and predict
+        >>> ov_matcher.fit(ref_batch)
+        >>> infer_results = ov_matcher.predict(target_batch)
     """
 
     def __init__(
