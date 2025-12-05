@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     host: str = Field(default="localhost", alias="HOST")
     port: int = Field(default=9100, alias="PORT")
 
+    # CORS
+    cors_origins: str = Field(
+        default="http://localhost:3000, http://localhost:9100",
+        alias="CORS_ORIGINS",
+    )
+
     # Database
     db_data_dir: Path = Field(default=current_dir.parent / ".data", alias="DB_DATA_DIR")
     db_filename: str = "geti_prompt.db"
@@ -55,6 +61,11 @@ class Settings(BaseSettings):
     def database_url(self) -> str:
         """Database connection URL"""
         return f"sqlite:///{self.db_data_dir / self.db_filename}"
+
+    @property
+    def cors_allowed_origins(self) -> list[str]:
+        """Parsed list of allowed CORS origins."""
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
     # Logs
     logs_dir: Path = Field(default=current_dir.parent / ".logs", alias="LOGS_DIR")
