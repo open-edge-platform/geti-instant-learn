@@ -20,7 +20,6 @@ class SDPHandler:
         """
         loop = asyncio.get_running_loop()
         try:
-            # gethostbyname handles both domain names and IP strings (returning IP strings as-is)
             return await loop.run_in_executor(None, socket.gethostbyname, hostname)
         except Exception as exc:
             logger.warning(f"Failed to resolve hostname {hostname}: {exc}")
@@ -48,20 +47,16 @@ class SDPHandler:
             logger.warning(f"Failed to parse SDP for mangling: {exc}. Returning original SDP.")
             return sdp
 
-        # Update session-level connection
         if parsed_sdp.host:
             parsed_sdp.host = ip
 
         for media in parsed_sdp.media:
-            # Update media-level connection
             if media.host:
                 media.host = ip
 
-            # Update RTCP connection
             if media.rtcp_host:
                 media.rtcp_host = ip
 
-            # Update host candidates
             for candidate in media.ice_candidates:
                 if candidate.type == "host":
                     candidate.ip = ip
