@@ -233,7 +233,7 @@ class BidirectionalPromptGenerator(nn.Module):
 
     def forward(
         self,
-        ref_embeddings: torch.Tensor,
+        ref_embeddings: dict[int, torch.Tensor],
         masked_ref_embeddings: dict[int, torch.Tensor],
         flatten_ref_masks: dict[int, torch.Tensor],
         target_embeddings: torch.Tensor,
@@ -263,16 +263,13 @@ class BidirectionalPromptGenerator(nn.Module):
         point_prompts: list[dict[int, torch.Tensor]] = []
         similarities_per_image: list[dict[int, torch.Tensor]] = []
 
-        # this basically makes a vertical stack + flatten
-        flattened_ref_embeds = ref_embeddings.reshape(-1, ref_embeddings.shape[-1])
-
         for target_embed, original_size in zip(target_embeddings, original_sizes, strict=False):
             class_point_prompts: dict[int, torch.Tensor] = {}
             similarities: dict[int, list[torch.Tensor]] = defaultdict(list)
-            similarity_map = flattened_ref_embeds @ target_embed.T
             h, w = original_size
 
             for class_id, flatten_ref_mask in flatten_ref_masks.items():
+                cls_similarity_map = ref_embeddings[class_id] @ target_embed.T
                 local_ref_embedding = masked_ref_embeddings[class_id]
                 local_similarity = local_ref_embedding @ target_embed.T
                 local_similarity = self._resize_similarity_map(local_similarity, original_size)
@@ -280,12 +277,12 @@ class BidirectionalPromptGenerator(nn.Module):
 
                 # Select background points based on similarity to averaged local feature
                 _, background_indices, background_scores = self._select_background_points(
-                    similarity_map,
+                    cls_similarity_map,
                     flatten_ref_mask,
                 )
 
                 # Perform foreground matching
-                foreground_indices, foreground_scores = self._perform_matching(similarity_map, flatten_ref_mask)
+                foreground_indices, foreground_scores = self._perform_matching(cls_similarity_map, flatten_ref_mask)
 
                 # Process foreground points
                 if len(foreground_scores) > 0:
@@ -294,7 +291,7 @@ class BidirectionalPromptGenerator(nn.Module):
                     foreground_labels = torch.ones((len(foreground_points), 1)).to(foreground_points)
                     foreground_points = torch.cat([foreground_points, foreground_labels], dim=1)
                 else:
-                    foreground_points = torch.empty(0, 4).to(similarity_map)
+                    foreground_points = torch.empty(0, 4).to(cls_similarity_map)
 
                 # Process background points
                 if background_indices is not None and background_scores is not None and background_indices.numel() > 0:
@@ -303,7 +300,7 @@ class BidirectionalPromptGenerator(nn.Module):
                     background_labels = -torch.ones((len(background_points), 1)).to(background_points)
                     background_points = torch.cat([background_points, background_labels], dim=1)
                 else:
-                    background_points = torch.empty(0, 4).to(similarity_map)
+                    background_points = torch.empty(0, 4).to(cls_similarity_map)
 
                 class_point_prompts[class_id] = torch.cat([foreground_points, background_points])
             point_prompts.append(class_point_prompts)

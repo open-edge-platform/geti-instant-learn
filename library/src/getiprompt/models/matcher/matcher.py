@@ -137,11 +137,9 @@ class Matcher(Model):
 
     def fit(self, reference_batch: Batch) -> None:
         """Perform learning step on the reference images and priors."""
-        # Encode reference images to batched tensor
-        self.ref_embeddings = self.encoder(images=reference_batch.images)
-        # Extract local features and pooled masks
-        self.masked_ref_embeddings, self.ref_masks = self.masked_feature_extractor(
-            self.ref_embeddings,
+        # Extract local reference features and pooled masks
+        self.masked_ref_embeddings, self.ref_masks, self.ref_embeddings = self.masked_feature_extractor(
+            self.encoder(images=reference_batch.images),
             reference_batch.masks,
             reference_batch.category_ids,
         )

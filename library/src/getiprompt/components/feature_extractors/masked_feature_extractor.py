@@ -73,6 +73,7 @@ class MaskedFeatureExtractor(nn.Module):
         """
         masked_ref_embeddings = defaultdict(list)
         flatten_ref_masks = defaultdict(list)
+        ref_embeddings = defaultdict(list)
         for embedding, masks_tensor, category_ids_tensor in zip(
             embeddings,
             masks,
@@ -83,9 +84,10 @@ class MaskedFeatureExtractor(nn.Module):
                 category_id = category_id.item()
                 pooled_mask = self.transform(mask).to(embedding.device)
                 flatten_ref_masks[category_id].append(pooled_mask)
-                keep = pooled_mask.flatten().bool()
+                keep = pooled_mask.flatten().bool()  # 1024
                 masked_embedding = embedding[keep]
                 masked_ref_embeddings[category_id].append(masked_embedding)
+                ref_embeddings[category_id].append(embedding)
 
         for category_id, masked_embedding in masked_ref_embeddings.items():
             masked_embedding = torch.cat(masked_embedding, dim=0)
@@ -94,8 +96,11 @@ class MaskedFeatureExtractor(nn.Module):
                 masked_embedding /= masked_embedding.norm(dim=-1, keepdim=True)
             masked_ref_embeddings[category_id] = masked_embedding
 
+        for category_id, similarity_map_list in ref_embeddings.items():
+            ref_embeddings[category_id] = torch.cat(similarity_map_list, dim=0)
+
         for category_id, flatten_ref_mask_list in flatten_ref_masks.items():
             flatten_ref_mask_list = torch.cat(flatten_ref_mask_list, dim=0)
             flatten_ref_masks[category_id] = flatten_ref_mask_list.reshape(-1)
 
-        return masked_ref_embeddings, flatten_ref_masks
+        return masked_ref_embeddings, flatten_ref_masks, ref_embeddings
