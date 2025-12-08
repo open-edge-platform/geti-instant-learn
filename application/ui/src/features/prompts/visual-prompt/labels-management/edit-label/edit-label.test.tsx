@@ -5,7 +5,7 @@
 
 import { LabelType } from '@geti-prompt/api';
 import { render } from '@geti-prompt/test-utils';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
@@ -20,6 +20,10 @@ class EditLabelPageObject {
         return screen.getByRole('button', { name: /confirm label/i });
     }
 
+    getColorPickerButton() {
+        return screen.getByRole('button', { name: 'Color picker button' });
+    }
+
     async typeInNameInput(text: string) {
         const input = this.getNameInput();
 
@@ -31,8 +35,20 @@ class EditLabelPageObject {
         await userEvent.type(input, text);
     }
 
-    async clickConfirmButton() {
+    clickConfirmButton() {
         fireEvent.click(this.getConfirmLabelButton());
+    }
+
+    clickColorPickerButton() {
+        fireEvent.click(this.getColorPickerButton());
+    }
+
+    async changeColor(color: string) {
+        const input = screen.getByTestId('change-color-button-color-input');
+        await userEvent.clear(input);
+        await userEvent.type(input, color);
+
+        fireEvent.click(within(screen.getByTestId('modal')).getByRole('button', { name: 'Confirm' }));
     }
 
     async closeWithKeyboard() {
@@ -107,6 +123,20 @@ describe('EditLabel', () => {
 
         expect(editLabelPage.getNameInput()).toHaveValue(existingLabels[0].name);
         expect(editLabelPage.getConfirmLabelButton()).toBeDisabled();
+    });
+
+    it('enables confirm button when the color is changed', async () => {
+        const existingLabels: LabelType[] = [{ id: '2', name: 'Another Label', color: '#000000' }];
+        const mockOnAccept = vi.fn();
+        const { editLabelPage } = renderEditLabel({ existingLabels, onAccept: mockOnAccept });
+
+        editLabelPage.clickColorPickerButton();
+        await editLabelPage.changeColor('#FFFFFF');
+
+        expect(editLabelPage.getConfirmLabelButton()).toBeEnabled();
+        editLabelPage.clickConfirmButton();
+
+        expect(mockOnAccept).toHaveBeenCalledWith(expect.objectContaining({ color: '#FFFFFF' }));
     });
 
     it('does not invoke onAccept when new name is the same as the old one', async () => {

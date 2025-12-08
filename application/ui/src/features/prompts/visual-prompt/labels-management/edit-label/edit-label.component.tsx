@@ -35,7 +35,8 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled
 
     const validationError = validateLabelName(name, existingLabels, label.id);
     const hasSameName = name.trim() === label.name.trim();
-    const isEditDisabled = !!validationError || isDisabled || hasSameName;
+    const hasSameColor = color === label.color;
+    const isEditDisabled = !!validationError || isDisabled || (hasSameName && hasSameColor);
 
     const handleAccept = () => {
         if (isEditDisabled) return;
@@ -64,7 +65,6 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled
                 data-testid={'change-color-button'}
                 onColorChange={setColor}
                 size={'M'}
-                ariaLabelPrefix={'New label'}
             />
 
             <TextField
