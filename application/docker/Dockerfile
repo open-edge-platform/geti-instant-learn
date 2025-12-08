@@ -185,45 +185,37 @@ RUN apt-get update && apt-get remove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Remove all non-redistributable CUDA components per EULA Section 2.7
-RUN set -e; \
-    echo "Removing non-redistributable CUDA components per NVIDIA EULA..."; \
-    \
-    # Remove development tools (non-redistributable)
-    find /usr /opt ${PYTHONPATH}/backend/.venv -type f \( \
+# CUDA EULA Compliance Cleanup
+RUN echo "Removing non-redistributable CUDA components..." && \
+    # Remove development tools
+    find /usr /opt ${PYTHONPATH} -type f \( \
         -name "nvcc" -o \
         -name "cuda-gdb" -o \
         -name "nvprof" -o \
         -name "nvdisasm" -o \
         -name "cuobjdump" -o \
-        -name "cuda-memcheck" -o \
-        -name "nsight*" -o \
-        -name "compute-sanitizer" \
-    \) -delete 2>/dev/null || true; \
-    \
-    # Remove static libraries (typically non-redistributable)
-    find /usr /opt ${PYTHONPATH}/backend/.venv -name "*.a" -path "*cuda*" -delete 2>/dev/null || true; \
-    \
-    # Remove headers and include directories (non-redistributable)
-    find /usr /opt ${PYTHONPATH}/backend/.venv -type d \( \
+        -name "nsight*" \
+    \) -delete 2>/dev/null || true && \
+    # Remove headers and includes
+    find /usr /opt ${PYTHONPATH} -type d \( \
         -name "include" -o \
         -name "headers" \
-    \) -path "*cuda*" -exec rm -rf {} + 2>/dev/null || true; \
-    \
-    # Remove documentation and samples (non-redistributable)
-    find /usr /opt ${PYTHONPATH}/backend/.venv -type d \( \
+    \) -path "*cuda*" -exec rm -rf {} + 2>/dev/null || true && \
+    # Remove static libraries
+    find /usr /opt ${PYTHONPATH} -name "*.a" -path "*cuda*" -delete 2>/dev/null || true && \
+    # Remove docs and samples
+    find /usr /opt ${PYTHONPATH} -type d \( \
         -name "doc" -o \
         -name "docs" -o \
-        -name "documentation" -o \
-        -name "samples" -o \
-        -name "sample" \
-    \) -path "*cuda*" -exec rm -rf {} + 2>/dev/null || true; \
-    \
-    # Remove compiler-related directories
-    find /usr /opt ${PYTHONPATH}/backend/.venv -type d -name "*nvcc*" -exec rm -rf {} + 2>/dev/null || true; \
-    \
-    # Clean up package manager traces
-    apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
+        -name "samples" \
+    \) -path "*cuda*" -exec rm -rf {} + 2>/dev/null || true && \
+    # Remove specific non-redistributable components
+    find ${PYTHONPATH} -name "libnvperf_*.so*" -delete 2>/dev/null || true && \
+    find ${PYTHONPATH} -name "libcusolverMg.so*" -delete 2>/dev/null || true && \
+    find ${PYTHONPATH} -type d -path "*/triton/backends/nvidia" -exec rm -rf {} + 2>/dev/null || true && \
+    # Clean package manager
+    apt-get autoremove -y && apt-get clean && \
+    echo "✓ CUDA EULA compliance cleanup completed"
 
 
 ######################
