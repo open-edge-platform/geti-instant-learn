@@ -89,7 +89,7 @@ docker run --rm \
 
 **Problem:** Your server's public IP may change (auto-scaling, ephemeral instances), so you can't hardcode it.
 
-**Solution:** The backend queries a public STUN server to discover its own public IP automatically. A STUN server simply tells the backend "your public IP is X.X.X.X" — it doesn't relay any traffic.
+**Solution:** The backend queries a public STUN server to discover its own public IP automatically. A STUN server simply tells the backend "your public IP is X.X.X.X" — it doesn't relay any traffic. Configure via `ICE_SERVERS` environment variable.
 
 ```bash
 # Using just
@@ -126,6 +126,8 @@ docker run --rm \
 ### Restrictive Firewall (TURN)
 
 **Problem:** Corporate firewalls block UDP traffic or non-standard ports. WebRTC media cannot get through.
+
+**Solution:** Route all traffic through a TURN relay server on TCP port 443 (usually allowed). A TURN server forwards all media between browser and backend — use it only when direct connections fail.
 
 **Solution:** Route all traffic through a TURN relay server on TCP port 443 (usually allowed).
 
