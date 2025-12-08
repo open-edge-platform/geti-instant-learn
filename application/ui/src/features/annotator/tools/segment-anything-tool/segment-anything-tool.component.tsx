@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CSSProperties, PointerEvent, useEffect, useRef, useState } from 'react';
+import { CSSProperties, PointerEvent, RefObject, useEffect, useRef, useState } from 'react';
 
 import { LabelType } from '@geti-prompt/api';
 import { clampPointBetweenImage } from '@geti/smart-tools/utils';
@@ -33,6 +33,10 @@ import classes from './segment-anything.module.scss';
 // the user's cpu with too many decoding requests
 const THROTTLE_TIME = 150;
 
+const isCanvasInteractive = (ref: RefObject<SVGSVGElement | null>): boolean => {
+    return ref.current?.style.pointerEvents === 'auto';
+};
+
 export const SegmentAnythingTool = () => {
     const [mousePosition, setMousePosition] = useState<InteractiveAnnotationPoint>();
     const [previewShapes, setPreviewShapes] = useState<Shape[]>([]);
@@ -54,12 +58,20 @@ export const SegmentAnythingTool = () => {
     }, THROTTLE_TIME);
 
     useEffect(() => {
+        if (!isCanvasInteractive(svgRef)) {
+            return;
+        }
+
         if (mousePosition === undefined) {
             return;
         }
 
         throttledDecodingQueryFn([mousePosition])
             .then((shapes) => {
+                if (!isCanvasInteractive(svgRef)) {
+                    return;
+                }
+
                 const newShapes = shapes.map((shape) => removeOffLimitPoints(shape, roi));
                 setPreviewShapes(newShapes);
 
@@ -134,6 +146,12 @@ export const SegmentAnythingTool = () => {
                 onPointerMove={handleMouseMove}
                 onPointerDown={handlePointerDown}
                 onPointerLeave={() => {
+                    console.log('onPointerLeave before check', svgRef.current?.style.pointerEvents);
+
+                    if (!isCanvasInteractive(svgRef)) {
+                        return;
+                    }
+
                     console.log('onPointerLeave', svgRef.current?.style.pointerEvents);
                     throttleSetMousePosition.cancel();
                     setMousePosition(undefined);
