@@ -2,7 +2,7 @@
 
 ### License
 
-<PROJECT NAME> is licensed under the terms in [LICENSE]<link to license file in repo>. By contributing to the project, you agree to the license and copyright terms therein and release your contribution under these terms.
+Geti Prompt is licensed under the terms in [LICENSE](LICENSE). By contributing to the project, you agree to the license and copyright terms therein and release your contribution under these terms.
 
 ### Sign your work
 
@@ -55,3 +55,43 @@ Use your real name (sorry, no pseudonyms or anonymous contributions.)
 
 If you set your `user.name` and `user.email` git configs, you can sign your
 commit automatically with `git commit -s`.
+
+### Suppressing False Positives
+
+If necessary, to suppress _false_ positives, add inline comment with specific syntax.
+Please also add a comment explaining _why_ you decided to disable a rule or provide a risk-acceptance reason.
+
+#### Bandit
+
+[Bandit](https://github.com/PyCQA/bandit) is a static analysis tool used to check Python code.
+Findings can be ignored inline with `# nosec: BXXX` comments.
+
+```python
+import subprocess # nosec: B404 # this is actually fine
+```
+
+[Details](https://bandit.readthedocs.io/en/latest/config.html#exclusions) in Bandit docs.
+
+#### Zizmor
+
+[Zizmor](https://zizmor.sh/) is a static analysis tool used to check GitHub Actions workflows.
+Findings can be ignored inline with `# zizmor: ignore[rulename]` comments.
+
+```yaml
+uses: actions/checkout@v3 # zizmor: ignore[artipacked] this is actually fine
+```
+
+[Details](https://docs.zizmor.sh/usage/#with-comments) in Zizmor docs.
+
+#### Semgrep
+
+Findings can be ignored inline with `# nosemgrep: rule-id` comments.
+
+```python
+    # nosemgrep: python.lang.security.audit.dangerous-system-call.dangerous-system-call # this is actually fine
+    r = os.system(' '.join(command))
+```
+
+[Details](https://semgrep.dev/docs/ignoring-files-folders-code) in Semgrep docs.
+
+</details>
