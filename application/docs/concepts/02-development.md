@@ -21,84 +21,96 @@ The layered architecture simplifies testing by providing clear boundaries for mo
 | Unit | Single layer | Mock dependencies from the layer below |
 | Integration | Data layer | Test repositories against a real database |
 
-## WebRTC Networking & Topologies
+## WebRTC Networking
 
-Geti Prompt uses WebRTC for low-latency video streaming. We support three main network topologies:
+Geti Prompt uses WebRTC for low-latency video streaming. The backend handles all ICE candidate gathering, so client configuration is minimal.
 
-### 1. Local Network
-*   **Scenario:** Running on `localhost` or devices on the same LAN.
-*   **Mechanism:** Docker Bridge network with Port Mapping.
-*   **Configuration:** Must advertise the Host IP (e.g., `127.0.0.1`) to route traffic from Host to Container.
+### How It Works
 
-### 2. Cloud / NAT / Load Balancer
-*   **Scenario:**
-    *   Public network (Public IP)
-    *   Private network (behind a Reverse Proxy / Load Balancer)
-*   **Mechanism:**
-    *   **Automatic (STUN):** Use a public STUN server to discover the public IP. Preferred for dynamic IPs.
-    *   **Manual (Advertised IP):** Explicitly set the Public IP or Domain. Preferred for Load Balancers or static IPs.
-*   **Requirement:** UDP ports must be open in the firewall/security group. See [Port Range Requirement](#port-range-requirement) below for instructions on constraining the UDP port range.
+1. The backend gathers ICE candidates using configured STUN/TURN servers or an advertised IP.
+2. Candidates are sent to the client in the SDP Answer.
+3. The client connects using the provided candidates—no additional setup required.
 
-### 3. Restrictive Firewalls
-*   **Scenario:** Strict firewalls blocking UDP or non-standard ports.
-*   **Mechanism:** Traffic is relayed through a TURN server (Coturn) over an allowed TCP port (typically 443).
-*   **Requirement:** A running instance of Coturn.
+### Network Topologies
 
+| Topology | Use Case | Method |
+|----------|----------|--------|
+| [Local](#local-network) | Development on localhost or LAN | Advertised IP |
+| [Cloud (STUN)](#cloud-with-stun) | Dynamic public IPs | STUN server |
+| [Cloud (Static IP)](#cloud-with-static-ip) | Load balancers, static IPs | Advertised IP |
+| [Restrictive Firewall](#restrictive-firewall-turn) | UDP blocked | TURN relay |
+
+> **Note:** These options are mutually exclusive. Use only one configuration method at a time.
 
 ---
 
-## Architecture: Server-Side ICE Gathering
+## Configuration
 
-Geti Prompt uses a **Server-Side Gathering** approach.
+### Environment Variables
 
-1.  **Backend Config:** The backend is configured with `ICE_SERVERS` (STUN/TURN) and/or `WEBRTC_ADVERTISE_IP`.
-2.  **Gathering:** When a connection starts, the backend uses these settings to gather its own ICE candidates (Host, Srflx, Relay).
-3.  **Offer:** The backend sends these candidates to the client in the SDP Answer.
-4.  **Client Role:** The client is "passive". It does not need to know about TURN servers or gather its own complex candidates; it simply connects to the candidates provided by the backend.
+| Variable | Description |
+|----------|-------------|
+| `WEBRTC_ADVERTISE_IP` | IP address to advertise to clients |
+| `ICE_SERVERS` | JSON array of STUN/TURN server configurations |
 
-This simplifies the frontend logic and keeps network configuration centralized in the backend.
+### Port Requirements
+
+Cloud deployments require UDP ports for WebRTC media traffic:
+
+| Ports | Protocol | Purpose |
+|-------|----------|---------|
+| `9100` | TCP | HTTP API |
+| `50000-51000` | UDP | WebRTC media |
 
 ---
 
-## Configuration Guide
+## Deployment Examples
 
-> **Important:** The following configuration options (`enable-stun`, `webrtc-advertise-ip`, `enable-coturn`) are mutually exclusive. Please use only one at a time.
+### Local Network
 
-### 1. Local Network
-Use this for local development on `localhost` or within the same LAN.
-**Note:** Because Docker runs in an isolated network, you must explicitly advertise the host's IP so the browser can reach the container.
+For development on localhost or within a LAN. Docker runs in an isolated network, so you must advertise the host IP.
 
-**For Localhost (Same Machine):**
+<details>
+<summary><strong>Localhost</strong></summary>
+
 ```bash
+# Using just
 just webrtc-advertise-ip="127.0.0.1" run-image
-```
 
-**For LAN (Different Devices):**
-```bash
-# Replace with your machine's LAN IP (e.g., 192.168.1.50)
-just webrtc-advertise-ip="YOUR_LAN_IP" run-image
-```
-
-**Using Docker:**
-```bash
+# Using Docker
 docker run --rm \
-    --sysctl net.ipv4.ip_local_port_range="50000 51000" \
-    -p 50000-51000:50000-51000/udp \
     -p 9100:9100 \
     -e WEBRTC_ADVERTISE_IP="127.0.0.1" \
     <image_name>
 ```
 
-### 2. Public Cloud (STUN)
-Best for dynamic IPs. The backend asks a public STUN server (Google) for its IP.
+</details>
 
-**Using Just:**
+<details>
+<summary><strong>LAN (other devices)</strong></summary>
+
 ```bash
-just enable-stun=true run-image
+# Using just (replace with your LAN IP)
+just webrtc-advertise-ip="192.168.1.50" run-image
+
+# Using Docker
+docker run --rm \
+    -p 9100:9100 \
+    -e WEBRTC_ADVERTISE_IP="192.168.1.50" \
+    <image_name>
 ```
 
-**Using Docker:**
+</details>
+
+### Cloud with STUN
+
+For dynamic public IPs. The backend discovers its IP via a public STUN server.
+
 ```bash
+# Using just
+just enable-stun=true run-image
+
+# Using Docker
 docker run --rm \
     --sysctl net.ipv4.ip_local_port_range="50000 51000" \
     -p 50000-51000:50000-51000/udp \
@@ -107,16 +119,15 @@ docker run --rm \
     <image_name>
 ```
 
-### 3. Public Cloud (Manual IP)
-Best for Load Balancers or static IPs. Explicitly set the Public IP or Domain.
+### Cloud with Static IP
 
-**Using Just:**
+For load balancers or static public IPs.
+
 ```bash
+# Using just
 just webrtc-advertise-ip="203.0.113.10" run-image
-```
 
-**Using Docker:**
-```bash
+# Using Docker
 docker run --rm \
     --sysctl net.ipv4.ip_local_port_range="50000 51000" \
     -p 50000-51000:50000-51000/udp \
@@ -125,33 +136,37 @@ docker run --rm \
     <image_name>
 ```
 
-### 4. Restrictive Firewalls (TURN)
-Use this if UDP is blocked. Traffic is relayed through a local TURN server on port 443.
+### Restrictive Firewall (TURN)
 
-**Using Just:**
+For networks blocking UDP. Traffic relays through a TURN server on TCP port 443.
+
+**Step 1: Start the TURN server**
+
 ```bash
-# Start TURN server
+# Using just
 just run-coturn
-# Run App
-just enable-coturn=true run-image
+
+# Using Docker
+docker run --rm -d \
+    --network=host \
+    --name coturn-server \
+    quay.io/coturn/coturn -n \
+    --listening-port=443 \
+    --external-ip=$(curl -s ifconfig.me) \
+    --user=user:password \
+    --realm=my-realm \
+    --no-udp
 ```
 
-**Using Docker:**
-```bash
-# Start TURN server (simplified)
-docker run --rm -d --network=host --name coturn-server quay.io/coturn/coturn -n --listening-port=443 --external-ip=$(curl -s ifconfig.me) --user=user:password --realm=my-realm --no-udp
+**Step 2: Start the application**
 
-# Run App
+```bash
+# Using just
+just enable-coturn=true run-image
+
+# Using Docker (replace <external_ip> with your server's public IP)
 docker run --rm \
     -p 9100:9100 \
     -e ICE_SERVERS='[{"urls": "turn:<external_ip>:443?transport=tcp", "username": "user", "credential": "password"}]' \
     <image_name>
-```
-
-### Port Range Requirement
-For scenarios 2 and 3 (Public Cloud), you must allow UDP traffic on the configured port range (default: 50000-51000).
-```bash
-# The justfile automatically handles this with:
-# --sysctl net.ipv4.ip_local_port_range="50000 51000"
-# --publish 50000-51000:50000-51000/udp
 ```
