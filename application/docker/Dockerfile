@@ -51,13 +51,9 @@ ARG STATIC_FILES_DIR=""
 ENV STATIC_FILES_DIR=${STATIC_FILES_DIR}
 ARG DB_DATA_DIR=""
 ENV DB_DATA_DIR=${DB_DATA_DIR}
-ARG MOCKED_FILE=""
-ENV MOCKED_FILE=${MOCKED_FILE}
-ARG WORKDIR_PATH=""
-ENV WORKDIR_PATH=${WORKDIR_PATH}
-ENV PYTHONPATH=${WORKDIR_PATH}/app
+ENV PYTHONPATH=/geti-prompt/app
 ENV PATH="${PYTHONPATH}/backend/.venv/bin:$PATH"
-ENV LIBRARY_PATH="${WORKDIR_PATH}/library"
+ENV LIBRARY_PATH="/geti-prompt/library"
 ARG UID=10001
 ENV UID=${UID}
 ARG USER_NAME="non-root"
@@ -102,8 +98,6 @@ COPY --link --from=libs --chown=${UID} ./pyproject.toml ${LIBRARY_PATH}/pyprojec
 COPY --link --chown=${UID} backend/app ${PYTHONPATH}
 COPY --chown=${UID} --from=ghcr.io/astral-sh/uv:0.9.7@sha256:ba4857bf2a068e9bc0e64eed8563b065908a4cd6bfb66b531a9c424c8e25e142 /uv /bin/uv
 COPY --from=web-ui --chown=${UID} /home/app/web_ui/dist/ ${STATIC_FILES_DIR}
-# temporary file for testing
-COPY --from=web-ui --chown=${UID} /home/app/web_ui/src/assets/test.webp ${MOCKED_FILE}
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD uv run python -c "import urllib.request; urllib.request.urlopen('${PUBLIC_API_URL}/health')" || exit 1
@@ -122,7 +116,7 @@ USER root
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra cpu
+    uv sync --frozen --no-dev --no-editable --extra cpu --extra mqtt
 
 RUN apt-get remove -y git \
     && apt-get autoremove -y \
@@ -131,7 +125,7 @@ RUN apt-get remove -y git \
 
 USER ${USER_NAME}
 
-WORKDIR ${WORKDIR_PATH}
+WORKDIR "/geti-prompt"
 
 #######################
 # Intermediary GPU Base
@@ -158,7 +152,7 @@ RUN apt-get update \
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra cu126
+    uv sync --frozen --no-dev --no-editable --extra cu126 --extra mqtt
 
 RUN apt-get remove -y git \
     && apt-get autoremove -y \
@@ -167,56 +161,74 @@ RUN apt-get remove -y git \
 
 FROM gpu-base AS cleanup-gpu
 
-# Remove Specific Non-Distributable Components
-RUN apt-get update && apt-get remove -y \
-    cuda-compiler-* \
-    cuda-cuobjdump-* \
-    cuda-gdb-* \
-    cuda-memcheck-* \
-    cuda-nvcc-* \
-    cuda-nvdisasm-* \
-    cuda-nvprof-* \
-    cuda-sanitizer-* \
-    cuda-documentation-* \
-    cuda-samples-* \
-    nsight-* \
-    2>/dev/null || true \
-    && apt-get autoremove -y \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
 # CUDA EULA Compliance Cleanup
-RUN echo "Removing non-redistributable CUDA components..." && \
-    # Remove development tools
-    find /usr /opt ${PYTHONPATH} -type f \( \
+RUN echo "Removing non-redistributable CUDA components per NVIDIA EULA..." && \
+    # Define search paths including venv
+    SEARCH_PATHS="/usr /opt ${PYTHONPATH}" && \
+    # Add any detected venvs
+    for venv in $(find /app -name "site-packages" -type d 2>/dev/null | sed 's|/lib/python[0-9.]*/site-packages||' | sort -u); do \
+        if [ -d "$venv" ]; then \
+            SEARCH_PATHS="$SEARCH_PATHS $venv"; \
+        fi; \
+    done && \
+    echo "Cleaning CUDA components in: $SEARCH_PATHS" && \
+    # Remove development tools (non-redistributable)
+    find $SEARCH_PATHS -type f \( \
         -name "nvcc" -o \
         -name "cuda-gdb" -o \
         -name "nvprof" -o \
         -name "nvdisasm" -o \
         -name "cuobjdump" -o \
-        -name "nsight*" \
+        -name "cuda-memcheck" -o \
+        -name "nsight*" -o \
+        -name "compute-sanitizer" -o \
+        -name "ncu" -o \
+        -name "nv-nsight-cu*" \
     \) -delete 2>/dev/null || true && \
-    # Remove headers and includes
-    find /usr /opt ${PYTHONPATH} -type d \( \
+    # Remove headers and include directories (non-redistributable)
+    find $SEARCH_PATHS -type d \( \
         -name "include" -o \
         -name "headers" \
     \) -path "*cuda*" -exec rm -rf {} + 2>/dev/null || true && \
-    # Remove static libraries
-    find /usr /opt ${PYTHONPATH} -name "*.a" -path "*cuda*" -delete 2>/dev/null || true && \
-    # Remove docs and samples
-    find /usr /opt ${PYTHONPATH} -type d \( \
+    # Remove NVIDIA package includes specifically
+    find $SEARCH_PATHS -type d -path "*/nvidia/*/include" -exec rm -rf {} + 2>/dev/null || true && \
+    # Remove static libraries (typically non-redistributable)
+    find $SEARCH_PATHS -name "*.a" -path "*cuda*" -delete 2>/dev/null || true && \
+    find $SEARCH_PATHS -name "*.a" -path "*nvidia*" -delete 2>/dev/null || true && \
+    # Remove documentation and samples (non-redistributable)
+    find $SEARCH_PATHS -type d \( \
         -name "doc" -o \
         -name "docs" -o \
-        -name "samples" \
+        -name "documentation" -o \
+        -name "samples" -o \
+        -name "sample" \
     \) -path "*cuda*" -exec rm -rf {} + 2>/dev/null || true && \
-    # Remove specific non-redistributable components
-    find ${PYTHONPATH} -name "libnvperf_*.so*" -delete 2>/dev/null || true && \
-    find ${PYTHONPATH} -name "libcusolverMg.so*" -delete 2>/dev/null || true && \
-    find ${PYTHONPATH} -type d -path "*/triton/backends/nvidia" -exec rm -rf {} + 2>/dev/null || true && \
-    # Clean package manager
-    apt-get autoremove -y && apt-get clean && \
-    echo "✓ CUDA EULA compliance cleanup completed"
-
+    # Remove specific non-redistributable CUPTI components
+    find $SEARCH_PATHS -type f \( \
+        -name "libcheckpoint.so*" -o \
+        -name "libnvperf_host.so*" -o \
+        -name "libnvperf_target.so*" -o \
+        -name "libpcsamplingutil.so*" \
+    \) -path "*cupti*" -delete 2>/dev/null || true && \
+    # Remove cuSolver MG libraries (enterprise feature)
+    find $SEARCH_PATHS -name "libcusolverMg.so*" -delete 2>/dev/null || true && \
+    # Remove Triton NVIDIA backends (development components)
+    find $SEARCH_PATHS -type d -path "*/triton/backends/nvidia" -exec rm -rf {} + 2>/dev/null || true && \
+    # System package cleanup
+    apt-get remove -y \
+        cuda-compiler-* \
+        cuda-cuobjdump-* \
+        cuda-gdb-* \
+        cuda-memcheck-* \
+        cuda-nvcc-* \
+        cuda-nvdisasm-* \
+        cuda-nvprof-* \
+        cuda-sanitizer-* \
+        cuda-documentation-* \
+        cuda-samples-* \
+        nsight-* \
+        2>/dev/null || true && \
+    apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ######################
 # Server (GPU version)
@@ -225,7 +237,7 @@ FROM cleanup-gpu AS gpu
 
 USER ${USER_NAME}
 
-WORKDIR ${WORKDIR_PATH}
+WORKDIR "/geti-prompt"
 
 ######################
 # Server (XPU version)
@@ -255,7 +267,7 @@ RUN apt-get update  \
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra xpu
+    uv sync --frozen --no-dev --no-editable --extra xpu --extra mqtt
 
 RUN apt-get remove -y git \
     && apt-get autoremove -y \
@@ -265,4 +277,4 @@ RUN apt-get remove -y git \
 # needed to define it here to allow installation of packages
 USER ${USER_NAME}
 
-WORKDIR ${WORKDIR_PATH}
+WORKDIR "/geti-prompt"
