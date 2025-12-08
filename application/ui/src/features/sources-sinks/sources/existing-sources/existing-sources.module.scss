@@ -1,0 +1,8 @@
+.addNewSourceButton {
+    width: 100%;
+    cursor: pointer;
+    display: flex;
+    border-style: dashed;
+    gap: var(--spectrum-global-dimension-size-65);
+    padding: var(--spectrum-global-dimension-size-200);
+}

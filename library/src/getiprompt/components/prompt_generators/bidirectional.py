@@ -7,11 +7,14 @@ from collections import defaultdict
 from logging import getLogger
 
 import torch
-from scipy.optimize import linear_sum_assignment
 from torch import nn
 from torch.nn import functional
 
+from getiprompt.components.linear_sum_assignment import linear_sum_assignment
+
 logger = getLogger("Geti Prompt")
+
+__all__ = ["BidirectionalPromptGenerator"]
 
 
 def _empty_match_result(similarity_map: torch.Tensor) -> tuple[list, torch.Tensor]:
@@ -64,12 +67,14 @@ class BidirectionalPromptGenerator(nn.Module):
                 matched_ref_idx: torch.Tensor - Indices of matched reference features
                 sim_scores: torch.Tensor - Similarity scores of matched reference features
         """
+        # Ensure ref_mask_idx is on the same device as similarity_map
+        ref_mask_idx = ref_mask_idx.to(similarity_map.device)
+
         ref_to_target_sim = similarity_map[ref_mask_idx]
         if ref_to_target_sim.numel() == 0:
             return _empty_match_result(similarity_map)
 
-        row_ind, col_ind = linear_sum_assignment(ref_to_target_sim.detach().cpu().float().numpy(), maximize=True)
-        row_ind, col_ind = torch.as_tensor(row_ind, dtype=torch.int64), torch.as_tensor(col_ind, dtype=torch.int64)
+        row_ind, col_ind = linear_sum_assignment(ref_to_target_sim, maximize=True)
 
         matched_ref_idx = ref_mask_idx[row_ind]
         sim_scores = similarity_map[matched_ref_idx, col_ind]
@@ -92,7 +97,8 @@ class BidirectionalPromptGenerator(nn.Module):
                 valid_indices: torch.Tensor - Indices of matched reference features
                 valid_scores: torch.Tensor - Similarity scores of matched reference features
         """
-        ref_idx = ref_mask.nonzero(as_tuple=True)[0]
+        # Ensure ref_idx is on the same device as similarity_map
+        ref_idx = ref_mask.nonzero(as_tuple=True)[0].to(similarity_map.device)
         if ref_idx.numel() == 0:
             return _empty_match_result(similarity_map)
 
@@ -104,8 +110,7 @@ class BidirectionalPromptGenerator(nn.Module):
 
         # Backward pass (target → ref)
         target_to_ref_sim = similarity_map.t()[target_idx_fw]
-        row_ind, col_ind = linear_sum_assignment(target_to_ref_sim.detach().cpu().float().numpy(), maximize=True)
-        row_ind, col_ind = torch.as_tensor(row_ind, dtype=torch.int64), torch.as_tensor(col_ind, dtype=torch.int64)
+        row_ind, col_ind = linear_sum_assignment(target_to_ref_sim, maximize=True)
 
         # Consistency filter
         valid_ref = torch.isin(col_ind, ref_idx)

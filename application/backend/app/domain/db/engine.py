@@ -36,7 +36,7 @@ def get_engine() -> Engine:
     """Lazily create SQLAlchemy engine after ensuring directory."""
     ensure_data_dir()
     logger.debug(f"Creating engine using SQLite DB: {settings.database_url}")
-    return create_engine(url=settings.database_url, connect_args={"check_same_thread": False})
+    return create_engine(url=settings.database_url, connect_args={"check_same_thread": False}, echo=settings.db_echo)
 
 
 @event.listens_for(Engine, "connect")

@@ -115,7 +115,7 @@ CMD ["uv", "run", "app/main.py"]
 ######################
 # Server (CPU version)
 ######################
-FROM runtime-base AS geti-prompt-cpu
+FROM runtime-base AS cpu
 
 USER root
 
@@ -238,7 +238,7 @@ WORKDIR ${WORKDIR_PATH}
 ######################
 # Server (XPU version)
 ######################
-FROM runtime-base AS geti-prompt-xpu
+FROM runtime-base AS xpu
 
 USER root
 

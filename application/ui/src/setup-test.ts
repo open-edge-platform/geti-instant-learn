@@ -10,6 +10,7 @@ import {
     ModelListType,
     ProjectsListType,
     ProjectType,
+    SinksListType,
     SourcesListType,
     VisualPromptListType,
 } from '@geti-prompt/api';
@@ -55,6 +56,21 @@ const MOCKED_PROMPTS_RESPONSE: VisualPromptListType = {
 };
 const MOCKED_SOURCES_RESPONSE: SourcesListType = {
     sources: [],
+    pagination: {
+        count: 0,
+        total: 0,
+        limit: 10,
+        offset: 0,
+    },
+};
+const MOCKED_SINKS_RESPONSE: SinksListType = {
+    sinks: [],
+    pagination: {
+        count: 0,
+        total: 0,
+        limit: 10,
+        offset: 0,
+    },
 };
 const MOCKED_MODELS_RESPONSE: ModelListType = {
     models: [
@@ -98,6 +114,10 @@ const initialHandlers = [
 
     http.get('/api/v1/projects/{project_id}/sources', () => {
         return HttpResponse.json(MOCKED_SOURCES_RESPONSE);
+    }),
+
+    http.get('/api/v1/projects/{project_id}/sinks', () => {
+        return HttpResponse.json(MOCKED_SINKS_RESPONSE);
     }),
 
     http.get('/api/v1/projects/{project_id}/models', () => {
@@ -145,3 +165,12 @@ class CustomImageData {
 }
 
 global.ImageData = CustomImageData as typeof ImageData;
+
+const IntersectionObserverMock = vi.fn(() => ({
+    disconnect: vi.fn(),
+    observe: vi.fn(),
+    takeRecords: vi.fn(),
+    unobserve: vi.fn(),
+}));
+
+vi.stubGlobal('IntersectionObserver', IntersectionObserverMock);

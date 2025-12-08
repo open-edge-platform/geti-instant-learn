@@ -3,12 +3,10 @@
 
 """PerDino model."""
 
-from typing import TYPE_CHECKING
-
 import torch
 
 from getiprompt.components import CosineSimilarity, SamDecoder
-from getiprompt.components.encoders import ImageEncoder
+from getiprompt.components.encoders import TimmImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import GridPromptGenerator
@@ -17,9 +15,6 @@ from getiprompt.utils.constants import SAMModelName
 
 from .base import Model
 from .foundation import load_sam_model
-
-if TYPE_CHECKING:
-    from getiprompt.components.prompt_generators.base import PromptGenerator
 
 
 class PerDino(Model):
@@ -107,7 +102,7 @@ class PerDino(Model):
             compile_models=compile_models,
         )
 
-        self.encoder: ImageEncoder = ImageEncoder(
+        self.encoder = TimmImageEncoder(
             model_id=encoder_model,
             device=device,
             precision=precision,
@@ -120,7 +115,7 @@ class PerDino(Model):
             device=device,
         )
         self.similarity_matcher = CosineSimilarity()
-        self.prompt_generator: PromptGenerator = GridPromptGenerator(
+        self.prompt_generator = GridPromptGenerator(
             num_grid_cells=num_grid_cells,
             similarity_threshold=similarity_threshold,
             num_bg_points=num_background_points,

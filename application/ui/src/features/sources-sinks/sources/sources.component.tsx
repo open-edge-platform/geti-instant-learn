@@ -3,30 +3,38 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 
-import { SourceType } from '@geti-prompt/api';
+import { Source, SourceType } from '@geti-prompt/api';
 import { useGetSources } from '@geti-prompt/hooks';
 import { ImagesFolder as ImagesFolderIcon, WebCam } from '@geti-prompt/icons';
+import { Datasets } from '@geti/ui/icons';
+import { isEmpty } from 'lodash-es';
 
 import { DisclosureGroup } from '../disclosure-group/disclosure-group.component';
-import { ImagesFolder } from './images-folder/images-folder.component';
-import { getImagesFolderSource, getWebcamSource } from './utils';
-import { WebcamSource } from './webcam/webcam-source.component';
+import { PipelineEntityPanel } from '../pipeline-entity-panel/pipeline-entity-panel.component';
+import { EditSource } from './edit-sources/edit-sources.component';
+import { ExistingSources } from './existing-sources/existing-sources.component';
+import { CreateImagesFolder } from './images-folder/create-images-folder.component';
+import { CreateSampleDataset } from './sample-dataset/create-sample-dataset.component';
+import { SourcesViews } from './utils';
+import { CreateWebcamSource } from './webcam/create-webcam-source.component';
 
-export const Sources = () => {
-    const { data } = useGetSources();
+interface SourcesList {
+    onViewChange: (view: SourcesViews) => void;
+    sources: Source[];
+}
 
-    const sources: {
-        label: string;
-        value: SourceType;
-        content: ReactNode;
-        icon: ReactNode;
-    }[] = [
+const SourcesList = ({ onViewChange, sources }: SourcesList) => {
+    const navigateToExistingView = () => {
+        onViewChange('existing');
+    };
+
+    const sourcesList = [
         {
             label: 'Webcam',
             value: 'webcam',
-            content: <WebcamSource source={getWebcamSource(data?.sources)} />,
+            content: <CreateWebcamSource onSaved={navigateToExistingView} />,
             icon: <WebCam width={'24px'} />,
         },
         /*{
@@ -45,12 +53,65 @@ export const Sources = () => {
         {
             label: 'Image folder',
             value: 'images_folder',
-            content: <ImagesFolder source={getImagesFolderSource(data?.sources)} />,
+            content: <CreateImagesFolder onSaved={navigateToExistingView} />,
             icon: <ImagesFolderIcon width={'24px'} />,
         },
-    ];
+        {
+            label: 'Sample dataset',
+            value: 'sample_dataset',
+            content: <CreateSampleDataset onSaved={navigateToExistingView} />,
+            icon: <Datasets width={'24px'} />,
+        },
+    ] satisfies { label: string; value: SourceType; content: ReactNode; icon: ReactNode }[];
 
-    const activeSource = data.sources.find((source) => source.connected)?.config.source_type;
+    const visibleSourcesList = sourcesList.filter(
+        (source) => !sources.some((existingSource) => existingSource.config.source_type === source.value)
+    );
 
-    return <DisclosureGroup items={sources} value={activeSource} />;
+    const defaultOpenSource = visibleSourcesList.length === 1 ? visibleSourcesList[0].value : undefined;
+
+    return <DisclosureGroup items={visibleSourcesList} value={defaultOpenSource} />;
+};
+
+interface AddSourceProps {
+    sources: Source[];
+    onViewChange: (view: SourcesViews) => void;
+}
+
+const AddSource = ({ onViewChange, sources }: AddSourceProps) => {
+    return (
+        <PipelineEntityPanel
+            title={<PipelineEntityPanel.Title>Add new input source</PipelineEntityPanel.Title>}
+            onBackClick={() => onViewChange('existing')}
+        >
+            <SourcesList onViewChange={onViewChange} sources={sources} />
+        </PipelineEntityPanel>
+    );
+};
+
+export const Sources = () => {
+    const { data } = useGetSources();
+    const [view, setView] = useState<SourcesViews>(isEmpty(data.sources) ? 'list' : 'existing');
+    const [sourceInEditionId, setSourceInEditionId] = useState<string | null>(null);
+    const sourceInEdition = data.sources.find((source) => source.id === sourceInEditionId);
+
+    if (view === 'existing') {
+        return (
+            <ExistingSources
+                sources={data.sources}
+                onViewChange={setView}
+                onSetSourceInEditionId={setSourceInEditionId}
+            />
+        );
+    }
+
+    if (view === 'edit' && sourceInEdition !== undefined) {
+        return <EditSource source={sourceInEdition} onViewChange={setView} />;
+    }
+
+    if (view === 'add') {
+        return <AddSource onViewChange={setView} sources={data.sources} />;
+    }
+
+    return <SourcesList onViewChange={setView} sources={data.sources} />;
 };

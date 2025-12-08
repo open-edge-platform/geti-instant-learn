@@ -47,22 +47,6 @@ class FrameRepository:
         path = self._frame_path(project_id, frame_id)
         return path if path.exists() else None
 
-    def get_frame(self, project_id: UUID, frame_id: UUID) -> np.ndarray | None:
-        """Load a frame from disk and convert from BGR to RGB."""
-        frame_path = self.get_frame_path(project_id, frame_id)
-        if frame_path is None:
-            return None
-        try:
-            image = cv2.imread(str(frame_path))
-            if image is None:
-                logger.error(f"Failed to read frame {frame_id} from {frame_path}")
-                return None
-            # Convert BGR to RGB to conform to the InputData contract
-            return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        except cv2.error:
-            logger.exception(f"OpenCV error while reading frame {frame_id} from project {project_id}")
-            return None
-
     def delete_frame(self, project_id: UUID, frame_id: UUID) -> bool:
         """Delete a frame file."""
         path = self._frame_path(project_id, frame_id)
@@ -73,21 +57,11 @@ class FrameRepository:
         return False
 
     def read_frame(self, project_id: UUID, frame_id: UUID) -> np.ndarray | None:
-        """
-        Read a frame from disk.
-
-        Args:
-            project_id: The project ID
-            frame_id: The frame ID
-
-        Returns:
-            Frame as numpy array, or None if frame doesn't exist or can't be read
-        """
+        """Load a frame from disk and convert from BGR to RGB."""
         path = self._frame_path(project_id, frame_id)
         if not path.exists():
             logger.warning(f"Frame file not found: {path}")
             return None
-
         try:
             frame = cv2.imread(str(path))
             if frame is None:

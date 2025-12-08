@@ -16,11 +16,18 @@ def prompt_repo(fxt_session):
 
 
 @pytest.fixture
-def clean_after(request, fxt_clean_table):
-    request.addfinalizer(lambda: fxt_clean_table(AnnotationDB))
-    request.addfinalizer(lambda: fxt_clean_table(PromptDB))
-    request.addfinalizer(lambda: fxt_clean_table(LabelDB))
-    request.addfinalizer(lambda: fxt_clean_table(ProjectDB))
+def clean_after(fxt_clean_table):
+    """Cleanup fixture - runs after test completion."""
+    yield
+    fxt_clean_table(AnnotationDB)
+    fxt_clean_table(PromptDB)
+    fxt_clean_table(LabelDB)
+    fxt_clean_table(ProjectDB)
+
+
+def make_project(name=None) -> ProjectDB:
+    """Create a project with a unique name."""
+    return ProjectDB(name=name or f"proj-{uuid4().hex[:8]}")
 
 
 def make_text_prompt(project_id, text="test prompt") -> PromptDB:
@@ -45,7 +52,7 @@ def make_visual_prompt(project_id, frame_id=None, annotations=None) -> PromptDB:
     return prompt
 
 
-def make_annotation(prompt_id, label_id=None, config=None) -> AnnotationDB:
+def make_annotation(prompt_id, label_id, config=None) -> AnnotationDB:
     if config is None:
         config = {"type": "rectangle", "points": [{"x": 0.1, "y": 0.1}, {"x": 0.5, "y": 0.5}]}
     return AnnotationDB(
@@ -56,7 +63,7 @@ def make_annotation(prompt_id, label_id=None, config=None) -> AnnotationDB:
 
 
 def test_add_and_get_by_id_text_prompt(prompt_repo, fxt_session, clean_after):
-    project = ProjectDB(name="proj")
+    project = make_project()
     fxt_session.add(project)
     fxt_session.commit()
 
@@ -74,13 +81,17 @@ def test_add_and_get_by_id_text_prompt(prompt_repo, fxt_session, clean_after):
 
 
 def test_add_and_get_by_id_visual_prompt(prompt_repo, fxt_session, clean_after):
-    project = ProjectDB(name="proj")
+    project = make_project()
     fxt_session.add(project)
+    fxt_session.commit()
+
+    label = LabelDB(name="test", color="#FF0000", project_id=project.id)
+    fxt_session.add(label)
     fxt_session.commit()
 
     frame_id = uuid4()
     prompt = make_visual_prompt(project.id, frame_id=frame_id)
-    annotation = make_annotation(prompt.id)
+    annotation = make_annotation(prompt.id, label_id=label.id)
     prompt.annotations.append(annotation)
     prompt_repo.add(prompt)
     fxt_session.commit()
@@ -94,7 +105,7 @@ def test_add_and_get_by_id_visual_prompt(prompt_repo, fxt_session, clean_after):
 
 
 def test_get_by_id_not_found(prompt_repo, fxt_session, clean_after):
-    project = ProjectDB(name="proj")
+    project = make_project()
     fxt_session.add(project)
     fxt_session.commit()
 
@@ -106,8 +117,8 @@ def test_get_by_id_not_found(prompt_repo, fxt_session, clean_after):
 
 
 def test_get_by_id_and_project(prompt_repo, fxt_session, clean_after):
-    project_a = ProjectDB(name="A")
-    project_b = ProjectDB(name="B")
+    project_a = make_project("A")
+    project_b = make_project("B")
     fxt_session.add_all([project_a, project_b])
     fxt_session.commit()
 
@@ -122,8 +133,8 @@ def test_get_by_id_and_project(prompt_repo, fxt_session, clean_after):
 
 
 def test_get_all_by_project(prompt_repo, fxt_session, clean_after):
-    project_main = ProjectDB(name="main")
-    project_other = ProjectDB(name="other")
+    project_main = make_project("main")
+    project_other = make_project("other")
     fxt_session.add_all([project_main, project_other])
     fxt_session.commit()
 
@@ -137,13 +148,13 @@ def test_get_all_by_project(prompt_repo, fxt_session, clean_after):
     prompt_repo.add(other_prompt)
     fxt_session.commit()
 
-    result = prompt_repo.get_all_by_project(project_main.id)
+    result = prompt_repo.list_all_by_project(project_main.id)
     assert len(result) == 3
     assert {p.id for p in result} == {text_prompt.id, visual_prompt_1.id, visual_prompt_2.id}
 
 
 def test_get_all_by_project_with_type_filter(prompt_repo, fxt_session, clean_after):
-    project = ProjectDB(name="proj")
+    project = make_project()
     fxt_session.add(project)
     fxt_session.commit()
 
@@ -155,22 +166,22 @@ def test_get_all_by_project_with_type_filter(prompt_repo, fxt_session, clean_aft
         prompt_repo.add(p)
     fxt_session.commit()
 
-    all_prompts = prompt_repo.get_all_by_project(project.id)
+    all_prompts = prompt_repo.list_all_by_project(project.id)
     assert len(all_prompts) == 3
 
-    text_prompts = prompt_repo.get_all_by_project(project.id, prompt_type=PromptType.TEXT)
+    text_prompts = prompt_repo.list_all_by_project(project.id, prompt_type=PromptType.TEXT)
     assert len(text_prompts) == 1
     assert text_prompts[0].id == text_prompt.id
     assert text_prompts[0].type == PromptType.TEXT
 
-    visual_prompts = prompt_repo.get_all_by_project(project.id, prompt_type=PromptType.VISUAL)
+    visual_prompts = prompt_repo.list_all_by_project(project.id, prompt_type=PromptType.VISUAL)
     assert len(visual_prompts) == 2
     assert {p.id for p in visual_prompts} == {visual_prompt_1.id, visual_prompt_2.id}
     assert all(p.type == PromptType.VISUAL for p in visual_prompts)
 
 
 def test_get_text_prompt_by_project(prompt_repo, fxt_session, clean_after):
-    project = ProjectDB(name="proj")
+    project = make_project()
     fxt_session.add(project)
     fxt_session.commit()
 
@@ -188,7 +199,7 @@ def test_get_text_prompt_by_project(prompt_repo, fxt_session, clean_after):
 
 
 def test_get_text_prompt_by_project_none(prompt_repo, fxt_session, clean_after):
-    project = ProjectDB(name="proj")
+    project = make_project()
     fxt_session.add(project)
     fxt_session.commit()
 
@@ -201,7 +212,7 @@ def test_get_text_prompt_by_project_none(prompt_repo, fxt_session, clean_after):
 
 
 def test_delete_prompt(prompt_repo, fxt_session, clean_after):
-    project = ProjectDB(name="proj")
+    project = make_project()
     fxt_session.add(project)
     fxt_session.commit()
 
@@ -210,13 +221,14 @@ def test_delete_prompt(prompt_repo, fxt_session, clean_after):
     fxt_session.commit()
 
     assert prompt_repo.get_by_id(prompt.id) is not None
-    prompt_repo.delete(prompt)
+    deleted = prompt_repo.delete(prompt.id)
     fxt_session.commit()
+    assert deleted is True
     assert prompt_repo.get_by_id(prompt.id) is None
 
 
-def test_get_paginated(prompt_repo, fxt_session, clean_after):
-    project = ProjectDB(name="proj")
+def test_list_with_pagination(prompt_repo, fxt_session, clean_after):
+    project = make_project()
     fxt_session.add(project)
     fxt_session.commit()
 
@@ -225,17 +237,17 @@ def test_get_paginated(prompt_repo, fxt_session, clean_after):
         prompt_repo.add(p)
     fxt_session.commit()
 
-    page1, total = prompt_repo.get_paginated(project.id, offset=0, limit=10)
+    page1, total = prompt_repo.list_with_pagination_by_project(project.id, offset=0, limit=10)
     assert len(page1) == 10
     assert total == 15
 
-    page2, total = prompt_repo.get_paginated(project.id, offset=10, limit=10)
+    page2, total = prompt_repo.list_with_pagination_by_project(project.id, offset=10, limit=10)
     assert len(page2) == 5
     assert total == 15
 
 
 def test_project_deletion_cascades_prompts(prompt_repo, fxt_session, clean_after):
-    project = ProjectDB(name="proj")
+    project = make_project()
     fxt_session.add(project)
     fxt_session.commit()
 
@@ -255,7 +267,7 @@ def test_project_deletion_cascades_prompts(prompt_repo, fxt_session, clean_after
 
 
 def test_single_text_prompt_per_project_constraint(prompt_repo, fxt_session, clean_after):
-    project = ProjectDB(name="proj")
+    project = make_project()
     fxt_session.add(project)
     fxt_session.commit()
 
@@ -264,10 +276,9 @@ def test_single_text_prompt_per_project_constraint(prompt_repo, fxt_session, cle
 
     prompt_repo.add(first)
     fxt_session.commit()
-    prompt_repo.add(second)
 
     with pytest.raises(IntegrityError):
-        fxt_session.commit()
+        prompt_repo.add(second)
     fxt_session.rollback()
 
     fetched = prompt_repo.get_text_prompt_by_project(project.id)
@@ -276,7 +287,7 @@ def test_single_text_prompt_per_project_constraint(prompt_repo, fxt_session, cle
 
 
 def test_multiple_visual_prompts_allowed(prompt_repo, fxt_session, clean_after):
-    project = ProjectDB(name="proj")
+    project = make_project()
     fxt_session.add(project)
     fxt_session.commit()
 
@@ -285,13 +296,13 @@ def test_multiple_visual_prompts_allowed(prompt_repo, fxt_session, clean_after):
         prompt_repo.add(prompt)
     fxt_session.commit()
 
-    result = prompt_repo.get_all_by_project(project.id)
+    result = prompt_repo.list_all_by_project(project.id)
     assert len(result) == 5
     assert all(p.type == PromptType.VISUAL for p in result)
 
 
 def test_prompt_content_check_constraint_text(prompt_repo, fxt_session, clean_after):
-    project = ProjectDB(name="proj")
+    project = make_project()
     fxt_session.add(project)
     fxt_session.commit()
 
@@ -301,15 +312,13 @@ def test_prompt_content_check_constraint_text(prompt_repo, fxt_session, clean_af
         frame_id=None,
         project_id=project.id,
     )
-    prompt_repo.add(invalid_prompt)
-
     with pytest.raises(IntegrityError):
-        fxt_session.commit()
+        prompt_repo.add(invalid_prompt)
     fxt_session.rollback()
 
 
 def test_prompt_content_check_constraint_visual(prompt_repo, fxt_session, clean_after):
-    project = ProjectDB(name="proj")
+    project = make_project()
     fxt_session.add(project)
     fxt_session.commit()
 
@@ -319,15 +328,13 @@ def test_prompt_content_check_constraint_visual(prompt_repo, fxt_session, clean_
         frame_id=None,
         project_id=project.id,
     )
-    prompt_repo.add(invalid_prompt)
-
     with pytest.raises(IntegrityError):
-        fxt_session.commit()
+        prompt_repo.add(invalid_prompt)
     fxt_session.rollback()
 
 
 def test_prompt_content_check_constraint_mixed(prompt_repo, fxt_session, clean_after):
-    project = ProjectDB(name="proj")
+    project = make_project()
     fxt_session.add(project)
     fxt_session.commit()
 
@@ -337,28 +344,30 @@ def test_prompt_content_check_constraint_mixed(prompt_repo, fxt_session, clean_a
         frame_id=uuid4(),
         project_id=project.id,
     )
-    prompt_repo.add(invalid_prompt)
-
     with pytest.raises(IntegrityError):
-        fxt_session.commit()
+        prompt_repo.add(invalid_prompt)
     fxt_session.rollback()
 
 
 def test_annotations_cascade_delete_with_prompt(prompt_repo, fxt_session, clean_after):
-    project = ProjectDB(name="proj")
+    project = make_project()
     fxt_session.add(project)
     fxt_session.commit()
 
+    label = LabelDB(name="test", color="#FF0000", project_id=project.id)
+    fxt_session.add(label)
+    fxt_session.commit()
+
     prompt = make_visual_prompt(project.id)
-    ann1 = make_annotation(prompt.id)
-    ann2 = make_annotation(prompt.id)
+    ann1 = make_annotation(prompt.id, label_id=label.id)
+    ann2 = make_annotation(prompt.id, label_id=label.id)
     prompt.annotations.extend([ann1, ann2])
     prompt_repo.add(prompt)
     fxt_session.commit()
 
     annotation_ids = [ann1.id, ann2.id]
 
-    prompt_repo.delete(prompt)
+    prompt_repo.delete(prompt.id)
     fxt_session.commit()
 
     for ann_id in annotation_ids:
@@ -366,68 +375,9 @@ def test_annotations_cascade_delete_with_prompt(prompt_repo, fxt_session, clean_
         assert result is None
 
 
-def test_annotation_with_label_reference(prompt_repo, fxt_session, clean_after):
-    project = ProjectDB(name="proj")
-    fxt_session.add(project)
-    fxt_session.commit()
-
-    label = LabelDB(name="car", color="#FF0000", project_id=project.id)
-    fxt_session.add(label)
-    fxt_session.commit()
-
-    prompt = make_visual_prompt(project.id)
-    annotation = make_annotation(prompt.id, label_id=label.id)
-    prompt.annotations.append(annotation)
-    prompt_repo.add(prompt)
-    fxt_session.commit()
-
-    fetched = prompt_repo.get_by_id(prompt.id)
-    assert len(fetched.annotations) == 1
-    assert fetched.annotations[0].label_id == label.id
-
-
-def test_label_deletion_sets_annotation_label_to_null(prompt_repo, fxt_session, clean_after):
-    project = ProjectDB(name="proj")
-    fxt_session.add(project)
-    fxt_session.commit()
-
-    label = LabelDB(name="car", color="#FF0000", project_id=project.id)
-    fxt_session.add(label)
-    fxt_session.commit()
-
-    prompt = make_visual_prompt(project.id)
-    annotation = make_annotation(prompt.id, label_id=label.id)
-    prompt.annotations.append(annotation)
-    prompt_repo.add(prompt)
-    fxt_session.commit()
-
-    fxt_session.delete(label)
-    fxt_session.commit()
-
-    fetched = prompt_repo.get_by_id(prompt.id)
-    assert len(fetched.annotations) == 1
-    assert fetched.annotations[0].label_id is None
-
-
-def test_annotation_without_label(prompt_repo, fxt_session, clean_after):
-    project = ProjectDB(name="proj")
-    fxt_session.add(project)
-    fxt_session.commit()
-
-    prompt = make_visual_prompt(project.id)
-    annotation = make_annotation(prompt.id, label_id=None)
-    prompt.annotations.append(annotation)
-    prompt_repo.add(prompt)
-    fxt_session.commit()
-
-    fetched = prompt_repo.get_by_id(prompt.id)
-    assert len(fetched.annotations) == 1
-    assert fetched.annotations[0].label_id is None
-
-
 def test_unique_frame_id_constraint(prompt_repo, fxt_session, clean_after):
     """Test that each frame_id can only be used once across all visual prompts."""
-    project = ProjectDB(name="proj")
+    project = make_project()
     fxt_session.add(project)
     fxt_session.commit()
 
@@ -437,21 +387,20 @@ def test_unique_frame_id_constraint(prompt_repo, fxt_session, clean_after):
 
     prompt_repo.add(first_prompt)
     fxt_session.commit()
-    prompt_repo.add(second_prompt)
 
     with pytest.raises(IntegrityError):
-        fxt_session.commit()
+        prompt_repo.add(second_prompt)
     fxt_session.rollback()
 
     # verify only first prompt exists
-    all_prompts = prompt_repo.get_all_by_project(project.id)
+    all_prompts = prompt_repo.list_all_by_project(project.id)
     assert len(all_prompts) == 1
     assert all_prompts[0].frame_id == frame_id
 
 
 def test_different_frames_allowed(prompt_repo, fxt_session, clean_after):
     """Test that different frame_ids can be used for different visual prompts."""
-    project = ProjectDB(name="proj")
+    project = make_project()
     fxt_session.add(project)
     fxt_session.commit()
 
@@ -467,6 +416,6 @@ def test_different_frames_allowed(prompt_repo, fxt_session, clean_after):
         prompt_repo.add(p)
     fxt_session.commit()
 
-    all_prompts = prompt_repo.get_all_by_project(project.id)
+    all_prompts = prompt_repo.list_all_by_project(project.id)
     assert len(all_prompts) == 3
     assert {p.frame_id for p in all_prompts} == {frame_id_1, frame_id_2, frame_id_3}

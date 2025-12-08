@@ -1,12 +1,14 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
+import logging
 from abc import ABC, abstractmethod
 from uuid import UUID
 
 from sqlalchemy.orm import Session, sessionmaker
 
 from domain.db.models import PromptType
+from domain.services.label import LabelService
 from domain.services.project import ProjectService
 from domain.services.prompt import PromptService
 from runtime.core.components.factories.model import ModelFactory
@@ -15,6 +17,8 @@ from runtime.core.components.factories.writer import StreamWriterFactory
 from runtime.core.components.processor import Processor
 from runtime.core.components.sink import Sink
 from runtime.core.components.source import Source
+
+logger = logging.getLogger(__name__)
 
 
 class ComponentFactory(ABC):
@@ -44,10 +48,11 @@ class DefaultComponentFactory(ComponentFactory):
     def create_processor(self, project_id: UUID) -> Processor:
         with self._session_factory() as session:
             prompt_svc = PromptService(session)
-            svc = ProjectService(session=session)
-            cfg = svc.get_pipeline_config(project_id)
+            project_svc = ProjectService(session)
+            cfg = project_svc.get_pipeline_config(project_id)
             reference_batch = prompt_svc.get_reference_batch(project_id, PromptType.VISUAL)
-        return Processor(ModelFactory.create(reference_batch, cfg.processor))
+            logger.info("creating processor with model config: %s", cfg.processor)
+        return Processor(ModelFactory.create(reference_batch, cfg.processor), LabelService(session), project_id)
 
     def create_sink(self, project_id: UUID) -> Sink:
         with self._session_factory() as session:

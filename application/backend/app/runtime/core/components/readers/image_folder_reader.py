@@ -193,7 +193,7 @@ class ImageFolderReader(StreamReader):
             self._last_image = image
             self._last_image_path = image_path
 
-        time.sleep(0.033)  # a small delay (~30 FPS) to prevent overwhelming consumers
+        # time.sleep(0.033)  # a small delay (~30 FPS) to prevent overwhelming consumers
 
         image_rgb = cv2.cvtColor(self._last_image, cv2.COLOR_BGR2RGB)
 

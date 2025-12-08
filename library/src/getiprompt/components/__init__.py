@@ -5,10 +5,12 @@
 
 from .cosine_similarity import CosineSimilarity
 from .encoders import ImageEncoder
+from .linear_sum_assignment import linear_sum_assignment
 from .mask_decoder import SamDecoder
 
 __all__ = [
     "CosineSimilarity",
     "ImageEncoder",
     "SamDecoder",
+    "linear_sum_assignment",
 ]

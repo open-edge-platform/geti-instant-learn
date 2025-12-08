@@ -60,12 +60,19 @@ class Pipeline:
         self._outbound_broadcaster = outbound_broadcaster
         self._threads: dict[type[PipelineComponent], Thread] = {}
         self._components: dict[type[PipelineComponent], PipelineComponent] = {}
+        self._is_running = False
+
         logger.debug(f"Pipeline created for project_id={project_id}")
 
     @property
     def project_id(self) -> UUID:
         """Get the project ID associated with this pipeline."""
         return self._project_id
+
+    @property
+    def is_running(self) -> bool:
+        """Check if the pipeline is currently running."""
+        return self._is_running
 
     def register_webrtc(self) -> Queue:
         """Register a WebRTC consumer for processed output frames."""
@@ -85,14 +92,21 @@ class Pipeline:
         self._inbound_broadcaster.unregister(queue)
 
     def start(self) -> None:
+        if self._is_running:
+            logger.warning(f"Pipeline already running for project_id={self._project_id}")
+            return
         logger.debug(f"Starting pipeline for project_id={self._project_id}")
         for component_cls, component in self._components.items():
             thread = Thread(target=component, daemon=False)
             thread.start()
             self._threads[component_cls] = thread
+        self._is_running = True
         logger.debug(f"Pipeline started for project_id={self._project_id}")
 
     def stop(self) -> None:
+        if not self._is_running:
+            logger.warning(f"Pipeline already stopped for project_id={self._project_id}")
+            return
         logger.debug(f"Stopping pipeline for project_id={self._project_id}")
 
         for component_cls in [Source, Processor, Sink]:
@@ -103,6 +117,7 @@ class Pipeline:
                 if thread and thread.is_alive():
                     thread.join(timeout=5)
 
+        self._is_running = False
         logger.debug(f"Pipeline stopped for project_id={self._project_id}")
 
     def set_source(self, source: Source, start: bool = False) -> Self:

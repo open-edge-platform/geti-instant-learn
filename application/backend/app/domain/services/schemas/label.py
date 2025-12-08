@@ -5,7 +5,7 @@
 from pydantic import BaseModel, Field
 from pydantic_extra_types.color import Color
 
-from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, Pagination
+from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
 
 
 class LabelCreateSchema(BaseIDPayload):
@@ -23,6 +23,5 @@ class LabelUpdateSchema(BaseModel):
     color: Color | None = Field(None, description="New hex color code, e.g. #RRGGBB")
 
 
-class LabelsListSchema(BaseModel):
+class LabelsListSchema(PaginatedResponse):
     labels: list[LabelSchema]
-    pagination: Pagination

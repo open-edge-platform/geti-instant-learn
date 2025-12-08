@@ -3,9 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useGetSources } from '@geti-prompt/hooks';
-import { dimensionValue, Grid, minmax, View } from '@geti/ui';
+import { Suspense } from 'react';
 
+import { useGetSources } from '@geti-prompt/hooks';
+import { dimensionValue, Grid, Loading, minmax, View } from '@geti/ui';
+
+import { isImagesFolderSource, isTestDatasetSource, isWebcamSource } from '../sources-sinks/sources/utils';
 import { CaptureFrameButton } from './capture-frame-button.component';
 import { ImagesFolderStream } from './images-folder-stream/images-folder-stream.component';
 import { Video } from './video.component';
@@ -13,7 +16,7 @@ import { Video } from './video.component';
 const useActiveSource = () => {
     const { data } = useGetSources();
 
-    return data.sources.find((source) => source.connected);
+    return data.sources.find((source) => source.active);
 };
 
 const WebcamStream = () => {
@@ -50,11 +53,15 @@ export const Stream = () => {
         return null;
     }
 
-    if (activeSource.config.source_type === 'webcam') {
+    if (isWebcamSource(activeSource)) {
         return <WebcamStream />;
     }
 
-    if (activeSource.config.source_type === 'images_folder') {
-        return <ImagesFolderStream />;
+    if (isTestDatasetSource(activeSource) || isImagesFolderSource(activeSource)) {
+        return (
+            <Suspense fallback={<Loading mode={'inline'} style={{ height: '100%', width: '100%' }} />}>
+                <ImagesFolderStream sourceId={activeSource.id} />
+            </Suspense>
+        );
     }
 };

@@ -4,7 +4,7 @@
 
 from pydantic import BaseModel, Field
 
-from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, Pagination
+from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
 
 
 class ProjectCreateSchema(BaseIDPayload):
@@ -21,6 +21,5 @@ class ProjectSchema(BaseIDSchema):
     active: bool
 
 
-class ProjectsListSchema(BaseModel):
+class ProjectsListSchema(PaginatedResponse):
     projects: list[ProjectSchema]
-    pagination: Pagination

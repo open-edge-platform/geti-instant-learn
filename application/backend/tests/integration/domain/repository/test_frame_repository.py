@@ -141,19 +141,19 @@ def test_save_frames_in_different_projects(frame_repository, sample_frame):
     assert path_1.parent.parent != path_2.parent.parent
 
 
-def test_get_frame_returns_frame_when_exists(frame_repository, sample_frame):
+def test_read_frame_returns_frame_when_exists(frame_repository, sample_frame):
     project_id = uuid4()
     frame_id = uuid4()
 
     frame_repository.save_frame(project_id, frame_id, sample_frame)
-    retrieved_frame = frame_repository.get_frame(project_id, frame_id)
+    retrieved_frame = frame_repository.read_frame(project_id, frame_id)
 
     assert retrieved_frame is not None
     assert retrieved_frame.shape == sample_frame.shape
     assert retrieved_frame.dtype == np.uint8
 
 
-def test_get_frame_converts_bgr_to_rgb(frame_repository):
+def test_read_frame_returns_bgr_format(frame_repository):
     project_id = uuid4()
     frame_id = uuid4()
     height = 640
@@ -166,28 +166,29 @@ def test_get_frame_converts_bgr_to_rgb(frame_repository):
     rgb_frame_input[:, :] = [10, 128, 245]
 
     frame_repository.save_frame(project_id, frame_id, rgb_frame_input)
-    rgb_frame_output = frame_repository.get_frame(project_id, frame_id)
+    bgr_frame_output = frame_repository.read_frame(project_id, frame_id)
 
-    assert rgb_frame_output is not None
-    assert rgb_frame_output.shape == (height, width, channels)
+    assert bgr_frame_output is not None
+    assert bgr_frame_output.shape == (height, width, channels)
 
-    # Check pixel values with tolerance for JPEG compression artifacts (±10)
-    pixel = rgb_frame_output[50, 50]
-    assert abs(int(pixel[0]) - 10) <= 10, f"Red channel mismatch: expected ~10, got {pixel[0]}"
+    # read_frame returns BGR format (as stored by OpenCV), so verify BGR values
+    # Input was RGB [10, 128, 245], saved as BGR, so we expect BGR [245, 128, 10]
+    pixel = bgr_frame_output[50, 50]
+    assert abs(int(pixel[0]) - 245) <= 10, f"Blue channel mismatch: expected ~245, got {pixel[0]}"
     assert abs(int(pixel[1]) - 128) <= 10, f"Green channel mismatch: expected ~128, got {pixel[1]}"
-    assert abs(int(pixel[2]) - 245) <= 10, f"Blue channel mismatch: expected ~245, got {pixel[2]}"
+    assert abs(int(pixel[2]) - 10) <= 10, f"Red channel mismatch: expected ~10, got {pixel[2]}"
 
 
-def test_get_frame_returns_none_when_not_exists(frame_repository):
+def test_read_frame_returns_none_when_not_exists(frame_repository):
     project_id = uuid4()
     frame_id = uuid4()
 
-    retrieved_frame = frame_repository.get_frame(project_id, frame_id)
+    retrieved_frame = frame_repository.read_frame(project_id, frame_id)
 
     assert retrieved_frame is None
 
 
-def test_get_frame_returns_none_on_corrupted_file(frame_repository, sample_frame):
+def test_read_frame_returns_none_on_corrupted_file(frame_repository, sample_frame):
     project_id = uuid4()
     frame_id = uuid4()
 
@@ -198,22 +199,21 @@ def test_get_frame_returns_none_on_corrupted_file(frame_repository, sample_frame
     frame_path.write_bytes(b"corrupted data not an image")
 
     # Should return None instead of raising an exception
-    retrieved_frame = frame_repository.get_frame(project_id, frame_id)
+    retrieved_frame = frame_repository.read_frame(project_id, frame_id)
     assert retrieved_frame is None
 
 
-def test_get_frame_preserves_dimensions(frame_repository):
-    """Test that get_frame preserves frame dimensions."""
+def test_read_frame_preserves_dimensions(frame_repository):
     project_id = uuid4()
     frame_id = uuid4()
 
     # Create frames with different dimensions
     for height, width in [(100, 100), (480, 640), (1080, 1920)]:
         frame = np.zeros((height, width, 3), dtype=np.uint8)
-        frame[:, :] = [100, 150, 200]
+        frame[:, :] = [100, 150, 200]  # RGB values
 
         frame_repository.save_frame(project_id, frame_id, frame)
-        retrieved_frame = frame_repository.get_frame(project_id, frame_id)
+        retrieved_frame = frame_repository.read_frame(project_id, frame_id)
 
         assert retrieved_frame is not None
         assert retrieved_frame.shape == (height, width, 3)

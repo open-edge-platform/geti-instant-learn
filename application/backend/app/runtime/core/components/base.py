@@ -3,7 +3,7 @@
 
 from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
-from multiprocessing import Event
+from threading import Event
 from types import TracebackType
 from typing import Any, TypeVar
 

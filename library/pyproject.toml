@@ -65,9 +65,9 @@ cu126 = [
     "torchvision==0.23.0",
 ]
 xpu = [
-    "torch==2.8.0",
-    "torchvision==0.23.0",
-    "pytorch-triton-xpu==3.4.0",
+    "torch==2.10.0.dev20251202+xpu",
+    "torchvision==0.25.0.dev20251203+xpu",
+    "pytorch-triton-xpu==3.5.0+gitaa01f5c2",
 ]
 extras = [
     "xformers==0.0.32.post2",
@@ -118,7 +118,7 @@ explicit = true
 
 [[tool.uv.index]]
 name = "pytorch-xpu"
-url = "https://download.pytorch.org/whl/xpu"
+url = "https://download.pytorch.org/whl/nightly/xpu"
 explicit = true
 
 [tool.uv.sources]

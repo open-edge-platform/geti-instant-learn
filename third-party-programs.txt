@@ -39,23 +39,26 @@ terms are listed below.
     Copyright (c) @IDEA-Research, https://github.com/IDEA-Research/GroundingDino.
     SPDX-License-Identifier: Apache-2.0
 
-
-8.  MobileSAM
+7.  MobileSAM
     Copyright (c) @ChaoningZhang, https://github.com/ChaoningZhang/MobileSAM.
     SPDX-License-Identifier: Apache-2.0
 
-9.  OpenVINO Model API
+8.  OpenVINO Model API
     Copyright (c) @open-edge-platform, https://github.com/open-edge-platform/model_api.
     SPDX-License-Identifier: Apache-2.0
 
-10. SAM2
+9.  SAM2
     Copyright (c) @facebookresearch, https://github.com/facebookresearch/sam2.
     SPDX-License-Identifier: Apache-2.0
 
-11. DinoV3
+10. DinoV3
     Copyright (c) @facebookresearch, https://github.com/facebookresearch/dinov3.
     SPDX-License-Identifier: Apache-2.0
 
 11. LLMDet
     Copyright (c) @iSEE-Laboratory, https://github.com/iSEE-Laboratory/LLMDet.
+    SPDX-License-Identifier: Apache-2.0
+
+12. SAM 3
+    Copyright (c) @facebookresearch, https://github.com/facebookresearch/sam3.
     SPDX-License-Identifier: Apache-2.0

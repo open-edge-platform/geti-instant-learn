@@ -12,11 +12,14 @@ from domain.db.constraints import UniqueConstraintName
 from domain.db.models import LabelDB, ProjectDB
 from domain.errors import (
     ResourceAlreadyExistsError,
+    ResourceInUseError,
     ResourceNotFoundError,
     ResourceType,
 )
+from domain.repositories.annotation import AnnotationRepository
 from domain.repositories.label import LabelRepository
 from domain.repositories.project import ProjectRepository
+from domain.services.base import BaseService
 from domain.services.schemas.label import (
     LabelCreateSchema,
     LabelSchema,
@@ -28,7 +31,7 @@ from domain.services.schemas.mappers.label import label_db_to_schema, label_sche
 logger = logging.getLogger(__name__)
 
 
-class LabelService:
+class LabelService(BaseService):
     """
     Service layer orchestrating label operations within a project.
     Responsibilities:
@@ -42,13 +45,15 @@ class LabelService:
         session: Session,
         label_repository: LabelRepository | None = None,
         project_repository: ProjectRepository | None = None,
+        annotation_repository: AnnotationRepository | None = None,
     ):
         """
         Initialize the service with a SQLAlchemy session.
         """
-        self.session = session
+        super().__init__(session=session)
         self.label_repository = label_repository or LabelRepository(session=session)
         self.project_repository = project_repository or ProjectRepository(session=session)
+        self.annotation_repository = annotation_repository or AnnotationRepository(session=session)
 
     def _ensure_project(self, project_id: UUID) -> ProjectDB:
         """
@@ -85,12 +90,10 @@ class LabelService:
         label: LabelDB = label_schema_to_db(create_data)
         label.project_id = project_id
 
-        self.label_repository.add(label=label)
-
         try:
-            self.session.commit()
+            with self.db_transaction():
+                self.label_repository.add(label)
         except IntegrityError as exc:
-            self.session.rollback()
             logger.error("Label creation failed due to constraint violation: %s", exc)
             self._handle_label_integrity_error(exc, label.id, project_id, create_data.name, "create")
 
@@ -108,7 +111,7 @@ class LabelService:
         Retrieve a label by its ID.
         """
         self._ensure_project(project_id)
-        label = self.label_repository.get_by_id(project_id=project_id, label_id=label_id)
+        label = self.label_repository.get_by_id_and_project(label_id, project_id)
         if not label:
             logger.error("Label not found id=%s for project_id=%s", label_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.LABEL, resource_id=str(label_id))
@@ -128,21 +131,39 @@ class LabelService:
         """
         self._ensure_project(project_id)
         logger.debug("Labels list for project %s requested with offset=%s, limit=%s", project_id, offset, limit)
-        labels, total = self.label_repository.get_paginated(project_id=project_id, offset=offset, limit=limit)
+        labels, total = self.label_repository.list_with_pagination_by_project(
+            project_id=project_id, offset=offset, limit=limit
+        )
         return labels_db_to_list_items(labels, total=total, offset=offset, limit=limit)
 
     def delete_label(self, project_id: UUID, label_id: UUID) -> None:
         """
-        Delete a label by its ID.
+        Delete a label by its ID if not in use.
+
+        Raises:
+            ResourceInUseError: If label is referenced by any annotations.
         """
         self._ensure_project(project_id)
-        label = self.label_repository.get_by_id(project_id=project_id, label_id=label_id)
+        label = self.label_repository.get_by_id_and_project(label_id, project_id)
         if not label:
             logger.error("Label not found id=%s for project_id=%s", label_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.LABEL, resource_id=str(label_id))
 
-        self.label_repository.delete(project_id=project_id, label=label)
-        self.session.commit()
+        if self.annotation_repository.is_label_in_use(label_id):
+            logger.warning(
+                "Cannot delete label: label_id=%s is referenced by annotations in project_id=%s",
+                label_id,
+                project_id,
+            )
+            raise ResourceInUseError(
+                resource_type=ResourceType.LABEL,
+                resource_id=str(label_id),
+                message=f"Label '{label.name}' cannot be deleted because it is referenced by annotations. "
+                f"Please remove the prompts using this label first.",
+            )
+
+        with self.db_transaction():
+            self.label_repository.delete(label_id)
         logger.info("Label deleted id=%s project_id=%s", label_id, project_id)
 
     def update_label(self, project_id: UUID, label_id: UUID, update_data: LabelUpdateSchema) -> LabelSchema:
@@ -158,38 +179,28 @@ class LabelService:
             update_data.name,
         )
         self._ensure_project(project_id)
-        label = self.label_repository.get_by_id(project_id=project_id, label_id=label_id)
+        label = self.label_repository.get_by_id_and_project(label_id, project_id)
 
         if not label:
             logger.error("Update failed; label not found id=%s in project=%s", label_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.LABEL, resource_id=str(label_id))
 
-        changed = False
-
-        # Update name if provided and different
-        if update_data.name is not None and label.name != update_data.name:
-            label.name = update_data.name
-            changed = True
-
-        # Update color if provided and different
-        if update_data.color is not None:
-            color = update_data.color.as_hex(format="long").lower()
-            if label.color != color:
-                label.color = color
-                changed = True
-
-        if not changed:
-            logger.debug("No changes detected for label id=%s in project=%s", label.id, project_id)
-            return label_db_to_schema(label=label)
-
         try:
-            self.session.commit()
+            with self.db_transaction():
+                if update_data.name is not None and label.name != update_data.name:
+                    label.name = update_data.name
+
+                if update_data.color is not None:
+                    color = update_data.color.as_hex(format="long").lower()
+                    if label.color != color:
+                        label.color = color
+
+                label = self.label_repository.update(label)
+
         except IntegrityError as exc:
-            self.session.rollback()
             logger.error("Label update failed due to constraint violation: %s", exc)
             self._handle_label_integrity_error(exc, label.id, project_id, update_data.name, "update")
 
-        self.session.refresh(label)
         logger.info("Label updated in project=%s label_id=%s name=%s", project_id, label.id, label.name)
         return label_db_to_schema(label=label)
 

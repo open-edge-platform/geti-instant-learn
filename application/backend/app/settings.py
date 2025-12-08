@@ -34,15 +34,34 @@ class Settings(BaseSettings):
     host: str = Field(default="localhost", alias="HOST")
     port: int = Field(default=9100, alias="PORT")
 
+    # CORS
+    cors_origins: str = Field(
+        default="http://localhost:3000, http://localhost:9100",
+        alias="CORS_ORIGINS",
+    )
+
     # Database
     current_dir: Path = Path(__file__).parent.resolve()
     db_data_dir: Path = Field(default=current_dir.parent / ".data", alias="DB_DATA_DIR")
     db_filename: str = "geti_prompt.db"
 
+    # Template datasets
+    template_dataset_path: str = Field(default="templates/datasets/coffee-berries", alias="TEMPLATE_DATASET_PATH")
+
+    @property
+    def template_dataset_dir(self) -> Path:
+        """Full path to the template dataset directory"""
+        return self.db_data_dir / self.template_dataset_path
+
     @property
     def database_url(self) -> str:
         """Database connection URL"""
         return f"sqlite:///{self.db_data_dir / self.db_filename}"
+
+    @property
+    def cors_allowed_origins(self) -> list[str]:
+        """Parsed list of allowed CORS origins."""
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
     db_echo: bool = Field(default=False, alias="DB_ECHO")
 
@@ -62,6 +81,9 @@ class Settings(BaseSettings):
     thumbnail_min_line_thickness: int = 2
     thumbnail_fill_opacity: float = 0.5  # 50% opacity for annotation fill
     thumbnail_jpeg_quality: int = 85
+
+    # WebRTC
+    ice_servers: list[dict] = Field(default=[], alias="ICE_SERVERS")
 
 
 @lru_cache

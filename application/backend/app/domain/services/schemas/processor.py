@@ -9,7 +9,7 @@ import numpy as np
 import torch
 from pydantic import BaseModel, Field
 
-from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, Pagination
+from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
 
 
 class ModelType(StrEnum):
@@ -50,7 +50,7 @@ class InputData:
 class OutputData:
     results: list[dict[str, torch.Tensor]]
     frame: np.ndarray  # frame loaded as numpy array in RGB HWC format (H, W, 3) with dtype=uint8
-    # the rest will be defined later.
+    labels_colors: dict[str, tuple[int, int, int]] | None = None  # mapping from label IDs to RGB color tuples
 
 
 class ProcessorSchema(BaseIDSchema):
@@ -59,9 +59,8 @@ class ProcessorSchema(BaseIDSchema):
     name: str = Field(max_length=80, min_length=1)
 
 
-class ProcessorListSchema(BaseModel):
+class ProcessorListSchema(PaginatedResponse):
     models: list[ProcessorSchema]
-    pagination: Pagination
 
 
 class ProcessorCreateSchema(BaseIDPayload):

@@ -14,10 +14,11 @@ const SelectedFrameContext = createContext<SelectedFrameContextProps | null>(nul
 
 interface SelectedFrameProviderProps {
     children: ReactNode;
+    frameId?: string;
 }
 
-export const SelectedFrameProvider = ({ children }: SelectedFrameProviderProps) => {
-    const [selectedFrameId, setSelectedFrameId] = useState<string | null>(null);
+export const SelectedFrameProvider = ({ children, frameId }: SelectedFrameProviderProps) => {
+    const [selectedFrameId, setSelectedFrameId] = useState<string | null>(frameId ?? null);
 
     return <SelectedFrameContext value={{ selectedFrameId, setSelectedFrameId }}>{children}</SelectedFrameContext>;
 };
