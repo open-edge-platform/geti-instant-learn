@@ -87,13 +87,11 @@ export class WebRTCConnection {
                 return [];
             }
 
-            return (
-                response.data.iceServers.map((iceServer) => ({
-                    urls: iceServer.urls,
-                    credential: iceServer.credential ?? undefined,
-                    username: iceServer.username ?? undefined,
-                })) ?? []
-            );
+            return response.data.iceServers.map((iceServer) => ({
+                urls: iceServer.urls,
+                credential: iceServer.credential ?? undefined,
+                username: iceServer.username ?? undefined,
+            }));
         } catch (error) {
             console.warn('Error fetching WebRTC config:', error);
             return [];
