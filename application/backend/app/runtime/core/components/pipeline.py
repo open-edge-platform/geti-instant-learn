@@ -151,10 +151,10 @@ class Pipeline:
 
         with self._lock:
             # Stop the current component if one exists
-            current_component = self._components.pop(component_cls, None)
+            current_component = self._components.get(component_cls)
             if current_component:
                 current_component.stop()
-                thread = self._threads.pop(component_cls, None)
+                thread = self._threads.get(component_cls)
                 if thread and thread.is_alive():
                     thread.join(timeout=5)
 
