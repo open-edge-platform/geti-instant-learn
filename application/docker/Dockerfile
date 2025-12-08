@@ -51,9 +51,9 @@ ARG STATIC_FILES_DIR=""
 ENV STATIC_FILES_DIR=${STATIC_FILES_DIR}
 ARG DB_DATA_DIR=""
 ENV DB_DATA_DIR=${DB_DATA_DIR}
-ENV PYTHONPATH=/geti-prompt/app
+ENV PYTHONPATH=/geti_prompt/app
 ENV PATH="${PYTHONPATH}/backend/.venv/bin:$PATH"
-ENV LIBRARY_PATH="/geti-prompt/library"
+ENV LIBRARY_PATH="/geti_prompt/library"
 ARG UID=10001
 ENV UID=${UID}
 ARG USER_NAME="non-root"
@@ -125,7 +125,7 @@ RUN apt-get remove -y git \
 
 USER ${USER_NAME}
 
-WORKDIR "/geti-prompt"
+WORKDIR "/geti_prompt"
 
 #######################
 # Intermediary GPU Base
@@ -166,7 +166,7 @@ RUN echo "Removing non-redistributable CUDA components per NVIDIA EULA..." && \
     # Define search paths including venv
     SEARCH_PATHS="/usr /opt ${PYTHONPATH}" && \
     # Add any detected venvs
-    for venv in $(find /app -name "site-packages" -type d 2>/dev/null | sed 's|/lib/python[0-9.]*/site-packages||' | sort -u); do \
+    for venv in $(find ${PYTHONPATH} -name "site-packages" -type d 2>/dev/null | sed 's|/lib/python[0-9.]*/site-packages||' | sort -u); do \
         if [ -d "$venv" ]; then \
             SEARCH_PATHS="$SEARCH_PATHS $venv"; \
         fi; \
@@ -233,11 +233,14 @@ RUN echo "Removing non-redistributable CUDA components per NVIDIA EULA..." && \
 ######################
 # Server (GPU version)
 ######################
-FROM cleanup-gpu AS gpu
+FROM runtime-base AS gpu
+
+COPY --link --from=cleanup-gpu --chown=${UID} /usr/local /usr/local
+COPY --link --from=cleanup-gpu --chown=${UID} ${PYTHONPATH} ${PYTHONPATH}
 
 USER ${USER_NAME}
 
-WORKDIR "/geti-prompt"
+WORKDIR "/geti_prompt"
 
 ######################
 # Server (XPU version)
@@ -277,4 +280,4 @@ RUN apt-get remove -y git \
 # needed to define it here to allow installation of packages
 USER ${USER_NAME}
 
-WORKDIR "/geti-prompt"
+WORKDIR "/geti_prompt"
