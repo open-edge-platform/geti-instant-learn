@@ -22,7 +22,8 @@ gen-openapi-md: gen-openapi
 
 # Start FastAPI development server with auto-reload
 dev: _venv download-dataset
-    {{ if enable-coturn == "true" { "ICE_SERVERS='" + ice-servers + "'" } else { "" } }} \
+    {{ if enable-coturn == "true" { "ICE_SERVERS='" + coturn-ice-servers + "'" } else if enable-stun == "true" { "ICE_SERVERS='" + stun-ice-servers + "'" } else { "" } }} \
+    {{ if webrtc-advertise-ip != "" { "WEBRTC_ADVERTISE_IP='" + webrtc-advertise-ip + "'" } else { "" } }} \
     PYTHONPATH=app uv run uvicorn main:app --reload --host localhost --port 9100
 
 

@@ -10,6 +10,10 @@ webcam-device := "/dev/video0"
 docker-volume := ""
 host := "0.0.0.0"
 enable-coturn := "false"
+webrtc-advertise-ip := ""
+enable-stun := "false"
+webrtc-port-start := "50000"
+webrtc-port-end := "51000"
 
 # -------------------------------------------------------------------------------------------------
 # Common variables used in the Justfile
@@ -41,7 +45,8 @@ coturn-image := "quay.io/coturn/coturn"
 # Note: Binding port 443 may conflict with other services (e.g., HTTPS) on this host. Replace it with whatever prot works/open for you.
 coturn-port := "443"
 coturn-external-ip := `uv run python -c "import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.connect(('8.8.8.8',80)); print(s.getsockname()[0]); s.close()"`
-ice-servers := '[{"urls": "turn:' + coturn-external-ip + ':' + coturn-port + '?transport=tcp", "username": "user", "credential": "password"}]'
+coturn-ice-servers := '[{"urls": "turn:' + coturn-external-ip + ':' + coturn-port + '?transport=tcp", "username": "user", "credential": "password"}]'
+stun-ice-servers := '[{"urls": "stun:stun.l.google.com:19302"}]'
 
 # -------------------------------------------------------------------------------------------------
 # Proxy settings
@@ -106,10 +111,13 @@ build-image: download-dataset
 run-image: build-image
     @echo "Running docker image for component: {{ component-name }} with ai-device: {{ ai-device }}"
     @docker run --rm \
+        --sysctl net.ipv4.ip_local_port_range="{{ webrtc-port-start }} {{ webrtc-port-end }}" \
+        --publish {{ webrtc-port-start }}-{{ webrtc-port-end }}:{{ webrtc-port-start }}-{{ webrtc-port-end }}/udp \
         --publish {{ host-port }}:{{ container-port }} \
         --env PORT={{ container-port }} \
         --env HOST={{ host }} \
-        {{ if enable-coturn == "true" { "--env ICE_SERVERS='" + ice-servers + "'" } else { "" } }} \
+        {{ if webrtc-advertise-ip != "" { "--env WEBRTC_ADVERTISE_IP='" + webrtc-advertise-ip + "'" } else { "--env WEBRTC_ADVERTISE_IP" } }} \
+        {{ if enable-coturn == "true" { "--env ICE_SERVERS='" + coturn-ice-servers + "'" } else if enable-stun == "true" { "--env ICE_SERVERS='" + stun-ice-servers + "'" } else { "--env ICE_SERVERS" } }} \
         {{ if docker-volume != "" { " --volume " + docker-volume + ":" + db-data-dir } else { "" } }} \
         {{ if path_exists(webcam-device) == "true" { " --device " + webcam-device + ":" + webcam-device } else { "" } }} \
         --name "{{ component-name }}-{{ version }}" \

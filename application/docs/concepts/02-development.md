@@ -21,101 +21,137 @@ The layered architecture simplifies testing by providing clear boundaries for mo
 | Unit | Single layer | Mock dependencies from the layer below |
 | Integration | Data layer | Test repositories against a real database |
 
-## WebRTC Connectivity & Coturn Setup
+## WebRTC Networking & Topologies
 
-### Understanding WebRTC Connectivity (ICE, STUN, TURN)
+Geti Prompt uses WebRTC for low-latency video streaming. We support three main network topologies:
 
-WebRTC is designed to establish a direct Peer-to-Peer (P2P) connection between two devices (peers) to stream video and data with minimal latency. However, devices are rarely connected directly to the open internet; they sit behind firewalls and NAT routers.
+### 1. Local Network
+*   **Scenario:** Running on `localhost` or devices on the same LAN.
+*   **Mechanism:** Docker Bridge network with Port Mapping.
+*   **Configuration:** Must advertise the Host IP (e.g., `127.0.0.1`) to route traffic from Host to Container.
 
-To overcome this, WebRTC uses a protocol called **ICE** (Interactive Connectivity Establishment). ICE tries to find the best path to connect peers in the following order:
+### 2. Cloud / NAT / Load Balancer
+*   **Scenario:**
+    *   Public network (Public IP)
+    *   Private network (behind a Reverse Proxy / Load Balancer)
+*   **Mechanism:**
+    *   **Automatic (STUN):** Use a public STUN server to discover the public IP. Preferred for dynamic IPs.
+    *   **Manual (Advertised IP):** Explicitly set the Public IP or Domain. Preferred for Load Balancers or static IPs.
+*   **Requirement:** UDP ports must be open in the firewall/security group. See [Port Range Requirement](#port-range-requirement) below for instructions on constraining the UDP port range.
 
-1.  **Host Candidates (Local Network):**
-    *   The peers try to connect directly using their local LAN IP addresses.
-    *   *Works if:* Both devices are on the same network.
+### 3. Restrictive Firewalls
+*   **Scenario:** Strict firewalls blocking UDP or non-standard ports.
+*   **Mechanism:** Traffic is relayed through a TURN server (Coturn) over an allowed TCP port (typically 443).
+*   **Requirement:** A running instance of Coturn.
 
-2.  **STUN Candidates (Public IP):**
-    *   **STUN** (Session Traversal Utilities for NAT) is a lightweight protocol that tells a device "What is my public IP address?".
-    *   *Works if:* You are on a standard home network or a permissive public network.
 
-3.  **TURN Candidates (Relay):**
-    *   **TURN** (Traversal Using Relays around NAT) is the fallback of last resort.
-    *   If a direct connection is impossible (e.g., strict corporate firewalls, Symmetric NAT, or blocked UDP), the TURN server acts as a middleman.
-    *   Peer A sends data to the TURN server -> TURN server relays it to Peer B.
-    *   *Works if:* Almost always, as long as the TURN server itself is reachable.
+---
 
-### When Do You Need a TURN Server?
+## Architecture: Server-Side ICE Gathering
 
-You absolutely need a TURN server in **Restrictive Network Environments**, such as:
-*   **Corporate Offices:** Where firewalls block all non-standard ports and UDP traffic.
-*   **3G/4G/5G Mobile Networks:** Which often use Carrier-Grade NAT (CGNAT) that blocks P2P.
-*   **VPNs:** Which might interfere with local routing.
+Geti Prompt uses a **Server-Side Gathering** approach.
 
-If your video stream fails to load in these environments, it is likely because the direct P2P connection is blocked, and you have no TURN server configured to relay the traffic.
+1.  **Backend Config:** The backend is configured with `ICE_SERVERS` (STUN/TURN) and/or `WEBRTC_ADVERTISE_IP`.
+2.  **Gathering:** When a connection starts, the backend uses these settings to gather its own ICE candidates (Host, Srflx, Relay).
+3.  **Offer:** The backend sends these candidates to the client in the SDP Answer.
+4.  **Client Role:** The client is "passive". It does not need to know about TURN servers or gather its own complex candidates; it simply connects to the candidates provided by the backend.
 
-### What is Coturn?
+This simplifies the frontend logic and keeps network configuration centralized in the backend.
 
-**Coturn** is a mature, [open-source implementation](https://github.com/coturn/coturn) of a TURN and STUN server. It is widely used in the industry to power WebRTC infrastructure.
+---
 
-In this project, we use the official `coturn/coturn` Docker image configured specifically to bypass strict firewalls by masquerading as standard web traffic.
+## Configuration Guide
 
-### How to Use with Docker & Just
+> **Important:** The following configuration options (`enable-stun`, `webrtc-advertise-ip`, `enable-coturn`) are mutually exclusive. Please use only one at a time.
 
-We have automated the entire setup using `just` (a command runner) and Docker.
+### 1. Local Network
+Use this for local development on `localhost` or within the same LAN.
+**Note:** Because Docker runs in an isolated network, you must explicitly advertise the host's IP so the browser can reach the container.
 
-#### 1. Start the TURN Server
-
-Run the following command to start the Coturn server:
-
+**For Localhost (Same Machine):**
 ```bash
-just run-coturn
+just webrtc-advertise-ip="127.0.0.1" run-image
 ```
 
-**What this command does:**
-1.  **Detects IP:** Automatically finds your host machine's IP address.
-2.  **Runs:** Starts the official `coturn/coturn` container with **Host Networking** (`--network=host`).
-    *   It binds to port **443** (TCP). This is crucial because port 443 is the standard HTTPS port, which is almost never blocked by firewalls.
-    *   *Note:* The port is configurable via the `coturn-port` variable in the `Justfile`.
-    *   It configures the server to accept **TCP** connections (since UDP is often blocked).
-
-#### 2. Run the Application
-
-Once the TURN server is running, start the main application stack with the `enable-coturn` flag:
-
+**For LAN (Different Devices):**
 ```bash
+# Replace with your machine's LAN IP (e.g., 192.168.1.50)
+just webrtc-advertise-ip="YOUR_LAN_IP" run-image
+```
+
+**Using Docker:**
+```bash
+docker run --rm \
+    --sysctl net.ipv4.ip_local_port_range="50000 51000" \
+    -p 50000-51000:50000-51000/udp \
+    -p 9100:9100 \
+    -e WEBRTC_ADVERTISE_IP="127.0.0.1" \
+    <image_name>
+```
+
+### 2. Public Cloud (STUN)
+Best for dynamic IPs. The backend asks a public STUN server (Google) for its IP.
+
+**Using Just:**
+```bash
+just enable-stun=true run-image
+```
+
+**Using Docker:**
+```bash
+docker run --rm \
+    --sysctl net.ipv4.ip_local_port_range="50000 51000" \
+    -p 50000-51000:50000-51000/udp \
+    -p 9100:9100 \
+    -e ICE_SERVERS='[{"urls": "stun:stun.l.google.com:19302"}]' \
+    <image_name>
+```
+
+### 3. Public Cloud (Manual IP)
+Best for Load Balancers or static IPs. Explicitly set the Public IP or Domain.
+
+**Using Just:**
+```bash
+just webrtc-advertise-ip="203.0.113.10" run-image
+```
+
+**Using Docker:**
+```bash
+docker run --rm \
+    --sysctl net.ipv4.ip_local_port_range="50000 51000" \
+    -p 50000-51000:50000-51000/udp \
+    -p 9100:9100 \
+    -e WEBRTC_ADVERTISE_IP="203.0.113.10" \
+    <image_name>
+```
+
+### 4. Restrictive Firewalls (TURN)
+Use this if UDP is blocked. Traffic is relayed through a local TURN server on port 443.
+
+**Using Just:**
+```bash
+# Start TURN server
+just run-coturn
+# Run App
 just enable-coturn=true run-image
 ```
 
-**What this command does:**
-1.  **Configures:** It constructs a JSON configuration string pointing to your local Coturn instance (e.g., `turn:YOUR_IP:443?transport=tcp`).
-2.  **Injects:** It passes this string as the `ICE_SERVERS` environment variable to the backend container.
-3.  **Serves:** The backend provides this configuration to the frontend UI. The UI then uses it to establish the WebRTC connection via your local relay.
-
-*Note: If you run `just run-image` without the flag, the application will start without any TURN server configuration.*
-
-#### For Local Development
-
-You can also use the `enable-coturn` flag with the development server:
-
+**Using Docker:**
 ```bash
-just enable-coturn=true dev
+# Start TURN server (simplified)
+docker run --rm -d --network=host --name coturn-server quay.io/coturn/coturn -n --listening-port=443 --external-ip=$(curl -s ifconfig.me) --user=user:password --realm=my-realm --no-udp
+
+# Run App
+docker run --rm \
+    -p 9100:9100 \
+    -e ICE_SERVERS='[{"urls": "turn:<external_ip>:443?transport=tcp", "username": "user", "credential": "password"}]' \
+    <image_name>
 ```
 
-This will start the FastAPI development server with hot-reload and the `ICE_SERVERS` environment variable configured to use your local Coturn instance.
-
-#### 3. Stop the Server
-
-When you are finished testing, stop the server to free up port 443:
-
+### Port Range Requirement
+For scenarios 2 and 3 (Public Cloud), you must allow UDP traffic on the configured port range (default: 50000-51000).
 ```bash
-just stop-coturn
+# The justfile automatically handles this with:
+# --sysctl net.ipv4.ip_local_port_range="50000 51000"
+# --publish 50000-51000:50000-51000/udp
 ```
-
-### Configuration Details
-
-The server is configured via command-line arguments in the `run-coturn` recipe:
-
-*   `--listening-port=443`: Listens on the standard HTTPS port. You can change this via the `coturn-port` variable if port 443 is already in use on your host.
-*   `--no-udp`: Disables UDP listeners entirely to force TCP usage.
-*   `--user=user:password`: **For testing purposes only.**
-    *   These static credentials are provided for ease of development.
-    *   **Production Warning:** In a production environment, you should **never** use static credentials. Instead, use the **TURN REST API** (Time-Limited Credentials) mechanism. This involves sharing a secret key between the backend and the TURN server to generate temporary, expiring passwords for each client session. Coturn supports this via the `use-auth-secret` configuration.
