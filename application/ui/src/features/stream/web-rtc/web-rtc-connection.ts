@@ -80,16 +80,20 @@ export class WebRTCConnection {
 
     private async fetchIceServers(): Promise<RTCIceServer[]> {
         try {
-            const baseUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:9100';
-            const response = await fetch(`${baseUrl}/api/v1/webrtc/config`);
+            const response = await client.GET('/api/v1/webrtc/config');
 
-            if (!response.ok) {
+            if (response.error !== undefined) {
                 console.warn('Failed to fetch WebRTC config, using defaults');
                 return [];
             }
 
-            const data = await response.json();
-            return data.iceServers ?? [];
+            return (
+                response.data.iceServers.map((iceServer) => ({
+                    urls: iceServer.urls,
+                    credential: iceServer.credential ?? undefined,
+                    username: iceServer.username ?? undefined,
+                })) ?? []
+            );
         } catch (error) {
             console.warn('Error fetching WebRTC config:', error);
             return [];
@@ -112,8 +116,8 @@ export class WebRTCConnection {
             };
 
             // Only set default ICE server config if browser is Firefox and no custom servers provided
-            if (isFirefox() && iceServers.length === 0) {
-                config.iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+            if (isFirefox() && config.iceServers !== undefined) {
+                config.iceServers.push({ urls: 'stun:stun.l.google.com:19302' });
             }
 
             this.peerConnection = new RTCPeerConnection(config);
