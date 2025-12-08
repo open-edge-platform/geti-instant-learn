@@ -86,7 +86,7 @@ export const FramesList = ({
                     {framesList.map((frame) => {
                         return (
                             <ListBoxItem
-                                key={`${frame.index}-${frame.thumbnail}`}
+                                key={frame.index}
                                 className={styles.frameItem}
                                 aria-label={`Frame #${frame.index}`}
                                 data-isselected={frame.index === activeFrameIndex}
