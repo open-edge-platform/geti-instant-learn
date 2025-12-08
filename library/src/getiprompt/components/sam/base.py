@@ -224,14 +224,16 @@ class SAMPredictor:
             return_logits=return_logits,
         )
 
-    def export(self, output_path: Path, backend: Backend = Backend.ONNX) -> Path:
+    def export(self, output_path: Path, backend: str | Backend = Backend.ONNX) -> Path:
         """Export the predictor to the specified format.
 
         Only available for PyTorch backend.
 
         Args:
             output_path: Directory to save exported model.
-            backend: Backend format to export to (e.g., Backend.ONNX, Backend.OPENVINO).
+            backend: Backend format to export to. Can be a Backend enum
+                (e.g., Backend.ONNX, Backend.OPENVINO) or a string
+                (e.g., "onnx", "openvino").
 
         Returns:
             Path to the exported model file.
@@ -239,6 +241,8 @@ class SAMPredictor:
         Raises:
             NotImplementedError: If export is not supported for the backend.
         """
+        if isinstance(backend, str):
+            backend = Backend(backend.lower())
         if not hasattr(self._predictor, "export"):
             msg = f"Export is not supported for backend '{self.backend}'."
             raise NotImplementedError(msg)

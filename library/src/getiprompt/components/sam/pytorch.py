@@ -405,7 +405,7 @@ class PyTorchSAMPredictor(nn.Module):
             return_logits=False,
         )
 
-    def export(self, output_path: Path, backend: Backend = Backend.ONNX) -> Path:
+    def export(self, output_path: Path, backend: str | Backend = Backend.ONNX) -> Path:
         """Export this PyTorch predictor to the specified format.
 
         The exported model performs end-to-end inference from preprocessed image
@@ -414,7 +414,9 @@ class PyTorchSAMPredictor(nn.Module):
         Args:
             output_path: Directory to save exported models.
                 Creates the directory if it doesn't exist.
-            backend: The backend format to export to (Backend.ONNX or Backend.OPENVINO).
+            backend: The backend format to export to. Can be a Backend enum
+                (e.g., Backend.ONNX, Backend.OPENVINO) or a string
+                (e.g., "onnx", "openvino").
 
         Returns:
             Path to the exported model file (.onnx or .xml)
@@ -424,13 +426,17 @@ class PyTorchSAMPredictor(nn.Module):
             ...     SAMModelName.SAM_HQ_TINY,
             ...     backend=Backend.PYTORCH
             ... )
-            >>> ov_path = predictor.export(Path("./exported"), backend=Backend.OPENVINO)
+            >>> ov_path = predictor.export(Path("./exported"), backend="openvino")
             >>> ov_predictor = load_sam_model(
             ...     SAMModelName.SAM_HQ_TINY,
             ...     backend=Backend.OPENVINO,
             ...     model_path=ov_path
             ... )
         """
+        # Convert string to Backend enum if needed
+        if isinstance(backend, str):
+            backend = Backend(backend.lower())
+
         # Only SAM-HQ models support export currently
         if self._sam_model_name not in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
             msg = f"Export not supported for {self._sam_model_name}. Only SAM-HQ models are supported."

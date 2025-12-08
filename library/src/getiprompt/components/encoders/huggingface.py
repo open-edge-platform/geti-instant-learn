@@ -158,7 +158,7 @@ class HuggingFaceImageEncoder(nn.Module):
         features = last_hidden_state[:, self.ignore_token_length :, :]  # Remove CLS token (and register tokens if used)
         return functional.normalize(features, p=2, dim=-1)
 
-    def export(self, output_path: Path, backend: Backend = Backend.OPENVINO) -> Path:
+    def export(self, output_path: Path, backend: str | Backend = Backend.OPENVINO) -> Path:
         """Export this PyTorch encoder to ONNX or OpenVINO IR format.
 
         This uses direct ONNX export or OpenVINO conversion to export the DINO model.
@@ -167,7 +167,9 @@ class HuggingFaceImageEncoder(nn.Module):
         Args:
             output_path: Directory to save exported model.
                 Creates the directory if it doesn't exist.
-            backend: The backend to export to (Backend.ONNX or Backend.OPENVINO).
+            backend: The backend to export to. Can be a Backend enum
+                (e.g., Backend.ONNX, Backend.OPENVINO) or a string
+                (e.g., "onnx", "openvino").
 
         Returns:
             Path to the exported model file.
@@ -177,13 +179,16 @@ class HuggingFaceImageEncoder(nn.Module):
             ...     model_id="dinov2_large",
             ...     device="cuda"
             ... )
-            >>> ov_path = encoder.export(Path("./exported"), backend=Backend.OPENVINO)
+            >>> ov_path = encoder.export(Path("./exported"), backend="openvino")
             >>>
             >>> # Now load with OpenVINO backend
             >>> ov_encoder = OpenVINOImageEncoder(
             ...     model_path=ov_path,
             ... )
         """
+        # Convert string to Backend enum if needed
+        if isinstance(backend, str):
+            backend = Backend(backend.lower())
 
         # Wrapper to export only the feature extraction (without CLS/register tokens)
         class ForwardFeaturesWrapper(nn.Module):

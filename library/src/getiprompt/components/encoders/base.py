@@ -227,14 +227,16 @@ class ImageEncoder(nn.Module):
         """
         return self._model(images)
 
-    def export(self, output_path: Path, backend: Backend = Backend.ONNX) -> Path:
+    def export(self, output_path: Path, backend: str | Backend = Backend.ONNX) -> Path:
         """Export the encoder to the specified format.
 
         Only available for HuggingFace and TIMM backends.
 
         Args:
             output_path: Directory to save exported model.
-            backend: Backend format to export to (Backend.ONNX or Backend.OPENVINO).
+            backend: Backend format to export to. Can be a Backend enum
+                (e.g., Backend.ONNX, Backend.OPENVINO) or a string
+                (e.g., "onnx", "openvino").
 
         Returns:
             Path to the exported OpenVINO IR directory.
@@ -242,6 +244,8 @@ class ImageEncoder(nn.Module):
         Raises:
             NotImplementedError: If export is not supported for the backend.
         """
+        if isinstance(backend, str):
+            backend = Backend(backend.lower())
         if not hasattr(self._model, "export"):
             msg = f"Export is not supported for backend '{self.backend}'."
             raise NotImplementedError(msg)
