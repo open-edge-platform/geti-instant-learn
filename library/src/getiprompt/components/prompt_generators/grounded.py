@@ -2,39 +2,27 @@
 
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
 from collections import defaultdict
 from difflib import SequenceMatcher
+from enum import Enum
 
 import torch
 from torch import nn
 from torchvision import tv_tensors
 from transformers import AutoModelForZeroShotObjectDetection, AutoProcessor
 
-from getiprompt.utils.optimization import optimize_model
 from getiprompt.utils.utils import precision_to_torch_dtype
 
-AVAILABLE_GROUNDING_MODELS = {
-    "grounding_dino_base": (
-        "IDEA-Research/grounding-dino-base",
-        "12bdfa3120f3e7ec7b434d90674b3396eccf88eb",
-    ),
-    "grounding_dino_tiny": (
-        "IDEA-Research/grounding-dino-tiny",
-        "a2bb814dd30d776dcf7e30523b00659f4f141c71",
-    ),
-    "llmdet_tiny": (
-        "fushh7/llmdet_swin_tiny_hf",
-        "6719e6ec2b2f7f0f3fed035fdca7b1856a1107c9",
-    ),
-    "llmdet_base": (
-        "fushh7/llmdet_swin_base_hf",
-        "a5dee636e9654c9c555b53092d8449cc82f48947",
-    ),
-    "llmdet_large": (
-        "fushh7/llmdet_swin_large_hf",
-        "d3523d16b1620552e5f386fbc851ea311e9b2bab",
-    ),
-}
+
+class GroundingModel(Enum):
+    """The model to use for the grounding."""
+
+    GROUNDING_DINO_BASE = "IDEA-Research/grounding-dino-base"
+    GROUNDING_DINO_TINY = "IDEA-Research/grounding-dino-tiny"
+    LLMDET_TINY = "fushh7/llmdet_swin_tiny_hf"
+    LLMDET_BASE = "fushh7/llmdet_swin_base_hf"
+    LLMDET_LARGE = "fushh7/llmdet_swin_large_hf"
 
 
 class TextToBoxPromptGenerator(nn.Module):
@@ -52,7 +40,7 @@ class TextToBoxPromptGenerator(nn.Module):
         box_threshold: float,
         text_threshold: float,
         template: str,
-        model_id: str = "llmdet_tiny",
+        model_id: GroundingModel = GroundingModel.LLMDET_TINY,
         device: str = "cuda",
         precision: str = "bf16",
         compile_models: bool = False,
@@ -69,24 +57,12 @@ class TextToBoxPromptGenerator(nn.Module):
             device: The device to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
-
-        Raises:
-            ValueError: If the model ID is invalid.
-
         """
         super().__init__()
-
-        if model_id not in AVAILABLE_GROUNDING_MODELS:
-            valid_ids = list(AVAILABLE_GROUNDING_MODELS.keys())
-            msg = f"Invalid model ID: {model_id}. Valid model IDs: {valid_ids}"
-            raise ValueError(msg)
-
-        hf_model_id, revision = AVAILABLE_GROUNDING_MODELS[model_id]
-        self.model_id = hf_model_id
+        self.model_id = model_id.value
         self.device = device
         self.model, self.processor = self._load_grounding_model_and_processor(
-            hf_model_id,
-            revision,
+            self.model_id,
             precision,
             device,
             compile_models,
@@ -98,7 +74,6 @@ class TextToBoxPromptGenerator(nn.Module):
     @staticmethod
     def _load_grounding_model_and_processor(
         model_id: str,
-        revision: str,
         precision: str,
         device: str,
         compile_models: bool,
@@ -107,25 +82,24 @@ class TextToBoxPromptGenerator(nn.Module):
 
         Args:
             model_id: The model id to load.
-            revision: Specific revision (commit SHA, tag, or branch) to pin
             precision: The precision to use for the model.
             device: The device to use for the model.
             compile_models: Whether to compile the models.
         """
-        processor = AutoProcessor.from_pretrained(model_id, revision=revision)
+        from getiprompt.utils.optimization import optimize_model
+
+        processor = AutoProcessor.from_pretrained(model_id)
         if model_id.startswith("fushh7/llmdet_swin"):
             # LLMDET has a slightly different interface, use lazy import for efficiency
-            from getiprompt.models.foundation import GroundingDinoForObjectDetection  # noqa: PLC0415
+            from getiprompt.models.foundation import GroundingDinoForObjectDetection
 
             model = GroundingDinoForObjectDetection.from_pretrained(
                 model_id,
-                revision=revision,
                 torch_dtype=precision_to_torch_dtype(precision),
             )
         else:
             model = AutoModelForZeroShotObjectDetection.from_pretrained(
                 model_id,
-                revision=revision,
                 torch_dtype=precision_to_torch_dtype(precision),
             )
         model = optimize_model(
@@ -150,13 +124,8 @@ class TextToBoxPromptGenerator(nn.Module):
         processed_labels = []
         for label in labels:
             if label not in category_mapping:
-                label_to_append = max(
-                    category_mapping.keys(),
-                    key=lambda x: SequenceMatcher(None, x, label).ratio(),
-                )
-            else:
-                label_to_append = label
-            processed_labels.append(label_to_append)
+                label = max(category_mapping.keys(), key=lambda x: SequenceMatcher(None, x, label).ratio())
+            processed_labels.append(label)
         return processed_labels
 
     def forward(

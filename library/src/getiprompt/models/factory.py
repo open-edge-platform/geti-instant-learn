@@ -6,6 +6,7 @@
 import logging
 from argparse import Namespace
 
+from getiprompt.components.prompt_generators import GroundingModel
 from getiprompt.utils.constants import ModelName, SAMModelName
 
 # Lazy import to avoid circular dependencies during module import time.
@@ -75,7 +76,7 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
         case ModelName.GROUNDED_SAM:
             return GroundedSAM(
                 sam=sam,
-                grounding_model=args.grounding_model,
+                grounding_model=GroundingModel(args.grounding_model),
                 box_threshold=args.box_threshold,
                 text_threshold=args.text_threshold,
                 precision=args.precision,
