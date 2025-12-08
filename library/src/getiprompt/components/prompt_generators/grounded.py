@@ -3,9 +3,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 from collections import defaultdict
-from dataclasses import dataclass
 from difflib import SequenceMatcher
-from enum import Enum
 
 import torch
 from torch import nn
@@ -15,42 +13,28 @@ from transformers import AutoModelForZeroShotObjectDetection, AutoProcessor
 from getiprompt.utils.optimization import optimize_model
 from getiprompt.utils.utils import precision_to_torch_dtype
 
-
-@dataclass(frozen=True)
-class ModelConfig:
-    """Configuration for a HuggingFace model.
-
-    Attributes:
-        model_id: HuggingFace model identifier
-        revision: Specific revision (commit SHA, tag, or branch) to pin
-    """
-    model_id: str
-    revision: str | None = None
-
-
-class GroundingModel(Enum):
-    """The model to use for the grounding."""
-
-    GROUNDING_DINO_BASE = ModelConfig(
-        model_id="IDEA-Research/grounding-dino-base",
-        revision="12bdfa3120f3e7ec7b434d90674b3396eccf88eb",
-    )
-    GROUNDING_DINO_TINY = ModelConfig(
-        model_id="IDEA-Research/grounding-dino-tiny",
-        revision="a2bb814dd30d776dcf7e30523b00659f4f141c71",
-    )
-    LLMDET_TINY = ModelConfig(
-        model_id="fushh7/llmdet_swin_tiny_hf",
-        revision="6719e6ec2b2f7f0f3fed035fdca7b1856a1107c9",
-    )
-    LLMDET_BASE = ModelConfig(
-        model_id="fushh7/llmdet_swin_base_hf",
-        revision="a5dee636e9654c9c555b53092d8449cc82f48947",
-    )
-    LLMDET_LARGE = ModelConfig(
-        model_id="fushh7/llmdet_swin_large_hf",
-        revision="d3523d16b1620552e5f386fbc851ea311e9b2bab",
-    )
+AVAILABLE_GROUNDING_MODELS = {
+    "grounding_dino_base": (
+        "IDEA-Research/grounding-dino-base",
+        "12bdfa3120f3e7ec7b434d90674b3396eccf88eb",
+    ),
+    "grounding_dino_tiny": (
+        "IDEA-Research/grounding-dino-tiny",
+        "a2bb814dd30d776dcf7e30523b00659f4f141c71",
+    ),
+    "llmdet_tiny": (
+        "fushh7/llmdet_swin_tiny_hf",
+        "6719e6ec2b2f7f0f3fed035fdca7b1856a1107c9",
+    ),
+    "llmdet_base": (
+        "fushh7/llmdet_swin_base_hf",
+        "a5dee636e9654c9c555b53092d8449cc82f48947",
+    ),
+    "llmdet_large": (
+        "fushh7/llmdet_swin_large_hf",
+        "d3523d16b1620552e5f386fbc851ea311e9b2bab",
+    ),
+}
 
 
 class TextToBoxPromptGenerator(nn.Module):
@@ -68,7 +52,7 @@ class TextToBoxPromptGenerator(nn.Module):
         box_threshold: float,
         text_threshold: float,
         template: str,
-        model_id: GroundingModel = GroundingModel.LLMDET_TINY,
+        model_id: str = "llmdet_tiny",
         device: str = "cuda",
         precision: str = "bf16",
         compile_models: bool = False,
@@ -85,13 +69,24 @@ class TextToBoxPromptGenerator(nn.Module):
             device: The device to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
+
+        Raises:
+            ValueError: If the model ID is invalid.
+
         """
         super().__init__()
-        config = model_id.value
-        self.model_id = config.model_id
+
+        if model_id not in AVAILABLE_GROUNDING_MODELS:
+            valid_ids = list(AVAILABLE_GROUNDING_MODELS.keys())
+            msg = f"Invalid model ID: {model_id}. Valid model IDs: {valid_ids}"
+            raise ValueError(msg)
+
+        hf_model_id, revision = AVAILABLE_GROUNDING_MODELS[model_id]
+        self.model_id = hf_model_id
         self.device = device
         self.model, self.processor = self._load_grounding_model_and_processor(
-            config,
+            hf_model_id,
+            revision,
             precision,
             device,
             compile_models,
@@ -102,7 +97,8 @@ class TextToBoxPromptGenerator(nn.Module):
 
     @staticmethod
     def _load_grounding_model_and_processor(
-        config: ModelConfig,
+        model_id: str,
+        revision: str,
         precision: str,
         device: str,
         compile_models: bool,
@@ -110,25 +106,26 @@ class TextToBoxPromptGenerator(nn.Module):
         """Load the grounding model and processor.
 
         Args:
-            config: Model configuration with ID and optional revision
+            model_id: The model id to load.
+            revision: Specific revision (commit SHA, tag, or branch) to pin
             precision: The precision to use for the model.
             device: The device to use for the model.
             compile_models: Whether to compile the models.
         """
-        processor = AutoProcessor.from_pretrained(config.model_id, revision=config.revision)
-        if config.model_id.startswith("fushh7/llmdet_swin"):
+        processor = AutoProcessor.from_pretrained(model_id, revision=revision)
+        if model_id.startswith("fushh7/llmdet_swin"):
             # LLMDET has a slightly different interface, use lazy import for efficiency
             from getiprompt.models.foundation import GroundingDinoForObjectDetection  # noqa: PLC0415
 
             model = GroundingDinoForObjectDetection.from_pretrained(
-                config.model_id,
-                revision=config.revision,
+                model_id,
+                revision=revision,
                 torch_dtype=precision_to_torch_dtype(precision),
             )
         else:
             model = AutoModelForZeroShotObjectDetection.from_pretrained(
-                config.model_id,
-                revision=config.revision,
+                model_id,
+                revision=revision,
                 torch_dtype=precision_to_torch_dtype(precision),
             )
         model = optimize_model(

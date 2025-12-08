@@ -7,7 +7,7 @@ import torch
 
 from getiprompt.components import SamDecoder
 from getiprompt.components.filters import BoxPromptFilter
-from getiprompt.components.prompt_generators import GroundingModel, TextToBoxPromptGenerator
+from getiprompt.components.prompt_generators import TextToBoxPromptGenerator
 from getiprompt.data.base.batch import Batch
 from getiprompt.utils.constants import SAMModelName
 
@@ -21,7 +21,7 @@ class GroundedSAM(Model):
     def __init__(
         self,
         sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
-        grounding_model: GroundingModel = GroundingModel.LLMDET_TINY,
+        grounding_model: str = "llmdet_tiny",
         precision: str = "bf16",
         compile_models: bool = False,
         box_threshold: float = 0.4,
