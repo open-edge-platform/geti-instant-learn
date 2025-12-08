@@ -89,6 +89,9 @@ class LinearSumAssignment(nn.Module):
 
     def _scipy(self, cost_matrix: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Use scipy for optimal, fast solution (not exportable)."""
+        # torch.Tensor only supports float32 on CPU
+        if cost_matrix.dtype != torch.float32:
+            cost_matrix = cost_matrix.float()
         cost_np = cost_matrix.detach().cpu().numpy()
         row_ind, col_ind = scipy_linear_sum_assignment(cost_np, maximize=self.maximize)
         return (
