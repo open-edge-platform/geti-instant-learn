@@ -190,7 +190,7 @@ RUN set -e; \
     echo "Removing non-redistributable CUDA components per NVIDIA EULA..."; \
     \
     # Remove development tools (non-redistributable)
-    find /usr /opt ${WORKDIR_PATH} -type f \( \
+    find /usr /opt ${PYTHONPATH}/backend/.venv -type f \( \
         -name "nvcc" -o \
         -name "cuda-gdb" -o \
         -name "nvprof" -o \
@@ -202,16 +202,16 @@ RUN set -e; \
     \) -delete 2>/dev/null || true; \
     \
     # Remove static libraries (typically non-redistributable)
-    find /usr /opt ${WORKDIR_PATH} -name "*.a" -path "*cuda*" -delete 2>/dev/null || true; \
+    find /usr /opt ${PYTHONPATH}/backend/.venv -name "*.a" -path "*cuda*" -delete 2>/dev/null || true; \
     \
     # Remove headers and include directories (non-redistributable)
-    find /usr /opt ${WORKDIR_PATH} -type d \( \
+    find /usr /opt ${PYTHONPATH}/backend/.venv -type d \( \
         -name "include" -o \
         -name "headers" \
     \) -path "*cuda*" -exec rm -rf {} + 2>/dev/null || true; \
     \
     # Remove documentation and samples (non-redistributable)
-    find /usr /opt ${WORKDIR_PATH} -type d \( \
+    find /usr /opt ${PYTHONPATH}/backend/.venv -type d \( \
         -name "doc" -o \
         -name "docs" -o \
         -name "documentation" -o \
@@ -220,7 +220,7 @@ RUN set -e; \
     \) -path "*cuda*" -exec rm -rf {} + 2>/dev/null || true; \
     \
     # Remove compiler-related directories
-    find /usr /opt ${WORKDIR_PATH} -type d -name "*nvcc*" -exec rm -rf {} + 2>/dev/null || true; \
+    find /usr /opt ${PYTHONPATH}/backend/.venv -type d -name "*nvcc*" -exec rm -rf {} + 2>/dev/null || true; \
     \
     # Clean up package manager traces
     apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -229,7 +229,7 @@ RUN set -e; \
 ######################
 # Server (GPU version)
 ######################
-FROM cleanup-gpu AS geti-prompt-gpu
+FROM cleanup-gpu AS gpu
 
 USER ${USER_NAME}
 
