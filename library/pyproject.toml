@@ -69,9 +69,12 @@ xpu = [
     "torchvision==0.25.0.dev20251203+xpu",
     "pytorch-triton-xpu==3.5.0+gitaa01f5c2",
 ]
-extras = [
-    "xformers==0.0.32.post2",
-]
+# FIXME: 8/12/2025: there is no xformers version compatible with torch==2.10.0
+# and lock file regeneration failed, 
+# exclude it temporary as this library is not used in the application
+# extras = [
+#    "xformers==0.0.32.post2",
+# ]
 notebook = [
     "jupyter==1.1.1",
     "ipykernel==6.30.1",
