@@ -149,8 +149,8 @@ export const CreateLabel = ({ onSuccess, existingLabels, ref, previewShapes }: C
                     return;
                 }
 
-                setCreateLabelFormPosition({ x: event.clientX, y: event.clientY });
                 ref.current.style.pointerEvents = 'none';
+                setCreateLabelFormPosition({ x: event.clientX, y: event.clientY });
             },
             {
                 signal: abortController.signal,
@@ -167,10 +167,6 @@ export const CreateLabel = ({ onSuccess, existingLabels, ref, previewShapes }: C
     return (
         <Overlay isOpen nodeRef={nodeRef}>
             <div
-                onPointerDown={(event) => {
-                    event.stopPropagation();
-                }}
-                onPointerMove={(event) => event.stopPropagation()}
                 style={{
                     position: 'absolute',
                     left: createLabelFormPosition?.x,
