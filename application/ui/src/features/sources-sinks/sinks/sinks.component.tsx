@@ -27,7 +27,7 @@ const SinksList = ({ onViewChange, sinks }: SinksListProps) => {
             label: 'MQTT',
             icon: <MQTT width={'24px'} />,
             value: 'mqtt',
-            content: <CreateMQTTSink onSaved={() => onViewChange('list')} />,
+            content: <CreateMQTTSink onSaved={() => onViewChange('existing')} />,
         },
     ] satisfies { label: string; icon: ReactNode; value: SinkType; content: ReactNode }[];
 
