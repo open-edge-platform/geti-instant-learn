@@ -75,7 +75,7 @@ export const FramesList = ({
     useScrollToActiveFrame(ref, activeFrameIndex);
 
     return (
-        <View height={'100%'} padding={'size-200'} backgroundColor={'gray-100'}>
+        <View height={'100%'} padding={'size-200'}>
             <Virtualizer<HorizontalLayoutOptions> layout={HorizontalLayout} layoutOptions={LAYOUT_OPTIONS}>
                 <AriaComponentsListBox
                     orientation={'horizontal'}
@@ -86,7 +86,7 @@ export const FramesList = ({
                     {framesList.map((frame) => {
                         return (
                             <ListBoxItem
-                                key={frame.index}
+                                key={`${frame.index}-${frame.thumbnail}`}
                                 className={styles.frameItem}
                                 aria-label={`Frame #${frame.index}`}
                                 data-isselected={frame.index === activeFrameIndex}
