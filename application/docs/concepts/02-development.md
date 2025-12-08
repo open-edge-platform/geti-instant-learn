@@ -23,24 +23,24 @@ The layered architecture simplifies testing by providing clear boundaries for mo
 
 ## WebRTC Networking
 
-Geti Prompt uses WebRTC for low-latency video streaming. The backend handles all ICE candidate gathering, so client configuration is minimal.
+Geti Prompt uses WebRTC for real-time video streaming between the browser (UI) and the backend. For WebRTC to work, the browser needs to know how to reach the backend's media server.
 
-### How It Works
+### The Problem
 
-1. The backend gathers ICE candidates using configured STUN/TURN servers or an advertised IP.
-2. Candidates are sent to the client in the SDP Answer.
-3. The client connects using the provided candidates—no additional setup required.
+The backend runs inside Docker or behind network infrastructure (NAT, load balancers, firewalls). The browser cannot directly connect to internal IPs like `172.17.0.2` or `10.0.0.5`. We need to tell the browser which address to use.
 
-### Network Topologies
+### The Solution
 
-| Topology | Use Case | Method |
-|----------|----------|--------|
-| [Local](#local-network) | Development on localhost or LAN | Advertised IP |
-| [Cloud (STUN)](#cloud-with-stun) | Dynamic public IPs | STUN server |
-| [Cloud (Static IP)](#cloud-with-static-ip) | Load balancers, static IPs | Advertised IP |
-| [Restrictive Firewall](#restrictive-firewall-turn) | UDP blocked | TURN relay |
+Configure the backend to advertise a reachable address. Choose the method based on your deployment:
 
-> **Note:** These options are mutually exclusive. Use only one configuration method at a time.
+| Scenario | Problem | Solution |
+|----------|---------|----------|
+| [Local development](#local-network) | Docker container has internal IP | Tell backend to advertise `127.0.0.1` or LAN IP |
+| [Cloud (public IP unknown)](#cloud-with-auto-discovery) | Server IP changes dynamically | Backend discovers its public IP via STUN |
+| [Cloud (public IP known)](#cloud-with-manual-ip) | Behind load balancer or have static IP/DNS | Tell backend to advertise the public IP or DNS |
+| [Restrictive network](#restrictive-firewall-turn) | Firewall blocks UDP traffic | Relay all traffic through TURN server on TCP 443 |
+
+> **Note:** Use only one configuration method at a time.
 
 ---
 
@@ -48,10 +48,10 @@ Geti Prompt uses WebRTC for low-latency video streaming. The backend handles all
 
 ### Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `WEBRTC_ADVERTISE_IP` | IP address to advertise to clients |
-| `ICE_SERVERS` | JSON array of STUN/TURN server configurations |
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `WEBRTC_ADVERTISE_IP` | IP or DNS name to advertise to clients | `203.0.113.10`, `media.example.com` |
+| `ICE_SERVERS` | JSON array of STUN/TURN server configs | `[{"urls": "stun:stun.l.google.com:19302"}]` |
 
 ### Port Requirements
 
@@ -62,19 +62,20 @@ Cloud deployments require UDP ports for WebRTC media traffic:
 | `9100` | TCP | HTTP API |
 | `50000-51000` | UDP | WebRTC media |
 
+We constrain the UDP port range by setting `net.ipv4.ip_local_port_range` in the container's Linux network namespace. This limits ephemeral ports to `50000-51000`, making firewall rules predictable.
+
 ---
 
 ## Deployment Examples
 
 ### Local Network
 
-For development on localhost or within a LAN. Docker runs in an isolated network, so you must advertise the host IP.
+**Problem:** Docker gives the backend an internal IP (e.g., `172.17.0.2`) that the browser cannot reach.
 
-<details>
-<summary><strong>Localhost</strong></summary>
+**Solution:** Tell the backend to advertise your host machine's IP instead.
 
 ```bash
-# Using just
+# Using just (use 127.0.0.1 for localhost, or your LAN IP for other devices)
 just webrtc-advertise-ip="127.0.0.1" run-image
 
 # Using Docker
@@ -84,27 +85,11 @@ docker run --rm \
     <image_name>
 ```
 
-</details>
+### Cloud with Auto-discovery
 
-<details>
-<summary><strong>LAN (other devices)</strong></summary>
+**Problem:** Your server's public IP may change (auto-scaling, ephemeral instances), so you can't hardcode it.
 
-```bash
-# Using just (replace with your LAN IP)
-just webrtc-advertise-ip="192.168.1.50" run-image
-
-# Using Docker
-docker run --rm \
-    -p 9100:9100 \
-    -e WEBRTC_ADVERTISE_IP="192.168.1.50" \
-    <image_name>
-```
-
-</details>
-
-### Cloud with STUN
-
-For dynamic public IPs. The backend discovers its IP via a public STUN server.
+**Solution:** The backend queries a public STUN server to discover its own public IP automatically. A STUN server simply tells the backend "your public IP is X.X.X.X" — it doesn't relay any traffic.
 
 ```bash
 # Using just
@@ -119,9 +104,11 @@ docker run --rm \
     <image_name>
 ```
 
-### Cloud with Static IP
+### Cloud with Manual IP
 
-For load balancers or static public IPs.
+**Problem:** The backend is behind a load balancer, reverse proxy, or has a static IP/DNS. STUN won't help because it would return the private IP.
+
+**Solution:** Manually configure the public IP or DNS name that clients should use.
 
 ```bash
 # Using just
@@ -138,7 +125,9 @@ docker run --rm \
 
 ### Restrictive Firewall (TURN)
 
-For networks blocking UDP. Traffic relays through a TURN server on TCP port 443.
+**Problem:** Corporate firewalls block UDP traffic or non-standard ports. WebRTC media cannot get through.
+
+**Solution:** Route all traffic through a TURN relay server on TCP port 443 (usually allowed).
 
 **Step 1: Start the TURN server**
 
