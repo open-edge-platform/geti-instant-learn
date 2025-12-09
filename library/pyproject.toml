@@ -83,7 +83,7 @@ dev = [
 ]
 
 full = [
-    "getiprompt[dev, extras, notebook]",
+    "getiprompt[dev, notebook]",
 ]
 
 [project.scripts]
