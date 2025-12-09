@@ -149,8 +149,8 @@ export const CreateLabel = ({ onSuccess, existingLabels, ref, previewShapes }: C
                     return;
                 }
 
-                ref.current.style.pointerEvents = 'none';
                 setCreateLabelFormPosition({ x: event.clientX, y: event.clientY });
+                ref.current.style.pointerEvents = 'none';
             },
             {
                 signal: abortController.signal,
