@@ -58,9 +58,14 @@ export default defineConfig({
                 "default-src 'self'; " +
                 "script-src 'self' 'unsafe-eval' blob:; " +
                 "worker-src 'self' blob:; " +
-                "connect-src 'self' http://localhost:9100 data:; " +
-                "img-src 'self' http://localhost:9100 data: blob:; " +
+                "connect-src 'self' data:; " +
+                "img-src 'self' data: blob:; " +
                 "style-src 'self' 'unsafe-inline';",
+        },
+        proxy: {
+            context: ['/api'],
+            changeOrigin: true,
+            target: publicVars['import.meta.env.PUBLIC_API_URL'] ?? 'http://localhost:9100',
         },
     },
 });
