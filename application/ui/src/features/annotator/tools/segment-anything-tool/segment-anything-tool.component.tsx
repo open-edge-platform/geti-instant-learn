@@ -34,7 +34,11 @@ import classes from './segment-anything.module.scss';
 const THROTTLE_TIME = 150;
 
 const isCanvasInteractive = (ref: RefObject<SVGSVGElement | null>): boolean => {
-    return ref.current?.style.pointerEvents === 'auto';
+    if (ref.current === null) {
+        return false;
+    }
+
+    return ref.current.style.pointerEvents !== 'none';
 };
 
 export const SegmentAnythingTool = () => {
