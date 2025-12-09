@@ -25,7 +25,7 @@ The layered architecture simplifies testing by providing clear boundaries for mo
 
 Geti Prompt uses WebRTC for real-time video streaming between the browser (UI) and the backend. For WebRTC to work, the browser needs to know how to reach the backend's media server.
 
-### The Problem
+### The Challenge
 
 The backend runs inside Docker or behind network infrastructure (NAT, load balancers, firewalls). The browser cannot directly connect to internal IPs like `172.17.0.2` or `10.0.0.5`. We need to tell the browser which address to use.
 
@@ -33,8 +33,8 @@ The backend runs inside Docker or behind network infrastructure (NAT, load balan
 
 Configure the backend to advertise a reachable address. Choose the method based on your deployment:
 
-| Scenario | Problem | Solution |
-|----------|---------|----------|
+| Scenario | Challenge | Solution |
+|----------|-----------|----------|
 | [Local development](#local-network) | Docker container has internal IP | Tell backend to advertise `127.0.0.1` or LAN IP |
 | [Cloud (public IP unknown)](#cloud-with-auto-discovery) | Server IP changes dynamically | Backend discovers its public IP via STUN |
 | [Cloud (public IP known)](#cloud-with-manual-ip) | Behind load balancer or have static IP/DNS | Tell backend to advertise the public IP or DNS |
@@ -70,7 +70,7 @@ We constrain the UDP port range by setting `net.ipv4.ip_local_port_range` in the
 
 ### Local Network
 
-**Problem:** Docker gives the backend an internal IP (e.g., `172.17.0.2`) that the browser cannot reach.
+**Scenario:** Docker gives the backend an internal IP (e.g., `172.17.0.2`) that the browser cannot reach.
 
 **Solution:** Tell the backend to advertise your host machine's IP instead.
 
@@ -87,7 +87,7 @@ docker run --rm \
 
 ### Cloud with Auto-discovery
 
-**Problem:** Your server's public IP may change (auto-scaling, ephemeral instances), so you can't hardcode it.
+**Scenario:** Your server's public IP may change (auto-scaling, ephemeral instances), so you can't hardcode it.
 
 **Solution:** The backend queries a public STUN server to discover its own public IP automatically. A STUN server simply tells the backend "your public IP is X.X.X.X" — it doesn't relay any traffic. Configure via `ICE_SERVERS` environment variable.
 
@@ -106,7 +106,7 @@ docker run --rm \
 
 ### Cloud with Manual IP
 
-**Problem:** The backend is behind a load balancer, reverse proxy, or has a static IP/DNS. STUN won't help because it would return the private IP.
+**Scenario:** The backend is behind a load balancer, reverse proxy, or has a static IP/DNS. STUN won't help because it would return the private IP.
 
 **Solution:** Manually configure the public IP or DNS name that clients should use.
 
@@ -125,7 +125,7 @@ docker run --rm \
 
 ### Restrictive Firewall (TURN)
 
-**Problem:** Corporate firewalls block UDP traffic or non-standard ports. WebRTC media cannot get through.
+**Scenario:** Corporate firewalls block UDP traffic or non-standard ports. WebRTC media cannot get through.
 
 **Solution:** Route all traffic through a TURN relay server on TCP port 443 (usually allowed). A TURN server forwards all media between browser and backend — use it only when direct connections fail.
 
