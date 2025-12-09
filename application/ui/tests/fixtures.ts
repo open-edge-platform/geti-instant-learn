@@ -145,6 +145,16 @@ const test = testBase.extend<Fixtures>({
             }),
         ],
     }),
+    /*page: async ({ page }, use) => {
+        await page.route('**!/api/!**', async (route) => {
+            const url = new URL(route.request().url());
+            url.host = 'http://localhost:9100';
+
+            await route.continue({ url: url.toString() });
+        });
+
+        await use(page);
+    },*/
     streamPage: async ({ page }, use) => {
         const streamPage = new StreamPage(page);
         await use(streamPage);

@@ -8,8 +8,17 @@ import createClient from 'openapi-react-query';
 
 import type { paths } from './openapi-spec';
 
+const getBaseURL = () => {
+    if (import.meta.env?.VITEST) {
+        // or if playwright CI
+        return 'http://localhost:9100';
+    }
+
+    return '/';
+};
+
 export const client = createFetchClient<paths>({
-    baseUrl: import.meta.env.PUBLIC_API_URL ?? 'http://localhost:9100',
+    baseUrl: getBaseURL(),
     fetch: (options) => fetch(options),
 });
 

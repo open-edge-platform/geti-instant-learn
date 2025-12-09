@@ -35,6 +35,10 @@ export default defineConfig({
         timezoneId: 'UTC',
         actionTimeout: CI ? 10000 : 5000,
         navigationTimeout: CI ? 10000 : 5000,
+        /*  proxy: {
+            server: 'http://localhost:9100',
+            bypass: 'http://localhost:3000',
+        },*/
     },
 
     /* Configure projects for major browsers */
