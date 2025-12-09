@@ -21,20 +21,10 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
 
-      - name: Initial cleanup
-        uses: ./.github/actions/cleanup-runner
-        with:
-          type: "initial"
-
       - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq
-
-      - name: Install Just
-        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3.0.0
+        uses: ./.github/actions/install-dependencies
         with:
-          just-version: '1.43.1'
+          cleanup-runner: 'true'
 
       - name: Build docker image
         working-directory: application

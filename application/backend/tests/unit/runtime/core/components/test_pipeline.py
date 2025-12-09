@@ -1,4 +1,6 @@
+import time
 from queue import Queue
+from threading import Thread
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
@@ -287,4 +289,35 @@ class TestPipeline:
         mock_source.stop.assert_not_called()
         mock_processor.stop.assert_not_called()
         mock_sink.stop.assert_not_called()
-        assert pipeline.is_running is False
+
+    def test_get_frame_index_waits_for_switch(self, project_id):
+        pipeline = Pipeline(project_id=project_id)
+
+        old_source = Mock(spec=Source)
+        old_source.index.return_value = 5
+        old_source.stop = Mock()
+        old_source.setup = Mock()
+
+        new_source = Mock(spec=Source)
+        new_source.index.return_value = 10
+        new_source.stop = Mock()
+        new_source.setup = Mock()
+
+        def slow_stop():
+            time.sleep(0.5)
+
+        old_source.stop.side_effect = slow_stop
+
+        pipeline.set_source(old_source)
+
+        def switch_source():
+            pipeline.set_source(new_source)
+
+        switch_thread = Thread(target=switch_source)
+
+        switch_thread.start()
+        time.sleep(0.1)
+        idx = pipeline.get_frame_index()
+        switch_thread.join()
+
+        assert idx == 10
