@@ -22,6 +22,7 @@ class Source(PipelineComponent):
         super().__init__()
         self._reader = stream_reader
         self._initialized = False
+        self._inbound_broadcaster: FrameBroadcaster[InputData] | None = None
 
     def setup(self, inbound_broadcaster: FrameBroadcaster[InputData]) -> None:
         self._inbound_broadcaster = inbound_broadcaster
@@ -46,7 +47,15 @@ class Source(PipelineComponent):
                 except Exception as e:
                     logger.error(f"Error reading from stream: {e}.")
                     time.sleep(0.1)
-        logger.debug("Stopping the source loop")
+        # logger.debug("Stopping the source loop")
+        logger.info(f"Stopping the source {self._reader.__class__.__name__} loop")
+
+    def _stop(self) -> None:
+        """Clean up resources when component is stopped."""
+        try:
+            self._reader.close()
+        except Exception as e:
+            logger.error(f"Error closing reader: {e}")
 
     def seek(self, index: int) -> None:
         """

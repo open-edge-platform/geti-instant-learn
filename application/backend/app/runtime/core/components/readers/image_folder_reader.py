@@ -209,3 +209,4 @@ class ImageFolderReader(StreamReader):
         self._current_index = 0
         self._last_image = None
         self._last_image_path = None
+        self._thumbnail_cache.clear()
