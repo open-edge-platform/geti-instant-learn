@@ -1,6 +1,12 @@
 #!/usr/bin/env just --justfile
 
 # -------------------------------------------------------------------------------------------------
+# Settings
+# -------------------------------------------------------------------------------------------------
+# Use bash as the shell for evaluating backtick expressions
+set shell := ["bash", "-cu"]
+
+# -------------------------------------------------------------------------------------------------
 # Runtime variables
 # -------------------------------------------------------------------------------------------------
 
@@ -18,7 +24,7 @@ enable-coturn := "false"
 ai-device := "cpu"  # options: cpu, gpu, xpu
 component-name := "geti-prompt"
 images-registry := 'localhost:5000/open-edge-platform'
-version := `cat $(git rev-parse --show-toplevel 2>/dev/null)/VERSION`
+version := `cat ${PWD%/application*}/VERSION`
 docker-image := images-registry / component-name / ai-device + ":" + version
 
 # -------------------------------------------------------------------------------------------------
@@ -32,8 +38,8 @@ db-data-dir := "/geti_prompt/data"
 coffee-berries-dataset := "https://storage.geti.intel.com/geti-prompt/Frames.zip"
 
 # Dataset paths
-application-dir := justfile_directory()
-source-dataset-dir := ".data/templates/datasets/coffee-berries"
+application-dir := `echo ${PWD%/backend*}`
+source-dataset-dir := "backend/.data/templates/datasets/coffee-berries"
 target-dataset-dir := "/geti_prompt/data/templates/datasets/coffee-berries"
 
 # Coturn settings

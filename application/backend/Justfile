@@ -1,8 +1,6 @@
 #!/usr/bin/env just --justfile
 import "../Justfile"
 
-set shell := ["bash", "-cu"]
-
 py_path := "tests:app"
 # Ensure version in GHA workflow matches uv version here
 uv_version := "0.9.7"
