@@ -79,8 +79,6 @@ export const SegmentAnythingTool = () => {
                 const newShapes = shapes.map((shape) => removeOffLimitPoints(shape, roi));
                 setPreviewShapes(newShapes);
 
-                console.log('useEffect pointer events: ', svgRef.current?.style.pointerEvents, { newShapes });
-
                 throttleSetMousePosition.flush();
             })
             .catch(() => {
@@ -150,13 +148,10 @@ export const SegmentAnythingTool = () => {
                 onPointerMove={handleMouseMove}
                 onPointerDown={handlePointerDown}
                 onPointerLeave={() => {
-                    console.log('onPointerLeave before check', svgRef.current?.style.pointerEvents);
-
                     if (!isCanvasInteractive(svgRef)) {
                         return;
                     }
 
-                    console.log('onPointerLeave', svgRef.current?.style.pointerEvents);
                     throttleSetMousePosition.cancel();
                     setMousePosition(undefined);
                     setPreviewShapes([]);
