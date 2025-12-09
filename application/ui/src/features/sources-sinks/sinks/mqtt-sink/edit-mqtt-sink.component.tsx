@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { FormEvent, useRef } from 'react';
+import { FormEvent, useRef, useState } from 'react';
 
 import { MQTTSinkType } from '@geti-prompt/api';
 import { Button, ButtonGroup, Form } from '@geti/ui';
+import { isEqual } from 'lodash-es';
 
 import { useUpdateSink } from '../api/use-update-sink';
 import { MQTTSinkFields } from './mqtt-sink-fields.component';
@@ -19,24 +20,18 @@ interface EditMQTTSinkProps {
 export const EditMQTTSink = ({ sink, onSaved }: EditMQTTSinkProps) => {
     const updateSinkMutation = useUpdateSink();
     const activeRef = useRef(sink.active);
+    const [sinkConfig, setSinkConfig] = useState<MQTTSinkType['config']>(sink.config);
+
+    const isSaveDisabled = updateSinkMutation.isPending || isEqual(sinkConfig, sink.config);
 
     const editSink = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-
-        const formData = Object.fromEntries(new FormData(event.currentTarget));
 
         updateSinkMutation.mutate(
             {
                 sinkId: sink.id,
                 body: {
-                    config: {
-                        sink_type: 'mqtt',
-                        name: formData.name.toString(),
-                        broker_port: Number(formData.broker_port),
-                        broker_host: formData.broker_host.toString(),
-                        topic: formData.topic.toString(),
-                        auth_required: formData.auth_required.toString() === 'on',
-                    },
+                    config: sinkConfig,
                     active: activeRef.current,
                 },
             },
@@ -46,13 +41,14 @@ export const EditMQTTSink = ({ sink, onSaved }: EditMQTTSinkProps) => {
 
     return (
         <Form validationBehavior={'native'} onSubmit={editSink}>
-            <MQTTSinkFields />
+            <MQTTSinkFields sinkConfig={sinkConfig} onSetSinkConfig={setSinkConfig} />
 
             <ButtonGroup>
                 <Button
                     type={'submit'}
                     onPress={() => (activeRef.current = sink.active)}
                     isPending={updateSinkMutation.isPending}
+                    isDisabled={isSaveDisabled}
                 >
                     Save
                 </Button>
@@ -61,6 +57,7 @@ export const EditMQTTSink = ({ sink, onSaved }: EditMQTTSinkProps) => {
                         type={'submit'}
                         onPress={() => (activeRef.current = true)}
                         isPending={updateSinkMutation.isPending}
+                        isDisabled={isSaveDisabled}
                     >
                         Save & Connect
                     </Button>
