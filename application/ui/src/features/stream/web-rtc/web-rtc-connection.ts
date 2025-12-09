@@ -114,8 +114,8 @@ export class WebRTCConnection {
             };
 
             // Only set default ICE server config if browser is Firefox and no custom servers provided
-            if (isFirefox() && config.iceServers !== undefined) {
-                config.iceServers.push({ urls: 'stun:stun.l.google.com:19302' });
+            if (isFirefox() && iceServers.length === 0) {
+                config.iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
             }
 
             this.peerConnection = new RTCPeerConnection(config);
