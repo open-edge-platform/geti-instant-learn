@@ -153,7 +153,7 @@ test-image:
     echo "Testing docker image for component: {{ component-name }} with ai-device: {{ ai-device }}"
 
     # Start the container in detached mode
-    CONTAINER_ID=$(docker run -d --rm \
+    CONTAINER_ID=$(docker run -d \
         --publish {{ host-port }}:{{ container-port }} \
         --env PORT={{ container-port }} \
         --env HOST={{ host }} \
