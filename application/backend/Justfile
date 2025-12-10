@@ -1,8 +1,6 @@
 #!/usr/bin/env just --justfile
 import "../Justfile"
 
-set shell := ["bash", "-cu"]
-
 py_path := "tests:app"
 # Ensure version in GHA workflow matches uv version here
 uv_version := "0.9.7"
@@ -24,7 +22,7 @@ gen-openapi-md: gen-openapi
 dev: _venv download-dataset
     {{ if enable-coturn == "true" { "ICE_SERVERS='" + coturn-ice-servers + "'" } else if enable-stun == "true" { "ICE_SERVERS='" + stun-ice-servers + "'" } else { "" } }} \
     {{ if webrtc-advertise-ip != "" { "WEBRTC_ADVERTISE_IP='" + webrtc-advertise-ip + "'" } else { "" } }} \
-    PYTHONPATH=app uv run uvicorn main:app --reload --host localhost --port 9100
+    PYTHONPATH=app uv run uvicorn main:app --reload --host {{ host }} --port {{ container-port }}
 
 
 _pre-venv:
