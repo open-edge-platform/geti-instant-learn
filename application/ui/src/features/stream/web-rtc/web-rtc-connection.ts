@@ -80,16 +80,18 @@ export class WebRTCConnection {
 
     private async fetchIceServers(): Promise<RTCIceServer[]> {
         try {
-            const baseUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:9100';
-            const response = await fetch(`${baseUrl}/api/v1/webrtc/config`);
+            const response = await client.GET('/api/v1/webrtc/config');
 
-            if (!response.ok) {
+            if (response.error !== undefined) {
                 console.warn('Failed to fetch WebRTC config, using defaults');
                 return [];
             }
 
-            const data = await response.json();
-            return data.iceServers ?? [];
+            return response.data.iceServers.map((iceServer) => ({
+                urls: iceServer.urls,
+                credential: iceServer.credential ?? undefined,
+                username: iceServer.username ?? undefined,
+            }));
         } catch (error) {
             console.warn('Error fetching WebRTC config:', error);
             return [];
