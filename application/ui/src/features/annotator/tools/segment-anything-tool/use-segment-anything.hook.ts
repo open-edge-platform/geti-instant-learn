@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { EncodingOutput, SegmentAnythingModel } from '@geti/smart-tools/segment-anything';
 import { useQuery } from '@tanstack/react-query';
