@@ -238,11 +238,13 @@ jobs:
       - name: Build UI
         working-directory: "application/ui"
         env:
-          PUBLIC_API_URL: "http://localhost:9100"
+          PUBLIC_API_URL: "http://localhost:3000"
         run: npm run build
 
       - name: Run Playwright tests
         working-directory: "application/ui"
+        env:
+          PUBLIC_API_URL: "http://localhost:3000"
         run: npm run test:component -- --project "Component tests"
 
       - name: Upload blob report to GitHub Actions Artifacts
