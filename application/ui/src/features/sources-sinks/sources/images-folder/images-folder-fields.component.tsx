@@ -34,6 +34,7 @@ export const ImagesFolderFields = ({ folderPath, onSetFolderPath }: ImagesFolder
             onChange={onSetFolderPath}
             width={'100%'}
             contextualHelp={<FolderPathDescription />}
+            isRequired
         />
     );
 };

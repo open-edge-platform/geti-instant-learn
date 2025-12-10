@@ -5,7 +5,7 @@
 
 import { FormEvent, useState } from 'react';
 
-import { Button } from '@geti/ui';
+import { Button, ButtonGroup, Flex, Form } from '@geti/ui';
 
 import { useCreateSource } from '../api/use-create-source';
 import { ImagesFolderFields } from './images-folder-fields.component';
@@ -35,18 +35,21 @@ export const CreateImagesFolder = ({ onSaved }: CreateImagesFolderProps) => {
     };
 
     return (
-        <form onSubmit={submit}>
-            <ImagesFolderFields folderPath={folderPath} onSetFolderPath={setFolderPath} />
+        <Form validationBehavior={'native'} onSubmit={submit}>
+            <Flex gap={'size-200'} direction={'column'} marginTop={0}>
+                <ImagesFolderFields folderPath={folderPath} onSetFolderPath={setFolderPath} />
 
-            <Button
-                type={'submit'}
-                variant={'accent'}
-                isDisabled={isApplyDisabled}
-                isPending={createImagesFolderSource.isPending}
-                marginTop={'size-200'}
-            >
-                Apply
-            </Button>
-        </form>
+                <ButtonGroup>
+                    <Button
+                        type={'submit'}
+                        variant={'accent'}
+                        isDisabled={isApplyDisabled}
+                        isPending={createImagesFolderSource.isPending}
+                    >
+                        Apply
+                    </Button>
+                </ButtonGroup>
+            </Flex>
+        </Form>
     );
 };
