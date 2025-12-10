@@ -40,41 +40,6 @@ jobs:
           name: openapi-spec
           path: application/backend/.build/openapi-spec.json
 
-  build:
-    name: Build UI
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read # to checkout code
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
-        id: setup-node
-        with:
-          node-version-file: application/ui/.nvmrc
-          cache: 'npm'
-          cache-dependency-path: application/ui/package-lock.json
-
-      - name: Install dependencies
-        working-directory: "application/ui"
-        run: npm ci
-
-      - name: Build UI
-        working-directory: "application/ui"
-        run: npm run build
-
-      - name: Compress build
-        working-directory: "application/ui"
-        run: tar -czf dist.tar.gz dist
-
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
-        with:
-          name: ui-dist
-          path: "application/ui/dist.tar.gz"
-
   lint:
     name: Lint checks
     runs-on: ubuntu-latest
@@ -235,7 +200,6 @@ jobs:
   playwright-tests:
     name: Playwright Tests
     needs:
-      - build
       - generate-openapi-spec
     permissions:
       contents: read # to checkout code
@@ -271,20 +235,11 @@ jobs:
         working-directory: "application/ui"
         run: npm run build:api:types
 
-      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
-        with:
-          name: ui-dist
-          path: "application/ui"
-
-      - name: Unpack build
+      - name: Build UI
         working-directory: "application/ui"
-        run: tar -xzf dist.tar.gz
-
-      - name: Download OpenAPI spec artifact
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
-        with:
-          name: openapi-spec
-          path: application/ui/src/api
+        env:
+          PUBLIC_API_URL: "http://localhost:9100"
+        run: npm run build
 
       - name: Run Playwright tests
         working-directory: "application/ui"
