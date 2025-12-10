@@ -28,10 +28,14 @@ jobs:
 
       - name: Build docker image
         working-directory: application
+        id: image-name
         env:
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just ai-device="${DEVICE}" docker-image="${DEVICE}:latest" docker-build-context="--no-cache" build-image
+          just ai-device="${DEVICE}" docker-build-context="--no-cache" build-image
+          IMAGE_NAME=$(just --evaluate ai-device="${DEVICE}" docker-image)
+          echo "image=${IMAGE_NAME}" >> $GITHUB_OUTPUT
+          echo "Image: ${IMAGE_NAME}"
 
       - name: Cleanup docker cache
         run: docker builder prune -f
@@ -39,7 +43,7 @@ jobs:
       - name: Scan ${{ matrix.ai-device }}
         shell: bash
         env:
-          TARGET: ${{ matrix.ai-device }}:latest
+          TARGET: ${{ steps.image-name.outputs.image }}
           DEVICE: ${{ matrix.ai-device }}
         run: |
           # install Syft
