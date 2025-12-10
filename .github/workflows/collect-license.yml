@@ -28,7 +28,7 @@ jobs:
         env:
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just ai-device="${DEVICE}" docker-image="geti-prompt:latest-${DEVICE}" docker-build-context="--no-cache" build-image
+          just ai-device="${DEVICE}" docker-build-context="--no-cache" build-image
 
       - name: Cleanup docker cache
         run: docker builder prune -f

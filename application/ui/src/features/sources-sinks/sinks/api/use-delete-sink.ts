@@ -22,5 +22,26 @@ const useDeleteSinkMutation = (projectId: string) => {
 export const useDeleteSink = () => {
     const { projectId } = useProjectIdentifier();
 
-    return useDeleteSinkMutation(projectId);
+    const deleteSinkMutation = useDeleteSinkMutation(projectId);
+
+    const deleteSink = (sinkId: string, onSuccess?: () => void) => {
+        deleteSinkMutation.mutate(
+            {
+                params: {
+                    path: {
+                        project_id: projectId,
+                        sink_id: sinkId,
+                    },
+                },
+            },
+            {
+                onSuccess,
+            }
+        );
+    };
+
+    return {
+        mutate: deleteSink,
+        isPending: deleteSinkMutation.isPending,
+    };
 };

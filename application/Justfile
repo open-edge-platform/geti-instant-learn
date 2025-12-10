@@ -1,6 +1,12 @@
 #!/usr/bin/env just --justfile
 
 # -------------------------------------------------------------------------------------------------
+# Settings
+# -------------------------------------------------------------------------------------------------
+# Use bash as the shell for evaluating backtick expressions
+set shell := ["bash", "-cu"]
+
+# -------------------------------------------------------------------------------------------------
 # Runtime variables
 # -------------------------------------------------------------------------------------------------
 
@@ -18,8 +24,6 @@ enable-coturn := "false"
 ai-device := "cpu"  # options: cpu, gpu, xpu
 component-name := "geti-prompt"
 images-registry := 'localhost:5000/open-edge-platform'
-version := `cat $(git rev-parse --show-toplevel 2>/dev/null)/VERSION`
-docker-image := images-registry / component-name / ai-device + ":" + version
 
 # -------------------------------------------------------------------------------------------------
 # Variables used in the Justfile to build in Docker image for Geti Prompt
@@ -32,8 +36,7 @@ db-data-dir := "/geti_prompt/data"
 coffee-berries-dataset := "https://storage.geti.intel.com/geti-prompt/Frames.zip"
 
 # Dataset paths
-application-dir := justfile_directory()
-source-dataset-dir := ".data/templates/datasets/coffee-berries"
+source-dataset-dir := "backend/.data/templates/datasets/coffee-berries"
 target-dataset-dir := "/geti_prompt/data/templates/datasets/coffee-berries"
 
 # Coturn settings
@@ -69,7 +72,8 @@ check-proxy:
 
 download-dataset: check-proxy
     #!/usr/bin/env bash
-    DATASET_DIR="{{ application-dir }}/{{ source-dataset-dir }}"
+    APPLICATION_DIR="$(pwd)"
+    DATASET_DIR="$APPLICATION_DIR/{{ source-dataset-dir }}"
     if [ -d "$DATASET_DIR" ] && [ "$(ls -A $DATASET_DIR)" ]; then
         echo "Dataset directory $DATASET_DIR already exists and is not empty. Skipping download."
         exit 0
@@ -87,8 +91,11 @@ download-dataset: check-proxy
 
 # build geti prompt with optional port mapping
 build-image: download-dataset
-    @echo "Building docker image for component: {{ component-name }}"
-    @docker build \
+    #!/usr/bin/env bash
+    VERSION=`cat ../VERSION`
+    DOCKER_IMAGE="{{ images-registry }}/{{ component-name }}/{{ ai-device }}:$VERSION"
+    echo "Building docker image for component: {{ component-name }}"
+    docker build \
         {{ docker-extra-args }} \
         {{ docker-build-context }} \
         --build-context libs=../library \
@@ -98,22 +105,25 @@ build-image: download-dataset
         --build-arg ASSET_PREFIX={{ asset-prefix }} \
         --build-arg SOURCE_DATASET_DIR={{ source-dataset-dir }} \
         --build-arg TARGET_DATASET_DIR={{ target-dataset-dir }} \
-        --tag "{{ docker-image }}" \
+        --tag "$DOCKER_IMAGE" \
         --file docker/Dockerfile . \
         --target {{ ai-device }}
 
 # launch geti prompt with optional webcam, volume and port mapping
 run-image: build-image
-    @echo "Running docker image for component: {{ component-name }} with ai-device: {{ ai-device }}"
-    @docker run --rm \
+    #!/usr/bin/env bash
+    VERSION=`cat ../VERSION`
+    DOCKER_IMAGE="{{ images-registry }}/{{ component-name }}/{{ ai-device }}:$VERSION"
+    echo "Running docker image for component: {{ component-name }} with ai-device: {{ ai-device }}"
+    docker run --rm \
         --publish {{ host-port }}:{{ container-port }} \
         --env PORT={{ container-port }} \
         --env HOST={{ host }} \
         {{ if enable-coturn == "true" { "--env ICE_SERVERS='" + ice-servers + "'" } else { "" } }} \
         {{ if docker-volume != "" { " --volume " + docker-volume + ":" + db-data-dir } else { "" } }} \
         {{ if path_exists(webcam-device) == "true" { " --device " + webcam-device + ":" + webcam-device } else { "" } }} \
-        --name "{{ component-name }}-{{ version }}" \
-        "{{ docker-image }}"
+        --name "{{ component-name }}-$VERSION" \
+        "$DOCKER_IMAGE"
 
 # run coturn server
 run-coturn:
@@ -138,20 +148,25 @@ stop-coturn:
 
 # show size of the built docker image
 show-size:
+    #!/usr/bin/env bash
+    VERSION=`cat ../VERSION`
+    DOCKER_IMAGE="{{ images-registry }}/{{ component-name }}/{{ ai-device }}:$VERSION"
     # https://github.com/casey/just?tab=readme-ov-file#escaping-
-    @docker image inspect "{{ docker-image }}" --format='{{{{.Size}}' | numfmt --to=iec
+    docker image inspect "$DOCKER_IMAGE" --format='{{{{.Size}}' | numfmt --to=iec
 
 # test geti prompt docker image using bash script
 test-image:
     #!/usr/bin/env bash
+    VERSION=`cat ../VERSION`
+    DOCKER_IMAGE="{{ images-registry }}/{{ component-name }}/{{ ai-device }}:$VERSION"
     echo "Testing docker image for component: {{ component-name }} with ai-device: {{ ai-device }}"
 
     # Start the container in detached mode
-    CONTAINER_ID=$(docker run -d --rm \
+    CONTAINER_ID=$(docker run -d \
         --publish {{ host-port }}:{{ container-port }} \
         --env PORT={{ container-port }} \
         --env HOST={{ host }} \
-        "{{ docker-image }}")
+        "$DOCKER_IMAGE")
     echo "Started container: $CONTAINER_ID"
 
     # Function to cleanup container on exit
