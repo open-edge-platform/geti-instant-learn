@@ -7,7 +7,7 @@ import { useRef } from 'react';
 
 import { FrameAPIType } from '@geti-prompt/api';
 import { useEventListener } from '@geti-prompt/hooks';
-import { ActionButton, dimensionValue, Grid, minmax, View } from '@geti/ui';
+import { ActionButton, dimensionValue, Grid, Loading, minmax, View } from '@geti/ui';
 import { ChevronLeft, ChevronRight } from '@geti/ui/icons';
 
 import { CaptureFrameButton } from '../capture-frame-button.component';
@@ -106,7 +106,7 @@ export const ImagesFolderStream = ({ sourceId }: ImagesFolderStreamProps) => {
     // const [promptMode] = usePromptMode();
     const { data: activeFrame } = useGetActiveFrame(sourceId);
     const activeFrameIdx = activeFrame.index;
-    const { frames, fetchNextPage, fetchPreviousPage, framesCount } = useGetFrames(sourceId, activeFrameIdx);
+    const { frames, fetchNextPage, fetchPreviousPage, framesCount, isPending } = useGetFrames(sourceId, activeFrameIdx);
     const { activateFrame, nextFrame, prevFrame, framesRef } = useActiveFrameSelection({
         sourceId,
         frames,
@@ -164,15 +164,19 @@ export const ImagesFolderStream = ({ sourceId }: ImagesFolderStreamProps) => {
             <View gridArea={'capture'} justifySelf={'center'}>
                 <CaptureFrameButton />
             </View>
-            <View gridArea={'frames'}>
-                <FramesList
-                    ref={framesRef}
-                    activeFrameIndex={activeFrameIdx}
-                    onSetActiveFrame={activateFrame}
-                    frames={frames}
-                    fetchNextPage={fetchNextPage}
-                    fetchPreviousPage={fetchPreviousPage}
-                />
+            <View gridArea={'frames'} backgroundColor={'gray-100'}>
+                {isPending ? (
+                    <Loading mode={'inline'} size={'M'} style={{ height: '100%', width: '100%' }} />
+                ) : (
+                    <FramesList
+                        ref={framesRef}
+                        activeFrameIndex={activeFrameIdx}
+                        onSetActiveFrame={activateFrame}
+                        frames={frames}
+                        fetchNextPage={fetchNextPage}
+                        fetchPreviousPage={fetchPreviousPage}
+                    />
+                )}
             </View>
         </Grid>
     );

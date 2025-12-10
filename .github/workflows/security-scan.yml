@@ -126,15 +126,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Initial cleanup
-        uses: ./.github/actions/cleanup-runner
+      - name: Install dependencies
+        uses: ./.github/actions/install-dependencies
         with:
-          type: "initial"
-
-      - name: Install Just
-        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3.0.0
-        with:
-          just-version: '1.43.1'
+          cleanup-runner: 'true'
 
       - name: Build docker image
         working-directory: application
