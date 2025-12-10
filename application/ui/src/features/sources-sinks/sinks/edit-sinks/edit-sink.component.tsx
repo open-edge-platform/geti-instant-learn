@@ -44,5 +44,6 @@ export const EditSink = ({ sink, onViewChange }: EditSinkProps) => {
         );
     }
 
-    throw new Error(`Sink type "${(sink as { config: { sink_type: string } }).config.sink_type}" is not supported.`);
+    console.error(`Sink type "${(sink as { config: { sink_type: string } }).config.sink_type}" is not supported.`);
+    return null;
 };
