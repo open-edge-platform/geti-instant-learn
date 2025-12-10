@@ -81,7 +81,7 @@ export class WebRTCConnection {
 
     private async fetchIceServers(): Promise<RTCIceServer[]> {
         try {
-            const baseUrl = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:9100';
+            const baseUrl = import.meta.env.PUBLIC_API_URL ?? '';
             const response = await fetch(`${baseUrl}/api/v1/webrtc/config`);
 
             if (!response.ok) {

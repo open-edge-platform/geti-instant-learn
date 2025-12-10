@@ -97,7 +97,6 @@ build-image: download-dataset
         {{ docker-extra-args }} \
         {{ docker-build-context }} \
         --build-context libs=../library \
-        --build-arg PUBLIC_API_URL=http://localhost:{{ container-port }} \
         --build-arg STATIC_FILES_DIR={{ static-files-dir }} \
         --build-arg DB_DATA_DIR={{ db-data-dir }} \
         --build-arg ASSET_PREFIX={{ asset-prefix }} \
