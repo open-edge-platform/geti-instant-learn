@@ -16,7 +16,7 @@ inputs:
   just-version:
     description: 'Version of Just to install'
     required: false
-    default: '1.43.1'
+    default: '1.21.0'
   uv-cache-dependency-glob:
     description: 'Glob pattern for uv cache dependency files'
     required: false

@@ -28,7 +28,7 @@ jobs:
         env:
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just ai-device="${DEVICE}" docker-build-context="--no-cache" build-image
+          just ai-device="${DEVICE}" docker-image="${DEVICE}:latest" docker-build-context="--no-cache" build-image
 
       - name: Cleanup docker cache
         run: docker builder prune -f
@@ -39,7 +39,7 @@ jobs:
           SYFT_GOLANG_SEARCH_LOCAL_MOD_CACHE_LICENSES: "true"
           SYFT_GOLANG_SEARCH_REMOTE_LICENSES: "true"
         with:
-          image: geti-prompt:latest-${{ matrix.ai-device }}
+          image: ${{ matrix.ai-device }}:latest
           artifact-name: sbom-container-${{ matrix.ai-device }}-image.spdx.json
           format: spdx-json
           output-file: sbom-container-image.spdx.json

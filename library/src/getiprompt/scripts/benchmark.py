@@ -16,22 +16,23 @@ from torchmetrics.segmentation import MeanIoU
 
 from getiprompt.data import Dataset, LVISDataset, PerSegDataset
 from getiprompt.data.base import Batch
-from getiprompt.models import Model, load_model
+from getiprompt.models import Matcher, Model
 from getiprompt.utils import setup_logger
 from getiprompt.utils.args import get_arguments, parse_experiment_args
 from getiprompt.utils.benchmark import (
     _get_output_path_for_experiment,
     _save_results,
     convert_masks_to_one_hot_tensor,
+    load_model,
     prepare_output_directory,
 )
-from getiprompt.utils.constants import get_category_presets
+from getiprompt.utils.constants import Backend, ModelName, get_category_presets
 from getiprompt.visualizer import Visualizer
 
 logger = getLogger("Geti Prompt")
 
 
-def infer_on_category(
+def predict_on_category(
     dataset: Dataset,
     model: Model,
     category_name: str,
@@ -43,7 +44,7 @@ def infer_on_category(
     device: torch.device,
     visualize: bool = True,
 ) -> None:
-    """Perform inference on all samples of a category.
+    """Perform prediction on all samples of a category.
 
     Args:
         dataset: The dataset containing target samples
@@ -88,8 +89,8 @@ def infer_on_category(
     category_id_to_index = {dataset.get_category_id(cat_name): idx for idx, cat_name in enumerate(dataset.categories)}
 
     for batch in dataloader:
-        # Run inference
-        predictions = model.infer(batch)
+        # Run prediction
+        predictions = model.predict(batch)
 
         # Convert masks to one-hot boolean tensors for torchmetrics
         # Returns lists of tensors, each with shape (C, H, W)
@@ -139,7 +140,7 @@ def learn_from_category(dataset: Dataset, model: Model, category_name: str) -> N
     reference_dataset = dataset.get_reference_dataset(category=category_name)
     reference_batch = Batch.collate(reference_dataset)
     # Learn
-    model.learn(reference_batch)
+    model.fit(reference_batch)
 
 
 def predict_on_dataset(
@@ -224,8 +225,8 @@ def predict_on_dataset(
                 )
                 progress.update(priors_task, advance=1)
 
-                # Infer on target samples
-                infer_on_category(
+                # Predict on target samples
+                predict_on_category(
                     dataset=dataset,
                     model=model,
                     category_name=category_name,
@@ -378,6 +379,65 @@ def load_dataset_by_name(
     raise ValueError(msg)
 
 
+def export_model_if_needed(args: Namespace, model_enum: ModelName, backbone_enum: ModelName) -> Path | None:
+    """Export model to OpenVINO if backend is OpenVINO and models don't exist.
+
+    Args:
+        args: The arguments containing backend and export_dir settings.
+        model_enum: The model to potentially export.
+        backbone_enum: The SAM backbone model.
+
+    Returns:
+        The export directory path if OpenVINO backend is used, None otherwise.
+    """
+    backend = getattr(args, "backend", "pytorch").lower()
+    if backend != "openvino":
+        return None
+
+    # Determine export directory
+    export_dir = getattr(args, "export_dir", None)
+    if export_dir is None:
+        export_dir = Path("./exports") / model_enum.value.lower()
+    else:
+        export_dir = Path(export_dir)
+
+    # Check if model files already exist
+    encoder_path = export_dir / "image_encoder.xml"
+    sam_path = export_dir / "exported_sam.xml"
+
+    if encoder_path.exists() and sam_path.exists():
+        msg = f"Using existing OpenVINO models in {export_dir}"
+        logger.info(msg)
+        return export_dir
+
+    # Export the model
+    msg = f"Exporting {model_enum.value} model to OpenVINO format at {export_dir}..."
+    logger.info(msg)
+
+    # Only Matcher supports OpenVINO for now
+    if model_enum != ModelName.MATCHER:
+        msg = f"OpenVINO backend is currently only supported for Matcher model, not {model_enum.value}"
+        raise NotImplementedError(msg)
+
+    # Create PyTorch model and export it
+    matcher = Matcher(
+        sam=backbone_enum,
+        encoder_model=args.encoder_model,
+        num_foreground_points=args.num_foreground_points,
+        num_background_points=args.num_background_points,
+        mask_similarity_threshold=args.mask_similarity_threshold,
+        precision="fp32",  # Exported models are always in fp32
+        compile_models=False,  # Don't compile when exporting
+        device=args.device,
+    )
+
+    matcher.export(export_dir=export_dir, backend=Backend.OPENVINO)
+    msg = f"✓ Model exported to {export_dir}"
+    logger.info(msg)
+
+    return export_dir
+
+
 def perform_benchmark_experiment(args: Namespace | None = None) -> None:
     """Main function to run the experiments.
 
@@ -429,6 +489,12 @@ def perform_benchmark_experiment(args: Namespace | None = None) -> None:
             n_shots=args.n_shot,
             dataset_root=args.dataset_root,
         )
+
+        # Export model to OpenVINO if needed
+        export_dir = export_model_if_needed(args, model_enum, backbone_enum)
+        if export_dir is not None:
+            # Update args with the export directory for load_model
+            args.export_dir = str(export_dir)
 
         model = load_model(sam=backbone_enum, model_name=model_enum, args=args)
 

@@ -49,7 +49,7 @@ class TestSamDecoderValidation:
     @pytest.fixture
     def sam_decoder(self, mock_sam_predictor: MagicMock) -> SamDecoder:
         """Create a SamDecoder instance."""
-        decoder = SamDecoder(sam_predictor=mock_sam_predictor)
+        decoder = SamDecoder(sam_predictor=mock_sam_predictor, target_length=1024)
         # Mock the transform that SamDecoder creates internally
         mock_transform = MagicMock()
         mock_transform.apply_image_torch.return_value = torch.zeros((3, 1024, 1024), dtype=torch.uint8)
@@ -191,7 +191,7 @@ class TestSamDecoderEmptyTensorHandling:
     @pytest.fixture
     def sam_decoder(self, mock_sam_predictor: MagicMock) -> SamDecoder:
         """Create a SamDecoder instance."""
-        decoder = SamDecoder(sam_predictor=mock_sam_predictor)
+        decoder = SamDecoder(sam_predictor=mock_sam_predictor, target_length=1024)
         # Mock the transform that SamDecoder creates internally
         mock_transform = MagicMock()
         mock_transform.apply_image_torch.return_value = torch.zeros((3, 1024, 1024), dtype=torch.uint8)
