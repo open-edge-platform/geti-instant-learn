@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CSSProperties, FormEvent, KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { CSSProperties, FormEvent, KeyboardEvent, useState } from 'react';
 
 import { LabelType } from '@geti-prompt/api';
-import { useOnOutsideClick } from '@geti-prompt/hooks';
 import { ActionButton, ColorPickerDialog, DimensionValue, Flex, Form, TextField, TextFieldRef } from '@geti/ui';
 import { clsx } from 'clsx';
+import { isEmpty } from 'lodash-es';
 
 import { MAX_LABEL_NAME_LENGTH, validateLabelName } from '../utils';
 
@@ -24,15 +24,20 @@ interface EditLabelProps {
     existingLabels: LabelType[];
 }
 
+const autoFocus = (ref: TextFieldRef<HTMLInputElement> | null) => {
+    if (ref === null) return;
+
+    ref.focus();
+};
+
 export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled, existingLabels }: EditLabelProps) => {
     const [color, setColor] = useState<string>(label.color);
     const [name, setName] = useState<string>(label.name);
-    const textFieldRef = useRef<TextFieldRef<HTMLInputElement> | null>(null);
 
     const validationError = validateLabelName(name, existingLabels, label.id);
     const hasSameName = name.trim() === label.name.trim();
     const hasSameColor = color === label.color;
-    const isEditDisabled = !!validationError || isDisabled || (hasSameName && hasSameColor);
+    const isEditDisabled = !!validationError || isDisabled || isEmpty(name.trim()) || (hasSameName && hasSameColor);
 
     const handleAccept = (event: FormEvent) => {
         event.preventDefault();
@@ -45,12 +50,6 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled
             onClose();
         }
     };
-
-    useOnOutsideClick(textFieldRef, onClose);
-
-    useEffect(() => {
-        textFieldRef.current?.focus();
-    }, []);
 
     return (
         <Form validationBehavior={'native'} onSubmit={handleAccept}>
@@ -72,7 +71,7 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled
                 <TextField
                     isQuiet={isQuiet}
                     flex={1}
-                    ref={textFieldRef}
+                    ref={autoFocus}
                     placeholder={'Add label'}
                     aria-label={'New label name'}
                     data-testid={'new-label-name-input'}

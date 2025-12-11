@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { LabelType } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
-import { ActionButton, Tooltip, TooltipTrigger } from '@geti/ui';
+import { useOnOutsideClick, useProjectIdentifier } from '@geti-prompt/hooks';
+import { ActionButton, DOMRefValue, Tooltip, TooltipTrigger, useUnwrapDOMRef, View } from '@geti/ui';
 import { Close, Edit } from '@geti/ui/icons';
 
 import { useAnnotationActions } from '../../../../annotator/providers/annotation-actions-provider.component';
@@ -97,6 +97,8 @@ interface LabelListItemProps {
 export const LabelListItem = ({ label, onSelect, isSelected, existingLabels }: LabelListItemProps) => {
     const [isInEdition, setIsInEdition] = useState<boolean>(false);
     const { projectId } = useProjectIdentifier();
+    const wrappedRef = useRef<DOMRefValue<HTMLInputElement> | null>(null);
+    const ref = useUnwrapDOMRef(wrappedRef);
 
     const updateLabelMutation = useUpdateLabel();
     const updateLabel = (newLabel: LabelType) => {
@@ -121,17 +123,25 @@ export const LabelListItem = ({ label, onSelect, isSelected, existingLabels }: L
         );
     };
 
+    const handleClose = () => {
+        setIsInEdition(false);
+    };
+
+    useOnOutsideClick(ref, handleClose);
+
     if (isInEdition) {
         return (
-            <EditLabel
-                onAccept={updateLabel}
-                onClose={() => setIsInEdition(false)}
-                label={label}
-                isQuiet
-                width={'size-2400'}
-                existingLabels={existingLabels}
-                isDisabled={updateLabelMutation.isPending}
-            />
+            <View ref={wrappedRef}>
+                <EditLabel
+                    onAccept={updateLabel}
+                    onClose={handleClose}
+                    label={label}
+                    isQuiet
+                    width={'size-2400'}
+                    existingLabels={existingLabels}
+                    isDisabled={updateLabelMutation.isPending}
+                />
+            </View>
         );
     }
 
