@@ -5,8 +5,7 @@
 
 import { FormEvent, useState } from 'react';
 
-import { ButtonGroup, Flex } from '@adobe/react-spectrum';
-import { Button, Form } from '@geti/ui';
+import { Button, ButtonGroup, Flex, Form } from '@geti/ui';
 
 import { useCreateSource } from '../api/use-create-source';
 import { isDeviceIdValid } from './utils';
