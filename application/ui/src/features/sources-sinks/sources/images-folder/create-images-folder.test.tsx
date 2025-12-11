@@ -17,7 +17,7 @@ class ImagesFolderSourcePage {
     constructor() {}
 
     get folderPathField() {
-        return screen.getByRole('textbox', { name: 'Folder path' });
+        return screen.getByRole('textbox', { name: /Folder path/ });
     }
 
     get applyButton() {
