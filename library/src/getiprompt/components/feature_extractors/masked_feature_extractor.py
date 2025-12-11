@@ -7,9 +7,9 @@ from collections import defaultdict
 
 import torch
 from torch import nn
-from torchvision import transforms
+from torch.nn import functional as F
 
-from getiprompt.data.transforms import ToTensor
+from getiprompt.components.feature_extractors.reference_features import ReferenceFeatures
 
 
 class MaskedFeatureExtractor(nn.Module):
@@ -17,8 +17,7 @@ class MaskedFeatureExtractor(nn.Module):
 
     Given batched patch embeddings and region masks, pools the masks to the patch
     grid and selects features corresponding to masked regions. The resulting local
-    features are grouped by category ID and recorded in :class:`Features` and
-    :class:`Masks` objects.
+    features are aggregated by category and returned as a ReferenceFeatures dataclass.
 
     Args:
         input_size: The input image size.
@@ -26,8 +25,9 @@ class MaskedFeatureExtractor(nn.Module):
         device: The device to use.
 
     Example:
-        >>> extractor = MaskedFeatureExtractor(input_size=224, patch_size=14, device="cpu")
-        >>> masked_ref_embeddings, flatten_ref_masks = extractor(embeddings, masks, category_ids)
+        >>> extractor = MaskedFeatureExtractor(input_size=1024, patch_size=16, device="cuda")
+        >>> ref_features = extractor(embeddings, masks, category_ids)
+        >>> ref_features.ref_embeddings.shape  # [C, num_patches_total, embed_dim]
     """
 
     def __init__(self, input_size: int, patch_size: int, device: str) -> None:
@@ -36,44 +36,78 @@ class MaskedFeatureExtractor(nn.Module):
         self.input_size = input_size
         self.patch_size = patch_size
         self.device = device
-        self.transform = transforms.Compose([
-            ToTensor(),
-            transforms.Lambda(lambda x: x.unsqueeze(0) if x.ndim == 2 else x),
-            transforms.Lambda(lambda x: x.float()),
-            transforms.Resize([input_size, input_size]),
-            transforms.Lambda(lambda x: (x * -1) + 1),
-            torch.nn.MaxPool2d(kernel_size=(patch_size, patch_size)),
-            transforms.Lambda(lambda x: (x * -1) + 1),
-        ])
+        self.num_patches = (input_size // patch_size) ** 2
+
+        # Traceable mask pooling (replaces transforms.Compose with lambdas)
+        self.mask_pool = nn.MaxPool2d(kernel_size=patch_size)
+
+    def _pool_mask(self, mask: torch.Tensor, target_device: torch.device) -> torch.Tensor:
+        """Pool mask to patch grid.
+
+        Uses max pooling with inversion to preserve foreground regions.
+        This is a traceable alternative to the previous transform pipeline.
+
+        Args:
+            mask: Binary mask of shape [H, W] or [1, H, W]
+            target_device: Device to place the result on
+
+        Returns:
+            Pooled mask of shape [num_patches] as float tensor
+        """
+        # Ensure 4D: [1, 1, H, W]
+        if mask.ndim == 2:
+            mask = mask.unsqueeze(0).unsqueeze(0)
+        elif mask.ndim == 3:
+            mask = mask.unsqueeze(0)
+
+        # Resize to input_size
+        mask = F.interpolate(
+            mask.float(),
+            size=(self.input_size, self.input_size),
+            mode="nearest",
+        )
+
+        # Invert -> maxpool -> invert back (preserves foreground under pooling)
+        mask = 1 - mask
+        mask = self.mask_pool(mask)
+        mask = 1 - mask
+
+        return mask.flatten().to(target_device)
 
     def forward(
         self,
         embeddings: torch.Tensor,
         masks: torch.Tensor,
         category_ids: torch.Tensor,
-    ) -> tuple[dict[int, torch.Tensor], dict[int, torch.Tensor]]:
-        """Extract masked, mask-conditioned features from batched inputs.
+    ) -> ReferenceFeatures:
+        """Extract masked features from batched inputs, aggregated by category.
 
-        This method aligns binary masks to the patch grid, selects feature embeddings
-        corresponding to masked regions, and associates them with their category IDs.
+        This method:
+        1. Pools binary masks to the patch grid
+        2. Extracts features corresponding to masked regions
+        3. Aggregates results by category ID into stacked tensors
 
         Args:
-            embeddings(torch.Tensor): Feature tensor of shape
-                ``(batch_size, num_patches, embedding_dim)``, typically the patch embeddings
-                from an encoder (e.g., ViT).
-            masks (torch.Tensor): Binary masks of shape
-                ``(batch_size, num_masks, height, width)``, defining spatial regions
-                to extract local features from.
-            category_ids (torch.Tensor): Category IDs for each mask of shape ``(batch_size, num_masks)``.
+            embeddings: Feature tensor of shape (batch_size, num_patches, embedding_dim)
+            masks: Binary masks of shape (batch_size, num_masks, height, width)
+            category_ids: Category IDs for each mask of shape (batch_size, num_masks)
 
         Returns:
-            tuple[dict[int, torch.Tensor], dict[int, torch.Tensor]]:
-                - masked_ref_embeddings: Dictionary of masked reference features grouped by category.
-                - flatten_ref_masks: Dictionary of flattened masks grouped by category.
+            ReferenceFeatures containing:
+                - ref_embeddings: [C, num_patches_total, embed_dim]
+                - masked_ref_embeddings: [C, embed_dim]
+                - flatten_ref_masks: [C, num_patches_total]
+                - category_ids: [C]
         """
-        masked_ref_embeddings = defaultdict(list)
-        flatten_ref_masks = defaultdict(list)
-        ref_embeddings = defaultdict(list)
+        device = embeddings.device
+        embed_dim = embeddings.shape[-1]
+
+        # Collect features per category
+        ref_embeddings_per_cat: dict[int, list[torch.Tensor]] = defaultdict(list)
+        masked_embeddings_per_cat: dict[int, list[torch.Tensor]] = defaultdict(list)
+        masks_per_cat: dict[int, list[torch.Tensor]] = defaultdict(list)
+
+        # Process each sample in the batch
         for embedding, masks_tensor, category_ids_tensor in zip(
             embeddings,
             masks,
@@ -81,26 +115,57 @@ class MaskedFeatureExtractor(nn.Module):
             strict=True,
         ):
             for category_id, mask in zip(category_ids_tensor, masks_tensor, strict=True):
-                category_id = category_id.item()
-                pooled_mask = self.transform(mask).to(embedding.device)
-                flatten_ref_masks[category_id].append(pooled_mask)
-                keep = pooled_mask.flatten().bool()  # 1024
+                cat_id = category_id.item()
+                pooled_mask = self._pool_mask(mask, device)
+                masks_per_cat[cat_id].append(pooled_mask)
+
+                # Extract masked embeddings
+                keep = pooled_mask.bool()
                 masked_embedding = embedding[keep]
-                masked_ref_embeddings[category_id].append(masked_embedding)
-                ref_embeddings[category_id].append(embedding)
+                masked_embeddings_per_cat[cat_id].append(masked_embedding)
 
-        for category_id, masked_embedding in masked_ref_embeddings.items():
-            masked_embedding = torch.cat(masked_embedding, dim=0)
-            if masked_embedding.numel():  # num of elements > 0
-                masked_embedding = masked_embedding.mean(dim=0, keepdim=True)
-                masked_embedding /= masked_embedding.norm(dim=-1, keepdim=True)
-            masked_ref_embeddings[category_id] = masked_embedding
+                # Store full embedding for this reference
+                ref_embeddings_per_cat[cat_id].append(embedding)
 
-        for category_id, similarity_map_list in ref_embeddings.items():
-            ref_embeddings[category_id] = torch.cat(similarity_map_list, dim=0)
+        # Get unique categories in sorted order for deterministic output
+        unique_cats = sorted(ref_embeddings_per_cat.keys())
 
-        for category_id, flatten_ref_mask_list in flatten_ref_masks.items():
-            flatten_ref_mask_list = torch.cat(flatten_ref_mask_list, dim=0)
-            flatten_ref_masks[category_id] = flatten_ref_mask_list.reshape(-1)
+        # Aggregate by category
+        ref_embeddings_list: list[torch.Tensor] = []
+        masked_ref_embeddings_list: list[torch.Tensor] = []
+        flatten_ref_masks_list: list[torch.Tensor] = []
 
-        return masked_ref_embeddings, flatten_ref_masks, ref_embeddings
+        for cat_id in unique_cats:
+            # Stack reference embeddings for this category: [num_refs, num_patches, embed_dim]
+            # Then reshape to [num_refs * num_patches, embed_dim]
+            cat_ref_embeds = torch.stack(ref_embeddings_per_cat[cat_id], dim=0)
+            cat_ref_embeds = cat_ref_embeds.reshape(-1, embed_dim)
+            ref_embeddings_list.append(cat_ref_embeds)
+
+            # Average masked embeddings for this category
+            cat_masked_embeds = torch.cat(masked_embeddings_per_cat[cat_id], dim=0)
+            if cat_masked_embeds.numel() > 0:
+                averaged = cat_masked_embeds.mean(dim=0)
+                averaged = averaged / (averaged.norm(dim=-1, keepdim=True) + 1e-8)
+            else:
+                averaged = torch.zeros(embed_dim, device=device, dtype=embeddings.dtype)
+            masked_ref_embeddings_list.append(averaged)
+
+            # Concatenate masks for this category
+            cat_masks = torch.cat(masks_per_cat[cat_id], dim=0)
+            flatten_ref_masks_list.append(cat_masks)
+
+        # Stack into final tensors
+        # Note: Different categories may have different num_patches_total if different num_refs
+        # For now, we assume same number of references per category (padding would be needed otherwise)
+        ref_embeddings_tensor = torch.stack(ref_embeddings_list, dim=0)  # [C, P, D]
+        masked_ref_embeddings_tensor = torch.stack(masked_ref_embeddings_list, dim=0)  # [C, D]
+        flatten_ref_masks_tensor = torch.stack(flatten_ref_masks_list, dim=0)  # [C, P]
+        category_ids_tensor = torch.tensor(unique_cats, device=device, dtype=torch.int64)  # [C]
+
+        return ReferenceFeatures(
+            ref_embeddings=ref_embeddings_tensor,
+            masked_ref_embeddings=masked_ref_embeddings_tensor,
+            flatten_ref_masks=flatten_ref_masks_tensor,
+            category_ids=category_ids_tensor,
+        )

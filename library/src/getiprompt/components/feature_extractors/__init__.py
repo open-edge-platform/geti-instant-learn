@@ -4,7 +4,9 @@
 """Feature extractors."""
 
 from .masked_feature_extractor import MaskedFeatureExtractor
+from .reference_features import ReferenceFeatures
 
 __all__ = [
     "MaskedFeatureExtractor",
+    "ReferenceFeatures",
 ]
