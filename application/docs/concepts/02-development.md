@@ -33,33 +33,23 @@ The backend runs inside Docker or behind network infrastructure (NAT, load balan
 
 Configure the backend to advertise a reachable address. Choose the method based on your deployment:
 
-| Scenario | Challenge | Solution |
-|----------|-----------|----------|
-| [Local development](#local-network) | Docker container has internal IP | Tell backend to advertise `127.0.0.1` or LAN IP |
-| [Cloud (public IP unknown)](#cloud-with-auto-discovery) | Server IP changes dynamically | Backend discovers its public IP via STUN |
-| [Cloud (public IP known)](#cloud-with-manual-ip) | Behind load balancer or have static IP/DNS | Tell backend to advertise the public IP or DNS |
-| [Restrictive network](#restrictive-firewall-turn) | Firewall blocks UDP traffic | Relay all traffic through TURN server on TCP 443 |
+| Scenario | Challenge | Solution | Configuration |
+|----------|-----------|----------|---------------|
+| [Local development](#local-network) | Docker container has internal IP | Tell backend to advertise `127.0.0.1` or LAN IP | `WEBRTC_ADVERTISE_IP="127.0.0.1"` |
+| [Cloud (public IP unknown)](#cloud-with-auto-discovery) | Server IP changes dynamically | Backend discovers its public IP via STUN | `ICE_SERVERS='[{"urls": "stun:stun.l.google.com:19302"}]'` |
+| [Cloud (public IP known)](#cloud-with-manual-ip) | Behind load balancer or have static IP/DNS | Tell backend to advertise the public IP or DNS | `WEBRTC_ADVERTISE_IP="203.0.113.10"` |
+| [Restrictive network](#restrictive-firewall-turn) | Firewall blocks UDP traffic | Relay all traffic through TURN server on TCP 443 | `ICE_SERVERS='[{"urls": "turn:...", ...}]'` |
 
 > **Note:** Use only one configuration method at a time.
 
 ---
 
-## Configuration
-
-### Environment Variables
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `WEBRTC_ADVERTISE_IP` | IP or DNS name to advertise to clients | `203.0.113.10`, `media.example.com` |
-| `ICE_SERVERS` | JSON array of STUN/TURN server configs | `[{"urls": "stun:stun.l.google.com:19302"}]` |
-
 ### Port Requirements
 
-Cloud deployments require UDP ports for WebRTC media traffic:
+When running without a relay server (TURN), the container's UDP ports must be accessible from the outside for direct media streaming. Whether running locally or in the cloud, you must map these ports from the container to the host to allow media traffic to flow.
 
 | Ports | Protocol | Purpose |
 |-------|----------|---------|
-| `9100` | TCP | HTTP API |
 | `50000-51000` | UDP | WebRTC media |
 
 We constrain the UDP port range by setting `net.ipv4.ip_local_port_range` in the container's Linux network namespace. This limits ephemeral ports to `50000-51000`, making firewall rules predictable.
