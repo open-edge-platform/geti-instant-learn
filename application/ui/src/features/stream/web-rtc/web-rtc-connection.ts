@@ -4,7 +4,6 @@
  */
 
 import { client } from '@geti-prompt/api';
-import { isFirefox } from '@react-aria/utils';
 import { v4 as uuid } from 'uuid';
 
 export type WebRTCConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'failed';
