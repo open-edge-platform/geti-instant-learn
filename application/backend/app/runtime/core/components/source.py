@@ -26,6 +26,7 @@ class Source(PipelineComponent):
 
     def setup(self, inbound_broadcaster: FrameBroadcaster[InputData]) -> None:
         self._inbound_broadcaster = inbound_broadcaster
+        self._reader.connect()
         self._initialized = True
 
     def run(self) -> None:
@@ -33,21 +34,19 @@ class Source(PipelineComponent):
             raise RuntimeError("The source should be initialized before being used")
 
         logger.debug("Starting a source loop")
-        with self._reader:
-            self._reader.connect()
-            while not self._stop_event.is_set():
-                try:
-                    data = self._reader.read()
-                    if data is None:
-                        time.sleep(0.01)
-                        continue
+        while not self._stop_event.is_set():
+            try:
+                data = self._reader.read()
+                if data is None:
+                    time.sleep(0.01)
+                    continue
 
-                    self._inbound_broadcaster.broadcast(data)
+                self._inbound_broadcaster.broadcast(data)
 
-                except Exception as e:
-                    logger.error(f"Error reading from stream: {e}.")
-                    time.sleep(0.1)
-        # logger.debug("Stopping the source loop")
+            except Exception as e:
+                logger.error(f"Error reading from stream: {e}.")
+                time.sleep(0.1)
+        logger.debug("Stopping the source loop")
         logger.info(f"Stopping the source {self._reader.__class__.__name__} loop")
 
     def _stop(self) -> None:

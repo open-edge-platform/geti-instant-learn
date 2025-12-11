@@ -12,10 +12,7 @@ from sqlalchemy.orm import Session
 from api.error_handler import extract_constraint_name
 from domain.db.constraints import CheckConstraintName, UniqueConstraintName
 from domain.db.models import ProjectDB, PromptDB, PromptType
-from domain.dispatcher import (
-    ComponentConfigChangeEvent,
-    ConfigChangeDispatcher,
-)
+from domain.dispatcher import ComponentConfigChangeEvent, ComponentType, ConfigChangeDispatcher
 from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
@@ -552,7 +549,7 @@ class PromptService(BaseService):
             self._pending_events.append(
                 ComponentConfigChangeEvent(
                     project_id=project_id,
-                    component_id=str(active_processor.id),
-                    component_type="processor",
+                    component_type=ComponentType.PROCESSOR,
+                    component_id=active_processor.id,
                 )
             )
