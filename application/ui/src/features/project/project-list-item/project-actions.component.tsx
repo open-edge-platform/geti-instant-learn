@@ -65,7 +65,7 @@ export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition, projectN
     };
 
     useEffect(() => {
-        textFieldRef.current?.select();
+        textFieldRef.current?.focus();
     }, []);
 
     useOnOutsideClick(textFieldRef, onResetProjectInEdition);
