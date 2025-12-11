@@ -54,14 +54,8 @@ stun-ice-servers := '[{"urls": "stun:stun.l.google.com:19302"}]'
 # -------------------------------------------------------------------------------------------------
 # Proxy settings
 # -------------------------------------------------------------------------------------------------
-
-http-proxy-build-arg := if env("http_proxy", "") != "" { " --build-arg http_proxy=" + env("http_proxy") } else { "" }
-https-proxy-build-arg := if env("https_proxy", "") != "" { " --build-arg https_proxy=" + env("https_proxy") } else { "" }
-no-proxy-build-arg := if env("no_proxy", "") != "" { " --build-arg no_proxy=" + env("no_proxy") } else { "" }
-HTTP-PROXY-build-arg := if env("HTTP_PROXY", "") != "" { " --build-arg HTTP_PROXY=" + env("HTTP_PROXY") } else { "" }
-HTTPS-PROXY-build-arg := if env("HTTPS_PROXY", "") != "" { " --build-arg HTTPS_PROXY=" + env("HTTPS_PROXY") } else { "" }
-NO-PROXY-build-arg := if env("NO_PROXY", "") != "" { " --build-arg NO_PROXY=" + env("NO_PROXY") } else { "" }
-docker-extra-args := http-proxy-build-arg + https-proxy-build-arg + no-proxy-build-arg + HTTP-PROXY-build-arg + HTTPS-PROXY-build-arg + NO-PROXY-build-arg
+docker-extra-args := "--build-arg http_proxy --build-arg https_proxy --build-arg no_proxy --build-arg HTTP_PROXY --build-arg HTTPS_PROXY --build-arg NO_PROXY"
+docker-run-proxy-args := "--env http_proxy --env https_proxy --env no_proxy --env HTTP_PROXY --env HTTPS_PROXY --env NO_PROXY"
 
 # -------------------------------------------------------------------------------------------------
 # Justfile recipes
@@ -119,7 +113,9 @@ run-image: build-image
     VERSION=`cat ../VERSION`
     DOCKER_IMAGE="{{ images-registry }}/{{ component-name }}/{{ ai-device }}:$VERSION"
     echo "Running docker image for component: {{ component-name }} with ai-device: {{ ai-device }}"
+    echo "Proxy args: {{ docker-run-proxy-args }}"
     docker run --rm \
+        {{ docker-run-proxy-args }} \
         --sysctl net.ipv4.ip_local_port_range="{{ webrtc-port-start }} {{ webrtc-port-end }}" \
         --publish {{ webrtc-port-start }}-{{ webrtc-port-end }}:{{ webrtc-port-start }}-{{ webrtc-port-end }}/udp \
         --publish {{ host-port }}:{{ container-port }} \
@@ -170,6 +166,7 @@ test-image:
 
     # Start the container in detached mode
     CONTAINER_ID=$(docker run -d \
+        {{ docker-run-proxy-args }} \
         --publish {{ host-port }}:{{ container-port }} \
         --env PORT={{ container-port }} \
         --env HOST={{ host }} \
