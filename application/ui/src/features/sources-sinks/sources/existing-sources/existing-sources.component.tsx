@@ -5,18 +5,15 @@
 
 import { Source, SourceType } from '@geti-prompt/api';
 import { useCurrentProject } from '@geti-prompt/hooks';
-import { Button, Flex } from '@geti/ui';
-import { Add as AddIcon } from '@geti/ui/icons';
 import { orderBy } from 'lodash-es';
 
+import { ExistingPipelineEntities } from '../../existing-pipeline-entities/existing-pipeline-entities.component';
 import { useDeleteSource } from '../api/use-delete-source';
 import { useUpdateSource } from '../api/use-update-source';
 import { ImagesFolderSourceCard } from '../images-folder/images-folder-card.component';
 import { SampleDatasetCard } from '../sample-dataset/sample-dataset-card.component';
 import { isImagesFolderSource, isTestDatasetSource, isWebcamSource, SourcesViews } from '../utils';
 import { WebcamSourceCard } from '../webcam/webcam-source-card.component';
-
-import styles from './existing-sources.module.scss';
 
 const getMenuItems = ({
     isActiveProject,
@@ -97,7 +94,7 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
     };
 
     return (
-        <Flex direction={'column'} gap={'size-100'}>
+        <ExistingPipelineEntities.List>
             {sortSources(sources).map((source) => {
                 const isActiveSource = source.active;
 
@@ -134,7 +131,7 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
                     );
                 }
             })}
-        </Flex>
+        </ExistingPipelineEntities.List>
     );
 };
 
@@ -152,22 +149,21 @@ export const ExistingSources = ({ sources, onViewChange, onSetSourceInEditionId 
     );
 
     return (
-        <Flex direction={'column'} gap={'size-200'}>
-            {canCreateSource && (
-                <Button
-                    variant={'secondary'}
-                    onPress={() => onViewChange('add')}
-                    UNSAFE_className={styles.addNewSourceButton}
-                >
-                    <AddIcon /> Add new source
-                </Button>
-            )}
-
+        <ExistingPipelineEntities
+            addNewEntityButton={
+                canCreateSource && (
+                    <ExistingPipelineEntities.AddNewEntityButton
+                        text={'Add new source'}
+                        onPress={() => onViewChange('add')}
+                    />
+                )
+            }
+        >
             <ExistingSourcesList
                 sources={sources}
                 onViewChange={onViewChange}
                 onSetSourceInEditionId={onSetSourceInEditionId}
             />
-        </Flex>
+        </ExistingPipelineEntities>
     );
 };

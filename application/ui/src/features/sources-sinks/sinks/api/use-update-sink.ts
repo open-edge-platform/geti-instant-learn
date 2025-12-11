@@ -23,7 +23,7 @@ export const useUpdateSink = () => {
     const { projectId } = useProjectIdentifier();
     const updateSinkMutation = useUpdateSinkMutation(projectId);
 
-    const updateSink = ({ sinkId, body }: { sinkId: string; body: SinkUpdateType }, onSuccess: () => void) => {
+    const updateSink = ({ sinkId, body }: { sinkId: string; body: SinkUpdateType }, onSuccess?: () => void) => {
         updateSinkMutation.mutate(
             {
                 body,

@@ -1,8 +1,6 @@
 #!/usr/bin/env just --justfile
 import "../Justfile"
 
-set shell := ["bash", "-cu"]
-
 py_path := "tests:app"
 # Ensure version in GHA workflow matches uv version here
 uv_version := "0.9.7"
@@ -23,7 +21,7 @@ gen-openapi-md: gen-openapi
 # Start FastAPI development server with auto-reload
 dev: _venv download-dataset
     {{ if enable-coturn == "true" { "ICE_SERVERS='" + ice-servers + "'" } else { "" } }} \
-    PYTHONPATH=app uv run uvicorn main:app --reload --host localhost --port 9100
+    PYTHONPATH=app uv run uvicorn main:app --reload --host {{ host }} --port {{ container-port }}
 
 
 _pre-venv:

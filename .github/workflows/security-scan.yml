@@ -106,7 +106,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run Semgrep scan
-        uses: open-edge-platform/geti-ci/actions/semgrep@829f7148f9f70bd4ffbb367f7374d78c32aef2a2
+        uses: open-edge-platform/geti-ci/actions/semgrep@4080814a248797d208c589033bbe4c8ac09ae987
         with:
           scan-scope: "all"
           severity: "LOW"
@@ -126,22 +126,17 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Initial cleanup
-        uses: ./.github/actions/cleanup-runner
+      - name: Install dependencies
+        uses: ./.github/actions/install-dependencies
         with:
-          type: "initial"
-
-      - name: Install Just
-        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3.0.0
-        with:
-          just-version: '1.43.1'
+          cleanup-runner: 'true'
 
       - name: Build docker image
         working-directory: application
         env:
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just ai-device="${DEVICE}" docker-image="geti-prompt:latest-${DEVICE}" docker-build-context="--no-cache" build-image
+          just ai-device="${DEVICE}" docker-image="${DEVICE}:latest" docker-build-context="--no-cache" build-image
 
       - name: Cleanup docker cache
         run: docker builder prune -f
@@ -152,7 +147,7 @@ jobs:
         with:
           artifact-name: "trivy-results-docker-${{ matrix.ai-device }}"
           scan_type: "image"
-          scan_target: "geti-prompt:latest-${{ matrix.ai-device }}"
+          scan_target: "${{ matrix.ai-device }}:latest"
           scan-scope: all
           severity: "LOW"
           scanners: "vuln,secret,config"
