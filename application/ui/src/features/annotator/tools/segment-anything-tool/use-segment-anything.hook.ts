@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { EncodingOutput, SegmentAnythingModel } from '@geti/smart-tools/segment-anything';
 import { useQuery } from '@tanstack/react-query';
@@ -77,33 +77,30 @@ const useEncodingQuery = (model: Remote<SegmentAnythingModel> | undefined, frame
 const useDecodingFn = (model: Remote<SegmentAnythingModel> | undefined, encoding: EncodingOutput | undefined) => {
     // TODO: look into returning a new "decoder model" instance that already has the encoding data
     // stored in memory, to reduce  memory usage
-    return useCallback(
-        async (points: InteractiveAnnotationPoint[]) => {
-            if (points.length === 0) {
-                return [];
-            }
+    return async (points: InteractiveAnnotationPoint[]) => {
+        if (points.length === 0) {
+            return [];
+        }
 
-            if (model === undefined) {
-                return [];
-            }
+        if (model === undefined) {
+            return [];
+        }
 
-            if (encoding === undefined) {
-                return [];
-            }
+        if (encoding === undefined) {
+            return [];
+        }
 
-            const { shapes } = await model.processDecoder(encoding, {
-                points,
-                boxes: [],
-                ouputConfig: {
-                    type: 'polygon',
-                },
-                image: undefined,
-            });
+        const { shapes } = await model.processDecoder(encoding, {
+            points,
+            boxes: [],
+            ouputConfig: {
+                type: 'polygon',
+            },
+            image: undefined,
+        });
 
-            return shapes.map(convertToolShapeToGetiShape);
-        },
-        [model, encoding]
-    );
+        return shapes.map(convertToolShapeToGetiShape);
+    };
 };
 
 export const useSegmentAnythingModel = () => {
