@@ -117,7 +117,7 @@ run-image: build-image
         --publish {{ host-port }}:{{ container-port }} \
         --env PORT={{ container-port }} \
         --env HOST={{ host }} \
-        {{ if webrtc-advertise-ip != "" { "--env WEBRTC_ADVERTISE_IP='" + webrtc-advertise-ip + "'" } else { "--env WEBRTC_ADVERTISE_IP" } }} \
+        {{ if webrtc-advertise-ip != "" { "--env WEBRTC_ADVERTISE_IP='" + webrtc-advertise-ip + "'" } else { "" } }} \
         {{ if enable-coturn == "true" { "--env ICE_SERVERS='" + coturn-ice-servers + "'" } else if enable-stun == "true" { "--env ICE_SERVERS='" + stun-ice-servers + "'" } else { "--env ICE_SERVERS" } }} \
         {{ if docker-volume != "" { " --volume " + docker-volume + ":" + db-data-dir } else { "" } }} \
         {{ if path_exists(webcam-device) == "true" { " --device " + webcam-device + ":" + webcam-device } else { "" } }} \
