@@ -31,7 +31,7 @@ jobs:
         env:
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just ai-device="${DEVICE}" docker-build-context="--no-cache" build-image
+          just ai-device="${DEVICE}" docker-image="${DEVICE}:latest" docker-build-context="--no-cache" build-image
 
       - name: Cleanup docker cache
         run: docker builder prune -f
@@ -39,7 +39,7 @@ jobs:
       - name: Scan ${{ matrix.ai-device }}
         shell: bash
         env:
-          TARGET: geti-prompt:latest-${{ matrix.ai-device }}
+          TARGET: ${{ matrix.ai-device }}:latest
           DEVICE: ${{ matrix.ai-device }}
         run: |
           # install Syft

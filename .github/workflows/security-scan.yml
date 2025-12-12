@@ -136,7 +136,7 @@ jobs:
         env:
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just ai-device="${DEVICE}" docker-build-context="--no-cache" build-image
+          just ai-device="${DEVICE}" docker-image="${DEVICE}:latest" docker-build-context="--no-cache" build-image
 
       - name: Cleanup docker cache
         run: docker builder prune -f
@@ -147,7 +147,7 @@ jobs:
         with:
           artifact-name: "trivy-results-docker-${{ matrix.ai-device }}"
           scan_type: "image"
-          scan_target: "geti-prompt:latest-${{ matrix.ai-device }}"
+          scan_target: "${{ matrix.ai-device }}:latest"
           scan-scope: all
           severity: "LOW"
           scanners: "vuln,secret,config"

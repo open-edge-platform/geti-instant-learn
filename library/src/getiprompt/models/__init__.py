@@ -4,19 +4,18 @@
 """Models."""
 
 from .base import Model
-from .factory import load_model
-from .foundation import load_sam_model
 from .grounded_sam import GroundedSAM
-from .matcher import Matcher
+
+# Inference model imports
+from .matcher import InferenceMatcher, Matcher
 from .per_dino import PerDino
 from .soft_matcher import SoftMatcher
 
 __all__ = [
     "GroundedSAM",
+    "InferenceMatcher",
     "Matcher",
     "Model",
     "PerDino",
     "SoftMatcher",
-    "load_model",
-    "load_sam_model",
 ]

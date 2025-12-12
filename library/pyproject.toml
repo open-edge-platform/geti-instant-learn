@@ -41,6 +41,9 @@ dependencies = [
     "sam-2",
     "ftfy",
     "torchmetrics==1.8.2",
+    "openvino==2025.3.0",
+    "onnx>=1.19.1",
+    "onnxruntime>=1.23.2",
 ]
 
 [dependency-groups]
@@ -68,9 +71,6 @@ xpu = [
     "torch==2.10.0.dev20251202+xpu",
     "torchvision==0.25.0.dev20251203+xpu",
     "pytorch-triton-xpu==3.5.0+gitaa01f5c2",
-]
-extras = [
-    "xformers==0.0.32.post2",
 ]
 notebook = [
     "jupyter==1.1.1",

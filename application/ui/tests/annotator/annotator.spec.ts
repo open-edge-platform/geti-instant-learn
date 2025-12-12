@@ -10,7 +10,7 @@ import { initializeWebRTC } from '../prompt/initialize-webrtc';
 import { WEBCAM_SOURCE } from '../prompt/mocks';
 import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations, expectToNotHaveAnnotations } from './utils';
 
-test('Annotator', async ({ network, page, context, streamPage, annotatorPage, labelsPage }) => {
+test(`Annotator`, async ({ network, page, context, streamPage, annotatorPage, labelsPage }) => {
     test.setTimeout(ANNOTATOR_PAGE_TIMEOUT);
 
     await initializeWebRTC({ page, context, network });
