@@ -14,9 +14,13 @@ class SDPHandler:
     """Handler for SDP manipulation and processing."""
 
     async def resolve_hostname(self, hostname: str) -> str:
-        """
-        Resolve hostname to IP address.
-        Returns the original string if resolution fails or if it's already an IP.
+        """Resolve hostname to IP address.
+
+        Args:
+            hostname: The hostname to resolve.
+
+        Returns:
+            The resolved IP address or the original hostname if resolution fails.
         """
         loop = asyncio.get_running_loop()
         try:
@@ -26,9 +30,16 @@ class SDPHandler:
             return hostname
 
     async def mangle_sdp(self, sdp: str, advertise_ip: str) -> str:
-        """
-        Mangle SDP with advertise IP.
+        """Mangle SDP with advertise IP.
+
         Resolves hostname if necessary.
+
+        Args:
+            sdp: The Session Description Protocol string.
+            advertise_ip: The IP address or hostname to advertise.
+
+        Returns:
+            The modified SDP string with the advertised IP.
         """
         if not advertise_ip:
             return sdp
@@ -37,9 +48,16 @@ class SDPHandler:
         return self._mangle_sdp_with_ip(sdp, resolved_ip)
 
     def _mangle_sdp_with_ip(self, sdp: str, ip: str) -> str:
-        """
-        Replace local IP addresses in SDP candidates and connection lines with the advertise IP.
+        """Replace local IP addresses in SDP candidates and connection lines with the advertise IP.
+
         Useful for 1:1 NAT scenarios where STUN is not available.
+
+        Args:
+            sdp: The Session Description Protocol string.
+            ip: The IP address to replace local IPs with.
+
+        Returns:
+            The modified SDP string.
         """
         try:
             parsed_sdp = SessionDescription.parse(sdp)

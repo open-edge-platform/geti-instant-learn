@@ -50,9 +50,9 @@ When running without a relay server (TURN), the container's UDP ports must be ac
 
 | Ports | Protocol | Purpose |
 |-------|----------|---------|
-| `50000-51000` | UDP | WebRTC media |
+| `50000-50050` | UDP | WebRTC media |
 
-We constrain the UDP port range by setting `net.ipv4.ip_local_port_range` in the container's Linux network namespace. This limits ephemeral ports to `50000-51000`, making firewall rules predictable.
+We constrain the UDP port range by setting `net.ipv4.ip_local_port_range` in the container's Linux network namespace. This limits ephemeral ports to `50000-50050`, making firewall rules predictable.
 
 ---
 
@@ -87,8 +87,8 @@ just enable-stun=true run-image
 
 # Using Docker
 docker run --rm \
-    --sysctl net.ipv4.ip_local_port_range="50000 51000" \
-    -p 50000-51000:50000-51000/udp \
+    --sysctl net.ipv4.ip_local_port_range="50000 50050" \
+    -p 50000-50050:50000-50050/udp \
     -p 9100:9100 \
     -e ICE_SERVERS='[{"urls": "stun:stun.l.google.com:19302"}]' \
     <image_name>
@@ -107,7 +107,7 @@ just webrtc-advertise-ip="203.0.113.10" run-image
 # Using Docker
 docker run --rm \
     --sysctl net.ipv4.ip_local_port_range="50000 51000" \
-    -p 50000-51000:50000-51000/udp \
+    -p 50000-50050:50000-50050/udp \
     -p 9100:9100 \
     -e WEBRTC_ADVERTISE_IP="203.0.113.10" \
     <image_name>
@@ -138,6 +138,14 @@ docker run --rm -d \
     --realm=my-realm \
     --no-udp
 ```
+
+The coturn server is configured via command-line arguments:
+
+*   `--listening-port=443`: Listens on the standard HTTPS port. You can change this via the `coturn-port` variable if port 443 is already in use on your host.
+*   `--no-udp`: Disables UDP listeners entirely to force TCP usage.
+*   `--user=user:password`: **For testing purposes only.**
+    *   These static credentials are provided for ease of development.
+    *   **Production Warning:** In a production environment, you should **never** use static credentials. Instead, use the **TURN REST API** (Time-Limited Credentials) mechanism. This involves sharing a secret key between the backend and the TURN server to generate temporary, expiring passwords for each client session. Coturn supports this via the `use-auth-secret` configuration.
 
 **Step 2: Start the application**
 
