@@ -5,6 +5,7 @@ import logging
 from uuid import UUID
 
 import cv2
+import numpy as np
 from getiprompt.data.base.batch import Batch
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -185,6 +186,7 @@ class PromptService(BaseService):
         if not prompt:
             logger.error("Prompt not found: id=%s project_id=%s", prompt_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.PROMPT, resource_id=str(prompt_id))
+        prompt = self._denormalization(project_id=project_id, data=prompt)
         return prompt_db_to_schema(prompt, include_thumbnail=False)
 
     def create_prompt(self, project_id: UUID, create_data: PromptCreateSchema) -> PromptSchema:
@@ -210,6 +212,9 @@ class PromptService(BaseService):
         """
         self._ensure_project(project_id)
         logger.debug("Prompt create requested: project_id=%s type=%s", project_id, create_data.type)
+        
+        logger.debug("Normalizing prompt data for project_id=%s", project_id)
+        create_data = self._normalization(project_id=project_id, data=create_data)
 
         if isinstance(create_data, TextPromptCreateSchema):
             existing_text_prompt = self.prompt_repository.get_text_prompt_by_project(project_id)
@@ -556,3 +561,21 @@ class PromptService(BaseService):
                     component_type="processor",
                 )
             )
+
+    def _normalization(self, project_id: UUID, data: PromptCreateSchema) -> PromptCreateSchema:
+        for annotation in data.annotations:
+            points = annotation.config.get("points", [])
+            frame = self.frame_repository.read_frame(project_id=project_id, frame_id=data.frame_id)
+            height, width = frame.shape[:2]
+            for point in points:
+                point["x"], point["y"] = int(point["x"] / width), int(point["y"] / height)
+        return data
+
+    def _denormalization(self, project_id: UUID, data: PromptDB) -> PromptDB:
+        for annotation in data.annotations:
+            points = annotation.config.get("points", [])
+            frame = self.frame_repository.read_frame(project_id=project_id, frame_id=data.frame_id)
+            height, width = frame.shape[:2]
+            for point in points:
+                point["x"], point["y"] = int(point["x"] * width), int(point["y"] * height)
+        return data
