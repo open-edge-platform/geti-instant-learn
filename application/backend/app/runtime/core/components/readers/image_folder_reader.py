@@ -102,14 +102,15 @@ class ImageFolderReader(StreamReader):
         if not image_files:
             logger.warning(f"No supported image files found in {folder_path}")
 
-        self._image_paths = sorted(image_files, key=self._natural_sort_key)
-        self._current_index = 0
+        with self._lock:
+            self._image_paths = sorted(image_files, key=self._natural_sort_key)
+            self._current_index = 0
 
-        # Pre-generate thumbnails for first page (optimization)
-        for idx, path in enumerate(self._image_paths[:30]):
-            thumbnail = self._generate_thumbnail(path)
-            if thumbnail:
-                self._thumbnail_cache[idx] = thumbnail
+            # Pre-generate thumbnails for first page (optimization)
+            for idx, path in enumerate(self._image_paths[:30]):
+                thumbnail = self._generate_thumbnail(path)
+                if thumbnail:
+                    self._thumbnail_cache[idx] = thumbnail
 
     def _read_image_at_current_index(self) -> np.ndarray | None:
         """Read an image from the current index, caching the result for future reads."""
@@ -147,7 +148,7 @@ class ImageFolderReader(StreamReader):
         with self._lock:
             self._current_index = index
             current_image = self._read_image_at_current_index()
-            if not current_image:
+            if current_image is None:
                 self._last_image = None
                 self._last_image_path = None
 
@@ -157,7 +158,8 @@ class ImageFolderReader(StreamReader):
 
     def index(self) -> int:
         """Return the current frame position."""
-        return self._current_index
+        with self._lock:
+            return self._current_index
 
     def list_frames(self, offset: int = 0, limit: int = 30) -> FrameListResponse:
         """
@@ -170,21 +172,20 @@ class ImageFolderReader(StreamReader):
         Returns:
             FrameListResponse with frame metadata including thumbnails and pagination info.
         """
-        total = len(self._image_paths)
-        end_idx = min(offset + limit, total)
+        with self._lock:
+            total = len(self._image_paths)
+            end_idx = min(offset + limit, total)
+            image_paths = self._image_paths[offset:end_idx]
 
-        frames = []
-        for idx in range(offset, end_idx):
-            image_path = self._image_paths[idx]
-
-            # Check cache first, generate if not cached
-            thumbnail: str | None
+        frames: list[FrameMetadata] = []
+        for idx, image_path in enumerate(image_paths, start=offset):
             if idx in self._thumbnail_cache:
                 thumbnail = self._thumbnail_cache[idx]
             else:
                 thumbnail = self._generate_thumbnail(image_path)
                 if thumbnail is not None:
-                    self._thumbnail_cache[idx] = thumbnail
+                    with self._lock:
+                        self._thumbnail_cache[idx] = thumbnail
 
             if thumbnail is None:
                 # Skip invalid images
@@ -206,7 +207,7 @@ class ImageFolderReader(StreamReader):
         with self._lock:
             image = self._read_image_at_current_index()
 
-        if not image:
+        if image is None:
             return None
 
         time.sleep(0.033)  # a small delay (~30 FPS) to prevent overwhelming consumers
@@ -219,8 +220,9 @@ class ImageFolderReader(StreamReader):
 
     def close(self) -> None:
         """Clean up resources."""
-        self._image_paths = []
-        self._current_index = 0
-        self._last_image = None
-        self._last_image_path = None
-        self._thumbnail_cache.clear()
+        with self._lock:
+            self._image_paths = []
+            self._current_index = 0
+            self._last_image = None
+            self._last_image_path = None
+            self._thumbnail_cache.clear()
