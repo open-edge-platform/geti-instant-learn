@@ -94,7 +94,6 @@ class ConfigChangeDispatcher:
                 listener.__class__.__name__,
                 event.__class__.__name__,
             )
-            raise
 
     def shutdown(self, wait: bool = True) -> None:
         """Shutdown the executor. Call during application shutdown."""
