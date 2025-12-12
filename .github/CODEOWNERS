@@ -15,3 +15,11 @@ docs/ @Daankrol @mpryahin @LenaRudaya @eugene123tw @dwesolow @pplaskie @samet-ak
 
 # Lib
 library/ @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay
+
+# CI and security
+.github/actions/                        @open-edge-platform/geti-ci-maintain
+.github/workflows/                      @open-edge-platform/geti-ci-maintain
+.github/bandit_config.yml               @open-edge-platform/geti-ci-maintain
+.github/renovate.json5                  @open-edge-platform/geti-ci-maintain
+security.md                             @open-edge-platform/geti-ci-maintain
+.semgrepignore                          @open-edge-platform/geti-ci-maintain
