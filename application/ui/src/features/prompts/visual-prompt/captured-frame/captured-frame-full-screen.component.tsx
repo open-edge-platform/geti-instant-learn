@@ -16,7 +16,7 @@ export const CapturedFrameFullScreen = () => {
         <DialogContainer type={'fullscreenTakeover'} onDismiss={() => setIsFullScreenMode(false)}>
             {isFullScreenMode && (
                 <Dialog>
-                    <Heading>Annotate frame</Heading>
+                    <Heading>Prompt builder</Heading>
                     <Divider />
                     <Content>
                         <Flex direction={'column'} gap={'size-200'} height={'100%'}>
