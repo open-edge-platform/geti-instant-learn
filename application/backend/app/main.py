@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # Startup actions
     logging.basicConfig(
         level=logging.DEBUG if settings.debug else logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        format=settings.log_format,
         force=True,
     )
     logger.info(f"Starting {settings.app_name} application...")
@@ -119,8 +119,8 @@ app = CORSMiddleware(  # TODO restrict settings in production
 def main() -> None:
     """Main application entry point"""
     log_config = uvicorn.config.LOGGING_CONFIG
-    log_config["formatters"]["default"]["fmt"] = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    log_config["formatters"]["access"]["fmt"] = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    log_config["formatters"]["default"]["fmt"] = settings.log_format
+    log_config["formatters"]["access"]["fmt"] = settings.log_format
 
     logger.info(f"Starting {settings.app_name} in {settings.environment} mode")
     uvicorn.run(

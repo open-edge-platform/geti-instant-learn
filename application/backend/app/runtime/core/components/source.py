@@ -33,7 +33,7 @@ class Source(PipelineComponent):
         if not self._initialized:
             raise RuntimeError("The source should be initialized before being used")
 
-        logger.debug("Starting a source loop")
+        logger.debug(f"Starting a source {self._reader.__class__.__name__} loop")
         while not self._stop_event.is_set():
             try:
                 data = self._reader.read()
@@ -46,8 +46,7 @@ class Source(PipelineComponent):
             except Exception as e:
                 logger.error(f"Error reading from stream: {e}.")
                 time.sleep(0.1)
-        logger.debug("Stopping the source loop")
-        logger.info(f"Stopping the source {self._reader.__class__.__name__} loop")
+        logger.debug(f"Stopping the source {self._reader.__class__.__name__} loop")
 
     def _stop(self) -> None:
         """Clean up resources when component is stopped."""

@@ -6,9 +6,10 @@ import logging
 import re
 import time
 from pathlib import Path
+from threading import Lock
 
 import cv2
-import numpy as np  # noqa: TC002
+import numpy as np
 
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.processor import InputData
@@ -34,6 +35,7 @@ class ImageFolderReader(StreamReader):
         self._last_image: np.ndarray | None = None
         self._last_image_path: Path | None = None
         self._thumbnail_cache: dict[int, str] = {}
+        self._lock = Lock()
         super().__init__()
 
     @staticmethod
@@ -109,6 +111,26 @@ class ImageFolderReader(StreamReader):
             if thumbnail:
                 self._thumbnail_cache[idx] = thumbnail
 
+    def _read_image_at_current_index(self) -> np.ndarray | None:
+        """Read an image from the current index, caching the result for future reads."""
+        if not self._image_paths:
+            self._last_image = None
+            self._last_image_path = None
+            return None
+
+        image_path = self._image_paths[self._current_index]
+        # cache image to avoid repeated disk reads
+        if self._last_image is None or self._last_image_path != image_path:
+            image = cv2.imread(str(image_path))
+            if image is None:
+                logger.error(f"Failed to read image: {image_path}")
+                return None
+            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            self._last_image = image_rgb
+            self._last_image_path = image_path
+
+        return self._last_image
+
     def seek(self, index: int) -> None:
         """
         Set the current position to a specific image index.
@@ -122,10 +144,12 @@ class ImageFolderReader(StreamReader):
         if not 0 <= index < len(self._image_paths):
             raise IndexError(f"Index {index} out of range [0, {len(self._image_paths)})")
 
-        self._current_index = index
-        # clear cache to force reload on next read()
-        self._last_image = None
-        self._last_image_path = None
+        with self._lock:
+            self._current_index = index
+            current_image = self._read_image_at_current_index()
+            if not current_image:
+                self._last_image = None
+                self._last_image_path = None
 
     def __len__(self) -> int:
         """Return the total number of images in the folder."""
@@ -179,28 +203,18 @@ class ImageFolderReader(StreamReader):
 
     def read(self) -> InputData | None:
         """Read the current image."""
-        if not self._image_paths:
+        with self._lock:
+            image = self._read_image_at_current_index()
+
+        if not image:
             return None
-
-        image_path = self._image_paths[self._current_index]
-
-        # cache image to avoid repeated disk reads
-        if self._last_image is None or self._last_image_path != image_path:
-            image = cv2.imread(str(image_path))
-            if image is None:
-                logger.error(f"Failed to read image: {image_path}")
-                return None
-            self._last_image = image
-            self._last_image_path = image_path
 
         time.sleep(0.033)  # a small delay (~30 FPS) to prevent overwhelming consumers
 
-        image_rgb = cv2.cvtColor(self._last_image, cv2.COLOR_BGR2RGB)
-
         return InputData(
             timestamp=int(time.time() * 1000),
-            frame=image_rgb,
-            context={"path": str(image_path), "index": self._current_index},
+            frame=image,
+            context={"path": str(self._last_image_path), "index": self._current_index},
         )
 
     def close(self) -> None:
