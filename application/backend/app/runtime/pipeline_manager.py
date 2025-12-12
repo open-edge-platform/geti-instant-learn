@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from domain.dispatcher import (
     ComponentConfigChangeEvent,
+    ComponentType,
     ConfigChangeDispatcher,
     ConfigChangeEvent,
     ProjectActivationEvent,
@@ -124,24 +125,25 @@ class PipelineManager:
             .set_sink(sink)
         )
 
-    def _update_pipeline_components(self, project_id: UUID, component_type: str) -> None:
+    def _update_pipeline_components(self, project_id: UUID, component_type: ComponentType) -> None:
         """
         Compare current and new configurations, updating only changed components.
 
         Args:
-            new_config: The new pipeline configuration.
+            project_id: The project ID for the pipeline.
+            component_type: The type of component to update.
         """
         if not self._pipeline:
             return
 
         match component_type:
-            case "source":
+            case ComponentType.SOURCE:
                 source = self._component_factory.create_source(project_id)
                 self._pipeline.set_source(source, True)
-            case "processor":
+            case ComponentType.PROCESSOR:
                 processor = self._component_factory.create_processor(project_id)
                 self._pipeline.set_processor(processor, True)
-            case "sink":
+            case ComponentType.SINK:
                 sink = self._component_factory.create_sink(project_id)
                 self._pipeline.set_sink(sink, True)
             case _ as unknown:

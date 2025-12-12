@@ -129,11 +129,14 @@ class TestImageFolderReaderSeek:
     def test_seek_clears_cache(self, reader):
         reader.connect()
         reader.read()
+        first_image_path = reader._last_image_path
         assert reader._last_image is not None
 
         reader.seek(3)
-        assert reader._last_image is None
-        assert reader._last_image_path is None
+        # after seeking, the image at index 3 should be loaded
+        assert reader._last_image is not None
+        assert reader._last_image_path != first_image_path
+        assert reader._last_image_path == reader._image_paths[3]
 
 
 class TestImageFolderReaderIndex:
