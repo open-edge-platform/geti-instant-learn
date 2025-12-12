@@ -20,7 +20,7 @@ class FrameBroadcaster[T]:
     stealing them from each other. This broadcaster ensures every consumer gets its own queue.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.queues: list[Queue[T]] = []
         self._lock = Lock()
 

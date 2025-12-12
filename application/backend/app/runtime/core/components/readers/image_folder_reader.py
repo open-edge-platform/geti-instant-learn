@@ -179,6 +179,7 @@ class ImageFolderReader(StreamReader):
 
         frames: list[FrameMetadata] = []
         for idx, image_path in enumerate(image_paths, start=offset):
+            thumbnail: str | None
             if idx in self._thumbnail_cache:
                 thumbnail = self._thumbnail_cache[idx]
             else:

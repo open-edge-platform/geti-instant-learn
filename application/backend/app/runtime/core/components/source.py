@@ -30,7 +30,7 @@ class Source(PipelineComponent):
         self._initialized = True
 
     def run(self) -> None:
-        if not self._initialized:
+        if not self._initialized or self._inbound_broadcaster is None:
             raise RuntimeError("The source should be initialized before being used")
 
         logger.debug(f"Starting a source {self._reader.__class__.__name__} loop")
