@@ -6,11 +6,11 @@
 from logging import getLogger
 
 import torch
-from segment_anything_hq.predictor import SamPredictor
 from torch import nn
 from torchvision import tv_tensors
 from torchvision.ops import masks_to_boxes, nms
 
+from getiprompt.components.sam import OpenVINOSAMPredictor, PyTorchSAMPredictor
 from getiprompt.data import ResizeLongestSide
 
 logger = getLogger("Geti Prompt")
@@ -42,14 +42,16 @@ class SamDecoder(nn.Module):
 
     def __init__(
         self,
-        sam_predictor: SamPredictor,
+        sam_predictor: PyTorchSAMPredictor | OpenVINOSAMPredictor,
+        target_length: int = 1024,
         mask_similarity_threshold: float = 0.38,
         nms_iou_threshold: float = 0.1,
     ) -> None:
         """This Segmenter uses SAM to create masks based on points.
 
         Args:
-            sam_predictor: The SAM predictor.
+            sam_predictor: The SAM predictor (any backend: PyTorch, OpenVINO, etc.).
+            target_length: Target length for the longest side of the image (for image transform).
             mask_similarity_threshold: The similarity threshold for the mask.
             nms_iou_threshold: The IoU threshold for the NMS.
         """
@@ -58,16 +60,7 @@ class SamDecoder(nn.Module):
         self.mask_similarity_threshold = mask_similarity_threshold
         self.nms_iou_threshold = nms_iou_threshold
 
-        if hasattr(self.predictor.model.image_encoder, "img_size"):
-            img_size = self.predictor.model.image_encoder.img_size
-        elif hasattr(self.predictor.model, "image_size"):
-            img_size = self.predictor.model.image_size
-        else:
-            # fallback to 1024
-            logger.warning("Image size not found in the model. Using 1024 as default.")
-            img_size = 1024
-
-        self.transform = ResizeLongestSide(img_size)
+        self.transform = ResizeLongestSide(target_length)
         self.device = sam_predictor.device
 
     def preprocess_inputs(
@@ -135,7 +128,7 @@ class SamDecoder(nn.Module):
         """
         # Separate Positive and Negative Points ---
         positive_mask = (labels == 1).squeeze(1)
-        negative_mask = (labels == 0).squeeze(1)
+        negative_mask = (labels == -1).squeeze(1)
 
         # Get the corresponding coordinates and scores
         positive_coords = points[positive_mask]
@@ -149,7 +142,7 @@ class SamDecoder(nn.Module):
 
         if num_negative == 0:
             final_point_coords = torch.cat([positive_coords, positive_scores.unsqueeze(-1)], dim=-1)
-            return positive_coords, labels
+            return final_point_coords, labels
 
         # Combine each positive point with all negative points
         expanded_negative_coords = negative_coords.squeeze(1).expand(num_positive, -1, -1)
@@ -167,7 +160,7 @@ class SamDecoder(nn.Module):
         final_point_coords = torch.cat([final_point_coords_2d, final_point_scores], dim=-1)
 
         positive_label = torch.tensor([1], device=points.device, dtype=torch.float32)
-        negative_labels = torch.zeros(num_negative, device=points.device, dtype=torch.float32)
+        negative_labels = -torch.ones(num_negative, device=points.device, dtype=torch.float32)
         single_group_labels = torch.cat([positive_label, negative_labels])
         final_point_labels = single_group_labels.expand(num_positive, -1)
 
@@ -196,7 +189,7 @@ class SamDecoder(nn.Module):
         positive_points = torch.cat([positive_points, positive_labels], dim=-1)
 
         negative_points = preprocessed_points[0, 1:]
-        negative_labels = torch.zeros(num_neg, device=preprocessed_points.device, dtype=torch.float32).unsqueeze(-1)
+        negative_labels = -torch.ones(num_neg, device=preprocessed_points.device, dtype=torch.float32).unsqueeze(-1)
         negative_points = torch.cat([negative_points, negative_labels], dim=-1)
 
         remapped_points[:num_pos, :] = positive_points
@@ -312,7 +305,7 @@ class SamDecoder(nn.Module):
         if boxes_per_class is not None:
             input_boxes = boxes_per_class
 
-        masks, _, low_res_logits = self.predictor.predict_torch(
+        masks, _, low_res_logits = self.predictor.predict(
             point_coords=input_coords[:, :, :2] if input_coords is not None else None,
             boxes=input_boxes[:, :4] if input_boxes is not None else None,
             point_labels=input_labels,
@@ -384,7 +377,7 @@ class SamDecoder(nn.Module):
         boxes = boxes.reshape(-1, 4)
         boxes = boxes.unsqueeze(1)
 
-        masks, mask_weights, _ = self.predictor.predict_torch(
+        masks, mask_weights, _ = self.predictor.predict(
             point_coords=input_coords[:, :, :2],  # Extract only x, y coordinates for SAM predictor
             point_labels=input_labels,
             boxes=boxes,
@@ -473,7 +466,7 @@ class SamDecoder(nn.Module):
             strict=True,
         ):
             # Set the preprocessed image in the predictor
-            self.predictor.set_torch_image(image, original_size)
+            self.predictor.set_image(image, original_size)
             prediction = self.predict_single(
                 class_point_prompts,
                 class_box_prompts,

@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -69,3 +69,26 @@ class TestWebRTCEndpoints:
         resp = fxt_client.post(f"/api/v1/projects/{PROJECT_ID}/offer", json={"sdp": 123})
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
         assert "detail" in resp.json()
+
+    def test_get_webrtc_config_empty(self, fxt_client):
+        with patch("api.endpoints.webrtc.settings") as mock_settings:
+            mock_settings.ice_servers = []
+            resp = fxt_client.get("/api/v1/webrtc/config")
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.json() == {"iceServers": []}
+
+    def test_get_webrtc_config_with_servers(self, fxt_client):
+        ice_servers = [
+            {"urls": "turn:192.168.1.100:443?transport=tcp", "username": "user", "credential": "password"},
+            {"urls": "stun:stun.example.com:3478"},
+        ]
+        with patch("api.endpoints.webrtc.settings") as mock_settings:
+            mock_settings.ice_servers = ice_servers
+            resp = fxt_client.get("/api/v1/webrtc/config")
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.json() == {
+            "iceServers": [
+                {"urls": "turn:192.168.1.100:443?transport=tcp", "username": "user", "credential": "password"},
+                {"urls": "stun:stun.example.com:3478", "username": None, "credential": None},
+            ]
+        }

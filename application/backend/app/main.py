@@ -15,7 +15,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 import api.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
 from api.error_handler import custom_exception_handler
-from api.routers import projects_router
+from api.routers import projects_router, webrtc_router
 from domain.db.engine import get_session_factory, run_db_migrations
 from domain.dispatcher import ConfigChangeDispatcher
 from runtime.pipeline_manager import PipelineManager
@@ -84,6 +84,7 @@ async def health_check() -> dict[str, str]:
 
 
 fastapi_app.include_router(projects_router, prefix="/api/v1")
+fastapi_app.include_router(webrtc_router, prefix="/api/v1")
 
 if (
     settings.static_files_dir
@@ -101,7 +102,13 @@ if (
         Serve the Single Page Application (SPA) index.html file for any path
         """
         index_path = os.path.join(settings.static_files_dir, "index.html")
-        return FileResponse(index_path)
+        return FileResponse(
+            index_path,
+            headers={
+                "Cross-Origin-Embedder-Policy": "require-corp",
+                "Cross-Origin-Opener-Policy": "same-origin",
+            },
+        )
 
 
 app = CORSMiddleware(  # TODO restrict settings in production

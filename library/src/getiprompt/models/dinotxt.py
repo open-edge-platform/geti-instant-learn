@@ -82,7 +82,7 @@ class DinoTxtZeroShotClassification(Model):
         )
         self.prompt_templates = prompt_templates
 
-    def learn(self, reference_batch: Batch) -> None:
+    def fit(self, reference_batch: Batch) -> None:
         """Perform learning step on the reference batch.
 
         DINOTxt extracts categories from the reference batch to create text priors.
@@ -106,7 +106,7 @@ class DinoTxtZeroShotClassification(Model):
             ...     is_reference=[True, True],
             ... )
             >>> ref_batch = Batch.collate([ref_sample])
-            >>> dinotxt.learn(ref_batch)
+            >>> dinotxt.fit(ref_batch)
         """
         if not reference_batch.samples:
             msg = "reference_batch must contain at least one sample"
@@ -132,7 +132,7 @@ class DinoTxtZeroShotClassification(Model):
         self.reference_features = self.dino_encoder.encode_text(category_mapping, self.prompt_templates)
 
     @torch.no_grad()
-    def infer(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference on the target batch.
 
         Args:
@@ -155,14 +155,14 @@ class DinoTxtZeroShotClassification(Model):
             ...     is_reference=[True, True],
             ... )
             >>> ref_batch = Batch.collate([ref_sample])
-            >>> dinotxt.learn(ref_batch)
+            >>> dinotxt.fit(ref_batch)
             >>> target_sample = Sample(
             ...     image=torch.zeros((3, 512, 512)),
             ...     is_reference=[False],
             ...     categories=["object"],
             ... )
             >>> target_batch = Batch.collate([target_sample])
-            >>> result = dinotxt.infer(target_batch)
+            >>> result = dinotxt.predict(target_batch)
             >>> isinstance(result, Results)
             True
             >>> result.masks is not None

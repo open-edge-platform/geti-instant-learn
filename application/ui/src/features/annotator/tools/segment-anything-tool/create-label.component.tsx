@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { RefObject, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { LabelType } from '@geti-prompt/api';
 import { Point } from '@geti/smart-tools/types';
@@ -11,8 +11,6 @@ import { ActionButton, DOMRefValue, Flex, Overlay, View } from '@geti/ui';
 import { Close } from '@geti/ui/icons';
 
 import { CreateLabelForm } from '../../../prompts/visual-prompt/labels-management/add-label/create-label-form.component';
-import { useVisualPrompt } from '../../../prompts/visual-prompt/visual-prompt-provider.component';
-import { Shape } from '../../types';
 
 export const useCreateLabelFormPosition = () => {
     const [point, setPoint] = useState<Point | undefined>(undefined);
@@ -104,77 +102,24 @@ const useCloseOnOutsideClick = (onClose: () => void) => {
 interface CreateLabelProps {
     onSuccess: (label: LabelType) => void;
     existingLabels: LabelType[];
-    ref: RefObject<SVGSVGElement | null>;
-    previewShapes: Shape[];
+    mousePosition: Point | undefined;
+    onClose: () => void;
 }
 
-export const CreateLabel = ({ onSuccess, existingLabels, ref, previewShapes }: CreateLabelProps) => {
+export const CreateLabel = ({ onSuccess, existingLabels, onClose, mousePosition }: CreateLabelProps) => {
     const nodeRef = useRef(null);
-    const [createLabelFormPosition, setCreateLabelFormPosition] = useCreateLabelFormPosition();
-    const { selectedLabel } = useVisualPrompt();
 
-    const handleClose = () => {
-        setCreateLabelFormPosition(undefined);
+    const labelContainerRef = useCloseOnOutsideClick(onClose);
 
-        if (ref.current === null) {
-            return;
-        }
-
-        ref.current.style.pointerEvents = 'auto';
-    };
-
-    const labelContainerRef = useCloseOnOutsideClick(handleClose);
-
-    useEffect(() => {
-        if (ref.current === null) return;
-
-        const abortController = new AbortController();
-
-        ref.current.addEventListener(
-            'pointerdown',
-            (event) => {
-                if (ref.current === null) {
-                    return;
-                }
-
-                if (event.button !== 0 && event.button !== 2) {
-                    return;
-                }
-
-                if (previewShapes.length === 0) {
-                    return;
-                }
-
-                if (selectedLabel != null) {
-                    return;
-                }
-
-                setCreateLabelFormPosition({ x: event.clientX, y: event.clientY });
-                ref.current.style.pointerEvents = 'none';
-            },
-            {
-                signal: abortController.signal,
-            }
-        );
-
-        return () => {
-            abortController.abort();
-        };
-    }, [ref, setCreateLabelFormPosition, previewShapes.length, selectedLabel]);
-
-    if (createLabelFormPosition === undefined) return null;
+    if (mousePosition === undefined) return null;
 
     return (
         <Overlay isOpen nodeRef={nodeRef}>
             <div
-                onPointerDown={(event) => {
-                    event.stopPropagation();
-                }}
-                onPointerMove={(event) => event.stopPropagation()}
                 style={{
                     position: 'absolute',
-                    left: createLabelFormPosition?.x,
-                    top: createLabelFormPosition?.y,
+                    left: mousePosition?.x,
+                    top: mousePosition?.y,
                     transform: 'translate(-50%, -50%)',
                 }}
             >
@@ -188,8 +133,8 @@ export const CreateLabel = ({ onSuccess, existingLabels, ref, previewShapes }: C
                     borderColor={'gray-400'}
                 >
                     <Flex justifyContent={'space-between'} gap={'size-100'}>
-                        <CreateLabelForm onClose={handleClose} onSuccess={onSuccess} existingLabels={existingLabels} />
-                        <ActionButton isQuiet onPress={handleClose}>
+                        <CreateLabelForm onClose={onClose} onSuccess={onSuccess} existingLabels={existingLabels} />
+                        <ActionButton isQuiet onPress={onClose}>
                             <Close />
                         </ActionButton>
                     </Flex>

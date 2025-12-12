@@ -21,17 +21,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install Just
-        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3.0.0
+      - name: Install dependencies
+        uses: ./.github/actions/install-dependencies
         with:
-          just-version: '1.43.1'
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@1e862dfacbd1d6d858c55d9b792c756523627244 # v7.1.4
-        with:
-          version: "0.9.7"
-          enable-cache: true
-          cache-dependency-glob: "application/backend/uv.lock"
+          uv-cache-dependency-glob: 'application/backend/uv.lock'
 
       - name: Lint backend
         working-directory: application/backend

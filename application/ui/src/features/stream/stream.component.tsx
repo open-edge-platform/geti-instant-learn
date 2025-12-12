@@ -60,7 +60,7 @@ export const Stream = () => {
     if (isTestDatasetSource(activeSource) || isImagesFolderSource(activeSource)) {
         return (
             <Suspense fallback={<Loading mode={'inline'} style={{ height: '100%', width: '100%' }} />}>
-                <ImagesFolderStream sourceId={activeSource.id} />
+                <ImagesFolderStream key={activeSource.id} sourceId={activeSource.id} />
             </Suspense>
         );
     }

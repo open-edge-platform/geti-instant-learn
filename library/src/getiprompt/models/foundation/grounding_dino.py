@@ -60,7 +60,7 @@ if is_accelerate_available():
     from accelerate.utils import reduce
 
 if is_scipy_available():
-    from scipy.optimize import linear_sum_assignment
+    from getiprompt.components.linear_sum_assignment import linear_sum_assignment
 
 if is_timm_available():
     from timm import create_model

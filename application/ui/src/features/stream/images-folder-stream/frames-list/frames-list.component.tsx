@@ -75,7 +75,7 @@ export const FramesList = ({
     useScrollToActiveFrame(ref, activeFrameIndex);
 
     return (
-        <View height={'100%'} padding={'size-200'} backgroundColor={'gray-100'}>
+        <View height={'100%'} padding={'size-200'}>
             <Virtualizer<HorizontalLayoutOptions> layout={HorizontalLayout} layoutOptions={LAYOUT_OPTIONS}>
                 <AriaComponentsListBox
                     orientation={'horizontal'}
