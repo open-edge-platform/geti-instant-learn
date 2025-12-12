@@ -106,7 +106,14 @@ class PromptService(BaseService):
         db_prompts, total_count = self.prompt_repository.list_with_pagination_by_project(
             project_id=project_id, offset=offset, limit=limit
         )
-        prompts = prompts_db_to_schemas(db_prompts, include_thumbnail=True)
+
+        # Denormalize coordinates for visual prompts
+        denormalized_prompts = [
+            self._denormalization(project_id=project_id, data=prompt)
+            for prompt in db_prompts
+        ]
+
+        prompts = prompts_db_to_schemas(denormalized_prompts, include_thumbnail=True)
 
         pagination = Pagination(
             count=len(prompts),
@@ -186,8 +193,8 @@ class PromptService(BaseService):
         if not prompt:
             logger.error("Prompt not found: id=%s project_id=%s", prompt_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.PROMPT, resource_id=str(prompt_id))
-        prompt = self._denormalization(project_id=project_id, data=prompt)
-        return prompt_db_to_schema(prompt, include_thumbnail=False)
+        denormalized_prompt = self._denormalization(project_id=project_id, data=prompt)
+        return prompt_db_to_schema(denormalized_prompt, include_thumbnail=False)
 
     def create_prompt(self, project_id: UUID, create_data: PromptCreateSchema) -> PromptSchema:
         """
@@ -213,10 +220,10 @@ class PromptService(BaseService):
         self._ensure_project(project_id)
         logger.debug("Prompt create requested: project_id=%s type=%s", project_id, create_data.type)
         
-        logger.debug("Normalizing prompt data for project_id=%s", project_id)
-        create_data = self._normalization(project_id=project_id, data=create_data)
+        logger.info("Normalizing prompt data for project_id=%s", project_id)
+        normalized_data = self._normalization(project_id=project_id, data=create_data)
 
-        if isinstance(create_data, TextPromptCreateSchema):
+        if isinstance(normalized_data, TextPromptCreateSchema):
             existing_text_prompt = self.prompt_repository.get_text_prompt_by_project(project_id)
             if existing_text_prompt:
                 logger.error(
@@ -232,8 +239,8 @@ class PromptService(BaseService):
                 )
 
         thumbnail = None
-        if isinstance(create_data, VisualPromptCreateSchema):
-            frame_path = self.frame_repository.get_frame_path(project_id, create_data.frame_id)
+        if isinstance(normalized_data, VisualPromptCreateSchema):
+            frame_path = self.frame_repository.get_frame_path(project_id, normalized_data.frame_id)
             if not frame_path:
                 logger.error(
                     "Visual prompt creation failed: frame_id=%s not found in project with id=%s",
@@ -242,16 +249,16 @@ class PromptService(BaseService):
                 )
                 raise ResourceNotFoundError(
                     resource_type=ResourceType.FRAME,
-                    resource_id=str(create_data.frame_id),
-                    message=f"Frame {create_data.frame_id} does not exist in project {project_id}",
+                    resource_id=str(normalized_data.frame_id),
+                    message=f"Frame {normalized_data.frame_id} does not exist in project {project_id}",
                 )
-            self._validate_annotation_labels(create_data.annotations, project_id)
-            thumbnail = self._generate_thumbnail(project_id, create_data.frame_id, create_data.annotations)
+            self._validate_annotation_labels(normalized_data.annotations, project_id)
+            thumbnail = self._generate_thumbnail(project_id, normalized_data.frame_id, normalized_data.annotations)
 
         try:
             with self.db_transaction():
                 new_prompt: PromptDB = prompt_create_schema_to_db(
-                    schema=create_data, project_id=project_id, thumbnail=thumbnail
+                    schema=normalized_data, project_id=project_id, thumbnail=thumbnail
                 )
                 self.prompt_repository.add(new_prompt)
                 self._emit_processor_change_event(project_id)
@@ -563,19 +570,54 @@ class PromptService(BaseService):
             )
 
     def _normalization(self, project_id: UUID, data: PromptCreateSchema) -> PromptCreateSchema:
+        """Normalize pixel coordinates to [0, 1] range."""
+        if not isinstance(data, VisualPromptCreateSchema):
+            return data
+
+        frame = self.frame_repository.read_frame(project_id=project_id, frame_id=data.frame_id)
+        if frame is None:
+            raise ResourceNotFoundError(
+                resource_type=ResourceType.FRAME,
+                resource_id=str(data.frame_id),
+            )
+        height, width = frame.shape[:2]
+
         for annotation in data.annotations:
-            points = annotation.config.get("points", [])
-            frame = self.frame_repository.read_frame(project_id=project_id, frame_id=data.frame_id)
-            height, width = frame.shape[:2]
+            # When creating, config is a Pydantic model with .points attribute
+            points = annotation.config.points
             for point in points:
-                point["x"], point["y"] = int(point["x"] / width), int(point["y"] / height)
+                logger.debug(
+                    "Normalizing point (%s, %s) with width=%s height=%s",
+                    point.x, point.y, width, height
+                )
+                point.x = point.x / width
+                point.y = point.y / height
+                logger.debug("Normalized point to (%s, %s)", point.x, point.y)
+
         return data
 
     def _denormalization(self, project_id: UUID, data: PromptDB) -> PromptDB:
+        """Denormalize coordinates from [0, 1] range to pixel coordinates."""
+        if data.type != PromptType.VISUAL or not data.frame_id:
+            return data
+
+        frame = self.frame_repository.read_frame(project_id=project_id, frame_id=data.frame_id)
+        if frame is None:
+            return data
+        height, width = frame.shape[:2]
+
         for annotation in data.annotations:
-            points = annotation.config.get("points", [])
-            frame = self.frame_repository.read_frame(project_id=project_id, frame_id=data.frame_id)
-            height, width = frame.shape[:2]
-            for point in points:
-                point["x"], point["y"] = int(point["x"] * width), int(point["y"] * height)
+            # When reading from DB, config is a dict
+            if isinstance(annotation.config, dict):
+                points = annotation.config.get("points", [])
+                for point in points:
+                    point["x"] = int(point["x"] * width)
+                    point["y"] = int(point["y"] * height)
+            else:
+                # Pydantic model (shouldn't happen for DB data, but safe fallback)
+                points = annotation.config.points
+                for point in points:
+                    point.x = int(point.x * width)
+                    point.y = int(point.y * height)
+
         return data

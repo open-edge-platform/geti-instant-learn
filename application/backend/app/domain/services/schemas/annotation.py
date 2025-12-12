@@ -14,8 +14,8 @@ class AnnotationType(StrEnum):
 
 
 class Point(BaseModel):
-    x: float = Field(..., description="x coordinate", ge=0.0, le=1.0)
-    y: float = Field(..., description="y coordinate", ge=0.0, le=1.0)
+    x: float = Field(..., description="x coordinate", ge=0.0)
+    y: float = Field(..., description="y coordinate", ge=0.0)
 
 
 class RectangleAnnotation(BaseModel):
