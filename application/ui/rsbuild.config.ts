@@ -11,6 +11,14 @@ import { pluginSvgr } from '@rsbuild/plugin-svgr';
 
 const { publicVars } = loadEnv();
 
+const getPublicApiUrl = () => {
+    if (publicVars['import.meta.env.PUBLIC_API_URL'] !== undefined) {
+        return JSON.parse(publicVars['import.meta.env.PUBLIC_API_URL']);
+    }
+
+    return '';
+};
+
 export default defineConfig({
     plugins: [
         pluginReact(),
@@ -58,8 +66,8 @@ export default defineConfig({
                 "default-src 'self'; " +
                 "script-src 'self' 'unsafe-eval' blob:; " +
                 "worker-src 'self' blob:; " +
-                "connect-src 'self' http://localhost:9100 data:; " +
-                "img-src 'self' http://localhost:9100 data: blob:; " +
+                `connect-src 'self' ${getPublicApiUrl()} data:; ` +
+                `img-src 'self' ${getPublicApiUrl()} data: blob:; ` +
                 "style-src 'self' 'unsafe-inline';",
         },
     },

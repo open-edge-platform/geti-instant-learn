@@ -3,9 +3,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { fileURLToPath } from 'node:url';
+import path from 'path';
+
 import { defineConfig, devices } from '@playwright/test';
+import dotenv from 'dotenv';
 
 const CI = !!process.env.CI;
+
+const file = fileURLToPath(import.meta.url);
+const dirname = path.dirname(file);
+
+dotenv.config({
+    path: path.resolve(dirname, '.env.test'),
+});
 
 /**
  * See https://playwright.dev/docs/test-configuration.
