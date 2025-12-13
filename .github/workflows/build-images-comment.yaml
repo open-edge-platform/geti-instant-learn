@@ -50,7 +50,7 @@ jobs:
           issue-number: ${{ github.event.issue.number }}
           body: |
             :running: CI will build and test images for this PR :+1:
-            
+
   get-build-version:
     needs: [get-sha-commit]
     runs-on: ubuntu-latest
@@ -78,3 +78,29 @@ jobs:
     with:
       build_version: ${{ needs.get-build-version.outputs.build_version }}
       sha-commit: ${{ needs.get-sha-commit.outputs.head }}
+
+  result-output:
+    name: Check result and comment PR
+    needs: [get-sha-commit, get-build-version, distrib]
+    runs-on: ubuntu-latest
+    if: ${{ always() && !cancelled() }}
+    env:
+      RUN_ID: ${{ github.run_id }}
+      PR_ID: ${{ github.event.issue.number }}
+      COMMENT_ID: ${{ github.event.comment.id }}
+      CHECK: ${{ needs.distrib.result }}
+    steps:
+      - name: Success comment
+        if: needs.distrib.result == 'success'
+        run: |
+          echo "::notice::Build succeeded for PR #${PR_ID}"
+          echo "All required checks passed successfully." 
+      - name: Failure comment
+        if: needs.distrib.result == 'failure' # or !=success
+        run: |
+          echo "::notice::Build failed for PR #${PR_ID}"
+          echo "See logs" 
+      - name: Exit with proper code
+        if: needs.distrib.result == 'failure'
+        run: |
+          exit 1
