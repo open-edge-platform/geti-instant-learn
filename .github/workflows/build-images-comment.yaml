@@ -1,0 +1,56 @@
+name: Build images on PR comment
+on:
+  issue_comment:
+    types: [created]
+
+permissions: {} # No permissions by default
+
+jobs:
+  publish-benchmark-container:
+    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/build')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      head: ${{ steps.config.outputs.head }}
+    steps:
+      - name: Validate and get config
+        id: config
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const allowedAssociations = ["COLLABORATOR", "MEMBER", "OWNER"];
+            authorAssociation = '${{ github.event.comment.author_association }}'
+            if (!allowedAssociations.includes(authorAssociation)) {
+              core.setFailed("You don't have access to run this workflow");
+              return
+            }
+
+            const response = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            })
+
+            // avoid race condition between comment and fetching PR head sha
+            const commentTime = new Date('${{ github.event.comment.created_at }}');
+            const prTime = new Date(response.data.head.repo.pushed_at)
+            if (prTime >= commentTime) {
+              core.setFailed("The PR may have been updated since the image build request, " +
+                             "please review any changes and relaunch if safe.");
+              return
+            }
+
+            core.setOutput('head', response.data.head.sha)
+
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ steps.config.outputs.head }}
+
+      - name: Build Image
+        id: build_image
+        uses: ./.github/workflows/distrib.yml
+        with:
+          build_version: ${{ needs.build-parameters.outputs.build_version }}
