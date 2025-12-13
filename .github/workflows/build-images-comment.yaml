@@ -6,24 +6,23 @@ on:
 permissions: {} # No permissions by default
 
 jobs:
-  build-images-on-PR-comment:
+  get-sha-commit:
     if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/build')
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       pull-requests: read # to get PR data 
     outputs:
-      head: ${{ steps.config.outputs.head }}
+      head: ${{ steps.get-sha-commit.outputs.head }}
     steps:
-      - name: Validate and get config
-        id: config
+      - name: Validate and get sha commit
+        id: get-sha-commit
         env:
           COMMENT_BODY: ${{ github.event.comment.body }}
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const allowedAssociations = ["COLLABORATOR", "MEMBER", "OWNER"];
-            authorAssociation = '${{ github.event.comment.author_association }}'
+            const authorAssociation = '${{ github.event.comment.author_association }}'
             if (!allowedAssociations.includes(authorAssociation)) {
               core.setFailed("You don't have access to run this workflow");
               return
@@ -45,13 +44,12 @@ jobs:
             }
 
             core.setOutput('head', response.data.head.sha)
-
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-        with:
-          ref: ${{ steps.config.outputs.head }}
-
-      - name: Build Image
-        id: build_image
-        uses: ./.github/workflows/distrib.yml
-        with:
-          build_version: ${{ needs.build-parameters.outputs.build_version }}
+  distrib:
+    name: Distrib build
+    needs: [get-sha-commit]
+    permissions:
+      contents: read
+    uses: ./.github/workflows/distrib.yml
+    with:
+      build_version: ${{ needs.build-parameters.outputs.build_version }}
+      sha-commit: ${{ needs.get-sha-commit.outputs.head }}
