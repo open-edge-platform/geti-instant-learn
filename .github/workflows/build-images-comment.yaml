@@ -10,7 +10,7 @@ jobs:
     if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/build')
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: read # to get PR data
+      pull-requests: write # to comment on a pull request
     outputs:
       head: ${{ steps.get-sha-commit.outputs.head }}
     steps:
@@ -45,8 +45,13 @@ jobs:
 
             core.setOutput('head', response.data.head.sha)
 
+      - uses: peter-evans/create-or-update-comment@35d33e4f3771787d0f602f5dca94f47c68b5cc60
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            :running: CI will build and test images for this PR :+1:
+            
   get-build-version:
-    name: Get build version
     needs: [get-sha-commit]
     runs-on: ubuntu-latest
     permissions:
