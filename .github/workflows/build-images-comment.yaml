@@ -6,11 +6,12 @@ on:
 permissions: {} # No permissions by default
 
 jobs:
-  publish-benchmark-container:
+  build-images-on-PR-comment:
     if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/build')
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull_request: read # to get PR data 
     outputs:
       head: ${{ steps.config.outputs.head }}
     steps:
