@@ -7,6 +7,7 @@ permissions: {} # No permissions by default
 
 jobs:
   get-sha-commit:
+    name: Get SHA commit
     if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/build')
     runs-on: ubuntu-latest
     permissions:
@@ -52,6 +53,7 @@ jobs:
             :running: CI will build and test images for this PR :+1:
 
   get-build-version:
+    name: Generate build version
     needs: [get-sha-commit]
     runs-on: ubuntu-latest
     permissions:
@@ -83,23 +85,32 @@ jobs:
     name: Check result and comment PR
     needs: [get-sha-commit, get-build-version, distrib]
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # to comment on a pull request
     if: ${{ always() && !cancelled() }}
     env:
+      CHECK: ${{ needs.distrib.result }}
       RUN_ID: ${{ github.run_id }}
       PR_ID: ${{ github.event.issue.number }}
       COMMENT_ID: ${{ github.event.comment.id }}
-      CHECK: ${{ needs.distrib.result }}
+      COMMENT_BODY: ${{ github.event.comment.body }}
     steps:
       - name: Success comment
         if: needs.distrib.result == 'success'
-        run: |
-          echo "::notice::Build succeeded for PR #${PR_ID}"
-          echo "All required checks passed successfully." 
+        uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+        with:
+          comment-id: "${COMMENT_ID}"
+          edit-mode: replace
+          body: |
+            "${COMMENT_BODY}"
+
+            **Result** :white_check_mark: The tests passed successfully
+
       - name: Failure comment
         if: needs.distrib.result == 'failure' # or !=success
         run: |
           echo "::notice::Build failed for PR #${PR_ID}"
-          echo "See logs" 
+          echo "See logs"
       - name: Exit with proper code
         if: needs.distrib.result == 'failure'
         run: |
