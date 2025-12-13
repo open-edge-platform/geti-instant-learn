@@ -10,9 +10,10 @@ jobs:
     if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/build')
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: read # to get PR data 
+      pull-requests: read # to get PR data
     outputs:
       head: ${{ steps.get-sha-commit.outputs.head }}
+      build_version: ${{ steps.build-version.outputs.version }}
     steps:
       - name: Validate and get sha commit
         id: get-sha-commit
@@ -44,6 +45,11 @@ jobs:
             }
 
             core.setOutput('head', response.data.head.sha)
+
+      - name: build-version
+        id: build-version
+        uses: ./.github/actions/build-version
+
   distrib:
     name: Distrib build
     needs: [get-sha-commit]
@@ -51,5 +57,5 @@ jobs:
       contents: read
     uses: ./.github/workflows/distrib.yml
     with:
-      build_version: ${{ needs.build-parameters.outputs.build_version }}
+      build_version: ${{ needs.get-sha-commit.outputs.build_version }}
       sha-commit: ${{ needs.get-sha-commit.outputs.head }}
