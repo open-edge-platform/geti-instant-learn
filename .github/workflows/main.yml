@@ -76,7 +76,8 @@ jobs:
     needs: [build-parameters]
     permissions:
       contents: read
-    if: needs.build-parameters.outputs.components-list && contains(fromJson(needs.build-parameters.outputs.components-list), 'distrib')
+    # run this job only on manual trigger
+    if: github.event_name == 'workflow_dispatch' && needs.build-parameters.outputs.components-list && contains(fromJson(needs.build-parameters.outputs.components-list), 'distrib')
     uses: ./.github/workflows/distrib.yml
     with:
       build_version: ${{ needs.build-parameters.outputs.build_version }}

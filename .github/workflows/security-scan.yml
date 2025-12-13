@@ -114,6 +114,7 @@ jobs:
           output-format: "text" # Use plain text output format to omit uploading code scanning results to Security tab
 
   trivy-docker-image-scan:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -129,7 +130,7 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/install-dependencies
         with:
-          cleanup-runner: 'true'
+          cleanup-runner: "true"
 
       - name: Build docker image
         working-directory: application
