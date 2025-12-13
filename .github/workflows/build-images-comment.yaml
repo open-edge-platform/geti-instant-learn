@@ -13,7 +13,6 @@ jobs:
       pull-requests: read # to get PR data
     outputs:
       head: ${{ steps.get-sha-commit.outputs.head }}
-      build_version: ${{ steps.build-version.outputs.version }}
     steps:
       - name: Validate and get sha commit
         id: get-sha-commit
@@ -46,16 +45,31 @@ jobs:
 
             core.setOutput('head', response.data.head.sha)
 
+  get-build-version:
+    name: Get build version
+    needs: [get-sha-commit]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      build_version: ${{ steps.build-version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        with:
+          ref: ${{ needs.get-sha-commit.outputs.head }}
+          persist-credentials: false
+
       - name: build-version
         id: build-version
         uses: ./.github/actions/build-version
 
   distrib:
     name: Distrib build
-    needs: [get-sha-commit]
+    needs: [get-sha-commit, get-build-version]
     permissions:
       contents: read
     uses: ./.github/workflows/distrib.yml
     with:
-      build_version: ${{ needs.get-sha-commit.outputs.build_version }}
+      build_version: ${{ needs.get-build-version.outputs.build_version }}
       sha-commit: ${{ needs.get-sha-commit.outputs.head }}
