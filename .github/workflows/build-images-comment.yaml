@@ -8,7 +8,7 @@ permissions: {} # No permissions by default
 jobs:
   get-sha-commit:
     name: Get SHA commit
-    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/build')
+    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/build') # TODO exactly == /build?
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write # to comment on a pull request
@@ -46,7 +46,7 @@ jobs:
 
             core.setOutput('head', response.data.head.sha)
 
-      - uses: peter-evans/create-or-update-comment@35d33e4f3771787d0f602f5dca94f47c68b5cc60
+      - uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
         with:
           issue-number: ${{ github.event.issue.number }}
           body: |
@@ -89,7 +89,6 @@ jobs:
       pull-requests: write # to comment on a pull request
     if: ${{ always() && !cancelled() }}
     env:
-      CHECK: ${{ needs.distrib.result }}
       RUN_ID: ${{ github.run_id }}
       PR_ID: ${{ github.event.issue.number }}
       COMMENT_ID: ${{ github.event.comment.id }}
@@ -97,17 +96,18 @@ jobs:
     steps:
       - name: Success comment
         if: needs.distrib.result == 'success'
-        uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+        uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
         with:
-          comment-id: "${COMMENT_ID}"
+          comment-id: ${{ github.event.comment.id }}
           edit-mode: replace
           body: |
-            "${COMMENT_BODY}"
+            ${{ github.event.comment.body }}
 
-            **Result** :white_check_mark: The tests passed successfully
+            **Result** :white_check_mark: The build was successful.
+            [Check the logs](https://github.com/AlexanderBarabanov/geti-prompt/actions/runs/${{ github.run_id }}) for the details.
 
       - name: Failure comment
-        if: needs.distrib.result == 'failure' # or !=success
+        if: needs.distrib.result == 'failure' # or !=success ?
         run: |
           echo "::notice::Build failed for PR #${PR_ID}"
           echo "See logs"
