@@ -125,9 +125,8 @@ jobs:
           body: |
             ${{ github.event.comment.body }}
 
-            **Result** :x: The build failed, 
-            please [check the logs](https://github.com/AlexanderBarabanov/geti-prompt/actions/runs/${{ github.run_id }}) 
-            for the details.
+            **Result** :x: The build failed.
+            [Check the logs](https://github.com/AlexanderBarabanov/geti-prompt/actions/runs/${{ github.run_id }}) for the details.
 
       - name: Exit with proper code
         if: needs.distrib.result == 'failure'
