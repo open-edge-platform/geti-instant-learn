@@ -48,9 +48,8 @@ jobs:
 
       - uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
         with:
-          issue-number: ${{ github.event.issue.number }}
-          body: |
-            :running: CI will build and test images for this PR :+1:
+          comment-id: ${{ github.event.comment.id }}
+          reactions: 'rocket'
 
   get-build-version:
     name: Generate build version
