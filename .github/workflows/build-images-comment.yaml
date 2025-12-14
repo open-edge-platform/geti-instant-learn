@@ -49,7 +49,7 @@ jobs:
       - uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
         with:
           comment-id: ${{ github.event.comment.id }}
-          reactions: 'rocket'
+          reactions: "rocket"
 
   get-build-version:
     name: Generate build version
@@ -107,9 +107,15 @@ jobs:
 
       - name: Failure comment
         if: needs.distrib.result == 'failure' # or !=success ?
-        run: |
-          echo "::notice::Build failed for PR #${PR_ID}"
-          echo "See logs"
+        uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
+        with:
+          comment-id: ${{ github.event.comment.id }}
+          edit-mode: replace
+          body: |
+            ${{ github.event.comment.body }}
+
+            **Result** :x: The build failed, please [check the logs](https://github.com/AlexanderBarabanov/geti-prompt/actions/runs/${{ github.run_id }}) for the details.
+
       - name: Exit with proper code
         if: needs.distrib.result == 'failure'
         run: |
