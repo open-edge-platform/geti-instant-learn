@@ -1,3 +1,14 @@
+# GitHub Actions workflow that builds container images when triggered by a PR comment.
+#
+# This workflow is triggered when a user comments "/build" on a pull request.
+# It performs the following steps:
+# 1. Validates that the commenter has appropriate permissions (COLLABORATOR, MEMBER, or OWNER)
+# 2. Retrieves the PR's head SHA commit to ensure consistency
+# 3. Checks for race conditions between the comment and PR updates
+# 4. Generates a build version from the checked-out code
+# 5. Triggers the distrib.yml workflow to build the images
+# 6. Comments back on the PR with the build result (success or failure)
+
 name: Build images on PR comment
 on:
   issue_comment:
@@ -8,7 +19,7 @@ permissions: {} # No permissions by default
 jobs:
   get-sha-commit:
     name: Get SHA commit
-    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/build') # TODO exactly == /build?
+    if: github.event.issue.pull_request && github.event.comment.body == '/build'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write # to comment on a pull request
@@ -106,7 +117,7 @@ jobs:
             [Check the logs](https://github.com/AlexanderBarabanov/geti-prompt/actions/runs/${{ github.run_id }}) for the details.
 
       - name: Failure comment
-        if: needs.distrib.result == 'failure' # or !=success ?
+        if: needs.distrib.result == 'failure'
         uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
         with:
           comment-id: ${{ github.event.comment.id }}
@@ -114,7 +125,9 @@ jobs:
           body: |
             ${{ github.event.comment.body }}
 
-            **Result** :x: The build failed, please [check the logs](https://github.com/AlexanderBarabanov/geti-prompt/actions/runs/${{ github.run_id }}) for the details.
+            **Result** :x: The build failed, 
+            please [check the logs](https://github.com/AlexanderBarabanov/geti-prompt/actions/runs/${{ github.run_id }}) 
+            for the details.
 
       - name: Exit with proper code
         if: needs.distrib.result == 'failure'
