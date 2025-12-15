@@ -133,6 +133,17 @@ jobs:
         working-directory: application/ui
         run: npm run tauri build
 
+      # Prepare ZIP archive
+
+      - name: Create ZIP archive
+        run: Compress-Archive -Path "${{ env.UI_TARGET_RELEASE_PATH }}" -DestinationPath "geti-prompt.zip"
+
+      - name: Upload ZIP archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: geti-prompt.zip
+          path: geti-prompt.zip
+
       # Build MSIX bundle
 
       - name: Create MSIX package
