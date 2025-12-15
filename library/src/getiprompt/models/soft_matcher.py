@@ -64,7 +64,7 @@ class SoftMatcher(Matcher):
         >>>
         >>> isinstance(predict_results, Results)
         True
-        >>> infer_results.masks is not None
+        >>> predict_results.masks is not None
         True
     """
 
