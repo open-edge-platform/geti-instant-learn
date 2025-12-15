@@ -19,6 +19,8 @@ permissions: {} # No permissions by default
 jobs:
   get-sha-commit:
     name: Get SHA commit
+    env:
+      COMMENT_CREATED_AT: ${{ github.event.comment.created_at }}
     if: github.event.issue.pull_request && github.event.comment.body == '/build'
     runs-on: ubuntu-latest
     permissions:
@@ -28,8 +30,6 @@ jobs:
     steps:
       - name: Validate and get sha commit
         id: get-sha-commit
-        env:
-          COMMENT_BODY: ${{ github.event.comment.body }}
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
@@ -47,7 +47,7 @@ jobs:
             })
 
             // avoid race condition between comment and fetching PR head sha
-            const commentTime = new Date('${{ github.event.comment.created_at }}');
+            const commentTime = new Date(process.env.COMMENT_CREATED_AT);
             const prTime = new Date(response.data.head.repo.pushed_at)
             if (prTime >= commentTime) {
               core.setFailed("The PR may have been updated since the image build request, " +
@@ -98,11 +98,6 @@ jobs:
     permissions:
       pull-requests: write # to comment on a pull request
     if: ${{ always() && !cancelled() }}
-    env:
-      RUN_ID: ${{ github.run_id }}
-      PR_ID: ${{ github.event.issue.number }}
-      COMMENT_ID: ${{ github.event.comment.id }}
-      COMMENT_BODY: ${{ github.event.comment.body }}
     steps:
       - name: Success comment
         if: needs.distrib.result == 'success'
@@ -114,7 +109,7 @@ jobs:
             ${{ github.event.comment.body }}
 
             **Result** :white_check_mark: The build was successful.
-            [Check the logs](https://github.com/AlexanderBarabanov/geti-prompt/actions/runs/${{ github.run_id }}) for the details.
+            [Check the logs](https://github.com/open-edge-platform/geti-prompt/actions/runs/${{ github.run_id }}) for the details.
 
       - name: Failure comment
         if: needs.distrib.result == 'failure'
@@ -126,7 +121,7 @@ jobs:
             ${{ github.event.comment.body }}
 
             **Result** :x: The build failed.
-            [Check the logs](https://github.com/AlexanderBarabanov/geti-prompt/actions/runs/${{ github.run_id }}) for the details.
+            [Check the logs](https://github.com/open-edge-platform/geti-prompt/actions/runs/${{ github.run_id }}) for the details.
 
       - name: Exit with proper code
         if: needs.distrib.result == 'failure'
