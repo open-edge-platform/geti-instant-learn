@@ -296,7 +296,7 @@ class GridPromptGenerator(nn.Module):
                     foreground_points = torch.empty((0, 4)).to(background_points.device)
 
                 # Add background points
-                background_labels = torch.zeros((len(background_points), 1), device=background_points.device)
+                background_labels = -torch.ones((len(background_points), 1), device=background_points.device)
                 background_points = torch.cat([background_points, background_labels], dim=1)
 
                 # Combine all points for this class

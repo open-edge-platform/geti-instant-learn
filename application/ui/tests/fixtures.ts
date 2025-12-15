@@ -49,6 +49,23 @@ const test = testBase.extend<Fixtures>({
             http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {
                 return response(200).json({
                     sources: [],
+                    pagination: {
+                        count: 0,
+                        total: 0,
+                        limit: 10,
+                        offset: 0,
+                    },
+                });
+            }),
+            http.get('/api/v1/projects/{project_id}/sinks', ({ response }) => {
+                return response(200).json({
+                    sinks: [],
+                    pagination: {
+                        count: 0,
+                        total: 0,
+                        limit: 10,
+                        offset: 0,
+                    },
                 });
             }),
             http.get('/api/v1/projects/{project_id}/labels', ({ response }) => {
@@ -114,6 +131,17 @@ const test = testBase.extend<Fixtures>({
                 const promptId = params.prompt_id as string;
 
                 return HttpResponse.json({ id: promptId, ...body } as never);
+            }),
+            http.get('/api/v1/projects/{project_id}/models', ({ response }) => {
+                return response(200).json({
+                    models: [],
+                    pagination: {
+                        total: 0,
+                        count: 0,
+                        offset: 0,
+                        limit: 10,
+                    },
+                });
             }),
         ],
     }),

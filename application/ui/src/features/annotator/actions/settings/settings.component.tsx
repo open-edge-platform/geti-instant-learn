@@ -19,6 +19,8 @@ import {
     TabPanels,
     Tabs,
     Text,
+    Tooltip,
+    TooltipTrigger,
     useUnwrapDOMRef,
 } from '@geti/ui';
 import { Adjustments, Close } from '@geti/ui/icons';
@@ -64,9 +66,12 @@ export const Settings = ({ ref }: SettingsProps) => {
             targetRef={targetRef}
             placement={isFullScreenMode ? 'top right' : 'right'}
         >
-            <ActionButton isQuiet aria-label={'Settings'}>
-                <Adjustments />
-            </ActionButton>
+            <TooltipTrigger>
+                <ActionButton isQuiet aria-label={'Settings'}>
+                    <Adjustments />
+                </ActionButton>
+                <Tooltip>Settings</Tooltip>
+            </TooltipTrigger>
             {(close) => (
                 <Dialog height={'40rem'} UNSAFE_className={styles.settingsDialog}>
                     <Heading>

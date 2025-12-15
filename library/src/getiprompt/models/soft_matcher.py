@@ -3,15 +3,9 @@
 
 """SoftMatcher model."""
 
-from typing import TYPE_CHECKING
-
 from getiprompt.components.prompt_generators import SoftmatcherPromptGenerator
+from getiprompt.models.matcher import Matcher
 from getiprompt.utils.constants import SAMModelName
-
-from .matcher import Matcher
-
-if TYPE_CHECKING:
-    from getiprompt.components.prompt_generators import PromptGenerator
 
 
 class SoftMatcher(Matcher):
@@ -64,13 +58,13 @@ class SoftMatcher(Matcher):
         ... )
         >>> target_batch = Batch.collate([target_sample])
         >>>
-        >>> # Run learn and infer
-        >>> soft_matcher.learn(ref_batch)
-        >>> infer_results = soft_matcher.infer(target_batch)
+        >>> # Run fit and predict
+        >>> soft_matcher.fit(ref_batch)
+        >>> predict_results = soft_matcher.predict(target_batch)
         >>>
-        >>> isinstance(infer_results, Results)
+        >>> isinstance(predict_results, Results)
         True
-        >>> infer_results.masks is not None
+        >>> predict_results.masks is not None
         True
     """
 
@@ -117,7 +111,7 @@ class SoftMatcher(Matcher):
             compile_models=compile_models,
             device=device,
         )
-        self.prompt_generator: PromptGenerator = SoftmatcherPromptGenerator(
+        self.prompt_generator = SoftmatcherPromptGenerator(
             encoder_input_size=self.encoder.input_size,
             encoder_patch_size=self.encoder.patch_size,
             encoder_feature_size=self.encoder.feature_size,

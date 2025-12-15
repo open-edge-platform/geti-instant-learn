@@ -45,5 +45,8 @@ type QueryKey<Paths extends paths> = {
 export type Meta = {
     invalidates?: QueryKey<paths>[];
     awaits?: QueryKey<paths>[];
-    errorMessage?: string;
+    error?: {
+        message?: string;
+        notify?: boolean;
+    };
 };

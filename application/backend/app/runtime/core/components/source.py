@@ -4,10 +4,10 @@
 import logging
 import time
 
+from domain.services.schemas.processor import InputData
+from domain.services.schemas.reader import FrameListResponse
 from runtime.core.components.base import PipelineComponent, StreamReader
 from runtime.core.components.broadcaster import FrameBroadcaster
-from runtime.core.components.schemas.processor import InputData
-from runtime.core.components.schemas.reader import FrameListResponse
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +18,19 @@ class Source(PipelineComponent):
     def __init__(
         self,
         stream_reader: StreamReader,
-        inbound_broadcaster: FrameBroadcaster[InputData],
     ):
         super().__init__()
         self._reader = stream_reader
+        self._initialized = False
+
+    def setup(self, inbound_broadcaster: FrameBroadcaster[InputData]) -> None:
         self._inbound_broadcaster = inbound_broadcaster
+        self._initialized = True
 
     def run(self) -> None:
+        if not self._initialized:
+            raise RuntimeError("The source should be initialized before being used")
+
         logger.debug("Starting a source loop")
         with self._reader:
             self._reader.connect()
@@ -56,9 +62,9 @@ class Source(PipelineComponent):
         """
         return self._reader.index()
 
-    def list_frames(self, page: int = 1, page_size: int = 30) -> FrameListResponse:
+    def list_frames(self, offset: int = 0, limit: int = 30) -> FrameListResponse:
         """
         Get paginated list of all frames.
         Delegates to reader.list_frames().
         """
-        return self._reader.list_frames(page, page_size)
+        return self._reader.list_frames(offset=offset, limit=limit)

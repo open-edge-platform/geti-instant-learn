@@ -42,6 +42,12 @@ describe('MainContent', () => {
             http.get('/api/v1/projects/{project_id}/sources', () => {
                 return HttpResponse.json({
                     sources: [getMockedSource({ id: 'source-1' })],
+                    pagination: {
+                        count: 1,
+                        total: 1,
+                        limit: 10,
+                        offset: 0,
+                    },
                 });
             })
         );

@@ -4,8 +4,8 @@ import cv2
 import numpy as np
 import pytest
 
+from domain.services.schemas.reader import SourceType, WebCamConfig
 from runtime.core.components.readers.webcam_reader import WebCamReader
-from runtime.core.components.schemas.reader import SourceType, WebCamConfig
 
 
 @pytest.fixture

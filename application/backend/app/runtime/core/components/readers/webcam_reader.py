@@ -3,8 +3,8 @@
 
 import cv2
 
+from domain.services.schemas.reader import ReaderConfig
 from runtime.core.components.readers.video_stream_reader import BaseOpenCVReader
-from runtime.core.components.schemas.reader import ReaderConfig
 
 
 class WebCamReader(BaseOpenCVReader):

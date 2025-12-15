@@ -1,10 +1,14 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Protocol
 from uuid import UUID
 
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectActivationEvent(BaseModel):
@@ -44,10 +48,12 @@ class ConfigChangeDispatcher:
 
     This class allows components to subscribe to configuration changes and be
     notified when an event occurs.
+    Events are dispatched asynchronously to avoid blocking HTTP responses.
     """
 
-    def __init__(self):
+    def __init__(self, max_workers: int = 2):
         self._listeners: list[ConfigChangeListener] = []
+        self._executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="config-dispatcher")
 
     def subscribe(self, listener: ConfigChangeListener) -> None:
         if listener not in self._listeners:
@@ -55,4 +61,18 @@ class ConfigChangeDispatcher:
 
     def dispatch(self, event: ConfigChangeEvent) -> None:
         for listener in self._listeners:
+            self._executor.submit(self._safe_notify, listener, event)
+
+    def _safe_notify(self, listener: ConfigChangeListener, event: ConfigChangeEvent) -> None:
+        try:
             listener(event)
+        except Exception:
+            logger.exception(
+                "Listener failed to process event: listener=%s, event=%s",
+                listener.__class__.__name__,
+                event.__class__.__name__,
+            )
+
+    def shutdown(self, wait: bool = True) -> None:
+        """Shutdown the executor. Call during application shutdown."""
+        self._executor.shutdown(wait=wait)

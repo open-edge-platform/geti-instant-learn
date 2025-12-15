@@ -8,11 +8,10 @@ import torch
 from getiprompt.components import SamDecoder
 from getiprompt.components.filters import BoxPromptFilter
 from getiprompt.components.prompt_generators import GroundingModel, TextToBoxPromptGenerator
+from getiprompt.components.sam.base import SAMPredictor
 from getiprompt.data.base.batch import Batch
-from getiprompt.utils.constants import SAMModelName
-
-from .base import Model
-from .foundation import load_sam_model
+from getiprompt.models.base import Model
+from getiprompt.utils.constants import Backend, SAMModelName
 
 
 class GroundedSAM(Model):
@@ -40,9 +39,10 @@ class GroundedSAM(Model):
             device: The device to use.
         """
         super().__init__()
-        self.sam_predictor = load_sam_model(
+        self.sam_predictor = SAMPredictor(
             sam,
-            device,
+            backend=Backend.PYTORCH,
+            device=device,
             precision=precision,
             compile_models=compile_models,
         )
@@ -55,10 +55,10 @@ class GroundedSAM(Model):
             precision=precision,
             compile_models=compile_models,
         )
-        self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor)
+        self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor, target_length=1024)
         self.prompt_filter: BoxPromptFilter = BoxPromptFilter()
 
-    def learn(self, reference_batch: Batch) -> None:
+    def fit(self, reference_batch: Batch) -> None:
         """Perform learning step on the reference images and priors.
 
         Args:
@@ -70,7 +70,7 @@ class GroundedSAM(Model):
                 if category not in self.category_mapping:
                     self.category_mapping[category] = int(category_id)
 
-    def infer(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
 
         Args:

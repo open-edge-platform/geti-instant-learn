@@ -3,8 +3,6 @@
 
 """PerDino model."""
 
-from typing import TYPE_CHECKING
-
 import torch
 
 from getiprompt.components import CosineSimilarity, SamDecoder
@@ -12,14 +10,10 @@ from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import GridPromptGenerator
+from getiprompt.components.sam.base import SAMPredictor
 from getiprompt.data.base.batch import Batch
-from getiprompt.utils.constants import SAMModelName
-
-from .base import Model
-from .foundation import load_sam_model
-
-if TYPE_CHECKING:
-    from getiprompt.components.prompt_generators.base import PromptGenerator
+from getiprompt.models.base import Model
+from getiprompt.utils.constants import Backend, SAMModelName
 
 
 class PerDino(Model):
@@ -62,13 +56,13 @@ class PerDino(Model):
         ... )
         >>> target_batch = Batch.collate([target_sample])
 
-        >>> # Run learn and infer
-        >>> perdino.learn(ref_batch)
-        >>> infer_results = perdino.infer(target_batch)
+        >>> # Run fit and predict
+        >>> perdino.fit(ref_batch)
+        >>> predict_results = perdino.predict(target_batch)
 
-        >>> isinstance(infer_results, Results)
+        >>> isinstance(predict_results, Results)
         True
-        >>> infer_results.masks is not None
+        >>> predict_results.masks is not None
         True
     """
 
@@ -100,15 +94,17 @@ class PerDino(Model):
             device: The device to use for the model.
         """
         super().__init__()
-        self.sam_predictor = load_sam_model(
+        self.sam_predictor = SAMPredictor(
             sam,
-            device,
+            backend=Backend.PYTORCH,
+            device=device,
             precision=precision,
             compile_models=compile_models,
         )
 
-        self.encoder: ImageEncoder = ImageEncoder(
+        self.encoder = ImageEncoder(
             model_id=encoder_model,
+            backend=Backend.TIMM,
             device=device,
             precision=precision,
             compile_models=compile_models,
@@ -120,7 +116,7 @@ class PerDino(Model):
             device=device,
         )
         self.similarity_matcher = CosineSimilarity()
-        self.prompt_generator: PromptGenerator = GridPromptGenerator(
+        self.prompt_generator = GridPromptGenerator(
             num_grid_cells=num_grid_cells,
             similarity_threshold=similarity_threshold,
             num_bg_points=num_background_points,
@@ -128,11 +124,12 @@ class PerDino(Model):
         self.prompt_filter = PointPromptFilter(num_foreground_points=num_foreground_points)
         self.segmenter: SamDecoder = SamDecoder(
             sam_predictor=self.sam_predictor,
-            confidence_threshold=confidence_threshold,
+            target_length=1024,
+            mask_similarity_threshold=mask_similarity_threshold,
         )
         self.masked_ref_embeddings = None
 
-    def learn(self, reference_batch: Batch) -> None:
+    def fit(self, reference_batch: Batch) -> None:
         """Perform learning step on the reference images and priors."""
         # Start running the model
         reference_embeddings = self.encoder(reference_batch.images)
@@ -142,7 +139,7 @@ class PerDino(Model):
             reference_batch.category_ids,
         )
 
-    def infer(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
 
         Args:

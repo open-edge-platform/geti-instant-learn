@@ -7,6 +7,7 @@ import { useRef } from 'react';
 
 import { DOMRefValue, Flex } from '@geti/ui';
 
+import { DeleteAnnotations } from './delete-annotations.component';
 import { FullScreenMode } from './full-screen-mode.component';
 import { Settings } from './settings/settings.component';
 import { ToggleAnnotationsVisibility } from './toggle-annotations-visibility.component';
@@ -19,6 +20,8 @@ export const AnnotatorActions = () => {
     return (
         <Flex height={'100%'} alignItems={'center'} justifyContent={'end'} gap={'size-50'} ref={ref}>
             <UndoRedo />
+
+            <DeleteAnnotations />
 
             <ToggleAnnotationsVisibility />
 

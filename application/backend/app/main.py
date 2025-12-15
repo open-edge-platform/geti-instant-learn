@@ -9,13 +9,13 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.cors import CORSMiddleware
 
 import api.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
 from api.error_handler import custom_exception_handler
-from api.routers import projects_router
+from api.routers import projects_router, webrtc_router
 from domain.db.engine import get_session_factory, run_db_migrations
 from domain.dispatcher import ConfigChangeDispatcher
 from runtime.pipeline_manager import PipelineManager
@@ -24,10 +24,6 @@ from settings import get_settings
 
 settings = get_settings()
 
-logging.basicConfig(
-    level=logging.INFO if not settings.debug else logging.DEBUG,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
 logger = logging.getLogger(__name__)
 
 
@@ -35,6 +31,11 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """FastAPI lifespan context manager"""
     # Startup actions
+    logging.basicConfig(
+        level=logging.DEBUG if settings.debug else logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        force=True,
+    )
     logger.info(f"Starting {settings.app_name} application...")
     run_db_migrations()
 
@@ -52,11 +53,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     # Shutdown actions
     logger.info(f"Shutting down {settings.app_name} application...")
+    app.state.config_dispatcher.shutdown()
     await app.state.webrtc_manager.cleanup()
     app.state.pipeline_manager.stop()
 
 
-app = FastAPI(
+fastapi_app = FastAPI(
     title=settings.app_name,
     version=settings.version,
     description=settings.description,
@@ -67,53 +69,66 @@ app = FastAPI(
     # TODO add license
 )
 
-app.add_exception_handler(Exception, custom_exception_handler)
-app.add_exception_handler(RequestValidationError, custom_exception_handler)
-
-raw = os.getenv("CORS_ORIGINS", "http://localhost:3000, http://localhost:9100")
-allowed_origins = [o.strip() for o in raw.split(",") if o.strip()]
-app.add_middleware(  # TODO restrict settings in production
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+fastapi_app.add_exception_handler(Exception, custom_exception_handler)
+fastapi_app.add_exception_handler(RequestValidationError, custom_exception_handler)
 
 
-@app.get("/health")
+@fastapi_app.get(path="/health", tags=["Health"])
 async def health_check() -> dict[str, str]:
     """Health check endpoint"""
     return {"status": "ok"}
 
 
-app.include_router(projects_router, prefix="/api/v1")
+fastapi_app.include_router(projects_router, prefix="/api/v1")
+fastapi_app.include_router(webrtc_router, prefix="/api/v1")
 
 if (
     settings.static_files_dir
     and os.path.isdir(settings.static_files_dir)
     and next(os.scandir(settings.static_files_dir), None) is not None
 ):
-    app.mount(os.getenv("ASSET_PREFIX", "/html"), StaticFiles(directory=settings.static_files_dir), name="static")
+    fastapi_app.mount(
+        os.getenv("ASSET_PREFIX", "/html"), StaticFiles(directory=settings.static_files_dir), name="static"
+    )
 
-    @app.get("/", include_in_schema=False)
-    @app.get("/{full_path:path}", include_in_schema=False)
+    @fastapi_app.get("/", include_in_schema=False)
+    @fastapi_app.get("/{full_path:path}", include_in_schema=False)
     async def serve_spa(full_path: str = "") -> FileResponse:  # noqa: ARG001
         """
         Serve the Single Page Application (SPA) index.html file for any path
         """
         index_path = os.path.join(settings.static_files_dir, "index.html")
-        return FileResponse(index_path)
+        return FileResponse(
+            index_path,
+            headers={
+                "Cross-Origin-Embedder-Policy": "require-corp",
+                "Cross-Origin-Opener-Policy": "same-origin",
+            },
+        )
+
+
+app = CORSMiddleware(  # TODO restrict settings in production
+    app=fastapi_app,
+    allow_origins=settings.cors_allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def main() -> None:
     """Main application entry point"""
+    log_config = uvicorn.config.LOGGING_CONFIG
+    log_config["formatters"]["default"]["fmt"] = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    log_config["formatters"]["access"]["fmt"] = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
     logger.info(f"Starting {settings.app_name} in {settings.environment} mode")
     uvicorn.run(
         app,
         host=settings.host,
         port=settings.port,
         log_level="debug" if settings.debug else "info",
+        log_config=log_config,
     )
 
 

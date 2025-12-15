@@ -1,7 +1,7 @@
 ################
 # Libraries Base
 ################
-FROM python:3.12-slim-bookworm@sha256:874450e1da63e36bf5c1ca8b0a13cb9eb0bbb1c4015151e376978f9aa6ae3bc2 AS backend-base
+FROM python:3.12-slim-bookworm@sha256:2db3d54b851289c3fdf380af6c3eb0db09b072060151fb344de80673e1b26f81 AS backend-base
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
 # Disable Python downloads, because we want to use the system interpreter
@@ -32,7 +32,7 @@ FROM backend-base AS cpu-base
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra cpu
+    uv sync --frozen --no-dev --no-editable --extra cpu --extra mqtt
 
 ##########
 # GPU Base
@@ -42,7 +42,7 @@ FROM backend-base AS gpu-base
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra cu126
+    uv sync --frozen --no-dev --no-editable --extra cu126 --extra mqtt
 
 ##########
 # XPU Base
@@ -52,12 +52,12 @@ FROM backend-base AS xpu-base
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra xpu
+    uv sync --frozen --no-dev --no-editable --extra xpu --extra mqtt
 
 ##################
 # Geti UI packages
 ##################
-FROM node:24-alpine3.22@sha256:2867d550cf9d8bb50059a0fff528741f11a84d985c732e60e19e8e75c7239c43 AS geti-ui-packages
+FROM node:24-alpine3.22@sha256:4f4a059445c5a6ef2b9d169d9afde176301263178141fc05ba657dab1c84f9a7 AS geti-ui-packages
 
 WORKDIR /home/app/web_ui/
 RUN apk add --no-cache git=2.49.1-r0
@@ -67,7 +67,7 @@ RUN npm run clone-geti-ui-packages
 #############
 # Web UI deps
 #############
-FROM node:24-alpine3.22@sha256:2867d550cf9d8bb50059a0fff528741f11a84d985c732e60e19e8e75c7239c43 AS web-ui-base
+FROM node:24-alpine3.22@sha256:4f4a059445c5a6ef2b9d169d9afde176301263178141fc05ba657dab1c84f9a7 AS web-ui-base
 
 WORKDIR /home/app/web_ui/
 
@@ -97,7 +97,7 @@ RUN npm run build
 ##########################################
 # Base for CPU, GPU and XPU runtime images
 ##########################################
-FROM python:3.12-slim-bookworm@sha256:874450e1da63e36bf5c1ca8b0a13cb9eb0bbb1c4015151e376978f9aa6ae3bc2 AS runtime-base
+FROM python:3.12-slim-bookworm@sha256:2db3d54b851289c3fdf380af6c3eb0db09b072060151fb344de80673e1b26f81 AS runtime-base
 
 ARG STATIC_FILES_DIR=""
 ENV STATIC_FILES_DIR=${STATIC_FILES_DIR}
@@ -113,7 +113,7 @@ ARG USER_NAME="non-root"
 ENV USER_NAME=${USER_NAME}
 ARG PUBLIC_API_URL=""
 ENV PUBLIC_API_URL=${PUBLIC_API_URL}
-ARG INITIAL_DATASET_DIR=""
+ARG TARGET_DATASET_DIR=""
 ARG SOURCE_DATASET_DIR=""
 
 # Create directory and set ownership before VOLUME instruction
@@ -137,7 +137,7 @@ RUN useradd -l -u ${UID} ${USER_NAME} \
     && rm -rf /root/.cache/pip
 
 # Add sample dataset with coffee berries
-COPY --link --chown=${UID} ${SOURCE_DATASET_DIR} ${INITIAL_DATASET_DIR}
+COPY --link --chown=${UID} ${SOURCE_DATASET_DIR} ${TARGET_DATASET_DIR}
 
 # Copy backend source code
 COPY --link --chown=${UID} backend/app /geti_prompt/app
@@ -159,14 +159,14 @@ CMD ["uv", "run", "app/main.py"]
 ######################
 # Server (CPU version)
 ######################
-FROM runtime-base AS geti-prompt-cpu
+FROM runtime-base AS cpu
 
 COPY --from=cpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
 
 ######################
 # Server (GPU version)
 ######################
-FROM runtime-base AS geti-prompt-gpu
+FROM runtime-base AS gpu
 
 USER root
 
@@ -191,7 +191,7 @@ COPY --from=gpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/
 ######################
 # Server (XPU version)
 ######################
-FROM runtime-base AS geti-prompt-xpu
+FROM runtime-base AS xpu
 
 USER root
 

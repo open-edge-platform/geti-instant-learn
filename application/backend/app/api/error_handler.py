@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 
 from domain.errors import (
     ResourceAlreadyExistsError,
+    ResourceInUseError,
     ResourceNotFoundError,
     ResourceUpdateConflictError,
 )
@@ -24,7 +25,7 @@ from runtime.errors import (
 logger = logging.getLogger(__name__)
 
 
-def custom_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+def custom_exception_handler(request: Request, exc: Exception) -> JSONResponse:  # noqa: PLR0911
     """
     Centralized exception handler for FastAPI routes.
     Maps domain exceptions to appropriate HTTP status codes and returns consistent error responses.
@@ -76,6 +77,14 @@ def custom_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         message = str(exc) if str(exc) else "Invalid request. Please check your input and try again."
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"detail": message})
 
+    if isinstance(exc, ResourceInUseError):
+        logger.debug(
+            f"Exception handler called: {request.method} {request.url.path} "
+            f"raised {type(exc).__name__}: {str(exc)}. Body: {body_str}"
+        )
+        message = str(exc) if str(exc) else "The resource cannot be modified because it is currently in use."
+        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": message})
+
     if isinstance(exc, RequestValidationError):
         return _handle_validation_error(request, exc, body_str)
 
@@ -117,6 +126,13 @@ def _handle_validation_error(request: Request, exc: RequestValidationError, body
 
         if error_type == "missing":
             error_messages.append(f"Field '{field_path}' is required.")
+        elif error_type == "value_error":
+            if "ctx" in error and "error" in error["ctx"]:
+                actual_error = error["ctx"]["error"]
+                error_messages.append(str(actual_error))
+            else:
+                cleaned_msg = msg.replace("Value error, ", "", 1) if msg.startswith("Value error, ") else msg
+                error_messages.append(cleaned_msg)
         elif error_type in ("string_type", "int_type", "float_type", "bool_type"):
             error_messages.append(f"Field '{field_path}' has invalid type: {msg}")
         else:

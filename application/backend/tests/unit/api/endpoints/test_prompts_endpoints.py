@@ -60,6 +60,14 @@ def app():
     app.include_router(projects_router, prefix="/api/v1")
     app.dependency_overrides[SessionDep] = lambda: object()
 
+    class DummyDispatcher:
+        def dispatch(self, event):
+            pass
+
+    from dependencies import get_config_dispatcher
+
+    app.dependency_overrides[get_config_dispatcher] = lambda: DummyDispatcher()
+
     app.add_exception_handler(Exception, custom_exception_handler)
     app.add_exception_handler(RequestValidationError, custom_exception_handler)
 

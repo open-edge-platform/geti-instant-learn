@@ -6,7 +6,7 @@
 import { CSSProperties, KeyboardEvent, useState } from 'react';
 
 import { LabelType } from '@geti-prompt/api';
-import { ActionButton, ColorPickerDialog, DimensionValue, Flex, TextField } from '@geti/ui';
+import { ActionButton, ColorPickerDialog, DimensionValue, Flex, TextField, TextFieldRef } from '@geti/ui';
 import { clsx } from 'clsx';
 
 import { MAX_LABEL_NAME_LENGTH, validateLabelName } from '../utils';
@@ -23,13 +23,20 @@ interface EditLabelProps {
     existingLabels: LabelType[];
 }
 
+const autoFocus = (ref: TextFieldRef<HTMLInputElement> | null) => {
+    if (ref === null) return;
+
+    ref.focus();
+};
+
 export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled, existingLabels }: EditLabelProps) => {
     const [color, setColor] = useState<string>(label.color);
     const [name, setName] = useState<string>(label.name);
 
     const validationError = validateLabelName(name, existingLabels, label.id);
     const hasSameName = name.trim() === label.name.trim();
-    const isEditDisabled = !!validationError || isDisabled || hasSameName;
+    const hasSameColor = color === label.color;
+    const isEditDisabled = !!validationError || isDisabled || (hasSameName && hasSameColor);
 
     const handleAccept = () => {
         if (isEditDisabled) return;
@@ -58,12 +65,12 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled
                 data-testid={'change-color-button'}
                 onColorChange={setColor}
                 size={'M'}
-                ariaLabelPrefix={'New label'}
             />
 
             <TextField
                 isQuiet={isQuiet}
                 flex={1}
+                ref={autoFocus}
                 placeholder={'Add label'}
                 aria-label={'New label name'}
                 data-testid={'new-label-name-input'}
@@ -71,8 +78,6 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled
                 onChange={setName}
                 maxLength={MAX_LABEL_NAME_LENGTH}
                 onKeyDown={(e) => handleKeyDown(e)}
-                // eslint-disable-next-line jsx-a11y/no-autofocus
-                autoFocus
                 validationState={validationError ? 'invalid' : 'valid'}
                 errorMessage={validationError}
             />

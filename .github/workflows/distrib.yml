@@ -19,23 +19,15 @@ jobs:
         ai-device: [cpu, gpu, xpu]
     steps:
       - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
           persist-credentials: false
 
-      - name: Initial cleanup
-        uses: ./.github/actions/cleanup-runner
-        with:
-          type: "initial"
-
       - name: Install dependencies
-        run: |
-          sudo rm -f /var/lib/man-db/auto-update  # Disable man-db auto-update
-          sudo apt-get update
-          sudo apt-get install -y just
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+        uses: ./.github/actions/install-dependencies
+        with:
+          uv-cache-dependency-glob: 'application/backend/uv.lock'
+          cleanup-runner: 'true'
 
       - name: Build docker image for ${{ matrix.ai-device }}
         working-directory: application

@@ -15,3 +15,4 @@ export { ReactComponent as Wand } from './wand.svg';
 export { ReactComponent as Fireworks } from './fire-works.svg';
 export { ReactComponent as NoActiveProject } from './no-active-project.svg';
 export { ReactComponent as Folder } from './folder.svg';
+export { ReactComponent as MQTT } from './mqtt.svg';

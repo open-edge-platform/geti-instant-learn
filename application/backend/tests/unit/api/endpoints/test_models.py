@@ -112,7 +112,7 @@ class TestGetModels:
 
         client.app.dependency_overrides[get_model_service] = lambda: FakeProcessorService(None)
 
-        response = client.get(f"/api/v1/projects/{project_id}/models/")
+        response = client.get(f"/api/v1/projects/{project_id}/models")
 
         assert response.status_code == status.HTTP_200_OK
         assert len(response.json()["models"]) == 1
@@ -128,7 +128,7 @@ class TestGetModels:
 
         client.app.dependency_overrides[get_model_service] = lambda: FakeProcessorService(None)
 
-        response = client.get(f"/api/v1/projects/{project_id}/models/")
+        response = client.get(f"/api/v1/projects/{project_id}/models")
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["models"] == []
@@ -143,7 +143,7 @@ class TestGetModels:
 
         client.app.dependency_overrides[get_model_service] = lambda: FakeProcessorService(None)
 
-        response = client.get(f"/api/v1/projects/{project_id}/models/")
+        response = client.get(f"/api/v1/projects/{project_id}/models")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert str(project_id) in response.json()["detail"]
@@ -158,7 +158,7 @@ class TestGetModels:
 
         client.app.dependency_overrides[get_model_service] = lambda: FakeProcessorService(None)
 
-        response = client.get(f"/api/v1/projects/{project_id}/models/")
+        response = client.get(f"/api/v1/projects/{project_id}/models")
 
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 

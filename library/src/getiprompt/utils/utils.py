@@ -8,6 +8,7 @@ import logging
 import sys
 from pathlib import Path
 
+import openvino as ov
 import requests
 import torch
 from rich.progress import BarColumn, DownloadColumn, Progress, TextColumn, TimeRemainingColumn, TransferSpeedColumn
@@ -42,8 +43,74 @@ def setup_logger(dir_path: Path | None = None, log_level: str = "INFO") -> None:
 
 
 def precision_to_torch_dtype(precision: str) -> torch.dtype:
-    """Convert a precision string to a torch.dtype."""
-    return {"fp32": torch.float32, "fp16": torch.float16, "bf16": torch.bfloat16}[precision.lower()]
+    """Convert a precision string to a torch.dtype.
+
+    Args:
+        precision: Precision name ("fp32", "fp16", "bf16")
+
+    Returns:
+        Corresponding torch.dtype
+
+    Raises:
+        ValueError: If precision is not supported
+    """
+    precision_map = {
+        "fp32": torch.float32,
+        "fp16": torch.float16,
+        "bf16": torch.bfloat16,
+    }
+    precision_lower = precision.lower()
+    if precision_lower not in precision_map:
+        msg = f"Unsupported precision: {precision}. Supported values: {list(precision_map.keys())}"
+        raise ValueError(msg)
+    return precision_map[precision_lower]
+
+
+def precision_to_openvino_type(precision: str) -> ov.Type:
+    """Convert a precision string to an OpenVINO Type.
+
+    Args:
+        precision: Precision name in PyTorch style ("fp32", "fp16", "bf16")
+
+    Returns:
+        OpenVINO Type (ov.Type.f32, ov.Type.f16, etc.)
+
+    Raises:
+        ImportError: If openvino is not installed
+        ValueError: If precision is not supported
+    """
+    precision_map = {
+        "fp32": ov.Type.f32,
+        "fp16": ov.Type.f16,
+        "bf16": ov.Type.f16,
+    }
+    precision_lower = precision.lower()
+    if precision_lower not in precision_map:
+        msg = f"Unsupported precision: {precision}. Supported values: {list(precision_map.keys())}"
+        raise ValueError(msg)
+    return precision_map[precision_lower]
+
+
+def device_to_openvino_device(device: str) -> str:
+    """Map PyTorch device names to OpenVINO device names.
+
+    Args:
+        device: Device name in PyTorch style ("cuda", "cpu") or OpenVINO style ("GPU", "CPU", "AUTO")
+
+    Returns:
+        Device name in OpenVINO style ("CPU", "GPU", "AUTO")
+    """
+    if not device:
+        return "CPU"
+    device_upper = device.upper()
+    # Map PyTorch-style names to OpenVINO names
+    if device_upper == "CUDA":
+        return "GPU"
+    # OpenVINO names pass through unchanged
+    if device_upper in {"CPU", "GPU", "AUTO"}:
+        return device_upper
+    # Default fallback
+    return "CPU"
 
 
 def download_file(url: str, target_path: Path, sha_sum: str | None = None) -> None:

@@ -7,6 +7,18 @@ from enum import Enum
 from pathlib import Path
 
 
+class Backend(Enum):
+    """Enum for backends."""
+
+    ONNX = "onnx"
+    TENSORRT = "tensorrt"
+    TORCHSCRIPT = "torchscript"
+    OPENVINO = "openvino"
+    PYTORCH = "pytorch"
+    HUGGINGFACE = "huggingface"
+    TIMM = "timm"
+
+
 class SAMModelName(Enum):
     """Enum for SAM model types."""
 

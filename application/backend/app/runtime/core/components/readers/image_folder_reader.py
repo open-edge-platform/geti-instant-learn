@@ -10,9 +10,10 @@ from pathlib import Path
 import cv2
 import numpy as np  # noqa: TC002
 
+from domain.services.schemas.base import Pagination
+from domain.services.schemas.processor import InputData
+from domain.services.schemas.reader import FrameListResponse, FrameMetadata, ReaderConfig
 from runtime.core.components.base import StreamReader
-from runtime.core.components.schemas.processor import InputData
-from runtime.core.components.schemas.reader import FrameListResponse, FrameMetadata, ReaderConfig
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +50,10 @@ class ImageFolderReader(StreamReader):
             new_w, new_h = int(w * scale), int(h * scale)
             thumbnail = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
-            # Encode to base64
+            # Encode to base64 with data URI prefix
             _, buffer = cv2.imencode(".jpg", thumbnail, [cv2.IMWRITE_JPEG_QUALITY, 80])
-            return base64.b64encode(buffer).decode("utf-8")
+            base64_string = base64.b64encode(buffer).decode("utf-8")
+            return f"data:image/jpeg;base64,{base64_string}"
         except Exception as e:
             logger.warning(f"Failed to generate thumbnail for {image_path}: {e}")
             return None
@@ -95,6 +97,9 @@ class ImageFolderReader(StreamReader):
             raise ValueError(f"Invalid folder path: {self._config.images_folder_path}")
 
         image_files = self._get_image_files(folder_path)
+        if not image_files:
+            logger.warning(f"No supported image files found in {folder_path}")
+
         self._image_paths = sorted(image_files, key=self._natural_sort_key)
         self._current_index = 0
 
@@ -130,22 +135,22 @@ class ImageFolderReader(StreamReader):
         """Return the current frame position."""
         return self._current_index
 
-    def list_frames(self, page: int = 1, page_size: int = 30) -> FrameListResponse:
+    def list_frames(self, offset: int = 0, limit: int = 30) -> FrameListResponse:
         """
         Return a paginated list of frames with thumbnails.
 
         Args:
-            page: The page number (1-based).
-            page_size: Number of frames per page.
+            offset: Number of items to skip (0-based index).
+            limit: Maximum number of frames to return.
 
         Returns:
-            FrameListResponse with frame metadata including thumbnails.
+            FrameListResponse with frame metadata including thumbnails and pagination info.
         """
-        start_idx = (page - 1) * page_size
-        end_idx = min(start_idx + page_size, len(self._image_paths))
+        total = len(self._image_paths)
+        end_idx = min(offset + limit, total)
 
         frames = []
-        for idx in range(start_idx, end_idx):
+        for idx in range(offset, end_idx):
             image_path = self._image_paths[idx]
 
             # Check cache first, generate if not cached
@@ -158,12 +163,19 @@ class ImageFolderReader(StreamReader):
                     self._thumbnail_cache[idx] = thumbnail
 
             if thumbnail is None:
-                # Skip invalid images or provide placeholder
+                # Skip invalid images
                 continue
 
             frames.append(FrameMetadata(index=idx, thumbnail=thumbnail))
 
-        return FrameListResponse(total=len(self._image_paths), page=page, page_size=page_size, frames=frames)
+        pagination = Pagination(
+            count=len(frames),
+            total=total,
+            offset=offset,
+            limit=limit,
+        )
+
+        return FrameListResponse(frames=frames, pagination=pagination)
 
     def read(self) -> InputData | None:
         """Read the current image."""
@@ -181,11 +193,13 @@ class ImageFolderReader(StreamReader):
             self._last_image = image
             self._last_image_path = image_path
 
-        time.sleep(0.033)  # a small delay (~30 FPS) to prevent overwhelming consumers
+        # time.sleep(0.033)  # a small delay (~30 FPS) to prevent overwhelming consumers
+
+        image_rgb = cv2.cvtColor(self._last_image, cv2.COLOR_BGR2RGB)
 
         return InputData(
             timestamp=int(time.time() * 1000),
-            frame=self._last_image,
+            frame=image_rgb,
             context={"path": str(image_path), "index": self._current_index},
         )
 

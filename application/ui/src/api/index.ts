@@ -13,16 +13,27 @@ type SourceWithoutConfig = Omit<SchemaSourceSchema, 'config'>;
 type WebcamConfig = components['schemas']['WebCamConfig'];
 type VideoFileConfig = components['schemas']['VideoFileConfig'];
 export type ImagesFolderConfig = components['schemas']['ImagesFolderConfig'];
+type SampleDatasetConfig = components['schemas']['SampleDatasetConfig'];
 
-export type SourceConfig = WebcamConfig | VideoFileConfig | ImagesFolderConfig;
+export type SourceConfig = WebcamConfig | VideoFileConfig | ImagesFolderConfig | SampleDatasetConfig;
 
 export type WebcamSourceType = SourceWithoutConfig & { config: WebcamConfig };
 export type VideoFileSourceType = SourceWithoutConfig & { config: VideoFileConfig };
 export type ImagesFolderSourceType = SourceWithoutConfig & { config: ImagesFolderConfig };
+export type SampleDatasetSourceType = SourceWithoutConfig & { config: SampleDatasetConfig };
+
+export type SinkConfig = components['schemas']['SinkSchema'];
+export type SinkType = SinkConfig['config']['sink_type'];
+type SinkWithoutConfig = Omit<SinkConfig, 'config'>;
+
+export type MQTTConfig = components['schemas']['MqttConfig'];
+export type MQTTSinkType = SinkWithoutConfig & { config: MQTTConfig };
 
 export { $api, client } from './client';
 export {
     type paths,
+    type SchemaProcessorSchema as ModelType,
+    type SchemaProcessorListSchema as ModelListType,
     type SchemaProjectSchema as ProjectType,
     type SchemaProjectsListSchema as ProjectsListType,
     type SchemaProjectUpdateSchema as ProjectUpdateType,
@@ -37,4 +48,9 @@ export {
     type SchemaVisualPromptSchema as VisualPromptType,
     type SchemaPromptsListSchema as VisualPromptListType,
     type SchemaVisualPromptListItemSchema as VisualPromptItemType,
+    type SchemaFrameMetadata as FrameAPIType,
+    type SchemaFrameListResponse as FramesResponseType,
+    type SchemaSinkCreateSchema as SinkCreateType,
+    type SchemaSinkUpdateSchema as SinkUpdateType,
+    type SchemaSinksListSchema as SinksListType,
 } from './openapi-spec';

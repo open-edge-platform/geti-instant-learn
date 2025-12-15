@@ -3,24 +3,24 @@
 
 from pydantic import BaseModel
 
-from domain.services.schemas.base import BaseIDPayload, BaseIDSchema
-from runtime.core.components.schemas.reader import ReaderConfig
+from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
+from domain.services.schemas.reader import ReaderConfig
 
 
 class SourceCreateSchema(BaseIDPayload):
-    connected: bool
+    active: bool
     config: ReaderConfig  # type: ignore[valid-type]
 
 
 class SourceUpdateSchema(BaseModel):
-    connected: bool
+    active: bool
     config: ReaderConfig  # type: ignore[valid-type]
 
 
 class SourceSchema(BaseIDSchema):
-    connected: bool
+    active: bool
     config: ReaderConfig
 
 
-class SourcesListSchema(BaseModel):
+class SourcesListSchema(PaginatedResponse):
     sources: list[SourceSchema]
