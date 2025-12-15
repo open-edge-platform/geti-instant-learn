@@ -20,8 +20,8 @@ class InferenceModelHandler(ModelHandler):
         }
 
     def initialise(self) -> None:
-        self._model.learn(self._reference_batch)
+        self._model.fit(self._reference_batch)
 
-    def infer(self, batch: Batch) -> list[dict[str, torch.Tensor]]:
-        logger.info("InferenceModelHandler infer called with batch of size %d", len(batch.samples))
-        return self._model.infer(batch)
+    def predict(self, batch: Batch) -> list[dict[str, torch.Tensor]]:
+        logger.info("InferenceModelHandler predict called with batch of size %d", len(batch.samples))
+        return self._model.predict(batch)

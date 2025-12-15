@@ -64,14 +64,14 @@ class Matcher(Model):
         ... )
         >>> target_batch = Batch.collate([target_sample])
 
-        >>> # Run learn and infer
-        >>> matcher.learn(ref_batch)
-        >>> infer_results = matcher.infer(target_batch)
+        >>> # Run fit and predict
+        >>> matcher.fit(ref_batch)
+        >>> predict_results = matcher.predict(target_batch)
 
-        >>> isinstance(infer_results, Results)
+        >>> isinstance(predict_results, Results)
         True
 
-        >>> infer_results.masks is not None
+        >>> predict_results.masks is not None
         True
     """
 

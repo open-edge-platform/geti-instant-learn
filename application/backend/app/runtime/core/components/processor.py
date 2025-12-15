@@ -48,7 +48,7 @@ class Processor(PipelineComponent):
             try:
                 data = self._in_queue.get(timeout=0.1)
                 batch = self._create_batch(data)
-                results = self._model_handler.infer(batch)
+                results = self._model_handler.predict(batch)
                 # output_data = OutputData(frame=data.frame, results=results, labels_colors=self._get_labels_colors())
                 output_data = OutputData(frame=data.frame, results=results, labels_colors=None)
                 if results:

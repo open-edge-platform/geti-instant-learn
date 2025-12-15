@@ -127,5 +127,5 @@ class ModelHandler(ABC):
         pass
 
     @abstractmethod
-    def infer(self, batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, batch: Batch) -> list[dict[str, torch.Tensor]]:
         pass
