@@ -18,6 +18,7 @@ from api.error_handler import custom_exception_handler
 from api.routers import projects_router, webrtc_router
 from domain.db.engine import get_session_factory, run_db_migrations
 from domain.dispatcher import ConfigChangeDispatcher
+from domain.services.schemas.health import HealthCheckSchema
 from runtime.pipeline_manager import PipelineManager
 from runtime.webrtc.manager import WebRTCManager
 from settings import get_settings
@@ -74,9 +75,9 @@ fastapi_app.add_exception_handler(RequestValidationError, custom_exception_handl
 
 
 @fastapi_app.get(path="/health", tags=["Health"])
-async def health_check() -> dict[str, str]:
+async def health_check() -> HealthCheckSchema:
     """Health check endpoint"""
-    return {"status": "ok"}
+    return HealthCheckSchema(status="ok")
 
 
 fastapi_app.include_router(projects_router, prefix="/api/v1")
