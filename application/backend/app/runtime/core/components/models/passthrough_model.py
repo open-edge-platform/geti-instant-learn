@@ -12,6 +12,6 @@ class PassThroughModelHandler(ModelHandler):
     def initialise(self) -> None:
         pass
 
-    def infer(self, batch: Batch) -> list[dict[str, torch.Tensor]]:  # noqa: ARG002
+    def predict(self, batch: Batch) -> list[dict[str, torch.Tensor]]:  # noqa: ARG002
         logger.debug("Using PassThroughModelHandler, returning empty results.")
         return []

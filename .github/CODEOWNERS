@@ -2,13 +2,13 @@
 * @Daankrol @mpryahin @LenaRudaya @piotrgrubicki
 
 # Backend
-application/backend/ @mpryahin @LenaRudaya @piotrgrubicki
+application/backend/ @mpryahin @LenaRudaya @michalad1 @piotrgrubicki
 
 # Frontend
-application/ui/ @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura @romanowska
+application/ui/ @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura
 
 # Deploy
-deploy/ @mpryahin @LenaRudaya @piotrgrubicki
+deploy/ @mpryahin @LenaRudaya @michalad1 @piotrgrubicki
 
 # Docs
 docs/ @Daankrol @mpryahin @LenaRudaya @eugene123tw @dwesolow @pplaskie @samet-akcay

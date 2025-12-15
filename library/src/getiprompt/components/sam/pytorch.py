@@ -293,13 +293,17 @@ class PyTorchSAMPredictor(nn.Module):
             self._predictor = SAM2ImagePredictor(sam_model)
         elif sam_model_name in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
             registry_name = MODEL_MAP[sam_model_name]["registry_name"]
-            sam_model = (
-                sam_model_registry[registry_name](
-                    checkpoint=str(checkpoint_path),
-                )
-                .to(device)
-                .eval()
-            )
+            sam_model = sam_model_registry[registry_name]().to(device)
+            # nosemgrep loading the snapshot from the local path.
+            state_dict = torch.load(checkpoint_path, map_location=device)
+            info = sam_model.load_state_dict(state_dict, strict=False)
+            if info.missing_keys:
+                msg = f"Missing keys when loading SAM-HQ model: {info.missing_keys}"
+                logger.warning(msg)
+            if info.unexpected_keys:
+                msg = f"Unexpected keys when loading SAM-HQ model: {info.unexpected_keys}"
+                logger.warning(msg)
+            sam_model.eval()
             self._predictor = _SamPredictor(sam_model)
             # Patch with ONNX-compatible prompt encoder for SAM-HQ models
             self._patch_prompt_encoder(device)

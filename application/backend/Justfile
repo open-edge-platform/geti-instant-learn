@@ -70,3 +70,11 @@ _ruff:
 
 _mypy:
     uv run mypy . --config-file=pyproject.toml
+
+# -------------------------------------------------------------------------------------------------
+# Installer
+# -------------------------------------------------------------------------------------------------
+
+pyinstaller: _venv
+    uv sync --extra installer --extra {{ai_extra}} --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
+    uv run pyinstaller --noconfirm geti-prompt.spec

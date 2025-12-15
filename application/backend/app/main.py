@@ -23,6 +23,7 @@ from runtime.webrtc.manager import WebRTCManager
 from settings import get_settings
 
 settings = get_settings()
+settings.logs_dir.mkdir(parents=True, exist_ok=True)
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,10 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """FastAPI lifespan context manager"""
     # Startup actions
+    console_handler = logging.StreamHandler()
+    file_handler = logging.FileHandler(filename=settings.log_file, encoding="utf8")
     logging.basicConfig(
+        handlers=[console_handler, file_handler],
         level=logging.DEBUG if settings.debug else logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         force=True,
@@ -87,9 +91,9 @@ if (
     and os.path.isdir(settings.static_files_dir)
     and next(os.scandir(settings.static_files_dir), None) is not None
 ):
-    fastapi_app.mount(
-        os.getenv("ASSET_PREFIX", "/html"), StaticFiles(directory=settings.static_files_dir), name="static"
-    )
+    asset_prefix = os.getenv("ASSET_PREFIX", "/html")
+    logger.info("Serving static files from %s by context %s", settings.static_files_dir, asset_prefix)
+    fastapi_app.mount(asset_prefix, StaticFiles(directory=settings.static_files_dir), name="static")
 
     @fastapi_app.get("/", include_in_schema=False)
     @fastapi_app.get("/{full_path:path}", include_in_schema=False)

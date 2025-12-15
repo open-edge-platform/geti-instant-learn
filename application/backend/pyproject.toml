@@ -39,6 +39,7 @@ dev = [
 cpu = ["getiprompt[cpu]"]
 cu126 = ["getiprompt[cu126]"]
 xpu = ["getiprompt[xpu]"]
+installer = ["pyinstaller~=6.16.0"]
 
 mqtt = [
     "paho-mqtt~=2.1.0",
