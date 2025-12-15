@@ -34,7 +34,7 @@ jobs:
         with:
           script: |
             const allowedAssociations = ["COLLABORATOR", "MEMBER", "OWNER"];
-            const authorAssociation = '${{ github.event.comment.author_association }}'
+            const authorAssociation = context.payload.comment.author_association
             if (!allowedAssociations.includes(authorAssociation)) {
               core.setFailed("You don't have access to run this workflow");
               return
