@@ -300,7 +300,7 @@ class BidirectionalPromptGenerator(nn.Module):
                 if background_indices is not None and background_scores is not None and background_indices.numel() > 0:
                     background_points = self._extract_point_coordinates([None, background_indices], background_scores)
                     background_points = self._convert_to_image_coords(background_points, ori_size=(h, w))
-                    background_labels = torch.zeros((len(background_points), 1)).to(background_points)
+                    background_labels = -torch.ones((len(background_points), 1)).to(background_points)
                     background_points = torch.cat([background_points, background_labels], dim=1)
                 else:
                     background_points = torch.empty(0, 4).to(similarity_map)

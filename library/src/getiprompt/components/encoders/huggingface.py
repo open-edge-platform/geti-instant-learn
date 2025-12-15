@@ -1,18 +1,17 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Image encoder using TIMM models."""
+"""HuggingFace backend implementation for ImageEncoder."""
 
 from logging import getLogger
 from pathlib import Path
 
 import openvino
-import timm
 import torch
 from torch import nn
 from torch.nn import functional
 from torchvision import tv_tensors
-from torchvision.transforms.v2 import Compose, Normalize, Resize, ToDtype
+from transformers import AutoImageProcessor, AutoModel
 
 from getiprompt.utils import precision_to_torch_dtype
 from getiprompt.utils.constants import Backend
@@ -20,28 +19,35 @@ from getiprompt.utils.constants import Backend
 logger = getLogger("Geti Prompt")
 
 AVAILABLE_IMAGE_ENCODERS = {
-    "dinov3_small": "timm/vit_small_patch16_dinov3.lvd1689m",
-    "dinov3_small_plus": "timm/vit_small_plus_patch16_dinov3.lvd1689m",
-    "dinov3_base": "timm/vit_base_patch16_dinov3.lvd1689m",
-    "dinov3_large": "timm/vit_large_patch16_dinov3.lvd1689m",
-    "dinov3_huge": "timm/vit_huge_plus_patch16_dinov3.lvd1689m",
+    "dinov2_small": ("facebook/dinov2-with-registers-small", "0d9846e56b43a21fa46d7f3f5070f0506a5795a9"),
+    "dinov2_base": ("facebook/dinov2-with-registers-base", "a1d738ccfa7ae170945f210395d99dde8adb1805"),
+    "dinov2_large": ("facebook/dinov2-with-registers-large", "e4c89a4e05589de9b3e188688a303d0f3c04d0f3"),
+    "dinov2_giant": ("facebook/dinov2-with-registers-giant", "8d0d49f77fb8b5dd78842496ff14afe7dd4d85cb"),
+    "dinov3_small": ("facebook/dinov3-vits16-pretrain-lvd1689m", "114c1379950215c8b35dfcd4e90a5c251dde0d32"),
+    "dinov3_small_plus": ("facebook/dinov3-vits16plus-pretrain-lvd1689m", "c93d816fc9e567563bc068f01475bec89cc634a6"),
+    "dinov3_base": ("facebook/dinov3-vitb16-pretrain-lvd1689m", "5931719e67bbdb9737e363e781fb0c67687896bc"),
+    "dinov3_large": ("facebook/dinov3-vitl16-pretrain-lvd1689m", "ea8dc2863c51be0a264bab82070e3e8836b02d51"),
+    "dinov3_huge": ("facebook/dinov3-vith16plus-pretrain-lvd1689m", "c807c9eeea853df70aec4069e6f56b28ddc82acc"),
 }
 
 
-class TimmImageEncoder(nn.Module):
-    """This encoder uses a model from timm to encode the images.
+class HuggingFaceImageEncoder(nn.Module):
+    """HuggingFace backend for DINO image encoder.
+
+    This encoder uses a model from HuggingFace to encode images into
+    normalized patch embeddings.
 
     Examples:
-        >>> from getiprompt.components.encoders.timm import TimmImageEncoder
+        >>> from getiprompt.components.encoders import HuggingFaceImageEncoder
         >>> from torchvision import tv_tensors
         >>> import torch
-
+        >>>
         >>> # Create a sample image
         >>> sample_image = torch.zeros((3, 518, 518))
-        >>> encoder = TimmImageEncoder(model_id="dinov2_large")
+        >>> encoder = HuggingFaceImageEncoder(model_id="dinov2_large")
         >>> features = encoder(images=[sample_image])
         >>> features.shape
-        torch.Size([1, 1369, 1024])
+        torch.Size([1369, 1024])
     """
 
     def __init__(
@@ -50,7 +56,7 @@ class TimmImageEncoder(nn.Module):
         device: str = "cuda",
         precision: str = "bf16",
         compile_models: bool = False,
-        input_size: int = 512,
+        input_size: int = 518,
     ) -> None:
         """Initialize the encoder.
 
@@ -76,19 +82,19 @@ class TimmImageEncoder(nn.Module):
         self.input_size = input_size
         self.device = device
 
-        msg = f"Loading DINO model {model_id}"
+        hf_model_id, revision = AVAILABLE_IMAGE_ENCODERS[model_id]
+
+        msg = f"Loading DINO model {hf_model_id} with revision {revision}"
         logger.info(msg)
-        self.precision = precision_to_torch_dtype(precision)
-        self.model, self.processor = self._load_timm_model(
-            AVAILABLE_IMAGE_ENCODERS[model_id],
-            input_size,
-            self.precision,
-        )
+        self.model, self.processor = self._load_hf_model(hf_model_id, revision, input_size)
         self.model = self.model.to(device).eval()
-        self.patch_size = self.model.patch_embed.patch_size[0]
+        self.patch_size = self.model.config.patch_size
         self.feature_size = self.input_size // self.patch_size
         # Ignore CLS token and register tokens
-        self.ignore_token_length = self.model.num_prefix_tokens
+        self.ignore_token_length = 1 + self.model.config.num_register_tokens
+
+        self.precision = precision_to_torch_dtype(precision)
+
         self.model = optimize_model(
             model=self.model,
             precision=self.precision,
@@ -97,39 +103,63 @@ class TimmImageEncoder(nn.Module):
         ).eval()
 
     @staticmethod
-    def _load_timm_model(model_id: str, input_size: int, precision: torch.dtype) -> tuple[nn.Module, Compose]:
-        """Load DINO model from timm with error handling.
+    def _load_hf_model(model_id: str, revision: str, input_size: int) -> tuple[nn.Module, AutoImageProcessor]:
+        """Load DINO model from HuggingFace with error handling.
+
+        Meta requires huggingface users to access weights by first requesting access on the HuggingFace website.
+        This function will raise an error if the user does not have access to the weights.
 
         Args:
             model_id: The model id of the model.
+            revision: Specific revision (commit SHA, tag, or branch) to pin
             input_size: The size of the input image.
 
         Returns:
             The model and processor.
+
+        Raises:
+            ValueError: If the user does not have access to the weights of the model.
+            OSError: If the model is not found.
         """
-        model = timm.create_model(model_id, pretrained=True, num_classes=0)
-        data_config = timm.data.resolve_model_data_config(model)
-        data_config["input_size"] = (3, input_size, input_size)
-        processor = Compose([
-            ToDtype(dtype=precision, scale=True),
-            Resize(size=(input_size, input_size)),
-            Normalize(mean=data_config["mean"], std=data_config["std"]),
-        ])
+        err_msg = (
+            "User does not have access to the weights of the DinoV3 model.\n"
+            "Please follow these steps:\n"
+            f"1. Request access on the HuggingFace website: https://huggingface.co/{model_id}\n"
+            "2. Set your HuggingFace credentials using one of these methods:\n"
+            "   - Run: hf auth login\n"
+            "   - Set environment variable: export HUGGINGFACE_HUB_TOKEN=your_token\n"
+        )
+        try:
+            model = AutoModel.from_pretrained(model_id, revision=revision)
+            processor = AutoImageProcessor.from_pretrained(
+                model_id,
+                revision=revision,
+                size={"height": input_size, "width": input_size},
+                do_center_crop=False,
+                use_fast=True,  # uses Rust based image processor
+            )
+        except OSError as e:
+            # Check if this is specifically a HuggingFace gated repo access error
+            if "gated repo" in str(e).lower():
+                raise ValueError(err_msg) from None
+            raise
         return model, processor
 
     @torch.inference_mode()
     def forward(self, images: list[tv_tensors.Image]) -> torch.Tensor:
-        """Encode images into patch embeddings.
+        """Encode images into normalized patch embeddings.
 
         Args:
             images(list[tv_tensors.Image]): A list of images.
 
         Returns:
-            torch.Tensor: patch-grid feature tensor of shape (batch_size, num_patches, embedding_dim).
+            torch.Tensor: Normalized patch-grid feature tensor of shape
+                (batch_size, num_patches, embedding_dim).
         """
-        images = torch.stack([self.processor(image.to(self.device)) for image in images])
-        features = self.model.forward_features(images)  # (B, N, D)
-        features = features[:, self.ignore_token_length :, :]  # ignore CLS and other tokens
+        inputs = self.processor(images=images, return_tensors="pt")
+        inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
+        last_hidden_state = self.model(**inputs).last_hidden_state
+        features = last_hidden_state[:, self.ignore_token_length :, :]  # Remove CLS token (and register tokens if used)
         return functional.normalize(features, p=2, dim=-1)
 
     def export(self, output_path: Path, backend: str | Backend = Backend.OPENVINO) -> Path:
@@ -148,12 +178,9 @@ class TimmImageEncoder(nn.Module):
         Returns:
             Path to the exported model file.
 
-        Raises:
-            ValueError: If the backend is invalid.
-
         Example:
-            >>> encoder = TimmImageEncoder(
-            ...     model_id="dinov3_large",
+            >>> encoder = HuggingFaceImageEncoder(
+            ...     model_id="dinov2_large",
             ...     device="cuda"
             ... )
             >>> ov_path = encoder.export(Path("./exported"), backend="openvino")
@@ -167,16 +194,16 @@ class TimmImageEncoder(nn.Module):
         if isinstance(backend, str):
             backend = Backend(backend.lower())
 
-        # Wrapper to export only forward_features (without the classification head)
+        # Wrapper to export only the feature extraction (without CLS/register tokens)
         class ForwardFeaturesWrapper(nn.Module):
             def __init__(self, model: nn.Module, ignore_token_length: int):
                 super().__init__()
                 self.model = model
                 self.ignore_token_length = ignore_token_length
 
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
-                features = self.model.forward_features(x)
-                features = features[:, self.ignore_token_length :, :]  # ignore CLS and other tokens
+            def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:
+                last_hidden_state = self.model(pixel_values).last_hidden_state
+                features = last_hidden_state[:, self.ignore_token_length :, :]
                 return functional.normalize(features, p=2, dim=-1)
 
         # Ensure output directory exists
@@ -187,13 +214,15 @@ class TimmImageEncoder(nn.Module):
         logger.info(msg)
 
         # Create dummy input that matches the processor output
-        dummy_image = torch.rand((1, 3, self.input_size, self.input_size), device=self.device, dtype=self.precision)
+        dummy_image = [torch.zeros((3, self.input_size, self.input_size))]
+        inputs = self.processor(images=dummy_image, return_tensors="pt")
+        dummy_pixel_values = inputs["pixel_values"].to(self.device)
 
         # Freeze model parameters
         for param in self.model.parameters():
             param.requires_grad_(False)
 
-        # Wrap model to only export forward_features
+        # Wrap model to export with token removal and normalization
         export_model = ForwardFeaturesWrapper(self.model, self.ignore_token_length)
         export_model.eval()
 
@@ -213,7 +242,7 @@ class TimmImageEncoder(nn.Module):
                     logger.info(msg)
                     torch.onnx.export(
                         export_model,
-                        (dummy_image,),
+                        (dummy_pixel_values,),
                         onnx_path,
                         input_names=input_names,
                         output_names=output_names,
@@ -238,7 +267,7 @@ class TimmImageEncoder(nn.Module):
                 logger.info(msg)
                 ov_model = openvino.convert_model(
                     input_model=export_model,
-                    example_input=(dummy_image,),
+                    example_input=(dummy_pixel_values,),
                     input=dynamic_shapes,
                 )
                 for i, ov_output in enumerate(ov_model.outputs):

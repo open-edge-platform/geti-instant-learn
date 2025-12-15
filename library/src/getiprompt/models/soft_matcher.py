@@ -4,9 +4,8 @@
 """SoftMatcher model."""
 
 from getiprompt.components.prompt_generators import SoftmatcherPromptGenerator
+from getiprompt.models.matcher import Matcher
 from getiprompt.utils.constants import SAMModelName
-
-from .matcher import Matcher
 
 
 class SoftMatcher(Matcher):

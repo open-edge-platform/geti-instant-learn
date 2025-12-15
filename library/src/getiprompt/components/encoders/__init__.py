@@ -3,13 +3,18 @@
 
 """Encoders."""
 
-from .image_encoder import AVAILABLE_IMAGE_ENCODERS, ImageEncoder
+from .base import ImageEncoder, load_image_encoder
+from .huggingface import AVAILABLE_IMAGE_ENCODERS, HuggingFaceImageEncoder
+from .openvino import OpenVINOImageEncoder
 from .timm import AVAILABLE_IMAGE_ENCODERS as TIMM_AVAILABLE_IMAGE_ENCODERS
 from .timm import TimmImageEncoder
 
 __all__ = [
     "AVAILABLE_IMAGE_ENCODERS",
     "TIMM_AVAILABLE_IMAGE_ENCODERS",
+    "HuggingFaceImageEncoder",
     "ImageEncoder",
+    "OpenVINOImageEncoder",
     "TimmImageEncoder",
+    "load_image_encoder",
 ]

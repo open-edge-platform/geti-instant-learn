@@ -109,24 +109,24 @@ class TestDinoTxtZeroShotClassification:
 
     @staticmethod
     def test_learn_with_empty_reference_batch(model_instance: DinoTxtZeroShotClassification) -> None:
-        """Test that learn raises ValueError when no reference samples are provided."""
+        """Test that fit raises ValueError when no reference samples are provided."""
         with pytest.raises(ValueError, match="Cannot collate empty list of samples"):
             empty_batch = Batch.collate([])
-            model_instance.learn(empty_batch)
+            model_instance.fit(empty_batch)
 
     @staticmethod
     def test_infer_without_learning(
         model_instance: DinoTxtZeroShotClassification,
         sample_dataset: tuple[list[np.ndarray], list[str]],
     ) -> None:
-        """Test that infer raises AttributeError when learn hasn't been called."""
+        """Test that predict raises AttributeError when fit hasn't been called."""
         sample_images, _ = sample_dataset
         # Convert numpy arrays to Image objects and create Batch
         image_objects = [Image(img) for img in sample_images]
         samples = [Sample(image=img, is_reference=[False], categories=["object"]) for img in image_objects]
         target_batch = Batch.collate(samples)
         with pytest.raises(AttributeError):
-            model_instance.infer(target_batch)
+            model_instance.predict(target_batch)
 
     @staticmethod
     def test_infer(
@@ -134,19 +134,19 @@ class TestDinoTxtZeroShotClassification:
         sample_dataset: tuple[list[np.ndarray], list[str]],
         sample_reference_batch: Batch,
     ) -> None:
-        """Test the full learn and infer cycle of the pipeline."""
+        """Test the full fit and predict cycle of the pipeline."""
         sample_images, _ = sample_dataset
 
-        # Learn first
-        model_instance.learn(sample_reference_batch)
+        # Fit first
+        model_instance.fit(sample_reference_batch)
 
         # Convert numpy arrays to Image objects and create Batch
         image_objects = [Image(img) for img in sample_images]
         samples = [Sample(image=img, is_reference=[False], categories=["object"]) for img in image_objects]
         target_batch = Batch.collate(samples)
 
-        # Then infer
-        predictions = model_instance.infer(target_batch)
+        # Then predict
+        predictions = model_instance.predict(target_batch)
 
         # Verify results
         pytest.assume(isinstance(predictions, list))

@@ -3,26 +3,30 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { throttle, type DebouncedFunc } from 'lodash-es';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Callback = (...args: any[]) => void;
 
+const throttleCallback = (callback: Callback, delay: number) => {
+    return throttle(callback, delay, {
+        leading: true,
+        trailing: true,
+    });
+};
+
 export const useThrottledCallback = (callback: Callback, delay: number): DebouncedFunc<Callback> => {
-    const debouncedCallback = useMemo(() => {
-        return throttle(callback, delay, {
-            leading: true,
-            trailing: true,
-        });
-    }, [callback, delay]);
+    const throttledRef = useRef<ReturnType<typeof throttle>>(throttleCallback(callback, delay));
 
     useEffect(() => {
-        return () => {
-            debouncedCallback.cancel();
-        };
-    }, [debouncedCallback]);
+        throttledRef.current = throttleCallback(callback, delay);
 
-    return debouncedCallback;
+        return () => {
+            throttledRef.current?.cancel();
+        };
+    }, [callback, delay]);
+
+    return throttledRef.current;
 };

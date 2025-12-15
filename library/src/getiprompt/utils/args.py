@@ -208,6 +208,21 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
             "and ~/data/lvis for LVIS."
         ),
     )
+    parser.add_argument(
+        "--backend",
+        type=str,
+        default="pytorch",
+        choices=["pytorch", "openvino"],
+        help="Backend to use for inference. 'pytorch' uses PyTorch models, 'openvino' uses OpenVINO Runtime",
+    )
+    parser.add_argument(
+        "--export_dir",
+        type=str,
+        default=None,
+        help="Directory containing exported OpenVINO models (only used with --backend openvino). "
+        "If not provided, defaults to ./exports/{model_name}. "
+        "If the directory doesn't exist, the model will be exported automatically.",
+    )
 
 
 def get_arguments(arg_list: list[str] | None = None) -> argparse.Namespace:
