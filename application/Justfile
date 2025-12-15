@@ -24,7 +24,7 @@ enable-coturn := "false"
 ai-device := "cpu"  # options: cpu, gpu, xpu
 component-name := "geti-prompt"
 images-registry := 'localhost:5000/open-edge-platform'
-version := `uv run python -c "import os; print(os.path.join(os.getcwd().rsplit('application', 1)[0], 'VERSION'))" | xargs cat`
+version := `uv run python -c "import os; from pathlib import Path; version = Path(os.path.join(os.getcwd().rsplit('application', 1)[0], 'VERSION')).read_text().strip(); print(version)"`
 docker-image := images-registry / component-name / ai-device + ":" + version
 
 # -------------------------------------------------------------------------------------------------
