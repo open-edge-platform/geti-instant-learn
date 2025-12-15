@@ -6,12 +6,12 @@
 import { expect, http, test } from '@geti-prompt/test-fixtures';
 
 test.describe('Health Check', () => {
-    test('Shows loading when heath check is pending', async ({ page, network }) => {
-        let i = 0;
+    test('Shows loading when health check is pending', async ({ page, network }) => {
+        let healthCheckAttempts = 0;
         network.use(
             http.get('/health', ({ response }) => {
-                i += 1;
-                if (i < 3) {
+                healthCheckAttempts += 1;
+                if (healthCheckAttempts < 3) {
                     // @ts-expect-error We want to mock behavior when server is not ready yet
                     return response(500).json({});
                 }
