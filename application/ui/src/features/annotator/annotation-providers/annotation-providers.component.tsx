@@ -27,9 +27,7 @@ export const AnnotationProviders = ({ children, frameId, initialAnnotationsDTO, 
             <SelectAnnotationProvider>
                 <AnnotationActionsProvider initialAnnotationsDTO={initialAnnotationsDTO} labels={labels}>
                     <AnnotationVisibilityProvider>
-                        <FullScreenModeProvider>
-                            <CanvasSettingsProvider>{children}</CanvasSettingsProvider>
-                        </FullScreenModeProvider>
+                        <CanvasSettingsProvider>{children}</CanvasSettingsProvider>
                     </AnnotationVisibilityProvider>
                 </AnnotationActionsProvider>
             </SelectAnnotationProvider>
