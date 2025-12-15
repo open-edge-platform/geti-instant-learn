@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from collections.abc import Iterable
+from typing import Any
 from uuid import UUID, uuid4
 
 import numpy as np
@@ -142,40 +143,150 @@ def prompt_update_schema_to_db(prompt_db: PromptDB, schema: PromptUpdateSchema) 
     return prompt_db
 
 
-def visual_prompt_to_sample(prompt: PromptDB, frame: np.ndarray) -> Sample:
+def visual_prompt_to_sample(  # noqa: C901
+    prompt: PromptDB,
+    frame: np.ndarray,
+    label_to_category_id: dict[UUID, int],
+    label_shot_counts: dict[UUID, int],
+) -> Sample:
     """
     Convert a visual PromptDB and its frame to a training Sample.
+
+    Groups annotations by label_id for N-shot learning. Maintains batch-level state for consistent category IDs
+    and shot numbering across prompts.
+
+    Args:
+        prompt: Visual prompt with annotations
+        frame: RGB frame as numpy array (H, W, C)
+        label_to_category_id: Mapping from label UUID to category ID (shared across batch)
+        label_shot_counts: Current shot count per label (modified in-place)
     """
     if prompt.type != PromptType.VISUAL:
         raise ServiceError(f"Cannot convert non-visual prompt to sample: prompt type is {prompt.type}")
 
     annotations = annotations_db_to_schemas(prompt.annotations)
-
     if not annotations:
         raise ServiceError(
             f"Cannot convert visual prompt to sample: prompt {prompt.id} has no valid annotations with labels"
         )
 
-    polygons = [ann.config for ann in annotations if ann.config.type == AnnotationType.POLYGON]
-
-    if not polygons:
-        raise ServiceError(
-            "Cannot create training sample: visual prompt must have at least one polygon annotation to generate masks."
-        )
+    polygon_annotations = [(ann, ann.config) for ann in annotations if ann.config.type == AnnotationType.POLYGON]
+    if not polygon_annotations:
+        raise ServiceError("Cannot create training sample: visual prompt must have at least one polygon annotation.")
 
     # Convert frame: HWC numpy → CHW tensor
     frame_chw = tv_tensors.Image(from_numpy(frame).permute(2, 0, 1))
-
-    # Convert polygons to binary masks
     height, width = frame.shape[:2]
-    masks = polygons_to_masks(polygons, height, width)
 
-    categories = sorted([str(ann.label_id) for ann in annotations])
-    category_ids = np.arange(len(categories), dtype=np.int32)
+    # Group annotations by label_id
+    label_groups: dict[UUID, list[Any]] = {}
+    for ann, polygon in polygon_annotations:
+        if ann.label_id not in label_groups:
+            label_groups[ann.label_id] = []
+        label_groups[ann.label_id].append(polygon)
+
+    # Remove possible duplicates within each label group
+    for label_id, polygons in label_groups.items():
+        label_groups[label_id] = _deduplicate_polygons(polygons, height, width)
+
+    all_masks = []
+    categories = []
+    category_ids = []
+    is_reference = []
+    n_shot = []
+
+    for label_id, polygons in sorted(label_groups.items(), key=lambda x: str(x[0])):
+        if not polygons:
+            continue
+
+        group_masks = polygons_to_masks(polygons, height, width)
+        category_id = label_to_category_id[label_id]
+        category_name = str(label_id)
+
+        # Get the current shot number for this label (from previous prompts)
+        current_shot = label_shot_counts.get(label_id, 0)
+
+        # Each mask is an instance of the same category (N-shot)
+        for shot_idx, mask in enumerate(group_masks):
+            all_masks.append(mask)
+            categories.append(category_name)
+            category_ids.append(category_id)
+            is_reference.append(True)
+            n_shot.append(current_shot + shot_idx)
+
+        # Update shot count for the next prompt
+        label_shot_counts[label_id] = current_shot + len(group_masks)
+
+    if not all_masks:
+        raise ServiceError(f"No valid masks for prompt {prompt.id} after deduplication")
+
+    # Stack masks: (N_instances, H, W)
+    masks = np.stack(all_masks, axis=0)
+    category_ids_array = np.array(category_ids, dtype=np.int32)
 
     return Sample(
         image=frame_chw,
         masks=masks,
         categories=categories,
-        category_ids=category_ids,
+        category_ids=category_ids_array,
+        is_reference=is_reference,
+        n_shot=n_shot,
     )
+
+
+def _deduplicate_polygons(
+    polygons: list[Any], image_height: int, image_width: int, iou_threshold: float = 0.9
+) -> list[Any]:
+    """
+    Remove duplicate or highly overlapping polygons.
+
+    Uses IoU (Intersection over Union) to identify similar masks.
+    Keeps the first occurrence when duplicates are found.
+
+    Args:
+        polygons: List of polygon annotations
+        image_height: Height for mask generation
+        image_width: Width for mask generation
+        iou_threshold: IoU threshold above which polygons are considered duplicates (default: 0.9)
+
+    Returns:
+        List of unique polygons
+    """
+    if len(polygons) <= 1:
+        return polygons
+
+    # Generate masks for comparison
+    masks = polygons_to_masks(polygons, image_height, image_width)
+
+    unique_indices: list[int] = []
+    for i in range(len(masks)):
+        is_duplicate = False
+        for j in unique_indices:
+            iou = _calculate_mask_iou(masks[i], masks[j])
+            if iou > iou_threshold:
+                is_duplicate = True
+                break
+        if not is_duplicate:
+            unique_indices.append(i)
+
+    return [polygons[i] for i in unique_indices]
+
+
+def _calculate_mask_iou(mask1: np.ndarray, mask2: np.ndarray) -> float:
+    """
+    Calculate IoU between two binary masks.
+
+    Args:
+        mask1: First binary mask (H, W)
+        mask2: Second binary mask (H, W)
+
+    Returns:
+        IoU score between 0 and 1
+    """
+    intersection = np.logical_and(mask1, mask2).sum()
+    union = np.logical_or(mask1, mask2).sum()
+
+    if union == 0:
+        return 0.0
+
+    return float(intersection / union)
