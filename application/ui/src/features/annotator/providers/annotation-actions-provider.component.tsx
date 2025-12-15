@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { createContext, ReactNode, useContext, useMemo, useRef } from 'react';
+import { createContext, ReactNode, useContext, useMemo } from 'react';
 
 import { AnnotationType, LabelType } from '@geti-prompt/api';
 import { v4 as uuid } from 'uuid';
@@ -21,7 +21,6 @@ interface AnnotationsContextValue {
     deleteAllAnnotations: () => void;
     deleteAnnotationByLabelId: (labelId: string) => void;
     updateAnnotations: (updatedAnnotations: Annotation[]) => void;
-    isUserReviewed: boolean;
 }
 
 const AnnotationsContext = createContext<AnnotationsContextValue | null>(null);
@@ -36,7 +35,6 @@ export const AnnotationActionsProvider = ({
     initialAnnotationsDTO,
     labels = [],
 }: AnnotationActionsProviderProps) => {
-    const isDirty = useRef<boolean>(false);
     const { roi } = useAnnotator();
 
     const convertedAnnotations = useMemo(() => {
@@ -55,8 +53,6 @@ export const AnnotationActionsProvider = ({
         setAnnotations((prevAnnotations) =>
             prevAnnotations.map((annotation) => updatedMap.get(annotation.id) ?? annotation)
         );
-
-        isDirty.current = true;
     };
 
     const addAnnotations = (shapes: Shape[], annotationLabels: LabelType[]) => {
@@ -68,16 +64,12 @@ export const AnnotationActionsProvider = ({
                 labels: annotationLabels,
             })),
         ]);
-
-        isDirty.current = true;
     };
 
     const deleteAnnotations = (annotationIds: string[]) => {
         setAnnotations((prevAnnotations) =>
             prevAnnotations.filter((annotation) => !annotationIds.includes(annotation.id))
         );
-
-        isDirty.current = true;
     };
 
     const deleteAllAnnotations = () => {
@@ -86,17 +78,20 @@ export const AnnotationActionsProvider = ({
 
     const deleteAnnotationByLabelId = (labelId: string) => {
         setAnnotations((prevAnnotations) =>
-            prevAnnotations.filter((annotation) => !annotation.labels.some((label) => label.id === labelId))
+            prevAnnotations
+                .map((annotation) => ({
+                    ...annotation,
+                    labels: annotation.labels.filter((label) => label.id !== labelId),
+                }))
+                .filter((annotation) => annotation.labels.length > 0)
         );
     };
 
     return (
         <AnnotationsContext.Provider
             value={{
-                isUserReviewed: false,
                 annotations,
 
-                // Local
                 addAnnotations,
                 updateAnnotations,
                 deleteAnnotations,
