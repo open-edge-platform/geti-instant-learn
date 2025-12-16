@@ -30,6 +30,7 @@ type AnnotationActionsProviderProps = {
     initialAnnotationsDTO?: AnnotationType[];
     labels?: LabelType[];
 };
+
 export const AnnotationActionsProvider = ({
     children,
     initialAnnotationsDTO,
@@ -56,14 +57,13 @@ export const AnnotationActionsProvider = ({
     };
 
     const addAnnotations = (shapes: Shape[], annotationLabels: LabelType[]) => {
-        setAnnotations((prevAnnotations) => [
-            ...prevAnnotations,
-            ...shapes.map((shape) => ({
-                shape,
-                id: uuid(),
-                labels: annotationLabels,
-            })),
-        ]);
+        const newAnnotations: Annotation[] = shapes.map((shape) => ({
+            shape,
+            labels: annotationLabels,
+            id: uuid(),
+        }));
+
+        setAnnotations((prevAnnotations) => [...prevAnnotations, ...newAnnotations]);
     };
 
     const deleteAnnotations = (annotationIds: string[]) => {
