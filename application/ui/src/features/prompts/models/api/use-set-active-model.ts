@@ -15,15 +15,14 @@ export const useSetActiveModel = () => {
     const updateModelMutation = useSetActiveModelQuery();
 
     return (model: ModelType) => {
-        const { id, ...rest } = model;
+        const { id, name, config } = model;
 
-        // We need send everything BUT the `id`
         return updateModelMutation.mutate({
-            body: { ...rest, active: true },
+            body: { name, config, active: true },
             params: {
                 path: {
                     project_id: projectId,
-                    model_id: model.id,
+                    model_id: id,
                 },
             },
         });
