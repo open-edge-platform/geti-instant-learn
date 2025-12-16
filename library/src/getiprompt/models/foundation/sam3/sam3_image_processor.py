@@ -86,6 +86,68 @@ class Sam3Processor:
         state["backbone_out"] = self.model.backbone.forward_image(images)
         return state
 
+    def get_single_image_state(self, batch_state: dict, image_idx: int) -> dict:
+        """Extract single-image state from a batch state.
+
+        After calling set_image_batch, use this method to get a state dict
+        for a specific image that can be used with set_prompt and other methods.
+
+        Args:
+            batch_state: State dict returned by set_image_batch.
+            image_idx: Index of the image in the batch (0-indexed).
+
+        Returns:
+            A new state dict for the specified image.
+        """
+        if "original_heights" not in batch_state:
+            raise ValueError("batch_state must be from set_image_batch (missing original_heights)")
+
+        single_state = {
+            "original_height": batch_state["original_heights"][image_idx],
+            "original_width": batch_state["original_widths"][image_idx],
+        }
+
+        # Slice backbone outputs for this specific image
+        backbone_out = batch_state["backbone_out"]
+        single_backbone_out = {}
+
+        # Handle vision_features: [B, ...] -> [1, ...]
+        if "vision_features" in backbone_out:
+            single_backbone_out["vision_features"] = backbone_out["vision_features"][image_idx : image_idx + 1]
+
+        # Handle vision_pos_enc: list of tensors, each [B, ...] -> [1, ...]
+        if "vision_pos_enc" in backbone_out:
+            single_backbone_out["vision_pos_enc"] = [
+                pos[image_idx : image_idx + 1] for pos in backbone_out["vision_pos_enc"]
+            ]
+
+        # Handle backbone_fpn: list of tensors, each [B, ...] -> [1, ...]
+        if "backbone_fpn" in backbone_out:
+            single_backbone_out["backbone_fpn"] = [
+                feat[image_idx : image_idx + 1] for feat in backbone_out["backbone_fpn"]
+            ]
+
+        # Handle sam2_backbone_out if present
+        if "sam2_backbone_out" in backbone_out and backbone_out["sam2_backbone_out"] is not None:
+            sam2_out = backbone_out["sam2_backbone_out"]
+            single_sam2_out = {}
+            if "vision_features" in sam2_out:
+                single_sam2_out["vision_features"] = sam2_out["vision_features"][image_idx : image_idx + 1]
+            if "vision_pos_enc" in sam2_out:
+                single_sam2_out["vision_pos_enc"] = [
+                    pos[image_idx : image_idx + 1] for pos in sam2_out["vision_pos_enc"]
+                ]
+            if "backbone_fpn" in sam2_out:
+                single_sam2_out["backbone_fpn"] = [
+                    feat[image_idx : image_idx + 1] for feat in sam2_out["backbone_fpn"]
+                ]
+            single_backbone_out["sam2_backbone_out"] = single_sam2_out
+        else:
+            single_backbone_out["sam2_backbone_out"] = None
+
+        single_state["backbone_out"] = single_backbone_out
+        return single_state
+
     @torch.inference_mode()
     def set_text_prompt(self, prompt: str, state: dict) -> dict:
         """Sets the text prompt and run the inference"""
