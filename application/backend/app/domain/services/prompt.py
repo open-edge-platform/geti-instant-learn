@@ -195,6 +195,7 @@ class PromptService(BaseService):
             return None
 
         batch = Batch.collate(samples)
+        logger.info(f"Reference batch: {batch}")
 
         total_instances = sum(len(s.categories) for s in samples)
         unique_categories = len(label_to_category_id)
