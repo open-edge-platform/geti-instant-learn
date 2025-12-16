@@ -568,6 +568,10 @@ class PromptService(BaseService):
     def _normalization(self, project_id: UUID, data: PromptCreateSchema) -> PromptCreateSchema:
         """Normalize pixel coordinates to [0, 1] range."""
 
+        # Skip normalization for text prompts
+        if data.type == PromptType.TEXT:
+            return data
+
         frame = self.frame_repository.read_frame(project_id=project_id, frame_id=data.frame_id)
         if frame is None:
             raise ResourceNotFoundError(
@@ -588,6 +592,10 @@ class PromptService(BaseService):
 
     def _denormalization(self, project_id: UUID, data: PromptDB) -> PromptDB:
         """Denormalize coordinates from [0, 1] range to pixel coordinates."""
+
+        # Skip denormalization for text prompts
+        if data.type == PromptType.TEXT:
+            return data
 
         frame = self.frame_repository.read_frame(project_id=project_id, frame_id=data.frame_id)
         if frame is None:
