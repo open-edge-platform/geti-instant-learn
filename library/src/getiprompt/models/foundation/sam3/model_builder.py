@@ -349,15 +349,12 @@ def _setup_device_and_mode(
     model: Sam3Image,
     device: str,
     eval_mode: bool,
-    dtype: torch.dtype | None = None,
 ) -> Sam3Image:
     """Setup model device, evaluation mode, and dtype."""
     if device == "cuda":
         model = model.cuda()
     elif device == "xpu":
         model = model.to("xpu")
-    if dtype is not None:
-        model = model.to(dtype=dtype)
     if eval_mode:
         model.eval()
     return model
@@ -366,7 +363,6 @@ def _setup_device_and_mode(
 def build_sam3_image_model(
     bpe_path: Path | None = None,
     device: str = "cuda",
-    dtype: torch.dtype | None = None,
     checkpoint_path: Path | None = None,
     load_from_HF: bool = True,
     enable_segmentation: bool = True,
@@ -378,7 +374,6 @@ def build_sam3_image_model(
     Args:
         bpe_path: Path to the BPE tokenizer vocabulary
         device: Device to load the model on ('cuda' or 'cpu')
-        dtype: Data type for model parameters (e.g., torch.float16, torch.bfloat16)
         checkpoint_path: Optional path to model checkpoint
         enable_segmentation: Whether to enable segmentation head
         enable_inst_interactivity: Whether to enable instance interactivity (SAM 1 task)
@@ -433,9 +428,7 @@ def build_sam3_image_model(
         _load_checkpoint(model, checkpoint_path)
 
     # Setup device and mode
-    model = _setup_device_and_mode(model, device, eval_mode=True, dtype=dtype)
-
-    return model
+    return _setup_device_and_mode(model, device, eval_mode=True)
 
 
 def download_ckpt_from_hf():
