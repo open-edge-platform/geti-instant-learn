@@ -31,6 +31,8 @@ class SAM3(Model):
 
     At least one of these prompt types must be provided for each sample during inference.
 
+    NOTE: Currently, SAM3 does not work well with torch.bfloat16 precision.
+
     Examples:
         >>> from getiprompt.models import SAM3
         >>> from getiprompt.data.base import Batch
@@ -95,7 +97,7 @@ class SAM3(Model):
         device: str = "cuda",
         confidence_threshold: float = 0.5,
         resolution: int = 1008,
-        precision: str = "bf16",
+        precision: str = "fp32",
         checkpoint_path: str | None = None,
         load_from_HF: bool = True,
         enable_segmentation: bool = True,
