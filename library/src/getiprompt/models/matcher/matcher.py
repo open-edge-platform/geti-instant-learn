@@ -92,7 +92,7 @@ class Matcher(Model):
             sam: The name of the SAM model to use.
             num_foreground_points: The number of foreground points to use.
             num_background_points: The number of background points to use.
-            confidence_threshold: The confidence threshold for filtering masks.
+            mask_similarity_threshold: The mask similarity threshold for filtering masks.
             encoder_model: ImageEncoder model ID to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.

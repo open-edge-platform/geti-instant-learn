@@ -12,6 +12,7 @@ from torchvision import tv_tensors
 from torchvision.ops import box_convert
 
 from getiprompt.data.base.batch import Batch
+from getiprompt.models.foundation import Sam3Processor, build_sam3_image_model
 
 from .base import Model
 
@@ -61,7 +62,7 @@ class SAM3(Model):
     """
 
     @staticmethod
-    def _setup_autocast(device: str, precision: str) -> torch.autocast:
+    def _setup_autocast(device: str, precision: torch.dtype) -> torch.autocast:
         """Setup autocast context based on device and precision.
 
         Args:
@@ -74,10 +75,10 @@ class SAM3(Model):
         # Determine device type and availability
         if device == "xpu" and hasattr(torch, "xpu") and torch.xpu.is_available():
             device_type = "xpu"
-            supports_bf16 = precision == "bf16"
+            supports_bf16 = precision == torch.bfloat16
         elif device == "cuda" and torch.cuda.is_available():
             device_type = "cuda"
-            supports_bf16 = precision == "bf16"
+            supports_bf16 = precision == torch.bfloat16
         else:
             # CPU or unsupported device
             device_type = "cpu"
@@ -116,7 +117,6 @@ class SAM3(Model):
             compile_models: Whether to compile the models.
         """
         super().__init__()
-        from getiprompt.models.foundation import Sam3Processor, build_sam3_image_model
 
         self.device = device
         self.confidence_threshold = confidence_threshold
@@ -228,10 +228,15 @@ class SAM3(Model):
         Returns:
             Dictionary with aggregated predictions.
         """
-        if all_masks:
-            aggregated_masks = torch.cat(all_masks, dim=0)
-            aggregated_boxes = torch.cat(all_boxes, dim=0)
-            aggregated_labels = torch.cat(all_labels, dim=0)
+        # Filter out empty tensors before concatenation
+        non_empty_masks = [m for m in all_masks if m.numel() > 0]
+        non_empty_boxes = [b for b in all_boxes if b.numel() > 0]
+        non_empty_labels = [l for l in all_labels if l.numel() > 0]
+
+        if non_empty_masks:
+            aggregated_masks = torch.cat(non_empty_masks, dim=0)
+            aggregated_boxes = torch.cat(non_empty_boxes, dim=0)
+            aggregated_labels = torch.cat(non_empty_labels, dim=0)
         else:
             # No predictions found
             aggregated_masks = torch.empty(0, *img_size)
@@ -253,14 +258,14 @@ class SAM3(Model):
         boxes[:, [1, 3]] /= img_h  # y1, y2
         return box_convert(boxes, "xyxy", "cxcywh")
 
-    def infer(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images."""
         results = []
         with self.autocast_ctx:
             for sample in target_batch.samples:
                 img_size = sample.image.shape[-2:]
                 bboxes = self.normalize_boxes(sample.bboxes, img_size) if sample.bboxes is not None else []
-                texts = sample.categories
+                texts = sample.categories if sample.categories is not None else []
                 category_ids = sample.category_ids
                 image = self._prepare_image(sample.image)
                 inference_state = self.processor.set_image(image)

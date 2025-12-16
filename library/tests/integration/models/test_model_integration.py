@@ -426,10 +426,11 @@ class TestSAM3Integration:
         target_batch = Batch.collate([Sample(image=image, categories=categories) for image in images])
 
         model = SAM3(device="cpu", precision="fp16", checkpoint_path=None, load_from_HF=False)
-        predictions = model.infer(target_batch)
+        predictions = model.predict(target_batch)
 
         assert isinstance(predictions, list)
         assert len(predictions) == len(target_batch)
+
 
 class TestInferenceMatcherIntegration:
     """Integration tests for InferenceMatcher (OpenVINO-based Matcher)."""
