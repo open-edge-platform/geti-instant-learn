@@ -11,6 +11,14 @@ import { pluginSvgr } from '@rsbuild/plugin-svgr';
 
 const { publicVars } = loadEnv();
 
+const getPublicApiUrl = () => {
+    if (publicVars['import.meta.env.PUBLIC_API_URL'] !== undefined) {
+        return JSON.parse(publicVars['import.meta.env.PUBLIC_API_URL']);
+    }
+
+    return '';
+};
+
 export default defineConfig({
     plugins: [
         pluginReact(),
@@ -37,8 +45,8 @@ export default defineConfig({
     source: {
         define: {
             ...publicVars,
-            'import.meta.env.PUBLIC_API_URL': publicVars['import.meta.env.PUBLIC_API_URL'] ?? '"http://localhost:9100"',
-            'process.env.PUBLIC_API_URL': publicVars['import.meta.env.PUBLIC_API_URL'] ?? '"http://localhost:9100"',
+            'import.meta.env.PUBLIC_API_URL': publicVars['import.meta.env.PUBLIC_API_URL'] ?? '""',
+            'process.env.PUBLIC_API_URL': publicVars['import.meta.env.PUBLIC_API_URL'] ?? '""',
             // Needed to prevent an issue with spectrum's picker
             // eslint-disable-next-line max-len
             // https://github.com/adobe/react-spectrum/blob/6173beb4dad153aef74fc81575fd97f8afcf6cb3/packages/%40react-spectrum/overlays/src/OpenTransition.tsx#L40
@@ -58,8 +66,8 @@ export default defineConfig({
                 "default-src 'self'; " +
                 "script-src 'self' 'unsafe-eval' blob:; " +
                 "worker-src 'self' blob:; " +
-                "connect-src 'self' http://localhost:9100 data:; " +
-                "img-src 'self' http://localhost:9100 data: blob:; " +
+                `connect-src 'self' ${getPublicApiUrl()} data:; ` +
+                `img-src 'self' ${getPublicApiUrl()} data: blob:; ` +
                 "style-src 'self' 'unsafe-inline';",
         },
     },

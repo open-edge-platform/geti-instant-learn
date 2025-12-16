@@ -76,7 +76,7 @@ jobs:
     needs: [build-parameters]
     permissions:
       contents: read
-    if: needs.build-parameters.outputs.components-list && contains(fromJson(needs.build-parameters.outputs.components-list), 'distrib')
+    if: github.event_name != 'push' && needs.build-parameters.outputs.components-list && contains(fromJson(needs.build-parameters.outputs.components-list), 'distrib')
     uses: ./.github/workflows/distrib.yml
     with:
       build_version: ${{ needs.build-parameters.outputs.build_version }}

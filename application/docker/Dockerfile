@@ -80,9 +80,6 @@ COPY --link ui/tsconfig.json ./
 COPY --link ui/rsbuild.config.ts ./
 COPY --link ui/src/ src/
 
-ARG PUBLIC_API_URL=""
-ENV PUBLIC_API_URL=${PUBLIC_API_URL}
-
 ########
 # Web UI
 ########
@@ -103,6 +100,8 @@ ARG STATIC_FILES_DIR=""
 ENV STATIC_FILES_DIR=${STATIC_FILES_DIR}
 ARG DB_DATA_DIR=""
 ENV DB_DATA_DIR=${DB_DATA_DIR}
+ARG LOGS_DIR=""
+ENV LOGS_DIR=${LOGS_DIR}
 ARG MOCKED_FILE=""
 ENV MOCKED_FILE=${MOCKED_FILE}
 ENV PATH="/geti_prompt/.venv/bin:$PATH"
@@ -111,14 +110,14 @@ ARG UID=10001
 ENV UID=${UID}
 ARG USER_NAME="non-root"
 ENV USER_NAME=${USER_NAME}
-ARG PUBLIC_API_URL=""
-ENV PUBLIC_API_URL=${PUBLIC_API_URL}
 ARG TARGET_DATASET_DIR=""
 ARG SOURCE_DATASET_DIR=""
 
 # Create directory and set ownership before VOLUME instruction
 RUN mkdir -p ${DB_DATA_DIR} && chown ${UID}:${UID} ${DB_DATA_DIR}
 VOLUME ${DB_DATA_DIR}
+RUN mkdir -p ${LOGS_DIR} && chown ${UID}:${UID} ${LOGS_DIR}
+VOLUME ${LOGS_DIR}
 
 # Install OpenGL libraries for opencv-python
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -150,7 +149,7 @@ COPY --from=web-ui --chown=${UID} /home/app/web_ui/src/assets/test.webp ${MOCKED
 WORKDIR /geti_prompt
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD uv run python -c "import urllib.request; urllib.request.urlopen('${PUBLIC_API_URL}/health')" || exit 1
+    CMD uv run python -c "import urllib.request; urllib.request.urlopen('http://localhost:9100/health')" || exit 1
 
 USER ${USER_NAME}
 

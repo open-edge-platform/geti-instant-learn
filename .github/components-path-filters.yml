@@ -14,6 +14,4 @@ ui:
   - application/backend/app/api/**
 
 distrib:
-  - application/**
-  - library/**
-  - .github/workflows/**
+  - application/docker/**

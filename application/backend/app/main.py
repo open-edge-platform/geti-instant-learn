@@ -18,11 +18,14 @@ from api.error_handler import custom_exception_handler
 from api.routers import projects_router, webrtc_router
 from domain.db.engine import get_session_factory, run_db_migrations
 from domain.dispatcher import ConfigChangeDispatcher
+from domain.services.schemas.health import HealthCheckSchema
 from runtime.pipeline_manager import PipelineManager
 from runtime.webrtc.manager import WebRTCManager
+from runtime.webrtc.sdp_handler import SDPHandler
 from settings import get_settings
 
 settings = get_settings()
+settings.logs_dir.mkdir(parents=True, exist_ok=True)
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +34,10 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """FastAPI lifespan context manager"""
     # Startup actions
+    console_handler = logging.StreamHandler()
+    file_handler = logging.FileHandler(filename=settings.log_file, encoding="utf8")
     logging.basicConfig(
+        handlers=[console_handler, file_handler],
         level=logging.DEBUG if settings.debug else logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         force=True,
@@ -46,7 +52,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.pipeline_manager.start()
 
     # Initialize WebRTC Manager
-    app.state.webrtc_manager = WebRTCManager(pipeline_manager=app.state.pipeline_manager)
+    app.state.sdp_handler = SDPHandler()
+    app.state.webrtc_manager = WebRTCManager(
+        pipeline_manager=app.state.pipeline_manager, sdp_handler=app.state.sdp_handler
+    )
 
     logger.info("Application startup completed")
     yield
@@ -74,9 +83,9 @@ fastapi_app.add_exception_handler(RequestValidationError, custom_exception_handl
 
 
 @fastapi_app.get(path="/health", tags=["Health"])
-async def health_check() -> dict[str, str]:
+async def health_check() -> HealthCheckSchema:
     """Health check endpoint"""
-    return {"status": "ok"}
+    return HealthCheckSchema(status="ok")
 
 
 fastapi_app.include_router(projects_router, prefix="/api/v1")
@@ -87,9 +96,9 @@ if (
     and os.path.isdir(settings.static_files_dir)
     and next(os.scandir(settings.static_files_dir), None) is not None
 ):
-    fastapi_app.mount(
-        os.getenv("ASSET_PREFIX", "/html"), StaticFiles(directory=settings.static_files_dir), name="static"
-    )
+    asset_prefix = os.getenv("ASSET_PREFIX", "/html")
+    logger.info("Serving static files from %s by context %s", settings.static_files_dir, asset_prefix)
+    fastapi_app.mount(asset_prefix, StaticFiles(directory=settings.static_files_dir), name="static")
 
     @fastapi_app.get("/", include_in_schema=False)
     @fastapi_app.get("/{full_path:path}", include_in_schema=False)

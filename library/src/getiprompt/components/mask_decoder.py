@@ -384,10 +384,10 @@ class SamDecoder(nn.Module):
             mask_input=low_res_logits,
         )
 
-        # nms the masks
+        # NOTE: torchvision NMS requires float32 inputs
         nms_indices = nms(
-            boxes.squeeze(1),
-            mask_weights.squeeze(1),
+            boxes.squeeze(1).to(torch.float32),
+            mask_weights.squeeze(1).to(torch.float32),
             iou_threshold=nms_iou_threshold,
         )
 

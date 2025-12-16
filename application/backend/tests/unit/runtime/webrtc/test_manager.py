@@ -9,6 +9,7 @@ from domain.services.schemas.webrtc import Answer, Offer
 from runtime.errors import PipelineProjectMismatchError
 from runtime.pipeline_manager import PipelineManager
 from runtime.webrtc.manager import WebRTCManager
+from runtime.webrtc.sdp_handler import SDPHandler
 
 PROJECT_ID = uuid4()
 
@@ -23,9 +24,17 @@ def mock_pipeline_manager():
 
 
 @pytest.fixture
-def webrtc_manager(mock_pipeline_manager):
+def mock_sdp_handler():
+    """Create a mock SDPHandler."""
+    handler = Mock(spec=SDPHandler)
+    handler.mangle_sdp = AsyncMock(return_value="mangled-sdp")
+    return handler
+
+
+@pytest.fixture
+def webrtc_manager(mock_pipeline_manager, mock_sdp_handler):
     """Create a WebRTCManager instance with mocked dependencies."""
-    return WebRTCManager(pipeline_manager=mock_pipeline_manager)
+    return WebRTCManager(pipeline_manager=mock_pipeline_manager, sdp_handler=mock_sdp_handler)
 
 
 @pytest.fixture
@@ -226,3 +235,33 @@ async def test_cleanup_all_connections(webrtc_manager, mock_pipeline_manager):
         # Verify close was called on each peer connection
         for mock_pc in mock_pcs:
             mock_pc.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_offer_with_hostname_resolution(webrtc_manager, mock_pipeline_manager, sample_offer):
+    with (
+        patch("runtime.webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection,
+        patch("runtime.webrtc.manager.InferenceVideoStreamTrack") as MockTrack,
+        patch("runtime.webrtc.manager.get_settings") as mock_get_settings,
+    ):
+        # Setup settings
+        mock_settings = Mock()
+        mock_settings.ice_servers = []
+        mock_settings.webrtc_advertise_ip = "my-domain.com"
+        mock_get_settings.return_value = mock_settings
+
+        # Setup mocks
+        mock_pc = AsyncMock(spec=RTCPeerConnection)
+        mock_pc.localDescription = Mock(sdp="original-sdp", type="answer")
+        MockRTCPeerConnection.return_value = mock_pc
+        MockTrack.return_value = Mock()
+
+        # Configure SDP handler mock
+        webrtc_manager.sdp_handler.mangle_sdp.return_value = "mangled-sdp"
+
+        answer = await webrtc_manager.handle_offer(PROJECT_ID, sample_offer)
+
+        # Verify mangling was called with domain name (resolution happens inside handler)
+        webrtc_manager.sdp_handler.mangle_sdp.assert_called_once_with("original-sdp", "my-domain.com")
+
+        assert answer.sdp == "mangled-sdp"

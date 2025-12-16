@@ -6,12 +6,14 @@ from dataclasses import dataclass
 from queue import Queue
 from uuid import UUID
 
-from aiortc import RTCPeerConnection, RTCSessionDescription
+from aiortc import RTCConfiguration, RTCIceServer, RTCPeerConnection, RTCSessionDescription
 
 from domain.services.schemas.webrtc import Answer, Offer
 from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 from runtime.pipeline_manager import PipelineManager
+from runtime.webrtc.sdp_handler import SDPHandler
 from runtime.webrtc.stream import InferenceVideoStreamTrack
+from settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -25,13 +27,17 @@ class ConnectionData:
 class WebRTCManager:
     """Manager for handling WebRTC connections."""
 
-    def __init__(self, pipeline_manager: PipelineManager) -> None:
+    def __init__(self, pipeline_manager: PipelineManager, sdp_handler: SDPHandler) -> None:
         self._pcs: dict[str, ConnectionData] = {}
         self.pipeline_manager = pipeline_manager
+        self.sdp_handler = sdp_handler
 
     async def handle_offer(self, project_id: UUID, offer: Offer) -> Answer:
         """Create an SDP offer for a new WebRTC connection."""
-        pc = RTCPeerConnection()
+        settings = get_settings()
+        ice_servers = [RTCIceServer(**server) for server in settings.ice_servers]
+        config = RTCConfiguration(iceServers=ice_servers)
+        pc = RTCPeerConnection(configuration=config)
 
         # use PipelineManager to get queue
         try:
@@ -67,7 +73,12 @@ class WebRTCManager:
         answer = await pc.createAnswer()
         await pc.setLocalDescription(answer)
 
-        return Answer(sdp=pc.localDescription.sdp, type=pc.localDescription.type)
+        # Mangle SDP if public IP is configured
+        sdp = pc.localDescription.sdp
+        if settings.webrtc_advertise_ip:
+            sdp = await self.sdp_handler.mangle_sdp(sdp, settings.webrtc_advertise_ip)
+
+        return Answer(sdp=sdp, type=pc.localDescription.type)
 
     @staticmethod
     async def _cleanup_pc_data(pc_data: ConnectionData) -> None:

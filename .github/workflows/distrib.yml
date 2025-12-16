@@ -6,6 +6,11 @@ on:
         description: "Specifies the build version to apply to all binaries produced by this workflow"
         type: string
         required: true
+      sha-commit:
+        description: "SHA to checkout"
+        type: string
+        default: ""
+        required: false
   workflow_dispatch:
 jobs:
   component-check:
@@ -18,10 +23,21 @@ jobs:
       matrix:
         ai-device: [cpu, gpu, xpu]
     steps:
+      - name: Validate SHA format
+        if: inputs.sha-commit != ''
+        env:
+          SHA_COMMIT: ${{ inputs.sha-commit }}
+        run: |
+          if ! echo "${SHA_COMMIT}" | grep -qE '^[0-9a-f]{40}$'; then
+            echo "Error: Invalid SHA format. Expected 40 hexadecimal characters."
+            exit 1
+          fi
+
       - name: Checkout code
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
           persist-credentials: false
+          ref: ${{ inputs.sha-commit || '' }}
 
       - name: Install dependencies
         uses: ./.github/actions/install-dependencies
