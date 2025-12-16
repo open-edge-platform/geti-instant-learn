@@ -768,8 +768,10 @@ def test_denormalization_scales_visual_points(service):
     denormalized = service._denormalization(project_id=project_id, data=prompt)
 
     points = denormalized.annotations[0].config["points"]
-    assert points[0]["x"] == 50 and points[0]["y"] == 50
-    assert points[1]["x"] == 150 and points[1]["y"] == 90
+    assert points[0]["x"] == 50
+    assert points[0]["y"] == 50
+    assert points[1]["x"] == 150
+    assert points[1]["y"] == 90
     service.frame_repository.read_frame.assert_called_once_with(project_id=project_id, frame_id=frame_id)
 
 

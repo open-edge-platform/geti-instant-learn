@@ -29,7 +29,7 @@ from domain.repositories.processor import ProcessorRepository
 from domain.repositories.project import ProjectRepository
 from domain.repositories.prompt import PromptRepository
 from domain.services.base import BaseService
-from domain.services.schemas.annotation import AnnotationSchema
+from domain.services.schemas.annotation import AnnotationSchema, Point
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.mappers.annotation import annotations_db_to_schemas
 from domain.services.schemas.mappers.label import label_db_to_schema
@@ -581,12 +581,8 @@ class PromptService(BaseService):
         height, width = frame.shape[:2]
 
         for annotation in data.annotations:
-            points = annotation.config.points
-            for point in points:
-                logger.debug("Normalizing point (%s, %s) with width=%s height=%s", point.x, point.y, width, height)
-                point.x = point.x / width
-                point.y = point.y / height
-                logger.debug("Normalized point to (%s, %s)", point.x, point.y)
+            normalized_points = [Point(x=point.x / width, y=point.y / height) for point in annotation.config.points]
+            annotation.config.points = normalized_points
 
         return data
 
@@ -607,12 +603,13 @@ class PromptService(BaseService):
 
         for annotation in data.annotations:
             points = annotation.config.get("points")
+            denormalized_points = []
             for point in points:
-                logger.debug(
-                    "Denormalizing point (%s, %s) with width=%s height=%s", point["x"], point["y"], width, height
-                )
-                point["x"] = int(point["x"] * width)
-                point["y"] = int(point["y"] * height)
-                logger.debug("Denormalized point to (%s, %s)", point["x"], point["y"])
+                denormalized_point = {
+                    "x": int(point["x"] * width),
+                    "y": int(point["y"] * height),
+                }
+                denormalized_points.append(denormalized_point)
+            annotation.config = {**annotation.config, "points": denormalized_points}
 
         return data
