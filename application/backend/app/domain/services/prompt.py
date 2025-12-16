@@ -5,7 +5,6 @@ import logging
 from uuid import UUID
 
 import cv2
-import numpy as np
 from getiprompt.data.base.batch import Batch
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -108,10 +107,7 @@ class PromptService(BaseService):
         )
 
         # Denormalize coordinates for visual prompts
-        denormalized_prompts = [
-            self._denormalization(project_id=project_id, data=prompt)
-            for prompt in db_prompts
-        ]
+        denormalized_prompts = [self._denormalization(project_id=project_id, data=prompt) for prompt in db_prompts]
 
         prompts = prompts_db_to_schemas(denormalized_prompts, include_thumbnail=True)
 
@@ -219,8 +215,8 @@ class PromptService(BaseService):
         """
         self._ensure_project(project_id)
         logger.debug("Prompt create requested: project_id=%s type=%s", project_id, create_data.type)
-        
-        logger.info("Normalizing prompt data for project_id=%s", project_id)
+
+        logger.debug("Normalizing prompt data for project_id=%s", project_id)
         normalized_data = self._normalization(project_id=project_id, data=create_data)
 
         if isinstance(normalized_data, TextPromptCreateSchema):
@@ -571,8 +567,6 @@ class PromptService(BaseService):
 
     def _normalization(self, project_id: UUID, data: PromptCreateSchema) -> PromptCreateSchema:
         """Normalize pixel coordinates to [0, 1] range."""
-        if not isinstance(data, VisualPromptCreateSchema):
-            return data
 
         frame = self.frame_repository.read_frame(project_id=project_id, frame_id=data.frame_id)
         if frame is None:
@@ -583,13 +577,9 @@ class PromptService(BaseService):
         height, width = frame.shape[:2]
 
         for annotation in data.annotations:
-            # When creating, config is a Pydantic model with .points attribute
             points = annotation.config.points
             for point in points:
-                logger.debug(
-                    "Normalizing point (%s, %s) with width=%s height=%s",
-                    point.x, point.y, width, height
-                )
+                logger.debug("Normalizing point (%s, %s) with width=%s height=%s", point.x, point.y, width, height)
                 point.x = point.x / width
                 point.y = point.y / height
                 logger.debug("Normalized point to (%s, %s)", point.x, point.y)
@@ -598,26 +588,23 @@ class PromptService(BaseService):
 
     def _denormalization(self, project_id: UUID, data: PromptDB) -> PromptDB:
         """Denormalize coordinates from [0, 1] range to pixel coordinates."""
-        if data.type != PromptType.VISUAL or not data.frame_id:
-            return data
 
         frame = self.frame_repository.read_frame(project_id=project_id, frame_id=data.frame_id)
         if frame is None:
-            return data
+            raise ResourceNotFoundError(
+                resource_type=ResourceType.FRAME,
+                resource_id=str(data.frame_id),
+            )
         height, width = frame.shape[:2]
 
         for annotation in data.annotations:
-            # When reading from DB, config is a dict
-            if isinstance(annotation.config, dict):
-                points = annotation.config.get("points", [])
-                for point in points:
-                    point["x"] = int(point["x"] * width)
-                    point["y"] = int(point["y"] * height)
-            else:
-                # Pydantic model (shouldn't happen for DB data, but safe fallback)
-                points = annotation.config.points
-                for point in points:
-                    point.x = int(point.x * width)
-                    point.y = int(point.y * height)
+            points = annotation.config.get("points")
+            for point in points:
+                logger.debug(
+                    "Denormalizing point (%s, %s) with width=%s height=%s", point["x"], point["y"], width, height
+                )
+                point["x"] = int(point["x"] * width)
+                point["y"] = int(point["y"] * height)
+                logger.debug("Denormalized point to (%s, %s)", point["x"], point["y"])
 
         return data
