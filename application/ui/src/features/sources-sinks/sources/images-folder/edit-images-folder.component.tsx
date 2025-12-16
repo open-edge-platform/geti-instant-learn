@@ -7,10 +7,10 @@ import { FormEvent, useState } from 'react';
 
 import { ImagesFolderSourceType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { getQueryKey } from '@geti-prompt/query-client';
 import { Flex, Form } from '@geti/ui';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { getQueryKey } from '../../../../query-client/query-client';
 import { useUpdateSource } from '../api/use-update-source';
 import { EditSourceButtons } from '../edit-sources/edit-source-buttons.component';
 import { ImagesFolderFields } from './images-folder-fields.component';

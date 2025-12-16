@@ -6,12 +6,12 @@
 import { useState } from 'react';
 
 import { ProjectType } from '@geti-prompt/api';
+import { getQueryKey } from '@geti-prompt/query-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { v4 as uuid } from 'uuid';
 
 import { paths } from '../../../constants/paths';
-import { getQueryKey } from '../../../query-client/query-client';
 import { generateUniqueProjectName } from '../utils';
 import { useCreateProjectMutation } from './use-create-project-mutation.hook';
 

@@ -14,12 +14,12 @@ import {
     SourcesListType,
     VisualPromptListType,
 } from '@geti-prompt/api';
+import { queryClient } from '@geti-prompt/query-client';
 import { HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import fetchPolyfill, { Request as RequestPolyfill } from 'node-fetch';
 
 import { handlers, http } from './api/utils';
-import { queryClient } from './query-client/query-client';
 
 const MOCKED_PROJECT_RESPONSE: ProjectType = {
     id: '1',

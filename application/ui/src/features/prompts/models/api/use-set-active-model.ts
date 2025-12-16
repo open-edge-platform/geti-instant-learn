@@ -5,9 +5,8 @@
 
 import { $api, ModelType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { getQueryKey } from '@geti-prompt/query-client';
 import { useQueryClient } from '@tanstack/react-query';
-
-import { getQueryKey } from '../../../../query-client/query-client';
 
 const useSetActiveModelQuery = (projectId: string) => {
     const queryClient = useQueryClient();

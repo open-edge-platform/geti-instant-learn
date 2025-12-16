@@ -4,9 +4,8 @@
  */
 
 import { $api, type ProjectUpdateType } from '@geti-prompt/api';
+import { getQueryKey } from '@geti-prompt/query-client';
 import { useQueryClient } from '@tanstack/react-query';
-
-import { getQueryKey } from '../../../query-client/query-client';
 
 export const useUpdateProject = () => {
     const queryClient = useQueryClient();
