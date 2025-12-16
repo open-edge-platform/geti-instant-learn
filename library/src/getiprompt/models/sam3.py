@@ -261,16 +261,27 @@ class SAM3(Model):
         return box_convert(boxes, "xyxy", "cxcywh")
 
     def predict(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
-        """Perform inference step on the target images."""
+        """Perform inference step on the target images.
+
+        Uses batch image encoding for efficiency when processing multiple images.
+        """
         results = []
+        samples = target_batch.samples
+
         with self.autocast_ctx:
-            for sample in target_batch.samples:
+            # Batch encode all images at once (expensive backbone forward pass)
+            pil_images = [self._prepare_image(sample.image) for sample in samples]
+            batch_state = self.processor.set_image_batch(pil_images)
+
+            # Process each image's prompts individually
+            for idx, sample in enumerate(samples):
                 img_size = sample.image.shape[-2:]
                 bboxes = self.normalize_boxes(sample.bboxes, img_size) if sample.bboxes is not None else []
                 texts = sample.categories if sample.categories is not None else []
                 category_ids = sample.category_ids
-                image = self._prepare_image(sample.image)
-                inference_state = self.processor.set_image(image)
+
+                # Extract single-image state from batch state
+                inference_state = self.processor.get_single_image_state(batch_state, idx)
 
                 all_masks: list[torch.Tensor] = []
                 all_boxes: list[torch.Tensor] = []
