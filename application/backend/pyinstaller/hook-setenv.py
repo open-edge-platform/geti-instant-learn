@@ -57,7 +57,10 @@ def _main() -> None:  # noqa: C901
                 if os.path.exists(destination_path):
                     continue
                 print("Setup Hook: Copying initial data:", item, " Destination:", destination_path)
-                shutil.copytree(source_path, destination_path)
+                try:
+                    shutil.copytree(source_path, destination_path)
+                except Exception as e:
+                    print(f"Setup Hook: Failed to copy '{source_path}' to '{destination_path}': {e}")
 
         package_family_name = _get_current_package_family_name()
         if not package_family_name:
