@@ -136,7 +136,14 @@ jobs:
       # Prepare ZIP archive
 
       - name: Create ZIP archive
-        run: Compress-Archive -Path "${{ env.UI_TARGET_RELEASE_PATH }}" -DestinationPath "geti-prompt.zip"
+        run: |
+          $files = @(
+            "${{ env.UI_TARGET_RELEASE_PATH }}\geti-prompt-backend.exe",
+            "${{ env.UI_TARGET_RELEASE_PATH }}\geti_prompt_ui.exe",
+            "${{ env.UI_TARGET_RELEASE_PATH }}\_internal",
+            "${{ env.UI_TARGET_RELEASE_PATH }}\InitialData"
+          ) 
+          Compress-Archive -Path $files -DestinationPath "geti-prompt.zip"
 
       - name: Upload ZIP archive
         uses: actions/upload-artifact@v4
