@@ -89,7 +89,7 @@ def sample_processor_db(sample_model_id, sample_project_id):
     processor.name = "test_processor"
     processor.active = True
     processor.config = {
-        "mask_similarity_threshold": 0.38,
+        "confidence_threshold": 0.38,
         "model_type": "matcher",
         "num_background_points": 2,
         "num_foreground_points": 40,
@@ -455,3 +455,25 @@ class TestHandleSourceIntegrityError:
                 service._handle_source_integrity_error(exc, sample_model_id, sample_project_id, "test")
 
             assert "constraint violation" in str(exc_info.value).lower()
+
+
+def test_supported_models(service, sample_project_id):
+    """Test that supported_models returns only SAM_HQ and SAM_HQ_TINY."""
+    supported = service.supported_models(project_id=sample_project_id)
+
+    assert "sam_models" in supported
+    assert "encoder_models" in supported
+
+    # Verify only two SAM models are supported
+    assert len(supported["sam_models"]) == 2
+    assert "SAM-HQ" in supported["sam_models"]
+    assert "SAM-HQ-tiny" in supported["sam_models"]
+
+    # Verify unsupported SAM models are not included
+    unsupported_models = ["SAM2-tiny", "SAM2-small", "SAM2-base", "SAM2-large"]
+    for model in unsupported_models:
+        assert model not in supported["sam_models"]
+
+    # Verify encoder models are present
+    assert len(supported["encoder_models"]) == 5
+    assert "dinov3_large" in supported["encoder_models"]

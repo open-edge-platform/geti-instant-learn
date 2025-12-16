@@ -4,6 +4,8 @@
 import logging
 from uuid import UUID
 
+from getiprompt.components.encoders.timm import AVAILABLE_IMAGE_ENCODERS
+from getiprompt.utils.constants import SAMModelName
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -302,3 +304,24 @@ class ModelService(BaseService):
 
         logger.error(f"Unmapped constraint violation for model configuration (id={model_id}): {error_msg}")
         raise ValueError("Database constraint violation. Please check your input and try again.")
+
+    def supported_models(self, project_id: UUID) -> dict[str, list[str]]:
+        """
+        Get supported SAM and encoder models.
+
+        Returns:
+            dict: Supported SAM models and image encoders.
+
+        Raises:
+            ResourceNotFoundError: If the project does not exist.
+        """
+        project = self.project_repository.get_by_id(project_id)
+        if not project:
+            logger.error(f"Project not found id={project_id}")
+            raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
+        sam_models = [model.value for model in SAMModelName if model in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}]
+        encoder_models = list(AVAILABLE_IMAGE_ENCODERS.keys())
+        return {
+            "sam_models": sam_models,
+            "encoder_models": encoder_models,
+        }

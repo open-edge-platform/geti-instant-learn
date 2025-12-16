@@ -37,9 +37,11 @@ class ModelFactory:
                 model = Matcher(
                     num_foreground_points=config.num_foreground_points,
                     num_background_points=config.num_background_points,
-                    mask_similarity_threshold=config.mask_similarity_threshold,
+                    mask_similarity_threshold=config.confidence_threshold,
                     precision=config.precision,
                     device=cls._resolve_device(),
+                    sam=config.sam_model,
+                    encoder_model=config.encoder_model,
                 )
                 return InferenceModelHandler(model, reference_batch)
             case _:

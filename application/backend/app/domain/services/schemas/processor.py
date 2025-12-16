@@ -7,7 +7,9 @@ from typing import Annotated, Any, Literal
 
 import numpy as np
 import torch
-from pydantic import BaseModel, Field
+from getiprompt.components.encoders.timm import AVAILABLE_IMAGE_ENCODERS
+from getiprompt.utils.constants import SAMModelName
+from pydantic import BaseModel, Field, field_validator, model_serializer
 
 from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
 
@@ -18,10 +20,45 @@ class ModelType(StrEnum):
 
 class MatcherConfig(BaseModel):
     model_type: Literal[ModelType.MATCHER] = ModelType.MATCHER
-    num_foreground_points: int = 40
-    num_background_points: int = 2
-    mask_similarity_threshold: float = 0.38
-    precision: str = "bf16"
+    num_foreground_points: int = Field(default=40, gt=0, lt=100)
+    num_background_points: int = Field(default=2, ge=0, lt=10)
+    confidence_threshold: float = Field(default=0.38, gt=0.0, lt=1.0)
+    precision: str = Field(default="bf16", description="Model precision")
+    sam_model: SAMModelName = Field(default=SAMModelName.SAM_HQ_TINY)
+    encoder_model: str = Field(default="dinov3_large")
+
+    @field_validator("encoder_model")
+    @classmethod
+    def validate_encoder_model(cls, v: str) -> str:
+        if v not in AVAILABLE_IMAGE_ENCODERS:
+            raise ValueError(f"Supported encoder must be one of {list(AVAILABLE_IMAGE_ENCODERS.keys())}, got '{v}'")
+        return v
+
+    @field_validator("sam_model", mode="before")
+    @classmethod
+    def validate_sam_model(cls, v: str | SAMModelName) -> SAMModelName:
+        """Validate SAM model is supported."""
+        # Convert string to enum if needed
+        if isinstance(v, str):
+            try:
+                v = SAMModelName(v)
+            except ValueError:
+                allowed = {SAMModelName.SAM_HQ.value, SAMModelName.SAM_HQ_TINY.value}
+                raise ValueError(f"Supported sam model must be one of {list(allowed)}, got '{v}'")
+
+        # Validate enum value is in supported set
+        if v not in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
+            allowed = {SAMModelName.SAM_HQ.value, SAMModelName.SAM_HQ_TINY.value}
+            raise ValueError(f"Supported sam model must be one of {list(allowed)}, got '{v.value}'")
+
+        return v
+
+    @model_serializer(mode="wrap")
+    def serialize_sam_model(self, serializer: Any) -> dict[str, Any]:
+        """Serialize enum to string for JSON compatibility."""
+        data = serializer(self)
+        data["sam_model"] = self.sam_model.value
+        return data
 
     model_config = {
         "json_schema_extra": {
@@ -29,8 +66,10 @@ class MatcherConfig(BaseModel):
                 "model_type": "matcher",
                 "num_foreground_points": 40,
                 "num_background_points": 2,
-                "mask_similarity_threshold": 0.38,
+                "confidence_threshold": 0.38,
                 "precision": "bf16",
+                "sam_model": "SAM-HQ-tiny",
+                "encoder_model": "dinov3_large",
             }
         }
     }

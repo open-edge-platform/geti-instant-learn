@@ -35,11 +35,13 @@ logger = logging.getLogger(__name__)
                                 "name": "Active Model",
                                 "active": True,
                                 "config": {
-                                    "mask_similarity_threshold": 0.38,
+                                    "confidence_threshold": 0.38,
                                     "model_type": "matcher",
                                     "num_background_points": 2,
                                     "num_foreground_points": 40,
                                     "precision": "bf16",
+                                    "sam_model": "SAM-HQ-tiny",
+                                    "encoder_model": "dinov3_large",
                                 },
                             }
                         ]
@@ -99,11 +101,13 @@ def get_all_models(
                         "name": "Active Model",
                         "active": True,
                         "config": {
-                            "mask_similarity_threshold": 0.38,
+                            "confidence_threshold": 0.38,
                             "model_type": "matcher",
                             "num_background_points": 2,
                             "num_foreground_points": 40,
                             "precision": "bf16",
+                            "sam_model": "SAM-HQ-tiny",
+                            "encoder_model": "dinov3_large",
                         },
                     },
                 }
@@ -146,6 +150,51 @@ def get_active_model(project_id: UUID, model_service: ModelServiceDep) -> Proces
 
 
 @projects_router.get(
+    path="/{project_id}/models/supported",
+    tags=["Models"],
+    status_code=status.HTTP_200_OK,
+    response_model=dict[str, list[str]],
+    responses={
+        status.HTTP_200_OK: {
+            "description": "Successfully retrieved the model configuration for the project.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "sam_models": ["SAM-HQ", "SAM-HQ-tiny"],
+                        "encoder_models": [
+                            "dinov3_small",
+                            "dinov3_small_plus",
+                            "dinov3_base",
+                            "dinov3_large",
+                            "dinov3_huge",
+                        ],
+                    },
+                }
+            },
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Project or model configuration not found",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "project_missing": {
+                            "summary": "Project not found",
+                            "value": {"detail": "Project with ID 3fa85f64-5717-4562-b3fc-2c963f66afa6 not found."},
+                        },
+                    },
+                },
+            },
+        },
+    },
+)
+def supported_models(project_id: UUID, model_service: ModelServiceDep) -> dict[str, list[str]]:
+    """
+    Retrieve the model configuration of the project.
+    """
+    return model_service.supported_models(project_id=project_id)
+
+
+@projects_router.get(
     path="/{project_id}/models/{model_id}",
     tags=["Models"],
     status_code=status.HTTP_200_OK,
@@ -159,11 +208,13 @@ def get_active_model(project_id: UUID, model_service: ModelServiceDep) -> Proces
                         "name": "My Model",
                         "active": False,
                         "config": {
-                            "mask_similarity_threshold": 0.38,
+                            "confidence_threshold": 0.38,
                             "model_type": "matcher",
                             "num_background_points": 2,
                             "num_foreground_points": 40,
                             "precision": "bf16",
+                            "sam_model": "SAM-HQ-tiny",
+                            "encoder_model": "dinov3_large",
                         },
                     },
                 }
@@ -217,11 +268,13 @@ def get_model(project_id: UUID, model_id: UUID, model_service: ModelServiceDep) 
                         "name": "New Model",
                         "active": False,
                         "config": {
-                            "mask_similarity_threshold": 0.38,
+                            "confidence_threshold": 0.38,
                             "model_type": "matcher",
                             "num_background_points": 2,
                             "num_foreground_points": 40,
                             "precision": "bf16",
+                            "sam_model": "SAM-HQ-tiny",
+                            "encoder_model": "dinov3_large",
                         },
                     },
                 }
@@ -284,11 +337,13 @@ def create_model(project_id: UUID, payload: ProcessorCreateSchema, model_service
                         "name": "Updated Model",
                         "active": True,
                         "config": {
-                            "mask_similarity_threshold": 0.45,
+                            "confidence_threshold": 0.45,
                             "model_type": "matcher",
                             "num_background_points": 3,
                             "num_foreground_points": 50,
                             "precision": "fp16",
+                            "sam_model": "SAM-HQ-tiny",
+                            "encoder_model": "dinov3_large",
                         },
                     },
                 }

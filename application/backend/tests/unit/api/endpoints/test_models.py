@@ -4,6 +4,7 @@ import pytest
 from fastapi import FastAPI, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
+from getiprompt.utils.constants import SAMModelName
 
 from api.error_handler import custom_exception_handler
 from api.routers import projects_router
@@ -11,6 +12,8 @@ from dependencies import SessionDep, get_model_service
 from domain.errors import ResourceAlreadyExistsError, ResourceNotFoundError, ResourceType
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.processor import (
+    MatcherConfig,
+    ModelType,
     ProcessorListSchema,
     ProcessorSchema,
 )
@@ -52,13 +55,15 @@ def sample_processor_schema(model_id):
         id=model_id,
         name="Test Model",
         active=True,
-        config={
-            "mask_similarity_threshold": 0.38,
-            "model_type": "matcher",
-            "num_background_points": 2,
-            "num_foreground_points": 40,
-            "precision": "bf16",
-        },
+        config=MatcherConfig(
+            confidence_threshold=0.38,
+            model_type=ModelType.MATCHER,
+            num_background_points=2,
+            num_foreground_points=40,
+            precision="bf16",
+            sam_model=SAMModelName.SAM_HQ_TINY,
+            encoder_model="dinov3_large",
+        ),
     )
 
 
@@ -69,11 +74,13 @@ def create_payload():
         "id": str(uuid4()),
         "active": True,
         "config": {
-            "mask_similarity_threshold": 0.38,
+            "confidence_threshold": 0.38,
             "model_type": "matcher",
             "num_background_points": 2,
             "num_foreground_points": 40,
             "precision": "bf16",
+            "sam_model": "SAM-HQ-tiny",
+            "encoder_model": "dinov3_large",
         },
     }
 
@@ -85,11 +92,13 @@ def update_payload():
         "id": str(uuid4()),
         "active": True,
         "config": {
-            "mask_similarity_threshold": 0.38,
+            "confidence_threshold": 0.38,
             "model_type": "matcher",
             "num_background_points": 2,
             "num_foreground_points": 40,
             "precision": "bf16",
+            "sam_model": "SAM-HQ-tiny",
+            "encoder_model": "dinov3_large",
         },
     }
 
@@ -504,3 +513,27 @@ class TestDeleteModel:
         response = client.delete(f"/api/v1/projects/{project_id}/models/{model_id}")
 
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+class TestSupportedModels:
+    def test_supported_models_success(self, client, project_id):
+        class FakeProcessorService:
+            def __init__(self, session):
+                pass
+
+            def supported_models(self, project_id):
+                return {
+                    "sam_models": ["SAM-HQ-tiny", "SAM-HQ"],
+                    "encoder_models": ["dinov3_small", "dinov3_base", "dinov3_large"],
+                }
+
+        client.app.dependency_overrides[get_model_service] = lambda: FakeProcessorService(None)
+
+        response = client.get(f"/api/v1/projects/{project_id}/models/supported")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert "sam_models" in data
+        assert "encoder_models" in data
+        assert isinstance(data["sam_models"], list)
+        assert isinstance(data["encoder_models"], list)

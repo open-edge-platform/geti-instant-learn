@@ -5,6 +5,7 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
+from getiprompt.utils.constants import SAMModelName
 
 from domain.services.schemas.processor import MatcherConfig
 from runtime.core.components.factories.model import ModelFactory
@@ -36,12 +37,27 @@ class TestModelFactory:
 
             assert device == "cpu"
 
+    @pytest.mark.parametrize(
+        "sam_model",
+        [
+            SAMModelName.SAM2_TINY,
+            SAMModelName.SAM2_SMALL,
+            SAMModelName.SAM2_BASE,
+            SAMModelName.SAM2_LARGE,
+        ],
+    )
+    def test_matcher_config_rejects_unsupported_sam_models(self, sam_model):
+        with pytest.raises(ValueError, match="Supported sam model must be one of"):
+            MatcherConfig(sam_model=sam_model)
+
     def test_factory_creates_matcher_model_with_config(self):
         config = MatcherConfig(
             num_foreground_points=50,
             num_background_points=3,
-            mask_similarity_threshold=0.5,
+            confidence_threshold=0.5,
             precision="fp32",
+            sam_model=SAMModelName.SAM_HQ_TINY,
+            encoder_model="dinov3_large",
         )
         mock_reference_batch = MagicMock()
 
@@ -58,6 +74,8 @@ class TestModelFactory:
                     mask_similarity_threshold=0.5,
                     precision="fp32",
                     device="cpu",
+                    sam=SAMModelName.SAM_HQ_TINY,
+                    encoder_model="dinov3_large",
                 )
 
     def test_factory_returns_none_for_unknown_config(self):
