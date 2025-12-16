@@ -7,6 +7,8 @@ import { $api } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { getQueryKey } from '../../../../query-client/query-client';
+
 export const useActivateFrameMutation = () => {
     return $api.useMutation('post', '/api/v1/projects/{project_id}/sources/{source_id}/frames/{index}');
 };
@@ -40,7 +42,7 @@ export const useActivateFrame = () => {
             {
                 onSuccess: async () => {
                     await queryClient.invalidateQueries({
-                        queryKey: [
+                        queryKey: getQueryKey([
                             'get',
                             '/api/v1/projects/{project_id}/sources/{source_id}/frames/index',
                             {
@@ -51,7 +53,7 @@ export const useActivateFrame = () => {
                                     },
                                 },
                             },
-                        ],
+                        ]),
                     });
                     onSuccess();
                 },

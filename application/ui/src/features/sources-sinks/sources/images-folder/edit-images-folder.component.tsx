@@ -10,6 +10,7 @@ import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Flex, Form } from '@geti/ui';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { getQueryKey } from '../../../../query-client/query-client';
 import { useUpdateSource } from '../api/use-update-source';
 import { EditSourceButtons } from '../edit-sources/edit-source-buttons.component';
 import { ImagesFolderFields } from './images-folder-fields.component';
@@ -48,23 +49,23 @@ const useUpdateImagesFolderSource = (sourceId: string) => {
                 };
 
                 queryClient.invalidateQueries({
-                    queryKey: [
+                    queryKey: getQueryKey([
                         'get',
                         '/api/v1/projects/{project_id}/sources/{source_id}/frames',
                         {
                             params,
                         },
-                    ],
+                    ]),
                 });
 
                 queryClient.invalidateQueries({
-                    queryKey: [
+                    queryKey: getQueryKey([
                         'get',
                         '/api/v1/projects/{project_id}/sources/{source_id}/frames/index',
                         {
                             params,
                         },
-                    ],
+                    ]),
                 });
 
                 onSuccess();

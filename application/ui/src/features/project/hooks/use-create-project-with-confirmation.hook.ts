@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router';
 import { v4 as uuid } from 'uuid';
 
 import { paths } from '../../../constants/paths';
+import { getQueryKey } from '../../../query-client/query-client';
 import { generateUniqueProjectName } from '../utils';
 import { useCreateProjectMutation } from './use-create-project-mutation.hook';
 
@@ -35,7 +36,7 @@ export const useCreateProjectWithConfirmation = ({
         if (activeProject === undefined) return;
 
         queryClient.invalidateQueries({
-            queryKey: [
+            queryKey: getQueryKey([
                 'get',
                 '/api/v1/projects/{project_id}',
                 {
@@ -45,7 +46,7 @@ export const useCreateProjectWithConfirmation = ({
                         },
                     },
                 },
-            ],
+            ]),
         });
     };
 

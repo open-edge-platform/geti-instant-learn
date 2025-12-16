@@ -6,6 +6,8 @@
 import { $api, type ProjectUpdateType } from '@geti-prompt/api';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { getQueryKey } from '../../../query-client/query-client';
+
 export const useUpdateProject = () => {
     const queryClient = useQueryClient();
     const updateProjectMutation = $api.useMutation('put', '/api/v1/projects/{project_id}', {
@@ -27,7 +29,7 @@ export const useUpdateProject = () => {
             {
                 onSuccess: () => {
                     queryClient.invalidateQueries({
-                        queryKey: [
+                        queryKey: getQueryKey([
                             'get',
                             '/api/v1/projects/{project_id}',
                             {
@@ -37,7 +39,7 @@ export const useUpdateProject = () => {
                                     },
                                 },
                             },
-                        ],
+                        ]),
                     });
                 },
             }
