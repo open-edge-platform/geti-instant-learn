@@ -216,10 +216,7 @@ class PromptService(BaseService):
         self._ensure_project(project_id)
         logger.debug("Prompt create requested: project_id=%s type=%s", project_id, create_data.type)
 
-        logger.debug("Normalizing prompt data for project_id=%s", project_id)
-        normalized_data = self._normalization(project_id=project_id, data=create_data)
-
-        if isinstance(normalized_data, TextPromptCreateSchema):
+        if isinstance(create_data, TextPromptCreateSchema):
             existing_text_prompt = self.prompt_repository.get_text_prompt_by_project(project_id)
             if existing_text_prompt:
                 logger.error(
@@ -235,12 +232,14 @@ class PromptService(BaseService):
                 )
 
         thumbnail = None
-        if isinstance(normalized_data, VisualPromptCreateSchema):
+        if isinstance(create_data, VisualPromptCreateSchema):
+            logger.debug("Normalizing prompt data for project_id=%s", project_id)
+            normalized_data = self._normalization(project_id=project_id, data=create_data)
             frame_path = self.frame_repository.get_frame_path(project_id, normalized_data.frame_id)
             if not frame_path:
                 logger.error(
                     "Visual prompt creation failed: frame_id=%s not found in project with id=%s",
-                    create_data.frame_id,
+                    normalized_data.frame_id,
                     project_id,
                 )
                 raise ResourceNotFoundError(
@@ -250,11 +249,12 @@ class PromptService(BaseService):
                 )
             self._validate_annotation_labels(normalized_data.annotations, project_id)
             thumbnail = self._generate_thumbnail(project_id, normalized_data.frame_id, normalized_data.annotations)
+            create_data = normalized_data
 
         try:
             with self.db_transaction():
                 new_prompt: PromptDB = prompt_create_schema_to_db(
-                    schema=normalized_data, project_id=project_id, thumbnail=thumbnail
+                    schema=create_data, project_id=project_id, thumbnail=thumbnail
                 )
                 self.prompt_repository.add(new_prompt)
                 self._emit_processor_change_event(project_id)
@@ -565,12 +565,8 @@ class PromptService(BaseService):
                 )
             )
 
-    def _normalization(self, project_id: UUID, data: PromptCreateSchema) -> PromptCreateSchema:
+    def _normalization(self, project_id: UUID, data: VisualPromptCreateSchema) -> VisualPromptCreateSchema:
         """Normalize pixel coordinates to [0, 1] range."""
-
-        # Skip normalization for text prompts
-        if data.type == PromptType.TEXT:
-            return data
 
         frame = self.frame_repository.read_frame(project_id=project_id, frame_id=data.frame_id)
         if frame is None:

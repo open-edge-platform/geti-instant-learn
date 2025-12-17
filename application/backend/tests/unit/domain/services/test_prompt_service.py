@@ -740,20 +740,6 @@ def test_normalization_raises_when_frame_missing(service):
         service._normalization(project_id=project_id, data=create_schema)
 
 
-def test_normalization_skips_text_prompts(service):
-    project_id = uuid.uuid4()
-    create_schema = TextPromptCreateSchema(
-        id=uuid.uuid4(),
-        type=PromptType.TEXT,
-        content="describe objects",
-    )
-
-    normalized = service._normalization(project_id=project_id, data=create_schema)
-
-    assert normalized is create_schema
-    service.frame_repository.read_frame.assert_not_called()
-
-
 def test_denormalization_scales_visual_points(service):
     project_id = uuid.uuid4()
     frame_id = uuid.uuid4()
