@@ -134,10 +134,14 @@ jobs:
 
       - name: Build docker image
         working-directory: application
+        id: image-name
         env:
           RUNTIME: ${{ matrix.runtime }}
         run: |
-          just runtime="${RUNTIME}" docker-image="${RUNTIME}:latest" docker-build-context="--no-cache" build-image
+          just runtime="${RUNTIME}" docker-build-context="--no-cache" build-image
+          IMAGE_NAME=$(just --evaluate runtime="${RUNTIME}" docker-image)
+          echo "image=${IMAGE_NAME}" >> $GITHUB_OUTPUT
+          echo "Image: ${IMAGE_NAME}"
 
       - name: Cleanup docker cache
         run: docker builder prune -f
@@ -148,7 +152,7 @@ jobs:
         with:
           artifact-name: "trivy-results-docker-${{ matrix.runtime }}"
           scan_type: "image"
-          scan_target: "${{ matrix.runtime }}:latest"
+          scan_target: "${{ steps.image-name.outputs.image }}"
           scan-scope: all
           severity: "LOW"
           scanners: "vuln,secret,config"

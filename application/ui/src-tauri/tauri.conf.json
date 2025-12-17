@@ -30,7 +30,8 @@
       "geti-prompt-backend"
     ],
     "resources": [
-      "_internal"
+      "_internal",
+      "InitialData"
     ],
     "icon": [
       "icons/icon.ico"

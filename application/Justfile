@@ -28,7 +28,7 @@ webrtc-port-end := "51000"
 runtime := "cpu"  # options: cpu, cuda, xpu
 component-name := "geti-prompt"
 images-registry := 'localhost:5000/open-edge-platform'
-version := `uv run python -c "import os; print(os.path.join(os.getcwd().rsplit('application', 1)[0], 'VERSION'))" | xargs cat`
+version := `uv run python -c "import os; from pathlib import Path; version = Path(os.path.join(os.getcwd().rsplit('application', 1)[0], 'VERSION')).read_text().strip(); print(version)"`
 docker-image := images-registry / component-name / runtime + ":" + version
 
 # -------------------------------------------------------------------------------------------------
@@ -82,7 +82,7 @@ download-dataset: check-proxy
     fi
     mkdir -p $DATASET_DIR
     echo "Downloading default dataset from {{ coffee-berries-dataset }}"
-    if ! wget -q --show-progress {{ coffee-berries-dataset }}; then
+    if ! curl -s {{ coffee-berries-dataset }} -o Frames.zip; then
         echo "Error: Failed to download dataset from {{ coffee-berries-dataset }}"
         exit 0  # proceed without dataset
     fi

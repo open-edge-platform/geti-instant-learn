@@ -28,10 +28,14 @@ jobs:
 
       - name: Build docker image
         working-directory: application
+        id: image-name
         env:
           RUNTIME: ${{ matrix.runtime }}
         run: |
-          just runtime="${RUNTIME}" docker-image="${RUNTIME}:latest" docker-build-context="--no-cache" build-image
+          just runtime="${RUNTIME}" docker-build-context="--no-cache" build-image
+          IMAGE_NAME=$(just --evaluate runtime="${RUNTIME}" docker-image)
+          echo "image=${IMAGE_NAME}" >> $GITHUB_OUTPUT
+          echo "Image: ${IMAGE_NAME}"
 
       - name: Cleanup docker cache
         run: docker builder prune -f
@@ -39,8 +43,8 @@ jobs:
       - name: Scan ${{ matrix.runtime }}
         shell: bash
         env:
-          TARGET: ${{ matrix.runtime }}:latest
-          RUNTIME: ${{ matrix.runtime }}
+          TARGET: ${{ steps.image-name.outputs.image }}
+          DEVICE: ${{ matrix.ai-device }}
         run: |
           # install Syft
           curl -sSfL https://get.anchore.io/syft | sudo sh -s -- -b /usr/local/bin

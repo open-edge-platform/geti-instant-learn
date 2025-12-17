@@ -93,9 +93,10 @@ jobs:
 
       # Copy backend artifacts to UI
 
-      - name: Copy backend executable to UI
+      - name: Copy backend artifacts to UI
         run: |
           cp -r ${{ env.BACKEND_DIST_PATH }}\_internal ${{ env.UI_SRC_TAURI_PATH }}
+          cp -r ${{ env.BACKEND_DIST_PATH }}\InitialData ${{ env.UI_SRC_TAURI_PATH }}
           cp -r ${{ env.BACKEND_DIST_PATH }}\geti-prompt-backend.exe ${{ env.UI_SRC_TAURI_PATH }}\geti-prompt-backend-x86_64-pc-windows-msvc.exe
 
       - name: Copy OpenAPI spec
@@ -143,6 +144,7 @@ jobs:
           cp ${{ env.UI_TARGET_RELEASE_PATH }}\geti-prompt-backend.exe ${{ env.UI_MSIX_BUNDLE_PATH }}
           cp ${{ env.UI_TARGET_RELEASE_PATH }}\geti_prompt_ui.exe ${{ env.UI_MSIX_BUNDLE_PATH }}
           cp -r ${{ env.UI_TARGET_RELEASE_PATH }}\_internal ${{ env.UI_MSIX_BUNDLE_PATH }}
+          cp -r ${{ env.UI_TARGET_RELEASE_PATH }}\InitialData ${{ env.UI_MSIX_BUNDLE_PATH }}
           cp -r ${{ env.UI_SRC_TAURI_PATH }}\msix\* ${{ env.UI_MSIX_BUNDLE_PATH }}
           & "${{ env.MAKEAPP_PATH }}" pack /d ${{ env.UI_MSIX_BUNDLE_PATH }} /p ${{ env.UI_MSIX_BUNDLE_PATH }}\geti-prompt-$env:AI_DEVICE-$env:BUILD_VERSION.msix
 
