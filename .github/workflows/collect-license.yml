@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        ai-device: [cpu, gpu, xpu]
+        runtime: [cpu, gpu, xpu]
     steps:
       - name: Checkout repository
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
@@ -26,9 +26,9 @@ jobs:
       - name: Build docker image
         working-directory: application
         env:
-          DEVICE: ${{ matrix.ai-device }}
+          DEVICE: ${{ matrix.runtime }}
         run: |
-          just ai-device="${DEVICE}" docker-image="${DEVICE}:latest" docker-build-context="--no-cache" build-image
+          just runtime="${RUNTIME}" docker-image="${DEVICE}:latest" docker-build-context="--no-cache" build-image
 
       - name: Cleanup docker cache
         run: docker builder prune -f
@@ -39,8 +39,8 @@ jobs:
           SYFT_GOLANG_SEARCH_LOCAL_MOD_CACHE_LICENSES: "true"
           SYFT_GOLANG_SEARCH_REMOTE_LICENSES: "true"
         with:
-          image: ${{ matrix.ai-device }}:latest
-          artifact-name: sbom-container-${{ matrix.ai-device }}-image.spdx.json
+          image: ${{ matrix.runtime }}:latest
+          artifact-name: sbom-container-${{ matrix.runtime }}-image.spdx.json
           format: spdx-json
           output-file: sbom-container-image.spdx.json
           upload-artifact: true
@@ -78,7 +78,7 @@ jobs:
       - name: Upload docker image CSV
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
-          name: sbom-container-image-${{ matrix.ai-device }}-csv
+          name: sbom-container-image-${{ matrix.runtime }}-csv
           path: sbom-container-image.csv
           retention-days: 30
 

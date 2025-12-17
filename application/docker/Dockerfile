@@ -37,7 +37,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 ##########
 # GPU Base
 ##########
-FROM backend-base AS gpu-base
+FROM backend-base AS cuda-base
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
@@ -167,7 +167,7 @@ COPY --from=cpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/
 ######################
 # Server (GPU version)
 ######################
-FROM runtime-base AS gpu
+FROM runtime-base AS cuda
 
 USER root
 
@@ -187,7 +187,7 @@ RUN apt-get update \
 # needed to define it here to allow installation of packages
 USER ${USER_NAME}
 
-COPY --from=gpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
+COPY --from=cuda-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
 
 ######################
 # Server (XPU version)

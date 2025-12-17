@@ -25,11 +25,11 @@ webrtc-port-end := "51000"
 # Common variables used in the Justfile
 # -------------------------------------------------------------------------------------------------
 
-ai-device := "cpu"  # options: cpu, gpu, xpu
+runtime := "cpu"  # options: cpu, cuda, xpu
 component-name := "geti-prompt"
 images-registry := 'localhost:5000/open-edge-platform'
 version := `uv run python -c "import os; print(os.path.join(os.getcwd().rsplit('application', 1)[0], 'VERSION'))" | xargs cat`
-docker-image := images-registry / component-name / ai-device + ":" + version
+docker-image := images-registry / component-name / runtime + ":" + version
 
 # -------------------------------------------------------------------------------------------------
 # Variables used in the Justfile to build in Docker image for Geti Prompt
@@ -104,14 +104,14 @@ build-image: download-dataset
         --build-arg ASSET_PREFIX={{ asset-prefix }} \
         --build-arg SOURCE_DATASET_DIR={{ source-dataset-dir }} \
         --build-arg TARGET_DATASET_DIR={{ target-dataset-dir }} \
-        --build-arg RUNTIME={{ ai-device }} \
+        --build-arg RUNTIME={{ runtime }} \
         --tag "{{ docker-image }}" \
         --file docker/Dockerfile . \
-        --target {{ ai-device }}
+        --target {{ runtime}}
 
 # launch geti prompt with optional webcam, volume and port mapping
 run-image: build-image
-    @echo "Running docker image for component: {{ component-name }} with ai-device: {{ ai-device }}"
+    @echo "Running docker image for component: {{ component-name }} with runtime: {{ runtime }}"
     @echo "Proxy args: {{ docker-run-proxy-args }}"
     @docker run --rm \
         {{ docker-run-proxy-args }} \
@@ -156,7 +156,7 @@ show-size:
 # test geti prompt docker image using bash script
 test-image:
     #!/usr/bin/env bash
-    echo "Testing docker image for component: {{ component-name }} with ai-device: {{ ai-device }}"
+    echo "Testing docker image for component: {{ component-name }} with runtime: {{ runtime }}"
 
     # Start the container in detached mode
     CONTAINER_ID=$(docker run -d \

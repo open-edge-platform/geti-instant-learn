@@ -120,7 +120,7 @@ jobs:
       contents: read
     strategy:
       matrix:
-        ai-device: [cpu, gpu, xpu]
+        runtime: [cpu, gpu, xpu]
     steps:
       - name: Checkout code
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
@@ -135,9 +135,9 @@ jobs:
       - name: Build docker image
         working-directory: application
         env:
-          DEVICE: ${{ matrix.ai-device }}
+          RUNTIME: ${{ matrix.runtime }}
         run: |
-          just ai-device="${DEVICE}" docker-image="${DEVICE}:latest" docker-build-context="--no-cache" build-image
+          just runtime="${RUNTIME}" docker-image="${RUNTIME}:latest" docker-build-context="--no-cache" build-image
 
       - name: Cleanup docker cache
         run: docker builder prune -f
@@ -146,9 +146,9 @@ jobs:
         id: trivy
         uses: open-edge-platform/geti-ci/actions/trivy@829f7148f9f70bd4ffbb367f7374d78c32aef2a2
         with:
-          artifact-name: "trivy-results-docker-${{ matrix.ai-device }}"
+          artifact-name: "trivy-results-docker-${{ matrix.runtime }}"
           scan_type: "image"
-          scan_target: "${{ matrix.ai-device }}:latest"
+          scan_target: "${{ matrix.runtime }}:latest"
           scan-scope: all
           severity: "LOW"
           scanners: "vuln,secret,config"
