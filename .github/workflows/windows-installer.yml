@@ -11,6 +11,12 @@ on:
         type: string
         required: true
         default: "xpu"
+      debug_build:
+        description: "If the debug build should be produced"
+        type: boolean
+        required: true
+        default: false
+
   # allow to manually trigger this workflow
   workflow_dispatch:
     inputs:
@@ -26,6 +32,11 @@ on:
           - cpu
           - gpu
         default: "xpu"
+      debug_build:
+        description: "If the debug build should be produced"
+        required: true
+        type: boolean
+        default: false
 
 env:
   GIT_SH_PATH: C:\Program Files\Git\bin\sh.exe
@@ -35,8 +46,7 @@ env:
   BACKEND_DIST_PATH: .\application\backend\dist\geti-prompt-backend
   UI_SRC_API_PATH: .\application\ui\src\api
   UI_SRC_TAURI_PATH: .\application\ui\src-tauri
-  UI_TARGET_RELEASE_PATH: .\application\ui\src-tauri\target\release
-  UI_MSIX_BUNDLE_PATH: .\application\ui\src-tauri\target\release\bundle\msix
+  UI_TARGET_PATH: .\application\ui\src-tauri\target
   MAKEAPP_PATH: "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.26100.0\\x64\\makeappx.exe"
 
 jobs:
@@ -48,6 +58,31 @@ jobs:
     timeout-minutes: 60
 
     steps:
+
+      - name: Define paths
+        env:
+          DEBUG_BUILD: ${{ inputs.debug_build }}
+          DEVICE: ${{ inputs.ai-device || 'xpu' }}
+          BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
+        run: |
+          Write-Host "DEBUG_BUILD=$env:DEBUG_BUILD"
+          
+          $TARGET = $(IF ($env:DEBUG_BUILD -eq "true") {"debug"} else {"release"})         
+          $UI_BUILD_PATH = $env:UI_TARGET_PATH + "\" + $TARGET
+          Write-Host "UI_BUILD_PATH=$UI_BUILD_PATH"
+          Add-Content -Path $env:GITHUB_ENV -Value "UI_BUILD_PATH=$UI_BUILD_PATH"
+          
+          $UI_MSIX_BUNDLE_PATH = $UI_BUILD_PATH + "\bundle\msix"  
+          Write-Host "UI_MSIX_BUNDLE_PATH=$UI_MSIX_BUNDLE_PATH"
+          Add-Content -Path $env:GITHUB_ENV -Value "UI_MSIX_BUNDLE_PATH=$UI_MSIX_BUNDLE_PATH"
+          
+          $PREFIX = $(IF ($env:DEBUG_BUILD -eq "true") {"-debug"} else {""})
+          $MSIX_FILE_NAME = "geti-prompt-" + $env:DEVICE + "-" + $env:BUILD_VERSION + $PREFIX + ".msix"
+          $MSIX_FILE_PATH = $UI_MSIX_BUNDLE_PATH + "\" + $MSIX_FILE_NAME
+          Write-Host "MSIX_FILE_PATH=$MSIX_FILE_PATH"
+          Add-Content -Path $env:GITHUB_ENV -Value "MSIX_FILE_PATH=$MSIX_FILE_PATH"          
+          
+
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
@@ -123,7 +158,7 @@ jobs:
         run: npm ci
 
       - name: Install Tauri CLI
-        run: npm install -g @tauri-apps/cli
+        run: cargo install tauri-cli --version "^2.0.0" --locked
 
       - name: Build OpenAPI type definitions
         working-directory: application/ui
@@ -132,25 +167,25 @@ jobs:
       - name: Build Tauri app
         env:
           PUBLIC_API_URL: http://localhost:9100
+          DEBUG_BUILD: ${{ inputs.debug_build }}
         working-directory: application/ui
-        run: npm run tauri build
+        run: |
+          $FLAGS = $(IF ($env:DEBUG_BUILD -eq "true") {"--debug"} else {""})
+          cargo tauri build $FLAGS
 
       # Build MSIX bundle
 
       - name: Create MSIX package
-        env:
-          BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
-          DEVICE: ${{ inputs.ai-device || 'xpu' }}
         run: |
-          mkdir -p ${{ env.UI_MSIX_BUNDLE_PATH }}
-          cp ${{ env.UI_TARGET_RELEASE_PATH }}\geti-prompt-backend.exe ${{ env.UI_MSIX_BUNDLE_PATH }}
-          cp ${{ env.UI_TARGET_RELEASE_PATH }}\geti_prompt_ui.exe ${{ env.UI_MSIX_BUNDLE_PATH }}
-          cp -r ${{ env.UI_TARGET_RELEASE_PATH }}\_internal ${{ env.UI_MSIX_BUNDLE_PATH }}
-          cp -r ${{ env.UI_TARGET_RELEASE_PATH }}\InitialData ${{ env.UI_MSIX_BUNDLE_PATH }}
-          cp -r ${{ env.UI_SRC_TAURI_PATH }}\msix\* ${{ env.UI_MSIX_BUNDLE_PATH }}
-          & "${{ env.MAKEAPP_PATH }}" pack /d ${{ env.UI_MSIX_BUNDLE_PATH }} /p ${{ env.UI_MSIX_BUNDLE_PATH }}\geti-prompt-$env:DEVICE-$env:BUILD_VERSION.msix
+          mkdir -p $env:UI_MSIX_BUNDLE_PATH
+          cp $env:UI_BUILD_PATH\geti-prompt-backend.exe $env:UI_MSIX_BUNDLE_PATH
+          cp $env:UI_BUILD_PATH\geti_prompt_ui.exe $env:UI_MSIX_BUNDLE_PATH
+          cp -r $env:UI_BUILD_PATH\_internal $env:UI_MSIX_BUNDLE_PATH
+          cp -r $env:UI_BUILD_PATH\InitialData $env:UI_MSIX_BUNDLE_PATH
+          cp -r ${{ env.UI_SRC_TAURI_PATH }}\msix\* $env:UI_MSIX_BUNDLE_PATH
+          & "${{ env.MAKEAPP_PATH }}" pack /d $env:UI_MSIX_BUNDLE_PATH /p $env:MSIX_FILE_PATH
 
       - name: Upload MSIX package
         uses: actions/upload-artifact@v4
         with:
-          path: ${{ env.UI_MSIX_BUNDLE_PATH }}\*.msix
+          path: ${{ env.MSIX_FILE_PATH }}

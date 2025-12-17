@@ -32,7 +32,7 @@ fn spawn_backend() -> std::io::Result<Child> {
     log::info!("▶ Looking for backend side-car at {:?}", backend_path);
     let mut command = Command::new(&backend_path);
     command.env("CORS_ORIGINS", "http://tauri.localhost");
-    #[cfg(windows)]
+    #[cfg(all(windows, not(debug_assertions)))]
     {
         use std::os::windows::process::CommandExt;
         command.creation_flags(0x08000000); // CREATE_NO_WINDOW
