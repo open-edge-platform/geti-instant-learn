@@ -21,101 +21,141 @@ The layered architecture simplifies testing by providing clear boundaries for mo
 | Unit | Single layer | Mock dependencies from the layer below |
 | Integration | Data layer | Test repositories against a real database |
 
-## WebRTC Connectivity & Coturn Setup
+## WebRTC Networking
 
-### Understanding WebRTC Connectivity (ICE, STUN, TURN)
+Geti Prompt uses WebRTC for real-time video streaming between the browser (UI) and the backend. For WebRTC to work, the browser needs to know how to reach the backend's media server.
 
-WebRTC is designed to establish a direct Peer-to-Peer (P2P) connection between two devices (peers) to stream video and data with minimal latency. However, devices are rarely connected directly to the open internet; they sit behind firewalls and NAT routers.
+### The Challenge
 
-To overcome this, WebRTC uses a protocol called **ICE** (Interactive Connectivity Establishment). ICE tries to find the best path to connect peers in the following order:
+The backend runs inside Docker or behind network infrastructure (NAT, load balancers, firewalls). The browser cannot directly connect to internal IPs like `172.17.0.2` or `10.0.0.5`. We need to tell the browser which address to use.
 
-1.  **Host Candidates (Local Network):**
-    *   The peers try to connect directly using their local LAN IP addresses.
-    *   *Works if:* Both devices are on the same network.
+### The Solution
 
-2.  **STUN Candidates (Public IP):**
-    *   **STUN** (Session Traversal Utilities for NAT) is a lightweight protocol that tells a device "What is my public IP address?".
-    *   *Works if:* You are on a standard home network or a permissive public network.
+Configure the backend to advertise a reachable address. Choose the method based on your deployment:
 
-3.  **TURN Candidates (Relay):**
-    *   **TURN** (Traversal Using Relays around NAT) is the fallback of last resort.
-    *   If a direct connection is impossible (e.g., strict corporate firewalls, Symmetric NAT, or blocked UDP), the TURN server acts as a middleman.
-    *   Peer A sends data to the TURN server -> TURN server relays it to Peer B.
-    *   *Works if:* Almost always, as long as the TURN server itself is reachable.
+| Scenario | Challenge | Solution | Configuration |
+|----------|-----------|----------|---------------|
+| [Local development](#local-network) | Docker container has internal IP | Tell backend to advertise `127.0.0.1` or LAN IP | `WEBRTC_ADVERTISE_IP="127.0.0.1"` |
+| [Cloud (public IP unknown)](#cloud-with-auto-discovery) | Server IP changes dynamically | Backend discovers its public IP via STUN | `ICE_SERVERS='[{"urls": "stun:stun.l.google.com:19302"}]'` |
+| [Cloud (public IP known)](#cloud-with-manual-ip) | Behind load balancer or have static IP/DNS | Tell backend to advertise the public IP or DNS | `WEBRTC_ADVERTISE_IP="203.0.113.10"` |
+| [Restrictive network](#restrictive-firewall-turn) | Firewall blocks UDP traffic | Relay all traffic through TURN server on TCP 443 | `ICE_SERVERS='[{"urls": "turn:...", ...}]'` |
 
-### When Do You Need a TURN Server?
+> **Note:** Use only one configuration method at a time.
 
-You absolutely need a TURN server in **Restrictive Network Environments**, such as:
-*   **Corporate Offices:** Where firewalls block all non-standard ports and UDP traffic.
-*   **3G/4G/5G Mobile Networks:** Which often use Carrier-Grade NAT (CGNAT) that blocks P2P.
-*   **VPNs:** Which might interfere with local routing.
+---
 
-If your video stream fails to load in these environments, it is likely because the direct P2P connection is blocked, and you have no TURN server configured to relay the traffic.
+### Port Requirements
 
-### What is Coturn?
+When running without a relay server (TURN), the container's UDP ports must be accessible from the outside for direct media streaming. Whether running locally or in the cloud, you must map these ports from the container to the host to allow media traffic to flow.
 
-**Coturn** is a mature, [open-source implementation](https://github.com/coturn/coturn) of a TURN and STUN server. It is widely used in the industry to power WebRTC infrastructure.
+| Ports | Protocol | Purpose |
+|-------|----------|---------|
+| `50000-50050` | UDP | WebRTC media |
 
-In this project, we use the official `coturn/coturn` Docker image configured specifically to bypass strict firewalls by masquerading as standard web traffic.
+We constrain the UDP port range by setting `net.ipv4.ip_local_port_range` in the container's Linux network namespace. This limits ephemeral ports to `50000-50050`, making firewall rules predictable.
 
-### How to Use with Docker & Just
+---
 
-We have automated the entire setup using `just` (a command runner) and Docker.
+## Deployment Examples
 
-#### 1. Start the TURN Server
+### Local Network
 
-Run the following command to start the Coturn server:
+**Scenario:** Docker gives the backend an internal IP (e.g., `172.17.0.2`) that the browser cannot reach.
+
+**Solution:** Tell the backend to advertise your host machine's IP instead.
 
 ```bash
+# Using just (use 127.0.0.1 for localhost, or your LAN IP for other devices)
+just webrtc-advertise-ip="127.0.0.1" run-image
+
+# Using Docker
+docker run --rm \
+    -p 9100:9100 \
+    -e WEBRTC_ADVERTISE_IP="127.0.0.1" \
+    <image_name>
+```
+
+### Cloud with Auto-discovery
+
+**Scenario:** Your server's public IP may change (auto-scaling, ephemeral instances), so you can't hardcode it.
+
+**Solution:** The backend queries a public STUN server to discover its own public IP automatically. A STUN server simply tells the backend "your public IP is X.X.X.X" — it doesn't relay any traffic. Configure via `ICE_SERVERS` environment variable.
+
+```bash
+# Using just
+just enable-stun=true run-image
+
+# Using Docker
+docker run --rm \
+    --sysctl net.ipv4.ip_local_port_range="50000 50050" \
+    -p 50000-50050:50000-50050/udp \
+    -p 9100:9100 \
+    -e ICE_SERVERS='[{"urls": "stun:stun.l.google.com:19302"}]' \
+    <image_name>
+```
+
+### Cloud with Manual IP
+
+**Scenario:** The backend is behind a load balancer, reverse proxy, or has a static IP/DNS. STUN won't help because it would return the private IP.
+
+**Solution:** Manually configure the public IP or DNS name that clients should use.
+
+```bash
+# Using just
+just webrtc-advertise-ip="203.0.113.10" run-image
+
+# Using Docker
+docker run --rm \
+    --sysctl net.ipv4.ip_local_port_range="50000 51000" \
+    -p 50000-50050:50000-50050/udp \
+    -p 9100:9100 \
+    -e WEBRTC_ADVERTISE_IP="203.0.113.10" \
+    <image_name>
+```
+
+### Restrictive Firewall (TURN)
+
+**Scenario:** Corporate firewalls block UDP traffic or non-standard ports. WebRTC media cannot get through.
+
+**Solution:** Route all traffic through a TURN relay server on TCP port 443 (usually allowed). A TURN server forwards all media between browser and backend — use it only when direct connections fail.
+
+**Solution:** Route all traffic through a TURN relay server on TCP port 443 (usually allowed).
+
+**Step 1: Start the TURN server**
+
+```bash
+# Using just
 just run-coturn
+
+# Using Docker
+docker run --rm -d \
+    --network=host \
+    --name coturn-server \
+    quay.io/coturn/coturn -n \
+    --listening-port=443 \
+    --external-ip=$(curl -s ifconfig.me) \
+    --user=user:password \
+    --realm=my-realm \
+    --no-udp
 ```
 
-**What this command does:**
-1.  **Detects IP:** Automatically finds your host machine's IP address.
-2.  **Runs:** Starts the official `coturn/coturn` container with **Host Networking** (`--network=host`).
-    *   It binds to port **443** (TCP). This is crucial because port 443 is the standard HTTPS port, which is almost never blocked by firewalls.
-    *   *Note:* The port is configurable via the `coturn-port` variable in the `Justfile`.
-    *   It configures the server to accept **TCP** connections (since UDP is often blocked).
-
-#### 2. Run the Application
-
-Once the TURN server is running, start the main application stack with the `enable-coturn` flag:
-
-```bash
-just enable-coturn=true run-image
-```
-
-**What this command does:**
-1.  **Configures:** It constructs a JSON configuration string pointing to your local Coturn instance (e.g., `turn:YOUR_IP:443?transport=tcp`).
-2.  **Injects:** It passes this string as the `ICE_SERVERS` environment variable to the backend container.
-3.  **Serves:** The backend provides this configuration to the frontend UI. The UI then uses it to establish the WebRTC connection via your local relay.
-
-*Note: If you run `just run-image` without the flag, the application will start without any TURN server configuration.*
-
-#### For Local Development
-
-You can also use the `enable-coturn` flag with the development server:
-
-```bash
-just enable-coturn=true dev
-```
-
-This will start the FastAPI development server with hot-reload and the `ICE_SERVERS` environment variable configured to use your local Coturn instance.
-
-#### 3. Stop the Server
-
-When you are finished testing, stop the server to free up port 443:
-
-```bash
-just stop-coturn
-```
-
-### Configuration Details
-
-The server is configured via command-line arguments in the `run-coturn` recipe:
+The coturn server is configured via command-line arguments:
 
 *   `--listening-port=443`: Listens on the standard HTTPS port. You can change this via the `coturn-port` variable if port 443 is already in use on your host.
 *   `--no-udp`: Disables UDP listeners entirely to force TCP usage.
 *   `--user=user:password`: **For testing purposes only.**
     *   These static credentials are provided for ease of development.
     *   **Production Warning:** In a production environment, you should **never** use static credentials. Instead, use the **TURN REST API** (Time-Limited Credentials) mechanism. This involves sharing a secret key between the backend and the TURN server to generate temporary, expiring passwords for each client session. Coturn supports this via the `use-auth-secret` configuration.
+
+**Step 2: Start the application**
+
+```bash
+# Using just
+just enable-coturn=true run-image
+
+# Using Docker (replace <external_ip> with your server's public IP)
+docker run --rm \
+    -p 9100:9100 \
+    -e ICE_SERVERS='[{"urls": "turn:<external_ip>:443?transport=tcp", "username": "user", "credential": "password"}]' \
+    <image_name>
+```

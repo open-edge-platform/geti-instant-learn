@@ -14,10 +14,6 @@ const isUniqueLabelName = (name: string, existingLabels: LabelType[], excludeId?
 export const validateLabelName = (name: string, existingLabels: LabelType[], excludeId?: string): string | null => {
     const trimmedName = name.trim();
 
-    if (!trimmedName) {
-        return 'Label name cannot be empty.';
-    }
-
     if (!isUniqueLabelName(trimmedName, existingLabels, excludeId)) {
         return 'Label name must be unique.';
     }

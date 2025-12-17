@@ -1,0 +1,125 @@
+# GitHub Actions workflow that builds container images when triggered by a PR comment.
+#
+# This workflow is triggered when a user comments "/build" on a pull request.
+# It performs the following steps:
+# 1. Validates that the commenter has appropriate permissions (COLLABORATOR, MEMBER, or OWNER)
+# 2. Retrieves the PR's head SHA commit to ensure consistency
+# 3. Checks for race conditions between the comment and PR updates
+# 4. Generates a build version from the checked-out code
+# 5. Triggers the distrib.yml workflow to build the images
+# 6. Comments back on the PR with the build result (success or failure)
+
+name: Build images on PR comment
+on:
+  issue_comment:
+    types: [created]
+
+permissions: {} # No permissions by default
+
+jobs:
+  get-sha-commit:
+    name: Get SHA commit
+    env:
+      COMMENT_CREATED_AT: ${{ github.event.comment.created_at }}
+    if: github.event.issue.pull_request && github.event.comment.body == '/build'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # to comment on a pull request
+    outputs:
+      head: ${{ steps.get-sha-commit.outputs.head }}
+    steps:
+      - name: Validate and get sha commit
+        id: get-sha-commit
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const allowedAssociations = ["COLLABORATOR", "MEMBER", "OWNER"];
+            const authorAssociation = context.payload.comment.author_association
+            if (!allowedAssociations.includes(authorAssociation)) {
+              core.setFailed("You don't have access to run this workflow");
+              return
+            }
+
+            const response = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            })
+
+            // avoid race condition between comment and fetching PR head sha
+            const commentTime = new Date(process.env.COMMENT_CREATED_AT);
+            const prTime = new Date(response.data.head.repo.pushed_at)
+            if (prTime >= commentTime) {
+              core.setFailed("The PR may have been updated since the image build request, " +
+                             "please review any changes and relaunch if safe.");
+              return
+            }
+
+            core.setOutput('head', response.data.head.sha)
+
+      - uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
+        with:
+          comment-id: ${{ github.event.comment.id }}
+          reactions: "rocket"
+
+  get-build-version:
+    name: Generate build version
+    needs: [get-sha-commit]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      build_version: ${{ steps.build-version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        with:
+          ref: ${{ needs.get-sha-commit.outputs.head }}
+          persist-credentials: false
+
+      - name: build-version
+        id: build-version
+        uses: ./.github/actions/build-version
+
+  distrib:
+    name: Distrib build
+    needs: [get-sha-commit, get-build-version]
+    permissions:
+      contents: read
+    uses: ./.github/workflows/distrib.yml
+    with:
+      build_version: ${{ needs.get-build-version.outputs.build_version }}
+      sha-commit: ${{ needs.get-sha-commit.outputs.head }}
+
+  result-output:
+    name: Check result and comment PR
+    needs: [get-sha-commit, get-build-version, distrib]
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # to comment on a pull request
+    if: ${{ always() && !cancelled() }}
+    steps:
+      - name: Success comment
+        if: needs.distrib.result == 'success'
+        uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
+        with:
+          comment-id: ${{ github.event.comment.id }}
+          edit-mode: replace
+          body: |
+            ${{ github.event.comment.body }}
+
+            **Result** :white_check_mark: The build was successful.
+            [Check the logs](https://github.com/open-edge-platform/geti-prompt/actions/runs/${{ github.run_id }}) for the details.
+
+      - name: Failure comment
+        if: needs.distrib.result == 'failure'
+        uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
+        with:
+          comment-id: ${{ github.event.comment.id }}
+          edit-mode: replace
+          body: |
+            ${{ github.event.comment.body }}
+
+            **Result** :x: The build failed.
+            [Check the logs](https://github.com/open-edge-platform/geti-prompt/actions/runs/${{ github.run_id }}) for the details.
+

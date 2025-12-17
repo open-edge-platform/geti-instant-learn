@@ -45,7 +45,7 @@ const DisclosureItem = <Value extends string>({ item, value, onChange }: Disclos
                     </Flex>
                 </Flex>
             </DisclosureTitle>
-            <DisclosurePanel>{isExpanded && item.content}</DisclosurePanel>
+            <DisclosurePanel UNSAFE_className={styles.disclosurePanel}>{isExpanded && item.content}</DisclosurePanel>
         </Disclosure>
     );
 };

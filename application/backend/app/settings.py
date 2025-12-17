@@ -96,6 +96,7 @@ class Settings(BaseSettings):
 
     # WebRTC
     ice_servers: list[dict] = Field(default=[], alias="ICE_SERVERS")
+    webrtc_advertise_ip: str | None = Field(default=None, alias="WEBRTC_ADVERTISE_IP")
 
     @field_validator("static_files_dir", "alembic_config_path", "alembic_script_location", mode="after")
     def prefix_paths(cls, v: str | None) -> str | None:

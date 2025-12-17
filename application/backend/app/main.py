@@ -18,8 +18,10 @@ from api.error_handler import custom_exception_handler
 from api.routers import projects_router, webrtc_router
 from domain.db.engine import get_session_factory, run_db_migrations
 from domain.dispatcher import ConfigChangeDispatcher
+from domain.services.schemas.health import HealthCheckSchema
 from runtime.pipeline_manager import PipelineManager
 from runtime.webrtc.manager import WebRTCManager
+from runtime.webrtc.sdp_handler import SDPHandler
 from settings import get_settings
 
 settings = get_settings()
@@ -50,7 +52,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.pipeline_manager.start()
 
     # Initialize WebRTC Manager
-    app.state.webrtc_manager = WebRTCManager(pipeline_manager=app.state.pipeline_manager)
+    app.state.sdp_handler = SDPHandler()
+    app.state.webrtc_manager = WebRTCManager(
+        pipeline_manager=app.state.pipeline_manager, sdp_handler=app.state.sdp_handler
+    )
 
     logger.info("Application startup completed")
     yield
@@ -78,9 +83,9 @@ fastapi_app.add_exception_handler(RequestValidationError, custom_exception_handl
 
 
 @fastapi_app.get(path="/health", tags=["Health"])
-async def health_check() -> dict[str, str]:
+async def health_check() -> HealthCheckSchema:
     """Health check endpoint"""
-    return {"status": "ok"}
+    return HealthCheckSchema(status="ok")
 
 
 fastapi_app.include_router(projects_router, prefix="/api/v1")

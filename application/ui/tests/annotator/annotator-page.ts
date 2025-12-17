@@ -68,11 +68,11 @@ export class AnnotatorPage {
     }
 
     async closeFullscreen() {
-        await this.page.getByRole('button', { name: 'Close full screen' }).click();
+        await this.page.getByTestId('modal').getByRole('button', { name: 'Close full screen' }).click();
     }
 
     async openSettings() {
-        await this.page.getByRole('button', { name: 'Settings' }).click();
+        await this.page.getByTestId('modal').getByRole('button', { name: 'Settings' }).click();
     }
 
     async closeSettings() {

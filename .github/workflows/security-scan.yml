@@ -114,6 +114,7 @@ jobs:
           output-format: "text" # Use plain text output format to omit uploading code scanning results to Security tab
 
   trivy-docker-image-scan:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -129,14 +130,18 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/install-dependencies
         with:
-          cleanup-runner: 'true'
+          cleanup-runner: "true"
 
       - name: Build docker image
         working-directory: application
+        id: image-name
         env:
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just ai-device="${DEVICE}" docker-image="${DEVICE}:latest" docker-build-context="--no-cache" build-image
+          just ai-device="${DEVICE}" docker-build-context="--no-cache" build-image
+          IMAGE_NAME=$(just --evaluate ai-device="${DEVICE}" docker-image)
+          echo "image=${IMAGE_NAME}" >> $GITHUB_OUTPUT
+          echo "Image: ${IMAGE_NAME}"
 
       - name: Cleanup docker cache
         run: docker builder prune -f
@@ -147,7 +152,7 @@ jobs:
         with:
           artifact-name: "trivy-results-docker-${{ matrix.ai-device }}"
           scan_type: "image"
-          scan_target: "${{ matrix.ai-device }}:latest"
+          scan_target: "${{ steps.image-name.outputs.image }}"
           scan-scope: all
           severity: "LOW"
           scanners: "vuln,secret,config"

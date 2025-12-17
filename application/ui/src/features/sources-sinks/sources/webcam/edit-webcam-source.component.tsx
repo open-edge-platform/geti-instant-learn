@@ -6,7 +6,7 @@
 import { FormEvent, useState } from 'react';
 
 import { WebcamSourceType } from '@geti-prompt/api';
-import { Flex } from '@geti/ui';
+import { Flex, Form } from '@geti/ui';
 
 import { useUpdateSource } from '../api/use-update-source';
 import { EditSourceButtons } from '../edit-sources/edit-source-buttons.component';
@@ -58,7 +58,7 @@ export const EditWebcamSource = ({ source, onSaved }: EditWebcamSourceProps) => 
     };
 
     return (
-        <form onSubmit={handleSubmit}>
+        <Form validationBehavior={'native'} onSubmit={handleSubmit}>
             <Flex direction={'column'} gap={'size-200'}>
                 <WebcamSourceFields selectedDeviceId={selectedDeviceId} onSetSelectedDeviceId={setSelectedDeviceId} />
 
@@ -70,6 +70,6 @@ export const EditWebcamSource = ({ source, onSaved }: EditWebcamSourceProps) => 
                     isPending={updateWebcamSource.isPending}
                 />
             </Flex>
-        </form>
+        </Form>
     );
 };

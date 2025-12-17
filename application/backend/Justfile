@@ -20,7 +20,8 @@ gen-openapi-md: gen-openapi
 
 # Start FastAPI development server with auto-reload
 dev: _venv download-dataset
-    {{ if enable-coturn == "true" { "ICE_SERVERS='" + ice-servers + "'" } else { "" } }} \
+    {{ if enable-coturn == "true" { "ICE_SERVERS='" + coturn-ice-servers + "'" } else if enable-stun == "true" { "ICE_SERVERS='" + stun-ice-servers + "'" } else { "" } }} \
+    {{ if webrtc-advertise-ip != "" { "WEBRTC_ADVERTISE_IP='" + webrtc-advertise-ip + "'" } else { "" } }} \
     PYTHONPATH=app uv run uvicorn main:app --reload --host {{ host }} --port {{ container-port }}
 
 
@@ -75,6 +76,10 @@ _mypy:
 # Installer
 # -------------------------------------------------------------------------------------------------
 
-pyinstaller: _venv
-    uv sync --extra installer --extra {{ai_extra}} --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
+coffee_berries_dataset_path := "dist/geti-prompt-backend/InitialData/templates/datasets/coffee-berries"
+
+pyinstaller: _venv download-dataset
+    uv sync --extra installer --extra {{ai_extra}} --extra mqtt --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
     uv run pyinstaller --noconfirm geti-prompt.spec
+    mkdir -p {{ coffee_berries_dataset_path }}
+    cp {{ source-dataset-dir }}/* {{ coffee_berries_dataset_path }}/

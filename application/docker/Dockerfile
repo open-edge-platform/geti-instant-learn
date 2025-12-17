@@ -80,9 +80,6 @@ COPY --link ui/tsconfig.json ./
 COPY --link ui/rsbuild.config.ts ./
 COPY --link ui/src/ src/
 
-ARG PUBLIC_API_URL=""
-ENV PUBLIC_API_URL=${PUBLIC_API_URL}
-
 ########
 # Web UI
 ########
@@ -113,8 +110,6 @@ ARG UID=10001
 ENV UID=${UID}
 ARG USER_NAME="non-root"
 ENV USER_NAME=${USER_NAME}
-ARG PUBLIC_API_URL=""
-ENV PUBLIC_API_URL=${PUBLIC_API_URL}
 ARG TARGET_DATASET_DIR=""
 ARG SOURCE_DATASET_DIR=""
 
@@ -154,7 +149,7 @@ COPY --from=web-ui --chown=${UID} /home/app/web_ui/src/assets/test.webp ${MOCKED
 WORKDIR /geti_prompt
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD uv run python -c "import urllib.request; urllib.request.urlopen('${PUBLIC_API_URL}/health')" || exit 1
+    CMD uv run python -c "import urllib.request; urllib.request.urlopen('http://localhost:9100/health')" || exit 1
 
 USER ${USER_NAME}
 

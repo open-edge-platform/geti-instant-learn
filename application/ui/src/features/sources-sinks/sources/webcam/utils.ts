@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { isInteger } from 'lodash-es';
+import { isEmpty, isInteger } from 'lodash-es';
 
 export const isDeviceIdValid = (deviceId: string) => {
-    return isInteger(Number(deviceId));
+    return !isEmpty(deviceId) && isInteger(Number(deviceId));
 };
 
 export const validateDeviceId = (deviceId: string) =>

@@ -21,6 +21,7 @@ export const WebcamSourceFields = ({ selectedDeviceId, onSetSelectedDeviceId }: 
                 name='device-id'
                 onChange={onSetSelectedDeviceId}
                 validate={validateDeviceId}
+                isRequired
             />
         </View>
     );
