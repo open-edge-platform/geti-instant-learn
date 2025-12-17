@@ -68,3 +68,21 @@ class TestSource:
 
         self.mock_stream_reader.list_frames.assert_called_once_with(offset=0, limit=100)
         assert result == expected_response
+
+    def test_source_requires_initialization(self):
+        """Test that Source raises an error if run without initialization."""
+        uninitialized_source = Source(self.mock_stream_reader)
+        with pytest.raises(RuntimeError, match="The source should be initialized before being used"):
+            uninitialized_source.run()
+
+    def test_source_connect_called_in_run(self):
+        """Test that Source calls connect() in the run method."""
+
+        def read_once_and_stop(*args, **kwargs):
+            self.source.stop()
+            return None
+
+        self.mock_stream_reader.read.side_effect = read_once_and_stop
+
+        self.source.run()
+        self.mock_stream_reader.connect.assert_called_once()

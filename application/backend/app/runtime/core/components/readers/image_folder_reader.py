@@ -36,6 +36,7 @@ class ImageFolderReader(StreamReader):
         self._last_image_path: Path | None = None
         self._thumbnail_cache: dict[int, str] = {}
         self._lock = Lock()
+        self._initialized = False
         super().__init__()
 
     @staticmethod
@@ -105,6 +106,7 @@ class ImageFolderReader(StreamReader):
         with self._lock:
             self._image_paths = sorted(image_files, key=self._natural_sort_key)
             self._current_index = 0
+            self._initialized = True
 
             # Pre-generate thumbnails for first page (optimization)
             for idx, path in enumerate(self._image_paths[:30]):
@@ -113,10 +115,11 @@ class ImageFolderReader(StreamReader):
                     self._thumbnail_cache[idx] = thumbnail
 
     def _read_image_at_current_index(self) -> np.ndarray | None:
-        """Read an image from the current index, caching the result for future reads."""
-        if not self._image_paths:
-            self._last_image = None
-            self._last_image_path = None
+        """
+        Read an image from the current index, caching the result for future reads.
+        Must be called with lock held.
+        """
+        if not self._initialized or not self._image_paths:
             return None
 
         image_path = self._image_paths[self._current_index]
@@ -139,13 +142,16 @@ class ImageFolderReader(StreamReader):
         Args:
             index (int): The target frame position to seek to.
         """
-        if not self._image_paths:
-            raise ValueError("No images loaded. Call connect() first.")
-
-        if not 0 <= index < len(self._image_paths):
-            raise IndexError(f"Index {index} out of range [0, {len(self._image_paths)})")
-
         with self._lock:
+            if not self._initialized:
+                raise ValueError("Reader not initialized. Call connect() first.")
+
+            if not self._image_paths:
+                raise ValueError("No images loaded.")
+
+            if not 0 <= index < len(self._image_paths):
+                raise IndexError(f"Index {index} out of range [0, {len(self._image_paths)})")
+
             self._current_index = index
             current_image = self._read_image_at_current_index()
             if current_image is None:
@@ -154,7 +160,8 @@ class ImageFolderReader(StreamReader):
 
     def __len__(self) -> int:
         """Return the total number of images in the folder."""
-        return len(self._image_paths)
+        with self._lock:
+            return len(self._image_paths)
 
     def index(self) -> int:
         """Return the current frame position."""
@@ -172,6 +179,14 @@ class ImageFolderReader(StreamReader):
         Returns:
             FrameListResponse with frame metadata including thumbnails and pagination info.
         """
+        timeout = 5.0
+        start_time = time.time()
+        while not self._initialized:
+            if time.time() - start_time > timeout:
+                logger.warning("Timeout waiting for reader initialization in list_frames()")
+                return FrameListResponse(frames=[], pagination=Pagination(count=0, total=0, offset=offset, limit=limit))
+            time.sleep(0.01)
+
         with self._lock:
             total = len(self._image_paths)
             end_idx = min(offset + limit, total)
@@ -227,3 +242,4 @@ class ImageFolderReader(StreamReader):
             self._last_image = None
             self._last_image_path = None
             self._thumbnail_cache.clear()
+            self._initialized = False

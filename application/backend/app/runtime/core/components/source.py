@@ -26,12 +26,13 @@ class Source(PipelineComponent):
 
     def setup(self, inbound_broadcaster: FrameBroadcaster[InputData]) -> None:
         self._inbound_broadcaster = inbound_broadcaster
-        self._reader.connect()
         self._initialized = True
 
     def run(self) -> None:
         if not self._initialized or self._inbound_broadcaster is None:
             raise RuntimeError("The source should be initialized before being used")
+
+        self._reader.connect()
 
         logger.debug(f"Starting a source {self._reader.__class__.__name__} loop")
         while not self._stop_event.is_set():
