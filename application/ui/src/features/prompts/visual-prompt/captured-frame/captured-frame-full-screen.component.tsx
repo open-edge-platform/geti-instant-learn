@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Content, Dialog, DialogContainer, Divider, Flex, Grid, Heading, minmax, View } from '@geti/ui';
+import { Button, Content, Dialog, DialogContainer, Divider, Flex, Grid, Heading, minmax, View } from '@geti/ui';
 
 import { useFullScreenMode } from '../../../annotator/actions/full-screen-mode.component';
 import { SavePrompt } from '../save-prompt/save-prompt.component';
@@ -12,8 +12,10 @@ import { CapturedFrameContent } from './captured-frame-content.component';
 export const CapturedFrameFullScreen = () => {
     const { isFullScreenMode, setIsFullScreenMode } = useFullScreenMode();
 
+    const closeFullScreenMode = () => setIsFullScreenMode(false);
+
     return (
-        <DialogContainer type={'fullscreenTakeover'} onDismiss={() => setIsFullScreenMode(false)}>
+        <DialogContainer type={'fullscreenTakeover'} onDismiss={closeFullScreenMode}>
             {isFullScreenMode && (
                 <Dialog>
                     <Heading>Prompt builder</Heading>
@@ -34,6 +36,9 @@ export const CapturedFrameFullScreen = () => {
                             </Grid>
                             <View marginStart={'auto'}>
                                 <SavePrompt />
+                                <Button variant={'secondary'} onPress={closeFullScreenMode} marginStart={'size-200'}>
+                                    Close
+                                </Button>
                             </View>
                         </Flex>
                     </Content>
