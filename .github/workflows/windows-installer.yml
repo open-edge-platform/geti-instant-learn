@@ -75,6 +75,13 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Cache Rust dependencies & target
+        uses: Swatinem/rust-cache@v2
+        with:
+            workspaces: |
+              application\ui\src-tauri -> target
+
+
       # Build backend
 
       - name: Build OpenAPI spec
