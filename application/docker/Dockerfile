@@ -112,6 +112,8 @@ ARG USER_NAME="non-root"
 ENV USER_NAME=${USER_NAME}
 ARG TARGET_DATASET_DIR=""
 ARG SOURCE_DATASET_DIR=""
+ARG RUNTIME=""
+ENV RUNTIME=${RUNTIME}
 
 # Create directory and set ownership before VOLUME instruction
 RUN mkdir -p ${DB_DATA_DIR} && chown ${UID}:${UID} ${DB_DATA_DIR}
