@@ -12,6 +12,7 @@ import { beforeEach } from 'vitest';
 
 import { paths } from '../../../constants/paths';
 import { http, server } from '../../../setup-test';
+import { FullScreenModeProvider } from '../../annotator/actions/full-screen-mode.component';
 import { WebRTCConnectionProvider } from '../web-rtc/web-rtc-connection-provider';
 import { ImagesFolderStream } from './images-folder-stream.component';
 
@@ -26,9 +27,11 @@ const getMockedFrame = (frame: Partial<FrameAPIType> = {}): FrameAPIType => {
 const renderImagesFolderStream = async (mode = 'visual', sourceId = '1234') => {
     render(
         <SelectedFrameProvider>
-            <WebRTCConnectionProvider>
-                <ImagesFolderStream sourceId={sourceId} />
-            </WebRTCConnectionProvider>
+            <FullScreenModeProvider>
+                <WebRTCConnectionProvider>
+                    <ImagesFolderStream sourceId={sourceId} />
+                </WebRTCConnectionProvider>
+            </FullScreenModeProvider>
         </SelectedFrameProvider>,
         {
             route: `/projects/1?mode=${mode}`,
