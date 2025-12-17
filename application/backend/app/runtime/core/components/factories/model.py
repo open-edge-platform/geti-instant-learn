@@ -13,7 +13,7 @@ from runtime.core.components.models.passthrough_model import PassThroughModelHan
 
 DEVICE_MAP = {
     "cpu": "cpu",  # OpenVINO on CPU
-    "cuda": "cuda",  # Torch with NVIDIA GPU
+    "gpu": "cuda",  # Torch with NVIDIA GPU
     "xpu": "xpu",  # Torch with Intel GPU
 }
 

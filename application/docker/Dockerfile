@@ -24,35 +24,13 @@ COPY --link --from=libs ./pyproject.toml /geti_prompt/library/pyproject.toml
 RUN mkdir -p /geti_prompt/app/backend
 WORKDIR /geti_prompt/app/backend
 
-##########
-# CPU Base
-##########
-FROM backend-base AS cpu-base
+ARG RUNTIME=""
+ENV RUNTIME=${RUNTIME}
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra cpu --extra mqtt
-
-##########
-# GPU Base
-##########
-FROM backend-base AS cuda-base
-
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=backend/uv.lock,target=uv.lock \
-    --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra cu126 --extra mqtt
-
-##########
-# XPU Base
-##########
-FROM backend-base AS xpu-base
-
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=backend/uv.lock,target=uv.lock \
-    --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra xpu --extra mqtt
+    uv sync --frozen --no-dev --no-editable --extra ${RUNTIME} --extra mqtt
 
 ##################
 # Geti UI packages
@@ -162,12 +140,12 @@ CMD ["uv", "run", "app/main.py"]
 ######################
 FROM runtime-base AS cpu
 
-COPY --from=cpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
+COPY --from=backend-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
 
 ######################
 # Server (GPU version)
 ######################
-FROM runtime-base AS cuda
+FROM runtime-base AS gpu
 
 USER root
 
@@ -187,7 +165,7 @@ RUN apt-get update \
 # needed to define it here to allow installation of packages
 USER ${USER_NAME}
 
-COPY --from=cuda-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
+COPY --from=backend-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
 
 ######################
 # Server (XPU version)
@@ -216,4 +194,4 @@ RUN apt-get update  \
 # needed to define it here to allow installation of packages
 USER ${USER_NAME}
 
-COPY --from=xpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
+COPY --from=backend-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
