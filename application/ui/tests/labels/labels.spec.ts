@@ -97,5 +97,16 @@ test.describe('Labels', () => {
 
         await expect(labelsPage.getLabel(label.name)).toBeHidden();
         await expect(labelsPage.getLabel(newLabelName)).toBeVisible();
+
+        await labelsPage.enterEditLabelMode(newLabelName);
+        await labelsPage.openColorPicker();
+
+        const colorWithoutHash = label.color.replace('#', '');
+
+        await expect(labelsPage.getColorInput()).toHaveValue(colorWithoutHash);
+
+        await labelsPage.changeColor();
+
+        await expect(labelsPage.getColorInput()).not.toHaveValue(colorWithoutHash);
     });
 });

@@ -44,14 +44,42 @@ export class LabelsPage {
             .click();
     }
 
-    async updateLabelName(oldName: string, newName: string) {
-        await this.getLabel(oldName).hover();
+    async enterEditLabelMode(name: string) {
+        await this.getLabel(name).hover();
 
-        await this.getLabel(oldName)
-            .getByRole('button', { name: `Edit ${oldName} label` })
+        await this.getLabel(name)
+            .getByRole('button', { name: `Edit ${name} label` })
             .click();
+    }
+
+    async updateLabelName(oldName: string, newName: string) {
+        await this.enterEditLabelMode(oldName);
 
         await this.enterName(newName);
         await this.confirmLabel();
+    }
+
+    getColorPickerButton() {
+        return this.page.getByRole('button', { name: 'Color picker button' });
+    }
+
+    getColorInput() {
+        return this.page.getByTestId('change-color-button-color-input');
+    }
+
+    openColorPicker() {
+        return this.getColorPickerButton().click();
+    }
+
+    async changeColor() {
+        const colorPickerArea = this.page.getByLabel('Color', { exact: true });
+
+        const colorPickerBoundingBox = await colorPickerArea.boundingBox();
+
+        if (colorPickerBoundingBox === null) {
+            return;
+        }
+
+        await this.page.mouse.click(colorPickerBoundingBox.x + 10, colorPickerBoundingBox.y + 10);
     }
 }
