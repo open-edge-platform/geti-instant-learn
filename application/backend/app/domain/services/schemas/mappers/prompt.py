@@ -150,16 +150,25 @@ def visual_prompt_to_sample(  # noqa: C901
     label_shot_counts: dict[UUID, int],
 ) -> Sample:
     """
-    Convert a visual PromptDB and its frame to a training Sample.
+    Convert a visual prompt to a Sample with merged semantic masks.
 
-    Groups annotations by label_id for N-shot learning. Maintains batch-level state for consistent category IDs
-    and shot numbering across prompts.
+    Multiple annotations of the same label are merged into a single semantic mask.
+    One image = one shot per category.
 
     Args:
         prompt: Visual prompt with annotations
-        frame: RGB frame as numpy array (H, W, C)
+        frame: RGB image as numpy array (H, W, C)
         label_to_category_id: Mapping from label UUID to category ID (shared across batch)
         label_shot_counts: Current shot count per label (modified in-place)
+
+    Returns:
+        Sample with merged masks, one per unique label in the prompt
+
+    Example:
+        Prompt with 3 car annotations + 2 person annotations:
+        - Creates 2 masks (1 for cars, 1 for persons)
+        - n_shot = [current_car_shot, current_person_shot]
+        - Updates label_shot_counts for both labels
     """
     if prompt.type != PromptType.VISUAL:
         raise ServiceError(f"Cannot convert non-visual prompt to sample: prompt type is {prompt.type}")
@@ -199,38 +208,41 @@ def visual_prompt_to_sample(  # noqa: C901
         if not polygons:
             continue
 
-        group_masks = polygons_to_masks(polygons, height, width)
+        # Convert all polygons to masks and merge into a single semantic mask
+        instance_masks = polygons_to_masks(polygons, height, width)
+        semantic_mask = np.any(instance_masks, axis=0).astype(np.uint8)  # (H, W) boolean
+
         category_id = label_to_category_id[label_id]
         category_name = str(label_id)
 
         # Get the current shot number for this label (from previous prompts)
         current_shot = label_shot_counts.get(label_id, 0)
 
-        # Each mask is an instance of the same category (N-shot)
-        for shot_idx, mask in enumerate(group_masks):
-            all_masks.append(mask)
-            categories.append(category_name)
-            category_ids.append(category_id)
-            is_reference.append(True)
-            n_shot.append(current_shot + shot_idx)
+        # One merged semantic mask per label = one shot
+        all_masks.append(semantic_mask)
+        categories.append(category_name)
+        category_ids.append(category_id)
+        is_reference.append(True)
+        n_shot.append(current_shot)
 
-        # Update shot count for the next prompt
-        label_shot_counts[label_id] = current_shot + len(group_masks)
+        # Increment by 1 per image-category pair
+        label_shot_counts[label_id] = current_shot + 1
 
     if not all_masks:
-        raise ServiceError(f"No valid masks for prompt {prompt.id} after deduplication")
+        raise ServiceError(f"No valid masks for prompt {prompt.id} after merging")
 
-    # Stack masks: (N_instances, H, W)
+    # Stack masks: (N_categories, H, W) - one mask per category
     masks = np.stack(all_masks, axis=0)
     category_ids_array = np.array(category_ids, dtype=np.int32)
 
     return Sample(
-        image=frame_chw,
+        image=frame,
         masks=masks,
         categories=categories,
         category_ids=category_ids_array,
         is_reference=is_reference,
         n_shot=n_shot,
+        image_path=str(prompt.frame_id),
     )
 
 

@@ -129,18 +129,6 @@ class PromptService(BaseService):
 
         Returns:
             A Batch containing Sample objects ready for training, or None if no valid samples found.
-
-        Example:
-        Prompt 1: 2 cats
-        Prompt 2: 1 cat, 1 dog
-        Prompt 3: 1 dog
-
-        Result:
-        >>> batch[0].n_shot  # [0, 1] - First two cat shots
-        >>> batch[1].n_shot  # [2, 0] - Third cat shot, first dog shot
-        >>> batch[2].n_shot  # [1] - Second dog shot
-        >>> all(s.category_ids[0] == 0 for s in batch if 'cat' in s.categories)  # True
-        >>> all(s.category_ids[-1] == 1 for s in batch if 'dog' in s.categories) # True
         """
         if prompt_type == PromptType.TEXT:
             logger.warning("Text prompts are not supported for training data generation for project_id=%s", project_id)
