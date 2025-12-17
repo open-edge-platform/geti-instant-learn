@@ -127,21 +127,18 @@ export const LabelListItem = ({ label, onSelect, isSelected, existingLabels }: L
         setIsInEdition(false);
     };
 
-    useOnOutsideClick(ref, handleClose);
-
     if (isInEdition) {
         return (
-            <View ref={wrappedRef}>
-                <EditLabel
-                    onAccept={updateLabel}
-                    onClose={handleClose}
-                    label={label}
-                    isQuiet
-                    width={'size-2400'}
-                    existingLabels={existingLabels}
-                    isDisabled={updateLabelMutation.isPending}
-                />
-            </View>
+            <EditLabel
+                shouldCloseOnOutsideClick
+                onAccept={updateLabel}
+                onClose={handleClose}
+                label={label}
+                isQuiet
+                width={'size-2400'}
+                existingLabels={existingLabels}
+                isDisabled={updateLabelMutation.isPending}
+            />
         );
     }
 

@@ -3,10 +3,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CSSProperties, FormEvent, KeyboardEvent, useState } from 'react';
+import { CSSProperties, FormEvent, KeyboardEvent, useRef, useState } from 'react';
 
 import { LabelType } from '@geti-prompt/api';
-import { ActionButton, ColorPickerDialog, DimensionValue, Flex, Form, TextField, TextFieldRef } from '@geti/ui';
+import { useOnOutsideClick } from '@geti-prompt/hooks';
+import {
+    ActionButton,
+    ColorPickerDialog,
+    DimensionValue,
+    DOMRefValue,
+    Flex,
+    Form,
+    TextField,
+    TextFieldRef,
+    useUnwrapDOMRef,
+} from '@geti/ui';
 import { clsx } from 'clsx';
 import { isEmpty } from 'lodash-es';
 
@@ -22,6 +33,7 @@ interface EditLabelProps {
     width?: DimensionValue;
     isDisabled?: boolean;
     existingLabels: LabelType[];
+    shouldCloseOnOutsideClick?: boolean;
 }
 
 const autoFocus = (ref: TextFieldRef<HTMLInputElement> | null) => {
@@ -30,9 +42,46 @@ const autoFocus = (ref: TextFieldRef<HTMLInputElement> | null) => {
     ref.focus();
 };
 
-export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled, existingLabels }: EditLabelProps) => {
+const useCloseLabelEditionOnOutsideClick = ({
+    onClose,
+    shouldCloseOnOutsideClick,
+    isColorPickerOpen,
+}: {
+    onClose: () => void;
+    shouldCloseOnOutsideClick: boolean;
+    isColorPickerOpen: boolean;
+}) => {
+    const wrappedFormRef = useRef<DOMRefValue<HTMLFormElement>>(null);
+    const formRef = useUnwrapDOMRef(wrappedFormRef);
+
+    useOnOutsideClick(formRef, () => {
+        if (!shouldCloseOnOutsideClick) {
+            return;
+        }
+        if (isColorPickerOpen) {
+            return;
+        }
+
+        onClose();
+    });
+
+    return shouldCloseOnOutsideClick ? wrappedFormRef : null;
+};
+
+export const EditLabel = ({
+    label,
+    onAccept,
+    onClose,
+    isQuiet,
+    width,
+    isDisabled,
+    existingLabels,
+    shouldCloseOnOutsideClick = false,
+}: EditLabelProps) => {
+    const [isColorPickerOpen, setIsColorPickerOpen] = useState<boolean>(false);
     const [color, setColor] = useState<string>(label.color);
     const [name, setName] = useState<string>(label.name);
+    const formRef = useCloseLabelEditionOnOutsideClick({ onClose, shouldCloseOnOutsideClick, isColorPickerOpen });
 
     const validationError = validateLabelName(name, existingLabels, label.id);
     const hasSameName = name.trim() === label.name.trim();
@@ -52,7 +101,7 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled
     };
 
     return (
-        <Form validationBehavior={'native'} onSubmit={handleAccept}>
+        <Form validationBehavior={'native'} onSubmit={handleAccept} ref={formRef}>
             <Flex
                 marginTop={0}
                 gap={'size-50'}
@@ -65,6 +114,7 @@ export const EditLabel = ({ label, onAccept, onClose, isQuiet, width, isDisabled
                     id={'change-color-button'}
                     data-testid={'change-color-button'}
                     onColorChange={setColor}
+                    onOpenChange={setIsColorPickerOpen}
                     size={'M'}
                 />
 
