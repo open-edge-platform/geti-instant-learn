@@ -185,7 +185,7 @@ def visual_prompt_to_sample(  # noqa: C901
 
     # Convert frame: HWC numpy → CHW tensor
     frame_chw = tv_tensors.Image(from_numpy(frame).permute(2, 0, 1))
-    height, width = frame.shape[:2]
+    height, width = frame_chw.shape[:2]
 
     # Group annotations by label_id
     label_groups: dict[UUID, list[Any]] = {}
@@ -236,7 +236,7 @@ def visual_prompt_to_sample(  # noqa: C901
     category_ids_array = np.array(category_ids, dtype=np.int32)
 
     return Sample(
-        image=frame,
+        image=frame_chw,
         masks=masks,
         categories=categories,
         category_ids=category_ids_array,

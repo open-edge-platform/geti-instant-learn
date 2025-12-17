@@ -185,17 +185,15 @@ class PromptService(BaseService):
         batch = Batch.collate(samples)
         logger.info(f"Reference batch: {batch}")
 
-        total_instances = sum(len(s.categories) for s in samples)
         unique_categories = len(label_to_category_id)
         shots_per_category = {
             category_id: label_shot_counts.get(label_id, 0) for label_id, category_id in label_to_category_id.items()
         }
 
         logger.info(
-            "Created reference batch: project_id=%s, samples=%d, instances=%d, categories=%d, shots_per_category=%s",
+            "Created reference batch: project_id=%s, samples=%d, categories=%d, shots_per_category=%s",
             project_id,
             len(batch),
-            total_instances,
             unique_categories,
             shots_per_category,
         )
