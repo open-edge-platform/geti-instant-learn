@@ -37,7 +37,7 @@ dev = [
 
 [project.optional-dependencies]
 cpu = ["getiprompt[cpu]"]
-cuda = ["getiprompt[cuda]"]
+gpu = ["getiprompt[gpu]"]
 xpu = ["getiprompt[xpu]"]
 installer = ["pyinstaller~=6.16.0"]
 
@@ -51,14 +51,14 @@ required-version = "~=0.9.7"
 conflicts = [
     [
         { extra = "cpu" },
-        { extra = "cuda" },
+        { extra = "gpu" },
         { extra = "xpu" },
     ],
     # redeclare library conflicts to workaround bug with uv dependency resolution
     # For details, see: https://github.com/astral-sh/uv/issues/9942
     [
         { package = "getiprompt", extra = "cpu" },
-        { package = "getiprompt", extra = "cuda" },
+        { package = "getiprompt", extra = "gpu" },
         { package = "getiprompt", extra = "xpu" },
     ],
 ]

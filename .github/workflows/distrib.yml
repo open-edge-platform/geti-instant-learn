@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 30
     strategy:
       matrix:
-        runtime: [cpu, gpu, xpu]
+        ai-device: [cpu, gpu, xpu]
     steps:
       - name: Validate SHA format
         if: inputs.sha-commit != ''
@@ -45,26 +45,26 @@ jobs:
           uv-cache-dependency-glob: 'application/backend/uv.lock'
           cleanup-runner: 'true'
 
-      - name: Build docker image for ${{ matrix.runtime }}
+      - name: Build docker image for ${{ matrix.ai-device }}
         working-directory: application
         env:
           BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
-          RUNTIME: ${{ matrix.runtime }}
+          DEVICE: ${{ matrix.ai-device }}
         run: |
-          just runtime="${RUNTIME}" version="${BUILD_VERSION}" docker-build-context="--no-cache" build-image
+          just ai-device="${DEVICE}" version="${BUILD_VERSION}" docker-build-context="--no-cache" build-image
 
-      - name: Show size of the image for ${{ matrix.runtime }}
+      - name: Show size of the image for ${{ matrix.ai-device }}
         working-directory: application
         env:
           BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
-          DEVICE: ${{ matrix.runtime }}
+          DEVICE: ${{ matrix.ai-device }}
         run: |
-          just runtime="${RUNTIME}" version="${BUILD_VERSION}" show-size
+          just ai-device="${DEVICE}" version="${BUILD_VERSION}" show-size
 
-      - name: Test image for ${{ matrix.runtime }}
+      - name: Test image for ${{ matrix.ai-device }}
         working-directory: application
         env:
           BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
-          DEVICE: ${{ matrix.runtime }}
+          DEVICE: ${{ matrix.ai-device }}
         run: |
-          just runtime="${RUNTIME}" version="${BUILD_VERSION}" test-image
+          just ai-device="${DEVICE}" version="${BUILD_VERSION}" test-image

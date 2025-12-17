@@ -25,11 +25,11 @@ webrtc-port-end := "51000"
 # Common variables used in the Justfile
 # -------------------------------------------------------------------------------------------------
 
-runtime := "cpu"  # options: cpu, cuda, xpu
+ai-device := "cpu"  # options: cpu, cuda, xpu
 component-name := "geti-prompt"
 images-registry := 'localhost:5000/open-edge-platform'
 version := `uv run python -c "import os; from pathlib import Path; version = Path(os.path.join(os.getcwd().rsplit('application', 1)[0], 'VERSION')).read_text().strip(); print(version)"`
-docker-image := images-registry / component-name / runtime + ":" + version
+docker-image := images-registry / component-name / ai-device + ":" + version
 
 # -------------------------------------------------------------------------------------------------
 # Variables used in the Justfile to build in Docker image for Geti Prompt
@@ -104,14 +104,14 @@ build-image: download-dataset
         --build-arg ASSET_PREFIX={{ asset-prefix }} \
         --build-arg SOURCE_DATASET_DIR={{ source-dataset-dir }} \
         --build-arg TARGET_DATASET_DIR={{ target-dataset-dir }} \
-        --build-arg RUNTIME={{ runtime }} \
+        --build-arg RUNTIME={{ ai-device }} \
         --tag "{{ docker-image }}" \
         --file docker/Dockerfile . \
-        --target {{ runtime}}
+        --target {{ ai-device }}
 
 # launch geti prompt with optional webcam, volume and port mapping
 run-image: build-image
-    @echo "Running docker image for component: {{ component-name }} with runtime: {{ runtime }}"
+    @echo "Running docker image for component: {{ component-name }} with ai-device: {{ ai-device }}"
     @echo "Proxy args: {{ docker-run-proxy-args }}"
     @docker run --rm \
         {{ docker-run-proxy-args }} \
@@ -156,7 +156,7 @@ show-size:
 # test geti prompt docker image using bash script
 test-image:
     #!/usr/bin/env bash
-    echo "Testing docker image for component: {{ component-name }} with runtime: {{ runtime }}"
+    echo "Testing docker image for component: {{ component-name }} with ai-device: {{ ai-device }}"
 
     # Start the container in detached mode
     CONTAINER_ID=$(docker run -d \

@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        runtime: [cpu, gpu, xpu]
+        ai-device: [cpu, gpu, xpu]
     steps:
       - name: Checkout repository
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
@@ -27,10 +27,10 @@ jobs:
         working-directory: application
         id: image-name
         env:
-          RUNTIME: ${{ matrix.runtime }}
+          DEVICE: ${{ matrix.ai-device }}
         run: |
-          just runtime="${RUNTIME}" docker-build-context="--no-cache" build-image
-          IMAGE_NAME=$(just --evaluate runtime="${RUNTIME}" docker-image)
+          just ai-device="${DEVICE}" docker-build-context="--no-cache" build-image
+          IMAGE_NAME=$(just --evaluate ai-device="${DEVICE}" docker-image)
           echo "image=${IMAGE_NAME}" >> $GITHUB_OUTPUT
           echo "Image: ${IMAGE_NAME}"
 
@@ -44,7 +44,7 @@ jobs:
           SYFT_GOLANG_SEARCH_REMOTE_LICENSES: "true"
         with:
           image: ${{ steps.image-name.outputs.image }}
-          artifact-name: sbom-container-${{ matrix.runtime }}-image.spdx.json
+          artifact-name: sbom-container-${{ matrix.ai-device }}-image.spdx.json
           format: spdx-json
           output-file: sbom-container-image.spdx.json
           upload-artifact: true
@@ -82,7 +82,7 @@ jobs:
       - name: Upload docker image CSV
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
-          name: sbom-container-image-${{ matrix.runtime }}-csv
+          name: sbom-container-image-${{ matrix.ai-device }}-csv
           path: sbom-container-image.csv
           retention-days: 30
 

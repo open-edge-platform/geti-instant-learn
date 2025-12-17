@@ -6,7 +6,7 @@ on:
         description: "Specifies the build version to apply to all binaries produced by this workflow"
         type: string
         required: true
-      runtime:
+      ai-device:
         description: "Specifies the AI device to build the backend for (cpu, xpu, gpu)"
         type: string
         required: true
@@ -18,7 +18,7 @@ on:
         description: "Specifies the build version to apply to all binaries produced by this workflow"
         type: string
         required: true
-      runtime:
+      ai-device:
         description: "Specifies the AI device to build the backend for (cpu, xpu, gpu)"
         required: true
         options:
@@ -80,16 +80,16 @@ jobs:
       - name: Build OpenAPI spec
         working-directory: application/backend
         env:
-          RUNTIME: ${{ inputs.runtime || 'xpu' }}
+          DEVICE: ${{ inputs.ai-device || 'xpu' }}
         run: |
-          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c runtime="$env:RUNTIME" gen-openapi
+          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c ai-device="$env:DEVICE" gen-openapi
 
       - name: Build executable
         working-directory: application/backend
         env:
-          RUNTIME: ${{ inputs.runtime || 'xpu' }}
+          DEVICE: ${{ inputs.ai-device || 'xpu' }}
         run: |
-          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c runtime="$env:RUNTIME" pyinstaller
+          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c ai-device="$env:DEVICE" pyinstaller
 
       # Copy backend artifacts to UI
 
@@ -138,7 +138,7 @@ jobs:
       - name: Create MSIX package
         env:
           BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
-          RUNTIME: ${{ inputs.runtime || 'xpu' }}
+          DEVICE: ${{ inputs.ai-device || 'xpu' }}
         run: |
           mkdir -p ${{ env.UI_MSIX_BUNDLE_PATH }}
           cp ${{ env.UI_TARGET_RELEASE_PATH }}\geti-prompt-backend.exe ${{ env.UI_MSIX_BUNDLE_PATH }}
@@ -146,7 +146,7 @@ jobs:
           cp -r ${{ env.UI_TARGET_RELEASE_PATH }}\_internal ${{ env.UI_MSIX_BUNDLE_PATH }}
           cp -r ${{ env.UI_TARGET_RELEASE_PATH }}\InitialData ${{ env.UI_MSIX_BUNDLE_PATH }}
           cp -r ${{ env.UI_SRC_TAURI_PATH }}\msix\* ${{ env.UI_MSIX_BUNDLE_PATH }}
-          & "${{ env.MAKEAPP_PATH }}" pack /d ${{ env.UI_MSIX_BUNDLE_PATH }} /p ${{ env.UI_MSIX_BUNDLE_PATH }}\geti-prompt-$env:RUNTIME-$env:BUILD_VERSION.msix
+          & "${{ env.MAKEAPP_PATH }}" pack /d ${{ env.UI_MSIX_BUNDLE_PATH }} /p ${{ env.UI_MSIX_BUNDLE_PATH }}\geti-prompt-$env:DEVICE-$env:BUILD_VERSION.msix
 
       - name: Upload MSIX package
         uses: actions/upload-artifact@v4

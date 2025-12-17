@@ -120,7 +120,7 @@ jobs:
       contents: read
     strategy:
       matrix:
-        runtime: [cpu, gpu, xpu]
+        ai-device: [cpu, gpu, xpu]
     steps:
       - name: Checkout code
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
@@ -136,10 +136,10 @@ jobs:
         working-directory: application
         id: image-name
         env:
-          RUNTIME: ${{ matrix.runtime }}
+          DEVICE: ${{ matrix.ai-device }}
         run: |
-          just runtime="${RUNTIME}" docker-build-context="--no-cache" build-image
-          IMAGE_NAME=$(just --evaluate runtime="${RUNTIME}" docker-image)
+          just ai-device="${DEVICE}" docker-build-context="--no-cache" build-image
+          IMAGE_NAME=$(just --evaluate ai-device="${DEVICE}" docker-image)
           echo "image=${IMAGE_NAME}" >> $GITHUB_OUTPUT
           echo "Image: ${IMAGE_NAME}"
 
@@ -150,7 +150,7 @@ jobs:
         id: trivy
         uses: open-edge-platform/geti-ci/actions/trivy@829f7148f9f70bd4ffbb367f7374d78c32aef2a2
         with:
-          artifact-name: "trivy-results-docker-${{ matrix.runtime }}"
+          artifact-name: "trivy-results-docker-${{ matrix.ai-device }}"
           scan_type: "image"
           scan_target: "${{ steps.image-name.outputs.image }}"
           scan-scope: all
