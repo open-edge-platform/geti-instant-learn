@@ -30,21 +30,21 @@ jobs:
         working-directory: application
         id: image-name
         env:
-          RUNTIME: ${{ matrix.runtime }}
+          DEVICE: ${{ matrix.ai-device }}
         run: |
-          just runtime="${RUNTIME}" docker-build-context="--no-cache" build-image
-          IMAGE_NAME=$(just --evaluate runtime="${RUNTIME}" docker-image)
+          just ai-device="${DEVICE}" docker-build-context="--no-cache" build-image
+          IMAGE_NAME=$(just --evaluate ai-device="${DEVICE}" docker-image)
           echo "image=${IMAGE_NAME}" >> $GITHUB_OUTPUT
           echo "Image: ${IMAGE_NAME}"
 
       - name: Cleanup docker cache
         run: docker builder prune -f
 
-      - name: Scan ${{ matrix.runtime }}
+      - name: Scan ${{ matrix.ai-device }}
         shell: bash
         env:
           TARGET: ${{ steps.image-name.outputs.image }}
-          RUNTIME: ${{ matrix.runtime }}
+          DEVICE: ${{ matrix.ai-device }}
         run: |
           # install Syft
           curl -sSfL https://get.anchore.io/syft | sudo sh -s -- -b /usr/local/bin
@@ -56,12 +56,12 @@ jobs:
             .artifacts[] |
             select(.type == "deb" and ((.licenses // [])[]?.value | test("GPL|AGPL|LGPL|EPL|MPL"; "i"))) |
             .name
-          ] | unique[]' > pkg_list_$RUNTIME.txt
+          ] | unique[]' > pkg_list_$DEVICE.txt
 
       - name: Upload packages list
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
-          name: pkg_list_${{ matrix.runtime }}
+          name: pkg_list_${{ matrix.ai-device }}
           path: pkg_list_*
           retention-days: 5
 
