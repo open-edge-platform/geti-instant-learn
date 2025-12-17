@@ -44,7 +44,7 @@ jobs:
           SYFT_GOLANG_SEARCH_REMOTE_LICENSES: "true"
         with:
           image: ${{ steps.image-name.outputs.image }}
-          artifact-name: sbom-container-${{ matrix.ai-device }}-image.spdx.json
+          artifact-name: sbom-container-${{ matrix.runtime }}-image.spdx.json
           format: spdx-json
           output-file: sbom-container-image.spdx.json
           upload-artifact: true

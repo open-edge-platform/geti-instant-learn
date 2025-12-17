@@ -44,7 +44,7 @@ jobs:
         shell: bash
         env:
           TARGET: ${{ steps.image-name.outputs.image }}
-          DEVICE: ${{ matrix.ai-device }}
+          RUNTIME: ${{ matrix.runtime }}
         run: |
           # install Syft
           curl -sSfL https://get.anchore.io/syft | sudo sh -s -- -b /usr/local/bin
