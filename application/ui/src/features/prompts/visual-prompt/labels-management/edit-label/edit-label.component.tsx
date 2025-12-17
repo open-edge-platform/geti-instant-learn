@@ -55,9 +55,6 @@ const useCloseLabelEditionOnOutsideClick = ({
     const formRef = useUnwrapDOMRef(wrappedFormRef);
 
     useOnOutsideClick(formRef, () => {
-        if (!shouldCloseOnOutsideClick) {
-            return;
-        }
         if (isColorPickerOpen) {
             return;
         }
