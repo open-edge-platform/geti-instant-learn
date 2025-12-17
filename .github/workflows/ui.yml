@@ -1,11 +1,6 @@
 name: ui
 on:
   workflow_call:
-    inputs:
-      build_version:
-        description: "Specifies the build version to apply to all binaries produced by this workflow"
-        type: string
-        required: true
   workflow_dispatch:
 
 jobs:
@@ -15,7 +10,8 @@ jobs:
     permissions:
       contents: read # to checkout code
     steps:
-      - name: Checkout code
+      - &checkout
+        name: Checkout code
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
           persist-credentials: false
@@ -35,7 +31,8 @@ jobs:
         run: |
           just application/backend/gen-openapi
 
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+      - name: Upload OpenAPI spec artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: openapi-spec
           path: application/backend/.build/openapi-spec.json
@@ -48,29 +45,30 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Checkout code
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
-        with:
-          persist-credentials: false
+      - *checkout
 
-      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6
+      - &setup-node
+        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
         id: setup-node
         with:
           node-version-file: application/ui/.nvmrc
           cache: 'npm'
           cache-dependency-path: application/ui/package-lock.json
 
-      - name: Install dependencies
+      - &install-npm-deps
+        name: Install dependencies
         working-directory: "application/ui"
         run: npm ci
 
-      - name: Download OpenAPI spec artifact
+      - &download-openapi
+        name: Download OpenAPI spec artifact
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: openapi-spec
           path: application/ui/src/api
 
-      - name: Build OpenAPI type definitions
+      - &build-openapi-types
+        name: Build OpenAPI type definitions
         working-directory: "application/ui"
         run: npm run build:api:types
 
@@ -100,31 +98,15 @@ jobs:
       pull-requests: write
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
-        with:
-          persist-credentials: false
+      - *checkout
 
-      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
-        id: setup-node
-        with:
-          node-version-file: application/ui/.nvmrc
-          cache: 'npm'
-          cache-dependency-path: application/ui/package-lock.json
+      - *setup-node
 
-      - name: Install dependencies
-        working-directory: "application/ui"
-        run: npm ci
+      - *install-npm-deps
 
-      - name: Download OpenAPI spec artifact
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
-        with:
-          name: openapi-spec
-          path: application/ui/src/api
+      - *download-openapi
 
-      - name: Build OpenAPI type definitions
-        working-directory: "application/ui"
-        run: npm run build:api:types
+      - *build-openapi-types
 
       - name: Unit tests
         working-directory: "application/ui"
@@ -208,32 +190,15 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.57.0-jammy@sha256:6aca677c27a967caf7673d108ac67ffaf8fed134f27e17b27a05464ca0ace831
     steps:
-      - name: Checkout code
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
-        with:
-          persist-credentials: false
-          ref: ${{ inputs.ref || '' }}
+      - *checkout
 
-      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
-        id: setup-node
-        with:
-          node-version-file: application/ui/.nvmrc
-          cache: 'npm'
-          cache-dependency-path: application/ui/package-lock.json
+      - *setup-node
 
-      - name: Install dependencies
-        working-directory: "application/ui"
-        run: npm ci
+      - *install-npm-deps
 
-      - name: Download OpenAPI spec artifact
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
-        with:
-          name: openapi-spec
-          path: application/ui/src/api
+      - *download-openapi
 
-      - name: Build OpenAPI type definitions
-        working-directory: "application/ui"
-        run: npm run build:api:types
+      - *build-openapi-types
 
       - name: Build UI
         working-directory: "application/ui"

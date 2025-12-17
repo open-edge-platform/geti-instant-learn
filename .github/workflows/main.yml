@@ -68,8 +68,6 @@ jobs:
       pull-requests: write
     if: needs.build-parameters.outputs.components-list && contains(fromJson(needs.build-parameters.outputs.components-list), 'ui')
     uses: ./.github/workflows/ui.yml
-    with:
-      build_version: ${{ needs.build-parameters.outputs.build_version }}
 
   distrib:
     name: Distrib build
