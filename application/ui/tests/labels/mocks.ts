@@ -61,4 +61,6 @@ export const registerApiLabels = ({
             return HttpResponse.json(body as LabelType, { status: 200 });
         })
     );
+
+    return labels;
 };

@@ -7,6 +7,7 @@ import { expect, http, test } from '@geti-prompt/test-fixtures';
 import { Locator } from '@playwright/test';
 
 import { PromptPage } from '../annotator/prompt-page';
+import { getMockedVisualPromptItem } from '../../src/test-utils/mocks/mock-prompt';
 import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations } from '../annotator/utils';
 import { LabelsPage } from '../labels/labels-page';
 import { registerApiLabels } from '../labels/mocks';
@@ -27,7 +28,7 @@ test.describe('Prompt', () => {
         test.setTimeout(ANNOTATOR_PAGE_TIMEOUT);
         await initializeWebRTC({ page, context, network });
 
-        registerApiLabels({ network });
+        const labels = registerApiLabels({ network });
 
         network.use(
             http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {
@@ -117,10 +118,26 @@ test.describe('Prompt', () => {
             await annotatorFullScreenEdit.addAnnotation();
             const promptPageFullScreenEdit = new PromptPage(page, annotatorFullScreenEdit.getScope());
 
+            const mockPrompt = getMockedVisualPromptItem({
+                ...MOCK_PROMPT,
+                annotations: MOCK_PROMPT.annotations.map((annotation) => ({
+                    ...annotation,
+                    label_id: labels[0].id,
+                })),
+            });
+
+            const secondMockPrompt = getMockedVisualPromptItem({
+                ...SECOND_PROMPT,
+                annotations: MOCK_PROMPT.annotations.map((annotation) => ({
+                    ...annotation,
+                    label_id: labels[0].id,
+                })),
+            });
+
             network.use(
                 http.get('/api/v1/projects/{project_id}/prompts', ({ response }) => {
                     return response(200).json({
-                        prompts: [MOCK_PROMPT, SECOND_PROMPT],
+                        prompts: [mockPrompt, secondMockPrompt],
                         pagination: {
                             total: 2,
                             count: 2,
@@ -137,7 +154,7 @@ test.describe('Prompt', () => {
             // Edit the first prompt
             network.use(
                 http.get('/api/v1/projects/{project_id}/prompts/{prompt_id}', ({ response }) => {
-                    return response(200).json(MOCK_PROMPT);
+                    return response(200).json(mockPrompt);
                 })
             );
 
@@ -150,7 +167,7 @@ test.describe('Prompt', () => {
 
             network.use(
                 http.put('/api/v1/projects/{project_id}/prompts/{prompt_id}', ({ response }) => {
-                    return response(200).json(MOCK_PROMPT);
+                    return response(200).json(mockPrompt);
                 })
             );
 

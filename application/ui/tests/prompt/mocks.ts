@@ -5,6 +5,8 @@
 
 import { VisualPromptItemType, WebcamSourceType } from '@geti-prompt/api';
 
+import { getMockedVisualPromptItem } from '../../src/test-utils/mocks/mock-prompt';
+
 /**
  * Mock RTCPeerConnection implementation for testing WebRTC connections
  * without requiring actual peer-to-peer networking.
@@ -77,7 +79,7 @@ export const WEBCAM_SOURCE: WebcamSourceType = {
     },
 };
 export const MOCK_PROMPT_ID = '123e4567-e89b-12d3-a456-426614174002';
-export const MOCK_PROMPT: VisualPromptItemType = {
+export const MOCK_PROMPT: VisualPromptItemType = getMockedVisualPromptItem({
     id: MOCK_PROMPT_ID,
     annotations: [
         {
@@ -102,11 +104,12 @@ export const MOCK_PROMPT: VisualPromptItemType = {
         },
     ],
     frame_id: '123e4567-e89b-12d3-a456-426614174000',
-    type: 'VISUAL',
     thumbnail: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ',
-};
+});
+
 const SECOND_PROMPT_ID = '123e4567-e89b-12d3-a456-426614174003';
-export const SECOND_PROMPT: VisualPromptItemType = {
+
+export const SECOND_PROMPT: VisualPromptItemType = getMockedVisualPromptItem({
     id: SECOND_PROMPT_ID,
     annotations: [
         {
@@ -122,6 +125,5 @@ export const SECOND_PROMPT: VisualPromptItemType = {
         },
     ],
     frame_id: '123e4567-e89b-12d3-a456-426614174001',
-    type: 'VISUAL',
     thumbnail: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ',
-};
+});
