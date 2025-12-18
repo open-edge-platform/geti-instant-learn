@@ -20,6 +20,7 @@ from domain.errors import (
 from domain.services.prompt import PromptService
 from domain.services.schemas.annotation import (
     AnnotationSchema,
+    AnnotationType,
     Point,
     PolygonAnnotation,
     RectangleAnnotation,
@@ -98,6 +99,10 @@ def test_list_prompts_success(service):
     text_prompt = make_text_prompt_db(project_id=project_id)
     visual_prompt = make_visual_prompt_db(project_id=project_id)
     service.prompt_repository.list_with_pagination_by_project.return_value = ([text_prompt, visual_prompt], 2)
+
+    # Mock frame reading for visual prompts
+    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    service.frame_repository.read_frame.return_value = test_image
 
     result = service.list_prompts(project_id, offset=0, limit=10)
 
@@ -222,7 +227,7 @@ def test_create_visual_prompt_success(service):
     assert result.id == new_id
     assert result.type == PromptType.VISUAL
     service.frame_repository.get_frame_path.assert_called_with(project_id, frame_id)
-    assert service.frame_repository.read_frame.call_count == 2  # Once for dedup, once for thumbnail
+    assert service.frame_repository.read_frame.call_count == 2
     service.label_repository.get_by_id_and_project.assert_called_with(label_id, project_id)
     service.prompt_repository.add.assert_called_once()
     service.session.commit.assert_called_once()
@@ -273,6 +278,10 @@ def test_create_visual_prompt_frame_not_found(service):
     frame_id = uuid.uuid4()
     label_id = uuid.uuid4()
 
+    # Mock frame reading for visual prompts
+    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    service.frame_repository.read_frame.return_value = test_image
+
     service.project_repository.get_by_id.return_value = make_project(project_id)
     service.frame_repository.get_frame_path.return_value = None
 
@@ -300,6 +309,10 @@ def test_create_visual_prompt_label_not_found(service):
     project_id = uuid.uuid4()
     frame_id = uuid.uuid4()
     label_id = uuid.uuid4()
+
+    # Mock frame reading for visual prompts
+    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    service.frame_repository.read_frame.return_value = test_image
 
     service.project_repository.get_by_id.return_value = make_project(project_id)
     service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
@@ -750,3 +763,88 @@ def test_get_reference_batch_visual_prompt_mapper_error_handled(service):
         result = service.get_reference_batch(project_id, PromptType.VISUAL)
 
     assert result is None
+
+
+def test_normalization_scales_visual_points(service):
+    project_id = uuid.uuid4()
+    frame_id = uuid.uuid4()
+    label_id = uuid.uuid4()
+    service.frame_repository.read_frame.return_value = np.zeros((200, 100, 3), dtype=np.uint8)
+
+    create_schema = VisualPromptCreateSchema(
+        id=uuid.uuid4(),
+        type=PromptType.VISUAL,
+        frame_id=frame_id,
+        annotations=[
+            AnnotationSchema(
+                config=RectangleAnnotation(
+                    type=AnnotationType.RECTANGLE,
+                    points=[Point(x=10.0, y=20.0), Point(x=60.0, y=120.0)],
+                ),
+                label_id=label_id,
+            )
+        ],
+    )
+
+    normalized = service._normalization(project_id=project_id, data=create_schema)
+
+    assert normalized.annotations[0].config.points[0].x == pytest.approx(0.1)
+    assert normalized.annotations[0].config.points[0].y == pytest.approx(0.1)
+    assert normalized.annotations[0].config.points[1].x == pytest.approx(0.6)
+    assert normalized.annotations[0].config.points[1].y == pytest.approx(0.6)
+    service.frame_repository.read_frame.assert_called_once_with(project_id=project_id, frame_id=frame_id)
+
+
+def test_normalization_raises_when_frame_missing(service):
+    project_id = uuid.uuid4()
+    frame_id = uuid.uuid4()
+    service.frame_repository.read_frame.return_value = None
+
+    create_schema = VisualPromptCreateSchema(
+        id=uuid.uuid4(),
+        type=PromptType.VISUAL,
+        frame_id=frame_id,
+        annotations=[
+            AnnotationSchema(
+                config=RectangleAnnotation(
+                    type=AnnotationType.RECTANGLE,
+                    points=[Point(x=1.0, y=1.0), Point(x=2.0, y=2.0)],
+                ),
+                label_id=uuid.uuid4(),
+            )
+        ],
+    )
+
+    with pytest.raises(ResourceNotFoundError):
+        service._normalization(project_id=project_id, data=create_schema)
+
+
+def test_denormalization_scales_visual_points(service):
+    project_id = uuid.uuid4()
+    frame_id = uuid.uuid4()
+    annotation = make_annotation_db()
+    annotation.config = {
+        "type": AnnotationType.RECTANGLE,
+        "points": [{"x": 0.25, "y": 0.5}, {"x": 0.75, "y": 0.9}],
+    }
+    prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id, annotations=[annotation])
+    service.frame_repository.read_frame.return_value = np.zeros((100, 200, 3), dtype=np.uint8)
+
+    denormalized = service._denormalization(project_id=project_id, data=prompt)
+
+    points = denormalized.annotations[0].config["points"]
+    assert points[0]["x"] == 50
+    assert points[0]["y"] == 50
+    assert points[1]["x"] == 150
+    assert points[1]["y"] == 90
+    service.frame_repository.read_frame.assert_called_once_with(project_id=project_id, frame_id=frame_id)
+
+
+def test_denormalization_raises_when_frame_missing(service):
+    project_id = uuid.uuid4()
+    frame_id = uuid.uuid4()
+    prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id, annotations=[make_annotation_db()])
+    service.frame_repository.read_frame.return_value = None
+
+    with pytest.raises(ResourceNotFoundError):
+        service._denormalization(project_id=project_id, data=prompt)

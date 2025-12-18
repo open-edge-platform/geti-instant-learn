@@ -9,6 +9,7 @@ import pytest
 
 from domain.dispatcher import (
     ComponentConfigChangeEvent,
+    ComponentType,
     ConfigChangeDispatcher,
     ProjectActivationEvent,
     ProjectDeactivationEvent,
@@ -232,13 +233,16 @@ class TestPipelineManager:
     ):
         with patch("runtime.pipeline_manager.Pipeline"):
             pid = uuid4()
+            component_id = uuid4()
             running = Mock()
             running.project_id = pid
 
             mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
             mgr._pipeline = running
 
-            ev = ComponentConfigChangeEvent(project_id=pid, component_type="source", component_id="abc")
+            ev = ComponentConfigChangeEvent(
+                project_id=pid, component_type=ComponentType.SOURCE, component_id=component_id
+            )
             mgr.on_config_change(ev)
 
             mock_component_factory.create_source.assert_called_once_with(pid)
@@ -248,13 +252,16 @@ class TestPipelineManager:
         with patch("runtime.pipeline_manager.Pipeline"):
             pid_running = uuid4()
             pid_event = uuid4()
+            component_id = uuid4()
             running = Mock()
             running.project_id = pid_running
 
             mgr = PipelineManager(dispatcher, session_factory)
             mgr._pipeline = running
 
-            ev = ComponentConfigChangeEvent(project_id=pid_event, component_type="source", component_id="abc")
+            ev = ComponentConfigChangeEvent(
+                project_id=pid_event, component_type=ComponentType.SOURCE, component_id=component_id
+            )
             mgr.on_config_change(ev)
 
             running.set_source.assert_not_called()

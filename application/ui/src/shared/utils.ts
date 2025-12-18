@@ -4,39 +4,18 @@
  */
 
 import { AnnotationPostType, AnnotationType, LabelType } from '@geti-prompt/api';
-import { Point, RegionOfInterest } from '@geti/smart-tools/types';
+import { Point } from '@geti/smart-tools/types';
 import { v4 as uuid } from 'uuid';
 
 import { Annotation } from '../features/annotator/types';
 
-const normalizePoints = (points: Point[], roi: { width: number; height: number }): Point[] => {
-    return points.map((point) => {
-        return {
-            x: point.x / roi.width,
-            y: point.y / roi.height,
-        };
-    });
-};
-
-const denormalizePoints = (points: Point[], roi: { width: number; height: number }): Point[] => {
-    return points.map((point) => {
-        return {
-            x: point.x * roi.width,
-            y: point.y * roi.height,
-        };
-    });
-};
-
-export const convertAnnotationsToDTO = (
-    inputAnnotations: Annotation[],
-    roi: Pick<RegionOfInterest, 'width' | 'height'>
-): AnnotationPostType[] => {
+export const convertAnnotationsToDTO = (inputAnnotations: Annotation[]): AnnotationPostType[] => {
     return inputAnnotations.map((annotation) => {
         if (annotation.shape.type === 'polygon') {
             return {
                 config: {
                     type: 'polygon',
-                    points: normalizePoints(annotation.shape.points, roi),
+                    points: annotation.shape.points,
                 },
                 label_id: annotation.labels.at(0)?.id ?? '',
             };
@@ -51,12 +30,11 @@ export const convertAnnotationsToDTO = (
                     y: annotation.shape.y + annotation.shape.height,
                 },
             ];
-            const normalizedPoints = normalizePoints(points, roi);
 
             return {
                 config: {
                     type: 'rectangle',
-                    points: normalizedPoints,
+                    points,
                 },
                 label_id: annotation.labels.at(0)?.id ?? '',
             };
@@ -66,35 +44,28 @@ export const convertAnnotationsToDTO = (
     });
 };
 
-export const convertAnnotationsFromDTO = (
-    annotations: AnnotationType[],
-    labels: LabelType[],
-    roi: Pick<RegionOfInterest, 'width' | 'height'>
-): Annotation[] => {
+export const convertAnnotationsFromDTO = (annotations: AnnotationType[], labels: LabelType[]): Annotation[] => {
     return annotations.map((annotation) => {
         if (annotation.config.type === 'polygon') {
             return {
                 id: uuid(),
                 shape: {
                     type: 'polygon',
-                    points: denormalizePoints(annotation.config.points, roi),
+                    points: annotation.config.points,
                 },
-                // TODO: To figure out what should happen if prompt has a label with X which no longer exists,
-                // maybe we should block removing the label which is used by any prompt or show an error message
-                // when user tries to do that.
                 labels: labels.filter(({ id }) => id === annotation.label_id),
             };
         } else if (annotation.config.type === 'rectangle') {
-            const denormalizedPoints: Point[] = denormalizePoints(annotation.config.points, roi);
+            const [topLeft, bottomRight] = annotation.config.points;
 
             return {
                 id: uuid(),
                 shape: {
                     type: 'rectangle',
-                    x: denormalizedPoints[0].x,
-                    y: denormalizedPoints[0].y,
-                    width: denormalizedPoints[1].x - denormalizedPoints[0].x,
-                    height: denormalizedPoints[1].y - denormalizedPoints[0].y,
+                    x: topLeft.x,
+                    y: topLeft.y,
+                    width: bottomRight.x - topLeft.x,
+                    height: bottomRight.y - topLeft.y,
                 },
                 labels: labels.filter(({ id }) => id === annotation.label_id),
             };

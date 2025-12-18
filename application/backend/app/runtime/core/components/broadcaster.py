@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from queue import Full, Queue
+from queue import Empty, Full, Queue
 from threading import Lock
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ class FrameBroadcaster[T]:
     stealing them from each other. This broadcaster ensures every consumer gets its own queue.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.queues: list[Queue[T]] = []
         self._lock = Lock()
 
@@ -49,11 +49,20 @@ class FrameBroadcaster[T]:
                 try:
                     queue.put_nowait(frame)
                 except Full:
-                    # Queue is full, drop the oldest frame and add the new one
-                    try:
-                        queue.get_nowait()
-                        queue.put_nowait(frame)
-                    except Exception:
-                        logger.exception("Error replacing frame in full queue")
+                    self._handle_full_queue(queue, frame)
                 except Exception:
                     logger.exception("Error broadcasting to queue")
+
+    def _handle_full_queue(self, queue: Queue[T], frame: T) -> None:
+        """Handle a full queue by dropping the oldest frame and adding the new one."""
+        try:
+            queue.get_nowait()
+        except Empty:
+            pass
+
+        try:
+            queue.put_nowait(frame)
+        except Full:
+            logger.warning("Queue still full after clearing, skipping frame")
+        except Exception:
+            logger.exception("Error replacing frame in full queue")

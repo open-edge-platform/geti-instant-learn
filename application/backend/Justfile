@@ -4,7 +4,6 @@ import "../Justfile"
 py_path := "tests:app"
 # Ensure version in GHA workflow matches uv version here
 uv_version := "0.9.7"
-ai_extra := "cpu" # cpu, cu126, xpu
 
 default:
     @just --list
@@ -32,7 +31,7 @@ _pre-venv:
 
 _venv: _pre-venv
     uv lock --check
-    uv sync --extra {{ ai_extra }} --extra mqtt --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
+    uv sync --extra {{ ai-device }} --extra mqtt --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
 
 # Generate uv lock file
 venv-lock: _pre-venv
@@ -79,7 +78,7 @@ _mypy:
 coffee_berries_dataset_path := "dist/geti-prompt-backend/InitialData/templates/datasets/coffee-berries"
 
 pyinstaller: _venv download-dataset
-    uv sync --extra installer --extra {{ai_extra}} --extra mqtt --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
+    uv sync --extra installer --extra {{ ai-device }} --extra mqtt --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
     uv run pyinstaller --noconfirm geti-prompt.spec
     mkdir -p {{ coffee_berries_dataset_path }}
     cp {{ source-dataset-dir }}/* {{ coffee_berries_dataset_path }}/

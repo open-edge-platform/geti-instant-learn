@@ -17,7 +17,6 @@ test_cases = [
 class TestSource:
     def setup_method(self, method):
         self.mock_stream_reader = MagicMock(spec=StreamReader)
-        self.mock_stream_reader.__enter__.return_value = self.mock_stream_reader
         self.mock_broadcaster = MagicMock(spec=FrameBroadcaster)
         self.source = Source(self.mock_stream_reader)
         self.source.setup(self.mock_broadcaster)
@@ -38,9 +37,8 @@ class TestSource:
         self.mock_stream_reader.read.side_effect = read_and_then_stop
         self.source.run()
 
-        self.mock_stream_reader.__enter__.assert_called_once()
         self.mock_stream_reader.connect.assert_called_once()
-        self.mock_stream_reader.__exit__.assert_called_once()
+        self.mock_stream_reader.close.assert_called_once()
 
         broadcast_calls = [call.args[0] for call in self.mock_broadcaster.broadcast.call_args_list]
         assert broadcast_calls == expected_broadcasts
@@ -70,3 +68,21 @@ class TestSource:
 
         self.mock_stream_reader.list_frames.assert_called_once_with(offset=0, limit=100)
         assert result == expected_response
+
+    def test_source_requires_initialization(self):
+        """Test that Source raises an error if run without initialization."""
+        uninitialized_source = Source(self.mock_stream_reader)
+        with pytest.raises(RuntimeError, match="The source should be initialized before being used"):
+            uninitialized_source.run()
+
+    def test_source_connect_called_in_run(self):
+        """Test that Source calls connect() in the run method."""
+
+        def read_once_and_stop(*args, **kwargs):
+            self.source.stop()
+            return None
+
+        self.mock_stream_reader.read.side_effect = read_once_and_stop
+
+        self.source.run()
+        self.mock_stream_reader.connect.assert_called_once()

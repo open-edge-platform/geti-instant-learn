@@ -15,7 +15,7 @@ class TestModelFactory:
         "runtime,expected_device",
         [
             ("cpu", "cpu"),
-            ("cuda", "cuda"),
+            ("gpu", "cuda"),
             ("xpu", "xpu"),
         ],
     )

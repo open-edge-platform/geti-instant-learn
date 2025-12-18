@@ -40,7 +40,7 @@ export const AnnotationActionsProvider = ({
 
     const convertedAnnotations = useMemo(() => {
         if (initialAnnotationsDTO && roi.width > 0 && roi.height > 0) {
-            return convertAnnotationsFromDTO(initialAnnotationsDTO, labels, roi);
+            return convertAnnotationsFromDTO(initialAnnotationsDTO, labels);
         }
 
         return [];
