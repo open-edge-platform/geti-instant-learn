@@ -64,6 +64,7 @@ build-image: (download-dataset source-dataset-dir)
         --build-context libs=../library \
         --build-arg SOURCE_DATASET_DIR={{ source-dataset-dir }} \
         --build-arg TARGET_DATASET_DIR={{ target-dataset-dir }} \
+        --build-arg DEVICE={{ device }} \
         --tag "{{ image-name }}" \
         --file docker/Dockerfile . \
         --target {{ build-target }}

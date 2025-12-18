@@ -24,13 +24,13 @@ COPY --link --from=libs ./pyproject.toml /geti_prompt/library/pyproject.toml
 RUN mkdir -p /geti_prompt/app/backend
 WORKDIR /geti_prompt/app/backend
 
-ARG RUNTIME=""
-ENV RUNTIME=${RUNTIME}
+ARG DEVICE=""
+ENV DEVICE=${DEVICE}
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra ${RUNTIME} --extra mqtt
+    uv sync --frozen --no-dev --no-editable --extra ${DEVICE} --extra mqtt
 
 ##################
 # Geti UI packages
