@@ -34,6 +34,7 @@ from domain.services.schemas.processor import (
     ProcessorListSchema,
     ProcessorSchema,
     ProcessorUpdateSchema,
+    SupportedModelsSchema,
 )
 
 logger = logging.getLogger(__name__)
@@ -305,7 +306,7 @@ class ModelService(BaseService):
         logger.error(f"Unmapped constraint violation for model configuration (id={model_id}): {error_msg}")
         raise ValueError("Database constraint violation. Please check your input and try again.")
 
-    def supported_models(self, project_id: UUID) -> dict[str, list[str]]:
+    def supported_models(self, project_id: UUID) -> SupportedModelsSchema:
         """
         Get supported SAM and encoder models.
 
@@ -319,9 +320,6 @@ class ModelService(BaseService):
         if not project:
             logger.error(f"Project not found id={project_id}")
             raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
-        sam_models = [model.value for model in SAMModelName if model in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}]
+        sam_models = [str(model.value) for model in SAMModelName if model in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}]
         encoder_models = list(AVAILABLE_IMAGE_ENCODERS.keys())
-        return {
-            "sam_models": sam_models,
-            "encoder_models": encoder_models,
-        }
+        return SupportedModelsSchema(sam_models=sam_models, encoder_models=encoder_models)

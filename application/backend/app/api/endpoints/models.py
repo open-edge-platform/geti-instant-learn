@@ -14,6 +14,7 @@ from domain.services.schemas.processor import (
     ProcessorListSchema,
     ProcessorSchema,
     ProcessorUpdateSchema,
+    SupportedModelsSchema,
 )
 
 logger = logging.getLogger(__name__)
@@ -153,7 +154,6 @@ def get_active_model(project_id: UUID, model_service: ModelServiceDep) -> Proces
     path="/{project_id}/models/supported",
     tags=["Models"],
     status_code=status.HTTP_200_OK,
-    response_model=dict[str, list[str]],
     responses={
         status.HTTP_200_OK: {
             "description": "Successfully retrieved the model configuration for the project.",
@@ -187,7 +187,7 @@ def get_active_model(project_id: UUID, model_service: ModelServiceDep) -> Proces
         },
     },
 )
-def supported_models(project_id: UUID, model_service: ModelServiceDep) -> dict[str, list[str]]:
+def supported_models(project_id: UUID, model_service: ModelServiceDep) -> SupportedModelsSchema:
     """
     Retrieve the model configuration of the project.
     """
