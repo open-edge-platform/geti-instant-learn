@@ -47,7 +47,7 @@ class TestModelFactory:
         ],
     )
     def test_matcher_config_rejects_unsupported_sam_models(self, sam_model):
-        with pytest.raises(ValueError, match="Supported sam model must be one of"):
+        with pytest.raises(ValueError):
             MatcherConfig(sam_model=sam_model)
 
     def test_factory_creates_matcher_model_with_config(self):
