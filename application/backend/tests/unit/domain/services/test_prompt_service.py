@@ -222,8 +222,48 @@ def test_create_visual_prompt_success(service):
     assert result.id == new_id
     assert result.type == PromptType.VISUAL
     service.frame_repository.get_frame_path.assert_called_with(project_id, frame_id)
-    service.frame_repository.read_frame.assert_called_once_with(project_id, frame_id)
+    assert service.frame_repository.read_frame.call_count == 2  # Once for dedup, once for thumbnail
     service.label_repository.get_by_id_and_project.assert_called_with(label_id, project_id)
+    service.prompt_repository.add.assert_called_once()
+    service.session.commit.assert_called_once()
+
+
+def test_create_visual_prompt_deduplicates_annotations(service):
+    new_id = uuid.uuid4()
+    project_id = uuid.uuid4()
+    frame_id = uuid.uuid4()
+    label_id = uuid.uuid4()
+
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
+
+    label = make_label(label_id=label_id, project_id=project_id)
+    service.label_repository.get_by_id_and_project.return_value = label
+
+    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    service.frame_repository.read_frame.return_value = test_image
+
+    # Create two identical polygon annotations (duplicates)
+    polygon_config = PolygonAnnotation(
+        type=AnnotationType.POLYGON,
+        points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.1), Point(x=0.5, y=0.5), Point(x=0.1, y=0.5)],
+    )
+
+    create_schema = VisualPromptCreateSchema(
+        id=new_id,
+        type=PromptType.VISUAL,
+        frame_id=frame_id,
+        annotations=[
+            AnnotationSchema(config=polygon_config, label_id=label_id),
+            AnnotationSchema(config=polygon_config, label_id=label_id),  # Duplicate
+        ],
+    )
+
+    result = service.create_prompt(project_id=project_id, create_data=create_schema)
+
+    assert result.id == new_id
+    # Verify that only one annotation was saved (duplicate removed)
+    assert len(create_schema.annotations) == 1
     service.prompt_repository.add.assert_called_once()
     service.session.commit.assert_called_once()
 
@@ -499,7 +539,46 @@ def test_update_visual_prompt_annotations_success(service):
     service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
 
     assert service.label_repository.get_by_id_and_project.call_count >= 1
-    service.frame_repository.read_frame.assert_called_once_with(project_id, frame_id)
+    assert service.frame_repository.read_frame.call_count == 2  # Once for dedup, once for thumbnail
+    service.session.commit.assert_called_once()
+
+
+def test_update_visual_prompt_deduplicates_annotations(service):
+    project_id = uuid.uuid4()
+    prompt_id = uuid.uuid4()
+    label_id = uuid.uuid4()
+    frame_id = uuid.uuid4()
+
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    prompt = make_visual_prompt_db(prompt_id=prompt_id, project_id=project_id, frame_id=frame_id)
+    service.prompt_repository.get_by_id_and_project.return_value = prompt
+    service.prompt_repository.update.return_value = prompt
+
+    label = make_label(label_id=label_id, project_id=project_id)
+    service.label_repository.get_by_id_and_project.return_value = label
+
+    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    service.frame_repository.read_frame.return_value = test_image
+
+    # Create two identical polygon annotations (duplicates)
+    polygon_config = PolygonAnnotation(
+        type=AnnotationType.POLYGON,
+        points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.1), Point(x=0.5, y=0.5), Point(x=0.1, y=0.5)],
+    )
+
+    update_schema = VisualPromptUpdateSchema(
+        type=PromptType.VISUAL,
+        frame_id=None,
+        annotations=[
+            AnnotationSchema(config=polygon_config, label_id=label_id),
+            AnnotationSchema(config=polygon_config, label_id=label_id),  # Duplicate
+        ],
+    )
+
+    service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
+
+    # Verify that only one annotation remains after deduplication
+    assert len(update_schema.annotations) == 1
     service.session.commit.assert_called_once()
 
 

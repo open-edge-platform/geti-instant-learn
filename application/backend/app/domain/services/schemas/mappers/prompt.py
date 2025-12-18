@@ -194,10 +194,6 @@ def visual_prompt_to_sample(  # noqa: C901
             label_groups[ann.label_id] = []
         label_groups[ann.label_id].append(polygon)
 
-    # Remove possible duplicates within each label group
-    for label_id, polygons in label_groups.items():
-        label_groups[label_id] = _deduplicate_polygons(polygons, height, width)
-
     all_masks = []
     categories = []
     category_ids = []
@@ -246,29 +242,32 @@ def visual_prompt_to_sample(  # noqa: C901
     )
 
 
-def _deduplicate_polygons(
-    polygons: list[Any], image_height: int, image_width: int, iou_threshold: float = 0.9
-) -> list[Any]:
+def deduplicate_annotations(
+    annotations: list[AnnotationSchema], image_height: int, image_width: int, iou_threshold: float = 0.9
+) -> list[AnnotationSchema]:
     """
-    Remove duplicate or highly overlapping polygons.
+    Remove duplicate or highly overlapping annotations based on polygon similarity.
 
     Uses IoU (Intersection over Union) to identify similar masks.
     Keeps the first occurrence when duplicates are found.
+    Only processes polygon annotations; other types are kept as-is.
 
     Args:
-        polygons: List of polygon annotations
-        image_height: Height for mask generation
-        image_width: Width for mask generation
+        annotations: List of annotations to deduplicate
+        image_height: Height in pixels for mask generation
+        image_width: Width in pixels for mask generation
         iou_threshold: IoU threshold above which polygons are considered duplicates (default: 0.9)
 
     Returns:
-        List of unique polygons
+        List of unique annotations with duplicates removed
     """
-    if len(polygons) <= 1:
-        return polygons
+    polygon_annotations = [ann for ann in annotations if ann.config.type == AnnotationType.POLYGON]
+    other_annotations = [ann for ann in annotations if ann.config.type != AnnotationType.POLYGON]
+    if len(polygon_annotations) <= 1:
+        return annotations
 
-    # Generate masks for comparison
-    masks = polygons_to_masks(polygons, image_height, image_width)
+    polygon_configs = [ann.config for ann in polygon_annotations]
+    masks = polygons_to_masks(polygon_configs, image_height, image_width)
 
     unique_indices: list[int] = []
     for i in range(len(masks)):
@@ -281,7 +280,9 @@ def _deduplicate_polygons(
         if not is_duplicate:
             unique_indices.append(i)
 
-    return [polygons[i] for i in unique_indices]
+    unique_polygon_annotations = [polygon_annotations[i] for i in unique_indices]
+
+    return unique_polygon_annotations + other_annotations
 
 
 def _calculate_mask_iou(mask1: np.ndarray, mask2: np.ndarray) -> float:

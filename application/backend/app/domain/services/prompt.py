@@ -34,6 +34,7 @@ from domain.services.schemas.base import Pagination
 from domain.services.schemas.mappers.annotation import annotations_db_to_schemas
 from domain.services.schemas.mappers.label import label_db_to_schema
 from domain.services.schemas.mappers.prompt import (
+    deduplicate_annotations,
     prompt_create_schema_to_db,
     prompt_db_to_schema,
     prompt_update_schema_to_db,
@@ -228,6 +229,7 @@ class PromptService(BaseService):
         - Each frame can only be used once across all prompts
         - Annotations reference labels that must exist in the project
         - Only one text prompt is allowed per project
+        - Duplicate annotations are automatically removed
 
         Parameters:
             project_id: Owning project UUID.
@@ -273,6 +275,26 @@ class PromptService(BaseService):
                     resource_id=str(create_data.frame_id),
                     message=f"Frame {create_data.frame_id} does not exist in project {project_id}",
                 )
+
+            # Deduplicate annotations before validation and saving
+            frame = self.frame_repository.read_frame(project_id, create_data.frame_id)
+            if frame is None:
+                raise ResourceNotFoundError(
+                    resource_type=ResourceType.FRAME,
+                    resource_id=str(create_data.frame_id),
+                    message=f"Failed to read frame {create_data.frame_id}",
+                )
+
+            original_count = len(create_data.annotations)
+            create_data.annotations = deduplicate_annotations(
+                create_data.annotations, frame.shape[0], frame.shape[1]
+            )
+            if len(create_data.annotations) < original_count:
+                logger.info(
+                    "Removed %d duplicate annotations from visual prompt creation request",
+                    original_count - len(create_data.annotations),
+                )
+
             self._validate_annotation_labels(create_data.annotations, project_id)
             thumbnail = self._generate_thumbnail(project_id, create_data.frame_id, create_data.annotations)
 
@@ -345,6 +367,7 @@ class PromptService(BaseService):
         - If frame_id is updated, validates the new frame exists
         - If annotations are updated, they replace the existing ones
         - Annotation label_ids are validated to exist in the project
+        - Duplicate annotations are automatically removed
 
         Parameters:
             project_id: Owning project UUID.
@@ -436,6 +459,27 @@ class PromptService(BaseService):
                 regenerate_thumbnail = True
 
         if update_data.annotations is not None:
+            # Deduplicate annotations before validation and saving
+            frame_id = update_data.frame_id if update_data.frame_id is not None else prompt.frame_id
+            if frame_id:
+                frame = self.frame_repository.read_frame(project_id, frame_id)
+                if frame is None:
+                    raise ResourceNotFoundError(
+                        resource_type=ResourceType.FRAME,
+                        resource_id=str(frame_id),
+                        message=f"Failed to read frame {frame_id}",
+                    )
+
+                original_count = len(update_data.annotations)
+                update_data.annotations = deduplicate_annotations(
+                    update_data.annotations, frame.shape[0], frame.shape[1]
+                )
+                if len(update_data.annotations) < original_count:
+                    logger.info(
+                        "Removed %d duplicate annotations from visual prompt update request",
+                        original_count - len(update_data.annotations),
+                    )
+
             self._validate_annotation_labels(update_data.annotations, project_id)
             regenerate_thumbnail = True
 
