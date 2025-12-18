@@ -33,12 +33,15 @@ This starts:
 - Backend API at `http://<your-ip>:9100`
 - Frontend UI at `http://<your-ip>:3000`
 
+Ports can be customized using the `port` and `ui-port` variables (see below).
+
 #### Supported Variables
 
 | Variable | Default | Options | Description |
 |----------|---------|---------|-------------|
 | `port` | `9100` | Any port | Backend API server port |
-| `device` | `cpu` | `cpu`, `cu126`, `cu128`, `xpu` | ML inference device (backend only) |
+| `ui-port` | `3000` | Any port | Frontend UI server port |
+| `device` | `cpu` | `cpu`, `cu126`, `xpu` | ML inference device (backend only) |
 | `enable-coturn` | `false` | `true`, `false` | Start Coturn TURN server (backend only) |
 | `stun-server` | `""` | STUN URL | External STUN server URL (backend only) |
 | `coturn-port` | `443` | Any port | Coturn server port (backend only) |
@@ -51,8 +54,14 @@ This starts:
 # Default (CPU, port 9100)
 just application/dev
 
-# Custom port
+# Custom backend port
 just port=8080 application/dev
+
+# Custom UI port
+just ui-port=4000 application/dev
+
+# Custom backend and UI ports
+just port=8080 ui-port=4000 application/dev
 
 # With GPU
 just device=cu126 application/dev
@@ -67,7 +76,7 @@ just stun-server="stun:stun.l.google.com:19302" application/dev
 just device=xpu application/dev
 
 # Combined options
-just device=cu126 enable-coturn=true port=8080 application/dev
+just device=cu126 enable-coturn=true port=8080 ui-port=4000 application/dev
 ```
 
 #### Access
