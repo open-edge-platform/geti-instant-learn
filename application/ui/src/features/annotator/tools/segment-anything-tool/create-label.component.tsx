@@ -116,6 +116,8 @@ interface CreateLabelOverlayProps {
     existingLabels: LabelType[];
 }
 
+const LABEL_OVERLAY_Z_INDEX = 10000000;
+
 const CreateLabelOverlay = ({ onClose, onSuccess, mousePosition, existingLabels }: CreateLabelOverlayProps) => {
     const nodeRef = useRef(null);
     const containerRef = useRef(getNodeRef());
@@ -133,7 +135,7 @@ const CreateLabelOverlay = ({ onClose, onSuccess, mousePosition, existingLabels 
                     left: mousePosition?.x,
                     top: mousePosition?.y,
                     transform: 'translate(-50%, -50%)',
-                    zIndex: 10000000,
+                    zIndex: LABEL_OVERLAY_Z_INDEX,
                 }}
             >
                 <View

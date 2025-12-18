@@ -5,12 +5,13 @@
 
 import { expect, http, test } from '@geti-prompt/test-fixtures';
 
+import { LabelsPage } from '../labels/labels-page';
 import { registerApiLabels } from '../labels/mocks';
 import { initializeWebRTC } from '../prompt/initialize-webrtc';
 import { WEBCAM_SOURCE } from '../prompt/mocks';
 import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations, expectToNotHaveAnnotations } from './utils';
 
-test(`Annotator`, async ({ network, page, context, streamPage, annotatorPage, labelsPage }) => {
+test(`Annotator`, async ({ network, page, context, streamPage, annotatorPage }) => {
     test.setTimeout(ANNOTATOR_PAGE_TIMEOUT);
 
     await initializeWebRTC({ page, context, network });
@@ -48,79 +49,70 @@ test(`Annotator`, async ({ network, page, context, streamPage, annotatorPage, la
     await test.step('Captures frame', async () => {
         await streamPage.captureFrame();
 
-        await expect(annotatorPage.getCapturedFrame()).toBeVisible();
+        await expect(annotatorPage.getFullScreen().getCapturedFrame()).toBeVisible();
     });
 
+    const annotatorPageFullScreen = annotatorPage.getFullScreen();
+    const labelsPageFullsScreen = new LabelsPage(page, annotatorPageFullScreen.getScope());
+
     await test.step('Adds annotation', async () => {
-        await expect(page.getByText('Processing image, please wait...')).toBeVisible({
+        await expect(annotatorPageFullScreen.getProcessingImage()).toBeVisible({
             timeout: ANNOTATOR_PAGE_TIMEOUT,
         });
-        await expect(page.getByText('Processing image, please wait...')).toBeHidden({
+        await expect(annotatorPageFullScreen.getProcessingImage()).toBeHidden({
             timeout: ANNOTATOR_PAGE_TIMEOUT,
         });
 
-        await annotatorPage.addAnnotation();
-        await labelsPage.addLabel('Label 1');
+        await annotatorPageFullScreen.addAnnotation();
+        await labelsPageFullsScreen.addLabel('Label 1');
 
-        await expect(labelsPage.getLabel('Label 1')).toBeVisible();
-        await expectToHaveAnnotations({ annotatorPage });
+        await expect(labelsPageFullsScreen.getLabel('Label 1')).toBeVisible();
+        await expectToHaveAnnotations({ annotatorPage: annotatorPageFullScreen });
     });
 
     await test.step('Hides/Shows annotations', async () => {
-        await expectToHaveAnnotations({ annotatorPage });
+        await expectToHaveAnnotations({ annotatorPage: annotatorPageFullScreen });
 
-        await annotatorPage.hideAnnotations();
+        await annotatorPageFullScreen.hideAnnotations();
 
-        await expectToNotHaveAnnotations({ annotatorPage });
+        await expectToNotHaveAnnotations({ annotatorPage: annotatorPageFullScreen });
 
-        await annotatorPage.showAnnotations();
+        await annotatorPageFullScreen.showAnnotations();
 
-        await expectToHaveAnnotations({ annotatorPage });
+        await expectToHaveAnnotations({ annotatorPage: annotatorPageFullScreen });
     });
 
     await test.step('Undoes/redoes annotations', async () => {
-        await expectToHaveAnnotations({ annotatorPage });
+        await expectToHaveAnnotations({ annotatorPage: annotatorPageFullScreen });
 
-        await annotatorPage.undoAnnotation();
+        await annotatorPageFullScreen.undoAnnotation();
 
-        await expectToNotHaveAnnotations({ annotatorPage });
+        await expectToNotHaveAnnotations({ annotatorPage: annotatorPageFullScreen });
 
-        await annotatorPage.redoAnnotation();
+        await annotatorPageFullScreen.redoAnnotation();
 
-        await expectToHaveAnnotations({ annotatorPage });
+        await expectToHaveAnnotations({ annotatorPage: annotatorPageFullScreen });
     });
 
     await test.step('Plays with zoom', async () => {
-        const initialZoom = await (await annotatorPage.getZoomValue()).innerText();
+        const initialZoom = await (await annotatorPageFullScreen.getZoomValue()).innerText();
 
-        await annotatorPage.zoomIn();
-        await annotatorPage.zoomIn();
-        await annotatorPage.zoomIn();
+        await annotatorPageFullScreen.zoomIn();
+        await annotatorPageFullScreen.zoomIn();
+        await annotatorPageFullScreen.zoomIn();
 
-        await annotatorPage.zoomOut();
-        await annotatorPage.zoomOut();
-        await annotatorPage.zoomOut();
+        await annotatorPageFullScreen.zoomOut();
+        await annotatorPageFullScreen.zoomOut();
+        await annotatorPageFullScreen.zoomOut();
 
-        await expect(await annotatorPage.getZoomValue()).toHaveText(initialZoom);
+        await expect(await annotatorPageFullScreen.getZoomValue()).toHaveText(initialZoom);
 
-        await annotatorPage.zoomIn();
-        await annotatorPage.zoomIn();
-        await annotatorPage.zoomIn();
+        await annotatorPageFullScreen.zoomIn();
+        await annotatorPageFullScreen.zoomIn();
+        await annotatorPageFullScreen.zoomIn();
 
-        await annotatorPage.fitToScreen();
+        await annotatorPageFullScreen.fitToScreen();
 
-        await expect(await annotatorPage.getZoomValue()).toHaveText(initialZoom);
-    });
-
-    await test.step('Changes to fullscreen', async () => {
-        await annotatorPage.openFullscreen();
-
-        await expectToHaveAnnotations({ annotatorPage });
-
-        // Open settings just for fun
-        await annotatorPage.openSettings();
-        await annotatorPage.closeSettings();
-
-        await annotatorPage.closeFullscreen();
+        await expect(await annotatorPageFullScreen.getZoomValue()).toHaveText(initialZoom);
     });
 });

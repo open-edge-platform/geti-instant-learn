@@ -3,13 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Page } from '@playwright/test';
+import { Locator, Page } from '@playwright/test';
 
 export class LabelsPage {
-    constructor(private page: Page) {}
+    constructor(
+        private readonly page: Page,
+        private readonly scope: Locator = page.locator('body')
+    ) {}
 
     async showDialog() {
-        await this.page.getByRole('button', { name: 'Add Label' }).click();
+        await this.scope.getByRole('button', { name: 'Add Label' }).click();
     }
 
     private async enterName(name: string) {
@@ -25,7 +28,7 @@ export class LabelsPage {
     }
 
     getLabel(name: string) {
-        return this.page.getByLabel(`Label ${name}`);
+        return this.scope.getByLabel(`Label ${name}`);
     }
 
     async addLabel(name: string) {
