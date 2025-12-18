@@ -8,6 +8,7 @@ set shell := ["bash", "-cu"]
 # Runtime variables
 # -------------------------------------------------------------------------------------------------
 port := "9100"
+ui-port := "3000"
 webcam-device := "/dev/video0"
 data-dir := ""
 host := "0.0.0.0"
@@ -53,7 +54,7 @@ dev:
     trap 'kill $(jobs -p) 2>/dev/null || true; {{ if enable-coturn == "true" { "just stop-coturn" } else { "" } }}' EXIT
 
     (cd backend && just port={{ port }} host={{ host }} device={{ device }} enable-coturn={{ enable-coturn }} stun-server={{ stun-server }} coturn-port={{ coturn-port }} dev) &
-    (cd ui && npm install && npm start) &
+    (cd ui && npm install && PORT={{ ui-port }} npm start) &
 
     wait
 

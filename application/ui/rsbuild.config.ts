@@ -59,6 +59,7 @@ export default defineConfig({
     },
 
     server: {
+        port: process.env.PORT ? Number(process.env.PORT) : 3000,
         headers: {
             'Cross-Origin-Embedder-Policy': 'credentialless',
             'Cross-Origin-Opener-Policy': 'same-origin',
