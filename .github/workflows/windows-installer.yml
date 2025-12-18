@@ -158,8 +158,14 @@ jobs:
         run: |
           $bytes = [System.Convert]::FromBase64String($env:MSIX_SIGN_CERTIFICATE)
           [System.IO.File]::WriteAllBytes("sign.pfx", $bytes)
-          & "${{ env.SIGNTOOL_PATH }}" sign /fd SHA256 /a /f "sign.pfx" /p "$env:MSIX_SIGN_CERTIFICATE_PASSWORD" ${{ env.UI_MSIX_BUNDLE_PATH }}\geti-prompt-$env:AI_DEVICE-$env:BUILD_VERSION.msix
-          rm sign.pfx
+          try {
+            & "${{ env.SIGNTOOL_PATH }}" sign /fd SHA256 /a /f "sign.pfx" /p "$env:MSIX_SIGN_CERTIFICATE_PASSWORD" ${{ env.UI_MSIX_BUNDLE_PATH }}\geti-prompt-$env:AI_DEVICE-$env:BUILD_VERSION.msix
+          }
+          finally {
+            if (Test-Path "sign.pfx") {
+              Remove-Item "sign.pfx" -Force
+            }
+          }
 
       - name: Upload MSIX package
         uses: actions/upload-artifact@v4
