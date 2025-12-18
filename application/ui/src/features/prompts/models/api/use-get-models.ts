@@ -24,7 +24,7 @@ const useGetModelsQuery = (): ModelListType => {
     return data;
 };
 
-const getModel = (id: string): ModelType => {
+const getDefaultModel = (id: string): ModelType => {
     return {
         id,
         config: {
@@ -49,7 +49,7 @@ export const useGetModels = () => {
     useEffect(() => {
         if (models.length === 0 && !hasCreatedModel.current) {
             hasCreatedModel.current = true;
-            createModel(getModel(uuid()));
+            createModel(getDefaultModel(uuid()));
         }
     }, [models.length, createModel]);
 
