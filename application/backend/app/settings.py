@@ -99,7 +99,6 @@ class Settings(BaseSettings):
     thumbnail_jpeg_quality: int = 85
 
     # WebRTC
-    ice_servers: list[dict] = Field(default=[], alias="ICE_SERVERS")
     webrtc_advertise_ip: str | None = Field(default=None, alias="WEBRTC_ADVERTISE_IP")
 
     # Simplified WebRTC config
@@ -109,11 +108,9 @@ class Settings(BaseSettings):
     coturn_password: str = Field(default="password", alias="COTURN_PASSWORD")
     stun_server: str | None = Field(default=None, alias="STUN_SERVER")
 
-    @model_validator(mode="after")
-    def compute_ice_servers(self) -> "Settings":
-        if self.ice_servers:
-            return self
-
+    @property
+    def ice_servers(self) -> list[dict]:
+        """Compute ICE servers from coturn and STUN configuration."""
         servers = []
         if self.coturn_host:
             servers.append(
@@ -127,8 +124,7 @@ class Settings(BaseSettings):
         if self.stun_server:
             servers.append({"urls": self.stun_server})
 
-        self.ice_servers = servers
-        return self
+        return servers
 
     @field_validator("static_files_dir", "alembic_config_path", "alembic_script_location", mode="after")
     def prefix_paths(cls, v: str | None) -> str | None:

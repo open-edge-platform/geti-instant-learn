@@ -43,6 +43,8 @@ This starts:
 | `stun-server` | `""` | STUN URL | External STUN server URL (backend only) |
 | `coturn-port` | `443` | Any port | Coturn server port (backend only) |
 
+> **Note:** For details on configuring WebRTC networking with Coturn and STUN servers, see [WebRTC Networking](concepts/02-development.md#webrtc-networking).
+
 #### Usage Examples
 
 ```bash
