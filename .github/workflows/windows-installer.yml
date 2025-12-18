@@ -38,6 +38,7 @@ env:
   UI_TARGET_RELEASE_PATH: .\application\ui\src-tauri\target\release
   UI_MSIX_BUNDLE_PATH: .\application\ui\src-tauri\target\release\bundle\msix
   MAKEAPP_PATH: "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.26100.0\\x64\\makeappx.exe"
+  SIGNTOOL_PATH: "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.26100.0\\x64\\signtool.exe"
 
 jobs:
   windows-installer:
@@ -147,6 +148,18 @@ jobs:
           cp -r ${{ env.UI_TARGET_RELEASE_PATH }}\InitialData ${{ env.UI_MSIX_BUNDLE_PATH }}
           cp -r ${{ env.UI_SRC_TAURI_PATH }}\msix\* ${{ env.UI_MSIX_BUNDLE_PATH }}
           & "${{ env.MAKEAPP_PATH }}" pack /d ${{ env.UI_MSIX_BUNDLE_PATH }} /p ${{ env.UI_MSIX_BUNDLE_PATH }}\geti-prompt-$env:AI_DEVICE-$env:BUILD_VERSION.msix
+
+      - name: Sign MSIX package
+        env:
+          MSIX_SIGN_CERTIFICATE: ${{ secrets.MSIX_SIGN_CERTIFICATE }}
+          MSIX_SIGN_CERTIFICATE_PASSWORD: ${{ secrets.MSIX_SIGN_CERTIFICATE_PASSWORD }}
+          BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
+          AI_DEVICE: ${{ inputs.ai_device || 'xpu' }}
+        run: |
+          $bytes = [System.Convert]::FromBase64String($env:MSIX_SIGN_CERTIFICATE)
+          [System.IO.File]::WriteAllBytes("sign.pfx", $bytes)
+          & "${{ env.SIGNTOOL_PATH }}" sign /fd SHA256 /a /f "sign.pfx" /p "$env:MSIX_SIGN_CERTIFICATE_PASSWORD" ${{ env.UI_MSIX_BUNDLE_PATH }}\geti-prompt-$env:AI_DEVICE-$env:BUILD_VERSION.msix
+          rm sign.pfx
 
       - name: Upload MSIX package
         uses: actions/upload-artifact@v4
