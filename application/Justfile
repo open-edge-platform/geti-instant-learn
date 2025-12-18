@@ -48,7 +48,9 @@ dev:
 
     export PUBLIC_API_URL="http://{{ host-ip }}:{{ port }}"
 
-    trap 'kill $(jobs -p) 2>/dev/null || true' EXIT
+    {{ if enable-coturn == "true" { "just run-coturn" } else { "" } }}
+
+    trap 'kill $(jobs -p) 2>/dev/null || true; {{ if enable-coturn == "true" { "just stop-coturn" } else { "" } }}' EXIT
 
     (cd backend && just port={{ port }} host={{ host }} device={{ device }} enable-coturn={{ enable-coturn }} stun-server={{ stun-server }} coturn-port={{ coturn-port }} dev) &
     (cd ui && npm install && npm start) &
