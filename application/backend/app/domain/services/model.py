@@ -320,6 +320,8 @@ class ModelService(BaseService):
         if not project:
             logger.error(f"Project not found id={project_id}")
             raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
-        sam_models = [str(model.value) for model in SAMModelName if model in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}]
+        sam_models = [
+            str(model.value) for model in SAMModelName if model in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}
+        ]
         encoder_models = list(AVAILABLE_IMAGE_ENCODERS.keys())
         return SupportedModelsSchema(sam_models=sam_models, encoder_models=encoder_models)
