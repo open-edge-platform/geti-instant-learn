@@ -130,6 +130,8 @@ jobs:
         run: npm run build:api:types
 
       - name: Build Tauri app
+        env:
+          PUBLIC_API_URL: http://localhost:9100
         working-directory: application/ui
         run: npm run tauri build
 
