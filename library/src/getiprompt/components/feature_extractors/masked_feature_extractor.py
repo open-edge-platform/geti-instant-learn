@@ -7,9 +7,10 @@ from collections import defaultdict
 
 import torch
 from torch import nn
-from torch.nn import functional as F
+from torchvision import transforms
 
 from getiprompt.components.feature_extractors.reference_features import ReferenceFeatures
+from getiprompt.data.transforms import ToTensor
 
 
 class MaskedFeatureExtractor(nn.Module):
@@ -38,41 +39,15 @@ class MaskedFeatureExtractor(nn.Module):
         self.device = device
         self.num_patches = (input_size // patch_size) ** 2
 
-        # Traceable mask pooling (replaces transforms.Compose with lambdas)
-        self.mask_pool = nn.MaxPool2d(kernel_size=patch_size)
-
-    def _pool_mask(self, mask: torch.Tensor, target_device: torch.device) -> torch.Tensor:
-        """Pool mask to patch grid.
-
-        Uses max pooling with inversion to preserve foreground regions.
-        This is a traceable alternative to the previous transform pipeline.
-
-        Args:
-            mask: Binary mask of shape [H, W] or [1, H, W]
-            target_device: Device to place the result on
-
-        Returns:
-            Pooled mask of shape [num_patches] as float tensor
-        """
-        # Ensure 4D: [1, 1, H, W]
-        if mask.ndim == 2:
-            mask = mask.unsqueeze(0).unsqueeze(0)
-        elif mask.ndim == 3:
-            mask = mask.unsqueeze(0)
-
-        # Resize to input_size
-        mask = F.interpolate(
-            mask.float(),
-            size=(self.input_size, self.input_size),
-            mode="nearest",
-        )
-
-        # Invert -> maxpool -> invert back (preserves foreground under pooling)
-        mask = 1 - mask
-        mask = self.mask_pool(mask)
-        mask = 1 - mask
-
-        return mask.flatten().to(target_device)
+        self.transform = transforms.Compose([
+            ToTensor(),
+            transforms.Lambda(lambda x: x.unsqueeze(0) if x.ndim == 2 else x),
+            transforms.Lambda(lambda x: x.float()),
+            transforms.Resize([input_size, input_size]),
+            transforms.Lambda(lambda x: (x * -1) + 1),
+            torch.nn.MaxPool2d(kernel_size=(patch_size, patch_size)),
+            transforms.Lambda(lambda x: (x * -1) + 1),
+        ])
 
     def forward(
         self,
@@ -116,11 +91,11 @@ class MaskedFeatureExtractor(nn.Module):
         ):
             for category_id, mask in zip(category_ids_tensor, masks_tensor, strict=True):
                 cat_id = category_id.item()
-                pooled_mask = self._pool_mask(mask, device)
+                pooled_mask = self.transform(mask).to(embedding.device)
                 masks_per_cat[cat_id].append(pooled_mask)
 
                 # Extract masked embeddings
-                keep = pooled_mask.bool()
+                keep = pooled_mask.flatten().bool()
                 masked_embedding = embedding[keep]
                 masked_embeddings_per_cat[cat_id].append(masked_embedding)
 

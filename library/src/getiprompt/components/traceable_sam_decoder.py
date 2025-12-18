@@ -38,7 +38,7 @@ class TraceableSamDecoder(nn.Module):
         target_length: int = 1024,
         mask_similarity_threshold: float = 0.38,
         nms_iou_threshold: float = 0.1,
-        max_masks_per_category: int = 10,
+        max_masks_per_category: int = 40,
     ) -> None:
         """Initialize the traceable SAM decoder."""
         super().__init__()
