@@ -29,8 +29,8 @@ jobs:
         env:
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just ai-device="${DEVICE}" docker-build-context="--no-cache" build-image
-          IMAGE_NAME=$(just --evaluate ai-device="${DEVICE}" docker-image)
+          just build-target="${DEVICE}" docker-build-context="--no-cache" build-image
+          IMAGE_NAME=$(just --evaluate build-target="${DEVICE}" image-name)
           echo "image=${IMAGE_NAME}" >> $GITHUB_OUTPUT
           echo "Image: ${IMAGE_NAME}"
 

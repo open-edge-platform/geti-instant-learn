@@ -9,7 +9,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     environment: Literal["dev", "prod"] = "dev"
 
     static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
+
+    # Runtime
+    device: Literal["cpu", "cuda", "xpu"] = Field(default="cpu", alias="DEVICE")
 
     # Server
     host: str = Field(default="localhost", alias="HOST")
@@ -98,6 +101,34 @@ class Settings(BaseSettings):
     # WebRTC
     ice_servers: list[dict] = Field(default=[], alias="ICE_SERVERS")
     webrtc_advertise_ip: str | None = Field(default=None, alias="WEBRTC_ADVERTISE_IP")
+
+    # Simplified WebRTC config
+    coturn_host: str | None = Field(default=None, alias="COTURN_HOST")
+    coturn_port: int = Field(default=3478, alias="COTURN_PORT")
+    coturn_username: str = Field(default="user", alias="COTURN_USERNAME")
+    coturn_password: str = Field(default="password", alias="COTURN_PASSWORD")
+    stun_server: str | None = Field(default=None, alias="STUN_SERVER")
+
+    @model_validator(mode="after")
+    def compute_ice_servers(self) -> "Settings":
+        if self.ice_servers:
+            return self
+
+        servers = []
+        if self.coturn_host:
+            servers.append(
+                {
+                    "urls": f"turn:{self.coturn_host}:{self.coturn_port}?transport=tcp",
+                    "username": self.coturn_username,
+                    "credential": self.coturn_password,
+                }
+            )
+
+        if self.stun_server:
+            servers.append({"urls": self.stun_server})
+
+        self.ice_servers = servers
+        return self
 
     @field_validator("static_files_dir", "alembic_config_path", "alembic_script_location", mode="after")
     def prefix_paths(cls, v: str | None) -> str | None:
