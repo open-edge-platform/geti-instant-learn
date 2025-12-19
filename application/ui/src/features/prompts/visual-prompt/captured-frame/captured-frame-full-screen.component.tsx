@@ -53,7 +53,7 @@ export const CapturedFrameFullScreen = () => {
                         </Flex>
                     </Content>
                     <ButtonGroup>
-                        <ActionButton aria-label={'Close full screen'} onPress={closeFullScreenMode}>
+                        <ActionButton isQuiet aria-label={'Close full screen'} onPress={closeFullScreenMode}>
                             <Close />
                         </ActionButton>
                     </ButtonGroup>
