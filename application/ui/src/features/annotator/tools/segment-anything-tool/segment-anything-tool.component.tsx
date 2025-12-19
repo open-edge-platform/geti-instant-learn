@@ -17,7 +17,7 @@ import { useAnnotator } from '../../providers/annotator-provider.component';
 import { Point, RegionOfInterest, type Annotation as AnnotationType, type Shape } from '../../types';
 import { SvgToolCanvas } from '../svg-tool-canvas.component';
 import { getRelativePoint, removeOffLimitPoints } from '../utils';
-import { CreateLabel } from './create-label.component';
+import { CreateLabelPopover } from './create-label.component';
 import { SAMLoading } from './sam-loading.component';
 import { useSegmentAnythingModel } from './use-segment-anything.hook';
 import { useSingleStackFn } from './use-single-stack-fn.hook';
@@ -176,7 +176,7 @@ export const SegmentAnythingTool = () => {
             >
                 <PreviewAnnotations previewAnnotations={previewAnnotations} image={image} />
             </SvgToolCanvas>
-            <CreateLabel
+            <CreateLabelPopover
                 ref={ref}
                 onSuccess={handleAddAnnotationsCreateLabel}
                 existingLabels={labels}
