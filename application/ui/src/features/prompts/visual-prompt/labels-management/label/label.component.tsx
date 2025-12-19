@@ -68,7 +68,7 @@ interface LabelButonProps {
     children: ReactNode;
 }
 
-const LabelButon = ({ isDisabled, children, color }: LabelButonProps) => {
+const LabelButton = ({ isDisabled, children, color }: LabelButonProps) => {
     const { isButtonDisabled } = useLabelContext();
 
     return (
@@ -183,7 +183,7 @@ export const Label = ({ children, label, existingLabels }: LabelProps) => {
 Label.Form = LabelForm;
 Label.NameField = LabelName;
 Label.ColorPicker = LabelColorPicker;
-Label.Button = LabelButon;
+Label.Button = LabelButton;
 
 const useLabelContext = () => {
     const context = use(LabelContext);
