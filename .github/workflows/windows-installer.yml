@@ -165,13 +165,20 @@ jobs:
         run: npm run build:api:types
 
       - name: Build Tauri app
+        if: inputs.debug_build == 'true'
         env:
           PUBLIC_API_URL: http://localhost:9100
-          DEBUG_BUILD: ${{ inputs.debug_build }}
         working-directory: application/ui
         run: |
-          $FLAGS = $(IF ($env:DEBUG_BUILD -eq "true") {"--debug"} else {""})
-          cargo tauri build $FLAGS
+          cargo tauri build --debug
+
+      - name: Build Tauri app
+        if: inputs.debug_build == 'false'
+        env:
+          PUBLIC_API_URL: http://localhost:9100
+        working-directory: application/ui
+        run: |
+          cargo tauri build
 
       # Build MSIX bundle
 
