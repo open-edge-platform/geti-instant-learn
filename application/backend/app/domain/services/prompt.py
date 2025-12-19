@@ -280,23 +280,23 @@ class PromptService(BaseService):
                     message=f"Frame {normalized_data.frame_id} does not exist in project {project_id}",
                 )
 
-            # Deduplicate annotations before validation and saving
-            frame = self.frame_repository.read_frame(project_id, create_data.frame_id)
+            # Deduplicate annotations after normalization
+            frame = self.frame_repository.read_frame(project_id, normalized_data.frame_id)
             if frame is None:
                 raise ResourceNotFoundError(
                     resource_type=ResourceType.FRAME,
-                    resource_id=str(create_data.frame_id),
-                    message=f"Failed to read frame {create_data.frame_id}",
+                    resource_id=str(normalized_data.frame_id),
+                    message=f"Failed to read frame {normalized_data.frame_id}",
                 )
 
-            original_count = len(create_data.annotations)
-            create_data.annotations = deduplicate_annotations(
-                create_data.annotations, frame.shape[0], frame.shape[1]
+            original_count = len(normalized_data.annotations)
+            normalized_data.annotations = deduplicate_annotations(
+                normalized_data.annotations, frame.shape[0], frame.shape[1]
             )
-            if len(create_data.annotations) < original_count:
+            if len(normalized_data.annotations) < original_count:
                 logger.info(
                     "Removed %d duplicate annotations from visual prompt creation request",
-                    original_count - len(create_data.annotations),
+                    original_count - len(normalized_data.annotations),
                 )
 
             self._validate_annotation_labels(normalized_data.annotations, project_id)
@@ -412,7 +412,7 @@ class PromptService(BaseService):
 
         regenerate_thumbnail = False
         if isinstance(update_data, VisualPromptUpdateSchema):
-            regenerate_thumbnail = self._handle_visual_prompt_update(prompt, update_data, project_id)
+            update_data, regenerate_thumbnail = self._handle_visual_prompt_update(prompt, update_data, project_id)
 
         try:
             with self.db_transaction():
@@ -437,7 +437,7 @@ class PromptService(BaseService):
 
     def _handle_visual_prompt_update(
         self, prompt: PromptDB, update_data: VisualPromptUpdateSchema, project_id: UUID
-    ) -> bool:
+    ) -> (VisualPromptUpdateSchema, bool):
         """
         Handle visual prompt frame updates and cleanup.
 
@@ -465,7 +465,6 @@ class PromptService(BaseService):
                 regenerate_thumbnail = True
 
         if update_data.annotations is not None:
-            # Deduplicate annotations before validation and saving
             frame_id = update_data.frame_id if update_data.frame_id is not None else prompt.frame_id
             if frame_id:
                 frame = self.frame_repository.read_frame(project_id, frame_id)
@@ -475,21 +474,23 @@ class PromptService(BaseService):
                         resource_id=str(frame_id),
                         message=f"Failed to read frame {frame_id}",
                     )
+                height, width = frame.shape[:2]
 
-                original_count = len(update_data.annotations)
-                update_data.annotations = deduplicate_annotations(
-                    update_data.annotations, frame.shape[0], frame.shape[1]
-                )
-                if len(update_data.annotations) < original_count:
+                normalized_data = self._normalization(project_id=project_id, data=update_data)
+
+                original_count = len(normalized_data.annotations)
+                normalized_data.annotations = deduplicate_annotations(normalized_data.annotations, height, width)
+                if len(normalized_data.annotations) < original_count:
                     logger.info(
                         "Removed %d duplicate annotations from visual prompt update request",
-                        original_count - len(update_data.annotations),
+                        original_count - len(normalized_data.annotations),
                     )
+                update_data.annotations = normalized_data.annotations
 
             self._validate_annotation_labels(update_data.annotations, project_id)
             regenerate_thumbnail = True
 
-        return regenerate_thumbnail
+        return update_data, regenerate_thumbnail
 
     def _validate_annotation_labels(self, annotations: list, project_id: UUID) -> None:
         """
@@ -640,7 +641,9 @@ class PromptService(BaseService):
                 )
             )
 
-    def _normalization(self, project_id: UUID, data: VisualPromptCreateSchema) -> VisualPromptCreateSchema:
+    def _normalization(
+        self, project_id: UUID, data: VisualPromptCreateSchema | VisualPromptUpdateSchema
+    ) -> VisualPromptCreateSchema | VisualPromptUpdateSchema:
         """Normalize pixel coordinates to [0, 1] range."""
 
         frame = self.frame_repository.read_frame(project_id=project_id, frame_id=data.frame_id)
@@ -651,9 +654,10 @@ class PromptService(BaseService):
             )
         height, width = frame.shape[:2]
 
-        for annotation in data.annotations:
-            normalized_points = [Point(x=point.x / width, y=point.y / height) for point in annotation.config.points]
-            annotation.config.points = normalized_points
+        if data.annotations is not None:
+            for annotation in data.annotations:
+                normalized_points = [Point(x=point.x / width, y=point.y / height) for point in annotation.config.points]
+                annotation.config.points = normalized_points
 
         return data
 

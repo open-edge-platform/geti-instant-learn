@@ -143,7 +143,7 @@ def prompt_update_schema_to_db(prompt_db: PromptDB, schema: PromptUpdateSchema) 
     return prompt_db
 
 
-def visual_prompt_to_sample(  # noqa: C901
+def visual_prompt_to_sample(
     prompt: PromptDB,
     frame: np.ndarray,
     label_to_category_id: dict[UUID, int],

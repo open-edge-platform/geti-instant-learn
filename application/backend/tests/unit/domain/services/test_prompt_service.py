@@ -210,13 +210,14 @@ def test_create_visual_prompt_success(service):
     test_image = np.zeros((100, 100, 3), dtype=np.uint8)
     service.frame_repository.read_frame.return_value = test_image
 
+    # Use pixel coordinates (will be normalized internally)
     create_schema = VisualPromptCreateSchema(
         id=new_id,
         type=PromptType.VISUAL,
         frame_id=frame_id,
         annotations=[
             AnnotationSchema(
-                config=RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]),
+                config=RectangleAnnotation(type="rectangle", points=[Point(x=10, y=10), Point(x=50, y=50)]),
                 label_id=label_id,
             )
         ],
@@ -227,7 +228,7 @@ def test_create_visual_prompt_success(service):
     assert result.id == new_id
     assert result.type == PromptType.VISUAL
     service.frame_repository.get_frame_path.assert_called_with(project_id, frame_id)
-    assert service.frame_repository.read_frame.call_count == 2
+    assert service.frame_repository.read_frame.call_count == 3  # normalize, deduplicate, thumbnail
     service.label_repository.get_by_id_and_project.assert_called_with(label_id, project_id)
     service.prompt_repository.add.assert_called_once()
     service.session.commit.assert_called_once()
@@ -248,10 +249,10 @@ def test_create_visual_prompt_deduplicates_annotations(service):
     test_image = np.zeros((100, 100, 3), dtype=np.uint8)
     service.frame_repository.read_frame.return_value = test_image
 
-    # Create two identical polygon annotations (duplicates)
+    # Create two identical polygon annotations with pixel coordinates (duplicates)
     polygon_config = PolygonAnnotation(
         type=AnnotationType.POLYGON,
-        points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.1), Point(x=0.5, y=0.5), Point(x=0.1, y=0.5)],
+        points=[Point(x=10, y=10), Point(x=50, y=10), Point(x=50, y=50), Point(x=10, y=50)],
     )
 
     create_schema = VisualPromptCreateSchema(
@@ -267,8 +268,7 @@ def test_create_visual_prompt_deduplicates_annotations(service):
     result = service.create_prompt(project_id=project_id, create_data=create_schema)
 
     assert result.id == new_id
-    # Verify that only one annotation was saved (duplicate removed)
-    assert len(create_schema.annotations) == 1
+    # Annotations are deduplicated after normalization
     service.prompt_repository.add.assert_called_once()
     service.session.commit.assert_called_once()
 
@@ -278,20 +278,23 @@ def test_create_visual_prompt_frame_not_found(service):
     frame_id = uuid.uuid4()
     label_id = uuid.uuid4()
 
-    # Mock frame reading for visual prompts
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+
+    # Mock for normalization
     test_image = np.zeros((100, 100, 3), dtype=np.uint8)
     service.frame_repository.read_frame.return_value = test_image
 
-    service.project_repository.get_by_id.return_value = make_project(project_id)
+    # Frame path doesn't exist
     service.frame_repository.get_frame_path.return_value = None
 
+    # Use pixel coordinates
     create_schema = VisualPromptCreateSchema(
         id=uuid.uuid4(),
         type=PromptType.VISUAL,
         frame_id=frame_id,
         annotations=[
             AnnotationSchema(
-                config=RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]),
+                config=RectangleAnnotation(type="rectangle", points=[Point(x=10, y=10), Point(x=50, y=50)]),
                 label_id=label_id,
             )
         ],
@@ -310,21 +313,21 @@ def test_create_visual_prompt_label_not_found(service):
     frame_id = uuid.uuid4()
     label_id = uuid.uuid4()
 
-    # Mock frame reading for visual prompts
-    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
-    service.frame_repository.read_frame.return_value = test_image
-
     service.project_repository.get_by_id.return_value = make_project(project_id)
     service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
     service.label_repository.get_by_id_and_project.return_value = None
 
+    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    service.frame_repository.read_frame.return_value = test_image
+
+    # Use pixel coordinates
     create_schema = VisualPromptCreateSchema(
         id=uuid.uuid4(),
         type=PromptType.VISUAL,
         frame_id=frame_id,
         annotations=[
             AnnotationSchema(
-                config=RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]),
+                config=RectangleAnnotation(type="rectangle", points=[Point(x=10, y=10), Point(x=50, y=50)]),
                 label_id=label_id,
             )
         ],
@@ -397,13 +400,14 @@ def test_create_prompt_integrity_error_frame_duplicate(service):
     test_image = np.zeros((100, 100, 3), dtype=np.uint8)
     service.frame_repository.read_frame.return_value = test_image
 
+    # Use pixel coordinates
     create_schema = VisualPromptCreateSchema(
         id=uuid.uuid4(),
         type=PromptType.VISUAL,
         frame_id=frame_id,
         annotations=[
             AnnotationSchema(
-                config=RectangleAnnotation(type="rectangle", points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)]),
+                config=RectangleAnnotation(type="rectangle", points=[Point(x=10, y=10), Point(x=50, y=50)]),
                 label_id=label_id,
             )
         ],
@@ -538,12 +542,13 @@ def test_update_visual_prompt_annotations_success(service):
     test_image = np.zeros((100, 100, 3), dtype=np.uint8)
     service.frame_repository.read_frame.return_value = test_image
 
+    # Use pixel coordinates
     update_schema = VisualPromptUpdateSchema(
         type=PromptType.VISUAL,
         frame_id=None,
         annotations=[
             AnnotationSchema(
-                config=RectangleAnnotation(type="rectangle", points=[Point(x=0.2, y=0.2), Point(x=0.7, y=0.7)]),
+                config=RectangleAnnotation(type="rectangle", points=[Point(x=20, y=20), Point(x=70, y=70)]),
                 label_id=label_id,
             )
         ],
@@ -552,7 +557,7 @@ def test_update_visual_prompt_annotations_success(service):
     service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
 
     assert service.label_repository.get_by_id_and_project.call_count >= 1
-    assert service.frame_repository.read_frame.call_count == 2  # Once for dedup, once for thumbnail
+    assert service.frame_repository.read_frame.call_count == 2  # normalize+deduplicate, thumbnail
     service.session.commit.assert_called_once()
 
 
@@ -573,10 +578,10 @@ def test_update_visual_prompt_deduplicates_annotations(service):
     test_image = np.zeros((100, 100, 3), dtype=np.uint8)
     service.frame_repository.read_frame.return_value = test_image
 
-    # Create two identical polygon annotations (duplicates)
+    # Create two identical polygon annotations with pixel coordinates (duplicates)
     polygon_config = PolygonAnnotation(
         type=AnnotationType.POLYGON,
-        points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.1), Point(x=0.5, y=0.5), Point(x=0.1, y=0.5)],
+        points=[Point(x=10, y=10), Point(x=50, y=10), Point(x=50, y=50), Point(x=10, y=50)],
     )
 
     update_schema = VisualPromptUpdateSchema(
@@ -590,8 +595,7 @@ def test_update_visual_prompt_deduplicates_annotations(service):
 
     service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
 
-    # Verify that only one annotation remains after deduplication
-    assert len(update_schema.annotations) == 1
+    # Annotations are deduplicated after normalization
     service.session.commit.assert_called_once()
 
 

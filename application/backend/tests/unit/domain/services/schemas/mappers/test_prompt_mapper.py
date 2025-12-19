@@ -10,7 +10,13 @@ from getiprompt.data.base.sample import Sample
 
 from domain.db.models import PromptType
 from domain.errors import ServiceError
-from domain.services.schemas.annotation import AnnotationSchema, AnnotationType, Point, PolygonAnnotation, RectangleAnnotation
+from domain.services.schemas.annotation import (
+    AnnotationSchema,
+    AnnotationType,
+    Point,
+    PolygonAnnotation,
+    RectangleAnnotation,
+)
 from domain.services.schemas.mappers.prompt import deduplicate_annotations, visual_prompt_to_sample
 
 
@@ -50,7 +56,10 @@ class TestPromptMapper:
         label_shot_counts: dict[uuid.UUID, int] = {}
 
         result = visual_prompt_to_sample(
-            prompt_db, frame=sample_frame, label_to_category_id=label_to_category_id, label_shot_counts=label_shot_counts
+            prompt_db,
+            frame=sample_frame,
+            label_to_category_id=label_to_category_id,
+            label_shot_counts=label_shot_counts,
         )
 
         assert result is not None
@@ -88,7 +97,10 @@ class TestPromptMapper:
 
         with pytest.raises(ServiceError, match="must have at least one polygon annotation"):
             visual_prompt_to_sample(
-                prompt_db, frame=sample_frame, label_to_category_id=label_to_category_id, label_shot_counts=label_shot_counts
+                prompt_db,
+                frame=sample_frame,
+                label_to_category_id=label_to_category_id,
+                label_shot_counts=label_shot_counts,
             )
 
     def test_visual_prompt_to_sample_with_multiple_polygons(self, sample_frame):
@@ -131,7 +143,10 @@ class TestPromptMapper:
         label_shot_counts: dict[uuid.UUID, int] = {}
 
         result = visual_prompt_to_sample(
-            prompt_db, frame=sample_frame, label_to_category_id=label_to_category_id, label_shot_counts=label_shot_counts
+            prompt_db,
+            frame=sample_frame,
+            label_to_category_id=label_to_category_id,
+            label_shot_counts=label_shot_counts,
         )
 
         assert result is not None
@@ -160,7 +175,10 @@ class TestPromptMapper:
 
         with pytest.raises(ServiceError, match="Cannot convert non-visual prompt"):
             visual_prompt_to_sample(
-                prompt_db, frame=sample_frame, label_to_category_id=label_to_category_id, label_shot_counts=label_shot_counts
+                prompt_db,
+                frame=sample_frame,
+                label_to_category_id=label_to_category_id,
+                label_shot_counts=label_shot_counts,
             )
 
     def test_visual_prompt_to_sample_raises_error_without_annotations(self, sample_frame):
@@ -181,7 +199,10 @@ class TestPromptMapper:
 
         with pytest.raises(ServiceError, match="has no valid annotations"):
             visual_prompt_to_sample(
-                prompt_db, frame=sample_frame, label_to_category_id=label_to_category_id, label_shot_counts=label_shot_counts
+                prompt_db,
+                frame=sample_frame,
+                label_to_category_id=label_to_category_id,
+                label_shot_counts=label_shot_counts,
             )
 
     def test_deduplicate_annotations_removes_exact_duplicates(self):
