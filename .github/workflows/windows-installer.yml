@@ -165,7 +165,7 @@ jobs:
         run: npm run build:api:types
 
       - name: Build Tauri app
-        if: inputs.debug_build == 'true'
+        if: inputs.debug_build == true
         env:
           PUBLIC_API_URL: http://localhost:9100
         working-directory: application/ui
@@ -173,7 +173,7 @@ jobs:
           cargo tauri build --debug
 
       - name: Build Tauri app
-        if: inputs.debug_build == 'false'
+        if: inputs.debug_build == false
         env:
           PUBLIC_API_URL: http://localhost:9100
         working-directory: application/ui
