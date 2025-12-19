@@ -22,10 +22,10 @@ from domain.services.schemas.mappers.prompt import deduplicate_annotations, visu
 
 class TestPromptMapper:
     @pytest.fixture
-    def sample_frame(self):
+    def sample_frame(self) -> np.ndarray:
         return np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
 
-    def test_visual_prompt_to_sample_with_frame(self, sample_frame):
+    def test_visual_prompt_to_sample_with_frame(self, sample_frame: np.ndarray) -> None:
         prompt_id = uuid.uuid4()
         project_id = uuid.uuid4()
         frame_id = uuid.uuid4()
@@ -69,7 +69,7 @@ class TestPromptMapper:
         assert result.categories[0] == str(label_id)
         assert label_shot_counts[label_id] == 1
 
-    def test_visual_prompt_to_sample_raises_error_without_polygons(self, sample_frame):
+    def test_visual_prompt_to_sample_raises_error_without_polygons(self, sample_frame: np.ndarray) -> None:
         prompt_id = uuid.uuid4()
         frame_id = uuid.uuid4()
         label_id = uuid.uuid4()
@@ -103,7 +103,7 @@ class TestPromptMapper:
                 label_shot_counts=label_shot_counts,
             )
 
-    def test_visual_prompt_to_sample_with_multiple_polygons(self, sample_frame):
+    def test_visual_prompt_to_sample_with_multiple_polygons(self, sample_frame: np.ndarray) -> None:
         prompt_id = uuid.uuid4()
         frame_id = uuid.uuid4()
         label_id_1 = uuid.uuid4()
@@ -157,7 +157,7 @@ class TestPromptMapper:
         assert label_shot_counts[label_id_1] == 1
         assert label_shot_counts[label_id_2] == 1
 
-    def test_visual_prompt_to_sample_raises_error_for_text_prompt(self, sample_frame):
+    def test_visual_prompt_to_sample_raises_error_for_text_prompt(self, sample_frame: np.ndarray) -> None:
         prompt_id = uuid.uuid4()
         project_id = uuid.uuid4()
 
@@ -181,7 +181,7 @@ class TestPromptMapper:
                 label_shot_counts=label_shot_counts,
             )
 
-    def test_visual_prompt_to_sample_raises_error_without_annotations(self, sample_frame):
+    def test_visual_prompt_to_sample_raises_error_without_annotations(self, sample_frame: np.ndarray) -> None:
         prompt_id = uuid.uuid4()
         frame_id = uuid.uuid4()
 
@@ -205,7 +205,7 @@ class TestPromptMapper:
                 label_shot_counts=label_shot_counts,
             )
 
-    def test_deduplicate_annotations_removes_exact_duplicates(self):
+    def test_deduplicate_annotations_removes_exact_duplicates(self) -> None:
         label_id = uuid.uuid4()
 
         config1 = PolygonAnnotation(
@@ -227,7 +227,7 @@ class TestPromptMapper:
         assert len(result) == 1
         assert result[0].label_id == label_id
 
-    def test_deduplicate_annotations_removes_similar_polygons(self):
+    def test_deduplicate_annotations_removes_similar_polygons(self) -> None:
         label_id = uuid.uuid4()
 
         # Very similar polygons (should have high IoU)
@@ -249,7 +249,7 @@ class TestPromptMapper:
 
         assert len(result) == 1
 
-    def test_deduplicate_annotations_keeps_different_polygons(self):
+    def test_deduplicate_annotations_keeps_different_polygons(self) -> None:
         label_id = uuid.uuid4()
 
         # Different polygons (low IoU)
@@ -271,7 +271,7 @@ class TestPromptMapper:
 
         assert len(result) == 2
 
-    def test_deduplicate_annotations_keeps_non_polygons(self):
+    def test_deduplicate_annotations_keeps_non_polygons(self) -> None:
         label_id = uuid.uuid4()
 
         polygon_config = PolygonAnnotation(
@@ -294,11 +294,11 @@ class TestPromptMapper:
         assert any(ann.config.type == AnnotationType.POLYGON for ann in result)
         assert any(ann.config.type == AnnotationType.RECTANGLE for ann in result)
 
-    def test_deduplicate_annotations_empty_list(self):
+    def test_deduplicate_annotations_empty_list(self) -> None:
         result = deduplicate_annotations([], 480, 640)
         assert result == []
 
-    def test_deduplicate_annotations_single_annotation(self):
+    def test_deduplicate_annotations_single_annotation(self) -> None:
         label_id = uuid.uuid4()
         config = PolygonAnnotation(
             type=AnnotationType.POLYGON,

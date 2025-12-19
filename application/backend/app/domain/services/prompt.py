@@ -5,6 +5,7 @@ import logging
 from uuid import UUID
 
 import cv2
+import numpy as np
 from getiprompt.data.base.batch import Batch
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -265,34 +266,35 @@ class PromptService(BaseService):
 
         thumbnail = None
         if isinstance(create_data, VisualPromptCreateSchema):
-            logger.debug("Normalizing prompt data for project_id=%s", project_id)
-            normalized_data = self._normalization(project_id=project_id, data=create_data)
-            frame_path = self.frame_repository.get_frame_path(project_id, normalized_data.frame_id)
+            frame_path = self.frame_repository.get_frame_path(project_id, create_data.frame_id)
             if not frame_path:
                 logger.error(
                     "Visual prompt creation failed: frame_id=%s not found in project with id=%s",
-                    normalized_data.frame_id,
+                    create_data.frame_id,
                     project_id,
                 )
                 raise ResourceNotFoundError(
                     resource_type=ResourceType.FRAME,
-                    resource_id=str(normalized_data.frame_id),
-                    message=f"Frame {normalized_data.frame_id} does not exist in project {project_id}",
+                    resource_id=str(create_data.frame_id),
+                    message=f"Frame {create_data.frame_id} does not exist in project {project_id}",
                 )
 
-            # Deduplicate annotations after normalization
-            frame = self.frame_repository.read_frame(project_id, normalized_data.frame_id)
+            # Read frame once for all operations (normalization, deduplication, thumbnail)
+            frame = self.frame_repository.read_frame(project_id, create_data.frame_id)
             if frame is None:
                 raise ResourceNotFoundError(
                     resource_type=ResourceType.FRAME,
-                    resource_id=str(normalized_data.frame_id),
-                    message=f"Failed to read frame {normalized_data.frame_id}",
+                    resource_id=str(create_data.frame_id),
+                    message=f"Failed to read frame {create_data.frame_id}",
                 )
 
+            height, width = frame.shape[:2]
+
+            logger.debug("Normalizing prompt data for project_id=%s", project_id)
+            normalized_data = self._normalization(create_data, height, width)
+
             original_count = len(normalized_data.annotations)
-            normalized_data.annotations = deduplicate_annotations(
-                normalized_data.annotations, frame.shape[0], frame.shape[1]
-            )
+            normalized_data.annotations = deduplicate_annotations(normalized_data.annotations, height, width)
             if len(normalized_data.annotations) < original_count:
                 logger.info(
                     "Removed %d duplicate annotations from visual prompt creation request",
@@ -300,7 +302,7 @@ class PromptService(BaseService):
                 )
 
             self._validate_annotation_labels(normalized_data.annotations, project_id)
-            thumbnail = self._generate_thumbnail(project_id, normalized_data.frame_id, normalized_data.annotations)
+            thumbnail = self._generate_thumbnail(project_id, normalized_data.annotations, frame)
 
             create_data = normalized_data
 
@@ -419,7 +421,14 @@ class PromptService(BaseService):
                 prompt = prompt_update_schema_to_db(prompt, update_data)
                 if regenerate_thumbnail and prompt.frame_id:
                     annotations = annotations_db_to_schemas(prompt.annotations)
-                    prompt.thumbnail = self._generate_thumbnail(project_id, prompt.frame_id, annotations)
+                    frame = self.frame_repository.read_frame(project_id, prompt.frame_id)
+                    if frame is None:
+                        raise ResourceNotFoundError(
+                            resource_type=ResourceType.FRAME,
+                            resource_id=str(prompt.frame_id),
+                            message=f"Failed to read frame {prompt.frame_id}",
+                        )
+                    prompt.thumbnail = self._generate_thumbnail(project_id, annotations, frame)
                 prompt = self.prompt_repository.update(prompt)
                 self._emit_processor_change_event(project_id)
         except IntegrityError as exc:
@@ -437,7 +446,7 @@ class PromptService(BaseService):
 
     def _handle_visual_prompt_update(
         self, prompt: PromptDB, update_data: VisualPromptUpdateSchema, project_id: UUID
-    ) -> (VisualPromptUpdateSchema, bool):
+    ) -> tuple[VisualPromptUpdateSchema, bool]:
         """
         Handle visual prompt frame updates and cleanup.
 
@@ -447,6 +456,8 @@ class PromptService(BaseService):
             project_id: The project ID for frame validation
         """
         regenerate_thumbnail = False
+        frame = None
+
         if update_data.frame_id is not None:
             frame_path = self.frame_repository.get_frame_path(project_id, update_data.frame_id)
             if not frame_path:
@@ -467,16 +478,18 @@ class PromptService(BaseService):
         if update_data.annotations is not None:
             frame_id = update_data.frame_id if update_data.frame_id is not None else prompt.frame_id
             if frame_id:
-                frame = self.frame_repository.read_frame(project_id, frame_id)
                 if frame is None:
-                    raise ResourceNotFoundError(
-                        resource_type=ResourceType.FRAME,
-                        resource_id=str(frame_id),
-                        message=f"Failed to read frame {frame_id}",
-                    )
+                    frame = self.frame_repository.read_frame(project_id, frame_id)
+                    if frame is None:
+                        raise ResourceNotFoundError(
+                            resource_type=ResourceType.FRAME,
+                            resource_id=str(frame_id),
+                            message=f"Failed to read frame {frame_id}",
+                        )
+
                 height, width = frame.shape[:2]
 
-                normalized_data = self._normalization(project_id=project_id, data=update_data)
+                normalized_data = self._normalization(update_data, height, width)
 
                 original_count = len(normalized_data.annotations)
                 normalized_data.annotations = deduplicate_annotations(normalized_data.annotations, height, width)
@@ -519,17 +532,8 @@ class PromptService(BaseService):
                     message=f"Label {label_id} does not exist in project {project_id}",
                 )
 
-    def _generate_thumbnail(self, project_id: UUID, frame_id: UUID, annotations: list[AnnotationSchema]) -> str:
+    def _generate_thumbnail(self, project_id: UUID, annotations: list[AnnotationSchema], frame: np.ndarray) -> str:
         """Generate thumbnail with annotations overlay."""
-        frame = self.frame_repository.read_frame(project_id, frame_id)
-        if frame is None:
-            raise ResourceNotFoundError(
-                resource_type=ResourceType.FRAME,
-                resource_id=str(frame_id),
-                message=f"Failed to read frame {frame_id}",
-            )
-
-        # fetch labels and pair with annotations
         label_ids = [ann.label_id for ann in annotations]
         labels_by_id = {
             label.id: label_db_to_schema(label)
@@ -537,7 +541,6 @@ class PromptService(BaseService):
             if (label := self.label_repository.get_by_id_and_project(label_id, project_id))
         }
 
-        # create annotation-label pairs
         annotation_label_pairs = [(ann, labels_by_id[ann.label_id]) for ann in annotations]
 
         return generate_thumbnail(frame, annotation_label_pairs)
@@ -641,19 +644,11 @@ class PromptService(BaseService):
                 )
             )
 
+    @staticmethod
     def _normalization(
-        self, project_id: UUID, data: VisualPromptCreateSchema | VisualPromptUpdateSchema
+        data: VisualPromptCreateSchema | VisualPromptUpdateSchema, height: int, width: int
     ) -> VisualPromptCreateSchema | VisualPromptUpdateSchema:
         """Normalize pixel coordinates to [0, 1] range."""
-
-        frame = self.frame_repository.read_frame(project_id=project_id, frame_id=data.frame_id)
-        if frame is None:
-            raise ResourceNotFoundError(
-                resource_type=ResourceType.FRAME,
-                resource_id=str(data.frame_id),
-            )
-        height, width = frame.shape[:2]
-
         if data.annotations is not None:
             for annotation in data.annotations:
                 normalized_points = [Point(x=point.x / width, y=point.y / height) for point in annotation.config.points]

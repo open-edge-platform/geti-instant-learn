@@ -228,13 +228,14 @@ def test_create_visual_prompt_success(service):
     assert result.id == new_id
     assert result.type == PromptType.VISUAL
     service.frame_repository.get_frame_path.assert_called_with(project_id, frame_id)
-    assert service.frame_repository.read_frame.call_count == 3  # normalize, deduplicate, thumbnail
+    service.frame_repository.read_frame.assert_called_once_with(project_id, frame_id)
     service.label_repository.get_by_id_and_project.assert_called_with(label_id, project_id)
     service.prompt_repository.add.assert_called_once()
     service.session.commit.assert_called_once()
 
 
-def test_create_visual_prompt_deduplicates_annotations(service):
+def test_create_visual_prompt_deduplicates_annotations(service, caplog):
+    """Test that duplicate annotations are removed and logged during creation."""
     new_id = uuid.uuid4()
     project_id = uuid.uuid4()
     frame_id = uuid.uuid4()
@@ -265,11 +266,18 @@ def test_create_visual_prompt_deduplicates_annotations(service):
         ],
     )
 
-    result = service.create_prompt(project_id=project_id, create_data=create_schema)
+    with caplog.at_level("INFO"):
+        result = service.create_prompt(project_id=project_id, create_data=create_schema)
 
     assert result.id == new_id
-    # Annotations are deduplicated after normalization
-    service.prompt_repository.add.assert_called_once()
+
+    # Verify deduplication was logged
+    assert any("Removed 1 duplicate annotations" in record.message for record in caplog.records)
+
+    # Verify only one annotation was saved
+    call_args = service.prompt_repository.add.call_args[0][0]
+    assert len(call_args.annotations) == 1
+
     service.session.commit.assert_called_once()
 
 
@@ -557,11 +565,13 @@ def test_update_visual_prompt_annotations_success(service):
     service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
 
     assert service.label_repository.get_by_id_and_project.call_count >= 1
-    assert service.frame_repository.read_frame.call_count == 2  # normalize+deduplicate, thumbnail
+    # One read for normalize+deduplicate, one for thumbnail
+    assert service.frame_repository.read_frame.call_count == 2
     service.session.commit.assert_called_once()
 
 
-def test_update_visual_prompt_deduplicates_annotations(service):
+def test_update_visual_prompt_deduplicates_annotations(service, caplog):
+    """Test that duplicate annotations are removed and logged during update."""
     project_id = uuid.uuid4()
     prompt_id = uuid.uuid4()
     label_id = uuid.uuid4()
@@ -593,9 +603,12 @@ def test_update_visual_prompt_deduplicates_annotations(service):
         ],
     )
 
-    service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
+    with caplog.at_level("INFO"):
+        service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
 
-    # Annotations are deduplicated after normalization
+    # Verify deduplication was logged
+    assert any("Removed 1 duplicate annotations" in record.message for record in caplog.records)
+
     service.session.commit.assert_called_once()
 
 
@@ -770,10 +783,8 @@ def test_get_reference_batch_visual_prompt_mapper_error_handled(service):
 
 
 def test_normalization_scales_visual_points(service):
-    project_id = uuid.uuid4()
     frame_id = uuid.uuid4()
     label_id = uuid.uuid4()
-    service.frame_repository.read_frame.return_value = np.zeros((200, 100, 3), dtype=np.uint8)
 
     create_schema = VisualPromptCreateSchema(
         id=uuid.uuid4(),
@@ -790,37 +801,12 @@ def test_normalization_scales_visual_points(service):
         ],
     )
 
-    normalized = service._normalization(project_id=project_id, data=create_schema)
+    normalized = service._normalization(create_schema, height=200, width=100)
 
     assert normalized.annotations[0].config.points[0].x == pytest.approx(0.1)
     assert normalized.annotations[0].config.points[0].y == pytest.approx(0.1)
     assert normalized.annotations[0].config.points[1].x == pytest.approx(0.6)
     assert normalized.annotations[0].config.points[1].y == pytest.approx(0.6)
-    service.frame_repository.read_frame.assert_called_once_with(project_id=project_id, frame_id=frame_id)
-
-
-def test_normalization_raises_when_frame_missing(service):
-    project_id = uuid.uuid4()
-    frame_id = uuid.uuid4()
-    service.frame_repository.read_frame.return_value = None
-
-    create_schema = VisualPromptCreateSchema(
-        id=uuid.uuid4(),
-        type=PromptType.VISUAL,
-        frame_id=frame_id,
-        annotations=[
-            AnnotationSchema(
-                config=RectangleAnnotation(
-                    type=AnnotationType.RECTANGLE,
-                    points=[Point(x=1.0, y=1.0), Point(x=2.0, y=2.0)],
-                ),
-                label_id=uuid.uuid4(),
-            )
-        ],
-    )
-
-    with pytest.raises(ResourceNotFoundError):
-        service._normalization(project_id=project_id, data=create_schema)
 
 
 def test_denormalization_scales_visual_points(service):
@@ -852,3 +838,251 @@ def test_denormalization_raises_when_frame_missing(service):
 
     with pytest.raises(ResourceNotFoundError):
         service._denormalization(project_id=project_id, data=prompt)
+
+
+def test_create_visual_prompt_with_multiple_similar_annotations_deduplicates(service, caplog):
+    """Test that similar polygon annotations are deduplicated during creation."""
+    new_id = uuid.uuid4()
+    project_id = uuid.uuid4()
+    frame_id = uuid.uuid4()
+    label_id = uuid.uuid4()
+
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
+
+    label = make_label(label_id=label_id, project_id=project_id)
+    service.label_repository.get_by_id_and_project.return_value = label
+
+    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    service.frame_repository.read_frame.return_value = test_image
+
+    # Create three similar polygon annotations (two will be deduplicated)
+    polygon1 = PolygonAnnotation(
+        type=AnnotationType.POLYGON,
+        points=[Point(x=10, y=10), Point(x=50, y=10), Point(x=50, y=50), Point(x=10, y=50)],
+    )
+    # Very similar polygon (should be removed)
+    polygon2 = PolygonAnnotation(
+        type=AnnotationType.POLYGON,
+        points=[Point(x=11, y=11), Point(x=51, y=11), Point(x=51, y=51), Point(x=11, y=51)],
+    )
+    # Different polygon (should be kept)
+    polygon3 = PolygonAnnotation(
+        type=AnnotationType.POLYGON,
+        points=[Point(x=60, y=60), Point(x=90, y=60), Point(x=90, y=90), Point(x=60, y=90)],
+    )
+
+    create_schema = VisualPromptCreateSchema(
+        id=new_id,
+        type=PromptType.VISUAL,
+        frame_id=frame_id,
+        annotations=[
+            AnnotationSchema(config=polygon1, label_id=label_id),
+            AnnotationSchema(config=polygon2, label_id=label_id),
+            AnnotationSchema(config=polygon3, label_id=label_id),
+        ],
+    )
+
+    with caplog.at_level("INFO"):
+        service.create_prompt(project_id=project_id, create_data=create_schema)
+
+    # Verify deduplication was logged
+    assert any("Removed 1 duplicate annotations" in record.message for record in caplog.records)
+
+    # Verify only two annotations were saved (one duplicate removed)
+    call_args = service.prompt_repository.add.call_args[0][0]
+    assert len(call_args.annotations) == 2
+
+    service.prompt_repository.add.assert_called_once()
+    service.session.commit.assert_called_once()
+
+
+def test_update_visual_prompt_with_similar_annotations_deduplicates(service, caplog):
+    """Test that similar polygon annotations are deduplicated during update."""
+    project_id = uuid.uuid4()
+    prompt_id = uuid.uuid4()
+    label_id = uuid.uuid4()
+    frame_id = uuid.uuid4()
+
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    prompt = make_visual_prompt_db(prompt_id=prompt_id, project_id=project_id, frame_id=frame_id)
+    service.prompt_repository.get_by_id_and_project.return_value = prompt
+    service.prompt_repository.update.return_value = prompt
+
+    label = make_label(label_id=label_id, project_id=project_id)
+    service.label_repository.get_by_id_and_project.return_value = label
+
+    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    service.frame_repository.read_frame.return_value = test_image
+
+    # Create two very similar polygon annotations
+    polygon1 = PolygonAnnotation(
+        type=AnnotationType.POLYGON,
+        points=[Point(x=10, y=10), Point(x=50, y=10), Point(x=50, y=50), Point(x=10, y=50)],
+    )
+    polygon2 = PolygonAnnotation(
+        type=AnnotationType.POLYGON,
+        points=[Point(x=11, y=11), Point(x=51, y=11), Point(x=51, y=51), Point(x=11, y=51)],
+    )
+
+    update_schema = VisualPromptUpdateSchema(
+        type=PromptType.VISUAL,
+        frame_id=None,
+        annotations=[
+            AnnotationSchema(config=polygon1, label_id=label_id),
+            AnnotationSchema(config=polygon2, label_id=label_id),
+        ],
+    )
+
+    with caplog.at_level("INFO"):
+        service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
+
+    # Verify deduplication was logged
+    assert any("Removed 1 duplicate annotations" in record.message for record in caplog.records)
+
+    service.session.commit.assert_called_once()
+
+
+def test_create_visual_prompt_deduplication_preserves_order(service, caplog):
+    """Test that deduplication keeps the first occurrence when duplicates are found."""
+    new_id = uuid.uuid4()
+    project_id = uuid.uuid4()
+    frame_id = uuid.uuid4()
+    label_id_1 = uuid.uuid4()
+    label_id_2 = uuid.uuid4()
+
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
+
+    label1 = make_label(label_id=label_id_1, project_id=project_id, name="car")
+    label2 = make_label(label_id=label_id_2, project_id=project_id, name="person")
+    service.label_repository.get_by_id_and_project.side_effect = (
+        lambda lid, pid: label1 if lid == label_id_1 else label2
+    )
+
+    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    service.frame_repository.read_frame.return_value = test_image
+
+    # First annotation for label_id_1
+    polygon1 = PolygonAnnotation(
+        type=AnnotationType.POLYGON,
+        points=[Point(x=10, y=10), Point(x=30, y=10), Point(x=30, y=30), Point(x=10, y=30)],
+    )
+    # Duplicate of first annotation (should be removed)
+    polygon2 = PolygonAnnotation(
+        type=AnnotationType.POLYGON,
+        points=[Point(x=10, y=10), Point(x=30, y=10), Point(x=30, y=30), Point(x=10, y=30)],
+    )
+    # Different annotation for label_id_2 (should be kept)
+    polygon3 = PolygonAnnotation(
+        type=AnnotationType.POLYGON,
+        points=[Point(x=60, y=60), Point(x=80, y=60), Point(x=80, y=80), Point(x=60, y=80)],
+    )
+
+    create_schema = VisualPromptCreateSchema(
+        id=new_id,
+        type=PromptType.VISUAL,
+        frame_id=frame_id,
+        annotations=[
+            AnnotationSchema(config=polygon1, label_id=label_id_1),
+            AnnotationSchema(config=polygon2, label_id=label_id_1),  # Duplicate
+            AnnotationSchema(config=polygon3, label_id=label_id_2),
+        ],
+    )
+
+    with caplog.at_level("INFO"):
+        service.create_prompt(project_id=project_id, create_data=create_schema)
+
+    # Verify deduplication was logged
+    assert any("Removed 1 duplicate annotations" in record.message for record in caplog.records)
+
+    # Verify only two annotations were saved
+    call_args = service.prompt_repository.add.call_args[0][0]
+    assert len(call_args.annotations) == 2
+
+    service.prompt_repository.add.assert_called_once()
+    service.session.commit.assert_called_once()
+
+
+def test_create_visual_prompt_deduplication_only_affects_polygons(service, caplog):
+    """Test that deduplication only affects polygon annotations, not rectangles."""
+    new_id = uuid.uuid4()
+    project_id = uuid.uuid4()
+    frame_id = uuid.uuid4()
+    label_id = uuid.uuid4()
+
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
+
+    label = make_label(label_id=label_id, project_id=project_id)
+    service.label_repository.get_by_id_and_project.return_value = label
+
+    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    service.frame_repository.read_frame.return_value = test_image
+
+    # Mix of polygon and rectangle annotations
+    polygon = PolygonAnnotation(
+        type=AnnotationType.POLYGON,
+        points=[Point(x=10, y=10), Point(x=30, y=10), Point(x=30, y=30), Point(x=10, y=30)],
+    )
+    rectangle = RectangleAnnotation(
+        type=AnnotationType.RECTANGLE,
+        points=[Point(x=50, y=50), Point(x=80, y=80)],
+    )
+
+    create_schema = VisualPromptCreateSchema(
+        id=new_id,
+        type=PromptType.VISUAL,
+        frame_id=frame_id,
+        annotations=[
+            AnnotationSchema(config=polygon, label_id=label_id),
+            AnnotationSchema(config=rectangle, label_id=label_id),
+        ],
+    )
+
+    with caplog.at_level("INFO"):
+        service.create_prompt(project_id=project_id, create_data=create_schema)
+
+    # No deduplication should happen (no duplicates)
+    assert not any("Removed" in record.message and "duplicate" in record.message for record in caplog.records)
+
+    # Both annotations should be kept
+    call_args = service.prompt_repository.add.call_args[0][0]
+    assert len(call_args.annotations) == 2
+
+    service.prompt_repository.add.assert_called_once()
+    service.session.commit.assert_called_once()
+
+
+def test_update_visual_prompt_single_frame_read_for_normalization_and_deduplication(service):
+    project_id = uuid.uuid4()
+    prompt_id = uuid.uuid4()
+    label_id = uuid.uuid4()
+    frame_id = uuid.uuid4()
+
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    prompt = make_visual_prompt_db(prompt_id=prompt_id, project_id=project_id, frame_id=frame_id)
+    service.prompt_repository.get_by_id_and_project.return_value = prompt
+    service.prompt_repository.update.return_value = prompt
+
+    label = make_label(label_id=label_id, project_id=project_id)
+    service.label_repository.get_by_id_and_project.return_value = label
+
+    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    service.frame_repository.read_frame.return_value = test_image
+
+    polygon = PolygonAnnotation(
+        type=AnnotationType.POLYGON,
+        points=[Point(x=10, y=10), Point(x=50, y=10), Point(x=50, y=50), Point(x=10, y=50)],
+    )
+
+    update_schema = VisualPromptUpdateSchema(
+        type=PromptType.VISUAL,
+        frame_id=None,
+        annotations=[AnnotationSchema(config=polygon, label_id=label_id)],
+    )
+
+    service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
+
+    assert service.frame_repository.read_frame.call_count == 2
+    service.session.commit.assert_called_once()
