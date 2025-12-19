@@ -14,7 +14,7 @@ on:
       debug_build:
         description: "If the debug build should be produced"
         type: boolean
-        required: true
+        required: false
         default: false
 
   # allow to manually trigger this workflow
@@ -34,7 +34,7 @@ on:
         default: "xpu"
       debug_build:
         description: "If the debug build should be produced"
-        required: true
+        required: false
         type: boolean
         default: false
 
