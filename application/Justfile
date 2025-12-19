@@ -74,7 +74,7 @@ check-proxy:
 
 download-dataset: check-proxy
     #!/usr/bin/env bash
-    APPLICATION_DIR="$(pwd)"
+    APPLICATION_DIR=$(uv run python -c "import os; print(os.getcwd().rsplit('/backend', 1)[0])")
     DATASET_DIR="$APPLICATION_DIR/{{ source-dataset-dir }}"
     if [ -d "$DATASET_DIR" ] && [ "$(ls -A $DATASET_DIR)" ]; then
         echo "Dataset directory $DATASET_DIR already exists and is not empty. Skipping download."

@@ -3,13 +3,28 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { expect, Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 export class AnnotatorPage {
-    constructor(private page: Page) {}
+    constructor(
+        private readonly page: Page,
+        protected readonly scope: Locator = page.locator('body')
+    ) {}
+
+    getScope() {
+        return this.scope;
+    }
+
+    getFullScreen() {
+        return new AnnotatorPageFullScreen(this.page, this.page.getByRole('dialog'));
+    }
 
     getCapturedFrame() {
-        return this.page.getByLabel('Captured frame');
+        return this.scope.getByLabel('Captured frame');
+    }
+
+    getProcessingImage() {
+        return this.scope.getByText('Processing image, please wait...');
     }
 
     async annotateAt(x: number, y: number) {
@@ -24,7 +39,7 @@ export class AnnotatorPage {
             await this.page.mouse.move(hoverX, hoverY);
 
             // Wait for preview to appear
-            await expect(this.page.getByLabel('Segment anything preview')).toBeVisible({ timeout: 10000 });
+            await expect(this.scope.getByLabel('Segment anything preview')).toBeVisible({ timeout: 10000 });
 
             await this.page.mouse.click(hoverX, hoverY);
         }
@@ -44,54 +59,62 @@ export class AnnotatorPage {
     }
 
     getAnnotation() {
-        return this.page.getByLabel('annotation list').getByLabel('annotation polygon');
+        return this.scope.getByLabel('annotation list').getByLabel('annotation polygon');
     }
 
     async hideAnnotations() {
-        await this.page.getByRole('button', { name: 'Hide annotations' }).click();
+        await this.scope.getByRole('button', { name: 'Hide annotations' }).click();
     }
 
     async showAnnotations() {
-        await this.page.getByRole('button', { name: 'Show annotations' }).click();
+        await this.scope.getByRole('button', { name: 'Show annotations' }).click();
     }
 
     async undoAnnotation() {
-        await this.page.getByRole('button', { name: 'undo' }).click();
+        await this.scope.getByRole('button', { name: 'undo' }).click();
     }
 
     async redoAnnotation() {
-        await this.page.getByRole('button', { name: 'redo' }).click();
+        await this.scope.getByRole('button', { name: 'redo' }).click();
     }
 
     async openFullscreen() {
-        await this.page.getByRole('button', { name: 'Open full screen' }).click();
-    }
+        await this.scope.getByRole('button', { name: 'Open full screen' }).click();
 
-    async closeFullscreen() {
-        await this.page.getByTestId('modal').getByRole('button', { name: 'Close full screen' }).click();
+        return new AnnotatorPageFullScreen(this.page, this.page.getByRole('dialog'));
     }
 
     async openSettings() {
-        await this.page.getByTestId('modal').getByRole('button', { name: 'Settings' }).click();
+        await this.scope.getByRole('button', { name: 'Settings' }).click();
     }
 
     async closeSettings() {
-        await this.page.getByRole('button', { name: 'Close settings' }).click();
+        await this.scope.getByRole('button', { name: 'Close settings' }).click();
     }
 
     async zoomIn() {
-        await this.page.getByRole('button', { name: 'Zoom in' }).click();
+        await this.scope.getByRole('button', { name: 'Zoom in' }).click();
     }
 
     async zoomOut() {
-        await this.page.getByRole('button', { name: 'Zoom out' }).click();
+        await this.scope.getByRole('button', { name: 'Zoom out' }).click();
     }
 
     async fitToScreen() {
-        await this.page.getByRole('button', { name: 'Fit image to screen' }).click();
+        await this.scope.getByRole('button', { name: 'Fit image to screen' }).click();
     }
 
     async getZoomValue() {
-        return this.page.getByTestId('zoom-level');
+        return this.scope.getByTestId('zoom-level');
+    }
+}
+
+class AnnotatorPageFullScreen extends AnnotatorPage {
+    constructor(page: Page, scope: Locator) {
+        super(page, scope);
+    }
+
+    async close() {
+        await this.scope.getByRole('button', { name: 'Close full screen' }).click();
     }
 }

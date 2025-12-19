@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type { paths } from '@geti-prompt/api';
 import { toast } from '@geti/ui';
 import { matchQuery, MutationCache, Query, QueryCache, QueryClient } from '@tanstack/react-query';
 
-import { Meta } from './query-client.interface';
+import type { Meta, QueryKey } from './query-client.interface';
 
 declare module '@tanstack/react-query' {
     interface Register {
@@ -14,6 +15,10 @@ declare module '@tanstack/react-query' {
         queryMeta: Meta;
     }
 }
+
+export const getQueryKey = (queryKey: QueryKey<paths>): QueryKey<paths> => {
+    return queryKey;
+};
 
 const TOAST_DURATION = 5000;
 
