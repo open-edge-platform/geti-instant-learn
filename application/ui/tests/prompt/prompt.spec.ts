@@ -6,8 +6,8 @@
 import { expect, http, test } from '@geti-prompt/test-fixtures';
 import { Locator } from '@playwright/test';
 
-import { PromptPage } from '../annotator/prompt-page';
 import { getMockedVisualPromptItem } from '../../src/test-utils/mocks/mock-prompt';
+import { PromptPage } from '../annotator/prompt-page';
 import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations } from '../annotator/utils';
 import { LabelsPage } from '../labels/labels-page';
 import { registerApiLabels } from '../labels/mocks';
