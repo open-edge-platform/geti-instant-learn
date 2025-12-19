@@ -93,15 +93,75 @@ def service():
     )
 
 
-def test_list_prompts_success(service):
-    project_id = uuid.uuid4()
-    service.project_repository.get_by_id.return_value = make_project(project_id)
+@pytest.fixture
+def project_id():
+    return uuid.uuid4()
+
+
+@pytest.fixture
+def frame_id():
+    return uuid.uuid4()
+
+
+@pytest.fixture
+def label_id():
+    return uuid.uuid4()
+
+
+@pytest.fixture
+def test_image():
+    return np.zeros((100, 100, 3), dtype=np.uint8)
+
+
+@pytest.fixture
+def mock_project(service, project_id):
+    project = make_project(project_id)
+    service.project_repository.get_by_id.return_value = project
+    return project
+
+
+@pytest.fixture
+def mock_frame(service, project_id, frame_id, test_image):
+    service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
+    service.frame_repository.read_frame.return_value = test_image
+    return test_image
+
+
+@pytest.fixture
+def mock_label(service, project_id, label_id):
+    label = make_label(label_id=label_id, project_id=project_id)
+    service.label_repository.get_by_id_and_project.return_value = label
+    return label
+
+
+@pytest.fixture
+def setup_visual_prompt_test(mock_project, mock_frame, mock_label, project_id, frame_id, label_id):
+    return project_id, frame_id, label_id
+
+
+@pytest.fixture
+def rectangle_annotation(label_id):
+    return AnnotationSchema(
+        config=RectangleAnnotation(type="rectangle", points=[Point(x=10, y=10), Point(x=50, y=50)]),
+        label_id=label_id,
+    )
+
+
+@pytest.fixture
+def polygon_annotation(label_id):
+    return AnnotationSchema(
+        config=PolygonAnnotation(
+            type=AnnotationType.POLYGON,
+            points=[Point(x=10, y=10), Point(x=50, y=10), Point(x=50, y=50), Point(x=10, y=50)],
+        ),
+        label_id=label_id,
+    )
+
+
+def test_list_prompts_success(service, mock_project, project_id, test_image):
     text_prompt = make_text_prompt_db(project_id=project_id)
     visual_prompt = make_visual_prompt_db(project_id=project_id)
     service.prompt_repository.list_with_pagination_by_project.return_value = ([text_prompt, visual_prompt], 2)
-
-    # Mock frame reading for visual prompts
-    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
     service.frame_repository.read_frame.return_value = test_image
 
     result = service.list_prompts(project_id, offset=0, limit=10)
@@ -116,9 +176,7 @@ def test_list_prompts_success(service):
     )
 
 
-def test_list_prompts_empty(service):
-    project_id = uuid.uuid4()
-    service.project_repository.get_by_id.return_value = make_project(project_id)
+def test_list_prompts_empty(service, mock_project, project_id):
     service.prompt_repository.list_with_pagination_by_project.return_value = ([], 0)
 
     result = service.list_prompts(project_id)
@@ -128,10 +186,8 @@ def test_list_prompts_empty(service):
     assert result.pagination.count == 0
 
 
-def test_get_prompt_success(service):
-    project_id = uuid.uuid4()
+def test_get_prompt_success(service, mock_project, project_id):
     prompt_id = uuid.uuid4()
-    service.project_repository.get_by_id.return_value = make_project(project_id)
     prompt = make_text_prompt_db(prompt_id=prompt_id, project_id=project_id)
     service.prompt_repository.get_by_id_and_project.return_value = prompt
 
@@ -142,9 +198,7 @@ def test_get_prompt_success(service):
     service.prompt_repository.get_by_id_and_project.assert_called_once_with(prompt_id, project_id)
 
 
-def test_get_prompt_not_found(service):
-    project_id = uuid.uuid4()
-    service.project_repository.get_by_id.return_value = make_project(project_id)
+def test_get_prompt_not_found(service, mock_project, project_id):
     service.prompt_repository.get_by_id_and_project.return_value = None
 
     with pytest.raises(ResourceNotFoundError) as exc_info:
@@ -153,17 +207,11 @@ def test_get_prompt_not_found(service):
     assert exc_info.value.resource_type == ResourceType.PROMPT
 
 
-def test_create_text_prompt_success(service):
+def test_create_text_prompt_success(service, mock_project, project_id):
     new_id = uuid.uuid4()
-    project_id = uuid.uuid4()
-    service.project_repository.get_by_id.return_value = make_project(project_id)
     service.prompt_repository.get_text_prompt_by_project.return_value = None
 
-    create_schema = TextPromptCreateSchema(
-        id=new_id,
-        type=PromptType.TEXT,
-        content="find red car",
-    )
+    create_schema = TextPromptCreateSchema(id=new_id, type=PromptType.TEXT, content="find red car")
 
     result = service.create_prompt(project_id=project_id, create_data=create_schema)
 
@@ -173,18 +221,12 @@ def test_create_text_prompt_success(service):
     service.session.commit.assert_called_once()
 
 
-def test_create_text_prompt_already_exists(service):
-    project_id = uuid.uuid4()
+def test_create_text_prompt_already_exists(service, mock_project, project_id):
     existing_id = uuid.uuid4()
-    service.project_repository.get_by_id.return_value = make_project(project_id)
     existing_prompt = make_text_prompt_db(prompt_id=existing_id, project_id=project_id)
     service.prompt_repository.get_text_prompt_by_project.return_value = existing_prompt
 
-    create_schema = TextPromptCreateSchema(
-        id=uuid.uuid4(),
-        type=PromptType.TEXT,
-        content="another prompt",
-    )
+    create_schema = TextPromptCreateSchema(id=uuid.uuid4(), type=PromptType.TEXT, content="another prompt")
 
     with pytest.raises(ResourceAlreadyExistsError) as exc_info:
         service.create_prompt(project_id=project_id, create_data=create_schema)
@@ -195,32 +237,15 @@ def test_create_text_prompt_already_exists(service):
     service.prompt_repository.add.assert_not_called()
 
 
-def test_create_visual_prompt_success(service):
+def test_create_visual_prompt_success(service, setup_visual_prompt_test, rectangle_annotation):
+    project_id, frame_id, label_id = setup_visual_prompt_test
     new_id = uuid.uuid4()
-    project_id = uuid.uuid4()
-    frame_id = uuid.uuid4()
-    label_id = uuid.uuid4()
 
-    service.project_repository.get_by_id.return_value = make_project(project_id)
-    service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
-
-    label = make_label(label_id=label_id, project_id=project_id)
-    service.label_repository.get_by_id_and_project.return_value = label
-
-    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
-    service.frame_repository.read_frame.return_value = test_image
-
-    # Use pixel coordinates (will be normalized internally)
     create_schema = VisualPromptCreateSchema(
         id=new_id,
         type=PromptType.VISUAL,
         frame_id=frame_id,
-        annotations=[
-            AnnotationSchema(
-                config=RectangleAnnotation(type="rectangle", points=[Point(x=10, y=10), Point(x=50, y=50)]),
-                label_id=label_id,
-            )
-        ],
+        annotations=[rectangle_annotation],
     )
 
     result = service.create_prompt(project_id=project_id, create_data=create_schema)
@@ -234,68 +259,31 @@ def test_create_visual_prompt_success(service):
     service.session.commit.assert_called_once()
 
 
-def test_create_visual_prompt_deduplicates_annotations(service, caplog):
-    """Test that duplicate annotations are removed and logged during creation."""
+def test_create_visual_prompt_deduplicates_annotations(service, setup_visual_prompt_test, polygon_annotation, caplog):
+    project_id, frame_id, _ = setup_visual_prompt_test
     new_id = uuid.uuid4()
-    project_id = uuid.uuid4()
-    frame_id = uuid.uuid4()
-    label_id = uuid.uuid4()
-
-    service.project_repository.get_by_id.return_value = make_project(project_id)
-    service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
-
-    label = make_label(label_id=label_id, project_id=project_id)
-    service.label_repository.get_by_id_and_project.return_value = label
-
-    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
-    service.frame_repository.read_frame.return_value = test_image
-
-    # Create two identical polygon annotations with pixel coordinates (duplicates)
-    polygon_config = PolygonAnnotation(
-        type=AnnotationType.POLYGON,
-        points=[Point(x=10, y=10), Point(x=50, y=10), Point(x=50, y=50), Point(x=10, y=50)],
-    )
 
     create_schema = VisualPromptCreateSchema(
         id=new_id,
         type=PromptType.VISUAL,
         frame_id=frame_id,
-        annotations=[
-            AnnotationSchema(config=polygon_config, label_id=label_id),
-            AnnotationSchema(config=polygon_config, label_id=label_id),  # Duplicate
-        ],
+        annotations=[polygon_annotation, polygon_annotation],
     )
 
     with caplog.at_level("INFO"):
         result = service.create_prompt(project_id=project_id, create_data=create_schema)
 
     assert result.id == new_id
-
-    # Verify deduplication was logged
     assert any("Removed 1 duplicate annotations" in record.message for record in caplog.records)
 
-    # Verify only one annotation was saved
     call_args = service.prompt_repository.add.call_args[0][0]
     assert len(call_args.annotations) == 1
-
     service.session.commit.assert_called_once()
 
 
-def test_create_visual_prompt_frame_not_found(service):
-    project_id = uuid.uuid4()
-    frame_id = uuid.uuid4()
-    label_id = uuid.uuid4()
-
-    service.project_repository.get_by_id.return_value = make_project(project_id)
-
-    # Mock for normalization
-    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
-    service.frame_repository.read_frame.return_value = test_image
-
-    # Frame path doesn't exist
+def test_create_visual_prompt_frame_not_found(service, mock_project, project_id, frame_id, label_id):
     service.frame_repository.get_frame_path.return_value = None
 
-    # Use pixel coordinates
     create_schema = VisualPromptCreateSchema(
         id=uuid.uuid4(),
         type=PromptType.VISUAL,
@@ -316,19 +304,9 @@ def test_create_visual_prompt_frame_not_found(service):
     service.prompt_repository.add.assert_not_called()
 
 
-def test_create_visual_prompt_label_not_found(service):
-    project_id = uuid.uuid4()
-    frame_id = uuid.uuid4()
-    label_id = uuid.uuid4()
-
-    service.project_repository.get_by_id.return_value = make_project(project_id)
-    service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
+def test_create_visual_prompt_label_not_found(service, mock_project, mock_frame, project_id, frame_id, label_id):
     service.label_repository.get_by_id_and_project.return_value = None
 
-    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
-    service.frame_repository.read_frame.return_value = test_image
-
-    # Use pixel coordinates
     create_schema = VisualPromptCreateSchema(
         id=uuid.uuid4(),
         type=PromptType.VISUAL,
@@ -349,16 +327,10 @@ def test_create_visual_prompt_label_not_found(service):
     service.prompt_repository.add.assert_not_called()
 
 
-def test_create_prompt_integrity_error_text_duplicate(service):
-    project_id = uuid.uuid4()
-    service.project_repository.get_by_id.return_value = make_project(project_id)
+def test_create_prompt_integrity_error_text_duplicate(service, mock_project, project_id):
     service.prompt_repository.get_text_prompt_by_project.return_value = None
 
-    create_schema = TextPromptCreateSchema(
-        id=uuid.uuid4(),
-        type=PromptType.TEXT,
-        content="test",
-    )
+    create_schema = TextPromptCreateSchema(id=uuid.uuid4(), type=PromptType.TEXT, content="test")
 
     mock_error = IntegrityError("statement", "params", "orig")
     mock_error.orig = Exception("UNIQUE constraint failed: uq_single_text_prompt_per_project")
@@ -372,16 +344,10 @@ def test_create_prompt_integrity_error_text_duplicate(service):
     service.session.rollback.assert_called_once()
 
 
-def test_create_prompt_integrity_error_check_constraint(service):
-    project_id = uuid.uuid4()
-    service.project_repository.get_by_id.return_value = make_project(project_id)
+def test_create_prompt_integrity_error_check_constraint(service, mock_project, project_id):
     service.prompt_repository.get_text_prompt_by_project.return_value = None
 
-    create_schema = TextPromptCreateSchema(
-        id=uuid.uuid4(),
-        type=PromptType.TEXT,
-        content="test",
-    )
+    create_schema = TextPromptCreateSchema(id=uuid.uuid4(), type=PromptType.TEXT, content="test")
 
     mock_error = IntegrityError("statement", "params", "orig")
     mock_error.orig = Exception("CHECK constraint failed: chk_prompt_content")
@@ -394,31 +360,14 @@ def test_create_prompt_integrity_error_check_constraint(service):
     service.session.rollback.assert_called_once()
 
 
-def test_create_prompt_integrity_error_frame_duplicate(service):
-    project_id = uuid.uuid4()
-    frame_id = uuid.uuid4()
-    label_id = uuid.uuid4()
+def test_create_prompt_integrity_error_frame_duplicate(service, setup_visual_prompt_test, rectangle_annotation):
+    project_id, frame_id, _ = setup_visual_prompt_test
 
-    service.project_repository.get_by_id.return_value = make_project(project_id)
-    service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
-
-    label = make_label(label_id=label_id, project_id=project_id)
-    service.label_repository.get_by_id_and_project.return_value = label
-
-    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
-    service.frame_repository.read_frame.return_value = test_image
-
-    # Use pixel coordinates
     create_schema = VisualPromptCreateSchema(
         id=uuid.uuid4(),
         type=PromptType.VISUAL,
         frame_id=frame_id,
-        annotations=[
-            AnnotationSchema(
-                config=RectangleAnnotation(type="rectangle", points=[Point(x=10, y=10), Point(x=50, y=50)]),
-                label_id=label_id,
-            )
-        ],
+        annotations=[rectangle_annotation],
     )
 
     mock_error = IntegrityError("statement", "params", "orig")
@@ -434,10 +383,8 @@ def test_create_prompt_integrity_error_frame_duplicate(service):
     service.session.rollback.assert_called_once()
 
 
-def test_delete_text_prompt_success(service):
-    project_id = uuid.uuid4()
+def test_delete_text_prompt_success(service, mock_project, project_id):
     prompt_id = uuid.uuid4()
-    service.project_repository.get_by_id.return_value = make_project(project_id)
     prompt = make_text_prompt_db(prompt_id=prompt_id, project_id=project_id)
     service.prompt_repository.get_by_id_and_project.return_value = prompt
 
@@ -447,11 +394,8 @@ def test_delete_text_prompt_success(service):
     service.session.commit.assert_called_once()
 
 
-def test_delete_visual_prompt_deletes_frame(service):
-    project_id = uuid.uuid4()
+def test_delete_visual_prompt_deletes_frame(service, mock_project, project_id, frame_id):
     prompt_id = uuid.uuid4()
-    frame_id = uuid.uuid4()
-    service.project_repository.get_by_id.return_value = make_project(project_id)
     prompt = make_visual_prompt_db(prompt_id=prompt_id, project_id=project_id, frame_id=frame_id)
     service.prompt_repository.get_by_id_and_project.return_value = prompt
     service.frame_repository.delete_frame.return_value = True
@@ -463,27 +407,20 @@ def test_delete_visual_prompt_deletes_frame(service):
     service.session.commit.assert_called_once()
 
 
-def test_delete_prompt_not_found(service):
-    project_id = uuid.uuid4()
-    service.project_repository.get_by_id.return_value = make_project(project_id)
+def test_delete_prompt_not_found(service, mock_project, project_id):
     service.prompt_repository.get_by_id_and_project.return_value = None
 
     with pytest.raises(ResourceNotFoundError):
         service.delete_prompt(project_id=project_id, prompt_id=uuid.uuid4())
 
 
-def test_update_text_prompt_success(service):
-    project_id = uuid.uuid4()
+def test_update_text_prompt_success(service, mock_project, project_id):
     prompt_id = uuid.uuid4()
-    service.project_repository.get_by_id.return_value = make_project(project_id)
     prompt = make_text_prompt_db(prompt_id=prompt_id, project_id=project_id, text="old")
     service.prompt_repository.get_by_id_and_project.return_value = prompt
     service.prompt_repository.update.return_value = prompt
 
-    update_schema = TextPromptUpdateSchema(
-        type=PromptType.TEXT,
-        content="new content",
-    )
+    update_schema = TextPromptUpdateSchema(type=PromptType.TEXT, content="new content")
 
     result = service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
 
@@ -492,14 +429,11 @@ def test_update_text_prompt_success(service):
     service.session.commit.assert_called_once()
 
 
-def test_update_visual_prompt_frame_success(service):
-    project_id = uuid.uuid4()
+def test_update_visual_prompt_frame_success(service, mock_project, project_id, label_id, test_image):
     prompt_id = uuid.uuid4()
     old_frame_id = uuid.uuid4()
     new_frame_id = uuid.uuid4()
-    label_id = uuid.uuid4()
 
-    service.project_repository.get_by_id.return_value = make_project(project_id)
     prompt = make_visual_prompt_db(
         prompt_id=prompt_id,
         project_id=project_id,
@@ -508,115 +442,68 @@ def test_update_visual_prompt_frame_success(service):
     )
     service.prompt_repository.get_by_id_and_project.return_value = prompt
     service.prompt_repository.update.return_value = prompt
-    service.frame_repository.get_frame_path.return_value = "/path/to/new_frame.jpg"
     service.frame_repository.delete_frame.return_value = True
-
-    label = make_label(label_id=label_id, project_id=project_id)
-    service.label_repository.get_by_id_and_project.return_value = label
-
-    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    service.label_repository.get_by_id_and_project.return_value = make_label(label_id=label_id, project_id=project_id)
     service.frame_repository.read_frame.return_value = test_image
 
-    update_schema = VisualPromptUpdateSchema(
-        type=PromptType.VISUAL,
-        frame_id=new_frame_id,
-        annotations=None,
-    )
+    update_schema = VisualPromptUpdateSchema(type=PromptType.VISUAL, frame_id=new_frame_id, annotations=None)
 
     result = service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
 
     assert result.frame_id == new_frame_id
-    service.frame_repository.get_frame_path.assert_called_with(project_id, new_frame_id)
-    service.frame_repository.read_frame.assert_called_once_with(project_id, new_frame_id)
     service.frame_repository.delete_frame.assert_called_once_with(project_id, old_frame_id)
     service.label_repository.get_by_id_and_project.assert_called_with(label_id, project_id)
     service.session.commit.assert_called_once()
 
 
-def test_update_visual_prompt_annotations_success(service):
-    project_id = uuid.uuid4()
+def test_update_visual_prompt_annotations_success(
+    service, mock_project, project_id, frame_id, label_id, test_image, rectangle_annotation
+):
     prompt_id = uuid.uuid4()
-    label_id = uuid.uuid4()
-    frame_id = uuid.uuid4()
 
-    service.project_repository.get_by_id.return_value = make_project(project_id)
     prompt = make_visual_prompt_db(prompt_id=prompt_id, project_id=project_id, frame_id=frame_id)
     service.prompt_repository.get_by_id_and_project.return_value = prompt
     service.prompt_repository.update.return_value = prompt
-
-    label = make_label(label_id=label_id, project_id=project_id)
-    service.label_repository.get_by_id_and_project.return_value = label
-
-    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    service.label_repository.get_by_id_and_project.return_value = make_label(label_id=label_id, project_id=project_id)
     service.frame_repository.read_frame.return_value = test_image
 
-    # Use pixel coordinates
-    update_schema = VisualPromptUpdateSchema(
-        type=PromptType.VISUAL,
-        frame_id=None,
-        annotations=[
-            AnnotationSchema(
-                config=RectangleAnnotation(type="rectangle", points=[Point(x=20, y=20), Point(x=70, y=70)]),
-                label_id=label_id,
-            )
-        ],
-    )
+    update_schema = VisualPromptUpdateSchema(type=PromptType.VISUAL, frame_id=None, annotations=[rectangle_annotation])
 
     service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
 
     assert service.label_repository.get_by_id_and_project.call_count >= 1
-    # One read for normalize+deduplicate, one for thumbnail
     assert service.frame_repository.read_frame.call_count == 2
     service.session.commit.assert_called_once()
 
 
-def test_update_visual_prompt_deduplicates_annotations(service, caplog):
-    """Test that duplicate annotations are removed and logged during update."""
-    project_id = uuid.uuid4()
+def test_update_visual_prompt_deduplicates_annotations(
+    service, mock_project, project_id, frame_id, test_image, polygon_annotation, caplog
+):
     prompt_id = uuid.uuid4()
-    label_id = uuid.uuid4()
-    frame_id = uuid.uuid4()
 
-    service.project_repository.get_by_id.return_value = make_project(project_id)
     prompt = make_visual_prompt_db(prompt_id=prompt_id, project_id=project_id, frame_id=frame_id)
     service.prompt_repository.get_by_id_and_project.return_value = prompt
     service.prompt_repository.update.return_value = prompt
-
-    label = make_label(label_id=label_id, project_id=project_id)
-    service.label_repository.get_by_id_and_project.return_value = label
-
-    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
-    service.frame_repository.read_frame.return_value = test_image
-
-    # Create two identical polygon annotations with pixel coordinates (duplicates)
-    polygon_config = PolygonAnnotation(
-        type=AnnotationType.POLYGON,
-        points=[Point(x=10, y=10), Point(x=50, y=10), Point(x=50, y=50), Point(x=10, y=50)],
+    service.label_repository.get_by_id_and_project.return_value = make_label(
+        label_id=polygon_annotation.label_id, project_id=project_id
     )
+    service.frame_repository.read_frame.return_value = test_image
 
     update_schema = VisualPromptUpdateSchema(
         type=PromptType.VISUAL,
         frame_id=None,
-        annotations=[
-            AnnotationSchema(config=polygon_config, label_id=label_id),
-            AnnotationSchema(config=polygon_config, label_id=label_id),  # Duplicate
-        ],
+        annotations=[polygon_annotation, polygon_annotation],
     )
 
     with caplog.at_level("INFO"):
         service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
 
-    # Verify deduplication was logged
     assert any("Removed 1 duplicate annotations" in record.message for record in caplog.records)
-
     service.session.commit.assert_called_once()
 
 
-def test_update_prompt_type_change_conflict(service):
-    project_id = uuid.uuid4()
+def test_update_prompt_type_change_conflict(service, mock_project, project_id, label_id):
     prompt_id = uuid.uuid4()
-    label_id = uuid.uuid4()
-    service.project_repository.get_by_id.return_value = make_project(project_id)
     prompt = make_text_prompt_db(prompt_id=prompt_id, project_id=project_id)
     service.prompt_repository.get_by_id_and_project.return_value = prompt
 
@@ -638,35 +525,24 @@ def test_update_prompt_type_change_conflict(service):
     service.session.commit.assert_not_called()
 
 
-def test_update_prompt_not_found(service):
-    project_id = uuid.uuid4()
-    service.project_repository.get_by_id.return_value = make_project(project_id)
+def test_update_prompt_not_found(service, mock_project, project_id):
     service.prompt_repository.get_by_id_and_project.return_value = None
 
-    update_schema = TextPromptUpdateSchema(
-        type=PromptType.TEXT,
-        content="new",
-    )
+    update_schema = TextPromptUpdateSchema(type=PromptType.TEXT, content="new")
 
     with pytest.raises(ResourceNotFoundError):
         service.update_prompt(project_id=project_id, prompt_id=uuid.uuid4(), update_data=update_schema)
 
 
-def test_update_visual_prompt_new_frame_not_found(service):
-    project_id = uuid.uuid4()
+def test_update_visual_prompt_new_frame_not_found(service, mock_project, project_id):
     prompt_id = uuid.uuid4()
     new_frame_id = uuid.uuid4()
 
-    service.project_repository.get_by_id.return_value = make_project(project_id)
     prompt = make_visual_prompt_db(prompt_id=prompt_id, project_id=project_id)
     service.prompt_repository.get_by_id_and_project.return_value = prompt
-    service.frame_repository.get_frame_path.return_value = None
+    service.frame_repository.read_frame.return_value = None
 
-    update_schema = VisualPromptUpdateSchema(
-        type=PromptType.VISUAL,
-        frame_id=new_frame_id,
-        annotations=None,
-    )
+    update_schema = VisualPromptUpdateSchema(type=PromptType.VISUAL, frame_id=new_frame_id, annotations=None)
 
     with pytest.raises(ResourceNotFoundError) as exc_info:
         service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
@@ -684,21 +560,12 @@ def test_project_not_found(service):
     assert exc_info.value.resource_type == ResourceType.PROJECT
 
 
-def test_get_reference_batch_text_prompts(service):
-    project_id = uuid.uuid4()
-    service.project_repository.get_by_id.return_value = make_project(project_id)
-
+def test_get_reference_batch_text_prompts(service, mock_project, project_id):
     batch = service.get_reference_batch(project_id, PromptType.TEXT)
     assert batch is None
 
 
-def test_get_reference_batch_for_visual_prompts(service):
-    project_id = uuid.uuid4()
-    frame_id = uuid.uuid4()
-    label_id = uuid.uuid4()
-
-    service.project_repository.get_by_id.return_value = make_project(project_id)
-
+def test_get_reference_batch_for_visual_prompts(service, mock_project, project_id, frame_id, label_id):
     annotation_db = SimpleNamespace(
         id=uuid.uuid4(),
         config=PolygonAnnotation(
@@ -722,18 +589,15 @@ def test_get_reference_batch_for_visual_prompts(service):
     )
     sample = result[0]
 
-    # Check Sample has expected attributes
     assert sample.image is not None
     assert sample.masks is not None
-    assert len(sample.masks) == 1  # One polygon annotation
+    assert len(sample.masks) == 1
     assert str(label_id) in sample.categories
 
     service.frame_repository.read_frame.assert_called_once_with(project_id, frame_id)
 
 
-def test_get_reference_batch_visual_prompts_empty(service):
-    project_id = uuid.uuid4()
-    service.project_repository.get_by_id.return_value = make_project(project_id)
+def test_get_reference_batch_visual_prompts_empty(service, mock_project, project_id):
     service.prompt_repository.list_all_by_project.return_value = []
 
     result = service.get_reference_batch(project_id, PromptType.VISUAL)
@@ -741,11 +605,7 @@ def test_get_reference_batch_visual_prompts_empty(service):
     assert result is None
 
 
-def test_get_reference_batch_visual_prompt_frame_not_found(service):
-    project_id = uuid.uuid4()
-    frame_id = uuid.uuid4()
-
-    service.project_repository.get_by_id.return_value = make_project(project_id)
+def test_get_reference_batch_visual_prompt_frame_not_found(service, mock_project, project_id, frame_id):
     visual_prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id)
     service.prompt_repository.list_all_by_project.return_value = [visual_prompt]
     service.frame_repository.read_frame.return_value = None
@@ -763,11 +623,7 @@ def test_get_reference_batch_project_not_found(service):
     assert batch is None
 
 
-def test_get_reference_batch_visual_prompt_mapper_error_handled(service):
-    project_id = uuid.uuid4()
-    frame_id = uuid.uuid4()
-
-    service.project_repository.get_by_id.return_value = make_project(project_id)
+def test_get_reference_batch_visual_prompt_mapper_error_handled(service, mock_project, project_id, frame_id):
     visual_prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id)
     service.prompt_repository.list_all_by_project.return_value = [visual_prompt]
 
@@ -782,10 +638,7 @@ def test_get_reference_batch_visual_prompt_mapper_error_handled(service):
     assert result is None
 
 
-def test_normalization_scales_visual_points(service):
-    frame_id = uuid.uuid4()
-    label_id = uuid.uuid4()
-
+def test_normalization_scales_visual_points(service, frame_id, label_id):
     create_schema = VisualPromptCreateSchema(
         id=uuid.uuid4(),
         type=PromptType.VISUAL,
@@ -809,9 +662,7 @@ def test_normalization_scales_visual_points(service):
     assert normalized.annotations[0].config.points[1].y == pytest.approx(0.6)
 
 
-def test_denormalization_scales_visual_points(service):
-    project_id = uuid.uuid4()
-    frame_id = uuid.uuid4()
+def test_denormalization_scales_visual_points(service, project_id, frame_id):
     annotation = make_annotation_db()
     annotation.config = {
         "type": AnnotationType.RECTANGLE,
@@ -830,9 +681,7 @@ def test_denormalization_scales_visual_points(service):
     service.frame_repository.read_frame.assert_called_once_with(project_id=project_id, frame_id=frame_id)
 
 
-def test_denormalization_raises_when_frame_missing(service):
-    project_id = uuid.uuid4()
-    frame_id = uuid.uuid4()
+def test_denormalization_raises_when_frame_missing(service, project_id, frame_id):
     prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id, annotations=[make_annotation_db()])
     service.frame_repository.read_frame.return_value = None
 
@@ -840,33 +689,20 @@ def test_denormalization_raises_when_frame_missing(service):
         service._denormalization(project_id=project_id, data=prompt)
 
 
-def test_create_visual_prompt_with_multiple_similar_annotations_deduplicates(service, caplog):
-    """Test that similar polygon annotations are deduplicated during creation."""
+def test_create_visual_prompt_with_multiple_similar_annotations_deduplicates(
+    service, setup_visual_prompt_test, label_id, caplog
+):
+    project_id, frame_id, _ = setup_visual_prompt_test
     new_id = uuid.uuid4()
-    project_id = uuid.uuid4()
-    frame_id = uuid.uuid4()
-    label_id = uuid.uuid4()
 
-    service.project_repository.get_by_id.return_value = make_project(project_id)
-    service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
-
-    label = make_label(label_id=label_id, project_id=project_id)
-    service.label_repository.get_by_id_and_project.return_value = label
-
-    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
-    service.frame_repository.read_frame.return_value = test_image
-
-    # Create three similar polygon annotations (two will be deduplicated)
     polygon1 = PolygonAnnotation(
         type=AnnotationType.POLYGON,
         points=[Point(x=10, y=10), Point(x=50, y=10), Point(x=50, y=50), Point(x=10, y=50)],
     )
-    # Very similar polygon (should be removed)
     polygon2 = PolygonAnnotation(
         type=AnnotationType.POLYGON,
         points=[Point(x=11, y=11), Point(x=51, y=11), Point(x=51, y=51), Point(x=11, y=51)],
     )
-    # Different polygon (should be kept)
     polygon3 = PolygonAnnotation(
         type=AnnotationType.POLYGON,
         points=[Point(x=60, y=60), Point(x=90, y=60), Point(x=90, y=90), Point(x=60, y=90)],
@@ -886,10 +722,8 @@ def test_create_visual_prompt_with_multiple_similar_annotations_deduplicates(ser
     with caplog.at_level("INFO"):
         service.create_prompt(project_id=project_id, create_data=create_schema)
 
-    # Verify deduplication was logged
     assert any("Removed 1 duplicate annotations" in record.message for record in caplog.records)
 
-    # Verify only two annotations were saved (one duplicate removed)
     call_args = service.prompt_repository.add.call_args[0][0]
     assert len(call_args.annotations) == 2
 
@@ -897,25 +731,17 @@ def test_create_visual_prompt_with_multiple_similar_annotations_deduplicates(ser
     service.session.commit.assert_called_once()
 
 
-def test_update_visual_prompt_with_similar_annotations_deduplicates(service, caplog):
-    """Test that similar polygon annotations are deduplicated during update."""
-    project_id = uuid.uuid4()
+def test_update_visual_prompt_with_similar_annotations_deduplicates(
+    service, mock_project, project_id, frame_id, label_id, test_image, caplog
+):
     prompt_id = uuid.uuid4()
-    label_id = uuid.uuid4()
-    frame_id = uuid.uuid4()
 
-    service.project_repository.get_by_id.return_value = make_project(project_id)
     prompt = make_visual_prompt_db(prompt_id=prompt_id, project_id=project_id, frame_id=frame_id)
     service.prompt_repository.get_by_id_and_project.return_value = prompt
     service.prompt_repository.update.return_value = prompt
-
-    label = make_label(label_id=label_id, project_id=project_id)
-    service.label_repository.get_by_id_and_project.return_value = label
-
-    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    service.label_repository.get_by_id_and_project.return_value = make_label(label_id=label_id, project_id=project_id)
     service.frame_repository.read_frame.return_value = test_image
 
-    # Create two very similar polygon annotations
     polygon1 = PolygonAnnotation(
         type=AnnotationType.POLYGON,
         points=[Point(x=10, y=10), Point(x=50, y=10), Point(x=50, y=50), Point(x=10, y=50)],
@@ -937,22 +763,19 @@ def test_update_visual_prompt_with_similar_annotations_deduplicates(service, cap
     with caplog.at_level("INFO"):
         service.update_prompt(project_id=project_id, prompt_id=prompt_id, update_data=update_schema)
 
-    # Verify deduplication was logged
     assert any("Removed 1 duplicate annotations" in record.message for record in caplog.records)
-
     service.session.commit.assert_called_once()
 
 
-def test_create_visual_prompt_deduplication_preserves_order(service, caplog):
-    """Test that deduplication keeps the first occurrence when duplicates are found."""
-    new_id = uuid.uuid4()
-    project_id = uuid.uuid4()
-    frame_id = uuid.uuid4()
+def test_create_visual_prompt_deduplication_preserves_order(
+    service, mock_project, project_id, frame_id, test_image, caplog
+):
     label_id_1 = uuid.uuid4()
     label_id_2 = uuid.uuid4()
+    new_id = uuid.uuid4()
 
-    service.project_repository.get_by_id.return_value = make_project(project_id)
     service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
+    service.frame_repository.read_frame.return_value = test_image
 
     label1 = make_label(label_id=label_id_1, project_id=project_id, name="car")
     label2 = make_label(label_id=label_id_2, project_id=project_id, name="person")
@@ -960,20 +783,14 @@ def test_create_visual_prompt_deduplication_preserves_order(service, caplog):
         lambda lid, pid: label1 if lid == label_id_1 else label2
     )
 
-    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
-    service.frame_repository.read_frame.return_value = test_image
-
-    # First annotation for label_id_1
     polygon1 = PolygonAnnotation(
         type=AnnotationType.POLYGON,
         points=[Point(x=10, y=10), Point(x=30, y=10), Point(x=30, y=30), Point(x=10, y=30)],
     )
-    # Duplicate of first annotation (should be removed)
     polygon2 = PolygonAnnotation(
         type=AnnotationType.POLYGON,
         points=[Point(x=10, y=10), Point(x=30, y=10), Point(x=30, y=30), Point(x=10, y=30)],
     )
-    # Different annotation for label_id_2 (should be kept)
     polygon3 = PolygonAnnotation(
         type=AnnotationType.POLYGON,
         points=[Point(x=60, y=60), Point(x=80, y=60), Point(x=80, y=80), Point(x=60, y=80)],
@@ -985,7 +802,7 @@ def test_create_visual_prompt_deduplication_preserves_order(service, caplog):
         frame_id=frame_id,
         annotations=[
             AnnotationSchema(config=polygon1, label_id=label_id_1),
-            AnnotationSchema(config=polygon2, label_id=label_id_1),  # Duplicate
+            AnnotationSchema(config=polygon2, label_id=label_id_1),
             AnnotationSchema(config=polygon3, label_id=label_id_2),
         ],
     )
@@ -993,10 +810,8 @@ def test_create_visual_prompt_deduplication_preserves_order(service, caplog):
     with caplog.at_level("INFO"):
         service.create_prompt(project_id=project_id, create_data=create_schema)
 
-    # Verify deduplication was logged
     assert any("Removed 1 duplicate annotations" in record.message for record in caplog.records)
 
-    # Verify only two annotations were saved
     call_args = service.prompt_repository.add.call_args[0][0]
     assert len(call_args.annotations) == 2
 
@@ -1004,31 +819,15 @@ def test_create_visual_prompt_deduplication_preserves_order(service, caplog):
     service.session.commit.assert_called_once()
 
 
-def test_create_visual_prompt_deduplication_only_affects_polygons(service, caplog):
-    """Test that deduplication only affects polygon annotations, not rectangles."""
+def test_create_visual_prompt_deduplication_only_affects_polygons(service, setup_visual_prompt_test, label_id, caplog):
+    project_id, frame_id, _ = setup_visual_prompt_test
     new_id = uuid.uuid4()
-    project_id = uuid.uuid4()
-    frame_id = uuid.uuid4()
-    label_id = uuid.uuid4()
 
-    service.project_repository.get_by_id.return_value = make_project(project_id)
-    service.frame_repository.get_frame_path.return_value = "/path/to/frame.jpg"
-
-    label = make_label(label_id=label_id, project_id=project_id)
-    service.label_repository.get_by_id_and_project.return_value = label
-
-    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
-    service.frame_repository.read_frame.return_value = test_image
-
-    # Mix of polygon and rectangle annotations
     polygon = PolygonAnnotation(
         type=AnnotationType.POLYGON,
         points=[Point(x=10, y=10), Point(x=30, y=10), Point(x=30, y=30), Point(x=10, y=30)],
     )
-    rectangle = RectangleAnnotation(
-        type=AnnotationType.RECTANGLE,
-        points=[Point(x=50, y=50), Point(x=80, y=80)],
-    )
+    rectangle = RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=50, y=50), Point(x=80, y=80)])
 
     create_schema = VisualPromptCreateSchema(
         id=new_id,
@@ -1043,10 +842,8 @@ def test_create_visual_prompt_deduplication_only_affects_polygons(service, caplo
     with caplog.at_level("INFO"):
         service.create_prompt(project_id=project_id, create_data=create_schema)
 
-    # No deduplication should happen (no duplicates)
     assert not any("Removed" in record.message and "duplicate" in record.message for record in caplog.records)
 
-    # Both annotations should be kept
     call_args = service.prompt_repository.add.call_args[0][0]
     assert len(call_args.annotations) == 2
 
@@ -1054,21 +851,15 @@ def test_create_visual_prompt_deduplication_only_affects_polygons(service, caplo
     service.session.commit.assert_called_once()
 
 
-def test_update_visual_prompt_single_frame_read_for_normalization_and_deduplication(service):
-    project_id = uuid.uuid4()
+def test_update_visual_prompt_single_frame_read_for_normalization_and_deduplication(
+    service, mock_project, project_id, frame_id, label_id, test_image
+):
     prompt_id = uuid.uuid4()
-    label_id = uuid.uuid4()
-    frame_id = uuid.uuid4()
 
-    service.project_repository.get_by_id.return_value = make_project(project_id)
     prompt = make_visual_prompt_db(prompt_id=prompt_id, project_id=project_id, frame_id=frame_id)
     service.prompt_repository.get_by_id_and_project.return_value = prompt
     service.prompt_repository.update.return_value = prompt
-
-    label = make_label(label_id=label_id, project_id=project_id)
-    service.label_repository.get_by_id_and_project.return_value = label
-
-    test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+    service.label_repository.get_by_id_and_project.return_value = make_label(label_id=label_id, project_id=project_id)
     service.frame_repository.read_frame.return_value = test_image
 
     polygon = PolygonAnnotation(

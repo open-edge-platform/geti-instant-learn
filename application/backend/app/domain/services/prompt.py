@@ -458,22 +458,9 @@ class PromptService(BaseService):
         regenerate_thumbnail = False
         frame = None
 
-        if update_data.frame_id is not None:
-            frame_path = self.frame_repository.get_frame_path(project_id, update_data.frame_id)
-            if not frame_path:
-                logger.error(
-                    "Visual prompt update failed: frame_id=%s not found in project_id=%s",
-                    update_data.frame_id,
-                    project_id,
-                )
-                raise ResourceNotFoundError(
-                    resource_type=ResourceType.FRAME,
-                    resource_id=str(update_data.frame_id),
-                    message=f"Frame {update_data.frame_id} does not exist in project {project_id}",
-                )
-            if prompt.frame_id and prompt.frame_id != update_data.frame_id:
-                self.frame_repository.delete_frame(project_id, prompt.frame_id)
-                regenerate_thumbnail = True
+        if update_data.frame_id is not None and prompt.frame_id and prompt.frame_id != update_data.frame_id:
+            self.frame_repository.delete_frame(project_id, prompt.frame_id)
+            regenerate_thumbnail = True
 
         if update_data.annotations is not None:
             frame_id = update_data.frame_id if update_data.frame_id is not None else prompt.frame_id
