@@ -279,7 +279,6 @@ class PromptService(BaseService):
                     message=f"Frame {create_data.frame_id} does not exist in project {project_id}",
                 )
 
-            # Read frame once for all operations (normalization, deduplication, thumbnail)
             frame = self.frame_repository.read_frame(project_id, create_data.frame_id)
             if frame is None:
                 raise ResourceNotFoundError(
