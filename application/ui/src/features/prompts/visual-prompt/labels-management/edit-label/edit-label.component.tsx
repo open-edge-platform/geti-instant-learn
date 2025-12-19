@@ -3,25 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CSSProperties, FormEvent, KeyboardEvent, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { LabelType } from '@geti-prompt/api';
 import { useOnOutsideClick } from '@geti-prompt/hooks';
-import {
-    ActionButton,
-    ColorPickerDialog,
-    DimensionValue,
-    DOMRefValue,
-    Flex,
-    Form,
-    TextField,
-    TextFieldRef,
-    useUnwrapDOMRef,
-} from '@geti/ui';
-import { clsx } from 'clsx';
+import { DimensionValue, DOMRefValue, Flex, useUnwrapDOMRef } from '@geti/ui';
+import { Checkmark } from '@geti/ui/icons';
 import { isEmpty } from 'lodash-es';
 
-import { MAX_LABEL_NAME_LENGTH, validateLabelName } from '../utils';
+import { Label } from '../label/label.component';
+import { validateLabelName } from '../utils';
 
 import classes from './edit-label.module.scss';
 
@@ -29,18 +20,11 @@ interface EditLabelProps {
     label: LabelType;
     onAccept: (editedLabel: LabelType) => void;
     onClose: () => void;
-    isQuiet?: boolean;
     width?: DimensionValue;
     isDisabled?: boolean;
     existingLabels: LabelType[];
     shouldCloseOnOutsideClick?: boolean;
 }
-
-const autoFocus = (ref: TextFieldRef<HTMLInputElement> | null) => {
-    if (ref === null) return;
-
-    ref.focus();
-};
 
 const useCloseLabelEditionOnOutsideClick = ({
     onClose,
@@ -69,7 +53,6 @@ export const EditLabel = ({
     label,
     onAccept,
     onClose,
-    isQuiet,
     width,
     isDisabled,
     existingLabels,
@@ -85,68 +68,34 @@ export const EditLabel = ({
     const hasSameColor = color === label.color;
     const isEditDisabled = !!validationError || isDisabled || isEmpty(name.trim()) || (hasSameName && hasSameColor);
 
-    const handleAccept = (event: FormEvent) => {
-        event.preventDefault();
-
+    const handleAccept = () => {
         onAccept({ color, name, id: label.id });
     };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-            onClose();
-        }
-    };
-
     return (
-        <Form validationBehavior={'native'} onSubmit={handleAccept} ref={formRef}>
+        <Label.Form onSubmit={handleAccept} ref={formRef}>
             <Flex
                 marginTop={0}
                 gap={'size-50'}
                 width={width}
                 justifyContent={'center'}
-                UNSAFE_className={clsx({ [classes.editLabelContainer]: isQuiet })}
+                UNSAFE_className={classes.editLabelContainer}
             >
-                <ColorPickerDialog
-                    color={color}
-                    id={'change-color-button'}
-                    data-testid={'change-color-button'}
-                    onColorChange={setColor}
-                    onOpenChange={setIsColorPickerOpen}
-                    size={'M'}
+                <Label.ColorPicker color={color} onColorChange={setColor} onOpenChange={setIsColorPickerOpen} />
+
+                <Label.NameField
+                    isQuiet
+                    name={name}
+                    onChangeName={setName}
+                    onClose={onClose}
+                    validationError={validationError}
+                    ariaLabel={'Edit label name'}
                 />
 
-                <TextField
-                    isQuiet={isQuiet}
-                    flex={1}
-                    ref={autoFocus}
-                    placeholder={'Add label'}
-                    aria-label={'New label name'}
-                    data-testid={'new-label-name-input'}
-                    value={name}
-                    onChange={setName}
-                    maxLength={MAX_LABEL_NAME_LENGTH}
-                    onKeyDown={(e) => handleKeyDown(e)}
-                    errorMessage={validationError}
-                    validationState={validationError ? 'invalid' : undefined}
-                    isRequired
-                />
-                <ActionButton
-                    type={'submit'}
-                    isQuiet={isQuiet}
-                    aria-label={'Confirm label'}
-                    isDisabled={isEditDisabled}
-                    UNSAFE_style={
-                        {
-                            '--addButtonBgColor': isQuiet
-                                ? 'var(--spectrum-global-color-gray-200)'
-                                : 'var(--energy-blue)',
-                        } as CSSProperties
-                    }
-                    UNSAFE_className={classes.plusButton}
-                >
-                    +
-                </ActionButton>
+                <Label.Button isDisabled={isEditDisabled} color={'var(--energy-blue)'}>
+                    <Checkmark />
+                </Label.Button>
             </Flex>
-        </Form>
+        </Label.Form>
     );
 };

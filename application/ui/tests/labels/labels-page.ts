@@ -16,7 +16,7 @@ export class LabelsPage {
     }
 
     private async enterName(name: string) {
-        await this.page.getByRole('textbox', { name: 'New label name' }).fill(name);
+        await this.page.getByRole('textbox', { name: 'Label name' }).fill(name);
     }
 
     private getConfirmLabel() {

@@ -14,7 +14,7 @@ import { Popover } from 'react-aria-components';
 
 import { CreateLabelForm } from '../../../prompts/visual-prompt/labels-management/add-label/create-label-form.component';
 
-interface CreateLabelProps {
+interface CreateLabelPopoverProps {
     onSuccess: (label: LabelType) => void;
     existingLabels: LabelType[];
     mousePosition: Point | null;
@@ -22,7 +22,13 @@ interface CreateLabelProps {
     ref: RefObject<SVGSVGElement | null>;
 }
 
-export const CreateLabel = ({ onSuccess, existingLabels, onClose, mousePosition, ref }: CreateLabelProps) => {
+export const CreateLabelPopover = ({
+    onSuccess,
+    existingLabels,
+    onClose,
+    mousePosition,
+    ref,
+}: CreateLabelPopoverProps) => {
     if (mousePosition === null) return null;
 
     return (
