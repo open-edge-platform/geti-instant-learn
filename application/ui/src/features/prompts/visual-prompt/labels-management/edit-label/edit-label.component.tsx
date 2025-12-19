@@ -9,10 +9,8 @@ import { LabelType } from '@geti-prompt/api';
 import { useOnOutsideClick } from '@geti-prompt/hooks';
 import { DimensionValue, DOMRefValue, Flex, useUnwrapDOMRef } from '@geti/ui';
 import { Checkmark } from '@geti/ui/icons';
-import { isEmpty } from 'lodash-es';
 
 import { Label } from '../label/label.component';
-import { validateLabelName } from '../utils';
 
 import classes from './edit-label.module.scss';
 
@@ -59,43 +57,28 @@ export const EditLabel = ({
     shouldCloseOnOutsideClick = false,
 }: EditLabelProps) => {
     const [isColorPickerOpen, setIsColorPickerOpen] = useState<boolean>(false);
-    const [color, setColor] = useState<string>(label.color);
-    const [name, setName] = useState<string>(label.name);
+
     const formRef = useCloseLabelEditionOnOutsideClick({ onClose, shouldCloseOnOutsideClick, isColorPickerOpen });
 
-    const validationError = validateLabelName(name, existingLabels, label.id);
-    const hasSameName = name.trim() === label.name.trim();
-    const hasSameColor = color === label.color;
-    const isEditDisabled = !!validationError || isDisabled || isEmpty(name.trim()) || (hasSameName && hasSameColor);
-
-    const handleAccept = () => {
-        onAccept({ color, name, id: label.id });
-    };
-
     return (
-        <Label.Form onSubmit={handleAccept} ref={formRef}>
-            <Flex
-                marginTop={0}
-                gap={'size-50'}
-                width={width}
-                justifyContent={'center'}
-                UNSAFE_className={classes.editLabelContainer}
-            >
-                <Label.ColorPicker color={color} onColorChange={setColor} onOpenChange={setIsColorPickerOpen} />
+        <Label label={label} existingLabels={existingLabels}>
+            <Label.Form onSubmit={onAccept} ref={formRef}>
+                <Flex
+                    marginTop={0}
+                    gap={'size-50'}
+                    width={width}
+                    justifyContent={'center'}
+                    UNSAFE_className={classes.editLabelContainer}
+                >
+                    <Label.ColorPicker onOpenChange={setIsColorPickerOpen} />
 
-                <Label.NameField
-                    isQuiet
-                    name={name}
-                    onChangeName={setName}
-                    onClose={onClose}
-                    validationError={validationError}
-                    ariaLabel={'Edit label name'}
-                />
+                    <Label.NameField isQuiet onClose={onClose} ariaLabel={'Edit label name'} />
 
-                <Label.Button isDisabled={isEditDisabled} color={'var(--energy-blue)'}>
-                    <Checkmark />
-                </Label.Button>
-            </Flex>
-        </Label.Form>
+                    <Label.Button isDisabled={isDisabled} color={'var(--energy-blue)'}>
+                        <Checkmark />
+                    </Label.Button>
+                </Flex>
+            </Label.Form>
+        </Label>
     );
 };
