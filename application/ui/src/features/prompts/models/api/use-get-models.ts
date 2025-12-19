@@ -5,8 +5,9 @@
 
 import { useEffect, useRef } from 'react';
 
-import { $api, ModelListType } from '@geti-prompt/api';
+import { $api, ModelListType, ModelType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { v4 as uuid } from 'uuid';
 
 import { useCreateModel } from './use-create-model';
 
@@ -23,6 +24,21 @@ const useGetModelsQuery = (): ModelListType => {
     return data;
 };
 
+const getDefaultModel = (id: string): ModelType => {
+    return {
+        id,
+        config: {
+            mask_similarity_threshold: 0.38,
+            model_type: 'matcher',
+            num_background_points: 2,
+            num_foreground_points: 40,
+            precision: 'bf16',
+        },
+        active: true,
+        name: `Matcher`,
+    };
+};
+
 export const useGetModels = () => {
     const { models } = useGetModelsQuery();
     const createModel = useCreateModel();
@@ -33,7 +49,7 @@ export const useGetModels = () => {
     useEffect(() => {
         if (models.length === 0 && !hasCreatedModel.current) {
             hasCreatedModel.current = true;
-            createModel();
+            createModel(getDefaultModel(uuid()));
         }
     }, [models.length, createModel]);
 

@@ -6,6 +6,7 @@
 import { useState } from 'react';
 
 import { ProjectType } from '@geti-prompt/api';
+import { getQueryKey } from '@geti-prompt/query-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { v4 as uuid } from 'uuid';
@@ -35,7 +36,7 @@ export const useCreateProjectWithConfirmation = ({
         if (activeProject === undefined) return;
 
         queryClient.invalidateQueries({
-            queryKey: [
+            queryKey: getQueryKey([
                 'get',
                 '/api/v1/projects/{project_id}',
                 {
@@ -45,7 +46,7 @@ export const useCreateProjectWithConfirmation = ({
                         },
                     },
                 },
-            ],
+            ]),
         });
     };
 

@@ -5,6 +5,7 @@
 
 import { Suspense, type ReactNode } from 'react';
 
+import { queryClient } from '@geti-prompt/query-client';
 import { IntelBrandedLoading, Toast } from '@geti/ui';
 import { ThemeProvider } from '@geti/ui/theme';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -16,7 +17,6 @@ import {
 import { createMemoryRouter, RouterProvider } from 'react-router';
 
 import { paths } from '../constants/paths';
-import { queryClient } from '../query-client/query-client';
 
 export interface RenderOptions extends RTLRenderOptions {
     route: string;

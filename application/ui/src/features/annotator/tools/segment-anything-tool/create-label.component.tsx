@@ -39,8 +39,8 @@ export const useCreateLabelFormPosition = () => {
                 if (newX === point.x && newY === point.y) return;
 
                 setPoint({
-                    x: initialWindowSize.x + xDiff,
-                    y: initialWindowSize.y + yDiff,
+                    x: newX,
+                    y: newY,
                 });
             },
             {
@@ -68,7 +68,7 @@ const useCloseOnOutsideClick = (onClose: () => void) => {
         const abortController = new AbortController();
 
         document.addEventListener(
-            'click',
+            'pointerdown',
             (event) => {
                 const node = labelContainerRef.current;
 
@@ -89,7 +89,7 @@ const useCloseOnOutsideClick = (onClose: () => void) => {
                     return;
                 }
             },
-            { signal: abortController.signal }
+            { signal: abortController.signal, capture: true }
         );
         return () => {
             abortController.abort();
@@ -99,28 +99,43 @@ const useCloseOnOutsideClick = (onClose: () => void) => {
     return labelContainerRef;
 };
 
-interface CreateLabelProps {
+const getNodeRef = () => {
+    const parentModal = document.querySelector('[data-testid="modal"]');
+
+    if (parentModal !== null) {
+        return parentModal as HTMLElement;
+    }
+
+    return undefined;
+};
+
+interface CreateLabelOverlayProps {
     onSuccess: (label: LabelType) => void;
-    existingLabels: LabelType[];
-    mousePosition: Point | undefined;
     onClose: () => void;
+    mousePosition: Point | undefined;
+    existingLabels: LabelType[];
 }
 
-export const CreateLabel = ({ onSuccess, existingLabels, onClose, mousePosition }: CreateLabelProps) => {
+const LABEL_OVERLAY_Z_INDEX = 10000000;
+
+const CreateLabelOverlay = ({ onClose, onSuccess, mousePosition, existingLabels }: CreateLabelOverlayProps) => {
     const nodeRef = useRef(null);
+    const containerRef = useRef(getNodeRef());
 
     const labelContainerRef = useCloseOnOutsideClick(onClose);
 
-    if (mousePosition === undefined) return null;
-
     return (
-        <Overlay isOpen nodeRef={nodeRef}>
+        // Note: we have to provide a container to the Overlay component because when we have a full-screen mode open,
+        // the overlay was rendered outside the modal and therefore was interactive. With the container prop,
+        // we can make sure that the overlay is rendered inside the modal when in full-screen mode.
+        <Overlay isOpen nodeRef={nodeRef} container={containerRef.current}>
             <div
                 style={{
                     position: 'absolute',
                     left: mousePosition?.x,
                     top: mousePosition?.y,
                     transform: 'translate(-50%, -50%)',
+                    zIndex: LABEL_OVERLAY_Z_INDEX,
                 }}
             >
                 <View
@@ -141,5 +156,27 @@ export const CreateLabel = ({ onSuccess, existingLabels, onClose, mousePosition 
                 </View>
             </div>
         </Overlay>
+    );
+};
+
+interface CreateLabelProps {
+    onSuccess: (label: LabelType) => void;
+    existingLabels: LabelType[];
+    mousePosition: Point | undefined;
+    onClose: () => void;
+}
+
+export const CreateLabel = ({ onSuccess, existingLabels, onClose, mousePosition }: CreateLabelProps) => {
+    if (mousePosition === undefined) {
+        return null;
+    }
+
+    return (
+        <CreateLabelOverlay
+            existingLabels={existingLabels}
+            mousePosition={mousePosition}
+            onClose={onClose}
+            onSuccess={onSuccess}
+        />
     );
 };

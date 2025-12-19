@@ -25,11 +25,15 @@ export const PromptThumbnail = ({ prompt }: PromptThumbnailProps) => {
     const { setPromptId } = useVisualPrompt();
     const deletePromptMutation = useDeletePrompt();
 
-    const onAction = (option: Key) => {
+    const handleEdit = () => {
+        setSelectedFrameId(prompt.frame_id);
+        setPromptId(prompt.id);
+    };
+
+    const handleAction = (option: Key) => {
         switch (option) {
             case 'Edit':
-                setSelectedFrameId(prompt.frame_id);
-                setPromptId(prompt.id);
+                handleEdit();
                 break;
             case 'Delete':
                 deletePromptMutation.mutate({
@@ -45,7 +49,7 @@ export const PromptThumbnail = ({ prompt }: PromptThumbnailProps) => {
     };
 
     return (
-        <View UNSAFE_className={styles.promptThumbnail}>
+        <div onClick={handleEdit} className={styles.promptThumbnail}>
             <img
                 aria-label={`prompt thumbnail ${prompt.id}`}
                 src={prompt.thumbnail}
@@ -60,12 +64,12 @@ export const PromptThumbnail = ({ prompt }: PromptThumbnailProps) => {
                 backgroundColor={'gray-50'}
                 UNSAFE_className={styles.actionMenu}
             >
-                <ActionMenu isQuiet onAction={onAction} aria-label={`Prompt actions ${prompt.id}`}>
+                <ActionMenu isQuiet onAction={handleAction} aria-label={`Prompt actions ${prompt.id}`}>
                     {PROMPT_OPTIONS.map((option) => {
                         return <Item key={option}>{option}</Item>;
                     })}
                 </ActionMenu>
             </View>
-        </View>
+        </div>
     );
 };
