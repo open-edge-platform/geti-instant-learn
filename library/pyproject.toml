@@ -84,6 +84,12 @@ dev = [
     "build>=1.2.2.post1",
     "twine>=6.1.0",
 ]
+docs = [
+    "myst-parser",
+    "sphinx",
+    "sphinx_autodoc_typehints",
+    "sphinx_book_theme",
+]
 
 full = [
     "getiprompt[dev, extras, notebook]",
