@@ -83,7 +83,6 @@ class MaskedFeatureExtractor(nn.Module):
             strict=True,
         ):
             for category_id, mask in zip(category_ids_tensor, masks_tensor, strict=True):
-                category_id = category_id.item()
                 pooled_mask = self.transform(mask).to(embedding.device)
                 flatten_ref_masks[category_id].append(pooled_mask)
                 keep = pooled_mask.flatten().bool()
