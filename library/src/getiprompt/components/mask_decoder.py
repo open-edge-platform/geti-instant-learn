@@ -332,6 +332,7 @@ class SamDecoder(nn.Module):
         else:
             final_masks = masks.squeeze(1)
 
+        final_masks = (final_masks.sum(0) > 0).unsqueeze(0)
         return (
             final_masks,
             input_coords,

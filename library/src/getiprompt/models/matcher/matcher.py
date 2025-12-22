@@ -82,7 +82,7 @@ class Matcher(Model):
         num_background_points: int = 2,
         encoder_model: str = "dinov3_large",
         mask_similarity_threshold: float | None = 0.38,
-        use_mask_refinement: bool = False,
+        use_mask_refinement: bool = True,
         precision: str = "bf16",
         compile_models: bool = False,
         device: str = "cuda",
