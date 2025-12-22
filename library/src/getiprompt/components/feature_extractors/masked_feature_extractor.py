@@ -67,7 +67,7 @@ class MaskedFeatureExtractor(nn.Module):
             category_ids (torch.Tensor): Category IDs for each mask of shape ``(batch_size, num_masks)``.
 
         Returns:
-            tuple[dict[int, torch.Tensor], dict[int, torch.Tensor]]:
+            tuple[dict[int, torch.Tensor], dict[int, torch.Tensor], dict[int, torch.Tensor]]:
                 - masked_ref_embeddings: Dictionary of masked reference features grouped by category.
                 - flatten_ref_masks: Dictionary of flattened masks grouped by category.
                 - ref_embeddings: Dictionary of all reference features grouped by category.
