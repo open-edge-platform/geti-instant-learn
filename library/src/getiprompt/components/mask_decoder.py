@@ -351,7 +351,7 @@ class SamDecoder(nn.Module):
         score_threshold: float = 0.45,
         nms_iou_threshold: float = 0.1,
         use_box_refinement: bool = False,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Refine the masks.
 
         Args:
