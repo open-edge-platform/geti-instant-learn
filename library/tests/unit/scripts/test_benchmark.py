@@ -144,7 +144,7 @@ class TestBenchmarkModelHandling:
                 output_path=Path(tempfile.mkdtemp()),
                 dataset_name="lvis",
                 model_name="Matcher",
-                backbone_name="SAM-HQ-tiny",
+                sam_model_id="sam-hq-tiny",
                 number_of_priors_tests=1,
                 device=torch.device("cpu"),
             )
@@ -168,7 +168,7 @@ class TestBenchmarkModelHandling:
                     output_path=Path(tempfile.mkdtemp()),
                     dataset_name="lvis",
                     model_name="Matcher",
-                    backbone_name="SAM-HQ-tiny",
+                    sam_model_id="sam-hq-tiny",
                     number_of_priors_tests=1,
                     device=torch.device("cpu"),
                 )

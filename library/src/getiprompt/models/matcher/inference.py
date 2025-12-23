@@ -134,7 +134,7 @@ class InferenceModel(Matcher):
         )
 
         self.sam_predictor = OpenVINOSAMPredictor(
-            sam_model_name=sam,
+            model_id=sam,
             device=device,
             precision=precision,
             model_path=sam_path,

@@ -10,12 +10,13 @@ import pytest
 import torch
 from torchvision.tv_tensors import Image
 
-from getiprompt.components.encoders import (
-    AVAILABLE_IMAGE_ENCODERS,
-    TIMM_AVAILABLE_IMAGE_ENCODERS,
-    ImageEncoder,
-)
+from getiprompt.components.encoders import ImageEncoder
 from getiprompt.utils.constants import Backend
+from getiprompt.utils.model_registry import ModelType, get_models_by_type
+
+# Get encoder model IDs from registry, filtered by family for HuggingFace vs TIMM
+HUGGINGFACE_ENCODER_IDS = [m.id for m in get_models_by_type(ModelType.ENCODER) if m.family == "DINOv2"]
+TIMM_ENCODER_IDS = [m.id for m in get_models_by_type(ModelType.ENCODER) if m.family == "DINOv3"]
 
 
 class TestEncoder:
@@ -115,11 +116,11 @@ class TestEncoder:
         if backend == Backend.HUGGINGFACE:
             mock_model_instance = self._setup_mock_hf_model(mock_model, mock_processor)
             mock_optimize.return_value = mock_model_instance
-            model_id = "dinov2_small"
+            model_id = "dinov2-small"
         else:  # TIMM
             mock_model_instance = self._setup_mock_timm_model(mock_timm_create, mock_timm_data_config)
             mock_optimize.return_value = mock_model_instance
-            model_id = "dinov3_small"
+            model_id = "dinov3-small"
 
         # Create encoder
         encoder = ImageEncoder(model_id=model_id, backend=backend, device="cpu", input_size=expected_input_size)
@@ -148,11 +149,11 @@ class TestEncoder:
         if backend == Backend.HUGGINGFACE:
             mock_model_instance = self._setup_mock_hf_model(mock_model, mock_processor)
             mock_optimize.return_value = mock_model_instance
-            model_id = "dinov2_small"
+            model_id = "dinov2-small"
         else:  # TIMM
             mock_model_instance = self._setup_mock_timm_model(mock_timm_create, mock_timm_data_config)
             mock_optimize.return_value = mock_model_instance
-            model_id = "dinov3_small"
+            model_id = "dinov3-small"
 
         # Create encoder
         encoder = ImageEncoder(model_id=model_id, backend=backend, device="cpu", input_size=224)
@@ -178,7 +179,7 @@ class TestEncoder:
     @staticmethod
     def test_valid_model_ids_huggingface() -> None:
         """Test that all valid HuggingFace model IDs are accepted."""
-        for model_id in AVAILABLE_IMAGE_ENCODERS:
+        for model_id in HUGGINGFACE_ENCODER_IDS:
             with (
                 patch("getiprompt.utils.optimization.optimize_model") as mock_optimize,
                 patch("getiprompt.components.encoders.huggingface.AutoModel") as mock_model,
@@ -202,7 +203,7 @@ class TestEncoder:
     @staticmethod
     def test_valid_model_ids_timm() -> None:
         """Test that all valid TIMM model IDs are accepted."""
-        for model_id in TIMM_AVAILABLE_IMAGE_ENCODERS:
+        for model_id in TIMM_ENCODER_IDS:
             with (
                 patch("getiprompt.utils.optimization.optimize_model") as mock_optimize,
                 patch("getiprompt.components.encoders.timm.timm.create_model") as mock_timm_create,
@@ -248,11 +249,11 @@ class TestEncoder:
         if backend == Backend.HUGGINGFACE:
             mock_model_instance = self._setup_mock_hf_model(mock_model, mock_processor)
             mock_optimize.return_value = mock_model_instance
-            model_id = "dinov2_small"
+            model_id = "dinov2-small"
         else:  # TIMM
             mock_model_instance = self._setup_mock_timm_model(mock_timm_create, mock_timm_data_config)
             mock_optimize.return_value = mock_model_instance
-            model_id = "dinov3_small"
+            model_id = "dinov3-small"
 
         # Test with different input sizes
         for input_size in [224, 384, 512]:
@@ -278,11 +279,11 @@ class TestEncoder:
         if backend == Backend.HUGGINGFACE:
             mock_model_instance = self._setup_mock_hf_model(mock_model, mock_processor)
             mock_optimize.return_value = mock_model_instance
-            model_id = "dinov2_small"
+            model_id = "dinov2-small"
         else:  # TIMM
             mock_model_instance = self._setup_mock_timm_model(mock_timm_create, mock_timm_data_config)
             mock_optimize.return_value = mock_model_instance
-            model_id = "dinov3_small"
+            model_id = "dinov3-small"
 
         # Test with different precision settings
         precision_mapping = {"fp32": torch.float32, "fp16": torch.float16, "bf16": torch.bfloat16}
@@ -315,11 +316,11 @@ class TestEncoder:
         if backend == Backend.HUGGINGFACE:
             mock_model_instance = self._setup_mock_hf_model(mock_model, mock_processor)
             mock_optimize.return_value = mock_model_instance
-            model_id = "dinov2_small"
+            model_id = "dinov2-small"
         else:  # TIMM
             mock_model_instance = self._setup_mock_timm_model(mock_timm_create, mock_timm_data_config)
             mock_optimize.return_value = mock_model_instance
-            model_id = "dinov3_small"
+            model_id = "dinov3-small"
 
         # Test with compile_models=True
         encoder = ImageEncoder(model_id=model_id, backend=backend, device="cpu", compile_models=True, input_size=224)
@@ -348,11 +349,11 @@ class TestEncoder:
         if backend == Backend.HUGGINGFACE:
             mock_model_instance = self._setup_mock_hf_model(mock_model, mock_processor)
             mock_optimize.return_value = mock_model_instance
-            model_id = "dinov2_small"
+            model_id = "dinov2-small"
         else:  # TIMM
             mock_model_instance = self._setup_mock_timm_model(mock_timm_create, mock_timm_data_config)
             mock_optimize.return_value = mock_model_instance
-            model_id = "dinov3_small"
+            model_id = "dinov3-small"
 
         # Test with different devices
         for device in ["cpu", "cuda"]:
@@ -377,7 +378,7 @@ class TestEncoder:
         mock_model.from_pretrained.side_effect = OSError("gated repo access denied")
 
         with pytest.raises(ValueError, match="User does not have access"):
-            ImageEncoder(model_id="dinov2_small", backend=Backend.HUGGINGFACE, device="cpu")
+            ImageEncoder(model_id="dinov2-small", backend=Backend.HUGGINGFACE, device="cpu")
 
 
 class TestEncoderIntegration:
@@ -390,9 +391,9 @@ class TestEncoderIntegration:
     def test_forward_with_real_model_comprehensive(backend: Backend) -> None:
         """Comprehensive integration test with real DINO models for both backends."""
         if backend == Backend.HUGGINGFACE:
-            model_id = "dinov2_small"
+            model_id = "dinov2-small"
         else:  # TIMM
-            model_id = "dinov3_small"
+            model_id = "dinov3-small"
         encoder = ImageEncoder(model_id=model_id, backend=backend, device="cpu", input_size=224)
 
         # Create test image
@@ -412,7 +413,7 @@ class TestEncoderIntegration:
         pytest.assume(embeddings.shape[1] == expected_patches)
         # Embedding dimension depends on model
         if backend == Backend.HUGGINGFACE:
-            pytest.assume(embeddings.shape[2] == 384)  # dinov2_small has 384 dims
+            pytest.assume(embeddings.shape[2] == 384)  # dinov2-small has 384 dims
         else:  # TIMM
             pytest.assume(embeddings.shape[2] > 0)  # Just check it's positive
 
@@ -429,10 +430,10 @@ class TestEncoderIntegration:
         """Test that real model configuration is properly loaded for both backends."""
         expected_ignore_token_length = 5  # CLS token only
         if backend == Backend.HUGGINGFACE:
-            model_id = "dinov2_small"
+            model_id = "dinov2-small"
             expected_patch_size = 14  # DINOv2 small uses 14x14 patches
         else:  # TIMM
-            model_id = "dinov3_small"
+            model_id = "dinov3-small"
             expected_patch_size = 16  # DINOv3 uses 16x16 patches
 
         encoder = ImageEncoder(model_id=model_id, backend=backend, device="cpu", input_size=224)
@@ -453,9 +454,9 @@ class TestEncoderIntegration:
     def test_feature_quality_and_consistency(backend: Backend) -> None:
         """Test that extracted embeddings are meaningful and consistent for both backends."""
         if backend == Backend.HUGGINGFACE:
-            model_id = "dinov2_small"
+            model_id = "dinov2-small"
         else:  # TIMM
-            model_id = "dinov3_small"
+            model_id = "dinov3-small"
         encoder = ImageEncoder(model_id=model_id, backend=backend, device="cpu", input_size=224)
 
         # Create identical images
@@ -485,9 +486,9 @@ class TestEncoderIntegration:
     def test_different_model_sizes(backend: Backend) -> None:
         """Test with different DINO model sizes to verify configuration for both backends."""
         if backend == Backend.HUGGINGFACE:
-            model_id = "dinov2_base"
+            model_id = "dinov2-base"
         else:  # TIMM
-            model_id = "dinov3_base"
+            model_id = "dinov3-base"
         # Test with base model (larger than small)
         encoder_base = ImageEncoder(model_id=model_id, backend=backend, device="cpu", input_size=224)
 
