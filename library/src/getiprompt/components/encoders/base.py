@@ -63,7 +63,7 @@ def load_image_encoder(
         ... )
         >>>
         >>> # Export to OpenVINO
-        >>> ov_path = encoder.export(Path("./exported/dinov3_large"))
+        >>> ov_path = encoder.export(Path("./exported/dinov3-large"))
         >>>
         >>> # OpenVINO backend (optimized inference)
         >>> ov_encoder = load_image_encoder(
