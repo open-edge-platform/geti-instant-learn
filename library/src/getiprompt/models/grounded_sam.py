@@ -11,15 +11,18 @@ from getiprompt.components.prompt_generators import GroundingModel, TextToBoxPro
 from getiprompt.components.sam.base import SAMPredictor
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.base import Model
-from getiprompt.utils.constants import Backend, SAMModelName
+from getiprompt.utils.constants import Backend
+from getiprompt.utils.model_registry import ModelType
 
 
 class GroundedSAM(Model):
     """This model uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
 
+    DEFAULT_SAM = "sam-hq-tiny"
+
     def __init__(
         self,
-        sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
+        sam: str = DEFAULT_SAM,
         grounding_model: GroundingModel = GroundingModel.LLMDET_TINY,
         precision: str = "bf16",
         compile_models: bool = False,
@@ -30,7 +33,7 @@ class GroundedSAM(Model):
         """Initialize the model.
 
         Args:
-            sam: The SAM model name.
+            sam: Model ID for the segmenter (e.g., "sam-hq-tiny", "sam-hq").
             grounding_model: The grounding model to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
@@ -39,6 +42,10 @@ class GroundedSAM(Model):
             device: The device to use.
         """
         super().__init__()
+
+        # Validate model exists in registry
+        self._validate_model(sam, ModelType.SEGMENTER)
+
         self.sam_predictor = SAMPredictor(
             sam,
             backend=Backend.PYTORCH,

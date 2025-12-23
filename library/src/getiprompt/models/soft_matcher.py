@@ -5,7 +5,6 @@
 
 from getiprompt.components.prompt_generators import SoftmatcherPromptGenerator
 from getiprompt.models.matcher import Matcher
-from getiprompt.utils.constants import SAMModelName
 
 
 class SoftMatcher(Matcher):
@@ -70,7 +69,7 @@ class SoftMatcher(Matcher):
 
     def __init__(
         self,
-        sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
+        sam: str = Matcher.DEFAULT_SAM,
         num_foreground_points: int = 40,
         num_background_points: int = 2,
         mask_similarity_threshold: float | None = 0.42,
@@ -79,7 +78,7 @@ class SoftMatcher(Matcher):
         approximate_matching: bool = False,
         softmatching_score_threshold: float = 0.4,
         softmatching_bidirectional: bool = False,
-        encoder_model: str = "dinov3_large",
+        encoder_model: str = Matcher.DEFAULT_ENCODER,
         precision: str = "bf16",
         compile_models: bool = False,
         device: str = "cuda",
@@ -87,7 +86,7 @@ class SoftMatcher(Matcher):
         """Initialize the SoftMatcher model.
 
         Args:
-            sam: The name of the SAM model to use.
+            sam: Model ID for the segmenter (e.g., "sam-hq-tiny", "sam-hq").
             num_foreground_points: The number of foreground points to use.
             num_background_points: The number of background points to use.
             mask_similarity_threshold: The similarity threshold for the mask.
@@ -96,7 +95,7 @@ class SoftMatcher(Matcher):
             approximate_matching: Whether to use approximate matching.
             softmatching_score_threshold: The score threshold for the soft matching.
             softmatching_bidirectional: Whether to use bidirectional soft matching.
-            encoder_model: The encoder model to use.
+            encoder_model: Model ID for the encoder (e.g., "dinov3-large").
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
             device: The device to use for the model.

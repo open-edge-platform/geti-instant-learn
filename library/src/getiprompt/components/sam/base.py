@@ -10,7 +10,8 @@ import torch
 
 from getiprompt.components.sam.openvino import OpenVINOSAMPredictor
 from getiprompt.components.sam.pytorch import PyTorchSAMPredictor
-from getiprompt.utils.constants import MODEL_MAP, Backend, SAMModelName
+from getiprompt.utils.constants import Backend
+from getiprompt.utils.model_registry import ModelType, get_model, get_models_by_type
 from getiprompt.utils.optimization import optimize_model
 from getiprompt.utils.utils import precision_to_torch_dtype
 
@@ -18,7 +19,7 @@ logger = getLogger("Geti Prompt")
 
 
 def load_sam_model(
-    sam: SAMModelName,
+    model_id: str,
     device: str = "cuda",
     precision: str = "bf16",
     compile_models: bool = False,
@@ -32,7 +33,7 @@ def load_sam_model(
     which implementation to use.
 
     Args:
-        sam: The SAM model architecture to load (e.g., SAM_HQ_TINY, SAM2_BASE)
+        model_id: The model ID (e.g., "sam-hq-tiny", "sam2-base").
         device: Device to run inference on:
             - PyTorch backend: "cuda", "cpu"
             - OpenVINO backend: "CPU", "GPU", "AUTO"
@@ -51,38 +52,40 @@ def load_sam_model(
         A SAM predictor instance (PyTorchSAMPredictor or OpenVINOSAMPredictor).
 
     Raises:
-        ValueError: If the model type or backend is invalid.
+        ValueError: If the model ID or backend is invalid.
 
     Examples:
         >>> # PyTorch backend with auto-download
         >>> predictor = load_sam_model(
-        ...     SAMModelName.SAM_HQ_TINY,
+        ...     "sam-hq-tiny",
         ...     device="cuda",
         ...     backend=Backend.PYTORCH
         ... )
 
         >>> # PyTorch backend with custom checkpoint
         >>> predictor = load_sam_model(
-        ...     SAMModelName.SAM_HQ_TINY,
+        ...     "sam-hq-tiny",
         ...     backend=Backend.PYTORCH,
         ...     model_path=Path("custom_weights.pth")
         ... )
 
         >>> # OpenVINO backend
         >>> predictor = load_sam_model(
-        ...     SAMModelName.SAM_HQ_TINY,
+        ...     "sam-hq-tiny",
         ...     device="CPU",
         ...     backend=Backend.OPENVINO,
         ...     model_path=Path("exported/sam_hq_tiny.xml")
         ... )
     """
-    if sam not in MODEL_MAP:
-        msg = f"Invalid model type: {sam}"
+    model = get_model(model_id)
+    if model is None:
+        valid = [m.id for m in get_models_by_type(ModelType.SEGMENTER)]
+        msg = f"Invalid model ID: '{model_id}'. Valid segmenters: {valid}"
         raise ValueError(msg)
 
     if backend == Backend.PYTORCH:
         predictor = PyTorchSAMPredictor(
-            sam_model_name=sam,
+            model_id=model_id,
             device=device,
             model_path=model_path,
         )
@@ -100,15 +103,15 @@ def load_sam_model(
         if model_path is None:
             msg = (
                 "model_path is required for OpenVINO backend. "
-                "Please export a PyTorch model first:\n"
-                "  predictor = load_sam_model(sam=..., backend=Backend.PYTORCH)\n"
-                "  ov_path = predictor.export(Path('./exported'))\n"
+                "Please export a PyTorch model first:\\n"
+                "  predictor = load_sam_model(model_id=..., backend=Backend.PYTORCH)\\n"
+                "  ov_path = predictor.export(Path('./exported'))\\n"
                 "  ov_predictor = load_sam_model(backend=Backend.OPENVINO, model_path=ov_path)"
             )
             raise ValueError(msg)
 
         return OpenVINOSAMPredictor(
-            sam_model_name=sam,
+            model_id=model_id,
             device=device,
             model_path=model_path,
             precision=precision,
@@ -127,12 +130,11 @@ class SAMPredictor:
 
     Examples:
         >>> from getiprompt.components.sam import SAMPredictor
-        >>> from getiprompt.utils.constants import SAMModelName
         >>> import torch
         >>>
         >>> # Create predictor with PyTorch backend
         >>> predictor = SAMPredictor(
-        ...     sam_model_name=SAMModelName.SAM_HQ_TINY,
+        ...     "sam-hq-tiny",
         ...     backend=Backend.PYTORCH
         ... )
         >>>
@@ -141,7 +143,7 @@ class SAMPredictor:
         >>>
         >>> # Load with OpenVINO backend
         >>> ov_predictor = SAMPredictor(
-        ...     sam_model_name=SAMModelName.SAM_HQ_TINY,
+        ...     "sam-hq-tiny",
         ...     backend=Backend.OPENVINO,
         ...     model_path=ov_path
         ... )
@@ -149,7 +151,7 @@ class SAMPredictor:
 
     def __init__(
         self,
-        sam_model_name: SAMModelName,
+        model_id: str,
         backend: Backend = Backend.PYTORCH,
         device: str = "cuda",
         precision: str = "bf16",
@@ -159,7 +161,7 @@ class SAMPredictor:
         """Initialize the SAM predictor.
 
         Args:
-            sam_model_name: The SAM model architecture (e.g., SAM_HQ_TINY, SAM2_BASE)
+            model_id: The model ID (e.g., "sam-hq-tiny", "sam2-base").
             backend: Which backend to use: Backend.PYTORCH or Backend.OPENVINO.
             device: Device to run inference on. For PyTorch: "cuda" or "cpu".
                 For OpenVINO: "CPU", "GPU", or "AUTO".
@@ -172,7 +174,7 @@ class SAMPredictor:
         self.backend = backend
         self.device = device
         self._predictor: PyTorchSAMPredictor | OpenVINOSAMPredictor = load_sam_model(
-            sam=sam_model_name,
+            model_id=model_id,
             device=device,
             precision=precision,
             compile_models=compile_models,

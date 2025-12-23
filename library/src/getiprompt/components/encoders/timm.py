@@ -16,16 +16,9 @@ from torchvision.transforms.v2 import Compose, Normalize, Resize, ToDtype
 
 from getiprompt.utils import precision_to_torch_dtype
 from getiprompt.utils.constants import Backend
+from getiprompt.utils.model_registry import ModelType, get_model, get_models_by_type
 
 logger = getLogger("Geti Prompt")
-
-AVAILABLE_IMAGE_ENCODERS = {
-    "dinov3_small": "timm/vit_small_patch16_dinov3.lvd1689m",
-    "dinov3_small_plus": "timm/vit_small_plus_patch16_dinov3.lvd1689m",
-    "dinov3_base": "timm/vit_base_patch16_dinov3.lvd1689m",
-    "dinov3_large": "timm/vit_large_patch16_dinov3.lvd1689m",
-    "dinov3_huge": "timm/vit_huge_plus_patch16_dinov3.lvd1689m",
-}
 
 
 class TimmImageEncoder(nn.Module):
@@ -38,7 +31,7 @@ class TimmImageEncoder(nn.Module):
 
         >>> # Create a sample image
         >>> sample_image = torch.zeros((3, 518, 518))
-        >>> encoder = TimmImageEncoder(model_id="dinov2_large")
+        >>> encoder = TimmImageEncoder(model_id="dinov3-large")
         >>> features = encoder(images=[sample_image])
         >>> features.shape
         torch.Size([1, 1369, 1024])
@@ -46,7 +39,7 @@ class TimmImageEncoder(nn.Module):
 
     def __init__(
         self,
-        model_id: str = "dinov3_large",
+        model_id: str = "dinov3-large",
         device: str = "cuda",
         precision: str = "bf16",
         compile_models: bool = False,
@@ -55,21 +48,30 @@ class TimmImageEncoder(nn.Module):
         """Initialize the encoder.
 
         Args:
-            model_id: The model id to use.
+            model_id: The model ID (e.g., "dinov3-large").
             device: The device to use.
             precision: The precision to use.
             compile_models: Whether to compile the models.
             input_size: The input size to use.
 
         Raises:
-            ValueError: If the model ID is invalid.
+            ValueError: If the model ID is invalid or not an encoder type.
         """
         from getiprompt.utils.optimization import optimize_model
 
         super().__init__()
 
-        if model_id not in AVAILABLE_IMAGE_ENCODERS:
-            msg = f"Invalid model ID: {model_id}. Valid model IDs: {list(AVAILABLE_IMAGE_ENCODERS.keys())}"
+        # Validate model exists in registry
+        model_meta = get_model(model_id)
+        if model_meta is None:
+            valid = [m.id for m in get_models_by_type(ModelType.ENCODER)]
+            msg = f"Invalid model ID: '{model_id}'. Valid encoders: {valid}"
+            raise ValueError(msg)
+        if model_meta.type != ModelType.ENCODER:
+            msg = f"Model '{model_id}' is not an encoder (type: {model_meta.type})"
+            raise ValueError(msg)
+        if model_meta.hf_model_id is None:
+            msg = f"Model '{model_id}' has no hf_model_id configured"
             raise ValueError(msg)
 
         self.model_id = model_id
@@ -80,7 +82,7 @@ class TimmImageEncoder(nn.Module):
         logger.info(msg)
         self.precision = precision_to_torch_dtype(precision)
         self.model, self.processor = self._load_timm_model(
-            AVAILABLE_IMAGE_ENCODERS[model_id],
+            model_meta.hf_model_id,
             input_size,
             self.precision,
         )

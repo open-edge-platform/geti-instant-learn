@@ -17,41 +17,39 @@ from segment_anything_hq.modeling.prompt_encoder import PromptEncoder as _Prompt
 from segment_anything_hq.predictor import SamPredictor as _SamPredictor
 from torch import nn
 
-from getiprompt.utils.constants import DATA_PATH, MODEL_MAP, Backend, SAMModelName
+from getiprompt.utils.constants import DATA_PATH, Backend
+from getiprompt.utils.model_registry import ModelType, get_local_filename, get_model, get_models_by_type
 from getiprompt.utils.utils import download_file
 
 logger = getLogger("Geti Prompt")
 
 
-def check_model_weights(model_name: SAMModelName) -> None:
+def check_model_weights(model_id: str) -> None:
     """Check if model weights exist locally, download if necessary.
 
     Args:
-        model_name: The name of the model.
+        model_id: The model ID (e.g., "sam-hq-tiny", "sam2-base").
 
     Raises:
-        ValueError: If the model is not found in MODEL_MAP.
-        ValueError: If the model weights are missing.
+        ValueError: If the model is not found in registry or has no weights URL.
     """
-    if model_name not in MODEL_MAP:
-        msg = f"Model '{model_name.value}' not found in MODEL_MAP for weight checking."
+    model = get_model(model_id)
+    if model is None:
+        valid = [m.id for m in get_models_by_type(ModelType.SEGMENTER)]
+        msg = f"Model '{model_id}' not found. Valid segmenters: {valid}"
         raise ValueError(msg)
 
-    model_info = MODEL_MAP[model_name]
-    local_filename = model_info["local_filename"]
-    download_url = model_info["download_url"]
-    sha_sum = model_info["sha_sum"]
-
-    if not local_filename or not download_url:
-        msg = f"Missing 'local_filename' or 'download_url' for {model_name.value} in MODEL_MAP."
+    if model.weights_url is None:
+        msg = f"Model '{model_id}' has no weights_url configured."
         raise ValueError(msg)
 
+    local_filename = get_local_filename(model_id)
     target_path = DATA_PATH.joinpath(local_filename)
 
     if not target_path.exists():
-        msg = f"Model weights for {model_name.value} not found at {target_path}, downloading..."
+        msg = f"Model weights for {model_id} not found at {target_path}, downloading..."
         logger.info(msg)
-        download_file(download_url, target_path, sha_sum)
+        download_file(model.weights_url, target_path)
 
 
 class PositionEmbeddingRandom(_PositionEmbeddingRandom):
@@ -249,50 +247,60 @@ class PyTorchSAMPredictor(nn.Module):
           "no mask input". The prompt encoder detects these and uses the default no_mask_embed.
     """
 
+    # SAM-HQ registry name mapping (model_id -> segment_anything_hq registry key)
+    SAM_HQ_REGISTRY_MAP = {
+        "sam-hq": "vit_h",
+        "sam-hq-tiny": "vit_tiny",
+    }
+
     def __init__(
         self,
-        sam_model_name: SAMModelName,
+        model_id: str,
         device: str,
         model_path: Path | None = None,
     ) -> None:
         """Initialize SAM predictor.
 
         Args:
-            sam_model_name: The SAM model architecture (e.g., SAM_HQ_TINY, SAM2_BASE)
-            device: Device to run inference on ("cuda", "cpu")
-            model_path: Path to .pth checkpoint file (optional, auto-downloads if None)
+            model_id: The model ID (e.g., "sam-hq-tiny", "sam2-base").
+            device: Device to run inference on ("cuda", "cpu").
+            model_path: Path to .pth checkpoint file (optional, auto-downloads if None).
 
         Raises:
-            NotImplementedError: If the model type is not supported.
+            ValueError: If the model ID is not found in registry.
         """
         super().__init__()
         self.device = device
-        self._sam_model_name = sam_model_name
+        self._model_id = model_id
+
+        # Validate model exists in registry
+        model_meta = get_model(model_id)
+        if model_meta is None:
+            valid = [m.id for m in get_models_by_type(ModelType.SEGMENTER)]
+            msg = f"Model '{model_id}' not found. Valid segmenters: {valid}"
+            raise ValueError(msg)
 
         # Determine checkpoint path
         if model_path is None:
-            check_model_weights(sam_model_name)
-            model_info = MODEL_MAP[sam_model_name]
-            checkpoint_path = DATA_PATH.joinpath(model_info["local_filename"])
+            check_model_weights(model_id)
+            local_filename = get_local_filename(model_id)
+            checkpoint_path = DATA_PATH.joinpath(local_filename)
         else:
             checkpoint_path = model_path
 
-        msg = f"Loading PyTorch SAM: {sam_model_name} from {checkpoint_path}"
+        msg = f"Loading PyTorch SAM: {model_id} from {checkpoint_path}"
         logger.info(msg)
 
-        # Load model based on type
-        if sam_model_name in {
-            SAMModelName.SAM2_TINY,
-            SAMModelName.SAM2_SMALL,
-            SAMModelName.SAM2_BASE,
-            SAMModelName.SAM2_LARGE,
-        }:
-            model_info = MODEL_MAP[sam_model_name]
-            config_path = "configs/sam2.1/" + model_info["config_filename"]
+        # Load model based on family
+        if model_meta.family == "SAM2":
+            config_path = "configs/sam2.1/" + model_meta.config_filename
             sam_model = build_sam2(config_path, str(checkpoint_path))
             self._predictor = SAM2ImagePredictor(sam_model)
-        elif sam_model_name in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
-            registry_name = MODEL_MAP[sam_model_name]["registry_name"]
+        elif model_meta.family == "SAM-HQ":
+            registry_name = self.SAM_HQ_REGISTRY_MAP.get(model_id)
+            if registry_name is None:
+                msg = f"SAM-HQ model '{model_id}' not in SAM_HQ_REGISTRY_MAP"
+                raise ValueError(msg)
             sam_model = sam_model_registry[registry_name]().to(device)
             # nosemgrep loading the snapshot from the local path.
             state_dict = torch.load(checkpoint_path, map_location=device)
@@ -308,7 +316,7 @@ class PyTorchSAMPredictor(nn.Module):
             # Patch with ONNX-compatible prompt encoder for SAM-HQ models
             self._patch_prompt_encoder(device)
         else:
-            msg = f"Model {sam_model_name} not implemented"
+            msg = f"Model family '{model_meta.family}' not implemented"
             raise NotImplementedError(msg)
 
     def _patch_prompt_encoder(self, device: str) -> None:
@@ -427,12 +435,12 @@ class PyTorchSAMPredictor(nn.Module):
 
         Example:
             >>> predictor = load_sam_model(
-            ...     SAMModelName.SAM_HQ_TINY,
+            ...     "sam-hq-tiny",
             ...     backend=Backend.PYTORCH
             ... )
             >>> ov_path = predictor.export(Path("./exported"), backend="openvino")
             >>> ov_predictor = load_sam_model(
-            ...     SAMModelName.SAM_HQ_TINY,
+            ...     "sam-hq-tiny",
             ...     backend=Backend.OPENVINO,
             ...     model_path=ov_path
             ... )
@@ -442,8 +450,9 @@ class PyTorchSAMPredictor(nn.Module):
             backend = Backend(backend.lower())
 
         # Only SAM-HQ models support export currently
-        if self._sam_model_name not in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
-            msg = f"Export not supported for {self._sam_model_name}. Only SAM-HQ models are supported."
+        model_meta = get_model(self._model_id)
+        if model_meta is None or model_meta.family != "SAM-HQ":
+            msg = f"Export not supported for '{self._model_id}'. Only SAM-HQ models are supported."
             raise NotImplementedError(msg)
 
         # Ensure output directory exists

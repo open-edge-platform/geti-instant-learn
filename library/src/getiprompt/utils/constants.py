@@ -19,17 +19,6 @@ class Backend(Enum):
     TIMM = "timm"
 
 
-class SAMModelName(Enum):
-    """Enum for SAM model types."""
-
-    SAM_HQ = "SAM-HQ"
-    SAM_HQ_TINY = "SAM-HQ-tiny"
-    SAM2_TINY = "SAM2-tiny"
-    SAM2_SMALL = "SAM2-small"
-    SAM2_BASE = "SAM2-base"
-    SAM2_LARGE = "SAM2-large"
-
-
 class ModelName(Enum):
     """Enum for model types."""
 
@@ -67,49 +56,6 @@ DINOV3_BACKBONE_MAP = {
     DINOv3BackboneSize.BASE.value: "dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth",
     DINOv3BackboneSize.LARGE.value: "dinov3_vitl16_pretrain_lvd1689m-8aa4cbdd.pth",
     DINOv3BackboneSize.HUGE.value: "dinov3_vith16plus_pretrain_lvd1689m-7c1da9a5.pth",
-}
-
-MODEL_MAP = {
-    SAMModelName.SAM2_TINY: {  # 1024x1024 input resolution
-        "registry_name": "vit_t",
-        "local_filename": "sam2.1_hiera_tiny.pt",
-        "config_filename": "sam2.1_hiera_t.yaml",
-        "download_url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_tiny.pt",
-        "sha_sum": "7402e0d864fa82708a20fbd15bc84245c2f26dff0eb43a4b5b93452deb34be69",
-    },
-    SAMModelName.SAM2_SMALL: {  # 1024x1024 input resolution
-        "registry_name": "vit_s",
-        "local_filename": "sam2.1_hiera_small.pt",
-        "config_filename": "sam2.1_hiera_s.yaml",
-        "download_url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_small.pt",
-        "sha_sum": "6d1aa6f30de5c92224f8172114de081d104bbd23dd9dc5c58996f0cad5dc4d38",
-    },
-    SAMModelName.SAM2_BASE: {  # 1024x1024 input resolution
-        "registry_name": "vit_b",
-        "local_filename": "sam2.1_hiera_base_plus.pt",
-        "config_filename": "sam2.1_hiera_b+.yaml",
-        "download_url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_base_plus.pt",
-        "sha_sum": "a2345aede8715ab1d5d31b4a509fb160c5a4af1970f199d9054ccfb746c004c5",
-    },
-    SAMModelName.SAM2_LARGE: {  # 1024x1024 input resolution
-        "registry_name": "vit_l",
-        "local_filename": "sam2.1_hiera_large.pt",
-        "config_filename": "sam2.1_hiera_l.yaml",
-        "download_url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_large.pt",
-        "sha_sum": "2647878d5dfa5098f2f8649825738a9345572bae2d4350a2468587ece47dd318",
-    },
-    SAMModelName.SAM_HQ: {  # 1024x1024 input resolution
-        "registry_name": "vit_h",
-        "local_filename": "sam_hq_vit_h.pth",
-        "download_url": "https://huggingface.co/lkeab/hq-sam/resolve/main/sam_hq_vit_h.pth",
-        "sha_sum": "a7ac14a085326d9fa6199c8c698c4f0e7280afdbb974d2c4660ec60877b45e35",
-    },
-    SAMModelName.SAM_HQ_TINY: {  # 1024x1024 input resolution
-        "registry_name": "vit_tiny",
-        "local_filename": "sam_hq_vit_tiny.pth",
-        "download_url": "https://huggingface.co/lkeab/hq-sam/resolve/main/sam_hq_vit_tiny.pth",
-        "sha_sum": "0f32c075ccdd870ae54db2f7630e7a0878ede5a2b06d05d6fe02c65a82fb7196",
-    },
 }
 
 IMAGE_EXTENSIONS = ("*.jpg", "*.jpeg", "*.png", "*.webp")

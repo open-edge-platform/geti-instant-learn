@@ -11,10 +11,32 @@ from torch import nn
 
 from getiprompt.data.base.batch import Batch
 from getiprompt.utils.constants import Backend
+from getiprompt.utils.model_registry import ModelType, get_model, get_models_by_type
 
 
 class Model(nn.Module):
     """This class is the base class for all models."""
+
+    @staticmethod
+    def _validate_model(model_id: str, expected_type: ModelType) -> None:
+        """Validate a model ID against the registry.
+
+        Args:
+            model_id: The model ID to validate.
+            expected_type: The expected model type.
+            param_name: The parameter name for error messages.
+
+        Raises:
+            ValueError: If the model ID is invalid or has wrong type.
+        """
+        model = get_model(model_id)
+        if model is None:
+            valid = [m.id for m in get_models_by_type(expected_type)]
+            raise ValueError(f"model_id must be one of {valid}, got '{model_id}'")
+        if model.type != expected_type:
+            raise ValueError(
+                f"model_id must be a {expected_type.value}, but '{model_id}' is a {model.type.value}",
+            )
 
     @abstractmethod
     def fit(self, reference_batch: Batch) -> None:

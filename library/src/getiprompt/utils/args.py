@@ -7,18 +7,18 @@ import argparse
 from enum import Enum
 from typing import TypeVar
 
-from getiprompt.components.encoders import AVAILABLE_IMAGE_ENCODERS
 from getiprompt.components.prompt_generators import GroundingModel
-from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
+from getiprompt.utils.constants import DatasetName, ModelName
+from getiprompt.utils.model_registry import ModelType, get_models_by_type
 
-# Generate help strings with choices
-AVAILABLE_SAM_MODELS = ", ".join([model.value for model in SAMModelName])
+# Generate help strings with choices from registry
+AVAILABLE_SAM_MODELS = ", ".join([m.id for m in get_models_by_type(ModelType.SEGMENTER)])
+AVAILABLE_ENCODER_MODELS = ", ".join([m.id for m in get_models_by_type(ModelType.ENCODER)])
 AVAILABLE_MODELS = ", ".join([p.value for p in ModelName])
 AVAILABLE_DATASETS = ", ".join([d.value for d in DatasetName])
 
 HELP_SAM_ARG_MSG = (
-    f"Backbone segmentation model name or "
-    f"comma-separated list. Use 'all' to run all. Available: [{AVAILABLE_SAM_MODELS}]"
+    f"Backbone segmentation model ID or comma-separated list. Use 'all' to run all. Available: [{AVAILABLE_SAM_MODELS}]"
 )
 
 
@@ -32,8 +32,8 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--sam",
         type=str,
-        default="SAM-HQ-tiny",
-        choices=["all"] + [model.value for model in SAMModelName],
+        default="sam-hq-tiny",
+        choices=["all"] + [m.id for m in get_models_by_type(ModelType.SEGMENTER)],
         help=HELP_SAM_ARG_MSG,
     )
     parser.add_argument(
@@ -175,9 +175,9 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--encoder_model",
         type=str,
-        default="dinov3_large",
-        choices=list(AVAILABLE_IMAGE_ENCODERS),
-        help="ImageEncoder model id",
+        default="dinov3-large",
+        choices=[m.id for m in get_models_by_type(ModelType.ENCODER)],
+        help="ImageEncoder model ID",
     )
     parser.add_argument(
         "--grounding_model",
@@ -271,7 +271,34 @@ def _parse_enum_list(arg_str: str, enum_cls: type[TEnum], arg_name: str) -> list
     return [enum_cls(item) for item in items_to_run]
 
 
-def parse_experiment_args(args: argparse.Namespace) -> tuple[list[DatasetName], list[ModelName], list[SAMModelName]]:
+def _parse_sam_model_list(arg_str: str) -> list[str]:
+    """Parse a comma-separated string of SAM model IDs.
+
+    Args:
+        arg_str: Comma-separated string of model IDs or "all"
+
+    Returns:
+        List of valid model IDs
+
+    Raises:
+        ValueError: If any provided value is not a valid model ID
+    """
+    valid_ids = {m.id for m in get_models_by_type(ModelType.SEGMENTER)}
+
+    if arg_str == "all":
+        return list(valid_ids)
+
+    items_to_run = [p.strip() for p in arg_str.split(",")]
+
+    invalid_items = [item for item in items_to_run if item not in valid_ids]
+    if invalid_items:
+        msg = f"Invalid SAM model(s): {invalid_items}. Available: {sorted(valid_ids)}"
+        raise ValueError(msg)
+
+    return items_to_run
+
+
+def parse_experiment_args(args: argparse.Namespace) -> tuple[list[DatasetName], list[ModelName], list[str]]:
     """Parse experiment arguments.
 
     Args:
@@ -281,14 +308,14 @@ def parse_experiment_args(args: argparse.Namespace) -> tuple[list[DatasetName], 
         tuple containing:
             - datasets_to_run: List of dataset enums to run
             - models_to_run: List of model enums to run
-            - backbones_to_run: List of SAM model enums to run
+            - backbones_to_run: List of SAM model IDs (strings) to run
 
     Raises:
         ValueError: If any invalid arguments are provided or if no valid arguments remain after filtering
     """
     valid_datasets = _parse_enum_list(args.dataset_name, DatasetName, "dataset")
     valid_models = _parse_enum_list(args.model, ModelName, "model")
-    valid_backbones = _parse_enum_list(args.sam, SAMModelName, "SAM model")
+    valid_backbones = _parse_sam_model_list(args.sam)
 
     if not valid_datasets:
         msg = f"No valid datasets found from '{args.dataset_name}'. Available: {[d.value for d in DatasetName]}"
@@ -297,7 +324,8 @@ def parse_experiment_args(args: argparse.Namespace) -> tuple[list[DatasetName], 
         msg = f"No valid models found from '{args.model}'. Available: {[m.value for m in ModelName]}"
         raise ValueError(msg)
     if not valid_backbones:
-        msg = f"No valid SAM models found from '{args.sam}'. Available: {[m.value for m in SAMModelName]}"
+        valid_ids = [m.id for m in get_models_by_type(ModelType.SEGMENTER)]
+        msg = f"No valid SAM models found from '{args.sam}'. Available: {valid_ids}"
         raise ValueError(msg)
 
     return valid_datasets, valid_models, valid_backbones

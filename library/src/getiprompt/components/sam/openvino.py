@@ -12,7 +12,7 @@ import torch
 from openvino.properties import hint
 from torch import nn
 
-from getiprompt.utils.constants import Backend, SAMModelName
+from getiprompt.utils.constants import Backend
 from getiprompt.utils.utils import device_to_openvino_device, precision_to_openvino_type
 
 logger = getLogger("Geti Prompt")
@@ -28,7 +28,7 @@ class OpenVINOSAMPredictor(nn.Module):
 
     def __init__(
         self,
-        sam_model_name: SAMModelName,
+        model_id: str,
         device: str,
         model_path: Path,
         precision: str = "fp32",
@@ -36,10 +36,10 @@ class OpenVINOSAMPredictor(nn.Module):
         """Initialize SAM predictor.
 
         Args:
-            sam_model_name: The SAM model architecture (e.g., SAM_HQ_TINY, SAM2_BASE)
-            device: Device to run inference on ("CPU", "GPU", "AUTO")
-            model_path: Path to .xml IR file (required)
-            precision: Precision to use for the model
+            model_id: The model ID (e.g., "sam-hq-tiny", "sam2-base").
+            device: Device to run inference on ("CPU", "GPU", "AUTO").
+            model_path: Path to .xml IR file (required).
+            precision: Precision to use for the model.
 
         Raises:
             FileNotFoundError: If the model path doesn't exist.
@@ -52,14 +52,14 @@ class OpenVINOSAMPredictor(nn.Module):
             msg = (
                 f"OpenVINO model not found at {model_path}. "
                 f"Please export the model first using PyTorchSAMPredictor.export(). "
-                f"Example:\n"
-                f"  from getiprompt.components.sam import load_sam_model\n"
-                f"  predictor = load_sam_model(SAMModelName.{sam_model_name.name}, backend=Backend.PYTORCH)\n"
+                f"Example:\\n"
+                f"  from getiprompt.components.sam import load_sam_model\\n"
+                f"  predictor = load_sam_model('{model_id}', backend=Backend.PYTORCH)\\n"
                 f"  predictor.export(output_path)"
             )
             raise FileNotFoundError(msg)
 
-        msg = f"Loading OpenVINO SAM: {sam_model_name} from {model_path}"
+        msg = f"Loading OpenVINO SAM: {model_id} from {model_path}"
         logger.info(msg)
 
         ov_device = device_to_openvino_device(device)

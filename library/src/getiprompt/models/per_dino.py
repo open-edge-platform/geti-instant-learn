@@ -13,7 +13,8 @@ from getiprompt.components.prompt_generators import GridPromptGenerator
 from getiprompt.components.sam.base import SAMPredictor
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.base import Model
-from getiprompt.utils.constants import Backend, SAMModelName
+from getiprompt.utils.constants import Backend
+from getiprompt.utils.model_registry import ModelType
 
 
 class PerDino(Model):
@@ -66,10 +67,13 @@ class PerDino(Model):
         True
     """
 
+    DEFAULT_SAM = "sam-hq-tiny"
+    DEFAULT_ENCODER = "dinov3-large"
+
     def __init__(
         self,
-        sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
-        encoder_model: str = "dinov3_large",
+        sam: str = DEFAULT_SAM,
+        encoder_model: str = DEFAULT_ENCODER,
         num_foreground_points: int = 40,
         num_background_points: int = 2,
         num_grid_cells: int = 16,
@@ -82,18 +86,23 @@ class PerDino(Model):
         """Initialize the PerDino model.
 
         Args:
-            sam: The name of the SAM model to use.
+            sam: Model ID for the segmenter (e.g., "sam-hq-tiny", "sam-hq").
+            encoder_model: Model ID for the encoder (e.g., "dinov3-large").
             num_foreground_points: The number of foreground points to use.
             num_background_points: The number of background points to use.
             num_grid_cells: The number of grid cells to use.
             similarity_threshold: The similarity threshold for the similarity matcher.
             mask_similarity_threshold: The similarity threshold for the mask.
-            encoder_model: ImageEncoder model ID to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
             device: The device to use for the model.
         """
         super().__init__()
+
+        # Validate models exist in registry
+        self._validate_model(sam, ModelType.SEGMENTER)
+        self._validate_model(encoder_model, ModelType.ENCODER)
+
         self.sam_predictor = SAMPredictor(
             sam,
             backend=Backend.PYTORCH,

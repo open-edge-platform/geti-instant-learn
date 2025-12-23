@@ -14,7 +14,7 @@ import torch
 from getiprompt.components.prompt_generators import GroundingModel
 from getiprompt.data.base import Batch
 from getiprompt.models import GroundedSAM, InferenceMatcher, Matcher, Model, PerDino, SoftMatcher
-from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
+from getiprompt.utils.constants import DatasetName, ModelName
 
 logger = getLogger("Geti Prompt")
 
@@ -52,7 +52,7 @@ def _get_output_path_for_experiment(
     experiment_name: str | None,
     dataset: DatasetName,
     model: ModelName,
-    backbone: SAMModelName,
+    backbone: str,
 ) -> Path:
     """Construct a unique output path for an experiment.
 
@@ -61,12 +61,12 @@ def _get_output_path_for_experiment(
         experiment_name: The name of the experiment
         dataset: The dataset to run
         model: The model to run
-        backbone: The backbone to run
+        backbone: The SAM model ID (string)
 
     Returns:
         The path to save the results
     """
-    combo_str = f"{dataset.value}_{backbone.value}_{model.value}"
+    combo_str = f"{dataset.value}_{backbone}_{model.value}"
 
     if experiment_name:
         return output_path / experiment_name / combo_str
@@ -160,11 +160,11 @@ def convert_masks_to_one_hot_tensor(
     return batch_pred_tensors, batch_gt_tensors
 
 
-def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Model:
+def load_model(sam: str, model_name: ModelName, args: Namespace) -> Model:
     """Instantiate and return the requested model.
 
     Args:
-        sam: The name of the SAM model.
+        sam: The SAM model ID (e.g., "sam-hq-tiny").
         model_name: The name of the model.
         args: The arguments to the model.
 
