@@ -24,7 +24,6 @@ class Model(nn.Module):
         Args:
             model_id: The model ID to validate.
             expected_type: The expected model type.
-            param_name: The parameter name for error messages.
 
         Raises:
             ValueError: If the model ID is invalid or has wrong type.
