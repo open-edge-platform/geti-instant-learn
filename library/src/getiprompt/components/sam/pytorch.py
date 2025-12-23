@@ -49,7 +49,7 @@ def check_model_weights(model_id: str) -> None:
     if not target_path.exists():
         msg = f"Model weights for {model_id} not found at {target_path}, downloading..."
         logger.info(msg)
-        download_file(model.weights_url, target_path)
+        download_file(model.weights_url, target_path, model.sha_sum)
 
 
 class PositionEmbeddingRandom(_PositionEmbeddingRandom):
