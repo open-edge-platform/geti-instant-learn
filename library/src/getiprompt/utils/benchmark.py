@@ -52,7 +52,7 @@ def _get_output_path_for_experiment(
     experiment_name: str | None,
     dataset: DatasetName,
     model: ModelName,
-    backbone: str,
+    sam_model_id: str,
 ) -> Path:
     """Construct a unique output path for an experiment.
 
@@ -61,12 +61,12 @@ def _get_output_path_for_experiment(
         experiment_name: The name of the experiment
         dataset: The dataset to run
         model: The model to run
-        backbone: The SAM model ID (string)
+        sam_model_id: The SAM model ID (e.g., "sam-hq-tiny")
 
     Returns:
         The path to save the results
     """
-    combo_str = f"{dataset.value}_{backbone}_{model.value}"
+    combo_str = f"{dataset.value}_{sam_model_id}_{model.value}"
 
     if experiment_name:
         return output_path / experiment_name / combo_str
@@ -95,7 +95,7 @@ def _save_results(all_results: list[pl.DataFrame], output_path: Path) -> None:
     avg_results_dataframe_filename = output_path / "avg_results.csv"
     avg_results_dataframe_filename.parent.mkdir(parents=True, exist_ok=True)
     avg_result_dataframe = all_result_dataframe.group_by(
-        ["dataset_name", "model_name", "backbone_name"],
+        ["dataset_name", "model_name", "sam_model_id"],
     ).mean()
     avg_result_dataframe.write_csv(str(avg_results_dataframe_filename))
     msg = f"Saved average results to: {avg_results_dataframe_filename}"

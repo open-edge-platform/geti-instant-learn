@@ -13,7 +13,7 @@ from getiprompt.components.feature_extractors import MaskedFeatureExtractor
 from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.components.sam.openvino import OpenVINOSAMPredictor
-from getiprompt.utils.constants import Backend, SAMModelName
+from getiprompt.utils.constants import Backend
 
 from .matcher import Matcher
 
@@ -44,7 +44,7 @@ class InferenceModel(Matcher):
         >>> # Then load with OVMatcher for inference
         >>> ov_matcher = OVMatcher(
         ...     model_folder="./exports/matcher",
-        ...     sam=SAMModelName.SAM_HQ_TINY,
+        ...     sam="sam-hq-tiny",
         ...     device="CPU"
         ... )
 
@@ -79,7 +79,7 @@ class InferenceModel(Matcher):
     def __init__(
         self,
         model_folder: str | Path,
-        sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
+        sam: str = Matcher.DEFAULT_SAM,
         num_foreground_points: int = 40,
         num_background_points: int = 2,
         mask_similarity_threshold: float | None = 0.38,

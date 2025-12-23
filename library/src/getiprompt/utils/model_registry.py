@@ -9,6 +9,7 @@ from enum import StrEnum
 
 class ModelType(StrEnum):
     """Model type classification."""
+
     ENCODER = "encoder"
     SEGMENTER = "segmenter"
     TRACKER = "tracker"
@@ -16,6 +17,7 @@ class ModelType(StrEnum):
 
 class Modality(StrEnum):
     """Input/output modalities."""
+
     IMAGE = "image"
     VIDEO = "video"
     TEXT = "text"
@@ -23,6 +25,7 @@ class Modality(StrEnum):
 
 class PromptType(StrEnum):
     """Supported prompt types."""
+
     POINT = "point"
     BOX = "box"
     MASK = "mask"
@@ -32,6 +35,7 @@ class PromptType(StrEnum):
 
 class Capability(StrEnum):
     """Model capabilities."""
+
     ENCODING = "encoding"
     SEGMENTATION = "segmentation"
     TRACKING = "tracking"
@@ -41,6 +45,7 @@ class Capability(StrEnum):
 @dataclass(frozen=True)
 class ModelMetadata:
     """Metadata describing a single model in the registry."""
+
     id: str
     type: ModelType
     family: str
@@ -253,6 +258,7 @@ MODEL_REGISTRY: tuple[ModelMetadata, ...] = (
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
+
 
 def get_model(model_id: str) -> ModelMetadata | None:
     """Get a model by ID."""

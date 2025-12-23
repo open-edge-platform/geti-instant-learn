@@ -150,7 +150,7 @@ def predict_on_dataset(
     output_path: Path,
     dataset_name: str,
     model_name: str,
-    backbone_name: str,
+    sam_model_id: str,
     number_of_priors_tests: int,
     device: torch.device,
 ) -> pl.DataFrame:
@@ -163,7 +163,7 @@ def predict_on_dataset(
         output_path: Output path
         dataset_name: The dataset name
         model_name: The algorithm name
-        backbone_name: The model name
+        sam_model_id: The SAM model ID (e.g., "sam-hq-tiny")
         number_of_priors_tests: The number of priors to try
         device: The device to use.
 
@@ -260,7 +260,7 @@ def predict_on_dataset(
         metrics["inference_time"] = [time_sum / time_count if time_count > 0 else 0] * ln
         metrics["dataset_name"] = [dataset_name] * ln
         metrics["model_name"] = [model_name] * ln
-        metrics["backbone_name"] = [backbone_name] * ln
+        metrics["sam_model_id"] = [sam_model_id] * ln
 
         if all_metrics is None:
             all_metrics = metrics
@@ -379,13 +379,13 @@ def load_dataset_by_name(
     raise ValueError(msg)
 
 
-def export_model_if_needed(args: Namespace, model_enum: ModelName, backbone_enum: ModelName) -> Path | None:
+def export_model_if_needed(args: Namespace, model_enum: ModelName, sam_model: str) -> Path | None:
     """Export model to OpenVINO if backend is OpenVINO and models don't exist.
 
     Args:
         args: The arguments containing backend and export_dir settings.
         model_enum: The model to potentially export.
-        backbone_enum: The SAM backbone model.
+        sam_model: The SAM model ID (e.g., "sam-hq-tiny").
 
     Returns:
         The export directory path if OpenVINO backend is used, None otherwise.
@@ -421,7 +421,7 @@ def export_model_if_needed(args: Namespace, model_enum: ModelName, backbone_enum
 
     # Create PyTorch model and export it
     matcher = Matcher(
-        sam=backbone_enum,
+        sam=sam_model,
         encoder_model=args.encoder_model,
         num_foreground_points=args.num_foreground_points,
         num_background_points=args.num_background_points,
@@ -459,16 +459,13 @@ def perform_benchmark_experiment(args: Namespace | None = None) -> None:
     final_results_path.mkdir(parents=True, exist_ok=True)
 
     # Get experiment lists and generate a plan
-    datasets_to_run, models_to_run, backbones_to_run = parse_experiment_args(args)
-    experiments = list(itertools.product(datasets_to_run, models_to_run, backbones_to_run))
+    datasets_to_run, models_to_run, sam_models_to_run = parse_experiment_args(args)
+    experiments = list(itertools.product(datasets_to_run, models_to_run, sam_models_to_run))
 
     # Execute experiments
     all_results = []
-    for dataset_enum, model_enum, backbone_enum in experiments:
-        msg = (
-            f"Starting experiment with Dataset={dataset_enum.value}, "
-            f"Model={model_enum.value}, Backbone={backbone_enum.value}",
-        )
+    for dataset_enum, model_enum, sam_model in experiments:
+        msg = (f"Starting experiment with Dataset={dataset_enum.value}, Model={model_enum.value}, SAM={sam_model}",)
         logger.info(msg)
 
         # Parse categories from CLI argument
@@ -491,12 +488,12 @@ def perform_benchmark_experiment(args: Namespace | None = None) -> None:
         )
 
         # Export model to OpenVINO if needed
-        export_dir = export_model_if_needed(args, model_enum, backbone_enum)
+        export_dir = export_model_if_needed(args, model_enum, sam_model)
         if export_dir is not None:
             # Update args with the export directory for load_model
             args.export_dir = str(export_dir)
 
-        model = load_model(sam=backbone_enum, model_name=model_enum, args=args)
+        model = load_model(sam=sam_model, model_name=model_enum, args=args)
 
         # Individual experiment artifacts are saved in a path derived from the base path.
         output_path = _get_output_path_for_experiment(
@@ -504,7 +501,7 @@ def perform_benchmark_experiment(args: Namespace | None = None) -> None:
             args.experiment_name,
             dataset_enum,
             model_enum,
-            backbone_enum,
+            sam_model,
         )
 
         all_metrics_df = predict_on_dataset(
@@ -514,7 +511,7 @@ def perform_benchmark_experiment(args: Namespace | None = None) -> None:
             output_path=output_path,
             dataset_name=dataset_enum.value,
             model_name=model_enum.value,
-            backbone_name=backbone_enum.value,
+            sam_model_id=sam_model,
             number_of_priors_tests=args.num_priors,
             device=args.device,
         )
