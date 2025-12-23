@@ -73,8 +73,10 @@ def _proxy_resolver(url: str) -> str | None:
     return proxy_info.lpszProxy if result == 1 else None
 
 
+print("Setup Hook: Detecting proxy")
 proxy = _proxy_resolver("https://huggingface.co")
+print("Setup Hook: Detected proxy: ", proxy)
+
 if proxy:
-    print("Setup Hook: Using proxy:", proxy)
     os.environ["HTTP_PROXY"] = proxy
     os.environ["HTTPS_PROXY"] = proxy
