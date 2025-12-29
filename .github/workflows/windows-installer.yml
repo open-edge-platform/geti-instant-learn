@@ -64,7 +64,7 @@ jobs:
         env:
           DEBUG_BUILD: ${{ inputs.debug_build }}
           DEVICE: ${{ inputs.ai-device || 'xpu' }}
-          BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
+          BUILD_VERSION: ${{ inputs.build_version }}
         run: |
           Write-Host "DEBUG_BUILD=$env:DEBUG_BUILD"
           
@@ -204,13 +204,11 @@ jobs:
         env:
           MSIX_SIGN_CERTIFICATE: ${{ secrets.MSIX_SIGN_CERTIFICATE }}
           MSIX_SIGN_CERTIFICATE_PASSWORD: ${{ secrets.MSIX_SIGN_CERTIFICATE_PASSWORD }}
-          BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
-          AI_DEVICE: ${{ inputs.ai_device || 'xpu' }}
         run: |
           $bytes = [System.Convert]::FromBase64String($env:MSIX_SIGN_CERTIFICATE)
           [System.IO.File]::WriteAllBytes("sign.pfx", $bytes)
           try {
-            & "${{ env.SIGNTOOL_PATH }}" sign /fd SHA256 /a /f "sign.pfx" /p "$env:MSIX_SIGN_CERTIFICATE_PASSWORD" ${{ env.UI_MSIX_BUNDLE_PATH }}\geti-prompt-$env:AI_DEVICE-$env:BUILD_VERSION.msix
+            & "${{ env.SIGNTOOL_PATH }}" sign /fd SHA256 /a /f "sign.pfx" /p "$env:MSIX_SIGN_CERTIFICATE_PASSWORD" $env:MSIX_FILE_PATH
           }
           finally {
             if (Test-Path "sign.pfx") {
@@ -219,6 +217,7 @@ jobs:
           }
 
       - name: Upload MSIX package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           path: ${{ env.MSIX_FILE_PATH }}
+          retention-days: 20
