@@ -51,7 +51,7 @@ jobs:
           BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just ai-device="${DEVICE}" version="${BUILD_VERSION}" docker-build-context="--no-cache" build-image
+          just build-target="${DEVICE}" version="${BUILD_VERSION}" docker-build-context="--no-cache" build-image
 
       - name: Show size of the image for ${{ matrix.ai-device }}
         working-directory: application
@@ -59,7 +59,7 @@ jobs:
           BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just ai-device="${DEVICE}" version="${BUILD_VERSION}" show-size
+          just build-target="${DEVICE}" version="${BUILD_VERSION}" show-size
 
       - name: Test image for ${{ matrix.ai-device }}
         working-directory: application
@@ -67,4 +67,4 @@ jobs:
           BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just ai-device="${DEVICE}" version="${BUILD_VERSION}" test-image
+          just build-target="${DEVICE}" version="${BUILD_VERSION}" test-image

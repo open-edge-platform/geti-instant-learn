@@ -6,26 +6,33 @@
 import { useState } from 'react';
 
 import { $api } from '@geti-prompt/api';
-
-import { Meta } from '../../../query-client/query-client.interface';
+import { getQueryKey } from '@geti-prompt/query-client';
 
 const useProjectActivationMutation = (projectId: string, currentActiveProjectId: string | undefined) => {
-    const invalidates: Meta['invalidates'] =
+    const invalidates =
         currentActiveProjectId === undefined
             ? [
-                  ['get', '/api/v1/projects'],
-                  ['get', '/api/v1/projects/active'],
-                  ['get', '/api/v1/projects/{project_id}', { params: { path: { project_id: projectId } } }],
+                  getQueryKey(['get', '/api/v1/projects']),
+                  getQueryKey(['get', '/api/v1/projects/active']),
+                  getQueryKey([
+                      'get',
+                      '/api/v1/projects/{project_id}',
+                      { params: { path: { project_id: projectId } } },
+                  ]),
               ]
             : [
-                  ['get', '/api/v1/projects'],
-                  ['get', '/api/v1/projects/active'],
-                  [
+                  getQueryKey(['get', '/api/v1/projects']),
+                  getQueryKey(['get', '/api/v1/projects/active']),
+                  getQueryKey([
                       'get',
                       '/api/v1/projects/{project_id}',
                       { params: { path: { project_id: currentActiveProjectId } } },
-                  ],
-                  ['get', '/api/v1/projects/{project_id}', { params: { path: { project_id: projectId } } }],
+                  ]),
+                  getQueryKey([
+                      'get',
+                      '/api/v1/projects/{project_id}',
+                      { params: { path: { project_id: projectId } } },
+                  ]),
               ];
 
     return $api.useMutation('put', '/api/v1/projects/{project_id}', {

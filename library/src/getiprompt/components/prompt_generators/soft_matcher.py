@@ -409,7 +409,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
 
     def forward(
         self,
-        ref_embeddings: torch.Tensor,
+        ref_embeddings: dict[int, torch.Tensor],
         masked_ref_embeddings: dict[int, torch.Tensor],
         flatten_ref_masks: dict[int, torch.Tensor],
         target_embeddings: torch.Tensor,
@@ -423,7 +423,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         This Prompt Generator computes the similarity map internally.
 
         Args:
-            ref_embeddings(torch.Tensor): Reference embeddings
+            ref_embeddings(dict[int, torch.Tensor]): Reference embeddings grouped by class_id
             masked_ref_embeddings(dict[int, torch.Tensor]): Dictionary of masked reference embeddings
             flatten_ref_masks(dict[int, torch.Tensor]): Dictionary of flattened reference masks
             target_embeddings(torch.Tensor): Target embeddings
@@ -437,16 +437,13 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         point_prompts: list[dict[int, torch.Tensor]] = []
         similarities_per_image: list[dict[int, torch.Tensor]] = []
 
-        # this basically makes a vertical stack + flatten
-        flattened_ref_embeds = ref_embeddings.reshape(-1, ref_embeddings.shape[-1])
-
         for target_embed, original_size in zip(target_embeddings, original_sizes, strict=False):
             class_point_prompts: dict[int, torch.Tensor] = {}
             similarities: dict[int, list[torch.Tensor]] = defaultdict(list)
-            similarity_map = flattened_ref_embeds @ target_embed.T
             h, w = original_size
 
             for class_id, flatten_ref_mask in flatten_ref_masks.items():
+                similarity_map = ref_embeddings[class_id] @ target_embed.T
                 local_ref_embedding = masked_ref_embeddings[class_id]
                 local_similarity = local_ref_embedding @ target_embed.T
                 local_similarity = self._resize_similarity_map(local_similarity, original_size)
@@ -463,7 +460,7 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
                     mask=flatten_ref_mask,
                     similarity_map=similarity_map,
                     use_rff=self.approximate_matching,
-                    ref_features=flattened_ref_embeds,
+                    ref_features=ref_embeddings[class_id],
                     target_features=target_embed,
                     score_threshold=self.softmatching_score_threshold,
                     bidirectional=self.softmatching_bidirectional,

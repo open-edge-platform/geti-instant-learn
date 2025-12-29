@@ -13,6 +13,7 @@ export const useOnOutsideClick = <T extends HTMLElement>(ref: RefObject<T | null
     }, [onClickOutside]);
 
     useEffect(() => {
+        if (ref.current === null) return;
         const abortController = new AbortController();
 
         document.addEventListener(

@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 
 import { LabelType } from '@geti-prompt/api';
-import { useOnOutsideClick, useProjectIdentifier } from '@geti-prompt/hooks';
-import { ActionButton, DOMRefValue, Tooltip, TooltipTrigger, useUnwrapDOMRef, View } from '@geti/ui';
+import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { ActionButton, Tooltip, TooltipTrigger } from '@geti/ui';
 import { Close, Edit } from '@geti/ui/icons';
 
 import { useAnnotationActions } from '../../../../annotator/providers/annotation-actions-provider.component';
@@ -97,8 +97,7 @@ interface LabelListItemProps {
 export const LabelListItem = ({ label, onSelect, isSelected, existingLabels }: LabelListItemProps) => {
     const [isInEdition, setIsInEdition] = useState<boolean>(false);
     const { projectId } = useProjectIdentifier();
-    const wrappedRef = useRef<DOMRefValue<HTMLInputElement> | null>(null);
-    const ref = useUnwrapDOMRef(wrappedRef);
+    const { updateAnnotations, annotations } = useAnnotationActions();
 
     const updateLabelMutation = useUpdateLabel();
     const updateLabel = (newLabel: LabelType) => {
@@ -118,6 +117,17 @@ export const LabelListItem = ({ label, onSelect, isSelected, existingLabels }: L
             {
                 onSuccess: () => {
                     setIsInEdition(false);
+
+                    if (label.color !== newLabel.color) {
+                        const updatedAnnotations = annotations.map((annotation) => ({
+                            ...annotation,
+                            labels: annotation.labels.map((annotationLabel) =>
+                                annotationLabel.id === newLabel.id ? newLabel : annotationLabel
+                            ),
+                        }));
+
+                        updateAnnotations(updatedAnnotations);
+                    }
                 },
             }
         );
@@ -127,21 +137,17 @@ export const LabelListItem = ({ label, onSelect, isSelected, existingLabels }: L
         setIsInEdition(false);
     };
 
-    useOnOutsideClick(ref, handleClose);
-
     if (isInEdition) {
         return (
-            <View ref={wrappedRef}>
-                <EditLabel
-                    onAccept={updateLabel}
-                    onClose={handleClose}
-                    label={label}
-                    isQuiet
-                    width={'size-2400'}
-                    existingLabels={existingLabels}
-                    isDisabled={updateLabelMutation.isPending}
-                />
-            </View>
+            <EditLabel
+                shouldCloseOnOutsideClick
+                onAccept={updateLabel}
+                onClose={handleClose}
+                label={label}
+                width={'size-2400'}
+                existingLabels={existingLabels}
+                isDisabled={updateLabelMutation.isPending}
+            />
         );
     }
 

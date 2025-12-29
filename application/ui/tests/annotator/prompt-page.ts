@@ -6,10 +6,13 @@
 import { Page } from '@playwright/test';
 
 export class PromptPage {
-    constructor(private page: Page) {}
+    constructor(
+        private readonly page: Page,
+        private readonly scope = page.locator('body')
+    ) {}
 
     get savePromptButton() {
-        return this.page.getByRole('button', { name: 'Save prompt' });
+        return this.scope.getByRole('button', { name: 'Save prompt' });
     }
 
     get thumbnail() {
@@ -37,6 +40,6 @@ export class PromptPage {
     }
 
     getCapturedFrame(frameId: string) {
-        return this.page.getByTestId(`captured-frame-${frameId}`);
+        return this.scope.getByTestId(`captured-frame-${frameId}`);
     }
 }

@@ -13,7 +13,7 @@ import { EditLabel } from './edit-label.component';
 
 class EditLabelPageObject {
     getNameInput() {
-        return screen.queryByLabelText(/new label name/i);
+        return screen.queryByLabelText(/label name/i);
     }
 
     getConfirmLabelButton() {

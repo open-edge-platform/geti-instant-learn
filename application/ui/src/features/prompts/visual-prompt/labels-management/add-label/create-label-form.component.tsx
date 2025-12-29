@@ -7,12 +7,14 @@ import { useMemo } from 'react';
 
 import { LabelType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { Flex } from '@geti/ui';
+import { Add } from '@geti/ui/icons';
 import { getDistinctColorBasedOnHash } from '@geti/ui/utils';
 import { v4 as uuid } from 'uuid';
 
 import { useVisualPrompt } from '../../visual-prompt-provider.component';
 import { useCreateLabel } from '../api/use-create-label';
-import { EditLabel } from '../edit-label/edit-label.component';
+import { Label } from '../label/label.component';
 
 const getDefaultLabel = (): LabelType => {
     const id = uuid();
@@ -22,6 +24,33 @@ const getDefaultLabel = (): LabelType => {
         name: '',
         color: getDistinctColorBasedOnHash(id),
     };
+};
+
+interface CreateLabelProps {
+    onCreateLabel: (newLabel: LabelType) => void;
+    onClose: () => void;
+    existingLabels: LabelType[];
+    isDisabled?: boolean;
+}
+
+const CreateLabel = ({ onCreateLabel, onClose, existingLabels, isDisabled }: CreateLabelProps) => {
+    const defaultLabel = useMemo(() => getDefaultLabel(), []);
+
+    return (
+        <Label label={defaultLabel} existingLabels={existingLabels}>
+            <Label.Form onSubmit={onCreateLabel}>
+                <Flex marginTop={0} gap={'size-50'} justifyContent={'center'}>
+                    <Label.ColorPicker />
+
+                    <Label.NameField onClose={onClose} ariaLabel={'New label name'} />
+
+                    <Label.Button isDisabled={isDisabled} color={'var(--spectrum-global-color-gray-200)'}>
+                        <Add />
+                    </Label.Button>
+                </Flex>
+            </Label.Form>
+        </Label>
+    );
 };
 
 interface CreateLabelFormProps {
@@ -34,7 +63,6 @@ export const CreateLabelForm = ({ onClose, existingLabels = [], onSuccess }: Cre
     const { projectId } = useProjectIdentifier();
 
     const { selectedLabelId, setSelectedLabelId } = useVisualPrompt();
-    const defaultLabel = useMemo(getDefaultLabel, []);
 
     const createLabelMutation = useCreateLabel();
 
@@ -67,12 +95,11 @@ export const CreateLabelForm = ({ onClose, existingLabels = [], onSuccess }: Cre
     };
 
     return (
-        <EditLabel
-            label={defaultLabel}
-            onAccept={addLabel}
+        <CreateLabel
+            existingLabels={existingLabels}
+            onCreateLabel={addLabel}
             onClose={onClose}
             isDisabled={createLabelMutation.isPending}
-            existingLabels={existingLabels}
         />
     );
 };

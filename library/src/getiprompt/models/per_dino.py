@@ -133,7 +133,7 @@ class PerDino(Model):
         """Perform learning step on the reference images and priors."""
         # Start running the model
         reference_embeddings = self.encoder(reference_batch.images)
-        self.masked_ref_embeddings, _ = self.masked_feature_extractor(
+        self.masked_ref_embeddings, _, _ = self.masked_feature_extractor(
             reference_embeddings,
             reference_batch.masks,
             reference_batch.category_ids,

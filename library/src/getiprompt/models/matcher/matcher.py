@@ -82,6 +82,7 @@ class Matcher(Model):
         num_background_points: int = 2,
         encoder_model: str = "dinov3_large",
         mask_similarity_threshold: float | None = 0.38,
+        use_mask_refinement: bool = True,
         precision: str = "bf16",
         compile_models: bool = False,
         device: str = "cuda",
@@ -131,17 +132,17 @@ class Matcher(Model):
             sam_predictor=self.sam_predictor,
             target_length=1024,
             mask_similarity_threshold=mask_similarity_threshold,
+            use_mask_refinement=use_mask_refinement,
         )
         self.masked_ref_embeddings = None
         self.ref_masks = None
+        self.ref_embeddings = None
 
     def fit(self, reference_batch: Batch) -> None:
         """Perform learning step on the reference images and priors."""
-        # Encode reference images to batched tensor
-        self.ref_embeddings = self.encoder(images=reference_batch.images)
         # Extract local features and pooled masks
-        self.masked_ref_embeddings, self.ref_masks = self.masked_feature_extractor(
-            self.ref_embeddings,
+        self.masked_ref_embeddings, self.ref_masks, self.ref_embeddings = self.masked_feature_extractor(
+            self.encoder(images=reference_batch.images),
             reference_batch.masks,
             reference_batch.category_ids,
         )

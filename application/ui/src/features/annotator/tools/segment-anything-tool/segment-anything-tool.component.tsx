@@ -14,10 +14,10 @@ import { AnnotationShape } from '../../annotations/annotation-shape.component';
 import { MaskAnnotations } from '../../annotations/mask-annotations.component';
 import { useAnnotationActions } from '../../providers/annotation-actions-provider.component';
 import { useAnnotator } from '../../providers/annotator-provider.component';
-import { RegionOfInterest, type Annotation as AnnotationType, type Shape } from '../../types';
+import { Point, RegionOfInterest, type Annotation as AnnotationType, type Shape } from '../../types';
 import { SvgToolCanvas } from '../svg-tool-canvas.component';
 import { getRelativePoint, removeOffLimitPoints } from '../utils';
-import { CreateLabel, useCreateLabelFormPosition } from './create-label.component';
+import { CreateLabelPopover } from './create-label.component';
 import { SAMLoading } from './sam-loading.component';
 import { useSegmentAnythingModel } from './use-segment-anything.hook';
 import { useSingleStackFn } from './use-single-stack-fn.hook';
@@ -56,9 +56,10 @@ const PreviewAnnotations = ({ previewAnnotations, image }: PreviewAnnotationsPro
 };
 
 export const SegmentAnythingTool = () => {
-    const [createLabelFormPosition, setCreateLabelFormPosition] = useCreateLabelFormPosition();
+    const [createLabelFormPosition, setCreateLabelFormPosition] = useState<Point | null>(null);
     const [previewShapes, setPreviewShapes] = useState<Shape[]>([]);
     const [acceptedShapes, setAcceptedShapes] = useState<Shape[] | null>(null);
+    const ref = useRef<SVGSVGElement>(null);
 
     const zoom = useZoom();
     const { roi, image } = useAnnotator();
@@ -110,7 +111,7 @@ export const SegmentAnythingTool = () => {
     };
 
     const handlePointerDown = (event: PointerEvent<SVGSVGElement>) => {
-        if (!canvasRef.current) {
+        if (!ref.current) {
             return;
         }
 
@@ -123,7 +124,14 @@ export const SegmentAnythingTool = () => {
         }
 
         if (selectedLabel == null) {
-            setCreateLabelFormPosition({ x: event.clientX, y: event.clientY });
+            const boundingBox = ref.current.getBoundingClientRect();
+
+            const point = {
+                x: event.clientX - boundingBox.left,
+                y: event.clientY - boundingBox.bottom,
+            };
+
+            setCreateLabelFormPosition(point);
             setAcceptedShapes(previewShapes);
             return;
         }
@@ -142,7 +150,7 @@ export const SegmentAnythingTool = () => {
     });
 
     const handleClose = () => {
-        setCreateLabelFormPosition(undefined);
+        setCreateLabelFormPosition(null);
         setAcceptedShapes(null);
     };
 
@@ -153,6 +161,7 @@ export const SegmentAnythingTool = () => {
     return (
         <>
             <SvgToolCanvas
+                ref={ref}
                 aria-label='SAM tool canvas'
                 image={image}
                 canvasRef={canvasRef}
@@ -167,7 +176,8 @@ export const SegmentAnythingTool = () => {
             >
                 <PreviewAnnotations previewAnnotations={previewAnnotations} image={image} />
             </SvgToolCanvas>
-            <CreateLabel
+            <CreateLabelPopover
+                ref={ref}
                 onSuccess={handleAddAnnotationsCreateLabel}
                 existingLabels={labels}
                 mousePosition={createLabelFormPosition}

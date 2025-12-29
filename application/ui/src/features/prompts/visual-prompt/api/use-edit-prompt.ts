@@ -8,7 +8,6 @@ import { useProjectIdentifier } from '@geti-prompt/hooks';
 
 import { convertAnnotationsToDTO } from '../../../../shared/utils';
 import { useAnnotationActions } from '../../../annotator/providers/annotation-actions-provider.component';
-import { useAnnotator } from '../../../annotator/providers/annotator-provider.component';
 
 const useEditPromptMutation = () => {
     const { projectId } = useProjectIdentifier();
@@ -24,7 +23,6 @@ const useEditPromptMutation = () => {
 
 export const useEditPrompt = () => {
     const { projectId } = useProjectIdentifier();
-    const { roi } = useAnnotator();
     const { annotations } = useAnnotationActions();
     const editPromptMutation = useEditPromptMutation();
 
@@ -33,7 +31,7 @@ export const useEditPrompt = () => {
             body: {
                 type: prompt.type,
                 frame_id: prompt.frame_id,
-                annotations: convertAnnotationsToDTO(annotations, roi),
+                annotations: convertAnnotationsToDTO(annotations),
             },
             params: {
                 path: {

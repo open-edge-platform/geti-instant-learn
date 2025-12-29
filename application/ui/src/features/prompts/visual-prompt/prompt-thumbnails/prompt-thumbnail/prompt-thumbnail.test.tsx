@@ -3,41 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { VisualPromptItemType, VisualPromptType } from '@geti-prompt/api';
+import { VisualPromptItemType } from '@geti-prompt/api';
 import { render } from '@geti-prompt/test-utils';
 import { fireEvent, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 
 import { http, server } from '../../../../../setup-test';
 import { SelectedFrameProvider, useSelectedFrame } from '../../../../../shared/selected-frame-provider.component';
+import { getMockedVisualPrompt, getMockedVisualPromptItem } from '../../../../../test-utils/mocks/mock-prompt';
 import { useVisualPrompt, VisualPromptProvider } from '../../visual-prompt-provider.component';
 import { PromptThumbnail } from './prompt-thumbnail.component';
-
-const getMockedPrompt = (prompt: Partial<VisualPromptType> = {}): VisualPromptType => {
-    return {
-        id: '123',
-        frame_id: '321',
-        type: 'VISUAL',
-        annotations: [
-            {
-                label_id: '123',
-                config: {
-                    type: 'polygon',
-                    points: [],
-                },
-            },
-        ],
-        ...prompt,
-    };
-};
-
-const getMockedPromptItem = (prompt: Partial<VisualPromptItemType> = {}): VisualPromptItemType => {
-    return {
-        ...getMockedPrompt(prompt),
-        thumbnail: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA',
-        ...prompt,
-    };
-};
 
 class PromptThumbnailPage {
     openMenuActions(id: string) {
@@ -99,14 +74,12 @@ const renderPromptThumbnail = async ({
 describe('PromptThumbnail', () => {
     it('deletes the prompt', async () => {
         let promptIdToBeDeleted: string | null = null;
-        const prompt = getMockedPrompt();
-        const promptThumbnail = getMockedPromptItem({ ...prompt });
+        const prompt = getMockedVisualPrompt();
+        const promptThumbnail = getMockedVisualPromptItem(prompt);
 
         server.use(
             http.get('/api/v1/projects/{project_id}/prompts/{prompt_id}', () => {
-                return HttpResponse.json({
-                    ...prompt,
-                });
+                return HttpResponse.json(prompt);
             }),
 
             http.get('/api/v1/projects/{project_id}/prompts', () => {
@@ -132,7 +105,7 @@ describe('PromptThumbnail', () => {
 
         const { promptThumbnailPage } = await renderPromptThumbnail({
             frameId,
-            promptItem: getMockedPromptItem({ id: prompt.id }),
+            promptItem: getMockedVisualPromptItem({ id: prompt.id }),
         });
 
         expect(promptThumbnailPage.getThumbnail(prompt.id)).toBeInTheDocument();
@@ -149,14 +122,12 @@ describe('PromptThumbnail', () => {
 
     it('deletes the prompt and resets the selected frame id when that frame is in edition', async () => {
         let promptIdToBeDeleted: string | null = null;
-        const prompt = getMockedPrompt();
-        const promptThumbnail = getMockedPromptItem({ ...prompt });
+        const prompt = getMockedVisualPrompt();
+        const promptThumbnail = getMockedVisualPromptItem(prompt);
 
         server.use(
             http.get('/api/v1/projects/{project_id}/prompts/{prompt_id}', () => {
-                return HttpResponse.json({
-                    ...prompt,
-                });
+                return HttpResponse.json(prompt);
             }),
 
             http.get('/api/v1/projects/{project_id}/prompts', () => {
@@ -182,7 +153,7 @@ describe('PromptThumbnail', () => {
 
         const { promptThumbnailPage } = await renderPromptThumbnail({
             frameId,
-            promptItem: getMockedPromptItem({ id: prompt.id }),
+            promptItem: getMockedVisualPromptItem({ id: prompt.id }),
         });
 
         expect(promptThumbnailPage.getThumbnail(prompt.id)).toBeInTheDocument();
@@ -205,14 +176,12 @@ describe('PromptThumbnail', () => {
     });
 
     it('sets correct id when editing', async () => {
-        const prompt = getMockedPrompt();
-        const promptThumbnail = getMockedPromptItem({ ...prompt });
+        const prompt = getMockedVisualPrompt();
+        const promptThumbnail = getMockedVisualPromptItem(prompt);
 
         server.use(
             http.get('/api/v1/projects/{project_id}/prompts/{prompt_id}', () => {
-                return HttpResponse.json({
-                    ...prompt,
-                });
+                return HttpResponse.json(prompt);
             }),
 
             http.get('/api/v1/projects/{project_id}/prompts', () => {
@@ -230,7 +199,7 @@ describe('PromptThumbnail', () => {
 
         const { promptThumbnailPage } = await renderPromptThumbnail({
             frameId: 'frame-123',
-            promptItem: getMockedPromptItem({ id: prompt.id }),
+            promptItem: getMockedVisualPromptItem({ id: prompt.id }),
         });
 
         expect(promptThumbnailPage.getThumbnail(prompt.id)).toBeInTheDocument();

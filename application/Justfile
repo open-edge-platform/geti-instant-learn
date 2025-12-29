@@ -1,141 +1,106 @@
 #!/usr/bin/env just --justfile
+import "recipes.justfile"
 
-# -------------------------------------------------------------------------------------------------
-# Settings
-# -------------------------------------------------------------------------------------------------
 # Use bash as the shell for evaluating backtick expressions
 set shell := ["bash", "-cu"]
 
 # -------------------------------------------------------------------------------------------------
 # Runtime variables
 # -------------------------------------------------------------------------------------------------
-
-container-port := "9100"
-host-port := container-port
+port := "9100"
+ui-port := "3000"
 webcam-device := "/dev/video0"
-docker-volume := ""
+data-dir := ""
 host := "0.0.0.0"
 enable-coturn := "false"
-webrtc-advertise-ip := ""
-enable-stun := "false"
-webrtc-port-start := "50000"
-webrtc-port-end := "51000"
+stun-server := ""
+webrtc-ports := "50000-51000"
+device := "cpu"  # cpu, cu126, xpu
+
+# Note: Binding port 443 may conflict with other services (e.g., HTTPS) on this host. Replace it with whatever port works/open for you.
+coturn-port := "443"
 
 # -------------------------------------------------------------------------------------------------
-# Common variables used in the Justfile
+# Variables used in the Justfile to build in Docker image
 # -------------------------------------------------------------------------------------------------
-
-ai-device := "cpu"  # options: cpu, gpu, xpu
-component-name := "geti-prompt"
-images-registry := 'localhost:5000/open-edge-platform'
-version := `uv run python -c "import os; from pathlib import Path; version = Path(os.path.join(os.getcwd().rsplit('application', 1)[0], 'VERSION')).read_text().strip(); print(version)"`
-docker-image := images-registry / component-name / ai-device + ":" + version
-
-# -------------------------------------------------------------------------------------------------
-# Variables used in the Justfile to build in Docker image for Geti Prompt
-# -------------------------------------------------------------------------------------------------
-
 docker-build-context := ""
-asset-prefix := "/html"
-static-files-dir := "/geti_prompt/html"
-db-data-dir := "/geti_prompt/data"
-logs-dir := "/geti_prompt/logs"
-coffee-berries-dataset := "https://storage.geti.intel.com/geti-prompt/Frames.zip"
+build-target := "cpu"  # options: cpu, gpu, xpu
+component-name := "geti-prompt"
+container-registry := 'localhost:5000/open-edge-platform'
+version := "latest"
+image-name := container-registry / component-name / build-target + ":" + version
 
-# Dataset paths
 source-dataset-dir := "backend/.data/templates/datasets/coffee-berries"
 target-dataset-dir := "/geti_prompt/data/templates/datasets/coffee-berries"
 
 # Coturn settings
 coturn-image := "quay.io/coturn/coturn"
-# Note: Binding port 443 may conflict with other services (e.g., HTTPS) on this host. Replace it with whatever prot works/open for you.
-coturn-port := "443"
-coturn-external-ip := `uv run python -c "import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.connect(('8.8.8.8',80)); print(s.getsockname()[0]); s.close()"`
-coturn-ice-servers := '[{"urls": "turn:' + coturn-external-ip + ':' + coturn-port + '?transport=tcp", "username": "user", "credential": "password"}]'
-stun-ice-servers := '[{"urls": "stun:stun.l.google.com:19302"}]'
 
-# -------------------------------------------------------------------------------------------------
-# Proxy settings
-# -------------------------------------------------------------------------------------------------
-docker-extra-args := "--build-arg http_proxy --build-arg https_proxy --build-arg no_proxy --build-arg HTTP_PROXY --build-arg HTTPS_PROXY --build-arg NO_PROXY"
-docker-run-proxy-args := "--env http_proxy --env https_proxy --env no_proxy --env HTTP_PROXY --env HTTPS_PROXY --env NO_PROXY"
+host-ip := `uv run python -c "import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.connect(('8.8.8.8',80)); print(s.getsockname()[0]); s.close()"`
 
-# -------------------------------------------------------------------------------------------------
-# Justfile recipes
-# -------------------------------------------------------------------------------------------------
+docker-build-args := "--build-arg http_proxy --build-arg https_proxy --build-arg no_proxy --build-arg HTTP_PROXY --build-arg HTTPS_PROXY --build-arg NO_PROXY"
+docker-run-args := "--env http_proxy --env https_proxy --env no_proxy --env HTTP_PROXY --env HTTPS_PROXY --env NO_PROXY"
 
-check-proxy:
+
+# Run both backend and frontend development servers
+dev:
     #!/usr/bin/env bash
-    if [ -z ${https_proxy+x} ]; then
-        echo "Error: https_proxy is unset";
-    else
-        echo "https_proxy is set to '$https_proxy'";
-    fi
+    set -euo pipefail
 
-download-dataset: check-proxy
-    #!/usr/bin/env bash
-    APPLICATION_DIR="$(pwd)"
-    DATASET_DIR="$APPLICATION_DIR/{{ source-dataset-dir }}"
-    if [ -d "$DATASET_DIR" ] && [ "$(ls -A $DATASET_DIR)" ]; then
-        echo "Dataset directory $DATASET_DIR already exists and is not empty. Skipping download."
-        exit 0
-    fi
-    mkdir -p $DATASET_DIR
-    echo "Downloading default dataset from {{ coffee-berries-dataset }}"
-    if ! curl -s {{ coffee-berries-dataset }} -o Frames.zip; then
-        echo "Error: Failed to download dataset from {{ coffee-berries-dataset }}"
-        exit 0  # proceed without dataset
-    fi
-    echo "Unpacking default dataset to $DATASET_DIR"
-    unzip -j -q -o Frames.zip -d $DATASET_DIR
-    echo "Removing downloaded dataset archive Frames.zip"
-    rm Frames*.zip
+    export PUBLIC_API_URL="http://{{ host-ip }}:{{ port }}"
+
+    {{ if enable-coturn == "true" { "just run-coturn" } else { "" } }}
+
+    trap 'kill $(jobs -p) 2>/dev/null || true; {{ if enable-coturn == "true" { "just stop-coturn" } else { "" } }}' EXIT
+
+    (cd backend && just port={{ port }} host={{ host }} device={{ device }} enable-coturn={{ enable-coturn }} stun-server={{ stun-server }} coturn-port={{ coturn-port }} dev) &
+    (cd ui && npm install && PORT={{ ui-port }} npm start) &
+
+    wait
 
 # build geti prompt with optional port mapping
-build-image: download-dataset
+build-image: (download-dataset source-dataset-dir)
     @echo "Building docker image for component: {{ component-name }}"
     @docker build \
-        {{ docker-extra-args }} \
+        {{ docker-build-args }} \
         {{ docker-build-context }} \
         --build-context libs=../library \
-        --build-arg STATIC_FILES_DIR={{ static-files-dir }} \
-        --build-arg DB_DATA_DIR={{ db-data-dir }} \
-        --build-arg LOGS_DIR={{ logs-dir }} \
-        --build-arg ASSET_PREFIX={{ asset-prefix }} \
         --build-arg SOURCE_DATASET_DIR={{ source-dataset-dir }} \
         --build-arg TARGET_DATASET_DIR={{ target-dataset-dir }} \
-        --tag "{{ docker-image }}" \
+        --build-arg DEVICE={{ device }} \
+        --tag "{{ image-name }}" \
         --file docker/Dockerfile . \
-        --target {{ ai-device }}
+        --target {{ build-target }}
 
 # launch geti prompt with optional webcam, volume and port mapping
 run-image: build-image
-    @echo "Running docker image for component: {{ component-name }} with ai-device: {{ ai-device }}"
-    @echo "Proxy args: {{ docker-run-proxy-args }}"
+    @echo "Running docker image for component: {{ component-name }} with build-target: {{ build-target }}"
+    @echo "Proxy args: {{ docker-run-args }}"
     @docker run --rm \
-        {{ docker-run-proxy-args }} \
-        --sysctl net.ipv4.ip_local_port_range="{{ webrtc-port-start }} {{ webrtc-port-end }}" \
-        --publish {{ webrtc-port-start }}-{{ webrtc-port-end }}:{{ webrtc-port-start }}-{{ webrtc-port-end }}/udp \
-        --publish {{ host-port }}:{{ container-port }} \
-        --env PORT={{ container-port }} \
+        {{ docker-run-args }} \
+        --sysctl net.ipv4.ip_local_port_range="{{ replace(webrtc-ports, '-', ' ') }}" \
+        --publish {{ webrtc-ports }}:{{ webrtc-ports }}/udp \
+        --publish {{ port }}:{{ port }} \
+        --env PORT={{ port }} \
         --env HOST={{ host }} \
-        {{ if webrtc-advertise-ip != "" { "--env WEBRTC_ADVERTISE_IP='" + webrtc-advertise-ip + "'" } else { "" } }} \
-        {{ if enable-coturn == "true" { "--env ICE_SERVERS='" + coturn-ice-servers + "'" } else if enable-stun == "true" { "--env ICE_SERVERS='" + stun-ice-servers + "'" } else { "--env ICE_SERVERS" } }} \
-        {{ if docker-volume != "" { " --volume " + docker-volume + ":" + db-data-dir } else { "" } }} \
+        {{ if enable-coturn == "true" { "--env COTURN_HOST='" + host-ip + "' --env COTURN_PORT='" + coturn-port + "'" } else { "" } }} \
+        {{ if stun-server != "" { "--env STUN_SERVER='" + stun-server + "'" } else { "" } }} \
+        --env WEBRTC_ADVERTISE_IP='{{ host-ip }}' \
+        {{ if data-dir != "" { " --volume " + data-dir + ":/geti_prompt/data" } else { "" } }} \
         {{ if path_exists(webcam-device) == "true" { " --device " + webcam-device + ":" + webcam-device } else { "" } }} \
         --name "{{ component-name }}-{{ version }}" \
-        "{{ docker-image }}"
+        "{{ image-name }}"
 
 # run coturn server
 run-coturn:
-    @echo "Running coturn server on port {{ coturn-port }} with external IP {{ coturn-external-ip }}..."
+    @echo "Running coturn server on port {{ coturn-port }} with external IP {{ host-ip }}..."
     @docker run --rm --detach \
         --network=host \
         --name coturn-server \
         {{ coturn-image }} \
         -n \
         --listening-port={{ coturn-port }} \
-        --external-ip={{ coturn-external-ip }} \
+        --external-ip={{ host-ip }} \
         --user=user:password \
         --realm=my-realm \
         --no-udp \
@@ -150,20 +115,20 @@ stop-coturn:
 # show size of the built docker image
 show-size:
     # https://github.com/casey/just?tab=readme-ov-file#escaping-
-    @docker image inspect "{{ docker-image }}" --format='{{{{.Size}}' | numfmt --to=iec
+    @docker image inspect "{{ image-name }}" --format='{{{{.Size}}' | numfmt --to=iec
 
 # test geti prompt docker image using bash script
 test-image:
     #!/usr/bin/env bash
-    echo "Testing docker image for component: {{ component-name }} with ai-device: {{ ai-device }}"
+    echo "Testing docker image for component: {{ component-name }} with build-target: {{ build-target }}"
 
     # Start the container in detached mode
     CONTAINER_ID=$(docker run -d \
-        {{ docker-run-proxy-args }} \
-        --publish {{ host-port }}:{{ container-port }} \
-        --env PORT={{ container-port }} \
+        {{ docker-run-args }} \
+        --publish {{ port }}:{{ port }} \
+        --env PORT={{ port }} \
         --env HOST={{ host }} \
-        "{{ docker-image }}")
+        "{{ image-name }}")
     echo "Started container: $CONTAINER_ID"
 
     # Function to cleanup container on exit
@@ -173,7 +138,7 @@ test-image:
     }
     trap cleanup EXIT
 
-    TEST_URL="http://{{ component-name }}.localhost:{{ host-port }}"
+    TEST_URL="http://{{ component-name }}.localhost:{{ port }}"
     # Wait for container to be ready (max 60 seconds)
     echo "Waiting for container to be ready..."
     for i in {1..12}; do

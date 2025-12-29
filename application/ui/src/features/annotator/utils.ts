@@ -52,7 +52,7 @@ export const DEFAULT_ANNOTATION_STYLES = {
     fill: 'var(--annotation-fill)',
     stroke: 'var(--annotation-stroke)',
     strokeLinecap: 'round',
-    strokeWidth: 'calc(1px / var(--zoom-scale))',
+    strokeWidth: 'calc(3px / var(--zoom-scale))',
     strokeDashoffset: 0,
     strokeDasharray: 0,
     strokeOpacity: 'var(--annotation-border-opacity)',

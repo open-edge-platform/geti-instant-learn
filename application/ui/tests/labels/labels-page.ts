@@ -3,17 +3,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Page } from '@playwright/test';
+import { Locator, Page } from '@playwright/test';
 
 export class LabelsPage {
-    constructor(private page: Page) {}
+    constructor(
+        private readonly page: Page,
+        private readonly scope: Locator = page.locator('body')
+    ) {}
 
     async showDialog() {
-        await this.page.getByRole('button', { name: 'Add Label' }).click();
+        await this.scope.getByRole('button', { name: 'Add Label' }).click();
     }
 
     private async enterName(name: string) {
-        await this.page.getByRole('textbox', { name: 'New label name' }).fill(name);
+        await this.page.getByRole('textbox', { name: 'Label name' }).fill(name);
     }
 
     private getConfirmLabel() {
@@ -25,7 +28,7 @@ export class LabelsPage {
     }
 
     getLabel(name: string) {
-        return this.page.getByLabel(`Label ${name}`);
+        return this.scope.getByLabel(`Label ${name}`);
     }
 
     async addLabel(name: string) {
@@ -41,14 +44,42 @@ export class LabelsPage {
             .click();
     }
 
-    async updateLabelName(oldName: string, newName: string) {
-        await this.getLabel(oldName).hover();
+    async enterEditLabelMode(name: string) {
+        await this.getLabel(name).hover();
 
-        await this.getLabel(oldName)
-            .getByRole('button', { name: `Edit ${oldName} label` })
+        await this.getLabel(name)
+            .getByRole('button', { name: `Edit ${name} label` })
             .click();
+    }
+
+    async updateLabelName(oldName: string, newName: string) {
+        await this.enterEditLabelMode(oldName);
 
         await this.enterName(newName);
         await this.confirmLabel();
+    }
+
+    getColorPickerButton() {
+        return this.page.getByRole('button', { name: 'Color picker button' });
+    }
+
+    getColorInput() {
+        return this.page.getByTestId('change-color-button-color-input');
+    }
+
+    openColorPicker() {
+        return this.getColorPickerButton().click();
+    }
+
+    async changeColor() {
+        const colorPickerArea = this.page.getByLabel('Color', { exact: true });
+
+        const colorPickerBoundingBox = await colorPickerArea.boundingBox();
+
+        if (colorPickerBoundingBox === null) {
+            return;
+        }
+
+        await this.page.mouse.click(colorPickerBoundingBox.x + 10, colorPickerBoundingBox.y + 10);
     }
 }

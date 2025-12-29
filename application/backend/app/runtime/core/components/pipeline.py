@@ -157,12 +157,15 @@ class Pipeline:
                 thread = self._threads.get(component_cls)
                 if thread and thread.is_alive():
                     thread.join(timeout=5)
+                    if thread.is_alive():
+                        logger.warning(f"{component_cls.__name__} thread did not stop cleanly")
 
             self._components[component_cls] = new_component
-            thread = Thread(target=new_component, daemon=False)
-            self._threads[component_cls] = thread
             if start:
+                thread = Thread(target=new_component, daemon=False)
                 thread.start()
+                self._threads[component_cls] = thread
+                logger.debug(f"Started new {component_cls.__name__}")
 
     def seek(self, index: int) -> None:
         """Seek to a specific frame in the source."""

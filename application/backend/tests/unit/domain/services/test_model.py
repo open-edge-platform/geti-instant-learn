@@ -271,12 +271,19 @@ class TestCreateModel:
         mock_session.commit.side_effect = IntegrityError("statement", {}, Exception("unique constraint"))
 
         with (
-            patch("domain.services.model.processor_schema_to_db"),
+            patch("domain.services.model.processor_schema_to_db") as mock_schema_to_db,
             patch(
                 "domain.services.model.extract_constraint_name",
                 return_value=UniqueConstraintName.PROCESSOR_NAME_PER_PROJECT,
             ),
         ):
+            # Create mock with proper UUID
+            mock_processor = Mock(spec=ProcessorDB)
+            mock_processor.id = uuid4()
+            mock_processor.config = {"model_type": "test_type"}
+            mock_processor.active = False
+            mock_schema_to_db.return_value = mock_processor
+
             with pytest.raises(ResourceAlreadyExistsError):
                 service.create_model(sample_project_id, create_data)
 

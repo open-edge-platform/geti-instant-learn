@@ -23,7 +23,7 @@ export const ModelToolbar = () => {
 const ModelToolbarContent = () => {
     const models = useGetModels();
     const setActiveModel = useSetActiveModel();
-    const activeModel = models.find((model) => model.active) || models[0];
+    const activeModel = models.find((model) => model.active) ?? models[0];
 
     const handleSelectionChange = (key: Key | null) => {
         const selectedModel = models.find((model) => model.id === key);

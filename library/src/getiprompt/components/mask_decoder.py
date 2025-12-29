@@ -46,6 +46,7 @@ class SamDecoder(nn.Module):
         target_length: int = 1024,
         mask_similarity_threshold: float = 0.38,
         nms_iou_threshold: float = 0.1,
+        use_mask_refinement: bool = False,
     ) -> None:
         """This Segmenter uses SAM to create masks based on points.
 
@@ -54,11 +55,13 @@ class SamDecoder(nn.Module):
             target_length: Target length for the longest side of the image (for image transform).
             mask_similarity_threshold: The similarity threshold for the mask.
             nms_iou_threshold: The IoU threshold for the NMS.
+            use_mask_refinement: Whether to use 2-stage mask refinement. Defaults to False for better FPS.
         """
         super().__init__()
         self.predictor = sam_predictor
         self.mask_similarity_threshold = mask_similarity_threshold
         self.nms_iou_threshold = nms_iou_threshold
+        self.use_mask_refinement = use_mask_refinement
 
         self.transform = ResizeLongestSide(target_length)
         self.device = sam_predictor.device
@@ -305,17 +308,18 @@ class SamDecoder(nn.Module):
         if boxes_per_class is not None:
             input_boxes = boxes_per_class
 
-        masks, _, low_res_logits = self.predictor.predict(
+        masks, mask_weights, low_res_logits = self.predictor.predict(
             point_coords=input_coords[:, :, :2] if input_coords is not None else None,
             boxes=input_boxes[:, :4] if input_boxes is not None else None,
             point_labels=input_labels,
             multimask_output=True,
         )
 
-        # Only refine masks if points are used
+        # Apply mask refinement (NMS + similarity filtering), optionally with 2nd SAM prediction
         if input_coords is not None:
             final_masks, input_coords = self.mask_refinement(
                 masks=masks,
+                mask_weights=mask_weights,
                 low_res_logits=low_res_logits,
                 input_coords=input_coords,
                 input_labels=input_labels,
@@ -323,10 +327,12 @@ class SamDecoder(nn.Module):
                 original_size=original_size,
                 score_threshold=self.mask_similarity_threshold,
                 nms_iou_threshold=self.nms_iou_threshold,
+                use_box_refinement=self.use_mask_refinement,
             )
         else:
             final_masks = masks.squeeze(1)
 
+        final_masks = (final_masks.sum(0) > 0).unsqueeze(0)
         return (
             final_masks,
             input_coords,
@@ -336,6 +342,7 @@ class SamDecoder(nn.Module):
     def mask_refinement(
         self,
         masks: torch.Tensor,
+        mask_weights: torch.Tensor,
         low_res_logits: torch.Tensor,
         input_coords: torch.Tensor,
         input_labels: torch.Tensor,
@@ -343,11 +350,13 @@ class SamDecoder(nn.Module):
         similarity_map: torch.Tensor | None = None,
         score_threshold: float = 0.45,
         nms_iou_threshold: float = 0.1,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        use_box_refinement: bool = False,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Refine the masks.
 
         Args:
             masks: The masks to refine.
+            mask_weights: The mask weights/scores from SAM prediction.
             low_res_logits: The low-res logits to refine.
             input_coords: The point coordinates to refine.
             input_labels: The point labels to refine.
@@ -355,6 +364,7 @@ class SamDecoder(nn.Module):
             similarity_map: The similarity map to postprocess.
             score_threshold: The score threshold to postprocess.
             nms_iou_threshold: The IoU threshold for the NMS.
+            use_box_refinement: Whether to use 2nd SAM prediction with box prompts.
 
         Returns:
             The postprocessed masks, point coordinates.
@@ -367,22 +377,25 @@ class SamDecoder(nn.Module):
             )
 
         masks = masks[keep]
+        mask_weights = mask_weights[keep]
         low_res_logits = low_res_logits[keep]
         input_coords = input_coords[keep]
         input_labels = input_labels[keep]
 
-        # refine masks with boxes
+        # Compute boxes from masks for NMS (and optionally for 2nd SAM prediction)
         boxes = masks_to_boxes(masks.squeeze(1))
         boxes = self.transform.apply_coords_torch(boxes.reshape(-1, 2, 2), original_size)
         boxes = boxes.reshape(-1, 4)
         boxes = boxes.unsqueeze(1)
 
-        masks, mask_weights, _ = self.predictor.predict(
-            point_coords=input_coords[:, :, :2],  # Extract only x, y coordinates for SAM predictor
-            point_labels=input_labels,
-            boxes=boxes,
-            mask_input=low_res_logits,
-        )
+        # Optionally refine masks with 2nd SAM prediction using box prompts
+        if use_box_refinement:
+            masks, mask_weights, _ = self.predictor.predict(
+                point_coords=input_coords[:, :, :2],  # Extract only x, y coordinates for SAM predictor
+                point_labels=input_labels,
+                boxes=boxes,
+                mask_input=low_res_logits,
+            )
 
         # NOTE: torchvision NMS requires float32 inputs
         nms_indices = nms(
