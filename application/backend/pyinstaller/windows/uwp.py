@@ -4,6 +4,7 @@
 import ctypes
 import os
 import shutil
+from pathlib import Path
 
 GetCurrentPackageFamilyName = ctypes.windll.kernel32.GetCurrentPackageFamilyName  # type: ignore[attr-defined]
 GetCurrentPackageFamilyName.argtypes = [ctypes.POINTER(ctypes.c_uint), ctypes.c_wchar_p]
@@ -30,21 +31,23 @@ def _get_current_package_path() -> str | None:
     return buffer.value if result == 0 else None
 
 
-def _copy_initial_data(app_data_folder: str) -> None:
+def _copy_initial_data(app_data_folder: Path) -> None:
     package_path = _get_current_package_path()
-    print("Setup Hook: Application package path:", package_path)
+    print(f"Setup Hook: Application package path: {package_path}")
     if not package_path:
         return
-    initial_data_path = os.path.join(package_path, "InitialData")
+    initial_data_path = Path(package_path) / "InitialData"
     if not os.path.exists(initial_data_path):
         return
     for item in os.listdir(initial_data_path):
-        source_path = os.path.join(initial_data_path, item)
-        destination_path = os.path.join(app_data_folder, item)
+        destination_path = app_data_folder / item
         if os.path.exists(destination_path):
             continue
-        print("Setup Hook: Copying initial data:", item, " Destination:", destination_path)
-        shutil.copytree(source_path, destination_path)
+        print(f"Setup Hook: Copying initial data: {item}. Destination: {destination_path}")
+        try:
+            shutil.copytree(initial_data_path / item, destination_path)
+        except OSError as e:
+            print(f"Setup Hook: Failed to copy initial data {item}", e)
 
 
 def _main() -> None:
@@ -57,15 +60,15 @@ def _main() -> None:
         print("Setup Hook: Application doesn't run in a UWP context; skipping folder setup.")
         return
 
-    print("Setup Hook: Application runs in a UWP context. Package Family Name:", package_family_name)
+    print(f"Setup Hook: Application runs in a UWP context. Package Family Name: {package_family_name}")
 
-    app_data_folder = os.path.join(local_app_data, "Packages", package_family_name, "LocalState")
+    app_data_folder = Path(local_app_data) / "Packages" / package_family_name / "LocalState"
 
-    print("Setup Hook: Using local state folder:", app_data_folder)
-    os.environ["DB_DATA_DIR"] = app_data_folder
+    print(f"Setup Hook: Using local state folder: {app_data_folder}")
+    os.environ["DB_DATA_DIR"] = app_data_folder.name
 
-    print("Setup Hook: Writing log to:", app_data_folder)
-    os.environ["LOGS_DIR"] = app_data_folder
+    print(f"Setup Hook: Writing log to: {app_data_folder}")
+    os.environ["LOGS_DIR"] = app_data_folder.name
 
     os.environ["STATIC_FILES_DIR"] = "static"
 
