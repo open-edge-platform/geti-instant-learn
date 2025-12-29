@@ -6,8 +6,8 @@ on:
         description: "Specifies the build version to apply to all binaries produced by this workflow"
         type: string
         required: true
-      ai-device:
-        description: "Specifies the AI device to build the backend for (cpu, xpu, gpu)"
+      device:
+        description: "Specifies the device to build the backend for (cpu, xpu, gpu)"
         type: string
         required: true
         default: "xpu"
@@ -24,8 +24,8 @@ on:
         description: "Specifies the build version to apply to all binaries produced by this workflow"
         type: string
         required: true
-      ai-device:
-        description: "Specifies the AI device to build the backend for (cpu, xpu, gpu)"
+      device:
+        description: "Specifies the device to build the backend for (cpu, xpu, gpu)"
         required: true
         options:
           - xpu
@@ -63,7 +63,7 @@ jobs:
       - name: Define paths
         env:
           DEBUG_BUILD: ${{ inputs.debug_build }}
-          DEVICE: ${{ inputs.ai-device || 'xpu' }}
+          DEVICE: ${{ inputs.device || 'xpu' }}
           BUILD_VERSION: ${{ inputs.build_version }}
         run: |
           Write-Host "DEBUG_BUILD=$env:DEBUG_BUILD"
@@ -123,16 +123,16 @@ jobs:
       - name: Build OpenAPI spec
         working-directory: application/backend
         env:
-          DEVICE: ${{ inputs.ai-device || 'xpu' }}
+          DEVICE: ${{ inputs.device || 'xpu' }}
         run: |
-          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c ai-device="$env:DEVICE" gen-openapi
+          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c device="$env:DEVICE" gen-openapi
 
       - name: Build executable
         working-directory: application/backend
         env:
-          DEVICE: ${{ inputs.ai-device || 'xpu' }}
+          DEVICE: ${{ inputs.device || 'xpu' }}
         run: |
-          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c ai-device="$env:DEVICE" pyinstaller
+          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c device="$env:DEVICE" pyinstaller
 
       # Copy backend artifacts to UI
 
