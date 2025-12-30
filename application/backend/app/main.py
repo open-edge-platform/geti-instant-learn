@@ -28,7 +28,8 @@ from runtime.webrtc.sdp_handler import SDPHandler
 from settings import get_settings
 
 settings = get_settings()
-settings.logs_dir.mkdir(parents=True, exist_ok=True)
+if not os.path.exists(settings.logs_dir):
+    settings.logs_dir.mkdir(parents=True, exist_ok=True)
 
 logger = logging.getLogger(__name__)
 
