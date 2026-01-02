@@ -30,51 +30,18 @@ class ReferenceFeatures:
         - ref_embeddings.shape = [2, 2048, 1024]  # 2 categories, 2*1024 patches
         - masked_ref_embeddings.shape = [2, 1024]
         - flatten_ref_masks.shape = [2, 2048]
-        - category_ids = tensor([5, 3])  # index 0 -> class 5, index 1 -> class 3
+        - category_ids = [5, 3]  # index 0 -> class 5, index 1 -> class 3
     """
 
     ref_embeddings: torch.Tensor
     masked_ref_embeddings: torch.Tensor
     flatten_ref_masks: torch.Tensor
-    category_ids: torch.Tensor
-
-    def as_tuple(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Convert to tuple of tensors for traced inference.
-
-        Returns:
-            Tuple of (ref_embeddings, masked_ref_embeddings, flatten_ref_masks, category_ids)
-        """
-        return (
-            self.ref_embeddings,
-            self.masked_ref_embeddings,
-            self.flatten_ref_masks,
-            self.category_ids,
-        )
-
-    @classmethod
-    def from_tuple(
-        cls,
-        tensors: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
-    ) -> "ReferenceFeatures":
-        """Reconstruct ReferenceFeatures from a tuple of tensors.
-
-        Args:
-            tensors: Tuple of (ref_embeddings, masked_ref_embeddings, flatten_ref_masks, category_ids)
-
-        Returns:
-            ReferenceFeatures instance
-        """
-        return cls(
-            ref_embeddings=tensors[0],
-            masked_ref_embeddings=tensors[1],
-            flatten_ref_masks=tensors[2],
-            category_ids=tensors[3],
-        )
+    category_ids: list[int]
 
     @property
     def num_categories(self) -> int:
         """Return the number of unique categories."""
-        return self.category_ids.shape[0]
+        return len(self.category_ids)
 
     @property
     def device(self) -> torch.device:
@@ -94,6 +61,5 @@ class ReferenceFeatures:
             ref_embeddings=self.ref_embeddings.to(device),
             masked_ref_embeddings=self.masked_ref_embeddings.to(device),
             flatten_ref_masks=self.flatten_ref_masks.to(device),
-            category_ids=self.category_ids.to(device),
+            category_ids=self.category_ids,
         )
-

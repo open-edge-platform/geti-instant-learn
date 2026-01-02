@@ -73,9 +73,9 @@ class MaskedFeatureExtractor(nn.Module):
                 - flatten_ref_masks: Dictionary of flattened masks grouped by category.
                 - ref_embeddings: Dictionary of all reference features grouped by category.
         """
-        masked_ref_embeddings = defaultdict(list)
-        flatten_ref_masks = defaultdict(list)
-        ref_embeddings = defaultdict(list)
+        masked_embeddings_per_cat = defaultdict(list)
+        masks_per_cat = defaultdict(list)
+        ref_embeddings_per_cat = defaultdict(list)
 
         for embedding, masks_tensor, category_ids_tensor in zip(
             embeddings,
@@ -84,26 +84,41 @@ class MaskedFeatureExtractor(nn.Module):
             strict=True,
         ):
             for category_id, mask in zip(category_ids_tensor, masks_tensor, strict=True):
+                if isinstance(category_id, torch.Tensor):
+                    category_id = category_id.item()
                 pooled_mask = self.transform(mask).to(embedding.device)
-                flatten_ref_masks[category_id].append(pooled_mask)
+                masks_per_cat[category_id].append(pooled_mask)
+
+                # Extract masked embeddings
                 keep = pooled_mask.flatten().bool()
-                masked_embedding = embedding[keep]
-                masked_ref_embeddings[category_id].append(masked_embedding)
-                ref_embeddings[category_id].append(embedding)
+                masked_embeddings_per_cat[category_id].append(embedding[keep])
 
-        for category_id, masked_embedding in masked_ref_embeddings.items():
-            masked_embedding = torch.cat(masked_embedding, dim=0)
-            if masked_embedding.numel():  # num of elements > 0
-                masked_embedding = masked_embedding.mean(dim=0, keepdim=True)
-                masked_embedding /= masked_embedding.norm(dim=-1, keepdim=True)
-            masked_ref_embeddings[category_id] = masked_embedding
+                # Store full embedding for this reference
+                ref_embeddings_per_cat[category_id].append(embedding)
 
-        for category_id, flatten_ref_mask_list in flatten_ref_masks.items():
-            flatten_ref_mask_list = torch.cat(flatten_ref_mask_list, dim=0)
-            flatten_ref_masks[category_id] = flatten_ref_mask_list.reshape(-1)
+        # Get unique categories in sorted order for deterministic output
+        unique_cats = sorted(masked_embeddings_per_cat.keys())
 
-        for category_id, ref_embedding_list in ref_embeddings.items():
-            ref_embedding_list = torch.cat(ref_embedding_list, dim=0)
-            ref_embeddings[category_id] = ref_embedding_list
+        # Aggregate by category
+        ref_embeddings_list: list[torch.Tensor] = []
+        masked_ref_embeddings_list: list[torch.Tensor] = []
+        flatten_ref_masks_list: list[torch.Tensor] = []
 
-        return masked_ref_embeddings, flatten_ref_masks, ref_embeddings
+        for cat_id in unique_cats:
+            # Average masked embeddings for this category
+            cat_masked_embeds = torch.cat(masked_embeddings_per_cat[cat_id], dim=0)
+            if cat_masked_embeds.numel():  # num of elements > 0
+                averaged_embed = cat_masked_embeds.mean(dim=0, keepdim=True)
+                averaged_embed /= averaged_embed.norm(dim=-1, keepdim=True)
+            else:
+                averaged_embed = cat_masked_embeds  # Empty tensor
+            masked_ref_embeddings_list.append(averaged_embed)
+            ref_embeddings_list.append(torch.cat(ref_embeddings_per_cat[cat_id], dim=0))
+            flatten_ref_masks_list.append(torch.cat(masks_per_cat[cat_id], dim=0).reshape(-1))
+
+        return ReferenceFeatures(
+            ref_embeddings=torch.stack(ref_embeddings_list, dim=0),
+            masked_ref_embeddings=torch.stack(masked_ref_embeddings_list, dim=0),
+            flatten_ref_masks=torch.stack(flatten_ref_masks_list, dim=0),
+            category_ids=unique_cats,
+        )

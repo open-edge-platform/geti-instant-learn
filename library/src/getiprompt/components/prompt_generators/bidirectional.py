@@ -47,7 +47,7 @@ class BidirectionalPromptGenerator(nn.Module):
         encoder_feature_size: int,
         num_foreground_points: int = 40,
         num_background_points: int = 2,
-        max_points: int = 64,
+        max_points: int = 42,
     ) -> None:
         """Initialize the BidirectionalPromptGenerator."""
         super().__init__()
@@ -173,6 +173,8 @@ class BidirectionalPromptGenerator(nn.Module):
         y, x = tgt_idx // feat_size, tgt_idx % feat_size
         x = x.to(similarity_scores.device)
         y = y.to(similarity_scores.device)
+
+        # TODO[Eugene]: we could potentially filter low-confidence points here
         similarity_scores = similarity_scores.flatten()
         return torch.stack((x, y, similarity_scores), dim=1)
 
@@ -315,7 +317,7 @@ class BidirectionalPromptGenerator(nn.Module):
         ref_embeddings: torch.Tensor,
         masked_ref_embeddings: torch.Tensor,
         flatten_ref_masks: torch.Tensor,
-        category_ids: torch.Tensor,
+        category_ids: list[int],
         target_embeddings: torch.Tensor,
         original_sizes: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -340,36 +342,24 @@ class BidirectionalPromptGenerator(nn.Module):
             similarities: [T, C, feat_size, feat_size] - similarity maps at feature grid size
         """
         num_targets = target_embeddings.shape[0]
-        num_categories = category_ids.shape[0]
+        num_categories = len(category_ids)
         feat_size = self.encoder_feature_size
         device = target_embeddings.device
         dtype = target_embeddings.dtype
 
         # Pre-allocate output tensors
-        # point_prompts = torch.zeros(num_targets, num_categories, self.max_points, 4, device=device, dtype=dtype)
-        # num_points = torch.zeros(num_targets, num_categories, device=device, dtype=torch.int64)
-        # similarities = torch.zeros(num_targets, num_categories, feat_size, feat_size, device=device, dtype=dtype)
+        point_prompts = torch.zeros(num_targets, num_categories, self.max_points, 4, device=device, dtype=dtype)
+        num_points = torch.zeros(num_targets, num_categories, device=device, dtype=torch.int64)
+        similarities = torch.zeros(num_targets, num_categories, feat_size, feat_size, device=device, dtype=dtype)
 
-        # for t_idx in range(num_targets):
-        #     target_embed = target_embeddings[t_idx]
-        #     original_size = original_sizes[t_idx]
+        for t_idx in range(num_targets):
+            target_embed = target_embeddings[t_idx]
+            original_size = original_sizes[t_idx]
 
-        #     for c_idx in range(num_categories):
-        #         ref_embed = ref_embeddings[c_idx]
-        #         masked_embed = masked_ref_embeddings[c_idx]
-        #         mask = flatten_ref_masks[c_idx]
-
-        for target_embed, original_size in zip(target_embeddings, original_sizes, strict=False):
-            class_point_prompts: dict[int, torch.Tensor] = {}
-            similarities: dict[int, list[torch.Tensor]] = defaultdict(list)
-            h, w = original_size
-
-            for class_id, flatten_ref_mask in flatten_ref_masks.items():
-                similarity_map = ref_embeddings[class_id] @ target_embed.T
-                local_ref_embedding = masked_ref_embeddings[class_id]
-                local_similarity = local_ref_embedding @ target_embed.T
-                local_similarity = self._resize_similarity_map(local_similarity, original_size)
-                similarities[class_id].append(local_similarity)
+            for c_idx in range(num_categories):
+                ref_embed = ref_embeddings[c_idx]
+                masked_embed = masked_ref_embeddings[c_idx]
+                mask = flatten_ref_masks[c_idx]
 
                 points, similarity = self._process_single_category(
                     ref_embed,
