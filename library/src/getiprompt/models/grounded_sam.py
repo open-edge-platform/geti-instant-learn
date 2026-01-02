@@ -12,7 +12,7 @@ from getiprompt.components.sam.base import SAMPredictor
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.base import Model
 from getiprompt.utils.constants import Backend
-from getiprompt.utils.model_registry import ModelType
+from getiprompt.models.registry import ModelType
 
 
 class GroundedSAM(Model):

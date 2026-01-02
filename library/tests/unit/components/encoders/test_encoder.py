@@ -11,8 +11,8 @@ import torch
 from torchvision.tv_tensors import Image
 
 from getiprompt.components.encoders import ImageEncoder
+from getiprompt.models.registry import ModelType, get_models_by_type
 from getiprompt.utils.constants import Backend
-from getiprompt.utils.model_registry import ModelType, get_models_by_type
 
 # Get encoder model IDs from registry, filtered by family for HuggingFace vs TIMM
 HUGGINGFACE_ENCODER_IDS = [m.id for m in get_models_by_type(ModelType.ENCODER) if m.family == "DINOv2"]
@@ -390,10 +390,7 @@ class TestEncoderIntegration:
     @staticmethod
     def test_forward_with_real_model_comprehensive(backend: Backend) -> None:
         """Comprehensive integration test with real DINO models for both backends."""
-        if backend == Backend.HUGGINGFACE:
-            model_id = "dinov2-small"
-        else:  # TIMM
-            model_id = "dinov3-small"
+        model_id = "dinov2-small" if backend == Backend.HUGGINGFACE else "dinov3-small"
         encoder = ImageEncoder(model_id=model_id, backend=backend, device="cpu", input_size=224)
 
         # Create test image
@@ -453,10 +450,7 @@ class TestEncoderIntegration:
     @staticmethod
     def test_feature_quality_and_consistency(backend: Backend) -> None:
         """Test that extracted embeddings are meaningful and consistent for both backends."""
-        if backend == Backend.HUGGINGFACE:
-            model_id = "dinov2-small"
-        else:  # TIMM
-            model_id = "dinov3-small"
+        model_id = "dinov2-small" if backend == Backend.HUGGINGFACE else "dinov3-small"
         encoder = ImageEncoder(model_id=model_id, backend=backend, device="cpu", input_size=224)
 
         # Create identical images
@@ -485,10 +479,7 @@ class TestEncoderIntegration:
     @staticmethod
     def test_different_model_sizes(backend: Backend) -> None:
         """Test with different DINO model sizes to verify configuration for both backends."""
-        if backend == Backend.HUGGINGFACE:
-            model_id = "dinov2-base"
-        else:  # TIMM
-            model_id = "dinov3-base"
+        model_id = "dinov2-base" if backend == Backend.HUGGINGFACE else "dinov3-base"
         # Test with base model (larger than small)
         encoder_base = ImageEncoder(model_id=model_id, backend=backend, device="cpu", input_size=224)
 

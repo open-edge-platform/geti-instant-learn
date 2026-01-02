@@ -16,7 +16,7 @@ from torchvision.transforms.v2 import Compose, Normalize, Resize, ToDtype
 
 from getiprompt.utils import precision_to_torch_dtype
 from getiprompt.utils.constants import Backend
-from getiprompt.utils.model_registry import ModelType, get_model, get_models_by_type
+from getiprompt.models.registry import ModelType, get_model, get_models_by_type
 
 logger = getLogger("Geti Prompt")
 

@@ -13,9 +13,9 @@ from torch.nn import functional
 from torchvision import tv_tensors
 from transformers import AutoImageProcessor, AutoModel
 
+from getiprompt.models.registry import ModelType, get_model, get_models_by_type
 from getiprompt.utils import precision_to_torch_dtype
 from getiprompt.utils.constants import Backend
-from getiprompt.utils.model_registry import ModelType, get_model, get_models_by_type
 
 logger = getLogger("Geti Prompt")
 
@@ -195,7 +195,7 @@ class HuggingFaceImageEncoder(nn.Module):
 
         # Wrapper to export only the feature extraction (without CLS/register tokens)
         class ForwardFeaturesWrapper(nn.Module):
-            def __init__(self, model: nn.Module, ignore_token_length: int):
+            def __init__(self, model: nn.Module, ignore_token_length: int) -> None:
                 super().__init__()
                 self.model = model
                 self.ignore_token_length = ignore_token_length

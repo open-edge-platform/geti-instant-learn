@@ -18,7 +18,7 @@ from segment_anything_hq.predictor import SamPredictor as _SamPredictor
 from torch import nn
 
 from getiprompt.utils.constants import DATA_PATH, Backend
-from getiprompt.utils.model_registry import ModelType, get_local_filename, get_model, get_models_by_type
+from getiprompt.models.registry import ModelType, get_local_filename, get_model, get_models_by_type
 from getiprompt.utils.utils import download_file
 
 logger = getLogger("Geti Prompt")

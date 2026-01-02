@@ -11,7 +11,7 @@ from torch import nn
 
 from getiprompt.data.base.batch import Batch
 from getiprompt.utils.constants import Backend
-from getiprompt.utils.model_registry import ModelType, get_model, get_models_by_type
+from getiprompt.models.registry import ModelType, get_model, get_models_by_type
 
 
 class Model(nn.Module):

@@ -11,7 +11,7 @@ import torch
 from getiprompt.components.sam.openvino import OpenVINOSAMPredictor
 from getiprompt.components.sam.pytorch import PyTorchSAMPredictor
 from getiprompt.utils.constants import Backend
-from getiprompt.utils.model_registry import ModelType, get_model, get_models_by_type
+from getiprompt.models.registry import ModelType, get_model, get_models_by_type
 from getiprompt.utils.optimization import optimize_model
 from getiprompt.utils.utils import precision_to_torch_dtype
 
