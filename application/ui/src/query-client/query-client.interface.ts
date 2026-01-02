@@ -26,7 +26,7 @@ type PathParamsFor<Paths extends paths, P extends keyof Paths, Method extends Ht
 
 type MethodsForPath<Paths extends paths, P extends keyof Paths> = Extract<keyof Paths[P], HttpMethod>;
 
-type QueryKey<Paths extends paths> = {
+export type QueryKey<Paths extends paths> = {
     [P in keyof Paths]: {
         [M in MethodsForPath<Paths, P>]: PathParamsFor<Paths, P, M> extends never
             ? [M, P]

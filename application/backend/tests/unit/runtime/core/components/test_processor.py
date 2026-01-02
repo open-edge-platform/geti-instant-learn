@@ -46,7 +46,7 @@ class TestProcessor:
         self.mock_inbound_broadcaster.register.return_value = self.mock_in_queue
         self.mock_outbound_broadcaster = MagicMock(spec=FrameBroadcaster)
         self.mock_model_handler = MagicMock()
-        self.mock_model_handler.infer.return_value = []  # Return empty results list
+        self.mock_model_handler.predict.return_value = []  # Return empty results list
         self.mock_label_service = MagicMock()
         self.runner = Processor(self.mock_model_handler, self.mock_label_service)
         self.runner.setup(self.mock_inbound_broadcaster, self.mock_outbound_broadcaster)

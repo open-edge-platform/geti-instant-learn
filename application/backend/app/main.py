@@ -3,7 +3,7 @@
 
 import logging
 import os
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -11,18 +11,24 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 
 import api.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
 from api.error_handler import custom_exception_handler
 from api.routers import projects_router, webrtc_router
 from domain.db.engine import get_session_factory, run_db_migrations
 from domain.dispatcher import ConfigChangeDispatcher
+from domain.services.schemas.health import HealthCheckSchema
 from runtime.pipeline_manager import PipelineManager
 from runtime.webrtc.manager import WebRTCManager
+from runtime.webrtc.sdp_handler import SDPHandler
 from settings import get_settings
 
 settings = get_settings()
+settings.logs_dir.mkdir(parents=True, exist_ok=True)
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +37,12 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """FastAPI lifespan context manager"""
     # Startup actions
+    console_handler = logging.StreamHandler()
+    file_handler = logging.FileHandler(filename=settings.log_file, encoding="utf8")
     logging.basicConfig(
+        handlers=[console_handler, file_handler],
         level=logging.DEBUG if settings.debug else logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        format=settings.log_format,
         force=True,
     )
     logger.info(f"Starting {settings.app_name} application...")
@@ -46,7 +55,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.pipeline_manager.start()
 
     # Initialize WebRTC Manager
-    app.state.webrtc_manager = WebRTCManager(pipeline_manager=app.state.pipeline_manager)
+    app.state.sdp_handler = SDPHandler()
+    app.state.webrtc_manager = WebRTCManager(
+        pipeline_manager=app.state.pipeline_manager, sdp_handler=app.state.sdp_handler
+    )
 
     logger.info("Application startup completed")
     yield
@@ -74,9 +86,9 @@ fastapi_app.add_exception_handler(RequestValidationError, custom_exception_handl
 
 
 @fastapi_app.get(path="/health", tags=["Health"])
-async def health_check() -> dict[str, str]:
+async def health_check() -> HealthCheckSchema:
     """Health check endpoint"""
-    return {"status": "ok"}
+    return HealthCheckSchema(status="ok")
 
 
 fastapi_app.include_router(projects_router, prefix="/api/v1")
@@ -87,9 +99,9 @@ if (
     and os.path.isdir(settings.static_files_dir)
     and next(os.scandir(settings.static_files_dir), None) is not None
 ):
-    fastapi_app.mount(
-        os.getenv("ASSET_PREFIX", "/html"), StaticFiles(directory=settings.static_files_dir), name="static"
-    )
+    asset_prefix = os.getenv("ASSET_PREFIX", "/html")
+    logger.info("Serving static files from %s by context %s", settings.static_files_dir, asset_prefix)
+    fastapi_app.mount(asset_prefix, StaticFiles(directory=settings.static_files_dir), name="static")
 
     @fastapi_app.get("/", include_in_schema=False)
     @fastapi_app.get("/{full_path:path}", include_in_schema=False)
@@ -98,14 +110,20 @@ if (
         Serve the Single Page Application (SPA) index.html file for any path
         """
         index_path = os.path.join(settings.static_files_dir, "index.html")
-        return FileResponse(
-            index_path,
-            headers={
-                "Cross-Origin-Embedder-Policy": "require-corp",
-                "Cross-Origin-Opener-Policy": "same-origin",
-            },
-        )
+        return FileResponse(index_path)
 
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Middleware that injects COEP and COOP headers into every response."""
+
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        response = await call_next(request)
+        response.headers.setdefault("Cross-Origin-Embedder-Policy", "require-corp")
+        response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+        return response
+
+
+fastapi_app.add_middleware(SecurityHeadersMiddleware)
 
 app = CORSMiddleware(  # TODO restrict settings in production
     app=fastapi_app,
@@ -119,8 +137,8 @@ app = CORSMiddleware(  # TODO restrict settings in production
 def main() -> None:
     """Main application entry point"""
     log_config = uvicorn.config.LOGGING_CONFIG
-    log_config["formatters"]["default"]["fmt"] = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    log_config["formatters"]["access"]["fmt"] = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    log_config["formatters"]["default"]["fmt"] = settings.log_format
+    log_config["formatters"]["access"]["fmt"] = settings.log_format
 
     logger.info(f"Starting {settings.app_name} in {settings.environment} mode")
     uvicorn.run(

@@ -56,13 +56,13 @@ class PerDino(Model):
         ... )
         >>> target_batch = Batch.collate([target_sample])
 
-        >>> # Run learn and infer
-        >>> perdino.learn(ref_batch)
-        >>> infer_results = perdino.infer(target_batch)
+        >>> # Run fit and predict
+        >>> perdino.fit(ref_batch)
+        >>> predict_results = perdino.predict(target_batch)
 
-        >>> isinstance(infer_results, Results)
+        >>> isinstance(predict_results, Results)
         True
-        >>> infer_results.masks is not None
+        >>> predict_results.masks is not None
         True
     """
 
@@ -133,7 +133,7 @@ class PerDino(Model):
         """Perform learning step on the reference images and priors."""
         # Start running the model
         reference_embeddings = self.encoder(reference_batch.images)
-        self.masked_ref_embeddings, _ = self.masked_feature_extractor(
+        self.masked_ref_embeddings, _, _ = self.masked_feature_extractor(
             reference_embeddings,
             reference_batch.masks,
             reference_batch.category_ids,

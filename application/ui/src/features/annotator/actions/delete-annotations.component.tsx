@@ -4,7 +4,7 @@
  */
 
 import { ActionButton, Tooltip, TooltipTrigger } from '@geti/ui';
-import { Refresh } from '@geti/ui/icons';
+import { Delete } from '@geti/ui/icons';
 
 import { useAnnotationActions } from '../providers/annotation-actions-provider.component';
 
@@ -14,7 +14,7 @@ export const DeleteAnnotations = () => {
     return (
         <TooltipTrigger>
             <ActionButton isQuiet aria-label={'Delete annotations'} onPress={deleteAllAnnotations}>
-                <Refresh />
+                <Delete />
             </ActionButton>
             <Tooltip>Delete annotations</Tooltip>
         </TooltipTrigger>

@@ -1,10 +1,18 @@
 #!/usr/bin/env just --justfile
-import "../Justfile"
+import "../recipes.justfile"
 
-py_path := "tests:app"
+
+port := "9100"
+host := "0.0.0.0"
+enable-coturn := "false"
+host-ip := `uv run python -c "import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.connect(('8.8.8.8',80)); print(s.getsockname()[0]); s.close()"`
+stun-server := ""
+coturn-port := "443"
+dataset-dir := ".data/templates/datasets/coffee-berries"
+
 # Ensure version in GHA workflow matches uv version here
 uv_version := "0.9.7"
-ai_extra := "cpu" # cpu, cu126, xpu
+device := "cpu" # cpu, cu126, xpu
 
 default:
     @just --list
@@ -19,9 +27,13 @@ gen-openapi-md: gen-openapi
 
 
 # Start FastAPI development server with auto-reload
-dev: _venv download-dataset
-    {{ if enable-coturn == "true" { "ICE_SERVERS='" + ice-servers + "'" } else { "" } }} \
-    PYTHONPATH=app uv run uvicorn main:app --reload --host {{ host }} --port {{ container-port }}
+dev: _venv (download-dataset dataset-dir)
+    {{ if enable-coturn == "true" { "COTURN_HOST='" + host-ip + "' COTURN_PORT='" + coturn-port + "'" } else { "" } }} \
+    {{ if stun-server != "" { "STUN_SERVER='" + stun-server + "'" } else { "" } }} \
+    CORS_ORIGINS='*' \
+    WEBRTC_ADVERTISE_IP='{{ host-ip }}' \
+    DEVICE='{{ if device =~ "cu.*" { "cuda" } else { device } }}' \
+    PYTHONPATH=app uv run uvicorn main:app --reload --host {{ host }} --port {{ port }}
 
 
 _pre-venv:
@@ -31,7 +43,7 @@ _pre-venv:
 
 _venv: _pre-venv
     uv lock --check
-    uv sync --extra {{ ai_extra }} --extra mqtt --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
+    uv sync --extra {{ device }} --extra mqtt --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
 
 # Generate uv lock file
 venv-lock: _pre-venv
@@ -40,7 +52,7 @@ venv-lock: _pre-venv
 # Run unit tests
 test-unit: _venv
     if [ -d "./tests/unit" ]; then \
-        PYTHONPATH={{py_path}} uv run pytest ./tests/unit -v; \
+        uv run pytest ./tests/unit -v; \
     else \
         echo "./tests/unit directory not found - skipping unit tests"; \
     fi
@@ -48,7 +60,7 @@ test-unit: _venv
 # Run integration tests
 test-integration: _venv
     if [ -d "./tests/integration" ]; then \
-        PYTHONPATH={{py_path}} uv run pytest ./tests/integration -v; \
+        uv run pytest ./tests/integration -v; \
     else \
         echo "./tests/integration directory not found - skipping integration tests"; \
     fi
@@ -70,3 +82,13 @@ _ruff:
 
 _mypy:
     uv run mypy . --config-file=pyproject.toml
+
+# -------------------------------------------------------------------------------------------------
+# Installer
+# -------------------------------------------------------------------------------------------------
+
+pyinstaller: _venv (download-dataset dataset-dir)
+    uv sync --extra installer --extra {{device}} --extra mqtt --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
+    uv run pyinstaller --noconfirm geti-prompt.spec
+    mkdir -p dist/geti-prompt-backend/InitialData/templates/datasets/coffee-berries
+    cp {{ dataset-dir }}/* dist/geti-prompt-backend/InitialData/templates/datasets/coffee-berries/

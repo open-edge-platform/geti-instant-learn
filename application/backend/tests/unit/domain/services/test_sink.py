@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from domain.db.models import ProjectDB, SinkDB
-from domain.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher
+from domain.dispatcher import ComponentConfigChangeEvent, ComponentType, ConfigChangeDispatcher
 from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
@@ -102,13 +102,14 @@ def mock_sink(sink_id, project_id):
 @pytest.fixture
 def sink_create_data():
     """Sample SinkCreateSchema."""
+    sink_id = uuid4()
     config_mock = Mock()
     config_mock.sink_type = WriterType.MQTT
     config_mock.name = "test-sink"
     config_mock.model_dump = Mock(return_value={"sink_type": WriterType.MQTT, "broker_host": "localhost"})
 
     schema = Mock(spec=SinkCreateSchema)
-    schema.id = uuid4()
+    schema.id = sink_id
     schema.active = False
     schema.config = config_mock
     return schema
@@ -513,6 +514,7 @@ class TestUpdateSink:
         # Arrange
         mock_project_repository.get_by_id.return_value = mock_project
         mock_sink_repository.get_by_id_and_project.return_value = mock_sink
+        mock_sink_repository.update.return_value = mock_sink
         mock_session.commit.side_effect = IntegrityError(
             "statement", "params", orig=Exception("unique constraint uq_sink_name_per_project")
         )
@@ -609,12 +611,7 @@ class TestEventDispatcher:
         """Test that creating a sink emits a component change event."""
         # Arrange
         mock_project_repository.get_by_id.return_value = mock_project
-        new_sink_id = uuid4()
-
-        def set_sink_id(sink):
-            sink.id = new_sink_id
-
-        sink_service.session.refresh.side_effect = set_sink_id
+        expected_sink_id = sink_create_data.id
 
         # Act
         sink_service.create_sink(project_id, sink_create_data)
@@ -624,7 +621,8 @@ class TestEventDispatcher:
         event = mock_dispatcher.dispatch.call_args[0][0]
         assert isinstance(event, ComponentConfigChangeEvent)
         assert event.project_id == project_id
-        assert event.component_type == "sink"
+        assert event.component_type == ComponentType.SINK
+        assert event.component_id == expected_sink_id
 
     def test_update_sink_emits_event(
         self,
@@ -650,7 +648,8 @@ class TestEventDispatcher:
         # Assert
         mock_dispatcher.dispatch.assert_called_once()
         event = mock_dispatcher.dispatch.call_args[0][0]
-        assert event.component_id == str(sink_id)
+        assert event.component_type == ComponentType.SINK
+        assert event.component_id == sink_id
 
     def test_delete_sink_emits_event(
         self,
@@ -673,6 +672,9 @@ class TestEventDispatcher:
 
         # Assert
         mock_dispatcher.dispatch.assert_called_once()
+        event = mock_dispatcher.dispatch.call_args[0][0]
+        assert isinstance(event, ComponentConfigChangeEvent)
+        assert event.component_type == ComponentType.SINK
 
     def test_no_dispatcher_does_not_raise(
         self, mock_session, mock_sink_repository, mock_project_repository, project_id, mock_project, sink_create_data

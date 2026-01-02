@@ -5,7 +5,7 @@
 
 import { FormEvent, useState } from 'react';
 
-import { Button } from '@geti/ui';
+import { Button, ButtonGroup, Flex, Form } from '@geti/ui';
 
 import { useCreateSource } from '../api/use-create-source';
 import { isDeviceIdValid } from './utils';
@@ -35,17 +35,16 @@ export const CreateWebcamSource = ({ onSaved }: CreateWebcamSourceProps) => {
     };
 
     return (
-        <form onSubmit={handleApply}>
-            <WebcamSourceFields selectedDeviceId={selectedDeviceId} onSetSelectedDeviceId={setSelectedDeviceId} />
+        <Form validationBehavior={'native'} onSubmit={handleApply}>
+            <Flex direction={'column'} gap={'size-200'} marginTop={0}>
+                <WebcamSourceFields selectedDeviceId={selectedDeviceId} onSetSelectedDeviceId={setSelectedDeviceId} />
 
-            <Button
-                marginTop={'size-200'}
-                type={'submit'}
-                isPending={createWebcamSource.isPending}
-                isDisabled={isApplyDisabled}
-            >
-                Apply
-            </Button>
-        </form>
+                <ButtonGroup>
+                    <Button type={'submit'} isPending={createWebcamSource.isPending} isDisabled={isApplyDisabled}>
+                        Apply
+                    </Button>
+                </ButtonGroup>
+            </Flex>
+        </Form>
     );
 };

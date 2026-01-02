@@ -6,7 +6,6 @@
 import { render } from '@geti-prompt/test-utils';
 import { fireEvent, screen, within } from '@testing-library/react';
 
-import { FullScreenModeProvider } from '../full-screen-mode.component';
 import { CanvasSettingsProvider, DEFAULT_CANVAS_SETTINGS } from './canvas-settings-provider.component';
 import { CanvasSettings } from './canvas-settings.component';
 
@@ -41,11 +40,9 @@ const resetSetting = (setting: string) => {
 describe('CanvasSettings', () => {
     const renderCanvasAdjustments = () => {
         render(
-            <FullScreenModeProvider>
-                <CanvasSettingsProvider>
-                    <CanvasSettings />
-                </CanvasSettingsProvider>
-            </FullScreenModeProvider>
+            <CanvasSettingsProvider>
+                <CanvasSettings />
+            </CanvasSettingsProvider>
         );
     };
 

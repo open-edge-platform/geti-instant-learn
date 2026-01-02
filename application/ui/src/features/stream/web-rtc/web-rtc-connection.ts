@@ -4,7 +4,6 @@
  */
 
 import { client } from '@geti-prompt/api';
-import { isFirefox } from '@react-aria/utils';
 import { v4 as uuid } from 'uuid';
 
 export type WebRTCConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'failed';
@@ -112,11 +111,6 @@ export class WebRTCConnection {
             const config: RTCConfiguration = {
                 iceServers,
             };
-
-            // Only set default ICE server config if browser is Firefox and no custom servers provided
-            if (isFirefox() && iceServers.length === 0) {
-                config.iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
-            }
 
             this.peerConnection = new RTCPeerConnection(config);
 

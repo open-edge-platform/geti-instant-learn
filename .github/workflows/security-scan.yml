@@ -44,11 +44,11 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
       - name: Run Zizmor scan
-        uses: open-edge-platform/geti-ci/actions/zizmor@829f7148f9f70bd4ffbb367f7374d78c32aef2a2
+        uses: open-edge-platform/geti-ci/actions/zizmor@d30e32248aa6bd06adeda7129b50a38bdbceca12
         with:
           scan-scope: "all"
           severity-level: "LOW"
@@ -62,11 +62,11 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
       - name: Run Bandit scan
-        uses: open-edge-platform/geti-ci/actions/bandit@829f7148f9f70bd4ffbb367f7374d78c32aef2a2
+        uses: open-edge-platform/geti-ci/actions/bandit@d30e32248aa6bd06adeda7129b50a38bdbceca12
         with:
           scan-scope: "all"
           severity-level: "LOW"
@@ -81,12 +81,12 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
       - name: Run Trivy scan
         id: trivy
-        uses: open-edge-platform/geti-ci/actions/trivy@829f7148f9f70bd4ffbb367f7374d78c32aef2a2
+        uses: open-edge-platform/geti-ci/actions/trivy@d30e32248aa6bd06adeda7129b50a38bdbceca12
         with:
           scan_type: "fs"
           scan-scope: all
@@ -102,11 +102,11 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
       - name: Run Semgrep scan
-        uses: open-edge-platform/geti-ci/actions/semgrep@4080814a248797d208c589033bbe4c8ac09ae987
+        uses: open-edge-platform/geti-ci/actions/semgrep@d30e32248aa6bd06adeda7129b50a38bdbceca12
         with:
           scan-scope: "all"
           severity: "LOW"
@@ -114,6 +114,7 @@ jobs:
           output-format: "text" # Use plain text output format to omit uploading code scanning results to Security tab
 
   trivy-docker-image-scan:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -122,32 +123,36 @@ jobs:
         ai-device: [cpu, gpu, xpu]
     steps:
       - name: Checkout code
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
       - name: Install dependencies
         uses: ./.github/actions/install-dependencies
         with:
-          cleanup-runner: 'true'
+          cleanup-runner: "true"
 
       - name: Build docker image
         working-directory: application
+        id: image-name
         env:
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just ai-device="${DEVICE}" docker-image="${DEVICE}:latest" docker-build-context="--no-cache" build-image
+          just build-target="${DEVICE}" docker-build-context="--no-cache" build-image
+          IMAGE_NAME=$(just --evaluate build-target="${DEVICE}" image-name)
+          echo "image=${IMAGE_NAME}" >> $GITHUB_OUTPUT
+          echo "Image: ${IMAGE_NAME}"
 
       - name: Cleanup docker cache
         run: docker builder prune -f
 
       - name: Run Trivy scan
         id: trivy
-        uses: open-edge-platform/geti-ci/actions/trivy@829f7148f9f70bd4ffbb367f7374d78c32aef2a2
+        uses: open-edge-platform/geti-ci/actions/trivy@d30e32248aa6bd06adeda7129b50a38bdbceca12
         with:
           artifact-name: "trivy-results-docker-${{ matrix.ai-device }}"
           scan_type: "image"
-          scan_target: "${{ matrix.ai-device }}:latest"
+          scan_target: "${{ steps.image-name.outputs.image }}"
           scan-scope: all
           severity: "LOW"
           scanners: "vuln,secret,config"

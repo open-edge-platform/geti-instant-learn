@@ -58,13 +58,13 @@ class SoftMatcher(Matcher):
         ... )
         >>> target_batch = Batch.collate([target_sample])
         >>>
-        >>> # Run learn and infer
-        >>> soft_matcher.learn(ref_batch)
-        >>> infer_results = soft_matcher.infer(target_batch)
+        >>> # Run fit and predict
+        >>> soft_matcher.fit(ref_batch)
+        >>> predict_results = soft_matcher.predict(target_batch)
         >>>
-        >>> isinstance(infer_results, Results)
+        >>> isinstance(predict_results, Results)
         True
-        >>> infer_results.masks is not None
+        >>> predict_results.masks is not None
         True
     """
 

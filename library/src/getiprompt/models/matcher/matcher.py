@@ -55,7 +55,13 @@ class Matcher(Model):
 
         >>> # Run fit and predict
         >>> matcher.fit(ref_batch)
-        >>> results = matcher.predict(target_batch)
+        >>> predict_results = matcher.predict(target_batch)
+
+        >>> isinstance(predict_results, Results)
+        True
+
+        >>> predict_results.masks is not None
+        True
     """
 
     def __init__(
@@ -65,6 +71,7 @@ class Matcher(Model):
         num_background_points: int = 2,
         encoder_model: str = "dinov3_large",
         mask_similarity_threshold: float | None = 0.38,
+        use_mask_refinement: bool = True,
         precision: str = "bf16",
         compile_models: bool = False,
         device: str = "cuda",

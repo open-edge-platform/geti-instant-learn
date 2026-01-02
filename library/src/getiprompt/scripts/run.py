@@ -165,7 +165,7 @@ def run_model(
 
     if reference_samples:
         reference_batch = Batch.collate(reference_samples)
-        model.learn(reference_batch)
+        model.fit(reference_batch)
     if not target_samples:
         logger.warning("No target samples found. Only reference learning was performed.")
         return
@@ -183,7 +183,7 @@ def run_model(
         for i in range(0, len(target_samples), batch_size):
             chunk_samples = target_samples[i : i + batch_size]
             target_batch = Batch.collate(chunk_samples)
-            predictions = model.infer(target_batch)
+            predictions = model.predict(target_batch)
 
             chunk_images = [sample.image for sample in chunk_samples if sample.image is not None]
             chunk_names = []

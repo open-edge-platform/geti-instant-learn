@@ -54,8 +54,8 @@ class MaskedFeatureExtractor(nn.Module):
         embeddings: torch.Tensor,
         masks: torch.Tensor,
         category_ids: torch.Tensor,
-    ) -> ReferenceFeatures:
-        """Extract masked features from batched inputs, aggregated by category.
+    ) -> tuple[dict[int, torch.Tensor], dict[int, torch.Tensor], dict[int, torch.Tensor]]:
+        """Extract masked, mask-conditioned features from batched inputs.
 
         This method:
         1. Pools binary masks to the patch grid
@@ -68,21 +68,15 @@ class MaskedFeatureExtractor(nn.Module):
             category_ids: Category IDs for each mask of shape (batch_size, num_masks)
 
         Returns:
-            ReferenceFeatures containing:
-                - ref_embeddings: [C, num_patches_total, embed_dim]
-                - masked_ref_embeddings: [C, embed_dim]
-                - flatten_ref_masks: [C, num_patches_total]
-                - category_ids: [C]
+            tuple[dict[int, torch.Tensor], dict[int, torch.Tensor], dict[int, torch.Tensor]]:
+                - masked_ref_embeddings: Dictionary of masked reference features grouped by category.
+                - flatten_ref_masks: Dictionary of flattened masks grouped by category.
+                - ref_embeddings: Dictionary of all reference features grouped by category.
         """
-        device = embeddings.device
-        embed_dim = embeddings.shape[-1]
+        masked_ref_embeddings = defaultdict(list)
+        flatten_ref_masks = defaultdict(list)
+        ref_embeddings = defaultdict(list)
 
-        # Collect features per category
-        ref_embeddings_per_cat: dict[int, list[torch.Tensor]] = defaultdict(list)
-        masked_embeddings_per_cat: dict[int, list[torch.Tensor]] = defaultdict(list)
-        masks_per_cat: dict[int, list[torch.Tensor]] = defaultdict(list)
-
-        # Process each sample in the batch
         for embedding, masks_tensor, category_ids_tensor in zip(
             embeddings,
             masks,
@@ -90,57 +84,26 @@ class MaskedFeatureExtractor(nn.Module):
             strict=True,
         ):
             for category_id, mask in zip(category_ids_tensor, masks_tensor, strict=True):
-                cat_id = category_id.item()
                 pooled_mask = self.transform(mask).to(embedding.device)
-                masks_per_cat[cat_id].append(pooled_mask)
-
-                # Extract masked embeddings
+                flatten_ref_masks[category_id].append(pooled_mask)
                 keep = pooled_mask.flatten().bool()
                 masked_embedding = embedding[keep]
-                masked_embeddings_per_cat[cat_id].append(masked_embedding)
+                masked_ref_embeddings[category_id].append(masked_embedding)
+                ref_embeddings[category_id].append(embedding)
 
-                # Store full embedding for this reference
-                ref_embeddings_per_cat[cat_id].append(embedding)
+        for category_id, masked_embedding in masked_ref_embeddings.items():
+            masked_embedding = torch.cat(masked_embedding, dim=0)
+            if masked_embedding.numel():  # num of elements > 0
+                masked_embedding = masked_embedding.mean(dim=0, keepdim=True)
+                masked_embedding /= masked_embedding.norm(dim=-1, keepdim=True)
+            masked_ref_embeddings[category_id] = masked_embedding
 
-        # Get unique categories in sorted order for deterministic output
-        unique_cats = sorted(ref_embeddings_per_cat.keys())
+        for category_id, flatten_ref_mask_list in flatten_ref_masks.items():
+            flatten_ref_mask_list = torch.cat(flatten_ref_mask_list, dim=0)
+            flatten_ref_masks[category_id] = flatten_ref_mask_list.reshape(-1)
 
-        # Aggregate by category
-        ref_embeddings_list: list[torch.Tensor] = []
-        masked_ref_embeddings_list: list[torch.Tensor] = []
-        flatten_ref_masks_list: list[torch.Tensor] = []
+        for category_id, ref_embedding_list in ref_embeddings.items():
+            ref_embedding_list = torch.cat(ref_embedding_list, dim=0)
+            ref_embeddings[category_id] = ref_embedding_list
 
-        for cat_id in unique_cats:
-            # Stack reference embeddings for this category: [num_refs, num_patches, embed_dim]
-            # Then reshape to [num_refs * num_patches, embed_dim]
-            cat_ref_embeds = torch.stack(ref_embeddings_per_cat[cat_id], dim=0)
-            cat_ref_embeds = cat_ref_embeds.reshape(-1, embed_dim)
-            ref_embeddings_list.append(cat_ref_embeds)
-
-            # Average masked embeddings for this category
-            cat_masked_embeds = torch.cat(masked_embeddings_per_cat[cat_id], dim=0)
-            if cat_masked_embeds.numel() > 0:
-                averaged = cat_masked_embeds.mean(dim=0)
-                averaged = averaged / (averaged.norm(dim=-1, keepdim=True) + 1e-8)
-            else:
-                averaged = torch.zeros(embed_dim, device=device, dtype=embeddings.dtype)
-            masked_ref_embeddings_list.append(averaged)
-
-            # Concatenate masks for this category
-            cat_masks = torch.cat(masks_per_cat[cat_id], dim=0)
-            flatten_ref_masks_list.append(cat_masks)
-
-        # Stack into final tensors
-        # Note: Different categories may have different num_patches_total if different num_refs
-        # For now, we assume same number of references per category (padding would be needed otherwise)
-        ref_embeddings_tensor = torch.stack(ref_embeddings_list, dim=0)  # [C, P, D]
-        masked_ref_embeddings_tensor = torch.stack(masked_ref_embeddings_list, dim=0)  # [C, D]
-        flatten_ref_masks_tensor = torch.stack(flatten_ref_masks_list, dim=0)  # [C, P]
-        category_ids_tensor = torch.tensor(unique_cats, device=device, dtype=torch.int64)  # [C]
-
-        return ReferenceFeatures(
-            ref_embeddings=ref_embeddings_tensor,
-            masked_ref_embeddings=masked_ref_embeddings_tensor,
-            flatten_ref_masks=flatten_ref_masks_tensor,
-            category_ids=category_ids_tensor,
-        )
+        return masked_ref_embeddings, flatten_ref_masks, ref_embeddings
