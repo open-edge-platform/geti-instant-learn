@@ -10,7 +10,6 @@ import torch
 from getiprompt.components import SamDecoder
 from getiprompt.components.encoders import OpenVINOImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor
-from getiprompt.components.filters import PointPromptFilter
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.components.sam.openvino import OpenVINOSAMPredictor
 from getiprompt.utils.constants import Backend, SAMModelName
@@ -151,10 +150,9 @@ class InferenceModel(Matcher):
             encoder_input_size=self.encoder.input_size,
             encoder_patch_size=self.encoder.patch_size,
             encoder_feature_size=self.encoder.feature_size,
+            num_foreground_points=num_foreground_points,
             num_background_points=num_background_points,
         )
-
-        self.prompt_filter = PointPromptFilter(num_foreground_points=num_foreground_points)
 
         self.segmenter: SamDecoder = SamDecoder(
             sam_predictor=self.sam_predictor,

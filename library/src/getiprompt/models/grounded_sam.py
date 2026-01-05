@@ -80,14 +80,23 @@ class GroundedSAM(Model):
             predictions(list[dict[str, torch.Tensor]]): A list of predictions.
             Each prediction contains:
                 "pred_masks": torch.Tensor of shape [num_masks, H, W]
-                "pred_points": torch.Tensor of shape [num_points, 4] with last dimension [x, y, score, fg_label]
-                "pred_boxes": torch.Tensor of shape [num_boxes, 5] with last dimension [x1, y1, x2, y2, score]
+                "pred_scores": torch.Tensor of shape [num_masks]
                 "pred_labels": torch.Tensor of shape [num_masks]
+                "pred_boxes": torch.Tensor of shape [num_boxes, 5] with [x1, y1, x2, y2, score]
         """
-        # Start running the model
-        box_prompts = self.prompt_generator(target_batch.images, self.category_mapping)
-        box_prompts = self.prompt_filter(box_prompts)
+        # Generate box prompts (tensor format)
+        box_prompts, num_boxes, category_ids = self.prompt_generator(
+            target_batch.images,
+            self.category_mapping,
+        )
+
+        # Filter box prompts
+        box_prompts, num_boxes = self.prompt_filter(box_prompts, num_boxes)
+
+        # Decode masks
         return self.segmenter(
             target_batch.images,
+            category_ids,
             box_prompts=box_prompts,
+            num_boxes=num_boxes,
         )

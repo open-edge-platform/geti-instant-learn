@@ -7,12 +7,10 @@ from .cosine_similarity import CosineSimilarity
 from .encoders import ImageEncoder
 from .linear_sum_assignment import linear_sum_assignment
 from .mask_decoder import SamDecoder
-from .traceable_sam_decoder import TraceableSamDecoder
 
 __all__ = [
     "CosineSimilarity",
     "ImageEncoder",
     "SamDecoder",
-    "TraceableSamDecoder",
     "linear_sum_assignment",
 ]

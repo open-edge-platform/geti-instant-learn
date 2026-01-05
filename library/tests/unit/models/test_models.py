@@ -161,7 +161,6 @@ class TestMatcher:
         assert hasattr(model, "encoder")
         assert hasattr(model, "masked_feature_extractor")
         assert hasattr(model, "prompt_generator")
-        assert hasattr(model, "prompt_filter")
         assert hasattr(model, "segmenter")
 
     @patch("getiprompt.models.matcher.matcher.SAMPredictor")
@@ -273,7 +272,6 @@ class TestSoftMatcher:
         assert hasattr(model, "encoder")
         assert hasattr(model, "masked_feature_extractor")
         assert hasattr(model, "prompt_generator")
-        assert hasattr(model, "prompt_filter")
         assert hasattr(model, "segmenter")
 
     @patch("getiprompt.models.matcher.matcher.SAMPredictor")

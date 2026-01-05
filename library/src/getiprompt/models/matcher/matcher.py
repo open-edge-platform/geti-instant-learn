@@ -9,9 +9,9 @@ import torch
 
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor, ReferenceFeatures
+from getiprompt.components.mask_decoder import SamDecoder
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.components.sam.base import SAMPredictor
-from getiprompt.components.traceable_sam_decoder import TraceableSamDecoder
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.base import Model
 from getiprompt.utils.constants import Backend, SAMModelName
@@ -84,12 +84,12 @@ class Matcher(Model):
             num_background_points: Background points per category.
             encoder_model: Image encoder model ID.
             mask_similarity_threshold: Threshold for similarity-based mask filtering.
+            use_mask_refinement: Whether to use 2-stage mask refinement with box prompts.
             precision: Model precision ("bf16", "fp32").
             compile_models: Whether to compile models with torch.compile.
             device: Device for inference.
         """
         super().__init__()
-
         # SAM predictor
         self.sam_predictor = SAMPredictor(
             sam,
@@ -124,11 +124,12 @@ class Matcher(Model):
             num_background_points=num_background_points,
         )
 
-        # Traceable SAM decoder
-        self.segmenter = TraceableSamDecoder(
+        # SAM decoder
+        self.segmenter = SamDecoder(
             sam_predictor=self.sam_predictor,
             target_length=1024,
-            mask_similarity_threshold=mask_similarity_threshold or 0.38,
+            mask_similarity_threshold=mask_similarity_threshold,
+            use_mask_refinement=use_mask_refinement,
         )
 
         # Reference features (set during fit)
@@ -185,10 +186,10 @@ class Matcher(Model):
         # Decode masks for all images
         return self.segmenter(
             target_batch.images,
-            point_prompts,
-            num_points,
-            similarities,
             self.ref_features.category_ids,
+            point_prompts=point_prompts,
+            num_points=num_points,
+            similarities=similarities,
         )
 
     def export(

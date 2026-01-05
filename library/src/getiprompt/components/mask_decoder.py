@@ -1,491 +1,528 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""SAM decoder."""
-
-from logging import getLogger
+"""Traceable SAM decoder for ONNX/TorchScript export."""
 
 import torch
 from torch import nn
-from torchvision import tv_tensors
+from torch.nn import functional as F
 from torchvision.ops import masks_to_boxes, nms
 
-from getiprompt.components.sam import OpenVINOSAMPredictor, PyTorchSAMPredictor
+from getiprompt.components.sam.pytorch import PyTorchSAMPredictor
 from getiprompt.data import ResizeLongestSide
-
-logger = getLogger("Geti Prompt")
 
 
 class SamDecoder(nn.Module):
-    """This Segmenter uses SAM to create masks based on points.
+    """Traceable SAM decoder that accepts tensor inputs for ONNX/TorchScript export.
 
-    Examples:
-        >>> from getiprompt.models.models import load_sam_model
-        >>> from getiprompt.processes.segmenters import SamDecoder
-        >>> from getiprompt.types import Masks, Points, Priors
-        >>> from torchvision import tv_tensors
-        >>> import torch
-        >>> import numpy as np
-        >>> sam_predictor = load_sam_model(backbone_name="MobileSAM")
-        >>> segmenter = SamDecoder(sam_predictor=sam_predictor)
-        >>> image = tv_tensors.Image(np.zeros((3, 1024, 1024), dtype=np.uint8))
-        >>> point_prompts = {1: torch.tensor([[512, 512, 0.9, 1], [100, 100, 0.8, 0]])} # fg, bg
-        >>> points = torch.tensor([[512, 512, 0.9, 1], [100, 100, 0.8, 0]]) # fg, bg
-        >>> similarities = {}
-        >>> similarities[1] = torch.ones(1, 1024, 1024)
-        >>> masks, point_prompts_used, box_prompts_used = segmenter(
-        ...     images=[image],
-        ...     point_prompts=[point_prompts],
-        ...     similarities=[similarities],
-        ... )
+    This decoder processes point prompts and similarities as tensors instead of
+    dictionaries, enabling full pipeline traceability.
+
+    Args:
+        sam_predictor: PyTorch SAM predictor instance.
+        target_length: Target length for image preprocessing. Default: 1024.
+        mask_similarity_threshold: Threshold for similarity-based mask filtering. Default: 0.38.
+        nms_iou_threshold: IoU threshold for NMS. Default: 0.1.
+        max_masks_per_category: Maximum masks to return per category (for padding). Default: 10.
+        use_mask_refinement: Whether to use 2-stage mask refinement with box prompts. Default: False.
+        merge_masks_per_class: Whether to merge all masks into single mask per class. Default: True.
     """
 
     def __init__(
         self,
-        sam_predictor: PyTorchSAMPredictor | OpenVINOSAMPredictor,
+        sam_predictor: PyTorchSAMPredictor,
         target_length: int = 1024,
         mask_similarity_threshold: float = 0.38,
         nms_iou_threshold: float = 0.1,
+        max_masks_per_category: int = 40,
         use_mask_refinement: bool = False,
+        merge_masks_per_class: bool = True,
     ) -> None:
-        """This Segmenter uses SAM to create masks based on points.
-
-        Args:
-            sam_predictor: The SAM predictor (any backend: PyTorch, OpenVINO, etc.).
-            target_length: Target length for the longest side of the image (for image transform).
-            mask_similarity_threshold: The similarity threshold for the mask.
-            nms_iou_threshold: The IoU threshold for the NMS.
-            use_mask_refinement: Whether to use 2-stage mask refinement. Defaults to False for better FPS.
-        """
+        """Initialize the traceable SAM decoder."""
         super().__init__()
         self.predictor = sam_predictor
         self.mask_similarity_threshold = mask_similarity_threshold
         self.nms_iou_threshold = nms_iou_threshold
+        self.max_masks_per_category = max_masks_per_category
         self.use_mask_refinement = use_mask_refinement
-
+        self.merge_masks_per_class = merge_masks_per_class
         self.transform = ResizeLongestSide(target_length)
         self.device = sam_predictor.device
 
-    def preprocess_inputs(
+    def _preprocess_image(
         self,
-        images: list[tv_tensors.Image],
-        point_prompts: list[dict[int, torch.Tensor]] | None = None,
-        box_prompts: list[dict[int, torch.Tensor]] | None = None,
-    ) -> tuple[list[torch.Tensor], list[int], list[tuple[int, int]]]:
-        """Preprocess the inputs.
+        image: torch.Tensor,
+    ) -> tuple[torch.Tensor, tuple[int, int]]:
+        """Preprocess image for SAM.
 
         Args:
-            images(list[tv_tensors.Image]): The images to preprocess.
-            point_prompts(list[dict[int, torch.Tensor]]): The point prompts to preprocess.
-            box_prompts(list[dict[int, torch.Tensor]]): The box prompts to preprocess.
+            image: Image tensor [3, H, W]
 
         Returns:
-            A tuple of preprocessed images, unique labels, and original sizes.
-
+            Preprocessed image and original size
         """
-        preprocessed_images = []
-        original_sizes = []
-        for image, class_point_prompts, class_box_prompts in zip(images, point_prompts, box_prompts, strict=True):
-            # Preprocess image using SamPredictor transform
-            input_image = self.transform.apply_image_torch(image).to(self.device)
-            ori_size = image.shape[-2:]
-            preprocessed_images.append(input_image)
-            original_sizes.append(ori_size)
+        original_size = (image.shape[1], image.shape[2])  # (H, W)
+        preprocessed = self.transform.apply_image_torch(image).to(self.device)
+        return preprocessed, original_size
 
-            # Preprocess points for each class in place
-            for class_id, points in class_point_prompts.items():
-                transformed_coords = self.transform.apply_coords_torch(points[:, :2], ori_size)
-                transformed_points = points.clone()
-                transformed_points[:, :2] = transformed_coords
-                class_point_prompts[class_id] = transformed_points
-
-            # Preprocess boxes for each class
-            for class_id, boxes in class_box_prompts.items():
-                box_coords = boxes[:, :4]
-                transformed_boxes = self.transform.apply_boxes_torch(box_coords, ori_size)
-                transformed_boxes = torch.cat([transformed_boxes, boxes[:, 4:]], dim=1)
-                class_box_prompts[class_id] = transformed_boxes
-
-        # find unique labels
-        unique_labels = sorted(set(class_point_prompts.keys()) | set(class_box_prompts.keys()))
-
-        return preprocessed_images, unique_labels, original_sizes
-
-    @staticmethod
-    def point_preprocess(
+    def _preprocess_points(
+        self,
         points: torch.Tensor,
-        labels: torch.Tensor,
-        scores: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Preprocess the points.
-
-        Pair a positive point with all negative points.
-
-        Args:
-            points: The points to preprocess.
-            labels: The labels to preprocess.
-            scores: The scores to preprocess.
-
-        Returns:
-            The preprocessed points (with scores in last dimension) and labels
-        """
-        # Separate Positive and Negative Points ---
-        positive_mask = (labels == 1).squeeze(1)
-        negative_mask = (labels == -1).squeeze(1)
-
-        # Get the corresponding coordinates and scores
-        positive_coords = points[positive_mask]
-        negative_coords = points[negative_mask]
-        positive_scores = scores[positive_mask]
-        negative_scores = scores[negative_mask]
-
-        # Get the counts
-        num_positive = positive_coords.shape[0]
-        num_negative = negative_coords.shape[0]
-
-        if num_negative == 0:
-            final_point_coords = torch.cat([positive_coords, positive_scores.unsqueeze(-1)], dim=-1)
-            return final_point_coords, labels
-
-        # Combine each positive point with all negative points
-        expanded_negative_coords = negative_coords.squeeze(1).expand(num_positive, -1, -1)
-        expanded_negative_scores = negative_scores.squeeze(1).unsqueeze(-1).expand(num_positive, -1, -1)
-
-        # Concatenate the positive coordinates with the expanded negative coordinates
-        final_point_coords_2d = torch.cat([positive_coords, expanded_negative_coords], dim=1)
-
-        # Expand positive scores to match the dimension of expanded_negative_scores
-        # positive_scores shape: [num_positive, 1] -> unsqueeze -> [num_positive, 1, 1]
-        expanded_positive_scores = positive_scores.unsqueeze(1)
-
-        # Concatenate the positive scores with the expanded negative scores
-        final_point_scores = torch.cat([expanded_positive_scores, expanded_negative_scores], dim=1)
-        final_point_coords = torch.cat([final_point_coords_2d, final_point_scores], dim=-1)
-
-        positive_label = torch.tensor([1], device=points.device, dtype=torch.float32)
-        negative_labels = -torch.ones(num_negative, device=points.device, dtype=torch.float32)
-        single_group_labels = torch.cat([positive_label, negative_labels])
-        final_point_labels = single_group_labels.expand(num_positive, -1)
-
-        return final_point_coords, final_point_labels
-
-    @staticmethod
-    def remap_preprocessed_points(preprocessed_points: torch.Tensor) -> torch.Tensor:
-        """Remap preprocessed points from grouped format to flat format.
-
-        Args:
-            preprocessed_points: Tensor of shape [num_positive_points, 1_positive + N_negative, 3]
-                                where last dimension is [x, y, score]
-
-        Returns:
-            Tensor of shape [num_positive_points + num_negative_points, 4]
-            where last dimension is [x, y, score, label]
-        """
-        num_pos, total_num, last_dim = preprocessed_points.shape
-        num_neg = total_num - 1
-        remapped_points = preprocessed_points.new_zeros(
-            num_pos + num_neg,
-            last_dim + 1,  # last dimension is [x, y, score, label]
-        )
-        positive_points = preprocessed_points[:, 0]
-        positive_labels = torch.ones(num_pos, device=preprocessed_points.device, dtype=torch.float32).unsqueeze(-1)
-        positive_points = torch.cat([positive_points, positive_labels], dim=-1)
-
-        negative_points = preprocessed_points[0, 1:]
-        negative_labels = -torch.ones(num_neg, device=preprocessed_points.device, dtype=torch.float32).unsqueeze(-1)
-        negative_points = torch.cat([negative_points, negative_labels], dim=-1)
-
-        remapped_points[:num_pos, :] = positive_points
-        remapped_points[num_pos:, :] = negative_points
-        return remapped_points
-
-    def predict_single(
-        self,
-        class_points: dict[int, torch.Tensor],
-        class_boxes: dict[int, torch.Tensor],
-        labels: list[int],
-        similarities: dict[int, torch.Tensor],
+        num_valid: int,
         original_size: tuple[int, int],
-    ) -> dict[str, torch.Tensor]:
-        """Predict masks from a list of points and boxes.
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None:
+        """Preprocess points for SAM predictor.
 
         Args:
-            class_points: The points to predict masks from.
-            class_boxes: The boxes to predict masks from.
-            labels: The labels to predict masks from.
-            similarities: The class-specific similaritie maps to predict masks from.
-            original_size: The original size of the image.
+            points: Points tensor [max_points, 4] with (x, y, score, label)
+            num_valid: Number of valid points
+            original_size: Original image size (H, W)
 
         Returns:
-            A dictionary of predictions:
-                "pred_masks": torch.Tensor of shape [num_masks, H, W]
-                "pred_points": torch.Tensor of shape [num_points, 4] with last dimension [x, y, score, fg_label]
-                "pred_boxes": torch.Tensor of shape [num_boxes, 5] with last dimension [x1, y1, x2, y2, score]
-                "pred_labels": torch.Tensor of shape [num_masks]
+            Tuple of (point_coords, point_labels, original_points) or None if no valid foreground
         """
-        prediction = {
-            "pred_masks": torch.empty((0, *original_size)).to(self.device),
-            "pred_points": torch.empty((0, 4)).to(self.device),
-            "pred_boxes": torch.empty((0, 5)).to(self.device),
-            "pred_labels": torch.empty((0,), dtype=torch.long).to(self.device),
-        }
+        if num_valid == 0:
+            return None
 
-        similarity_maps = [similarities[label] for label in labels] if len(similarities) else [[] for _ in labels]
-        class_points_list = [class_points.get(label) for label in labels]
-        class_boxes_list = [class_boxes.get(label) for label in labels]
+        valid_points = points[:num_valid]
 
-        for label, points_per_class, boxes_per_class, similarity_map in zip(
-            labels,
-            class_points_list,
-            class_boxes_list,
-            similarity_maps,
-            strict=True,
-        ):
-            final_masks, final_points, final_boxes = self.predict(
-                points_per_class=points_per_class,  # Extract only x, y coordinates for SAM predictor
-                boxes_per_class=boxes_per_class,
-                similarity_map=similarity_map,
-                original_size=original_size,
-            )
+        # Check if there are any foreground points (label == 1)
+        fg_mask = valid_points[:, 3] == 1
+        if not fg_mask.any():
+            return None
 
-            if len(final_masks):
-                # Apply inverse coordinate transformation only to x, y coordinates
-                if final_points is not None and len(final_points) > 0:
-                    # Remap from [total_points, 3] to [total_points, 4] where last dim is [x, y, score, label]
-                    remapped_points = self.remap_preprocessed_points(final_points)
-                    remapped_points[:, :2] = self.transform.apply_inverse_coords_torch(
-                        remapped_points[:, :2],
-                        original_size,
-                    )
-                    prediction["pred_points"] = remapped_points
+        # Transform coordinates
+        coords = valid_points[:, :2]
+        transformed_coords = self.transform.apply_coords_torch(coords, original_size)
 
-                if final_boxes is not None and len(final_boxes) > 0:
-                    final_boxes[:, :4] = self.transform.apply_inverse_boxes(final_boxes[:, :4], original_size)
-                    prediction["pred_boxes"] = final_boxes
+        # Separate foreground and background
+        bg_mask = valid_points[:, 3] == -1
 
-                prediction["pred_masks"] = final_masks
-                prediction["pred_labels"] = torch.full(
-                    (len(final_masks),),
-                    label,
-                    device=self.device,
-                    dtype=torch.long,
-                )
+        fg_coords = transformed_coords[fg_mask]
+        bg_coords = transformed_coords[bg_mask]
 
-        return prediction
+        # Keep original points for output (contains x, y, score, label)
+        fg_original = valid_points[fg_mask]
+        bg_original = valid_points[bg_mask]
 
-    def predict(
+        num_fg = fg_coords.shape[0]
+        num_bg = bg_coords.shape[0]
+
+        if num_bg == 0:
+            point_coords = fg_coords.unsqueeze(1)  # [num_fg, 1, 2]
+            point_labels = torch.ones(num_fg, 1, device=points.device, dtype=torch.float32)
+            original_points = fg_original  # [num_fg, 4]
+            return point_coords, point_labels, original_points
+
+        # Pair each foreground with all background points
+        bg_coords_expanded = bg_coords.unsqueeze(0).expand(num_fg, -1, -1)
+
+        # Combine: [fg_point, bg_points...]
+        point_coords = torch.cat([fg_coords.unsqueeze(1), bg_coords_expanded], dim=1)
+
+        # Labels: 1 for fg, -1 for bg
+        fg_labels = torch.ones(num_fg, 1, device=points.device, dtype=torch.float32)
+        bg_labels = -torch.ones(num_fg, num_bg, device=points.device, dtype=torch.float32)
+        point_labels = torch.cat([fg_labels, bg_labels], dim=1)
+
+        # Combine original points: all foreground + all background
+        original_points = torch.cat([fg_original, bg_original], dim=0)  # [num_fg + num_bg, 4]
+
+        return point_coords, point_labels, original_points
+
+    def _pad_outputs(
         self,
-        points_per_class: torch.Tensor,
-        boxes_per_class: torch.Tensor,
-        similarity_map: torch.Tensor,
+        masks: torch.Tensor,
+        scores: torch.Tensor,
+        label: int,
         original_size: tuple[int, int],
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Predict masks using SAMPredictor.
+        """Pad outputs to fixed size.
 
         Args:
-            points_per_class: The points to predict masks from.
-            boxes_per_class: The boxes to predict masks from.
-            similarity_map: The similarity map to predict masks from.
-            original_size: The original size of the image.
+            masks: Masks [N, H, W]
+            scores: Scores [N]
+            label: Category label
+            original_size: Original image size (H, W)
 
         Returns:
-            A tuple of masks, point coordinates, and box coordinates.
+            Padded masks [max_masks, H, W], scores [max_masks], labels [max_masks]
         """
-        input_coords, input_labels, input_boxes = None, None, None
-        if points_per_class is not None:
-            if (points_per_class[:, 3] == 1).any():
-                point_coords = points_per_class[:, :2].unsqueeze(1)
-                point_scores = points_per_class[:, 2].unsqueeze(1)
-                point_labels = points_per_class[:, 3].unsqueeze(1)
-                input_coords, input_labels = self.point_preprocess(point_coords, point_labels, point_scores)
-            else:
-                return (
-                    torch.empty((0, *original_size)),
-                    torch.empty((0, 1, 3)),
-                    torch.empty((0, 6)),
-                )
+        device = self.device
+        h, w = original_size
 
-        if boxes_per_class is not None:
-            input_boxes = boxes_per_class
+        num_masks = masks.shape[0] if masks.numel() > 0 else 0
+        max_masks = self.max_masks_per_category
 
-        masks, mask_weights, low_res_logits = self.predictor.predict(
-            point_coords=input_coords[:, :, :2] if input_coords is not None else None,
-            boxes=input_boxes[:, :4] if input_boxes is not None else None,
-            point_labels=input_labels,
+        padded_masks = torch.zeros(max_masks, h, w, device=device, dtype=torch.bool)
+        padded_scores = torch.zeros(max_masks, device=device, dtype=torch.float32)
+        padded_labels = torch.full((max_masks,), -1, device=device, dtype=torch.int64)
+
+        if num_masks > 0:
+            n = min(num_masks, max_masks)
+            padded_masks[:n] = masks[:n]
+            padded_scores[:n] = scores[:n]
+            padded_labels[:n] = label
+
+        return padded_masks, padded_scores, padded_labels
+
+    def _resize_similarity(
+        self,
+        similarity: torch.Tensor,
+        target_size: tuple[int, int],
+    ) -> torch.Tensor:
+        """Resize similarity map to target size.
+
+        Args:
+            similarity: Similarity map [feat_size, feat_size]
+            target_size: Target size (H, W)
+
+        Returns:
+            Resized similarity [1, H, W]
+        """
+        sim = similarity.unsqueeze(0).unsqueeze(0)
+        sim_resized = F.interpolate(sim, size=target_size, mode="bilinear", align_corners=False)
+        return sim_resized.squeeze(0)
+
+    def _predict_masks_for_category(
+        self,
+        point_coords: torch.Tensor,
+        point_labels: torch.Tensor,
+        similarity: torch.Tensor,
+        original_size: tuple[int, int],
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Predict and refine masks for a single category.
+
+        Args:
+            point_coords: Point coordinates [num_fg, num_points, 2]
+            point_labels: Point labels [num_fg, num_points]
+            similarity: Similarity map [feat_size, feat_size]
+            original_size: Original image size (H, W)
+
+        Returns:
+            Tuple of (masks [N, H, W], scores [N])
+        """
+        # Initial prediction
+        masks, iou_preds, low_res_logits = self.predictor.predict(
+            point_coords=point_coords,
+            point_labels=point_labels,
+            boxes=None,
+            mask_input=None,
             multimask_output=True,
         )
 
-        # Apply mask refinement (NMS + similarity filtering), optionally with 2nd SAM prediction
-        if input_coords is not None:
-            final_masks, input_coords = self.mask_refinement(
-                masks=masks,
-                mask_weights=mask_weights,
-                low_res_logits=low_res_logits,
-                input_coords=input_coords,
-                input_labels=input_labels,
-                similarity_map=similarity_map,
-                original_size=original_size,
-                score_threshold=self.mask_similarity_threshold,
-                nms_iou_threshold=self.nms_iou_threshold,
-                use_box_refinement=self.use_mask_refinement,
-            )
-        else:
-            final_masks = masks.squeeze(1)
-
-        final_masks = (final_masks.sum(0) > 0).unsqueeze(0)
-        return (
-            final_masks,
-            input_coords,
-            input_boxes,
-        )
-
-    def mask_refinement(
-        self,
-        masks: torch.Tensor,
-        mask_weights: torch.Tensor,
-        low_res_logits: torch.Tensor,
-        input_coords: torch.Tensor,
-        input_labels: torch.Tensor,
-        original_size: tuple[int, int],
-        similarity_map: torch.Tensor | None = None,
-        score_threshold: float = 0.45,
-        nms_iou_threshold: float = 0.1,
-        use_box_refinement: bool = False,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Refine the masks.
-
-        Args:
-            masks: The masks to refine.
-            mask_weights: The mask weights/scores from SAM prediction.
-            low_res_logits: The low-res logits to refine.
-            input_coords: The point coordinates to refine.
-            input_labels: The point labels to refine.
-            original_size: The original size of the image.
-            similarity_map: The similarity map to postprocess.
-            score_threshold: The score threshold to postprocess.
-            nms_iou_threshold: The IoU threshold for the NMS.
-            use_box_refinement: Whether to use 2nd SAM prediction with box prompts.
-
-        Returns:
-            The postprocessed masks, point coordinates.
-        """
+        # Filter empty masks
         keep = masks.squeeze(1).sum(dim=(-1, -2)) > 0
         if not keep.any():
             return (
-                masks.new_zeros((0, *masks.shape[-2:])),
-                input_coords.new_zeros(0),
+                torch.empty(0, *original_size, device=masks.device),
+                torch.empty(0, device=masks.device),
             )
 
         masks = masks[keep]
-        mask_weights = mask_weights[keep]
         low_res_logits = low_res_logits[keep]
-        input_coords = input_coords[keep]
-        input_labels = input_labels[keep]
+        point_coords = point_coords[keep]
+        point_labels = point_labels[keep]
 
         # Compute boxes from masks for NMS (and optionally for 2nd SAM prediction)
         boxes = masks_to_boxes(masks.squeeze(1))
         boxes = self.transform.apply_coords_torch(boxes.reshape(-1, 2, 2), original_size)
-        boxes = boxes.reshape(-1, 4)
-        boxes = boxes.unsqueeze(1)
+        boxes = boxes.reshape(-1, 4).unsqueeze(1)
 
         # Optionally refine masks with 2nd SAM prediction using box prompts
-        if use_box_refinement:
+        if self.use_mask_refinement:
             masks, mask_weights, _ = self.predictor.predict(
-                point_coords=input_coords[:, :, :2],  # Extract only x, y coordinates for SAM predictor
-                point_labels=input_labels,
+                point_coords=point_coords,
+                point_labels=point_labels,
                 boxes=boxes,
                 mask_input=low_res_logits,
+                multimask_output=True,  # Match SamDecoder behavior
             )
+        else:
+            mask_weights = iou_preds[keep]
 
-        # NOTE: torchvision NMS requires float32 inputs
+        # NMS - NOTE: torchvision NMS requires float32 inputs
         nms_indices = nms(
             boxes.squeeze(1).to(torch.float32),
             mask_weights.squeeze(1).to(torch.float32),
-            iou_threshold=nms_iou_threshold,
+            iou_threshold=self.nms_iou_threshold,
         )
 
-        masks = masks[nms_indices]
+        masks = masks[nms_indices].squeeze(1)
         mask_weights = mask_weights[nms_indices]
-        low_res_logits = low_res_logits[nms_indices]
-        boxes = boxes[nms_indices]
-        input_coords = input_coords[nms_indices]
-        input_labels = input_labels[nms_indices]
 
-        masks = masks.squeeze(1)
-        if len(similarity_map) == 0:
-            return masks, input_coords
+        # Similarity-based filtering
+        if similarity.numel() > 0:
+            sim_resized = self._resize_similarity(similarity, original_size)
+            mask_sum = (sim_resized * masks).sum(dim=(1, 2))
+            mask_area = masks.sum(dim=(1, 2))
+            mask_scores = mask_sum / (mask_area + 1e-6)
+            # Match SamDecoder: use transpose for mask_weights to match dimensions
+            weighted_scores = (mask_scores * mask_weights.T).squeeze(0)
+            keep = weighted_scores > self.mask_similarity_threshold
 
-        mask_sum = (similarity_map[0] * masks).sum(dim=(1, 2))
-        mask_area = masks.sum(dim=(1, 2))
-        mask_scores = mask_sum / (mask_area + 1e-6)
-        weighted_scores = (mask_scores * mask_weights.T).squeeze(0)
-        keep = weighted_scores > score_threshold
-        if not keep.any():
-            return (
-                masks.new_zeros((0, *masks.shape[-2:])),
-                input_coords.new_zeros(0),
-            )
+            if not keep.any():
+                return (
+                    torch.empty(0, *original_size, device=masks.device),
+                    torch.empty(0, device=masks.device),
+                )
 
-        return masks[keep], input_coords[keep]
+            masks = masks[keep]
+            weighted_scores = weighted_scores[keep]
+        else:
+            weighted_scores = mask_weights.squeeze(1)
 
-    @torch.inference_mode()
-    def forward(
+        # Optionally merge all masks into a single mask per class
+        if self.merge_masks_per_class and masks.numel() > 0:
+            merged_mask = (masks.sum(0) > 0).unsqueeze(0)  # [1, H, W]
+            merged_score = weighted_scores.max().unsqueeze(0)  # [1]
+            return merged_mask, merged_score
+
+        return masks, weighted_scores
+
+    def _process_single_image_with_points(
         self,
-        images: list[tv_tensors.Image],
-        point_prompts: list[dict[int, torch.Tensor]] | None = None,
-        box_prompts: list[dict[int, torch.Tensor]] | None = None,
-        similarities: list[dict[int, torch.Tensor]] | None = None,
-    ) -> list[dict[str, torch.Tensor]]:
-        """Forward pass.
+        image: torch.Tensor,
+        point_prompts: torch.Tensor,
+        num_points: torch.Tensor,
+        similarities: torch.Tensor,
+        category_ids: list[int],
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Process a single image with point prompts.
 
         Args:
-            images(list[tv_tensors.Image]): The images to predict masks from.
-            point_prompts(list[dict[int, torch.Tensor]]): The point prompts to predict masks from.
-            box_prompts(list[dict[int, torch.Tensor]]): The box prompts to predict masks from.
-            similarities(list[dict[int, torch.Tensor]]): The similarities to predict masks from.
+            image: Input image [3, H, W]
+            point_prompts: Point prompts [C, max_points, 4] with (x, y, score, label)
+            num_points: Number of valid points per category [C]
+            similarities: Similarity maps [C, feat_size, feat_size]
+            category_ids: Category ID mapping [C]
 
         Returns:
-            predictions(list[dict[str, torch.Tensor | None]]): The predictions per image.
-                Each element in the list is a dictionary containing the following keys:
-                    "pred_masks": torch.Tensor of shape [num_masks, H, W]
-                    "pred_points": torch.Tensor of shape [num_points, 4], [x, y, score, fg_label]
-                    "pred_boxes": torch.Tensor of shape [num_boxes, 5], [x1, y1, x2, y2, score]
-                    "pred_labels": torch.Tensor of shape [num_masks]
+            pred_masks: [num_valid_masks, H, W]
+            pred_scores: [num_valid_masks]
+            pred_labels: [num_valid_masks]
+            pred_points: [num_points_used, 4]
         """
-        predictions: list[dict[str, torch.Tensor | None]] = []
+        preprocessed_image, orig_size = self._preprocess_image(image)
+        h, w = orig_size
 
-        # default to empty lists if not provided
-        if similarities is None:
-            similarities = [{}] * len(images)
-        if box_prompts is None:
-            box_prompts = [{}] * len(images)
-        if point_prompts is None:
-            point_prompts = [{}] * len(images)
+        self.predictor.set_image(preprocessed_image, orig_size)
 
-        images, labels, original_sizes = self.preprocess_inputs(images, point_prompts, box_prompts)
+        num_categories = len(category_ids)
+        device = self.device
 
-        for (
-            image,
-            class_point_prompts,
-            class_box_prompts,
-            similarities_per_image,
-            original_size,
-        ) in zip(
-            images,
-            point_prompts,
-            box_prompts,
-            similarities,
-            original_sizes,
-            strict=True,
-        ):
-            # Set the preprocessed image in the predictor
-            self.predictor.set_image(image, original_size)
-            prediction = self.predict_single(
-                class_point_prompts,
-                class_box_prompts,
-                labels,
-                similarities_per_image,
-                original_size,
+        all_masks = torch.zeros(num_categories, self.max_masks_per_category, h, w, device=device)
+        all_scores = torch.zeros(num_categories, self.max_masks_per_category, device=device)
+        all_labels = torch.full((num_categories, self.max_masks_per_category), -1, device=device, dtype=torch.int64)
+        used_points_list: list[torch.Tensor] = []
+
+        for class_idx in range(num_categories):
+            class_id = category_ids[class_idx]
+            points = point_prompts[class_idx]
+            n_valid = num_points[class_idx].item()
+            similarity = similarities[class_idx]
+
+            result = self._preprocess_points(points, n_valid, orig_size)
+            if result is None:
+                used_points_list.append(torch.empty(0, 4, device=device))
+                continue
+
+            point_coords, point_labels, original_points = result
+
+            masks, scores = self._predict_masks_for_category(
+                point_coords,
+                point_labels,
+                similarity,
+                orig_size,
             )
-            predictions.append(prediction)
+
+            padded_masks, padded_scores, padded_labels = self._pad_outputs(
+                masks,
+                scores,
+                class_id,
+                orig_size,
+            )
+
+            all_masks[class_idx] = padded_masks
+            all_scores[class_idx] = padded_scores
+            all_labels[class_idx] = padded_labels
+
+            if masks.numel() > 0 and masks.shape[0] > 0:
+                used_points_list.append(original_points)
+            else:
+                used_points_list.append(torch.empty(0, 4, device=device))
+
+        # Flatten and filter valid predictions
+        valid_mask = all_labels >= 0
+        pred_masks = all_masks.bool()[valid_mask]
+        pred_scores = all_scores[valid_mask]
+        pred_labels = all_labels[valid_mask]
+        pred_points = torch.cat(used_points_list, dim=0) if used_points_list else torch.empty(0, 4, device=device)
+
+        return pred_masks, pred_scores, pred_labels, pred_points
+
+    def _process_single_image_with_boxes(
+        self,
+        image: torch.Tensor,
+        box_prompts: torch.Tensor,
+        num_boxes: torch.Tensor,
+        category_ids: list[int],
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Process a single image with box prompts.
+
+        Args:
+            image: Input image [3, H, W]
+            box_prompts: Box prompts [C, max_boxes, 5] with (x1, y1, x2, y2, score)
+            num_boxes: Number of valid boxes per category [C]
+            category_ids: Category ID mapping [C]
+
+        Returns:
+            pred_masks: [num_valid_masks, H, W]
+            pred_scores: [num_valid_masks]
+            pred_labels: [num_valid_masks]
+            pred_boxes: [num_valid_boxes, 5] with (x1, y1, x2, y2, score)
+        """
+        preprocessed_image, orig_size = self._preprocess_image(image)
+        h, w = orig_size
+        self.predictor.set_image(preprocessed_image, orig_size)
+
+        masks_list: list[torch.Tensor] = []
+        scores_list: list[torch.Tensor] = []
+        labels_list: list[torch.Tensor] = []
+        boxes_list: list[torch.Tensor] = []
+
+        for class_idx, cat_id in enumerate(category_ids):
+            n_valid = int(num_boxes[class_idx].item())
+            if n_valid == 0:
+                continue
+
+            boxes = box_prompts[class_idx, :n_valid]  # [N, 5]
+            box_coords = boxes[:, :4]  # [N, 4]
+            box_scores = boxes[:, 4]  # [N]
+
+            # Transform boxes for SAM
+            transformed_boxes = self.transform.apply_coords_torch(
+                box_coords.reshape(-1, 2, 2),
+                orig_size,
+            ).reshape(-1, 4)
+
+            # Predict masks for each box
+            for i, (box, score) in enumerate(zip(transformed_boxes, box_scores, strict=True)):
+                box_input = box.unsqueeze(0).unsqueeze(0)  # [1, 1, 4]
+
+                masks, iou_preds, _ = self.predictor.predict(
+                    point_coords=None,
+                    point_labels=None,
+                    boxes=box_input,
+                    mask_input=None,
+                    multimask_output=False,
+                )
+
+                if masks.numel() > 0:
+                    mask = masks.squeeze()  # [H, W]
+                    if mask.sum() > 0:
+                        masks_list.append(mask)
+                        combined_score = (iou_preds.squeeze() + score) / 2
+                        scores_list.append(combined_score.unsqueeze(0))
+                        labels_list.append(torch.tensor([cat_id], device=masks.device, dtype=torch.int64))
+                        boxes_list.append(box_coords[i].unsqueeze(0))
+
+        # Handle empty results
+        if not masks_list:
+            return (
+                torch.empty(0, h, w, device=self.device, dtype=torch.bool),
+                torch.empty(0, device=self.device),
+                torch.empty(0, device=self.device, dtype=torch.int64),
+                torch.empty(0, 5, device=self.device),
+            )
+
+        # Stack results
+        pred_masks = torch.stack(masks_list)
+        pred_scores = torch.cat(scores_list)
+        pred_labels = torch.cat(labels_list)
+        pred_boxes = torch.cat(boxes_list)
+
+        # Apply NMS
+        keep = nms(pred_boxes.float(), pred_scores.float(), iou_threshold=self.nms_iou_threshold)
+        pred_masks = pred_masks[keep].bool()
+        pred_scores = pred_scores[keep]
+        pred_labels = pred_labels[keep]
+        pred_boxes = pred_boxes[keep]
+
+        # Add scores to boxes for output [N, 5]
+        pred_boxes_with_scores = torch.cat([pred_boxes, pred_scores.unsqueeze(1)], dim=1)
+
+        return pred_masks, pred_scores, pred_labels, pred_boxes_with_scores
+
+    def forward(
+        self,
+        images: list[torch.Tensor],
+        category_ids: list[int],
+        point_prompts: torch.Tensor | None = None,
+        num_points: torch.Tensor | None = None,
+        similarities: torch.Tensor | None = None,
+        box_prompts: torch.Tensor | None = None,
+        num_boxes: torch.Tensor | None = None,
+    ) -> list[dict[str, torch.Tensor]]:
+        """Forward pass - predict masks from point or box prompts.
+
+        Provide either (point_prompts, num_points, similarities) for point-based
+        segmentation, or (box_prompts, num_boxes) for box-based segmentation.
+
+        Args:
+            images: List of input images, each [3, H, W]
+            category_ids: Category ID mapping [C]
+            point_prompts: Point prompts [T, C, max_points, 4] (optional)
+            num_points: Number of valid points [T, C] (optional)
+            similarities: Similarity maps [T, C, feat_size, feat_size] (optional)
+            box_prompts: Box prompts [T, C, max_boxes, 5] (optional)
+            num_boxes: Number of valid boxes [T, C] (optional)
+
+        Returns:
+            List of predictions per image, each containing:
+                "pred_masks": [num_valid_masks, H, W]
+                "pred_scores": [num_valid_masks]
+                "pred_labels": [num_valid_masks]
+                "pred_points": [num_points_used, 4] (point mode only)
+                "pred_boxes": [num_boxes, 5] (box mode only)
+        """
+        use_points = point_prompts is not None
+        use_boxes = box_prompts is not None
+
+        if use_points == use_boxes:
+            msg = "Provide either point_prompts or box_prompts, not both or neither"
+            raise ValueError(msg)
+
+        predictions: list[dict[str, torch.Tensor]] = []
+
+        if use_points:
+            for image, pts, n_pts, sims in zip(images, point_prompts, num_points, similarities, strict=True):
+                masks, scores, labels, points = self._process_single_image_with_points(
+                    image,
+                    pts,
+                    n_pts,
+                    sims,
+                    category_ids,
+                )
+                predictions.append({
+                    "pred_masks": masks,
+                    "pred_scores": scores,
+                    "pred_labels": labels,
+                    "pred_points": points,
+                })
+        else:
+            for image, bxs, n_bxs in zip(images, box_prompts, num_boxes, strict=True):
+                masks, scores, labels, boxes = self._process_single_image_with_boxes(
+                    image,
+                    bxs,
+                    n_bxs,
+                    category_ids,
+                )
+                predictions.append({
+                    "pred_masks": masks,
+                    "pred_scores": scores,
+                    "pred_labels": labels,
+                    "pred_boxes": boxes,
+                })
+
         return predictions
