@@ -18,8 +18,8 @@ class ModelType(StrEnum):
 
 class MatcherConfig(BaseModel):
     model_type: Literal[ModelType.MATCHER] = ModelType.MATCHER
-    num_foreground_points: int = 40
-    num_background_points: int = 2
+    num_foreground_points: int = 5
+    num_background_points: int = 3
     mask_similarity_threshold: float = 0.38
     precision: str = "bf16"
 

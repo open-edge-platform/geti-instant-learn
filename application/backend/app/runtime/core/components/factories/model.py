@@ -3,6 +3,7 @@
 
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.matcher import Matcher
+from getiprompt.utils.constants import SAMModelName
 
 from domain.services.schemas.processor import MatcherConfig, ModelConfig
 from runtime.core.components.base import ModelHandler
@@ -22,9 +23,11 @@ class ModelFactory:
                 model = Matcher(
                     num_foreground_points=config.num_foreground_points,
                     num_background_points=config.num_background_points,
+                    encoder_model="dinov3_small",
                     mask_similarity_threshold=config.mask_similarity_threshold,
                     precision=config.precision,
                     device=settings.device,
+                    use_mask_refinement=False,
                 )
                 return InferenceModelHandler(model, reference_batch)
             case _:
