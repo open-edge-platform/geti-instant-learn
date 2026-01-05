@@ -25,5 +25,5 @@ html:
 # Custom clean target that also removes autosummary generated files. Can
 # be removed when https://github.com/sphinx-doc/sphinx/issues/1999 is fixed.
 clean:
-	rm -rf "$(SOURCEDIR)/docs/reference/_autosummary"
+	rm -rf "$(SOURCEDIR)/reference/_autosummary"
 	$(SPHINXBUILD)  -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
