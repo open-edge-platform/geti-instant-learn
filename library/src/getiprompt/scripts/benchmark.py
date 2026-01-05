@@ -396,10 +396,7 @@ def export_model_if_needed(args: Namespace, model_enum: ModelName, sam_model: st
 
     # Determine export directory
     export_dir = getattr(args, "export_dir", None)
-    if export_dir is None:
-        export_dir = Path("./exports") / model_enum.value.lower()
-    else:
-        export_dir = Path(export_dir)
+    export_dir = Path("./exports") / model_enum.value.lower() if export_dir is None else Path(export_dir)
 
     # Check if model files already exist
     encoder_path = export_dir / "image_encoder.xml"

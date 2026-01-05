@@ -10,8 +10,8 @@ import torch
 from torch import nn
 
 from getiprompt.data.base.batch import Batch
+from getiprompt.registry import ModelType, get_model, get_models_by_type
 from getiprompt.utils.constants import Backend
-from getiprompt.models.registry import ModelType, get_model, get_models_by_type
 
 
 class Model(nn.Module):
@@ -31,11 +31,11 @@ class Model(nn.Module):
         model = get_model(model_id)
         if model is None:
             valid = [m.id for m in get_models_by_type(expected_type)]
-            raise ValueError(f"model_id must be one of {valid}, got '{model_id}'")
+            msg = f"model_id must be one of {valid}, got '{model_id}'"
+            raise ValueError(msg)
         if model.type != expected_type:
-            raise ValueError(
-                f"model_id must be a {expected_type.value}, but '{model_id}' is a {model.type.value}",
-            )
+            msg = f"model_id '{model_id}' must be of type {expected_type}, got {model.type}"
+            raise ValueError(msg)
 
     @abstractmethod
     def fit(self, reference_batch: Batch) -> None:

@@ -13,8 +13,8 @@ from getiprompt.components.prompt_generators import GridPromptGenerator
 from getiprompt.components.sam.base import SAMPredictor
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.base import Model
+from getiprompt.registry import ModelType
 from getiprompt.utils.constants import Backend
-from getiprompt.models.registry import ModelType
 
 
 class PerDino(Model):

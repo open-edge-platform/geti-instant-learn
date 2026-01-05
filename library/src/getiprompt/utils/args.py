@@ -8,8 +8,8 @@ from enum import Enum
 from typing import TypeVar
 
 from getiprompt.components.prompt_generators import GroundingModel
+from getiprompt.registry import ModelType, get_models_by_type
 from getiprompt.utils.constants import DatasetName, ModelName
-from getiprompt.models.registry import ModelType, get_models_by_type
 
 # Generate help strings with choices from registry
 AVAILABLE_SAM_MODELS = ", ".join([m.id for m in get_models_by_type(ModelType.SEGMENTER)])

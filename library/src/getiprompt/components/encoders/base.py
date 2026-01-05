@@ -52,7 +52,6 @@ def load_image_encoder(
 
     Raises:
         ValueError: If backend is not valid.
-        FileNotFoundError: If OpenVINO model_path doesn't exist.
 
     Examples:
         >>> # TIMM backend (DINOv3 models)
@@ -162,9 +161,6 @@ class ImageEncoder(nn.Module):
                 Ignored for OpenVINO.
             input_size: Input image size (height and width).
             model_path: Path to exported model (required for OpenVINO backend).
-
-        Raises:
-            ValueError: If backend is invalid or model_path missing for OpenVINO.
         """
         super().__init__()
         self.backend = backend

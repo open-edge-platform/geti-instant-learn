@@ -14,9 +14,9 @@ from torch.nn import functional
 from torchvision import tv_tensors
 from torchvision.transforms.v2 import Compose, Normalize, Resize, ToDtype
 
+from getiprompt.registry import ModelType, get_model, get_models_by_type
 from getiprompt.utils import precision_to_torch_dtype
 from getiprompt.utils.constants import Backend
-from getiprompt.models.registry import ModelType, get_model, get_models_by_type
 
 logger = getLogger("Geti Prompt")
 
@@ -105,6 +105,7 @@ class TimmImageEncoder(nn.Module):
         Args:
             model_id: The model id of the model.
             input_size: The size of the input image.
+            precision: The precision to use.
 
         Returns:
             The model and processor.
@@ -171,7 +172,7 @@ class TimmImageEncoder(nn.Module):
 
         # Wrapper to export only forward_features (without the classification head)
         class ForwardFeaturesWrapper(nn.Module):
-            def __init__(self, model: nn.Module, ignore_token_length: int):
+            def __init__(self, model: nn.Module, ignore_token_length: int) -> None:
                 super().__init__()
                 self.model = model
                 self.ignore_token_length = ignore_token_length

@@ -11,7 +11,7 @@ import torch
 from torchvision.tv_tensors import Image
 
 from getiprompt.components.encoders import ImageEncoder
-from getiprompt.models.registry import ModelType, get_models_by_type
+from getiprompt.registry import ModelType, get_models_by_type
 from getiprompt.utils.constants import Backend
 
 # Get encoder model IDs from registry, filtered by family for HuggingFace vs TIMM

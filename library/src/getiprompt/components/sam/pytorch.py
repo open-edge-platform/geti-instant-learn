@@ -5,6 +5,7 @@
 
 from logging import getLogger
 from pathlib import Path
+from typing import ClassVar
 
 import numpy as np
 import openvino
@@ -17,8 +18,8 @@ from segment_anything_hq.modeling.prompt_encoder import PromptEncoder as _Prompt
 from segment_anything_hq.predictor import SamPredictor as _SamPredictor
 from torch import nn
 
+from getiprompt.registry import ModelType, get_local_filename, get_model, get_models_by_type
 from getiprompt.utils.constants import DATA_PATH, Backend
-from getiprompt.models.registry import ModelType, get_local_filename, get_model, get_models_by_type
 from getiprompt.utils.utils import download_file
 
 logger = getLogger("Geti Prompt")
@@ -70,7 +71,7 @@ class PositionEmbeddingRandom(_PositionEmbeddingRandom):
         # Convert coords to match the gaussian matrix dtype
         coords = coords.to(self.positional_encoding_gaussian_matrix.dtype)
         coords = 2 * coords - 1
-        coords = coords @ self.positional_encoding_gaussian_matrix
+        coords @= self.positional_encoding_gaussian_matrix
         coords = 2 * np.pi * coords
         return torch.cat([torch.sin(coords), torch.cos(coords)], dim=-1)
 
@@ -81,8 +82,8 @@ class PositionEmbeddingRandom(_PositionEmbeddingRandom):
     ) -> torch.Tensor:
         """Positionally encode points that are not normalized to [0,1]."""
         coords = coords_input.clone()
-        coords[:, :, 0] = coords[:, :, 0] / image_size[1]
-        coords[:, :, 1] = coords[:, :, 1] / image_size[0]
+        coords[:, :, 0] /= image_size[1]
+        coords[:, :, 1] /= image_size[0]
         return self._pe_encoding(coords)
 
 
@@ -248,7 +249,7 @@ class PyTorchSAMPredictor(nn.Module):
     """
 
     # SAM-HQ registry name mapping (model_id -> segment_anything_hq registry key)
-    SAM_HQ_REGISTRY_MAP = {
+    SAM_HQ_REGISTRY_MAP: ClassVar[dict[str, str]] = {
         "sam-hq": "vit_h",
         "sam-hq-tiny": "vit_tiny",
     }
@@ -444,6 +445,10 @@ class PyTorchSAMPredictor(nn.Module):
             ...     backend=Backend.OPENVINO,
             ...     model_path=ov_path
             ... )
+
+        Raises:
+            NotImplementedError: If the model family does not support export.
+            ValueError: If an invalid backend is specified.
         """
         # Convert string to Backend enum if needed
         if isinstance(backend, str):

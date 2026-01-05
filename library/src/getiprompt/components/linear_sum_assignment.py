@@ -37,7 +37,7 @@ class LinearSumAssignment(nn.Module):
             - "auto" (recommended): Uses fast scipy during normal execution,
               automatically switches to greedy during ONNX/TorchScript export.
               Best of both worlds - fast dev, exportable deployment.
-            - "greedy": Fast O(n² × min(n,m)) approximation, ~95-100% optimal.
+            - "greedy": Fast O(n² x min(n,m)) approximation, ~95-100% optimal.
               Always exportable. Achieves 99%+ for rectangular matrices.
             Default: "auto".
 

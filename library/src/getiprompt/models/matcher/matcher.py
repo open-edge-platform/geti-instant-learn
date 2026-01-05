@@ -15,8 +15,8 @@ from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.components.sam.base import SAMPredictor
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.base import Model
+from getiprompt.registry import ModelType
 from getiprompt.utils.constants import Backend
-from getiprompt.models.registry import ModelType
 
 
 class Matcher(Model):
@@ -193,5 +193,6 @@ class Matcher(Model):
         export_dir: str | Path = Path("./exports/matcher"),
         backend: Backend = Backend.ONNX,
     ) -> Path:
+        """Export the Matcher model components to the specified backend format."""
         self.encoder.export(export_dir, backend=backend)
         self.sam_predictor.export(export_dir, backend=backend)

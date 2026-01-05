@@ -13,7 +13,7 @@ from torch.nn import functional
 from torchvision import tv_tensors
 from transformers import AutoImageProcessor, AutoModel
 
-from getiprompt.models.registry import ModelType, get_model, get_models_by_type
+from getiprompt.registry import ModelType, get_model, get_models_by_type
 from getiprompt.utils import precision_to_torch_dtype
 from getiprompt.utils.constants import Backend
 
@@ -176,6 +176,9 @@ class HuggingFaceImageEncoder(nn.Module):
 
         Returns:
             Path to the exported model file.
+
+        Raises:
+            ValueError: If export is not supported for the backend.
 
         Example:
             >>> encoder = HuggingFaceImageEncoder(
