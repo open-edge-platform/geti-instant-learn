@@ -12,7 +12,6 @@ from pathlib import Path
 # Define paths
 project_root = Path(__file__).parent
 module_path = Path(project_root, "src")
-examples_path = Path(project_root, "examples")
 
 # Insert paths to sys.path
 sys.path.insert(0, str(module_path.resolve()))
