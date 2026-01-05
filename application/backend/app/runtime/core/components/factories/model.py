@@ -3,7 +3,6 @@
 
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.matcher import Matcher
-from getiprompt.utils.constants import SAMModelName
 
 from domain.services.schemas.processor import MatcherConfig, ModelConfig
 from runtime.core.components.base import ModelHandler

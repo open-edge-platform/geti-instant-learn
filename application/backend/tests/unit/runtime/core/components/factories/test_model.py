@@ -3,8 +3,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from domain.services.schemas.processor import MatcherConfig
 from runtime.core.components.factories.model import ModelFactory
 
