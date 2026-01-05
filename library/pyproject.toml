@@ -85,10 +85,10 @@ dev = [
     "twine>=6.1.0",
 ]
 docs = [
-    "myst-parser",
-    "sphinx",
-    "sphinx_autodoc_typehints",
-    "sphinx_book_theme",
+    "myst-parser>=2.0.0",
+    "sphinx>=7.0.0",
+    "sphinx_autodoc_typehints>=2.0.0",
+    "sphinx_book_theme>=1.1.0",
 ]
 
 full = [
