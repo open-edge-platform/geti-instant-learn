@@ -1,28 +1,21 @@
-![alt text](assets/geti-prompt-header.png)
+![alt text](../assets/geti-prompt-header.png)
+
+<div align="center">
+
+**A flexible and modular framework for visual prompting algorithms**
+
+---
 
 [![python](https://img.shields.io/badge/python-3.12%2B-green)]()
-[![license](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![license](https://img.shields.io/badge/license-Apache%202.0-blue)](../LICENSE)
 
 </div>
 
-# 👋 Geti-Prompt
+# 👋 Introduction
 
-A production-ready platform for Visual Prompting on live video streams.
+The Geti Prompt Library provides a robust platform for experimenting with visual prompting techniques. Its modular pipeline design allows researchers and developers to easily combine, swap, and extend components such as backbone networks, feature extractors, matching algorithms, and mask generators.
 
-Geti Prompt bridges the gap between research and production. It is a comprehensive platform that enables users to explore, develop, and deploy visual prompting algorithms. Whether you are experimenting with new foundation models or deploying them for real-time inference, Geti Prompt provides a modular architecture extensible to various streaming sources, designed to support inputs such as IP cameras and GenICams.
-
-## 💡 What is Visual Prompting?
-
-Visual prompting offers a powerful alternative to traditional training. Instead of curating thousands of labeled images, you simply show the model one or a few examples of what you are looking for. The model effectively "learns" instantly, detecting and segmenting similar objects in new images or live video streams without retraining.
-
-## 🛫 Getting Started
-
-Geti Prompt can be used in two ways: as a **Python library** for research and algorithmic development, or as a **Full Application** for visual prompting with a user interface.
-
-
-### Geti Prompt Library
-
-Install the library with `uv`:
+# 📦 Installation
 
 ```bash
 cd library
@@ -37,14 +30,34 @@ uv sync --extra cpu
 uv sync --extra xpu
 ```
 
-<p align="center">
-  <img src="library/tests/assets/fss-1000/images/apple/1.jpg" width="250" alt="Reference Image">
-  <img src="library/tests/assets/fss-1000/masks/apple/1.png" width="250" alt="Reference Mask">
-  <img src="library/tests/assets/fss-1000/images/apple/2.jpg" width="250" alt="Target Image">
-</p>
-<p align="center"><i>Reference image → Reference mask → Target image</i></p>
+<details>
+<summary><strong>💡 Advanced: Install with extras</strong></summary>
 
-**Step 1: Generate a reference mask using SAM**
+```bash
+# Install with xFormers for faster inference
+uv sync --extra extras
+
+# Install development dependencies
+uv sync --extra dev
+
+# Install all dependencies
+uv sync --extra full
+```
+
+</details>
+
+# 🚀 Quick Start
+
+## Python API
+
+<p align="center">
+  <img src="tests/assets/fss-1000/images/apple/1.jpg" width="200" alt="Reference">
+  <img src="tests/assets/fss-1000/masks/apple/1.png" width="200" alt="Mask">
+  <img src="tests/assets/fss-1000/images/apple/2.jpg" width="200" alt="Target">
+</p>
+<p align="center"><i>Reference → Mask → Target</i></p>
+
+**Generate a reference mask with SAM:**
 
 ```python
 import torch
@@ -53,7 +66,7 @@ from getiprompt.utils.constants import SAMModelName
 from getiprompt.data.utils import read_image
 
 # Load reference image
-ref_image = read_image("library/tests/assets/fss-1000/images/apple/1.jpg")
+ref_image = read_image("tests/assets/fss-1000/images/apple/1.jpg")
 
 # Initialize SAM predictor (auto-downloads weights)
 predictor = PyTorchSAMPredictor(SAMModelName.SAM_HQ_TINY, device="cuda")
@@ -61,20 +74,19 @@ predictor = PyTorchSAMPredictor(SAMModelName.SAM_HQ_TINY, device="cuda")
 # Set image and generate mask from a point click
 predictor.set_image(ref_image.unsqueeze(0), original_size=ref_image.shape[1:])
 ref_mask, _, _ = predictor.predict(
-    point_coords=torch.tensor([[[51, 150]]], device="cuda"),  # Click on apple
+    point_coords=torch.tensor([[[150, 150]]], device="cuda"),  # Click on apple
     point_labels=torch.tensor([[1]], device="cuda"),           # 1 = foreground
     multimask_output=False,
 )
 ```
 
-**Step 2: Fit and predict with Matcher**
+**Fit and predict with Matcher:**
 
 ```python
 from getiprompt.models import Matcher
 from getiprompt.data import Batch, Sample
-from getiprompt.data.utils import read_image
 
-# Initialize Matcher
+# Initialize model
 model = Matcher(device="cuda")
 
 # Create reference sample with the generated mask
@@ -83,30 +95,60 @@ ref_sample = Sample(
     masks=ref_mask,
     categories=["apple"],
 )
-
-# Fit on reference
 model.fit(Batch.collate([ref_sample]))
 
 # Predict on target image
-target_image = read_image("library/tests/assets/fss-1000/images/apple/2.jpg")
+target_image = read_image("tests/assets/fss-1000/images/apple/2.jpg")
 target_sample = Sample(image=target_image)
 predictions = model.predict(Batch.collate([target_sample]))
 
 # Access results
-masks = predictions[0]["pred_masks"]   # Predicted segmentation masks
-boxes = predictions[0]["pred_boxes"]   # Bounding boxes with scores
+masks = predictions[0]["pred_masks"]   # Shape: [N, H, W]
+boxes = predictions[0]["pred_boxes"]   # Shape: [N, 5] (x1, y1, x2, y2, score)
+labels = predictions[0]["pred_labels"] # Shape: [N]
 ```
 
-> 📘 For detailed documentation, CLI usage, and benchmarking, see the [Library README](library/README.md).
+## Command Line
 
-### Geti Prompt Application
-<TBD>
+```bash
+# Run with predefined masks
+getiprompt run \
+    --reference_images path/to/reference \
+    --target_images path/to/target \
+    --reference_prompts path/to/masks
 
-## 🧮 Supported models
+# Run with text prompt (zero-shot)
+getiprompt run \
+    --target_images path/to/target \
+    --reference_text_prompt "can"
 
-Geti Prompt supports a variety of foundation models and visual prompting algorithms, optimized for different performance needs.
+# Use different model and backbone
+getiprompt run --pipeline SoftMatcher --pipeline.sam MOBILE_SAM ...
+```
 
-### Foundation Models (Backbones)
+# 🧪 Benchmarking
+
+Evaluate models on standard datasets:
+
+```bash
+# Quick benchmark on LVIS
+getiprompt benchmark
+
+# Specify dataset and model
+getiprompt benchmark --dataset_name PerSeg --model Matcher
+
+# Run all models
+getiprompt benchmark --model all
+
+# Comprehensive benchmark
+getiprompt benchmark --model all --dataset_name all --class_name benchmark
+```
+
+> 📊 Results are saved to `~/outputs/` by default.
+
+# 🧮 Supported Models
+
+## Foundation Models (Backbones)
 
 | Family | Models | Description | Paper | Repository |
 |--------|--------|-------------|-------|------------|
@@ -119,7 +161,7 @@ Geti Prompt supports a variety of foundation models and visual prompting algorit
 | **DINOv3** | Small, Small+, Base, Large, Huge | The latest iteration of DINO models. | [DINOv3](https://arxiv.org/abs/2508.10104) | [dinov3](https://github.com/facebookresearch/dinov3) |
 | **Grounding DINO** | (Integrated in GroundedSAM) | Open-set object detection model. | [Grounding DINO](https://arxiv.org/abs/2303.05499) | [GroundingDINO](https://github.com/IDEA-Research/GroundingDINO) |
 
-### Visual Prompting Algorithms
+## Visual Prompting Algorithms
 
 | Algorithm | Description | Paper | Repository |
 |-----------|-------------|-------|------------|
@@ -128,18 +170,10 @@ Geti Prompt supports a variety of foundation models and visual prompting algorit
 | **PerDino** | Personalized DINO-based prompting, leveraging DINOv2/v3 features for robust matching. | [PerSAM](https://arxiv.org/abs/2305.03048) | [Personalize-SAM](https://github.com/ZrrSkywalker/Personalize-SAM) |
 | **GroundedSAM** | Combines Grounding DINO and SAM for text-based visual prompting and segmentation. | [Grounding DINO](https://arxiv.org/abs/2303.05499), [SAM](https://arxiv.org/abs/2304.02643) | [GroundedSAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) |
 
-## 🎡 Community
+# 📚 Documentation
 
-- To report a bug or submit a feature request, please open a [GitHub issue](https://github.com/open-edge-platform/geti-prompt/issues).
+For detailed documentation on datasets, advanced usage, and API reference, see [docs/01-introduction.md](docs/01-introduction.md).
 
-## 🙌 Contributing
+# ✍️ Acknowledgements
 
-We welcome contributions! Check out our [Contributing Guide](CONTRIBUTING.md) to get started.
-
-## Acknowledgements
-This project incorporates code from several open-source repositories. We thank the authors for their contributions. A complete list of third-party software is available in the [third-party-programs.txt](third-party-programs.txt) file.
-
-
-## 📝 License
-
-Geti Prompt is licensed under the [Apache License 2.0](LICENSE).
+This project builds upon several open-source repositories. See [third-party-programs.txt](../third-party-programs.txt) for the full list.
