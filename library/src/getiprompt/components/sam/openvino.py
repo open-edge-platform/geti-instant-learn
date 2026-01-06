@@ -121,15 +121,14 @@ class OpenVINOSAMPredictor(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Run inference using OpenVINO compiled model.
 
-        Transforms point coordinates and boxes to the target image size,
-        then performs end-to-end inference from image to masks using the
-        compiled OpenVINO model. Converts inputs to numpy, runs inference,
-        and converts outputs back to PyTorch tensors.
+        Performs end-to-end inference from image to masks using the compiled
+        OpenVINO model. Converts inputs to numpy, runs inference, and converts
+        outputs back to PyTorch tensors.
 
         Args:
-            point_coords: Point coordinates [B, N, 2] in (x, y) format (original image coordinates)
+            point_coords: Point coordinates [B, N, 2] in (x, y) format
             point_labels: Point labels [B, N] (1=foreground, 0=background, -1=padding)
-            boxes: Box prompts [B, 4] or [B, 1, 4] in (x1, y1, x2, y2) format (original image coordinates)
+            boxes: Box prompts [B, 4] in (x1, y1, x2, y2) format
             mask_input: Low-res mask input [B, 1, 256, 256]
             multimask_output: Whether to return multiple masks (currently always True)
             return_logits: Whether to return logits instead of binary masks
