@@ -173,7 +173,7 @@ class SAMPredictor:
             compile_models: Whether to compile model with torch.compile.
                 Ignored for OpenVINO.
             model_path: Path to model weights (required for OpenVINO backend).
-            target_length: Target length for the longest side of the image (for image transform).
+            target_length: Target length for the longest side of the image during transformation. Defaults to 1024.
         """
         self.backend = backend
         self.device = device

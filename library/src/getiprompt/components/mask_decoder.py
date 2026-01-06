@@ -73,8 +73,7 @@ class SamDecoder(nn.Module):
             box_prompts: The box prompts to extract labels from.
 
         Returns:
-            A tuple of unique labels and original sizes.
-
+            A sorted list of unique labels.
         """
         # Find unique labels across all prompts
         all_labels: set[int] = set()
