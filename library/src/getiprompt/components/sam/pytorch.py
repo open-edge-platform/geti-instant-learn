@@ -263,7 +263,7 @@ class PyTorchSAMPredictor(nn.Module):
             sam_model_name: The SAM model architecture (e.g., SAM_HQ_TINY, SAM2_BASE)
             device: Device to run inference on ("cuda", "cpu")
             model_path: Path to .pth checkpoint file (optional, auto-downloads if None)
-            target_length: Target length for the longest side of the image (for image transform).
+            target_length: Target length for the longest side of the image during transformation. Defaults to 1024.
 
         Raises:
             NotImplementedError: If the model type is not supported.
