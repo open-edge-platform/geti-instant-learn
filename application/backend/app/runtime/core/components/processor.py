@@ -17,6 +17,8 @@ from runtime.core.components.broadcaster import FrameBroadcaster
 
 logger = logging.getLogger(__name__)
 
+EMPTY_RESULT: dict[str, torch.Tensor] = {}
+
 
 class Processor(PipelineComponent):
     """
@@ -69,7 +71,8 @@ class Processor(PipelineComponent):
                 ]
                 batch_results = self._model_handler.predict(Batch.collate(samples))
 
-                for data, results in zip(batch_data, batch_results):
+                for i, data in enumerate(batch_data):
+                    results: dict[str, torch.Tensor] = batch_results[i] if i < len(batch_results) else EMPTY_RESULT
                     output_data = OutputData(frame=data.frame, results=[results], labels_colors=None)
                     self._outbound_broadcaster.broadcast(output_data)
 
