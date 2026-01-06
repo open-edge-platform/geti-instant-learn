@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     file_handler = logging.FileHandler(filename=settings.log_file, encoding="utf8")
     logging.basicConfig(
         handlers=[console_handler, file_handler],
-        level=logging.DEBUG if settings.debug else logging.INFO,
+        level=getattr(logging, settings.log_level.upper()),
         format=settings.log_format,
         force=True,
     )
