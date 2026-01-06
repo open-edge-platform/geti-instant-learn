@@ -144,39 +144,20 @@ class OpenVINOSAMPredictor(nn.Module):
             msg = "Must call set_image() before predict()"
             raise RuntimeError(msg)
 
-        # Transform point coordinates to target image size
-        original_shape = point_coords.shape
-        coords_flat = point_coords.reshape(-1, 2)
-        transformed_coords = self.transform.apply_coords_torch(coords_flat, self._original_size)
-        transformed_point_coords = transformed_coords.reshape(original_shape)
-
-        # Transform boxes to target image size if provided
-        if boxes is not None:
-            boxes_original_shape = boxes.shape
-            boxes_flat = boxes.reshape(-1, 4)
-            transformed_boxes_flat = self.transform.apply_boxes_torch(boxes_flat, self._original_size)
-            transformed_boxes = transformed_boxes_flat.reshape(boxes_original_shape)
-        else:
-            transformed_boxes = None
-
         # Prepare inputs - convert torch tensors to numpy
-        num_masks = len(transformed_point_coords)
+        num_masks = len(point_coords)
 
-        boxes_np = (
-            np.zeros((num_masks, 1, 4), dtype=np.float32)
-            if transformed_boxes is None
-            else transformed_boxes.cpu().numpy()
-        )
-        mask_input_np = (
+        boxes = np.zeros((num_masks, 1, 4), dtype=np.float32) if boxes is None else boxes.cpu().numpy()
+        mask_input = (
             np.zeros((num_masks, 1, 256, 256), dtype=np.float32) if mask_input is None else mask_input.cpu().numpy()
         )
 
         inputs = {
             "transformed_image": self._current_image.cpu().numpy(),
-            "point_coords": transformed_point_coords.cpu().numpy(),
+            "point_coords": point_coords.cpu().numpy(),
             "point_labels": point_labels.cpu().numpy(),
-            "boxes": boxes_np,
-            "mask_input": mask_input_np,
+            "boxes": boxes,
+            "mask_input": mask_input,
             "original_size": np.array(self._original_size),
         }
 
