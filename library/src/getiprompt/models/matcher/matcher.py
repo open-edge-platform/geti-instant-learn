@@ -15,6 +15,62 @@ from getiprompt.components.sam.base import SAMPredictor
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.base import Model
 from getiprompt.utils.constants import Backend, SAMModelName
+from torch import nn
+from torch.nn import functional
+
+
+class EncoderForwardFeaturesWrapper(nn.Module):
+    def __init__(self, encoder: nn.Module, ignore_token_length: int):
+        super().__init__()
+        self.encoder = encoder
+        self.ignore_token_length = ignore_token_length
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        features = self.encoder.forward_features(x)
+        features = features[:, self.ignore_token_length :, :]  # ignore CLS and other tokens
+        return functional.normalize(features, p=2, dim=-1)
+
+
+class MatcherInferenceGraph(nn.Module):
+    """Traceable inference graph with frozen reference features."""
+    
+    def __init__(self, encoder, prompt_generator, sam_decoder, ref_features: ReferenceFeatures):
+        super().__init__()
+        self.encoder = encoder
+        self.prompt_generator = prompt_generator
+        self.sam_decoder = sam_decoder
+        
+        # Freeze reference features as model constants
+        self.register_buffer("ref_embeddings", ref_features.ref_embeddings)
+        self.register_buffer("masked_ref_embeddings", ref_features.masked_ref_embeddings)
+        self.register_buffer("flatten_ref_masks", ref_features.flatten_ref_masks)
+        self.register_buffer("category_ids", torch.tensor(ref_features.category_ids))
+    
+    def forward(self, target_image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Single forward pass: target_image → (masks, scores, labels)."""
+        # Encode target
+        # Get original sizes [T, 2]
+        original_sizes = torch.tensor(
+            [image.size()[-2:] for image in target_image.images],
+            device=self.ref_embeddings.device,
+        )
+
+        target_embeddings = self.encoder(target_image)
+        
+        # Generate prompts using frozen ref_features
+        point_prompts, num_points, similarities = self.prompt_generator(
+            self.ref_embeddings,
+            self.masked_ref_embeddings,
+            self.flatten_ref_masks,
+            self.category_ids,
+            target_embeddings,
+            original_sizes,
+        )
+        
+        # Decode
+        return self.sam_decoder(target_image, point_prompts, num_points, similarities)
+
+
 
 
 class Matcher(Model):
@@ -194,6 +250,7 @@ class Matcher(Model):
 
     def export(
         self,
+        reference_features: ReferenceFeatures,
         export_dir: str | Path = Path("./exports/matcher"),
         backend: Backend = Backend.ONNX,
     ) -> Path:
@@ -202,6 +259,7 @@ class Matcher(Model):
         Args:
             export_dir: Directory to save exported models.
             backend: Export backend (ONNX, OpenVINO).
+            **kwargs: Additional export parameters.
 
         Returns:
             Path to export directory.
@@ -209,7 +267,12 @@ class Matcher(Model):
         export_path = Path(export_dir)
         export_path.mkdir(parents=True, exist_ok=True)
 
-        self.encoder.export(export_dir, backend=backend)
-        self.sam_predictor.export(export_dir, backend=backend)
+        matcher = MatcherInferenceGraph(
+            encoder=EncoderForwardFeaturesWrapper(self.encoder, ignore_token_length=1),
+            prompt_generator=self.prompt_generator,
+            sam_decoder=self.segmenter.sam_decoder,
+            ref_features=reference_features,
+        )
+        
 
         return export_path
