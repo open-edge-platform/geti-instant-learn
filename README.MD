@@ -63,7 +63,7 @@ ref_image = read_image("library/tests/assets/fss-1000/images/apple/1.jpg")
 predictor = PyTorchSAMPredictor(SAMModelName.SAM_HQ_TINY, device="cuda")
 
 # Set image and generate mask from a point click
-predictor.set_image(ref_image.unsqueeze(0), original_size=ref_image.shape[1:])
+predictor.set_image(ref_image)
 ref_mask, _, _ = predictor.predict(
     point_coords=torch.tensor([[[51, 150]]], device="cuda"),  # Click on apple
     point_labels=torch.tensor([[1]], device="cuda"),           # 1 = foreground
@@ -84,7 +84,7 @@ model = Matcher(device="cuda")
 # Create reference sample with the generated mask
 ref_sample = Sample(
     image=ref_image,
-    masks=ref_mask,
+    masks=ref_mask[0],
     categories=["apple"],
 )
 
@@ -98,7 +98,6 @@ predictions = model.predict(Batch.collate([target_sample]))
 
 # Access results
 masks = predictions[0]["pred_masks"]   # Predicted segmentation masks
-boxes = predictions[0]["pred_boxes"]   # Bounding boxes with scores
 ```
 
 > 📘 For detailed documentation, CLI usage, and benchmarking, see the [Library README](library/README.md).

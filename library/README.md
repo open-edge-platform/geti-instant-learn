@@ -66,15 +66,15 @@ from getiprompt.utils.constants import SAMModelName
 from getiprompt.data.utils import read_image
 
 # Load reference image
-ref_image = read_image("tests/assets/fss-1000/images/apple/1.jpg")
+ref_image = read_image("library/tests/assets/fss-1000/images/apple/1.jpg")
 
 # Initialize SAM predictor (auto-downloads weights)
 predictor = PyTorchSAMPredictor(SAMModelName.SAM_HQ_TINY, device="cuda")
 
 # Set image and generate mask from a point click
-predictor.set_image(ref_image.unsqueeze(0), original_size=ref_image.shape[1:])
+predictor.set_image(ref_image)
 ref_mask, _, _ = predictor.predict(
-    point_coords=torch.tensor([[[150, 150]]], device="cuda"),  # Click on apple
+    point_coords=torch.tensor([[[51, 150]]], device="cuda"),  # Click on apple
     point_labels=torch.tensor([[1]], device="cuda"),           # 1 = foreground
     multimask_output=False,
 )
@@ -85,46 +85,121 @@ ref_mask, _, _ = predictor.predict(
 ```python
 from getiprompt.models import Matcher
 from getiprompt.data import Batch, Sample
+from getiprompt.data.utils import read_image
 
-# Initialize model
+# Initialize Matcher
 model = Matcher(device="cuda")
 
 # Create reference sample with the generated mask
 ref_sample = Sample(
     image=ref_image,
-    masks=ref_mask,
+    masks=ref_mask[0],
     categories=["apple"],
 )
+
+# Fit on reference
 model.fit(Batch.collate([ref_sample]))
 
 # Predict on target image
-target_image = read_image("tests/assets/fss-1000/images/apple/2.jpg")
+target_image = read_image("library/tests/assets/fss-1000/images/apple/2.jpg")
 target_sample = Sample(image=target_image)
 predictions = model.predict(Batch.collate([target_sample]))
 
 # Access results
-masks = predictions[0]["pred_masks"]   # Shape: [N, H, W]
-boxes = predictions[0]["pred_boxes"]   # Shape: [N, 5] (x1, y1, x2, y2, score)
-labels = predictions[0]["pred_labels"] # Shape: [N]
+masks = predictions[0]["pred_masks"]   # Predicted segmentation masks
 ```
 
-## Command Line
+## Customizing Encoder and SAM Models
 
-```bash
-# Run with predefined masks
-getiprompt run \
-    --reference_images path/to/reference \
-    --target_images path/to/target \
-    --reference_prompts path/to/masks
+You can configure Matcher with different encoder and SAM models:
 
-# Run with text prompt (zero-shot)
-getiprompt run \
-    --target_images path/to/target \
-    --reference_text_prompt "can"
+```python
+from getiprompt.models import Matcher
+from getiprompt.utils.constants import SAMModelName
 
-# Use different model and backbone
-getiprompt run --pipeline SoftMatcher --pipeline.sam MOBILE_SAM ...
+# Use a lighter model for faster inference
+model = Matcher(
+    device="cuda",
+    encoder_model="dinov3_small",      # Smaller, faster encoder
+    sam=SAMModelName.SAM_HQ_TINY,        # Fast SAM HQ TINY model
+)
+
+# Use a heavier model for best accuracy
+model = Matcher(
+    device="cuda",
+    encoder_model="dinov3_huge",       # Largest encoder
+    sam=SAMModelName.SAM_HQ,       # Large SAM_HQ model
+)
 ```
+
+**Available encoder models:**
+| Model | Description |
+|-------|-------------|
+| `dinov3_small` | DINOv3 Small (fastest, lowest memory) |
+| `dinov3_small_plus` | DINOv3 Small+ |
+| `dinov3_base` | DINOv3 Base (balanced) |
+| `dinov3_large` | DINOv3 Large (default, best accuracy) |
+| `dinov3_huge` | DINOv3 Huge (highest accuracy, most memory) |
+
+**Available SAM models:**
+| Model | Description |
+|-------|-------------|
+| `SAMModelName.SAM_HQ_TINY` | SAM-HQ Tiny (default, fast) |
+| `SAMModelName.SAM_HQ` | SAM-HQ (higher quality masks) |
+| `SAMModelName.SAM2_TINY` | SAM2 Tiny (newest architecture) |
+| `SAMModelName.SAM2_SMALL` | SAM2 Small |
+| `SAMModelName.SAM2_BASE` | SAM2 Base |
+| `SAMModelName.SAM2_LARGE` | SAM2 Large (highest quality) |
+
+## Using Your Own Images with FolderDataset
+
+Load custom images using `FolderDataset` with this folder structure:
+
+```
+your_dataset/
+├── images/
+│   ├── category1/
+│   │   ├── 1.jpg
+│   │   ├── 2.jpg
+│   │   └── ...
+│   └── category2/
+│       └── ...
+└── masks/
+    ├── category1/
+    │   ├── 1.png  # Binary mask matching 1.jpg
+    │   ├── 2.png
+    │   └── ...
+    └── category2/
+        └── ...
+```
+
+```python
+from getiprompt.data.folder import FolderDataset
+from getiprompt.data.base import Batch
+
+# Load your dataset
+dataset = FolderDataset(
+    root="path/to/your_dataset",
+    categories=["category1", "category2"],  # Or None for all categories
+    n_shots=2,  # Number of reference images per category
+)
+
+# Get reference and target samples
+ref_dataset = dataset.get_reference_dataset()
+target_dataset = dataset.get_target_dataset()
+
+# Create batches for model
+reference_batch = Batch.collate([ref_dataset[i] for i in range(len(ref_dataset))])
+target_batch = Batch.collate([target_dataset[i] for i in range(len(target_dataset))])
+
+# Fit and predict
+model.fit(reference_batch)
+predictions = model.predict(target_batch)
+```
+
+> **Note:** Mask files should be binary images (0 = background, 255 = foreground) with the same filename stem as the corresponding image (e.g., `1.jpg` → `1.png`).
+
+
 
 # 🧪 Benchmarking
 
@@ -169,10 +244,6 @@ getiprompt benchmark --model all --dataset_name all --class_name benchmark
 | **SoftMatcher** | Enhanced matching pipeline with soft feature comparison, inspired by Optimal Transport. | [IJCAI 2024](https://www.ijcai.org/proceedings/2024/1000.pdf) | N/A |
 | **PerDino** | Personalized DINO-based prompting, leveraging DINOv2/v3 features for robust matching. | [PerSAM](https://arxiv.org/abs/2305.03048) | [Personalize-SAM](https://github.com/ZrrSkywalker/Personalize-SAM) |
 | **GroundedSAM** | Combines Grounding DINO and SAM for text-based visual prompting and segmentation. | [Grounding DINO](https://arxiv.org/abs/2303.05499), [SAM](https://arxiv.org/abs/2304.02643) | [GroundedSAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) |
-
-# 📚 Documentation
-
-For detailed documentation on datasets, advanced usage, and API reference, see [docs/01-introduction.md](docs/01-introduction.md).
 
 # ✍️ Acknowledgements
 
