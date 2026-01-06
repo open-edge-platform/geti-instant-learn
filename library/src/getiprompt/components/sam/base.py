@@ -47,7 +47,7 @@ def load_sam_model(
         model_path: Optional path to model weights:
             - PyTorch: Path to .pth checkpoint (auto-downloads if None)
             - OpenVINO: Path to .xml IR file (required)
-        target_length: Target length for the longest side of the image (for image transform).
+        target_length: Target length for the longest side of the image during transformation. Defaults to 1024.
 
     Returns:
         A SAM predictor instance (PyTorchSAMPredictor or OpenVINOSAMPredictor).
