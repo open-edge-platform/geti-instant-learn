@@ -42,7 +42,7 @@ class OpenVINOSAMPredictor(nn.Module):
             device: Device to run inference on ("CPU", "GPU", "AUTO")
             model_path: Path to .xml IR file (required)
             precision: Precision to use for the model
-            target_length: Target length for the longest side of the image (for image transform).
+            target_length: Target length for the longest side of the image during transformation.
 
         Raises:
             FileNotFoundError: If the model path doesn't exist.
