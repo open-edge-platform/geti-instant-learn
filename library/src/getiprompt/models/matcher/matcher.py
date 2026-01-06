@@ -130,7 +130,6 @@ class Matcher(Model):
         self.prompt_filter = PointPromptFilter(num_foreground_points=num_foreground_points)
         self.segmenter: SamDecoder = SamDecoder(
             sam_predictor=self.sam_predictor,
-            target_length=1024,
             mask_similarity_threshold=mask_similarity_threshold,
             use_mask_refinement=use_mask_refinement,
         )
