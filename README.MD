@@ -86,6 +86,7 @@ ref_sample = Sample(
     image=ref_image,
     masks=ref_mask[0],
     categories=["apple"],
+    category_ids=[0],
 )
 
 # Fit on reference

@@ -1,16 +1,3 @@
-![alt text](../assets/geti-prompt-header.png)
-
-<div align="center">
-
-**A flexible and modular framework for visual prompting algorithms**
-
----
-
-[![python](https://img.shields.io/badge/python-3.12%2B-green)]()
-[![license](https://img.shields.io/badge/license-Apache%202.0-blue)](../LICENSE)
-
-</div>
-
 # 👋 Introduction
 
 The Geti Prompt Library provides a robust platform for experimenting with visual prompting techniques. Its modular pipeline design allows researchers and developers to easily combine, swap, and extend components such as backbone networks, feature extractors, matching algorithms, and mask generators.
@@ -95,6 +82,7 @@ ref_sample = Sample(
     image=ref_image,
     masks=ref_mask[0],
     categories=["apple"],
+    category_ids=[0],
 )
 
 # Fit on reference
@@ -107,6 +95,36 @@ predictions = model.predict(Batch.collate([target_sample]))
 
 # Access results
 masks = predictions[0]["pred_masks"]   # Predicted segmentation masks
+```
+
+**Fit and predict with GroundedSAM:**
+
+```python
+from getiprompt.models import GroundedSAM
+from getiprompt.data import Batch, Sample
+from getiprompt.data.utils import read_image
+
+# Initialize GroundedSAM (text-based visual prompting)
+model = GroundedSAM(device="cuda")
+
+# Create reference sample with category labels (no masks needed)
+ref_sample = Sample(
+    categories=["apple"],
+    category_ids=[0],
+)
+
+# Fit on reference (learns category-to-id mapping)
+model.fit(Batch.collate([ref_sample]))
+
+# Predict on target image using text prompts
+target_image = read_image("library/tests/assets/fss-1000/images/apple/2.jpg")
+target_sample = Sample(image=target_image)
+predictions = model.predict(Batch.collate([target_sample]))
+
+# Access results
+masks = predictions[0]["pred_masks"]   # Predicted segmentation masks
+boxes = predictions[0]["pred_boxes"]   # Detected bounding boxes
+labels = predictions[0]["pred_labels"] # Category labels
 ```
 
 ## Customizing Encoder and SAM Models
@@ -206,20 +224,98 @@ predictions = model.predict(target_batch)
 Evaluate models on standard datasets:
 
 ```bash
-# Quick benchmark on LVIS
-getiprompt benchmark
+# Benchmark on LVIS dataset (default)
+getiprompt benchmark --dataset_name LVIS --model Matcher
 
-# Specify dataset and model
+# Benchmark on PerSeg dataset
 getiprompt benchmark --dataset_name PerSeg --model Matcher
 
-# Run all models
-getiprompt benchmark --model all
+# Run all models on a dataset
+getiprompt benchmark --dataset_name LVIS --model all
 
-# Comprehensive benchmark
+# Comprehensive benchmark (all models, all datasets)
 getiprompt benchmark --model all --dataset_name all --class_name benchmark
 ```
 
 > 📊 Results are saved to `~/outputs/` by default.
+
+## Setting Up the LVIS Dataset
+
+To run benchmarks with the LVIS dataset, set up the following folder structure:
+
+```
+~/.cache/getiprompt/datasets/lvis/
+├── train2017/
+│   ├── 000000000009.jpg
+│   ├── 000000000025.jpg
+│   └── ...
+├── val2017/
+│   ├── 000000000139.jpg
+│   ├── 000000000285.jpg
+│   └── ...
+├── lvis_v1_train.json
+└── lvis_v1_val.json
+```
+
+**Download COCO images:**
+
+```bash
+cd ~/.cache/getiprompt/datasets/lvis
+
+# Download and extract images
+wget http://images.cocodataset.org/zips/train2017.zip
+wget http://images.cocodataset.org/zips/val2017.zip
+
+unzip train2017.zip
+unzip val2017.zip
+```
+
+**Download LVIS annotations:**
+
+Visit the [LVIS Dataset page](https://www.lvisdataset.org/dataset) to download the annotation files, then place them in the root folder.
+
+## Setting Up the PerSeg Dataset
+
+To run benchmarks with the PerSeg dataset, set up the following folder structure:
+
+```
+~/datasets/PerSeg/
+├── Images/
+│   ├── backpack/
+│   │   ├── 00.jpg
+│   │   ├── 01.jpg
+│   │   └── ...
+│   ├── dog/
+│   │   └── ...
+│   └── ...
+└── Annotations/
+    ├── backpack/
+    │   ├── 00.png
+    │   ├── 01.png
+    │   └── ...
+    ├── dog/
+    │   └── ...
+    └── ...
+```
+
+**Download PerSeg dataset:**
+
+The PerSeg dataset can be downloaded from the [Personalize-SAM repository](https://github.com/ZrrSkywalker/Personalize-SAM).
+
+# 💻 Hardware Requirements
+
+Approximate GPU memory requirements for different model configurations:
+
+| Encoder | SAM Model | GPU Memory |
+|---------|-----------|------------|
+| `dinov3_small` | `SAM_HQ_TINY` | ~4 GB |
+| `dinov3_base` | `SAM_HQ_TINY` | ~6 GB |
+| `dinov3_large` | `SAM_HQ_TINY` | ~8 GB |
+| `dinov3_large` | `SAM_HQ` | ~10 GB |
+| `dinov3_huge` | `SAM_HQ` | ~16 GB |
+| `dinov3_huge` | `SAM2_LARGE` | ~20 GB |
+
+> **Note:** Memory usage varies with input image resolution. Values above are for 1024×1024 images.
 
 # 🧮 Supported Models
 
@@ -238,12 +334,12 @@ getiprompt benchmark --model all --dataset_name all --class_name benchmark
 
 ## Visual Prompting Algorithms
 
-| Algorithm | Description | Paper | Repository |
-|-----------|-------------|-------|------------|
-| **Matcher** | Standard feature matching pipeline using SAM. | [Matcher](https://arxiv.org/abs/2305.13310) | [Matcher](https://github.com/aim-uofa/Matcher) |
-| **SoftMatcher** | Enhanced matching pipeline with soft feature comparison, inspired by Optimal Transport. | [IJCAI 2024](https://www.ijcai.org/proceedings/2024/1000.pdf) | N/A |
-| **PerDino** | Personalized DINO-based prompting, leveraging DINOv2/v3 features for robust matching. | [PerSAM](https://arxiv.org/abs/2305.03048) | [Personalize-SAM](https://github.com/ZrrSkywalker/Personalize-SAM) |
-| **GroundedSAM** | Combines Grounding DINO and SAM for text-based visual prompting and segmentation. | [Grounding DINO](https://arxiv.org/abs/2303.05499), [SAM](https://arxiv.org/abs/2304.02643) | [GroundedSAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) |
+| Algorithm | Description | Paper | Repository | Code |
+|-----------|-------------|-------|------------|------|
+| **Matcher** | Standard feature matching pipeline using SAM. | [Matcher](https://arxiv.org/abs/2305.13310) | [Matcher](https://github.com/aim-uofa/Matcher) | [matcher.py](src/getiprompt/models/matcher/matcher.py) |
+| **SoftMatcher** | Enhanced matching pipeline with soft feature comparison, inspired by Optimal Transport. | [IJCAI 2024](https://www.ijcai.org/proceedings/2024/1000.pdf) | N/A | [soft_matcher.py](src/getiprompt/models/soft_matcher.py) |
+| **PerDino** | Personalized DINO-based prompting, leveraging DINOv2/v3 features for robust matching. | [PerSAM](https://arxiv.org/abs/2305.03048) | [Personalize-SAM](https://github.com/ZrrSkywalker/Personalize-SAM) | [per_dino.py](src/getiprompt/models/per_dino.py) |
+| **GroundedSAM** | Combines Grounding DINO and SAM for text-based visual prompting and segmentation. | [Grounding DINO](https://arxiv.org/abs/2303.05499), [SAM](https://arxiv.org/abs/2304.02643) | [GroundedSAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) | [grounded_sam.py](src/getiprompt/models/grounded_sam.py) |
 
 # ✍️ Acknowledgements
 
