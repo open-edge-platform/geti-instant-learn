@@ -27,7 +27,7 @@ export const CreateVideoFile = ({ onSaved }: CreateVideoFileProps) => {
             {
                 source_type: 'video_file',
                 seekable: true,
-                video_path: filePath,
+                video_path: filePath.trim(),
             },
             onSaved
         );

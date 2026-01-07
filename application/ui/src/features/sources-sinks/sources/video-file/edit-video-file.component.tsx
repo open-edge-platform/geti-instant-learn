@@ -31,7 +31,7 @@ export const EditVideoFile = ({ source, onSaved }: EditVideoFileProps) => {
             {
                 config: {
                     ...source.config,
-                    video_path: filePath,
+                    video_path: filePath.trim(),
                 },
                 active,
             },
