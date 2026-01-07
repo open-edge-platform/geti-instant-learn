@@ -20,6 +20,10 @@ device := "cpu"  # cpu, cu126, xpu
 # Note: Binding port 443 may conflict with other services (e.g., HTTPS) on this host. Replace it with whatever port works/open for you.
 coturn-port := "443"
 
+# XPU variables
+render_gid := `uv run python -c "import grp; print(grp.getgrnam('render').gr_gid)"`
+render_node := "/dev/dri/renderD128"
+
 # -------------------------------------------------------------------------------------------------
 # Variables used in the Justfile to build in Docker image
 # -------------------------------------------------------------------------------------------------
@@ -88,6 +92,7 @@ run-image: build-image
         --env WEBRTC_ADVERTISE_IP='{{ host-ip }}' \
         {{ if data-dir != "" { " --volume " + data-dir + ":/geti_prompt/data" } else { "" } }} \
         {{ if path_exists(webcam-device) == "true" { " --device " + webcam-device + ":" + webcam-device } else { "" } }} \
+        {{ if device == "xpu" { " --device " + render_node + " --group-add " + render_gid } else { "" } }} \
         --name "{{ component-name }}-{{ version }}" \
         "{{ image-name }}"
 
