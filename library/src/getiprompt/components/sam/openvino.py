@@ -12,6 +12,7 @@ import torch
 from openvino.properties import hint
 from torch import nn
 
+from getiprompt.data import ResizeLongestSide
 from getiprompt.utils.constants import Backend, SAMModelName
 from getiprompt.utils.utils import device_to_openvino_device, precision_to_openvino_type
 
@@ -32,6 +33,7 @@ class OpenVINOSAMPredictor(nn.Module):
         device: str,
         model_path: Path,
         precision: str = "fp32",
+        target_length: int = 1024,
     ) -> None:
         """Initialize SAM predictor.
 
@@ -40,12 +42,14 @@ class OpenVINOSAMPredictor(nn.Module):
             device: Device to run inference on ("CPU", "GPU", "AUTO")
             model_path: Path to .xml IR file (required)
             precision: Precision to use for the model
+            target_length: Target length for the longest side of the image during transformation.
 
         Raises:
             FileNotFoundError: If the model path doesn't exist.
         """
         super().__init__()
         self.device = device
+        self.transform = ResizeLongestSide(target_length)
 
         # Validate model path
         if not model_path.exists():
@@ -76,23 +80,19 @@ class OpenVINOSAMPredictor(nn.Module):
         self._current_image = None
         self._original_size = None
 
-    def set_image(
-        self,
-        image: torch.Tensor,
-        original_size: tuple[int, int],
-    ) -> None:
+    def set_image(self, image: torch.Tensor) -> None:
         """Set image for OpenVINO inference.
 
-        Unlike PyTorch backend which computes embeddings here, OpenVINO
-        backend performs full end-to-end inference in predict(). This method
-        just stores the image and metadata for later use.
+        Transforms the image to the target size. Unlike PyTorch backend which
+        computes embeddings here, OpenVINO backend performs full end-to-end
+        inference in predict(). This method transforms and stores the image
+        and metadata for later use.
 
         Args:
-            image: Preprocessed image tensor of shape (C, H, W)
-            original_size: Original image size (H, W) before preprocessing
+            image: Raw image tensor of shape (C, H, W)
         """
-        self._current_image = image
-        self._original_size = original_size
+        self._original_size = image.shape[-2:]
+        self._current_image = self.transform.apply_image_torch(image)
 
     def export(self, export_path: Path, backend: str | Backend = Backend.ONNX) -> None:
         """Dummy export method.

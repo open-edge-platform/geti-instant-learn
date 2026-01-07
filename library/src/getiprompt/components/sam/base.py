@@ -24,6 +24,7 @@ def load_sam_model(
     compile_models: bool = False,
     backend: Backend = Backend.PYTORCH,
     model_path: Path | None = None,
+    target_length: int = 1024,
 ) -> PyTorchSAMPredictor | OpenVINOSAMPredictor:
     """Load and return a SAM predictor with specified backend.
 
@@ -46,6 +47,7 @@ def load_sam_model(
         model_path: Optional path to model weights:
             - PyTorch: Path to .pth checkpoint (auto-downloads if None)
             - OpenVINO: Path to .xml IR file (required)
+        target_length: Target length for the longest side of the image during transformation. Defaults to 1024.
 
     Returns:
         A SAM predictor instance (PyTorchSAMPredictor or OpenVINOSAMPredictor).
@@ -85,6 +87,7 @@ def load_sam_model(
             sam_model_name=sam,
             device=device,
             model_path=model_path,
+            target_length=target_length,
         )
 
         # Apply PyTorch-specific optimizations
@@ -112,6 +115,7 @@ def load_sam_model(
             device=device,
             model_path=model_path,
             precision=precision,
+            target_length=target_length,
         )
 
     msg = f"Unknown backend: {backend}. Must be Backend.PYTORCH or Backend.OPENVINO"
@@ -155,6 +159,7 @@ class SAMPredictor:
         precision: str = "bf16",
         compile_models: bool = False,
         model_path: Path | None = None,
+        target_length: int = 1024,
     ) -> None:
         """Initialize the SAM predictor.
 
@@ -168,6 +173,7 @@ class SAMPredictor:
             compile_models: Whether to compile model with torch.compile.
                 Ignored for OpenVINO.
             model_path: Path to model weights (required for OpenVINO backend).
+            target_length: Target length for the longest side of the image during transformation. Defaults to 1024.
         """
         self.backend = backend
         self.device = device
@@ -178,20 +184,16 @@ class SAMPredictor:
             compile_models=compile_models,
             backend=backend,
             model_path=model_path,
+            target_length=target_length,
         )
 
-    def set_image(
-        self,
-        image: torch.Tensor,
-        original_size: tuple[int, int],
-    ) -> None:
+    def set_image(self, image: torch.Tensor) -> None:
         """Set the image for prediction and compute embeddings if needed.
 
         Args:
-            image: Preprocessed image tensor of shape (C, H, W)
-            original_size: Original image size (H, W) before preprocessing
+            image: Raw image tensor of shape (C, H, W)
         """
-        return self._predictor.set_image(image, original_size)
+        return self._predictor.set_image(image)
 
     def predict(
         self,

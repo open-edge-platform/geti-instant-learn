@@ -225,6 +225,8 @@ class SamDecoder(nn.Module):
         point_labels = point_labels[keep]
 
         # Compute boxes from masks for NMS (and optionally for 2nd SAM prediction)
+        # The masks are in original image coordinates, so boxes are too.
+        # The predictor will handle coordinate transformation internally.
         boxes = masks_to_boxes(masks.squeeze(1))
         boxes = self.transform.apply_coords_torch(boxes.reshape(-1, 2, 2), original_size)
         boxes = boxes.reshape(-1, 4).unsqueeze(1)

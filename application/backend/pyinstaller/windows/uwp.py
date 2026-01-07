@@ -65,10 +65,10 @@ def _main() -> None:
     app_data_folder = Path(local_app_data) / "Packages" / package_family_name / "LocalState"
 
     print(f"Setup Hook: Using local state folder: {app_data_folder}")
-    os.environ["DB_DATA_DIR"] = app_data_folder.name
+    os.environ["DB_DATA_DIR"] = str(app_data_folder)
 
     print(f"Setup Hook: Writing log to: {app_data_folder}")
-    os.environ["LOGS_DIR"] = app_data_folder.name
+    os.environ["LOGS_DIR"] = str(app_data_folder)
 
     os.environ["STATIC_FILES_DIR"] = "static"
 

@@ -119,7 +119,6 @@ class PerDino(Model):
 
         self.segmenter = SamDecoder(
             sam_predictor=self.sam_predictor,
-            target_length=1024,
             mask_similarity_threshold=mask_similarity_threshold,
         )
 

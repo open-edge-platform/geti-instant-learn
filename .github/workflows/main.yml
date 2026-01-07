@@ -79,6 +79,23 @@ jobs:
     with:
       build_version: ${{ needs.build-parameters.outputs.build_version }}
 
+  markdown:
+    name: Markdown build
+    needs: build-parameters
+    permissions:
+      contents: read
+    if: needs.build-parameters.outputs.components-list && contains(fromJson(needs.build-parameters.outputs.components-list), 'markdown')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        with:
+          persist-credentials: false
+
+      - uses: DavidAnson/markdownlint-cli2-action@07035fd053f7be764496c0f8d8f9f41f98305101 #v22.0.0
+        with:
+          config: '.github/.markdownlint-cli2.jsonc'
+
   success:
     name: Status checks
     needs: [ build-parameters, library, backend, ui, distrib ]

@@ -85,7 +85,7 @@ class MaskedFeatureExtractor(nn.Module):
         ):
             for category_id, mask in zip(category_ids_tensor, masks_tensor, strict=True):
                 if isinstance(category_id, torch.Tensor):
-                    category_id = category_id.item()
+                    category_id = int(category_id.item())
                 pooled_mask = self.transform(mask).to(embedding.device)
                 masks_per_cat[category_id].append(pooled_mask)
 

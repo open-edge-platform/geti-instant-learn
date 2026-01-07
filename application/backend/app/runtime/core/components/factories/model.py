@@ -22,9 +22,11 @@ class ModelFactory:
                 model = Matcher(
                     num_foreground_points=config.num_foreground_points,
                     num_background_points=config.num_background_points,
+                    encoder_model="dinov3_small",
                     mask_similarity_threshold=config.mask_similarity_threshold,
                     precision=config.precision,
                     device=settings.device,
+                    use_mask_refinement=False,
                 )
                 return InferenceModelHandler(model, reference_batch)
             case _:

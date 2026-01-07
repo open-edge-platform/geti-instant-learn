@@ -2,16 +2,27 @@
 library:
   - library/**
   - .github/workflows/**
+  - '!**/*.md'
 
 backend:
   - application/backend/**
   - library/**  # Backend might depend on library changes
   - .github/workflows/**
+  - '!**/*.md'
+
 ui:
   - application/ui/**
   - .github/workflows/**
   - application/backend/app/domain/services/schemas/**
   - application/backend/app/api/**
+  - '!**/*.md'
 
 distrib:
   - application/docker/**
+  - '!**/*.md'
+
+markdown:
+  - '**/*.md'
+  - '!SECURITY.md'
+  - '!.github/copilot-instructions.md'
+  - .github/workflows/**
