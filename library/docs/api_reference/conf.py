@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 # Define paths
-project_root = Path(__file__).parent
+project_root = Path(__file__).parent.parent
 module_path = Path(project_root, "src")
 
 # Insert paths to sys.path
