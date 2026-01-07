@@ -513,27 +513,3 @@ class TestDeleteModel:
         response = client.delete(f"/api/v1/projects/{project_id}/models/{model_id}")
 
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-
-
-class TestSupportedModels:
-    def test_supported_models_success(self, client, project_id):
-        class FakeProcessorService:
-            def __init__(self, session):
-                pass
-
-            def supported_models(self, project_id):
-                return {
-                    "sam_models": ["SAM-HQ-tiny", "SAM-HQ"],
-                    "encoder_models": ["dinov3_small", "dinov3_base", "dinov3_large"],
-                }
-
-        client.app.dependency_overrides[get_model_service] = lambda: FakeProcessorService(None)
-
-        response = client.get(f"/api/v1/projects/{project_id}/models/supported")
-
-        assert response.status_code == status.HTTP_200_OK
-        data = response.json()
-        assert "sam_models" in data
-        assert "encoder_models" in data
-        assert isinstance(data["sam_models"], list)
-        assert isinstance(data["encoder_models"], list)

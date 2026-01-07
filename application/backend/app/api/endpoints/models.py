@@ -14,7 +14,6 @@ from domain.services.schemas.processor import (
     ProcessorListSchema,
     ProcessorSchema,
     ProcessorUpdateSchema,
-    SupportedModelsSchema,
 )
 
 logger = logging.getLogger(__name__)
@@ -148,50 +147,6 @@ def get_active_model(project_id: UUID, model_service: ModelServiceDep) -> Proces
     Retrieve the active model configuration of the project.
     """
     return model_service.get_active_model(project_id)
-
-
-@projects_router.get(
-    path="/{project_id}/models/supported",
-    tags=["Models"],
-    status_code=status.HTTP_200_OK,
-    responses={
-        status.HTTP_200_OK: {
-            "description": "Successfully retrieved the model configuration for the project.",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "sam_models": ["SAM-HQ", "SAM-HQ-tiny"],
-                        "encoder_models": [
-                            "dinov3_small",
-                            "dinov3_small_plus",
-                            "dinov3_base",
-                            "dinov3_large",
-                            "dinov3_huge",
-                        ],
-                    },
-                }
-            },
-        },
-        status.HTTP_404_NOT_FOUND: {
-            "description": "Project or model configuration not found",
-            "content": {
-                "application/json": {
-                    "examples": {
-                        "project_missing": {
-                            "summary": "Project not found",
-                            "value": {"detail": "Project with ID 3fa85f64-5717-4562-b3fc-2c963f66afa6 not found."},
-                        },
-                    },
-                },
-            },
-        },
-    },
-)
-def supported_models(project_id: UUID, model_service: ModelServiceDep) -> SupportedModelsSchema:
-    """
-    Retrieve the model configuration of the project.
-    """
-    return model_service.supported_models(project_id=project_id)
 
 
 @projects_router.get(

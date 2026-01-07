@@ -455,12 +455,3 @@ class TestHandleSourceIntegrityError:
                 service._handle_source_integrity_error(exc, sample_model_id, sample_project_id, "test")
 
             assert "constraint violation" in str(exc_info.value).lower()
-
-
-def test_supported_models(service, sample_project_id):
-    """Test that supported_models returns only SAM_HQ and SAM_HQ_TINY."""
-    supported = service.supported_models(project_id=sample_project_id)
-
-    assert supported.sam_models == ["SAM-HQ", "SAM-HQ-tiny"]
-    assert len(supported.encoder_models) == 5
-    assert "dinov3_large" in supported.encoder_models

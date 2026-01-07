@@ -14,26 +14,6 @@ from pydantic import BaseModel, Field, field_validator
 from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
 
 
-class SupportedModelsSchema(BaseModel):
-    sam_models: list[str]
-    encoder_models: list[str]
-
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "sam_models": ["SAM-HQ", "SAM-HQ-tiny"],
-                "encoder_models": [
-                    "dinov3_small",
-                    "dinov3_small_plus",
-                    "dinov3_base",
-                    "dinov3_large",
-                    "dinov3_huge",
-                ],
-            }
-        }
-    }
-
-
 class ModelType(StrEnum):
     MATCHER = "matcher"
 
