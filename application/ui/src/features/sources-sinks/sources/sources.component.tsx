@@ -7,7 +7,7 @@ import { ReactNode, useState } from 'react';
 
 import { Source, SourceType } from '@geti-prompt/api';
 import { useGetSources } from '@geti-prompt/hooks';
-import { ImagesFolder as ImagesFolderIcon, WebCam } from '@geti-prompt/icons';
+import { ImagesFolder as ImagesFolderIcon, VideoFile, WebCam } from '@geti-prompt/icons';
 import { Datasets } from '@geti/ui/icons';
 import { isEmpty } from 'lodash-es';
 
@@ -18,6 +18,7 @@ import { ExistingSources } from './existing-sources/existing-sources.component';
 import { CreateImagesFolder } from './images-folder/create-images-folder.component';
 import { CreateSampleDataset } from './sample-dataset/create-sample-dataset.component';
 import { SourcesViews } from './utils';
+import { CreateVideoFile } from './video-file/create-video-file.component';
 import { CreateWebcamSource } from './webcam/create-webcam-source.component';
 
 interface SourcesList {
@@ -44,17 +45,18 @@ const SourcesList = ({ onViewChange, sources }: SourcesList) => {
             icon: <IPCamera width={'24px'} />,
         },*/
         /*{ label: 'GenICam', value: 'gen-i-cam', content: 'Test', icon: <GenICam width={'24px'} /> },*/
-        /*{
-            label: 'Video file',
-            value: 'video_file',
-            content: 'Test',
-            icon: <VideoFile width={'24px'} />,
-        },*/
+
         {
             label: 'Image folder',
             value: 'images_folder',
             content: <CreateImagesFolder onSaved={navigateToExistingView} />,
             icon: <ImagesFolderIcon width={'24px'} />,
+        },
+        {
+            label: 'Video file',
+            value: 'video_file',
+            content: <CreateVideoFile onSaved={navigateToExistingView} />,
+            icon: <VideoFile width={'24px'} />,
         },
         {
             label: 'Sample dataset',
