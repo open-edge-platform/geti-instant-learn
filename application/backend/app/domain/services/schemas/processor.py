@@ -31,7 +31,7 @@ class MatcherConfig(BaseModel):
     confidence_threshold: float = Field(default=0.38, gt=0.0, lt=1.0)
     precision: str = Field(default="bf16", description="Model precision")
     sam_model: SAMModelName = Field(default=SAMModelName.SAM_HQ_TINY)
-    encoder_model: str = Field(default="dinov3_large")
+    encoder_model: str = Field(default="dinov3_small")
 
     @field_validator("sam_model", mode="before")
     @classmethod
@@ -58,7 +58,7 @@ class MatcherConfig(BaseModel):
                 "confidence_threshold": 0.38,
                 "precision": "bf16",
                 "sam_model": "SAM-HQ-tiny",
-                "encoder_model": "dinov3_large",
+                "encoder_model": "dinov3_small",
             }
         }
     }

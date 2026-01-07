@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
                                     "num_foreground_points": 40,
                                     "precision": "bf16",
                                     "sam_model": "SAM-HQ-tiny",
-                                    "encoder_model": "dinov3_large",
+                                    "encoder_model": "dinov3_small",
                                 },
                             }
                         ]
@@ -107,7 +107,7 @@ def get_all_models(
                             "num_foreground_points": 40,
                             "precision": "bf16",
                             "sam_model": "SAM-HQ-tiny",
-                            "encoder_model": "dinov3_large",
+                            "encoder_model": "dinov3_small",
                         },
                     },
                 }
@@ -169,7 +169,7 @@ def get_active_model(project_id: UUID, model_service: ModelServiceDep) -> Proces
                             "num_foreground_points": 40,
                             "precision": "bf16",
                             "sam_model": "SAM-HQ-tiny",
-                            "encoder_model": "dinov3_large",
+                            "encoder_model": "dinov3_small",
                         },
                     },
                 }
@@ -229,7 +229,7 @@ def get_model(project_id: UUID, model_id: UUID, model_service: ModelServiceDep) 
                             "num_foreground_points": 40,
                             "precision": "bf16",
                             "sam_model": "SAM-HQ-tiny",
-                            "encoder_model": "dinov3_large",
+                            "encoder_model": "dinov3_small",
                         },
                     },
                 }
@@ -298,7 +298,7 @@ def create_model(project_id: UUID, payload: ProcessorCreateSchema, model_service
                             "num_foreground_points": 50,
                             "precision": "fp16",
                             "sam_model": "SAM-HQ-tiny",
-                            "encoder_model": "dinov3_large",
+                            "encoder_model": "dinov3_small",
                         },
                     },
                 }

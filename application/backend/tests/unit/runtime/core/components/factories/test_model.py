@@ -2,6 +2,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 from unittest.mock import MagicMock, patch
+
 from getiprompt.utils.constants import SAMModelName
 
 from domain.services.schemas.processor import MatcherConfig

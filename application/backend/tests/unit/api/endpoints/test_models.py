@@ -62,7 +62,7 @@ def sample_processor_schema(model_id):
             num_foreground_points=40,
             precision="bf16",
             sam_model=SAMModelName.SAM_HQ_TINY,
-            encoder_model="dinov3_large",
+            encoder_model="dinov3_small",
         ),
     )
 
@@ -80,7 +80,7 @@ def create_payload():
             "num_foreground_points": 40,
             "precision": "bf16",
             "sam_model": "SAM-HQ-tiny",
-            "encoder_model": "dinov3_large",
+            "encoder_model": "dinov3_small",
         },
     }
 
@@ -98,7 +98,7 @@ def update_payload():
             "num_foreground_points": 40,
             "precision": "bf16",
             "sam_model": "SAM-HQ-tiny",
-            "encoder_model": "dinov3_large",
+            "encoder_model": "dinov3_small",
         },
     }
 
