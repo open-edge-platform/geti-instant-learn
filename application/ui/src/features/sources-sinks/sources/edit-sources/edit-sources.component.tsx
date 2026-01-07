@@ -9,7 +9,8 @@ import { Source } from '@geti-prompt/api';
 
 import { PipelineEntityPanel } from '../../pipeline-entity-panel/pipeline-entity-panel.component';
 import { EditImagesFolder } from '../images-folder/edit-images-folder.component';
-import { isImagesFolderSource, isWebcamSource, SourcesViews } from '../utils';
+import { isImagesFolderSource, isVideoFileSource, isWebcamSource, SourcesViews } from '../utils';
+import { EditVideoFile } from '../video-file/edit-video-file.component';
 import { EditWebcamSource } from '../webcam/edit-webcam-source.component';
 
 interface EditSourceContainerProps {
@@ -49,6 +50,14 @@ export const EditSource = ({ source, onViewChange }: EditSourceProps) => {
         return (
             <EditSourceContainer onBackClick={handleGoBack} title={'Images folder'}>
                 <EditImagesFolder source={source} onSaved={handleGoBack} />
+            </EditSourceContainer>
+        );
+    }
+
+    if (isVideoFileSource(source)) {
+        return (
+            <EditSourceContainer onBackClick={handleGoBack} title={'Video file'}>
+                <EditVideoFile source={source} onSaved={handleGoBack} />
             </EditSourceContainer>
         );
     }

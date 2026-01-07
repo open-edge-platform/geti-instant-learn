@@ -3,17 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/**
- * Copyright (C) 2025 Intel Corporation
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import { FormEvent, useState } from 'react';
 
 import { Button, ButtonGroup, Flex, Form } from '@geti/ui';
 
 import { useCreateSource } from '../api/use-create-source';
-import { VideoFileSourceFields } from './video-file-fields.component';
+import { isVideoFilePathValid } from './utils';
+import { VideoFileFields } from './video-file-fields.component';
 
 interface CreateVideoFileProps {
     onSaved: () => void;
@@ -22,10 +18,9 @@ interface CreateVideoFileProps {
 export const CreateVideoFile = ({ onSaved }: CreateVideoFileProps) => {
     const createVideoFileSource = useCreateSource();
     const [filePath, setFilePath] = useState<string>('');
-    const isPending = false;
-    const isApplyDisabled = false;
+    const isSubmitDisabled = createVideoFileSource.isPending || !isVideoFilePathValid(filePath);
 
-    const handleApply = (event: FormEvent) => {
+    const handleSubmit = (event: FormEvent) => {
         event.preventDefault();
 
         createVideoFileSource.mutate(
@@ -39,11 +34,11 @@ export const CreateVideoFile = ({ onSaved }: CreateVideoFileProps) => {
     };
 
     return (
-        <Form validationBehavior={'native'} onSubmit={handleApply}>
+        <Form validationBehavior={'native'} onSubmit={handleSubmit}>
             <Flex direction={'column'} gap={'size-200'} marginTop={0}>
-                <VideoFileSourceFields filePath={filePath} onFilePathChange={setFilePath} />
+                <VideoFileFields filePath={filePath} onFilePathChange={setFilePath} />
                 <ButtonGroup>
-                    <Button type={'submit'} isPending={isPending} isDisabled={isApplyDisabled}>
+                    <Button type={'submit'} isPending={createVideoFileSource.isPending} isDisabled={isSubmitDisabled}>
                         Apply
                     </Button>
                 </ButtonGroup>

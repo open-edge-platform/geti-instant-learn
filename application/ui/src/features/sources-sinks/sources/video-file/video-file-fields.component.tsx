@@ -5,15 +5,15 @@
 
 import { TextField, View } from '@geti/ui';
 
-interface VideoFileSourceFieldsProps {
+interface VideoFileFieldsProps {
     filePath: string;
     onFilePathChange: (value: string) => void;
 }
 
-export const VideoFileSourceFields = ({ filePath, onFilePathChange }: VideoFileSourceFieldsProps) => {
+export const VideoFileFields = ({ filePath, onFilePathChange }: VideoFileFieldsProps) => {
     return (
         <View>
-            <TextField label={'File path'} isRequired value={filePath} onChange={onFilePathChange} />
+            <TextField label={'File path'} isRequired value={filePath} onChange={onFilePathChange} width={'100%'} />
         </View>
     );
 };
