@@ -115,6 +115,6 @@ class AnnotatorPageFullScreen extends AnnotatorPage {
     }
 
     async close() {
-        await this.scope.getByRole('button', { name: 'Close full screen' }).click();
+        await this.scope.getByRole('button', { name: 'Close full screen' }).nth(1).click();
     }
 }

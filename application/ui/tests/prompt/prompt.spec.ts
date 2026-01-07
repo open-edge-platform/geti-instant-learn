@@ -4,27 +4,26 @@
  */
 
 import { expect, http, test } from '@geti-prompt/test-fixtures';
-import { Locator } from '@playwright/test';
+import { Page } from '@playwright/test';
 
 import { getMockedVisualPromptItem } from '../../src/test-utils/mocks/mock-prompt';
 import { PromptPage } from '../annotator/prompt-page';
 import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations } from '../annotator/utils';
-import { LabelsPage } from '../labels/labels-page';
 import { registerApiLabels } from '../labels/mocks';
 import { initializeWebRTC } from './initialize-webrtc';
 import { MOCK_PROMPT, MOCK_PROMPT_ID, SECOND_PROMPT, USB_CAMERA_SOURCE } from './mocks';
 
-const waitForSAM = async (locator: Locator) => {
-    await expect(locator.getByText('Processing image, please wait...')).toBeVisible({
+const waitForSAM = async (page: Page) => {
+    await expect(page.getByText('Processing image, please wait...')).toBeVisible({
         timeout: ANNOTATOR_PAGE_TIMEOUT,
     });
-    await expect(locator.getByText('Processing image, please wait...')).toBeHidden({
+    await expect(page.getByText('Processing image, please wait...')).toBeHidden({
         timeout: ANNOTATOR_PAGE_TIMEOUT,
     });
 };
 
 test.describe('Prompt', () => {
-    test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, promptPage }) => {
+    test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, promptPage, labelsPage }) => {
         test.setTimeout(ANNOTATOR_PAGE_TIMEOUT);
         await initializeWebRTC({ page, context, network });
 
@@ -60,18 +59,14 @@ test.describe('Prompt', () => {
         await test.step('Captures frame', async () => {
             await streamPage.captureFrame();
 
-            await expect(annotatorPage.getFullScreen().getCapturedFrame()).toBeVisible();
+            await expect(annotatorPage.getCapturedFrame()).toBeVisible();
         });
 
-        const annotatorPageFullScreen = annotatorPage.getFullScreen();
-        const promptPageFullScreen = new PromptPage(page, annotatorPageFullScreen.getScope());
-
         await test.step('Waits for SAM to load', async () => {
-            await waitForSAM(annotatorPageFullScreen.getScope());
+            await waitForSAM(page);
         });
 
         await test.step('Adds a label', async () => {
-            const labelsPage = new LabelsPage(page, annotatorPageFullScreen.getScope());
             const labelName = 'Label 1';
 
             await labelsPage.showDialog();
@@ -80,12 +75,12 @@ test.describe('Prompt', () => {
         });
 
         await test.step('Adds an annotation', async () => {
-            await expect(promptPageFullScreen.savePromptButton).toBeDisabled();
+            await expect(promptPage.savePromptButton).toBeDisabled();
 
-            await annotatorPageFullScreen.addAnnotation();
+            await annotatorPage.addAnnotation();
 
-            await expectToHaveAnnotations({ annotatorPage: annotatorPageFullScreen });
-            await expect(promptPageFullScreen.savePromptButton).toBeEnabled();
+            await expectToHaveAnnotations({ annotatorPage });
+            await expect(promptPage.savePromptButton).toBeEnabled();
         });
 
         await test.step('Saves prompt', async () => {
@@ -103,7 +98,7 @@ test.describe('Prompt', () => {
                 })
             );
 
-            await promptPageFullScreen.savePrompt();
+            await promptPage.savePrompt();
 
             await expect(promptPage.thumbnail).toHaveCount(1);
         });
@@ -111,12 +106,10 @@ test.describe('Prompt', () => {
         await test.step('Edits prompt', async () => {
             // Create a second prompt (we already have one from previous steps)
             await streamPage.captureFrame();
-            const annotatorFullScreenEdit = annotatorPage.getFullScreen();
 
-            await expect(annotatorFullScreenEdit.getCapturedFrame()).toBeVisible();
+            await expect(annotatorPage.getCapturedFrame()).toBeVisible();
 
-            await annotatorFullScreenEdit.addAnnotation();
-            const promptPageFullScreenEdit = new PromptPage(page, annotatorFullScreenEdit.getScope());
+            await annotatorPage.addAnnotation();
 
             const mockPrompt = getMockedVisualPromptItem({
                 ...MOCK_PROMPT,
@@ -148,7 +141,7 @@ test.describe('Prompt', () => {
                 })
             );
 
-            await promptPageFullScreenEdit.savePrompt();
+            await promptPage.savePrompt();
             await expect(promptPage.thumbnail).toHaveCount(2);
 
             // Edit the first prompt
@@ -160,7 +153,7 @@ test.describe('Prompt', () => {
 
             await promptPage.editPrompt(MOCK_PROMPT_ID);
 
-            await waitForSAM(annotatorPage.getScope());
+            await waitForSAM(page);
 
             // Add an annotation
             await annotatorPage.addAnnotation();
@@ -269,7 +262,7 @@ test.describe('Prompt', () => {
 
         await promptPage.editPrompt(MOCK_PROMPT_ID);
 
-        await waitForSAM(annotatorPage.getScope());
+        await waitForSAM(page);
 
         expect(page.url()).toContain(`promptId=${MOCK_PROMPT_ID}`);
         await expect(promptPage.getCapturedFrame(MOCK_PROMPT.frame_id)).toBeVisible();
