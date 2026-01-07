@@ -2,7 +2,7 @@
 
 The Geti Prompt Library provides a robust platform for experimenting with visual prompting techniques. Its modular pipeline design allows researchers and developers to easily combine, swap, and extend components such as backbone networks, feature extractors, matching algorithms, and mask generators.
 
-# 📦 Installation
+## 📦 Installation
 
 ```bash
 cd library
@@ -33,9 +33,9 @@ uv sync --extra full
 
 </details>
 
-# 🚀 Quick Start
+## 🚀 Quick Start
 
-## Python API
+### Python API
 
 <p align="center">
   <img src="tests/assets/fss-1000/images/apple/1.jpg" width="200" alt="Reference">
@@ -127,7 +127,7 @@ boxes = predictions[0]["pred_boxes"]   # Detected bounding boxes
 labels = predictions[0]["pred_labels"] # Category labels
 ```
 
-## Customizing Encoder and SAM Models
+### Customizing Encoder and SAM Models
 
 You can configure Matcher with different encoder and SAM models:
 
@@ -151,8 +151,9 @@ model = Matcher(
 ```
 
 **Available encoder models:**
+
 | Model | Description |
-|-------|-------------|
+| ----- | ----------- |
 | `dinov3_small` | DINOv3 Small (fastest, lowest memory) |
 | `dinov3_small_plus` | DINOv3 Small+ |
 | `dinov3_base` | DINOv3 Base (balanced) |
@@ -160,8 +161,9 @@ model = Matcher(
 | `dinov3_huge` | DINOv3 Huge (highest accuracy, most memory) |
 
 **Available SAM models:**
+
 | Model | Description |
-|-------|-------------|
+| ----- | ----------- |
 | `SAMModelName.SAM_HQ_TINY` | SAM-HQ Tiny (default, fast) |
 | `SAMModelName.SAM_HQ` | SAM-HQ (higher quality masks) |
 | `SAMModelName.SAM2_TINY` | SAM2 Tiny (newest architecture) |
@@ -169,11 +171,11 @@ model = Matcher(
 | `SAMModelName.SAM2_BASE` | SAM2 Base |
 | `SAMModelName.SAM2_LARGE` | SAM2 Large (highest quality) |
 
-## Using Your Own Images with FolderDataset
+### Using Your Own Images with FolderDataset
 
 Load custom images using `FolderDataset` with this folder structure:
 
-```
+```text
 your_dataset/
 ├── images/
 │   ├── category1/
@@ -217,9 +219,7 @@ predictions = model.predict(target_batch)
 
 > **Note:** Mask files should be binary images (0 = background, 255 = foreground) with the same filename stem as the corresponding image (e.g., `1.jpg` → `1.png`).
 
-
-
-# 🧪 Benchmarking
+## 🧪 Benchmarking
 
 Evaluate models on standard datasets:
 
@@ -239,11 +239,11 @@ getiprompt benchmark --model all --dataset_name all --class_name benchmark
 
 > 📊 Results are saved to `~/outputs/` by default.
 
-## Setting Up the LVIS Dataset
+### Setting Up the LVIS Dataset
 
 To run benchmarks with the LVIS dataset, set up the following folder structure:
 
-```
+```text
 ~/.cache/getiprompt/datasets/lvis/
 ├── train2017/
 │   ├── 000000000009.jpg
@@ -274,11 +274,11 @@ unzip val2017.zip
 
 Visit the [LVIS Dataset page](https://www.lvisdataset.org/dataset) to download the annotation files, then place them in the root folder.
 
-## Setting Up the PerSeg Dataset
+### Setting Up the PerSeg Dataset
 
 To run benchmarks with the PerSeg dataset, set up the following folder structure:
 
-```
+```text
 ~/datasets/PerSeg/
 ├── Images/
 │   ├── backpack/
@@ -302,12 +302,12 @@ To run benchmarks with the PerSeg dataset, set up the following folder structure
 
 The PerSeg dataset can be downloaded from the [Personalize-SAM repository](https://github.com/ZrrSkywalker/Personalize-SAM).
 
-# 💻 Hardware Requirements
+## 💻 Hardware Requirements
 
 Approximate GPU memory requirements for different model configurations:
 
 | Encoder | SAM Model | GPU Memory |
-|---------|-----------|------------|
+| ------- | --------- | ---------- |
 | `dinov3_small` | `SAM_HQ_TINY` | ~4 GB |
 | `dinov3_base` | `SAM_HQ_TINY` | ~6 GB |
 | `dinov3_large` | `SAM_HQ_TINY` | ~8 GB |
@@ -317,12 +317,12 @@ Approximate GPU memory requirements for different model configurations:
 
 > **Note:** Memory usage varies with input image resolution. Values above are for 1024×1024 images.
 
-# 🧮 Supported Models
+## 🧮 Supported Models
 
-## Foundation Models (Backbones)
+### Foundation Models (Backbones)
 
 | Family | Models | Description | Paper | Repository |
-|--------|--------|-------------|-------|------------|
+| ------ | ------ | ----------- | ----- | ---------- |
 | **SAM** | SAM-HQ, SAM-HQ-tiny | High-quality variants of the original Segment Anything Model. | [Segment Anything](https://arxiv.org/abs/2304.02643), [SAM-HQ](https://arxiv.org/abs/2306.01567) | [SAM](https://github.com/facebookresearch/segment-anything), [SAM-HQ](https://github.com/SysCV/sam-hq) |
 | **SAM 2** | SAM2-tiny, SAM2-small, SAM2-base, SAM2-large | The next generation of Segment Anything, offering improved performance and speed. | [SAM 2](https://arxiv.org/abs/2408.00714) | [sam2](https://github.com/facebookresearch/sam2) |
 | **SAM 3** | SAM 3 | Segment Anything with Concepts, supporting open-vocabulary prompts. | [SAM 3](https://arxiv.org/abs/2511.16719) | [SAM 3](https://github.com/facebookresearch/sam3) |
@@ -332,15 +332,15 @@ Approximate GPU memory requirements for different model configurations:
 | **DINOv3** | Small, Small+, Base, Large, Huge | The latest iteration of DINO models. | [DINOv3](https://arxiv.org/abs/2508.10104) | [dinov3](https://github.com/facebookresearch/dinov3) |
 | **Grounding DINO** | (Integrated in GroundedSAM) | Open-set object detection model. | [Grounding DINO](https://arxiv.org/abs/2303.05499) | [GroundingDINO](https://github.com/IDEA-Research/GroundingDINO) |
 
-## Visual Prompting Algorithms
+### Visual Prompting Algorithms
 
 | Algorithm | Description | Paper | Repository | Code |
-|-----------|-------------|-------|------------|------|
+| --------- | ----------- | ----- | ---------- | ---- |
 | **Matcher** | Standard feature matching pipeline using SAM. | [Matcher](https://arxiv.org/abs/2305.13310) | [Matcher](https://github.com/aim-uofa/Matcher) | [matcher.py](src/getiprompt/models/matcher/matcher.py) |
 | **SoftMatcher** | Enhanced matching pipeline with soft feature comparison, inspired by Optimal Transport. | [IJCAI 2024](https://www.ijcai.org/proceedings/2024/1000.pdf) | N/A | [soft_matcher.py](src/getiprompt/models/soft_matcher.py) |
 | **PerDino** | Personalized DINO-based prompting, leveraging DINOv2/v3 features for robust matching. | [PerSAM](https://arxiv.org/abs/2305.03048) | [Personalize-SAM](https://github.com/ZrrSkywalker/Personalize-SAM) | [per_dino.py](src/getiprompt/models/per_dino.py) |
 | **GroundedSAM** | Combines Grounding DINO and SAM for text-based visual prompting and segmentation. | [Grounding DINO](https://arxiv.org/abs/2303.05499), [SAM](https://arxiv.org/abs/2304.02643) | [GroundedSAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) | [grounded_sam.py](src/getiprompt/models/grounded_sam.py) |
 
-# ✍️ Acknowledgements
+## ✍️ Acknowledgements
 
 This project builds upon several open-source repositories. See [third-party-programs.txt](../third-party-programs.txt) for the full list.
