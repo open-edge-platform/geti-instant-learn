@@ -37,11 +37,12 @@ logger = logging.getLogger(__name__)
                                 "config": {
                                     "confidence_threshold": 0.38,
                                     "model_type": "matcher",
-                                    "num_background_points": 2,
-                                    "num_foreground_points": 40,
+                                    "num_background_points": 3,
+                                    "num_foreground_points": 5,
                                     "precision": "bf16",
                                     "sam_model": "SAM-HQ-tiny",
                                     "encoder_model": "dinov3_small",
+                                    "use_mask_refinement": False,
                                 },
                             }
                         ]
@@ -103,11 +104,12 @@ def get_all_models(
                         "config": {
                             "confidence_threshold": 0.38,
                             "model_type": "matcher",
-                            "num_background_points": 2,
-                            "num_foreground_points": 40,
+                            "num_background_points": 3,
+                            "num_foreground_points": 5,
                             "precision": "bf16",
                             "sam_model": "SAM-HQ-tiny",
                             "encoder_model": "dinov3_small",
+                            "use_mask_refinement": False,
                         },
                     },
                 }
@@ -165,11 +167,12 @@ def get_active_model(project_id: UUID, model_service: ModelServiceDep) -> Proces
                         "config": {
                             "confidence_threshold": 0.38,
                             "model_type": "matcher",
-                            "num_background_points": 2,
-                            "num_foreground_points": 40,
+                            "num_background_points": 3,
+                            "num_foreground_points": 5,
                             "precision": "bf16",
                             "sam_model": "SAM-HQ-tiny",
                             "encoder_model": "dinov3_small",
+                            "use_mask_refinement": False,
                         },
                     },
                 }
@@ -225,11 +228,12 @@ def get_model(project_id: UUID, model_id: UUID, model_service: ModelServiceDep) 
                         "config": {
                             "confidence_threshold": 0.38,
                             "model_type": "matcher",
-                            "num_background_points": 2,
-                            "num_foreground_points": 40,
+                            "num_background_points": 3,
+                            "num_foreground_points": 5,
                             "precision": "bf16",
                             "sam_model": "SAM-HQ-tiny",
                             "encoder_model": "dinov3_small",
+                            "use_mask_refinement": False,
                         },
                     },
                 }
@@ -295,10 +299,11 @@ def create_model(project_id: UUID, payload: ProcessorCreateSchema, model_service
                             "confidence_threshold": 0.45,
                             "model_type": "matcher",
                             "num_background_points": 3,
-                            "num_foreground_points": 50,
+                            "num_foreground_points": 5,
                             "precision": "fp16",
                             "sam_model": "SAM-HQ-tiny",
                             "encoder_model": "dinov3_small",
+                            "use_mask_refinement": False,
                         },
                     },
                 }

@@ -35,6 +35,7 @@ const getDefaultModel = (id: string): ModelType => {
             precision: 'bf16',
             sam_model: 'SAM-HQ-tiny',
             encoder_model: 'dinov3_small',
+            use_mask_refinement: false,
         },
         active: true,
         name: `Matcher`,

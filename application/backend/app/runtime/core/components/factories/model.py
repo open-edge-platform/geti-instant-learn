@@ -25,7 +25,7 @@ class ModelFactory:
                     mask_similarity_threshold=config.confidence_threshold,
                     precision=config.precision,
                     device=settings.device,
-                    use_mask_refinement=False,
+                    use_mask_refinement=config.use_mask_refinement,
                     sam=config.sam_model,
                     encoder_model=config.encoder_model,
                 )

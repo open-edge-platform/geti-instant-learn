@@ -84,6 +84,7 @@ const MOCKED_MODELS_RESPONSE: ModelListType = {
                 precision: 'bf16',
                 sam_model: 'SAM-HQ-tiny',
                 encoder_model: 'dinov3_large',
+                use_mask_refinement: false,
             },
             active: true,
             name: 'Mega model',

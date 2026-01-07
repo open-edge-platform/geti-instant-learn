@@ -32,6 +32,7 @@ class MatcherConfig(BaseModel):
     precision: str = Field(default="bf16", description="Model precision")
     sam_model: SAMModelName = Field(default=SAMModelName.SAM_HQ_TINY)
     encoder_model: str = Field(default="dinov3_small")
+    use_mask_refinement: bool = Field(default=False)
 
     @field_validator("sam_model", mode="before")
     @classmethod
@@ -59,6 +60,7 @@ class MatcherConfig(BaseModel):
                 "precision": "bf16",
                 "sam_model": "SAM-HQ-tiny",
                 "encoder_model": "dinov3_small",
+                "use_mask_refinement": False,
             }
         }
     }
