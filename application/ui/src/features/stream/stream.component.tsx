@@ -8,7 +8,12 @@ import { Suspense } from 'react';
 import { useGetSources } from '@geti-prompt/hooks';
 import { dimensionValue, Grid, Loading, minmax, View } from '@geti/ui';
 
-import { isImagesFolderSource, isTestDatasetSource, isWebcamSource } from '../sources-sinks/sources/utils';
+import {
+    isImagesFolderSource,
+    isTestDatasetSource,
+    isVideoFileSource,
+    isWebcamSource,
+} from '../sources-sinks/sources/utils';
 import { CaptureFrameButton } from './capture-frame-button.component';
 import { ImagesFolderStream } from './images-folder-stream/images-folder-stream.component';
 import { Video } from './video.component';
@@ -19,7 +24,7 @@ const useActiveSource = () => {
     return data.sources.find((source) => source.active);
 };
 
-const WebcamStream = () => {
+const VideoStream = () => {
     // const [promptMode] = usePromptMode();
 
     return (
@@ -53,8 +58,8 @@ export const Stream = () => {
         return null;
     }
 
-    if (isWebcamSource(activeSource)) {
-        return <WebcamStream />;
+    if (isWebcamSource(activeSource) || isVideoFileSource(activeSource)) {
+        return <VideoStream />;
     }
 
     if (isTestDatasetSource(activeSource) || isImagesFolderSource(activeSource)) {
