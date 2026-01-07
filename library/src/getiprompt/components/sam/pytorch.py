@@ -17,6 +17,7 @@ from segment_anything_hq.modeling.prompt_encoder import PromptEncoder as _Prompt
 from segment_anything_hq.predictor import SamPredictor as _SamPredictor
 from torch import nn
 
+from getiprompt.data import ResizeLongestSide
 from getiprompt.utils.constants import DATA_PATH, MODEL_MAP, Backend, SAMModelName
 from getiprompt.utils.utils import download_file
 
@@ -254,6 +255,7 @@ class PyTorchSAMPredictor(nn.Module):
         sam_model_name: SAMModelName,
         device: str,
         model_path: Path | None = None,
+        target_length: int = 1024,
     ) -> None:
         """Initialize SAM predictor.
 
@@ -261,6 +263,7 @@ class PyTorchSAMPredictor(nn.Module):
             sam_model_name: The SAM model architecture (e.g., SAM_HQ_TINY, SAM2_BASE)
             device: Device to run inference on ("cuda", "cpu")
             model_path: Path to .pth checkpoint file (optional, auto-downloads if None)
+            target_length: Target length for the longest side of the image during transformation. Defaults to 1024.
 
         Raises:
             NotImplementedError: If the model type is not supported.
@@ -268,6 +271,8 @@ class PyTorchSAMPredictor(nn.Module):
         super().__init__()
         self.device = device
         self._sam_model_name = sam_model_name
+        self.transform = ResizeLongestSide(target_length)
+        self._original_size: tuple[int, int] | None = None
 
         # Determine checkpoint path
         if model_path is None:
@@ -330,21 +335,19 @@ class PyTorchSAMPredictor(nn.Module):
         patched_encoder.to(device)
         self._predictor.model.prompt_encoder = patched_encoder
 
-    def set_image(
-        self,
-        image: torch.Tensor,
-        original_size: tuple[int, int],
-    ) -> None:
+    def set_image(self, image: torch.Tensor) -> None:
         """Set image using PyTorch backend.
 
-        Delegates to the underlying predictor's set_torch_image method,
-        which computes and caches image embeddings for efficient inference.
+        Transforms the image to the target size and delegates to the underlying
+        predictor's set_torch_image method, which computes and caches image
+        embeddings for efficient inference.
 
         Args:
-            image: Preprocessed image tensor of shape (C, H, W)
-            original_size: Original image size (H, W) before preprocessing
+            image: Raw image tensor of shape (C, H, W)
         """
-        return self._predictor.set_torch_image(image, original_size)
+        self._original_size = image.shape[-2:]
+        transformed_image = self.transform.apply_image_torch(image).to(self.device)
+        return self._predictor.set_torch_image(transformed_image, self._original_size)
 
     def predict(
         self,
@@ -357,23 +360,49 @@ class PyTorchSAMPredictor(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Predict masks using PyTorch backend.
 
-        Delegates to the underlying predictor's predict_torch method.
+        Transforms point coordinates and boxes to the target image size,
+        then delegates to the underlying predictor's predict_torch method.
 
         Args:
-            point_coords: Point coordinates [B, N, 2] in (x, y) format
+            point_coords: Point coordinates [B, N, 2] in (x, y) format (original image coordinates)
             point_labels: Point labels [B, N] (1=foreground, 0=background, -1=padding)
-            boxes: Box prompts [B, 4] in (x1, y1, x2, y2) format
+            boxes: Box prompts [B, 4] or [B, 1, 4] in (x1, y1, x2, y2) format (original image coordinates)
             mask_input: Low-res mask input [B, 1, 256, 256]
             multimask_output: Whether to return multiple masks
             return_logits: Whether to return logits instead of binary masks
 
         Returns:
             Tuple of (masks, iou_predictions, low_res_logits)
+
+        Raises:
+            RuntimeError: If set_image() was not called before predict()
         """
+        if self._original_size is None:
+            msg = "Must call set_image() before predict()"
+            raise RuntimeError(msg)
+
+        # Transform point coordinates to target image size
+        transformed_point_coords = None
+        if point_coords is not None:
+            # point_coords shape: [B, N, 2]
+            original_shape = point_coords.shape
+            coords_flat = point_coords.reshape(-1, 2)
+            transformed_coords = self.transform.apply_coords_torch(coords_flat, self._original_size)
+            transformed_point_coords = transformed_coords.reshape(original_shape)
+
+        # Transform boxes to target image size
+        transformed_boxes = None
+        if boxes is not None:
+            # boxes shape: [B, 4] or [B, 1, 4]
+            original_shape = boxes.shape
+            boxes_flat = boxes.reshape(-1, 4)
+            transformed_boxes_flat = self.transform.apply_boxes_torch(boxes_flat, self._original_size)
+            transformed_boxes = transformed_boxes_flat.reshape(original_shape)
+
         return self._predictor.predict_torch(
-            point_coords=point_coords,
+            point_coords=transformed_point_coords,
             point_labels=point_labels,
-            boxes=boxes,
+            boxes=transformed_boxes,
             mask_input=mask_input,
             multimask_output=multimask_output,
             return_logits=return_logits,

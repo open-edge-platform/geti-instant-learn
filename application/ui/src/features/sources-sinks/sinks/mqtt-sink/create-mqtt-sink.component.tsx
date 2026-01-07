@@ -6,7 +6,8 @@
 import { FormEvent, useState } from 'react';
 
 import { MQTTSinkType } from '@geti-prompt/api';
-import { Button, Form } from '@geti/ui';
+import { Button, ButtonGroup, Form } from '@geti/ui';
+import { isEmpty } from 'lodash-es';
 
 import { useCreateSink } from '../api/use-create-sink';
 import { MQTTSinkFields } from './mqtt-sink-fields.component';
@@ -26,6 +27,12 @@ export const CreateMQTTSink = ({ onSaved }: CreateMQTTSinkProps) => {
         auth_required: false,
     });
 
+    const isApplyDisabled =
+        isEmpty(sinkConfig.name) ||
+        isEmpty(sinkConfig.broker_host) ||
+        isEmpty(sinkConfig.topic) ||
+        createSinkMutation.isPending;
+
     const createSink = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
@@ -36,9 +43,11 @@ export const CreateMQTTSink = ({ onSaved }: CreateMQTTSinkProps) => {
         <Form validationBehavior={'native'} onSubmit={createSink}>
             <MQTTSinkFields sinkConfig={sinkConfig} onSetSinkConfig={setSinkConfig} />
 
-            <Button type={'submit'} width={'max-content'} isPending={createSinkMutation.isPending}>
-                Apply
-            </Button>
+            <ButtonGroup>
+                <Button type={'submit'} isDisabled={isApplyDisabled} isPending={createSinkMutation.isPending}>
+                    Apply
+                </Button>
+            </ButtonGroup>
         </Form>
     );
 };

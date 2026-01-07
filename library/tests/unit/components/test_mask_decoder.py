@@ -26,19 +26,9 @@ class TestSamDecoderValidation:
         mock_model.image_encoder.img_size = 1024
         predictor.model = mock_model
 
-        # Mock transform
-        mock_transform = MagicMock()
-        mock_transform.target_length = 1024
-        mock_transform.apply_image_torch.return_value = torch.zeros((3, 1024, 1024), dtype=torch.uint8)
-        mock_transform.apply_coords_torch.return_value = torch.tensor([[100, 150]], dtype=torch.float32)
-        mock_transform.apply_boxes_torch.return_value = torch.tensor([[50, 50, 150, 150]], dtype=torch.float32)
-        mock_transform.apply_inverse_coords_torch.return_value = torch.tensor([[100, 150]], dtype=torch.float32)
-        mock_transform.apply_inverse_boxes.return_value = torch.tensor([[50, 50, 150, 150]], dtype=torch.float32)
-        predictor.transform = mock_transform
-
         # Mock prediction methods
-        predictor.set_torch_image.return_value = None
-        predictor.predict_torch.return_value = (
+        predictor.set_image.return_value = None
+        predictor.predict.return_value = (
             torch.zeros((1, 3, 1024, 1024), dtype=torch.bool),
             torch.tensor([0.8, 0.9, 0.7], dtype=torch.float32),
             torch.zeros((3, 256, 256), dtype=torch.float32),
@@ -49,16 +39,7 @@ class TestSamDecoderValidation:
     @pytest.fixture
     def sam_decoder(self, mock_sam_predictor: MagicMock) -> SamDecoder:
         """Create a SamDecoder instance."""
-        decoder = SamDecoder(sam_predictor=mock_sam_predictor, target_length=1024)
-        # Mock the transform that SamDecoder creates internally
-        mock_transform = MagicMock()
-        mock_transform.apply_image_torch.return_value = torch.zeros((3, 1024, 1024), dtype=torch.uint8)
-        mock_transform.apply_coords_torch.return_value = torch.tensor([[100, 150]], dtype=torch.float32)
-        mock_transform.apply_boxes_torch.return_value = torch.tensor([[50, 50, 150, 150]], dtype=torch.float32)
-        mock_transform.apply_inverse_coords_torch.return_value = torch.tensor([[100, 150]], dtype=torch.float32)
-        mock_transform.apply_inverse_boxes.return_value = torch.tensor([[50, 50, 150, 150]], dtype=torch.float32)
-        decoder.transform = mock_transform
-        return decoder
+        return SamDecoder(sam_predictor=mock_sam_predictor)
 
     def test_assertion_matching_masks_and_points(self, sam_decoder: SamDecoder) -> None:
         """Test that assertion passes when mask and point counts match."""
@@ -168,19 +149,9 @@ class TestSamDecoderEmptyTensorHandling:
         mock_model.image_encoder.img_size = 1024
         predictor.model = mock_model
 
-        # Mock transform
-        mock_transform = MagicMock()
-        mock_transform.target_length = 1024
-        mock_transform.apply_image_torch.return_value = torch.zeros((3, 1024, 1024), dtype=torch.uint8)
-        mock_transform.apply_coords_torch.return_value = torch.tensor([[100, 150]], dtype=torch.float32)
-        mock_transform.apply_boxes_torch.return_value = torch.tensor([[50, 50, 150, 150]], dtype=torch.float32)
-        mock_transform.apply_inverse_coords_torch.return_value = torch.tensor([[100, 150]], dtype=torch.float32)
-        mock_transform.apply_inverse_boxes.return_value = torch.tensor([[50, 50, 150, 150]], dtype=torch.float32)
-        predictor.transform = mock_transform
-
         # Mock prediction methods
-        predictor.set_torch_image.return_value = None
-        predictor.predict_torch.return_value = (
+        predictor.set_image.return_value = None
+        predictor.predict.return_value = (
             torch.zeros((1, 3, 1024, 1024), dtype=torch.bool),
             torch.tensor([0.8, 0.9, 0.7], dtype=torch.float32),
             torch.zeros((3, 256, 256), dtype=torch.float32),
@@ -191,16 +162,7 @@ class TestSamDecoderEmptyTensorHandling:
     @pytest.fixture
     def sam_decoder(self, mock_sam_predictor: MagicMock) -> SamDecoder:
         """Create a SamDecoder instance."""
-        decoder = SamDecoder(sam_predictor=mock_sam_predictor, target_length=1024)
-        # Mock the transform that SamDecoder creates internally
-        mock_transform = MagicMock()
-        mock_transform.apply_image_torch.return_value = torch.zeros((3, 1024, 1024), dtype=torch.uint8)
-        mock_transform.apply_coords_torch.return_value = torch.tensor([[100, 150]], dtype=torch.float32)
-        mock_transform.apply_boxes_torch.return_value = torch.tensor([[50, 50, 150, 150]], dtype=torch.float32)
-        mock_transform.apply_inverse_coords_torch.return_value = torch.tensor([[100, 150]], dtype=torch.float32)
-        mock_transform.apply_inverse_boxes.return_value = torch.tensor([[50, 50, 150, 150]], dtype=torch.float32)
-        decoder.transform = mock_transform
-        return decoder
+        return SamDecoder(sam_predictor=mock_sam_predictor)
 
     def test_empty_tensor_handling_for_empty_masks(self, sam_decoder: SamDecoder) -> None:
         """Test that empty tensors are properly handled when no masks are found."""

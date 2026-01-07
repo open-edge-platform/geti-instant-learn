@@ -1,3 +1,5 @@
+import threading
+import time
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
@@ -111,7 +113,7 @@ class TestImageFolderReaderSeek:
 
     def test_seek_without_connect(self, reader):
         """Test seeking before calling connect."""
-        with pytest.raises(ValueError, match="No images loaded"):
+        with pytest.raises(ValueError, match="Reader not initialized"):
             reader.seek(0)
 
     def test_seek_negative_index(self, reader):
@@ -129,11 +131,16 @@ class TestImageFolderReaderSeek:
     def test_seek_clears_cache(self, reader):
         reader.connect()
         reader.read()
+        first_image_path = reader._last_image_path
         assert reader._last_image is not None
 
         reader.seek(3)
-        assert reader._last_image is None
-        assert reader._last_image_path is None
+        assert reader._current_index == 3
+        data = reader.read()
+        assert data is not None
+        assert data.context["index"] == 3
+        assert reader._last_image_path != first_image_path
+        assert reader._last_image_path == reader._image_paths[3]
 
 
 class TestImageFolderReaderIndex:
@@ -225,6 +232,30 @@ class TestImageFolderReaderRead:
 
 
 class TestImageFolderReaderListFrames:
+    def test_list_frames_initialization_timeout(self, reader):
+        result = reader.list_frames(offset=0, limit=3)
+
+        assert isinstance(result, FrameListResponse)
+        assert result.pagination.total == 0
+        assert result.pagination.count == 0
+        assert len(result.frames) == 0
+
+    def test_list_frames_waits_for_initialization(self, reader, temp_image_folder):
+        def delayed_connect():
+            time.sleep(0.1)
+            reader.connect()
+
+        init_thread = threading.Thread(target=delayed_connect)
+        init_thread.start()
+
+        result = reader.list_frames(offset=0, limit=3)
+
+        init_thread.join()
+
+        assert isinstance(result, FrameListResponse)
+        assert result.pagination.total == 7
+        assert len(result.frames) == 3
+
     def test_list_frames_first_page(self, reader):
         """Test listing first page of frames."""
         reader.connect()

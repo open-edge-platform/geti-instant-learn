@@ -31,9 +31,14 @@ class Settings(BaseSettings):
     )
     openapi_url: str = "/api/openapi.json"
     debug: bool = Field(default=False, alias="DEBUG")
+    log_level: str = Field(default="WARNING", alias="LOG_LEVEL")
+    log_format: str = "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s"
     environment: Literal["dev", "prod"] = "dev"
 
     static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
+
+    # Runtime
+    device: Literal["cpu", "cuda", "xpu"] = Field(default="cpu", alias="DEVICE")
 
     # Server
     host: str = Field(default="localhost", alias="HOST")
@@ -94,8 +99,36 @@ class Settings(BaseSettings):
     thumbnail_fill_opacity: float = 0.5  # 50% opacity for annotation fill
     thumbnail_jpeg_quality: int = 85
 
+    # Processor configuration
+    processor_batch_size: int = Field(default=3, alias="PROCESSOR_BATCH_SIZE")
+
     # WebRTC
-    ice_servers: list[dict] = Field(default=[], alias="ICE_SERVERS")
+    webrtc_advertise_ip: str | None = Field(default=None, alias="WEBRTC_ADVERTISE_IP")
+
+    # Simplified WebRTC config
+    coturn_host: str | None = Field(default=None, alias="COTURN_HOST")
+    coturn_port: int = Field(default=3478, alias="COTURN_PORT")
+    coturn_username: str = Field(default="user", alias="COTURN_USERNAME")
+    coturn_password: str = Field(default="password", alias="COTURN_PASSWORD")
+    stun_server: str | None = Field(default=None, alias="STUN_SERVER")
+
+    @property
+    def ice_servers(self) -> list[dict]:
+        """Compute ICE servers from coturn and STUN configuration."""
+        servers = []
+        if self.coturn_host:
+            servers.append(
+                {
+                    "urls": f"turn:{self.coturn_host}:{self.coturn_port}?transport=tcp",
+                    "username": self.coturn_username,
+                    "credential": self.coturn_password,
+                }
+            )
+
+        if self.stun_server:
+            servers.append({"urls": self.stun_server})
+
+        return servers
 
     @field_validator("static_files_dir", "alembic_config_path", "alembic_script_location", mode="after")
     def prefix_paths(cls, v: str | None) -> str | None:

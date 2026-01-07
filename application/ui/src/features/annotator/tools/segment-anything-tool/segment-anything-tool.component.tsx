@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CSSProperties, PointerEvent, useEffect, useRef, useState } from 'react';
+import { CSSProperties, PointerEvent, useRef, useState } from 'react';
 
 import { LabelType } from '@geti-prompt/api';
 import { clampPointBetweenImage } from '@geti/smart-tools/utils';
@@ -14,24 +14,15 @@ import { AnnotationShape } from '../../annotations/annotation-shape.component';
 import { MaskAnnotations } from '../../annotations/mask-annotations.component';
 import { useAnnotationActions } from '../../providers/annotation-actions-provider.component';
 import { useAnnotator } from '../../providers/annotator-provider.component';
-import { RegionOfInterest, type Annotation as AnnotationType, type Shape } from '../../types';
+import { Point, RegionOfInterest, type Annotation as AnnotationType, type Shape } from '../../types';
 import { SvgToolCanvas } from '../svg-tool-canvas.component';
 import { getRelativePoint, removeOffLimitPoints } from '../utils';
-import { CreateLabel, useCreateLabelFormPosition } from './create-label.component';
+import { CreateLabelPopover } from './create-label.component';
 import { SAMLoading } from './sam-loading.component';
-import { InteractiveAnnotationPoint } from './segment-anything.interface';
 import { useSegmentAnythingModel } from './use-segment-anything.hook';
 import { useSingleStackFn } from './use-single-stack-fn.hook';
-import { useThrottledCallback } from './use-throttle-callback.hook';
 
 import classes from './segment-anything.module.scss';
-
-// Whenever the user moves their mouse over the canvas, we compute a preview of
-// SAM being applied to the user's mouse position.
-// The decoding step of SAM takes on average 100ms with 150-250ms being a high
-// exception. We throttle the mouse update based on this so that we don't overload
-// the user's cpu with too many decoding requests
-const THROTTLE_TIME = 150;
 
 interface PreviewAnnotationsProps {
     previewAnnotations: AnnotationType[];
@@ -65,10 +56,10 @@ const PreviewAnnotations = ({ previewAnnotations, image }: PreviewAnnotationsPro
 };
 
 export const SegmentAnythingTool = () => {
-    const [mousePosition, setMousePosition] = useState<InteractiveAnnotationPoint>();
-    const [createLabelFormPosition, setCreateLabelFormPosition] = useCreateLabelFormPosition();
+    const [createLabelFormPosition, setCreateLabelFormPosition] = useState<Point | null>(null);
     const [previewShapes, setPreviewShapes] = useState<Shape[]>([]);
     const [acceptedShapes, setAcceptedShapes] = useState<Shape[] | null>(null);
+    const ref = useRef<SVGSVGElement>(null);
 
     const zoom = useZoom();
     const { roi, image } = useAnnotator();
@@ -80,28 +71,6 @@ export const SegmentAnythingTool = () => {
     const canvasRef = useRef<SVGRectElement>(null);
 
     const clampPoint = clampPointBetweenImage(image);
-
-    const throttleSetMousePosition = useThrottledCallback((point: InteractiveAnnotationPoint) => {
-        setMousePosition(point);
-    }, THROTTLE_TIME);
-
-    useEffect(() => {
-        if (mousePosition === undefined) {
-            return;
-        }
-
-        throttledDecodingQueryFn([mousePosition])
-            .then((shapes) => {
-                setPreviewShapes(shapes.map((shape) => removeOffLimitPoints(shape, roi)));
-
-                throttleSetMousePosition.flush();
-            })
-            .catch(() => {
-                // If getting decoding went wrong we set an empty preview and
-                // start to compute the next decoding
-                return [];
-            });
-    }, [mousePosition, throttledDecodingQueryFn, throttleSetMousePosition, roi]);
 
     const handleMouseMove = (event: PointerEvent<SVGSVGElement>) => {
         if (acceptedShapes !== null) {
@@ -116,7 +85,15 @@ export const SegmentAnythingTool = () => {
             getRelativePoint(canvasRef.current, { x: event.clientX, y: event.clientY }, zoom.scale)
         );
 
-        throttleSetMousePosition({ ...point, positive: true });
+        throttledDecodingQueryFn([{ ...point, positive: true }])
+            .then((shapes) => {
+                setPreviewShapes(shapes.map((shape) => removeOffLimitPoints(shape, roi)));
+            })
+            .catch(() => {
+                // If getting decoding went wrong we set an empty preview and
+                // start to compute the next decoding
+                return [];
+            });
     };
 
     const handleAddAnnotations = (shapes: Shape[], label: LabelType) => {
@@ -134,7 +111,7 @@ export const SegmentAnythingTool = () => {
     };
 
     const handlePointerDown = (event: PointerEvent<SVGSVGElement>) => {
-        if (!canvasRef.current) {
+        if (!ref.current) {
             return;
         }
 
@@ -147,7 +124,14 @@ export const SegmentAnythingTool = () => {
         }
 
         if (selectedLabel == null) {
-            setCreateLabelFormPosition({ x: event.clientX, y: event.clientY });
+            const boundingBox = ref.current.getBoundingClientRect();
+
+            const point = {
+                x: event.clientX - boundingBox.left,
+                y: event.clientY - boundingBox.bottom,
+            };
+
+            setCreateLabelFormPosition(point);
             setAcceptedShapes(previewShapes);
             return;
         }
@@ -166,7 +150,7 @@ export const SegmentAnythingTool = () => {
     });
 
     const handleClose = () => {
-        setCreateLabelFormPosition(undefined);
+        setCreateLabelFormPosition(null);
         setAcceptedShapes(null);
     };
 
@@ -177,14 +161,13 @@ export const SegmentAnythingTool = () => {
     return (
         <>
             <SvgToolCanvas
+                ref={ref}
                 aria-label='SAM tool canvas'
                 image={image}
                 canvasRef={canvasRef}
                 onPointerMove={handleMouseMove}
                 onPointerDown={handlePointerDown}
                 onPointerLeave={() => {
-                    throttleSetMousePosition.cancel();
-                    setMousePosition(undefined);
                     setPreviewShapes([]);
                 }}
                 style={{
@@ -193,7 +176,8 @@ export const SegmentAnythingTool = () => {
             >
                 <PreviewAnnotations previewAnnotations={previewAnnotations} image={image} />
             </SvgToolCanvas>
-            <CreateLabel
+            <CreateLabelPopover
+                ref={ref}
                 onSuccess={handleAddAnnotationsCreateLabel}
                 existingLabels={labels}
                 mousePosition={createLabelFormPosition}

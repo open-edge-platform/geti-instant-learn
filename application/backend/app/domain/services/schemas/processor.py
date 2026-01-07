@@ -26,8 +26,8 @@ ALLOWED_SAM_MODELS: tuple[SAMModelName, ...] = (
 
 class MatcherConfig(BaseModel):
     model_type: Literal[ModelType.MATCHER] = ModelType.MATCHER
-    num_foreground_points: int = Field(default=40, gt=0, lt=100)
-    num_background_points: int = Field(default=2, ge=0, lt=10)
+    num_foreground_points: int = Field(default=5, gt=0, lt=100)
+    num_background_points: int = Field(default=3, ge=0, lt=10)
     confidence_threshold: float = Field(default=0.38, gt=0.0, lt=1.0)
     precision: str = Field(default="bf16", description="Model precision")
     sam_model: SAMModelName = Field(default=SAMModelName.SAM_HQ_TINY)
@@ -53,8 +53,8 @@ class MatcherConfig(BaseModel):
         "json_schema_extra": {
             "example": {
                 "model_type": "matcher",
-                "num_foreground_points": 40,
-                "num_background_points": 2,
+                "num_foreground_points": 5,
+                "num_background_points": 3,
                 "confidence_threshold": 0.38,
                 "precision": "bf16",
                 "sam_model": "SAM-HQ-tiny",

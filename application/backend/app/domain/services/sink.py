@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from api.error_handler import extract_constraint_name
 from domain.db.constraints import UniqueConstraintName
 from domain.db.models import ProjectDB, SinkDB
-from domain.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher
+from domain.dispatcher import ComponentConfigChangeEvent, ComponentType, ConfigChangeDispatcher
 from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
@@ -278,8 +278,8 @@ class SinkService(BaseService):
             self._pending_events.append(
                 ComponentConfigChangeEvent(
                     project_id=project_id,
-                    component_type="sink",
-                    component_id=str(sink_id),
+                    component_type=ComponentType.SINK,
+                    component_id=sink_id,
                 )
             )
 

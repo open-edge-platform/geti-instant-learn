@@ -94,4 +94,10 @@ Findings can be ignored inline with `# nosemgrep: rule-id` comments.
 
 [Details](https://semgrep.dev/docs/ignoring-files-folders-code) in Semgrep docs.
 
-</details>
+### ChatOps
+
+It is possible to trigger several workflows by commenting on pull requests. The following table summarizes these options.
+
+| Comment  | Description                                               |
+| -------- | --------------------------------------------------------- |
+| `/build` | Triggers `distrib.yml` workflow to build container images |

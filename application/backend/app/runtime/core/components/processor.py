@@ -17,6 +17,8 @@ from runtime.core.components.broadcaster import FrameBroadcaster
 
 logger = logging.getLogger(__name__)
 
+EMPTY_RESULT: dict[str, torch.Tensor] = {}
+
 
 class Processor(PipelineComponent):
     """
@@ -24,11 +26,18 @@ class Processor(PipelineComponent):
     sending them to a processor for inference, and broadcasting the processed results to subscribed consumers.
     """
 
-    def __init__(self, model_handler: ModelHandler, label_service: LabelService, project_id: UUID | None = None):
+    def __init__(
+        self,
+        model_handler: ModelHandler,
+        label_service: LabelService,
+        project_id: UUID | None = None,
+        batch_size: int = 3,
+    ):
         super().__init__()
         self._model_handler = model_handler
         self._label_service = label_service
         self._project_id: UUID | None = project_id
+        self._batch_size = batch_size
 
     def setup(
         self,
@@ -44,51 +53,34 @@ class Processor(PipelineComponent):
         logger.debug("Starting a pipeline runner loop")
         self._model_handler.initialise()
         logger.info("Pipeline model handler initialized")
+
         while not self._stop_event.is_set():
             try:
-                data = self._in_queue.get(timeout=0.1)
-                batch = self._create_batch(data)
-                results = self._model_handler.predict(batch)
-                # output_data = OutputData(frame=data.frame, results=results, labels_colors=self._get_labels_colors())
-                output_data = OutputData(frame=data.frame, results=results, labels_colors=None)
-                if results:
-                    logger.info("Received INFERENCE results: %s", results)
-                    logger.info(
-                        "Prepared OUTPUT DATA results: %s, label colors %s",
-                        output_data.results,
-                        output_data.labels_colors,
-                    )
-                self._outbound_broadcaster.broadcast(output_data)
-            except Empty:
-                continue
+                batch_data: list[InputData] = []
+                for _ in range(self._batch_size):
+                    try:
+                        batch_data.append(self._in_queue.get(timeout=0.1))
+                    except Empty:
+                        break
+
+                if not batch_data:
+                    continue
+
+                samples = [
+                    Sample(image=tv_tensors.Image(torch.from_numpy(data.frame).permute(2, 0, 1))) for data in batch_data
+                ]
+                batch_results = self._model_handler.predict(Batch.collate(samples))
+
+                for i, data in enumerate(batch_data):
+                    results: dict[str, torch.Tensor] = batch_results[i] if i < len(batch_results) else EMPTY_RESULT
+                    output_data = OutputData(frame=data.frame, results=[results], labels_colors=None)
+                    self._outbound_broadcaster.broadcast(output_data)
+
             except Exception as e:
                 logger.exception("Error in pipeline runner loop: %s", e)
                 continue
+
         logger.debug("Stopping the pipeline runner loop")
-
-    def _create_batch(self, data: InputData):
-        # Convert HWC (numpy) to CHW (tensor) for model
-        image_chw = tv_tensors.Image(torch.from_numpy(data.frame).permute(2, 0, 1))
-        sample = Sample(image=image_chw)
-        return Batch.collate([sample])
-
-    def _get_labels_colors(self) -> dict[str, tuple[int, int, int]]:
-        if not self._project_id:
-            return {}
-        try:
-            labels = self._label_service.get_all_labels(self._project_id).labels  # todo without pag limit
-            return {str(label.id): self._hex_to_rgb(label.color) for label in labels}
-        except Exception as e:
-            logger.warning("Failed to retrieve label colors: %s", e)
-            return {}
-
-    @staticmethod
-    def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
-        hex_color = hex_color.lstrip("#")
-        r = int(hex_color[0:2], 16)
-        g = int(hex_color[2:4], 16)
-        b = int(hex_color[4:6], 16)
-        return r, g, b
 
     def _stop(self) -> None:
         self._inbound_broadcaster.unregister(self._in_queue)

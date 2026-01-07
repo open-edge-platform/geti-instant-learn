@@ -51,7 +51,7 @@ class MaskedFeatureExtractor(nn.Module):
         embeddings: torch.Tensor,
         masks: torch.Tensor,
         category_ids: torch.Tensor,
-    ) -> tuple[dict[int, torch.Tensor], dict[int, torch.Tensor]]:
+    ) -> tuple[dict[int, torch.Tensor], dict[int, torch.Tensor], dict[int, torch.Tensor]]:
         """Extract masked, mask-conditioned features from batched inputs.
 
         This method aligns binary masks to the patch grid, selects feature embeddings
@@ -67,12 +67,15 @@ class MaskedFeatureExtractor(nn.Module):
             category_ids (torch.Tensor): Category IDs for each mask of shape ``(batch_size, num_masks)``.
 
         Returns:
-            tuple[dict[int, torch.Tensor], dict[int, torch.Tensor]]:
+            tuple[dict[int, torch.Tensor], dict[int, torch.Tensor], dict[int, torch.Tensor]]:
                 - masked_ref_embeddings: Dictionary of masked reference features grouped by category.
                 - flatten_ref_masks: Dictionary of flattened masks grouped by category.
+                - ref_embeddings: Dictionary of all reference features grouped by category.
         """
         masked_ref_embeddings = defaultdict(list)
         flatten_ref_masks = defaultdict(list)
+        ref_embeddings = defaultdict(list)
+
         for embedding, masks_tensor, category_ids_tensor in zip(
             embeddings,
             masks,
@@ -80,12 +83,14 @@ class MaskedFeatureExtractor(nn.Module):
             strict=True,
         ):
             for category_id, mask in zip(category_ids_tensor, masks_tensor, strict=True):
-                category_id = category_id.item()
+                if isinstance(category_id, torch.Tensor):
+                    category_id = int(category_id.item())
                 pooled_mask = self.transform(mask).to(embedding.device)
                 flatten_ref_masks[category_id].append(pooled_mask)
                 keep = pooled_mask.flatten().bool()
                 masked_embedding = embedding[keep]
                 masked_ref_embeddings[category_id].append(masked_embedding)
+                ref_embeddings[category_id].append(embedding)
 
         for category_id, masked_embedding in masked_ref_embeddings.items():
             masked_embedding = torch.cat(masked_embedding, dim=0)
@@ -98,4 +103,8 @@ class MaskedFeatureExtractor(nn.Module):
             flatten_ref_mask_list = torch.cat(flatten_ref_mask_list, dim=0)
             flatten_ref_masks[category_id] = flatten_ref_mask_list.reshape(-1)
 
-        return masked_ref_embeddings, flatten_ref_masks
+        for category_id, ref_embedding_list in ref_embeddings.items():
+            ref_embedding_list = torch.cat(ref_embedding_list, dim=0)
+            ref_embeddings[category_id] = ref_embedding_list
+
+        return masked_ref_embeddings, flatten_ref_masks, ref_embeddings

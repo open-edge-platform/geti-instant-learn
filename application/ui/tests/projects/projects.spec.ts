@@ -673,7 +673,7 @@ test.describe('Projects', () => {
             await expect(projectPage.inactiveStatus).toBeVisible();
             await projectPage.openProjectManagementPanel();
 
-            await projectPage.activateCurrentProject();
+            await projectPage.activateCurrentProjectFromManagementPanel();
 
             await expect(projectPage.activateProjectDialogHeading).toBeVisible();
 

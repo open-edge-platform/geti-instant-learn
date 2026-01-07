@@ -1,7 +1,7 @@
 ################
 # Libraries Base
 ################
-FROM python:3.12-slim-bookworm@sha256:2db3d54b851289c3fdf380af6c3eb0db09b072060151fb344de80673e1b26f81 AS backend-base
+FROM python:3.12-slim-bookworm@sha256:28cf028e5a544e92dbe11450debd93dd5eb70eaf3179a9e878cfaee426556b3b AS backend-base
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
 # Disable Python downloads, because we want to use the system interpreter
@@ -24,35 +24,13 @@ COPY --link --from=libs ./pyproject.toml /geti_prompt/library/pyproject.toml
 RUN mkdir -p /geti_prompt/app/backend
 WORKDIR /geti_prompt/app/backend
 
-##########
-# CPU Base
-##########
-FROM backend-base AS cpu-base
+ARG DEVICE=""
+ENV DEVICE=${DEVICE}
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra cpu --extra mqtt
-
-##########
-# GPU Base
-##########
-FROM backend-base AS gpu-base
-
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=backend/uv.lock,target=uv.lock \
-    --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra cu126 --extra mqtt
-
-##########
-# XPU Base
-##########
-FROM backend-base AS xpu-base
-
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=backend/uv.lock,target=uv.lock \
-    --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra xpu --extra mqtt
+    uv sync --frozen --no-dev --no-editable --extra ${DEVICE} --extra mqtt
 
 ##################
 # Geti UI packages
@@ -80,16 +58,12 @@ COPY --link ui/tsconfig.json ./
 COPY --link ui/rsbuild.config.ts ./
 COPY --link ui/src/ src/
 
-ARG PUBLIC_API_URL=""
-ENV PUBLIC_API_URL=${PUBLIC_API_URL}
-
 ########
 # Web UI
 ########
 FROM web-ui-base AS web-ui
 
-ARG ASSET_PREFIX=""
-ENV ASSET_PREFIX=${ASSET_PREFIX}
+ENV ASSET_PREFIX="/html"
 
 # build with --no-cache in case of sub-dependency changes (from geti)
 RUN npm run build
@@ -97,14 +71,11 @@ RUN npm run build
 ##########################################
 # Base for CPU, GPU and XPU runtime images
 ##########################################
-FROM python:3.12-slim-bookworm@sha256:2db3d54b851289c3fdf380af6c3eb0db09b072060151fb344de80673e1b26f81 AS runtime-base
+FROM python:3.12-slim-bookworm@sha256:28cf028e5a544e92dbe11450debd93dd5eb70eaf3179a9e878cfaee426556b3b AS runtime-base
 
-ARG STATIC_FILES_DIR=""
-ENV STATIC_FILES_DIR=${STATIC_FILES_DIR}
-ARG DB_DATA_DIR=""
-ENV DB_DATA_DIR=${DB_DATA_DIR}
-ARG LOGS_DIR=""
-ENV LOGS_DIR=${LOGS_DIR}
+ENV STATIC_FILES_DIR="/geti_prompt/html"
+ENV DB_DATA_DIR="/geti_prompt/data"
+ENV LOGS_DIR="/geti_prompt/logs"
 ARG MOCKED_FILE=""
 ENV MOCKED_FILE=${MOCKED_FILE}
 ENV PATH="/geti_prompt/.venv/bin:$PATH"
@@ -113,10 +84,10 @@ ARG UID=10001
 ENV UID=${UID}
 ARG USER_NAME="non-root"
 ENV USER_NAME=${USER_NAME}
-ARG PUBLIC_API_URL=""
-ENV PUBLIC_API_URL=${PUBLIC_API_URL}
 ARG TARGET_DATASET_DIR=""
 ARG SOURCE_DATASET_DIR=""
+ARG RUNTIME=""
+ENV RUNTIME=${RUNTIME}
 
 # Create directory and set ownership before VOLUME instruction
 RUN mkdir -p ${DB_DATA_DIR} && chown ${UID}:${UID} ${DB_DATA_DIR}
@@ -154,7 +125,7 @@ COPY --from=web-ui --chown=${UID} /home/app/web_ui/src/assets/test.webp ${MOCKED
 WORKDIR /geti_prompt
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD uv run python -c "import urllib.request; urllib.request.urlopen('${PUBLIC_API_URL}/health')" || exit 1
+    CMD uv run python -c "import urllib.request; urllib.request.urlopen('http://localhost:9100/health')" || exit 1
 
 USER ${USER_NAME}
 
@@ -165,7 +136,7 @@ CMD ["uv", "run", "app/main.py"]
 ######################
 FROM runtime-base AS cpu
 
-COPY --from=cpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
+COPY --from=backend-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
 
 ######################
 # Server (GPU version)
@@ -190,7 +161,7 @@ RUN apt-get update \
 # needed to define it here to allow installation of packages
 USER ${USER_NAME}
 
-COPY --from=gpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
+COPY --from=backend-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
 
 ######################
 # Server (XPU version)
@@ -219,4 +190,4 @@ RUN apt-get update  \
 # needed to define it here to allow installation of packages
 USER ${USER_NAME}
 
-COPY --from=xpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
+COPY --from=backend-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv

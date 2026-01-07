@@ -10,7 +10,7 @@ import { type paths } from './openapi-spec';
 import spec from './openapi-spec.json' with { type: 'json' };
 
 const http = createOpenApiHttp<paths>({
-    baseUrl: process.env.PUBLIC_API_URL ?? 'http://localhost:9100',
+    baseUrl: process.env.PUBLIC_API_URL,
 });
 
 const handlers = await fromOpenApi(JSON.stringify(spec));

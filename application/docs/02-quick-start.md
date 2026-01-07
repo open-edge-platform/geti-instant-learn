@@ -22,9 +22,69 @@ Geti Prompt can be used the way you want: as a desktop application on your pc or
 
 ### Option 3: Run from source code
 
+
+Run both backend and frontend development servers:
+
 ```bash
-# TODO add instructions how to run the app from source code.
+just application/dev
 ```
+
+This starts:
+- Backend API at `http://<your-ip>:9100`
+- Frontend UI at `http://<your-ip>:3000`
+
+Ports can be customized using the `port` and `ui-port` variables (see below).
+
+#### Supported Variables
+
+| Variable | Default | Options | Description |
+|----------|---------|---------|-------------|
+| `port` | `9100` | Any port | Backend API server port |
+| `ui-port` | `3000` | Any port | Frontend UI server port |
+| `device` | `cpu` | `cpu`, `cu126`, `xpu` | ML inference device (backend only) |
+| `enable-coturn` | `false` | `true`, `false` | Start Coturn TURN server (backend only) |
+| `stun-server` | `""` | STUN URL | External STUN server URL (backend only) |
+| `coturn-port` | `443` | Any port | Coturn server port (backend only) |
+
+> **Note:** For details on configuring WebRTC networking with Coturn and STUN servers, see [WebRTC Networking](concepts/02-development.md#webrtc-networking).
+
+#### Usage Examples
+
+```bash
+# Default (CPU, port 9100)
+just application/dev
+
+# Custom backend port
+just port=8080 application/dev
+
+# Custom UI port
+just ui-port=4000 application/dev
+
+# Custom backend and UI ports
+just port=8080 ui-port=4000 application/dev
+
+# With GPU
+just device=cu126 application/dev
+
+# With Coturn
+just enable-coturn=true application/dev
+
+# With external STUN
+just stun-server="stun:stun.l.google.com:19302" application/dev
+
+# With XPU
+just device=xpu application/dev
+
+# Combined options
+just device=cu126 enable-coturn=true port=8080 ui-port=4000 application/dev
+```
+
+#### Access
+
+**Local:** `http://localhost:3000`
+**Remote:** `http://<server-ip>:3000` (accessible from other machines on your network)
+
+
 
 ## Start using Geti Prompt
 

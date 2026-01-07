@@ -33,7 +33,7 @@ const useSavePromptMutation = () => {
 export const useSavePrompt = () => {
     const { projectId } = useProjectIdentifier();
     const { annotations } = useAnnotationActions();
-    const { roi, frameId } = useAnnotator();
+    const { frameId } = useAnnotator();
     const { setPromptId, prompt } = useVisualPrompt();
     const { setIsFullScreenMode } = useFullScreenMode();
 
@@ -47,7 +47,7 @@ export const useSavePrompt = () => {
                     id: uuid(),
                     type: 'VISUAL',
                     frame_id: frameId,
-                    annotations: convertAnnotationsToDTO(annotations, roi),
+                    annotations: convertAnnotationsToDTO(annotations),
                 },
                 params: {
                     path: {

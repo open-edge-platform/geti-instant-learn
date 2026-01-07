@@ -22,31 +22,39 @@ class Source(PipelineComponent):
         super().__init__()
         self._reader = stream_reader
         self._initialized = False
+        self._inbound_broadcaster: FrameBroadcaster[InputData] | None = None
 
     def setup(self, inbound_broadcaster: FrameBroadcaster[InputData]) -> None:
         self._inbound_broadcaster = inbound_broadcaster
         self._initialized = True
 
     def run(self) -> None:
-        if not self._initialized:
+        if not self._initialized or self._inbound_broadcaster is None:
             raise RuntimeError("The source should be initialized before being used")
 
-        logger.debug("Starting a source loop")
-        with self._reader:
-            self._reader.connect()
-            while not self._stop_event.is_set():
-                try:
-                    data = self._reader.read()
-                    if data is None:
-                        time.sleep(0.01)
-                        continue
+        self._reader.connect()
 
-                    self._inbound_broadcaster.broadcast(data)
+        logger.debug(f"Starting a source {self._reader.__class__.__name__} loop")
+        while not self._stop_event.is_set():
+            try:
+                data = self._reader.read()
+                if data is None:
+                    time.sleep(0.01)
+                    continue
 
-                except Exception as e:
-                    logger.error(f"Error reading from stream: {e}.")
-                    time.sleep(0.1)
-        logger.debug("Stopping the source loop")
+                self._inbound_broadcaster.broadcast(data)
+
+            except Exception as e:
+                logger.error(f"Error reading from stream: {e}.")
+                time.sleep(0.1)
+        logger.debug(f"Stopping the source {self._reader.__class__.__name__} loop")
+
+    def _stop(self) -> None:
+        """Clean up resources when component is stopped."""
+        try:
+            self._reader.close()
+        except Exception as e:
+            logger.error(f"Error closing reader: {e}")
 
     def seek(self, index: int) -> None:
         """

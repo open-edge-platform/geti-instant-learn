@@ -124,7 +124,6 @@ class PerDino(Model):
         self.prompt_filter = PointPromptFilter(num_foreground_points=num_foreground_points)
         self.segmenter: SamDecoder = SamDecoder(
             sam_predictor=self.sam_predictor,
-            target_length=1024,
             mask_similarity_threshold=mask_similarity_threshold,
         )
         self.masked_ref_embeddings = None
@@ -133,7 +132,7 @@ class PerDino(Model):
         """Perform learning step on the reference images and priors."""
         # Start running the model
         reference_embeddings = self.encoder(reference_batch.images)
-        self.masked_ref_embeddings, _ = self.masked_feature_extractor(
+        self.masked_ref_embeddings, _, _ = self.masked_feature_extractor(
             reference_embeddings,
             reference_batch.masks,
             reference_batch.category_ids,

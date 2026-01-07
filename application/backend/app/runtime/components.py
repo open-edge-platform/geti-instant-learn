@@ -17,6 +17,7 @@ from runtime.core.components.factories.writer import StreamWriterFactory
 from runtime.core.components.processor import Processor
 from runtime.core.components.sink import Sink
 from runtime.core.components.source import Source
+from settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,12 @@ class DefaultComponentFactory(ComponentFactory):
             cfg = project_svc.get_pipeline_config(project_id)
             reference_batch = prompt_svc.get_reference_batch(project_id, PromptType.VISUAL)
             logger.info("creating processor with model config: %s", cfg.processor)
-        return Processor(ModelFactory.create(reference_batch, cfg.processor), LabelService(session), project_id)
+        return Processor(
+            ModelFactory.create(reference_batch, cfg.processor),
+            LabelService(session),
+            project_id,
+            get_settings().processor_batch_size,
+        )
 
     def create_sink(self, project_id: UUID) -> Sink:
         with self._session_factory() as session:

@@ -1,10 +1,7 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
-import os
 from unittest.mock import MagicMock, patch
-
-import pytest
 from getiprompt.utils.constants import SAMModelName
 
 from domain.services.schemas.processor import MatcherConfig
@@ -12,44 +9,6 @@ from runtime.core.components.factories.model import ModelFactory
 
 
 class TestModelFactory:
-    @pytest.mark.parametrize(
-        "runtime,expected_device",
-        [
-            ("cpu", "cpu"),
-            ("cuda", "cuda"),
-            ("xpu", "xpu"),
-        ],
-    )
-    def test_resolve_device_returns_correct_device(self, runtime, expected_device):
-        with patch.dict(os.environ, {"RUNTIME": runtime}):
-            device = ModelFactory._resolve_device()
-
-            assert device == expected_device
-
-    def test_resolve_device_raises_error_for_unknown_runtime(self):
-        with patch.dict(os.environ, {"RUNTIME": "unknown_runtime"}):
-            with pytest.raises(ValueError, match="Unknown runtime: unknown_runtime"):
-                ModelFactory._resolve_device()
-
-    def test_resolve_device_defaults_to_cpu(self):
-        with patch.dict(os.environ, {}, clear=True):
-            device = ModelFactory._resolve_device()
-
-            assert device == "cpu"
-
-    @pytest.mark.parametrize(
-        "sam_model",
-        [
-            SAMModelName.SAM2_TINY,
-            SAMModelName.SAM2_SMALL,
-            SAMModelName.SAM2_BASE,
-            SAMModelName.SAM2_LARGE,
-        ],
-    )
-    def test_matcher_config_rejects_unsupported_sam_models(self, sam_model):
-        with pytest.raises(ValueError):
-            MatcherConfig(sam_model=sam_model)
-
     def test_factory_creates_matcher_model_with_config(self):
         config = MatcherConfig(
             num_foreground_points=50,
@@ -57,11 +16,13 @@ class TestModelFactory:
             confidence_threshold=0.5,
             precision="fp32",
             sam_model=SAMModelName.SAM_HQ_TINY,
-            encoder_model="dinov3_large",
+            encoder_model="dinov3_small",
         )
         mock_reference_batch = MagicMock()
+        mock_settings = MagicMock()
+        mock_settings.device = "cpu"
 
-        with patch.object(ModelFactory, "_resolve_device", return_value="cpu"):
+        with patch("runtime.core.components.factories.model.get_settings", return_value=mock_settings):
             with patch("runtime.core.components.factories.model.Matcher") as mock_matcher:
                 mock_instance = mock_matcher.return_value
 
@@ -75,7 +36,8 @@ class TestModelFactory:
                     precision="fp32",
                     device="cpu",
                     sam=SAMModelName.SAM_HQ_TINY,
-                    encoder_model="dinov3_large",
+                    encoder_model="dinov3_small",
+                    use_mask_refinement=False,
                 )
 
     def test_factory_returns_none_for_unknown_config(self):

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from api.error_handler import extract_constraint_name
 from domain.db.constraints import UniqueConstraintName
 from domain.db.models import ProjectDB, SourceDB
-from domain.dispatcher import ComponentConfigChangeEvent, ConfigChangeDispatcher
+from domain.dispatcher import ComponentConfigChangeEvent, ComponentType, ConfigChangeDispatcher
 from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
@@ -262,8 +262,8 @@ class SourceService(BaseService):
             self._pending_events.append(
                 ComponentConfigChangeEvent(
                     project_id=project_id,
-                    component_type="source",
-                    component_id=str(source_id),
+                    component_type=ComponentType.SOURCE,
+                    component_id=source_id,
                 )
             )
 

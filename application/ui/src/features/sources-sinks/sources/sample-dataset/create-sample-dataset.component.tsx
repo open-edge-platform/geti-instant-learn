@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Button, Flex, Heading, Text, View } from '@geti/ui';
+import { Button, ButtonGroup, Flex, Form, Heading, Text, View } from '@geti/ui';
 
 import TestDatasetImg from '../../../../assets/coffee-berries-placeholder.webp';
 import { useCreateSource } from '../api/use-create-source';
@@ -51,19 +51,21 @@ export const CreateSampleDataset = ({ onSaved }: CreateSampleDatasetProps) => {
                 <img src={TestDatasetImg} alt={'Coffee Bean Quality Dataset'} className={styles.img} />
             </View>
             <View padding={'size-200'} backgroundColor={'gray-200'}>
-                <Flex direction={'column'} gap={'size-200'}>
-                    <SampleDatasetTitle />
-                    <SampleDatasetDescription />
-                    <Flex>
-                        <Button
-                            isPending={createSampleDataset.isPending}
-                            isDisabled={isApplyDisabled}
-                            onPress={handleCreateSampleDataset}
-                        >
-                            Apply
-                        </Button>
+                <Form validationBehavior={'native'} onSubmit={handleCreateSampleDataset}>
+                    <Flex direction={'column'} gap={'size-200'}>
+                        <SampleDatasetTitle />
+                        <SampleDatasetDescription />
+                        <ButtonGroup>
+                            <Button
+                                type={'submit'}
+                                isPending={createSampleDataset.isPending}
+                                isDisabled={isApplyDisabled}
+                            >
+                                Apply
+                            </Button>
+                        </ButtonGroup>
                     </Flex>
-                </Flex>
+                </Form>
             </View>
         </View>
     );

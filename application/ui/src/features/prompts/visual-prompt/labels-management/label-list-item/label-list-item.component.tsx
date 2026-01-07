@@ -97,6 +97,7 @@ interface LabelListItemProps {
 export const LabelListItem = ({ label, onSelect, isSelected, existingLabels }: LabelListItemProps) => {
     const [isInEdition, setIsInEdition] = useState<boolean>(false);
     const { projectId } = useProjectIdentifier();
+    const { updateAnnotations, annotations } = useAnnotationActions();
 
     const updateLabelMutation = useUpdateLabel();
     const updateLabel = (newLabel: LabelType) => {
@@ -116,18 +117,33 @@ export const LabelListItem = ({ label, onSelect, isSelected, existingLabels }: L
             {
                 onSuccess: () => {
                     setIsInEdition(false);
+
+                    if (label.color !== newLabel.color) {
+                        const updatedAnnotations = annotations.map((annotation) => ({
+                            ...annotation,
+                            labels: annotation.labels.map((annotationLabel) =>
+                                annotationLabel.id === newLabel.id ? newLabel : annotationLabel
+                            ),
+                        }));
+
+                        updateAnnotations(updatedAnnotations);
+                    }
                 },
             }
         );
     };
 
+    const handleClose = () => {
+        setIsInEdition(false);
+    };
+
     if (isInEdition) {
         return (
             <EditLabel
+                shouldCloseOnOutsideClick
                 onAccept={updateLabel}
-                onClose={() => setIsInEdition(false)}
+                onClose={handleClose}
                 label={label}
-                isQuiet
                 width={'size-2400'}
                 existingLabels={existingLabels}
                 isDisabled={updateLabelMutation.isPending}

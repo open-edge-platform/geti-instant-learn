@@ -7,7 +7,8 @@ import { FormEvent, useState } from 'react';
 
 import { ImagesFolderSourceType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
-import { Flex } from '@geti/ui';
+import { getQueryKey } from '@geti-prompt/query-client';
+import { Flex, Form } from '@geti/ui';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useUpdateSource } from '../api/use-update-source';
@@ -48,23 +49,23 @@ const useUpdateImagesFolderSource = (sourceId: string) => {
                 };
 
                 queryClient.invalidateQueries({
-                    queryKey: [
+                    queryKey: getQueryKey([
                         'get',
                         '/api/v1/projects/{project_id}/sources/{source_id}/frames',
                         {
                             params,
                         },
-                    ],
+                    ]),
                 });
 
                 queryClient.invalidateQueries({
-                    queryKey: [
+                    queryKey: getQueryKey([
                         'get',
                         '/api/v1/projects/{project_id}/sources/{source_id}/frames/index',
                         {
                             params,
                         },
-                    ],
+                    ]),
                 });
 
                 onSuccess();
@@ -108,7 +109,7 @@ export const EditImagesFolder = ({ source, onSaved }: EditImagesFolderProps) => 
     };
 
     return (
-        <form onSubmit={handleSubmit}>
+        <Form validationBehavior={'native'} onSubmit={handleSubmit}>
             <Flex direction={'column'} gap={'size-200'}>
                 <ImagesFolderFields folderPath={folderPath} onSetFolderPath={setFolderPath} />
 
@@ -120,6 +121,6 @@ export const EditImagesFolder = ({ source, onSaved }: EditImagesFolderProps) => 
                     isPending={updateImagesFolderSource.isPending}
                 />
             </Flex>
-        </form>
+        </Form>
     );
 };
