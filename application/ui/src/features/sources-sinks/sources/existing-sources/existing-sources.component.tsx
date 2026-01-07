@@ -12,7 +12,8 @@ import { useDeleteSource } from '../api/use-delete-source';
 import { useUpdateSource } from '../api/use-update-source';
 import { ImagesFolderSourceCard } from '../images-folder/images-folder-card.component';
 import { SampleDatasetCard } from '../sample-dataset/sample-dataset-card.component';
-import { isImagesFolderSource, isTestDatasetSource, isWebcamSource, SourcesViews } from '../utils';
+import { isImagesFolderSource, isTestDatasetSource, isVideoFileSource, isWebcamSource, SourcesViews } from '../utils';
+import { VideoFileCard } from '../video-file/video-file-card.component';
 import { WebcamSourceCard } from '../webcam/webcam-source-card.component';
 
 const getMenuItems = ({
@@ -98,12 +99,18 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
             {sortSources(sources).map((source) => {
                 const isActiveSource = source.active;
 
+                const menuItems = getMenuItems({
+                    isActiveSource,
+                    isActiveProject,
+                    isTestDataset: isTestDatasetSource(source),
+                });
+
                 if (isTestDatasetSource(source)) {
                     return (
                         <SampleDatasetCard
                             key={source.id}
                             source={source}
-                            menuItems={getMenuItems({ isActiveSource, isActiveProject, isTestDataset: true })}
+                            menuItems={menuItems}
                             onAction={handleAction(source)}
                         />
                     );
@@ -114,7 +121,7 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
                         <WebcamSourceCard
                             key={source.id}
                             source={source}
-                            menuItems={getMenuItems({ isActiveSource, isActiveProject, isTestDataset: false })}
+                            menuItems={menuItems}
                             onAction={handleAction(source)}
                         />
                     );
@@ -125,7 +132,18 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
                         <ImagesFolderSourceCard
                             key={source.id}
                             source={source}
-                            menuItems={getMenuItems({ isActiveSource, isActiveProject, isTestDataset: false })}
+                            menuItems={menuItems}
+                            onAction={handleAction(source)}
+                        />
+                    );
+                }
+
+                if (isVideoFileSource(source)) {
+                    return (
+                        <VideoFileCard
+                            key={source.id}
+                            source={source}
+                            menuItems={menuItems}
                             onAction={handleAction(source)}
                         />
                     );
