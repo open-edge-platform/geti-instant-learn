@@ -91,7 +91,7 @@ export const EditImagesFolder = ({ source, onSaved }: EditImagesFolderProps) => 
         updateImagesFolderSource.isPending;
 
     const handleUpdateImagesFolder = (active: boolean) => {
-        updateImagesFolderSource.mutate({ folderPath, active }, onSaved);
+        updateImagesFolderSource.mutate({ folderPath: folderPath.trim(), active }, onSaved);
     };
 
     const handleSave = () => {
