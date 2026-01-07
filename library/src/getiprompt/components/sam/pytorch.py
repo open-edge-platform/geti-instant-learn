@@ -346,7 +346,7 @@ class PyTorchSAMPredictor(nn.Module):
             image: Raw image tensor of shape (C, H, W)
         """
         self._original_size = image.shape[-2:]
-        transformed_image = self.transform.apply_image_torch(image).to(self.device)
+        transformed_image = self.transform.apply_image_torch(image).to(device=self.device)
         return self._predictor.set_torch_image(transformed_image, self._original_size)
 
     def predict(

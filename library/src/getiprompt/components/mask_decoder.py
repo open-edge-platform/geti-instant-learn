@@ -9,7 +9,6 @@ from torch.nn import functional as F
 from torchvision.ops import masks_to_boxes, nms
 
 from getiprompt.components.sam.pytorch import PyTorchSAMPredictor
-from getiprompt.data import ResizeLongestSide
 
 
 class SamDecoder(nn.Module):
@@ -31,7 +30,6 @@ class SamDecoder(nn.Module):
     def __init__(
         self,
         sam_predictor: PyTorchSAMPredictor,
-        target_length: int = 1024,
         mask_similarity_threshold: float = 0.38,
         nms_iou_threshold: float = 0.1,
         max_masks_per_category: int = 40,
@@ -46,37 +44,18 @@ class SamDecoder(nn.Module):
         self.max_masks_per_category = max_masks_per_category
         self.use_mask_refinement = use_mask_refinement
         self.merge_masks_per_class = merge_masks_per_class
-        self.transform = ResizeLongestSide(target_length)
         self.device = sam_predictor.device
-
-    def _preprocess_image(
-        self,
-        image: torch.Tensor,
-    ) -> tuple[torch.Tensor, tuple[int, int]]:
-        """Preprocess image for SAM.
-
-        Args:
-            image: Image tensor [3, H, W]
-
-        Returns:
-            Preprocessed image and original size
-        """
-        original_size = (image.shape[1], image.shape[2])  # (H, W)
-        preprocessed = self.transform.apply_image_torch(image).to(self.device)
-        return preprocessed, original_size
 
     def _preprocess_points(
         self,
         points: torch.Tensor,
         num_valid: int,
-        original_size: tuple[int, int],
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None:
         """Preprocess points for SAM predictor.
 
         Args:
             points: Points tensor [max_points, 4] with (x, y, score, label)
             num_valid: Number of valid points
-            original_size: Original image size (H, W)
 
         Returns:
             Tuple of (point_coords, point_labels, original_points) or None if no valid foreground
@@ -93,13 +72,12 @@ class SamDecoder(nn.Module):
 
         # Transform coordinates
         coords = valid_points[:, :2]
-        transformed_coords = self.transform.apply_coords_torch(coords, original_size)
 
         # Separate foreground and background
         bg_mask = valid_points[:, 3] == -1
 
-        fg_coords = transformed_coords[fg_mask]
-        bg_coords = transformed_coords[bg_mask]
+        fg_coords = coords[fg_mask]
+        bg_coords = coords[bg_mask]
 
         # Keep original points for output (contains x, y, score, label)
         fg_original = valid_points[fg_mask]
@@ -228,8 +206,7 @@ class SamDecoder(nn.Module):
         # The masks are in original image coordinates, so boxes are too.
         # The predictor will handle coordinate transformation internally.
         boxes = masks_to_boxes(masks.squeeze(1))
-        boxes = self.transform.apply_coords_torch(boxes.reshape(-1, 2, 2), original_size)
-        boxes = boxes.reshape(-1, 4).unsqueeze(1)
+        boxes = boxes.unsqueeze(1)
 
         # Optionally refine masks with 2nd SAM prediction using box prompts
         if self.use_mask_refinement:
@@ -305,10 +282,9 @@ class SamDecoder(nn.Module):
             pred_labels: [num_valid_masks]
             pred_points: [num_points_used, 4]
         """
-        preprocessed_image, orig_size = self._preprocess_image(image)
-        h, w = orig_size
-
-        self.predictor.set_image(preprocessed_image, orig_size)
+        h, w = image.shape[-2:]
+        orig_size = (h, w)
+        self.predictor.set_image(image)
 
         num_categories = len(category_ids)
         device = self.device
@@ -324,7 +300,7 @@ class SamDecoder(nn.Module):
             n_valid = num_points[class_idx].item()
             similarity = similarities[class_idx]
 
-            result = self._preprocess_points(points, n_valid, orig_size)
+            result = self._preprocess_points(points, n_valid)
             if result is None:
                 used_points_list.append(torch.empty(0, 4, device=device))
                 continue
@@ -384,9 +360,8 @@ class SamDecoder(nn.Module):
             pred_labels: [num_valid_masks]
             pred_boxes: [num_valid_boxes, 5] with (x1, y1, x2, y2, score)
         """
-        preprocessed_image, orig_size = self._preprocess_image(image)
-        h, w = orig_size
-        self.predictor.set_image(preprocessed_image, orig_size)
+        h, w = image.shape[1], image.shape[2]
+        self.predictor.set_image(image)
 
         masks_list: list[torch.Tensor] = []
         scores_list: list[torch.Tensor] = []
@@ -402,32 +377,38 @@ class SamDecoder(nn.Module):
             box_coords = boxes[:, :4]  # [N, 4]
             box_scores = boxes[:, 4]  # [N]
 
-            # Transform boxes for SAM
-            transformed_boxes = self.transform.apply_coords_torch(
-                box_coords.reshape(-1, 2, 2),
-                orig_size,
-            ).reshape(-1, 4)
+            # Predict masks for all boxes at once (batched)
+            box_input = box_coords.unsqueeze(1)  # [N, 1, 4]
 
-            # Predict masks for each box
-            for i, (box, score) in enumerate(zip(transformed_boxes, box_scores, strict=True)):
-                box_input = box.unsqueeze(0).unsqueeze(0)  # [1, 1, 4]
+            masks, iou_preds, _ = self.predictor.predict(
+                point_coords=None,
+                point_labels=None,
+                boxes=box_input,
+                mask_input=None,
+                multimask_output=False,
+            )
 
-                masks, iou_preds, _ = self.predictor.predict(
-                    point_coords=None,
-                    point_labels=None,
-                    boxes=box_input,
-                    mask_input=None,
-                    multimask_output=False,
-                )
+            # masks shape: [N, 1, H, W], iou_preds shape: [N, 1]
+            if masks.numel() > 0:
+                masks = masks.squeeze(1)  # [N, H, W]
+                iou_preds = iou_preds.squeeze(1)  # [N]
 
-                if masks.numel() > 0:
-                    mask = masks.squeeze()  # [H, W]
-                    if mask.sum() > 0:
-                        masks_list.append(mask)
-                        combined_score = (iou_preds.squeeze() + score) / 2
-                        scores_list.append(combined_score.unsqueeze(0))
-                        labels_list.append(torch.tensor([cat_id], device=masks.device, dtype=torch.int64))
-                        boxes_list.append(box_coords[i].unsqueeze(0))
+                # Filter out empty masks
+                valid_mask = masks.sum(dim=(-1, -2)) > 0
+                if valid_mask.any():
+                    valid_masks = masks[valid_mask]
+                    valid_iou = iou_preds[valid_mask]
+                    valid_box_scores = box_scores[valid_mask]
+                    valid_box_coords = box_coords[valid_mask]
+
+                    combined_scores = (valid_iou + valid_box_scores) / 2
+
+                    masks_list.append(valid_masks)
+                    scores_list.append(combined_scores)
+                    labels_list.append(
+                        torch.full((valid_masks.shape[0],), cat_id, device=masks.device, dtype=torch.int64),
+                    )
+                    boxes_list.append(valid_box_coords)
 
         # Handle empty results
         if not masks_list:
@@ -438,18 +419,11 @@ class SamDecoder(nn.Module):
                 torch.empty(0, 5, device=self.device),
             )
 
-        # Stack results
-        pred_masks = torch.stack(masks_list)
+        # Concatenate results (each element already has shape [N, ...])
+        pred_masks = torch.cat(masks_list)
         pred_scores = torch.cat(scores_list)
         pred_labels = torch.cat(labels_list)
         pred_boxes = torch.cat(boxes_list)
-
-        # Apply NMS
-        keep = nms(pred_boxes.float(), pred_scores.float(), iou_threshold=self.nms_iou_threshold)
-        pred_masks = pred_masks[keep].bool()
-        pred_scores = pred_scores[keep]
-        pred_labels = pred_labels[keep]
-        pred_boxes = pred_boxes[keep]
 
         # Add scores to boxes for output [N, 5]
         pred_boxes_with_scores = torch.cat([pred_boxes, pred_scores.unsqueeze(1)], dim=1)
