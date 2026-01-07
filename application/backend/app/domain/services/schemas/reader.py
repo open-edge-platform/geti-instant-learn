@@ -11,22 +11,24 @@ from domain.services.schemas.base import PaginatedResponse
 
 
 class SourceType(StrEnum):
-    WEBCAM = "webcam"
+    USB_CAMERA = "usb_camera"
     VIDEO_FILE = "video_file"
     IMAGES_FOLDER = "images_folder"
     SAMPLE_DATASET = "sample_dataset"
 
 
 class WebCamConfig(BaseModel):
-    source_type: Literal[SourceType.WEBCAM]
+    source_type: Literal[SourceType.USB_CAMERA]
+    name: str | None = None
     device_id: int
     seekable: bool = False
 
     model_config = {
         "json_schema_extra": {
             "example": {
+                "name": "Optional name",
                 "seekable": False,
-                "source_type": "webcam",
+                "source_type": "usb_camera",
                 "device_id": 0,
             }
         }

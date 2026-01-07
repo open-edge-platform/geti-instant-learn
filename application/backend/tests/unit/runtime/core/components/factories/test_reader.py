@@ -23,7 +23,7 @@ from runtime.core.components.readers.webcam_reader import WebCamReader
 
 class TestStreamReaderFactory:
     def test_factory_returns_webcam_reader(self):
-        webcam_config = WebCamConfig(source_type=SourceType.WEBCAM, device_id=1)
+        webcam_config = WebCamConfig(source_type=SourceType.USB_CAMERA, device_id=1)
 
         result = StreamReaderFactory.create(webcam_config)
 

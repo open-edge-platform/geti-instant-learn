@@ -5,3 +5,4 @@ from fastapi import APIRouter
 
 projects_router = APIRouter(prefix="/projects")
 webrtc_router = APIRouter(prefix="/webrtc")
+source_types_router = APIRouter(prefix="/source-types")

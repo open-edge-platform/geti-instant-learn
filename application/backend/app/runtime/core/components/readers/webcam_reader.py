@@ -1,10 +1,16 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
-import cv2
+import logging
+import platform
 
-from domain.services.schemas.reader import ReaderConfig
+import cv2
+from cv2_enumerate_cameras import enumerate_cameras
+
+from domain.services.schemas.reader import ReaderConfig, SourceType, WebCamConfig
 from runtime.core.components.readers.video_stream_reader import BaseOpenCVReader
+
+logger = logging.getLogger(__name__)
 
 
 class WebCamReader(BaseOpenCVReader):
@@ -22,3 +28,31 @@ class WebCamReader(BaseOpenCVReader):
         cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("M", "J", "P", "G"))
 
         return cap
+
+    @classmethod
+    def discover(cls) -> list[WebCamConfig]:
+        if platform.system() == "Windows":
+            backends = [cv2.CAP_DSHOW, cv2.CAP_MSMF]
+        elif platform.system() == "Darwin":  # macOS
+            backends = [cv2.CAP_AVFOUNDATION]
+        else:  # Linux
+            backends = [cv2.CAP_V4L2]
+
+        devices: list[WebCamConfig] = []
+        camera_list = []
+
+        for backend in backends:
+            camera_list.extend(enumerate_cameras(backend))
+
+        camera_list.sort(key=lambda cam: cam.index)
+
+        for camera_info in camera_list:
+            devices.append(
+                WebCamConfig(
+                    source_type=SourceType.USB_CAMERA,
+                    device_id=camera_info.index,
+                    name=camera_info.name,
+                )
+            )
+        logger.info(f"Found {cls.__name__} input device: {devices}")
+        return devices
