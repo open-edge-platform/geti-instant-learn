@@ -1,6 +1,6 @@
 version = 1
 revision = 3
-requires-python = "==3.12.*"
+requires-python = ">=3.12.12, <3.13"
 resolution-markers = [
     "sys_platform == 'darwin' and extra != 'extra-10-getiprompt-cpu' and extra != 'extra-10-getiprompt-gpu' and extra == 'extra-10-getiprompt-xpu' and extra != 'extra-19-geti-prompt-backend-cpu' and extra != 'extra-19-geti-prompt-backend-gpu' and extra == 'extra-19-geti-prompt-backend-xpu'",
     "platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-10-getiprompt-cpu' and extra != 'extra-10-getiprompt-gpu' and extra == 'extra-10-getiprompt-xpu' and extra != 'extra-19-geti-prompt-backend-cpu' and extra != 'extra-19-geti-prompt-backend-gpu' and extra == 'extra-19-geti-prompt-backend-xpu'",
