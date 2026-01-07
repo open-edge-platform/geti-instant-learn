@@ -37,7 +37,7 @@ dev = [
 
 [project.optional-dependencies]
 cpu = ["getiprompt[cpu]"]
-gpu = ["getiprompt[gpu]"]
+cu126 = ["getiprompt[gpu]"]
 xpu = ["getiprompt[xpu]"]
 installer = ["pyinstaller~=6.16.0"]
 

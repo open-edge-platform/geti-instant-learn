@@ -6,6 +6,8 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import numpy as np
+import torch
+from getiprompt.components.feature_extractors import ROICropper
 from getiprompt.data.base.sample import Sample
 from torch import from_numpy
 from torchvision import tv_tensors
@@ -229,6 +231,15 @@ def visual_prompt_to_sample(
 
     # Stack masks: (N_categories, H, W) - one mask per category
     masks = np.stack(all_masks, axis=0)
+
+    # ROI Cropper
+    cropper = ROICropper(input_size=512, patch_size=16)
+    if cropper.should_crop(torch.tensor(masks), image_height=height, image_width=width):
+        # Crop BOTH image and mask
+        crop_result = cropper.crop_image_and_mask(frame_chw, torch.tensor(masks))
+        frame_chw = crop_result.cropped_image
+        masks = crop_result.cropped_mask
+
     category_ids_array = np.array(category_ids, dtype=np.int32)
 
     return Sample(
