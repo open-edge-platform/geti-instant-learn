@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     )
     openapi_url: str = "/api/openapi.json"
     debug: bool = Field(default=False, alias="DEBUG")
+    log_level: str = Field(default="WARNING", alias="LOG_LEVEL")
     log_format: str = "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s"
     environment: Literal["dev", "prod"] = "dev"
 
@@ -97,6 +98,9 @@ class Settings(BaseSettings):
     thumbnail_min_line_thickness: int = 2
     thumbnail_fill_opacity: float = 0.5  # 50% opacity for annotation fill
     thumbnail_jpeg_quality: int = 85
+
+    # Processor configuration
+    processor_batch_size: int = Field(default=3, alias="PROCESSOR_BATCH_SIZE")
 
     # WebRTC
     webrtc_advertise_ip: str | None = Field(default=None, alias="WEBRTC_ADVERTISE_IP")
