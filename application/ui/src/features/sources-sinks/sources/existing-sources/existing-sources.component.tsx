@@ -159,7 +159,7 @@ interface ExistingSourcesProps {
     onSetSourceInEditionId: (sourceId: string) => void;
 }
 
-const AVAILABLE_SOURCE_TYPES: SourceType[] = ['webcam', 'images_folder', 'sample_dataset'];
+const AVAILABLE_SOURCE_TYPES: SourceType[] = ['webcam', 'images_folder', 'sample_dataset', 'video_file'];
 
 export const ExistingSources = ({ sources, onViewChange, onSetSourceInEditionId }: ExistingSourcesProps) => {
     const canCreateSource = !AVAILABLE_SOURCE_TYPES.every((type) =>
