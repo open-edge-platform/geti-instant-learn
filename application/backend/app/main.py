@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         format=settings.log_format,
         force=True,
     )
-    logger.info(f"Starting {settings.app_name} application...")
+    logger.info(f"Starting {settings.app_name} application with {settings.device} device...")
     run_db_migrations()
 
     app.state.config_dispatcher = ConfigChangeDispatcher()
