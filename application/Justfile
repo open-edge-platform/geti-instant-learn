@@ -22,6 +22,7 @@ coturn-port := "443"
 
 # XPU variables
 render_gid := `uv run python -c "import grp; print(grp.getgrnam('render').gr_gid)"`
+# Default render node for Intel XPU. Replace it if your system uses a different node.
 render_node := "/dev/dri/renderD128"
 
 # -------------------------------------------------------------------------------------------------
