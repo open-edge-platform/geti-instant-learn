@@ -3,6 +3,7 @@
 
 import logging
 import time
+from threading import Condition
 
 from domain.services.schemas.processor import InputData
 from domain.services.schemas.reader import FrameListResponse
@@ -23,6 +24,9 @@ class Source(PipelineComponent):
         self._reader = stream_reader
         self._initialized = False
         self._inbound_broadcaster: FrameBroadcaster[InputData] | None = None
+        self._paused = self._reader.requires_manual_control
+        self._condition = Condition()
+        self._step_requested = True
 
     def setup(self, inbound_broadcaster: FrameBroadcaster[InputData]) -> None:
         self._inbound_broadcaster = inbound_broadcaster
@@ -36,6 +40,16 @@ class Source(PipelineComponent):
 
         logger.debug(f"Starting a source {self._reader.__class__.__name__} loop")
         while not self._stop_event.is_set():
+            if self._paused:
+                with self._condition:
+                    while self._paused and not self._step_requested and not self._stop_event.is_set():
+                        self._condition.wait()
+
+                    if self._stop_event.is_set():
+                        break
+
+                    self._step_requested = False
+
             try:
                 data = self._reader.read()
                 if data is None:
@@ -51,6 +65,8 @@ class Source(PipelineComponent):
 
     def _stop(self) -> None:
         """Clean up resources when component is stopped."""
+        with self._condition:
+            self._condition.notify_all()
         try:
             self._reader.close()
         except Exception as e:
@@ -62,6 +78,10 @@ class Source(PipelineComponent):
         Delegates to reader.seek().
         """
         self._reader.seek(index)
+        if self._paused:
+            with self._condition:
+                self._step_requested = True
+                self._condition.notify()
 
     def index(self) -> int:
         """

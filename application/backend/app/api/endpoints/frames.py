@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from api.routers import projects_router
-from dependencies import FrameServiceDep, FrameServiceWithQueueDep
+from dependencies import FrameServiceDep, PipelineManagerDep
 
 logger = logging.getLogger(__name__)
 
@@ -101,12 +101,12 @@ class FrameCaptureResponse(BaseModel):
         },
     },
 )
-def capture_frame(project_id: UUID, frame_service: FrameServiceWithQueueDep) -> Response:
+def capture_frame(project_id: UUID, pipeline_manager: PipelineManagerDep) -> Response:
     """
     Capture the latest frame from the video stream of the active project.
     Returns the frame ID in the response body and a Location header pointing to the captured frame.
     """
-    frame_id = frame_service.capture_frame(project_id)
+    frame_id = pipeline_manager.capture_frame(project_id)
 
     response = FrameCaptureResponse(frame_id=frame_id)
 

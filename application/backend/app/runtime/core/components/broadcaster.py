@@ -23,6 +23,12 @@ class FrameBroadcaster[T]:
     def __init__(self) -> None:
         self.queues: list[Queue[T]] = []
         self._lock = Lock()
+        self._latest_frame: T | None = None
+
+    @property
+    def latest_frame(self) -> T | None:
+        """Get the most recently broadcasted frame."""
+        return self._latest_frame
 
     def register(self) -> Queue[T]:
         """Register a new consumer and return its personal queue."""
@@ -44,6 +50,7 @@ class FrameBroadcaster[T]:
 
     def broadcast(self, frame: T) -> None:
         """Broadcast frame to all registered queues."""
+        self._latest_frame = frame
         with self._lock:
             for queue in self.queues:
                 try:

@@ -15,13 +15,11 @@ from dependencies import (
     SessionDep,
     get_frame_repository,
     get_frame_service,
-    get_frame_service_with_queue,
     get_pipeline_manager,
     get_project_repository,
     get_source_repository,
 )
-from domain.errors import ResourceNotFoundError, ResourceType, ServiceError
-from runtime.errors import PipelineNotActiveError
+from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 
 PROJECT_ID = uuid4()
 PROJECT_ID_STR = str(PROJECT_ID)
@@ -62,21 +60,12 @@ def client(app):
 
 
 def _get_capture_frame_exception(behavior, project_id):
-    if behavior == "project_not_found":
-        return ResourceNotFoundError(
-            resource_type=ResourceType.PROJECT,
-            resource_id=str(project_id),
-        )
-    if behavior == "source_not_found":
-        return ResourceNotFoundError(
-            resource_type=ResourceType.SOURCE,
-            resource_id=None,
-            message=f"Project {project_id} has no active source.",
-        )
+    if behavior == "project_mismatch":
+        return PipelineProjectMismatchError(f"Project ID {project_id} does not match active pipeline.")
     if behavior == "project_not_active":
         return PipelineNotActiveError(f"Cannot capture frame: project {project_id} is not active.")
     if behavior == "capture_timeout":
-        return ServiceError("No frame received within 5.0 seconds. Pipeline may not be running.")
+        return TimeoutError("No frame received within 5.0 seconds. Pipeline may not be running.")
     if behavior == "unexpected_error":
         return RuntimeError("Database connection failed")
     return None
@@ -86,15 +75,14 @@ def _get_capture_frame_exception(behavior, project_id):
     "behavior,expected_status,expect_location",
     [
         ("success", 201, True),
-        ("project_not_found", 404, False),
-        ("source_not_found", 404, False),
+        ("project_mismatch", 400, False),
         ("project_not_active", 400, False),
         ("capture_timeout", 500, False),
         ("unexpected_error", 500, False),
     ],
 )
 def test_capture_frame(client, behavior, expected_status, expect_location):
-    class FakeFrameService:
+    class FakePipelineManager:
         def capture_frame(self, project_id):
             assert project_id == PROJECT_ID
             if behavior == "success":
@@ -106,8 +94,8 @@ def test_capture_frame(client, behavior, expected_status, expect_location):
             raise AssertionError("Unhandled behavior")
 
     app = client.app
-    # Override the with_queue dependency for POST requests
-    app.dependency_overrides[get_frame_service_with_queue] = lambda: FakeFrameService()
+    # Override the pipeline manager dependency for POST requests
+    app.dependency_overrides[get_pipeline_manager] = lambda: FakePipelineManager()
 
     resp = client.post(f"/api/v1/projects/{PROJECT_ID_STR}/frames")
 
@@ -198,7 +186,7 @@ def test_capture_multiple_frames_returns_different_ids(client):
     frame_ids = [FRAME_ID, SECOND_FRAME_ID]
     call_count = 0
 
-    class FakeFrameService:
+    class FakePipelineManager:
         def capture_frame(self, project_id):
             nonlocal call_count
             result = frame_ids[call_count]
@@ -206,7 +194,7 @@ def test_capture_multiple_frames_returns_different_ids(client):
             return result
 
     app = client.app
-    app.dependency_overrides[get_frame_service_with_queue] = lambda: FakeFrameService()
+    app.dependency_overrides[get_pipeline_manager] = lambda: FakePipelineManager()
 
     resp1 = client.post(f"/api/v1/projects/{PROJECT_ID_STR}/frames")
     assert resp1.status_code == 201

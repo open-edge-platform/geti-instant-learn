@@ -65,6 +65,20 @@ class StreamReader(AbstractContextManager, ABC):
 
     """
 
+    @property
+    def requires_manual_control(self) -> bool:
+        """
+        Indicates whether this reader requires manual externally controlled iteration
+        instead of continuous streaming.
+
+        If True:
+            - The Source should not continuously loop calling read()
+            - The Source should wait for external triggers (seek/next)
+        If False (default):
+            - The Source should loop continuously (e.g. for video/camera)
+        """
+        return False
+
     def connect(self) -> None:
         pass
 
