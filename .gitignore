@@ -144,3 +144,5 @@ cython_debug/
 # Custom
 tmp*
 lightning_logs
+datasets/
+workspace/
