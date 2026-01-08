@@ -130,8 +130,9 @@ class HuggingFaceImageEncoder(nn.Module):
             "   - Set environment variable: export HUGGINGFACE_HUB_TOKEN=your_token\n"
         )
         try:
-            model = AutoModel.from_pretrained(model_id, revision=revision)
-            processor = AutoImageProcessor.from_pretrained(
+            # revision is pinned in AVAILABLE_IMAGE_ENCODERS
+            model = AutoModel.from_pretrained(model_id, revision=revision) # nosec: B615
+            processor = AutoImageProcessor.from_pretrained(  # nosec: B615
                 model_id,
                 revision=revision,
                 size={"height": input_size, "width": input_size},
