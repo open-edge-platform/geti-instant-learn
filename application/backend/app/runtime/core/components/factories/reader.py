@@ -6,11 +6,13 @@ from domain.services.schemas.reader import (
     ReaderConfig,
     SampleDatasetConfig,
     SourceType,
+    VideoFileConfig,
     WebCamConfig,
 )
 from runtime.core.components.base import StreamReader
 from runtime.core.components.readers.image_folder_reader import ImageFolderReader
 from runtime.core.components.readers.noop_reader import NoOpReader
+from runtime.core.components.readers.video_file import VideoFileReader
 from runtime.core.components.readers.webcam_reader import WebCamReader
 from settings import get_settings
 
@@ -39,5 +41,7 @@ class StreamReaderFactory:
                     seekable=config.seekable,
                 )
                 return ImageFolderReader(template_config, supported_extensions=settings.supported_extensions)
+            case VideoFileConfig() as config:
+                return VideoFileReader(config=config)
             case _:
                 return NoOpReader()

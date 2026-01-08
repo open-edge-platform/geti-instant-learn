@@ -7,10 +7,17 @@ from unittest.mock import patch
 
 import pytest
 
-from domain.services.schemas.reader import ImagesFolderConfig, SampleDatasetConfig, SourceType, WebCamConfig
+from domain.services.schemas.reader import (
+    ImagesFolderConfig,
+    SampleDatasetConfig,
+    SourceType,
+    VideoFileConfig,
+    WebCamConfig,
+)
 from runtime.core.components.factories.reader import StreamReaderFactory
 from runtime.core.components.readers.image_folder_reader import ImageFolderReader
 from runtime.core.components.readers.noop_reader import NoOpReader
+from runtime.core.components.readers.video_file import VideoFileReader
 from runtime.core.components.readers.webcam_reader import WebCamReader
 
 
@@ -56,6 +63,17 @@ class TestStreamReaderFactory:
         assert isinstance(result, ImageFolderReader)
         assert isinstance(result._config, ImagesFolderConfig)
         assert result._config.images_folder_path == str(tmp_path)
+
+    def test_factory_returns_video_file_reader_for_video_file_config(self, tmp_path: Path) -> None:
+        video_path = tmp_path / "test.mp4"
+        video_path.write_bytes(b"fake video content")
+
+        config = VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path=str(video_path))
+
+        result = StreamReaderFactory.create(config)
+
+        assert isinstance(result, VideoFileReader)
+        assert result._config == config
 
 
 class TestImagesFolderConfigValidation:
