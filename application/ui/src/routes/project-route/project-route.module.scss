@@ -1,0 +1,12 @@
+.separator {
+    width: var(--spectrum-global-dimension-size-40);
+    background-color: var(--spectrum-global-color-gray-300);
+    border: 1px solid var(--spectrum-global-color-gray-50);
+    border-left: none;
+    outline: none;
+    transition: background-color 0.3s 0.5s ease-in;
+
+    &:hover {
+        background-color: var(--energy-blue);
+    }
+}
