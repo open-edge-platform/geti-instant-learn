@@ -6,7 +6,8 @@
 import { useEffect } from 'react';
 
 import { useCurrentProject, useProjectIdentifier } from '@geti-prompt/hooks';
-import { Grid, minmax, View } from '@geti/ui';
+import { Flex, Grid, minmax, View } from '@geti/ui';
+import { Group, Panel } from 'react-resizable-panels';
 
 import { Header } from '../components/header/header.component';
 import { MainContent } from '../components/main-content/main-content.component';
@@ -18,47 +19,59 @@ import { ProjectsListPanel } from '../features/project/projects-list-panel.compo
 import { WebRTCConnectionProvider } from '../features/stream/web-rtc/web-rtc-connection-provider';
 import { SelectedFrameProvider } from '../shared/selected-frame-provider.component';
 
+const MainLayout = () => {
+    return (
+        <Group>
+            <Panel minSize={'30%'} id={'main'}>
+                <Flex direction={'column'} height={'100%'}>
+                    <Toolbar />
+
+                    <View backgroundColor={'gray-50'} flex={1} minHeight={0}>
+                        <MainContent />
+                    </View>
+                </Flex>
+            </Panel>
+
+            <Sidebar />
+        </Group>
+    );
+};
+
 const useEnsureValidAndActiveProject = () => {
-    // Check if the current project is valid, if it's not error boundary will catch it.
-    const { data } = useCurrentProject();
+  // Check if the current project is valid, if it's not error boundary will catch it.
+  const { data } = useCurrentProject();
 
-    const activateProject = useActivateProject();
+  const activateProject = useActivateProject();
 
-    useEffect(() => {
-        if (!data.active) {
-            activateProject.mutate(data);
-        }
-        // We only want to activate the project when a project that is being open is not active.
-        // This might happen only when a user opens a link to a project that is not active.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [data.active]);
+  useEffect(() => {
+    if (!data.active) {
+      activateProject.mutate(data);
+    }
+    // We only want to activate the project when a project that is being open is not active.
+    // This might happen only when a user opens a link to a project that is not active.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.active]);
 };
 
 export const ProjectRoute = () => {
-    const { projectId } = useProjectIdentifier();
-
     useEnsureValidAndActiveProject();
+
+    const { projectId } = useProjectIdentifier();
 
     return (
         <WebRTCConnectionProvider key={projectId}>
             <Grid
-                areas={['header header header', 'toolbar prompt-sidebar sidebar', 'main prompt-sidebar sidebar']}
-                rows={['size-800', 'size-700', minmax(0, '1fr')]}
-                columns={[minmax('50%', '1fr'), 'auto']}
+                areas={['header', 'main']}
+                rows={['size-800', minmax(0, '1fr')]}
+                columns={[minmax('50%', '1fr')]}
                 height={'100vh'}
             >
                 <Header homeLink={paths.projects({})}>
                     <ProjectsListPanel />
                 </Header>
 
-                <Toolbar />
-
                 <SelectedFrameProvider>
-                    <View backgroundColor={'gray-50'} gridArea={'main'}>
-                        <MainContent />
-                    </View>
-
-                    <Sidebar />
+                    <MainLayout />
                 </SelectedFrameProvider>
             </Grid>
         </WebRTCConnectionProvider>

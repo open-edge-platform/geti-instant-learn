@@ -176,4 +176,11 @@ const IntersectionObserverMock = vi.fn(() => ({
     unobserve: vi.fn(),
 }));
 
+const ResizeObserverMock = vi.fn().mockImplementation(() => ({
+    observe: vi.fn(),
+    unobserve: vi.fn(),
+    disconnect: vi.fn(),
+}));
+
 vi.stubGlobal('IntersectionObserver', IntersectionObserverMock);
+vi.stubGlobal('ResizeObserver', ResizeObserverMock);

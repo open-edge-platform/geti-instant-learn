@@ -8,8 +8,7 @@ import { ReactNode, useState } from 'react';
 import { useCurrentProject } from '@geti-prompt/hooks';
 import { Wand } from '@geti-prompt/icons';
 import { Flex, ToggleButton, View } from '@geti/ui';
-import { clsx } from 'clsx';
-import { Panel, Separator, usePanelRef } from 'react-resizable-panels';
+import { Panel, Separator } from 'react-resizable-panels';
 
 import { Prompt } from '../../features/prompts/prompt.component';
 
@@ -25,28 +24,11 @@ interface TabProps {
 const SidebarTabs = ({ tabs, selectedTab }: TabProps) => {
     const [tab, setTab] = useState<string | null>(selectedTab);
     const [isAnimating, setIsAnimating] = useState(false);
-    const ref = usePanelRef();
 
     const activeTab = tabs.find(({ label }) => label === tab);
     const content = activeTab?.content;
 
     const [displayContent, setDisplayContent] = useState<boolean>(activeTab !== undefined);
-
-    /*const handleTabChange = (newTab: string): void => {
-        setIsAnimating(true);
-
-        if (newTab === tab) {
-            setTab(null);
-            ref.current?.collapse();
-        } else {
-            setTab(newTab);
-            ref.current?.isCollapsed() && ref.current?.expand();
-        }
-
-        setTimeout(() => {
-            setIsAnimating(false);
-        }, 300);
-    };*/
 
     const handleTabChange = (newTab: string): void => {
         setIsAnimating(true);
@@ -71,39 +53,21 @@ const SidebarTabs = ({ tabs, selectedTab }: TabProps) => {
         <>
             {displayContent && (
                 <>
-                    <Separator className={clsx(styles.separator, styles.separatorEnabled)} />
+                    <Separator className={styles.separator} />
                     <Panel
                         data-isanimating={isAnimating}
                         data-collapsed={content === undefined}
                         id={'sidebar'}
                         defaultSize={'35%'}
                         minSize={'30%'}
-                        className={clsx(styles.sidebarContent, {
-                            [styles.sidebarContentGoingToCollapse]: content === undefined,
-                        })}
+                        className={styles.sidebarContent}
                     >
                         {content}
                     </Panel>
                 </>
             )}
-            {/*<Separator
-                className={clsx(styles.separator, {
-                    [styles.separatorEnabled]: content !== undefined,
-                    [styles.separatorDisabled]: content === undefined,
-                })}
-            />
-            <Panel
-                data-isanimating={isAnimating}
-                id={'sidebar'}
-                defaultSize={'35%'}
-                minSize={'30%'}
-                collapsible
-                panelRef={ref}
-                className={styles.sidebarContent}
-            >
-                {content}
-            </Panel>*/}
-            <View backgroundColor={'gray-200'} padding={'size-100'}>
+
+            <View backgroundColor={'gray-200'} padding={'size-100'} UNSAFE_className={styles.toggleSidebar}>
                 <Flex direction={'column'} height={'100%'} alignItems={'center'} gap={'size-100'}>
                     {tabs.map(({ label, icon }) => (
                         <ToggleButton

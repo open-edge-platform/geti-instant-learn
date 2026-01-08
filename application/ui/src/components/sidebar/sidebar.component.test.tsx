@@ -5,6 +5,7 @@
 
 import { render } from '@geti-prompt/test-utils';
 import { fireEvent, screen } from '@testing-library/react';
+import { Group } from 'react-resizable-panels';
 import { SelectedFrameProvider } from 'src/shared/selected-frame-provider.component';
 
 import { Sidebar } from './sidebar.component';
@@ -12,7 +13,9 @@ import { Sidebar } from './sidebar.component';
 const renderSidebar = () => {
     return render(
         <SelectedFrameProvider>
-            <Sidebar />
+            <Group>
+                <Sidebar />
+            </Group>
         </SelectedFrameProvider>
     );
 };

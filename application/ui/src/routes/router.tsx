@@ -11,7 +11,7 @@ import { paths } from '../constants/paths';
 import { ProjectsListEntry } from '../features/project/projects-list-entry/projects-list-entry.component';
 import { Welcome } from '../features/project/projects-list-entry/welcome.component';
 import { ErrorRoute } from './error-route.component';
-import { ProjectRoute } from './project-route/project-route.component';
+import { ProjectRoute } from './project-route.component';
 import { RootLayout } from './root-layout.component';
 
 const Redirect = () => {
