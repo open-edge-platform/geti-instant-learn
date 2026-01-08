@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Flex, Grid, Text } from '@geti/ui';
+import { Flex, Grid, minmax, repeat, Text } from '@geti/ui';
 
 import { useGetPrompts } from '../../api/use-get-prompts';
 import { PromptThumbnail } from '../prompt-thumbnail/prompt-thumbnail.component';
@@ -22,7 +22,7 @@ export const PromptThumbnailList = () => {
     }
 
     return (
-        <Grid columns={['1fr', '1fr']} gap={'size-100'}>
+        <Grid columns={repeat('auto-fill', minmax('size-2400', '1fr'))} gap={'size-100'}>
             {visualPrompts.map((prompt) => (
                 <PromptThumbnail key={prompt.id} prompt={prompt} />
             ))}
