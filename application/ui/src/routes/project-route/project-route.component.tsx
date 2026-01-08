@@ -19,14 +19,9 @@ import { SelectedFrameProvider } from '../../shared/selected-frame-provider.comp
 import styles from './project-route.module.scss';
 
 const MainLayout = () => {
-    const { defaultLayout, onLayoutChange } = useDefaultLayout({
-        id: 'stream-sidebar-layout',
-        storage: localStorage,
-    });
-
     return (
-        <Group defaultLayout={defaultLayout} onLayoutChange={onLayoutChange}>
-            <Panel minSize={'30%'}>
+        <Group>
+            <Panel minSize={'30%'} id={'main'}>
                 <Flex direction={'column'} height={'100%'}>
                     <Toolbar />
 
@@ -35,11 +30,9 @@ const MainLayout = () => {
                     </View>
                 </Flex>
             </Panel>
-            <Separator className={styles.separator} />
+
             {/* 48px is a size of the tiny sidebar that toggles sidebar content */}
-            <Panel minSize={'48px'}>
-                <Sidebar />
-            </Panel>
+            <Sidebar />
         </Group>
     );
 };

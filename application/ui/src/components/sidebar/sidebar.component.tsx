@@ -7,7 +7,9 @@ import { ReactNode, useState } from 'react';
 
 import { useCurrentProject } from '@geti-prompt/hooks';
 import { Wand } from '@geti-prompt/icons';
-import { Flex, Grid, ToggleButton, View } from '@geti/ui';
+import { Flex, ToggleButton, View } from '@geti/ui';
+import { clsx } from 'clsx';
+import { Panel, Separator, usePanelRef } from 'react-resizable-panels';
 
 import { Prompt } from '../../features/prompts/prompt.component';
 
@@ -22,22 +24,93 @@ interface TabProps {
 
 const SidebarTabs = ({ tabs, selectedTab }: TabProps) => {
     const [tab, setTab] = useState<string | null>(selectedTab);
+    const [isAnimating, setIsAnimating] = useState(false);
+    const ref = usePanelRef();
 
-    const content = tabs.find(({ label }) => label === tab)?.content;
+    const activeTab = tabs.find(({ label }) => label === tab);
+    const content = activeTab?.content;
+
+    const [displayContent, setDisplayContent] = useState<boolean>(activeTab !== undefined);
+
+    /*const handleTabChange = (newTab: string): void => {
+        setIsAnimating(true);
+
+        if (newTab === tab) {
+            setTab(null);
+            ref.current?.collapse();
+        } else {
+            setTab(newTab);
+            ref.current?.isCollapsed() && ref.current?.expand();
+        }
+
+        setTimeout(() => {
+            setIsAnimating(false);
+        }, 300);
+    };*/
+
+    const handleTabChange = (newTab: string): void => {
+        setIsAnimating(true);
+
+        if (newTab === tab) {
+            setTab(null);
+
+            setTimeout(() => {
+                setDisplayContent(false);
+            }, 250);
+        } else {
+            setTab(newTab);
+            setDisplayContent(true);
+        }
+
+        setTimeout(() => {
+            setIsAnimating(false);
+        }, 250);
+    };
 
     return (
-        <Grid gridArea={'sidebar'} UNSAFE_className={styles.container} columns={['1fr', 'size-600']}>
-            <View gridColumn={'1/2'} UNSAFE_className={styles.sidebarContent}>
+        <>
+            {displayContent && (
+                <>
+                    <Separator className={clsx(styles.separator, styles.separatorEnabled)} />
+                    <Panel
+                        data-isanimating={isAnimating}
+                        data-collapsed={content === undefined}
+                        id={'sidebar'}
+                        defaultSize={'35%'}
+                        minSize={'30%'}
+                        className={clsx(styles.sidebarContent, {
+                            [styles.sidebarContentGoingToCollapse]: content === undefined,
+                        })}
+                    >
+                        {content}
+                    </Panel>
+                </>
+            )}
+            {/*<Separator
+                className={clsx(styles.separator, {
+                    [styles.separatorEnabled]: content !== undefined,
+                    [styles.separatorDisabled]: content === undefined,
+                })}
+            />
+            <Panel
+                data-isanimating={isAnimating}
+                id={'sidebar'}
+                defaultSize={'35%'}
+                minSize={'30%'}
+                collapsible
+                panelRef={ref}
+                className={styles.sidebarContent}
+            >
                 {content}
-            </View>
-            <View gridColumn={'2/3'} backgroundColor={'gray-200'} padding={'size-100'}>
+            </Panel>*/}
+            <View backgroundColor={'gray-200'} padding={'size-100'}>
                 <Flex direction={'column'} height={'100%'} alignItems={'center'} gap={'size-100'}>
                     {tabs.map(({ label, icon }) => (
                         <ToggleButton
                             key={label}
                             isQuiet
                             isSelected={label === tab}
-                            onChange={() => setTab(label)}
+                            onChange={() => handleTabChange(label)}
                             UNSAFE_className={styles.toggleButton}
                             aria-label={`Toggle ${label} tab`}
                         >
@@ -46,7 +119,7 @@ const SidebarTabs = ({ tabs, selectedTab }: TabProps) => {
                     ))}
                 </Flex>
             </View>
-        </Grid>
+        </>
     );
 };
 

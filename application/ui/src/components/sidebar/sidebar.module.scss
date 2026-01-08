@@ -13,6 +13,7 @@
     border-right-width: var(--spectrum-alias-border-size-thin);
     border-right-style: solid;
     border-color: var(--spectrum-global-color-gray-50);
+    transition: width 0.3s ease-in-out;
 }
 
 .toggleButton {
@@ -35,4 +36,36 @@
     &[class*='is-disabled'] {
         opacity: 0.5;
     }
+}
+
+// This is responsible for the animation when the sidebar is being expanded or collapsed only when not dragging
+.separator[data-separator='inactive'] + div[id='sidebar'][data-panel='true'][data-isanimating='true'] {
+    transition: flex-grow 0.3s ease-out;
+}
+
+.separator[data-separator='inactive'] + div[id='sidebar'][data-panel='true'][data-collapsed='true'] {
+    flex-grow: 0 !important;
+    transition: all 0.3s ease-out;
+}
+
+.separatorEnabled {
+    width: var(--spectrum-global-dimension-size-40);
+    background-color: var(--spectrum-global-color-gray-300);
+    border: 1px solid var(--spectrum-global-color-gray-50);
+    border-left: none;
+    outline: none;
+    transition: background-color 0.3s 0.5s ease-in;
+
+    &:hover {
+        background-color: var(--energy-blue);
+    }
+}
+
+.separatorDisabled {
+    // The reason for this big translateX is to move the separator out of view.
+    // When the panel is collapsed, we don't want the separator to be visible or interactable.
+    // Because of globally defined resize cursors, if the separator is still in view, it can cause unwanted cursor changes.
+    --big-arbitrary-number: 100000000px;
+    pointer-events: none;
+    transform: translateX(var(--big-arbitrary-number));
 }
