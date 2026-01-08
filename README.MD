@@ -147,3 +147,5 @@ This project incorporates code from several open-source repositories. We thank t
 ## 📝 License
 
 Geti Prompt is licensed under the [Apache License 2.0](LICENSE).
+
+FFmpeg is an open source project licensed under LGPL and GPL. See https://www.ffmpeg.org/legal.html. You are solely responsible for determining if your use of FFmpeg requires any additional licenses. Intel is not responsible for obtaining any such licenses, nor liable for any licensing fees due, in connection with your use of FFmpeg.
