@@ -19,6 +19,7 @@ from dependencies import (
     get_project_repository,
     get_source_repository,
 )
+from domain.errors import ResourceNotFoundError, ResourceType
 from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 
 PROJECT_ID = uuid4()
@@ -60,6 +61,17 @@ def client(app):
 
 
 def _get_capture_frame_exception(behavior, project_id):
+    if behavior == "project_not_found":
+        return ResourceNotFoundError(
+            resource_type=ResourceType.PROJECT,
+            resource_id=str(project_id),
+        )
+    if behavior == "source_not_found":
+        return ResourceNotFoundError(
+            resource_type=ResourceType.SOURCE,
+            resource_id=None,
+            message=f"Project {project_id} has no active source.",
+        )
     if behavior == "project_mismatch":
         return PipelineProjectMismatchError(f"Project ID {project_id} does not match active pipeline.")
     if behavior == "project_not_active":
@@ -68,6 +80,7 @@ def _get_capture_frame_exception(behavior, project_id):
         return TimeoutError("No frame received within 5.0 seconds. Pipeline may not be running.")
     if behavior == "unexpected_error":
         return RuntimeError("Database connection failed")
+
     return None
 
 
@@ -79,6 +92,8 @@ def _get_capture_frame_exception(behavior, project_id):
         ("project_not_active", 400, False),
         ("capture_timeout", 500, False),
         ("unexpected_error", 500, False),
+        ("project_not_found", 404, False),
+        ("source_not_found", 404, False),
     ],
 )
 def test_capture_frame(client, behavior, expected_status, expect_location):
