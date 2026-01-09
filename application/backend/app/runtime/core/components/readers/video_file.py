@@ -15,12 +15,39 @@ logger = logging.getLogger(__name__)
 
 
 class VideoFileReader(StreamReader):
-    """
-    A reader implementation for loading frames from a video file.
+    """Reader implementation for loading frames from a video file.
 
     This reader opens a video file and reads frames sequentially,
-    supporting common video formats (mp4, avi, mov, mkv).
-    When playback ends, it automatically restarts from the beginning.
+    supporting common video formats (mp4, avi, mov, mkv). When playback
+    ends, it automatically restarts from the beginning.
+
+    Args:
+        config: Reader configuration specifying the video path and other
+            reader-related options.
+
+    Attributes:
+        _config: The configuration used to initialize the reader.
+        _video_capture: OpenCV video capture handle for the underlying
+            video file, or ``None`` if not connected.
+        _total_frames: Total number of frames available in the video.
+        _fps: Effective frames per second used for throttling reads.
+        _video_path: Filesystem path to the video file, or ``None`` if
+            not yet connected.
+        _next_frame_time_s: Monotonic time (in seconds) at which the
+            next frame should be read to respect the target FPS, or
+            ``None`` if not scheduled.
+
+    Examples:
+        Basic usage::
+
+            from domain.services.schemas.reader import ReaderConfig
+            from runtime.core.components.readers.video_file import VideoFileReader
+
+            config = ReaderConfig(video_path="video.mp4")
+            reader = VideoFileReader(config)
+            reader.connect()
+            frame_data = reader.read()
+            reader.close()
     """
 
     def __init__(self, config: ReaderConfig) -> None:
