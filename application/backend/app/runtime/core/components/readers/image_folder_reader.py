@@ -238,7 +238,11 @@ class ImageFolderReader(StreamReader):
         return InputData(
             timestamp=int(time.time() * 1000),
             frame=image,
-            context={"path": str(self._last_image_path), "index": self._current_index},
+            context={
+                "path": str(self._last_image_path),
+                "index": self._current_index,
+                "requires_manual_control": self.requires_manual_control,
+            },
         )
 
     def close(self) -> None:

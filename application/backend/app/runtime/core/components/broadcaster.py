@@ -31,10 +31,22 @@ class FrameBroadcaster[T]:
         return self._latest_frame
 
     def register(self) -> Queue[T]:
-        """Register a new consumer and return its personal queue."""
+        """Register a new consumer and return its personal queue.
+
+        If a frame has already been broadcast, the latest frame is immediately
+        added to the new consumer's queue so they don't miss the current state.
+        """
         with self._lock:
             queue: Queue[T] = Queue(maxsize=5)
             self.queues.append(queue)
+
+            # Send the latest frame to new consumer if available
+            if self._latest_frame is not None:
+                try:
+                    queue.put_nowait(self._latest_frame)
+                except Full:
+                    logging.warning("Could not send latest frame to new consumer - queue full")
+
             logging.info("FrameBroadcaster registered a new consumer. Total consumers: %d", len(self.queues))
             return queue
 
