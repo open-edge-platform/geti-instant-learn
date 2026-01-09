@@ -23,7 +23,7 @@ import {
 } from '@geti/ui';
 import { AddCircle } from '@geti/ui/icons';
 
-import { useCreateProject, useCreateProjectMutation } from './hooks/use-create-project-mutation.hook';
+import { useCreateProject, useCreateProjectMutation } from './api/use-create-project-mutation.hook';
 import { ProjectsList } from './projects-list.component';
 import { generateUniqueProjectName } from './utils';
 

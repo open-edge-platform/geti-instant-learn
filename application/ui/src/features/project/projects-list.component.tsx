@@ -9,9 +9,9 @@ import { isEmpty } from 'lodash-es';
 import { useNavigate } from 'react-router';
 
 import { paths } from '../../constants/paths';
-import { useActivateProject } from './hooks/use-activate-project.hook';
-import { useDeleteProject } from './hooks/use-delete-project.hook';
-import { useUpdateProject } from './hooks/use-update-project.hook';
+import { useActivateProject } from './api/use-activate-project.hook';
+import { useDeleteProject } from './api/use-delete-project.hook';
+import { useUpdateProject } from './api/use-update-project.hook';
 import { ProjectListItem } from './project-list-item/project-list-item.component';
 
 import styles from './projects-list.module.scss';

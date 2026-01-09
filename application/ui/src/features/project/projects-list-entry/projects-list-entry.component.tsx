@@ -11,10 +11,10 @@ import { AddCircle } from '@geti/ui/icons';
 import { Link } from 'react-router-dom';
 
 import { paths } from '../../../constants/paths';
-import { useActivateProject } from '../hooks/use-activate-project.hook';
-import { useCreateProject } from '../hooks/use-create-project-mutation.hook';
-import { useDeleteProject } from '../hooks/use-delete-project.hook';
-import { useUpdateProject } from '../hooks/use-update-project.hook';
+import { useActivateProject } from '../api/use-activate-project.hook';
+import { useCreateProject } from '../api/use-create-project-mutation.hook';
+import { useDeleteProject } from '../api/use-delete-project.hook';
+import { useUpdateProject } from '../api/use-update-project.hook';
 import {
     DeleteProjectDialog,
     PROJECT_ACTIONS,
