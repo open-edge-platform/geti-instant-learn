@@ -22,10 +22,9 @@ coturn-port := "443"
 
 # XPU variables
 render_gid := `uv run python -c "import grp; print(grp.getgrnam('render').gr_gid)"`
-# Default render node for Intel XPU. Replace it if your system uses a different node.
-# To find available render nodes on your system, run:
-#   ls /dev/dri/render*
-render_node := "/dev/dri/renderD128"
+# Default render node for Intel XPU.
+# Uses the first available `/dev/dri/renderD*` node
+render_node := `uv run python -c "from pathlib import Path; print(render_nodes[0]) if (render_nodes := sorted(Path('/dev/dri').glob('renderD*'))) else None"`
 
 # -------------------------------------------------------------------------------------------------
 # Variables used in the Justfile to build in Docker image
