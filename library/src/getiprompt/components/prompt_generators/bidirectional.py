@@ -77,9 +77,6 @@ class BidirectionalPromptGenerator(nn.Module):
         ref_mask_idx = ref_mask_idx.to(similarity_map.device)
 
         ref_to_target_sim = similarity_map[ref_mask_idx]
-        if ref_to_target_sim.numel() == 0:
-            return _empty_match_result(similarity_map)
-
         row_ind, col_ind = linear_sum_assignment(ref_to_target_sim, maximize=True)
 
         matched_ref_idx = ref_mask_idx[row_ind]
@@ -92,6 +89,7 @@ class BidirectionalPromptGenerator(nn.Module):
 
         Linear sum assignment finds the optimal pairing between masked reference features and target
         features to maximize overall similarity. Applies a bidirectional check to filter matches.
+        If no matches pass the bidirectional check, falls back to the best forward match.
 
         Args:
             similarity_map: Similarity matrix [num_ref_features, num_target_features]
@@ -103,34 +101,59 @@ class BidirectionalPromptGenerator(nn.Module):
                 valid_scores: Similarity scores of valid matches
         """
         ref_idx = ref_mask.nonzero(as_tuple=True)[0].to(similarity_map.device)
-        if ref_idx.numel() == 0:
-            return _empty_match_result(similarity_map)
 
         # Forward pass (ref → target)
         fw_indices, fw_scores = BidirectionalPromptGenerator.ref_to_target_matching(similarity_map, ref_idx)
         target_idx_fw = fw_indices[1]
-        if target_idx_fw.numel() == 0:
-            return _empty_match_result(similarity_map)
 
         # Backward pass (target → ref)
         target_to_ref_sim = similarity_map.t()[target_idx_fw]
         row_ind, col_ind = linear_sum_assignment(target_to_ref_sim, maximize=True)
 
         # Consistency filter
-        valid_ref = torch.isin(col_ind, ref_idx)
-        if not valid_ref.any():
-            return _empty_match_result(similarity_map)
+        valid_ref = (col_ind.unsqueeze(-1) == ref_idx).any(dim=-1)
 
+        # Compute fallback: best forward match (always computed for traceability)
+        best_idx = fw_scores.argmax()
+        fallback_ref = fw_indices[0][best_idx : best_idx + 1]
+        fallback_target = fw_indices[1][best_idx : best_idx + 1]
+        fallback_scores = fw_scores[best_idx : best_idx + 1]
+
+        # Compute valid bidirectional matches
         valid_fw = row_ind[valid_ref]
-        valid_indices = [fw_indices[0][valid_fw], fw_indices[1][valid_fw]]
-        valid_scores = fw_scores[valid_fw]
+        bidir_ref = fw_indices[0][valid_fw]
+        bidir_target = fw_indices[1][valid_fw]
+        bidir_scores = fw_scores[valid_fw]
+
+        # Use torch.where-style selection: if we have valid matches, use them; otherwise fallback
+        # Concatenate fallback to ensure at least one point, then mask appropriately
+        has_valid = valid_ref.any()  # scalar bool tensor
+
+        # Combine: always include fallback, mask it out if we have valid matches
+        # Result: valid matches + (fallback if no valid matches)
+        combined_ref = torch.cat([bidir_ref, fallback_ref])
+        combined_target = torch.cat([bidir_target, fallback_target])
+        combined_scores = torch.cat([bidir_scores, fallback_scores])
+
+        # Create mask: keep all bidir matches, keep fallback only if no bidir matches
+        num_bidir = bidir_ref.size(0)
+        keep_bidir = torch.ones(num_bidir, dtype=torch.bool, device=similarity_map.device)
+        keep_fallback = ~has_valid  # keep fallback only when no valid bidir matches
+
+        keep_mask = torch.cat([keep_bidir, keep_fallback.unsqueeze(0)])
+
+        # Apply mask via indexing with nonzero
+        keep_indices = keep_mask.nonzero(as_tuple=True)[0]
+        valid_indices = [combined_ref[keep_indices], combined_target[keep_indices]]
+        valid_scores = combined_scores[keep_indices]
+
         return valid_indices, valid_scores
 
     def _select_background_points(
         self,
         similarity_map: torch.Tensor,
         ref_mask: torch.Tensor,
-    ) -> tuple[torch.Tensor | None, torch.Tensor | None, torch.Tensor | None]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Select the N background points based on lowest average similarity to masked reference features.
 
         Args:
@@ -144,14 +167,11 @@ class BidirectionalPromptGenerator(nn.Module):
                 bg_scores: Similarity scores of background points
         """
         ref_idx = ref_mask.nonzero(as_tuple=True)[0]
-        if ref_idx.numel() == 0:
-            return None, None, None
-
         avg_similarity = similarity_map[ref_idx].mean(dim=0)
-        if avg_similarity.numel() == 0:
-            return None, None, None
-
-        k = min(self.num_background_points, avg_similarity.numel())
+        k = torch.minimum(
+            torch.tensor(self.num_background_points, device=avg_similarity.device),
+            torch.tensor(avg_similarity.size(0), device=avg_similarity.device),
+        )
         bg_scores, bg_target_idx = torch.topk(avg_similarity, k, largest=False)
         return avg_similarity, bg_target_idx, bg_scores
 
@@ -165,9 +185,6 @@ class BidirectionalPromptGenerator(nn.Module):
         Returns:
             Points with their similarity scores (N, 3) [x, y, score]
         """
-        if not matched_idx or matched_idx[1] is None or matched_idx[1].numel() == 0:
-            return torch.empty(0, 3, device=similarity_scores.device)
-
         tgt_idx = matched_idx[1]
         feat_size = self.encoder_feature_size
         y, x = tgt_idx // feat_size, tgt_idx % feat_size
@@ -192,9 +209,6 @@ class BidirectionalPromptGenerator(nn.Module):
         Returns:
             Points in image coordinates (x, y, score)
         """
-        if points.numel() == 0:
-            return torch.empty(0, 3).to(points)
-
         patch_size = self.encoder_patch_size
         encoder_input_size = self.encoder_input_size
         x_image = points[:, 0] * patch_size + patch_size // 2
@@ -231,6 +245,27 @@ class BidirectionalPromptGenerator(nn.Module):
         _, top_indices = torch.topk(foreground_points[:, 2], self.num_foreground_points)
         return foreground_points[top_indices]
 
+    def _pad_points(self, points: torch.Tensor, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
+        """Pad or truncate points tensor to exactly max_points size.
+
+        Fully traceable: always concatenates a full padding tensor, then truncates.
+        No conditionals on tensor shapes.
+
+        Args:
+            points: Points tensor [N, 4]
+            device: Target device
+            dtype: Target dtype
+
+        Returns:
+            Padded points tensor [max_points, 4]
+        """
+        # Always concatenate max_points zeros, then take first max_points rows
+        # This handles both N < max_points (padding) and N >= max_points (truncation)
+        # without any conditionals
+        full_padding = torch.zeros(self.max_points, 4, device=device, dtype=dtype)
+        combined = torch.cat([points, full_padding], dim=0)  # [N + max_points, 4]
+        return combined[: self.max_points]  # [max_points, 4]
+
     def _process_single_category(
         self,
         ref_embed: torch.Tensor,
@@ -238,7 +273,7 @@ class BidirectionalPromptGenerator(nn.Module):
         flatten_ref_mask: torch.Tensor,
         target_embed: torch.Tensor,
         original_size: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Process a single category against a target image.
 
         Args:
@@ -249,7 +284,8 @@ class BidirectionalPromptGenerator(nn.Module):
             original_size: Original image size tensor [H, W]
 
         Returns:
-            points: Point prompts [N, 4] with (x, y, score, label), filtered to max points
+            padded_points: Point prompts [max_points, 4] with (x, y, score, label), zero-padded
+            num_valid: Number of valid (non-padded) points
             similarity: Similarity map at feature grid size [feat_size, feat_size]
         """
         # Compute similarity maps
@@ -271,46 +307,27 @@ class BidirectionalPromptGenerator(nn.Module):
         foreground_indices, foreground_scores = self._perform_matching(similarity_map, flatten_ref_mask)
 
         # Process foreground points
-        if len(foreground_scores) > 0:
-            foreground_points = self._extract_point_coordinates(foreground_indices, foreground_scores)
-            foreground_points = self._convert_to_image_coords(foreground_points, original_size)
-            foreground_labels = torch.ones((len(foreground_points), 1)).to(foreground_points)
-            foreground_points = torch.cat([foreground_points, foreground_labels], dim=1)
-            # Filter to keep only top-scoring foreground points
-            foreground_points = self._filter_foreground_points(foreground_points)
-        else:
-            foreground_points = torch.empty(0, 4).to(similarity_map)
+        foreground_points = self._extract_point_coordinates(foreground_indices, foreground_scores)
+        foreground_points = self._convert_to_image_coords(foreground_points, original_size)
+        foreground_labels = foreground_points.new_ones((foreground_points.size(0), 1))
+        foreground_points = torch.cat([foreground_points, foreground_labels], dim=1)
+        # Filter to keep only top-scoring foreground points
+        foreground_points = self._filter_foreground_points(foreground_points)
 
         # Process background points
-        if background_indices is not None and background_scores is not None and background_indices.numel() > 0:
-            background_points = self._extract_point_coordinates([None, background_indices], background_scores)
-            background_points = self._convert_to_image_coords(background_points, original_size)
-            background_labels = -torch.ones((len(background_points), 1)).to(background_points)
-            background_points = torch.cat([background_points, background_labels], dim=1)
-        else:
-            background_points = torch.empty(0, 4).to(similarity_map)
-
+        background_points = self._extract_point_coordinates([None, background_indices], background_scores)
+        background_points = self._convert_to_image_coords(background_points, original_size)
+        background_labels = -background_points.new_ones((background_points.size(0), 1))
+        background_points = torch.cat([background_points, background_labels], dim=1)
         points = torch.cat([foreground_points, background_points])
-        return points, local_similarity_grid
 
-    def _pad_points(self, points: torch.Tensor, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
-        """Pad points tensor to max_points size.
-
-        Args:
-            points: Points tensor [N, 4]
-            device: Target device
-            dtype: Target dtype
-
-        Returns:
-            Padded points tensor [max_points, 4]
-        """
-        num_points = points.shape[0]
-        if num_points >= self.max_points:
-            return points[: self.max_points]
-
-        # Pad with zeros
-        padding = torch.zeros(self.max_points - num_points, 4, device=device, dtype=dtype)
-        return torch.cat([points, padding], dim=0)
+        # Return actual point count and fixed-size padded points
+        if torch.jit.is_scripting() or torch.jit.is_tracing():
+            num_valid = points.size(0)
+        else:
+            num_valid = torch.tensor(points.size(0))
+        padded_points = self._pad_points(points, points.device, points.dtype)
+        return padded_points, num_valid, local_similarity_grid
 
     def forward(
         self,
@@ -361,7 +378,7 @@ class BidirectionalPromptGenerator(nn.Module):
                 masked_embed = masked_ref_embeddings[c_idx]
                 mask = flatten_ref_masks[c_idx]
 
-                points, similarity = self._process_single_category(
+                padded_points, num_valid, similarity = self._process_single_category(
                     ref_embed,
                     masked_embed,
                     mask,
@@ -370,13 +387,80 @@ class BidirectionalPromptGenerator(nn.Module):
                 )
 
                 # Store actual count
-                actual_num_points = min(points.shape[0], self.max_points)
+                actual_num_points = torch.minimum(num_valid, torch.tensor(self.max_points))
                 num_points[t_idx, c_idx] = actual_num_points
 
-                # Pad and store points
-                point_prompts[t_idx, c_idx] = self._pad_points(points, device, dtype)
+                # Store padded points (fixed size)
+                point_prompts[t_idx, c_idx] = padded_points
 
                 # Store similarity
                 similarities[t_idx, c_idx] = similarity
 
+        return point_prompts, num_points, similarities
+
+    def forward_export(
+        self,
+        ref_embeddings: torch.Tensor,
+        masked_ref_embeddings: torch.Tensor,
+        flatten_ref_masks: torch.Tensor,
+        category_ids: list[int],
+        target_embeddings: torch.Tensor,
+        original_sizes: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Generate prompt candidates based on reference-target similarities.
+
+        Uses bidirectional matching to create point prompts for the segmenter.
+        Automatically filters to keep only top-scoring foreground points.
+        All outputs are tensors for full traceability.
+
+        Args:
+            ref_embeddings(dict[int, torch.Tensor]): Reference embeddings grouped by class_id.
+            masked_ref_embeddings(dict[int, torch.Tensor]): Dictionary with class_id as key and
+                masked reference embeddings as value.
+            flatten_ref_masks(dict[int, torch.Tensor]): Dictionary of flattened reference masks, with class_id as key
+                and flattened reference masks as value.
+            target_embeddings(torch.Tensor): Target embeddings
+            original_sizes(list[tuple[int, int]]): Original sizes of the target images
+
+        Returns:
+            point_prompts: [T, C, max_points, 4] - filtered and padded point prompts
+            num_points: [T, C] - actual valid point counts per (target, category)
+            similarities: [T, C, feat_size, feat_size] - similarity maps at feature grid size
+        """
+        # Force num targets = 1 for export compatibility
+        num_categories = len(category_ids)
+        feat_size = self.encoder_feature_size
+        device = target_embeddings.device
+        dtype = target_embeddings.dtype
+
+        # Pre-allocate output tensors
+        point_prompts = torch.zeros(1, num_categories, self.max_points, 4, device=device, dtype=dtype)
+        num_points = torch.zeros(1, num_categories, device=device, dtype=torch.int64)
+        similarities = torch.zeros(1, num_categories, feat_size, feat_size, device=device, dtype=dtype)
+
+        target_embed = target_embeddings[0]
+        original_size = original_sizes[0]
+
+        for c_idx in range(num_categories):
+            ref_embed = ref_embeddings[c_idx]
+            masked_embed = masked_ref_embeddings[c_idx]
+            mask = flatten_ref_masks[c_idx]
+
+            padded_points, num_valid, similarity = self._process_single_category(
+                ref_embed,
+                masked_embed,
+                mask,
+                target_embed,
+                original_size,
+            )
+
+            # Store actual count (clamped to max_points)
+            actual_num_points = torch.minimum(num_valid, torch.tensor(self.max_points))
+            num_points[0, c_idx] = actual_num_points
+
+            # Store padded points (fixed size assignment - no dynamic slicing)
+            point_prompts[0, c_idx] = padded_points
+
+            # Store similarity
+            similarities[0, c_idx] = similarity
         return point_prompts, num_points, similarities

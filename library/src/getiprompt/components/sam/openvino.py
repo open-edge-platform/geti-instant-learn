@@ -110,7 +110,7 @@ class OpenVINOSAMPredictor(nn.Module):
         msg = "Exporting OpenVINO models is not supported. Please export from PyTorchSAMPredictor."
         raise NotImplementedError(msg)
 
-    def predict(
+    def forward(
         self,
         point_coords: torch.Tensor,
         point_labels: torch.Tensor,

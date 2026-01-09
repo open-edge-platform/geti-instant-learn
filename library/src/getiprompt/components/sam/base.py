@@ -7,6 +7,7 @@ from logging import getLogger
 from pathlib import Path
 
 import torch
+from torch import nn
 
 from getiprompt.components.sam.openvino import OpenVINOSAMPredictor
 from getiprompt.components.sam.pytorch import PyTorchSAMPredictor
@@ -122,7 +123,7 @@ def load_sam_model(
     raise ValueError(msg)
 
 
-class SAMPredictor:
+class SAMPredictor(nn.Module):
     """Unified SAM predictor wrapper supporting multiple backends.
 
     This class provides a unified interface for SAM prediction using different
@@ -175,6 +176,7 @@ class SAMPredictor:
             model_path: Path to model weights (required for OpenVINO backend).
             target_length: Target length for the longest side of the image during transformation. Defaults to 1024.
         """
+        super().__init__()
         self.backend = backend
         self.device = device
         self._predictor: PyTorchSAMPredictor | OpenVINOSAMPredictor = load_sam_model(
@@ -195,7 +197,7 @@ class SAMPredictor:
         """
         return self._predictor.set_image(image)
 
-    def predict(
+    def forward(
         self,
         point_coords: torch.Tensor | None = None,
         point_labels: torch.Tensor | None = None,
@@ -217,7 +219,7 @@ class SAMPredictor:
         Returns:
             Tuple of (masks, iou_predictions, low_res_logits)
         """
-        return self._predictor.predict(
+        return self._predictor.forward(
             point_coords=point_coords,
             point_labels=point_labels,
             boxes=boxes,

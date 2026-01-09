@@ -312,6 +312,12 @@ class PyTorchSAMPredictor(nn.Module):
             self._predictor = _SamPredictor(sam_model)
             # Patch with ONNX-compatible prompt encoder for SAM-HQ models
             self._patch_prompt_encoder(device)
+
+            self._freeze_modules([
+                self._predictor.model.mask_decoder,
+                self._predictor.model.prompt_encoder,
+                self._predictor.model.image_encoder,
+            ])
         else:
             msg = f"Model {sam_model_name} not implemented"
             raise NotImplementedError(msg)
@@ -349,7 +355,8 @@ class PyTorchSAMPredictor(nn.Module):
         transformed_image = self.transform.apply_image_torch(image).to(device=self.device)
         return self._predictor.set_torch_image(transformed_image, self._original_size)
 
-    def predict(
+    @torch.inference_mode()
+    def forward(
         self,
         point_coords: torch.Tensor | None,
         point_labels: torch.Tensor | None,
@@ -414,29 +421,6 @@ class PyTorchSAMPredictor(nn.Module):
         for module in modules:
             for p in module.parameters():
                 p.requires_grad_(requires_grad=False)
-
-    @torch.inference_mode()
-    def forward(
-        self,
-        transformed_image: torch.Tensor,
-        point_coords: torch.Tensor,
-        point_labels: torch.Tensor,
-        boxes: torch.Tensor,
-        mask_input: torch.Tensor,
-        original_size: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Forward pass for ONNX/OpenVINO export."""
-        h, w = original_size
-        original_size = (h, w)
-        self._predictor.set_torch_image(transformed_image, original_size)
-        return self._predictor.predict_torch(
-            point_coords=point_coords,
-            point_labels=point_labels,
-            boxes=boxes,
-            mask_input=mask_input,
-            multimask_output=True,
-            return_logits=False,
-        )
 
     def export(self, output_path: Path, backend: str | Backend = Backend.ONNX) -> Path:
         """Export this PyTorch predictor to the specified format.

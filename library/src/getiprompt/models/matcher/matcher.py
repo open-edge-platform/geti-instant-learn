@@ -8,6 +8,7 @@ from pathlib import Path
 import torch
 from torch import nn
 from torch.nn import functional
+from torch.nn import functional as F
 
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor, ReferenceFeatures
@@ -20,21 +21,39 @@ from getiprompt.utils.constants import Backend, SAMModelName
 
 
 class EncoderForwardFeaturesWrapper(nn.Module):
-    def __init__(self, encoder: nn.Module, ignore_token_length: int):
+    IMAGENET_DEFAULT_MEAN = torch.tensor((0.485, 0.456, 0.406))
+    IMAGENET_DEFAULT_STD = torch.tensor((0.229, 0.224, 0.225))
+
+    def __init__(
+        self,
+        encoder: nn.Module,
+        ignore_token_length: int,
+        input_size: int = 512,
+    ):
         super().__init__()
         self.encoder = encoder
         self.ignore_token_length = ignore_token_length
+        self.input_size = input_size
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = x.float() / 255.0
+        x = F.interpolate(x, size=(self.input_size, self.input_size), mode="bilinear")
+        x = (x - self.IMAGENET_DEFAULT_MEAN[None, :, None, None]) / self.IMAGENET_DEFAULT_STD[None, :, None, None]
         features = self.encoder.forward_features(x)
         features = features[:, self.ignore_token_length :, :]  # ignore CLS and other tokens
         return functional.normalize(features, p=2, dim=-1)
 
 
 class MatcherInferenceGraph(nn.Module):
-    """Traceable inference graph with frozen reference features."""
+    """Traceable inference graph with frozen reference features for ONNX export."""
 
-    def __init__(self, encoder, prompt_generator, sam_decoder, ref_features: ReferenceFeatures):
+    def __init__(
+        self,
+        encoder: nn.Module,
+        prompt_generator: BidirectionalPromptGenerator,
+        sam_decoder: SamDecoder,
+        ref_features: ReferenceFeatures,
+    ):
         super().__init__()
         self.encoder = encoder
         self.prompt_generator = prompt_generator
@@ -47,18 +66,19 @@ class MatcherInferenceGraph(nn.Module):
         self.register_buffer("category_ids", torch.tensor(ref_features.category_ids))
 
     def forward(self, target_image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Single forward pass: target_image → (masks, scores, labels)."""
-        # Encode target
-        # Get original sizes [T, 2]
-        original_sizes = torch.tensor(
-            [image.size()[-2:] for image in target_image.images],
-            device=self.ref_embeddings.device,
-        )
+        """Single image forward pass for export: target_image [1, 3, H, W] → (masks, scores, labels)."""
+        # Get original size from input tensor [1, 3, H, W]
+        original_sizes = torch.stack([
+            torch.tensor(target_image.size(2)),
+            torch.tensor(target_image.size(3)),
+        ]).unsqueeze(0)
 
+        # Encode target [1, num_patches, embed_dim]
         target_embeddings = self.encoder(target_image)
 
         # Generate prompts using frozen ref_features
-        point_prompts, num_points, similarities = self.prompt_generator(
+        # point_prompts: [1, C, max_points, 4], num_points: [1, C], similarities: [1, C, feat_size, feat_size]
+        point_prompts, num_points, similarities = self.prompt_generator.forward_export(
             self.ref_embeddings,
             self.masked_ref_embeddings,
             self.flatten_ref_masks,
@@ -67,8 +87,14 @@ class MatcherInferenceGraph(nn.Module):
             original_sizes,
         )
 
-        # Decode
-        return self.sam_decoder(target_image, point_prompts, num_points, similarities)
+        # Decode using export-friendly method (single image, returns tensors)
+        return self.sam_decoder.forward_export(
+            target_image[0],  # Single image [3, H, W]
+            self.category_ids,
+            point_prompts[0],  # [C, max_points, 4]
+            num_points[0],  # [C]
+            similarities[0],  # [C, feat_size, feat_size]
+        )
 
 
 class Matcher(Model):
@@ -188,7 +214,7 @@ class Matcher(Model):
         # Reference features (set during fit)
         self.ref_features: ReferenceFeatures | None = None
 
-    def fit(self, reference_batch: Batch) -> None:
+    def fit(self, reference_batch: Batch) -> ReferenceFeatures:
         """Learn from reference images.
 
         Args:
@@ -200,6 +226,7 @@ class Matcher(Model):
             reference_batch.masks,
             reference_batch.category_ids,
         )
+        return self.ref_features
 
     def predict(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
         """Predict masks for target images.
@@ -245,6 +272,7 @@ class Matcher(Model):
             similarities=similarities,
         )
 
+    @torch.no_grad()
     def export(
         self,
         reference_features: ReferenceFeatures,
@@ -264,11 +292,74 @@ class Matcher(Model):
         export_path = Path(export_dir)
         export_path.mkdir(parents=True, exist_ok=True)
 
+        # TODO[Eugene]: I don't like accessing protected members, refactor later
         matcher = MatcherInferenceGraph(
-            encoder=EncoderForwardFeaturesWrapper(self.encoder, ignore_token_length=1),
+            encoder=EncoderForwardFeaturesWrapper(
+                self.encoder._model.model,
+                ignore_token_length=self.encoder._model.ignore_token_length,
+            ),
             prompt_generator=self.prompt_generator,
-            sam_decoder=self.segmenter.sam_decoder,
+            sam_decoder=self.segmenter,
             ref_features=reference_features,
         )
+
+        target_image = torch.randn(1, 3, self.encoder.input_size, self.encoder.input_size)
+        if backend == Backend.ONNX:
+            onnx_path = export_path / "matcher.onnx"
+            torch.onnx.export(
+                matcher,
+                args=(target_image,),
+                f=onnx_path,
+                input_names=["target_image"],
+                output_names=["masks", "scores", "labels"],
+                dynamic_axes={
+                    "target_image": {0: "batch_size", 2: "height", 3: "width"},
+                    "masks": {0: "num_masks", 1: "height", 2: "width"},
+                    "scores": {0: "num_masks"},
+                    "labels": {0: "num_masks"},
+                },
+                opset_version=20,
+                verbose=True,
+            )
+            return onnx_path
+
+        if backend == Backend.OPENVINO:
+            try:
+                import openvino
+
+                # First export to ONNX (OpenVINO direct PyTorch conversion has limited op support)
+                onnx_path = export_path / "matcher.onnx"
+
+                # Use tracing mode to avoid If nodes from conditional logic
+                # The encoder always gets fixed-size input after resize, so conditions are constant
+                torch.onnx.export(
+                    matcher,
+                    args=(target_image,),
+                    f=onnx_path,
+                    input_names=["target_image"],
+                    output_names=["masks", "scores", "labels"],
+                    dynamic_axes={
+                        "target_image": {2: "height", 3: "width"},
+                        "masks": {0: "num_masks", 1: "height", 2: "width"},
+                        "scores": {0: "num_masks"},
+                        "labels": {0: "num_masks"},
+                    },
+                    opset_version=20,
+                )
+
+                input_shape = {
+                    "target_image": openvino.PartialShape([-1, 3, -1, -1]),
+                }
+                # Convert ONNX to OpenVINO with static shapes
+                ov_model = openvino.convert_model(
+                    onnx_path,
+                    example_input=(target_image,),
+                    input=input_shape,
+                )
+                openvino.save_model(ov_model, export_path / "matcher.xml")
+
+                return export_path / "matcher.xml"
+            except ImportError:
+                raise ImportError("OpenVINO is not installed. Please install it to use OpenVINO export.")
 
         return export_path
