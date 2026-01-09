@@ -8,7 +8,7 @@ import { expect, http, test } from '@geti-prompt/test-fixtures';
 import { LabelsPage } from '../labels/labels-page';
 import { registerApiLabels } from '../labels/mocks';
 import { initializeWebRTC } from '../prompt/initialize-webrtc';
-import { WEBCAM_SOURCE } from '../prompt/mocks';
+import { USB_CAMERA_SOURCE } from '../prompt/mocks';
 import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations, expectToNotHaveAnnotations } from './utils';
 
 test(`Annotator`, async ({ network, page, context, streamPage, annotatorPage }) => {
@@ -21,7 +21,7 @@ test(`Annotator`, async ({ network, page, context, streamPage, annotatorPage }) 
     network.use(
         http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {
             return response(200).json({
-                sources: [WEBCAM_SOURCE],
+                sources: [USB_CAMERA_SOURCE],
                 pagination: {
                     count: 1,
                     total: 1,
@@ -32,7 +32,7 @@ test(`Annotator`, async ({ network, page, context, streamPage, annotatorPage }) 
         }),
 
         http.put('/api/v1/projects/{project_id}/sources/{source_id}', ({ response }) =>
-            response(200).json(WEBCAM_SOURCE)
+            response(200).json(USB_CAMERA_SOURCE)
         )
     );
 

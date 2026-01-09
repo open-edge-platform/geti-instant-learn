@@ -7,12 +7,12 @@ import { TextField, View } from '@geti/ui';
 
 import { validateDeviceId } from './utils';
 
-export interface WebcamFieldsProps {
+export interface UsbCameraFieldsProps {
     selectedDeviceId: string;
     onSetSelectedDeviceId: (value: string) => void;
 }
 
-export const WebcamSourceFields = ({ selectedDeviceId, onSetSelectedDeviceId }: WebcamFieldsProps) => {
+export const UsbCameraSourceFields = ({ selectedDeviceId, onSetSelectedDeviceId }: UsbCameraFieldsProps) => {
     return (
         <View>
             <TextField

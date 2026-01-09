@@ -8,25 +8,25 @@ import { FormEvent, useState } from 'react';
 import { Button, ButtonGroup, Flex, Form } from '@geti/ui';
 
 import { useCreateSource } from '../api/use-create-source';
+import { UsbCameraSourceFields } from './usb-camera-source-fields.component';
 import { isDeviceIdValid } from './utils';
-import { WebcamSourceFields } from './webcam-source-fields.component';
 
-interface CreateWebcamSourceProps {
+interface CreateUsbCameraSourceProps {
     onSaved: () => void;
 }
 
-export const CreateWebcamSource = ({ onSaved }: CreateWebcamSourceProps) => {
+export const CreateUsbCameraSource = ({ onSaved }: CreateUsbCameraSourceProps) => {
     const [selectedDeviceId, setSelectedDeviceId] = useState<string>('0');
-    const createWebcamSource = useCreateSource();
+    const createUsbCameraSource = useCreateSource();
 
-    const isApplyDisabled = !isDeviceIdValid(selectedDeviceId) || createWebcamSource.isPending;
+    const isApplyDisabled = !isDeviceIdValid(selectedDeviceId) || createUsbCameraSource.isPending;
 
     const handleApply = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
-        createWebcamSource.mutate(
+        createUsbCameraSource.mutate(
             {
-                source_type: 'webcam',
+                source_type: 'usb_camera',
                 device_id: parseInt(selectedDeviceId),
                 seekable: false,
             },
@@ -37,10 +37,13 @@ export const CreateWebcamSource = ({ onSaved }: CreateWebcamSourceProps) => {
     return (
         <Form validationBehavior={'native'} onSubmit={handleApply}>
             <Flex direction={'column'} gap={'size-200'} marginTop={0}>
-                <WebcamSourceFields selectedDeviceId={selectedDeviceId} onSetSelectedDeviceId={setSelectedDeviceId} />
+                <UsbCameraSourceFields
+                    selectedDeviceId={selectedDeviceId}
+                    onSetSelectedDeviceId={setSelectedDeviceId}
+                />
 
                 <ButtonGroup>
-                    <Button type={'submit'} isPending={createWebcamSource.isPending} isDisabled={isApplyDisabled}>
+                    <Button type={'submit'} isPending={createUsbCameraSource.isPending} isDisabled={isApplyDisabled}>
                         Apply
                     </Button>
                 </ButtonGroup>

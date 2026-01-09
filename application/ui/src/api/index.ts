@@ -10,14 +10,14 @@ export type SourceType = SourcesType[number]['config']['source_type'];
 
 type SourceWithoutConfig = Omit<SchemaSourceSchema, 'config'>;
 
-type WebcamConfig = components['schemas']['WebCamConfig'];
+type USBCameraConfig = components['schemas']['UsbCameraConfig'];
 type VideoFileConfig = components['schemas']['VideoFileConfig'];
 export type ImagesFolderConfig = components['schemas']['ImagesFolderConfig'];
 type SampleDatasetConfig = components['schemas']['SampleDatasetConfig'];
 
-export type SourceConfig = WebcamConfig | VideoFileConfig | ImagesFolderConfig | SampleDatasetConfig;
+export type SourceConfig = USBCameraConfig | VideoFileConfig | ImagesFolderConfig | SampleDatasetConfig;
 
-export type WebcamSourceType = SourceWithoutConfig & { config: WebcamConfig };
+export type USBCameraSourceType = SourceWithoutConfig & { config: USBCameraConfig };
 export type VideoFileSourceType = SourceWithoutConfig & { config: VideoFileConfig };
 export type ImagesFolderSourceType = SourceWithoutConfig & { config: ImagesFolderConfig };
 export type SampleDatasetSourceType = SourceWithoutConfig & { config: SampleDatasetConfig };

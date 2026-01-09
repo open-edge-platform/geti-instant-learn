@@ -12,7 +12,7 @@ import {
     isImagesFolderSource,
     isTestDatasetSource,
     isVideoFileSource,
-    isWebcamSource,
+    isUsbCameraSource,
 } from '../sources-sinks/sources/utils';
 import { CaptureFrameButton } from './capture-frame-button.component';
 import { ImagesFolderStream } from './images-folder-stream/images-folder-stream.component';
@@ -58,7 +58,7 @@ export const Stream = () => {
         return null;
     }
 
-    if (isWebcamSource(activeSource) || isVideoFileSource(activeSource)) {
+    if (isUsbCameraSource(activeSource) || isVideoFileSource(activeSource)) {
         return <VideoStream />;
     }
 
