@@ -146,40 +146,6 @@ test.describe('Projects', () => {
         );
 
         test(
-            'Navigates to the projects list page when the URL does not contain project ID and there are ' +
-                'at least two projects, none of them are active',
-            async ({ page, network, projectPage }) => {
-                const projects: ProjectType[] = [
-                    getMockedProject({
-                        id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
-                        name: 'Cool project #1',
-                        active: false,
-                    }),
-                    getMockedProject({
-                        id: '10f1d423-4a1e-40ed-b025-2c4811f87c95',
-                        name: 'Cool project #2',
-                        active: false,
-                    }),
-                ];
-
-                registerApiProjects({ network, defaultProjects: projects });
-
-                await page.goto(paths.root({}));
-
-                await expect(projectPage.projectsHeader).toBeVisible();
-
-                for (const project of projects) {
-                    await expect(projectPage.getProjectInTheList(project.name)).toBeVisible();
-                }
-
-                await projectPage.getProjectInTheList(projects[0].name).click();
-
-                await expect(projectPage.getSelectedProject(projects[0].name)).toBeVisible();
-                expect(page.url()).toContain(paths.project({ projectId: projects[0].id }));
-            }
-        );
-
-        test(
             'Navigates to the project details page of the active project when the URL does not contain project ' +
                 'ID and there are at least two projects, one of them is active',
             async ({ page, network, projectPage }) => {
@@ -564,6 +530,37 @@ test.describe('Projects', () => {
             await projectPage.openProject(secondProject.name);
 
             await expect(projectPage.getSelectedProject(secondProject.name)).toHaveAttribute('data-active', 'true');
+        });
+
+        test('Activates a project when opening a link with a project that is inactive', async ({
+            network,
+            projectPage,
+        }) => {
+            const projects = registerApiProjects({
+                network,
+                defaultProjects: [
+                    getMockedProject({
+                        id: '10f1d4b7-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #1',
+                        active: true,
+                    }),
+                    getMockedProject({
+                        id: 'd4231d423-4a1e-40ed-b025-2c4811f87c95',
+                        name: 'Cool project #2',
+                        active: false,
+                    }),
+                ],
+            });
+
+            const [, inactiveProject] = projects;
+
+            await projectPage.goto(inactiveProject.id);
+
+            const project = projectPage.getSelectedProject(inactiveProject.name);
+
+            await expect(project).toBeVisible();
+
+            await expect(projectPage.getSelectedProject(inactiveProject.name)).toHaveAttribute('data-active', 'true');
         });
     });
 });

@@ -14,7 +14,7 @@ export const useActivateProject = () => {
 
     const updateProject = useUpdateProject();
 
-    const activateProject = (project: ProjectType, activeProject: ProjectType | undefined) => {
+    const activateProject = (project: ProjectType, activeProject?: ProjectType) => {
         updateProject.mutate(project.id, { active: true }, async () => {
             if (activeProject === undefined) return;
 
