@@ -15,7 +15,7 @@ from domain.errors import (
     ResourceType,
     ResourceUpdateConflictError,
 )
-from domain.services.schemas.reader import SourceType, VideoFileConfig, UsbCameraConfig
+from domain.services.schemas.reader import SourceType, UsbCameraConfig, VideoFileConfig
 from domain.services.schemas.source import SourceCreateSchema, SourceUpdateSchema
 from domain.services.source import SourceService
 

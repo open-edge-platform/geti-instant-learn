@@ -11,14 +11,14 @@ from domain.services.schemas.reader import (
     ImagesFolderConfig,
     SampleDatasetConfig,
     SourceType,
-    VideoFileConfig,
     UsbCameraConfig,
+    VideoFileConfig,
 )
 from runtime.core.components.factories.reader import StreamReaderFactory
 from runtime.core.components.readers.image_folder_reader import ImageFolderReader
 from runtime.core.components.readers.noop_reader import NoOpReader
-from runtime.core.components.readers.video_file import VideoFileReader
 from runtime.core.components.readers.usb_camera_reader import UsbCameraReader
+from runtime.core.components.readers.video_file import VideoFileReader
 
 
 class TestStreamReaderFactory:
