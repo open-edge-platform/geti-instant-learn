@@ -9,11 +9,17 @@ import { useProjectIdentifier } from '@geti-prompt/hooks';
 export const useCurrentProject = () => {
     const { projectId } = useProjectIdentifier();
 
-    return $api.useSuspenseQuery('get', '/api/v1/projects/{project_id}', {
+    const a = $api.useSuspenseQuery('get', '/api/v1/projects/{project_id}', {
         params: {
             path: {
                 project_id: projectId,
             },
         },
     });
+
+    const data = a.data;
+
+    console.table(data);
+
+    return a;
 };

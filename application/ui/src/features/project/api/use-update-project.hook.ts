@@ -13,24 +13,9 @@ export const useUpdateProject = () => {
         meta: {
             invalidates: [['get', '/api/v1/projects']],
         },
-        onSuccess: async ({ id }) => {
-            await queryClient.invalidateQueries({
-                queryKey: getQueryKey([
-                    'get',
-                    '/api/v1/projects/{project_id}',
-                    {
-                        params: {
-                            path: {
-                                project_id: id,
-                            },
-                        },
-                    },
-                ]),
-            });
-        },
     });
 
-    const updateProject = (id: string, body: ProjectUpdateType, onSuccess?: () => void): void => {
+    const updateProject = (id: string, body: ProjectUpdateType, onSuccess?: () => Promise<void>): void => {
         updateProjectMutation.mutate(
             {
                 body,
@@ -41,7 +26,23 @@ export const useUpdateProject = () => {
                 },
             },
             {
-                onSuccess,
+                onSuccess: async () => {
+                    await onSuccess?.();
+
+                    await queryClient.invalidateQueries({
+                        queryKey: getQueryKey([
+                            'get',
+                            '/api/v1/projects/{project_id}',
+                            {
+                                params: {
+                                    path: {
+                                        project_id: id,
+                                    },
+                                },
+                            },
+                        ]),
+                    });
+                },
             }
         );
     };

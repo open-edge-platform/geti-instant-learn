@@ -15,10 +15,10 @@ export const useActivateProject = () => {
     const updateProject = useUpdateProject();
 
     const activateProject = (project: ProjectType, activeProject: ProjectType | undefined) => {
-        updateProject.mutate(project.id, { active: true }, () => {
+        updateProject.mutate(project.id, { active: true }, async () => {
             if (activeProject === undefined) return;
 
-            queryClient.invalidateQueries({
+            await queryClient.invalidateQueries({
                 queryKey: getQueryKey([
                     'get',
                     '/api/v1/projects/{project_id}',
