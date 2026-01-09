@@ -18,7 +18,7 @@ from domain.errors import (
     ResourceUpdateConflictError,
 )
 from domain.services.schemas.base import Pagination
-from domain.services.schemas.reader import FrameListResponse, FrameMetadata, SourceType, WebCamConfig
+from domain.services.schemas.reader import FrameListResponse, FrameMetadata, SourceType, UsbCameraConfig
 from domain.services.schemas.source import SourceSchema, SourcesListSchema
 from runtime.errors import PipelineNotActiveError, SourceNotSeekableError
 
@@ -35,7 +35,7 @@ def make_source_schema(
     return SourceSchema(
         id=source_id,
         active=active,
-        config=WebCamConfig(source_type=SourceType.USB_CAMERA, device_id=device_id),
+        config=UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=device_id),
     )
 
 

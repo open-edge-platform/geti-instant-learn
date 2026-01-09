@@ -17,7 +17,7 @@ class SourceType(StrEnum):
     SAMPLE_DATASET = "sample_dataset"
 
 
-class WebCamConfig(BaseModel):
+class UsbCameraConfig(BaseModel):
     source_type: Literal[SourceType.USB_CAMERA]
     name: str | None = None
     device_id: int
@@ -114,7 +114,7 @@ class SampleDatasetConfig(BaseModel):
 
 
 ReaderConfig = Annotated[
-    WebCamConfig | VideoFileConfig | ImagesFolderConfig | SampleDatasetConfig,
+    UsbCameraConfig | VideoFileConfig | ImagesFolderConfig | SampleDatasetConfig,
     Field(discriminator="source_type"),
 ]
 

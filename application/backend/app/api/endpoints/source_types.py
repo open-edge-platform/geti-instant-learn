@@ -24,6 +24,6 @@ logger = logging.getLogger(__name__)
 )
 def get_available_sources(source_type: str, discovery_service: DiscoveryServiceDep) -> list[ReaderConfig]:
     """
-    List available sources for the specified type (e.g. connected webcams).
+    List available sources for the specified type (e.g. connected usb cameras).
     """
     return discovery_service.list_available_sources(source_type)

@@ -7,13 +7,13 @@ import platform
 import cv2
 from cv2_enumerate_cameras import enumerate_cameras
 
-from domain.services.schemas.reader import ReaderConfig, SourceType, WebCamConfig
+from domain.services.schemas.reader import ReaderConfig, SourceType, UsbCameraConfig
 from runtime.core.components.readers.video_stream_reader import BaseOpenCVReader
 
 logger = logging.getLogger(__name__)
 
 
-class WebCamReader(BaseOpenCVReader):
+class UsbCameraReader(BaseOpenCVReader):
     def __init__(self, config: ReaderConfig) -> None:
         self._config = config
         super().__init__()
@@ -30,7 +30,7 @@ class WebCamReader(BaseOpenCVReader):
         return cap
 
     @classmethod
-    def discover(cls) -> list[WebCamConfig]:
+    def discover(cls) -> list[UsbCameraConfig]:
         if platform.system() == "Windows":
             backends = [cv2.CAP_DSHOW, cv2.CAP_MSMF]
         elif platform.system() == "Darwin":  # macOS
@@ -38,7 +38,7 @@ class WebCamReader(BaseOpenCVReader):
         else:  # Linux
             backends = [cv2.CAP_V4L2]
 
-        devices: list[WebCamConfig] = []
+        devices: list[UsbCameraConfig] = []
         camera_list = []
 
         for backend in backends:
@@ -48,7 +48,7 @@ class WebCamReader(BaseOpenCVReader):
 
         for camera_info in camera_list:
             devices.append(
-                WebCamConfig(
+                UsbCameraConfig(
                     source_type=SourceType.USB_CAMERA,
                     device_id=camera_info.index,
                     name=camera_info.name,

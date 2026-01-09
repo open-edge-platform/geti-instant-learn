@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from api.error_handler import custom_exception_handler
 from dependencies import get_discovery_service
-from domain.services.schemas.reader import SourceType, WebCamConfig
+from domain.services.schemas.reader import SourceType, UsbCameraConfig
 from main import fastapi_app
 
 
@@ -29,16 +29,16 @@ def fxt_discovery_service() -> MagicMock:
 
 
 @pytest.fixture
-def fxt_webcam_sources() -> list[WebCamConfig]:
+def fxt_usb_camera_sources() -> list[UsbCameraConfig]:
     return [
-        WebCamConfig(source_type=SourceType.USB_CAMERA, device_id=0, name="Camera 0"),
-        WebCamConfig(source_type=SourceType.USB_CAMERA, device_id=1, name="Camera 1"),
+        UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=0, name="Camera 0"),
+        UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=1, name="Camera 1"),
     ]
 
 
 class TestSourceTypeEndpoints:
-    def test_get_available_sources_success(self, fxt_discovery_service, fxt_webcam_sources, fxt_client):
-        fxt_discovery_service.list_available_sources.return_value = fxt_webcam_sources
+    def test_get_available_sources_success(self, fxt_discovery_service, fxt_usb_camera_sources, fxt_client):
+        fxt_discovery_service.list_available_sources.return_value = fxt_usb_camera_sources
 
         response = fxt_client.get(f"/api/v1/source-types/{SourceType.USB_CAMERA}/sources")
 

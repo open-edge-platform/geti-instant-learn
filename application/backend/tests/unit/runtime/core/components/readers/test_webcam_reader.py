@@ -1,4 +1,4 @@
-# test_webcam_reader.py
+# test_usb_camera_reader.py
 
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -7,8 +7,8 @@ import cv2
 import numpy as np
 import pytest
 
-from domain.services.schemas.reader import SourceType, WebCamConfig
-from runtime.core.components.readers.webcam_reader import WebCamReader
+from domain.services.schemas.reader import SourceType, UsbCameraConfig
+from runtime.core.components.readers.usb_camera_reader import UsbCameraReader
 
 
 @pytest.fixture
@@ -30,13 +30,13 @@ def test_video_path(tmp_path):
 
 
 @pytest.fixture
-def webcam_config(test_video_path):
-    return WebCamConfig(source_type=SourceType.USB_CAMERA, device_id=0)
+def usb_camera_config(test_video_path):
+    return UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=0)
 
 
-class TestWebCamReader:
-    def test_webcam_reader_connect(self, webcam_config, test_video_path, monkeypatch):
-        reader = WebCamReader(config=webcam_config)
+class TestUsbCameraReader:
+    def test_usb_camera_reader_connect(self, usb_camera_config, test_video_path, monkeypatch):
+        reader = UsbCameraReader(config=usb_camera_config)
         monkeypatch.setattr(reader._config, "device_id", str(test_video_path))
 
         reader.connect()
@@ -47,8 +47,8 @@ class TestWebCamReader:
 
         reader.close()
 
-    def test_webcam_reader_read_frame(self, webcam_config, test_video_path, monkeypatch):
-        reader = WebCamReader(config=webcam_config)
+    def test_usb_camera_reader_read_frame(self, usb_camera_config, test_video_path, monkeypatch):
+        reader = UsbCameraReader(config=usb_camera_config)
         monkeypatch.setattr(reader._config, "device_id", str(test_video_path))
 
         reader.connect()
@@ -63,8 +63,8 @@ class TestWebCamReader:
 
         reader.close()
 
-    def test_webcam_reader_end_of_stream(self, webcam_config, test_video_path, monkeypatch):
-        reader = WebCamReader(config=webcam_config)
+    def test_usb_camera_reader_end_of_stream(self, usb_camera_config, test_video_path, monkeypatch):
+        reader = UsbCameraReader(config=usb_camera_config)
         monkeypatch.setattr(reader._config, "device_id", str(test_video_path))
 
         reader.connect()
@@ -79,22 +79,22 @@ class TestWebCamReader:
 
         reader.close()
 
-    def test_webcam_reader_connect_invalid_source(self, webcam_config, monkeypatch):
-        reader = WebCamReader(config=webcam_config)
+    def test_usb_camera_reader_connect_invalid_source(self, usb_camera_config, monkeypatch):
+        reader = UsbCameraReader(config=usb_camera_config)
         monkeypatch.setattr(reader._config, "device_id", "/nonexistent/video.mp4")
 
         with pytest.raises(RuntimeError, match="Could not open video source"):
             reader.connect()
 
-    def test_webcam_reader_read_before_connect(self, webcam_config):
-        reader = WebCamReader(config=webcam_config)
+    def test_usb_camera_reader_read_before_connect(self, usb_camera_config):
+        reader = UsbCameraReader(config=usb_camera_config)
 
         with pytest.raises(RuntimeError, match="Video capture not initialized"):
             reader.read()
 
 
-class TestWebCamReaderDiscover:
-    """Tests for the WebCamReader.discover() class method."""
+class TestUsbCameraReaderDiscover:
+    """Tests for the UsbCameraReader.discover() class method."""
 
     @pytest.fixture
     def fxt_camera_info_list(self):
@@ -114,12 +114,12 @@ class TestWebCamReaderDiscover:
     )
     def test_discover_uses_correct_backend_for_os(self, os_name, backend_count, fxt_camera_info_list):
         with (
-            patch("runtime.core.components.readers.webcam_reader.platform.system", return_value=os_name),
-            patch("runtime.core.components.readers.webcam_reader.enumerate_cameras") as mock_enumerate,
+            patch("runtime.core.components.readers.usb_camera_reader.platform.system", return_value=os_name),
+            patch("runtime.core.components.readers.usb_camera_reader.enumerate_cameras") as mock_enumerate,
         ):
             mock_enumerate.return_value = fxt_camera_info_list
 
-            result = WebCamReader.discover()
+            result = UsbCameraReader.discover()
 
             # Verify enumerate_cameras was called for each expected backend
             assert mock_enumerate.call_count == backend_count
@@ -127,12 +127,12 @@ class TestWebCamReaderDiscover:
 
     def test_discover_windows_success(self, fxt_camera_info_list):
         with (
-            patch("runtime.core.components.readers.webcam_reader.platform.system", return_value="Windows"),
-            patch("runtime.core.components.readers.webcam_reader.enumerate_cameras") as mock_enumerate,
+            patch("runtime.core.components.readers.usb_camera_reader.platform.system", return_value="Windows"),
+            patch("runtime.core.components.readers.usb_camera_reader.enumerate_cameras") as mock_enumerate,
         ):
             mock_enumerate.return_value = fxt_camera_info_list
 
-            result = WebCamReader.discover()
+            result = UsbCameraReader.discover()
 
             # Windows tries 2 backends, so cameras appear twice
             assert len(result) >= 2
@@ -142,36 +142,36 @@ class TestWebCamReaderDiscover:
 
     def test_discover_macos_success(self, fxt_camera_info_list):
         with (
-            patch("runtime.core.components.readers.webcam_reader.platform.system", return_value="Darwin"),
-            patch("runtime.core.components.readers.webcam_reader.enumerate_cameras") as mock_enumerate,
+            patch("runtime.core.components.readers.usb_camera_reader.platform.system", return_value="Darwin"),
+            patch("runtime.core.components.readers.usb_camera_reader.enumerate_cameras") as mock_enumerate,
         ):
             mock_enumerate.return_value = fxt_camera_info_list
 
-            result = WebCamReader.discover()
+            result = UsbCameraReader.discover()
 
             assert len(result) == 2
-            assert all(isinstance(cam, WebCamConfig) for cam in result)
+            assert all(isinstance(cam, UsbCameraConfig) for cam in result)
 
     def test_discover_linux_success(self, fxt_camera_info_list):
         with (
-            patch("runtime.core.components.readers.webcam_reader.platform.system", return_value="Linux"),
-            patch("runtime.core.components.readers.webcam_reader.enumerate_cameras") as mock_enumerate,
+            patch("runtime.core.components.readers.usb_camera_reader.platform.system", return_value="Linux"),
+            patch("runtime.core.components.readers.usb_camera_reader.enumerate_cameras") as mock_enumerate,
         ):
             mock_enumerate.return_value = fxt_camera_info_list
 
-            result = WebCamReader.discover()
+            result = UsbCameraReader.discover()
 
             assert len(result) == 2
-            assert all(isinstance(cam, WebCamConfig) for cam in result)
+            assert all(isinstance(cam, UsbCameraConfig) for cam in result)
 
     def test_discover_no_cameras_found(self):
         with (
-            patch("runtime.core.components.readers.webcam_reader.platform.system", return_value="Linux"),
-            patch("runtime.core.components.readers.webcam_reader.enumerate_cameras") as mock_enumerate,
+            patch("runtime.core.components.readers.usb_camera_reader.platform.system", return_value="Linux"),
+            patch("runtime.core.components.readers.usb_camera_reader.enumerate_cameras") as mock_enumerate,
         ):
             mock_enumerate.return_value = []
 
-            result = WebCamReader.discover()
+            result = UsbCameraReader.discover()
 
             assert result == []
 
@@ -183,12 +183,12 @@ class TestWebCamReaderDiscover:
         ]
 
         with (
-            patch("runtime.core.components.readers.webcam_reader.platform.system", return_value="Linux"),
-            patch("runtime.core.components.readers.webcam_reader.enumerate_cameras") as mock_enumerate,
+            patch("runtime.core.components.readers.usb_camera_reader.platform.system", return_value="Linux"),
+            patch("runtime.core.components.readers.usb_camera_reader.enumerate_cameras") as mock_enumerate,
         ):
             mock_enumerate.return_value = unsorted_cameras
 
-            result = WebCamReader.discover()
+            result = UsbCameraReader.discover()
 
             assert len(result) == 3
             assert result[0].device_id == 0

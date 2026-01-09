@@ -12,23 +12,23 @@ from domain.services.schemas.reader import (
     SampleDatasetConfig,
     SourceType,
     VideoFileConfig,
-    WebCamConfig,
+    UsbCameraConfig,
 )
 from runtime.core.components.factories.reader import StreamReaderFactory
 from runtime.core.components.readers.image_folder_reader import ImageFolderReader
 from runtime.core.components.readers.noop_reader import NoOpReader
 from runtime.core.components.readers.video_file import VideoFileReader
-from runtime.core.components.readers.webcam_reader import WebCamReader
+from runtime.core.components.readers.usb_camera_reader import UsbCameraReader
 
 
 class TestStreamReaderFactory:
-    def test_factory_returns_webcam_reader(self):
-        webcam_config = WebCamConfig(source_type=SourceType.USB_CAMERA, device_id=1)
+    def test_factory_returns_usb_camera_reader(self):
+        usb_camera_config = UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=1)
 
-        result = StreamReaderFactory.create(webcam_config)
+        result = StreamReaderFactory.create(usb_camera_config)
 
-        assert isinstance(result, WebCamReader)
-        assert result._config == webcam_config
+        assert isinstance(result, UsbCameraReader)
+        assert result._config == usb_camera_config
 
     def test_factory_returns_noop_reader_for_other_config(self):
         result = StreamReaderFactory.create(None)

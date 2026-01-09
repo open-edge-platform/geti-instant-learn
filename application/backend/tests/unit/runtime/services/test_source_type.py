@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from domain.services.schemas.reader import SourceType, WebCamConfig
+from domain.services.schemas.reader import SourceType, UsbCameraConfig
 from runtime.services.source_type import SourceTypeService
 
 
@@ -15,17 +15,17 @@ def service():
 
 
 @pytest.fixture
-def fxt_webcam_sources():
+def fxt_usb_camera_sources():
     return [
-        WebCamConfig(source_type=SourceType.USB_CAMERA, device_id=0, name="Camera 0"),
-        WebCamConfig(source_type=SourceType.USB_CAMERA, device_id=1, name="Camera 1"),
+        UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=0, name="Camera 0"),
+        UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=1, name="Camera 1"),
     ]
 
 
 class TestSourceTypeService:
-    def test_list_available_sources_usb_camera_success(self, service, fxt_webcam_sources):
-        with patch("runtime.core.components.readers.webcam_reader.WebCamReader.discover") as mock_discover:
-            mock_discover.return_value = fxt_webcam_sources
+    def test_list_available_sources_usb_camera_success(self, service, fxt_usb_camera_sources):
+        with patch("runtime.core.components.readers.usb_camera_reader.UsbCameraReader.discover") as mock_discover:
+            mock_discover.return_value = fxt_usb_camera_sources
 
             result = service.list_available_sources(SourceType.USB_CAMERA)
 
@@ -38,7 +38,7 @@ class TestSourceTypeService:
             assert result[1].name == "Camera 1"
 
     def test_list_available_sources_usb_camera_empty(self, service):
-        with patch("runtime.core.components.readers.webcam_reader.WebCamReader.discover") as mock_discover:
+        with patch("runtime.core.components.readers.usb_camera_reader.UsbCameraReader.discover") as mock_discover:
             mock_discover.return_value = []
 
             result = service.list_available_sources(SourceType.USB_CAMERA)
