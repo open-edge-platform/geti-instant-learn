@@ -72,7 +72,7 @@ class LinearSumAssignment(nn.Module):
         # Auto mode: use scipy for speed, switch to greedy during export
         if self._method_str == "auto":
             # Check for TorchScript/tracing first (covers jit.script, jit.trace, and onnx.export)
-            if torch.jit.is_scripting() or torch.jit.is_tracing():
+            if torch.onnx.is_in_onnx_export():
                 return self._greedy(cost_matrix)
             # Normal Python execution - use fast scipy
             return self._scipy(cost_matrix)

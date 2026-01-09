@@ -15,13 +15,6 @@ logger = getLogger("Geti Prompt")
 __all__ = ["BidirectionalPromptGenerator"]
 
 
-def _empty_match_result(similarity_map: torch.Tensor) -> tuple[list, torch.Tensor]:
-    """Utility to create empty match results consistent with map dtype/device."""
-    empty_idx = [torch.empty(0, dtype=torch.int64, device=similarity_map.device)] * 2
-    empty_scores = torch.empty(0, dtype=similarity_map.dtype, device=similarity_map.device)
-    return empty_idx, empty_scores
-
-
 class BidirectionalPromptGenerator(nn.Module):
     """Generates point prompts for segmentation based on bidirectional matching.
 
@@ -100,7 +93,8 @@ class BidirectionalPromptGenerator(nn.Module):
                 valid_indices: List of [valid_ref_idx, valid_target_idx]
                 valid_scores: Similarity scores of valid matches
         """
-        ref_idx = ref_mask.nonzero(as_tuple=True)[0].to(similarity_map.device)
+        # Use nonzero().squeeze(-1) instead of nonzero(as_tuple=True)[0] for OpenVINO compatibility
+        ref_idx = ref_mask.nonzero().squeeze(-1).to(similarity_map.device)
 
         # Forward pass (ref → target)
         fw_indices, fw_scores = BidirectionalPromptGenerator.ref_to_target_matching(similarity_map, ref_idx)
@@ -142,8 +136,8 @@ class BidirectionalPromptGenerator(nn.Module):
 
         keep_mask = torch.cat([keep_bidir, keep_fallback.unsqueeze(0)])
 
-        # Apply mask via indexing with nonzero
-        keep_indices = keep_mask.nonzero(as_tuple=True)[0]
+        # Apply mask via indexing - use nonzero().squeeze(-1) for OpenVINO compatibility
+        keep_indices = keep_mask.nonzero().squeeze(-1)
         valid_indices = [combined_ref[keep_indices], combined_target[keep_indices]]
         valid_scores = combined_scores[keep_indices]
 
@@ -166,7 +160,8 @@ class BidirectionalPromptGenerator(nn.Module):
                 bg_target_idx: Indices of background points in target
                 bg_scores: Similarity scores of background points
         """
-        ref_idx = ref_mask.nonzero(as_tuple=True)[0]
+        # Use nonzero().squeeze(-1) instead of nonzero(as_tuple=True)[0] for OpenVINO compatibility
+        ref_idx = ref_mask.nonzero().squeeze(-1)
         avg_similarity = similarity_map[ref_idx].mean(dim=0)
         k = torch.minimum(
             torch.tensor(self.num_background_points, device=avg_similarity.device),
@@ -238,11 +233,14 @@ class BidirectionalPromptGenerator(nn.Module):
         Returns:
             Filtered foreground points [M, 4] where M <= num_foreground_points
         """
-        if foreground_points.shape[0] <= self.num_foreground_points:
-            return foreground_points
-
-        # Sort by score (column 2) descending and take top k
-        _, top_indices = torch.topk(foreground_points[:, 2], self.num_foreground_points)
+        # Avoid conditional by using min(N, num_foreground_points) with topk
+        # topk handles both cases: if N <= k, it returns all N elements
+        n = foreground_points.size(0)
+        if torch.onnx.is_in_onnx_export():
+            k = torch.minimum(n, torch.tensor(self.num_foreground_points))
+        else:
+            k = min(n, self.num_foreground_points)
+        _, top_indices = torch.topk(foreground_points[:, 2], k)
         return foreground_points[top_indices]
 
     def _pad_points(self, points: torch.Tensor, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
@@ -273,7 +271,7 @@ class BidirectionalPromptGenerator(nn.Module):
         flatten_ref_mask: torch.Tensor,
         target_embed: torch.Tensor,
         original_size: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Process a single category against a target image.
 
         Args:
@@ -285,7 +283,6 @@ class BidirectionalPromptGenerator(nn.Module):
 
         Returns:
             padded_points: Point prompts [max_points, 4] with (x, y, score, label), zero-padded
-            num_valid: Number of valid (non-padded) points
             similarity: Similarity map at feature grid size [feat_size, feat_size]
         """
         # Compute similarity maps
@@ -322,12 +319,8 @@ class BidirectionalPromptGenerator(nn.Module):
         points = torch.cat([foreground_points, background_points])
 
         # Return actual point count and fixed-size padded points
-        if torch.jit.is_scripting() or torch.jit.is_tracing():
-            num_valid = points.size(0)
-        else:
-            num_valid = torch.tensor(points.size(0))
         padded_points = self._pad_points(points, points.device, points.dtype)
-        return padded_points, num_valid, local_similarity_grid
+        return padded_points, local_similarity_grid
 
     def forward(
         self,
@@ -366,9 +359,7 @@ class BidirectionalPromptGenerator(nn.Module):
 
         # Pre-allocate output tensors
         point_prompts = torch.zeros(num_targets, num_categories, self.max_points, 4, device=device, dtype=dtype)
-        num_points = torch.zeros(num_targets, num_categories, device=device, dtype=torch.int64)
         similarities = torch.zeros(num_targets, num_categories, feat_size, feat_size, device=device, dtype=dtype)
-
         for t_idx in range(num_targets):
             target_embed = target_embeddings[t_idx]
             original_size = original_sizes[t_idx]
@@ -378,7 +369,7 @@ class BidirectionalPromptGenerator(nn.Module):
                 masked_embed = masked_ref_embeddings[c_idx]
                 mask = flatten_ref_masks[c_idx]
 
-                padded_points, num_valid, similarity = self._process_single_category(
+                padded_points, similarity = self._process_single_category(
                     ref_embed,
                     masked_embed,
                     mask,
@@ -386,17 +377,13 @@ class BidirectionalPromptGenerator(nn.Module):
                     original_size,
                 )
 
-                # Store actual count
-                actual_num_points = torch.minimum(num_valid, torch.tensor(self.max_points))
-                num_points[t_idx, c_idx] = actual_num_points
-
                 # Store padded points (fixed size)
                 point_prompts[t_idx, c_idx] = padded_points
 
                 # Store similarity
                 similarities[t_idx, c_idx] = similarity
 
-        return point_prompts, num_points, similarities
+        return point_prompts, similarities
 
     def forward_export(
         self,
@@ -435,7 +422,6 @@ class BidirectionalPromptGenerator(nn.Module):
 
         # Pre-allocate output tensors
         point_prompts = torch.zeros(1, num_categories, self.max_points, 4, device=device, dtype=dtype)
-        num_points = torch.zeros(1, num_categories, device=device, dtype=torch.int64)
         similarities = torch.zeros(1, num_categories, feat_size, feat_size, device=device, dtype=dtype)
 
         target_embed = target_embeddings[0]
@@ -446,7 +432,7 @@ class BidirectionalPromptGenerator(nn.Module):
             masked_embed = masked_ref_embeddings[c_idx]
             mask = flatten_ref_masks[c_idx]
 
-            padded_points, num_valid, similarity = self._process_single_category(
+            padded_points, similarity = self._process_single_category(
                 ref_embed,
                 masked_embed,
                 mask,
@@ -454,13 +440,9 @@ class BidirectionalPromptGenerator(nn.Module):
                 original_size,
             )
 
-            # Store actual count (clamped to max_points)
-            actual_num_points = torch.minimum(num_valid, torch.tensor(self.max_points))
-            num_points[0, c_idx] = actual_num_points
-
             # Store padded points (fixed size assignment - no dynamic slicing)
             point_prompts[0, c_idx] = padded_points
 
             # Store similarity
             similarities[0, c_idx] = similarity
-        return point_prompts, num_points, similarities
+        return point_prompts, similarities

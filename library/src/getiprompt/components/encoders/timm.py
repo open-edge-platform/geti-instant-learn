@@ -107,7 +107,15 @@ class TimmImageEncoder(nn.Module):
         Returns:
             The model and processor.
         """
-        model = timm.create_model(model_id, pretrained=True, num_classes=0)
+        # Disable dynamic_img_size to avoid conditional position embedding code
+        # that creates ONNX If nodes with dynamic rank outputs (not supported by OpenVINO CPU)
+        model = timm.create_model(
+            model_id,
+            pretrained=True,
+            num_classes=0,
+            dynamic_img_size=False,
+            img_size=input_size,
+        )
         data_config = timm.data.resolve_model_data_config(model)
         data_config["input_size"] = (3, input_size, input_size)
         processor = Compose([

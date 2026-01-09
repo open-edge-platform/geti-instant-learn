@@ -20,13 +20,11 @@ def masks_to_boxes_traceable(masks: torch.Tensor) -> torch.Tensor:
     Returns:
         Tensor[N, 4] - bounding boxes in (x1, y1, x2, y2) format
     """
-    if masks.numel() == 0:
-        return torch.zeros((0, 4), device=masks.device, dtype=torch.float)
-
-    if torch.jit.is_scripting() or torch.jit.is_tracing():
-        n, h, w = masks.size()
-    else:
-        n, h, w = torch.tensor(masks.shape)
+    # Handle empty masks by clamping to at least 1 element to avoid conditionals
+    # The caller should check for empty masks separately
+    n = masks.size(0)
+    h = masks.size(1)
+    w = masks.size(2)
 
     # Create coordinate grids [N, H, W]
     y_coords = torch.arange(h, device=masks.device, dtype=torch.float).view(1, h, 1).expand(n, h, w)
@@ -36,7 +34,7 @@ def masks_to_boxes_traceable(masks: torch.Tensor) -> torch.Tensor:
     mask_bool = masks.bool()
 
     # Use large/small sentinel values for min/max reduction
-    large_val = (torch.maximum(h, w) + 1).float()
+    large_val = torch.tensor(max(h, w) + 1, dtype=torch.float, device=masks.device)
 
     # For min: non-mask pixels get large value, for max: get -1
     x_for_min = torch.where(mask_bool, x_coords, large_val)
@@ -88,19 +86,14 @@ class SamDecoder(nn.Module):
         self.merge_masks_per_class = merge_masks_per_class
         self.device = sam_predictor.device
 
-    def _preprocess_points(
-        self,
-        points: torch.Tensor,
-        num_valid: int,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None:
+    def _preprocess_points(self, points: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Preprocess points for SAM predictor.
 
         Args:
             points: Points tensor [max_points, 4] with (x, y, score, label)
-            num_valid: Number of valid points
 
         Returns:
-            Tuple of (point_coords, point_labels, original_points) or None if no valid foreground
+            Tuple of (point_coords, point_labels, original_points)
         """
         valid_points = points[points[:, 3] != 0]
 
@@ -160,18 +153,20 @@ class SamDecoder(nn.Module):
         device = self.device
         h, w = original_size
 
-        num_masks = masks.size(0) if masks.numel() > 0 else 0
+        num_masks = masks.size(0)
         max_masks = self.max_masks_per_category
 
         padded_masks = torch.zeros(max_masks, h, w, device=device, dtype=torch.bool)
         padded_scores = torch.zeros(max_masks, device=device, dtype=torch.float32)
         padded_labels = torch.full((max_masks,), -1, device=device, dtype=torch.int64)
 
-        if num_masks > 0:
-            n = torch.minimum(torch.tensor(num_masks, device=device), torch.tensor(max_masks, device=device))
-            padded_masks[:n] = masks[:n]
-            padded_scores[:n] = scores[:n]
-            padded_labels[:n] = label
+        if torch.onnx.is_in_onnx_export():
+            n = torch.minimum(num_masks, torch.tensor(max_masks))
+        else:
+            n = min(num_masks, max_masks)
+        padded_masks[:n] = masks[:n]
+        padded_scores[:n] = scores[:n]
+        padded_labels[:n] = label
 
         return padded_masks, padded_scores, padded_labels
 
@@ -191,7 +186,7 @@ class SamDecoder(nn.Module):
         """
         sim = similarity.unsqueeze(0).unsqueeze(0)
         sim_resized = F.interpolate(sim, size=target_size, mode="bilinear", align_corners=False)
-        return sim_resized.squeeze(0)
+        return sim_resized[0]
 
     def _predict_masks_for_category(
         self,
@@ -212,6 +207,7 @@ class SamDecoder(nn.Module):
             Tuple of (masks [N, H, W], scores [N])
         """
         # Initial prediction
+        # masks: [num_fg, 1, H, W], iou_preds: [num_fg, 1]
         masks, iou_preds, low_res_logits = self.predictor.forward(
             point_coords=point_coords,
             point_labels=point_labels,
@@ -221,7 +217,8 @@ class SamDecoder(nn.Module):
         )
 
         # Filter empty masks
-        keep = masks.squeeze(1).sum(dim=(-1, -2)) > 0
+        masks = masks[:, 0, :, :]  # [num_fg, H, W]
+        keep = masks.sum(dim=(-1, -2)) > 0
         if not keep.any():
             return (
                 torch.empty(0, *original_size, device=masks.device),
@@ -236,7 +233,7 @@ class SamDecoder(nn.Module):
         # Compute boxes from masks for NMS (and optionally for 2nd SAM prediction)
         # The masks are in original image coordinates, so boxes are too.
         # The predictor will handle coordinate transformation internally.
-        boxes = masks_to_boxes_traceable(masks.squeeze(1))
+        boxes = masks_to_boxes_traceable(masks)
         boxes = boxes.unsqueeze(1)
 
         # Optionally refine masks with 2nd SAM prediction using box prompts
@@ -253,11 +250,11 @@ class SamDecoder(nn.Module):
 
         # NMS - NOTE: torchvision NMS requires float32 inputs
         nms_indices = nms(
-            boxes.squeeze(1).to(torch.float32),
-            mask_weights.squeeze(1).to(torch.float32),
+            boxes[:, 0, :].to(torch.float32),
+            mask_weights[:, 0].to(torch.float32),
             iou_threshold=self.nms_iou_threshold,
         )
-        masks = masks[nms_indices].squeeze(1)
+        masks = masks[nms_indices]
         mask_weights = mask_weights[nms_indices]
 
         # Similarity-based scoring - always compute
@@ -265,7 +262,7 @@ class SamDecoder(nn.Module):
         mask_sum = (sim_resized * masks).sum(dim=(1, 2))
         mask_area = masks.sum(dim=(1, 2)) + 1e-6  # Avoid div by zero
         mask_scores = mask_sum / mask_area
-        weighted_scores = (mask_scores * mask_weights.T).squeeze(0)
+        weighted_scores = (mask_scores * mask_weights.T)[0, :]
 
         # Apply threshold via masking, NOT early return
         keep = weighted_scores > self.mask_similarity_threshold
@@ -294,7 +291,6 @@ class SamDecoder(nn.Module):
         self,
         image: torch.Tensor,
         point_prompts: torch.Tensor,
-        num_points: torch.Tensor,
         similarities: torch.Tensor,
         category_ids: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -303,7 +299,6 @@ class SamDecoder(nn.Module):
         Args:
             image: Input image [3, H, W]
             point_prompts: Point prompts [C, max_points, 4] with (x, y, score, label)
-            num_points: Number of valid points per category [C]
             similarities: Similarity maps [C, feat_size, feat_size]
             category_ids: Category ID mapping [C]
 
@@ -328,16 +323,9 @@ class SamDecoder(nn.Module):
         for class_idx in range(num_categories):
             class_id = category_ids[class_idx]
             points = point_prompts[class_idx]
-            n_valid = num_points[class_idx]
             similarity = similarities[class_idx]
 
-            result = self._preprocess_points(points, n_valid)
-            if result is None:
-                used_points_list.append(torch.empty(0, 4, device=device))
-                continue
-
-            point_coords, point_labels, original_points = result
-
+            point_coords, point_labels, original_points = self._preprocess_points(points)
             masks, scores = self._predict_masks_for_category(
                 point_coords,
                 point_labels,
@@ -366,7 +354,7 @@ class SamDecoder(nn.Module):
         pred_masks = all_masks.bool()[valid_mask]
         pred_scores = all_scores[valid_mask]
         pred_labels = all_labels[valid_mask]
-        pred_points = torch.cat(used_points_list, dim=0) if used_points_list else torch.empty(0, 4, device=device)
+        pred_points = torch.cat(used_points_list, dim=0)
 
         return pred_masks, pred_scores, pred_labels, pred_points
 
@@ -374,7 +362,6 @@ class SamDecoder(nn.Module):
         self,
         image: torch.Tensor,
         box_prompts: torch.Tensor,
-        num_boxes: torch.Tensor,
         category_ids: list[int],
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Process a single image with box prompts.
@@ -466,10 +453,8 @@ class SamDecoder(nn.Module):
         images: list[torch.Tensor],
         category_ids: list[int],
         point_prompts: torch.Tensor | None = None,
-        num_points: torch.Tensor | None = None,
         similarities: torch.Tensor | None = None,
         box_prompts: torch.Tensor | None = None,
-        num_boxes: torch.Tensor | None = None,
     ) -> list[dict[str, torch.Tensor]]:
         """Forward pass - predict masks from point or box prompts.
 
@@ -493,6 +478,15 @@ class SamDecoder(nn.Module):
                 "pred_points": [num_points_used, 4] (point mode only)
                 "pred_boxes": [num_boxes, 5] (box mode only)
         """
+        if torch.onnx.is_in_onnx_export():
+            return self.forward_export(
+                images[0],
+                torch.tensor(category_ids, device=self.device),
+                point_prompts,
+                similarities,
+            )
+
+
         use_points = point_prompts is not None
         use_boxes = box_prompts is not None
 
@@ -503,11 +497,10 @@ class SamDecoder(nn.Module):
         predictions: list[dict[str, torch.Tensor]] = []
 
         if use_points:
-            for image, pts, n_pts, sims in zip(images, point_prompts, num_points, similarities, strict=True):
+            for image, pts, sims in zip(images, point_prompts, similarities, strict=True):
                 masks, scores, labels, points = self._process_single_image_with_points(
                     image,
                     pts,
-                    n_pts,
                     sims,
                     category_ids,
                 )
@@ -518,11 +511,10 @@ class SamDecoder(nn.Module):
                     "pred_points": points,
                 })
         else:
-            for image, bxs, n_bxs in zip(images, box_prompts, num_boxes, strict=True):
+            for image, bxs in zip(images, box_prompts, strict=True):
                 masks, scores, labels, boxes = self._process_single_image_with_boxes(
                     image,
                     bxs,
-                    n_bxs,
                     category_ids,
                 )
                 predictions.append({
@@ -539,7 +531,6 @@ class SamDecoder(nn.Module):
         image: torch.Tensor,
         category_ids: torch.Tensor,
         point_prompts: torch.Tensor,
-        num_points: torch.Tensor,
         similarities: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Export-friendly forward for single image returning flat tensors.
@@ -551,7 +542,6 @@ class SamDecoder(nn.Module):
             image: Single input image [3, H, W]
             category_ids: Category ID mapping [C]
             point_prompts: Point prompts [C, max_points, 4] with (x, y, score, label)
-            num_points: Number of valid points per category [C]
             similarities: Similarity maps [C, feat_size, feat_size]
 
         Returns:
@@ -563,7 +553,6 @@ class SamDecoder(nn.Module):
         masks, scores, labels, _ = self._process_single_image_with_points(
             image,
             point_prompts,
-            num_points,
             similarities,
             category_ids,
         )

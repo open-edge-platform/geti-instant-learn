@@ -78,7 +78,7 @@ class MatcherInferenceGraph(nn.Module):
 
         # Generate prompts using frozen ref_features
         # point_prompts: [1, C, max_points, 4], num_points: [1, C], similarities: [1, C, feat_size, feat_size]
-        point_prompts, num_points, similarities = self.prompt_generator.forward_export(
+        point_prompts, similarities = self.prompt_generator.forward_export(
             self.ref_embeddings,
             self.masked_ref_embeddings,
             self.flatten_ref_masks,
@@ -92,7 +92,6 @@ class MatcherInferenceGraph(nn.Module):
             target_image[0],  # Single image [3, H, W]
             self.category_ids,
             point_prompts[0],  # [C, max_points, 4]
-            num_points[0],  # [C]
             similarities[0],  # [C, feat_size, feat_size]
         )
 
@@ -254,7 +253,7 @@ class Matcher(Model):
         target_embeddings = self.encoder(images=target_batch.images)
 
         # Generate prompts [T, C, max_points, 4], [T, C], [T, C, feat_size, feat_size]
-        point_prompts, num_points, similarities = self.prompt_generator(
+        point_prompts, similarities = self.prompt_generator(
             self.ref_features.ref_embeddings,
             self.ref_features.masked_ref_embeddings,
             self.ref_features.flatten_ref_masks,
@@ -267,8 +266,7 @@ class Matcher(Model):
         return self.segmenter(
             target_batch.images,
             self.ref_features.category_ids,
-            point_prompts=point_prompts,
-            num_points=num_points,
+            point_prompts=point_prompts,            
             similarities=similarities,
         )
 
@@ -313,12 +311,11 @@ class Matcher(Model):
                 input_names=["target_image"],
                 output_names=["masks", "scores", "labels"],
                 dynamic_axes={
-                    "target_image": {0: "batch_size", 2: "height", 3: "width"},
+                    "target_image": {2: "height", 3: "width"},
                     "masks": {0: "num_masks", 1: "height", 2: "width"},
                     "scores": {0: "num_masks"},
                     "labels": {0: "num_masks"},
-                },
-                opset_version=20,
+                },                
                 verbose=True,
             )
             return onnx_path
@@ -327,11 +324,10 @@ class Matcher(Model):
             try:
                 import openvino
 
-                # First export to ONNX (OpenVINO direct PyTorch conversion has limited op support)
+                # Export to ONNX first, then convert to OpenVINO
+                # Direct PyTorch → OpenVINO conversion fails on many ops (aten::pad, aten::unbind, etc.)
+                # ONNX → OpenVINO conversion has much better support
                 onnx_path = export_path / "matcher.onnx"
-
-                # Use tracing mode to avoid If nodes from conditional logic
-                # The encoder always gets fixed-size input after resize, so conditions are constant
                 torch.onnx.export(
                     matcher,
                     args=(target_image,),
@@ -344,20 +340,10 @@ class Matcher(Model):
                         "scores": {0: "num_masks"},
                         "labels": {0: "num_masks"},
                     },
-                    opset_version=20,
                 )
-
-                input_shape = {
-                    "target_image": openvino.PartialShape([-1, 3, -1, -1]),
-                }
-                # Convert ONNX to OpenVINO with static shapes
-                ov_model = openvino.convert_model(
-                    onnx_path,
-                    example_input=(target_image,),
-                    input=input_shape,
-                )
+                # Convert ONNX to OpenVINO
+                ov_model = openvino.convert_model(onnx_path)
                 openvino.save_model(ov_model, export_path / "matcher.xml")
-
                 return export_path / "matcher.xml"
             except ImportError:
                 raise ImportError("OpenVINO is not installed. Please install it to use OpenVINO export.")
