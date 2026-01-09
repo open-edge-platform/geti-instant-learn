@@ -6,7 +6,7 @@ from PyInstaller.utils.hooks import collect_all, collect_dynamic_libs, collect_s
 datas = [
     ('app/domain/alembic/*', 'domain/alembic'),
     ('app/alembic.ini', '.'),
-    ('.venv', '.'),
+    ('.env', '.'),
 ]
 binaries = [(dll, 'Library/bin/') for dll in glob.glob('.venv/Library/bin/*')]
 hiddenimports = []
