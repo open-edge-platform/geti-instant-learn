@@ -8,6 +8,7 @@ import { Key, MouseEventHandler, useState } from 'react';
 import { $api, type ProjectType } from '@geti-prompt/api';
 import { ActionButton, Flex, Grid, Heading, PhotoPlaceholder, repeat, Text, View } from '@geti/ui';
 import { AddCircle } from '@geti/ui/icons';
+import { clsx } from 'clsx';
 import { Link } from 'react-router-dom';
 
 import { paths } from '../../../constants/paths';
@@ -115,28 +116,28 @@ const ProjectCard = ({ project, projectNames, activeProject }: ProjectCardProps)
         <Link
             data-active={project.active}
             to={paths.project({ projectId: project.id })}
-            className={styles.projectCard}
+            className={clsx(styles.projectCard, {
+                [styles.projectCardHovered]: !isInEditionState,
+            })}
             onClick={handleCardClick}
             role={'listitem'}
             aria-label={`Project ${project.name}`}
         >
             <PhotoPlaceholder name={project.name} indicator={project.id} width={'size-800'} height={'size-800'} />
             <View flex={1} paddingStart={'size-200'} paddingEnd={'size-100'}>
-                <Flex justifyContent={'space-between'} alignItems={'center'}>
-                    <Flex direction={'column'}>
-                        <Heading UNSAFE_className={styles.projectCardTitle} marginTop={'size-100'} marginBottom={0}>
-                            {isInEditionState ? (
-                                <ProjectEdition
-                                    projectNames={projectNames}
-                                    onBlur={handleBlur}
-                                    onResetProjectInEdition={handleResetProjectInEdition}
-                                    name={project.name}
-                                />
-                            ) : (
-                                project.name
-                            )}
-                        </Heading>
-                    </Flex>
+                <Flex justifyContent={'space-between'} alignItems={'center'} height={'100%'}>
+                    <Heading UNSAFE_className={styles.projectCardTitle} margin={0}>
+                        {isInEditionState ? (
+                            <ProjectEdition
+                                projectNames={projectNames}
+                                onBlur={handleBlur}
+                                onResetProjectInEdition={handleResetProjectInEdition}
+                                name={project.name}
+                            />
+                        ) : (
+                            project.name
+                        )}
+                    </Heading>
 
                     <ProjectActions actions={actions} onAction={handleAction} />
 
