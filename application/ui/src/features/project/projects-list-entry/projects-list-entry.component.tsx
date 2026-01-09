@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom';
 
 import { paths } from '../../../constants/paths';
 import { useActivateProject } from '../api/use-activate-project.hook';
-import { useCreateProject } from '../api/use-create-project-mutation.hook';
+import { useCreateProject } from '../api/use-create-project.hook';
 import { useDeleteProject } from '../api/use-delete-project.hook';
 import { useUpdateProject } from '../api/use-update-project.hook';
 import {
