@@ -11,89 +11,70 @@ import { AddCircle } from '@geti/ui/icons';
 import { Link } from 'react-router-dom';
 
 import { paths } from '../../../constants/paths';
-import { ActivateProjectDialog } from '../activate-project-dialog/activate-project-dialog.component';
-import { CreateProjectConfirmDialog } from '../create-project-confirm-dialog.component';
-import { useCreateProjectWithConfirmation } from '../hooks/use-create-project-with-confirmation.hook';
+import { useActivateProject } from '../hooks/use-activate-project.hook';
+import { useCreateProject } from '../hooks/use-create-project-mutation.hook';
 import { useDeleteProject } from '../hooks/use-delete-project.hook';
-import { useProjectActivityManagement } from '../hooks/use-project-activity-management.hook';
 import { useUpdateProject } from '../hooks/use-update-project.hook';
-import { ProjectActivityStatus } from '../project-activity-status/project-activity-status.component';
 import {
     DeleteProjectDialog,
     PROJECT_ACTIONS,
     ProjectActions,
     ProjectEdition,
 } from '../project-list-item/project-actions.component';
+import { generateUniqueProjectName } from '../utils';
 import { Layout } from './layout.component';
 
 import styles from './projects-list-entry.module.scss';
 
 interface NewProjectCardProps {
     projectsNames: string[];
-    activeProject: ProjectType | undefined;
 }
 
-const NewProjectCard = ({ projectsNames, activeProject }: NewProjectCardProps) => {
-    const { isVisible, createProjectConfirmation, close, createProject, isPending, newProjectName } =
-        useCreateProjectWithConfirmation({
-            activeProject,
-            projectsNames,
-        });
+const NewProjectCard = ({ projectsNames }: NewProjectCardProps) => {
+    const createProject = useCreateProject();
+
+    const handleCreateProject = () => {
+        const name = generateUniqueProjectName(projectsNames);
+        createProject.mutate({ name });
+    };
 
     return (
-        <>
-            <View UNSAFE_className={styles.newProjectCard} width={'100%'} height={'100%'}>
-                <Flex width={'100%'} height={'100%'} alignItems={'center'}>
-                    <ActionButton
-                        width={'100%'}
-                        height={'100%'}
-                        onPress={createProjectConfirmation}
-                        isDisabled={isPending}
-                    >
-                        <Flex gap={'size-50'} alignItems={'center'}>
-                            <AddCircle />
-                            <Text>Create project</Text>
-                        </Flex>
-                    </ActionButton>
-                </Flex>
-            </View>
-            <CreateProjectConfirmDialog
-                isVisible={isVisible}
-                onClose={close}
-                onCreate={createProject}
-                projectName={newProjectName}
-                activeProjectName={activeProject?.name ?? ''}
-                isPending={isPending}
-            />
-        </>
+        <View UNSAFE_className={styles.newProjectCard} width={'100%'} height={'100%'}>
+            <Flex width={'100%'} height={'100%'} alignItems={'center'}>
+                <ActionButton
+                    width={'100%'}
+                    height={'100%'}
+                    onPress={handleCreateProject}
+                    isDisabled={createProject.isPending}
+                >
+                    <Flex gap={'size-50'} alignItems={'center'}>
+                        <AddCircle />
+                        <Text>Create project</Text>
+                    </Flex>
+                </ActionButton>
+            </Flex>
+        </View>
     );
 };
 
 interface ProjectCardProps {
     project: ProjectType;
-    activeProject: ProjectType | undefined;
     projectNames: string[];
+    activeProject: ProjectType | undefined;
 }
 
-const ProjectCard = ({ project, activeProject, projectNames }: ProjectCardProps) => {
+const ProjectCard = ({ project, projectNames, activeProject }: ProjectCardProps) => {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
     const [projectIDInEdition, setProjectIdInEdition] = useState<string | null>(null);
-    const updateProjectName = useUpdateProject();
+    const updateProject = useUpdateProject();
     const deleteProject = useDeleteProject();
-    const { isVisible, close, activate, activateConfirmation, deactivate } = useProjectActivityManagement(
-        project.id,
-        activeProject?.id
-    );
+    const activateProject = useActivateProject();
 
     const handleAction = (key: Key) => {
         if (key === PROJECT_ACTIONS.RENAME) {
             setProjectIdInEdition(project.id);
         } else if (key === PROJECT_ACTIONS.DELETE) {
             setIsDeleteDialogOpen(true);
-        } else if (key === PROJECT_ACTIONS.ACTIVATE) {
-            activate();
-        } else if (key === PROJECT_ACTIONS.DEACTIVATE) {
-            deactivate();
         }
     };
 
@@ -101,7 +82,7 @@ const ProjectCard = ({ project, activeProject, projectNames }: ProjectCardProps)
         if (newName === project.name) return;
         if (newName.trim().length === 0) return;
 
-        updateProjectName(project.id, { name: newName });
+        updateProject.mutate(project.id, { name: newName });
     };
 
     const handleDelete = () => {
@@ -120,16 +101,19 @@ const ProjectCard = ({ project, activeProject, projectNames }: ProjectCardProps)
 
             return;
         }
+
+        if (project.active) {
+            return;
+        }
+
+        activateProject.mutate(project, activeProject);
     };
 
-    const actions = [
-        PROJECT_ACTIONS.RENAME,
-        PROJECT_ACTIONS.DELETE,
-        project.active ? PROJECT_ACTIONS.DEACTIVATE : PROJECT_ACTIONS.ACTIVATE,
-    ];
+    const actions = [PROJECT_ACTIONS.RENAME, PROJECT_ACTIONS.DELETE];
 
     return (
         <Link
+            data-active={project.active}
             to={paths.project({ projectId: project.id })}
             className={styles.projectCard}
             onClick={handleCardClick}
@@ -152,9 +136,6 @@ const ProjectCard = ({ project, activeProject, projectNames }: ProjectCardProps)
                                 project.name
                             )}
                         </Heading>
-                        <View alignSelf={'start'}>
-                            <ProjectActivityStatus isActive={project.active} />
-                        </View>
                     </Flex>
 
                     <ProjectActions actions={actions} onAction={handleAction} />
@@ -164,18 +145,6 @@ const ProjectCard = ({ project, activeProject, projectNames }: ProjectCardProps)
                         onDismiss={() => setIsDeleteDialogOpen(false)}
                         onDelete={handleDelete}
                         projectName={project.name}
-                    />
-                    {/*
-                        Activate Project Dialog is only visible when there is already an active project.
-                        When there is no active project, the dialog is not visible; we just activate the selected
-                        project directly.
-                    */}
-                    <ActivateProjectDialog
-                        isVisible={isVisible}
-                        onClose={close}
-                        activeProjectName={activeProject?.name ?? ''}
-                        inactiveProjectName={project.name}
-                        onActivate={activateConfirmation}
                     />
                 </Flex>
             </View>
@@ -187,7 +156,7 @@ export const ProjectsListEntry = () => {
     const { data } = $api.useSuspenseQuery('get', '/api/v1/projects');
 
     const projectsNames = data.projects.map((project) => project.name);
-    const activeProject = data.projects.find((project) => project.active);
+    const activeProject = data.projects.find(({ active }) => active);
 
     return (
         <Layout>
@@ -204,11 +173,11 @@ export const ProjectsListEntry = () => {
                         alignContent={'start'}
                         UNSAFE_className={styles.projectsList}
                     >
-                        <NewProjectCard projectsNames={projectsNames} activeProject={activeProject} />
+                        <NewProjectCard projectsNames={projectsNames} />
                         {data.projects.map((project) => (
                             <ProjectCard
-                                project={project}
                                 key={project.id}
+                                project={project}
                                 projectNames={projectsNames.filter((name) => name !== project.name)}
                                 activeProject={activeProject}
                             />

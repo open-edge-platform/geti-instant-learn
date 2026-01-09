@@ -16,15 +16,7 @@ import { isImagesFolderSource, isTestDatasetSource, isVideoFileSource, isWebcamS
 import { VideoFileCard } from '../video-file/video-file-card.component';
 import { WebcamSourceCard } from '../webcam/webcam-source-card.component';
 
-const getMenuItems = ({
-    isActiveProject,
-    isActiveSource,
-    isTestDataset,
-}: {
-    isActiveProject: boolean;
-    isActiveSource: boolean;
-    isTestDataset: boolean;
-}) => {
+const getMenuItems = ({ isActiveSource, isTestDataset }: { isActiveSource: boolean; isTestDataset: boolean }) => {
     const items = [
         {
             key: 'connect',
@@ -44,9 +36,7 @@ const getMenuItems = ({
         if (item.key === 'connect' && isActiveSource) {
             return false;
         }
-        if (item.key === 'edit' && !isActiveProject) {
-            return false;
-        }
+
         if (item.key === 'edit' && isTestDataset) {
             return false;
         }
@@ -66,7 +56,6 @@ interface ExistingSourcesListProps {
 
 const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: ExistingSourcesListProps) => {
     const { data: project } = useCurrentProject();
-    const isActiveProject = project.active;
 
     const updateSource = useUpdateSource();
     const deleteSource = useDeleteSource();
@@ -101,7 +90,6 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
 
                 const menuItems = getMenuItems({
                     isActiveSource,
-                    isActiveProject,
                     isTestDataset: isTestDatasetSource(source),
                 });
 
