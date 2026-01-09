@@ -10,7 +10,7 @@ import { Source } from '@geti-prompt/api';
 import { PipelineEntityPanel } from '../../pipeline-entity-panel/pipeline-entity-panel.component';
 import { EditImagesFolder } from '../images-folder/edit-images-folder.component';
 import { EditUsbCameraSource } from '../usb-camera/edit-usb-camera-source.component';
-import { isImagesFolderSource, isVideoFileSource, isUsbCameraSource, SourcesViews } from '../utils';
+import { isImagesFolderSource, isUsbCameraSource, isVideoFileSource, SourcesViews } from '../utils';
 import { EditVideoFile } from '../video-file/edit-video-file.component';
 
 interface EditSourceContainerProps {

@@ -13,7 +13,13 @@ import { useUpdateSource } from '../api/use-update-source';
 import { ImagesFolderSourceCard } from '../images-folder/images-folder-card.component';
 import { SampleDatasetCard } from '../sample-dataset/sample-dataset-card.component';
 import { UsbCameraSourceCard } from '../usb-camera/usb-camera-source-card.component';
-import { isImagesFolderSource, isTestDatasetSource, isUsbCameraSource, SourcesViews } from '../utils';
+import {
+    isImagesFolderSource,
+    isTestDatasetSource,
+    isUsbCameraSource,
+    isVideoFileSource,
+    SourcesViews,
+} from '../utils';
 import { VideoFileCard } from '../video-file/video-file-card.component';
 
 const getMenuItems = ({

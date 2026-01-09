@@ -7,7 +7,7 @@ import { ReactNode, useState } from 'react';
 
 import { Source, SourceType } from '@geti-prompt/api';
 import { useGetSources } from '@geti-prompt/hooks';
-import { ImagesFolder as ImagesFolderIcon, VideoFile, UsbCamera } from '@geti-prompt/icons';
+import { ImagesFolder as ImagesFolderIcon, UsbCamera, VideoFile } from '@geti-prompt/icons';
 import { Datasets } from '@geti/ui/icons';
 import { isEmpty } from 'lodash-es';
 
