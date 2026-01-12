@@ -14,10 +14,10 @@ from settings import get_settings
 class ModelFactory:
     @classmethod
     def create(cls, reference_batch: Batch | None, config: ModelConfig | None) -> ModelHandler:
+        if reference_batch is None:
+            return PassThroughModelHandler()
         settings = get_settings()
         if not settings.inference_enabled:
-            return PassThroughModelHandler()
-        if reference_batch is None:
             return PassThroughModelHandler()
         match config:
             case MatcherConfig() as config:
