@@ -117,8 +117,8 @@ test(`Annotator`, async ({ network, page, context, streamPage, annotatorPage, la
 
         await expectToHaveAnnotations({ annotatorPage });
 
-        await expect(annotatorPage.getFullScreen().getScope()).toBeVisible();
+        await expect(annotatorPage.getFullScreen()).toBeVisible();
 
-        await annotatorPage.getFullScreen().close();
+        await annotatorPage.closeFullScreen();
     });
 });
