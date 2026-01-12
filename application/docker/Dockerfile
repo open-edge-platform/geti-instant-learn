@@ -89,16 +89,14 @@ ARG SOURCE_DATASET_DIR=""
 ARG RUNTIME=""
 ENV RUNTIME=${RUNTIME}
 
-# Create directory and set ownership before VOLUME instruction
+# Create directory and set ownership so mounting a volume works correctly
 RUN mkdir -p ${DB_DATA_DIR} && chown ${UID}:${UID} ${DB_DATA_DIR}
-VOLUME ${DB_DATA_DIR}
 RUN mkdir -p ${LOGS_DIR} && chown ${UID}:${UID} ${LOGS_DIR}
-VOLUME ${LOGS_DIR}
 
 # Install OpenGL libraries for opencv-python
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libgl1=1.6.0-1 \
-      libglib2.0-0=2.74.6-2+deb12u7 \
+      libglib2.0-0=2.74.6-2+deb12u8 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -119,8 +117,6 @@ COPY --link --chown=${UID} backend/app /geti_prompt/app
 COPY --from=backend-base --chown=${UID} /geti_prompt/library/src /geti_prompt/library/src
 COPY --from=backend-base --chown=${UID} /bin/uv /bin/uv
 COPY --from=web-ui --chown=${UID} /home/app/web_ui/dist/ ${STATIC_FILES_DIR}
-# temporary file for testing
-COPY --from=web-ui --chown=${UID} /home/app/web_ui/src/assets/test.webp ${MOCKED_FILE}
 
 WORKDIR /geti_prompt
 

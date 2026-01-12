@@ -71,6 +71,11 @@ build-image: (download-dataset source-dataset-dir)
         --file docker/Dockerfile . \
         --target {{ build-target }}
 
+# To persist the database, add this to `docker run` args:
+# `--volume "{{ component-name }}-data":/geti_prompt/data \`
+# To persist logs, add this to `docker run` args:
+# `--volume "{{ component-name }}-logs":/geti_prompt/logs \`
+# Add either line, or both.
 # launch geti prompt with optional webcam, volume and port mapping
 run-image: build-image
     @echo "Running docker image for component: {{ component-name }} with build-target: {{ build-target }}"
