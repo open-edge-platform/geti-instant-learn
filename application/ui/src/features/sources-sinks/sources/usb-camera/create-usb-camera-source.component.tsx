@@ -28,11 +28,14 @@ const CreateUsbCameraSourceContent = ({ onSaved, availableUsbCameras }: CreateUs
     const handleApply = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
+        const cameraName = availableUsbCameras.find((camera) => camera.device_id === selectedDeviceId)?.name;
+
         createUsbCameraSource.mutate(
             {
                 source_type: 'usb_camera',
                 device_id: selectedDeviceId,
                 seekable: false,
+                name: cameraName,
             },
             onSaved
         );
