@@ -62,6 +62,21 @@ class Sam3Processor:
         state["original_height"] = height
         state["original_width"] = width
         state["backbone_out"] = self.model.backbone.forward_image(image)
+
+        # Process high-res features through conv_s0/conv_s1 if instance interactivity is enabled
+        inst_interactivity_en = getattr(self.model, "inst_interactive_predictor", None) is not None
+        if inst_interactivity_en and "sam2_backbone_out" in state["backbone_out"]:
+            sam2_backbone_out = state["backbone_out"]["sam2_backbone_out"]
+            sam2_backbone_out["backbone_fpn"][0] = (
+                self.model.inst_interactive_predictor.model.sam_mask_decoder.conv_s0(
+                    sam2_backbone_out["backbone_fpn"][0]
+                )
+            )
+            sam2_backbone_out["backbone_fpn"][1] = (
+                self.model.inst_interactive_predictor.model.sam_mask_decoder.conv_s1(
+                    sam2_backbone_out["backbone_fpn"][1]
+                )
+            )
         return state
 
     @torch.inference_mode()
@@ -84,6 +99,21 @@ class Sam3Processor:
         images = [self.transform(v2.functional.to_image(image).to(self.device)) for image in images]
         images = torch.stack(images, dim=0)
         state["backbone_out"] = self.model.backbone.forward_image(images)
+
+        # Process high-res features through conv_s0/conv_s1 if instance interactivity is enabled
+        inst_interactivity_en = getattr(self.model, "inst_interactive_predictor", None) is not None
+        if inst_interactivity_en and "sam2_backbone_out" in state["backbone_out"]:
+            sam2_backbone_out = state["backbone_out"]["sam2_backbone_out"]
+            sam2_backbone_out["backbone_fpn"][0] = (
+                self.model.inst_interactive_predictor.model.sam_mask_decoder.conv_s0(
+                    sam2_backbone_out["backbone_fpn"][0]
+                )
+            )
+            sam2_backbone_out["backbone_fpn"][1] = (
+                self.model.inst_interactive_predictor.model.sam_mask_decoder.conv_s1(
+                    sam2_backbone_out["backbone_fpn"][1]
+                )
+            )
         return state
 
     def get_single_image_state(self, batch_state: dict, image_idx: int) -> dict:

@@ -847,18 +847,20 @@ def build_efficientsam3_image_model(
         dot_prod_scoring,
     )
 
-    # Setup device and mode FIRST (before adding SAM heads)
-    model = _setup_device_and_mode(model, device, eval_mode=True)
-
     # Initialize SAM heads if instance interactivity is enabled
     # This must be done BEFORE loading checkpoint so tracker weights can be loaded
     if enable_inst_interactivity:
         # Add SAM heads (prompt encoder and mask decoder)
         _add_sam_heads(model, image_size=1008, backbone_stride=14, device=device)
 
-    # Load checkpoint if provided (after SAM heads are added)
+    # Load checkpoint BEFORE eval mode
+    # This is critical because TinyViT's Attention layer computes the 'ab' buffer
+    # during train(mode=False), which requires attention_biases to be loaded first.
     if checkpoint_path is not None:
         _load_checkpoint(model, checkpoint_path, enable_inst_interactivity=enable_inst_interactivity)
+
+    # Setup device and mode AFTER loading checkpoint
+    model = _setup_device_and_mode(model, device, eval_mode=True)
 
     # Create the interactive predictor if instance interactivity is enabled
     # This must be done AFTER checkpoint loading so the model has the correct weights
