@@ -6,10 +6,12 @@
 import { USBCameraConfig } from '@geti-prompt/api';
 
 import { useAvailableSources } from '../../api/use-available-sources';
+import { isUsbCameraConfig } from '../../utils';
 
-export const useAvailableUsbCameras = () => {
+export const useAvailableUsbCameras = (): { data: USBCameraConfig[] } => {
     const { data } = useAvailableSources('usb_camera');
-    const usbCameras = data as USBCameraConfig[];
 
-    return { data: usbCameras };
+    const cameraDevices = data.filter(isUsbCameraConfig);
+
+    return { data: cameraDevices };
 };

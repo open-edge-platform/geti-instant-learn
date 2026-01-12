@@ -6,6 +6,7 @@
 import {
     ImagesFolderSourceType,
     SampleDatasetSourceType,
+    USBCameraConfig,
     type Source,
     type SourcesType,
     type SourceType,
@@ -31,14 +32,17 @@ export const getImagesFolderSource = (sources: SourcesType | undefined) => {
 
 export type SourcesViews = 'add' | 'edit' | 'list' | 'existing';
 
-export const isUsbCameraSource = (source: Source | undefined): source is USBCameraSourceType =>
-    source?.config.source_type === 'usb_camera';
+export const isUsbCameraConfig = (config: Source['config'] | undefined): config is USBCameraConfig =>
+    config?.source_type === 'usb_camera';
 
-export const isImagesFolderSource = (source: Source | undefined): source is ImagesFolderSourceType =>
+export const isUsbCameraSource = (source: Pick<Source, 'config'> | undefined): source is USBCameraSourceType =>
+    isUsbCameraConfig(source?.config);
+
+export const isImagesFolderSource = (source: Pick<Source, 'config'> | undefined): source is ImagesFolderSourceType =>
     source?.config.source_type === 'images_folder';
 
-export const isTestDatasetSource = (source: Source | undefined): source is SampleDatasetSourceType =>
+export const isTestDatasetSource = (source: Pick<Source, 'config'> | undefined): source is SampleDatasetSourceType =>
     source?.config.source_type === 'sample_dataset';
 
-export const isVideoFileSource = (source: Source | undefined): source is VideoFileSourceType =>
+export const isVideoFileSource = (source: Pick<Source, 'config'> | undefined): source is VideoFileSourceType =>
     source?.config.source_type === 'video_file';
