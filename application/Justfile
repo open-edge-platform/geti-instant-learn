@@ -20,12 +20,6 @@ device := "cpu"  # cpu, cu126, xpu
 # Note: Binding port 443 may conflict with other services (e.g., HTTPS) on this host. Replace it with whatever port works/open for you.
 coturn-port := "443"
 
-# XPU variables
-render_gid := `uv run python -c "import grp; print(grp.getgrnam('render').gr_gid)"`
-# Default render node for Intel XPU.
-# Uses the first available `/dev/dri/renderD*` node
-render_node := `uv run python -c "from pathlib import Path; print(render_nodes[0]) if (render_nodes := sorted(Path('/dev/dri').glob('renderD*'))) else None"`
-
 # -------------------------------------------------------------------------------------------------
 # Variables used in the Justfile to build in Docker image
 # -------------------------------------------------------------------------------------------------
@@ -80,9 +74,22 @@ build-image: (download-dataset source-dataset-dir)
 
 # launch geti prompt with optional webcam, volume and port mapping
 run-image: build-image
-    @echo "Running docker image for component: {{ component-name }} with build-target: {{ build-target }}"
-    @echo "Proxy args: {{ docker-run-args }}"
-    @docker run --rm \
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    RENDER_GID=$(uv run python -c "import grp; print((grp.getgrnam('render').gr_gid) if any(g.gr_name == 'render' for g in grp.getgrall()) else print(''))")
+    RENDER_NODE=$(uv run python -c "from pathlib import Path; print(render_nodes[0]) if (render_nodes := sorted(Path('/dev/dri').glob('renderD*'))) else print('')")
+    extra_render_args=()
+    if [[ -n "$RENDER_NODE" ]]; then
+      extra_render_args+=(--device "$RENDER_NODE")
+    fi
+    if [[ -n "$RENDER_GID" ]]; then
+      extra_render_args+=(--group-add "$RENDER_GID")
+    fi
+
+    echo "Running docker image for component: {{ component-name }} with build-target: {{ build-target }}"
+    echo "Proxy args: {{ docker-run-args }}"
+    docker run --rm \
         {{ docker-run-args }} \
         --sysctl net.ipv4.ip_local_port_range="{{ replace(webrtc-ports, '-', ' ') }}" \
         --publish {{ webrtc-ports }}:{{ webrtc-ports }}/udp \
@@ -94,7 +101,7 @@ run-image: build-image
         --env WEBRTC_ADVERTISE_IP='{{ host-ip }}' \
         {{ if data-dir != "" { " --volume " + data-dir + ":/geti_prompt/data" } else { "" } }} \
         {{ if path_exists(webcam-device) == "true" { " --device " + webcam-device + ":" + webcam-device } else { "" } }} \
-        {{ if device == "xpu" { " --device " + render_node + " --group-add " + render_gid } else { "" } }} \
+        "${extra_render_args[@]}" \
         --name "{{ component-name }}-{{ version }}" \
         "{{ image-name }}"
 
