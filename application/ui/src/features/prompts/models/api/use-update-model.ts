@@ -8,7 +8,7 @@ import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { getQueryKey } from '@geti-prompt/query-client';
 import { useQueryClient } from '@tanstack/react-query';
 
-const useSetActiveModelQuery = (projectId: string) => {
+const useUpdateModelMutation = (projectId: string) => {
     const queryClient = useQueryClient();
 
     return $api.useMutation('put', '/api/v1/projects/{project_id}/models/{model_id}', {
@@ -29,21 +29,35 @@ const useSetActiveModelQuery = (projectId: string) => {
     });
 };
 
-export const useSetActiveModel = () => {
+export const useUpdateModel = () => {
     const { projectId } = useProjectIdentifier();
-    const updateModelMutation = useSetActiveModelQuery(projectId);
+    const updateModelMutation = useUpdateModelMutation(projectId);
 
-    return (model: ModelType) => {
-        const { id, name, config } = model;
+    const updateModel = (model: ModelType, onSuccess?: () => void) => {
+        const { id, name, config, active } = model;
 
-        return updateModelMutation.mutate({
-            body: { name, config, active: true },
-            params: {
-                path: {
-                    project_id: projectId,
-                    model_id: id,
+        return updateModelMutation.mutate(
+            {
+                body: {
+                    name,
+                    config,
+                    active,
+                },
+                params: {
+                    path: {
+                        project_id: projectId,
+                        model_id: id,
+                    },
                 },
             },
-        });
+            {
+                onSuccess,
+            }
+        );
+    };
+
+    return {
+        mutate: updateModel,
+        isPending: updateModelMutation.isPending,
     };
 };
