@@ -38,19 +38,19 @@ const MainLayout = () => {
 };
 
 const useEnsureValidAndActiveProject = () => {
-  // Check if the current project is valid, if it's not error boundary will catch it.
-  const { data } = useCurrentProject();
+    // Check if the current project is valid, if it's not error boundary will catch it.
+    const { data } = useCurrentProject();
 
-  const activateProject = useActivateProject();
+    const activateProject = useActivateProject();
 
-  useEffect(() => {
-    if (!data.active) {
-      activateProject.mutate(data);
-    }
-    // We only want to activate the project when a project that is being open is not active.
-    // This might happen only when a user opens a link to a project that is not active.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.active]);
+    useEffect(() => {
+        if (!data.active) {
+            activateProject.mutate(data);
+        }
+        // We only want to activate the project when a project that is being open is not active.
+        // This might happen only when a user opens a link to a project that is not active.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [data.active]);
 };
 
 export const ProjectRoute = () => {
@@ -60,12 +60,7 @@ export const ProjectRoute = () => {
 
     return (
         <WebRTCConnectionProvider key={projectId}>
-            <Grid
-                areas={['header', 'main']}
-                rows={['size-800', minmax(0, '1fr')]}
-                columns={[minmax('50%', '1fr')]}
-                height={'100vh'}
-            >
+            <Grid areas={['header', 'main']} rows={['size-800', minmax(0, '1fr')]} columns={'1fr'} height={'100vh'}>
                 <Header homeLink={paths.projects({})}>
                     <ProjectsListPanel />
                 </Header>
