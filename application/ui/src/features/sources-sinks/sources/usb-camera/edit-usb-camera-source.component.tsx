@@ -5,35 +5,35 @@
 
 import { FormEvent, useState } from 'react';
 
-import { WebcamSourceType } from '@geti-prompt/api';
+import { USBCameraSourceType } from '@geti-prompt/api';
 import { Flex, Form } from '@geti/ui';
 
 import { useUpdateSource } from '../api/use-update-source';
 import { EditSourceButtons } from '../edit-sources/edit-source-buttons.component';
+import { UsbCameraSourceFields } from './usb-camera-source-fields.component';
 import { isDeviceIdValid } from './utils';
-import { WebcamSourceFields } from './webcam-source-fields.component';
 
-interface EditWebcamSourceProps {
-    source: WebcamSourceType;
+interface EditUsbCameraSourceProps {
+    source: USBCameraSourceType;
     onSaved: () => void;
 }
 
-export const EditWebcamSource = ({ source, onSaved }: EditWebcamSourceProps) => {
+export const EditUsbCameraSource = ({ source, onSaved }: EditUsbCameraSourceProps) => {
     const [selectedDeviceId, setSelectedDeviceId] = useState<string>(source.config.device_id.toString());
     const isActiveSource = source.active;
 
-    const updateWebcamSource = useUpdateSource();
+    const updateUsbCameraSource = useUpdateSource();
     const isButtonDisabled =
         selectedDeviceId == source.config.device_id.toString() ||
         !isDeviceIdValid(selectedDeviceId) ||
-        updateWebcamSource.isPending;
+        updateUsbCameraSource.isPending;
 
-    const handleUpdateWebcamSource = (active: boolean) => {
-        updateWebcamSource.mutate(
+    const handleUpdateUsbCameraSource = (active: boolean) => {
+        updateUsbCameraSource.mutate(
             source.id,
             {
                 config: {
-                    source_type: 'webcam',
+                    source_type: 'usb_camera',
                     device_id: parseInt(selectedDeviceId),
                     seekable: false,
                 },
@@ -44,11 +44,11 @@ export const EditWebcamSource = ({ source, onSaved }: EditWebcamSourceProps) => 
     };
 
     const handleSave = () => {
-        handleUpdateWebcamSource(source.active);
+        handleUpdateUsbCameraSource(source.active);
     };
 
     const handleSaveAndConnect = () => {
-        handleUpdateWebcamSource(true);
+        handleUpdateUsbCameraSource(true);
     };
 
     const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -60,14 +60,17 @@ export const EditWebcamSource = ({ source, onSaved }: EditWebcamSourceProps) => 
     return (
         <Form validationBehavior={'native'} onSubmit={handleSubmit}>
             <Flex direction={'column'} gap={'size-200'}>
-                <WebcamSourceFields selectedDeviceId={selectedDeviceId} onSetSelectedDeviceId={setSelectedDeviceId} />
+                <UsbCameraSourceFields
+                    selectedDeviceId={selectedDeviceId}
+                    onSetSelectedDeviceId={setSelectedDeviceId}
+                />
 
                 <EditSourceButtons
                     isActiveSource={isActiveSource}
                     onSave={handleSave}
                     onSaveAndConnect={handleSaveAndConnect}
                     isDisabled={isButtonDisabled}
-                    isPending={updateWebcamSource.isPending}
+                    isPending={updateUsbCameraSource.isPending}
                 />
             </Flex>
         </Form>

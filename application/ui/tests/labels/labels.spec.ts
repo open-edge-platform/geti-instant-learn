@@ -11,7 +11,7 @@ import { Page } from '@playwright/test';
 import { initializeWebRTC } from '../prompt/initialize-webrtc';
 import { StreamPage } from '../prompt/stream-page';
 import { LabelsPage } from './labels-page';
-import { registerApiLabels, WEBCAM_SOURCE } from './mocks';
+import { registerApiLabels, USB_CAMERA_SOURCE } from './mocks';
 
 const setupLabels = async ({
     network,
@@ -41,7 +41,7 @@ test.describe('Labels', () => {
         network.use(
             http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {
                 return response(200).json({
-                    sources: [WEBCAM_SOURCE],
+                    sources: [USB_CAMERA_SOURCE],
                     pagination: {
                         count: 1,
                         total: 1,
@@ -52,7 +52,7 @@ test.describe('Labels', () => {
             }),
 
             http.put('/api/v1/projects/{project_id}/sources/{source_id}', ({ response }) =>
-                response(200).json(WEBCAM_SOURCE)
+                response(200).json(USB_CAMERA_SOURCE)
             )
         );
     });

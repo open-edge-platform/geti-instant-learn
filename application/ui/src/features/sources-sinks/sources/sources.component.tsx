@@ -7,7 +7,7 @@ import { ReactNode, useState } from 'react';
 
 import { Source, SourceType } from '@geti-prompt/api';
 import { useGetSources } from '@geti-prompt/hooks';
-import { ImagesFolder as ImagesFolderIcon, VideoFile, WebCam } from '@geti-prompt/icons';
+import { ImagesFolder as ImagesFolderIcon, UsbCamera, VideoFile } from '@geti-prompt/icons';
 import { Datasets } from '@geti/ui/icons';
 import { isEmpty } from 'lodash-es';
 
@@ -17,9 +17,9 @@ import { EditSource } from './edit-sources/edit-sources.component';
 import { ExistingSources } from './existing-sources/existing-sources.component';
 import { CreateImagesFolder } from './images-folder/create-images-folder.component';
 import { CreateSampleDataset } from './sample-dataset/create-sample-dataset.component';
+import { CreateUsbCameraSource } from './usb-camera/create-usb-camera-source.component';
 import { SourcesViews } from './utils';
 import { CreateVideoFile } from './video-file/create-video-file.component';
-import { CreateWebcamSource } from './webcam/create-webcam-source.component';
 
 interface SourcesList {
     onViewChange: (view: SourcesViews) => void;
@@ -33,10 +33,10 @@ const SourcesList = ({ onViewChange, sources }: SourcesList) => {
 
     const sourcesList = [
         {
-            label: 'Webcam',
-            value: 'webcam',
-            content: <CreateWebcamSource onSaved={navigateToExistingView} />,
-            icon: <WebCam width={'24px'} />,
+            label: 'USB Camera',
+            value: 'usb_camera',
+            content: <CreateUsbCameraSource onSaved={navigateToExistingView} />,
+            icon: <UsbCamera width={'24px'} />,
         },
         /*{
             label: 'IP Camera',
