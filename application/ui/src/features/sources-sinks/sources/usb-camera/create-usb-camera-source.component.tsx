@@ -5,21 +5,25 @@
 
 import { FormEvent, useState } from 'react';
 
-import { Button, ButtonGroup, Flex, Form } from '@geti/ui';
+import { USBCameraConfig } from '@geti-prompt/api';
+import { Button, ButtonGroup, Flex, Form, View } from '@geti/ui';
 
 import { useCreateSource } from '../api/use-create-source';
+import { useAvailableUsbCameras } from './api/use-available-usb-cameras';
+import { NoUsbCameras } from './no-usb-cameras.component';
 import { UsbCameraSourceFields } from './usb-camera-source-fields.component';
-import { isDeviceIdValid } from './utils';
 
-interface CreateUsbCameraSourceProps {
+interface CreateUsbCameraSourceContentProps {
     onSaved: () => void;
+    availableUsbCameras: USBCameraConfig[];
 }
 
-export const CreateUsbCameraSource = ({ onSaved }: CreateUsbCameraSourceProps) => {
-    const [selectedDeviceId, setSelectedDeviceId] = useState<string>('0');
+const CreateUsbCameraSourceContent = ({ onSaved, availableUsbCameras }: CreateUsbCameraSourceContentProps) => {
+    const [selectedDeviceId, setSelectedDeviceId] = useState<number>(availableUsbCameras[0].device_id);
+
     const createUsbCameraSource = useCreateSource();
 
-    const isApplyDisabled = !isDeviceIdValid(selectedDeviceId) || createUsbCameraSource.isPending;
+    const isApplyDisabled = createUsbCameraSource.isPending;
 
     const handleApply = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -27,7 +31,7 @@ export const CreateUsbCameraSource = ({ onSaved }: CreateUsbCameraSourceProps) =
         createUsbCameraSource.mutate(
             {
                 source_type: 'usb_camera',
-                device_id: parseInt(selectedDeviceId),
+                device_id: selectedDeviceId,
                 seekable: false,
             },
             onSaved
@@ -37,10 +41,13 @@ export const CreateUsbCameraSource = ({ onSaved }: CreateUsbCameraSourceProps) =
     return (
         <Form validationBehavior={'native'} onSubmit={handleApply}>
             <Flex direction={'column'} gap={'size-200'} marginTop={0}>
-                <UsbCameraSourceFields
-                    selectedDeviceId={selectedDeviceId}
-                    onSetSelectedDeviceId={setSelectedDeviceId}
-                />
+                <View marginTop={'size-100'}>
+                    <UsbCameraSourceFields
+                        selectedDeviceId={selectedDeviceId}
+                        onSetSelectedDeviceId={setSelectedDeviceId}
+                        availableUsbCameras={availableUsbCameras}
+                    />
+                </View>
 
                 <ButtonGroup>
                     <Button type={'submit'} isPending={createUsbCameraSource.isPending} isDisabled={isApplyDisabled}>
@@ -50,4 +57,18 @@ export const CreateUsbCameraSource = ({ onSaved }: CreateUsbCameraSourceProps) =
             </Flex>
         </Form>
     );
+};
+
+interface CreateUsbCameraSourceProps {
+    onSaved: () => void;
+}
+
+export const CreateUsbCameraSource = ({ onSaved }: CreateUsbCameraSourceProps) => {
+    const { data } = useAvailableUsbCameras();
+
+    if (data.length === 0) {
+        return <NoUsbCameras />;
+    }
+
+    return <CreateUsbCameraSourceContent onSaved={onSaved} availableUsbCameras={data} />;
 };
