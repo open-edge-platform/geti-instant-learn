@@ -76,8 +76,6 @@ FROM python:3.12-slim-bookworm@sha256:28cf028e5a544e92dbe11450debd93dd5eb70eaf31
 ENV STATIC_FILES_DIR="/geti_prompt/html"
 ENV DB_DATA_DIR="/geti_prompt/data"
 ENV LOGS_DIR="/geti_prompt/logs"
-ARG MOCKED_FILE=""
-ENV MOCKED_FILE=${MOCKED_FILE}
 ENV PATH="/geti_prompt/.venv/bin:$PATH"
 ENV PYTHONPATH=/geti_prompt/app
 ARG UID=10001
