@@ -31,9 +31,10 @@ class Settings(BaseSettings):
     )
     openapi_url: str = "/api/openapi.json"
     debug: bool = Field(default=False, alias="DEBUG")
-    log_level: str = Field(default="WARNING", alias="LOG_LEVEL")
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     log_format: str = "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s"
     environment: Literal["dev", "prod"] = "dev"
+    inference_enabled: bool = Field(default=True, alias="INFERENCE_ENABLED")
 
     static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
 
