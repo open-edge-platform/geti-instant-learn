@@ -50,14 +50,15 @@ class DefaultComponentFactory(ComponentFactory):
         with self._session_factory() as session:
             prompt_svc = PromptService(session)
             project_svc = ProjectService(session)
+            label_svc = LabelService(session)
             cfg = project_svc.get_pipeline_config(project_id)
             reference_batch = prompt_svc.get_reference_batch(project_id, PromptType.VISUAL)
+            label_colors = label_svc.get_label_colors_for_processor(project_id)
             logger.info("creating processor with model config: %s", cfg.processor)
         return Processor(
             ModelFactory.create(reference_batch, cfg.processor),
-            LabelService(session),
-            project_id,
             get_settings().processor_batch_size,
+            label_colors
         )
 
     def create_sink(self, project_id: UUID) -> Sink:

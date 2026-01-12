@@ -204,6 +204,26 @@ class LabelService(BaseService):
         logger.info("Label updated in project=%s label_id=%s name=%s", project_id, label.id, label.name)
         return label_db_to_schema(label=label)
 
+    def get_label_colors_for_processor(self, project_id: UUID) -> dict[str, tuple[int, int, int]]:
+        """
+        Get label colors formatted for inference visualization.
+        Converts hex color strings to RGB tuples.
+        """
+        labels = self.label_repository.list_all_by_project(project_id)
+
+        return {str(label.id): self._bgr_hex_to_rgb_tuple(label.color) for label in labels}
+
+    @staticmethod
+    def _bgr_hex_to_rgb_tuple(bgr_hex: str) -> tuple[int, int, int]:
+        """
+        Convert BGR hex color to RGB tuple.
+        """
+        hex_value = bgr_hex.lstrip("#")
+        b = int(hex_value[0:2], 16)
+        g = int(hex_value[2:4], 16)
+        r = int(hex_value[4:6], 16)
+        return r, g, b
+
     def _handle_label_integrity_error(
         self,
         exc: IntegrityError,

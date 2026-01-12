@@ -3,14 +3,12 @@
 
 import logging
 from queue import Empty, Queue
-from uuid import UUID
 
 import torch
 from getiprompt.data.base.batch import Batch
 from getiprompt.data.base.sample import Sample
 from torchvision import tv_tensors
 
-from domain.services.label import LabelService
 from domain.services.schemas.processor import InputData, OutputData
 from runtime.core.components.base import ModelHandler, PipelineComponent
 from runtime.core.components.broadcaster import FrameBroadcaster
@@ -26,18 +24,11 @@ class Processor(PipelineComponent):
     sending them to a processor for inference, and broadcasting the processed results to subscribed consumers.
     """
 
-    def __init__(
-        self,
-        model_handler: ModelHandler,
-        label_service: LabelService,
-        project_id: UUID | None = None,
-        batch_size: int = 3,
-    ):
+    def __init__(self, model_handler: ModelHandler, batch_size: int = 3, label_colors: dict[str, tuple[int, int, int]] | None = None) -> None:
         super().__init__()
         self._model_handler = model_handler
-        self._label_service = label_service
-        self._project_id: UUID | None = project_id
         self._batch_size = batch_size
+        self._label_colors = label_colors or {}
 
     def setup(
         self,
@@ -77,7 +68,7 @@ class Processor(PipelineComponent):
 
                 for i, data in enumerate(batch_data):
                     results: dict[str, torch.Tensor] = batch_results[i] if i < len(batch_results) else EMPTY_RESULT
-                    output_data = OutputData(frame=data.frame, results=[results], labels_colors=None)
+                    output_data = OutputData(frame=data.frame, results=[results], label_colors=self._label_colors)
                     self._outbound_broadcaster.broadcast(output_data)
 
             except Exception as e:

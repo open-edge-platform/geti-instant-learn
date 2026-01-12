@@ -74,7 +74,7 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
 
             if self._enable_visualization and self._visualizer:
                 logger.debug("Visualizing the output data...")
-                np_frame = self._visualizer.visualize(frame=output_data.frame, results=output_data.results)
+                np_frame = self._visualizer.visualize(output_data)
             else:
                 np_frame = output_data.frame
 
