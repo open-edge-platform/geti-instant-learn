@@ -15,7 +15,7 @@ export const useUpdateProject = () => {
         },
     });
 
-    const updateProject = (id: string, body: ProjectUpdateType, onSuccess?: () => Promise<void>): void => {
+    const updateProject = (id: string, body: ProjectUpdateType, onSuccess?: () => Promise<void> | void): void => {
         updateProjectMutation.mutate(
             {
                 body,
