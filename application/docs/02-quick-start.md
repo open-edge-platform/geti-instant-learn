@@ -15,13 +15,124 @@ Geti Prompt can be used the way you want: as a desktop application on your pc or
 
 ### Option 2: Docker
 
+Launch application as a docker container (it will contain both frontend and backend servers):
+As a value of `WEBRTC_ADVERTISE_IP`, `COTURN_HOST` and `--external-ip`, please provide external IP address of the machine where 
+the container is 
+running, so that WebRTC connections can be established properly.
 ```bash
-# TODO add instructions how to run the app as a docker container.
+# default port 9100, CPU device
+docker run --rm \
+           --sysctl net.ipv4.ip_local_port_range="50000 51000" \
+           --publish 50000-51000:50000-51000/udp \
+           --publish 9100:9100 \
+           --env PORT=9100 \
+           --env HOST=0.0.0.0 \
+           --env WEBRTC_ADVERTISE_IP='172.23.112.246' \
+           --name "geti-prompt-latest" \
+           "localhost:5000/open-edge-platform/geti-prompt/cpu:latest"
+```
 
+#### Usage Examples
+
+```bash
+# Custom port
+docker run --rm \
+           --sysctl net.ipv4.ip_local_port_range="50000 51000" \
+           --publish 50000-51000:50000-51000/udp \
+           --publish 8080:8080 \
+           --env PORT=8080 \
+           --env HOST=0.0.0.0 \
+           --env WEBRTC_ADVERTISE_IP='172.23.112.246' \
+           --name "geti-prompt-latest" \
+           "localhost:5000/open-edge-platform/geti-prompt/cpu:latest"
+
+# With GPU
+docker run --rm \
+           --sysctl net.ipv4.ip_local_port_range="50000 51000" \
+           --publish 50000-51000:50000-51000/udp \
+           --publish 9100:9100 \
+           --env PORT=9100 \
+           --env HOST=0.0.0.0 \
+           --env WEBRTC_ADVERTISE_IP='172.23.112.246' \
+           --name "geti-prompt-latest" \
+           "localhost:5000/open-edge-platform/geti-prompt/gpu:latest"
+
+# With Coturn
+docker run --rm --detach \
+        --network=host \
+        --name coturn-server \
+        quay.io/coturn/coturn \
+        -n \
+        --listening-port=443 \
+        --external-ip='172.23.112.246' \
+        --user=user:password \
+        --realm=my-realm \
+        --no-udp \
+        --log-file=stdout \
+        --verbose
+docker run --rm \
+           --sysctl net.ipv4.ip_local_port_range="50000 51000" \
+           --publish 50000-51000:50000-51000/udp \
+           --publish 9100:9100 \
+           --env PORT=9100 \
+           --env HOST=0.0.0.0 \
+           --env WEBRTC_ADVERTISE_IP='172.23.112.246' \
+           --env COTURN_HOST='172.23.112.246' \
+           --env COTURN_PORT=443 \
+           --name "geti-prompt-latest" \
+           "localhost:5000/open-edge-platform/geti-prompt/cpu:latest"
+
+# With external STUN
+docker run --rm \
+           --sysctl net.ipv4.ip_local_port_range="50000 51000" \
+           --publish 50000-51000:50000-51000/udp \
+           --publish 9100:9100 \
+           --env PORT=9100 \
+           --env HOST=0.0.0.0 \
+           --env WEBRTC_ADVERTISE_IP='172.23.112.246' \
+           --env STUN_SERVER="stun:stun.l.google.com:19302" \
+           --name "geti-prompt-latest" \
+           "localhost:5000/open-edge-platform/geti-prompt/cpu:latest"
+
+# With XPU
+docker run --rm \
+           --sysctl net.ipv4.ip_local_port_range="50000 51000" \
+           --publish 50000-51000:50000-51000/udp \
+           --publish 9100:9100 \
+           --env PORT=9100 \
+           --env HOST=0.0.0.0 \
+           --env WEBRTC_ADVERTISE_IP='172.23.112.246' \
+           --name "geti-prompt-latest" \
+           "localhost:5000/open-edge-platform/geti-prompt/xpu:latest"
+
+# Combined options (xpu, coturn, custom port and stun server)
+docker run --rm --detach \
+           --network=host \
+           --name coturn-server \
+           quay.io/coturn/coturn \
+           -n \
+           --listening-port=443 \
+           --external-ip='172.23.112.246' \
+           --user=user:password \
+           --realm=my-realm \
+           --no-udp \
+           --log-file=stdout \
+           --verbose
+docker run --rm \
+           --sysctl net.ipv4.ip_local_port_range="50000 51000" \
+           --publish 50000-51000:50000-51000/udp \
+           --publish 8080:8080 \
+           --env PORT=8080 \
+           --env HOST=0.0.0.0 \
+           --env WEBRTC_ADVERTISE_IP='172.23.112.246' \
+           --env COTURN_HOST='172.23.112.246' \
+           --env COTURN_PORT=443 \
+           --env STUN_SERVER="stun:stun.l.google.com:19302" \
+           --name "geti-prompt-latest" \
+           "localhost:5000/open-edge-platform/geti-prompt/xpu:latest"
 ```
 
 ### Option 3: Run from source code
-
 
 Run both backend and frontend development servers:
 
