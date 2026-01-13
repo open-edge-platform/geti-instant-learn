@@ -3,16 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, Suspense, useState } from 'react';
 
 import { Source, SourceType } from '@geti-prompt/api';
 import { useGetSources } from '@geti-prompt/hooks';
 import { ImagesFolder as ImagesFolderIcon, UsbCamera, VideoFile } from '@geti-prompt/icons';
+import { Loading } from '@geti/ui';
 import { Datasets } from '@geti/ui/icons';
 import { isEmpty } from 'lodash-es';
 
 import { DisclosureGroup } from '../disclosure-group/disclosure-group.component';
 import { PipelineEntityPanel } from '../pipeline-entity-panel/pipeline-entity-panel.component';
+import { usePrefetchAvailableSources } from './api/use-available-sources';
 import { EditSource } from './edit-sources/edit-sources.component';
 import { ExistingSources } from './existing-sources/existing-sources.component';
 import { CreateImagesFolder } from './images-folder/create-images-folder.component';
@@ -35,7 +37,11 @@ const SourcesList = ({ onViewChange, sources }: SourcesList) => {
         {
             label: 'USB Camera',
             value: 'usb_camera',
-            content: <CreateUsbCameraSource onSaved={navigateToExistingView} />,
+            content: (
+                <Suspense fallback={<Loading mode={'inline'} size={'S'} />}>
+                    <CreateUsbCameraSource onSaved={navigateToExistingView} />
+                </Suspense>
+            ),
             icon: <UsbCamera width={'24px'} />,
         },
         /*{
@@ -93,6 +99,8 @@ const AddSource = ({ onViewChange, sources }: AddSourceProps) => {
 
 export const Sources = () => {
     const { data } = useGetSources();
+    usePrefetchAvailableSources('usb_camera');
+
     const [view, setView] = useState<SourcesViews>(isEmpty(data.sources) ? 'list' : 'existing');
     const [sourceInEditionId, setSourceInEditionId] = useState<string | null>(null);
     const sourceInEdition = data.sources.find((source) => source.id === sourceInEditionId);

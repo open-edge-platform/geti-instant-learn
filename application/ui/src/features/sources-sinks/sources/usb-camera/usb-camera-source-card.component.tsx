@@ -15,7 +15,7 @@ interface UsbCameraSourceCardProps {
 }
 
 export const UsbCameraSourceCard = ({ source, onAction, menuItems }: UsbCameraSourceCardProps) => {
-    const parameters = [`Device ID: ${source.config.device_id}`];
+    const parameters = [`Device: ${source.config.name}`];
     const isActiveSource = source.active;
 
     return (

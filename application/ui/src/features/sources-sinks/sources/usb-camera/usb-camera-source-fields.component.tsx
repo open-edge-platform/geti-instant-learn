@@ -3,26 +3,30 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { TextField, View } from '@geti/ui';
-
-import { validateDeviceId } from './utils';
+import { USBCameraConfig } from '@geti-prompt/api';
+import { Item, Picker } from '@geti/ui';
 
 export interface UsbCameraFieldsProps {
-    selectedDeviceId: string;
-    onSetSelectedDeviceId: (value: string) => void;
+    selectedDeviceId: number;
+    onSetSelectedDeviceId: (value: number) => void;
+    availableUsbCameras: USBCameraConfig[];
 }
 
-export const UsbCameraSourceFields = ({ selectedDeviceId, onSetSelectedDeviceId }: UsbCameraFieldsProps) => {
+export const UsbCameraSourceFields = ({
+    selectedDeviceId,
+    onSetSelectedDeviceId,
+    availableUsbCameras,
+}: UsbCameraFieldsProps) => {
     return (
-        <View>
-            <TextField
-                label={'Device ID'}
-                value={selectedDeviceId}
-                name='device-id'
-                onChange={onSetSelectedDeviceId}
-                validate={validateDeviceId}
-                isRequired
-            />
-        </View>
+        <Picker
+            items={availableUsbCameras}
+            selectedKey={String(selectedDeviceId)}
+            onSelectionChange={(key) => {
+                onSetSelectedDeviceId(Number(key));
+            }}
+            width={'80%'}
+        >
+            {(item) => <Item key={item.device_id}>{item.name}</Item>}
+        </Picker>
     );
 };

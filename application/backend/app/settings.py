@@ -34,7 +34,6 @@ class Settings(BaseSettings):
     log_level: str = Field(default="WARNING", alias="LOG_LEVEL")
     log_format: str = "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s"
     environment: Literal["dev", "prod"] = "dev"
-
     static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
 
     # Runtime
@@ -101,6 +100,7 @@ class Settings(BaseSettings):
 
     # Processor configuration
     processor_batch_size: int = Field(default=3, alias="PROCESSOR_BATCH_SIZE")
+    processor_inference_enabled: bool = Field(default=True, alias="PROCESSOR_INFERENCE_ENABLED")
 
     # WebRTC
     webrtc_advertise_ip: str | None = Field(default=None, alias="WEBRTC_ADVERTISE_IP")

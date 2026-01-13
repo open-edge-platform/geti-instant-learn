@@ -5,28 +5,27 @@
 
 import { FormEvent, useState } from 'react';
 
-import { USBCameraSourceType } from '@geti-prompt/api';
+import { USBCameraConfig, USBCameraSourceType } from '@geti-prompt/api';
 import { Flex, Form } from '@geti/ui';
 
 import { useUpdateSource } from '../api/use-update-source';
 import { EditSourceButtons } from '../edit-sources/edit-source-buttons.component';
+import { useAvailableUsbCameras } from './api/use-available-usb-cameras';
+import { NoUsbCameras } from './no-usb-cameras.component';
 import { UsbCameraSourceFields } from './usb-camera-source-fields.component';
-import { isDeviceIdValid } from './utils';
 
-interface EditUsbCameraSourceProps {
+interface EditUsbCameraSourceContentProps {
     source: USBCameraSourceType;
     onSaved: () => void;
+    availableUsbCameras: USBCameraConfig[];
 }
 
-export const EditUsbCameraSource = ({ source, onSaved }: EditUsbCameraSourceProps) => {
-    const [selectedDeviceId, setSelectedDeviceId] = useState<string>(source.config.device_id.toString());
+const EditUsbCameraSourceContent = ({ source, onSaved, availableUsbCameras }: EditUsbCameraSourceContentProps) => {
+    const [selectedDeviceId, setSelectedDeviceId] = useState<number>(source.config.device_id);
     const isActiveSource = source.active;
 
     const updateUsbCameraSource = useUpdateSource();
-    const isButtonDisabled =
-        selectedDeviceId == source.config.device_id.toString() ||
-        !isDeviceIdValid(selectedDeviceId) ||
-        updateUsbCameraSource.isPending;
+    const isButtonDisabled = selectedDeviceId == source.config.device_id || updateUsbCameraSource.isPending;
 
     const handleUpdateUsbCameraSource = (active: boolean) => {
         updateUsbCameraSource.mutate(
@@ -34,7 +33,7 @@ export const EditUsbCameraSource = ({ source, onSaved }: EditUsbCameraSourceProp
             {
                 config: {
                     source_type: 'usb_camera',
-                    device_id: parseInt(selectedDeviceId),
+                    device_id: selectedDeviceId,
                     seekable: false,
                 },
                 active,
@@ -63,6 +62,7 @@ export const EditUsbCameraSource = ({ source, onSaved }: EditUsbCameraSourceProp
                 <UsbCameraSourceFields
                     selectedDeviceId={selectedDeviceId}
                     onSetSelectedDeviceId={setSelectedDeviceId}
+                    availableUsbCameras={availableUsbCameras}
                 />
 
                 <EditSourceButtons
@@ -75,4 +75,19 @@ export const EditUsbCameraSource = ({ source, onSaved }: EditUsbCameraSourceProp
             </Flex>
         </Form>
     );
+};
+
+interface EditUsbCameraSourceProps {
+    source: USBCameraSourceType;
+    onSaved: () => void;
+}
+
+export const EditUsbCameraSource = ({ source, onSaved }: EditUsbCameraSourceProps) => {
+    const { data } = useAvailableUsbCameras();
+
+    if (data.length === 0) {
+        return <NoUsbCameras />;
+    }
+
+    return <EditUsbCameraSourceContent source={source} onSaved={onSaved} availableUsbCameras={data} />;
 };

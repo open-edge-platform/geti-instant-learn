@@ -10,7 +10,7 @@ export type SourceType = SourcesType[number]['config']['source_type'];
 
 type SourceWithoutConfig = Omit<SchemaSourceSchema, 'config'>;
 
-type USBCameraConfig = components['schemas']['UsbCameraConfig'];
+export type USBCameraConfig = components['schemas']['UsbCameraConfig'];
 type VideoFileConfig = components['schemas']['VideoFileConfig'];
 export type ImagesFolderConfig = components['schemas']['ImagesFolderConfig'];
 type SampleDatasetConfig = components['schemas']['SampleDatasetConfig'];
@@ -33,6 +33,7 @@ export { $api, client } from './client';
 export {
     type paths,
     type SchemaProcessorSchema as ModelType,
+    type SchemaProcessorUpdateSchema as ModelUpdateType,
     type SchemaProcessorListSchema as ModelListType,
     type SchemaProjectSchema as ProjectType,
     type SchemaProjectsListSchema as ProjectsListType,

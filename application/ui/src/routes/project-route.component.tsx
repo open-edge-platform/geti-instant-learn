@@ -6,18 +6,36 @@
 import { useEffect } from 'react';
 
 import { useCurrentProject, useProjectIdentifier } from '@geti-prompt/hooks';
-import { Grid, minmax, View } from '@geti/ui';
+import { Flex, Grid, minmax, View } from '@geti/ui';
+import { Group, Panel } from 'react-resizable-panels';
 
 import { Header } from '../components/header/header.component';
 import { MainContent } from '../components/main-content/main-content.component';
 import { Sidebar } from '../components/sidebar/sidebar.component';
 import { Toolbar } from '../components/toolbar/toolbar.component';
 import { paths } from '../constants/paths';
-import { FullScreenModeProvider } from '../features/annotator/actions/full-screen-mode.component';
 import { useActivateProject } from '../features/project/api/use-activate-project.hook';
 import { ProjectsListPanel } from '../features/project/projects-list-panel.component';
 import { WebRTCConnectionProvider } from '../features/stream/web-rtc/web-rtc-connection-provider';
 import { SelectedFrameProvider } from '../shared/selected-frame-provider.component';
+
+const MainLayout = () => {
+    return (
+        <Group>
+            <Panel minSize={'30%'} id={'main'}>
+                <Flex direction={'column'} height={'100%'}>
+                    <Toolbar />
+
+                    <View backgroundColor={'gray-50'} flex={1} minHeight={0}>
+                        <MainContent />
+                    </View>
+                </Flex>
+            </Panel>
+
+            <Sidebar />
+        </Group>
+    );
+};
 
 const useEnsureValidAndActiveProject = () => {
     // Check if the current project is valid, if it's not error boundary will catch it.
@@ -36,32 +54,19 @@ const useEnsureValidAndActiveProject = () => {
 };
 
 export const ProjectRoute = () => {
-    const { projectId } = useProjectIdentifier();
-
     useEnsureValidAndActiveProject();
+
+    const { projectId } = useProjectIdentifier();
 
     return (
         <WebRTCConnectionProvider key={projectId}>
-            <Grid
-                areas={['header header header', 'toolbar prompt-sidebar sidebar', 'main prompt-sidebar sidebar']}
-                rows={['size-800', 'size-700', minmax(0, '1fr')]}
-                columns={[minmax('50%', '1fr'), 'auto']}
-                height={'100vh'}
-            >
+            <Grid areas={['header', 'main']} rows={['size-800', minmax(0, '1fr')]} columns={'1fr'} height={'100vh'}>
                 <Header homeLink={paths.projects({})}>
                     <ProjectsListPanel />
                 </Header>
 
-                <Toolbar />
-
                 <SelectedFrameProvider>
-                    <FullScreenModeProvider>
-                        <View backgroundColor={'gray-50'} gridArea={'main'}>
-                            <MainContent />
-                        </View>
-
-                        <Sidebar />
-                    </FullScreenModeProvider>
+                    <MainLayout />
                 </SelectedFrameProvider>
             </Grid>
         </WebRTCConnectionProvider>

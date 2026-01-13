@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ReactNode } from 'react';
+import { ReactNode, Suspense } from 'react';
 
 import { Source } from '@geti-prompt/api';
+import { Loading } from '@geti/ui';
 
 import { PipelineEntityPanel } from '../../pipeline-entity-panel/pipeline-entity-panel.component';
 import { EditImagesFolder } from '../images-folder/edit-images-folder.component';
@@ -41,7 +42,9 @@ export const EditSource = ({ source, onViewChange }: EditSourceProps) => {
     if (isUsbCameraSource(source)) {
         return (
             <EditSourceContainer onBackClick={handleGoBack} title={'USB Camera'}>
-                <EditUsbCameraSource source={source} onSaved={handleGoBack} />
+                <Suspense fallback={<Loading mode={'inline'} size={'S'} />}>
+                    <EditUsbCameraSource source={source} onSaved={handleGoBack} />
+                </Suspense>
             </EditSourceContainer>
         );
     }

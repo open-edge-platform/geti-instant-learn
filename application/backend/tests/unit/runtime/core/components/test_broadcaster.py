@@ -81,3 +81,38 @@ class TestFrameBroadcaster:
         assert slow_consumer_q.get_nowait() == "frame3"
         assert slow_consumer_q.get_nowait() == "frame4"
         assert slow_consumer_q.get_nowait() == "frame5"
+
+    def test_register_receives_latest_frame_when_available(self, broadcaster):
+        q1 = broadcaster.register()
+        assert q1.empty()
+
+        frame1 = "test_frame_1"
+        broadcaster.broadcast(frame1)
+        assert q1.get_nowait() == frame1
+
+        q2 = broadcaster.register()
+        assert not q2.empty()
+        assert q2.get_nowait() == frame1
+
+        frame2 = "test_frame_2"
+        broadcaster.broadcast(frame2)
+
+        q3 = broadcaster.register()
+        assert not q3.empty()
+        assert q3.get_nowait() == frame2
+
+    def test_register_without_broadcast_has_empty_queue(self, broadcaster):
+        q = broadcaster.register()
+        assert q.empty()
+        assert broadcaster.latest_frame is None
+
+    def test_latest_frame_property_updates(self, broadcaster):
+        assert broadcaster.latest_frame is None
+
+        frame1 = "frame_1"
+        broadcaster.broadcast(frame1)
+        assert broadcaster.latest_frame == frame1
+
+        frame2 = "frame_2"
+        broadcaster.broadcast(frame2)
+        assert broadcaster.latest_frame == frame2
