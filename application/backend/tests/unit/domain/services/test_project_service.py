@@ -19,7 +19,7 @@ def make_active_source(device_id: int = 0):
     return SimpleNamespace(
         id=uuid.uuid4(),
         active=True,
-        config={"source_type": "webcam", "device_id": device_id},
+        config={"source_type": "usb_camera", "device_id": device_id},
     )
 
 
@@ -304,7 +304,7 @@ def test_pipeline_config_with_active_source(service, repo_mock):
     assert isinstance(cfg, PipelineConfig)
     assert cfg.project_id == pid
     assert cfg.reader is not None
-    assert cfg.reader.source_type == "webcam"
+    assert cfg.reader.source_type == "usb_camera"
     assert cfg.processor is None
     assert cfg.writer is None
 
@@ -314,7 +314,7 @@ def test_pipeline_config_without_active_source(service, repo_mock):
     inactive_source = SimpleNamespace(
         id=uuid.uuid4(),
         active=False,
-        config={"source_type": "webcam"},
+        config={"source_type": "usb_camera"},
     )
     project_active = make_project(project_id=pid, active=True, sources=[inactive_source])
     repo_mock.get_by_id.return_value = project_active
@@ -345,7 +345,7 @@ def test_pipeline_config_with_source_and_sink(service, repo_mock):
     assert isinstance(cfg, PipelineConfig)
     assert cfg.project_id == pid
     assert cfg.reader is not None
-    assert cfg.reader.source_type == "webcam"
+    assert cfg.reader.source_type == "usb_camera"
     assert cfg.processor is None
     assert cfg.writer is not None
     assert cfg.writer.sink_type == "mqtt"
@@ -370,7 +370,7 @@ def test_pipeline_config_with_source_sink_and_model(service, repo_mock):
     assert isinstance(cfg, PipelineConfig)
     assert cfg.project_id == pid
     assert cfg.reader is not None
-    assert cfg.reader.source_type == "webcam"
+    assert cfg.reader.source_type == "usb_camera"
     assert cfg.processor is not None
     assert cfg.processor.model_type == "matcher"
     assert cfg.writer is not None
@@ -394,7 +394,7 @@ def test_active_pipeline_config_success(service, repo_mock):
     assert isinstance(cfg, PipelineConfig)
     assert cfg.project_id == project_active.id
     assert cfg.reader is not None
-    assert cfg.reader.source_type == "webcam"
+    assert cfg.reader.source_type == "usb_camera"
 
 
 def test_create_emits_activation_event(service, repo_mock, dispatcher_mock):

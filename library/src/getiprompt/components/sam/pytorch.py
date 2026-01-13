@@ -299,8 +299,9 @@ class PyTorchSAMPredictor(nn.Module):
         elif sam_model_name in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
             registry_name = MODEL_MAP[sam_model_name]["registry_name"]
             sam_model = sam_model_registry[registry_name]().to(device)
-            # nosemgrep loading the snapshot from the local path.
-            state_dict = torch.load(checkpoint_path, map_location=device)
+            # suppress - loading the snapshot from the local path
+            # nosemgrep trailofbits.python.pickles-in-pytorch.pickles-in-pytorch
+            state_dict = torch.load(checkpoint_path, map_location=device) # nosec: B614
             info = sam_model.load_state_dict(state_dict, strict=False)
             if info.missing_keys:
                 msg = f"Missing keys when loading SAM-HQ model: {info.missing_keys}"

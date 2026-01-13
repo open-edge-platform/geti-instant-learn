@@ -11,7 +11,7 @@ import torch
 from getiprompt.data.base.batch import Batch
 
 from domain.services.schemas.processor import InputData
-from domain.services.schemas.reader import FrameListResponse
+from domain.services.schemas.reader import FrameListResponse, ReaderConfig
 from runtime.core.components.errors import UnsupportedOperationError
 
 IN = TypeVar("IN")
@@ -99,6 +99,10 @@ class StreamReader(AbstractContextManager, ABC):
         """
         Get a paginated list of all available frames.
         """
+        raise UnsupportedOperationError
+
+    @classmethod
+    def discover(cls) -> list[ReaderConfig]:
         raise UnsupportedOperationError
 
 

@@ -10,7 +10,6 @@ set shell := ["bash", "-cu"]
 port := "9100"
 ui-port := "3000"
 webcam-device := "/dev/video0"
-data-dir := ""
 host := "0.0.0.0"
 enable-coturn := "false"
 stun-server := ""
@@ -72,6 +71,11 @@ build-image: (download-dataset source-dataset-dir)
         --file docker/Dockerfile . \
         --target {{ build-target }}
 
+# To persist the database, add this to `docker run` args:
+# `--volume "{{ component-name }}-data":/geti_prompt/data \`
+# To persist logs, add this to `docker run` args:
+# `--volume "{{ component-name }}-logs":/geti_prompt/logs \`
+# Add either line, or both.
 # launch geti prompt with optional webcam, volume and port mapping
 run-image: build-image
     #!/usr/bin/env bash
@@ -99,7 +103,6 @@ run-image: build-image
         {{ if enable-coturn == "true" { "--env COTURN_HOST='" + host-ip + "' --env COTURN_PORT='" + coturn-port + "'" } else { "" } }} \
         {{ if stun-server != "" { "--env STUN_SERVER='" + stun-server + "'" } else { "" } }} \
         --env WEBRTC_ADVERTISE_IP='{{ host-ip }}' \
-        {{ if data-dir != "" { " --volume " + data-dir + ":/geti_prompt/data" } else { "" } }} \
         {{ if path_exists(webcam-device) == "true" { " --device " + webcam-device + ":" + webcam-device } else { "" } }} \
         "${extra_render_args[@]}" \
         --name "{{ component-name }}-{{ version }}" \

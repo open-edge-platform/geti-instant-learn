@@ -9,8 +9,9 @@ import { isEmpty } from 'lodash-es';
 import { useNavigate } from 'react-router';
 
 import { paths } from '../../constants/paths';
-import { useDeleteProject } from './hooks/use-delete-project.hook';
-import { useUpdateProject } from './hooks/use-update-project.hook';
+import { useActivateProject } from './api/use-activate-project.hook';
+import { useDeleteProject } from './api/use-delete-project.hook';
+import { useUpdateProject } from './api/use-update-project.hook';
 import { ProjectListItem } from './project-list-item/project-list-item.component';
 
 import styles from './projects-list.module.scss';
@@ -19,17 +20,12 @@ interface ProjectListProps {
     projects: ProjectType[];
     projectIdInEdition: string | null;
     setProjectInEdition: (projectId: string | null) => void;
-    activeProject: ProjectType | undefined;
 }
 
-export const ProjectsList = ({
-    projects,
-    activeProject,
-    setProjectInEdition,
-    projectIdInEdition,
-}: ProjectListProps) => {
-    const updateProjectName = useUpdateProject();
+export const ProjectsList = ({ projects, setProjectInEdition, projectIdInEdition }: ProjectListProps) => {
+    const updateProject = useUpdateProject();
     const deleteProject = useDeleteProject();
+    const activateProject = useActivateProject();
     const { projectId } = useProjectIdentifier();
     const navigate = useNavigate();
 
@@ -55,7 +51,7 @@ export const ProjectsList = ({
             return;
         }
 
-        updateProjectName(id, { name: newName });
+        updateProject.mutate(id, { name: newName });
     };
 
     const handleRename = (id: string) => {
@@ -66,12 +62,19 @@ export const ProjectsList = ({
         setProjectInEdition(null);
     };
 
+    const handleActivateProject = (project: ProjectType) => {
+        if (project.active) return;
+
+        const activeProject = projects.find(({ active }) => active);
+
+        activateProject.mutate(project, activeProject);
+    };
+
     return (
         <ul className={styles.projectList}>
             {projects.map((project) => (
                 <ProjectListItem
                     key={project.id}
-                    activeProject={activeProject}
                     projectNames={projectNames.filter((name) => name !== project.name)}
                     project={project}
                     onRename={handleRename}
@@ -79,6 +82,7 @@ export const ProjectsList = ({
                     onBlur={handleBlur}
                     isInEditMode={isInEditionMode(project.id)}
                     onResetProjectInEdition={handleResetProjectInEdition}
+                    onActivateProject={handleActivateProject}
                 />
             ))}
         </ul>

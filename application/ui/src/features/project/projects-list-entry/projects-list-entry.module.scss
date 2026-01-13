@@ -26,13 +26,12 @@
     transition:
         background-color,
         border 0.2s ease-in-out;
-    cursor: pointer;
     padding: var(--spectrum-global-dimension-size-100);
+}
 
-    &:hover {
-        border-color: var(--energy-blue);
-        background-color: var(--spectrum-global-color-gray-100);
-    }
+.projectCardHovered:hover {
+    border-color: var(--energy-blue);
+    background-color: var(--spectrum-global-color-gray-100);
 }
 
 .projectCardTitle {

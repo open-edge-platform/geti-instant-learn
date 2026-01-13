@@ -91,7 +91,7 @@ def make_source(source_id=None, active=True):
     return SimpleNamespace(
         id=source_id,
         active=active,
-        config={"source_type": "webcam", "device_id": 0},
+        config={"source_type": "usb_camera", "device_id": 0},
     )
 
 

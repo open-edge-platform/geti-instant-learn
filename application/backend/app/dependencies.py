@@ -19,6 +19,7 @@ from domain.repositories.source import SourceRepository
 from domain.services import LabelService, ModelService, ProjectService, PromptService, SinkService, SourceService
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.frame import FrameService
+from runtime.services.source_type import SourceTypeService
 from runtime.webrtc.manager import WebRTCManager
 from settings import get_settings
 
@@ -163,6 +164,11 @@ def get_sink_service(
     return SinkService(session=session, config_change_dispatcher=dispatcher)
 
 
+def get_discovery_service() -> SourceTypeService:
+    """Dependency that provides a DiscoveryService instance."""
+    return SourceTypeService()
+
+
 # --- Dependency aliases ---
 ProjectServiceDep = Annotated[ProjectService, Depends(get_project_service)]
 SourceServiceDep = Annotated[SourceService, Depends(get_source_service)]
@@ -173,3 +179,4 @@ PromptServiceDep = Annotated[PromptService, Depends(get_prompt_service)]
 PipelineManagerDep = Annotated[PipelineManager, Depends(get_pipeline_manager)]
 ModelServiceDep = Annotated[ModelService, Depends(get_model_service)]
 SinkServiceDep = Annotated[SinkService, Depends(get_sink_service)]
+DiscoveryServiceDep = Annotated[SourceTypeService, Depends(get_discovery_service)]
