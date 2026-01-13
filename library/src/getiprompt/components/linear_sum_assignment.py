@@ -97,7 +97,7 @@ class LinearSumAssignment(nn.Module):
         n_rows, n_cols = cost_matrix.size(0), cost_matrix.size(1)
         device = cost_matrix.device
         dtype = cost_matrix.dtype
-        n_assign = torch.minimum(n_rows, n_cols)
+        n_assign = torch.minimum(n_rows, n_cols) if torch.onnx.is_in_onnx_export() else min(n_rows, n_cols)
 
         # Work with costs - negate if maximizing so we can always use argmax
         costs = cost_matrix.clone() if self.maximize else -cost_matrix.clone()

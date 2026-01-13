@@ -143,8 +143,8 @@ class TestMatcher:
             "segmenter": MagicMock(),
         }
 
-    @patch("getiprompt.models.matcher.matcher.SAMPredictor")
-    @patch("getiprompt.models.matcher.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.SAMPredictor")
+    @patch("getiprompt.models.matcher.ImageEncoder")
     def test_matcher_initialization(
         self,
         mock_image_encoder: MagicMock,
@@ -163,8 +163,8 @@ class TestMatcher:
         assert hasattr(model, "prompt_generator")
         assert hasattr(model, "segmenter")
 
-    @patch("getiprompt.models.matcher.matcher.SAMPredictor")
-    @patch("getiprompt.models.matcher.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.SAMPredictor")
+    @patch("getiprompt.models.matcher.ImageEncoder")
     def test_matcher_forward_pass(
         self,
         mock_image_encoder: MagicMock,
@@ -204,8 +204,8 @@ class TestMatcher:
         assert "pred_labels" in predictions[0]
         model.predict.assert_called_once_with(target_images)
 
-    @patch("getiprompt.models.matcher.matcher.SAMPredictor")
-    @patch("getiprompt.models.matcher.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.SAMPredictor")
+    @patch("getiprompt.models.matcher.ImageEncoder")
     def test_matcher_multi_instance_filtering(
         self,
         mock_image_encoder: MagicMock,
@@ -254,8 +254,8 @@ class TestSoftMatcher:
             "segmenter": MagicMock(),
         }
 
-    @patch("getiprompt.models.matcher.matcher.SAMPredictor")
-    @patch("getiprompt.models.matcher.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.SAMPredictor")
+    @patch("getiprompt.models.matcher.ImageEncoder")
     def test_soft_matcher_initialization(
         self,
         mock_image_encoder: MagicMock,
@@ -274,8 +274,8 @@ class TestSoftMatcher:
         assert hasattr(model, "prompt_generator")
         assert hasattr(model, "segmenter")
 
-    @patch("getiprompt.models.matcher.matcher.SAMPredictor")
-    @patch("getiprompt.models.matcher.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.SAMPredictor")
+    @patch("getiprompt.models.matcher.ImageEncoder")
     def test_soft_matcher_forward_pass(
         self,
         mock_image_encoder: MagicMock,
@@ -315,8 +315,8 @@ class TestSoftMatcher:
         assert "pred_labels" in predictions[0]
         model.predict.assert_called_once_with(target_images)
 
-    @patch("getiprompt.models.matcher.matcher.SAMPredictor")
-    @patch("getiprompt.models.matcher.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.SAMPredictor")
+    @patch("getiprompt.models.matcher.ImageEncoder")
     def test_soft_matcher_multi_instance_filtering(
         self,
         mock_image_encoder: MagicMock,

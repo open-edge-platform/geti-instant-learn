@@ -49,7 +49,6 @@ class TestSamDecoderValidation:
         # point_prompts: [T=1, C=1, max_points=4, 4] with (x, y, score, label)
         point_prompts = torch.zeros(1, 1, 4, 4, dtype=torch.float32)
         point_prompts[0, 0, 0] = torch.tensor([100, 150, 0.9, 1])  # foreground point
-        num_points = torch.tensor([[1]], dtype=torch.int64)  # [T=1, C=1]
 
         # similarities: [T=1, C=1, feat_size, feat_size]
         similarities = torch.ones(1, 1, 16, 16, dtype=torch.float32)
@@ -69,7 +68,6 @@ class TestSamDecoderValidation:
                 images=[image],
                 category_ids=category_ids,
                 point_prompts=point_prompts,
-                num_points=num_points,
                 similarities=similarities,
             )
 
@@ -87,7 +85,6 @@ class TestSamDecoderValidation:
         # box_prompts: [T=1, C=1, max_boxes=4, 5] with (x1, y1, x2, y2, score)
         box_prompts = torch.zeros(1, 1, 4, 5, dtype=torch.float32)
         box_prompts[0, 0, 0] = torch.tensor([50, 50, 150, 150, 0.9])
-        num_boxes = torch.tensor([[1]], dtype=torch.int64)  # [T=1, C=1]
 
         category_ids = [0]
 
@@ -104,7 +101,6 @@ class TestSamDecoderValidation:
                 images=[image],
                 category_ids=category_ids,
                 box_prompts=box_prompts,
-                num_boxes=num_boxes,
             )
 
         assert len(predictions) == 1
@@ -128,20 +124,16 @@ class TestSamDecoderValidation:
         category_ids = [0]
 
         point_prompts = torch.zeros(1, 1, 4, 4, dtype=torch.float32)
-        num_points = torch.tensor([[1]], dtype=torch.int64)
         similarities = torch.ones(1, 1, 16, 16, dtype=torch.float32)
         box_prompts = torch.zeros(1, 1, 4, 5, dtype=torch.float32)
-        num_boxes = torch.tensor([[1]], dtype=torch.int64)
 
         with pytest.raises(ValueError, match="Provide either point_prompts or box_prompts"):
             sam_decoder.forward(
                 images=[image],
                 category_ids=category_ids,
                 point_prompts=point_prompts,
-                num_points=num_points,
                 similarities=similarities,
                 box_prompts=box_prompts,
-                num_boxes=num_boxes,
             )
 
     def test_forward_with_multiple_categories(self, sam_decoder: SamDecoder) -> None:
@@ -152,7 +144,6 @@ class TestSamDecoderValidation:
         point_prompts = torch.zeros(1, 2, 4, 4, dtype=torch.float32)
         point_prompts[0, 0, 0] = torch.tensor([100, 150, 0.9, 1])
         point_prompts[0, 1, 0] = torch.tensor([200, 250, 0.8, 1])
-        num_points = torch.tensor([[1, 1]], dtype=torch.int64)
         similarities = torch.ones(1, 2, 16, 16, dtype=torch.float32)
 
         category_ids = [0, 1]
@@ -169,7 +160,6 @@ class TestSamDecoderValidation:
                 images=[image],
                 category_ids=category_ids,
                 point_prompts=point_prompts,
-                num_points=num_points,
                 similarities=similarities,
             )
 
@@ -182,7 +172,6 @@ class TestSamDecoderValidation:
 
         point_prompts = torch.zeros(1, 1, 4, 4, dtype=torch.float32)
         point_prompts[0, 0, 0] = torch.tensor([100, 150, 0.9, 1])
-        num_points = torch.tensor([[1]], dtype=torch.int64)
         similarities = torch.ones(1, 1, 16, 16, dtype=torch.float32)
 
         category_ids = [0]
@@ -199,7 +188,6 @@ class TestSamDecoderValidation:
                 images=[image],
                 category_ids=category_ids,
                 point_prompts=point_prompts,
-                num_points=num_points,
                 similarities=similarities,
             )
 
@@ -242,7 +230,6 @@ class TestSamDecoderEmptyTensorHandling:
 
         # Zero valid points
         point_prompts = torch.zeros(1, 1, 4, 4, dtype=torch.float32)
-        num_points = torch.tensor([[0]], dtype=torch.int64)
         similarities = torch.ones(1, 1, 16, 16, dtype=torch.float32)
 
         category_ids = [0]
@@ -259,7 +246,6 @@ class TestSamDecoderEmptyTensorHandling:
                 images=[image],
                 category_ids=category_ids,
                 point_prompts=point_prompts,
-                num_points=num_points,
                 similarities=similarities,
             )
 
@@ -275,7 +261,6 @@ class TestSamDecoderEmptyTensorHandling:
         image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
 
         box_prompts = torch.zeros(1, 1, 4, 5, dtype=torch.float32)
-        num_boxes = torch.tensor([[0]], dtype=torch.int64)
 
         category_ids = [0]
 
@@ -291,7 +276,6 @@ class TestSamDecoderEmptyTensorHandling:
                 images=[image],
                 category_ids=category_ids,
                 box_prompts=box_prompts,
-                num_boxes=num_boxes,
             )
 
         assert len(result) == 1
@@ -304,7 +288,6 @@ class TestSamDecoderEmptyTensorHandling:
         image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
 
         point_prompts = torch.zeros(1, 1, 4, 4, dtype=torch.float32)
-        num_points = torch.tensor([[0]], dtype=torch.int64)
         similarities = torch.ones(1, 1, 16, 16, dtype=torch.float32)
 
         category_ids = [0]
@@ -321,7 +304,6 @@ class TestSamDecoderEmptyTensorHandling:
                 images=[image],
                 category_ids=category_ids,
                 point_prompts=point_prompts,
-                num_points=num_points,
                 similarities=similarities,
             )
 
@@ -338,7 +320,6 @@ class TestSamDecoderEmptyTensorHandling:
 
         # 2 categories, both with zero points
         point_prompts = torch.zeros(1, 2, 4, 4, dtype=torch.float32)
-        num_points = torch.tensor([[0, 0]], dtype=torch.int64)
         similarities = torch.ones(1, 2, 16, 16, dtype=torch.float32)
 
         category_ids = [0, 1]
@@ -355,7 +336,6 @@ class TestSamDecoderEmptyTensorHandling:
                 images=[image],
                 category_ids=category_ids,
                 point_prompts=point_prompts,
-                num_points=num_points,
                 similarities=similarities,
             )
 
@@ -369,7 +349,6 @@ class TestSamDecoderEmptyTensorHandling:
         image = Image(torch.zeros((3, 320, 480), dtype=torch.uint8))
 
         point_prompts = torch.zeros(1, 1, 4, 4, dtype=torch.float32)
-        num_points = torch.tensor([[0]], dtype=torch.int64)
         similarities = torch.ones(1, 1, 16, 16, dtype=torch.float32)
 
         category_ids = [0]
@@ -386,7 +365,6 @@ class TestSamDecoderEmptyTensorHandling:
                 images=[image],
                 category_ids=category_ids,
                 point_prompts=point_prompts,
-                num_points=num_points,
                 similarities=similarities,
             )
 

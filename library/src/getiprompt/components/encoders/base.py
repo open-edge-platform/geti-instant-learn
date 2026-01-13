@@ -156,9 +156,6 @@ class ImageEncoder(nn.Module):
                 Ignored for OpenVINO.
             input_size: Input image size (height and width).
             model_path: Path to exported model (required for OpenVINO backend).
-
-        Raises:
-            ValueError: If backend is invalid or model_path missing for OpenVINO.
         """
         super().__init__()
         self.backend = backend

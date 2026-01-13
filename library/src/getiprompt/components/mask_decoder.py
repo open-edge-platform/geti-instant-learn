@@ -5,7 +5,7 @@
 
 import torch
 from torch import nn
-from torch.nn import functional as F
+from torch.nn import functional
 from torchvision.ops import nms
 
 from getiprompt.components.sam.pytorch import PyTorchSAMPredictor
@@ -185,7 +185,7 @@ class SamDecoder(nn.Module):
             Resized similarity [1, H, W]
         """
         sim = similarity.unsqueeze(0).unsqueeze(0)
-        sim_resized = F.interpolate(sim, size=target_size, mode="bilinear", align_corners=False)
+        sim_resized = functional.interpolate(sim, size=target_size, mode="bilinear", align_corners=False)
         return sim_resized[0]
 
     def _predict_masks_for_category(

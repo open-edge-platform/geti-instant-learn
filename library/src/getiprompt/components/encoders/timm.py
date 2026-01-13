@@ -100,6 +100,7 @@ class TimmImageEncoder(nn.Module):
         Args:
             model_id: The model id of the model.
             input_size: The size of the input image.
+            precision: The precision to use.
 
         Returns:
             The model and processor.
