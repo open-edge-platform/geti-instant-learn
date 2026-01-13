@@ -9,9 +9,8 @@ from pathlib import Path
 import torch
 from torch import nn
 
-from getiprompt.components.sam.openvino import OpenVINOSAMPredictor
 from getiprompt.components.sam.pytorch import PyTorchSAMPredictor
-from getiprompt.utils.constants import MODEL_MAP, Backend, SAMModelName
+from getiprompt.utils.constants import MODEL_MAP, SAMModelName
 from getiprompt.utils.optimization import optimize_model
 from getiprompt.utils.utils import precision_to_torch_dtype
 
@@ -23,10 +22,9 @@ def load_sam_model(
     device: str = "cuda",
     precision: str = "bf16",
     compile_models: bool = False,
-    backend: Backend = Backend.PYTORCH,
     model_path: Path | None = None,
     target_length: int = 1024,
-) -> PyTorchSAMPredictor | OpenVINOSAMPredictor:
+) -> PyTorchSAMPredictor:
     """Load and return a SAM predictor with specified backend.
 
     This function provides a unified interface for loading SAM models with
@@ -42,9 +40,6 @@ def load_sam_model(
             Ignored for OpenVINO backend (precision is baked into IR).
         compile_models: Whether to compile model (PyTorch only).
             Ignored for OpenVINO backend.
-        backend: Which backend to use:
-            - Backend.PYTORCH: Use PyTorch for inference (default)
-            - Backend.OPENVINO: Use OpenVINO Runtime for inference
         model_path: Optional path to model weights:
             - PyTorch: Path to .pth checkpoint (auto-downloads if None)
             - OpenVINO: Path to .xml IR file (required)
@@ -61,66 +56,27 @@ def load_sam_model(
         >>> predictor = load_sam_model(
         ...     SAMModelName.SAM_HQ_TINY,
         ...     device="cuda",
-        ...     backend=Backend.PYTORCH
-        ... )
-
-        >>> # PyTorch backend with custom checkpoint
-        >>> predictor = load_sam_model(
-        ...     SAMModelName.SAM_HQ_TINY,
-        ...     backend=Backend.PYTORCH,
-        ...     model_path=Path("custom_weights.pth")
-        ... )
-
-        >>> # OpenVINO backend
-        >>> predictor = load_sam_model(
-        ...     SAMModelName.SAM_HQ_TINY,
-        ...     device="CPU",
-        ...     backend=Backend.OPENVINO,
-        ...     model_path=Path("exported/sam_hq_tiny.xml")
         ... )
     """
     if sam not in MODEL_MAP:
         msg = f"Invalid model type: {sam}"
         raise ValueError(msg)
 
-    if backend == Backend.PYTORCH:
-        predictor = PyTorchSAMPredictor(
-            sam_model_name=sam,
-            device=device,
-            model_path=model_path,
-            target_length=target_length,
-        )
+    predictor = PyTorchSAMPredictor(
+        sam_model_name=sam,
+        device=device,
+        model_path=model_path,
+        target_length=target_length,
+    )
 
-        # Apply PyTorch-specific optimizations
-        predictor._predictor = optimize_model(
-            model=predictor._predictor,
-            device=device,
-            precision=precision_to_torch_dtype(precision),
-            compile_models=compile_models,
-        )
-        return predictor
-
-    if backend == Backend.OPENVINO:
-        if model_path is None:
-            msg = (
-                "model_path is required for OpenVINO backend. "
-                "Please export a PyTorch model first:\n"
-                "  predictor = load_sam_model(sam=..., backend=Backend.PYTORCH)\n"
-                "  ov_path = predictor.export(Path('./exported'))\n"
-                "  ov_predictor = load_sam_model(backend=Backend.OPENVINO, model_path=ov_path)"
-            )
-            raise ValueError(msg)
-
-        return OpenVINOSAMPredictor(
-            sam_model_name=sam,
-            device=device,
-            model_path=model_path,
-            precision=precision,
-            target_length=target_length,
-        )
-
-    msg = f"Unknown backend: {backend}. Must be Backend.PYTORCH or Backend.OPENVINO"
-    raise ValueError(msg)
+    # Apply PyTorch-specific optimizations
+    predictor._predictor = optimize_model(
+        model=predictor._predictor,
+        device=device,
+        precision=precision_to_torch_dtype(precision),
+        compile_models=compile_models,
+    )
+    return predictor
 
 
 class SAMPredictor(nn.Module):
@@ -155,7 +111,6 @@ class SAMPredictor(nn.Module):
     def __init__(
         self,
         sam_model_name: SAMModelName,
-        backend: Backend = Backend.PYTORCH,
         device: str = "cuda",
         precision: str = "bf16",
         compile_models: bool = False,
@@ -177,14 +132,12 @@ class SAMPredictor(nn.Module):
             target_length: Target length for the longest side of the image during transformation. Defaults to 1024.
         """
         super().__init__()
-        self.backend = backend
         self.device = device
-        self._predictor: PyTorchSAMPredictor | OpenVINOSAMPredictor = load_sam_model(
+        self._predictor: PyTorchSAMPredictor = load_sam_model(
             sam=sam_model_name,
             device=device,
             precision=precision,
             compile_models=compile_models,
-            backend=backend,
             model_path=model_path,
             target_length=target_length,
         )
@@ -227,28 +180,3 @@ class SAMPredictor(nn.Module):
             multimask_output=multimask_output,
             return_logits=return_logits,
         )
-
-    def export(self, output_path: Path, backend: str | Backend = Backend.ONNX) -> Path:
-        """Export the predictor to the specified format.
-
-        Only available for PyTorch backend.
-
-        Args:
-            output_path: Directory to save exported model.
-            backend: Backend format to export to. Can be a Backend enum
-                (e.g., Backend.ONNX, Backend.OPENVINO) or a string
-                (e.g., "onnx", "openvino").
-
-        Returns:
-            Path to the exported model file.
-
-        Raises:
-            NotImplementedError: If export is not supported for the backend.
-        """
-        if isinstance(backend, str):
-            backend = Backend(backend.lower())
-        if not hasattr(self._predictor, "export"):
-            msg = f"Export is not supported for backend '{self.backend}'."
-            raise NotImplementedError(msg)
-        self._predictor = self._predictor.to(device="cpu")  # Force to CPU for export
-        return self._predictor.export(output_path, backend=backend)

@@ -486,7 +486,6 @@ class SamDecoder(nn.Module):
                 similarities,
             )
 
-
         use_points = point_prompts is not None
         use_boxes = box_prompts is not None
 
