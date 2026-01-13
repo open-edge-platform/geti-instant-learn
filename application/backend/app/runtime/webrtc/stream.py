@@ -73,7 +73,7 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
             output_data: OutputData = await asyncio.to_thread(self._stream_queue.get, True, 0.5)
 
             if self._enable_visualization and self._visualizer:
-                logger.debug("Visualizing the output data...")
+                logger.info(f"Visualizing the output data: {output_data}")
                 np_frame = self._visualizer.visualize(output_data)
             else:
                 np_frame = output_data.frame

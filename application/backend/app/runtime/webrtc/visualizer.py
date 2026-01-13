@@ -47,7 +47,7 @@ class InferenceVisualizer:
         label_colors = output_data.label_colors or {}
         category_id_to_label_id = output_data.category_id_to_label_id or {}
 
-        logger.debug(
+        logger.info(
             "Visualizing %d prediction(s), categories=%s",
             len(output_data.results),
             list(category_id_to_label_id.keys()),

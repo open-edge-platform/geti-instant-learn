@@ -23,5 +23,5 @@ class InferenceModelHandler(ModelHandler):
         self._model.fit(self._reference_batch)
 
     def predict(self, batch: Batch) -> list[dict[str, torch.Tensor]]:
-        logger.info("InferenceModelHandler predict called with batch of size %d", len(batch.samples))
+        logger.debug("InferenceModelHandler predict called with batch of size %d", len(batch.samples))
         return self._model.predict(batch)
