@@ -211,17 +211,17 @@ class LabelService(BaseService):
         """
         labels = self.label_repository.list_all_by_project(project_id)
 
-        return {str(label.id): self._bgr_hex_to_rgb_tuple(label.color) for label in labels}
+        return {str(label.id): self._hex_to_rgb_tuple(label.color) for label in labels}
 
     @staticmethod
-    def _bgr_hex_to_rgb_tuple(bgr_hex: str) -> tuple[int, int, int]:
+    def _hex_to_rgb_tuple(hex_color: str) -> tuple[int, int, int]:
         """
-        Convert BGR hex color to RGB tuple.
+        Convert RGB hex color to RGB tuple.
         """
-        hex_value = bgr_hex.lstrip("#")
-        b = int(hex_value[0:2], 16)
+        hex_value = hex_color.lstrip("#")
+        r = int(hex_value[0:2], 16)
         g = int(hex_value[2:4], 16)
-        r = int(hex_value[4:6], 16)
+        b = int(hex_value[4:6], 16)
         return r, g, b
 
     def _handle_label_integrity_error(

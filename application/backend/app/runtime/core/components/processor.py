@@ -24,11 +24,18 @@ class Processor(PipelineComponent):
     sending them to a processor for inference, and broadcasting the processed results to subscribed consumers.
     """
 
-    def __init__(self, model_handler: ModelHandler, batch_size: int = 3, label_colors: dict[str, tuple[int, int, int]] | None = None) -> None:
+    def __init__(
+        self,
+        model_handler: ModelHandler,
+        batch_size: int = 3,
+        label_colors: dict[str, tuple[int, int, int]] | None = None,
+        category_id_to_label_id: dict[int, str] | None = None,
+    ) -> None:
         super().__init__()
         self._model_handler = model_handler
         self._batch_size = batch_size
         self._label_colors = label_colors or {}
+        self._category_id_to_label_id = category_id_to_label_id or {}
 
     def setup(
         self,
@@ -68,7 +75,12 @@ class Processor(PipelineComponent):
 
                 for i, data in enumerate(batch_data):
                     results: dict[str, torch.Tensor] = batch_results[i] if i < len(batch_results) else EMPTY_RESULT
-                    output_data = OutputData(frame=data.frame, results=[results], label_colors=self._label_colors)
+                    output_data = OutputData(
+                        frame=data.frame,
+                        results=[results],
+                        label_colors=self._label_colors,
+                        category_id_to_label_id=self._category_id_to_label_id,
+                    )
                     self._outbound_broadcaster.broadcast(output_data)
 
             except Exception as e:
