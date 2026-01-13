@@ -300,7 +300,7 @@ class PyTorchSAMPredictor(nn.Module):
             sam_model = sam_model_registry[registry_name]().to(device)
             # suppress - loading the snapshot from the local path
             # nosemgrep trailofbits.python.pickles-in-pytorch.pickles-in-pytorch
-            state_dict = torch.load(checkpoint_path, map_location=device) # nosec: B614
+            state_dict = torch.load(checkpoint_path, map_location=device)  # nosec: B614
             info = sam_model.load_state_dict(state_dict, strict=False)
             if info.missing_keys:
                 msg = f"Missing keys when loading SAM-HQ model: {info.missing_keys}"
@@ -354,6 +354,13 @@ class PyTorchSAMPredictor(nn.Module):
         self._original_size = image.shape[-2:]
         transformed_image = self.transform.apply_image_torch(image).to(device=self.device)
         return self._predictor.set_torch_image(transformed_image, self._original_size)
+
+    @staticmethod
+    def _freeze_modules(modules: list[nn.Module]) -> None:
+        """Freeze the modules."""
+        for module in modules:
+            for p in module.parameters():
+                p.requires_grad_(requires_grad=False)
 
     @torch.inference_mode()
     def forward(
@@ -414,10 +421,3 @@ class PyTorchSAMPredictor(nn.Module):
             multimask_output=multimask_output,
             return_logits=return_logits,
         )
-
-    @staticmethod
-    def _freeze_modules(modules: list[nn.Module]) -> None:
-        """Freeze the modules."""
-        for module in modules:
-            for p in module.parameters():
-                p.requires_grad_(requires_grad=False)

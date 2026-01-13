@@ -128,14 +128,14 @@ class HuggingFaceImageEncoder(nn.Module):
         )
         try:
             # B615 - revision is pinned in AVAILABLE_IMAGE_ENCODERS
-            model = AutoModel.from_pretrained(model_id, revision=revision) # nosec: B615
+            model = AutoModel.from_pretrained(model_id, revision=revision)  # nosec: B615
             processor = AutoImageProcessor.from_pretrained(
                 model_id,
                 revision=revision,
                 size={"height": input_size, "width": input_size},
                 do_center_crop=False,
                 use_fast=True,  # uses Rust based image processor
-            ) # nosec: B615
+            )  # nosec: B615
         except OSError as e:
             # Check if this is specifically a HuggingFace gated repo access error
             if "gated repo" in str(e).lower():
