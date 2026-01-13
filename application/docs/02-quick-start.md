@@ -16,13 +16,15 @@ Download certificate and install it in the trusted root certification authoritie
 Import-Certificate -FilePath <CertPath> -CertStoreLocation Cert:\LocalMachine\Root
 ```
 
-Download and uninstall zip file with Geti Prompt msix package.
-Install the package by double-clicking on the `GetiPrompt.msix` file.
+Download the Geti Prompt package and unzip msix file from it.
+Install the application by double-clicking on the `GetiPrompt.msix` file.
 
 ### Option 2: Docker
 
-Launch application as a docker container (it will contain both frontend and backend servers):
+Launch application as a docker container (it will contain both frontend and backend servers).
 As a value of `WEBRTC_ADVERTISE_IP`, `COTURN_HOST` and `--external-ip`, please provide external IP address of the machine where the container is running, so that WebRTC connections can be established properly.
+
+This starts application at `http://<YOUR_IP_ADDRESS>:9100`
 
 ```bash
 # default port 9100, CPU device
@@ -32,7 +34,7 @@ docker run --rm \
            --publish 9100:9100 \
            --env PORT=9100 \
            --env HOST=0.0.0.0 \
-           --env WEBRTC_ADVERTISE_IP='172.23.112.246' \
+           --env WEBRTC_ADVERTISE_IP='<YOUR_IP_ADDRESS>' \
            --name "geti-prompt-latest" \
            "localhost:5000/open-edge-platform/geti-prompt/cpu:latest"
 ```
@@ -47,7 +49,7 @@ docker run --rm \
            --publish 8080:8080 \
            --env PORT=8080 \
            --env HOST=0.0.0.0 \
-           --env WEBRTC_ADVERTISE_IP='172.23.112.246' \
+           --env WEBRTC_ADVERTISE_IP='<YOUR_IP_ADDRESS>' \
            --name "geti-prompt-latest" \
            "localhost:5000/open-edge-platform/geti-prompt/cpu:latest"
 
@@ -58,7 +60,7 @@ docker run --rm \
            --publish 9100:9100 \
            --env PORT=9100 \
            --env HOST=0.0.0.0 \
-           --env WEBRTC_ADVERTISE_IP='172.23.112.246' \
+           --env WEBRTC_ADVERTISE_IP='<YOUR_IP_ADDRESS>' \
            --name "geti-prompt-latest" \
            "localhost:5000/open-edge-platform/geti-prompt/gpu:latest"
 
@@ -69,7 +71,7 @@ docker run --rm --detach \
         quay.io/coturn/coturn \
         -n \
         --listening-port=443 \
-        --external-ip='172.23.112.246' \
+        --external-ip='<YOUR_IP_ADDRESS>' \
         --user=user:password \
         --realm=my-realm \
         --no-udp \
@@ -81,8 +83,8 @@ docker run --rm \
            --publish 9100:9100 \
            --env PORT=9100 \
            --env HOST=0.0.0.0 \
-           --env WEBRTC_ADVERTISE_IP='172.23.112.246' \
-           --env COTURN_HOST='172.23.112.246' \
+           --env WEBRTC_ADVERTISE_IP='<YOUR_IP_ADDRESS>' \
+           --env COTURN_HOST='<YOUR_IP_ADDRESS>' \
            --env COTURN_PORT=443 \
            --name "geti-prompt-latest" \
            "localhost:5000/open-edge-platform/geti-prompt/cpu:latest"
@@ -94,7 +96,7 @@ docker run --rm \
            --publish 9100:9100 \
            --env PORT=9100 \
            --env HOST=0.0.0.0 \
-           --env WEBRTC_ADVERTISE_IP='172.23.112.246' \
+           --env WEBRTC_ADVERTISE_IP='<YOUR_IP_ADDRESS>' \
            --env STUN_SERVER="stun:stun.l.google.com:19302" \
            --name "geti-prompt-latest" \
            "localhost:5000/open-edge-platform/geti-prompt/cpu:latest"
@@ -106,7 +108,7 @@ docker run --rm \
            --publish 9100:9100 \
            --env PORT=9100 \
            --env HOST=0.0.0.0 \
-           --env WEBRTC_ADVERTISE_IP='172.23.112.246' \
+           --env WEBRTC_ADVERTISE_IP='<YOUR_IP_ADDRESS>' \
            --name "geti-prompt-latest" \
            "localhost:5000/open-edge-platform/geti-prompt/xpu:latest"
 
@@ -120,7 +122,7 @@ docker run --rm \
            --publish 9100:9100 \
            --env PORT=9100 \
            --env HOST=0.0.0.0 \
-           --env WEBRTC_ADVERTISE_IP='172.23.112.246' \
+           --env WEBRTC_ADVERTISE_IP='<YOUR_IP_ADDRESS>' \
            --volume geti-prompt-data:/geti_prompt/data \
            --volume geti-prompt-logs:/geti_prompt/logs \
            --name "geti-prompt" \
@@ -133,7 +135,7 @@ docker run --rm --detach \
            quay.io/coturn/coturn \
            -n \
            --listening-port=443 \
-           --external-ip='172.23.112.246' \
+           --external-ip='<YOUR_IP_ADDRESS>' \
            --user=user:password \
            --realm=my-realm \
            --no-udp \
@@ -145,8 +147,8 @@ docker run --rm \
            --publish 8080:8080 \
            --env PORT=8080 \
            --env HOST=0.0.0.0 \
-           --env WEBRTC_ADVERTISE_IP='172.23.112.246' \
-           --env COTURN_HOST='172.23.112.246' \
+           --env WEBRTC_ADVERTISE_IP='<YOUR_IP_ADDRESS>' \
+           --env COTURN_HOST='<YOUR_IP_ADDRESS>' \
            --env COTURN_PORT=443 \
            --env STUN_SERVER="stun:stun.l.google.com:19302" \
            --name "geti-prompt-latest" \
@@ -212,18 +214,16 @@ just device=xpu application/dev
 just device=cu126 enable-coturn=true port=8080 ui-port=4000 application/dev
 ```
 
-#### Access
-
-**Local:** `http://localhost:3000`
-**Remote:** `http://<server-ip>:3000` (accessible from other machines on your network)
-
 ## Start using Geti Prompt
 
 ### Step 1. Input Configuration
 
 To begin using the application, configure the input stream for the application to process.
+Click on following link to learn how to create different input sources:
 
->TODO: Insert a step-by-step guide with screenshots/GIFs demonstrating how to select and configure input sources (e.g., IP Camera, Web Camera, local video file).
+- [Video File](../../assets/quick-start/create_video_file_source.mp4)
+- [ImageFolder](../../assets/quick-start/create_image_folder_source.mp4)
+- [USB Camera](../../assets/quick-start/create_usb_camera_source.mp4)
 
 ### Step 2. Prompting Models
 
@@ -251,9 +251,7 @@ Visual Prompting allows you to teach the model by directly selecting objects of 
 
 #### Text prompting
 
-Text Prompting allows you to instruct the model by simply entering a text query in the UI. Just describe the object you want to detect, and the model will interpret your request.
-
-> TODO: include how to prompt by text, what the difference is with visual prompting, how to manage prompts, etc – short gif
+**Note**: Text Prompting is currently not supported in this version of Geti Prompt. This section will be updated in future releases.
 
 ### Step 3. Inference & Deployment
 
@@ -265,9 +263,9 @@ Text Prompting allows you to instruct the model by simply entering a text query 
 - **Format: Select:** the data structure for predictions (e.g., JSON, CSV).
 - **Rate: Control:** the inference frequency (FPS) to manage load.
 
-> TODO: include the different output destination & prediction options, with gif to show how this works and how the stored output looks like as an example
+**Note**: Currently only MQTT integration is supported. More integrations will be added in future releases.
 
-1. **Production Deployment:** Once validated, you can deploy the fully configured application to your target environment. Geti Prompt supports flexible deployment options:
+3. **Production Deployment:** Once validated, you can deploy the fully configured application to your target environment. Geti Prompt supports flexible deployment options:
 
 - **Edge/Remote:** Deploy as a containerized Docker image for remote edge servers and devices.
 - **Local:** Run the application and model directly on a local PC for testing or desktop usage.
