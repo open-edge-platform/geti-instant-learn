@@ -3,6 +3,7 @@
 
 """Application configuration management"""
 
+import json
 import os
 import sys
 from functools import lru_cache
@@ -31,7 +32,7 @@ class Settings(BaseSettings):
     )
     openapi_url: str = "/api/openapi.json"
     debug: bool = Field(default=False, alias="DEBUG")
-    log_level: str = Field(default="WARNING", alias="LOG_LEVEL")
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     log_format: str = "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s"
     environment: Literal["dev", "prod"] = "dev"
     static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
@@ -136,6 +137,28 @@ class Settings(BaseSettings):
             # If application is running in pyinstaller bundle, adjust the path accordingly.
             return os.path.join(getattr(sys, "_MEIPASS", ""), v)
         return v
+
+    def format_for_logging(self) -> str:
+        """Format settings in a readable format for logging using Pydantic's built-in serialization.
+
+        Returns:
+            Formatted JSON string with all settings
+        """
+        settings_dict = self.model_dump(
+            mode="json",
+            exclude={"coturn_password"},  # Exclude sensitive data
+        )
+
+        settings_dict["computed"] = {
+            "database_url": self.database_url,
+            "template_dataset_dir": str(self.template_dataset_dir),
+            "cors_allowed_origins": self.cors_allowed_origins,
+            "log_file": self.log_file,
+            "ice_servers_count": len(self.ice_servers),
+        }
+
+        formatted_json = json.dumps(settings_dict, indent=2, sort_keys=False, default=str)
+        return f"\n{'=' * 60}\nAPPLICATION SETTINGS\n{'=' * 60}\n{formatted_json}\n{'=' * 60}"
 
 
 @lru_cache
