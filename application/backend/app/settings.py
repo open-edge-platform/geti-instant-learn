@@ -36,9 +36,6 @@ class Settings(BaseSettings):
     environment: Literal["dev", "prod"] = "dev"
     static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
 
-    # Processor
-    processor_inference_enabled: bool = Field(default=True, alias="PROCESSOR_INFERENCE_ENABLED")
-
     # Runtime
     device: Literal["cpu", "cuda", "xpu"] = Field(default="cpu", alias="DEVICE")
 
@@ -103,6 +100,7 @@ class Settings(BaseSettings):
 
     # Processor configuration
     processor_batch_size: int = Field(default=3, alias="PROCESSOR_BATCH_SIZE")
+    processor_inference_enabled: bool = Field(default=True, alias="PROCESSOR_INFERENCE_ENABLED")
 
     # WebRTC
     webrtc_advertise_ip: str | None = Field(default=None, alias="WEBRTC_ADVERTISE_IP")
