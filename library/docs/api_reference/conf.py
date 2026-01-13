@@ -29,7 +29,8 @@ extensions = [
     'sphinx.ext.autodoc',        # this is the plugin to generate api docs
     'sphinx_autodoc_typehints',  # another part of this plugin
     'sphinx.ext.autosummary',    # Create neat summary tables
-    'myst_parser'                # .md files parser - without it it won't accept .md files as a source
+    'myst_parser',               # .md files parser - without it it won't accept .md files as a source
+    'sphinx_markdown_builder',   # to build markdown files
 ]
 
 source_suffix = {

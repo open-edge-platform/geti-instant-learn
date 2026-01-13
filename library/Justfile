@@ -70,8 +70,12 @@ venv-api-reference: pre-venv
     uv sync --extra docs --extra cpu
 
 # Build API reference HTML documentation
-api-reference: venv-api-reference
+api-reference-html: venv-api-reference
 	uv run sphinx-build -b html {{DOCSSOURCEDIR}} "{{DOCSBUILDDIR}}"/html
+
+# Build API reference Markdown documentation
+api-reference-markdown: venv-api-reference
+	uv run sphinx-build -b markdown {{DOCSSOURCEDIR}} "{{DOCSBUILDDIR}}"/md
 
 # Remove autosummary generated files. Can be removed when https://github.com/sphinx-doc/sphinx/issues/1999 is fixed.
 clean-api-reference:
