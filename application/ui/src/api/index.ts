@@ -33,6 +33,7 @@ export { $api, client } from './client';
 export {
     type paths,
     type SchemaProcessorSchema as ModelType,
+    type SchemaProcessorUpdateSchema as ModelUpdateType,
     type SchemaProcessorListSchema as ModelListType,
     type SchemaProjectSchema as ProjectType,
     type SchemaProjectsListSchema as ProjectsListType,

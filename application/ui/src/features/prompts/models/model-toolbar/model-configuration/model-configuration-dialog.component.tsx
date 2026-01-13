@@ -51,9 +51,13 @@ const DECODER_MODELS: { label: string; value: DecoderModel }[] = [
     },
 ];
 
-type Precision = 'bf16';
+type Precision = 'fp16' | 'fp32' | 'bf16';
 
-const PRECISIONS: { label: string; value: Precision }[] = [{ label: 'BF16', value: 'bf16' }];
+const PRECISIONS: { label: string; value: Precision }[] = [
+    { label: 'FP16', value: 'fp16' },
+    { label: 'FP32', value: 'fp32' },
+    { label: 'BF16', value: 'bf16' },
+];
 
 interface SelectionProps<T extends string> {
     value: T;

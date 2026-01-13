@@ -19,7 +19,6 @@ export const NumberField = ({ label, maxValue, value, minValue, onChange, step }
         <Flex alignItems={'end'} gap={'size-100'}>
             <RootNumberField
                 label={label}
-                aria-label={label}
                 value={value}
                 onChange={onChange}
                 step={step}
