@@ -157,7 +157,7 @@ class TextToBoxPromptGenerator(nn.Module):
         self,
         target_images: list[tv_tensors.Image],
         category_mapping: dict[str, int],
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Generate box prompts from text priors.
 
         Args:
@@ -166,7 +166,6 @@ class TextToBoxPromptGenerator(nn.Module):
 
         Returns:
             box_prompts: [T, C, max_boxes, 5] - padded box prompts (x1, y1, x2, y2, score)
-            num_boxes: [T, C] - actual valid box counts per (target, category)
             category_ids: [C] - category ID mapping
         """
         formatted_categories = [self.template.format(prior=category) for category in category_mapping]
@@ -202,7 +201,6 @@ class TextToBoxPromptGenerator(nn.Module):
 
         # Pre-allocate output tensors
         box_prompts = torch.zeros(num_images, num_categories, self.max_boxes, 5, device=device, dtype=dtype)
-        num_boxes = torch.zeros(num_images, num_categories, device=device, dtype=torch.int64)
         category_ids = torch.tensor(category_ids_list, device=device, dtype=torch.int64)
 
         # Process each image's results
@@ -223,8 +221,6 @@ class TextToBoxPromptGenerator(nn.Module):
             for cat_idx, boxes_list in boxes_per_category.items():
                 if boxes_list:
                     boxes = torch.stack(boxes_list)
-                    n = min(len(boxes_list), self.max_boxes)
-                    num_boxes[img_idx, cat_idx] = n
                     box_prompts[img_idx, cat_idx] = self._pad_boxes(boxes, device, dtype)
 
-        return box_prompts, num_boxes, category_ids
+        return box_prompts, category_ids

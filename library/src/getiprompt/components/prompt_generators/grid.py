@@ -73,14 +73,16 @@ class GridPromptGenerator(nn.Module):
         """
         map_w, map_h = similarity_map.shape
 
-        if map_h == 0 or map_w == 0:
-            return torch.empty((0, 3), device=similarity_map.device)
-
         point_coords = torch.where(similarity_map > self.similarity_threshold)  # (x_indices, y_indices)
         foreground_coords = torch.stack((point_coords[1], point_coords[0], similarity_map[point_coords]), axis=0).T
 
         if len(foreground_coords) == 0:
-            return torch.empty((0, 3), device=similarity_map.device)
+            # Fallback: use the point with the maximum similarity score
+            max_idx = similarity_map.argmax()
+            max_y = (max_idx // map_h).long()
+            max_x = (max_idx % map_h).long()
+            max_score = similarity_map[max_y, max_x]
+            return torch.tensor([[max_x, max_y, max_score]], device=similarity_map.device, dtype=similarity_map.dtype)
 
         cell_width = map_w / self.num_grid_cells
         cell_height = map_h / self.num_grid_cells
@@ -109,9 +111,6 @@ class GridPromptGenerator(nn.Module):
             if len(points_in_cell) > 0:
                 best_point_in_cell = points_in_cell[torch.topk(points_in_cell[:, 2], k=1, dim=0, largest=True)[1]]
                 selected_points_list.append(best_point_in_cell)
-
-        if not selected_points_list:
-            return torch.empty((0, 3), device=similarity_map.device)
 
         points_scores = torch.cat(selected_points_list, dim=0)
 
@@ -284,7 +283,6 @@ class GridPromptGenerator(nn.Module):
         dtype = similarities.dtype
 
         point_prompts = torch.zeros(num_targets, num_categories, self.max_points, 4, device=device, dtype=dtype)
-        num_points = torch.zeros(num_targets, num_categories, device=device, dtype=torch.int64)
 
         for t_idx in range(num_targets):
             original_size = original_sizes[t_idx]
@@ -292,9 +290,6 @@ class GridPromptGenerator(nn.Module):
             for c_idx in range(num_categories):
                 similarity_map = similarities[t_idx, c_idx]
                 points = self._process_single_category(similarity_map, original_size)
-
-                actual_num_points = min(points.shape[0], self.max_points)
-                num_points[t_idx, c_idx] = actual_num_points
                 point_prompts[t_idx, c_idx] = self._pad_points(points, device, dtype)
 
-        return point_prompts, num_points
+        return point_prompts

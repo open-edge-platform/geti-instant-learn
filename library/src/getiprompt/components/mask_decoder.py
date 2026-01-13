@@ -245,6 +245,7 @@ class SamDecoder(nn.Module):
                 mask_input=low_res_logits,
                 multimask_output=True,  # Match SamDecoder behavior
             )
+            masks = masks[:, 0, :, :]  # [N, H, W]
         else:
             mask_weights = iou_preds[keep]
 
@@ -387,10 +388,9 @@ class SamDecoder(nn.Module):
         boxes_list: list[torch.Tensor] = []
 
         for class_idx, cat_id in enumerate(category_ids):
-            n_valid = int(num_boxes[class_idx])
+            n_valid = (box_prompts[class_idx][:, -1] != 0).sum().item()
             if n_valid == 0:
                 continue
-
             boxes = box_prompts[class_idx, :n_valid]  # [N, 5]
             box_coords = boxes[:, :4]  # [N, 4]
             box_scores = boxes[:, 4]  # [N]
@@ -398,7 +398,7 @@ class SamDecoder(nn.Module):
             # Predict masks for all boxes at once (batched)
             box_input = box_coords.unsqueeze(1)  # [N, 1, 4]
 
-            masks, iou_preds, _ = self.predictor.predict(
+            masks, iou_preds, _ = self.predictor.forward(
                 point_coords=None,
                 point_labels=None,
                 boxes=box_input,
@@ -453,8 +453,8 @@ class SamDecoder(nn.Module):
         images: list[torch.Tensor],
         category_ids: list[int],
         point_prompts: torch.Tensor | None = None,
-        similarities: torch.Tensor | None = None,
         box_prompts: torch.Tensor | None = None,
+        similarities: torch.Tensor | None = None,
     ) -> list[dict[str, torch.Tensor]]:
         """Forward pass - predict masks from point or box prompts.
 
@@ -465,10 +465,8 @@ class SamDecoder(nn.Module):
             images: List of input images, each [3, H, W]
             category_ids: Category ID mapping [C]
             point_prompts: Point prompts [T, C, max_points, 4] (optional)
-            num_points: Number of valid points [T, C] (optional)
-            similarities: Similarity maps [T, C, feat_size, feat_size] (optional)
             box_prompts: Box prompts [T, C, max_boxes, 5] (optional)
-            num_boxes: Number of valid boxes [T, C] (optional)
+            similarities: Similarity maps [T, C, feat_size, feat_size] (optional)
 
         Returns:
             List of predictions per image, each containing:

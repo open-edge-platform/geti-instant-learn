@@ -546,7 +546,6 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
 
         # Pre-allocate output tensors
         point_prompts = torch.zeros(num_targets, num_categories, self.max_points, 4, device=device, dtype=dtype)
-        num_points = torch.zeros(num_targets, num_categories, device=device, dtype=torch.int64)
         similarities = torch.zeros(num_targets, num_categories, feat_size, feat_size, device=device, dtype=dtype)
 
         for t_idx in range(num_targets):
@@ -566,14 +565,10 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
                     original_size,
                 )
 
-                # Store actual count
-                actual_num_points = min(points.shape[0], self.max_points)
-                num_points[t_idx, c_idx] = actual_num_points
-
                 # Pad and store points
                 point_prompts[t_idx, c_idx] = self._pad_points(points, device, dtype)
 
                 # Store similarity
                 similarities[t_idx, c_idx] = similarity
 
-        return point_prompts, num_points, similarities
+        return point_prompts, similarities

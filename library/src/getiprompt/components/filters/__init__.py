@@ -3,9 +3,8 @@
 
 """Filters."""
 
-from .prompt_filter import BoxPromptFilter, PointPromptFilter
+from .prompt_filter import BoxPromptFilter
 
 __all__ = [
     "BoxPromptFilter",
-    "PointPromptFilter",
 ]

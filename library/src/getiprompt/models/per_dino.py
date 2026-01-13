@@ -86,7 +86,6 @@ class PerDino(Model):
         super().__init__()
         self.sam_predictor = SAMPredictor(
             sam,
-            backend=Backend.PYTORCH,
             device=device,
             precision=precision,
             compile_models=compile_models,
@@ -170,7 +169,7 @@ class PerDino(Model):
         )
 
         # Generate prompts [T, C, max_points, 4], [T, C]
-        point_prompts, num_points = self.prompt_generator(
+        point_prompts = self.prompt_generator(
             similarities,
             self.ref_features.category_ids,
             original_sizes,
@@ -181,6 +180,5 @@ class PerDino(Model):
             target_batch.images,
             self.ref_features.category_ids,
             point_prompts=point_prompts,
-            num_points=num_points,
             similarities=similarities,
         )

@@ -236,10 +236,11 @@ class BidirectionalPromptGenerator(nn.Module):
         # Avoid conditional by using min(N, num_foreground_points) with topk
         # topk handles both cases: if N <= k, it returns all N elements
         n = foreground_points.size(0)
-        if torch.onnx.is_in_onnx_export():
-            k = torch.minimum(n, torch.tensor(self.num_foreground_points))
-        else:
-            k = min(n, self.num_foreground_points)
+        k = (
+            torch.minimum(n, torch.tensor(self.num_foreground_points))
+            if torch.onnx.is_in_onnx_export()
+            else min(n, self.num_foreground_points)
+        )
         _, top_indices = torch.topk(foreground_points[:, 2], k)
         return foreground_points[top_indices]
 
@@ -394,26 +395,7 @@ class BidirectionalPromptGenerator(nn.Module):
         target_embeddings: torch.Tensor,
         original_sizes: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Generate prompt candidates based on reference-target similarities.
-
-        Uses bidirectional matching to create point prompts for the segmenter.
-        Automatically filters to keep only top-scoring foreground points.
-        All outputs are tensors for full traceability.
-
-        Args:
-            ref_embeddings(dict[int, torch.Tensor]): Reference embeddings grouped by class_id.
-            masked_ref_embeddings(dict[int, torch.Tensor]): Dictionary with class_id as key and
-                masked reference embeddings as value.
-            flatten_ref_masks(dict[int, torch.Tensor]): Dictionary of flattened reference masks, with class_id as key
-                and flattened reference masks as value.
-            target_embeddings(torch.Tensor): Target embeddings
-            original_sizes(list[tuple[int, int]]): Original sizes of the target images
-
-        Returns:
-            point_prompts: [T, C, max_points, 4] - filtered and padded point prompts
-            num_points: [T, C] - actual valid point counts per (target, category)
-            similarities: [T, C, feat_size, feat_size] - similarity maps at feature grid size
-        """
+        """Generate prompt candidates for a single target image (export version)."""
         # Force num targets = 1 for export compatibility
         num_categories = len(category_ids)
         feat_size = self.encoder_feature_size

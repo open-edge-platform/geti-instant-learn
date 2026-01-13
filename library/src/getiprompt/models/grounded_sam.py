@@ -11,7 +11,7 @@ from getiprompt.components.prompt_generators import GroundingModel, TextToBoxPro
 from getiprompt.components.sam.base import SAMPredictor
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.base import Model
-from getiprompt.utils.constants import Backend, SAMModelName
+from getiprompt.utils.constants import SAMModelName
 
 
 class GroundedSAM(Model):
@@ -41,7 +41,6 @@ class GroundedSAM(Model):
         super().__init__()
         self.sam_predictor = SAMPredictor(
             sam,
-            backend=Backend.PYTORCH,
             device=device,
             precision=precision,
             compile_models=compile_models,
@@ -85,18 +84,17 @@ class GroundedSAM(Model):
                 "pred_boxes": torch.Tensor of shape [num_boxes, 5] with [x1, y1, x2, y2, score]
         """
         # Generate box prompts (tensor format)
-        box_prompts, num_boxes, category_ids = self.prompt_generator(
+        box_prompts, category_ids = self.prompt_generator(
             target_batch.images,
             self.category_mapping,
         )
 
         # Filter box prompts
-        box_prompts, num_boxes = self.prompt_filter(box_prompts, num_boxes)
+        box_prompts = self.prompt_filter(box_prompts)
 
         # Decode masks
         return self.segmenter(
             target_batch.images,
             category_ids,
             box_prompts=box_prompts,
-            num_boxes=num_boxes,
         )
