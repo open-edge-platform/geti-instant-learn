@@ -81,14 +81,16 @@ run-image: build-image
     #!/usr/bin/env bash
     set -euo pipefail
 
-    RENDER_GID=$(uv run python -c "import grp; print((grp.getgrnam('render').gr_gid) if any(g.gr_name == 'render' for g in grp.getgrall()) else print(''))")
-    RENDER_NODE=$(uv run python -c "from pathlib import Path; print(render_nodes[0]) if (render_nodes := sorted(Path('/dev/dri').glob('renderD*'))) else print('')")
     extra_render_args=()
-    if [[ -n "$RENDER_NODE" ]]; then
-      extra_render_args+=(--device "$RENDER_NODE")
-    fi
-    if [[ -n "$RENDER_GID" ]]; then
-      extra_render_args+=(--group-add "$RENDER_GID")
+    if [[ "{{ device }}" == "xpu" ]]; then
+      RENDER_GID=$(uv run python -c "import grp; print((grp.getgrnam('render').gr_gid) if any(g.gr_name == 'render' for g in grp.getgrall()) else '')")
+      RENDER_NODE=$(uv run python -c "from pathlib import Path; print(render_nodes[0]) if (render_nodes := sorted(Path('/dev/dri').glob('renderD*'))) else ''")
+      if [[ -n "$RENDER_NODE" ]]; then
+        extra_render_args+=(--device "$RENDER_NODE")
+      fi
+      if [[ -n "$RENDER_GID" ]]; then
+        extra_render_args+=(--group-add "$RENDER_GID")
+      fi
     fi
 
     echo "Running docker image for component: {{ component-name }} with build-target: {{ build-target }}"
