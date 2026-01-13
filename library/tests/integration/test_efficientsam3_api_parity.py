@@ -17,8 +17,7 @@ def device():
     """Get compute device."""
     if torch.cuda.is_available():
         return torch.device("cuda")
-    else:
-        return torch.device("cpu")
+    return torch.device("cpu")
 
 
 @pytest.fixture
@@ -123,7 +122,11 @@ class TestEfficientSAM3APIParity:
         assert scores[0] >= scores[1] >= scores[2], "Scores should be sorted descending"
 
     def test_multi_point_with_mask_input(
-        self, device, checkpoint_path, bpe_path, sample_image
+        self,
+        device,
+        checkpoint_path,
+        bpe_path,
+        sample_image,
     ):
         """Test multi-point with mask input - matches notebook cell #VSC-1479aa68."""
         from getiprompt.models.foundation.efficientsam3.model_builder import (
@@ -207,7 +210,11 @@ class TestEfficientSAM3APIParity:
         assert masks.shape[0] == 1, f"Expected 1 mask, got {masks.shape[0]}"
 
     def test_combined_point_and_box(
-        self, device, checkpoint_path, bpe_path, sample_image
+        self,
+        device,
+        checkpoint_path,
+        bpe_path,
+        sample_image,
     ):
         """Test combined point and box - matches notebook cell #VSC-d14be139."""
         from getiprompt.models.foundation.efficientsam3.model_builder import (
@@ -245,7 +252,11 @@ class TestEfficientSAM3APIParity:
         assert masks.shape[0] == 1, f"Expected 1 mask, got {masks.shape[0]}"
 
     def test_batched_box_prompts(
-        self, device, checkpoint_path, bpe_path, sample_image
+        self,
+        device,
+        checkpoint_path,
+        bpe_path,
+        sample_image,
     ):
         """Test batched box prompts - matches notebook cell #VSC-8a99beec."""
         from getiprompt.models.foundation.efficientsam3.model_builder import (
@@ -310,7 +321,7 @@ class TestEfficientSAM3APIParity:
         # Two images (same as notebook)
         image1 = sample_image  # truck.jpg
         image2 = Image.open(
-            "/home/devuser/workspace/code/Prompt/efficientsam3/sam3/assets/images/groceries.jpg"
+            "/home/devuser/workspace/code/Prompt/efficientsam3/sam3/assets/images/groceries.jpg",
         )
 
         image1_boxes = np.array([
@@ -359,7 +370,11 @@ class TestEfficientSAM3APIParity:
         assert masks_batch[1].shape[0] == 4
 
     def test_batch_point_inference(
-        self, device, checkpoint_path, bpe_path, sample_image
+        self,
+        device,
+        checkpoint_path,
+        bpe_path,
+        sample_image,
     ):
         """Test batch point inference - matches notebook cells #VSC-e83bb90e, #VSC-3d9c65c4."""
         from getiprompt.models.foundation.efficientsam3.model_builder import (
@@ -383,7 +398,7 @@ class TestEfficientSAM3APIParity:
         # Two images
         image1 = sample_image
         image2 = Image.open(
-            "/home/devuser/workspace/code/Prompt/efficientsam3/sam3/assets/images/groceries.jpg"
+            "/home/devuser/workspace/code/Prompt/efficientsam3/sam3/assets/images/groceries.jpg",
         )
 
         img_batch = [image1, image2]
@@ -416,7 +431,7 @@ class TestEfficientSAM3APIParity:
 
         # Select best masks (same as notebook)
         best_masks = []
-        for masks, scores in zip(masks_batch, scores_batch):
+        for masks, scores in zip(masks_batch, scores_batch, strict=False):
             best_masks.append(masks[range(len(masks)), np.argmax(scores, axis=-1)])
 
         assert len(best_masks) == 2

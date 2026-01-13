@@ -14,4 +14,3 @@ __all__ = [
     "Sam3Processor",
     "build_sam3_image_model",
 ]
-

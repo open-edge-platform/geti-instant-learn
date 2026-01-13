@@ -13,11 +13,11 @@ from .sam3 import SAM3
 from .soft_matcher import SoftMatcher
 
 __all__ = [
+    "SAM3",
     "GroundedSAM",
     "InferenceMatcher",
     "Matcher",
     "Model",
     "PerDino",
-    "SAM3",
     "SoftMatcher",
 ]

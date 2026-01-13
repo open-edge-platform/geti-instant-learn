@@ -349,7 +349,12 @@ def _create_sam3_model(
     )
 
 
-def _add_sam_heads(model: EfficientSAM3Image, image_size: int = 1008, backbone_stride: int = 14, device: str = "cuda") -> None:
+def _add_sam_heads(
+    model: EfficientSAM3Image,
+    image_size: int = 1008,
+    backbone_stride: int = 14,
+    device: str = "cuda",
+) -> None:
     """Add SAM-style prompt encoder and mask decoder to the model.
 
     Args:
@@ -723,13 +728,19 @@ def _load_checkpoint(
     # Only log warnings if there are issues
     if missing_keys:
         import logging
+
         logging.getLogger(__name__).debug(
-            "Missing keys (%d): %s...", len(missing_keys), missing_keys[:5],
+            "Missing keys (%d): %s...",
+            len(missing_keys),
+            missing_keys[:5],
         )
     if unexpected_keys:
         import logging
+
         logging.getLogger(__name__).debug(
-            "Unexpected keys (%d): %s...", len(unexpected_keys), unexpected_keys[:5],
+            "Unexpected keys (%d): %s...",
+            len(unexpected_keys),
+            unexpected_keys[:5],
         )
 
 

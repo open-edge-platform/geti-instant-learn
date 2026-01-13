@@ -10,8 +10,6 @@ These methods are specific to EfficientSAM3's use case of point/box prompting
 for instance segmentation, matching the API from the original efficientsam3 repo.
 """
 
-import torch
-
 from getiprompt.models.foundation.sam3.sam3_image import Sam3Image
 
 
@@ -58,7 +56,7 @@ class EfficientSAM3Image(Sam3Image):
         if not hasattr(self, "inst_interactive_predictor"):
             raise RuntimeError(
                 "Model not initialized with instance interactivity. "
-                "Set enable_inst_interactivity=True when building the model."
+                "Set enable_inst_interactivity=True when building the model.",
             )
 
         # If inference_state is provided, extract features from backbone output
@@ -92,7 +90,7 @@ class EfficientSAM3Image(Sam3Image):
             # Reshape features: (L, B, C) -> (B, C, H, W)
             feats = [
                 feat.permute(1, 2, 0).view(1, -1, *feat_size)
-                for feat, feat_size in zip(vision_feats[::-1], bb_feat_sizes[::-1])
+                for feat, feat_size in zip(vision_feats[::-1], bb_feat_sizes[::-1], strict=False)
             ][::-1]
 
             # Set up the predictor's features
@@ -105,7 +103,9 @@ class EfficientSAM3Image(Sam3Image):
 
             # Run prediction
             result = self.inst_interactive_predictor.predict(
-                point_coords=point_coords, point_labels=point_labels, **kwargs
+                point_coords=point_coords,
+                point_labels=point_labels,
+                **kwargs,
             )
 
             # Clean up predictor state
@@ -116,7 +116,9 @@ class EfficientSAM3Image(Sam3Image):
 
         # Legacy mode: expect predictor to already have image set
         return self.inst_interactive_predictor.predict(
-            point_coords=point_coords, point_labels=point_labels, **kwargs
+            point_coords=point_coords,
+            point_labels=point_labels,
+            **kwargs,
         )
 
     def predict_inst_batch(
@@ -140,7 +142,7 @@ class EfficientSAM3Image(Sam3Image):
         if not hasattr(self, "inst_interactive_predictor"):
             raise RuntimeError(
                 "Model not initialized with instance interactivity. "
-                "Set enable_inst_interactivity=True when building the model."
+                "Set enable_inst_interactivity=True when building the model.",
             )
 
         # If inference_state is provided, extract features from backbone output
@@ -172,7 +174,7 @@ class EfficientSAM3Image(Sam3Image):
             # Reshape features for batch
             feats = [
                 feat.permute(1, 2, 0).view(batch_size, -1, *feat_size)
-                for feat, feat_size in zip(vision_feats[::-1], bb_feat_sizes[::-1])
+                for feat, feat_size in zip(vision_feats[::-1], bb_feat_sizes[::-1], strict=False)
             ][::-1]
 
             # Set up predictor
@@ -182,9 +184,7 @@ class EfficientSAM3Image(Sam3Image):
             }
             self.inst_interactive_predictor._is_image_set = True
             self.inst_interactive_predictor._is_batch = True
-            self.inst_interactive_predictor._orig_hw = [
-                (h, w) for h, w in zip(orig_heights, orig_widths)
-            ]
+            self.inst_interactive_predictor._orig_hw = [(h, w) for h, w in zip(orig_heights, orig_widths, strict=False)]
 
             # Run batch prediction
             result = self.inst_interactive_predictor.predict_batch(

@@ -3,12 +3,13 @@
 
 """EfficientSAM3 model for text and visual prompting.
 
+References:
+Paper : EfficientSAM3: Progressive Hierarchical Distillation for Video Concept Segmentation from SAM1, 2, and 3
+Repo : https://github.com/SimonZeng7108/efficientsam3
+
 This model uses efficient student backbones (RepViT, TinyViT) instead of
 the full ViT, providing faster inference through knowledge distillation.
 
-Note:
-    Stage 1 checkpoints only support point/box prompts, NOT text prompting.
-    Full text prompting support requires Stage 1+ fine-tuned weights.
 """
 
 from itertools import zip_longest
@@ -37,28 +38,10 @@ class EfficientSAM3(Model):
     the full ViT, providing faster inference while maintaining segmentation
     quality through knowledge distillation.
 
-    **Important: EfficientSAM3 differs from other prompt-based models** in that
-    it does NOT require a separate learning phase. Instead, it performs zero-shot
-    segmentation directly during inference using:
-    - Text prompts (category names) provided in the `categories` field of each sample, OR
-    - Visual prompts (bounding boxes) provided in the `bboxes` field of each sample
+    Please visit the [EfficientSAM3 repository](https://github.com/SimonZeng7108/efficientsam3)
+    to download the model weights
 
-    At least one of these prompt types must be provided for each sample during inference.
-
-    The key difference from SAM3:
-    - Uses lightweight student backbones instead of full ViT
-    - Smaller model size with faster inference
-    - Optionally uses MobileCLIP text encoders for even more efficiency
-
-    Available backbone types:
-    - RepViT: repvit-m0.9, repvit-m1.1, repvit-m2.3
-    - TinyViT: tinyvit-5m, tinyvit-11m, tinyvit-21m
-
-    Available text encoder types:
-    - sam3-full: Full SAM3 text encoder (default)
-    - MobileCLIP-S0, MobileCLIP-S1, MobileCLIP-B: Efficient text encoders
-
-    Examples:
+    Examples: #TODO : Check if examples work after all changes
         >>> from getiprompt.models import EfficientSAM3
         >>> from getiprompt.data.base import Batch
         >>> from getiprompt.data.base.sample import Sample
@@ -127,7 +110,7 @@ class EfficientSAM3(Model):
         self,
         bpe_path: str | None = None,
         device: str = "cuda",
-        confidence_threshold: float = 0.5,
+        confidence_threshold: float = 0.3,
         resolution: int = 1008,
         precision: str = "fp32",
         checkpoint_path: str | None = None,
@@ -143,7 +126,8 @@ class EfficientSAM3(Model):
             bpe_path: Path to the BPE tokenizer vocabulary.
             device: The device to use ('cuda', 'xpu', or 'cpu').
             confidence_threshold: The confidence threshold for filtering predictions.
-            resolution: The input image resolution.
+                Default is set to 0.3, as EfficientSAM3 produces lower confidence scores compared to SAM3.
+            resolution: The input image resolution. # TODO : rename this to image_size for this and SAM3
             precision: The precision to use for the model ('bf16' or 'fp32').
             checkpoint_path: Path to model checkpoint.
             enable_segmentation: Whether to enable segmentation head.

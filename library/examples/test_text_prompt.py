@@ -25,7 +25,7 @@ text_prompt = "car"
 def main():
     import torch
     from PIL import Image
-    
+
     # Select device
     if torch.cuda.is_available():
         device = "cuda"
@@ -58,7 +58,7 @@ def main():
 
     # Create processor and run inference
     processor = Sam3Processor(model)
-    
+
     print("\n=== Running text prompt inference ===")
     inference_state = processor.set_image(image)
     inference_state = processor.set_text_prompt(text_prompt, inference_state)
@@ -77,8 +77,8 @@ def main():
     if sam3_path not in sys.path:
         sys.path.insert(0, sam3_path)
 
-    from sam3.model_builder import build_efficientsam3_image_model as build_original
     from sam3.model.sam3_image_processor import Sam3Processor as ProcessorOriginal
+    from sam3.model_builder import build_efficientsam3_image_model as build_original
 
     model_orig = build_original(
         checkpoint_path=checkpoint_path,

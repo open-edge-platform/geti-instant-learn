@@ -11,12 +11,12 @@ import itertools
 import warnings
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-import torch.utils.checkpoint as checkpoint
 from timm.layers.drop import DropPath as TimmDropPath
 from timm.layers.helpers import to_2tuple
 from timm.layers.weight_init import trunc_normal_
+from torch import nn
+from torch.utils import checkpoint
 
 __all__ = [
     "TinyViT",
@@ -230,7 +230,7 @@ class ConvLayer(nn.Module):
                     drop_path[i] if isinstance(drop_path, list) else drop_path,
                 )
                 for i in range(depth)
-            ]
+            ],
         )
 
         if downsample is not None:
@@ -390,7 +390,7 @@ class TinyViTBlock(nn.Module):
         assert L == H * W, "input feature has wrong size"
         res_x = x
 
-        if H == self.window_size and W == self.window_size:
+        if self.window_size == H and self.window_size == W:
             x = self.attn(x)
         else:
             x = x.view(B, H, W, C)
@@ -474,7 +474,7 @@ class BasicLayer(nn.Module):
                     activation=activation,
                 )
                 for i in range(depth)
-            ]
+            ],
         )
 
         if downsample is not None:

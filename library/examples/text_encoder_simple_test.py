@@ -33,9 +33,9 @@ def main():
 
     # Import geti-prompt implementation
     from getiprompt.models.foundation.efficientsam3.model_builder import (
-        build_efficientsam3_image_model,
         EfficientSAM3BackboneType,
         EfficientSAM3TextEncoderType,
+        build_efficientsam3_image_model,
     )
     from getiprompt.models.foundation.sam3.sam3_image_processor import Sam3Processor
 
@@ -56,7 +56,7 @@ def main():
     inference_state = processor.set_text_prompt(prompt=TEXT_PROMPT, state=inference_state)
     masks = inference_state["masks"]
     scores = inference_state["scores"]
-    
+
     print(len(scores), scores)
 
 

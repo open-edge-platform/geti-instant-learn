@@ -9,9 +9,9 @@ Adapted from: https://github.com/SimonZeng7108/efficientsam3
 import warnings
 
 import torch
-import torch.nn as nn
 from timm.layers.squeeze_excite import SqueezeExcite
 from timm.layers.weight_init import trunc_normal_
+from torch import nn
 
 __all__ = [
     "RepViT",
@@ -87,9 +87,16 @@ class Residual(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.training and self.drop > 0:
-            return x + self.m(x) * torch.rand(x.size(0), 1, 1, 1, device=x.device).ge_(self.drop).div(
-                1 - self.drop
-            ).detach()
+            return (
+                x
+                + self.m(x)
+                * torch.rand(x.size(0), 1, 1, 1, device=x.device)
+                .ge_(self.drop)
+                .div(
+                    1 - self.drop,
+                )
+                .detach()
+            )
         return x + self.m(x)
 
     @torch.no_grad()
@@ -102,7 +109,7 @@ class Residual(nn.Module):
             identity = nn.functional.pad(identity, [1, 1, 1, 1])
             m.weight += identity.to(m.weight.device)
             return m
-        elif isinstance(self.m, nn.Conv2d):
+        if isinstance(self.m, nn.Conv2d):
             m = self.m
             assert m.groups != m.in_channels
             identity = torch.ones(m.weight.shape[0], m.weight.shape[1], 1, 1)
@@ -187,7 +194,7 @@ class RepViTBlock(nn.Module):
                     Conv2d_BN(oup, 2 * oup, 1, 1, 0),
                     nn.GELU() if use_hs else nn.GELU(),
                     Conv2d_BN(2 * oup, oup, 1, 1, 0, bn_weight_init=0),
-                )
+                ),
             )
         else:
             assert self.identity
@@ -200,7 +207,7 @@ class RepViTBlock(nn.Module):
                     Conv2d_BN(inp, hidden_dim, 1, 1, 0),
                     nn.GELU() if use_hs else nn.GELU(),
                     Conv2d_BN(hidden_dim, oup, 1, 1, 0, bn_weight_init=0),
-                )
+                ),
             )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

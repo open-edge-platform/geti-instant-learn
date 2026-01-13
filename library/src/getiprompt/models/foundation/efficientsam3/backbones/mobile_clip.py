@@ -8,12 +8,11 @@ Original: Apple MobileCLIP
 """
 
 import math
-from typing import Optional
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from timm.layers import DropPath, trunc_normal_
+from torch import nn
 from torchvision.ops import StochasticDepth
 
 __all__ = [
@@ -39,7 +38,7 @@ def get_normalization_layer(norm_type: str, num_features: int) -> nn.Module:
     """Get normalization layer by type."""
     if norm_type == "layer_norm":
         return nn.LayerNorm(num_features)
-    elif norm_type == "layer_norm_fp32":
+    if norm_type == "layer_norm_fp32":
         return LayerNormFP32(num_features)
     raise NotImplementedError(f"Option: {norm_type} not supported.")
 
@@ -329,9 +328,7 @@ class MobileOneBlock(nn.Module):
             )
         else:
             self.rbr_skip = (
-                nn.BatchNorm2d(num_features=in_channels)
-                if out_channels == in_channels and stride == 1
-                else None
+                nn.BatchNorm2d(num_features=in_channels) if out_channels == in_channels and stride == 1 else None
             )
 
             if num_conv_branches > 0:
@@ -615,7 +612,7 @@ class MobileCLIPTextTransformer(nn.Module):
                         transformer_norm_layer=norm_layer,
                     )
                     for layer_idx in range(n_transformer_layers)
-                ]
+                ],
             )
         elif variant == "mct":
             self.transformer = nn.ModuleList([RepMixerBlock(dim=model_dim)])
@@ -628,7 +625,7 @@ class MobileCLIPTextTransformer(nn.Module):
                         transformer_norm_layer=norm_layer,
                     )
                     for layer_idx in range(n_transformer_layers)
-                ]
+                ],
             )
             self.transformer.extend([RepMixerBlock(dim=model_dim)])
         else:
@@ -681,7 +678,8 @@ class MobileCLIPTextTransformer(nn.Module):
         attn_mask = None
         if self.causal_masking:
             attn_mask = self.build_attention_mask(
-                context_length=token_emb.shape[1], batch_size=token_emb.shape[0]
+                context_length=token_emb.shape[1],
+                batch_size=token_emb.shape[0],
             )
             attn_mask = attn_mask.to(device=token_emb.device, dtype=token_emb.dtype)
             key_padding_mask = None
