@@ -16,17 +16,20 @@ class ModelFactory:
     def create(cls, reference_batch: Batch | None, config: ModelConfig | None) -> ModelHandler:
         if reference_batch is None:
             return PassThroughModelHandler()
+        settings = get_settings()
+        if not settings.processor_inference_enabled:
+            return PassThroughModelHandler()
         match config:
             case MatcherConfig() as config:
-                settings = get_settings()
                 model = Matcher(
                     num_foreground_points=config.num_foreground_points,
                     num_background_points=config.num_background_points,
-                    encoder_model="dinov3_small",
-                    mask_similarity_threshold=config.mask_similarity_threshold,
+                    mask_similarity_threshold=config.confidence_threshold,
                     precision=config.precision,
                     device=settings.device,
-                    use_mask_refinement=False,
+                    use_mask_refinement=config.use_mask_refinement,
+                    sam=config.sam_model,
+                    encoder_model=config.encoder_model,
                 )
                 return InferenceModelHandler(model, reference_batch)
             case _:

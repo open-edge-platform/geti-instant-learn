@@ -39,6 +39,13 @@ class ImageFolderReader(StreamReader):
         self._initialized = False
         super().__init__()
 
+    @property
+    def requires_manual_control(self) -> bool:
+        """
+        Image Folder must be manually advanced.
+        """
+        return True
+
     @staticmethod
     def _generate_thumbnail(image_path: Path, max_size: int = 150) -> str | None:
         """Generate a base64-encoded thumbnail for an image."""
@@ -231,7 +238,11 @@ class ImageFolderReader(StreamReader):
         return InputData(
             timestamp=int(time.time() * 1000),
             frame=image,
-            context={"path": str(self._last_image_path), "index": self._current_index},
+            context={
+                "path": str(self._last_image_path),
+                "index": self._current_index,
+                "requires_manual_control": self.requires_manual_control,
+            },
         )
 
     def close(self) -> None:

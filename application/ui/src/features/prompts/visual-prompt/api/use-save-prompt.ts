@@ -9,7 +9,6 @@ import { toast } from '@geti/ui';
 import { v4 as uuid } from 'uuid';
 
 import { convertAnnotationsToDTO } from '../../../../shared/utils';
-import { useFullScreenMode } from '../../../annotator/actions/full-screen-mode.component';
 import { useAnnotationActions } from '../../../annotator/providers/annotation-actions-provider.component';
 import { useAnnotator } from '../../../annotator/providers/annotator-provider.component';
 import { useVisualPrompt } from '../visual-prompt-provider.component';
@@ -35,7 +34,6 @@ export const useSavePrompt = () => {
     const { annotations } = useAnnotationActions();
     const { frameId } = useAnnotator();
     const { setPromptId, prompt } = useVisualPrompt();
-    const { setIsFullScreenMode } = useFullScreenMode();
 
     const savePromptMutation = useSavePromptMutation();
     const editPromptMutation = useEditPrompt();
@@ -57,7 +55,6 @@ export const useSavePrompt = () => {
             },
             {
                 onSuccess: ({ id }) => {
-                    setIsFullScreenMode(false);
                     setPromptId(id);
                     toast({
                         type: 'success',

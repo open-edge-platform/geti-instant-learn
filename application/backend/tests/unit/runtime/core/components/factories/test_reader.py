@@ -7,21 +7,28 @@ from unittest.mock import patch
 
 import pytest
 
-from domain.services.schemas.reader import ImagesFolderConfig, SampleDatasetConfig, SourceType, WebCamConfig
+from domain.services.schemas.reader import (
+    ImagesFolderConfig,
+    SampleDatasetConfig,
+    SourceType,
+    UsbCameraConfig,
+    VideoFileConfig,
+)
 from runtime.core.components.factories.reader import StreamReaderFactory
 from runtime.core.components.readers.image_folder_reader import ImageFolderReader
 from runtime.core.components.readers.noop_reader import NoOpReader
-from runtime.core.components.readers.webcam_reader import WebCamReader
+from runtime.core.components.readers.usb_camera_reader import UsbCameraReader
+from runtime.core.components.readers.video_file import VideoFileReader
 
 
 class TestStreamReaderFactory:
-    def test_factory_returns_webcam_reader(self):
-        webcam_config = WebCamConfig(source_type=SourceType.WEBCAM, device_id=1)
+    def test_factory_returns_usb_camera_reader(self):
+        usb_camera_config = UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=1)
 
-        result = StreamReaderFactory.create(webcam_config)
+        result = StreamReaderFactory.create(usb_camera_config)
 
-        assert isinstance(result, WebCamReader)
-        assert result._config == webcam_config
+        assert isinstance(result, UsbCameraReader)
+        assert result._config == usb_camera_config
 
     def test_factory_returns_noop_reader_for_other_config(self):
         result = StreamReaderFactory.create(None)
@@ -56,6 +63,17 @@ class TestStreamReaderFactory:
         assert isinstance(result, ImageFolderReader)
         assert isinstance(result._config, ImagesFolderConfig)
         assert result._config.images_folder_path == str(tmp_path)
+
+    def test_factory_returns_video_file_reader_for_video_file_config(self, tmp_path: Path) -> None:
+        video_path = tmp_path / "test.mp4"
+        video_path.write_bytes(b"fake video content")
+
+        config = VideoFileConfig(source_type=SourceType.VIDEO_FILE, video_path=str(video_path))
+
+        result = StreamReaderFactory.create(config)
+
+        assert isinstance(result, VideoFileReader)
+        assert result._config == config
 
 
 class TestImagesFolderConfigValidation:

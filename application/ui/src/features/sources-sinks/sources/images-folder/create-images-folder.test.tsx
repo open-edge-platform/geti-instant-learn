@@ -43,7 +43,7 @@ const renderImagesFolder = (onSaved = vi.fn()) => {
     };
 };
 
-describe('ImagesFolder', () => {
+describe('CreateImagesFolder', () => {
     it('disables submit button when path is empty', () => {
         const { imagesFolderSourcePage } = renderImagesFolder();
 

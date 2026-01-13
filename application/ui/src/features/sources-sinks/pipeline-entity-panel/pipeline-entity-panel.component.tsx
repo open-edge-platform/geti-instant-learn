@@ -34,7 +34,7 @@ const PipelineEntityContent = ({ children, title }: PipelineEntityDescriptionPro
             borderWidth={'thin'}
             borderRadius={'regular'}
         >
-            <Heading margin={0} marginBottom={'size-200'}>
+            <Heading margin={0} marginBottom={'size-100'}>
                 {title}
             </Heading>
             {children}

@@ -28,11 +28,14 @@ const getDefaultModel = (id: string): ModelType => {
     return {
         id,
         config: {
-            mask_similarity_threshold: 0.38,
+            confidence_threshold: 0.38,
             model_type: 'matcher',
-            num_background_points: 2,
-            num_foreground_points: 40,
+            num_background_points: 3,
+            num_foreground_points: 5,
             precision: 'bf16',
+            sam_model: 'SAM-HQ-tiny',
+            encoder_model: 'dinov3_small',
+            use_mask_refinement: false,
         },
         active: true,
         name: `Matcher`,

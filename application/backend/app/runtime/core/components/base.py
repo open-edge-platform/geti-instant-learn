@@ -11,7 +11,7 @@ import torch
 from getiprompt.data.base.batch import Batch
 
 from domain.services.schemas.processor import InputData
-from domain.services.schemas.reader import FrameListResponse
+from domain.services.schemas.reader import FrameListResponse, ReaderConfig
 from runtime.core.components.errors import UnsupportedOperationError
 
 IN = TypeVar("IN")
@@ -65,6 +65,20 @@ class StreamReader(AbstractContextManager, ABC):
 
     """
 
+    @property
+    def requires_manual_control(self) -> bool:
+        """
+        Indicates whether this reader requires manual externally controlled iteration
+        instead of continuous streaming.
+
+        If True:
+            - The Source should not continuously loop calling read()
+            - The Source should wait for external triggers (seek/next)
+        If False (default):
+            - The Source should loop continuously (e.g. for video/camera)
+        """
+        return False
+
     def connect(self) -> None:
         pass
 
@@ -99,6 +113,10 @@ class StreamReader(AbstractContextManager, ABC):
         """
         Get a paginated list of all available frames.
         """
+        raise UnsupportedOperationError
+
+    @classmethod
+    def discover(cls) -> list[ReaderConfig]:
         raise UnsupportedOperationError
 
 

@@ -27,7 +27,7 @@ export const CreateImagesFolder = ({ onSaved }: CreateImagesFolderProps) => {
         createImagesFolderSource.mutate(
             {
                 source_type: 'images_folder',
-                images_folder_path: folderPath,
+                images_folder_path: folderPath.trim(),
                 seekable: true,
             },
             onSaved
