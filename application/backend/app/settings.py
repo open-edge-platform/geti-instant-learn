@@ -34,9 +34,10 @@ class Settings(BaseSettings):
     log_level: str = Field(default="WARNING", alias="LOG_LEVEL")
     log_format: str = "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s"
     environment: Literal["dev", "prod"] = "dev"
-    inference_enabled: bool = Field(default=True, alias="INFERENCE_ENABLED")
-
     static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
+
+    # Processor
+    processor_inference_enabled: bool = Field(default=True, alias="PROCESSOR_INFERENCE_ENABLED")
 
     # Runtime
     device: Literal["cpu", "cuda", "xpu"] = Field(default="cpu", alias="DEVICE")

@@ -58,7 +58,7 @@ class TestModelFactory:
         )
         mock_reference_batch = MagicMock()
         mock_settings = MagicMock()
-        mock_settings.inference_enabled = False
+        mock_settings.processor_inference_enabled = False
         mock_settings.device = "cpu"
 
         with patch("runtime.core.components.factories.model.get_settings", return_value=mock_settings):

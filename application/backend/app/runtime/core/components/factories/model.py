@@ -17,7 +17,7 @@ class ModelFactory:
         if reference_batch is None:
             return PassThroughModelHandler()
         settings = get_settings()
-        if not settings.inference_enabled:
+        if not settings.processor_inference_enabled:
             return PassThroughModelHandler()
         match config:
             case MatcherConfig() as config:
