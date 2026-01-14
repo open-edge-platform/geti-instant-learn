@@ -48,6 +48,7 @@ def make_project(
     sources=None,
     processors=None,
     sinks=None,
+    prompts=None,
 ):
     if project_id is None:
         project_id = uuid.uuid4()
@@ -57,7 +58,11 @@ def make_project(
         processors = []
     if sinks is None:
         sinks = []
-    return SimpleNamespace(id=project_id, name=name, active=active, sources=sources, processors=processors, sinks=sinks)
+    if prompts is None:
+        prompts = []
+    return SimpleNamespace(
+        id=project_id, name=name, active=active, sources=sources, processors=processors, sinks=sinks, prompts=prompts
+    )
 
 
 @pytest.fixture
