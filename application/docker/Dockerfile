@@ -1,7 +1,7 @@
 ################
 # Libraries Base
 ################
-FROM python:3.12-slim-bookworm@sha256:28cf028e5a544e92dbe11450debd93dd5eb70eaf3179a9e878cfaee426556b3b AS backend-base
+FROM python:3.12-slim-bookworm@sha256:2c1bff202fdbaa9bdf199e1e4e08c8e75f30e3bb75c4419eb9995acb04b6251a AS backend-base
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
 # Disable Python downloads, because we want to use the system interpreter
@@ -71,7 +71,7 @@ RUN npm run build
 ##########################################
 # Base for CPU, GPU and XPU runtime images
 ##########################################
-FROM python:3.12-slim-bookworm@sha256:28cf028e5a544e92dbe11450debd93dd5eb70eaf3179a9e878cfaee426556b3b AS runtime-base
+FROM python:3.12-slim-bookworm@sha256:2c1bff202fdbaa9bdf199e1e4e08c8e75f30e3bb75c4419eb9995acb04b6251a AS runtime-base
 
 ENV STATIC_FILES_DIR="/geti_prompt/html"
 ENV DB_DATA_DIR="/geti_prompt/data"
