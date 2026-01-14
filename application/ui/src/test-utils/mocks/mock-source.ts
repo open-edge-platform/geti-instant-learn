@@ -10,7 +10,7 @@ export const getMockedSource = (source?: Partial<Source>): Source => {
         id: 'source-1',
         active: false,
         config: {
-            source_type: 'webcam',
+            source_type: 'usb_camera',
             device_id: 0,
             seekable: false,
         },

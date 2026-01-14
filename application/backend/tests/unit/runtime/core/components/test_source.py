@@ -17,6 +17,7 @@ test_cases = [
 class TestSource:
     def setup_method(self, method):
         self.mock_stream_reader = MagicMock(spec=StreamReader)
+        self.mock_stream_reader.requires_manual_control = False
         self.mock_broadcaster = MagicMock(spec=FrameBroadcaster)
         self.source = Source(self.mock_stream_reader)
         self.source.setup(self.mock_broadcaster)

@@ -1,36 +1,9 @@
-.container {
-    height: 100%;
-    transition: grid-template-columns 0.3s ease-in-out;
-    border-top-width: var(--spectrum-alias-border-size-thin);
-    border-top-style: solid;
-    border-left-width: var(--spectrum-alias-border-size-thin);
-    border-left-style: solid;
-    border-color: var(--spectrum-global-color-gray-50);
-}
-
 .sidebarContent {
-    overflow: hidden auto;
-    will-change: opacity, filter;
-    opacity: 0;
-    filter: blur(6px);
-    transition:
-        opacity 260ms ease-out,
-        filter 300ms ease-out;
     border-right-width: var(--spectrum-alias-border-size-thin);
     border-right-style: solid;
+    border-top-width: var(--spectrum-alias-border-size-thin);
+    border-top-style: solid;
     border-color: var(--spectrum-global-color-gray-50);
-}
-
-.container[data-expanded='true'] .sidebarContent {
-    opacity: 1;
-    filter: blur(0px);
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .sidebarContent {
-        filter: none !important;
-        opacity: 1;
-    }
 }
 
 .toggleButton {
@@ -53,4 +26,34 @@
     &[class*='is-disabled'] {
         opacity: 0.5;
     }
+}
+
+// This is responsible for the animation when the sidebar is being expanded only when not dragging
+.separator[data-separator='inactive'] + div[id='sidebar'][data-panel='true'][data-isanimating='true'] {
+    transition: flex-grow 0.3s ease-out;
+}
+
+// This is responsible for the animation when the sidebar is being collapsed only when not dragging
+.separator[data-separator='inactive'] + div[id='sidebar'][data-panel='true'][data-collapsed='true'] {
+    flex-grow: 0 !important;
+    transition: flex-grow 0.3s ease-out;
+}
+
+.separator {
+    width: var(--spectrum-global-dimension-size-40);
+    background-color: var(--spectrum-global-color-gray-300);
+    border: var(--spectrum-alias-border-size-thin) solid var(--spectrum-global-color-gray-50);
+    border-left: none;
+    outline: none;
+    transition: background-color 0.3s 0.5s ease-in;
+
+    &:hover {
+        background-color: var(--energy-blue);
+    }
+}
+
+.toggleSidebar {
+    border-top-width: var(--spectrum-alias-border-size-thin);
+    border-top-style: solid;
+    border-color: var(--spectrum-global-color-gray-50);
 }

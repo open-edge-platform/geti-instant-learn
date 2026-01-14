@@ -59,7 +59,11 @@ class Processor(PipelineComponent):
                 batch_data: list[InputData] = []
                 for _ in range(self._batch_size):
                     try:
-                        batch_data.append(self._in_queue.get(timeout=0.1))
+                        input_data = self._in_queue.get(timeout=0.1)
+                        batch_data.append(input_data)
+
+                        if input_data.context.get("requires_manual_control", False):
+                            break
                     except Empty:
                         break
 

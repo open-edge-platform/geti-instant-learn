@@ -10,7 +10,7 @@ import { Navigate, useNavigate } from 'react-router';
 import { v4 as uuid } from 'uuid';
 
 import { paths } from '../../../constants/paths';
-import { useCreateProjectMutation } from '../hooks/use-create-project-mutation.hook';
+import { useCreateProjectMutation } from '../api/use-create-project.hook';
 import { Layout } from './layout.component';
 
 const useCreateProject = () => {

@@ -2,11 +2,13 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import logging
+import uuid
 from queue import Queue
 from threading import Lock, Thread
 from typing import Self
 from uuid import UUID
 
+from domain.repositories.frame import FrameRepository
 from domain.services.schemas.processor import InputData, OutputData
 from domain.services.schemas.reader import FrameListResponse
 from runtime.core.components.base import PipelineComponent
@@ -51,11 +53,13 @@ class Pipeline:
     def __init__(
         self,
         project_id: UUID,
+        frame_repository: FrameRepository,
         inbound_broadcaster: FrameBroadcaster[InputData] = FrameBroadcaster[InputData](),
         outbound_broadcaster: FrameBroadcaster[OutputData] = FrameBroadcaster[OutputData](),
     ):
         # todo: remove project id from the pipeline as it is the application impl details
         self._project_id = project_id
+        self._frame_repository = frame_repository
         self._inbound_broadcaster = inbound_broadcaster
         self._outbound_broadcaster = outbound_broadcaster
         self._threads: dict[type[PipelineComponent], Thread] = {}
@@ -83,14 +87,6 @@ class Pipeline:
     def unregister_webrtc(self, queue: Queue) -> None:
         """Unregister a WebRTC consumer."""
         return self._outbound_broadcaster.unregister(queue=queue)
-
-    def register_inbound_consumer(self) -> Queue[InputData]:
-        """Register a consumer for raw input frames from the source."""
-        return self._inbound_broadcaster.register()
-
-    def unregister_inbound_consumer(self, queue: Queue[InputData]) -> None:
-        """Unregister a consumer for raw input frames."""
-        self._inbound_broadcaster.unregister(queue)
 
     def start(self) -> None:
         with self._lock:
@@ -181,6 +177,19 @@ class Pipeline:
             if source:
                 return source.index()
             return 0
+
+    def capture_frame(self) -> UUID:
+        """
+        Capture the latest frame from the inbound stream.
+        """
+        input_data = self._inbound_broadcaster.latest_frame
+        if input_data is None:
+            raise RuntimeError("No frame available from source")
+
+        frame_id = uuid.uuid4()
+        self._frame_repository.save_frame(self._project_id, frame_id, input_data.frame)
+        logger.info(f"Captured frame {frame_id} for project {self._project_id}")
+        return frame_id
 
     def list_frames(self, offset: int = 0, limit: int = 30) -> FrameListResponse:
         """Get paginated list of frames from the source."""

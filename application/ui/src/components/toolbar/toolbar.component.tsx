@@ -82,6 +82,7 @@ export const Toolbar = () => {
             borderColor={'gray-50'}
             backgroundColor={'gray-100'}
             paddingX={'size-200'}
+            height={'size-700'}
         >
             <Flex justifyContent={'space-between'} alignItems={'center'} height={'100%'} width={'100%'}>
                 <StreamStatus />
