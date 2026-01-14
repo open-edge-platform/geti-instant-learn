@@ -85,7 +85,6 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         encoder_feature_size: int,
         num_background_points: int = 2,
         num_foreground_points: int = 40,
-        max_points: int = 42,
         use_sampling: bool = False,
         use_spatial_sampling: bool = False,
         approximate_matching: bool = False,
@@ -99,7 +98,6 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
             encoder_feature_size=encoder_feature_size,
             num_foreground_points=num_foreground_points,
             num_background_points=num_background_points,
-            max_points=max_points,
         )
         self.use_sampling = use_sampling
         self.use_spatial_sampling = use_spatial_sampling

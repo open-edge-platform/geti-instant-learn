@@ -30,7 +30,6 @@ class BidirectionalPromptGenerator(nn.Module):
         encoder_feature_size: Size of the feature map grid (e.g., 16, 64).
         num_foreground_points: Maximum number of foreground points to keep per class. Default: 40.
         num_background_points: Number of background points to generate per class. Default: 2.
-        max_points: Maximum total points per category for output padding. Default: 64.
     """
 
     def __init__(
@@ -40,7 +39,6 @@ class BidirectionalPromptGenerator(nn.Module):
         encoder_feature_size: int,
         num_foreground_points: int = 40,
         num_background_points: int = 2,
-        max_points: int = 42,
     ) -> None:
         """Initialize the BidirectionalPromptGenerator."""
         super().__init__()
@@ -49,7 +47,7 @@ class BidirectionalPromptGenerator(nn.Module):
         self.encoder_feature_size = encoder_feature_size
         self.num_foreground_points = num_foreground_points
         self.num_background_points = num_background_points
-        self.max_points = max_points
+        self.max_points = num_foreground_points + num_background_points
 
     @staticmethod
     def ref_to_target_matching(
