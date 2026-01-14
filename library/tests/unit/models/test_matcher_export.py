@@ -43,7 +43,7 @@ class TestMatcherExport:
             "segmenter": MagicMock(),
         }
 
-    @patch("getiprompt.models.matcher.SAMPredictor")
+    @patch("getiprompt.models.matcher.load_sam_model")
     @patch("getiprompt.models.matcher.ImageEncoder")
     def test_export_creates_directory(
         self,
@@ -74,7 +74,7 @@ class TestMatcherExport:
 
         assert export_dir.exists()
 
-    @patch("getiprompt.models.matcher.SAMPredictor")
+    @patch("getiprompt.models.matcher.load_sam_model")
     @patch("getiprompt.models.matcher.ImageEncoder")
     def test_export_onnx_returns_correct_path(
         self,
@@ -101,7 +101,7 @@ class TestMatcherExport:
 
         assert result == tmp_path / "matcher.onnx"
 
-    @patch("getiprompt.models.matcher.SAMPredictor")
+    @patch("getiprompt.models.matcher.load_sam_model")
     @patch("getiprompt.models.matcher.ImageEncoder")
     def test_export_openvino_returns_correct_path(
         self,
@@ -133,7 +133,7 @@ class TestMatcherExport:
 
         assert result == tmp_path / "matcher.xml"
 
-    @patch("getiprompt.models.matcher.SAMPredictor")
+    @patch("getiprompt.models.matcher.load_sam_model")
     @patch("getiprompt.models.matcher.ImageEncoder")
     def test_export_onnx_calls_torch_export(
         self,
@@ -164,7 +164,7 @@ class TestMatcherExport:
         assert call_kwargs["output_names"] == ["masks", "scores", "labels"]
         assert "dynamic_axes" in call_kwargs
 
-    @patch("getiprompt.models.matcher.SAMPredictor")
+    @patch("getiprompt.models.matcher.load_sam_model")
     @patch("getiprompt.models.matcher.ImageEncoder")
     def test_export_openvino_calls_convert_model(
         self,
@@ -197,7 +197,7 @@ class TestMatcherExport:
         mock_convert.assert_called_once()
         mock_save.assert_called_once()
 
-    @patch("getiprompt.models.matcher.SAMPredictor")
+    @patch("getiprompt.models.matcher.load_sam_model")
     @patch("getiprompt.models.matcher.ImageEncoder")
     def test_export_string_path_converted_to_path(
         self,
@@ -227,7 +227,7 @@ class TestMatcherExport:
         assert isinstance(result, Path)
         assert Path(str_path).exists()
 
-    @patch("getiprompt.models.matcher.SAMPredictor")
+    @patch("getiprompt.models.matcher.load_sam_model")
     @patch("getiprompt.models.matcher.ImageEncoder")
     def test_export_default_backend_is_onnx(
         self,
@@ -254,7 +254,7 @@ class TestMatcherExport:
         # Default backend should be ONNX, returning .onnx file
         assert result.suffix == ".onnx"
 
-    @patch("getiprompt.models.matcher.SAMPredictor")
+    @patch("getiprompt.models.matcher.load_sam_model")
     @patch("getiprompt.models.matcher.ImageEncoder")
     def test_export_unsupported_backend_returns_export_dir(
         self,

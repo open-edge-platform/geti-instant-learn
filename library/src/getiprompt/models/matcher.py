@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Matcher model, based on the paper 'Segment Anything with One Shot Using All-Purpose Feature Matching'."""
@@ -11,9 +11,8 @@ from torch.nn import functional
 
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor, ReferenceFeatures
-from getiprompt.components.mask_decoder import SamDecoder
 from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
-from getiprompt.components.sam.base import SAMPredictor
+from getiprompt.components.sam import SamDecoder, load_sam_model
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.base import Model
 from getiprompt.utils.constants import Backend, SAMModelName
@@ -80,7 +79,7 @@ class MatcherInferenceGraph(nn.Module):
 
         # Generate prompts using frozen ref_features
         # point_prompts: [1, C, max_points, 4], num_points: [1, C], similarities: [1, C, feat_size, feat_size]
-        point_prompts, similarities = self.prompt_generator.forward_export(
+        point_prompts, similarities = self.prompt_generator.forward(
             self.ref_embeddings,
             self.masked_ref_embeddings,
             self.flatten_ref_masks,
@@ -172,7 +171,7 @@ class Matcher(Model):
         """
         super().__init__()
         # SAM predictor
-        self.sam_predictor = SAMPredictor(
+        self.sam_predictor = load_sam_model(
             sam,
             device=device,
             precision=precision,

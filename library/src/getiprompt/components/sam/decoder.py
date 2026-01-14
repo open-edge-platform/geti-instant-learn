@@ -8,7 +8,7 @@ from torch import nn
 from torch.nn import functional
 from torchvision.ops import nms
 
-from getiprompt.components.sam.pytorch import PyTorchSAMPredictor
+from getiprompt.components.sam.predictor import SAMPredictor
 
 
 def masks_to_boxes_traceable(masks: torch.Tensor) -> torch.Tensor:
@@ -69,7 +69,7 @@ class SamDecoder(nn.Module):
 
     def __init__(
         self,
-        sam_predictor: PyTorchSAMPredictor,
+        sam_predictor: SAMPredictor,
         mask_similarity_threshold: float = 0.38,
         nms_iou_threshold: float = 0.1,
         max_masks_per_category: int = 40,
@@ -476,14 +476,6 @@ class SamDecoder(nn.Module):
                 "pred_points": [num_points_used, 4] (point mode only)
                 "pred_boxes": [num_boxes, 5] (box mode only)
         """
-        if torch.onnx.is_in_onnx_export():
-            return self.forward_export(
-                images[0],
-                torch.tensor(category_ids, device=self.device),
-                point_prompts,
-                similarities,
-            )
-
         use_points = point_prompts is not None
         use_boxes = box_prompts is not None
 

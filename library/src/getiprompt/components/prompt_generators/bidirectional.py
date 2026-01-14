@@ -1,16 +1,12 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Bidirectional prompt generator."""
-
-from logging import getLogger
 
 import torch
 from torch import nn
 
 from getiprompt.components.linear_sum_assignment import linear_sum_assignment
-
-logger = getLogger("Geti Prompt")
 
 __all__ = ["BidirectionalPromptGenerator"]
 
@@ -350,7 +346,7 @@ class BidirectionalPromptGenerator(nn.Module):
             num_points: [T, C] - actual valid point counts per (target, category)
             similarities: [T, C, feat_size, feat_size] - similarity maps at feature grid size
         """
-        num_targets = target_embeddings.shape[0]
+        num_targets = target_embeddings.size(0)
         num_categories = len(category_ids)
         feat_size = self.encoder_feature_size
         device = target_embeddings.device
@@ -382,47 +378,4 @@ class BidirectionalPromptGenerator(nn.Module):
                 # Store similarity
                 similarities[t_idx, c_idx] = similarity
 
-        return point_prompts, similarities
-
-    def forward_export(
-        self,
-        ref_embeddings: torch.Tensor,
-        masked_ref_embeddings: torch.Tensor,
-        flatten_ref_masks: torch.Tensor,
-        category_ids: list[int],
-        target_embeddings: torch.Tensor,
-        original_sizes: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Generate prompt candidates for a single target image (export version)."""
-        # Force num targets = 1 for export compatibility
-        num_categories = len(category_ids)
-        feat_size = self.encoder_feature_size
-        device = target_embeddings.device
-        dtype = target_embeddings.dtype
-
-        # Pre-allocate output tensors
-        point_prompts = torch.zeros(1, num_categories, self.max_points, 4, device=device, dtype=dtype)
-        similarities = torch.zeros(1, num_categories, feat_size, feat_size, device=device, dtype=dtype)
-
-        target_embed = target_embeddings[0]
-        original_size = original_sizes[0]
-
-        for c_idx in range(num_categories):
-            ref_embed = ref_embeddings[c_idx]
-            masked_embed = masked_ref_embeddings[c_idx]
-            mask = flatten_ref_masks[c_idx]
-
-            padded_points, similarity = self._process_single_category(
-                ref_embed,
-                masked_embed,
-                mask,
-                target_embed,
-                original_size,
-            )
-
-            # Store padded points (fixed size assignment - no dynamic slicing)
-            point_prompts[0, c_idx] = padded_points
-
-            # Store similarity
-            similarities[0, c_idx] = similarity
         return point_prompts, similarities

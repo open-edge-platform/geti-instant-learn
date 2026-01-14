@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """PyTorch backend implementation for SAM predictor."""
@@ -18,9 +18,72 @@ from torch import nn
 
 from getiprompt.data import ResizeLongestSide
 from getiprompt.utils.constants import DATA_PATH, MODEL_MAP, SAMModelName
-from getiprompt.utils.utils import download_file
+from getiprompt.utils.optimization import optimize_model
+from getiprompt.utils.utils import download_file, precision_to_torch_dtype
 
 logger = getLogger("Geti Prompt")
+
+
+def load_sam_model(
+    sam: SAMModelName,
+    device: str = "cuda",
+    precision: str = "bf16",
+    compile_models: bool = False,
+    model_path: Path | None = None,
+    target_length: int = 1024,
+) -> "SAMPredictor":
+    """Load and return a SAM predictor with specified backend.
+
+    This function provides a unified interface for loading SAM models with
+    different backends (PyTorch, OpenVINO). The backend parameter determines
+    which implementation to use.
+
+    Args:
+        sam: The SAM model architecture to load (e.g., SAM_HQ_TINY, SAM2_BASE)
+        device: Device to run inference on:
+            - PyTorch backend: "cuda", "cpu"
+            - OpenVINO backend: "CPU", "GPU", "AUTO"
+        precision: Model precision for PyTorch backend ("bf16", "fp32", "fp16").
+            Ignored for OpenVINO backend (precision is baked into IR).
+        compile_models: Whether to compile model (PyTorch only).
+            Ignored for OpenVINO backend.
+        model_path: Optional path to model weights:
+            - PyTorch: Path to .pth checkpoint (auto-downloads if None)
+            - OpenVINO: Path to .xml IR file (required)
+        target_length: Target length for the longest side of the image during transformation. Defaults to 1024.
+
+    Returns:
+        A SAM predictor instance (PyTorchSAMPredictor or OpenVINOSAMPredictor).
+
+    Raises:
+        ValueError: If the model type or backend is invalid.
+
+    Examples:
+        >>> # PyTorch backend with auto-download
+        >>> predictor = load_sam_model(
+        ...     SAMModelName.SAM_HQ_TINY,
+        ...     device="cuda",
+        ... )
+    """
+    if sam not in MODEL_MAP:
+        msg = f"Invalid model type: {sam}"
+        raise ValueError(msg)
+
+    predictor = SAMPredictor(
+        sam_model_name=sam,
+        device=device,
+        model_path=model_path,
+        target_length=target_length,
+    )
+
+    # Apply PyTorch-specific optimizations
+    predictor._predictor = optimize_model(
+        model=predictor._predictor,
+        device=device,
+        precision=precision_to_torch_dtype(precision),
+        compile_models=compile_models,
+    )
+    return predictor
 
 
 def check_model_weights(model_name: SAMModelName) -> None:
@@ -227,7 +290,7 @@ class PromptEncoder(_PromptEncoder):
         return sparse_embeddings, dense_embeddings
 
 
-class PyTorchSAMPredictor(nn.Module):
+class SAMPredictor(nn.Module):
     """PyTorch implementation of SAM predictor.
 
     This implementation wraps the original SAM predictor from segment_anything_hq

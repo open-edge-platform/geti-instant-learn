@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Cosine similarity matcher."""
@@ -44,7 +44,7 @@ class CosineSimilarity(nn.Module):
     @torch.inference_mode()
     def forward(
         self,
-        masked_ref_embeddings: torch.Tensor,
+        reference_embeddings: torch.Tensor,
         target_embeddings: torch.Tensor,
         category_ids: list[int],
     ) -> torch.Tensor:
@@ -78,7 +78,7 @@ class CosineSimilarity(nn.Module):
             grid_size = int(num_patches**0.5)
 
             for c_idx in range(num_categories):
-                ref_embed = masked_ref_embeddings[c_idx]  # [1, embed_dim]
+                ref_embed = reference_embeddings[c_idx]  # [1, embed_dim]
 
                 # Compute similarity
                 sim_map = ref_embed @ target_embed.T  # [1, num_patches]

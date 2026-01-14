@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Unit tests for SamDecoder."""
@@ -9,7 +9,7 @@ import pytest
 import torch
 from torchvision.tv_tensors import Image
 
-from getiprompt.components.mask_decoder import SamDecoder
+from getiprompt.components.sam import SamDecoder
 
 
 class TestSamDecoderValidation:

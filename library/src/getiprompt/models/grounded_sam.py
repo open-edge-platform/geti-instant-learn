@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """This model uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
@@ -8,7 +8,7 @@ import torch
 from getiprompt.components import SamDecoder
 from getiprompt.components.filters import BoxPromptFilter
 from getiprompt.components.prompt_generators import GroundingModel, TextToBoxPromptGenerator
-from getiprompt.components.sam.base import SAMPredictor
+from getiprompt.components.sam import load_sam_model
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.base import Model
 from getiprompt.utils.constants import SAMModelName
@@ -39,7 +39,7 @@ class GroundedSAM(Model):
             device: The device to use.
         """
         super().__init__()
-        self.sam_predictor = SAMPredictor(
+        self.sam_predictor = load_sam_model(
             sam,
             device=device,
             precision=precision,

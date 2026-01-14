@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """PerDino model."""
@@ -9,7 +9,7 @@ from getiprompt.components import CosineSimilarity, SamDecoder
 from getiprompt.components.encoders import ImageEncoder
 from getiprompt.components.feature_extractors import MaskedFeatureExtractor, ReferenceFeatures
 from getiprompt.components.prompt_generators import GridPromptGenerator
-from getiprompt.components.sam.base import SAMPredictor
+from getiprompt.components.sam import load_sam_model
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.base import Model
 from getiprompt.utils.constants import Backend, SAMModelName
@@ -84,7 +84,7 @@ class PerDino(Model):
             device: Device for inference.
         """
         super().__init__()
-        self.sam_predictor = SAMPredictor(
+        self.sam_predictor = load_sam_model(
             sam,
             device=device,
             precision=precision,

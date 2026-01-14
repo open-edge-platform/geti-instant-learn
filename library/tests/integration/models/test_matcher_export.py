@@ -14,7 +14,6 @@ from pathlib import Path
 import numpy as np
 import onnxruntime as ort
 import pytest
-import torch
 
 from getiprompt.data.base import Batch
 from getiprompt.data.folder import FolderDataset
