@@ -99,6 +99,9 @@ class MaskedFeatureExtractor(nn.Module):
         # Get unique categories in sorted order for deterministic output
         unique_cats = sorted(masked_embeddings_per_cat.keys())
 
+        # Find max number of reference patches across all categories (for padding)
+        max_ref_patches = max(torch.cat(ref_embeddings_per_cat[cat_id], dim=0).shape[0] for cat_id in unique_cats)
+
         # Aggregate by category
         ref_embeddings_list: list[torch.Tensor] = []
         masked_ref_embeddings_list: list[torch.Tensor] = []
@@ -113,8 +116,24 @@ class MaskedFeatureExtractor(nn.Module):
             else:
                 averaged_embed = cat_masked_embeds  # Empty tensor
             masked_ref_embeddings_list.append(averaged_embed)
-            ref_embeddings_list.append(torch.cat(ref_embeddings_per_cat[cat_id], dim=0))
-            flatten_ref_masks_list.append(torch.cat(masks_per_cat[cat_id], dim=0).reshape(-1))
+
+            # Get ref embeddings and masks for this category
+            ref_embed = torch.cat(ref_embeddings_per_cat[cat_id], dim=0)
+            flatten_mask = torch.cat(masks_per_cat[cat_id], dim=0).reshape(-1)
+
+            # Pad to max_ref_patches for consistent stacking across categories
+            num_patches = ref_embed.shape[0]
+            if num_patches < max_ref_patches:
+                pad_size = max_ref_patches - num_patches
+                embed_padding = torch.zeros(
+                    pad_size, ref_embed.shape[1], device=ref_embed.device, dtype=ref_embed.dtype
+                )
+                mask_padding = torch.zeros(pad_size, device=flatten_mask.device, dtype=flatten_mask.dtype)
+                ref_embed = torch.cat([ref_embed, embed_padding], dim=0)
+                flatten_mask = torch.cat([flatten_mask, mask_padding], dim=0)
+
+            ref_embeddings_list.append(ref_embed)
+            flatten_ref_masks_list.append(flatten_mask)
 
         return ReferenceFeatures(
             ref_embeddings=torch.stack(ref_embeddings_list, dim=0),
