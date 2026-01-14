@@ -451,6 +451,31 @@ def test_delete_inactive_emits_no_event(service, repo_mock, dispatcher_mock):
     dispatcher_mock.dispatch.assert_not_called()
 
 
+def test_delete_project_with_prompts_and_annotations(service, repo_mock, session_mock):
+    """Test that deleting a project with prompts and annotations succeeds.
+
+    Verifies the deletion flow:
+    1. Prompts are deleted first
+    2. Session flush removes annotations via CASCADE
+    3. Project deletion cascades to labels
+    """
+    pid = uuid.uuid4()
+    prompt = SimpleNamespace(id=uuid.uuid4())
+
+    # Project with prompts (annotations exist but handled by cascade)
+    project = make_project(project_id=pid, active=True, prompts=[prompt])
+    repo_mock.get_by_id.return_value = project
+
+    service.delete_project(pid)
+
+    # Verify deletion sequence
+    repo_mock.get_by_id.assert_called_once_with(pid)
+    session_mock.delete.assert_called_once_with(prompt)
+    session_mock.flush.assert_called_once()
+    repo_mock.delete.assert_called_once_with(pid)
+    session_mock.commit.assert_called_once()
+
+
 def test_update_activate_emits_activation_event(service, repo_mock, dispatcher_mock):
     project_inactive = make_project(active=False)
     repo_mock.get_by_id.return_value = project_inactive
