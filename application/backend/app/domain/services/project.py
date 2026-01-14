@@ -290,11 +290,11 @@ class ProjectService(BaseService):
             if project.active:
                 self._emit_deactivation(project.id)
 
-            # Manually delete prompts (and their annotations via cascade)
+            # Delete prompts to trigger annotation cascade
             for prompt in project.prompts:
                 self.session.delete(prompt)
 
-            # Flush to execute prompt deletions and annotation cascades
+            # Execute prompt deletions, which cascades to remove annotations
             self.session.flush()
 
             # Delete project - cascades to labels (and all other children)
