@@ -58,8 +58,8 @@ fn main() {
     // Shared handle so we can kill it on exit
     let child_handle = Arc::new(Mutex::new(None));
     let port = pick_free_port();
-    // Set PUBLIC_API_URL for Tauri app
-    std::env::set_var("PUBLIC_API_URL", format!("http://127.0.0.1:{}", port));
+    // Set PUBLIC_API_URL for Tauri app (with Vite prefix)
+    std::env::set_var("VITE_PUBLIC_API_URL", format!("http://127.0.0.1:{}", port));
 
     // Build the app
     let app = tauri::Builder::default()
