@@ -110,15 +110,16 @@ class EfficientSAM3(Model):
         self,
         bpe_path: str | None = None,
         device: str = "cuda",
-        confidence_threshold: float = 0.3,
+        confidence_threshold: float = 0.1,
         resolution: int = 1008,
         precision: str = "fp32",
         checkpoint_path: str | None = None,
+        load_from_HF: bool = True,
         enable_segmentation: bool = True,
         enable_inst_interactivity: bool = False,
         compile_models: bool = False,
         backbone_type: EfficientSAM3BackboneType | str = EfficientSAM3BackboneType.TINYVIT_21M,
-        text_encoder_type: EfficientSAM3TextEncoderType | str | None = None,
+        text_encoder_type: EfficientSAM3TextEncoderType | str | None = EfficientSAM3TextEncoderType.MOBILECLIP_S1,
     ) -> None:
         """Initialize the EfficientSAM3 model.
 
@@ -126,15 +127,18 @@ class EfficientSAM3(Model):
             bpe_path: Path to the BPE tokenizer vocabulary.
             device: The device to use ('cuda', 'xpu', or 'cpu').
             confidence_threshold: The confidence threshold for filtering predictions.
-                Default is set to 0.3, as EfficientSAM3 produces lower confidence scores compared to SAM3.
+                Default is set to 0.1, as EfficientSAM3 produces lower confidence scores compared to SAM3.
             resolution: The input image resolution. # TODO : rename this to image_size for this and SAM3
             precision: The precision to use for the model ('bf16' or 'fp32').
-            checkpoint_path: Path to model checkpoint.
+            checkpoint_path: Path to model checkpoint. If None and load_from_HF=True,
+                automatically downloads from HuggingFace Hub.
+            load_from_HF: Whether to automatically download checkpoint from HuggingFace Hub
+                when checkpoint_path is None. Defaults to True.
             enable_segmentation: Whether to enable segmentation head.
             enable_inst_interactivity: Whether to enable instance interactivity.
             compile_models: Whether to compile the models.
-            backbone_type: Type of student backbone to use.
-            text_encoder_type: Type of text encoder. If None, uses full SAM3 encoder.
+            backbone_type: Type of student backbone to use. Defaults to TinyViT-21M.
+            text_encoder_type: Type of text encoder. Defaults to MobileCLIP-S1.
         """
         super().__init__()
 
@@ -159,6 +163,7 @@ class EfficientSAM3(Model):
             bpe_path=bpe_path,
             device=device,
             checkpoint_path=checkpoint_path,
+            load_from_HF=load_from_HF,
             enable_segmentation=enable_segmentation,
             enable_inst_interactivity=enable_inst_interactivity,
             compile=compile_models,
@@ -348,6 +353,14 @@ class EfficientSAM3(Model):
             reference_batch: Ignored. EfficientSAM3 uses prompts directly.
         """
         # EfficientSAM3 is a zero-shot model - no training/fitting required
+        # Log warning if this is called (indicates user may expect few-shot behavior)
+        import logging
+
+        logger = logging.getLogger("Geti Prompt")
+        logger.debug(
+            "EfficientSAM3.fit() called but this is a zero-shot model. "
+            "Reference images are ignored. Model relies on text prompts for segmentation.",
+        )
 
     def export(self, export_dir: str, backend: str = "onnx", **kwargs) -> str:
         """Export the model (not yet implemented).

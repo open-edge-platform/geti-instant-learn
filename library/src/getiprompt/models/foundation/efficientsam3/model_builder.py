@@ -35,6 +35,7 @@ from pathlib import Path
 
 import torch
 import torch.nn.functional as F
+from huggingface_hub import hf_hub_download
 from iopath.common.file_io import g_pathmgr
 from torch import nn
 
@@ -107,6 +108,51 @@ class EfficientSAM3TextEncoderType(StrEnum):
     MOBILECLIP_S0 = "MobileCLIP-S0"
     MOBILECLIP_S1 = "MobileCLIP-S1"
     MOBILECLIP_B = "MobileCLIP-B"
+
+
+# ==============================================================================
+# Model Checkpoint Registry
+# ==============================================================================
+
+EFFICIENTSAM3_HF_REPO = "Simon7108528/EfficientSAM3"
+EFFICIENTSAM3_HF_SUBFOLDER = "stage1_all_converted"
+
+# Registry mapping (backbone_type, text_encoder_type) to checkpoint filename
+# Note: text_encoder_type=None means SAM3 full text encoder
+MODEL_CONFIGS = {
+    # SAM3 Text Encoder + EfficientSAM3 Image Encoder Models
+    (EfficientSAM3BackboneType.REPVIT_M0_9, None): "efficient_sam3_repvit_s.pt",
+    (EfficientSAM3BackboneType.REPVIT_M1_1, None): "efficient_sam3_repvit_m.pt",
+    (EfficientSAM3BackboneType.REPVIT_M2_3, None): "efficient_sam3_repvit_l.pt",
+    (EfficientSAM3BackboneType.TINYVIT_5M, None): "efficient_sam3_tinyvit_s.pt",
+    (EfficientSAM3BackboneType.TINYVIT_11M, None): "efficient_sam3_tinyvit_m.pt",
+    (EfficientSAM3BackboneType.TINYVIT_21M, None): "efficient_sam3_tinyvit_l.pt",
+    # EfficientSAM3 Text Encoder + EfficientSAM3 Image Encoder Models
+    (
+        EfficientSAM3BackboneType.REPVIT_M0_9,
+        EfficientSAM3TextEncoderType.MOBILECLIP_S1,
+    ): "efficient_sam3_repvit-m0_9_mobileclip_s1.pth",
+    (
+        EfficientSAM3BackboneType.REPVIT_M1_1,
+        EfficientSAM3TextEncoderType.MOBILECLIP_S1,
+    ): "efficient_sam3_repvit-m1_1_mobileclip_s1.pth",
+    (
+        EfficientSAM3BackboneType.REPVIT_M2_3,
+        EfficientSAM3TextEncoderType.MOBILECLIP_S1,
+    ): "efficient_sam3_repvit-m2_3_mobileclip_s1.pth",
+    (
+        EfficientSAM3BackboneType.TINYVIT_5M,
+        EfficientSAM3TextEncoderType.MOBILECLIP_S1,
+    ): "efficient_sam3_tinyvit_5m_mobileclip_s1.pth",
+    (
+        EfficientSAM3BackboneType.TINYVIT_11M,
+        EfficientSAM3TextEncoderType.MOBILECLIP_S1,
+    ): "efficient_sam3_tinyvit_11m_mobileclip_s1.pth",
+    (
+        EfficientSAM3BackboneType.TINYVIT_21M,
+        EfficientSAM3TextEncoderType.MOBILECLIP_S1,
+    ): "efficient_sam3_tinyvit_21m_mobileclip_s1.pth",
+}
 
 
 # ==============================================================================
@@ -764,15 +810,80 @@ def _setup_device_and_mode(
 # ==============================================================================
 
 
+def get_checkpoint_filename(
+    backbone_type: EfficientSAM3BackboneType,
+    text_encoder_type: EfficientSAM3TextEncoderType | None,
+) -> str:
+    """Get checkpoint filename for given backbone and text encoder combination.
+
+    Args:
+        backbone_type: Type of student backbone
+        text_encoder_type: Type of text encoder (None for SAM3 full encoder)
+
+    Returns:
+        Checkpoint filename
+
+    Raises:
+        ValueError: If the combination is not available
+    """
+    # Normalize text encoder type (SAM3_FULL is treated as None)
+    if text_encoder_type == EfficientSAM3TextEncoderType.SAM3_FULL:
+        text_encoder_type = None
+
+    key = (backbone_type, text_encoder_type)
+    if key not in MODEL_CONFIGS:
+        available = "\n".join(f"  - {bb.value} + {te.value if te else 'SAM3-full'}" for bb, te in MODEL_CONFIGS)
+        raise ValueError(
+            f"Model combination not available: {backbone_type.value} + "
+            f"{text_encoder_type.value if text_encoder_type else 'SAM3-full'}\n"
+            f"Available combinations:\n{available}",
+        )
+    return MODEL_CONFIGS[key]
+
+
+def download_efficientsam3_from_hf(
+    backbone_type: EfficientSAM3BackboneType,
+    text_encoder_type: EfficientSAM3TextEncoderType | None = None,
+) -> str:
+    """Download EfficientSAM3 checkpoint from HuggingFace Hub.
+
+    Args:
+        backbone_type: Type of student backbone
+        text_encoder_type: Type of text encoder (None for SAM3 full encoder)
+
+    Returns:
+        Path to downloaded checkpoint file
+
+    Raises:
+        ValueError: If the model combination is not available
+    """
+    checkpoint_filename = get_checkpoint_filename(backbone_type, text_encoder_type)
+
+    print(
+        f"Downloading EfficientSAM3 checkpoint: {checkpoint_filename} from HuggingFace Hub...\n"
+        f"Repository: {EFFICIENTSAM3_HF_REPO}/{EFFICIENTSAM3_HF_SUBFOLDER}",
+    )
+
+    checkpoint_path = hf_hub_download(
+        repo_id=EFFICIENTSAM3_HF_REPO,
+        filename=checkpoint_filename,
+        subfolder=EFFICIENTSAM3_HF_SUBFOLDER,
+    )
+
+    print(f"Checkpoint downloaded to: {checkpoint_path}")
+    return checkpoint_path
+
+
 def build_efficientsam3_image_model(
     bpe_path: str | Path | None = None,
     device: str = "cuda",
     checkpoint_path: str | Path | None = None,
+    load_from_HF: bool = True,
     enable_segmentation: bool = True,
     enable_inst_interactivity: bool = False,
     compile: bool = False,
     backbone_type: EfficientSAM3BackboneType | str = EfficientSAM3BackboneType.TINYVIT_21M,
-    text_encoder_type: EfficientSAM3TextEncoderType | str | None = None,
+    text_encoder_type: EfficientSAM3TextEncoderType | str | None = EfficientSAM3TextEncoderType.MOBILECLIP_S1,
 ) -> EfficientSAM3Image:
     """Build EfficientSAM3 image model with a student backbone.
 
@@ -863,6 +974,13 @@ def build_efficientsam3_image_model(
     if enable_inst_interactivity:
         # Add SAM heads (prompt encoder and mask decoder)
         _add_sam_heads(model, image_size=1008, backbone_stride=14, device=device)
+
+    # Auto-download checkpoint from HuggingFace if needed
+    if load_from_HF and checkpoint_path is None:
+        checkpoint_path = download_efficientsam3_from_hf(
+            backbone_type=backbone_type,
+            text_encoder_type=text_encoder_type,
+        )
 
     # Load checkpoint BEFORE eval mode
     # This is critical because TinyViT's Attention layer computes the 'ab' buffer

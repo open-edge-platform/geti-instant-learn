@@ -4,6 +4,7 @@
 """Models."""
 
 from .base import Model
+from .efficientsam3 import EfficientSAM3
 from .grounded_sam import GroundedSAM
 
 # Inference model imports
@@ -14,6 +15,7 @@ from .soft_matcher import SoftMatcher
 
 __all__ = [
     "SAM3",
+    "EfficientSAM3",
     "GroundedSAM",
     "InferenceMatcher",
     "Matcher",

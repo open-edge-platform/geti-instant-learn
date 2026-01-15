@@ -38,6 +38,7 @@ class ModelName(Enum):
     PER_DINO = "PerDino"
     SOFT_MATCHER = "SoftMatcher"
     SAM3 = "SAM3"
+    EFFICIENTSAM3 = "EfficientSAM3"
 
 
 class DatasetName(Enum):
