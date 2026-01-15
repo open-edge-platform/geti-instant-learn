@@ -127,6 +127,8 @@ This starts:
 - Backend API at `http://locahost:9100`
 - Frontend UI at `http://localhost:3000`
 
+> 📘 For detailed documentation, see the [Application README](application/README.md).
+
 ## 🧮 Supported models
 
 Geti Prompt supports a variety of foundation models and visual prompting algorithms, optimized for different performance needs.
