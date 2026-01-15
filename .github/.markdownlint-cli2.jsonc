@@ -1,6 +1,7 @@
 {
   "config": {
-    "MD013": false
+    "MD013": false,
+    "MD029": { "style": "ordered" }
   },
   "globs": [
     "**/*.md"

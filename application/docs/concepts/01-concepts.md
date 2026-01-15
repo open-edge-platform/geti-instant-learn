@@ -2,7 +2,7 @@
 
 Technical background and architectural concepts to help developers and advanced users understand Geti Prompt Application.
 
-### Core Concepts
+## Core Concepts
 <!-- TODO: Explain key terms like Visual Prompting, Zero-shot Learning, Few-shot Learning -->
 - **Visual Prompting**: How user interactions translate to model inputs.
 - **Pipelines**: The flow of data from source to inference to sink.

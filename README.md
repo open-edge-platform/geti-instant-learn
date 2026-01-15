@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 MD033 MD041 MD042 -->
 ![alt text](assets/geti-prompt-header.png)
 
 [![python](https://img.shields.io/badge/python-3.12%2B-green)]()
@@ -48,7 +49,7 @@ Geti Prompt supports a variety of foundation models and visual prompting algorit
 ### Foundation Models (Backbones)
 
 | Family | Models | Description | Paper | Repository |
-|--------|--------|-------------|-------|------------|
+| ------ | ------ | ----------- | ----- | ---------- |
 | **SAM** | SAM-HQ, SAM-HQ-tiny | High-quality variants of the original Segment Anything Model. | [Segment Anything](https://arxiv.org/abs/2304.02643), [SAM-HQ](https://arxiv.org/abs/2306.01567) | [SAM](https://github.com/facebookresearch/segment-anything), [SAM-HQ](https://github.com/SysCV/sam-hq) |
 | **SAM 2** | SAM2-tiny, SAM2-small, SAM2-base, SAM2-large | The next generation of Segment Anything, offering improved performance and speed. | [SAM 2](https://arxiv.org/abs/2408.00714) | [sam2](https://github.com/facebookresearch/sam2) |
 | **SAM 3** | SAM 3 | Segment Anything with Concepts, supporting open-vocabulary prompts. | [SAM 3](https://arxiv.org/abs/2511.16719) | [SAM 3](https://github.com/facebookresearch/sam3) |
@@ -61,7 +62,7 @@ Geti Prompt supports a variety of foundation models and visual prompting algorit
 ### Visual Prompting Algorithms
 
 | Algorithm | Description | Paper | Repository |
-|-----------|-------------|-------|------------|
+| --------- | ----------- | ----- | ---------- |
 | **Matcher** | Standard feature matching pipeline using SAM. | [Matcher](https://arxiv.org/abs/2305.13310) | [Matcher](https://github.com/aim-uofa/Matcher) |
 | **SoftMatcher** | Enhanced matching pipeline with soft feature comparison, inspired by Optimal Transport. | [IJCAI 2024](https://www.ijcai.org/proceedings/2024/1000.pdf) | N/A |
 | **PerDino** | Personalized DINO-based prompting, leveraging DINOv2/v3 features for robust matching. | [PerSAM](https://arxiv.org/abs/2305.03048) | [Personalize-SAM](https://github.com/ZrrSkywalker/Personalize-SAM) |
@@ -77,6 +78,7 @@ Geti Prompt can be used in two ways: as a **Python library** for research and al
 - **[uv](https://github.com/astral-sh/uv)** (Python package manager)
 - **[Just](https://github.com/casey/just)** (Command runner)
 - **Node.js (v24.2.0)** (Required only for the UI Application)
+- **Docker** (Optional, for containerized deployment)
 
 ### 1. Using the Library (Research & Development)
 
@@ -84,6 +86,7 @@ Best for developers and researchers who want to experiment with visual prompting
 
 - **Documentation:** [Library Documentation](library/docs/01-introduction.md)
 - **Quick Install:**
+
   ```bash
     # todo: add instructions for the library
   ```
@@ -94,6 +97,7 @@ Best for users who want an end-to-end production-ready platform with a web inter
 
 - **Documentation:** [Application Documentation](application/docs/02-quick-start.md)
 - **Quick Start:**
+
   ```bash
   # Clone the repository
   git clone https://github.com/open-edge-platform/geti-prompt.git
@@ -102,6 +106,7 @@ Best for users who want an end-to-end production-ready platform with a web inter
   # Run the full application (Backend + UI)
   # todo: add instructions to run the app from source code
   ```
+
   This will start the backend server (port 9100) and the UI development server.
 
 ## 🏗️ High-level architecture
@@ -121,8 +126,8 @@ The project is structured as follows:
 We welcome contributions! Check out our [Contributing Guide](CONTRIBUTING.md) to get started.
 
 ## Acknowledgements
-This project incorporates code from several open-source repositories. We thank the authors for their contributions. A complete list of third-party software is available in the [third-party-programs.txt](third-party-programs.txt) file.
 
+This project incorporates code from several open-source repositories. We thank the authors for their contributions. A complete list of third-party software is available in the [third-party-programs.txt](third-party-programs.txt) file.
 
 ## 📝 License
 

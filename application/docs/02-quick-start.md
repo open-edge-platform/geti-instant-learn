@@ -259,18 +259,18 @@ Visual Prompting allows you to teach the model by directly selecting objects of 
 
 2. **Output Configuration:** Customize how inference results are exported and utilized for downstream applications.
 
-- **Destination:** Choose where to send the data (e.g., Local Disk, Network Stream, API Endpoint).
-- **Format: Select:** the data structure for predictions (e.g., JSON, CSV).
-- **Rate: Control:** the inference frequency (FPS) to manage load.
+   - **Destination:** Choose where to send the data (e.g., Local Disk, Network Stream, API Endpoint).
+   - **Format: Select:** the data structure for predictions (e.g., JSON, CSV).
+   - **Rate: Control:** the inference frequency (FPS) to manage load.
 
 **Note**: Currently only MQTT integration is supported. More integrations will be added in future releases.
 
 3. **Production Deployment:** Once validated, you can deploy the fully configured application to your target environment. Geti Prompt supports flexible deployment options:
 
-- **Edge/Remote:** Deploy as a containerized Docker image for remote edge servers and devices.
-- **Local:** Run the application and model directly on a local PC for testing or desktop usage.
+   - **Edge/Remote:** Deploy as a containerized Docker image for remote edge servers and devices.
+   - **Local:** Run the application and model directly on a local PC for testing or desktop usage.
 
-> TODO: include steps for each deployment option, and gifs/screenshots where applicable
+   > TODO: include steps for each deployment option, and gifs/screenshots where applicable
 
 ### Step 4. Monitoring & Observability
 
