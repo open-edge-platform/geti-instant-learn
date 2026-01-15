@@ -228,8 +228,8 @@ class SAM3(Model):
 
         Args:
             inference_state: The inference state containing predictions.
+            cat_id: The category ID for the current prompt.
             img_size: The image size (height, width).
-            apply_threshold: Whether to apply threshold to masks.
 
         Returns:
             Tuple of (processed_masks, boxes_with_scores, labels).
