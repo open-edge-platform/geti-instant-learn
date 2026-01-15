@@ -46,6 +46,9 @@ class TestSink:
 
         self.out_queue.get.side_effect = mock_get
 
+        # Ensure the post-stop drain loop terminates.
+        self.out_queue.get_nowait.side_effect = Empty
+
         self.sink.run()
 
         self.mock_stream_writer.__enter__.assert_called_once()
@@ -53,3 +56,37 @@ class TestSink:
 
         expected_calls = [call(item) for item in expected_writes]
         assert self.mock_stream_writer.write.call_args_list == expected_calls
+
+    def test_sink_clears_remaining_queue_items_on_stop(self):
+        """Test that sink clears all remaining items from queue after stop event is set."""
+        remaining_items = ["item1", "item2", "item3"]
+        main_loop_items = ["data1"]
+
+        iterator = iter(main_loop_items + [Empty()])
+
+        def mock_get(*args, **kwargs):
+            try:
+                next_item = next(iterator)
+                if isinstance(next_item, Exception):
+                    raise next_item
+                return next_item
+            except StopIteration:
+                self.sink.stop()
+                raise Empty
+
+        cleanup_iterator = iter(remaining_items + [Empty()])
+
+        def mock_get_nowait():
+            next_item = next(cleanup_iterator)
+            if isinstance(next_item, Exception):
+                raise next_item
+            return next_item
+
+        self.out_queue.get.side_effect = mock_get
+        self.out_queue.get_nowait.side_effect = mock_get_nowait
+
+        self.sink.run()
+
+        assert self.mock_stream_writer.write.call_count == len(main_loop_items)
+        assert self.mock_stream_writer.write.call_args_list == [call("data1")]
+        assert self.out_queue.get_nowait.call_count == len(remaining_items) + 1

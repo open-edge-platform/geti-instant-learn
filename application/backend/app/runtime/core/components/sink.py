@@ -35,6 +35,15 @@ class Sink(PipelineComponent):
                     self._writer.write(data)
                 except Empty:
                     continue
+
+            # Clear remaining items from queue
+            logger.debug("Clearing remaining frames from queue")
+            while True:
+                try:
+                    self._out_queue.get_nowait()
+                except Empty:
+                    break
+
             logger.debug("Stopping the sink loop")
 
     def _stop(self) -> None:
