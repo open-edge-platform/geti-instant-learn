@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Base ImageEncoder class and factory function for creating image encoders."""
@@ -11,7 +11,6 @@ from torch import nn
 from torchvision import tv_tensors
 
 from getiprompt.components.encoders.huggingface import HuggingFaceImageEncoder
-from getiprompt.components.encoders.openvino import OpenVINOImageEncoder
 from getiprompt.components.encoders.timm import TimmImageEncoder
 from getiprompt.utils.constants import Backend
 
@@ -26,7 +25,7 @@ def load_image_encoder(
     precision: str = "bf16",
     compile_models: bool = False,
     input_size: int = 512,
-) -> HuggingFaceImageEncoder | TimmImageEncoder | OpenVINOImageEncoder:
+) -> HuggingFaceImageEncoder | TimmImageEncoder:
     """Load an image encoder with specified backend.
 
     This factory function creates an image encoder using HuggingFace, TIMM,
@@ -99,22 +98,6 @@ def load_image_encoder(
             input_size=input_size,
         )
 
-    if backend == Backend.OPENVINO:
-        if model_path is None:
-            msg = (
-                "model_path is required for OpenVINO backend. "
-                "Please export a model first:\n"
-                "  encoder = load_image_encoder(model_id='...', backend=Backend.TIMM)\n"
-                "  ov_path = encoder.export(Path('./exported'))\n"
-                "  ov_encoder = load_image_encoder(backend=Backend.OPENVINO, model_path=ov_path)"
-            )
-            raise ValueError(msg)
-
-        return OpenVINOImageEncoder(
-            model_path=model_path,
-            device=device,
-        )
-
     msg = f"Invalid backend: {backend}. Must be Backend.HUGGINGFACE, Backend.TIMM, or Backend.OPENVINO"
     raise ValueError(msg)
 
@@ -173,13 +156,10 @@ class ImageEncoder(nn.Module):
                 Ignored for OpenVINO.
             input_size: Input image size (height and width).
             model_path: Path to exported model (required for OpenVINO backend).
-
-        Raises:
-            ValueError: If backend is invalid or model_path missing for OpenVINO.
         """
         super().__init__()
         self.backend = backend
-        self._model: OpenVINOImageEncoder | HuggingFaceImageEncoder | TimmImageEncoder = load_image_encoder(
+        self._model: HuggingFaceImageEncoder | TimmImageEncoder = load_image_encoder(
             model_id=model_id,
             device=device,
             backend=backend,
@@ -226,27 +206,3 @@ class ImageEncoder(nn.Module):
             (batch_size, num_patches, embedding_dim).
         """
         return self._model(images)
-
-    def export(self, output_path: Path, backend: str | Backend = Backend.ONNX) -> Path:
-        """Export the encoder to the specified format.
-
-        Only available for HuggingFace and TIMM backends.
-
-        Args:
-            output_path: Directory to save exported model.
-            backend: Backend format to export to. Can be a Backend enum
-                (e.g., Backend.ONNX, Backend.OPENVINO) or a string
-                (e.g., "onnx", "openvino").
-
-        Returns:
-            Path to the exported OpenVINO IR directory.
-
-        Raises:
-            NotImplementedError: If export is not supported for the backend.
-        """
-        if isinstance(backend, str):
-            backend = Backend(backend.lower())
-        if not hasattr(self._model, "export"):
-            msg = f"Export is not supported for backend '{self.backend}'."
-            raise NotImplementedError(msg)
-        return self._model.export(output_path, backend=backend)

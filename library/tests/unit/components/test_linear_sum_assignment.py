@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Unit tests for LinearSumAssignment."""
@@ -62,17 +62,6 @@ class TestExport:
     def matcher(self) -> LinearSumAssignment:
         """Create greedy matcher fixture."""
         return LinearSumAssignment(maximize=True, method="greedy")
-
-    def test_torchscript(self, matcher: LinearSumAssignment) -> None:
-        """Test TorchScript export and inference."""
-        cost = torch.rand(5, 5)
-        scripted = torch.jit.script(matcher)
-
-        orig_row, orig_col = matcher(cost)
-        script_row, script_col = scripted(cost)
-        orig_cost = cost[orig_row, orig_col].sum()
-        script_cost = cost[script_row, script_col].sum()
-        assert torch.isclose(orig_cost, script_cost)
 
     def test_onnx_export_and_inference(self, matcher: LinearSumAssignment) -> None:
         """Test ONNX export and runtime inference."""

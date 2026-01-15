@@ -1,7 +1,7 @@
 ################
 # Libraries Base
 ################
-FROM python:3.12-slim-bookworm@sha256:2db3d54b851289c3fdf380af6c3eb0db09b072060151fb344de80673e1b26f81 AS backend-base
+FROM python:3.12-slim-bookworm@sha256:2c1bff202fdbaa9bdf199e1e4e08c8e75f30e3bb75c4419eb9995acb04b6251a AS backend-base
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
 # Disable Python downloads, because we want to use the system interpreter
@@ -24,35 +24,13 @@ COPY --link --from=libs ./pyproject.toml /geti_prompt/library/pyproject.toml
 RUN mkdir -p /geti_prompt/app/backend
 WORKDIR /geti_prompt/app/backend
 
-##########
-# CPU Base
-##########
-FROM backend-base AS cpu-base
+ARG DEVICE=""
+ENV DEVICE=${DEVICE}
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra cpu --extra mqtt
-
-##########
-# GPU Base
-##########
-FROM backend-base AS gpu-base
-
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=backend/uv.lock,target=uv.lock \
-    --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra cu126 --extra mqtt
-
-##########
-# XPU Base
-##########
-FROM backend-base AS xpu-base
-
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=backend/uv.lock,target=uv.lock \
-    --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra xpu --extra mqtt
+    uv sync --frozen --no-dev --no-editable --extra ${DEVICE} --extra mqtt
 
 ##################
 # Geti UI packages
@@ -85,8 +63,7 @@ COPY --link ui/src/ src/
 ########
 FROM web-ui-base AS web-ui
 
-ARG ASSET_PREFIX=""
-ENV ASSET_PREFIX=${ASSET_PREFIX}
+ENV ASSET_PREFIX="/html"
 
 # build with --no-cache in case of sub-dependency changes (from geti)
 RUN npm run build
@@ -94,16 +71,11 @@ RUN npm run build
 ##########################################
 # Base for CPU, GPU and XPU runtime images
 ##########################################
-FROM python:3.12-slim-bookworm@sha256:2db3d54b851289c3fdf380af6c3eb0db09b072060151fb344de80673e1b26f81 AS runtime-base
+FROM python:3.12-slim-bookworm@sha256:2c1bff202fdbaa9bdf199e1e4e08c8e75f30e3bb75c4419eb9995acb04b6251a AS runtime-base
 
-ARG STATIC_FILES_DIR=""
-ENV STATIC_FILES_DIR=${STATIC_FILES_DIR}
-ARG DB_DATA_DIR=""
-ENV DB_DATA_DIR=${DB_DATA_DIR}
-ARG LOGS_DIR=""
-ENV LOGS_DIR=${LOGS_DIR}
-ARG MOCKED_FILE=""
-ENV MOCKED_FILE=${MOCKED_FILE}
+ENV STATIC_FILES_DIR="/geti_prompt/html"
+ENV DB_DATA_DIR="/geti_prompt/data"
+ENV LOGS_DIR="/geti_prompt/logs"
 ENV PATH="/geti_prompt/.venv/bin:$PATH"
 ENV PYTHONPATH=/geti_prompt/app
 ARG UID=10001
@@ -112,17 +84,17 @@ ARG USER_NAME="non-root"
 ENV USER_NAME=${USER_NAME}
 ARG TARGET_DATASET_DIR=""
 ARG SOURCE_DATASET_DIR=""
+ARG DEVICE=""
+ENV DEVICE=${DEVICE}
 
-# Create directory and set ownership before VOLUME instruction
+# Create directory and set ownership so mounting a volume works correctly
 RUN mkdir -p ${DB_DATA_DIR} && chown ${UID}:${UID} ${DB_DATA_DIR}
-VOLUME ${DB_DATA_DIR}
 RUN mkdir -p ${LOGS_DIR} && chown ${UID}:${UID} ${LOGS_DIR}
-VOLUME ${LOGS_DIR}
 
 # Install OpenGL libraries for opencv-python
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libgl1=1.6.0-1 \
-      libglib2.0-0=2.74.6-2+deb12u7 \
+      libglib2.0-0=2.74.6-2+deb12u8 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -143,8 +115,6 @@ COPY --link --chown=${UID} backend/app /geti_prompt/app
 COPY --from=backend-base --chown=${UID} /geti_prompt/library/src /geti_prompt/library/src
 COPY --from=backend-base --chown=${UID} /bin/uv /bin/uv
 COPY --from=web-ui --chown=${UID} /home/app/web_ui/dist/ ${STATIC_FILES_DIR}
-# temporary file for testing
-COPY --from=web-ui --chown=${UID} /home/app/web_ui/src/assets/test.webp ${MOCKED_FILE}
 
 WORKDIR /geti_prompt
 
@@ -160,7 +130,7 @@ CMD ["uv", "run", "app/main.py"]
 ######################
 FROM runtime-base AS cpu
 
-COPY --from=cpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
+COPY --from=backend-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
 
 ######################
 # Server (GPU version)
@@ -185,7 +155,7 @@ RUN apt-get update \
 # needed to define it here to allow installation of packages
 USER ${USER_NAME}
 
-COPY --from=gpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
+COPY --from=backend-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
 
 ######################
 # Server (XPU version)
@@ -195,7 +165,7 @@ FROM runtime-base AS xpu
 USER root
 
 RUN apt-get update  \
-    && apt-get install -y --no-install-recommends wget=1.21.3-1+deb12u1 gpg=2.2.40-1.1+deb12u1 \
+    && apt-get install -y --no-install-recommends wget=1.21.3-1+deb12u1 gpg=2.2.40-1.1+deb12u2 \
     && wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
        gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg \
     && echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy unified" | \
@@ -214,4 +184,4 @@ RUN apt-get update  \
 # needed to define it here to allow installation of packages
 USER ${USER_NAME}
 
-COPY --from=xpu-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
+COPY --from=backend-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv

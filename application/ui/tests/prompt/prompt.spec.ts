@@ -6,11 +6,12 @@
 import { expect, http, test } from '@geti-prompt/test-fixtures';
 import { Page } from '@playwright/test';
 
+import { getMockedVisualPromptItem } from '../../src/test-utils/mocks/mock-prompt';
+import { PromptPage } from '../annotator/prompt-page';
 import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations } from '../annotator/utils';
-import { LabelsPage } from '../labels/labels-page';
 import { registerApiLabels } from '../labels/mocks';
 import { initializeWebRTC } from './initialize-webrtc';
-import { MOCK_PROMPT, MOCK_PROMPT_ID, SECOND_PROMPT, WEBCAM_SOURCE } from './mocks';
+import { MOCK_PROMPT, MOCK_PROMPT_ID, SECOND_PROMPT, USB_CAMERA_SOURCE } from './mocks';
 
 const waitForSAM = async (page: Page) => {
     await expect(page.getByText('Processing image, please wait...')).toBeVisible({
@@ -22,16 +23,16 @@ const waitForSAM = async (page: Page) => {
 };
 
 test.describe('Prompt', () => {
-    test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, promptPage }) => {
+    test('Prompt flow', async ({ network, page, context, streamPage, annotatorPage, promptPage, labelsPage }) => {
         test.setTimeout(ANNOTATOR_PAGE_TIMEOUT);
         await initializeWebRTC({ page, context, network });
 
-        registerApiLabels({ network });
+        const labels = registerApiLabels({ network });
 
         network.use(
             http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {
                 return response(200).json({
-                    sources: [WEBCAM_SOURCE],
+                    sources: [USB_CAMERA_SOURCE],
                     pagination: {
                         count: 1,
                         total: 1,
@@ -41,7 +42,7 @@ test.describe('Prompt', () => {
                 });
             }),
             http.put('/api/v1/projects/{project_id}/sources/{source_id}', ({ response }) =>
-                response(200).json(WEBCAM_SOURCE)
+                response(200).json(USB_CAMERA_SOURCE)
             )
         );
 
@@ -66,7 +67,6 @@ test.describe('Prompt', () => {
         });
 
         await test.step('Adds a label', async () => {
-            const labelsPage = new LabelsPage(page);
             const labelName = 'Label 1';
 
             await labelsPage.showDialog();
@@ -106,13 +106,31 @@ test.describe('Prompt', () => {
         await test.step('Edits prompt', async () => {
             // Create a second prompt (we already have one from previous steps)
             await streamPage.captureFrame();
+
             await expect(annotatorPage.getCapturedFrame()).toBeVisible();
+
             await annotatorPage.addAnnotation();
+
+            const mockPrompt = getMockedVisualPromptItem({
+                ...MOCK_PROMPT,
+                annotations: MOCK_PROMPT.annotations.map((annotation) => ({
+                    ...annotation,
+                    label_id: labels[0].id,
+                })),
+            });
+
+            const secondMockPrompt = getMockedVisualPromptItem({
+                ...SECOND_PROMPT,
+                annotations: MOCK_PROMPT.annotations.map((annotation) => ({
+                    ...annotation,
+                    label_id: labels[0].id,
+                })),
+            });
 
             network.use(
                 http.get('/api/v1/projects/{project_id}/prompts', ({ response }) => {
                     return response(200).json({
-                        prompts: [MOCK_PROMPT, SECOND_PROMPT],
+                        prompts: [mockPrompt, secondMockPrompt],
                         pagination: {
                             total: 2,
                             count: 2,
@@ -129,7 +147,7 @@ test.describe('Prompt', () => {
             // Edit the first prompt
             network.use(
                 http.get('/api/v1/projects/{project_id}/prompts/{prompt_id}', ({ response }) => {
-                    return response(200).json(MOCK_PROMPT);
+                    return response(200).json(mockPrompt);
                 })
             );
 
@@ -142,7 +160,7 @@ test.describe('Prompt', () => {
 
             network.use(
                 http.put('/api/v1/projects/{project_id}/prompts/{prompt_id}', ({ response }) => {
-                    return response(200).json(MOCK_PROMPT);
+                    return response(200).json(mockPrompt);
                 })
             );
 
@@ -190,13 +208,14 @@ test.describe('Prompt', () => {
         context,
         streamPage,
         promptPage,
+        annotatorPage,
     }) => {
         await initializeWebRTC({ page, context, network });
 
         network.use(
             http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {
                 return response(200).json({
-                    sources: [WEBCAM_SOURCE],
+                    sources: [USB_CAMERA_SOURCE],
                     pagination: {
                         count: 1,
                         total: 1,
@@ -258,7 +277,9 @@ test.describe('Prompt', () => {
 
         await streamPage.captureFrame();
 
-        await expect(promptPage.getCapturedFrame(FRAME_ID)).toBeVisible();
+        const promptPageFullScreen = new PromptPage(page, annotatorPage.getScope());
+
+        await expect(promptPageFullScreen.getCapturedFrame(FRAME_ID)).toBeVisible();
         expect(page.url()).not.toContain(`promptId=`);
     });
 });

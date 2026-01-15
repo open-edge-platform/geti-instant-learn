@@ -1,7 +1,6 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
-from queue import Queue
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
@@ -9,12 +8,12 @@ import pytest
 
 from domain.dispatcher import (
     ComponentConfigChangeEvent,
+    ComponentType,
     ConfigChangeDispatcher,
     ProjectActivationEvent,
     ProjectDeactivationEvent,
 )
 from domain.services.schemas.pipeline import PipelineConfig
-from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 from runtime.pipeline_manager import PipelineManager
 
 
@@ -79,9 +78,11 @@ class TestPipelineManager:
             patch("runtime.pipeline_manager.ProjectService") as svc_cls,
             patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
             patch("runtime.pipeline_manager.FrameBroadcaster"),
+            patch("runtime.pipeline_manager.FrameRepository") as repo_cls,
         ):
             svc_inst = svc_cls.return_value
             svc_inst.get_active_pipeline_config.return_value = pipeline_cfg
+            repo_inst = repo_cls.return_value
 
             # Configure the mock Pipeline to support method chaining
             pipeline_inst = pipeline_cls.return_value
@@ -101,7 +102,8 @@ class TestPipelineManager:
             pipeline_cls.assert_called_once()
             call_args = pipeline_cls.call_args.args
             assert call_args[0] == pipeline_cfg.project_id
-            assert len(call_args) == 3  # project_id + 2 broadcasters
+            assert call_args[1] == repo_inst
+            assert len(call_args) == 4  # project_id + repo + 2 broadcasters
 
             # Check fluent API calls
             pipeline_inst.set_source.assert_called_once()
@@ -115,6 +117,7 @@ class TestPipelineManager:
         with (
             patch("runtime.pipeline_manager.ProjectService") as svc_cls,
             patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
+            patch("runtime.pipeline_manager.FrameRepository"),
         ):
             svc_inst = svc_cls.return_value
             svc_inst.get_active_pipeline_config.return_value = None
@@ -131,8 +134,10 @@ class TestPipelineManager:
         with (
             patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
             patch("runtime.pipeline_manager.FrameBroadcaster"),
+            patch("runtime.pipeline_manager.FrameRepository") as repo_cls,
         ):
             pid = uuid4()
+            repo_inst = repo_cls.return_value
 
             # Configure the mock Pipeline to support method chaining
             pipeline_inst = pipeline_cls.return_value
@@ -152,7 +157,8 @@ class TestPipelineManager:
             pipeline_cls.assert_called_once()
             call_args = pipeline_cls.call_args.args
             assert call_args[0] == pid
-            assert len(call_args) == 3  # project_id + 2 broadcasters
+            assert call_args[1] == repo_inst
+            assert len(call_args) == 4  # project_id + repo + 2 broadcasters
 
             # Check fluent API calls
             pipeline_inst.set_source.assert_called_once()
@@ -166,6 +172,7 @@ class TestPipelineManager:
         with (
             patch("runtime.pipeline_manager.Pipeline") as pipeline_cls,
             patch("runtime.pipeline_manager.FrameBroadcaster"),
+            patch("runtime.pipeline_manager.FrameRepository"),
         ):
             # Existing pipeline
             old_pipeline = Mock()
@@ -192,7 +199,7 @@ class TestPipelineManager:
             pipeline_cls.assert_called_once()
             call_args = pipeline_cls.call_args.args
             assert call_args[0] == pid_new
-            assert len(call_args) == 3  # project_id + 2 broadcasters
+            assert len(call_args) == 4  # project_id + repo + 2 broadcasters
 
             pipeline_inst.set_source.assert_called_once()
             pipeline_inst.set_processor.assert_called_once()
@@ -232,13 +239,16 @@ class TestPipelineManager:
     ):
         with patch("runtime.pipeline_manager.Pipeline"):
             pid = uuid4()
+            component_id = uuid4()
             running = Mock()
             running.project_id = pid
 
             mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
             mgr._pipeline = running
 
-            ev = ComponentConfigChangeEvent(project_id=pid, component_type="source", component_id="abc")
+            ev = ComponentConfigChangeEvent(
+                project_id=pid, component_type=ComponentType.SOURCE, component_id=component_id
+            )
             mgr.on_config_change(ev)
 
             mock_component_factory.create_source.assert_called_once_with(pid)
@@ -248,13 +258,16 @@ class TestPipelineManager:
         with patch("runtime.pipeline_manager.Pipeline"):
             pid_running = uuid4()
             pid_event = uuid4()
+            component_id = uuid4()
             running = Mock()
             running.project_id = pid_running
 
             mgr = PipelineManager(dispatcher, session_factory)
             mgr._pipeline = running
 
-            ev = ComponentConfigChangeEvent(project_id=pid_event, component_type="source", component_id="abc")
+            ev = ComponentConfigChangeEvent(
+                project_id=pid_event, component_type=ComponentType.SOURCE, component_id=component_id
+            )
             mgr.on_config_change(ev)
 
             running.set_source.assert_not_called()
@@ -274,75 +287,3 @@ class TestPipelineManager:
         mgr._pipeline = None
         mgr.stop()
         assert mgr._pipeline is None
-
-    def test_register_inbound_consumer_success(self, dispatcher, session_factory):
-        with patch("runtime.pipeline_manager.ProjectService"), patch("runtime.pipeline_manager.Pipeline"):
-            pid = uuid4()
-            mock_pipeline = Mock()
-            mock_pipeline.project_id = pid
-            mock_queue = Queue()
-            mock_pipeline.register_inbound_consumer.return_value = mock_queue
-
-            mgr = PipelineManager(dispatcher, session_factory)
-            mgr._pipeline = mock_pipeline
-
-            result = mgr.register_inbound_consumer(pid)
-
-            assert result == mock_queue
-            mock_pipeline.register_inbound_consumer.assert_called_once()
-
-    def test_register_inbound_consumer_no_pipeline(self, dispatcher, session_factory):
-        mgr = PipelineManager(dispatcher, session_factory)
-        mgr._pipeline = None
-
-        with pytest.raises(PipelineNotActiveError, match="No active pipeline to register inbound consumer"):
-            mgr.register_inbound_consumer(uuid4())
-
-    def test_register_inbound_consumer_project_mismatch(self, dispatcher, session_factory):
-        with patch("runtime.pipeline_manager.ProjectService"), patch("runtime.pipeline_manager.Pipeline"):
-            pid_running = uuid4()
-            pid_requested = uuid4()
-
-            mock_pipeline = Mock()
-            mock_pipeline.project_id = pid_running
-
-            mgr = PipelineManager(dispatcher, session_factory)
-            mgr._pipeline = mock_pipeline
-
-            with pytest.raises(PipelineProjectMismatchError, match="does not match the active pipeline's project ID"):
-                mgr.register_inbound_consumer(pid_requested)
-
-    def test_unregister_inbound_consumer_success(self, dispatcher, session_factory):
-        with patch("runtime.pipeline_manager.ProjectService"), patch("runtime.pipeline_manager.Pipeline"):
-            pid = uuid4()
-            mock_pipeline = Mock()
-            mock_pipeline.project_id = pid
-            mock_queue = Queue()
-
-            mgr = PipelineManager(dispatcher, session_factory)
-            mgr._pipeline = mock_pipeline
-
-            mgr.unregister_inbound_consumer(pid, mock_queue)
-
-            mock_pipeline.unregister_inbound_consumer.assert_called_once_with(mock_queue)
-
-    def test_unregister_inbound_consumer_no_pipeline(self, dispatcher, session_factory):
-        mgr = PipelineManager(dispatcher, session_factory)
-        mgr._pipeline = None
-
-        with pytest.raises(PipelineNotActiveError, match="No active pipeline to unregister inbound consumer from"):
-            mgr.unregister_inbound_consumer(uuid4(), Queue())
-
-    def test_unregister_inbound_consumer_project_mismatch(self, dispatcher, session_factory):
-        with patch("runtime.pipeline_manager.ProjectService"), patch("runtime.pipeline_manager.Pipeline"):
-            pid_running = uuid4()
-            pid_requested = uuid4()
-
-            mock_pipeline = Mock()
-            mock_pipeline.project_id = pid_running
-
-            mgr = PipelineManager(dispatcher, session_factory)
-            mgr._pipeline = mock_pipeline
-
-            with pytest.raises(PipelineProjectMismatchError, match="does not match the active pipeline's project ID"):
-                mgr.unregister_inbound_consumer(pid_requested, Queue())

@@ -7,6 +7,7 @@ import { FormEvent, useState } from 'react';
 
 import { ImagesFolderSourceType } from '@geti-prompt/api';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { getQueryKey } from '@geti-prompt/query-client';
 import { Flex, Form } from '@geti/ui';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -48,23 +49,23 @@ const useUpdateImagesFolderSource = (sourceId: string) => {
                 };
 
                 queryClient.invalidateQueries({
-                    queryKey: [
+                    queryKey: getQueryKey([
                         'get',
                         '/api/v1/projects/{project_id}/sources/{source_id}/frames',
                         {
                             params,
                         },
-                    ],
+                    ]),
                 });
 
                 queryClient.invalidateQueries({
-                    queryKey: [
+                    queryKey: getQueryKey([
                         'get',
                         '/api/v1/projects/{project_id}/sources/{source_id}/frames/index',
                         {
                             params,
                         },
-                    ],
+                    ]),
                 });
 
                 onSuccess();
@@ -90,7 +91,7 @@ export const EditImagesFolder = ({ source, onSaved }: EditImagesFolderProps) => 
         updateImagesFolderSource.isPending;
 
     const handleUpdateImagesFolder = (active: boolean) => {
-        updateImagesFolderSource.mutate({ folderPath, active }, onSaved);
+        updateImagesFolderSource.mutate({ folderPath: folderPath.trim(), active }, onSaved);
     };
 
     const handleSave = () => {

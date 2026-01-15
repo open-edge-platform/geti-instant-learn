@@ -1,9 +1,8 @@
 """Generate bounding boxes using a zero shot object detector."""
 
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from collections import defaultdict
 from difflib import SequenceMatcher
 from enum import Enum
 
@@ -26,7 +25,39 @@ class GroundingModel(Enum):
 
 
 class TextToBoxPromptGenerator(nn.Module):
-    """This class generates text-to-box prompts for the segmenter."""
+    """Generates box prompts from text using a zero-shot object detector.
+
+    All outputs are tensors for full traceability (ONNX/TorchScript compatible).
+
+    Args:
+        box_threshold: Confidence threshold for box detection.
+        text_threshold: Confidence threshold for text matching.
+        template: Template string for formatting category names.
+        model_id: The grounding model to use.
+        device: Device to run the model on.
+        precision: Model precision (bf16, fp16, fp32).
+        compile_models: Whether to compile the models.
+        max_boxes: Maximum boxes per category for output padding. Default: 50.
+
+    Examples:
+        >>> import torch
+        >>> from getiprompt.components.prompt_generators import TextToBoxPromptGenerator
+        >>>
+        >>> generator = TextToBoxPromptGenerator(
+        ...     box_threshold=0.4,
+        ...     text_threshold=0.3,
+        ...     template=TextToBoxPromptGenerator.Template.specific_object,
+        ... )
+        >>> # category_mapping: {category_name: category_id}
+        >>> category_mapping = {"cat": 1, "dog": 2}
+        >>> box_prompts, num_boxes, category_ids = generator(images, category_mapping)
+        >>> box_prompts.shape  # [T, C, max_boxes, 5]
+        torch.Size([1, 2, 50, 5])
+        >>> num_boxes.shape  # [T, C]
+        torch.Size([1, 2])
+        >>> category_ids.shape  # [C]
+        torch.Size([2])
+    """
 
     class Template:
         """Template for object prompts."""
@@ -44,23 +75,13 @@ class TextToBoxPromptGenerator(nn.Module):
         device: str = "cuda",
         precision: str = "bf16",
         compile_models: bool = False,
+        max_boxes: int = 50,
     ) -> None:
-        """Initialize the GroundingBoxGenerator.
-
-        Get bounding box prompts from a grounding model.
-
-        Args:
-            box_threshold: The box threshold.
-            text_threshold: The text threshold.
-            template: The template to use for the prompt
-            model_id: The grounding model to use.
-            device: The device to use.
-            precision: The precision to use for the model.
-            compile_models: Whether to compile the models.
-        """
+        """Initialize the TextToBoxPromptGenerator."""
         super().__init__()
         self.model_id = model_id.value
         self.device = device
+        self.max_boxes = max_boxes
         self.model, self.processor = self._load_grounding_model_and_processor(
             self.model_id,
             precision,
@@ -78,19 +99,11 @@ class TextToBoxPromptGenerator(nn.Module):
         device: str,
         compile_models: bool,
     ) -> tuple[AutoModelForZeroShotObjectDetection, AutoProcessor]:
-        """Load the grounding model and processor.
-
-        Args:
-            model_id: The model id to load.
-            precision: The precision to use for the model.
-            device: The device to use for the model.
-            compile_models: Whether to compile the models.
-        """
+        """Load the grounding model and processor."""
         from getiprompt.utils.optimization import optimize_model
 
         processor = AutoProcessor.from_pretrained(model_id)
         if model_id.startswith("fushh7/llmdet_swin"):
-            # LLMDET has a slightly different interface, use lazy import for efficiency
             from getiprompt.models.foundation import GroundingDinoForObjectDetection
 
             model = GroundingDinoForObjectDetection.from_pretrained(
@@ -112,15 +125,7 @@ class TextToBoxPromptGenerator(nn.Module):
 
     @staticmethod
     def _map_labels_to_categories(labels: list[str], category_mapping: dict[str, int]) -> list[str]:
-        """Map labels to their best matching category by similarity.
-
-        Args:
-            labels(list[str]): The labels to map to categories.
-            category_mapping(dict[str, int]): The category mapping.
-
-        Returns:
-            list[str]: The mapped labels that match categories from ``category_mapping``.
-        """
+        """Map labels to their best matching category by similarity."""
         processed_labels = []
         for label in labels:
             if label not in category_mapping:
@@ -128,19 +133,40 @@ class TextToBoxPromptGenerator(nn.Module):
             processed_labels.append(label)
         return processed_labels
 
+    def _pad_boxes(self, boxes: torch.Tensor, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
+        """Pad boxes tensor to max_boxes size.
+
+        Args:
+            boxes: Boxes tensor [N, 5] with (x1, y1, x2, y2, score)
+            device: Target device
+            dtype: Target dtype
+
+        Returns:
+            Padded boxes tensor [max_boxes, 5]
+        """
+        num_boxes = boxes.shape[0] if boxes.numel() > 0 else 0
+        if num_boxes >= self.max_boxes:
+            return boxes[: self.max_boxes]
+
+        padded = torch.zeros(self.max_boxes, 5, device=device, dtype=dtype)
+        if num_boxes > 0:
+            padded[:num_boxes] = boxes
+        return padded
+
     def forward(
         self,
         target_images: list[tv_tensors.Image],
         category_mapping: dict[str, int],
-    ) -> list[dict[int, torch.Tensor]]:
-        """This generates bounding box prompt candidates based on the text priors.
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Generate box prompts from text priors.
 
         Args:
-            target_images(list[tv_tensors.Image]): The target images
-            category_mapping(dict[str, int]): The category mapping
+            target_images: List of target images
+            category_mapping: Mapping from category name to category ID
 
         Returns:
-            list[dict[int, torch.Tensor]]: List of prompts per image, one per target image instance.
+            box_prompts: [T, C, max_boxes, 5] - padded box prompts (x1, y1, x2, y2, score)
+            category_ids: [C] - category ID mapping
         """
         formatted_categories = [self.template.format(prior=category) for category in category_mapping]
         prompts = ""
@@ -163,26 +189,38 @@ class TextToBoxPromptGenerator(nn.Module):
             target_sizes=sizes,
         )
 
-        # Generate all priors from the result of the Dino model.
-        box_prompts: list[dict[int, torch.Tensor]] = []
-        for result in results:
+        # Build category_ids tensor from mapping (sorted by category name for consistency)
+        sorted_categories = sorted(category_mapping.keys())
+        category_ids_list = [category_mapping[cat] for cat in sorted_categories]
+        cat_name_to_idx = {cat: idx for idx, cat in enumerate(sorted_categories)}
+
+        num_images = len(target_images)
+        num_categories = len(category_ids_list)
+        device = torch.device(self.device)
+        dtype = torch.float32
+
+        # Pre-allocate output tensors
+        box_prompts = torch.zeros(num_images, num_categories, self.max_boxes, 5, device=device, dtype=dtype)
+        category_ids = torch.tensor(category_ids_list, device=device, dtype=torch.int64)
+
+        # Process each image's results
+        for img_idx, result in enumerate(results):
             pred_labels = self._map_labels_to_categories(result["labels"], category_mapping)
-            pred_label_ids = [category_mapping[label] for label in pred_labels]
             pred_bboxes = result["boxes"]
             pred_scores = result["scores"]
 
-            class_prompts: dict[int, torch.Tensor] = defaultdict(list)
-            for pred_bbox, pred_score, pred_label_id in zip(
-                pred_bboxes,
-                pred_scores,
-                pred_label_ids,
-                strict=True,
-            ):
-                class_prompts[pred_label_id].append(torch.cat([pred_bbox, pred_score.unsqueeze(0)], dim=0))
+            # Group boxes by category
+            boxes_per_category: dict[int, list[torch.Tensor]] = {idx: [] for idx in range(num_categories)}
 
-            for class_id, prompts in class_prompts.items():
-                class_prompts[class_id] = torch.stack(prompts)
+            for pred_bbox, pred_score, pred_label in zip(pred_bboxes, pred_scores, pred_labels, strict=True):
+                cat_idx = cat_name_to_idx[pred_label]
+                box_with_score = torch.cat([pred_bbox, pred_score.unsqueeze(0)], dim=0)
+                boxes_per_category[cat_idx].append(box_with_score)
 
-            box_prompts.append(class_prompts)
+            # Fill tensors for each category
+            for cat_idx, boxes_list in boxes_per_category.items():
+                if boxes_list:
+                    boxes = torch.stack(boxes_list)
+                    box_prompts[img_idx, cat_idx] = self._pad_boxes(boxes, device, dtype)
 
-        return box_prompts
+        return box_prompts, category_ids

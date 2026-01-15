@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 import glob
+import platform
 from PyInstaller.utils.hooks import collect_all, collect_dynamic_libs, collect_submodules, collect_data_files
 
 datas = [
@@ -24,6 +25,12 @@ datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('getiprompt')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
+runtime_hooks = []
+
+system = platform.system()
+if system == "Windows":
+    runtime_hooks = ['pyinstaller/windows/uwp.py', 'pyinstaller/windows/proxy.py']
+
 a = Analysis(
     ['app/main.py'],
     pathex=['app'],
@@ -32,7 +39,7 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=['pyinstaller/hook-setenv.py'],
+    runtime_hooks=runtime_hooks,
     excludes=[
         'torch.utils.benchmark',
         'torchmetrics',

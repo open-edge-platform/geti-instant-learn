@@ -5,10 +5,8 @@ use std::{
     env,
     process::{Child, Command},
     sync::{Arc, Mutex},
-    time::Duration,
 };
 use tauri::RunEvent;
-use reqwest::blocking::Client;
 
 /// “geti-prompt-backend.exe” on Windows, “geti-prompt-backend” elsewhere.
 fn backend_filename() -> &'static str {
@@ -34,26 +32,12 @@ fn spawn_backend() -> std::io::Result<Child> {
     log::info!("▶ Looking for backend side-car at {:?}", backend_path);
     let mut command = Command::new(&backend_path);
     command.env("CORS_ORIGINS", "http://tauri.localhost");
-    #[cfg(windows)]
+    #[cfg(all(windows, not(debug_assertions)))]
     {
         use std::os::windows::process::CommandExt;
         command.creation_flags(0x08000000); // CREATE_NO_WINDOW
     }
     let child = command.spawn()?;
-
-    // Wait for backend to be ready
-    let client = Client::new();
-    let max_attempts = 15;
-    let delay = Duration::from_millis(1000);
-    let url = "http://127.0.0.1:9100/health";
-
-    for _ in 0..max_attempts {
-        if client.get(url).send().is_ok() {
-            log::info!("✅ Backend REST API is up at {}", url);
-            break;
-        }
-        std::thread::sleep(delay);
-    }
 
     log::info!("▶ Spawned backend: {:?}", backend_path);
     Ok(child)

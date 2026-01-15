@@ -34,7 +34,7 @@ jobs:
           fi
 
       - name: Checkout code
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
           ref: ${{ inputs.sha-commit || '' }}
@@ -51,7 +51,7 @@ jobs:
           BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just ai-device="${DEVICE}" version="${BUILD_VERSION}" docker-build-context="--no-cache" build-image
+          just build-target="${DEVICE}" version="${BUILD_VERSION}" docker-build-context="--no-cache" build-image
 
       - name: Show size of the image for ${{ matrix.ai-device }}
         working-directory: application
@@ -59,7 +59,7 @@ jobs:
           BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just ai-device="${DEVICE}" version="${BUILD_VERSION}" show-size
+          just build-target="${DEVICE}" version="${BUILD_VERSION}" show-size
 
       - name: Test image for ${{ matrix.ai-device }}
         working-directory: application
@@ -67,4 +67,4 @@ jobs:
           BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just ai-device="${DEVICE}" version="${BUILD_VERSION}" test-image
+          just build-target="${DEVICE}" version="${BUILD_VERSION}" test-image

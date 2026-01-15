@@ -1,0 +1,13 @@
+{
+  "config": {
+    "MD013": false,
+    "MD029": { "style": "ordered" }
+  },
+  "globs": [
+    "**/*.md"
+  ],
+  "ignores": [
+    "SECURITY.md",
+    ".github/copilot-instructions.md"
+  ]
+}

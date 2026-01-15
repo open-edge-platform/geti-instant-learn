@@ -10,15 +10,8 @@ from sqlalchemy.orm import Session
 from api.error_handler import extract_constraint_name
 from domain.db.constraints import UniqueConstraintName
 from domain.db.models import ProcessorDB, ProjectDB
-from domain.dispatcher import (
-    ComponentConfigChangeEvent,
-    ConfigChangeDispatcher,
-)
-from domain.errors import (
-    ResourceAlreadyExistsError,
-    ResourceNotFoundError,
-    ResourceType,
-)
+from domain.dispatcher import ComponentConfigChangeEvent, ComponentType, ConfigChangeDispatcher
+from domain.errors import ResourceAlreadyExistsError, ResourceNotFoundError, ResourceType
 from domain.repositories.processor import ProcessorRepository
 from domain.repositories.project import ProjectRepository
 from domain.services.base import BaseService
@@ -251,7 +244,7 @@ class ModelService(BaseService):
         if self._dispatcher:
             self._pending_events.append(
                 ComponentConfigChangeEvent(
-                    project_id=project_id, component_id=str(model_id), component_type="processor"
+                    project_id=project_id, component_type=ComponentType.PROCESSOR, component_id=model_id
                 )
             )
 

@@ -11,12 +11,16 @@ const isUniqueLabelName = (name: string, existingLabels: LabelType[], excludeId?
     return !existingLabels.some((label) => label.name === name && label.id !== excludeId);
 };
 
-export const validateLabelName = (name: string, existingLabels: LabelType[], excludeId?: string): string | null => {
+export const validateLabelName = (
+    name: string,
+    existingLabels: LabelType[],
+    excludeId?: string
+): string | undefined => {
     const trimmedName = name.trim();
 
     if (!isUniqueLabelName(trimmedName, existingLabels, excludeId)) {
         return 'Label name must be unique.';
     }
 
-    return null;
+    return undefined;
 };

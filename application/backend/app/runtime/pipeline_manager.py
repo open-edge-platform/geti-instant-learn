@@ -9,11 +9,13 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from domain.dispatcher import (
     ComponentConfigChangeEvent,
+    ComponentType,
     ConfigChangeDispatcher,
     ConfigChangeEvent,
     ProjectActivationEvent,
     ProjectDeactivationEvent,
 )
+from domain.repositories.frame import FrameRepository
 from domain.services.project import ProjectService
 from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.processor import InputData, OutputData
@@ -50,6 +52,7 @@ class PipelineManager:
     ):
         self._event_dispatcher = event_dispatcher
         self._session_factory = session_factory
+        self._frame_repository = FrameRepository()
         self._component_factory = component_factory or DefaultComponentFactory(session_factory)
         # todo: bundle refs to pipeline and pipeline config together.
         self._pipeline: Pipeline | None = None
@@ -118,30 +121,36 @@ class PipelineManager:
         sink = self._component_factory.create_sink(project_id)
 
         return (
-            Pipeline(project_id, FrameBroadcaster[InputData](), FrameBroadcaster[OutputData]())
+            Pipeline(
+                project_id,
+                self._frame_repository,
+                FrameBroadcaster[InputData](),
+                FrameBroadcaster[OutputData](),
+            )
             .set_source(source)
             .set_processor(processor)
             .set_sink(sink)
         )
 
-    def _update_pipeline_components(self, project_id: UUID, component_type: str) -> None:
+    def _update_pipeline_components(self, project_id: UUID, component_type: ComponentType) -> None:
         """
         Compare current and new configurations, updating only changed components.
 
         Args:
-            new_config: The new pipeline configuration.
+            project_id: The project ID for the pipeline.
+            component_type: The type of component to update.
         """
         if not self._pipeline:
             return
 
         match component_type:
-            case "source":
+            case ComponentType.SOURCE:
                 source = self._component_factory.create_source(project_id)
                 self._pipeline.set_source(source, True)
-            case "processor":
+            case ComponentType.PROCESSOR:
                 processor = self._component_factory.create_processor(project_id)
                 self._pipeline.set_processor(processor, True)
-            case "sink":
+            case ComponentType.SINK:
                 sink = self._component_factory.create_sink(project_id)
                 self._pipeline.set_sink(sink, True)
             case _ as unknown:
@@ -166,48 +175,6 @@ class PipelineManager:
         if project_id != self._pipeline.project_id:
             raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
         return self._pipeline.unregister_webrtc(queue=target_queue)
-
-    def register_inbound_consumer(self, project_id: UUID) -> queue.Queue[InputData]:
-        """
-        Register a consumer for raw input frames from the source.
-
-        Args:
-            project_id: The project ID to verify against the active pipeline.
-
-        Returns:
-            A queue that will receive raw input frames.
-
-        Raises:
-            PipelineNotActiveError: If no pipeline is running.
-            PipelineProjectMismatchError: If project_id doesn't match the active pipeline.
-        """
-        if self._pipeline is None:
-            raise PipelineNotActiveError("No active pipeline to register inbound consumer.")
-        if project_id != self._pipeline.project_id:
-            raise PipelineProjectMismatchError(
-                f"Project ID {project_id} does not match the active pipeline's project ID {self._pipeline.project_id}."
-            )
-        return self._pipeline.register_inbound_consumer()
-
-    def unregister_inbound_consumer(self, project_id: UUID, target_queue: queue.Queue[InputData]) -> None:
-        """
-        Unregister a consumer for raw input frames.
-
-        Args:
-            project_id: The project ID to verify against the active pipeline.
-            target_queue: The queue to unregister.
-
-        Raises:
-            PipelineNotActiveError: If no pipeline is running.
-            PipelineProjectMismatchError: If project_id doesn't match the active pipeline.
-        """
-        if self._pipeline is None:
-            raise PipelineNotActiveError("No active pipeline to unregister inbound consumer from.")
-        if project_id != self._pipeline.project_id:
-            raise PipelineProjectMismatchError(
-                f"Project ID {project_id} does not match the active pipeline's project ID {self._pipeline.project_id}."
-            )
-        self._pipeline.unregister_inbound_consumer(target_queue)
 
     def seek(self, project_id: UUID, index: int) -> None:
         """
@@ -287,3 +254,21 @@ class PipelineManager:
             return self._pipeline.list_frames(offset, limit)
         except UnsupportedOperationError:
             raise SourceNotSeekableError("The active source does not support frame listing.")
+
+    def capture_frame(self, project_id: UUID) -> UUID:
+        """
+        Capture the latest frame from the active pipeline.
+
+        Args:
+            project_id: The project ID.
+
+        Returns:
+            UUID of the captured frame.
+        """
+        if self._pipeline is None:
+            raise PipelineNotActiveError("No active pipeline.")
+        if project_id != self._pipeline.project_id:
+            raise PipelineProjectMismatchError(
+                f"Project ID {project_id} does not match the active pipeline's project ID."
+            )
+        return self._pipeline.capture_frame()

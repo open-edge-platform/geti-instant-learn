@@ -6,11 +6,17 @@ on:
         description: "Specifies the build version to apply to all binaries produced by this workflow"
         type: string
         required: true
-      ai_device:
-        description: "Specifies the AI device to build the backend for (cpu, xpu, gpu)"
+      device:
+        description: "Specifies the device to build the backend for (cpu, xpu, gpu)"
         type: string
         required: true
         default: "xpu"
+      debug_build:
+        description: "If the debug build should be produced"
+        type: boolean
+        required: false
+        default: false
+
   # allow to manually trigger this workflow
   workflow_dispatch:
     inputs:
@@ -18,14 +24,19 @@ on:
         description: "Specifies the build version to apply to all binaries produced by this workflow"
         type: string
         required: true
-      ai_device:
-        description: "Specifies the AI device to build the backend for (cpu, xpu, gpu)"
+      device:
+        description: "Specifies the device to build the backend for (cpu, xpu, gpu)"
         required: true
         options:
           - xpu
           - cpu
           - gpu
         default: "xpu"
+      debug_build:
+        description: "If the debug build should be produced"
+        required: false
+        type: boolean
+        default: false
 
 env:
   GIT_SH_PATH: C:\Program Files\Git\bin\sh.exe
@@ -35,9 +46,9 @@ env:
   BACKEND_DIST_PATH: .\application\backend\dist\geti-prompt-backend
   UI_SRC_API_PATH: .\application\ui\src\api
   UI_SRC_TAURI_PATH: .\application\ui\src-tauri
-  UI_TARGET_RELEASE_PATH: .\application\ui\src-tauri\target\release
-  UI_MSIX_BUNDLE_PATH: .\application\ui\src-tauri\target\release\bundle\msix
+  UI_TARGET_PATH: .\application\ui\src-tauri\target
   MAKEAPP_PATH: "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.26100.0\\x64\\makeappx.exe"
+  SIGNTOOL_PATH: "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.26100.0\\x64\\signtool.exe"
 
 jobs:
   windows-installer:
@@ -48,20 +59,45 @@ jobs:
     timeout-minutes: 60
 
     steps:
+
+      - name: Define paths
+        env:
+          DEBUG_BUILD: ${{ inputs.debug_build }}
+          DEVICE: ${{ inputs.device || 'xpu' }}
+          BUILD_VERSION: ${{ inputs.build_version }}
+        run: |
+          Write-Host "DEBUG_BUILD=$env:DEBUG_BUILD"
+          
+          $TARGET = $(IF ($env:DEBUG_BUILD -eq "true") {"debug"} else {"release"})         
+          $UI_BUILD_PATH = $env:UI_TARGET_PATH + "\" + $TARGET
+          Write-Host "UI_BUILD_PATH=$UI_BUILD_PATH"
+          Add-Content -Path $env:GITHUB_ENV -Value "UI_BUILD_PATH=$UI_BUILD_PATH"
+          
+          $UI_MSIX_BUNDLE_PATH = $UI_BUILD_PATH + "\bundle\msix"  
+          Write-Host "UI_MSIX_BUNDLE_PATH=$UI_MSIX_BUNDLE_PATH"
+          Add-Content -Path $env:GITHUB_ENV -Value "UI_MSIX_BUNDLE_PATH=$UI_MSIX_BUNDLE_PATH"
+          
+          $PREFIX = $(IF ($env:DEBUG_BUILD -eq "true") {"-debug"} else {""})
+          $MSIX_FILE_NAME = "geti-prompt-" + $env:DEVICE + "-" + $env:BUILD_VERSION + $PREFIX + ".msix"
+          $MSIX_FILE_PATH = $UI_MSIX_BUNDLE_PATH + "\" + $MSIX_FILE_NAME
+          Write-Host "MSIX_FILE_PATH=$MSIX_FILE_PATH"
+          Add-Content -Path $env:GITHUB_ENV -Value "MSIX_FILE_PATH=$MSIX_FILE_PATH"          
+          
+
       - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
       # Install and setup build tools
 
       - name: Set up Python
-        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
           python-version: "3.13"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@a02a550bdd3185dba2ebb6aa98d77047ce54ad21 # v6.2.1
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
         with:
           version: "0.9.7"
           enable-cache: true
@@ -71,31 +107,39 @@ jobs:
         run: choco install just --yes
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@6d9817901c499d6b02debbb57edb38d33daa680b
+        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
           toolchain: stable
+
+      - name: Cache Rust dependencies & target
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          save-if: ${{ startsWith(github.ref_name, 'release/') || github.ref_name == 'main' }}
+          workspaces: |
+            application\ui\src-tauri -> target
 
       # Build backend
 
       - name: Build OpenAPI spec
         working-directory: application/backend
         env:
-          AI_DEVICE: ${{ inputs.ai_device || 'xpu' }}
+          DEVICE: ${{ inputs.device || 'xpu' }}
         run: |
-          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c ai_extra="$env:AI_DEVICE" gen-openapi
+          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c device="$env:DEVICE" gen-openapi
 
       - name: Build executable
         working-directory: application/backend
         env:
-          AI_DEVICE: ${{ inputs.ai_device || 'xpu' }}
+          DEVICE: ${{ inputs.device || 'xpu' }}
         run: |
-          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c ai_extra="$env:AI_DEVICE" pyinstaller
+          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c device="$env:DEVICE" pyinstaller
 
       # Copy backend artifacts to UI
 
-      - name: Copy backend executable to UI
+      - name: Copy backend artifacts to UI
         run: |
           cp -r ${{ env.BACKEND_DIST_PATH }}\_internal ${{ env.UI_SRC_TAURI_PATH }}
+          cp -r ${{ env.BACKEND_DIST_PATH }}\InitialData ${{ env.UI_SRC_TAURI_PATH }}
           cp -r ${{ env.BACKEND_DIST_PATH }}\geti-prompt-backend.exe ${{ env.UI_SRC_TAURI_PATH }}\geti-prompt-backend-x86_64-pc-windows-msvc.exe
 
       - name: Copy OpenAPI spec
@@ -105,7 +149,7 @@ jobs:
         # Build UI with Tauri
 
       - name: Setup Node & npm
-        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
         with:
           node-version-file: application/ui/.nvmrc
           cache: 'npm'
@@ -122,31 +166,58 @@ jobs:
         run: npm ci
 
       - name: Install Tauri CLI
-        run: npm install -g @tauri-apps/cli
+        run: cargo install tauri-cli --version "^2.0.0" --locked
 
       - name: Build OpenAPI type definitions
         working-directory: application/ui
         run: npm run build:api:types
 
       - name: Build Tauri app
+        if: inputs.debug_build == true
+        env:
+          PUBLIC_API_URL: http://localhost:9100
         working-directory: application/ui
-        run: npm run tauri build
+        run: |
+          cargo tauri build --debug
+
+      - name: Build Tauri app
+        if: inputs.debug_build == false
+        env:
+          PUBLIC_API_URL: http://localhost:9100
+        working-directory: application/ui
+        run: |
+          cargo tauri build
 
       # Build MSIX bundle
 
       - name: Create MSIX package
-        env:
-          BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
-          AI_DEVICE: ${{ inputs.ai_device || 'xpu' }}
         run: |
-          mkdir -p ${{ env.UI_MSIX_BUNDLE_PATH }}
-          cp ${{ env.UI_TARGET_RELEASE_PATH }}\geti-prompt-backend.exe ${{ env.UI_MSIX_BUNDLE_PATH }}
-          cp ${{ env.UI_TARGET_RELEASE_PATH }}\geti_prompt_ui.exe ${{ env.UI_MSIX_BUNDLE_PATH }}
-          cp -r ${{ env.UI_TARGET_RELEASE_PATH }}\_internal ${{ env.UI_MSIX_BUNDLE_PATH }}
-          cp -r ${{ env.UI_SRC_TAURI_PATH }}\msix\* ${{ env.UI_MSIX_BUNDLE_PATH }}
-          & "${{ env.MAKEAPP_PATH }}" pack /d ${{ env.UI_MSIX_BUNDLE_PATH }} /p ${{ env.UI_MSIX_BUNDLE_PATH }}\geti-prompt-$env:AI_DEVICE-$env:BUILD_VERSION.msix
+          mkdir -p $env:UI_MSIX_BUNDLE_PATH
+          cp $env:UI_BUILD_PATH\geti-prompt-backend.exe $env:UI_MSIX_BUNDLE_PATH
+          cp $env:UI_BUILD_PATH\geti_prompt_ui.exe $env:UI_MSIX_BUNDLE_PATH
+          cp -r $env:UI_BUILD_PATH\_internal $env:UI_MSIX_BUNDLE_PATH
+          cp -r $env:UI_BUILD_PATH\InitialData $env:UI_MSIX_BUNDLE_PATH
+          cp -r ${{ env.UI_SRC_TAURI_PATH }}\msix\* $env:UI_MSIX_BUNDLE_PATH
+          & "${{ env.MAKEAPP_PATH }}" pack /d $env:UI_MSIX_BUNDLE_PATH /p $env:MSIX_FILE_PATH
+
+      - name: Sign MSIX package
+        env:
+          MSIX_SIGN_CERTIFICATE: ${{ secrets.MSIX_SIGN_CERTIFICATE }}
+          MSIX_SIGN_CERTIFICATE_PASSWORD: ${{ secrets.MSIX_SIGN_CERTIFICATE_PASSWORD }}
+        run: |
+          $bytes = [System.Convert]::FromBase64String($env:MSIX_SIGN_CERTIFICATE)
+          [System.IO.File]::WriteAllBytes("sign.pfx", $bytes)
+          try {
+            & "${{ env.SIGNTOOL_PATH }}" sign /fd SHA256 /a /f "sign.pfx" /p "$env:MSIX_SIGN_CERTIFICATE_PASSWORD" $env:MSIX_FILE_PATH
+          }
+          finally {
+            if (Test-Path "sign.pfx") {
+              Remove-Item "sign.pfx" -Force
+            }
+          }
 
       - name: Upload MSIX package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          path: ${{ env.UI_MSIX_BUNDLE_PATH }}\*.msix
+          path: ${{ env.MSIX_FILE_PATH }}
+          retention-days: 20
