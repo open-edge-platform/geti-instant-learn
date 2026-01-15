@@ -13,7 +13,7 @@ A production-ready platform for Visual Prompting on live video streams.
 Geti Prompt bridges the gap between research and production. It is a comprehensive platform that enables users to explore, develop, and deploy visual prompting algorithms. Whether you are experimenting with new foundation models or deploying them for real-time inference, Geti Prompt provides a modular architecture extensible to various streaming sources, designed to support inputs such as IP cameras and GenICams.
 
 <p align="center">
- <image src="https://github.com/user-attachments/assets/f1985144-9001-4449-a75e-b5e318105354" width="1200"/>
+ <image src="https://github.com/user-attachments/assets/9ccc585d-6590-4e54-b766-d95bdccf725d" width="1200"/>
 </p>
 
 ## 💡 What is Visual Prompting?
