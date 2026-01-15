@@ -5,7 +5,7 @@
 
 import { ReactNode, Suspense } from 'react';
 
-import { Flex, Grid, Loading, minmax } from '@geti/ui';
+import { Flex, Grid, Loading } from '@geti/ui';
 
 import { AnnotationProviders } from '../../../annotator/annotation-providers/annotation-providers.component';
 import { useVisualPrompt } from '../visual-prompt-provider.component';
