@@ -3,19 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { LabelType, WebcamSourceType } from '@geti-prompt/api';
+import { LabelType, USBCameraSourceType } from '@geti-prompt/api';
 import { http } from '@geti-prompt/test-fixtures';
 import { NetworkFixture } from '@msw/playwright';
 import { HttpResponse } from 'msw';
 
 const DEVICE_ID = 10;
-export const WEBCAM_SOURCE: WebcamSourceType = {
+export const USB_CAMERA_SOURCE: USBCameraSourceType = {
     active: true,
-    id: 'webcam-id',
+    id: 'usb-camera-id',
     config: {
         seekable: false,
         device_id: DEVICE_ID,
-        source_type: 'webcam',
+        source_type: 'usb_camera',
     },
 };
 

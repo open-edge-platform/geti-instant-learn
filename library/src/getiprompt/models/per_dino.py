@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """PerDino model."""
@@ -7,41 +7,36 @@ import torch
 
 from getiprompt.components import CosineSimilarity, SamDecoder
 from getiprompt.components.encoders import ImageEncoder
-from getiprompt.components.feature_extractors import MaskedFeatureExtractor
-from getiprompt.components.filters import PointPromptFilter
+from getiprompt.components.feature_extractors import MaskedFeatureExtractor, ReferenceFeatures
 from getiprompt.components.prompt_generators import GridPromptGenerator
-from getiprompt.components.sam.base import SAMPredictor
+from getiprompt.components.sam import load_sam_model
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.base import Model
 from getiprompt.utils.constants import Backend, SAMModelName
 
 
 class PerDino(Model):
-    """This is the PerDino algorithm model.
+    """PerDino algorithm model for one-shot segmentation.
 
-    It matches reference objects to target images by comparing their features extracted by Dino
-    and using Cosine Similarity. A grid prompt generator is used to generate prompts for the
-    segmenter and to allow for multi object target images.
+    Matches reference objects to target images by comparing features extracted by DINOv2
+    using cosine similarity. A grid prompt generator creates multi-object aware prompts.
+
+    The pipeline is fully traceable (ONNX/TorchScript compatible):
+    - Encoder → MaskedFeatureExtractor → CosineSimilarity → GridPromptGenerator → SamDecoder
 
     Examples:
         >>> from getiprompt.models import PerDino
         >>> from getiprompt.data.base import Batch
         >>> from getiprompt.data.base.sample import Sample
-        >>> from getiprompt.types import Results
         >>> import torch
         >>> import numpy as np
 
         >>> perdino = PerDino()
 
-        >>> # Create mock inputs
-        >>> ref_image = torch.zeros((3, 1024, 1024))
-        >>> target_image = torch.zeros((3, 1024, 1024))
-        >>> ref_mask = torch.ones(30, 30, dtype=torch.bool)
-
         >>> # Create reference sample
         >>> ref_sample = Sample(
-        ...     image=ref_image,
-        ...     masks=ref_mask.unsqueeze(0),
+        ...     image=torch.zeros((3, 1024, 1024)),
+        ...     masks=torch.ones(30, 30, dtype=torch.bool).unsqueeze(0),
         ...     category_ids=np.array([1]),
         ...     is_reference=[True],
         ...     categories=["object"],
@@ -50,7 +45,7 @@ class PerDino(Model):
 
         >>> # Create target sample
         >>> target_sample = Sample(
-        ...     image=target_image,
+        ...     image=torch.zeros((3, 1024, 1024)),
         ...     is_reference=[False],
         ...     categories=["object"],
         ... )
@@ -59,11 +54,6 @@ class PerDino(Model):
         >>> # Run fit and predict
         >>> perdino.fit(ref_batch)
         >>> predict_results = perdino.predict(target_batch)
-
-        >>> isinstance(predict_results, Results)
-        True
-        >>> predict_results.masks is not None
-        True
     """
 
     def __init__(
@@ -82,21 +72,20 @@ class PerDino(Model):
         """Initialize the PerDino model.
 
         Args:
-            sam: The name of the SAM model to use.
-            num_foreground_points: The number of foreground points to use.
-            num_background_points: The number of background points to use.
-            num_grid_cells: The number of grid cells to use.
-            similarity_threshold: The similarity threshold for the similarity matcher.
-            mask_similarity_threshold: The similarity threshold for the mask.
+            sam: SAM model variant to use.
             encoder_model: ImageEncoder model ID to use.
-            precision: The precision to use for the model.
-            compile_models: Whether to compile the models.
-            device: The device to use for the model.
+            num_foreground_points: Maximum foreground points per category.
+            num_background_points: Background points per category.
+            num_grid_cells: Number of grid cells for prompt generation.
+            similarity_threshold: Threshold for foreground point selection.
+            mask_similarity_threshold: Threshold for similarity-based mask filtering.
+            precision: Model precision ("bf16", "fp32").
+            compile_models: Whether to compile models with torch.compile.
+            device: Device for inference.
         """
         super().__init__()
-        self.sam_predictor = SAMPredictor(
+        self.sam_predictor = load_sam_model(
             sam,
-            backend=Backend.PYTORCH,
             device=device,
             precision=precision,
             compile_models=compile_models,
@@ -109,58 +98,87 @@ class PerDino(Model):
             precision=precision,
             compile_models=compile_models,
         )
-        # Local feature extraction with mask pooling
+
         self.masked_feature_extractor = MaskedFeatureExtractor(
             input_size=self.encoder.input_size,
             patch_size=self.encoder.patch_size,
             device=device,
         )
-        self.similarity_matcher = CosineSimilarity()
+
+        self.similarity_matcher = CosineSimilarity(feature_size=self.encoder.feature_size)
+
+        max_points = num_foreground_points + num_background_points
         self.prompt_generator = GridPromptGenerator(
             num_grid_cells=num_grid_cells,
             similarity_threshold=similarity_threshold,
             num_bg_points=num_background_points,
+            num_foreground_points=num_foreground_points,
+            max_points=max_points,
         )
-        self.prompt_filter = PointPromptFilter(num_foreground_points=num_foreground_points)
-        self.segmenter: SamDecoder = SamDecoder(
+
+        self.segmenter = SamDecoder(
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
         )
-        self.masked_ref_embeddings = None
+
+        self.ref_features: ReferenceFeatures | None = None
 
     def fit(self, reference_batch: Batch) -> None:
-        """Perform learning step on the reference images and priors."""
-        # Start running the model
+        """Learn from reference images.
+
+        Args:
+            reference_batch: Batch containing reference images, masks, and category IDs.
+        """
         reference_embeddings = self.encoder(reference_batch.images)
-        self.masked_ref_embeddings, _, _ = self.masked_feature_extractor(
+        self.ref_features = self.masked_feature_extractor(
             reference_embeddings,
             reference_batch.masks,
             reference_batch.category_ids,
         )
 
     def predict(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
-        """Perform inference step on the target images.
+        """Predict masks for target images.
 
         Args:
-            target_batch(Batch): The target batch.
+            target_batch: Batch containing target images.
 
         Returns:
-            predictions(list[dict[str, torch.Tensor]]): A list of predictions.
-            Each prediction contains:
-                "pred_masks": torch.Tensor of shape [num_masks, H, W]
-                "pred_points": torch.Tensor of shape [num_points, 4] with last dimension [x, y, score, fg_label]
-                "pred_boxes": torch.Tensor of shape [num_boxes, 5] with last dimension [x1, y1, x2, y2, score]
-                "pred_labels": torch.Tensor of shape [num_masks]
+            List of predictions per image, each containing:
+                "pred_masks": [num_masks, H, W]
+                "pred_scores": [num_masks]
+                "pred_labels": [num_masks] - category IDs
         """
-        # Start running the model
-        target_images = target_batch.images
-        image_sizes = [image.shape[-2:] for image in target_images]
-        target_embeddings = self.encoder(target_images)
-        similarities_per_image = self.similarity_matcher(self.masked_ref_embeddings, target_embeddings, image_sizes)
-        point_prompts = self.prompt_generator(similarities_per_image, target_images)
-        point_prompts = self.prompt_filter(point_prompts)
+        if self.ref_features is None:
+            msg = "No reference features. Call fit() first."
+            raise RuntimeError(msg)
+
+        # Get original sizes [T, 2]
+        original_sizes = torch.tensor(
+            [image.size()[-2:] for image in target_batch.images],
+            device=self.ref_features.device,
+        )
+
+        # Encode targets [T, num_patches, embed_dim]
+        target_embeddings = self.encoder(target_batch.images)
+
+        # Compute similarities [T, C, feat_size, feat_size]
+        similarities = self.similarity_matcher(
+            self.ref_features.masked_ref_embeddings,
+            target_embeddings,
+            self.ref_features.category_ids,
+        )
+
+        # Generate prompts [T, C, max_points, 4], [T, C]
+        point_prompts = self.prompt_generator(
+            similarities,
+            self.ref_features.category_ids,
+            original_sizes,
+        )
+
+        # Decode masks
         return self.segmenter(
-            target_images,
+            target_batch.images,
+            self.ref_features.category_ids,
             point_prompts=point_prompts,
-            similarities=similarities_per_image,
+            similarities=similarities,
         )

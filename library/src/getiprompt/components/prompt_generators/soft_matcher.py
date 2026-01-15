@@ -1,9 +1,8 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Soft-matching prompt generator."""
 
-from collections import defaultdict
 from logging import getLogger
 
 import torch
@@ -15,41 +14,47 @@ logger = getLogger("Geti Prompt")
 
 
 class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
-    """This class generates prompts for the segmenter based on the similarities between the reference and target images.
+    """Generates prompts for the segmenter based on soft matching between reference and target images.
+
+    This is an efficient approximation of Optimal Transport (OT) based matching that computes
+    soft correspondence scores for each target feature. It avoids iterative solvers and has
+    quadratic complexity in the number of patches.
+
+    Based on: https://www.ijcai.org/proceedings/2024/1000.pdf
 
     Args:
-        encoder_input_size: int - The size of the encoder input image.
-        encoder_patch_size: int - The size of the encoder patch.
-        encoder_feature_size: int - The size of the encoder feature.
-        num_background_points: int - The number of background points to generate.
-        num_foreground_points: int - The number of foreground points to generate.
-        use_sampling: bool - Whether to use sampling instead of thresholding to select points.
-        use_spatial_sampling: bool - Whether to use spatial sampling (NMS) to select points.
-        approximate_matching: bool - Whether to use approximate matching, this will use RFF to approximate
-            the similarity map.
-        softmatching_score_threshold: float - Threshold for selecting points based on
-            normalized soft correspondence scores.
-        softmatching_bidirectional: bool - Whether to use bidirectional softmatching.
+        encoder_input_size: Size of the encoder input image (e.g., 224, 1024).
+        encoder_patch_size: Size of each encoder patch (e.g., 14, 16).
+        encoder_feature_size: Size of the feature map grid (e.g., 16, 64).
+        num_background_points: Number of background points to generate per category. Default: 2.
+        num_foreground_points: Maximum number of foreground points per category. Default: 40.
+        max_points: Maximum total points per category for output padding. Default: 42.
+        use_sampling: Whether to use probabilistic sampling instead of thresholding.
+        use_spatial_sampling: Whether to use spatial sampling (NMS) to select points.
+        approximate_matching: Whether to use RFF to approximate the similarity map.
+        softmatching_score_threshold: Threshold for selecting points based on normalized scores.
+        softmatching_bidirectional: Whether to use bidirectional soft matching.
 
     Examples:
         >>> import torch
         >>> from getiprompt.components.prompt_generators import SoftmatcherPromptGenerator
-        >>> from getiprompt.types import Masks
-        >>> from torchvision import tv_tensors
         >>>
         >>> # Setup
-        >>> encoder_input_size=224
-        >>> encoder_patch_size=14
-        >>> encoder_feature_size=16
+        >>> encoder_input_size = 224
+        >>> encoder_patch_size = 14
+        >>> encoder_feature_size = 16
         >>> feature_dim = 64
         >>> num_patches = encoder_feature_size * encoder_feature_size
+        >>> num_categories = 2
         >>>
-        >>> # Create inputs
-        >>> ref_embeds = torch.rand(num_patches, feature_dim)
+        >>> # Create inputs (matching BidirectionalPromptGenerator signature)
+        >>> ref_embeddings = torch.rand(num_categories, num_patches, feature_dim)
+        >>> masked_ref_embeddings = torch.rand(num_categories, 1, feature_dim)
+        >>> flatten_ref_masks = torch.zeros(num_categories, num_patches)
+        >>> flatten_ref_masks[:, :6] = 1  # Some patches are masked
+        >>> category_ids = [1, 2]
         >>> target_embeddings = torch.rand(1, num_patches, feature_dim)
-        >>> mask = torch.zeros(num_patches); mask[:6] = 1
-        >>> reference_masks = Masks(); reference_masks.add(mask, 1)
-        >>> image = tv_tensors.Image(torch.zeros(encoder_input_size, encoder_input_size, 3))
+        >>> original_sizes = torch.tensor([[224, 224]])
         >>>
         >>> # Instantiate and run
         >>> generator = SoftmatcherPromptGenerator(
@@ -57,17 +62,20 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         ...     encoder_patch_size=encoder_patch_size,
         ...     encoder_feature_size=encoder_feature_size,
         ... )
-        >>> point_prompts, sims = generator(
-        ...    ref_embeds=ref_embeds,
-        ...    masked_ref_embeds={1: ref_embeds},
-        ...    reference_masks=[reference_masks],
-        ...    target_embeddings=target_embeddings,
-        ...    target_images=[image]
+        >>> point_prompts, num_points, similarities = generator(
+        ...     ref_embeddings,
+        ...     masked_ref_embeddings,
+        ...     flatten_ref_masks,
+        ...     category_ids,
+        ...     target_embeddings,
+        ...     original_sizes,
         ... )
-        >>> isinstance(point_prompts[0], dict) and 1 in point_prompts[0]
-        True
-        >>> isinstance(sims[0], dict) and sims[0].get(1) is not None
-        True
+        >>> point_prompts.shape  # [T, C, max_points, 4]
+        torch.Size([1, 2, 42, 4])
+        >>> num_points.shape  # [T, C]
+        torch.Size([1, 2])
+        >>> similarities.shape  # [T, C, feat_size, feat_size]
+        torch.Size([1, 2, 16, 16])
     """
 
     def __init__(
@@ -88,9 +96,9 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
             encoder_input_size=encoder_input_size,
             encoder_patch_size=encoder_patch_size,
             encoder_feature_size=encoder_feature_size,
+            num_foreground_points=num_foreground_points,
             num_background_points=num_background_points,
         )
-        self.num_foreground_points = num_foreground_points
         self.use_sampling = use_sampling
         self.use_spatial_sampling = use_spatial_sampling
         self.approximate_matching = approximate_matching
@@ -407,103 +415,158 @@ class SoftmatcherPromptGenerator(BidirectionalPromptGenerator):
         proj = features @ projection_matrix
         return torch.cat([torch.sin(proj), torch.cos(proj)], dim=-1) / (projection_matrix.shape[1] ** 0.5)
 
-    def forward(
+    def _process_single_category(
         self,
-        ref_embeddings: dict[int, torch.Tensor],
-        masked_ref_embeddings: dict[int, torch.Tensor],
-        flatten_ref_masks: dict[int, torch.Tensor],
-        target_embeddings: torch.Tensor,
-        original_sizes: list[tuple[int, int]],
-    ) -> tuple[list[dict[int, torch.Tensor]], list[dict[int, torch.Tensor]]]:
-        """This generates prompt candidates (or priors) based on the similarities.
-
-        This is done between the reference and target images.
-
-        It uses soft matching to create prompts for the segmenter.
-        This Prompt Generator computes the similarity map internally.
+        ref_embed: torch.Tensor,
+        masked_ref_embed: torch.Tensor,
+        flatten_ref_mask: torch.Tensor,
+        target_embed: torch.Tensor,
+        original_size: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Process a single category against a target image using soft matching.
 
         Args:
-            ref_embeddings(dict[int, torch.Tensor]): Reference embeddings grouped by class_id
-            masked_ref_embeddings(dict[int, torch.Tensor]): Dictionary of masked reference embeddings
-            flatten_ref_masks(dict[int, torch.Tensor]): Dictionary of flattened reference masks
-            target_embeddings(torch.Tensor): Target embeddings
-            original_sizes(list[tuple[int, int]]): Original sizes of the target images
+            ref_embed: Reference embeddings [num_patches_total, embed_dim]
+            masked_ref_embed: Averaged masked embedding [1, embed_dim]
+            flatten_ref_mask: Flattened mask [num_patches_total]
+            target_embed: Target embeddings [num_patches, embed_dim]
+            original_size: Original image size tensor [H, W]
 
         Returns:
-            point_prompts(list[dict[int, torch.Tensor]]):
-                List of point prompts (with class_id as key and points as value)
-            similarities_per_images(list[dict[int, torch.Tensor]]): List of similarities dictionaries
+            points: Point prompts [N, 4] with (x, y, score, label)
+            similarity: Similarity map at feature grid size [feat_size, feat_size]
         """
-        point_prompts: list[dict[int, torch.Tensor]] = []
-        similarities_per_image: list[dict[int, torch.Tensor]] = []
+        feat_size = self.encoder_feature_size
 
-        for target_embed, original_size in zip(target_embeddings, original_sizes, strict=False):
-            class_point_prompts: dict[int, torch.Tensor] = {}
-            similarities: dict[int, list[torch.Tensor]] = defaultdict(list)
-            h, w = original_size
+        # Compute similarity maps
+        cls_similarity_map = ref_embed @ target_embed.T
 
-            for class_id, flatten_ref_mask in flatten_ref_masks.items():
-                similarity_map = ref_embeddings[class_id] @ target_embed.T
-                local_ref_embedding = masked_ref_embeddings[class_id]
-                local_similarity = local_ref_embedding @ target_embed.T
-                local_similarity = self._resize_similarity_map(local_similarity, original_size)
-                similarities[class_id].append(local_similarity)
+        # Local similarity for output (at feature grid size)
+        local_similarity = masked_ref_embed @ target_embed.T  # [1, num_patches]
+        local_similarity_grid = local_similarity.reshape(feat_size, feat_size)
 
-                # Select background points based on similarity to averaged local feature
-                _, background_indices, background_scores = self._select_background_points(
-                    similarity_map,
-                    flatten_ref_mask,
-                )
+        # Select background points based on similarity to averaged local feature
+        _, background_indices, background_scores = self._select_background_points(
+            cls_similarity_map,
+            flatten_ref_mask,
+        )
 
-                # Perform foreground matching
-                foreground_indices, foreground_scores, soft_sim_map = self._perform_soft_matching(
-                    mask=flatten_ref_mask,
-                    similarity_map=similarity_map,
-                    use_rff=self.approximate_matching,
-                    ref_features=ref_embeddings[class_id],
-                    target_features=target_embed,
-                    score_threshold=self.softmatching_score_threshold,
-                    bidirectional=self.softmatching_bidirectional,
-                    use_sampling=self.use_sampling,
-                    use_spatial_sampling=self.use_spatial_sampling,
-                    num_samples=self.num_foreground_points,
-                )
+        # Perform foreground matching using soft matching
+        foreground_indices, foreground_scores, soft_sim_map = self._perform_soft_matching(
+            mask=flatten_ref_mask,
+            similarity_map=cls_similarity_map,
+            use_rff=self.approximate_matching,
+            ref_features=ref_embed,
+            target_features=target_embed,
+            score_threshold=self.softmatching_score_threshold,
+            bidirectional=self.softmatching_bidirectional,
+            use_sampling=self.use_sampling,
+            use_spatial_sampling=self.use_spatial_sampling,
+            num_samples=self.num_foreground_points,
+        )
 
-                # add the soft map to the similarities
-                # this increases the mask filtering technique based on average similarity.
-                soft_sim_map = functional.interpolate(
+        # Blend soft similarity map with local similarity for mask filtering
+        if soft_sim_map.numel() > 0:
+            soft_sim_resized = (
+                functional.interpolate(
                     soft_sim_map,
-                    size=similarities[class_id][0].shape[-2:],
+                    size=(feat_size, feat_size),
                     mode="bilinear",
                     align_corners=False,
-                ).squeeze(0)
-                soft_sim_map = (soft_sim_map - soft_sim_map.min()) / (soft_sim_map.max() - soft_sim_map.min() + 1e-6)
-                similarities[class_id].append(soft_sim_map)
+                )
+                .squeeze(0)
+                .squeeze(0)
+            )
+            # Normalize soft sim map
+            soft_sim_resized = (soft_sim_resized - soft_sim_resized.min()) / (
+                soft_sim_resized.max() - soft_sim_resized.min() + 1e-6
+            )
+            # Combine: use mean of local similarity and soft similarity
+            combined_similarity = (local_similarity_grid + soft_sim_resized) / 2
+        else:
+            combined_similarity = local_similarity_grid
 
-                # Process foreground points
-                if len(foreground_scores) > 0:
-                    foreground_points = self._extract_point_coordinates(foreground_indices, foreground_scores)
-                    foreground_points = self._convert_to_image_coords(foreground_points, ori_size=(h, w))
-                    foreground_labels = torch.ones((len(foreground_points), 1)).to(foreground_points)
-                    foreground_points = torch.cat([foreground_points, foreground_labels], dim=1)
-                else:
-                    foreground_points = torch.empty(0, 4).to(similarity_map)
+        # Process foreground points
+        if len(foreground_scores) > 0:
+            foreground_points = self._extract_point_coordinates(foreground_indices, foreground_scores)
+            foreground_points = self._convert_to_image_coords(foreground_points, original_size)
+            foreground_labels = torch.ones((len(foreground_points), 1)).to(foreground_points)
+            foreground_points = torch.cat([foreground_points, foreground_labels], dim=1)
+            foreground_points = self._filter_foreground_points(foreground_points)
+        else:
+            foreground_points = torch.empty(0, 4).to(cls_similarity_map)
 
-                # Process background points
-                if background_indices is not None and background_scores is not None and background_indices.numel() > 0:
-                    background_points = self._extract_point_coordinates([None, background_indices], background_scores)
-                    background_points = self._convert_to_image_coords(background_points, ori_size=(h, w))
-                    background_labels = -torch.ones((len(background_points), 1)).to(background_points)
-                    background_points = torch.cat([background_points, background_labels], dim=1)
-                else:
-                    background_points = torch.empty(0, 4).to(similarity_map)
+        # Process background points
+        if background_indices is not None and background_scores is not None and background_indices.numel() > 0:
+            background_points = self._extract_point_coordinates([None, background_indices], background_scores)
+            background_points = self._convert_to_image_coords(background_points, original_size)
+            background_labels = -torch.ones((len(background_points), 1)).to(background_points)
+            background_points = torch.cat([background_points, background_labels], dim=1)
+        else:
+            background_points = torch.empty(0, 4).to(cls_similarity_map)
 
-                class_point_prompts[class_id] = torch.cat([foreground_points, background_points])
-            point_prompts.append(class_point_prompts)
+        points = torch.cat([foreground_points, background_points])
+        return points, combined_similarity
 
-            # Concatenate all tensors once per class
-            concatenated_similarities = {
-                class_id: torch.cat(tensor_list, dim=0) for class_id, tensor_list in similarities.items()
-            }
-            similarities_per_image.append(concatenated_similarities)
-        return point_prompts, similarities_per_image
+    def forward(
+        self,
+        ref_embeddings: torch.Tensor,
+        masked_ref_embeddings: torch.Tensor,
+        flatten_ref_masks: torch.Tensor,
+        category_ids: list[int],
+        target_embeddings: torch.Tensor,
+        original_sizes: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Generate prompt candidates based on reference-target similarities using soft matching.
+
+        Uses soft matching (OT approximation) to create point prompts for the segmenter.
+        Automatically filters to keep only top-scoring foreground points.
+        All outputs are tensors for full traceability.
+
+        Args:
+            ref_embeddings: Reference embeddings [C, num_patches_total, embed_dim]
+            masked_ref_embeddings: Averaged masked embeddings [C, 1, embed_dim]
+            flatten_ref_masks: Flattened reference masks [C, num_patches_total]
+            category_ids: List of category IDs
+            target_embeddings: Target embeddings [T, num_patches, embed_dim]
+            original_sizes: Original image sizes [T, 2] with (H, W)
+
+        Returns:
+            point_prompts: [T, C, max_points, 4] - filtered and padded point prompts
+            num_points: [T, C] - actual valid point counts per (target, category)
+            similarities: [T, C, feat_size, feat_size] - similarity maps at feature grid size
+        """
+        num_targets = target_embeddings.shape[0]
+        num_categories = len(category_ids)
+        feat_size = self.encoder_feature_size
+        device = target_embeddings.device
+        dtype = target_embeddings.dtype
+
+        # Pre-allocate output tensors
+        point_prompts = torch.zeros(num_targets, num_categories, self.max_points, 4, device=device, dtype=dtype)
+        similarities = torch.zeros(num_targets, num_categories, feat_size, feat_size, device=device, dtype=dtype)
+
+        for t_idx in range(num_targets):
+            target_embed = target_embeddings[t_idx]
+            original_size = original_sizes[t_idx]
+
+            for c_idx in range(num_categories):
+                ref_embed = ref_embeddings[c_idx]
+                masked_embed = masked_ref_embeddings[c_idx]
+                mask = flatten_ref_masks[c_idx]
+
+                points, similarity = self._process_single_category(
+                    ref_embed,
+                    masked_embed,
+                    mask,
+                    target_embed,
+                    original_size,
+                )
+
+                # Pad and store points
+                point_prompts[t_idx, c_idx] = self._pad_points(points, device, dtype)
+
+                # Store similarity
+                similarities[t_idx, c_idx] = similarity
+
+        return point_prompts, similarities

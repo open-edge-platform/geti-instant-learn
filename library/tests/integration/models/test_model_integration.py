@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Integration tests for model combinations with real datasets.
@@ -16,11 +16,11 @@ from torchmetrics.segmentation import MeanIoU
 from getiprompt.data.base import Batch
 from getiprompt.data.folder import FolderDataset
 from getiprompt.models.grounded_sam import GroundedSAM
-from getiprompt.models.matcher import InferenceMatcher, Matcher
+from getiprompt.models.matcher import Matcher
 from getiprompt.models.per_dino import PerDino
 from getiprompt.models.soft_matcher import SoftMatcher
 from getiprompt.utils.benchmark import convert_masks_to_one_hot_tensor
-from getiprompt.utils.constants import Backend, ModelName, SAMModelName
+from getiprompt.utils.constants import ModelName, SAMModelName
 
 
 @pytest.fixture
@@ -384,154 +384,3 @@ class TestModelIntegration:
             iou_value = iou_per_class[idx].item()
             # -1 is returned if class is completely absent both from prediction and the ground truth labels.
             assert iou_value >= -1
-
-
-class TestInferenceMatcherIntegration:
-    """Integration tests for InferenceMatcher (OpenVINO-based Matcher)."""
-
-    @pytest.mark.parametrize("sam_model", SAM_MODELS)
-    def test_inference_matcher_initialization(
-        self,
-        sam_model: SAMModelName,
-        tmp_path: Path,
-    ) -> None:
-        """Test that InferenceMatcher can be initialized with exported models.
-
-        Args:
-            sam_model: The SAM model to use.
-            tmp_path: Temporary directory for exported models.
-        """
-        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
-        # https://github.com/open-edge-platform/geti-prompt/issues/367
-        if sam_model == SAMModelName.SAM2_TINY:
-            pytest.skip("Skipping test_inference_matcher_initialization for SAM2-tiny")
-
-        export_dir = tmp_path / "matcher_export"
-        export_dir.mkdir()
-
-        # First, export a Matcher model
-        matcher = Matcher(
-            sam=sam_model,
-            device="cpu",
-            precision="fp32",
-            encoder_model="dinov3_small",
-        )
-        matcher.export(export_dir=export_dir, backend=Backend.OPENVINO)
-
-        # Verify export files exist
-        encoder_path = export_dir / "image_encoder.xml"
-        sam_path = export_dir / "exported_sam.xml"
-        assert encoder_path.exists(), "Image encoder model should be exported"
-        assert sam_path.exists(), "SAM model should be exported"
-
-        # Now initialize InferenceMatcher with exported models
-        inference_matcher = InferenceMatcher(
-            model_folder=export_dir,
-            sam=sam_model,
-            device="cpu",
-            precision="fp32",
-        )
-
-        assert inference_matcher is not None
-        assert hasattr(inference_matcher, "fit")
-        assert hasattr(inference_matcher, "predict")
-        assert callable(inference_matcher.fit)
-        assert callable(inference_matcher.predict)
-
-    @pytest.mark.parametrize("sam_model", SAM_MODELS)
-    def test_inference_matcher_fit_predict(
-        self,
-        sam_model: SAMModelName,
-        tmp_path: Path,
-        reference_batch: Batch,
-        target_batch: Batch,
-    ) -> None:
-        """Test that InferenceMatcher can fit on reference data and predict on target data.
-
-        Args:
-            sam_model: The SAM model to use.
-            tmp_path: Temporary directory for exported models.
-            reference_batch: Batch of reference samples.
-            target_batch: Batch of target samples.
-        """
-        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
-        # https://github.com/open-edge-platform/geti-prompt/issues/367
-        if sam_model == SAMModelName.SAM2_TINY:
-            pytest.skip("Skipping test_inference_matcher_learn_infer for SAM2-tiny")
-
-        export_dir = tmp_path / "matcher_export"
-        export_dir.mkdir()
-
-        # First, export a Matcher model
-        matcher = Matcher(
-            sam=sam_model,
-            device="cpu",
-            precision="fp32",
-            encoder_model="dinov3_small",
-        )
-        matcher.export(export_dir=export_dir, backend=Backend.OPENVINO)
-
-        # Initialize InferenceMatcher with exported models
-        inference_matcher = InferenceMatcher(
-            model_folder=export_dir,
-            sam=sam_model,
-            device="cpu",
-            precision="fp32",
-        )
-
-        # Test fit method
-        inference_matcher.fit(reference_batch)
-
-        # Test predict method
-        predictions = inference_matcher.predict(target_batch)
-
-        # Validate results
-        assert isinstance(predictions, list)
-        assert predictions is not None
-        assert len(predictions) == len(target_batch)
-
-        # Check that masks have correct shape
-        for prediction, image in zip(predictions, target_batch.images, strict=False):
-            assert isinstance(prediction["pred_masks"], torch.Tensor)
-            assert prediction["pred_masks"].shape[-2:] == image.shape[-2:]
-
-    @pytest.mark.parametrize("sam_model", SAM_MODELS)
-    def test_inference_matcher_export_not_supported(
-        self,
-        sam_model: SAMModelName,
-        tmp_path: Path,
-    ) -> None:
-        """Test that InferenceMatcher.export() raises NotImplementedError.
-
-        Args:
-            sam_model: The SAM model to use.
-            tmp_path: Temporary directory for exported models.
-        """
-        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
-        # https://github.com/open-edge-platform/geti-prompt/issues/367
-        if sam_model == SAMModelName.SAM2_TINY:
-            pytest.skip("Skipping test_inference_matcher_export_not_supported for SAM2-tiny")
-
-        export_dir = tmp_path / "matcher_export"
-        export_dir.mkdir()
-
-        # First, export a Matcher model
-        matcher = Matcher(
-            sam=sam_model,
-            device="cpu",
-            precision="fp32",
-            encoder_model="dinov3_small",
-        )
-        matcher.export(export_dir=export_dir, backend=Backend.OPENVINO)
-
-        # Initialize InferenceMatcher
-        inference_matcher = InferenceMatcher(
-            model_folder=export_dir,
-            sam=sam_model,
-            device="cpu",
-            precision="fp32",
-        )
-
-        # Test that export raises NotImplementedError
-        with pytest.raises(NotImplementedError, match="OVMatcher does not support export"):
-            inference_matcher.export(export_dir=tmp_path / "new_export", backend=Backend.OPENVINO)

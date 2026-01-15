@@ -289,6 +289,15 @@ class ProjectService(BaseService):
         with self.db_transaction():
             if project.active:
                 self._emit_deactivation(project.id)
+
+            # Delete prompts to trigger annotation cascade
+            for prompt in project.prompts:
+                self.session.delete(prompt)
+
+            # Execute prompt deletions, which cascades to remove annotations
+            self.session.flush()
+
+            # Delete project - cascades to labels (and all other children)
             self.project_repository.delete(project.id)
         logger.info("Project deleted: id=%s", project_id)
 

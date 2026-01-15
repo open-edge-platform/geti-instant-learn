@@ -89,7 +89,8 @@ The `benchmark` subcommand is used to evaluate pipeline performance on various d
 Before running benchmarks, ensure your datasets are properly structured. By default, datasets are expected in `~/datasets/`.
 
 **PerSeg Dataset Structure:**
-```
+
+```text
 ~/datasets/PerSeg/
 ├── Images/
 │   ├── backpack/
@@ -110,7 +111,8 @@ Before running benchmarks, ensure your datasets are properly structured. By defa
 ```
 
 **LVIS Dataset Structure:**
-```
+
+```text
 ~/datasets/lvis/
 ├── train2017/          # COCO train images
 │   ├── 000000000001.jpg
@@ -125,6 +127,7 @@ Before running benchmarks, ensure your datasets are properly structured. By defa
 > **Note:** LVIS uses COCO images. Download from [COCO](https://cocodataset.org/#download) and [LVIS](https://www.lvisdataset.org/dataset).
 
 You can specify a custom dataset root using `--dataset_root`:
+
 ```bash
 getiprompt benchmark --dataset_root /path/to/datasets
 ```
@@ -154,7 +157,7 @@ getiprompt benchmark --dataset_name all
 > **Available Models:** `Matcher`, `SoftMatcher`, `PerDino`, `GroundedSAM`
 > **Available SAM Backbones:** `SAM`, `MobileSAM`, `SAM-HQ`, `SAM-HQ-tiny`, `SAM2-tiny`, `SAM2-small`, `SAM2-base`, `SAM2-large`
 > **Available Datasets:** `PerSeg`, `lvis`
-
+>
 > **Tip:** Use `all` with `--model`, `--sam`, or `--dataset_name` to run all available options. These can be combined for comprehensive benchmarking.
 
 #### Category Filtering
@@ -162,6 +165,7 @@ getiprompt benchmark --dataset_name all
 The benchmark supports three ways to filter categories:
 
 1. **Preset modes** - Predefined category sets for different use cases:
+
    ```bash
    # Quick testing with default categories (4 categories for LVIS)
    getiprompt benchmark --class_name default
@@ -174,6 +178,7 @@ The benchmark supports three ways to filter categories:
    ```
 
 2. **Explicit category list** - Specify categories directly:
+
    ```bash
    # Single category
    getiprompt benchmark --class_name cat

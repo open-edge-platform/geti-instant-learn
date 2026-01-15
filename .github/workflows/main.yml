@@ -98,7 +98,7 @@ jobs:
 
   success:
     name: Status checks
-    needs: [ build-parameters, library, backend, ui, distrib ]
+    needs: [ build-parameters, library, backend, ui, distrib, markdown ]
     runs-on: ubuntu-latest
     if: ${{ always() && !cancelled() }}
     env:

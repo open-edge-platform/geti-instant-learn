@@ -1,19 +1,19 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Unit tests for SamDecoder."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
 from torchvision.tv_tensors import Image
 
-from getiprompt.components.mask_decoder import SamDecoder
+from getiprompt.components.sam import SamDecoder
 
 
 class TestSamDecoderValidation:
-    """Test validation in SamDecoder for mask/point count matching."""
+    """Test validation in SamDecoder for tensor-based inputs."""
 
     @pytest.fixture
     def mock_sam_predictor(self) -> MagicMock:
@@ -41,98 +41,159 @@ class TestSamDecoderValidation:
         """Create a SamDecoder instance."""
         return SamDecoder(sam_predictor=mock_sam_predictor)
 
-    def test_assertion_matching_masks_and_points(self, sam_decoder: SamDecoder) -> None:
-        """Test that assertion passes when mask and point counts match."""
-        # Create sample data
+    def test_forward_with_point_prompts(self, sam_decoder: SamDecoder) -> None:
+        """Test forward pass with tensor-based point prompts."""
+        # Create sample data: 1 image, 1 category, max 4 points
         image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
-        point_prompts = {0: torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32)}
-        box_prompts = {}
 
-        # Mock the predict method to return matching counts
-        mock_masks = torch.ones((2, 480, 640), dtype=torch.bool)  # 2 masks
-        # Format: [num_positive_points, 1_positive + N_negative, 3] where last dim is [x, y, score]
-        # For 2 masks, we need 2 positive points, so shape should be [2, 1, 3]
-        mock_points = torch.tensor([[[100, 150, 0.9]], [[200, 250, 0.8]]], dtype=torch.float32)  # 2 positive points
-        mock_boxes = torch.empty((0, 6), dtype=torch.float32)
+        # point_prompts: [T=1, C=1, max_points=4, 4] with (x, y, score, label)
+        point_prompts = torch.zeros(1, 1, 4, 4, dtype=torch.float32)
+        point_prompts[0, 0, 0] = torch.tensor([100, 150, 0.9, 1])  # foreground point
 
-        sam_decoder.predict = MagicMock(return_value=(mock_masks, mock_points, mock_boxes))
+        # similarities: [T=1, C=1, feat_size, feat_size]
+        similarities = torch.ones(1, 1, 16, 16, dtype=torch.float32)
 
-        # This should not raise an assertion error
-        predictions = sam_decoder.forward([image], [point_prompts], [box_prompts], None)
+        category_ids = [0]
 
-        # Should return a list of dictionaries (one per image)
+        # Mock _process_single_image_with_points to return valid results
+        with patch.object(sam_decoder, "_process_single_image_with_points") as mock_process:
+            mock_process.return_value = (
+                torch.ones((1, 480, 640), dtype=torch.bool),  # pred_masks
+                torch.tensor([0.9]),  # pred_scores
+                torch.tensor([0], dtype=torch.int64),  # pred_labels
+                torch.tensor([[100, 150, 0.9, 1]]),  # pred_points
+            )
+
+            predictions = sam_decoder.forward(
+                images=[image],
+                category_ids=category_ids,
+                point_prompts=point_prompts,
+                similarities=similarities,
+            )
+
         assert len(predictions) == 1
         assert isinstance(predictions[0], dict)
         assert "pred_masks" in predictions[0]
-        assert "pred_points" in predictions[0]
-        assert "pred_boxes" in predictions[0]
+        assert "pred_scores" in predictions[0]
         assert "pred_labels" in predictions[0]
+        assert "pred_points" in predictions[0]
 
-    def test_assertion_with_zero_masks_and_points(self, sam_decoder: SamDecoder) -> None:
-        """Test that assertion passes with zero masks and points."""
-        # Create sample data
+    def test_forward_with_box_prompts(self, sam_decoder: SamDecoder) -> None:
+        """Test forward pass with tensor-based box prompts."""
         image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
-        point_prompts = {0: torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32)}
-        box_prompts = {}
 
-        # Mock the predict method to return zero counts
-        mock_masks = torch.empty((0, 480, 640), dtype=torch.bool)  # 0 masks
-        mock_points = torch.empty((0, 1, 3), dtype=torch.float32)  # 0 points
-        mock_boxes = torch.empty((0, 6), dtype=torch.float32)
+        # box_prompts: [T=1, C=1, max_boxes=4, 5] with (x1, y1, x2, y2, score)
+        box_prompts = torch.zeros(1, 1, 4, 5, dtype=torch.float32)
+        box_prompts[0, 0, 0] = torch.tensor([50, 50, 150, 150, 0.9])
 
-        sam_decoder.predict = MagicMock(return_value=(mock_masks, mock_points, mock_boxes))
+        category_ids = [0]
 
-        # This should not raise an assertion error
-        result = sam_decoder.forward([image], [point_prompts], [box_prompts], None)
-
-        assert len(result) == 1
-        assert isinstance(result[0], dict)
-        assert isinstance(result[0]["pred_masks"], torch.Tensor)
-        assert isinstance(result[0]["pred_points"], torch.Tensor)
-        assert isinstance(result[0]["pred_boxes"], torch.Tensor)
-        assert isinstance(result[0]["pred_labels"], torch.Tensor)
-
-    def test_assertion_with_multiple_classes(self, sam_decoder: SamDecoder) -> None:
-        """Test assertion with multiple classes."""
-        # Create sample data with multiple classes
-        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
-        point_prompts = {
-            0: torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32),
-            1: torch.tensor([[200, 250, 0.8, 1]], dtype=torch.float32),
-        }
-        box_prompts = {}
-
-        # Mock the predict method to return matching counts for each class
-        # For multiple classes, we need to mock the predict method to return different results for each class
-        def mock_predict(
-            points_per_class: torch.Tensor | None,
-            *_args: object,
-            **_kwargs: object,
-        ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-            if points_per_class is not None and len(points_per_class) > 0:
-                # Return 1 mask and 1 point for each class
-                return (
-                    torch.ones((1, 480, 640), dtype=torch.bool),  # 1 mask
-                    torch.tensor([[[100, 150, 0.9]]], dtype=torch.float32),  # 1 point
-                    torch.empty((0, 6), dtype=torch.float32),
-                )
-            return (
-                torch.empty((0, 480, 640), dtype=torch.bool),
-                torch.empty((0, 1, 3), dtype=torch.float32),
-                torch.empty((0, 6), dtype=torch.float32),
+        # Mock _process_single_image_with_boxes to return valid results
+        with patch.object(sam_decoder, "_process_single_image_with_boxes") as mock_process:
+            mock_process.return_value = (
+                torch.ones((1, 480, 640), dtype=torch.bool),  # pred_masks
+                torch.tensor([0.9]),  # pred_scores
+                torch.tensor([0], dtype=torch.int64),  # pred_labels
+                torch.tensor([[50, 50, 150, 150, 0.9]]),  # pred_boxes
             )
 
-        sam_decoder.predict = mock_predict
+            predictions = sam_decoder.forward(
+                images=[image],
+                category_ids=category_ids,
+                box_prompts=box_prompts,
+            )
 
-        # This should not raise an assertion error
-        result = sam_decoder.forward([image], [point_prompts], [box_prompts], None)
+        assert len(predictions) == 1
+        assert isinstance(predictions[0], dict)
+        assert "pred_masks" in predictions[0]
+        assert "pred_scores" in predictions[0]
+        assert "pred_labels" in predictions[0]
+        assert "pred_boxes" in predictions[0]
 
-        assert len(result) == 1
-        assert isinstance(result[0], dict)
-        assert "pred_masks" in result[0]
-        assert "pred_points" in result[0]
-        assert "pred_boxes" in result[0]
-        assert "pred_labels" in result[0]
+    def test_forward_requires_either_points_or_boxes(self, sam_decoder: SamDecoder) -> None:
+        """Test that forward raises error when neither prompts are provided."""
+        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
+        category_ids = [0]
+
+        with pytest.raises(ValueError, match="Provide either point_prompts or box_prompts"):
+            sam_decoder.forward(images=[image], category_ids=category_ids)
+
+    def test_forward_rejects_both_prompts(self, sam_decoder: SamDecoder) -> None:
+        """Test that forward raises error when both prompts are provided."""
+        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
+        category_ids = [0]
+
+        point_prompts = torch.zeros(1, 1, 4, 4, dtype=torch.float32)
+        similarities = torch.ones(1, 1, 16, 16, dtype=torch.float32)
+        box_prompts = torch.zeros(1, 1, 4, 5, dtype=torch.float32)
+
+        with pytest.raises(ValueError, match="Provide either point_prompts or box_prompts"):
+            sam_decoder.forward(
+                images=[image],
+                category_ids=category_ids,
+                point_prompts=point_prompts,
+                similarities=similarities,
+                box_prompts=box_prompts,
+            )
+
+    def test_forward_with_multiple_categories(self, sam_decoder: SamDecoder) -> None:
+        """Test forward with multiple categories."""
+        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
+
+        # 2 categories, max 4 points each
+        point_prompts = torch.zeros(1, 2, 4, 4, dtype=torch.float32)
+        point_prompts[0, 0, 0] = torch.tensor([100, 150, 0.9, 1])
+        point_prompts[0, 1, 0] = torch.tensor([200, 250, 0.8, 1])
+        similarities = torch.ones(1, 2, 16, 16, dtype=torch.float32)
+
+        category_ids = [0, 1]
+
+        with patch.object(sam_decoder, "_process_single_image_with_points") as mock_process:
+            mock_process.return_value = (
+                torch.ones((2, 480, 640), dtype=torch.bool),
+                torch.tensor([0.9, 0.8]),
+                torch.tensor([0, 1], dtype=torch.int64),
+                torch.tensor([[100, 150, 0.9, 1], [200, 250, 0.8, 1]]),
+            )
+
+            predictions = sam_decoder.forward(
+                images=[image],
+                category_ids=category_ids,
+                point_prompts=point_prompts,
+                similarities=similarities,
+            )
+
+        assert len(predictions) == 1
+        assert predictions[0]["pred_labels"].shape[0] == 2
+
+    def test_forward_with_empty_results(self, sam_decoder: SamDecoder) -> None:
+        """Test forward handles empty prediction results."""
+        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
+
+        point_prompts = torch.zeros(1, 1, 4, 4, dtype=torch.float32)
+        point_prompts[0, 0, 0] = torch.tensor([100, 150, 0.9, 1])
+        similarities = torch.ones(1, 1, 16, 16, dtype=torch.float32)
+
+        category_ids = [0]
+
+        with patch.object(sam_decoder, "_process_single_image_with_points") as mock_process:
+            mock_process.return_value = (
+                torch.empty((0, 480, 640), dtype=torch.bool),
+                torch.empty(0),
+                torch.empty(0, dtype=torch.int64),
+                torch.empty((0, 4)),
+            )
+
+            predictions = sam_decoder.forward(
+                images=[image],
+                category_ids=category_ids,
+                point_prompts=point_prompts,
+                similarities=similarities,
+            )
+
+        assert len(predictions) == 1
+        assert predictions[0]["pred_masks"].shape[0] == 0
+        assert predictions[0]["pred_labels"].shape[0] == 0
 
 
 class TestSamDecoderEmptyTensorHandling:
@@ -144,7 +205,6 @@ class TestSamDecoderEmptyTensorHandling:
         predictor = MagicMock()
         predictor.device = torch.device("cpu")
 
-        # Mock model with image encoder
         mock_model = MagicMock()
         mock_model.image_encoder.img_size = 1024
         predictor.model = mock_model
@@ -164,161 +224,150 @@ class TestSamDecoderEmptyTensorHandling:
         """Create a SamDecoder instance."""
         return SamDecoder(sam_predictor=mock_sam_predictor)
 
-    def test_empty_tensor_handling_for_empty_masks(self, sam_decoder: SamDecoder) -> None:
-        """Test that empty tensors are properly handled when no masks are found."""
-        # Create sample data
+    def test_empty_tensor_for_zero_num_points(self, sam_decoder: SamDecoder) -> None:
+        """Test empty tensors when num_points is zero."""
         image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
-        point_prompts = {0: torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32)}
-        box_prompts = {}
 
-        # Mock the predict method to return empty results
-        mock_masks = torch.empty((0, 480, 640), dtype=torch.bool)  # No masks
-        mock_points = torch.empty((0, 1, 3), dtype=torch.float32)  # No points
-        mock_boxes = torch.empty((0, 6), dtype=torch.float32)  # No boxes
+        # Zero valid points
+        point_prompts = torch.zeros(1, 1, 4, 4, dtype=torch.float32)
+        similarities = torch.ones(1, 1, 16, 16, dtype=torch.float32)
 
-        sam_decoder.predict = MagicMock(return_value=(mock_masks, mock_points, mock_boxes))
+        category_ids = [0]
 
-        result = sam_decoder.forward([image], [point_prompts], [box_prompts], None)
+        with patch.object(sam_decoder, "_process_single_image_with_points") as mock_process:
+            mock_process.return_value = (
+                torch.empty((0, 480, 640), dtype=torch.bool),
+                torch.empty(0),
+                torch.empty(0, dtype=torch.int64),
+                torch.empty((0, 4)),
+            )
 
-        # Check that result is a list with one dictionary
+            result = sam_decoder.forward(
+                images=[image],
+                category_ids=category_ids,
+                point_prompts=point_prompts,
+                similarities=similarities,
+            )
+
         assert len(result) == 1
         prediction = result[0]
-        assert isinstance(prediction, dict)
+        assert prediction["pred_masks"].shape[0] == 0
+        assert prediction["pred_scores"].shape[0] == 0
+        assert prediction["pred_labels"].shape[0] == 0
+        assert prediction["pred_points"].shape[0] == 0
 
-        # Check that empty tensors are properly added with correct shapes
-        assert isinstance(prediction["pred_masks"], torch.Tensor)
-        assert isinstance(prediction["pred_points"], torch.Tensor)
-        assert isinstance(prediction["pred_boxes"], torch.Tensor)
-        assert isinstance(prediction["pred_labels"], torch.Tensor)
+    def test_empty_tensor_for_zero_num_boxes(self, sam_decoder: SamDecoder) -> None:
+        """Test empty tensors when num_boxes is zero."""
+        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
 
-        # Check that empty tensors have correct shapes
-        assert prediction["pred_masks"].shape[0] == 0  # Empty masks
-        assert prediction["pred_points"].shape[0] == 0  # Empty points
-        assert prediction["pred_boxes"].shape[0] == 0  # Empty boxes
-        assert prediction["pred_labels"].shape[0] == 0  # Empty labels
+        box_prompts = torch.zeros(1, 1, 4, 5, dtype=torch.float32)
 
-    def test_empty_tensor_handling_consistency(self, sam_decoder: SamDecoder) -> None:
+        category_ids = [0]
+
+        with patch.object(sam_decoder, "_process_single_image_with_boxes") as mock_process:
+            mock_process.return_value = (
+                torch.empty((0, 480, 640), dtype=torch.bool),
+                torch.empty(0),
+                torch.empty(0, dtype=torch.int64),
+                torch.empty((0, 5)),
+            )
+
+            result = sam_decoder.forward(
+                images=[image],
+                category_ids=category_ids,
+                box_prompts=box_prompts,
+            )
+
+        assert len(result) == 1
+        prediction = result[0]
+        assert prediction["pred_masks"].shape[0] == 0
+        assert prediction["pred_boxes"].shape[0] == 0
+
+    def test_empty_tensor_consistency(self, sam_decoder: SamDecoder) -> None:
         """Test that empty tensor handling maintains consistency across all outputs."""
-        # Create sample data
         image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
-        point_prompts = {0: torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32)}
-        box_prompts = {}
 
-        # Mock the predict method to return empty results
-        mock_masks = torch.empty((0, 480, 640), dtype=torch.bool)
-        mock_points = torch.empty((0, 1, 3), dtype=torch.float32)
-        mock_boxes = torch.empty((0, 6), dtype=torch.float32)
+        point_prompts = torch.zeros(1, 1, 4, 4, dtype=torch.float32)
+        similarities = torch.ones(1, 1, 16, 16, dtype=torch.float32)
 
-        sam_decoder.predict = MagicMock(return_value=(mock_masks, mock_points, mock_boxes))
+        category_ids = [0]
 
-        result = sam_decoder.forward([image], [point_prompts], [box_prompts], None)
+        with patch.object(sam_decoder, "_process_single_image_with_points") as mock_process:
+            mock_process.return_value = (
+                torch.empty((0, 480, 640), dtype=torch.bool),
+                torch.empty(0),
+                torch.empty(0, dtype=torch.int64),
+                torch.empty((0, 4)),
+            )
+
+            result = sam_decoder.forward(
+                images=[image],
+                category_ids=category_ids,
+                point_prompts=point_prompts,
+                similarities=similarities,
+            )
+
+        prediction = result[0]
+        # All outputs should be consistent (0 items)
+        assert prediction["pred_masks"].shape[0] == 0
+        assert prediction["pred_scores"].shape[0] == 0
+        assert prediction["pred_labels"].shape[0] == 0
+        assert prediction["pred_points"].shape[0] == 0
+
+    def test_empty_tensor_with_multiple_categories(self, sam_decoder: SamDecoder) -> None:
+        """Test empty tensor handling with multiple categories."""
+        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
+
+        # 2 categories, both with zero points
+        point_prompts = torch.zeros(1, 2, 4, 4, dtype=torch.float32)
+        similarities = torch.ones(1, 2, 16, 16, dtype=torch.float32)
+
+        category_ids = [0, 1]
+
+        with patch.object(sam_decoder, "_process_single_image_with_points") as mock_process:
+            mock_process.return_value = (
+                torch.empty((0, 480, 640), dtype=torch.bool),
+                torch.empty(0),
+                torch.empty(0, dtype=torch.int64),
+                torch.empty((0, 4)),
+            )
+
+            result = sam_decoder.forward(
+                images=[image],
+                category_ids=category_ids,
+                point_prompts=point_prompts,
+                similarities=similarities,
+            )
 
         assert len(result) == 1
         prediction = result[0]
-
-        # All outputs should be consistent - same number of items (0 in this case)
         assert prediction["pred_masks"].shape[0] == 0
-        assert prediction["pred_points"].shape[0] == 0
-        assert prediction["pred_boxes"].shape[0] == 0
         assert prediction["pred_labels"].shape[0] == 0
 
-    def test_empty_tensor_handling_with_original_size(self, sam_decoder: SamDecoder) -> None:
-        """Test that empty tensors are created with correct original size."""
-        # Create sample data
-        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
-        point_prompts = {0: torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32)}
-        box_prompts = {}
-
-        # Mock the predict method to return empty results
-        mock_masks = torch.empty((0, 480, 640), dtype=torch.bool)
-        mock_points = torch.empty((0, 1, 3), dtype=torch.float32)
-        mock_boxes = torch.empty((0, 6), dtype=torch.float32)
-
-        sam_decoder.predict = MagicMock(return_value=(mock_masks, mock_points, mock_boxes))
-
-        result = sam_decoder.forward([image], [point_prompts], [box_prompts], None)
-
-        assert len(result) == 1
-        prediction = result[0]
-
-        # Check that empty masks have the correct original size
-        empty_mask = prediction["pred_masks"]
-        assert empty_mask.shape[1:] == (480, 640)  # Original size (H, W)
-
-    def test_empty_tensor_handling_with_multiple_classes(self, sam_decoder: SamDecoder) -> None:
-        """Test empty tensor handling with multiple classes."""
-        # Create sample data with multiple classes
-        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
-        # Format: [x, y, score, label] where label=1 for foreground points
-        point_prompts = {
-            0: torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32),
-            1: torch.tensor([[200, 250, 0.8, 1]], dtype=torch.float32),
-        }
-        box_prompts = {}
-
-        # Mock the predict method to return empty results
-        mock_masks = torch.empty((0, 480, 640), dtype=torch.bool)
-        mock_points = torch.empty((0, 1, 3), dtype=torch.float32)
-        mock_boxes = torch.empty((0, 6), dtype=torch.float32)
-
-        sam_decoder.predict = MagicMock(return_value=(mock_masks, mock_points, mock_boxes))
-
-        result = sam_decoder.forward([image], [point_prompts], [box_prompts], None)
-
-        assert len(result) == 1
-        prediction = result[0]
-
-        # Check that all outputs are empty tensors
-        assert prediction["pred_masks"].shape[0] == 0
-        assert prediction["pred_points"].shape[0] == 0
-        assert prediction["pred_boxes"].shape[0] == 0
-        assert prediction["pred_labels"].shape[0] == 0
-
-    def test_empty_tensor_handling_edge_cases(self, sam_decoder: SamDecoder) -> None:
-        """Test edge cases in empty tensor handling."""
-        # Create sample data
-        image = Image(torch.zeros((3, 480, 640), dtype=torch.uint8))
-        point_prompts = {0: torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32)}
-        box_prompts = {}
-
-        # Mock the predict method to return empty results
-        mock_masks = torch.empty((0, 480, 640), dtype=torch.bool)
-        mock_points = torch.empty((0, 1, 3), dtype=torch.float32)
-        mock_boxes = torch.empty((0, 6), dtype=torch.float32)
-
-        sam_decoder.predict = MagicMock(return_value=(mock_masks, mock_points, mock_boxes))
-
-        result = sam_decoder.forward([image], [point_prompts], [box_prompts], None)
-
-        # Test that the method doesn't crash with empty inputs
-        assert len(result) == 1
-        prediction = result[0]
-
-        # Test that empty tensors are properly created
-        assert isinstance(prediction["pred_masks"], torch.Tensor)
-        assert isinstance(prediction["pred_points"], torch.Tensor)
-        assert isinstance(prediction["pred_boxes"], torch.Tensor)
-        assert isinstance(prediction["pred_labels"], torch.Tensor)
-
-    def test_empty_tensor_handling_with_different_sizes(self, sam_decoder: SamDecoder) -> None:
+    def test_empty_tensor_with_different_image_sizes(self, sam_decoder: SamDecoder) -> None:
         """Test empty tensor handling with different image sizes."""
-        # Create sample data with different image size
         image = Image(torch.zeros((3, 320, 480), dtype=torch.uint8))
-        point_prompts = {0: torch.tensor([[100, 150, 0.9, 1]], dtype=torch.float32)}
-        box_prompts = {}
 
-        # Mock the predict method to return empty results
-        mock_masks = torch.empty((0, 320, 480), dtype=torch.bool)
-        mock_points = torch.empty((0, 1, 3), dtype=torch.float32)
-        mock_boxes = torch.empty((0, 6), dtype=torch.float32)
+        point_prompts = torch.zeros(1, 1, 4, 4, dtype=torch.float32)
+        similarities = torch.ones(1, 1, 16, 16, dtype=torch.float32)
 
-        sam_decoder.predict = MagicMock(return_value=(mock_masks, mock_points, mock_boxes))
+        category_ids = [0]
 
-        result = sam_decoder.forward([image], [point_prompts], [box_prompts], None)
+        with patch.object(sam_decoder, "_process_single_image_with_points") as mock_process:
+            mock_process.return_value = (
+                torch.empty((0, 320, 480), dtype=torch.bool),
+                torch.empty(0),
+                torch.empty(0, dtype=torch.int64),
+                torch.empty((0, 4)),
+            )
 
-        assert len(result) == 1
+            result = sam_decoder.forward(
+                images=[image],
+                category_ids=category_ids,
+                point_prompts=point_prompts,
+                similarities=similarities,
+            )
+
         prediction = result[0]
-
-        # Check that empty masks have the correct original size
-        empty_mask = prediction["pred_masks"]
-        assert empty_mask.shape[1:] == (320, 480)  # Original size (H, W)
+        # Empty masks should have correct spatial dimensions
+        assert prediction["pred_masks"].shape[1:] == (320, 480)

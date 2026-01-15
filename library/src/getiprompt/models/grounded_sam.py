@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """This model uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
@@ -8,10 +8,10 @@ import torch
 from getiprompt.components import SamDecoder
 from getiprompt.components.filters import BoxPromptFilter
 from getiprompt.components.prompt_generators import GroundingModel, TextToBoxPromptGenerator
-from getiprompt.components.sam.base import SAMPredictor
+from getiprompt.components.sam import load_sam_model
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.base import Model
-from getiprompt.utils.constants import Backend, SAMModelName
+from getiprompt.utils.constants import SAMModelName
 
 
 class GroundedSAM(Model):
@@ -39,9 +39,8 @@ class GroundedSAM(Model):
             device: The device to use.
         """
         super().__init__()
-        self.sam_predictor = SAMPredictor(
+        self.sam_predictor = load_sam_model(
             sam,
-            backend=Backend.PYTORCH,
             device=device,
             precision=precision,
             compile_models=compile_models,
@@ -80,14 +79,22 @@ class GroundedSAM(Model):
             predictions(list[dict[str, torch.Tensor]]): A list of predictions.
             Each prediction contains:
                 "pred_masks": torch.Tensor of shape [num_masks, H, W]
-                "pred_points": torch.Tensor of shape [num_points, 4] with last dimension [x, y, score, fg_label]
-                "pred_boxes": torch.Tensor of shape [num_boxes, 5] with last dimension [x1, y1, x2, y2, score]
+                "pred_scores": torch.Tensor of shape [num_masks]
                 "pred_labels": torch.Tensor of shape [num_masks]
+                "pred_boxes": torch.Tensor of shape [num_boxes, 5] with [x1, y1, x2, y2, score]
         """
-        # Start running the model
-        box_prompts = self.prompt_generator(target_batch.images, self.category_mapping)
+        # Generate box prompts (tensor format)
+        box_prompts, category_ids = self.prompt_generator(
+            target_batch.images,
+            self.category_mapping,
+        )
+
+        # Filter box prompts
         box_prompts = self.prompt_filter(box_prompts)
+
+        # Decode masks
         return self.segmenter(
             target_batch.images,
+            category_ids,
             box_prompts=box_prompts,
         )

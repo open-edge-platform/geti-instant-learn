@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Tests for the ImageEncoder."""
@@ -389,10 +389,7 @@ class TestEncoderIntegration:
     @staticmethod
     def test_forward_with_real_model_comprehensive(backend: Backend) -> None:
         """Comprehensive integration test with real DINO models for both backends."""
-        if backend == Backend.HUGGINGFACE:
-            model_id = "dinov2_small"
-        else:  # TIMM
-            model_id = "dinov3_small"
+        model_id = "dinov2_small" if backend == Backend.HUGGINGFACE else "dinov3_small"
         encoder = ImageEncoder(model_id=model_id, backend=backend, device="cpu", input_size=224)
 
         # Create test image
@@ -452,10 +449,7 @@ class TestEncoderIntegration:
     @staticmethod
     def test_feature_quality_and_consistency(backend: Backend) -> None:
         """Test that extracted embeddings are meaningful and consistent for both backends."""
-        if backend == Backend.HUGGINGFACE:
-            model_id = "dinov2_small"
-        else:  # TIMM
-            model_id = "dinov3_small"
+        model_id = "dinov2_small" if backend == Backend.HUGGINGFACE else "dinov3_small"
         encoder = ImageEncoder(model_id=model_id, backend=backend, device="cpu", input_size=224)
 
         # Create identical images
@@ -484,10 +478,8 @@ class TestEncoderIntegration:
     @staticmethod
     def test_different_model_sizes(backend: Backend) -> None:
         """Test with different DINO model sizes to verify configuration for both backends."""
-        if backend == Backend.HUGGINGFACE:
-            model_id = "dinov2_base"
-        else:  # TIMM
-            model_id = "dinov3_base"
+        model_id = "dinov2_base" if backend == Backend.HUGGINGFACE else "dinov3_base"
+
         # Test with base model (larger than small)
         encoder_base = ImageEncoder(model_id=model_id, backend=backend, device="cpu", input_size=224)
 

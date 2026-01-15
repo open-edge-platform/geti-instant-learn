@@ -30,14 +30,6 @@ export class ProjectPage {
         await this.page.getByRole('button', { name: 'Create project' }).click();
     }
 
-    get createProjectConfirmationDialogHeading() {
-        return this.page.getByRole('heading', { name: 'Create project' });
-    }
-
-    async createConfirmation() {
-        await this.page.getByTestId('modal').getByRole('button', { name: 'Create' }).click();
-    }
-
     getProjectInTheList(projectName: string) {
         return this.page.getByRole('listitem', { name: `Project ${projectName}` });
     }
@@ -52,6 +44,10 @@ export class ProjectPage {
 
     async openProjectMenu(projectName: string) {
         await this.page.getByLabel(`Project ${projectName}`).getByRole('button', { name: 'Project actions' }).click();
+    }
+
+    async openProject(projectName: string) {
+        await this.page.getByLabel(`Project ${projectName}`).click();
     }
 
     async selectMenuItem(itemName: 'Rename' | 'Delete' | 'Activate' | 'Deactivate') {

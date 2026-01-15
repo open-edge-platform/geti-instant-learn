@@ -89,7 +89,7 @@ def sample_processor_db(sample_model_id, sample_project_id):
     processor.name = "test_processor"
     processor.active = True
     processor.config = {
-        "mask_similarity_threshold": 0.38,
+        "confidence_threshold": 0.38,
         "model_type": "matcher",
         "num_background_points": 2,
         "num_foreground_points": 40,

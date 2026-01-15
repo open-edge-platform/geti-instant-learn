@@ -4,6 +4,7 @@ import pytest
 from fastapi import FastAPI, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
+from getiprompt.utils.constants import SAMModelName
 
 from api.error_handler import custom_exception_handler
 from api.routers import projects_router
@@ -11,6 +12,8 @@ from dependencies import SessionDep, get_model_service
 from domain.errors import ResourceAlreadyExistsError, ResourceNotFoundError, ResourceType
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.processor import (
+    MatcherConfig,
+    ModelType,
     ProcessorListSchema,
     ProcessorSchema,
 )
@@ -52,13 +55,15 @@ def sample_processor_schema(model_id):
         id=model_id,
         name="Test Model",
         active=True,
-        config={
-            "mask_similarity_threshold": 0.38,
-            "model_type": "matcher",
-            "num_background_points": 2,
-            "num_foreground_points": 40,
-            "precision": "bf16",
-        },
+        config=MatcherConfig(
+            confidence_threshold=0.38,
+            model_type=ModelType.MATCHER,
+            num_background_points=2,
+            num_foreground_points=40,
+            precision="bf16",
+            sam_model=SAMModelName.SAM_HQ_TINY,
+            encoder_model="dinov3_small",
+        ),
     )
 
 
@@ -69,11 +74,14 @@ def create_payload():
         "id": str(uuid4()),
         "active": True,
         "config": {
-            "mask_similarity_threshold": 0.38,
+            "confidence_threshold": 0.38,
             "model_type": "matcher",
-            "num_background_points": 2,
-            "num_foreground_points": 40,
+            "num_background_points": 3,
+            "num_foreground_points": 5,
             "precision": "bf16",
+            "sam_model": "SAM-HQ-tiny",
+            "encoder_model": "dinov3_small",
+            "use_mask_refinement": False,
         },
     }
 
@@ -85,11 +93,14 @@ def update_payload():
         "id": str(uuid4()),
         "active": True,
         "config": {
-            "mask_similarity_threshold": 0.38,
+            "confidence_threshold": 0.38,
             "model_type": "matcher",
-            "num_background_points": 2,
-            "num_foreground_points": 40,
+            "num_background_points": 3,
+            "num_foreground_points": 5,
             "precision": "bf16",
+            "sam_model": "SAM-HQ-tiny",
+            "encoder_model": "dinov3_small",
+            "use_mask_refinement": False,
         },
     }
 
