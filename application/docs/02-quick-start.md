@@ -263,7 +263,7 @@ Visual Prompting allows you to teach the model by directly selecting objects of 
    - **Format: Select:** the data structure for predictions (e.g., JSON, CSV).
    - **Rate: Control:** the inference frequency (FPS) to manage load.
 
-**Note**: Currently only MQTT integration is supported. More integrations will be added in future releases.
+   **Note**: Currently only MQTT integration is supported. More integrations will be added in future releases.
 
 3. **Production Deployment:** Once validated, you can deploy the fully configured application to your target environment. Geti Prompt supports flexible deployment options:
 
