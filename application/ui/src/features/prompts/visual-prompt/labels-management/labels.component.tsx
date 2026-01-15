@@ -32,12 +32,10 @@ export const Labels = () => {
     const { selectedLabelId, setSelectedLabelId, labels } = useVisualPrompt();
 
     return (
-        <Flex height={'100%'} alignItems={'center'} width={'100%'}>
-            <Flex margin={'size-50'} wrap={'wrap'} width={'100%'} alignItems={'center'} gap={'size-100'}>
-                <LabelsList labels={labels} selectedLabelId={selectedLabelId} setSelectedLabelId={setSelectedLabelId} />
-                <Flex alignSelf={'flex-end'} flex={1} justifyContent={'end'} alignItems={'center'}>
-                    <AddLabel existingLabels={labels} />
-                </Flex>
+        <Flex margin={'size-50'} wrap={'wrap'} width={'100%'} alignItems={'center'} gap={'size-100'}>
+            <LabelsList labels={labels} selectedLabelId={selectedLabelId} setSelectedLabelId={setSelectedLabelId} />
+            <Flex alignSelf={'flex-end'} flex={1} justifyContent={'end'} alignItems={'center'}>
+                <AddLabel existingLabels={labels} />
             </Flex>
         </Flex>
     );

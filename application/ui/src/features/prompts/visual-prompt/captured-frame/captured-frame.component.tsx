@@ -54,7 +54,7 @@ export const CapturedFrame = ({ frameId }: CapturedFrameProps) => {
                 width={'100%'}
                 height={'size-6000'}
                 areas={['labels', 'image', 'actions']}
-                rows={[minmax('size-500', 'auto'), 'auto', 'size-500']}
+                rows={['max-content', 'auto', 'size-500']}
                 UNSAFE_style={{
                     backgroundColor: 'var(--spectrum-global-color-gray-200)',
                 }}
