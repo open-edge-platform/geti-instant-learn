@@ -3,6 +3,7 @@
 
 use std::{
     env,
+    net::{TcpListener},
     process::{Child, Command},
     sync::{Arc, Mutex},
 };
@@ -17,8 +18,17 @@ fn backend_filename() -> &'static str {
     }
 }
 
+/// Picks a free port by binding to port 0 and returns it.
+fn pick_free_port() -> u16 {
+    TcpListener::bind("127.0.0.1:0")
+        .expect("failed to bind to address")
+        .local_addr()
+        .expect("failed to get local address")
+        .port()
+}
+
 /// Spawns the side-car in the same folder as this executable.
-fn spawn_backend() -> std::io::Result<Child> {
+fn spawn_backend(port: u16) -> std::io::Result<Child> {
     // Locate the Tauri executable, then its parent folder
     let exe_path = env::current_exe().expect("failed to get current exe path");
     let exe_dir = exe_path
@@ -32,6 +42,7 @@ fn spawn_backend() -> std::io::Result<Child> {
     log::info!("▶ Looking for backend side-car at {:?}", backend_path);
     let mut command = Command::new(&backend_path);
     command.env("CORS_ORIGINS", "http://tauri.localhost");
+    command.env("PORT", port.to_string());
     #[cfg(all(windows, not(debug_assertions)))]
     {
         use std::os::windows::process::CommandExt;
@@ -39,20 +50,23 @@ fn spawn_backend() -> std::io::Result<Child> {
     }
     let child = command.spawn()?;
 
-    log::info!("▶ Spawned backend: {:?}", backend_path);
+    log::info!("▶ Spawned backend: {:?} on port {}", backend_path, port);
     Ok(child)
 }
 
 fn main() {
     // Shared handle so we can kill it on exit
     let child_handle = Arc::new(Mutex::new(None));
+    let port = pick_free_port();
+    // Set PUBLIC_API_URL for Tauri app
+    std::env::set_var("PUBLIC_API_URL", format!("http://127.0.0.1:{}", port));
 
     // Build the app
     let app = tauri::Builder::default()
         .setup({
             let child_handle = child_handle.clone();
             move |_app_handle| {
-                let child = spawn_backend().expect("Failed to spawn python backend");
+                let child = spawn_backend(port).expect("Failed to spawn python backend");
                 *child_handle.lock().unwrap() = Some(child);
                 Ok(())
             }
