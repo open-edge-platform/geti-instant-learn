@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { dimensionValue, Flex, Heading, View } from '@geti/ui';
+import { Flex, Heading, View } from '@geti/ui';
 
 import IntelBrandedLoadingGif from './intel-loading.webp';
 
@@ -14,8 +14,6 @@ export const IntelBrandedLoading = () => {
             // eslint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role
             role='progressbar'
             alt='Loading'
-            width={dimensionValue('size-2400')}
-            height={dimensionValue('size-2400')}
             style={{
                 display: 'block',
                 height: '100%',
