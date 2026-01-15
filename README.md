@@ -8,21 +8,25 @@
 
 # 👋 Geti-Prompt
 
-A production-ready platform for Visual Prompting on live video streams.
+**A production-ready platform for Visual Prompting on live video streams.**
 
-Geti Prompt bridges the gap between research and production. It is a comprehensive platform that enables users to explore, develop, and deploy visual prompting algorithms. Whether you are experimenting with new foundation models or deploying them for real-time inference, Geti Prompt provides a modular architecture extensible to various streaming sources, designed to support inputs such as IP cameras and GenICams.
-
-<p align="center">
- <image src="https://github.com/user-attachments/assets/9ccc585d-6590-4e54-b766-d95bdccf725d" width="1200"/>
-</p>
+Geti Prompt bridges the gap between research and production. It enables users to **explore, develop, and deploy** visual prompting algorithms - from experimenting with foundation models to running real-time inference on any streaming device.
 
 ## 💡 What is Visual Prompting?
 
 Visual prompting offers a powerful alternative to traditional training. Instead of curating thousands of labeled images, you simply show the model one or a few examples of what you are looking for. The model effectively "learns" instantly, detecting and segmenting similar objects in new images or live video streams without retraining.
 
+<p align="center">
+ <image src="https://github.com/user-attachments/assets/9ccc585d-6590-4e54-b766-d95bdccf725d" width="1200"/>
+</p>
+
+
 ## 🛫 Getting Started
 
-Geti Prompt can be used in two ways: as a **Python library** for research and algorithmic development, or as a **Full Application** for visual prompting with a user interface.
+Geti Prompt consists of two core components:
+
+- 🧪 **Python Library**: The foundation for research and zero/few shots algorithm development.
+- 🚀 **Full Stack Application**: Leverages the library to enable real-time inference on live streams, video files, and images.
 
 ### Prerequisites
 
@@ -39,14 +43,14 @@ Install the library with `uv`:
 ```bash
 cd library
 
-# With CUDA support (recommended for GPU)
-uv sync --extra gpu
+# Intel XPU
+uv sync --extra xpu
 
 # CPU only
 uv sync --extra cpu
 
-# Intel XPU
-uv sync --extra xpu
+# With CUDA support
+uv sync --extra gpu
 ```
 
 <p align="center">
@@ -68,13 +72,13 @@ from getiprompt.data.utils import read_image
 ref_image = read_image("library/tests/assets/fss-1000/images/apple/1.jpg")
 
 # Initialize SAM predictor (auto-downloads weights)
-predictor = PyTorchSAMPredictor(SAMModelName.SAM_HQ_TINY, device="cuda")
+predictor = PyTorchSAMPredictor(SAMModelName.SAM_HQ_TINY, device="xpu")
 
 # Set image and generate mask from a point click
 predictor.set_image(ref_image)
 ref_mask, _, _ = predictor.predict(
-    point_coords=torch.tensor([[[51, 150]]], device="cuda"),  # Click on apple
-    point_labels=torch.tensor([[1]], device="cuda"),           # 1 = foreground
+    point_coords=torch.tensor([[[51, 150]]], device="xpu"),  # Click on apple
+    point_labels=torch.tensor([[1]], device="xpu"),          # 1 = foreground
     multimask_output=False,
 )
 ```
@@ -87,7 +91,7 @@ from getiprompt.data import Batch, Sample
 from getiprompt.data.utils import read_image
 
 # Initialize Matcher
-model = Matcher(device="cuda")
+model = Matcher(device="xpu")
 
 # Create reference sample with the generated mask
 ref_sample = Sample(
@@ -112,6 +116,8 @@ masks = predictions[0]["pred_masks"]   # Predicted segmentation masks
 > 📘 For detailed documentation, CLI usage, and benchmarking, see the [Library README](library/README.md).
 
 ### Geti Prompt Application
+
+
 <TBD>
 
 ## 🧮 Supported models
@@ -140,13 +146,6 @@ Geti Prompt supports a variety of foundation models and visual prompting algorit
 | **PerDino** | Personalized DINO-based prompting, leveraging DINOv2/v3 features for robust matching. | [PerSAM](https://arxiv.org/abs/2305.03048) | [Personalize-SAM](https://github.com/ZrrSkywalker/Personalize-SAM) |
 | **GroundedSAM** | Combines Grounding DINO and SAM for text-based visual prompting and segmentation. | [Grounding DINO](https://arxiv.org/abs/2303.05499), [SAM](https://arxiv.org/abs/2304.02643) | [GroundedSAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) |
 
-## 🏗️ High-level architecture
-
-The project is structured as follows:
-
-- **`library/`**: Contains the `getiprompt` Python package.
-- **`application/backend/`**: Contains the inference runtime and API service.
-- **`application/ui/`**: Contains the React frontend application.
 
 ## 🎡 Community
 
