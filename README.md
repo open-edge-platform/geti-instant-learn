@@ -117,8 +117,15 @@ masks = predictions[0]["pred_masks"]   # Predicted segmentation masks
 
 ### Geti Prompt Application
 
+Run both backend and frontend development servers:
 
-<TBD>
+```bash
+just application/dev
+```
+This starts:
+
+- Backend API at `http://locahost:9100`
+- Frontend UI at `http://localhost:3000`
 
 ## 🧮 Supported models
 
