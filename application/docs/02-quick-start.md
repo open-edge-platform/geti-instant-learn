@@ -56,6 +56,8 @@ You can customize the startup command with these variables. Most apply to both *
 | `stun-server` | `""` | External STUN server URL | `just stun-server="stun:..."` |
 | `webrtc-ports` | `50000-51000`| UDP port range for WebRTC | `just webrtc-ports="50000-50100"` |
 
+> **Note**: For detailed explanation of WebRTC parameters and when to use them, see [WebRTC Networking](concepts/02-development.md#webrtc-networking).
+
 ## 3. Basic Usage
 
 ### Step 1: Configure Input

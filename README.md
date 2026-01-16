@@ -131,7 +131,7 @@ This starts:
 - Backend API at `http://locahost:9100`
 - Frontend UI at `http://localhost:3000`
 
-> 📘 For detailed documentation, see the [Application Quick Start Guide](application/docs/).
+> 📘 For detailed documentation, see the [Application Quick Start Guide](application/docs/02-quick-start.md).
 
 ## 🤖 Supported models
 
