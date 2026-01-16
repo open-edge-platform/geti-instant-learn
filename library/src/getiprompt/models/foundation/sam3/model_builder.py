@@ -332,6 +332,7 @@ def _create_sam3_transformer(has_presence_token: bool = True) -> TransformerWrap
 
 def _load_checkpoint(model: nn.Module, checkpoint_path: str):
     """Load model checkpoint from file."""
+    # nosemgrep: trailofbits.python.pickles-in-pytorch.pickles-in-pytorch
     ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
     if "model" in ckpt and isinstance(ckpt["model"], dict):
         ckpt = ckpt["model"]

@@ -14,6 +14,7 @@ from torch import nn
 from getiprompt.models.foundation.sam3.data_misc import (
     BatchedDatapoint,
     BatchedFindTarget,
+    FindStage,
 )
 from getiprompt.models.foundation.sam3.model import (
     Prompt,
@@ -203,7 +204,7 @@ class Sam3Image(torch.nn.Module):
     def _encode_prompt(
         self,
         backbone_out: dict[str, torch.Tensor],
-        find_input: BatchedDatapoint.FindInput,
+        find_input: FindStage,
         geometric_prompt: Prompt,
         visual_prompt_embed: torch.Tensor | None = None,
         visual_prompt_mask: torch.Tensor | None = None,
@@ -249,7 +250,7 @@ class Sam3Image(torch.nn.Module):
     def _run_encoder(
         self,
         backbone_out: dict[str, torch.Tensor],
-        find_input: BatchedDatapoint.FindInput,
+        find_input: FindStage,
         prompt: torch.Tensor,
         prompt_mask: torch.Tensor,
         encoder_extra_kwargs: dict | None = None,
@@ -429,7 +430,6 @@ class Sam3Image(torch.nn.Module):
         out: dict[str, torch.Tensor],
         backbone_out: dict[str, torch.Tensor],
         img_ids: torch.Tensor,
-        vis_feat_sizes: list[tuple[int, int]],
         encoder_hidden_states: torch.Tensor,
         prompt: torch.Tensor,
         prompt_mask: torch.Tensor,
@@ -483,8 +483,8 @@ class Sam3Image(torch.nn.Module):
     def forward_grounding(
         self,
         backbone_out: dict[str, torch.Tensor],
-        find_input: BatchedDatapoint.FindInput,
-        find_target: BatchedDatapoint.FindTarget,
+        find_input: FindStage,
+        find_target: BatchedFindTarget,
         geometric_prompt: Prompt,
     ) -> dict[str, torch.Tensor]:
         with torch.profiler.record_function("SAM3Image._encode_prompt"):
