@@ -23,6 +23,7 @@ Visual prompting offers a powerful alternative to traditional training. Instead 
 - **Simple & Modular API**: A composable design where developers can mix and match components (backbones, matchers) to create custom pipelines.
 - **Algorithms & Models**: A wide collection of ready-to-use zero-shot and few-shot algorithms (e.g., **SAM 2**, **Matcher**, **GroundedSAM**) and foundation models.
 - **Hardware Acceleration**: Built-in support for model optimization and export to [**OpenVINO™**](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html) for fast inference on Intel hardware (CPU, GPU, NPU).
+- **Multiple Backends**: Seamless switching between **PyTorch** for flexibility/research and **OpenVINO** for optimized deployment.
 
 ## 🛫 Getting Started
 
@@ -130,7 +131,7 @@ This starts:
 - Backend API at `http://locahost:9100`
 - Frontend UI at `http://localhost:3000`
 
-> 📘 For detailed documentation, see the [Application README](application/README.md).
+> 📘 For detailed documentation, see the [Application Quick Start Guide](application/docs/02-quick-start.md).
 
 ## 🤖 Supported models
 
