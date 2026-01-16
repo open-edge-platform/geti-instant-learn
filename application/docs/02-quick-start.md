@@ -61,14 +61,17 @@ You can customize the startup command with these variables.
 ## 3. Basic Usage
 
 ### Step 1: Configure Input
+
 Navigate to **Settings > Input** and select your video source (USB Camera, IP Camera, Video File, etc.).
 
 ### Step 2: Create a Valid Prompt
-1.  Click **Capture** to grab a reference frame.
-2.  Select an object in the image using the prompting tools.
-3.  Assign a label and save.
+
+1. Click **Capture** to grab a reference frame.
+2. Select an object in the image using the prompting tools.
+3. Assign a label and save.
 
 ### Step 3: View Results
+
 Inference starts immediately. View real-time results in **Live View** or configure data export in **Settings > Output**.
 
 > **Note**: Model weights are downloaded automatically when the model is deployed for the first time. Please be patient waiting for inference results after prompting a model.

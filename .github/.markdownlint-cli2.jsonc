@@ -1,6 +1,7 @@
 {
   "config": {
     "MD013": false,
+    "MD036": false,
     "MD029": { "style": "ordered" }
   },
   "globs": [
