@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 # Copyright (c) Meta Platforms, Inc. and affiliates. All Rights Reserved
 
 from pathlib import Path
@@ -43,7 +46,7 @@ def _setup_tf32() -> None:
 _setup_tf32()
 
 
-def _create_position_encoding(precompute_resolution=None, device="cuda"):
+def _create_position_encoding(precompute_resolution=None, device="cuda") -> nn.Module:
     """Create position encoding for visual backbone."""
     return PositionEmbeddingSine(
         num_pos_feats=256,
@@ -55,7 +58,7 @@ def _create_position_encoding(precompute_resolution=None, device="cuda"):
     )
 
 
-def _create_vit_backbone(compile_mode: str | None = None):
+def _create_vit_backbone(compile_mode: str | None = None) -> ViT:
     """Create ViT backbone for visual feature extraction."""
     return ViT(
         img_size=1008,
@@ -86,7 +89,11 @@ def _create_vit_backbone(compile_mode: str | None = None):
     )
 
 
-def _create_vit_neck(position_encoding, vit_backbone, enable_inst_interactivity=False):
+def _create_vit_neck(
+    position_encoding: nn.Module,
+    vit_backbone: ViT,
+    enable_inst_interactivity: bool = False,
+) -> Sam3DualViTDetNeck:
     """Create ViT neck for feature pyramid."""
     return Sam3DualViTDetNeck(
         position_encoding=position_encoding,
@@ -97,7 +104,7 @@ def _create_vit_neck(position_encoding, vit_backbone, enable_inst_interactivity=
     )
 
 
-def _create_vl_backbone(vit_neck, text_encoder):
+def _create_vl_backbone(vit_neck: Sam3DualViTDetNeck, text_encoder: VETextEncoder) -> SAM3VLBackbone:
     """Create visual-language backbone."""
     return SAM3VLBackbone(visual=vit_neck, text=text_encoder, scalp=1)
 
@@ -127,7 +134,7 @@ def _create_transformer_encoder() -> TransformerEncoderFusion:
         ),
     )
 
-    encoder = TransformerEncoderFusion(
+    return TransformerEncoderFusion(
         layer=encoder_layer,
         num_layers=6,
         d_model=256,
@@ -137,7 +144,6 @@ def _create_transformer_encoder() -> TransformerEncoderFusion:
         add_pooled_text_to_img_feat=False,
         pool_text_with_mask=True,
     )
-    return encoder
 
 
 def _create_transformer_decoder() -> TransformerDecoder:
@@ -156,7 +162,7 @@ def _create_transformer_decoder() -> TransformerDecoder:
         use_text_cross_attention=True,
     )
 
-    decoder = TransformerDecoder(
+    return TransformerDecoder(
         layer=decoder_layer,
         num_layers=6,
         num_queries=200,
@@ -174,10 +180,9 @@ def _create_transformer_decoder() -> TransformerDecoder:
         use_act_checkpoint=True,
         presence_token=True,
     )
-    return decoder
 
 
-def _create_dot_product_scoring():
+def _create_dot_product_scoring() -> DotProductScoring:
     """Create dot product scoring module."""
     prompt_mlp = MLP(
         input_dim=256,
@@ -191,7 +196,7 @@ def _create_dot_product_scoring():
     return DotProductScoring(d_model=256, d_proj=256, prompt_mlp=prompt_mlp)
 
 
-def _create_segmentation_head(compile_mode: str | None = None):
+def _create_segmentation_head(compile_mode: str | None = None) -> nn.Module:
     """Create segmentation head with pixel decoder."""
     pixel_decoder = PixelDecoder(
         num_upsampling_stages=3,
@@ -206,7 +211,7 @@ def _create_segmentation_head(compile_mode: str | None = None):
         embed_dim=256,
     )
 
-    segmentation_head = UniversalSegmentationHead(
+    return UniversalSegmentationHead(
         hidden_dim=256,
         upsampling_stages=3,
         aux_masks=False,
@@ -216,10 +221,9 @@ def _create_segmentation_head(compile_mode: str | None = None):
         cross_attend_prompt=cross_attend_prompt,
         pixel_decoder=pixel_decoder,
     )
-    return segmentation_head
 
 
-def _create_geometry_encoder(device: str = "cuda"):
+def _create_geometry_encoder(device: str = "cuda") -> nn.Module:
     """Create geometry encoder with all its components."""
     # Create position encoding for geometry encoder
     geo_pos_enc = _create_position_encoding(device=device)
@@ -248,7 +252,7 @@ def _create_geometry_encoder(device: str = "cuda"):
     )
 
     # Create geometry encoder
-    input_geometry_encoder = SequenceGeometryEncoder(
+    return SequenceGeometryEncoder(
         pos_enc=geo_pos_enc,
         encode_boxes_as_points=False,
         points_direct_project=True,
@@ -264,15 +268,14 @@ def _create_geometry_encoder(device: str = "cuda"):
         add_cls=True,
         add_post_encode_proj=True,
     )
-    return input_geometry_encoder
 
 
 def _create_sam3_model(
-    backbone,
-    transformer,
-    input_geometry_encoder,
-    segmentation_head,
-    dot_prod_scoring,
+    backbone: SAM3VLBackbone,
+    transformer: TransformerWrapper,
+    input_geometry_encoder: nn.Module,
+    segmentation_head: nn.Module | None,
+    dot_prod_scoring: nn.Module | None,
 ) -> Sam3Image:
     """Create the SAM3 image model."""
     common_params = {
@@ -305,7 +308,7 @@ def _create_text_encoder(bpe_path: str) -> VETextEncoder:
 
 def _create_vision_backbone(
     compile_mode: str | None = None,
-    enable_inst_interactivity=True,
+    enable_inst_interactivity: bool = True,
     device: str = "cuda",
 ) -> Sam3DualViTDetNeck:
     """Create SAM3 visual backbone with ViT and neck."""
@@ -322,7 +325,7 @@ def _create_vision_backbone(
     return vit_neck
 
 
-def _create_sam3_transformer(has_presence_token: bool = True) -> TransformerWrapper:
+def _create_sam3_transformer() -> TransformerWrapper:
     """Create SAM3 transformer encoder and decoder."""
     encoder: TransformerEncoderFusion = _create_transformer_encoder()
     decoder: TransformerDecoder = _create_transformer_decoder()
@@ -330,18 +333,14 @@ def _create_sam3_transformer(has_presence_token: bool = True) -> TransformerWrap
     return TransformerWrapper(encoder=encoder, decoder=decoder, d_model=256)
 
 
-def _load_checkpoint(model: nn.Module, checkpoint_path: str):
+def _load_checkpoint(model: nn.Module, checkpoint_path: str) -> None:
     """Load model checkpoint from file."""
     # nosemgrep: trailofbits.python.pickles-in-pytorch.pickles-in-pytorch
     ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
     if "model" in ckpt and isinstance(ckpt["model"], dict):
         ckpt = ckpt["model"]
     sam3_image_ckpt = {k.replace("detector.", ""): v for k, v in ckpt.items() if "detector" in k}
-    missing_keys, _ = model.load_state_dict(sam3_image_ckpt, strict=False)
-    if len(missing_keys) > 0:
-        print(
-            f"loaded {checkpoint_path} and found missing and/or unexpected keys:\n{missing_keys=}",
-        )
+    model.load_state_dict(sam3_image_ckpt, strict=False)
 
 
 def _setup_device_and_mode(
@@ -367,19 +366,23 @@ def build_sam3_image_model(
     enable_segmentation: bool = True,
     enable_inst_interactivity: bool = False,
     compile: bool = False,
-):
+) -> Sam3Image:
     """Build SAM3 image model
 
     Args:
         bpe_path: Path to the BPE tokenizer vocabulary
         device: Device to load the model on ('cuda' or 'cpu')
         checkpoint_path: Optional path to model checkpoint
+        load_from_hf: Whether to load the checkpoint from Hugging Face Hub
         enable_segmentation: Whether to enable segmentation head
         enable_inst_interactivity: Whether to enable instance interactivity (SAM 1 task)
         compile: To enable compilation, set to True
 
     Returns:
         A SAM3 image model
+
+    Raises:
+        FileNotFoundError: If the provided BPE path does not exist
     """
     if bpe_path is None:
         bpe_path = Path(__file__).parent / "assets" / "bpe_simple_vocab_16e6.txt.gz"

@@ -1,8 +1,12 @@
+# Copyright (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 # Copyright (c) Meta Platforms, Inc. and affiliates. All Rights Reserved
 
 import numpy as np
 import PIL
 import torch
+from torchvision import tv_tensors
 from torchvision.transforms import v2
 
 from getiprompt.models.foundation.sam3.data_misc import FindStage, interpolate
@@ -65,21 +69,43 @@ class Sam3Processor:
         return state
 
     @torch.inference_mode()
-    def set_image_batch(self, images: list[np.ndarray], state: dict | None = None):
-        """Sets the image batch on which we want to do predictions."""
+    def set_image_batch(
+        self,
+        images: list[PIL.Image.Image | torch.Tensor | np.ndarray],
+        state: dict | None = None,
+    ) -> dict:
+        """Sets the image batch on which we want to do predictions.
+
+        Args:
+            images: List of images as PIL Images, torch Tensors, or numpy arrays.
+                Tensors/arrays should be in (C, H, W) or (H, W, C) format.
+            state: Optional state dict to update. If None, a new one is created.
+
+        Returns:
+            Updated state dict with backbone outputs.
+        """
         if state is None:
             state = {}
 
-        if not isinstance(images, list):
-            raise ValueError("Images must be a list of PIL images or tensors")
-        assert len(images) > 0, "Images list must not be empty"
-        assert isinstance(
-            images[0],
-            PIL.Image.Image,
-        ), "Images must be a list of PIL images"
+        if not isinstance(images, list) or len(images) == 0:
+            raise ValueError("Images must be a non-empty list")
 
-        state["original_heights"] = [image.height for image in images]
-        state["original_widths"] = [image.width for image in images]
+        # Extract original dimensions based on image type
+        original_heights = []
+        original_widths = []
+        for image in images:
+            if isinstance(image, PIL.Image.Image):
+                original_widths.append(image.width)
+                original_heights.append(image.height)
+            elif isinstance(image, (torch.Tensor, np.ndarray, tv_tensors.Image)):
+                # Assume (C, H, W) or (H, W, C) format - use last two dims
+                original_heights.append(image.shape[-2])
+                original_widths.append(image.shape[-1])
+            else:
+                raise ValueError(f"Unsupported image type: {type(image)}")
+
+        state["original_heights"] = original_heights
+        state["original_widths"] = original_widths
 
         images = [self.transform(v2.functional.to_image(image).to(self.device)) for image in images]
         images = torch.stack(images, dim=0)

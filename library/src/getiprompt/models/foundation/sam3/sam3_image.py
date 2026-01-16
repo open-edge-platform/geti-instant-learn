@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # Copyright (c) Meta Platforms, Inc. and affiliates. All Rights Reserved
@@ -49,23 +49,37 @@ class Sam3Image(torch.nn.Module):
     """SAM3 Image Model.
 
     Args:
-        backbone (SAM3VLBackbone): _description_
-        transformer (nn.Module): _description_
-        input_geometry_encoder (nn.Module): _description_
-        segmentation_head (nn.Module | None, optional): _description_. Defaults to None.
-        num_feature_levels (int, optional): _description_. Defaults to 1.
-        o2m_mask_predict (bool, optional): _description_. Defaults to True.
-        dot_prod_scoring (nn.Module | None, optional): _description_. Defaults to None.
-        use_instance_query (bool, optional): _description_. Defaults to True.
-        multimask_output (bool, optional): _description_. Defaults to True.
-        use_act_checkpoint_seg_head (bool, optional): _description_. Defaults to True.
-        interactivity_in_encoder (bool, optional): _description_. Defaults to True.
-        matcher (nn.Module | None, optional): _description_. Defaults to None.
-        use_dot_prod_scoring (bool, optional): _description_. Defaults to True.
-        supervise_joint_box_scores (bool, optional): _description_. Defaults to False.
-        detach_presence_in_joint_score (bool, optional): _description_. Defaults to False.
-        separate_scorer_for_instance (bool, optional): _description_. Defaults to False.
-        num_interactive_steps_val (int, optional): _description_. Defaults to 0.
+        backbone: Visual-language backbone combining ViT and text encoder for
+            multi-modal feature extraction.
+        transformer: Transformer module containing encoder and decoder for
+            processing visual and text features.
+        input_geometry_encoder: Encoder for geometric prompts (boxes, points)
+            that converts spatial inputs into feature representations.
+        segmentation_head: Head module for mask prediction. Defaults to None.
+        num_feature_levels: Number of feature pyramid levels to use. Defaults to 1.
+        o2m_mask_predict: Whether to predict masks for one-to-many (O2M) queries
+            during training. Defaults to True.
+        dot_prod_scoring: Dot product scoring module for computing similarity
+            between queries and prompts. Defaults to None.
+        use_instance_query: Whether to use instance-specific queries. Defaults to True.
+        multimask_output: Whether to output multiple mask predictions per query
+            for ambiguity resolution. Defaults to True.
+        use_act_checkpoint_seg_head: Whether to use activation checkpointing in
+            segmentation head to reduce memory usage. Defaults to True.
+        interactivity_in_encoder: Whether interactive prompts are processed in
+            the encoder stage. Defaults to True.
+        matcher: Module for matching predictions to ground truth targets during
+            training. Defaults to None.
+        use_dot_prod_scoring: Whether to use dot product scoring instead of a
+            linear classifier for score prediction. Defaults to True.
+        supervise_joint_box_scores: Whether to supervise joint box scores using
+            presence token predictions. Defaults to False.
+        detach_presence_in_joint_score: Whether to detach presence score gradients
+            when computing joint scores. Defaults to False.
+        separate_scorer_for_instance: Whether to use a separate scoring head for
+            instance-level prompts. Defaults to False.
+        num_interactive_steps_val: Number of interactive refinement steps during
+            validation. Defaults to 0.
     """
 
     TEXT_ID_FOR_TEXT = 0
@@ -92,6 +106,7 @@ class Sam3Image(torch.nn.Module):
         separate_scorer_for_instance: bool = False,
         num_interactive_steps_val: int = 0,
     ) -> None:
+        """Initialize SAM3 Image model."""
         super().__init__()
         self.backbone = backbone
         self.geometry_encoder = input_geometry_encoder
@@ -135,11 +150,13 @@ class Sam3Image(torch.nn.Module):
         self.multimask_output = multimask_output
 
     @property
-    def device(self):
+    def device(self) -> torch.device:
+        """Get the device the model is on."""
         self._device = getattr(self, "_device", None) or next(self.parameters()).device
         return self._device
 
-    def to(self, *args, **kwargs):
+    def to(self, *args, **kwargs) -> torch.nn.Module:
+        """Override to() to clear cached device."""
         # clear cached _device in case the model is moved to a different device
         self._device = None
         return super().to(*args, **kwargs)

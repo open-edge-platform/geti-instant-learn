@@ -5,14 +5,12 @@
 
 from itertools import zip_longest
 
-import numpy as np
 import torch
-from PIL import Image
-from torchvision import tv_tensors
 from torchvision.ops import box_convert
 
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.foundation import Sam3Processor, build_sam3_image_model
+from getiprompt.utils.utils import setup_autocast
 
 from .base import Model
 
@@ -34,7 +32,7 @@ class SAM3(Model):
     NOTE: Currently, SAM3 does not work well with torch.bfloat16 precision.
 
     Usage Patterns:
-        **Pattern 1: Consistent API with GroundedSAM (recommended)**
+        **Pattern 1: Consistent text prompting via `fit()`**
         Use `fit()` to store categories, then `predict()` applies them to all images.
 
         **Pattern 2: Per-sample prompting**
@@ -49,9 +47,8 @@ class SAM3(Model):
 
         >>> sam3 = SAM3()
 
-        >>> # Example 1: Using fit() for consistent API (like GroundedSAM)
+        >>> # Example 1: Using fit() to set category prompts directly in reference samples witho
         >>> ref_sample = Sample(
-        ...     image=torch.zeros((3, 1024, 1024)),
         ...     categories=["shoe", "person"],
         ...     category_ids=[0, 1],
         ... )
@@ -59,11 +56,11 @@ class SAM3(Model):
         >>> target_batch = Batch.collate([Sample(image=torch.zeros((3, 1024, 1024)))])
         >>> infer_results = sam3.infer(target_batch)
 
-        >>> # Example 2: Per-sample text prompting (without fit)
+        >>> # Example 2: Per-sample text prompting (without fit) but set category prompts in each target sample.
         >>> sam3_no_fit = SAM3()
         >>> target_sample = Sample(
         ...     image=torch.zeros((3, 1024, 1024)),
-        ...     categories=["shoe", "person"],  # Text prompts per sample
+        ...     categories=["shoe", "person"],  # Category prompts per sample
         ...     category_ids=[0, 1],
         ... )
         >>> target_batch = Batch.collate([target_sample])
@@ -80,34 +77,6 @@ class SAM3(Model):
         >>> isinstance(infer_results, list)
         True
     """
-
-    @staticmethod
-    def _setup_autocast(device: str, precision: torch.dtype) -> torch.autocast:
-        """Setup autocast context based on device and precision.
-
-        Args:
-            device: The device to use ('cuda', 'xpu', or 'cpu').
-            precision: The precision to use ('bf16' or 'fp32').
-
-        Returns:
-            Autocast context manager.
-        """
-        # Determine device type and availability
-        if device == "xpu" and hasattr(torch, "xpu") and torch.xpu.is_available():
-            device_type = "xpu"
-            supports_bf16 = precision == torch.bfloat16
-        elif device == "cuda" and torch.cuda.is_available():
-            device_type = "cuda"
-            supports_bf16 = precision == torch.bfloat16
-        else:
-            # CPU or unsupported device
-            device_type = "cpu"
-            supports_bf16 = False
-
-        # Setup autocast context
-        if supports_bf16:
-            return torch.autocast(device_type=device_type, dtype=torch.bfloat16)
-        return torch.autocast(device_type=device_type, dtype=torch.float32)
 
     def __init__(
         self,
@@ -143,7 +112,7 @@ class SAM3(Model):
         self.resolution = resolution
 
         # Setup precision
-        self.autocast_ctx = self._setup_autocast(device=device, precision=precision)
+        self.autocast_ctx = setup_autocast(device=device, precision=precision)
 
         # Build the SAM3 model
         self.model = build_sam3_image_model(
@@ -181,40 +150,6 @@ class SAM3(Model):
             for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
                 if category not in self.category_mapping:
                     self.category_mapping[category] = int(category_id)
-
-    @staticmethod
-    def _prepare_image(image: torch.Tensor | np.ndarray | tv_tensors.Image) -> Image.Image:
-        """Convert image to PIL Image format.
-
-        Args:
-            image: Input image as tensor or numpy array.
-
-        Returns:
-            PIL Image.
-        """
-        if isinstance(image, Image.Image):
-            return image
-
-        # Convert to numpy if tensor
-        if isinstance(image, torch.Tensor):
-            # Handle (C, H, W) format
-            if image.ndim == 3 and image.shape[0] in {1, 3, 4}:
-                image = image.permute(1, 2, 0)
-            image = image.cpu().numpy()
-
-        # Ensure uint8 format
-        if image.dtype != np.uint8:
-            image = (image * 255).astype(np.uint8) if image.max() <= 1.0 else image.astype(np.uint8)
-
-        # Convert to PIL
-        if image.ndim == 2:
-            return Image.fromarray(image, mode="L")
-        if image.shape[-1] == 1:
-            return Image.fromarray(image.squeeze(-1), mode="L")
-        if image.shape[-1] == 3:
-            return Image.fromarray(image, mode="RGB")
-        # Handle 4-channel images
-        return Image.fromarray(image[..., :3], mode="RGB")
 
     def _process_predictions(
         self,
@@ -310,8 +245,8 @@ class SAM3(Model):
 
         with self.autocast_ctx:
             # Batch encode all images at once (expensive backbone forward pass)
-            pil_images = [self._prepare_image(sample.image) for sample in samples]
-            batch_state = self.processor.set_image_batch(pil_images)
+            images = [sample.image for sample in samples]
+            batch_state = self.processor.set_image_batch(images)
 
             # Process each image's prompts individually
             for idx, sample in enumerate(samples):
