@@ -6,6 +6,7 @@ from PyInstaller.utils.hooks import collect_all, collect_dynamic_libs, collect_s
 datas = [
     ('app/domain/alembic/*', 'domain/alembic'),
     ('app/alembic.ini', '.'),
+    ('.env', '.'),
 ]
 binaries = [(dll, 'Library/bin/') for dll in glob.glob('.venv/Library/bin/*')]
 hiddenimports = []
@@ -25,11 +26,11 @@ datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('getiprompt')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
-runtime_hooks = []
+runtime_hooks = ['pyinstaller/setenv.py']
 
 system = platform.system()
 if system == "Windows":
-    runtime_hooks = ['pyinstaller/windows/uwp.py', 'pyinstaller/windows/proxy.py']
+    runtime_hooks += ['pyinstaller/windows/uwp.py', 'pyinstaller/windows/proxy.py']
 
 a = Analysis(
     ['app/main.py'],

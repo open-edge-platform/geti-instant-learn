@@ -37,6 +37,12 @@ fn spawn_backend() -> std::io::Result<Child> {
         use std::os::windows::process::CommandExt;
         command.creation_flags(0x08000000); // CREATE_NO_WINDOW
     }
+    if cfg!(debug_assertions) {
+        command.env("LOG_LEVEL", "DEBUG");
+    } else {
+        command.env("LOG_LEVEL", "INFO");
+    }
+
     let child = command.spawn()?;
 
     log::info!("▶ Spawned backend: {:?}", backend_path);

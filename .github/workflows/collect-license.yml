@@ -38,7 +38,7 @@ jobs:
         run: docker builder prune -f
 
       - name: Generate SBOM for container image
-        uses: anchore/sbom-action@a930d0ac434e3182448fe678398ba5713717112a # v0.21.0
+        uses: anchore/sbom-action@0b82b0b1a22399a1c542d4d656f70cd903571b5c # v0.21.1
         env:
           SYFT_GOLANG_SEARCH_LOCAL_MOD_CACHE_LICENSES: "true"
           SYFT_GOLANG_SEARCH_REMOTE_LICENSES: "true"
@@ -96,7 +96,7 @@ jobs:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
+        uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7.2.0
         with:
           version: "0.7.13"
 

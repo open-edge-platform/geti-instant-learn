@@ -40,7 +40,7 @@ dev = [
 cpu = ["getiprompt[cpu]"]
 gpu = ["getiprompt[gpu]"]
 xpu = ["getiprompt[xpu]"]
-installer = ["pyinstaller~=6.16.0"]
+installer = ["pyinstaller~=6.16.0", "python-dotenv~=1.2.1"]
 
 mqtt = [
     "paho-mqtt~=2.1.0",
