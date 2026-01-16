@@ -41,7 +41,6 @@ dependencies = [
     "sam-2",
     "ftfy",
     "torchmetrics==1.8.2",
-    "iopath",
     "openvino==2025.3.0",
     "onnx>=1.19.1",
     "onnxruntime>=1.23.2",

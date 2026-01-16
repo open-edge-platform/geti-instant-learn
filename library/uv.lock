@@ -529,7 +529,6 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "ftfy" },
-    { name = "iopath" },
     { name = "jsonargparse" },
     { name = "lvis" },
     { name = "markupsafe" },
@@ -577,7 +576,6 @@ full = [
     { name = "pytest" },
     { name = "pytest-assume" },
     { name = "ruff" },
-    { name = "triton" },
     { name = "twine" },
 ]
 gpu = [
@@ -646,7 +644,6 @@ requires-dist = [
     { name = "torchvision", marker = "extra == 'gpu'", specifier = "==0.23.0", index = "https://download.pytorch.org/whl/cu126", conflict = { package = "getiprompt", extra = "gpu" } },
     { name = "torchvision", marker = "extra == 'xpu'", specifier = "==0.25.0.dev20251203+xpu", index = "https://download.pytorch.org/whl/nightly/xpu", conflict = { package = "getiprompt", extra = "xpu" } },
     { name = "transformers", specifier = "==4.56.2" },
-    { name = "triton", marker = "extra == 'extras'" },
     { name = "twine", marker = "extra == 'dev'", specifier = ">=6.1.0" },
 ]
 provides-extras = ["cpu", "gpu", "xpu", "notebook", "dev", "full"]
