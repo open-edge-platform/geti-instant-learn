@@ -78,7 +78,6 @@ class Processor(PipelineComponent):
                     output_data = OutputData(
                         frame=data.frame,
                         results=[results],
-                        label_colors=self._label_colors,
                         category_id_to_label_id=self._category_id_to_label_id,
                     )
                     self._outbound_broadcaster.broadcast(output_data)

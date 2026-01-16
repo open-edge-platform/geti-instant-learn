@@ -204,13 +204,13 @@ class LabelService(BaseService):
         logger.info("Label updated in project=%s label_id=%s name=%s", project_id, label.id, label.name)
         return label_db_to_schema(label=label)
 
-    def get_label_colors_for_processor(self, project_id: UUID) -> dict[str, tuple[int, int, int]]:
+    def get_label_colors_for_visualization(self) -> dict[str, tuple[int, int, int]]:
         """
         Get label colors formatted for inference visualization.
         Converts hex color strings to RGB tuples.
         """
-        labels = self.label_repository.list_all_by_project(project_id)
-
+        current_project = self.project_repository.get_active()
+        labels = self.label_repository.list_all_by_project(current_project.id) if current_project else []
         return {str(label.id): self._hex_to_rgb_tuple(label.color) for label in labels}
 
     @staticmethod

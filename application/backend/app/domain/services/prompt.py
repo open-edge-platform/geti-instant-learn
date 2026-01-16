@@ -54,7 +54,14 @@ logger = logging.getLogger(__name__)
 
 
 class PromptService(BaseService):
-    """Service layer orchestrating Prompt use cases."""
+    """
+    Service layer orchestrating Prompt use cases.
+    Responsibilities:
+      - Enforce business rules.
+      - Enforce invariants (single text prompt per project, visual prompts must have existing frame_id).
+      - Transaction boundaries (commit).
+      - Raise domain-specific exceptions.
+    """
 
     def __init__(
         self,
@@ -66,6 +73,9 @@ class PromptService(BaseService):
         processor_repository: ProcessorRepository | None = None,
         config_change_dispatcher: ConfigChangeDispatcher | None = None,
     ):
+        """
+        Initialize the service with a SQLAlchemy session.
+        """
         super().__init__(session=session, config_change_dispatcher=config_change_dispatcher)
         self.prompt_repository = prompt_repository or PromptRepository(session=session)
         self.project_repository = project_repository or ProjectRepository(session=session)
@@ -113,7 +123,7 @@ class PromptService(BaseService):
         Get all prompts of a specific type for a project, formatted for model training.
 
         Returns:
-            Tuple of (Batch, category_id_to_label_id mapping), or None if no valid samples.
+            Tuple of (Batch, category_id_to_label_id mapping), or None if no valid samples were found.
         """
         if prompt_type == PromptType.TEXT:
             logger.warning("Text prompts are not supported for training data generation for project_id=%s", project_id)
@@ -129,9 +139,11 @@ class PromptService(BaseService):
         for prompt in db_prompts:
             all_label_ids.update(ann.label_id for ann in prompt.annotations)
 
+        # Create consistent label-to-category-ID mapping for the entire batch
         label_to_category_id = {label_id: idx for idx, label_id in enumerate(sorted(all_label_ids, key=str))}
         category_id_to_label_id = {idx: str(label_id) for label_id, idx in label_to_category_id.items()}
 
+        # Track shot counts across all prompts (modified in-place)
         label_shot_counts: dict[UUID, int] = {}
 
         samples = []
@@ -152,6 +164,8 @@ class PromptService(BaseService):
                     continue
 
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+                # Convert with batch-level state
                 sample = visual_prompt_to_sample(prompt, frame_rgb, label_to_category_id, label_shot_counts)
                 samples.append(sample)
 

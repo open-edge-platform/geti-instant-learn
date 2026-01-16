@@ -9,6 +9,8 @@ import numpy as np
 from aiortc import VideoStreamTrack
 from av import VideoFrame
 
+from domain.db.engine import get_session_factory
+from domain.services.label import LabelService
 from domain.services.schemas.processor import OutputData
 from runtime.webrtc.visualizer import InferenceVisualizer
 
@@ -73,8 +75,12 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
             output_data: OutputData = await asyncio.to_thread(self._stream_queue.get, True, 0.5)
 
             if self._enable_visualization and self._visualizer:
+                session_factory = get_session_factory()
+                with session_factory() as session:
+                    label_svc = LabelService(session=session)
+                    label_colors = label_svc.get_label_colors_for_visualization()
                 logger.info(f"Visualizing the output data: {output_data}")
-                np_frame = self._visualizer.visualize(output_data)
+                np_frame = self._visualizer.visualize(output_data, label_colors)
             else:
                 np_frame = output_data.frame
 

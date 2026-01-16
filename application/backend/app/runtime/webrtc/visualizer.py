@@ -37,15 +37,17 @@ class InferenceVisualizer:
         self._mask_alpha = settings.mask_alpha
         self._mask_outline_thickness = settings.mask_outline_thickness
 
-    def visualize(self, output_data: OutputData) -> np.ndarray:
+    def visualize(
+        self, output_data: OutputData, label_colors: dict[str, tuple[int, int, int]] | None = None
+    ) -> np.ndarray:
         """Render model predictions onto the frame."""
 
         if not self._enabled or not output_data.results:
             return output_data.frame
 
         annotated = output_data.frame.copy()
-        label_colors = output_data.label_colors or {}
         category_id_to_label_id = output_data.category_id_to_label_id or {}
+        label_colors = label_colors or {}
 
         logger.info(
             "Visualizing %d prediction(s), categories=%s",
