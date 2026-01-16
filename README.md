@@ -19,10 +19,10 @@ Visual prompting offers a powerful alternative to traditional training. Instead 
 
 ## ✨ Key Features
 
-- **Simple & Modular API and CLI**: A composable design for inference and benchmarking. Create custom pipelines by mixing and matching existing components.
-- **Algorithms & Models**: A wide collection of ready-to-use zero-shot and few-shot algorithms and foundation models.
+- **Library & Application**: A unified framework providing a **modular Python library** for research and development, and a **Full-Stack Application** for deploying those algorithms on live video streams.
+- **Simple & Modular API**: A composable design where developers can mix and match components (backbones, matchers) to create custom pipelines.
+- **Algorithms & Models**: A wide collection of ready-to-use zero-shot and few-shot algorithms (e.g., **SAM 2**, **Matcher**, **GroundedSAM**) and foundation models.
 - **Hardware Acceleration**: Built-in support for model optimization and export to [**OpenVINO™**](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html) for fast inference on Intel hardware (CPU, GPU, NPU).
-- **Full-Stack Application**: A streaming-capable application (**React** + **FastAPI**) for easy deployment, visualization, and real-time inference of custom models.
 
 ## 🛫 Getting Started
 
