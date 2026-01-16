@@ -272,7 +272,7 @@ jobs:
       - name: Stop and Cleanup Container
         if: always()
         run: |
-          if [ ! -z "${{ env.CONTAINER_ID }}" ]; then
-            echo "Stopping container ${{ env.CONTAINER_ID }}..."
-            docker stop ${{ env.CONTAINER_ID }}
+          if [ -n "${CONTAINER_ID}" ]; then
+            echo "Stopping container ${CONTAINER_ID}..."
+            docker stop ${CONTAINER_ID}
           fi
