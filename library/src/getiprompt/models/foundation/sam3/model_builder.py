@@ -330,9 +330,9 @@ def _create_sam3_transformer(has_presence_token: bool = True) -> TransformerWrap
     return TransformerWrapper(encoder=encoder, decoder=decoder, d_model=256)
 
 
-def _load_checkpoint(model, checkpoint_path):
+def _load_checkpoint(model: nn.Module, checkpoint_path: str):
     """Load model checkpoint from file."""
-    ckpt = torch.load(checkpoint_path, map_location="cpu")  # nosec: B614
+    ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
     if "model" in ckpt and isinstance(ckpt["model"], dict):
         ckpt = ckpt["model"]
     sam3_image_ckpt = {k.replace("detector.", ""): v for k, v in ckpt.items() if "detector" in k}
