@@ -1,169 +1,78 @@
 # Quick Start Guide
 
-Get up and running with Geti Prompt Application in minutes.
+Get up and running with Geti Prompt in minutes.
 
-## Installation
+## 1. Installation
 
-Geti Prompt can be used the way you want: as a desktop application on your pc or local workstation or installed as a Docker image on your edge server which you can access via a web browser.
+You can run Geti Prompt directly from source (for development) or as a container (for isolation).
 
-### Option 1: Desktop Application
+### Option A: Run from Source (Recommended for Devs)
 
-```bash
-# TODO add instructions how to install using an msix package.
-
-```
-
-### Option 2: Docker
+**Prerequisites:** [uv](https://github.com/astral-sh/uv), [Just](https://github.com/casey/just), Python 3.12+, Node.js v24+.
 
 ```bash
-# TODO add instructions how to run the app as a docker container.
-
-```
-
-### Option 3: Run from source code
-
-Run both backend and frontend development servers:
-
-```bash
-just application/dev
-```
-
-This starts:
-
-- Backend API at `http://<your-ip>:9100`
-- Frontend UI at `http://<your-ip>:3000`
-
-Ports can be customized using the `port` and `ui-port` variables (see below).
-
-#### Supported Variables
-
-| Variable | Default | Options | Description |
-| -------- | ------- | ------- | ----------- |
-| `port` | `9100` | Any port | Backend API server port |
-| `ui-port` | `3000` | Any port | Frontend UI server port |
-| `device` | `cpu` | `cpu`, `cu126`, `xpu` | ML inference device (backend only) |
-| `enable-coturn` | `false` | `true`, `false` | Start Coturn TURN server (backend only) |
-| `stun-server` | `""` | STUN URL | External STUN server URL (backend only) |
-| `coturn-port` | `443` | Any port | Coturn server port (backend only) |
-
-> **Note:** For details on configuring WebRTC networking with Coturn and STUN servers, see [WebRTC Networking](concepts/02-development.md#webrtc-networking).
-
-#### Usage Examples
-
-```bash
-# Default (CPU, port 9100)
+# Start backend and frontend in dev mode
 just application/dev
 
-# Custom backend port
-just port=8080 application/dev
-
-# Custom UI port
-just ui-port=4000 application/dev
-
-# Custom backend and UI ports
-just port=8080 ui-port=4000 application/dev
-
-# With GPU
-just device=cu126 application/dev
-
-# With Coturn
-just enable-coturn=true application/dev
-
-# With external STUN
-just stun-server="stun:stun.l.google.com:19302" application/dev
-
-# With XPU
+# Recommended: Run on Intel XPU (GPU/NPU)
 just device=xpu application/dev
 
-# Combined options
-just device=cu126 enable-coturn=true port=8080 ui-port=4000 application/dev
+# Optional: Run on NVIDIA GPU
+just device=cu126 application/dev
 ```
 
-#### Access
+**Access the application at: [http://localhost:3000](http://localhost:3000)**
 
-**Local:** `http://localhost:3000`
-**Remote:** `http://<server-ip>:3000` (accessible from other machines on your network)
+### Option B: Run with Docker
 
-## Start using Geti Prompt
+**Prerequisites:** [Just](https://github.com/casey/just), Docker.
 
-### Step 1. Input Configuration
+```bash
+# Build and run the container automatically
+just application/run-image
 
-To begin using the application, configure the input stream for the application to process.
+# Recommended: Run on Intel XPU (GPU/NPU)
+just device=xpu application/run-image
 
->TODO: Insert a step-by-step guide with screenshots/GIFs demonstrating how to select and configure input sources (e.g., IP Camera, Web Camera, local video file).
+# Optional: Run on NVIDIA GPU
+just device=cu126 application/run-image
+```
 
-### Step 2. Prompting Models
+**Access the application at: [http://localhost:9100](http://localhost:9100)**
 
-Geti Prompt offers two interaction modes: Visual Prompting and Text Prompting. You can switch between these methods dynamically in the UI to suit your specific use case. Each mode features its own dedicated pipelines and configurable models.
+---
 
-Geti Prompt is built on the VisionPrompt framework, supporting the latest open-vocabulary foundation models. These state-of-the-art models were selected for their superior benchmarking performance and permissive licensing, allowing for unrestricted deployment
+## 2. Configuration
 
-> TODO: include what pipelines are supported for visual prompt & text prompt, how pipelines are configured, where to find more info about the pipeline benchmarks and characteristics, etc. Finish by redirecting user to dedicated “VisionPrompt framework” section.
+You can customize the startup command with these variables. Most apply to both **Source** and **Docker** modes.
 
-#### Visual prompting
+| Variable | Default | Description | Example |
+| :--- | :--- | :--- | :--- |
+| `port` | `9100` | Backend API port | `just port=8080 ...` |
+| `ui-port` | `3000` | UI port (Source mode only) | `just ui-port=4000 ...` |
+| `device` | `cpu` | Hardware (`cpu`, `xpu`, `cu126`) | `just device=xpu ...` |
+| `enable-coturn`| `false` | Enable local Coturn TURN server | `just enable-coturn=true ...` |
+| `coturn-port` | `443` | Port for Coturn server | `just coturn-port=3478 ...` |
+| `stun-server` | `""` | External STUN server URL | `just stun-server="stun:..."` |
+| `webrtc-ports` | `50000-51000`| UDP port range for WebRTC | `just webrtc-ports="50000-50100"` |
 
-Visual Prompting allows you to teach the model by directly selecting objects of interest. To create a prompt, simply capture a reference image, select the target object with a single click, and save the prompt. The model uses this visual reference to immediately detect similar objects in your input stream."
+## 3. Basic Usage
 
-- Capture Image: Grab a reference frame directly from the video source.
-- Select: Use the built-in tools to select the object.
-- Define: assign a class name to the object (e.g., "defect", "person").
-- Save Prompt: Commit the prompt to immediately trigger inference on the live stream.
-- Manage Prompts: Optimize your inference results by curating and refining the list of active prompts.
+### Step 1: Configure Input
+Navigate to **Settings > Input** and select your video source (Webcam, IP Camera, or File).
 
-> TODO:
->
-> - Add a GIF showing the capture process and best practices for selecting clear reference frames.
-> - Add a GIF showing label creation.
-> - Explanation of how modifying prompts affects real-time inference.
+### Step 2: Create a Valid Prompt
+1.  Click **Capture** to grab a reference frame.
+2.  Select an object in the image using the prompting tools.
+3.  Assign a label and save.
 
-#### Text prompting
+### Step 3: View Results
+Inference starts immediately. View real-time results in **Live View** or configure data export in **Settings > Output**.
 
-Text Prompting allows you to instruct the model by simply entering a text query in the UI. Just describe the object you want to detect, and the model will interpret your request.
-
-> TODO: include how to prompt by text, what the difference is with visual prompting, how to manage prompts, etc – short gif
-
-### Step 3. Inference & Deployment
-
-1. **Live Visualization:** Upon activating a prompt, Geti Prompt processes the visual input stream in real-time. Detection results are immediately displayed as an overlay in the Live View, allowing you to validate model performance instantly.
-
-2. **Output Configuration:** Customize how inference results are exported and utilized for downstream applications.
-
-   - **Destination:** Choose where to send the data (e.g., Local Disk, Network Stream, API Endpoint).
-   - **Format: Select:** the data structure for predictions (e.g., JSON, CSV).
-   - **Rate: Control:** the inference frequency (FPS) to manage load.
-
-   > TODO: include the different output destination & prediction options, with gif to show how this works and how the stored output looks like as an example
-
-3. **Production Deployment:** Once validated, you can deploy the fully configured application to your target environment. Geti Prompt supports flexible deployment options:
-
-   - **Edge/Remote:** Deploy as a containerized Docker image for remote edge servers and devices.
-   - **Local:** Run the application and model directly on a local PC for testing or desktop usage.
-
-   > TODO: include steps for each deployment option, and gifs/screenshots where applicable
-
-### Step 4. Monitoring & Observability
-
-Geti Prompt exposes real-time inference statistics, enabling you to track model health and latency during active deployment.
-
-> TODO: include the different inference performance statistics, how to interpret, how to configure, etc, with gif
-
-## Automation & Integration
-
-Transform raw inference results into actionable workflows. You can pipe model outputs into custom logic flows to automate decision-making.
-
-- **Node-RED Integration:** We provide boilerplate flows for common use cases, allowing you to visually build logic without deep coding.
-- **Standard Use Cases:**
-  - Counting: Track the total number of detected objects over time.
-  - Filtering: Trigger actions only when specific labels or confidence scores are met.
-
-> TODO: include boilerplate flows by using Node-RED for standard use cases like counting, measuring polygon/bounding box size and orientation, filtering labels or confidence thresholds
+> **Note**: Model weights are downloaded automatically when the model is deployed for the first time. Please be patient waiting for inference results after prompting a model.
 
 ## Next Steps
 
-- **Learn by Example**: Explore the [Tutorials](tutorials/01-tutorials.md) for specific workflows
-- **Deep Dive**: Read the [How-to Guides](how-to-guides/01-how-to-guides.md) for feature documentation
-- **Understand the Architecture**: Review the [Concepts](concepts/01-concepts.md) section
-
-## Troubleshooting
-
-For common issues, see the [FAQ](03-faq.md) or the [Development Guide](concepts/02-development.md).
+- **[Tutorials](tutorials/01-tutorials.md)**: Step-by-step guides for specific use cases.
+- **[How-to Guides](how-to-guides/01-how-to-guides.md)**: Deep dive into features.
+- **[Concepts](concepts/01-concepts.md)**: Learn about the architecture.
