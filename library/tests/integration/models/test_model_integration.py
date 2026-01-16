@@ -30,7 +30,7 @@ def fss1000_root() -> Path:
 
 
 @pytest.fixture
-def fss1000_dataset(fss1000_root: Path) -> FolderDataset:
+def dataset(fss1000_root: Path) -> FolderDataset:
     """Create a FolderDataset for testing."""
     return FolderDataset(
         root=fss1000_root,
@@ -40,7 +40,7 @@ def fss1000_dataset(fss1000_root: Path) -> FolderDataset:
 
 
 @pytest.fixture
-def fss1000_reference_batch(dataset: FolderDataset) -> Batch:
+def reference_batch(dataset: FolderDataset) -> Batch:
     """Get reference batch from dataset."""
     ref_dataset = dataset.get_reference_dataset()
     samples = [ref_dataset[i] for i in range(min(2, len(ref_dataset)))]  # Use up to 2 reference samples
@@ -48,7 +48,7 @@ def fss1000_reference_batch(dataset: FolderDataset) -> Batch:
 
 
 @pytest.fixture
-def fss1000_target_batch(dataset: FolderDataset) -> Batch:
+def target_batch(dataset: FolderDataset) -> Batch:
     """Get target batch from dataset."""
     target_dataset = dataset.get_target_dataset()
     samples = [target_dataset[i] for i in range(min(2, len(target_dataset)))]  # Use up to 2 target samples
