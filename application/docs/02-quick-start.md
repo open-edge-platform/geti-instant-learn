@@ -44,7 +44,7 @@ just device=cu126 application/run-image
 
 ## 2. Configuration
 
-You can customize the startup command with these variables. Most apply to both **Source** and **Docker** modes.
+You can customize the startup command with these variables.
 
 | Variable | Default | Description | Example |
 | :--- | :--- | :--- | :--- |
@@ -61,7 +61,7 @@ You can customize the startup command with these variables. Most apply to both *
 ## 3. Basic Usage
 
 ### Step 1: Configure Input
-Navigate to **Settings > Input** and select your video source (Webcam, IP Camera, or File).
+Navigate to **Settings > Input** and select your video source (USB Camera, IP Camera, Video File, etc.).
 
 ### Step 2: Create a Valid Prompt
 1.  Click **Capture** to grab a reference frame.
