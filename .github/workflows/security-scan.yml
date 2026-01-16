@@ -112,7 +112,7 @@ jobs:
           ignore_unfixed: "true"
 
   trivy-docker-image-scan:
-    if: github.event_name != 'push' && github.event_name != 'pull_request'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -159,7 +159,7 @@ jobs:
           ignore_unfixed: "true"
 
   zap-docker-image-scan:
-    if: github.event_name != 'push' && github.event_name != 'pull_request'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
