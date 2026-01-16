@@ -8,17 +8,9 @@ import { createContext, ReactNode, useContext } from 'react';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { useSuspenseQuery, UseSuspenseQueryResult } from '@tanstack/react-query';
 
+import { baseUrl } from '../../../api/client';
 import { getImageData, loadImage } from '../tools/utils';
 import type { RegionOfInterest } from '../types';
-
-/* eslint no-underscore-dangle: ["error", { "allow": ["__TAURI__"] }]*/
-/* eslint-disable  @typescript-eslint/no-explicit-any */
-const invoke = (window as any).__TAURI__?.core?.invoke;
-let tauriPublicApiUrl = null;
-if (invoke) {
-    tauriPublicApiUrl = await invoke('get_public_api_url');
-    console.info('Backend public API URL:', tauriPublicApiUrl);
-}
 
 const useLoadImageQuery = (frameId: string): UseSuspenseQueryResult<ImageData, unknown> => {
     const { projectId } = useProjectIdentifier();
@@ -30,8 +22,7 @@ const useLoadImageQuery = (frameId: string): UseSuspenseQueryResult<ImageData, u
                 throw new Error("Can't fetch undefined media item");
             }
 
-            const apiUrl = tauriPublicApiUrl || import.meta.env.PUBLIC_API_URL || '';
-            const imageUrl = `${apiUrl}/api/v1/projects/${projectId}/frames/${frameId}`;
+            const imageUrl = `${baseUrl}/api/v1/projects/${projectId}/frames/${frameId}`;
             const image = await loadImage(imageUrl);
 
             return getImageData(image);

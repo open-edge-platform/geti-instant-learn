@@ -8,17 +8,26 @@ import createClient from 'openapi-react-query';
 
 import type { paths } from './openapi-spec';
 
-/* eslint no-underscore-dangle: ["error", { "allow": ["__TAURI__"] }]*/
-/* eslint-disable  @typescript-eslint/no-explicit-any */
-const invoke = (<any>window).__TAURI__?.core?.invoke;
-let tauriPublicApiUrl = null;
-if (invoke) {
-    tauriPublicApiUrl = await invoke('get_public_api_url');
-    console.info('Backend public API URL:', tauriPublicApiUrl);
-}
+/* eslint-disable no-underscore-dangle */
+const isTauriContext = (): boolean => typeof window.__TAURI__?.core?.invoke === 'function';
+
+const getBaseUrl = async (): Promise<string> => {
+    if (isTauriContext()) {
+        const tauriApiUrl = await window.__TAURI__!.core!.invoke<string>('get_public_api_url');
+
+        console.info('Backend public API URL:', tauriApiUrl);
+
+        return tauriApiUrl;
+    }
+
+    return import.meta.env.PUBLIC_API_URL || '';
+};
+/* eslint-enable no-underscore-dangle */
+
+export const baseUrl = await getBaseUrl();
 
 export const client = createFetchClient<paths>({
-    baseUrl: tauriPublicApiUrl || import.meta.env.PUBLIC_API_URL || '',
+    baseUrl,
     fetch: (options) => fetch(options),
 });
 
