@@ -64,7 +64,7 @@ uv sync --extra gpu
 </p>
 <p align="center"><i>Reference image → Reference mask → Target image</i></p>
 
-**Step 1: Generate a reference mask using SAM**
+#### Step 1: Generate a reference mask using SAM
 
 ```python
 import torch
@@ -87,7 +87,7 @@ ref_mask, _, _ = predictor.predict(
 )
 ```
 
-**Step 2: Fit and predict with Matcher**
+#### Step 2: Fit and predict with Matcher
 
 ```python
 from getiprompt.models import Matcher

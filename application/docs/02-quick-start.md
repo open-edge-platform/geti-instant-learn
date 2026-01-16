@@ -51,10 +51,10 @@ You can customize the startup command with these variables.
 | `port` | `9100` | Backend API port | `just port=8080 ...` |
 | `ui-port` | `3000` | UI port (Source mode only) | `just ui-port=4000 ...` |
 | `device` | `cpu` | Hardware (`cpu`, `xpu`, `cu126`) | `just device=xpu ...` |
-| `enable-coturn`| `false` | Enable local Coturn TURN server | `just enable-coturn=true ...` |
+| `enable-coturn` | `false` | Enable local Coturn TURN server | `just enable-coturn=true ...` |
 | `coturn-port` | `443` | Port for Coturn server | `just coturn-port=3478 ...` |
 | `stun-server` | `""` | External STUN server URL | `just stun-server="stun:..."` |
-| `webrtc-ports` | `50000-51000`| UDP port range for WebRTC | `just webrtc-ports="50000-50100"` |
+| `webrtc-ports` | `50000-51000` | UDP port range for WebRTC | `just webrtc-ports="50000-50100"` |
 
 > **Note**: For detailed explanation of WebRTC parameters and when to use them, see [WebRTC Networking](concepts/02-development.md#webrtc-networking).
 
