@@ -120,7 +120,7 @@ masks = predictions[0]["pred_masks"]   # Predicted segmentation masks
 
 ### Geti Prompt Application
 
-Run both backend and frontend development servers:
+Run the application from source:
 
 ```bash
 just application/dev
@@ -132,7 +132,7 @@ This starts:
 
 > 📘 For detailed documentation, see the [Application README](application/README.md).
 
-## 🧮 Supported models
+## 🤖 Supported models
 
 Geti Prompt supports a variety of foundation models and visual prompting algorithms, optimized for different performance needs.
 
