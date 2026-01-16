@@ -189,8 +189,10 @@ jobs:
           echo "Image: ${IMAGE_NAME}"
 
       - name: Start container
+        env:
+          IMAGE_NAME: ${{ steps.image-name.outputs.image }}
         run: |
-          CONTAINER_ID=$(docker run -d --rm --name test-container --publish 9100:9100 --env PORT=9100 --env HOST=0.0.0.0 ${{ steps.image-name.outputs.image }})
+          CONTAINER_ID=$(docker run -d --rm --name test-container --publish 9100:9100 --env PORT=9100 --env HOST=0.0.0.0 ${IMAGE_NAME})
           echo "Started container: $CONTAINER_ID"
           echo "CONTAINER_ID=$CONTAINER_ID" >> $GITHUB_ENV
 
