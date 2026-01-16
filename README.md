@@ -126,6 +126,7 @@ Run the application from source:
 ```bash
 just application/dev
 ```
+
 This starts:
 
 - Backend API at `http://locahost:9100`
@@ -159,12 +160,11 @@ Geti Prompt supports a variety of foundation models and visual prompting algorit
 | **PerDino** | Personalized DINO-based prompting, leveraging DINOv2/v3 features for robust matching. | [PerSAM](https://arxiv.org/abs/2305.03048) | [Personalize-SAM](https://github.com/ZrrSkywalker/Personalize-SAM) |
 | **GroundedSAM** | Combines Grounding DINO and SAM for text-based visual prompting and segmentation. | [Grounding DINO](https://arxiv.org/abs/2303.05499), [SAM](https://arxiv.org/abs/2304.02643) | [GroundedSAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) |
 
-
 ## 🎡 Community
+
 - To report a bug or submit a feature request, please open a [GitHub issue](https://github.com/open-edge-platform/geti-prompt/issues).
 
 - Ask questions via [GitHub Discussions](https://github.com/open-edge-platform/geti/discussions).
-
 
 ## 🙌 Contributing
 
@@ -188,4 +188,4 @@ This project incorporates code from several open-source repositories. We thank t
 
 Geti Prompt is licensed under the [Apache License 2.0](LICENSE).
 
-FFmpeg is an open source project licensed under LGPL and GPL. See https://www.ffmpeg.org/legal.html. You are solely responsible for determining if your use of FFmpeg requires any additional licenses. Intel is not responsible for obtaining any such licenses, nor liable for any licensing fees due, in connection with your use of FFmpeg.
+FFmpeg is an open source project licensed under LGPL and GPL. See <https://www.ffmpeg.org/legal.html>. You are solely responsible for determining if your use of FFmpeg requires any additional licenses. Intel is not responsible for obtaining any such licenses, nor liable for any licensing fees due, in connection with your use of FFmpeg.
