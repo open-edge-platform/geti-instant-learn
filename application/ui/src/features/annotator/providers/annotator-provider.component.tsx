@@ -16,7 +16,7 @@ import type { RegionOfInterest } from '../types';
 const invoke = (window as any).__TAURI__?.core?.invoke;
 let tauriPublicApiUrl = null;
 if (invoke) {
-    tauriPublicApiUrl = await invoke('get_public_api_url')
+    tauriPublicApiUrl = await invoke('get_public_api_url');
     console.info('Backend public API URL:', tauriPublicApiUrl);
 }
 

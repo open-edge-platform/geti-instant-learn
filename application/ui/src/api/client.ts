@@ -10,10 +10,10 @@ import type { paths } from './openapi-spec';
 
 /* eslint no-underscore-dangle: ["error", { "allow": ["__TAURI__"] }]*/
 /* eslint-disable  @typescript-eslint/no-explicit-any */
-const invoke = (<any> window).__TAURI__?.core?.invoke;
+const invoke = (<any>window).__TAURI__?.core?.invoke;
 let tauriPublicApiUrl = null;
 if (invoke) {
-    tauriPublicApiUrl = await invoke('get_public_api_url')
+    tauriPublicApiUrl = await invoke('get_public_api_url');
     console.info('Backend public API URL:', tauriPublicApiUrl);
 }
 
