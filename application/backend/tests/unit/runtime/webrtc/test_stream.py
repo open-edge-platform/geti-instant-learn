@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from queue import Queue
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -36,7 +36,22 @@ class TestInferenceVideoStreamTrack:
         fxt_stream_queue.put(fxt_output_data)
         track = InferenceVideoStreamTrack(fxt_stream_queue)
 
-        frame = await track.recv()
+        with (
+            patch("runtime.webrtc.stream.get_session_factory") as mock_get_session_factory,
+            patch("runtime.webrtc.stream.LabelService.get_label_colors_for_visualization", return_value={}),
+            patch(
+                "runtime.webrtc.stream.InferenceVisualizer.visualize",
+                # Bound method call: visualize(output_data, label_colors)
+                side_effect=lambda output_data, _label_colors: output_data.frame,
+            ),
+        ):
+            session_factory = MagicMock()
+            session_cm = session_factory.return_value
+            session_cm.__enter__.return_value = MagicMock()
+            session_cm.__exit__.return_value = None
+            mock_get_session_factory.return_value = session_factory
+
+            frame = await track.recv()
 
         assert isinstance(frame, VideoFrame)
         assert frame.width == 640
@@ -59,31 +74,54 @@ class TestInferenceVideoStreamTrack:
         fxt_stream_queue.put(fxt_output_data)
         track = InferenceVideoStreamTrack(fxt_stream_queue)
 
-        # First recv gets the frame and caches it
-        frame1 = await track.recv()
-        assert frame1.width == 640
-        assert frame1.height == 480
+        with (
+            patch("runtime.webrtc.stream.get_session_factory") as mock_get_session_factory,
+            patch("runtime.webrtc.stream.LabelService.get_label_colors_for_visualization", return_value={}),
+            patch(
+                "runtime.webrtc.stream.InferenceVisualizer.visualize",
+                side_effect=lambda output_data, _label_colors: output_data.frame,
+            ),
+        ):
+            session_factory = MagicMock()
+            session_cm = session_factory.return_value
+            session_cm.__enter__.return_value = MagicMock()
+            session_cm.__exit__.return_value = None
+            mock_get_session_factory.return_value = session_factory
 
-        # Second recv with empty queue should use cached frame
-        frame2 = await track.recv()
-        assert isinstance(frame2, VideoFrame)
-        assert frame2.width == 640
-        assert frame2.height == 480
+            frame1 = await track.recv()
+            assert frame1.width == 640
+            assert frame1.height == 480
+
+            frame2 = await track.recv()
+            assert isinstance(frame2, VideoFrame)
+            assert frame2.width == 640
+            assert frame2.height == 480
 
     @pytest.mark.asyncio
     async def test_recv_multiple_frames(self, fxt_stream_queue, fxt_sample_frame):
         track = InferenceVideoStreamTrack(fxt_stream_queue)
 
-        for i in range(3):
+        for _ in range(3):
             output_data = MagicMock(spec=OutputData)
             output_data.frame = fxt_sample_frame
             output_data.results = []
             fxt_stream_queue.put(output_data)
 
-        frames = []
-        for _ in range(3):
-            frame = await track.recv()
-            frames.append(frame)
+        with (
+            patch("runtime.webrtc.stream.get_session_factory") as mock_get_session_factory,
+            patch("runtime.webrtc.stream.LabelService.get_label_colors_for_visualization", return_value={}),
+            patch(
+                "runtime.webrtc.stream.InferenceVisualizer.visualize",
+                side_effect=lambda output_data, _label_colors: output_data.frame,
+            ),
+        ):
+            session_factory = MagicMock()
+            session_cm = session_factory.return_value
+            session_cm.__enter__.return_value = MagicMock()
+            session_cm.__exit__.return_value = None
+            mock_get_session_factory.return_value = session_factory
+
+            frames = [await track.recv() for _ in range(3)]
 
         assert len(frames) == 3
         for frame in frames:
@@ -98,10 +136,21 @@ class TestInferenceVideoStreamTrack:
         for _ in range(3):
             fxt_stream_queue.put(fxt_output_data)
 
-        pts_values = []
-        for _ in range(3):
-            frame = await track.recv()
-            pts_values.append(frame.pts)
+        with (
+            patch("runtime.webrtc.stream.get_session_factory") as mock_get_session_factory,
+            patch("runtime.webrtc.stream.LabelService.get_label_colors_for_visualization", return_value={}),
+            patch(
+                "runtime.webrtc.stream.InferenceVisualizer.visualize",
+                side_effect=lambda output_data, _label_colors: output_data.frame,
+            ),
+        ):
+            session_factory = MagicMock()
+            session_cm = session_factory.return_value
+            session_cm.__enter__.return_value = MagicMock()
+            session_cm.__exit__.return_value = None
+            mock_get_session_factory.return_value = session_factory
+
+            pts_values = [(await track.recv()).pts for _ in range(3)]
 
         assert pts_values[1] > pts_values[0]
         assert pts_values[2] > pts_values[1]

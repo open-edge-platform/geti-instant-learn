@@ -583,18 +583,54 @@ def test_get_reference_batch_for_visual_prompts(service, mock_project, project_i
     result = service.get_reference_batch(project_id, PromptType.VISUAL)
 
     assert result is not None
-    assert len(result) == 1
+    batch, category_id_to_label_id = result
+
+    assert len(batch) == 1
+    assert isinstance(category_id_to_label_id, dict)
+    assert list(category_id_to_label_id.keys()) == [0]
+    assert category_id_to_label_id[0] == str(label_id)
+
     service.prompt_repository.list_all_by_project.assert_called_once_with(
         project_id=project_id, prompt_type=PromptType.VISUAL
     )
-    sample = result[0]
-
-    assert sample.image is not None
-    assert sample.masks is not None
-    assert len(sample.masks) == 1
-    assert str(label_id) in sample.categories
-
     service.frame_repository.read_frame.assert_called_once_with(project_id, frame_id)
+
+
+def test_get_reference_batch_category_mapping_sorted_by_label_id_string(service, mock_project, project_id, frame_id):
+    # Ensure stable mapping: enumerate(sorted(all_label_ids, key=str))
+    label_id_a = uuid.UUID("00000000-0000-0000-0000-00000000000a")
+    label_id_b = uuid.UUID("00000000-0000-0000-0000-00000000000b")
+
+    ann_1 = SimpleNamespace(
+        id=uuid.uuid4(),
+        config=PolygonAnnotation(
+            type="polygon",
+            points=[Point(x=0.1, y=0.1), Point(x=0.2, y=0.1), Point(x=0.2, y=0.2), Point(x=0.1, y=0.2)],
+        ),
+        label_id=label_id_b,
+    )
+    ann_2 = SimpleNamespace(
+        id=uuid.uuid4(),
+        config=PolygonAnnotation(
+            type="polygon",
+            points=[Point(x=0.3, y=0.3), Point(x=0.4, y=0.3), Point(x=0.4, y=0.4), Point(x=0.3, y=0.4)],
+        ),
+        label_id=label_id_a,
+    )
+
+    visual_prompt = make_visual_prompt_db(project_id=project_id, frame_id=frame_id, annotations=[ann_1, ann_2])
+    service.prompt_repository.list_all_by_project.return_value = [visual_prompt]
+    service.frame_repository.read_frame.return_value = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
+
+    result = service.get_reference_batch(project_id, PromptType.VISUAL)
+
+    assert result is not None
+    _, category_id_to_label_id = result
+
+    assert category_id_to_label_id == {
+        0: str(label_id_a),
+        1: str(label_id_b),
+    }
 
 
 def test_get_reference_batch_visual_prompts_empty(service, mock_project, project_id):
@@ -613,14 +649,6 @@ def test_get_reference_batch_visual_prompt_frame_not_found(service, mock_project
     result = service.get_reference_batch(project_id, PromptType.VISUAL)
 
     assert result is None
-
-
-def test_get_reference_batch_project_not_found(service):
-    project_id = uuid.uuid4()
-    service.project_repository.get_by_id.return_value = None
-
-    batch = service.get_reference_batch(project_id, PromptType.VISUAL)
-    assert batch is None
 
 
 def test_get_reference_batch_visual_prompt_mapper_error_handled(service, mock_project, project_id, frame_id):

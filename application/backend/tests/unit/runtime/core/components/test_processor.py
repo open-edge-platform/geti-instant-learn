@@ -47,8 +47,7 @@ class TestProcessor:
         self.mock_outbound_broadcaster = MagicMock(spec=FrameBroadcaster)
         self.mock_model_handler = MagicMock()
         self.mock_model_handler.predict.side_effect = lambda batch: [{}] * len(batch)
-        self.mock_label_service = MagicMock()
-        self.runner = Processor(self.mock_model_handler, self.mock_label_service)
+        self.runner = Processor(self.mock_model_handler, batch_size=3)
         self.runner.setup(self.mock_inbound_broadcaster, self.mock_outbound_broadcaster)
 
     @pytest.mark.parametrize(
