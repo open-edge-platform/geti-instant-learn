@@ -11,16 +11,18 @@
 
 # 👋 Introduction
 
-Geti Prompt bridges the gap between research and production. It enables users to **explore, develop, and deploy** visual prompting algorithms - from experimenting with foundation models to running real-time inference on any streaming device.
-
-## 💡 What is Visual Prompting?
-
 Visual prompting offers a powerful alternative to traditional training. Instead of curating thousands of labeled images, you simply show the model one or a few examples of what you are looking for. The model effectively "learns" instantly, detecting and segmenting similar objects in new images or live video streams without retraining.
 
 <p align="center">
  <image src="https://github.com/user-attachments/assets/9ccc585d-6590-4e54-b766-d95bdccf725d" width="1200"/>
 </p>
 
+## ✨ Key Features
+
+- **Simple & Modular API and CLI**: A composable design for inference and benchmarking. Developers can create custom pipelines by mixing and matching existing components.
+- **Algorithms & Models**: A wide collection of ready-to-use zero-shot and few-shot algorithms and foundation models.
+- **Hardware Acceleration**: Built-in support for model optimization and export to [**OpenVINO™**](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html) for fast inference on Intel hardware (CPU, GPU, NPU).
+- **Full-Stack Application**: A streaming-capable application (**React** + **FastAPI**) for easy deployment, visualization, and real-time inference of custom models.
 
 ## 🛫 Getting Started
 
