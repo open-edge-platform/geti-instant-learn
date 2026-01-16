@@ -9,8 +9,6 @@
 [![license](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 </div>
 
----
-
 # 👋 Introduction
 
 Geti Prompt bridges the gap between research and production. It enables users to **explore, develop, and deploy** visual prompting algorithms - from experimenting with foundation models to running real-time inference on any streaming device.
