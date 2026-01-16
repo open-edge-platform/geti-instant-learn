@@ -47,7 +47,7 @@ class SAM3(Model):
 
         >>> sam3 = SAM3()
 
-        >>> # Example 1: Using fit() to set category prompts directly in reference samples witho
+        >>> # Example 1: Using fit() to set category prompts directly in reference samples without passing reference images.
         >>> ref_sample = Sample(
         ...     categories=["shoe", "person"],
         ...     category_ids=[0, 1],
