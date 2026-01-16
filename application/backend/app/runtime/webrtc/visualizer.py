@@ -49,12 +49,7 @@ class InferenceVisualizer:
         category_id_to_label_id = output_data.category_id_to_label_id or {}
         label_colors = label_colors or {}
 
-        logger.debug(
-            "Visualizing %d prediction(s), categories=%s",
-            len(output_data.results),
-            list(category_id_to_label_id),
-        )
-
+        logger.debug("Visualizing the output data: %s, categories=%s", output_data, category_id_to_label_id)
         for prediction in output_data.results:
             boxes = prediction.get("pred_boxes")
             if boxes is not None and boxes.numel() > 0:

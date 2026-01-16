@@ -79,7 +79,6 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
                 with session_factory() as session:
                     label_svc = LabelService(session=session)
                     label_colors = label_svc.get_label_colors_for_visualization()
-                logger.info(f"Visualizing the output data: {output_data}")
                 np_frame = self._visualizer.visualize(output_data, label_colors)
             else:
                 np_frame = output_data.frame

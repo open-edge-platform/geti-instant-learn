@@ -178,7 +178,7 @@ class PromptService(BaseService):
             return None
 
         batch = Batch.collate(samples)
-        logger.debug(f"Reference batch: {batch}")
+        logger.debug("Reference batch: %s", batch)
 
         unique_categories = len(label_to_category_id)
         shots_per_category = {
