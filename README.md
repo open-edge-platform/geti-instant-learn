@@ -160,22 +160,23 @@ Geti Prompt supports a variety of foundation models and visual prompting algorit
 
 
 ## 🎡 Community
+- To report a bug or submit a feature request, please open a [GitHub issue](https://github.com/open-edge-platform/geti-prompt/issues).
+
+- Ask questions via [GitHub Discussions](https://github.com/open-edge-platform/geti/discussions).
 
 
 ## 🙌 Contributing
 
 We welcome contributions! Check out our [Contributing Guide](CONTRIBUTING.md) to get started.
 
-To report a bug or submit a feature request, please open a [GitHub issue](https://github.com/open-edge-platform/geti-prompt/issues).
-
 <p align="center">
-  <a href="https://github.com/open-edge-platform/geti-prompt/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=open-edge-platform/geti-prompt" alt="Contributors to open-edge-platform/geti-prompt" />
-  </a>
+  <b>Thank you 👏 to all our contributors!</b>
 </p>
 
 <p align="center">
-  <b>Thank you to all our contributors!</b>
+    <a href="https://github.com/open-edge-platform/geti-prompt/graphs/contributors">
+      View Contributors Graph
+    </a>
 </p>
 
 ## Acknowledgements
