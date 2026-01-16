@@ -2,12 +2,16 @@
 <div align="center">
 
 <img src="assets/geti-prompt-header.png" width="600px" alt="Geti Prompt Logo - A framework for developing, benchmarking, and deploying zero-shot visual prompting algorithms on the edge">
+
 **A framework for developing, benchmarking, and deploying zero-shot visual prompting algorithms on the edge.**
 
 ---
+
 [![python](https://img.shields.io/badge/python-3.12%2B-green)]()
 [![license](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 </div>
+
+---
 
 # 👋 Introduction
 
