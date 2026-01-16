@@ -351,8 +351,8 @@ class Matcher(Model):
                 ov_model = openvino.convert_model(onnx_path)
                 openvino.save_model(ov_model, export_path / "matcher.xml")
                 return export_path / "matcher.xml"
-            except ImportError:
+            except ImportError as e:
                 msg = "OpenVINO is not installed. Please install it to use OpenVINO export."
-                raise ImportError(msg)
+                raise ImportError(msg) from e
 
         return export_path

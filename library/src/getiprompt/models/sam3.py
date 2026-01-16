@@ -117,7 +117,7 @@ class SAM3(Model):
         resolution: int = 1008,
         precision: str = "fp32",
         checkpoint_path: str | None = None,
-        load_from_HF: bool = True,
+        load_from_hf: bool = True,
         enable_segmentation: bool = True,
         enable_inst_interactivity: bool = False,
         compile_models: bool = False,
@@ -131,7 +131,7 @@ class SAM3(Model):
             resolution: The input image resolution.
             precision: The precision to use for the model ('bf16' or 'fp32').
             checkpoint_path: Optional path to model checkpoint.
-            load_from_HF: Whether to load checkpoint from HuggingFace.
+            load_from_hf: Whether to load checkpoint from HuggingFace.
             enable_segmentation: Whether to enable segmentation head.
             enable_inst_interactivity: Whether to enable instance interactivity.
             compile_models: Whether to compile the models.
@@ -150,7 +150,7 @@ class SAM3(Model):
             bpe_path=bpe_path,
             device=device,
             checkpoint_path=checkpoint_path,
-            load_from_HF=load_from_HF,
+            load_from_hf=load_from_hf,
             enable_segmentation=enable_segmentation,
             enable_inst_interactivity=enable_inst_interactivity,
             compile=compile_models,
@@ -182,7 +182,8 @@ class SAM3(Model):
                 if category not in self.category_mapping:
                     self.category_mapping[category] = int(category_id)
 
-    def _prepare_image(self, image: torch.Tensor | np.ndarray | tv_tensors.Image) -> Image.Image:
+    @staticmethod
+    def _prepare_image(image: torch.Tensor | np.ndarray | tv_tensors.Image) -> Image.Image:
         """Convert image to PIL Image format.
 
         Args:
@@ -197,16 +198,13 @@ class SAM3(Model):
         # Convert to numpy if tensor
         if isinstance(image, torch.Tensor):
             # Handle (C, H, W) format
-            if image.ndim == 3 and image.shape[0] in [1, 3, 4]:
+            if image.ndim == 3 and image.shape[0] in {1, 3, 4}:
                 image = image.permute(1, 2, 0)
             image = image.cpu().numpy()
 
         # Ensure uint8 format
         if image.dtype != np.uint8:
-            if image.max() <= 1.0:
-                image = (image * 255).astype(np.uint8)
-            else:
-                image = image.astype(np.uint8)
+            image = (image * 255).astype(np.uint8) if image.max() <= 1.0 else image.astype(np.uint8)
 
         # Convert to PIL
         if image.ndim == 2:
@@ -267,9 +265,9 @@ class SAM3(Model):
             Dictionary with aggregated predictions.
         """
         # Filter out empty tensors before concatenation
-        non_empty_masks = [m for m in all_masks if m.numel() > 0]
-        non_empty_boxes = [b for b in all_boxes if b.numel() > 0]
-        non_empty_labels = [l for l in all_labels if l.numel() > 0]
+        non_empty_masks = [masks for masks in all_masks if masks.numel() > 0]
+        non_empty_boxes = [boxes for boxes in all_boxes if boxes.numel() > 0]
+        non_empty_labels = [labels for labels in all_labels if labels.numel() > 0]
 
         if non_empty_masks:
             aggregated_masks = torch.cat(non_empty_masks, dim=0)

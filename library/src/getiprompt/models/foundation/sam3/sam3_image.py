@@ -9,6 +9,7 @@ from copy import deepcopy
 from logging import getLogger
 
 import torch
+from torch import nn
 
 from getiprompt.models.foundation.sam3.data_misc import (
     BatchedDatapoint,
@@ -26,7 +27,14 @@ from getiprompt.models.foundation.sam3.model import (
 logger = getLogger("Geti Prompt")
 
 
-def _update_out(out, out_name, out_value, auxiliary=True, update_aux=True):
+def _update_out(
+    out: dict[str, torch.Tensor],
+    out_name: str,
+    out_value: list[torch.Tensor],
+    auxiliary: bool = True,
+    update_aux: bool = True,
+) -> None:
+    """Helper function to update the output dictionary with main and auxiliary outputs."""
     out[out_name] = out_value[-1] if auxiliary else out_value
     if auxiliary and update_aux:
         if "aux_outputs" not in out:
@@ -37,6 +45,28 @@ def _update_out(out, out_name, out_value, auxiliary=True, update_aux=True):
 
 
 class Sam3Image(torch.nn.Module):
+    """SAM3 Image Model.
+
+    Args:
+        backbone (SAM3VLBackbone): _description_
+        transformer (nn.Module): _description_
+        input_geometry_encoder (nn.Module): _description_
+        segmentation_head (nn.Module | None, optional): _description_. Defaults to None.
+        num_feature_levels (int, optional): _description_. Defaults to 1.
+        o2m_mask_predict (bool, optional): _description_. Defaults to True.
+        dot_prod_scoring (nn.Module | None, optional): _description_. Defaults to None.
+        use_instance_query (bool, optional): _description_. Defaults to True.
+        multimask_output (bool, optional): _description_. Defaults to True.
+        use_act_checkpoint_seg_head (bool, optional): _description_. Defaults to True.
+        interactivity_in_encoder (bool, optional): _description_. Defaults to True.
+        matcher (nn.Module | None, optional): _description_. Defaults to None.
+        use_dot_prod_scoring (bool, optional): _description_. Defaults to True.
+        supervise_joint_box_scores (bool, optional): _description_. Defaults to False.
+        detach_presence_in_joint_score (bool, optional): _description_. Defaults to False.
+        separate_scorer_for_instance (bool, optional): _description_. Defaults to False.
+        num_interactive_steps_val (int, optional): _description_. Defaults to 0.
+    """
+
     TEXT_ID_FOR_TEXT = 0
     TEXT_ID_FOR_VISUAL = 1
     TEXT_ID_FOR_GEOMETRIC = 2
@@ -44,24 +74,23 @@ class Sam3Image(torch.nn.Module):
     def __init__(
         self,
         backbone: SAM3VLBackbone,
-        transformer,
-        input_geometry_encoder,
-        segmentation_head=None,
-        num_feature_levels=1,
-        o2m_mask_predict=True,
-        dot_prod_scoring=None,
+        transformer: nn.Module,
+        input_geometry_encoder: nn.Module,
+        segmentation_head: nn.Module | None = None,
+        num_feature_levels: int = 1,
+        o2m_mask_predict: bool = True,
+        dot_prod_scoring: nn.Module | None = None,
         use_instance_query: bool = True,
         multimask_output: bool = True,
         use_act_checkpoint_seg_head: bool = True,
         interactivity_in_encoder: bool = True,
-        matcher=None,
-        use_dot_prod_scoring=True,
+        matcher: nn.Module | None = None,
+        use_dot_prod_scoring: bool = True,
         supervise_joint_box_scores: bool = False,  # only relevant if using presence token/score
         detach_presence_in_joint_score: bool = False,  # only relevant if using presence token/score
         separate_scorer_for_instance: bool = False,
         num_interactive_steps_val: int = 0,
-        **kwargs,
-    ):
+    ) -> None:
         super().__init__()
         self.backbone = backbone
         self.geometry_encoder = input_geometry_encoder
@@ -114,7 +143,11 @@ class Sam3Image(torch.nn.Module):
         self._device = None
         return super().to(*args, **kwargs)
 
-    def _get_img_feats(self, backbone_out, img_ids):
+    def _get_img_feats(
+        self,
+        backbone_out: dict[str, torch.Tensor],
+        img_ids: torch.Tensor,
+    ) -> tuple[dict[str, torch.Tensor], list[torch.Tensor], list[torch.Tensor], list[tuple[int, int]]]:
         """Retrieve correct image features from backbone output."""
         if "backbone_fpn" in backbone_out:
             if "id_mapping" in backbone_out and backbone_out["id_mapping"] is not None:
@@ -169,13 +202,13 @@ class Sam3Image(torch.nn.Module):
 
     def _encode_prompt(
         self,
-        backbone_out,
-        find_input,
-        geometric_prompt,
-        visual_prompt_embed=None,
-        visual_prompt_mask=None,
-        encode_text=True,
-        prev_mask_pred=None,
+        backbone_out: dict[str, torch.Tensor],
+        find_input: BatchedDatapoint.FindInput,
+        geometric_prompt: Prompt,
+        visual_prompt_embed: torch.Tensor | None = None,
+        visual_prompt_mask: torch.Tensor | None = None,
+        encode_text: bool = True,
+        prev_mask_pred: torch.Tensor | None = None,
     ):
         # index text features (note that regardless of early or late fusion, the batch size of
         # `txt_feats` is always the number of *prompts* in the encoder)
@@ -215,10 +248,10 @@ class Sam3Image(torch.nn.Module):
 
     def _run_encoder(
         self,
-        backbone_out,
-        find_input,
-        prompt,
-        prompt_mask,
+        backbone_out: dict[str, torch.Tensor],
+        find_input: BatchedDatapoint.FindInput,
+        prompt: torch.Tensor,
+        prompt_mask: torch.Tensor,
         encoder_extra_kwargs: dict | None = None,
     ):
         feat_tuple = self._get_img_feats(backbone_out, find_input.img_ids)
@@ -255,13 +288,13 @@ class Sam3Image(torch.nn.Module):
 
     def _run_decoder(
         self,
-        pos_embed,
-        memory,
-        src_mask,
-        out,
-        prompt,
-        prompt_mask,
-        encoder_out,
+        pos_embed: torch.Tensor,
+        memory: torch.Tensor,
+        src_mask: torch.Tensor,
+        out: dict[str, torch.Tensor],
+        prompt: torch.Tensor,
+        prompt_mask: torch.Tensor,
+        encoder_out: dict[str, torch.Tensor],
     ):
         bs = memory.shape[1]
         query_embed = self.transformer.decoder.query_embed.weight
@@ -301,13 +334,13 @@ class Sam3Image(torch.nn.Module):
 
     def _update_scores_and_boxes(
         self,
-        out,
-        hs,
-        reference_boxes,
-        prompt,
-        prompt_mask,
-        dec_presence_out=None,
-        is_instance_prompt=False,
+        out: dict[str, torch.Tensor],
+        hs: torch.Tensor,
+        reference_boxes: torch.Tensor,
+        prompt: torch.Tensor,
+        prompt_mask: torch.Tensor,
+        dec_presence_out: torch.Tensor | None = None,
+        is_instance_prompt: bool = False,
     ):
         apply_dac = self.transformer.decoder.dac and self.training
         num_o2o = (hs.size(2) // 2) if apply_dac else hs.size(2)
@@ -393,14 +426,14 @@ class Sam3Image(torch.nn.Module):
 
     def _run_segmentation_heads(
         self,
-        out,
-        backbone_out,
-        img_ids,
-        vis_feat_sizes,
-        encoder_hidden_states,
-        prompt,
-        prompt_mask,
-        hs,
+        out: dict[str, torch.Tensor],
+        backbone_out: dict[str, torch.Tensor],
+        img_ids: torch.Tensor,
+        vis_feat_sizes: list[tuple[int, int]],
+        encoder_hidden_states: torch.Tensor,
+        prompt: torch.Tensor,
+        prompt_mask: torch.Tensor,
+        hs: torch.Tensor,
     ):
         apply_dac = self.transformer.decoder.dac and self.training
         if self.segmentation_head is not None:
@@ -432,7 +465,7 @@ class Sam3Image(torch.nn.Module):
         else:
             backbone_out.pop("backbone_fpn", None)
 
-    def _get_best_mask(self, out):
+    def _get_best_mask(self, out: dict[str, torch.Tensor]) -> torch.Tensor:
         prev_mask_idx = out["pred_logits"].argmax(dim=1).squeeze(1)
         batch_idx = torch.arange(
             out["pred_logits"].shape[0],
@@ -449,11 +482,11 @@ class Sam3Image(torch.nn.Module):
 
     def forward_grounding(
         self,
-        backbone_out,
-        find_input,
-        find_target,
+        backbone_out: dict[str, torch.Tensor],
+        find_input: BatchedDatapoint.FindInput,
+        find_target: BatchedDatapoint.FindTarget,
         geometric_prompt: Prompt,
-    ):
+    ) -> dict[str, torch.Tensor]:
         with torch.profiler.record_function("SAM3Image._encode_prompt"):
             prompt, prompt_mask, backbone_out = self._encode_prompt(
                 backbone_out,
@@ -494,7 +527,6 @@ class Sam3Image(torch.nn.Module):
                 out=out,
                 backbone_out=backbone_out,
                 img_ids=find_input.img_ids,
-                vis_feat_sizes=encoder_out["vis_feat_sizes"],
                 encoder_hidden_states=out["encoder_hidden_states"],
                 prompt=prompt,
                 prompt_mask=prompt_mask,
@@ -505,7 +537,7 @@ class Sam3Image(torch.nn.Module):
             self._compute_matching(out, self.back_convert(find_target))
         return out
 
-    def _postprocess_out(self, out: dict, multimask_output: bool = False) -> dict:
+    def _postprocess_out(self, out: dict[str, torch.Tensor], multimask_output: bool = False) -> dict[str, torch.Tensor]:
         # For multimask output, during eval we return the single best mask with the dict keys expected by the evaluators,
         # but also return the multimasks output with new keys.
         num_mask_boxes = out["pred_boxes"].size(1)

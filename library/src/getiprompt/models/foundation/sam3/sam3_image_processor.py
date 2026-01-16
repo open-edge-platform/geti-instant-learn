@@ -138,9 +138,7 @@ class Sam3Processor:
                     pos[image_idx : image_idx + 1] for pos in sam2_out["vision_pos_enc"]
                 ]
             if "backbone_fpn" in sam2_out:
-                single_sam2_out["backbone_fpn"] = [
-                    feat[image_idx : image_idx + 1] for feat in sam2_out["backbone_fpn"]
-                ]
+                single_sam2_out["backbone_fpn"] = [feat[image_idx : image_idx + 1] for feat in sam2_out["backbone_fpn"]]
             single_backbone_out["sam2_backbone_out"] = single_sam2_out
         else:
             single_backbone_out["sam2_backbone_out"] = None

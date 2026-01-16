@@ -13,13 +13,11 @@ import pytest
 import torch
 from torchmetrics.segmentation import MeanIoU
 
-from getiprompt.data.base import Batch, Sample
+from getiprompt.data.base import Batch
 from getiprompt.data.folder import FolderDataset
-from getiprompt.data.utils import read_image
 from getiprompt.models.grounded_sam import GroundedSAM
 from getiprompt.models.matcher import Matcher
 from getiprompt.models.per_dino import PerDino
-from getiprompt.models.sam3 import SAM3
 from getiprompt.models.soft_matcher import SoftMatcher
 from getiprompt.utils.benchmark import convert_masks_to_one_hot_tensor
 from getiprompt.utils.constants import ModelName, SAMModelName
