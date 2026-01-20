@@ -43,7 +43,6 @@ Geti Prompt consists of two core components:
 
 </details>
 
-
 ### Geti Prompt Library
 
 Install the library with `uv`:
@@ -150,7 +149,6 @@ Geti Prompt supports a variety of foundation models and visual prompting algorit
 | **PerDino** | Personalized DINO-based prompting, leveraging DINOv2/v3 features for robust matching. | [PerSAM](https://arxiv.org/abs/2305.03048) | [Personalize-SAM](https://github.com/ZrrSkywalker/Personalize-SAM) |
 | **GroundedSAM** | Combines Grounding DINO and SAM for text-based visual prompting and segmentation. | [Grounding DINO](https://arxiv.org/abs/2303.05499), [SAM](https://arxiv.org/abs/2304.02643) | [GroundedSAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) |
 | **SAM 3** | Open-vocabulary segmentation using concept-based prompts. | [SAM 3](https://arxiv.org/abs/2511.16719) | [SAM 3](https://github.com/facebookresearch/sam3) |
-
 
 ### Foundation Models (Backbones)
 
