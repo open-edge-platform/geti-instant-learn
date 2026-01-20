@@ -16,6 +16,7 @@ from torchmetrics.segmentation import MeanIoU
 
 from getiprompt.data import Dataset, LVISDataset, PerSegDataset
 from getiprompt.data.base import Batch
+from getiprompt.data.folder import FolderDataset
 from getiprompt.models import Model
 from getiprompt.utils import setup_logger
 from getiprompt.utils.args import get_arguments, parse_experiment_args
@@ -251,7 +252,7 @@ def predict_on_dataset(
 
         # Map each class index back to category name
         for idx, cat_name in enumerate(categories):
-            iou_value = iou_per_class[idx].item()
+            iou_value = iou_per_class.item() if isinstance(iou_per_class, torch.Tensor) else iou_per_class[idx].item()
             metrics["category"].append(cat_name)
             metrics["iou"].append(iou_value)
 
@@ -373,6 +374,17 @@ def load_dataset_by_name(
         return LVISDataset(
             root=root,
             categories=resolved_categories,
+            n_shots=n_shots,
+        )
+    if dataset_name.lower() == "coffee_berry":
+        root = (
+            Path(dataset_root).expanduser() / "coffee_berry_dataset"
+            if dataset_root is not None
+            else Path("~/datasets/coffee_berry_dataset").expanduser()
+        )
+        return FolderDataset(
+            root=root,
+            categories=resolved_categories if resolved_categories else ["berry"],
             n_shots=n_shots,
         )
     msg = f"Unknown dataset: {dataset_name}"
