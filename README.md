@@ -9,7 +9,7 @@
 [![license](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 </div>
 
-# 👋 Introduction
+# Introduction
 
 Visual prompting offers a powerful alternative to traditional training. Instead of curating thousands of labeled images, you simply show the model one or a few examples of what you are looking for. The model effectively "learns" instantly, detecting and segmenting similar objects in new images or live video streams without retraining.
 
@@ -17,7 +17,7 @@ Visual prompting offers a powerful alternative to traditional training. Instead 
  <image src="https://github.com/user-attachments/assets/9ccc585d-6590-4e54-b766-d95bdccf725d" width="1200"/>
 </p>
 
-## ✨ Key Features
+## Key Features
 
 - **Library & Application**: A unified framework providing a **modular Python library** for research and development, and a **Full-Stack Application** for deploying those algorithms on live video streams.
 - **Simple & Modular API**: A composable design where developers can mix and match components (backbones, matchers) to create custom pipelines.
@@ -25,12 +25,12 @@ Visual prompting offers a powerful alternative to traditional training. Instead 
 - **Hardware Acceleration**: Built-in support for model optimization and export to [**OpenVINO™**](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html) for fast inference on Intel hardware (CPU, GPU, NPU).
 - **Multiple Backends**: Seamless switching between **PyTorch** for flexibility/research and **OpenVINO** for optimized deployment.
 
-## 🛫 Getting Started
+## Getting Started
 
 Geti Prompt consists of two core components:
 
-- 🧪 **Python Library**: The foundation for research and zero/few shots algorithm development.
-- 🚀 **Full Stack Application**: Leverages the library to enable real-time inference on live streams, video files, and images.
+- **Python Library**: The foundation for research and zero/few shots algorithm development.
+- **Full Stack Application**: Leverages the library to enable real-time inference on live streams, video files, and images.
 
 ### Prerequisites
 
@@ -117,24 +117,23 @@ predictions = model.predict(Batch.collate([target_sample]))
 masks = predictions[0]["pred_masks"]   # Predicted segmentation masks
 ```
 
-> 📘 For detailed documentation, CLI usage, and benchmarking, see the [Library README](library/README.md).
+> For detailed documentation, CLI usage, and benchmarking, see the [Library README](library/README.md).
 
 ### Geti Prompt Application
 
-Run the application from source:
+**Full-stack web interface for real-time inference.**
+
+Deploy models on live video streams, cameras, and video files.
 
 ```bash
 just application/dev
 ```
 
-This starts:
+Access at: http://localhost:3000
 
-- Backend API at `http://locahost:9100`
-- Frontend UI at `http://localhost:3000`
+[View Application Documentation →](application/README.md)
 
-> 📘 For detailed documentation, see the [Application Quick Start Guide](application/docs/02-quick-start.md).
-
-## 🤖 Supported models
+## Supported models
 
 Geti Prompt supports a variety of foundation models and visual prompting algorithms, optimized for different performance needs.
 
@@ -160,13 +159,13 @@ Geti Prompt supports a variety of foundation models and visual prompting algorit
 | **PerDino** | Personalized DINO-based prompting, leveraging DINOv2/v3 features for robust matching. | [PerSAM](https://arxiv.org/abs/2305.03048) | [Personalize-SAM](https://github.com/ZrrSkywalker/Personalize-SAM) |
 | **GroundedSAM** | Combines Grounding DINO and SAM for text-based visual prompting and segmentation. | [Grounding DINO](https://arxiv.org/abs/2303.05499), [SAM](https://arxiv.org/abs/2304.02643) | [GroundedSAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) |
 
-## 🎡 Community
+## Community
 
 - To report a bug or submit a feature request, please open a [GitHub issue](https://github.com/open-edge-platform/geti-prompt/issues).
 
 - Ask questions via [GitHub Discussions](https://github.com/open-edge-platform/geti/discussions).
 
-## 🙌 Contributing
+## Contributing
 
 We welcome contributions! Check out our [Contributing Guide](CONTRIBUTING.md) to get started.
 
@@ -184,7 +183,7 @@ We welcome contributions! Check out our [Contributing Guide](CONTRIBUTING.md) to
 
 This project incorporates code from several open-source repositories. We thank the authors for their contributions. A complete list of third-party software is available in the [third-party-programs.txt](third-party-programs.txt) file.
 
-## 📝 License
+## License
 
 Geti Prompt is licensed under the [Apache License 2.0](LICENSE).
 
