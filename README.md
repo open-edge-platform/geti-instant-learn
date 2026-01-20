@@ -173,10 +173,6 @@ Geti Prompt supports a variety of foundation models and visual prompting algorit
 - To report a bug or submit a feature request, please open a [GitHub issue](https://github.com/open-edge-platform/geti-prompt/issues).
 - Ask questions via [GitHub Discussions](https://github.com/open-edge-platform/geti/discussions).
 
-## Acknowledgements
-
-This project incorporates code from several open-source repositories. We thank the authors for their contributions. A complete list of third-party software is available in the [third-party-programs.txt](third-party-programs.txt) file.
-
 ## License
 
 Geti Prompt is licensed under the [Apache License 2.0](LICENSE).
