@@ -159,6 +159,13 @@ Geti Prompt supports a variety of foundation models and visual prompting algorit
 | **PerDino** | Personalized DINO-based prompting, leveraging DINOv2/v3 features for robust matching. | [PerSAM](https://arxiv.org/abs/2305.03048) | [Personalize-SAM](https://github.com/ZrrSkywalker/Personalize-SAM) |
 | **GroundedSAM** | Combines Grounding DINO and SAM for text-based visual prompting and segmentation. | [Grounding DINO](https://arxiv.org/abs/2303.05499), [SAM](https://arxiv.org/abs/2304.02643) | [GroundedSAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) |
 
+## Documentation
+
+| Component | README | Documentation |
+|-----------|--------|---------------|
+| **Library** | [library/README.md](library/README.md) | [library/docs](library/docs/) |
+| **Application** | [application/README.md](application/README.md) | [application/docs](application/docs/) |
+
 ## Community
 
 - To report a bug or submit a feature request, please open a [GitHub issue](https://github.com/open-edge-platform/geti-prompt/issues).
