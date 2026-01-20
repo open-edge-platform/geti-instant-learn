@@ -4,6 +4,7 @@
     border-top-width: var(--spectrum-alias-border-size-thin);
     border-top-style: solid;
     border-color: var(--spectrum-global-color-gray-50);
+    overflow-y: auto;
 }
 
 .toggleButton {

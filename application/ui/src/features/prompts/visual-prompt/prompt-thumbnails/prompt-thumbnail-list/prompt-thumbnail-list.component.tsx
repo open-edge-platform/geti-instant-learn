@@ -22,7 +22,7 @@ export const PromptThumbnailList = () => {
     }
 
     return (
-        <Grid columns={repeat('auto-fill', minmax('size-2400', '1fr'))} gap={'size-100'}>
+        <Grid columns={repeat('auto-fill', minmax('size-2400', '1fr'))} autoRows={'size-2400'} gap={'size-100'}>
             {visualPrompts.map((prompt) => (
                 <PromptThumbnail key={prompt.id} prompt={prompt} />
             ))}
