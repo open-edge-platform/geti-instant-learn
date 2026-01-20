@@ -2,9 +2,7 @@
 
 Full-stack web application for deploying zero-shot visual prompting models on live video streams, cameras, and video files.
 
-Built with the [Geti Prompt Library](../library/) for ML inference, FastAPI for the backend, and React for the frontend.
-
----
+Built with the [Geti Prompt Library](../library/) for model inference, FastAPI for the backend, and React for the frontend.
 
 ## Quick Start
 
