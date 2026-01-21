@@ -434,7 +434,7 @@ class TestPipeline:
         mock_outbound_broadcaster.clear.assert_called_once()
         pipeline.stop()
 
-    def test_set_processor_clears_outbound_broadcaster_only(
+    def test_set_processor_clears_inbound_and_outbound_broadcasters(
         self,
         project_id,
         mock_processor,
@@ -451,11 +451,11 @@ class TestPipeline:
 
         pipeline.set_processor(mock_processor)
 
+        mock_inbound_broadcaster.clear.assert_called_once()
         mock_outbound_broadcaster.clear.assert_called_once()
-        mock_inbound_broadcaster.clear.assert_not_called()
         pipeline.stop()
 
-    def test_set_sink_does_not_clear_broadcasters(
+    def test_set_sink_clears_inbound_and_outbound_broadcasters(
         self,
         project_id,
         mock_sink,
@@ -472,6 +472,6 @@ class TestPipeline:
 
         pipeline.set_sink(mock_sink)
 
-        mock_inbound_broadcaster.clear.assert_not_called()
-        mock_outbound_broadcaster.clear.assert_not_called()
+        mock_inbound_broadcaster.clear.assert_called_once()
+        mock_outbound_broadcaster.clear.assert_called_once()
         pipeline.stop()
