@@ -250,7 +250,7 @@ jobs:
           artifact_name: zapfull
 
       - name: Run Schemathesis Scan
-        uses: schemathesis/action@c9fdb1ecf04c208dbb6c42fbaa2af9c8eb5e629a # v2
+        uses: schemathesis/action@1f15936316e0742005bf69657b5909ac68f04cb3 # v2
         continue-on-error: true
         with:
           schema: 'http://localhost:9100/api/openapi.json'
