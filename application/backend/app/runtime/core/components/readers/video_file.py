@@ -115,20 +115,16 @@ class VideoFileReader(StreamReader):
             When the end of the video is reached, playback restarts from the beginning.
         """
         with self._lock:
-            cap = self._video_capture
+            if self._video_capture is None or self._video_path is None:
+                return None
             video_path = self._video_path
-            next_time_s = self._next_frame_time_s
-            fps = self._fps
-        if cap is None or next_time_s is None or video_path is None:
-            return None
 
         self._throttle_to_fps()
 
         with self._lock:
             cap = self._video_capture
-            video_path = self._video_path
-        if cap is None or video_path is None:
-            return None
+            if cap is None:
+                return None
 
         ret, frame = cap.read()
 
@@ -140,8 +136,8 @@ class VideoFileReader(StreamReader):
                 self._video_capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
                 self._next_frame_time_s = time.monotonic()
                 cap = self._video_capture
-                video_path = self._video_path
-            if cap is None or video_path is None:
+
+            if cap is None:
                 return None
 
             ret, frame = cap.read()
