@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from unittest.mock import MagicMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from pydantic_extra_types.color import Color
@@ -11,7 +11,14 @@ from sqlalchemy.exc import IntegrityError
 from domain.db.models import LabelDB
 from domain.errors import ResourceAlreadyExistsError, ResourceNotFoundError, ResourceType
 from domain.services.label import LabelService
-from domain.services.schemas.label import LabelCreateSchema, LabelsListSchema, LabelUpdateSchema
+from domain.services.schemas.label import (
+    CategoryMappings,
+    LabelCreateSchema,
+    LabelsListSchema,
+    LabelUpdateSchema,
+    RGBColor,
+    VisualizationLabel,
+)
 
 PROJECT_ID = uuid4()
 LABEL_ID = uuid4()
@@ -203,12 +210,8 @@ def test_update_label_no_changes(label_service, mock_label_repository, mock_proj
     assert result.color == "#ff5733"
 
 
-def test_get_label_colors_for_visualization_returns_rgb_mapping(
-    label_service, mock_project_repository, mock_label_repository
-):
+def test_get_visualization_labels_returns_rgb_mapping(label_service, mock_label_repository) -> None:
     project_id = uuid4()
-    active_project = MagicMock(id=project_id)
-    mock_project_repository.get_active.return_value = active_project
 
     label_1_id = uuid4()
     label_2_id = uuid4()
@@ -216,23 +219,27 @@ def test_get_label_colors_for_visualization_returns_rgb_mapping(
     label_2 = LabelDB(id=label_2_id, project_id=project_id, name="L2", color="#00ff00")
     mock_label_repository.list_all_by_project.return_value = [label_1, label_2]
 
-    result = label_service.get_label_colors_for_visualization()
+    result = label_service.get_visualization_labels(project_id)
 
-    assert result == {
-        str(label_1_id): (255, 0, 0),
-        str(label_2_id): (0, 255, 0),
-    }
-    mock_project_repository.get_active.assert_called_once()
+    assert result == [
+        VisualizationLabel(id=label_1_id, color=RGBColor(255, 0, 0), object_name="L1"),
+        VisualizationLabel(id=label_2_id, color=RGBColor(0, 255, 0), object_name="L2"),
+    ]
     mock_label_repository.list_all_by_project.assert_called_once_with(project_id)
 
 
-def test_get_label_colors_for_visualization_no_active_project_returns_empty(
-    label_service, mock_project_repository, mock_label_repository
-):
-    mock_project_repository.get_active.return_value = None
+def test_build_category_mappings_sorted_by_label_id_string(label_service) -> None:
+    label_id_a = UUID("00000000-0000-0000-0000-00000000000a")
+    label_id_b = UUID("00000000-0000-0000-0000-00000000000b")
 
-    result = label_service.get_label_colors_for_visualization()
+    mappings = label_service.build_category_mappings([label_id_b, label_id_a])
 
-    assert result == {}
-    mock_project_repository.get_active.assert_called_once()
-    mock_label_repository.list_all_by_project.assert_not_called()
+    assert isinstance(mappings, CategoryMappings)
+    assert mappings.category_id_to_label_id == {
+        0: str(label_id_a),
+        1: str(label_id_b),
+    }
+    assert mappings.label_to_category_id == {
+        label_id_a: 0,
+        label_id_b: 1,
+    }

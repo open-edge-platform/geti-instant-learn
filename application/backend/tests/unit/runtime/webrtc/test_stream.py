@@ -31,35 +31,19 @@ def fxt_output_data(fxt_sample_frame):
 
 
 @pytest.fixture
-def fxt_mock_session_factory():
-    with patch("runtime.webrtc.stream.get_session_factory") as mock_get_session_factory:
-        session_factory = MagicMock()
-        session_cm = session_factory.return_value
-        session_cm.__enter__.return_value = MagicMock()
-        session_cm.__exit__.return_value = None
-        mock_get_session_factory.return_value = session_factory
-        yield mock_get_session_factory
-
-
-@pytest.fixture
 def fxt_visualization_patches():
-    with (
-        patch("runtime.webrtc.stream.LabelService.get_label_colors_for_visualization", return_value={}),
-        patch(
-            "runtime.webrtc.stream.InferenceVisualizer.visualize",
-            side_effect=lambda output_data, _label_colors: output_data.frame,
-        ),
-    ):
+    def _passthrough(*, output_data: OutputData, visualization_info=None):  # noqa: ANN001
+        return output_data.frame
+
+    with patch("runtime.webrtc.stream.InferenceVisualizer.visualize", side_effect=_passthrough):
         yield
 
 
 class TestInferenceVideoStreamTrack:
     @pytest.mark.asyncio
-    async def test_recv_with_frame_in_queue(
-        self, fxt_stream_queue, fxt_output_data, fxt_mock_session_factory, fxt_visualization_patches
-    ):
+    async def test_recv_with_frame_in_queue(self, fxt_stream_queue, fxt_output_data, fxt_visualization_patches):
         fxt_stream_queue.put(fxt_output_data)
-        track = InferenceVideoStreamTrack(fxt_stream_queue)
+        track = InferenceVideoStreamTrack(stream_queue=fxt_stream_queue)
 
         frame = await track.recv()
 
@@ -71,7 +55,7 @@ class TestInferenceVideoStreamTrack:
 
     @pytest.mark.asyncio
     async def test_recv_with_empty_queue_no_cache(self, fxt_stream_queue):
-        track = InferenceVideoStreamTrack(fxt_stream_queue)
+        track = InferenceVideoStreamTrack(stream_queue=fxt_stream_queue)
 
         frame = await track.recv()
 
@@ -80,11 +64,9 @@ class TestInferenceVideoStreamTrack:
         assert frame.height == 64
 
     @pytest.mark.asyncio
-    async def test_recv_with_empty_queue_uses_cache(
-        self, fxt_stream_queue, fxt_output_data, fxt_mock_session_factory, fxt_visualization_patches
-    ):
+    async def test_recv_with_empty_queue_uses_cache(self, fxt_stream_queue, fxt_output_data, fxt_visualization_patches):
         fxt_stream_queue.put(fxt_output_data)
-        track = InferenceVideoStreamTrack(fxt_stream_queue)
+        track = InferenceVideoStreamTrack(stream_queue=fxt_stream_queue)
 
         frame1 = await track.recv()
         assert frame1.width == 640
@@ -96,10 +78,8 @@ class TestInferenceVideoStreamTrack:
         assert frame2.height == 480
 
     @pytest.mark.asyncio
-    async def test_recv_multiple_frames(
-        self, fxt_stream_queue, fxt_sample_frame, fxt_mock_session_factory, fxt_visualization_patches
-    ):
-        track = InferenceVideoStreamTrack(fxt_stream_queue)
+    async def test_recv_multiple_frames(self, fxt_stream_queue, fxt_sample_frame, fxt_visualization_patches):
+        track = InferenceVideoStreamTrack(stream_queue=fxt_stream_queue)
 
         for _ in range(3):
             output_data = MagicMock(spec=OutputData)
@@ -116,10 +96,8 @@ class TestInferenceVideoStreamTrack:
             assert frame.height == 480
 
     @pytest.mark.asyncio
-    async def test_timestamps_increment(
-        self, fxt_stream_queue, fxt_output_data, fxt_mock_session_factory, fxt_visualization_patches
-    ):
-        track = InferenceVideoStreamTrack(fxt_stream_queue)
+    async def test_timestamps_increment(self, fxt_stream_queue, fxt_output_data, fxt_visualization_patches):
+        track = InferenceVideoStreamTrack(stream_queue=fxt_stream_queue)
 
         for _ in range(3):
             fxt_stream_queue.put(fxt_output_data)
@@ -128,3 +106,20 @@ class TestInferenceVideoStreamTrack:
 
         assert pts_values[1] > pts_values[0]
         assert pts_values[2] > pts_values[1]
+
+    @pytest.mark.asyncio
+    async def test_recv_calls_visualization_info_provider(
+        self, fxt_stream_queue, fxt_output_data, fxt_visualization_patches
+    ):
+        fxt_stream_queue.put(fxt_output_data)
+        provider = MagicMock(return_value=None)
+
+        track = InferenceVideoStreamTrack(
+            stream_queue=fxt_stream_queue,
+            enable_visualization=True,
+            visualization_info_provider=provider,
+        )
+
+        await track.recv()
+
+        provider.assert_called_once()

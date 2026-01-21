@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from unittest.mock import patch
+from uuid import UUID
 
 import numpy as np
 import pytest
 import torch
 
+from domain.services.schemas.label import CategoryMappings, RGBColor, VisualizationInfo, VisualizationLabel
 from domain.services.schemas.processor import OutputData
 from runtime.webrtc.visualizer import DEFAULT_FALLBACK_COLOR, InferenceVisualizer
 
@@ -37,6 +39,22 @@ def _two_pixel_disjoint_masks(h: int, w: int) -> torch.Tensor:
     return masks
 
 
+def _make_vis_info(
+    *, category_id_to_label_id: dict[int, str], label_colors: dict[str, tuple[int, int, int]]
+) -> VisualizationInfo:
+    return VisualizationInfo(
+        label_colors=[
+            VisualizationLabel(
+                id=UUID(label_id),
+                color=RGBColor(*rgb),
+                object_name=None,
+            )
+            for label_id, rgb in label_colors.items()
+        ],
+        category_mappings=CategoryMappings(label_to_category_id={}, category_id_to_label_id=category_id_to_label_id),
+    )
+
+
 def test_visualize_disabled_returns_original_frame(fxt_frame: np.ndarray) -> None:
     viz = InferenceVisualizer(enable_visualization=False)
     output = OutputData(
@@ -44,7 +62,7 @@ def test_visualize_disabled_returns_original_frame(fxt_frame: np.ndarray) -> Non
         results=[{"pred_masks": _single_pixel_mask(8, 8, 3, 3), "pred_labels": torch.tensor([0])}],
     )
 
-    result = viz.visualize(output_data=output, label_colors={"unused": (10, 20, 30)})
+    result = viz.visualize(output_data=output, visualization_info=None)
 
     assert result is output.frame
 
@@ -52,9 +70,7 @@ def test_visualize_disabled_returns_original_frame(fxt_frame: np.ndarray) -> Non
 def test_visualize_no_results_returns_original_frame(
     fxt_visualizer: InferenceVisualizer, fxt_frame: np.ndarray
 ) -> None:
-    result = fxt_visualizer.visualize(
-        output_data=OutputData(frame=fxt_frame, results=[]), label_colors={"x": (1, 2, 3)}
-    )
+    result = fxt_visualizer.visualize(output_data=OutputData(frame=fxt_frame, results=[]), visualization_info=None)
     assert result is fxt_frame
 
 
@@ -62,7 +78,12 @@ def test_visualize_no_results_returns_original_frame(
     "labels, category_id_to_label_id, label_colors, expected",
     [
         # category -> label_id -> label_colors
-        (torch.tensor([0], dtype=torch.int64), {0: "label-0"}, {"label-0": (255, 0, 0)}, (255, 0, 0)),
+        (
+            torch.tensor([0], dtype=torch.int64),
+            {0: "00000000-0000-0000-0000-000000000001"},
+            {"00000000-0000-0000-0000-000000000001": (255, 0, 0)},
+            (255, 0, 0),
+        ),
         # no category->label_id mapping => deterministic per category
         (torch.tensor([7], dtype=torch.int64), {}, {}, "deterministic:7"),
         # missing labels => default fallback
@@ -80,10 +101,10 @@ def test_visualize_resolves_color_per_mask(
     output = OutputData(
         frame=fxt_frame,
         results=[{"pred_masks": _single_pixel_mask(8, 8, 4, 4), "pred_labels": labels}],
-        category_id_to_label_id=category_id_to_label_id,
     )
+    vis_info = _make_vis_info(category_id_to_label_id=category_id_to_label_id, label_colors=label_colors)
 
-    result = fxt_visualizer.visualize(output_data=output, label_colors=label_colors)
+    result = fxt_visualizer.visualize(output_data=output, visualization_info=vis_info)
 
     if isinstance(expected, str) and expected.startswith("deterministic:"):
         category_id = int(expected.split(":", 1)[1])
@@ -100,22 +121,25 @@ def test_visualize_applies_correct_colors_for_multiple_categories_in_single_pred
     masks = _two_pixel_disjoint_masks(8, 8)
     labels = torch.tensor([0, 1], dtype=torch.int64)
 
-    output = OutputData(
-        frame=fxt_frame,
-        results=[{"pred_masks": masks, "pred_labels": labels}],
-        category_id_to_label_id={0: "label-a", 1: "label-b"},
+    label_a = "00000000-0000-0000-0000-00000000000a"
+    label_b = "00000000-0000-0000-0000-00000000000b"
+    vis_info = _make_vis_info(
+        category_id_to_label_id={0: label_a, 1: label_b},
+        label_colors={label_a: (255, 0, 0), label_b: (0, 255, 0)},
     )
 
-    result = fxt_visualizer.visualize(
-        output_data=output,
-        label_colors={"label-a": (255, 0, 0), "label-b": (0, 255, 0)},
-    )
+    output = OutputData(frame=fxt_frame, results=[{"pred_masks": masks, "pred_labels": labels}])
+
+    result = fxt_visualizer.visualize(output_data=output, visualization_info=vis_info)
 
     assert tuple(result[2, 2].tolist()) == (255, 0, 0)
     assert tuple(result[5, 5].tolist()) == (0, 255, 0)
 
 
 def test_visualize_ignores_pred_boxes(fxt_visualizer: InferenceVisualizer, fxt_frame: np.ndarray) -> None:
+    label_0 = "00000000-0000-0000-0000-000000000001"
+    vis_info = _make_vis_info(category_id_to_label_id={0: label_0}, label_colors={label_0: (0, 255, 0)})
+
     output = OutputData(
         frame=fxt_frame,
         results=[
@@ -125,9 +149,8 @@ def test_visualize_ignores_pred_boxes(fxt_visualizer: InferenceVisualizer, fxt_f
                 "pred_labels": torch.tensor([0], dtype=torch.int64),
             }
         ],
-        category_id_to_label_id={0: "label-0"},
     )
 
-    result = fxt_visualizer.visualize(output_data=output, label_colors={"label-0": (0, 255, 0)})
+    result = fxt_visualizer.visualize(output_data=output, visualization_info=vis_info)
 
     assert tuple(result[0, 0].tolist()) == (0, 255, 0)
