@@ -7,8 +7,8 @@ References:
 Paper : EfficientSAM3: Progressive Hierarchical Distillation for Video Concept Segmentation from SAM1, 2, and 3
 Repo : https://github.com/SimonZeng7108/efficientsam3
 
-This model uses efficient student backbones (RepViT, TinyViT) instead of
-the full ViT, providing faster inference through knowledge distillation.
+This model uses smaller distilled student backbones (RepViT, TinyViT) instead of
+the full ViT of SAM3, providing faster inference with some trade offs in segmentation quality.
 
 """
 

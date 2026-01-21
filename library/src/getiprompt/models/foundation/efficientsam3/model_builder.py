@@ -17,7 +17,6 @@ Supported text encoders:
     - sam3-full: Full SAM3 text encoder (highest quality)
     - MobileCLIP-S0/S1/B: Efficient student text encoders
 
-Adapted from: https://github.com/SimonZeng7108/efficientsam3
 
 Example:
     >>> from getiprompt.models.foundation.efficientsam3 import (
@@ -36,7 +35,6 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 from huggingface_hub import hf_hub_download
-from iopath.common.file_io import g_pathmgr
 from torch import nn
 
 # Import SAM3 shared components
@@ -97,17 +95,20 @@ class EfficientSAM3BackboneType(StrEnum):
     TINYVIT_11M = "tinyvit-11m"
     TINYVIT_21M = "tinyvit-21m"
 
+    # EfficientViT variants
+    EFFICIENTVIT_B0 = "efficientvit-b0"
+    EFFICIENTVIT_B1 = "efficientvit-b1"
+    EFFICIENTVIT_B2 = "efficientvit-b2"
+
 
 class EfficientSAM3TextEncoderType(StrEnum):
     """Available text encoder types for EfficientSAM3."""
 
-    # Full SAM3 text encoder (default)
-    SAM3_FULL = "sam3-full"
-
-    # MobileCLIP variants
-    MOBILECLIP_S0 = "MobileCLIP-S0"
-    MOBILECLIP_S1 = "MobileCLIP-S1"
-    MOBILECLIP_B = "MobileCLIP-B"
+    # MobileCLIP variants (compact student text encoders)
+    MOBILECLIP_S0 = "MobileCLIP-S0"  # 4 layers, smallest
+    MOBILECLIP_S1 = "MobileCLIP-S1"  # 12 layers, default
+    MOBILECLIP_B = "MobileCLIP-B"  # 12 layers, causal masking
+    MOBILECLIP2_L = "MobileCLIP2-L"  # Larger MobileCLIP2 variant
 
 
 # ==============================================================================
@@ -118,16 +119,19 @@ EFFICIENTSAM3_HF_REPO = "Simon7108528/EfficientSAM3"
 EFFICIENTSAM3_HF_SUBFOLDER = "stage1_all_converted"
 
 # Registry mapping (backbone_type, text_encoder_type) to checkpoint filename
-# Note: text_encoder_type=None means SAM3 full text encoder
+# Note: text_encoder_type=None means SAM3 full text encoder (from SAM3 codebase)
 MODEL_CONFIGS = {
-    # SAM3 Text Encoder + EfficientSAM3 Image Encoder Models
+    # SAM3 Full Text Encoder + EfficientSAM3 Image Encoder Models (image encoder only checkpoints)
     (EfficientSAM3BackboneType.REPVIT_M0_9, None): "efficient_sam3_repvit_s.pt",
     (EfficientSAM3BackboneType.REPVIT_M1_1, None): "efficient_sam3_repvit_m.pt",
     (EfficientSAM3BackboneType.REPVIT_M2_3, None): "efficient_sam3_repvit_l.pt",
     (EfficientSAM3BackboneType.TINYVIT_5M, None): "efficient_sam3_tinyvit_s.pt",
     (EfficientSAM3BackboneType.TINYVIT_11M, None): "efficient_sam3_tinyvit_m.pt",
     (EfficientSAM3BackboneType.TINYVIT_21M, None): "efficient_sam3_tinyvit_l.pt",
-    # EfficientSAM3 Text Encoder + EfficientSAM3 Image Encoder Models
+    (EfficientSAM3BackboneType.EFFICIENTVIT_B0, None): "efficient_sam3_efficientvit_s.pt",
+    (EfficientSAM3BackboneType.EFFICIENTVIT_B1, None): "efficient_sam3_efficientvit_m.pt",
+    (EfficientSAM3BackboneType.EFFICIENTVIT_B2, None): "efficient_sam3_efficientvit_l.pt",
+    # MobileCLIP-S1 Text Encoder + EfficientSAM3 Image Encoder Models (unified checkpoints)
     (
         EfficientSAM3BackboneType.REPVIT_M0_9,
         EfficientSAM3TextEncoderType.MOBILECLIP_S1,
@@ -152,6 +156,18 @@ MODEL_CONFIGS = {
         EfficientSAM3BackboneType.TINYVIT_21M,
         EfficientSAM3TextEncoderType.MOBILECLIP_S1,
     ): "efficient_sam3_tinyvit_21m_mobileclip_s1.pth",
+    (
+        EfficientSAM3BackboneType.EFFICIENTVIT_B0,
+        EfficientSAM3TextEncoderType.MOBILECLIP_S1,
+    ): "efficient_sam3_efficientvit-b0_mobileclip_s1.pth",
+    (
+        EfficientSAM3BackboneType.EFFICIENTVIT_B1,
+        EfficientSAM3TextEncoderType.MOBILECLIP_S1,
+    ): "efficient_sam3_efficientvit-b1_mobileclip_s1.pth",
+    (
+        EfficientSAM3BackboneType.EFFICIENTVIT_B2,
+        EfficientSAM3TextEncoderType.MOBILECLIP_S1,
+    ): "efficient_sam3_efficientvit-b2_mobileclip_s1.pth",
 }
 
 
@@ -543,6 +559,15 @@ def _create_student_text_encoder(
                 "causal_masking": True,
             },
         )
+    elif text_encoder_type == EfficientSAM3TextEncoderType.MOBILECLIP2_L:
+        cfg.update(
+            {
+                "dim": 768,
+                "n_transformer_layers": 12,
+                "n_heads_per_layer": 12,
+                "model_name": "large",
+            },
+        )
 
     return TextStudentEncoder(
         cfg=cfg,
@@ -693,6 +718,41 @@ def _create_student_vision_backbone(
         wrapped_backbone = TinyViTTrunkWrapper(backbone)
         in_channels = wrapped_backbone.channel_list[0]
 
+    elif backbone_type in (
+        EfficientSAM3BackboneType.EFFICIENTVIT_B0,
+        EfficientSAM3BackboneType.EFFICIENTVIT_B1,
+        EfficientSAM3BackboneType.EFFICIENTVIT_B2,
+    ):
+        from getiprompt.models.foundation.efficientsam3.backbones.efficientvit import (
+            efficientvit_b0,
+            efficientvit_b1,
+            efficientvit_b2,
+        )
+
+        backbone_map = {
+            EfficientSAM3BackboneType.EFFICIENTVIT_B0: efficientvit_b0,
+            EfficientSAM3BackboneType.EFFICIENTVIT_B1: efficientvit_b1,
+            EfficientSAM3BackboneType.EFFICIENTVIT_B2: efficientvit_b2,
+        }
+        backbone = backbone_map[backbone_type](img_size=1008)
+
+        class EfficientViTTrunkWrapper(nn.Module):
+            """Wrapper to extract features from EfficientViT."""
+
+            def __init__(self, model: nn.Module) -> None:
+                super().__init__()
+                self.model = model
+                self.channel_list = [model.num_features]
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                x = self.model.patch_embed(x)
+                for stage in self.model.stages:
+                    x = stage(x)
+                return x
+
+        wrapped_backbone = EfficientViTTrunkWrapper(backbone)
+        in_channels = wrapped_backbone.channel_list[0]
+
     else:
         raise ValueError(f"Unknown backbone type: {backbone_type}")
 
@@ -733,61 +793,21 @@ def _load_checkpoint(
 ) -> None:
     """Load model checkpoint from file.
 
+    This is a wrapper around the new checkpoint loader system for backward compatibility.
+
     Args:
-        model: The model to load weights into.
+        model: Model to load checkpoint into.
         checkpoint_path: Path to the checkpoint file.
-        enable_inst_interactivity: Whether SAM heads are enabled on the model.
+        enable_inst_interactivity: Whether to load tracker/SAM heads weights.
     """
-    with g_pathmgr.open(checkpoint_path, "rb") as f:
-        ckpt = torch.load(f, map_location="cpu", weights_only=True)
-    if "model" in ckpt and isinstance(ckpt["model"], dict):
-        ckpt = ckpt["model"]
+    from getiprompt.models.foundation.efficientsam3.efficientsam3_checkpoint_loaders import (
+        EfficientSAM3CheckpointPaths,
+        EfficientSAM3UnifiedCheckpointLoader,
+    )
 
-    # Build state dict with proper key mappings
-    sam3_image_ckpt = {}
-
-    # Load detector weights
-    for k, v in ckpt.items():
-        if "detector" in k:
-            # Remove "detector." prefix
-            new_key = k.replace("detector.", "")
-            # The checkpoint has an extra ".model" layer in the trunk:
-            # "trunk.model.backbone.model" -> "trunk.backbone.model"
-            # "trunk.model.head" -> "trunk.head"
-            new_key = new_key.replace("trunk.model.", "trunk.")
-            sam3_image_ckpt[new_key] = v
-
-    # Load tracker/SAM weights if instance interactivity is enabled
-    if enable_inst_interactivity:
-        for k, v in ckpt.items():
-            if "tracker" in k:
-                # Map tracker keys to model's SAM heads
-                # tracker.sam_prompt_encoder.* -> sam_prompt_encoder.*
-                # tracker.sam_mask_decoder.* -> sam_mask_decoder.*
-                # tracker.no_mem_embed -> no_mem_embed
-                new_key = k.replace("tracker.", "")
-                if new_key.startswith("sam_") or new_key == "no_mem_embed":
-                    sam3_image_ckpt[new_key] = v
-
-    missing_keys, unexpected_keys = model.load_state_dict(sam3_image_ckpt, strict=False)
-
-    # Only log warnings if there are issues
-    if missing_keys:
-        import logging
-
-        logging.getLogger(__name__).debug(
-            "Missing keys (%d): %s...",
-            len(missing_keys),
-            missing_keys[:5],
-        )
-    if unexpected_keys:
-        import logging
-
-        logging.getLogger(__name__).debug(
-            "Unexpected keys (%d): %s...",
-            len(unexpected_keys),
-            unexpected_keys[:5],
-        )
+    loader = EfficientSAM3UnifiedCheckpointLoader()
+    paths = EfficientSAM3CheckpointPaths(unified=Path(checkpoint_path))
+    loader.load(model, paths, enable_inst_interactivity)
 
 
 def _setup_device_and_mode(
@@ -817,8 +837,8 @@ def get_checkpoint_filename(
     """Get checkpoint filename for given backbone and text encoder combination.
 
     Args:
-        backbone_type: Type of student backbone
-        text_encoder_type: Type of text encoder (None for SAM3 full encoder)
+        backbone_type: Type of image encoder backbone
+        text_encoder_type: Type of text encoder (None for SAM3 full text encoder)
 
     Returns:
         Checkpoint filename
@@ -826,10 +846,6 @@ def get_checkpoint_filename(
     Raises:
         ValueError: If the combination is not available
     """
-    # Normalize text encoder type (SAM3_FULL is treated as None)
-    if text_encoder_type == EfficientSAM3TextEncoderType.SAM3_FULL:
-        text_encoder_type = None
-
     key = (backbone_type, text_encoder_type)
     if key not in MODEL_CONFIGS:
         available = "\n".join(f"  - {bb.value} + {te.value if te else 'SAM3-full'}" for bb, te in MODEL_CONFIGS)
@@ -940,9 +956,11 @@ def build_efficientsam3_image_model(
     )
 
     # Create text encoder
-    if text_encoder_type is None or text_encoder_type == EfficientSAM3TextEncoderType.SAM3_FULL:
+    if text_encoder_type is None:
+        # Use full SAM3 text encoder (from SAM3 codebase)
         text_encoder = _create_text_encoder(bpe_path)
     else:
+        # Use MobileCLIP student text encoder
         text_encoder = _create_student_text_encoder(bpe_path, text_encoder_type)
 
     # Create visual-language backbone
