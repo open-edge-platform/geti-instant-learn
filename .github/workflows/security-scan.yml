@@ -256,14 +256,16 @@ jobs:
           schema: 'http://localhost:9100/api/openapi.json'
           args: >-
             --continue-on-failure
+            --report-dir schemathesis-report
             --report junit
+            --report-junit-path schemathesis-report/junit.xml
 
       - name: Upload Schemathesis report
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: schemathesis-report-${{ matrix.ai-device }}
-          path: junit.xml
+          path: schemathesis-report/junit.xml
 
       - name: Re-check container health after testing
         if: always()
