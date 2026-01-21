@@ -65,6 +65,7 @@ class PerDino(Model):
         num_grid_cells: int = 16,
         similarity_threshold: float = 0.65,
         mask_similarity_threshold: float | None = 0.42,
+        use_nms: bool = True,
         precision: str = "bf16",
         compile_models: bool = False,
         device: str = "cuda",
@@ -79,6 +80,7 @@ class PerDino(Model):
             num_grid_cells: Number of grid cells for prompt generation.
             similarity_threshold: Threshold for foreground point selection.
             mask_similarity_threshold: Threshold for similarity-based mask filtering.
+            use_nms: Whether to use NMS in SamDecoder.
             precision: Model precision ("bf16", "fp32").
             compile_models: Whether to compile models with torch.compile.
             device: Device for inference.
@@ -119,6 +121,7 @@ class PerDino(Model):
         self.segmenter = SamDecoder(
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
+            use_nms=use_nms,
         )
 
         self.ref_features: ReferenceFeatures | None = None

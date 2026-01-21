@@ -25,6 +25,7 @@ class GroundedSAM(Model):
         compile_models: bool = False,
         box_threshold: float = 0.4,
         text_threshold: float = 0.3,
+        use_nms: bool = True,
         device: str = "cuda",
     ) -> None:
         """Initialize the model.
@@ -36,6 +37,7 @@ class GroundedSAM(Model):
             compile_models: Whether to compile the models.
             box_threshold: The box threshold.
             text_threshold: The text threshold.
+            use_nms: Whether to use NMS in SamDecoder.
             device: The device to use.
         """
         super().__init__()
@@ -54,7 +56,7 @@ class GroundedSAM(Model):
             precision=precision,
             compile_models=compile_models,
         )
-        self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor)
+        self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor, use_nms=use_nms)
         self.prompt_filter: BoxPromptFilter = BoxPromptFilter()
 
     def fit(self, reference_batch: Batch) -> None:

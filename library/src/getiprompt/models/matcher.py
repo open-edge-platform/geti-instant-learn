@@ -152,6 +152,7 @@ class Matcher(Model):
         encoder_model: str = "dinov3_large",
         mask_similarity_threshold: float | None = 0.38,
         use_mask_refinement: bool = True,
+        use_nms: bool = True,
         precision: str = "bf16",
         compile_models: bool = False,
         device: str = "cuda",
@@ -165,6 +166,7 @@ class Matcher(Model):
             encoder_model: Image encoder model ID.
             mask_similarity_threshold: Threshold for similarity-based mask filtering.
             use_mask_refinement: Whether to use 2-stage mask refinement with box prompts.
+            use_nms: Whether to use NMS in SamDecoder.
             precision: Model precision ("bf16", "fp32").
             compile_models: Whether to compile models with torch.compile.
             device: Device for inference.
@@ -208,6 +210,7 @@ class Matcher(Model):
             sam_predictor=self.sam_predictor,
             mask_similarity_threshold=mask_similarity_threshold,
             use_mask_refinement=use_mask_refinement,
+            use_nms=use_nms,
         )
 
         # Reference features (set during fit)
