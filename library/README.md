@@ -51,6 +51,7 @@ from getiprompt.data import Sample
 model = Matcher(device="xpu")
 
 # Create reference sample (auto-loads image and mask from paths)
+# Paths below are relative to the `library` directory in the repo; adjust if running from elsewhere.
 ref_sample = Sample(
     image_path="examples/assets/fss-1000/images/apple/1.jpg",
     mask_paths=["examples/assets/fss-1000/masks/apple/1.png"],
