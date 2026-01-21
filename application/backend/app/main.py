@@ -147,7 +147,7 @@ def main() -> None:
         app,
         host=settings.host,
         port=settings.port,
-        log_level=settings.log_level.upper(),
+        log_level=settings.log_level.lower(),
         log_config=log_config,
     )
 
