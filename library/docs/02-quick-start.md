@@ -47,7 +47,7 @@ model = Matcher(device="xpu")
 # Create reference sample (auto-loads image and mask from paths)
 ref_sample = Sample(
     image_path="examples/assets/fss-1000/images/apple/1.jpg",
-    mask_paths=["examples/assets/fss-1000/masks/apple/1.png"],
+    mask_paths="examples/assets/fss-1000/masks/apple/1.png",
     categories=["apple"],
     category_ids=[0],
 )
