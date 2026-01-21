@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 # Copyright (c) Meta Platforms, Inc. and affiliates. All Rights Reserved
 
 """Provides utility to combine a vision backbone with a language backbone."""
@@ -22,7 +25,7 @@ class SAM3VLBackbone(nn.Module):
     def __init__(
         self,
         visual: Sam3DualViTDetNeck,
-        text,
+        text: nn.Module,
         compile_visual: bool = False,
         act_ckpt_whole_vision_backbone: bool = False,
         act_ckpt_whole_language_backbone: bool = False,
@@ -47,7 +50,7 @@ class SAM3VLBackbone(nn.Module):
         captions: list[str],
         input_boxes: torch.Tensor | None = None,
         additional_text: list[str] | None = None,
-    ):
+    ) -> dict[str, torch.Tensor]:
         """Forward pass of the backbone combiner.
 
         :param samples: The input images
@@ -71,13 +74,13 @@ class SAM3VLBackbone(nn.Module):
         output.update(self.forward_text(captions, input_boxes, additional_text, device))
         return output
 
-    def forward_image(self, samples: torch.Tensor):
+    def forward_image(self, samples: torch.Tensor) -> dict[str, torch.Tensor]:
         return activation_ckpt_wrapper(self._forward_image_no_act_ckpt)(
             samples=samples,
             act_ckpt_enable=self.act_ckpt_whole_vision_backbone and self.training,
         )
 
-    def _forward_image_no_act_ckpt(self, samples):
+    def _forward_image_no_act_ckpt(self, samples: torch.Tensor) -> dict[str, torch.Tensor]:
         # Forward through backbone
         sam3_features, sam3_pos, sam2_features, sam2_pos = self.vision_backbone.forward(
             samples,
@@ -116,11 +119,12 @@ class SAM3VLBackbone(nn.Module):
 
     def forward_text(
         self,
-        captions,
-        input_boxes=None,
-        additional_text=None,
-        device="cuda",
-    ):
+        captions: list[str],
+        input_boxes: torch.Tensor | None = None,
+        additional_text: list[str] | None = None,
+        device: str = "cuda",
+    ) -> dict[str, torch.Tensor]:
+        """Forward pass of the text encoder."""
         return activation_ckpt_wrapper(self._forward_text_no_ack_ckpt)(
             captions=captions,
             input_boxes=input_boxes,
@@ -131,11 +135,12 @@ class SAM3VLBackbone(nn.Module):
 
     def _forward_text_no_ack_ckpt(
         self,
-        captions,
-        input_boxes=None,
-        additional_text=None,
-        device="cuda",
-    ):
+        captions: list[str],
+        input_boxes: torch.Tensor | None = None,
+        additional_text: list[str] | None = None,
+        device: str = "cuda",
+    ) -> dict[str, torch.Tensor]:
+        """Forward pass of the text encoder without activation checkpointing."""
         output = {}
 
         # Forward through text_encoder

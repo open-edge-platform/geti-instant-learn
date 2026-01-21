@@ -1,7 +1,7 @@
 ################
 # Libraries Base
 ################
-FROM python:3.12-slim-bookworm@sha256:28cf028e5a544e92dbe11450debd93dd5eb70eaf3179a9e878cfaee426556b3b AS backend-base
+FROM python:3.12-slim-bookworm@sha256:4a3ceab05b4e396df42a042415e43a286bb5793352b9258f889d6c7d38ed01fb AS backend-base
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
 # Disable Python downloads, because we want to use the system interpreter
@@ -35,7 +35,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 ##################
 # Geti UI packages
 ##################
-FROM node:24-alpine3.22@sha256:4f4a059445c5a6ef2b9d169d9afde176301263178141fc05ba657dab1c84f9a7 AS geti-ui-packages
+FROM node:24-alpine3.22@sha256:6f96670faefc1ec23520ce30e453e85bfdb94a43b49b7aac2b0d3ac3a902bf2f AS geti-ui-packages
 
 WORKDIR /home/app/web_ui/
 RUN apk add --no-cache git=2.49.1-r0
@@ -45,7 +45,7 @@ RUN npm run clone-geti-ui-packages
 #############
 # Web UI deps
 #############
-FROM node:24-alpine3.22@sha256:4f4a059445c5a6ef2b9d169d9afde176301263178141fc05ba657dab1c84f9a7 AS web-ui-base
+FROM node:24-alpine3.22@sha256:6f96670faefc1ec23520ce30e453e85bfdb94a43b49b7aac2b0d3ac3a902bf2f AS web-ui-base
 
 WORKDIR /home/app/web_ui/
 
@@ -71,13 +71,11 @@ RUN npm run build
 ##########################################
 # Base for CPU, GPU and XPU runtime images
 ##########################################
-FROM python:3.12-slim-bookworm@sha256:28cf028e5a544e92dbe11450debd93dd5eb70eaf3179a9e878cfaee426556b3b AS runtime-base
+FROM python:3.12-slim-bookworm@sha256:4a3ceab05b4e396df42a042415e43a286bb5793352b9258f889d6c7d38ed01fb AS runtime-base
 
 ENV STATIC_FILES_DIR="/geti_prompt/html"
 ENV DB_DATA_DIR="/geti_prompt/data"
 ENV LOGS_DIR="/geti_prompt/logs"
-ARG MOCKED_FILE=""
-ENV MOCKED_FILE=${MOCKED_FILE}
 ENV PATH="/geti_prompt/.venv/bin:$PATH"
 ENV PYTHONPATH=/geti_prompt/app
 ARG UID=10001
@@ -86,19 +84,17 @@ ARG USER_NAME="non-root"
 ENV USER_NAME=${USER_NAME}
 ARG TARGET_DATASET_DIR=""
 ARG SOURCE_DATASET_DIR=""
-ARG RUNTIME=""
-ENV RUNTIME=${RUNTIME}
+ARG DEVICE=""
+ENV DEVICE=${DEVICE}
 
-# Create directory and set ownership before VOLUME instruction
+# Create directory and set ownership so mounting a volume works correctly
 RUN mkdir -p ${DB_DATA_DIR} && chown ${UID}:${UID} ${DB_DATA_DIR}
-VOLUME ${DB_DATA_DIR}
 RUN mkdir -p ${LOGS_DIR} && chown ${UID}:${UID} ${LOGS_DIR}
-VOLUME ${LOGS_DIR}
 
 # Install OpenGL libraries for opencv-python
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libgl1=1.6.0-1 \
-      libglib2.0-0=2.74.6-2+deb12u7 \
+      libglib2.0-0=2.74.6-2+deb12u8 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -119,8 +115,6 @@ COPY --link --chown=${UID} backend/app /geti_prompt/app
 COPY --from=backend-base --chown=${UID} /geti_prompt/library/src /geti_prompt/library/src
 COPY --from=backend-base --chown=${UID} /bin/uv /bin/uv
 COPY --from=web-ui --chown=${UID} /home/app/web_ui/dist/ ${STATIC_FILES_DIR}
-# temporary file for testing
-COPY --from=web-ui --chown=${UID} /home/app/web_ui/src/assets/test.webp ${MOCKED_FILE}
 
 WORKDIR /geti_prompt
 
@@ -171,7 +165,7 @@ FROM runtime-base AS xpu
 USER root
 
 RUN apt-get update  \
-    && apt-get install -y --no-install-recommends wget=1.21.3-1+deb12u1 gpg=2.2.40-1.1+deb12u1 \
+    && apt-get install -y --no-install-recommends wget=1.21.3-1+deb12u1 gpg=2.2.40-1.1+deb12u2 \
     && wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
        gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg \
     && echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy unified" | \

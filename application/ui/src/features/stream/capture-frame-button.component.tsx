@@ -8,7 +8,6 @@ import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { Button } from '@geti/ui';
 
 import { useSelectedFrame } from '../../shared/selected-frame-provider.component';
-import { useFullScreenMode } from '../annotator/actions/full-screen-mode.component';
 import { usePromptIdFromUrl } from '../prompts/visual-prompt/use-prompt-id-from-url';
 
 const useCaptureFrameMutation = () => {
@@ -20,7 +19,6 @@ const useCaptureFrame = () => {
     const captureFrameMutation = useCaptureFrameMutation();
     const { setSelectedFrameId } = useSelectedFrame();
     const { setPromptId } = usePromptIdFromUrl();
-    const { setIsFullScreenMode } = useFullScreenMode();
 
     const changeSelectedFrame = (id: string | null) => {
         setPromptId(null);
@@ -39,7 +37,6 @@ const useCaptureFrame = () => {
             {
                 onSuccess: ({ frame_id }) => {
                     changeSelectedFrame(frame_id);
-                    setIsFullScreenMode(true);
                 },
             }
         );

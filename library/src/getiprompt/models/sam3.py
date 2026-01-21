@@ -13,6 +13,7 @@ from torchvision.ops import box_convert
 
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.foundation import Sam3Processor, build_sam3_image_model
+from getiprompt.utils.utils import setup_autocast
 
 from .base import Model
 
@@ -27,11 +28,19 @@ class SAM3(Model):
     require a separate learning phase. Instead, it performs zero-shot segmentation
     directly during inference using:
     - Text prompts (category names) provided in the `categories` field of each sample, OR
+    - Text prompts (category names) provided via `fit()` or per-sample `categories`, OR
     - Visual prompts (bounding boxes) provided in the `bboxes` field of each sample
 
     At least one of these prompt types must be provided for each sample during inference.
 
     NOTE: Currently, SAM3 does not work well with torch.bfloat16 precision.
+
+    Usage Patterns:
+        **Pattern 1: Consistent text prompting via `fit()`**
+        Use `fit()` to store categories, then `predict()` applies them to all images.
+
+        **Pattern 2: Per-sample prompting**
+        Skip `fit()` and provide categories/bboxes directly in each target sample.
 
     Examples:
         >>> from getiprompt.models import SAM3
@@ -58,6 +67,32 @@ class SAM3(Model):
         ... )
         >>> target_batch = Batch.collate([target_sample])
         >>> infer_results = sam3.infer(target_batch)
+        >>> # Example 1: Using fit() to set category prompts directly in reference samples without passing reference images.
+        >>> ref_sample = Sample(
+        ...     categories=["shoe", "person"],
+        ...     category_ids=[0, 1],
+        ... )
+        >>> sam3.fit(Batch.collate([ref_sample]))
+        >>> target_batch = Batch.collate([Sample(image=torch.zeros((3, 1024, 1024)))])
+        >>> infer_results = sam3.infer(target_batch)
+
+        >>> # Example 2: Per-sample text prompting (without fit) but set category prompts in each target sample.
+        >>> sam3_no_fit = SAM3()
+        >>> target_sample = Sample(
+        ...     image=torch.zeros((3, 1024, 1024)),
+        ...     categories=["shoe", "person"],  # Category prompts per sample
+        ...     category_ids=[0, 1],
+        ... )
+        >>> target_batch = Batch.collate([target_sample])
+        >>> infer_results = sam3_no_fit.infer(target_batch)
+
+        >>> # Example 3: Visual prompting with bounding boxes
+        >>> target_sample = Sample(
+        ...     image=torch.zeros((3, 1024, 1024)),
+        ...     bboxes=np.array([[100, 100, 200, 200]]),  # [x, y, w, h]
+        ... )
+        >>> target_batch = Batch.collate([target_sample])
+        >>> infer_results = sam3_no_fit.infer(target_batch)
 
         >>> isinstance(infer_results, list)
         True
@@ -100,6 +135,7 @@ class SAM3(Model):
         precision: str = "fp32",
         checkpoint_path: str | None = None,
         load_from_HF: bool = True,
+        load_from_hf: bool = True,
         enable_segmentation: bool = True,
         enable_inst_interactivity: bool = False,
         compile_models: bool = False,
@@ -114,6 +150,7 @@ class SAM3(Model):
             precision: The precision to use for the model ('bf16' or 'fp32').
             checkpoint_path: Optional path to model checkpoint.
             load_from_HF: Whether to load checkpoint from HuggingFace.
+            load_from_hf: Whether to load checkpoint from HuggingFace.
             enable_segmentation: Whether to enable segmentation head.
             enable_inst_interactivity: Whether to enable instance interactivity.
             compile_models: Whether to compile the models.
@@ -126,6 +163,7 @@ class SAM3(Model):
 
         # Setup precision
         self.autocast_ctx = self._setup_autocast(device=device, precision=precision)
+        self.autocast_ctx = setup_autocast(device=device, precision=precision)
 
         # Build the SAM3 model
         self.model = build_sam3_image_model(
@@ -133,6 +171,7 @@ class SAM3(Model):
             device=device,
             checkpoint_path=checkpoint_path,
             load_from_HF=load_from_HF,
+            load_from_hf=load_from_hf,
             enable_segmentation=enable_segmentation,
             enable_inst_interactivity=enable_inst_interactivity,
             compile=compile_models,
@@ -181,6 +220,23 @@ class SAM3(Model):
             return Image.fromarray(image, mode="RGB")
         # Handle 4-channel images
         return Image.fromarray(image[..., :3], mode="RGB")
+        # Category mapping from fit() - optional for consistency with GroundedSAM
+        self.category_mapping: dict[str, int] | None = None
+
+    def fit(self, reference_batch: Batch) -> None:
+        """Store category mapping from reference batch for consistent API with GroundedSAM.
+
+        This method is optional. If called, the stored categories will be used for all
+        predictions. If not called, categories are taken from each target sample.
+
+        Args:
+            reference_batch: The reference batch containing category information.
+        """
+        self.category_mapping = {}
+        for sample in reference_batch.samples:
+            for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
+                if category not in self.category_mapping:
+                    self.category_mapping[category] = int(category_id)
 
     def _process_predictions(
         self,
@@ -194,6 +250,8 @@ class SAM3(Model):
             inference_state: The inference state containing predictions.
             img_size: The image size (height, width).
             apply_threshold: Whether to apply threshold to masks.
+            cat_id: The category ID for the current prompt.
+            img_size: The image size (height, width).
 
         Returns:
             Tuple of (processed_masks, boxes_with_scores, labels).
@@ -234,6 +292,9 @@ class SAM3(Model):
         non_empty_masks = [m for m in all_masks if m.numel() > 0]
         non_empty_boxes = [b for b in all_boxes if b.numel() > 0]
         non_empty_labels = [l for l in all_labels if l.numel() > 0]
+        non_empty_masks = [masks for masks in all_masks if masks.numel() > 0]
+        non_empty_boxes = [boxes for boxes in all_boxes if boxes.numel() > 0]
+        non_empty_labels = [labels for labels in all_labels if labels.numel() > 0]
 
         if non_empty_masks:
             aggregated_masks = torch.cat(non_empty_masks, dim=0)
@@ -264,6 +325,9 @@ class SAM3(Model):
         """Perform inference step on the target images.
 
         Uses batch image encoding for efficiency when processing multiple images.
+
+        If `fit()` was called, uses the stored category mapping for text prompts.
+        Otherwise, uses per-sample categories from target_batch.
         """
         results = []
         samples = target_batch.samples
@@ -272,6 +336,13 @@ class SAM3(Model):
             # Batch encode all images at once (expensive backbone forward pass)
             pil_images = [self._prepare_image(sample.image) for sample in samples]
             batch_state = self.processor.set_image_batch(pil_images)
+        # Use stored categories from fit() if available, otherwise use per-sample
+        use_fitted_categories = self.category_mapping is not None
+
+        with self.autocast_ctx:
+            # Batch encode all images at once (expensive backbone forward pass)
+            images = [sample.image for sample in samples]
+            batch_state = self.processor.set_image_batch(images)
 
             # Process each image's prompts individually
             for idx, sample in enumerate(samples):
@@ -279,6 +350,14 @@ class SAM3(Model):
                 bboxes = self.normalize_boxes(sample.bboxes, img_size) if sample.bboxes is not None else []
                 texts = sample.categories if sample.categories is not None else []
                 category_ids = sample.category_ids
+
+                # Determine text prompts and category IDs
+                if use_fitted_categories:
+                    texts = list(self.category_mapping.keys())
+                    category_ids = list(self.category_mapping.values())
+                else:
+                    texts = sample.categories if sample.categories is not None else []
+                    category_ids = sample.category_ids
 
                 # Extract single-image state from batch state
                 inference_state = self.processor.get_single_image_state(batch_state, idx)

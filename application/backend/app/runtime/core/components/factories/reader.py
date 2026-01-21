@@ -6,12 +6,14 @@ from domain.services.schemas.reader import (
     ReaderConfig,
     SampleDatasetConfig,
     SourceType,
-    WebCamConfig,
+    UsbCameraConfig,
+    VideoFileConfig,
 )
 from runtime.core.components.base import StreamReader
 from runtime.core.components.readers.image_folder_reader import ImageFolderReader
 from runtime.core.components.readers.noop_reader import NoOpReader
-from runtime.core.components.readers.webcam_reader import WebCamReader
+from runtime.core.components.readers.usb_camera_reader import UsbCameraReader
+from runtime.core.components.readers.video_file import VideoFileReader
 from settings import get_settings
 
 
@@ -28,8 +30,8 @@ class StreamReaderFactory:
     def create(cls, config: ReaderConfig | None) -> StreamReader:
         settings = get_settings()
         match config:
-            case WebCamConfig() as config:
-                return WebCamReader(config)
+            case UsbCameraConfig() as config:
+                return UsbCameraReader(config)
             case ImagesFolderConfig() as config:
                 return ImageFolderReader(config, supported_extensions=settings.supported_extensions)
             case SampleDatasetConfig() as config:
@@ -39,5 +41,7 @@ class StreamReaderFactory:
                     seekable=config.seekable,
                 )
                 return ImageFolderReader(template_config, supported_extensions=settings.supported_extensions)
+            case VideoFileConfig() as config:
+                return VideoFileReader(config=config)
             case _:
                 return NoOpReader()

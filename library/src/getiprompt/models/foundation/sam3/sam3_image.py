@@ -1,4 +1,5 @@
 # Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # Copyright (c) Meta Platforms, Inc. and affiliates. All Rights Reserved
@@ -9,10 +10,12 @@ from copy import deepcopy
 from logging import getLogger
 
 import torch
+from torch import nn
 
 from getiprompt.models.foundation.sam3.data_misc import (
     BatchedDatapoint,
     BatchedFindTarget,
+    FindStage,
 )
 from getiprompt.models.foundation.sam3.model import (
     Prompt,
@@ -26,7 +29,14 @@ from getiprompt.models.foundation.sam3.model import (
 logger = getLogger("Geti Prompt")
 
 
-def _update_out(out, out_name, out_value, auxiliary=True, update_aux=True):
+def _update_out(
+    out: dict[str, torch.Tensor],
+    out_name: str,
+    out_value: list[torch.Tensor],
+    auxiliary: bool = True,
+    update_aux: bool = True,
+) -> None:
+    """Helper function to update the output dictionary with main and auxiliary outputs."""
     out[out_name] = out_value[-1] if auxiliary else out_value
     if auxiliary and update_aux:
         if "aux_outputs" not in out:
@@ -37,6 +47,42 @@ def _update_out(out, out_name, out_value, auxiliary=True, update_aux=True):
 
 
 class Sam3Image(torch.nn.Module):
+    """SAM3 Image Model.
+
+    Args:
+        backbone: Visual-language backbone combining ViT and text encoder for
+            multi-modal feature extraction.
+        transformer: Transformer module containing encoder and decoder for
+            processing visual and text features.
+        input_geometry_encoder: Encoder for geometric prompts (boxes, points)
+            that converts spatial inputs into feature representations.
+        segmentation_head: Head module for mask prediction. Defaults to None.
+        num_feature_levels: Number of feature pyramid levels to use. Defaults to 1.
+        o2m_mask_predict: Whether to predict masks for one-to-many (O2M) queries
+            during training. Defaults to True.
+        dot_prod_scoring: Dot product scoring module for computing similarity
+            between queries and prompts. Defaults to None.
+        use_instance_query: Whether to use instance-specific queries. Defaults to True.
+        multimask_output: Whether to output multiple mask predictions per query
+            for ambiguity resolution. Defaults to True.
+        use_act_checkpoint_seg_head: Whether to use activation checkpointing in
+            segmentation head to reduce memory usage. Defaults to True.
+        interactivity_in_encoder: Whether interactive prompts are processed in
+            the encoder stage. Defaults to True.
+        matcher: Module for matching predictions to ground truth targets during
+            training. Defaults to None.
+        use_dot_prod_scoring: Whether to use dot product scoring instead of a
+            linear classifier for score prediction. Defaults to True.
+        supervise_joint_box_scores: Whether to supervise joint box scores using
+            presence token predictions. Defaults to False.
+        detach_presence_in_joint_score: Whether to detach presence score gradients
+            when computing joint scores. Defaults to False.
+        separate_scorer_for_instance: Whether to use a separate scoring head for
+            instance-level prompts. Defaults to False.
+        num_interactive_steps_val: Number of interactive refinement steps during
+            validation. Defaults to 0.
+    """
+
     TEXT_ID_FOR_TEXT = 0
     TEXT_ID_FOR_VISUAL = 1
     TEXT_ID_FOR_GEOMETRIC = 2
@@ -50,18 +96,28 @@ class Sam3Image(torch.nn.Module):
         num_feature_levels=1,
         o2m_mask_predict=True,
         dot_prod_scoring=None,
+        transformer: nn.Module,
+        input_geometry_encoder: nn.Module,
+        segmentation_head: nn.Module | None = None,
+        num_feature_levels: int = 1,
+        o2m_mask_predict: bool = True,
+        dot_prod_scoring: nn.Module | None = None,
         use_instance_query: bool = True,
         multimask_output: bool = True,
         use_act_checkpoint_seg_head: bool = True,
         interactivity_in_encoder: bool = True,
         matcher=None,
         use_dot_prod_scoring=True,
+        matcher: nn.Module | None = None,
+        use_dot_prod_scoring: bool = True,
         supervise_joint_box_scores: bool = False,  # only relevant if using presence token/score
         detach_presence_in_joint_score: bool = False,  # only relevant if using presence token/score
         separate_scorer_for_instance: bool = False,
         num_interactive_steps_val: int = 0,
         **kwargs,
     ):
+    ) -> None:
+        """Initialize SAM3 Image model."""
         super().__init__()
         self.backbone = backbone
         self.geometry_encoder = input_geometry_encoder
@@ -110,11 +166,23 @@ class Sam3Image(torch.nn.Module):
         return self._device
 
     def to(self, *args, **kwargs):
+    def device(self) -> torch.device:
+        """Get the device the model is on."""
+        self._device = getattr(self, "_device", None) or next(self.parameters()).device
+        return self._device
+
+    def to(self, *args, **kwargs) -> torch.nn.Module:
+        """Override to() to clear cached device."""
         # clear cached _device in case the model is moved to a different device
         self._device = None
         return super().to(*args, **kwargs)
 
     def _get_img_feats(self, backbone_out, img_ids):
+    def _get_img_feats(
+        self,
+        backbone_out: dict[str, torch.Tensor],
+        img_ids: torch.Tensor,
+    ) -> tuple[dict[str, torch.Tensor], list[torch.Tensor], list[torch.Tensor], list[tuple[int, int]]]:
         """Retrieve correct image features from backbone output."""
         if "backbone_fpn" in backbone_out:
             if "id_mapping" in backbone_out and backbone_out["id_mapping"] is not None:
@@ -176,6 +244,13 @@ class Sam3Image(torch.nn.Module):
         visual_prompt_mask=None,
         encode_text=True,
         prev_mask_pred=None,
+        backbone_out: dict[str, torch.Tensor],
+        find_input: FindStage,
+        geometric_prompt: Prompt,
+        visual_prompt_embed: torch.Tensor | None = None,
+        visual_prompt_mask: torch.Tensor | None = None,
+        encode_text: bool = True,
+        prev_mask_pred: torch.Tensor | None = None,
     ):
         # index text features (note that regardless of early or late fusion, the batch size of
         # `txt_feats` is always the number of *prompts* in the encoder)
@@ -219,6 +294,10 @@ class Sam3Image(torch.nn.Module):
         find_input,
         prompt,
         prompt_mask,
+        backbone_out: dict[str, torch.Tensor],
+        find_input: FindStage,
+        prompt: torch.Tensor,
+        prompt_mask: torch.Tensor,
         encoder_extra_kwargs: dict | None = None,
     ):
         feat_tuple = self._get_img_feats(backbone_out, find_input.img_ids)
@@ -262,6 +341,13 @@ class Sam3Image(torch.nn.Module):
         prompt,
         prompt_mask,
         encoder_out,
+        pos_embed: torch.Tensor,
+        memory: torch.Tensor,
+        src_mask: torch.Tensor,
+        out: dict[str, torch.Tensor],
+        prompt: torch.Tensor,
+        prompt_mask: torch.Tensor,
+        encoder_out: dict[str, torch.Tensor],
     ):
         bs = memory.shape[1]
         query_embed = self.transformer.decoder.query_embed.weight
@@ -308,6 +394,13 @@ class Sam3Image(torch.nn.Module):
         prompt_mask,
         dec_presence_out=None,
         is_instance_prompt=False,
+        out: dict[str, torch.Tensor],
+        hs: torch.Tensor,
+        reference_boxes: torch.Tensor,
+        prompt: torch.Tensor,
+        prompt_mask: torch.Tensor,
+        dec_presence_out: torch.Tensor | None = None,
+        is_instance_prompt: bool = False,
     ):
         apply_dac = self.transformer.decoder.dac and self.training
         num_o2o = (hs.size(2) // 2) if apply_dac else hs.size(2)
@@ -401,6 +494,13 @@ class Sam3Image(torch.nn.Module):
         prompt,
         prompt_mask,
         hs,
+        out: dict[str, torch.Tensor],
+        backbone_out: dict[str, torch.Tensor],
+        img_ids: torch.Tensor,
+        encoder_hidden_states: torch.Tensor,
+        prompt: torch.Tensor,
+        prompt_mask: torch.Tensor,
+        hs: torch.Tensor,
     ):
         apply_dac = self.transformer.decoder.dac and self.training
         if self.segmentation_head is not None:
@@ -433,6 +533,7 @@ class Sam3Image(torch.nn.Module):
             backbone_out.pop("backbone_fpn", None)
 
     def _get_best_mask(self, out):
+    def _get_best_mask(self, out: dict[str, torch.Tensor]) -> torch.Tensor:
         prev_mask_idx = out["pred_logits"].argmax(dim=1).squeeze(1)
         batch_idx = torch.arange(
             out["pred_logits"].shape[0],
@@ -454,6 +555,11 @@ class Sam3Image(torch.nn.Module):
         find_target,
         geometric_prompt: Prompt,
     ):
+        backbone_out: dict[str, torch.Tensor],
+        find_input: FindStage,
+        find_target: BatchedFindTarget,
+        geometric_prompt: Prompt,
+    ) -> dict[str, torch.Tensor]:
         with torch.profiler.record_function("SAM3Image._encode_prompt"):
             prompt, prompt_mask, backbone_out = self._encode_prompt(
                 backbone_out,
@@ -506,6 +612,7 @@ class Sam3Image(torch.nn.Module):
         return out
 
     def _postprocess_out(self, out: dict, multimask_output: bool = False) -> dict:
+    def _postprocess_out(self, out: dict[str, torch.Tensor], multimask_output: bool = False) -> dict[str, torch.Tensor]:
         # For multimask output, during eval we return the single best mask with the dict keys expected by the evaluators,
         # but also return the multimasks output with new keys.
         num_mask_boxes = out["pred_boxes"].size(1)

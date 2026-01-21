@@ -12,19 +12,17 @@ import { useDeleteSource } from '../api/use-delete-source';
 import { useUpdateSource } from '../api/use-update-source';
 import { ImagesFolderSourceCard } from '../images-folder/images-folder-card.component';
 import { SampleDatasetCard } from '../sample-dataset/sample-dataset-card.component';
-import { isImagesFolderSource, isTestDatasetSource, isVideoFileSource, isWebcamSource, SourcesViews } from '../utils';
+import { UsbCameraSourceCard } from '../usb-camera/usb-camera-source-card.component';
+import {
+    isImagesFolderSource,
+    isTestDatasetSource,
+    isUsbCameraSource,
+    isVideoFileSource,
+    SourcesViews,
+} from '../utils';
 import { VideoFileCard } from '../video-file/video-file-card.component';
-import { WebcamSourceCard } from '../webcam/webcam-source-card.component';
 
-const getMenuItems = ({
-    isActiveProject,
-    isActiveSource,
-    isTestDataset,
-}: {
-    isActiveProject: boolean;
-    isActiveSource: boolean;
-    isTestDataset: boolean;
-}) => {
+const getMenuItems = ({ isActiveSource, isTestDataset }: { isActiveSource: boolean; isTestDataset: boolean }) => {
     const items = [
         {
             key: 'connect',
@@ -44,9 +42,7 @@ const getMenuItems = ({
         if (item.key === 'connect' && isActiveSource) {
             return false;
         }
-        if (item.key === 'edit' && !isActiveProject) {
-            return false;
-        }
+
         if (item.key === 'edit' && isTestDataset) {
             return false;
         }
@@ -66,7 +62,6 @@ interface ExistingSourcesListProps {
 
 const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: ExistingSourcesListProps) => {
     const { data: project } = useCurrentProject();
-    const isActiveProject = project.active;
 
     const updateSource = useUpdateSource();
     const deleteSource = useDeleteSource();
@@ -101,7 +96,6 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
 
                 const menuItems = getMenuItems({
                     isActiveSource,
-                    isActiveProject,
                     isTestDataset: isTestDatasetSource(source),
                 });
 
@@ -116,9 +110,9 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
                     );
                 }
 
-                if (isWebcamSource(source)) {
+                if (isUsbCameraSource(source)) {
                     return (
-                        <WebcamSourceCard
+                        <UsbCameraSourceCard
                             key={source.id}
                             source={source}
                             menuItems={menuItems}
@@ -159,7 +153,7 @@ interface ExistingSourcesProps {
     onSetSourceInEditionId: (sourceId: string) => void;
 }
 
-const AVAILABLE_SOURCE_TYPES: SourceType[] = ['webcam', 'images_folder', 'sample_dataset', 'video_file'];
+const AVAILABLE_SOURCE_TYPES: SourceType[] = ['usb_camera', 'images_folder', 'sample_dataset', 'video_file'];
 
 export const ExistingSources = ({ sources, onViewChange, onSetSourceInEditionId }: ExistingSourcesProps) => {
     const canCreateSource = !AVAILABLE_SOURCE_TYPES.every((type) =>

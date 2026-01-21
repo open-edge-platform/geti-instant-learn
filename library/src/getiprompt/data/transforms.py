@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # Copyright (c) Meta Platforms, Inc. and affiliates.
@@ -99,8 +99,7 @@ class ResizeLongestSide:
         Returns:
             torch.Tensor: Resized image in 1 x C x H x W format.
         """
-        # Expects an image in BCHW format. May not exactly match apply_image.
-        assert isinstance(image, tv_tensors.Image), "Image must be a tv_tensors.Image"
+        # Expects an tensor in BCHW format. May not exactly match apply_image.
         h, w = image.shape[-2:]
         target_size = self.get_preprocess_shape(h, w, self.target_length)
         return functional.interpolate(
@@ -108,7 +107,6 @@ class ResizeLongestSide:
             target_size,
             mode="bilinear",
             align_corners=False,
-            antialias=True,
         )
 
     def apply_coords_torch(self, coords: torch.Tensor, original_size: tuple[int, ...]) -> torch.Tensor:
@@ -127,10 +125,10 @@ class ResizeLongestSide:
             original_size[1],
             self.target_length,
         )
-        coords = deepcopy(coords).to(torch.float)
-        coords[..., 0] *= new_w / old_w
-        coords[..., 1] *= new_h / old_h
-        return coords
+        new_coords = torch.zeros_like(coords).float()
+        new_coords[..., 0] = coords[..., 0] * new_w / old_w
+        new_coords[..., 1] = coords[..., 1] * new_h / old_h
+        return new_coords
 
     def apply_boxes_torch(self, boxes: torch.Tensor, original_size: tuple[int, ...]) -> torch.Tensor:
         """Resizes boxes to the longest side 'target_length'.

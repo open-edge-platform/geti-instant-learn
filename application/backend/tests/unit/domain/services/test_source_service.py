@@ -15,7 +15,7 @@ from domain.errors import (
     ResourceType,
     ResourceUpdateConflictError,
 )
-from domain.services.schemas.reader import SourceType, VideoFileConfig, WebCamConfig
+from domain.services.schemas.reader import SourceType, UsbCameraConfig, VideoFileConfig
 from domain.services.schemas.source import SourceCreateSchema, SourceUpdateSchema
 from domain.services.source import SourceService
 
@@ -28,12 +28,12 @@ def make_source(
     *,
     source_id=None,
     project_id=None,
-    source_type: SourceType = SourceType.WEBCAM,
+    source_type: SourceType = SourceType.USB_CAMERA,
     config_extra: dict | None = None,
     active: bool = False,
 ):
     base_cfg = {"source_type": source_type.value}
-    if source_type == SourceType.WEBCAM:
+    if source_type == SourceType.USB_CAMERA:
         base_cfg |= {"device_id": 0}
     elif source_type == SourceType.VIDEO_FILE:
         base_cfg |= {"video_path": "/tmp/video.mp4"}
@@ -130,7 +130,7 @@ def test_create_source_success(service, dispatcher_mock):
     create_schema = SourceCreateSchema(
         id=new_id,
         active=True,
-        config=WebCamConfig(source_type=SourceType.WEBCAM, name="Webcam A", device_id=2),
+        config=UsbCameraConfig(source_type=SourceType.USB_CAMERA, name="Webcam A", device_id=2),
     )
 
     result = service.create_source(project_id=project_id, create_data=create_schema)
@@ -156,7 +156,7 @@ def test_create_source_type_conflict_raises_integrity_error(service):
     create_schema = SourceCreateSchema(
         id=uuid.uuid4(),
         active=False,
-        config=WebCamConfig(source_type=SourceType.WEBCAM, name="Dup", device_id=0),
+        config=UsbCameraConfig(source_type=SourceType.USB_CAMERA, name="Dup", device_id=0),
     )
 
     mock_error = IntegrityError("statement", "params", "orig")
@@ -168,7 +168,7 @@ def test_create_source_type_conflict_raises_integrity_error(service):
 
     assert exc_info.value.resource_type == ResourceType.SOURCE
     assert exc_info.value.field == "source_type"
-    assert "source of type 'webcam' already exists" in str(exc_info.value).lower()
+    assert "source of type 'usb_camera' already exists" in str(exc_info.value).lower()
     service.session.rollback.assert_called_once()
 
 
@@ -180,7 +180,7 @@ def test_create_source_name_conflict_raises_integrity_error(service):
     create_schema = SourceCreateSchema(
         id=uuid.uuid4(),
         active=False,
-        config=WebCamConfig(source_type=SourceType.WEBCAM, name="DupName", device_id=0),
+        config=UsbCameraConfig(source_type=SourceType.USB_CAMERA, name="DupName", device_id=0),
     )
 
     mock_error = IntegrityError("statement", "params", "orig")
@@ -192,8 +192,7 @@ def test_create_source_name_conflict_raises_integrity_error(service):
 
     assert exc_info.value.resource_type == ResourceType.SOURCE
     assert exc_info.value.field == "name"
-    assert "source with" in str(exc_info.value).lower()
-    assert "this name" in str(exc_info.value).lower()
+    assert "source with the name" in str(exc_info.value).lower()
     assert "already exists in this project" in str(exc_info.value).lower()
     service.session.rollback.assert_called_once()
 
@@ -211,7 +210,7 @@ def test_create_source_disconnects_previous_active(service):
     create_schema = SourceCreateSchema(
         id=uuid.uuid4(),
         active=True,
-        config=WebCamConfig(source_type=SourceType.WEBCAM, name="Primary", device_id=1),
+        config=UsbCameraConfig(source_type=SourceType.USB_CAMERA, name="Primary", device_id=1),
     )
 
     service.create_source(project_id=project_id, create_data=create_schema)
@@ -253,7 +252,7 @@ def test_update_source_success(service, dispatcher_mock):
     project_id = uuid.uuid4()
     source_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
-    existing = make_source(project_id=project_id, source_id=source_id, source_type=SourceType.WEBCAM, active=False)
+    existing = make_source(project_id=project_id, source_id=source_id, source_type=SourceType.USB_CAMERA, active=False)
     service.source_repository.get_by_id_and_project.return_value = existing
     prev_active = make_source(project_id=project_id, active=True)
     service.source_repository.get_active_in_project.return_value = prev_active
@@ -261,7 +260,7 @@ def test_update_source_success(service, dispatcher_mock):
 
     update_schema = SourceUpdateSchema(
         active=True,
-        config=WebCamConfig(source_type=SourceType.WEBCAM, name="Renamed", device_id=5),
+        config=UsbCameraConfig(source_type=SourceType.USB_CAMERA, name="Renamed", device_id=5),
     )
 
     result = service.update_source(project_id=project_id, source_id=source_id, update_data=update_schema)
@@ -286,7 +285,7 @@ def test_update_source_type_change_conflict(service, tmp_path):
     project_id = uuid.uuid4()
     source_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
-    existing = make_source(project_id=project_id, source_id=source_id, source_type=SourceType.WEBCAM)
+    existing = make_source(project_id=project_id, source_id=source_id, source_type=SourceType.USB_CAMERA)
     service.source_repository.get_by_id_and_project.return_value = existing
 
     # Create a temporary video file for validation
@@ -310,7 +309,7 @@ def test_update_source_not_found(service):
     service.source_repository.get_by_id_and_project.return_value = None
     update_schema = SourceUpdateSchema(
         active=False,
-        config=WebCamConfig(source_type=SourceType.WEBCAM, name="X", device_id=0),
+        config=UsbCameraConfig(source_type=SourceType.USB_CAMERA, name="X", device_id=0),
     )
 
     with pytest.raises(ResourceNotFoundError):
@@ -366,7 +365,7 @@ def test_create_source_emits_event_when_connected_false(service, dispatcher_mock
     create_schema = SourceCreateSchema(
         id=new_id,
         active=False,
-        config=WebCamConfig(source_type=SourceType.WEBCAM, device_id=3),
+        config=UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=3),
     )
 
     service.create_source(project_id=project_id, create_data=create_schema)
@@ -383,14 +382,14 @@ def test_update_source_emits_event_when_no_connection_change(service, dispatcher
     project_id = uuid.uuid4()
     source_id = uuid.uuid4()
     service.project_repository.get_by_id.return_value = make_project(project_id)
-    existing = make_source(project_id=project_id, source_id=source_id, source_type=SourceType.WEBCAM, active=True)
+    existing = make_source(project_id=project_id, source_id=source_id, source_type=SourceType.USB_CAMERA, active=True)
     service.source_repository.get_by_id_and_project.return_value = existing
     service.source_repository.get_active_in_project.return_value = existing  # already active
     service.source_repository.update.return_value = existing
 
     update_schema = SourceUpdateSchema(
         active=True,
-        config=WebCamConfig(source_type=SourceType.WEBCAM, device_id=7),
+        config=UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=7),
     )
 
     service.update_source(project_id=project_id, source_id=source_id, update_data=update_schema)

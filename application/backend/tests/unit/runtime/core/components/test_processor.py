@@ -83,3 +83,74 @@ class TestProcessor:
             assert isinstance(actual_output.results, list)
 
         self.mock_inbound_broadcaster.unregister.assert_called_once_with(self.mock_in_queue)
+
+    def test_processor_breaks_batch_on_requires_manual_control(self):
+        frame_with_manual_control = InputData(
+            timestamp=1000,
+            frame=np.zeros((480, 640, 3), dtype=np.uint8),
+            context={"frame_id": 1, "requires_manual_control": True},
+        )
+        frame_without_flag = InputData(
+            timestamp=2000,
+            frame=np.zeros((480, 640, 3), dtype=np.uint8),
+            context={"frame_id": 2},
+        )
+
+        queue_effects = [frame_with_manual_control, frame_without_flag]
+        iterator = iter(queue_effects)
+
+        def mock_get(*args, **kwargs):
+            try:
+                next_item = next(iterator)
+                if isinstance(next_item, Exception):
+                    raise next_item
+                return next_item
+            except StopIteration:
+                self.runner.stop()
+                raise Empty
+
+        self.mock_in_queue.get.side_effect = mock_get
+
+        self.runner.run()
+
+        # Should process 2 times: once for frame with manual control, once for frame without
+        assert self.mock_outbound_broadcaster.broadcast.call_count == 2
+
+        # First call should be with single frame batch (manual control breaks the batch)
+        first_predict_call = self.mock_model_handler.predict.call_args_list[0]
+        first_batch = first_predict_call[0][0]
+        assert len(first_batch) == 1
+
+    def test_processor_collects_full_batch_without_manual_control(self):
+        frames = [
+            InputData(
+                timestamp=i * 1000,
+                frame=np.zeros((480, 640, 3), dtype=np.uint8),
+                context={"frame_id": i},
+            )
+            for i in range(3)
+        ]
+
+        queue_effects = frames.copy()
+        iterator = iter(queue_effects)
+
+        def mock_get(*args, **kwargs):
+            try:
+                next_item = next(iterator)
+                return next_item
+            except StopIteration:
+                self.runner.stop()
+                raise Empty
+
+        self.mock_in_queue.get.side_effect = mock_get
+
+        self.runner.run()
+
+        # Should call predict once with batch of 3
+        assert self.mock_model_handler.predict.call_count == 1
+        predict_call = self.mock_model_handler.predict.call_args_list[0]
+        batch = predict_call[0][0]
+        assert len(batch) == 3
+
+        # Should broadcast 3 individual results
+        assert self.mock_outbound_broadcaster.broadcast.call_count == 3

@@ -8,7 +8,8 @@ import { Key, Suspense } from 'react';
 import { Flex, Item, Loading, Picker, Text, View } from '@geti/ui';
 
 import { useGetModels } from '../api/use-get-models';
-import { useSetActiveModel } from '../api/use-set-active-model';
+import { useUpdateModel } from '../api/use-update-model';
+import { ModelConfiguration } from './model-configuration/model-configuration.component';
 
 export const ModelToolbar = () => {
     return (
@@ -22,14 +23,14 @@ export const ModelToolbar = () => {
 
 const ModelToolbarContent = () => {
     const models = useGetModels();
-    const setActiveModel = useSetActiveModel();
+    const updateModel = useUpdateModel();
     const activeModel = models.find((model) => model.active) ?? models[0];
 
     const handleSelectionChange = (key: Key | null) => {
         const selectedModel = models.find((model) => model.id === key);
 
         if (selectedModel) {
-            setActiveModel(selectedModel);
+            updateModel.mutate({ ...selectedModel, active: true });
         }
     };
 
@@ -42,8 +43,9 @@ const ModelToolbarContent = () => {
     }
 
     return (
-        <Flex alignItems={'end'} gap={'size-100'} justifyContent={'space-between'}>
+        <Flex alignItems={'end'} gap={'size-100'}>
             <Picker
+                isQuiet
                 label={'Model'}
                 defaultSelectedKey={activeModel.id}
                 onSelectionChange={handleSelectionChange}
@@ -51,6 +53,8 @@ const ModelToolbarContent = () => {
             >
                 {(item) => <Item key={item.id}>{item.name}</Item>}
             </Picker>
+
+            <ModelConfiguration model={activeModel} />
         </Flex>
     );
 };

@@ -3,15 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ReactNode } from 'react';
+import { ReactNode, Suspense } from 'react';
 
 import { Source } from '@geti-prompt/api';
+import { Loading } from '@geti/ui';
 
 import { PipelineEntityPanel } from '../../pipeline-entity-panel/pipeline-entity-panel.component';
 import { EditImagesFolder } from '../images-folder/edit-images-folder.component';
-import { isImagesFolderSource, isVideoFileSource, isWebcamSource, SourcesViews } from '../utils';
+import { EditUsbCameraSource } from '../usb-camera/edit-usb-camera-source.component';
+import { isImagesFolderSource, isUsbCameraSource, isVideoFileSource, SourcesViews } from '../utils';
 import { EditVideoFile } from '../video-file/edit-video-file.component';
-import { EditWebcamSource } from '../webcam/edit-webcam-source.component';
 
 interface EditSourceContainerProps {
     children: ReactNode;
@@ -38,10 +39,12 @@ interface EditSourceProps {
 export const EditSource = ({ source, onViewChange }: EditSourceProps) => {
     const handleGoBack = () => onViewChange('existing');
 
-    if (isWebcamSource(source)) {
+    if (isUsbCameraSource(source)) {
         return (
-            <EditSourceContainer onBackClick={handleGoBack} title={'Webcam'}>
-                <EditWebcamSource source={source} onSaved={handleGoBack} />
+            <EditSourceContainer onBackClick={handleGoBack} title={'USB Camera'}>
+                <Suspense fallback={<Loading mode={'inline'} size={'S'} />}>
+                    <EditUsbCameraSource source={source} onSaved={handleGoBack} />
+                </Suspense>
             </EditSourceContainer>
         );
     }

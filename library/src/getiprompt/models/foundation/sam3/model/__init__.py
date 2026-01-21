@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 """SAM3 model components."""
 
 from getiprompt.models.foundation.sam3.model.act_ckpt_utils import activation_ckpt_wrapper

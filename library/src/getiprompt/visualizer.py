@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Visualization of predictions."""
@@ -52,6 +52,9 @@ def visualize_single_image(
     pred_labels = prediction["pred_labels"]
     # optional fields
     pred_points = prediction.get("pred_points", torch.empty(0, 4))
+    pred_labels = prediction["pred_labels"]
+    pred_points = prediction.get("pred_points", torch.empty(0, 4))
+    pred_boxes = prediction.get("pred_boxes", torch.empty(0, 5))
     image_np = image.permute(1, 2, 0).numpy()
     height, _ = image_np.shape[:2]
 

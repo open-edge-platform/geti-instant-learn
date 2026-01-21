@@ -3,11 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useCurrentProject, useGetSources } from '@geti-prompt/hooks';
+import { useGetSources } from '@geti-prompt/hooks';
 import { NoMedia } from '@geti-prompt/icons';
 import { Content, Flex, View } from '@geti/ui';
 
-import { NotActiveProject } from '../../features/project/not-active-project/not-active-project.component';
 import { StreamContainer } from '../../features/stream/stream-container/stream-container.component';
 
 import styles from './main-content.module.scss';
@@ -30,12 +29,7 @@ const NoSourcePlaceholder = () => {
 };
 
 export const MainContent = () => {
-    const { data } = useCurrentProject();
     const { data: sourcesData } = useGetSources();
-
-    if (!data.active) {
-        return <NotActiveProject project={data} />;
-    }
 
     if (sourcesData.sources.length === 0) {
         return <NoSourcePlaceholder />;

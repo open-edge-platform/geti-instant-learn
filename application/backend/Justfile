@@ -88,6 +88,7 @@ _mypy:
 # -------------------------------------------------------------------------------------------------
 
 pyinstaller: _venv (download-dataset dataset-dir)
+    echo 'DEVICE="{{device}}"' > .env
     uv sync --extra installer --extra {{device}} --extra mqtt --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
     uv run pyinstaller --noconfirm geti-prompt.spec
     mkdir -p dist/geti-prompt-backend/InitialData/templates/datasets/coffee-berries

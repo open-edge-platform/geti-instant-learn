@@ -7,6 +7,7 @@ from getiprompt.utils.constants import SAMModelName
 
 from domain.services.schemas.processor import MatcherConfig
 from runtime.core.components.factories.model import ModelFactory
+from runtime.core.components.models.passthrough_model import PassThroughModelHandler
 
 
 class TestModelFactory:
@@ -44,4 +45,27 @@ class TestModelFactory:
     def test_factory_returns_none_for_unknown_config(self):
         result = ModelFactory.create(None, None)
 
-        assert result is not None  # Returns PassThroughModelHandler instead of None
+        assert isinstance(result, PassThroughModelHandler)
+
+    def test_factory_does_not_create_inference_handler_when_inference_disabled(self):
+        config = MatcherConfig(
+            num_foreground_points=1,
+            num_background_points=1,
+            confidence_threshold=0.5,
+            precision="fp32",
+            sam_model=SAMModelName.SAM_HQ_TINY,
+            encoder_model="dinov3_small",
+        )
+        mock_reference_batch = MagicMock()
+        mock_settings = MagicMock()
+        mock_settings.processor_inference_enabled = False
+        mock_settings.device = "cpu"
+
+        with patch("runtime.core.components.factories.model.get_settings", return_value=mock_settings):
+            with patch("runtime.core.components.factories.model.InferenceModelHandler") as mock_inference_handler:
+                with patch("runtime.core.components.factories.model.Matcher") as mock_matcher:
+                    result = ModelFactory.create(mock_reference_batch, config)
+
+        assert isinstance(result, PassThroughModelHandler)
+        mock_inference_handler.assert_not_called()
+        mock_matcher.assert_not_called()

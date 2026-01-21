@@ -1,78 +1,101 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Cosine similarity matcher."""
 
-from collections import defaultdict
-
 import torch
 from torch import nn
-
-from getiprompt.utils.similarity_resize import resize_similarity_maps
+from torch.nn import functional as F
 
 
 class CosineSimilarity(nn.Module):
-    """This class computes the cosine similarity.
+    """Computes cosine similarity between reference and target embeddings.
+
+    All outputs are tensors for full traceability (ONNX/TorchScript compatible).
+
+    Args:
+        feature_size: Feature grid size for output similarity maps. Default: 64.
 
     Examples:
-        >>> from getiprompt.processes.similarity_matchers import CosineSimilarity
+        >>> from getiprompt.components import CosineSimilarity
         >>> import torch
-        >>> import numpy as np
-
-        >>> similarity_matcher = CosineSimilarity()
-        >>> masked_ref_embeddings = {1: torch.randn(1, 256)}
-        >>> target_embeddings = torch.randn(64, 64, 256)
-        >>> original_sizes = [(1024, 1024)]
+        >>>
+        >>> similarity_matcher = CosineSimilarity(feature_size=64)
+        >>> # masked_ref_embeddings: [C, 1, embed_dim]
+        >>> masked_ref_embeddings = torch.randn(2, 1, 256)
+        >>> # target_embeddings: [T, num_patches, embed_dim]
+        >>> target_embeddings = torch.randn(1, 4096, 256)
+        >>> category_ids = [1, 2]
         >>>
         >>> similarities = similarity_matcher(
-        ...     masked_ref_embeddings=masked_ref_embeddings,
-        ...     target_embeddings=target_embeddings,
-        ...     original_sizes=original_sizes,
+        ...     masked_ref_embeddings,
+        ...     target_embeddings,
+        ...     category_ids,
         ... )
-
-        >>> isinstance(similarities, dict) and similarities[1].shape == (1, 1024, 1024)
-        True
+        >>> similarities.shape  # [T, C, feature_size, feature_size]
+        torch.Size([1, 2, 64, 64])
     """
+
+    def __init__(self, feature_size: int = 64) -> None:
+        """Initialize the CosineSimilarity module."""
+        super().__init__()
+        self.feature_size = feature_size
 
     @torch.inference_mode()
     def forward(
         self,
-        masked_ref_embeddings: dict[int, torch.Tensor],
+        reference_embeddings: torch.Tensor,
         target_embeddings: torch.Tensor,
-        original_sizes: list[tuple[int, int]],
-    ) -> list[dict[int, torch.Tensor]]:
-        """This function computes the cosine similarity between the reference features and the target features.
+        category_ids: list[int],
+    ) -> torch.Tensor:
+        """Compute cosine similarity between reference and target features.
 
         Args:
-            masked_ref_embeddings (dict[int, torch.Tensor]): Dictionary of masked reference embeddings
-            target_embeddings (torch.Tensor): Target embeddings
-            original_sizes (list[tuple[int, int]]): List of original sizes of the target images
+            masked_ref_embeddings: Reference embeddings [C, 1, embed_dim]
+            target_embeddings: Target embeddings [T, num_patches, embed_dim]
+            category_ids: List of category IDs [C]
 
         Returns:
-            list[dict[int, torch.Tensor]]: List of similarities dictionaries, one per target image instance
-              which are resized to the original image size
+            similarities: Similarity maps [T, C, feature_size, feature_size]
         """
-        per_image_similarities: list[dict[int, torch.Tensor]] = []
-        for target_embedding, original_size in zip(target_embeddings, original_sizes, strict=True):
-            target_embedding /= target_embedding.norm(dim=-1, keepdim=True)
-            # reshape from (encoder_shape, encoder_shape, embed_dim)
-            # to (encoder_shape*encoder_shape, embed_dim) if necessary
-            if target_embedding.dim() == 3:
-                target_embedding = target_embedding.reshape(
-                    target_embedding.shape[0] * target_embedding.shape[1],
-                    target_embedding.shape[2],
-                )
-            # compute cosine similarity of (1,1,embed_dim) and (encoder_shape*encoder_shape, embed_dim)
-            similarity_maps: dict[int, list[torch.Tensor]] = defaultdict(list)
-            for class_id, masked_ref_embedding in masked_ref_embeddings.items():
-                # Need to loop since number of reference features can differ per input mask.
-                similarity_map = masked_ref_embedding @ target_embedding.T
-                similarity_map = resize_similarity_maps(similarity_maps=similarity_map, target_size=original_size)
-                similarity_maps[class_id].append(similarity_map)
+        num_targets = target_embeddings.shape[0]
+        num_categories = len(category_ids)
+        device = target_embeddings.device
+        dtype = target_embeddings.dtype
+        feat_size = self.feature_size
 
-            # Concatenate all tensors once per class
-            concatenated_similarity_maps = {
-                class_id: torch.cat(tensor_list, dim=0) for class_id, tensor_list in similarity_maps.items()
-            }
-            per_image_similarities.append(concatenated_similarity_maps)
-        return per_image_similarities
+        similarities = torch.zeros(num_targets, num_categories, feat_size, feat_size, device=device, dtype=dtype)
+
+        for t_idx in range(num_targets):
+            target_embed = target_embeddings[t_idx]
+            target_embed = target_embed / target_embed.norm(dim=-1, keepdim=True)
+
+            # Reshape if needed
+            if target_embed.dim() == 3:
+                target_embed = target_embed.reshape(-1, target_embed.shape[-1])
+
+            num_patches = target_embed.shape[0]
+            grid_size = int(num_patches**0.5)
+
+            for c_idx in range(num_categories):
+                ref_embed = reference_embeddings[c_idx]  # [1, embed_dim]
+
+                # Compute similarity
+                sim_map = ref_embed @ target_embed.T  # [1, num_patches]
+                sim_map = sim_map.reshape(1, 1, grid_size, grid_size)
+
+                # Resize to feature_size
+                sim_resized = (
+                    F.interpolate(
+                        sim_map,
+                        size=(feat_size, feat_size),
+                        mode="bilinear",
+                        align_corners=False,
+                    )
+                    .squeeze(0)
+                    .squeeze(0)
+                )
+
+                similarities[t_idx, c_idx] = sim_resized
+
+        return similarities

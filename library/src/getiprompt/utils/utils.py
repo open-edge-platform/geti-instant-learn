@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Utility functions for Geti Prompt."""
@@ -64,6 +64,31 @@ def precision_to_torch_dtype(precision: str) -> torch.dtype:
         msg = f"Unsupported precision: {precision}. Supported values: {list(precision_map.keys())}"
         raise ValueError(msg)
     return precision_map[precision_lower]
+
+
+def setup_autocast(device: str, precision: torch.dtype) -> torch.autocast:
+    """Setup autocast context based on device and precision.
+
+    Args:
+        device: The device to use ('cuda', 'xpu', or 'cpu').
+        precision: The torch.dtype precision (e.g., torch.bfloat16, torch.float32).
+
+    Returns:
+        Autocast context manager.
+    """
+    if device == "xpu" and hasattr(torch, "xpu") and torch.xpu.is_available():
+        device_type = "xpu"
+        supports_bf16 = precision == torch.bfloat16
+    elif device == "cuda" and torch.cuda.is_available():
+        device_type = "cuda"
+        supports_bf16 = precision == torch.bfloat16
+    else:
+        device_type = "cpu"
+        supports_bf16 = False
+
+    if supports_bf16:
+        return torch.autocast(device_type=device_type, dtype=torch.bfloat16)
+    return torch.autocast(device_type=device_type, dtype=torch.float32)
 
 
 def precision_to_openvino_type(precision: str) -> ov.Type:

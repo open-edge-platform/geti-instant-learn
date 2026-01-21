@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Unit tests for models including PerDino, Matcher, SoftMatcher, and GroundedSAM."""
@@ -31,7 +31,7 @@ class TestPerDino:
             "segmenter": MagicMock(),
         }
 
-    @patch("getiprompt.models.per_dino.SAMPredictor")
+    @patch("getiprompt.models.per_dino.load_sam_model")
     @patch("getiprompt.models.per_dino.ImageEncoder")
     def test_per_dino_initialization(
         self,
@@ -52,7 +52,7 @@ class TestPerDino:
         assert hasattr(model, "prompt_generator")
         assert hasattr(model, "segmenter")
 
-    @patch("getiprompt.models.per_dino.SAMPredictor")
+    @patch("getiprompt.models.per_dino.load_sam_model")
     @patch("getiprompt.models.per_dino.ImageEncoder")
     def test_per_dino_forward_pass(
         self,
@@ -93,7 +93,7 @@ class TestPerDino:
         assert "pred_labels" in predictions[0]
         model.predict.assert_called_once_with(target_images)
 
-    @patch("getiprompt.models.per_dino.SAMPredictor")
+    @patch("getiprompt.models.per_dino.load_sam_model")
     @patch("getiprompt.models.per_dino.ImageEncoder")
     def test_per_dino_multi_instance_filtering(
         self,
@@ -143,8 +143,8 @@ class TestMatcher:
             "segmenter": MagicMock(),
         }
 
-    @patch("getiprompt.models.matcher.matcher.SAMPredictor")
-    @patch("getiprompt.models.matcher.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.load_sam_model")
+    @patch("getiprompt.models.matcher.ImageEncoder")
     def test_matcher_initialization(
         self,
         mock_image_encoder: MagicMock,
@@ -161,11 +161,10 @@ class TestMatcher:
         assert hasattr(model, "encoder")
         assert hasattr(model, "masked_feature_extractor")
         assert hasattr(model, "prompt_generator")
-        assert hasattr(model, "prompt_filter")
         assert hasattr(model, "segmenter")
 
-    @patch("getiprompt.models.matcher.matcher.SAMPredictor")
-    @patch("getiprompt.models.matcher.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.load_sam_model")
+    @patch("getiprompt.models.matcher.ImageEncoder")
     def test_matcher_forward_pass(
         self,
         mock_image_encoder: MagicMock,
@@ -205,8 +204,8 @@ class TestMatcher:
         assert "pred_labels" in predictions[0]
         model.predict.assert_called_once_with(target_images)
 
-    @patch("getiprompt.models.matcher.matcher.SAMPredictor")
-    @patch("getiprompt.models.matcher.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.load_sam_model")
+    @patch("getiprompt.models.matcher.ImageEncoder")
     def test_matcher_multi_instance_filtering(
         self,
         mock_image_encoder: MagicMock,
@@ -255,8 +254,8 @@ class TestSoftMatcher:
             "segmenter": MagicMock(),
         }
 
-    @patch("getiprompt.models.matcher.matcher.SAMPredictor")
-    @patch("getiprompt.models.matcher.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.load_sam_model")
+    @patch("getiprompt.models.matcher.ImageEncoder")
     def test_soft_matcher_initialization(
         self,
         mock_image_encoder: MagicMock,
@@ -273,11 +272,10 @@ class TestSoftMatcher:
         assert hasattr(model, "encoder")
         assert hasattr(model, "masked_feature_extractor")
         assert hasattr(model, "prompt_generator")
-        assert hasattr(model, "prompt_filter")
         assert hasattr(model, "segmenter")
 
-    @patch("getiprompt.models.matcher.matcher.SAMPredictor")
-    @patch("getiprompt.models.matcher.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.load_sam_model")
+    @patch("getiprompt.models.matcher.ImageEncoder")
     def test_soft_matcher_forward_pass(
         self,
         mock_image_encoder: MagicMock,
@@ -317,8 +315,8 @@ class TestSoftMatcher:
         assert "pred_labels" in predictions[0]
         model.predict.assert_called_once_with(target_images)
 
-    @patch("getiprompt.models.matcher.matcher.SAMPredictor")
-    @patch("getiprompt.models.matcher.matcher.ImageEncoder")
+    @patch("getiprompt.models.matcher.load_sam_model")
+    @patch("getiprompt.models.matcher.ImageEncoder")
     def test_soft_matcher_multi_instance_filtering(
         self,
         mock_image_encoder: MagicMock,
@@ -365,7 +363,7 @@ class TestGroundedSAM:
             "multi_instance_prior_filter": MagicMock(),
         }
 
-    @patch("getiprompt.models.grounded_sam.SAMPredictor")
+    @patch("getiprompt.models.grounded_sam.load_sam_model")
     def test_grounded_sam_initialization(self, mock_load_sam: MagicMock, mock_components: dict[str, Any]) -> None:
         """Test GroundedSAM initialization with new components."""
         mock_load_sam.return_value = mock_components["sam_predictor"]
@@ -377,7 +375,7 @@ class TestGroundedSAM:
         assert hasattr(model, "segmenter")
         assert hasattr(model, "prompt_filter")
 
-    @patch("getiprompt.models.grounded_sam.SAMPredictor")
+    @patch("getiprompt.models.grounded_sam.load_sam_model")
     def test_grounded_sam_forward_pass(self, mock_load_sam: MagicMock, mock_components: dict[str, Any]) -> None:
         """Test GroundedSAM forward pass with new architecture."""
         mock_load_sam.return_value = mock_components["sam_predictor"]
@@ -411,7 +409,7 @@ class TestGroundedSAM:
         assert "pred_labels" in predictions[0]
         model.predict.assert_called_once_with(target_images)
 
-    @patch("getiprompt.models.grounded_sam.SAMPredictor")
+    @patch("getiprompt.models.grounded_sam.load_sam_model")
     def test_grounded_sam_multi_instance_filtering(
         self,
         mock_load_sam: MagicMock,

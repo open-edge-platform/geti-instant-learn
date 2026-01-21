@@ -7,5 +7,5 @@
             "@geti-prompt/test-fixtures": ["./fixtures"]
         }
     },
-    "include": ["./"]
+    "include": ["./", "../src/env.d.ts"]
 }
