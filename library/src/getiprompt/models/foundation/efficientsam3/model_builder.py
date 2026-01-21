@@ -4,27 +4,44 @@
 """EfficientSAM3 model builder.
 
 This module provides factory functions to build EfficientSAM3 models with
-student backbones (RepViT, TinyViT) instead of the full ViT.
+student backbones (EfficientViT, RepViT, TinyViT) instead of the full ViT.
 
 EfficientSAM3 achieves faster inference through knowledge distillation,
 using lightweight backbones while maintaining segmentation quality.
 
-Supported backbones:
+Supported Image Encoder Backbones (9 variants):
+    - EfficientViT: efficientvit-b0, efficientvit-b1, efficientvit-b2
     - RepViT: repvit-m0.9, repvit-m1.1, repvit-m2.3
     - TinyViT: tinyvit-5m, tinyvit-11m, tinyvit-21m
 
-Supported text encoders:
-    - sam3-full: Full SAM3 text encoder (highest quality)
-    - MobileCLIP-S0/S1/B: Efficient student text encoders
+Supported Text Encoders (4 variants):
+    - MobileCLIP-S0: Smallest, 4 layers, 512 dim
+    - MobileCLIP-S1: Default, 12 layers, 512 dim
+    - MobileCLIP-B: 12 layers, causal masking
+    - MobileCLIP2-L: Larger variant, 12 layers, 768 dim
+    - None: Uses full SAM3 text encoder (from SAM3 codebase)
 
+References:
+    Paper: https://arxiv.org/abs/2501.06950
+    Repo: https://github.com/SimonZeng7108/efficientsam3
+    Models: https://huggingface.co/Simon7108528/EfficientSAM3
 
 Example:
     >>> from getiprompt.models.foundation.efficientsam3 import (
     ...     build_efficientsam3_image_model,
     ...     EfficientSAM3BackboneType,
+    ...     EfficientSAM3TextEncoderType,
     ... )
+    >>> # Build with default settings (TinyViT-21M + MobileCLIP-S1)
     >>> model = build_efficientsam3_image_model(
     ...     backbone_type=EfficientSAM3BackboneType.TINYVIT_21M,
+    ...     text_encoder_type=EfficientSAM3TextEncoderType.MOBILECLIP_S1,
+    ...     device="cuda",
+    ... )
+    >>> # Or use string values
+    >>> model = build_efficientsam3_image_model(
+    ...     backbone_type="efficientvit-b2",
+    ...     text_encoder_type="MobileCLIP2-L",
     ...     device="cuda",
     ... )
 """
@@ -904,32 +921,57 @@ def build_efficientsam3_image_model(
     """Build EfficientSAM3 image model with a student backbone.
 
     This creates a SAM3-compatible model but with a lightweight student backbone
-    (EfficientViT, RepViT, or TinyViT) instead of the full ViT.
+    (EfficientViT, RepViT, or TinyViT) instead of the full ViT, achieving faster
+    inference through knowledge distillation.
 
     Args:
-        bpe_path: Path to BPE tokenizer vocabulary.
-        device: Device to load the model on ('cuda', 'xpu', or 'cpu').
-        checkpoint_path: Optional path to EfficientSAM3 model checkpoint.
-        enable_segmentation: Whether to enable segmentation head.
-        enable_inst_interactivity: Whether to enable instance interactivity.
-        compile: Whether to compile the model with torch.compile.
-        backbone_type: Type of student backbone to use.
-        text_encoder_type: Type of text encoder. If None, uses full SAM3 encoder.
+        bpe_path: Path to BPE tokenizer vocabulary. If None, uses default from SAM3.
+        device: Device to load the model on ('cuda', 'xpu', or 'cpu'). Defaults to 'cuda'.
+        checkpoint_path: Optional path to EfficientSAM3 model checkpoint. If None and
+            load_from_HF=True, automatically downloads from HuggingFace Hub.
+        load_from_HF: Whether to automatically download checkpoint from HuggingFace Hub
+            when checkpoint_path is None. Defaults to True.
+        enable_segmentation: Whether to enable segmentation head. Defaults to True.
+        enable_inst_interactivity: Whether to enable SAM-style interactive segmentation
+            with prompt encoder and mask decoder. Defaults to False.
+        compile: Whether to compile the model with torch.compile for faster inference.
+            Defaults to False.
+        backbone_type: Type of image encoder backbone. Accepts enum or string.
+            Options: 'efficientvit-b0/b1/b2', 'repvit-m0.9/m1.1/m2.3', 'tinyvit-5m/11m/21m'.
+            Defaults to 'tinyvit-21m'.
+        text_encoder_type: Type of text encoder. Accepts enum, string, or None.
+            Options: 'MobileCLIP-S0/S1/B', 'MobileCLIP2-L', or None for full SAM3 encoder.
+            Defaults to 'MobileCLIP-S1'.
 
     Returns:
         An EfficientSAM3 image model (EfficientSAM3Image instance).
 
+    Raises:
+        FileNotFoundError: If BPE path does not exist.
+        ValueError: If backbone_type or text_encoder_type combination is not available.
+
     Examples:
-        >>> # Create EfficientSAM3 with TinyViT-21M backbone
+        >>> # Default: TinyViT-21M + MobileCLIP-S1
+        >>> model = build_efficientsam3_image_model(device="cuda")
+
+        >>> # EfficientViT-B2 + MobileCLIP2-L
         >>> model = build_efficientsam3_image_model(
-        ...     backbone_type=EfficientSAM3BackboneType.TINYVIT_21M,
+        ...     backbone_type="efficientvit-b2",
+        ...     text_encoder_type="MobileCLIP2-L",
         ...     device="cuda",
         ... )
 
-        >>> # Create with RepViT backbone and MobileCLIP text encoder
+        >>> # RepViT-M2.3 + Full SAM3 text encoder
         >>> model = build_efficientsam3_image_model(
         ...     backbone_type=EfficientSAM3BackboneType.REPVIT_M2_3,
-        ...     text_encoder_type=EfficientSAM3TextEncoderType.MOBILECLIP_S1,
+        ...     text_encoder_type=None,  # Uses full SAM3 text encoder
+        ... )
+
+        >>> # With custom checkpoint
+        >>> model = build_efficientsam3_image_model(
+        ...     backbone_type="tinyvit-21m",
+        ...     checkpoint_path="/path/to/checkpoint.pth",
+        ...     load_from_HF=False,
         ... )
     """
     # Convert string to enum if needed
