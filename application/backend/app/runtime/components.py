@@ -5,11 +5,10 @@ import logging
 from abc import ABC, abstractmethod
 from uuid import UUID
 
+from getiprompt.data.base.batch import Batch
 from sqlalchemy.orm import Session, sessionmaker
 
-from domain.db.models import PromptType
 from domain.services.project import ProjectService
-from domain.services.prompt import PromptService
 from runtime.core.components.factories.model import ModelFactory
 from runtime.core.components.factories.reader import StreamReaderFactory
 from runtime.core.components.factories.writer import StreamWriterFactory
@@ -26,7 +25,9 @@ class ComponentFactory(ABC):
     def create_source(self, project_id: UUID) -> Source: ...
 
     @abstractmethod
-    def create_processor(self, project_id: UUID) -> Processor: ...
+    def create_processor(
+        self, project_id: UUID, reference_batch: Batch, category_id_to_label_id: dict[int, str]
+    ) -> Processor: ...
 
     @abstractmethod
     def create_sink(self, project_id: UUID) -> Sink: ...
@@ -45,19 +46,12 @@ class DefaultComponentFactory(ComponentFactory):
             cfg = svc.get_pipeline_config(project_id)
         return Source(StreamReaderFactory.create(cfg.reader))
 
-    def create_processor(self, project_id: UUID) -> Processor:
+    def create_processor(
+        self, project_id: UUID, reference_batch: Batch, category_id_to_label_id: dict[int, str]
+    ) -> Processor:
         with self._session_factory() as session:
-            prompt_svc = PromptService(session)
             project_svc = ProjectService(session)
             cfg = project_svc.get_pipeline_config(project_id)
-
-            reference_batch = None
-            category_id_to_label_id: dict[int, str] = {}
-
-            batch_result = prompt_svc.get_reference_batch(project_id, PromptType.VISUAL)
-            if batch_result is not None:
-                reference_batch, category_id_to_label_id = batch_result
-
             logger.info("Creating processor with model config: %s", cfg.processor)
 
         return Processor(

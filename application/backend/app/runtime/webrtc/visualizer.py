@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 import torch
 
+from domain.services.schemas.label import VisualizationInfo
 from domain.services.schemas.processor import OutputData
 from settings import get_settings
 
@@ -37,17 +38,19 @@ class InferenceVisualizer:
         self._mask_alpha = settings.mask_alpha
         self._mask_outline_thickness = settings.mask_outline_thickness
 
-    def visualize(
-        self, output_data: OutputData, label_colors: dict[str, tuple[int, int, int]] | None = None
-    ) -> np.ndarray:
+    def visualize(self, output_data: OutputData, visualization_info: VisualizationInfo | None = None) -> np.ndarray:
         """Render model predictions onto the frame."""
 
         if not self._enabled or not output_data.results:
             return output_data.frame
 
         annotated = output_data.frame.copy()
-        category_id_to_label_id = output_data.category_id_to_label_id or {}
-        label_colors = label_colors or {}
+        category_id_to_label_id: dict[int, str] = {}
+        label_id_to_color: dict[str, tuple[int, int, int]] = {}
+
+        if visualization_info is not None:
+            category_id_to_label_id = visualization_info.category_mappings.category_id_to_label_id
+            label_id_to_color = {str(item.id): item.color.to_tuple() for item in visualization_info.label_colors}
 
         logger.debug("Visualizing the output data: %s, categories=%s", output_data, category_id_to_label_id)
         for prediction in output_data.results:
@@ -59,7 +62,7 @@ class InferenceVisualizer:
             labels = prediction.get("pred_labels")
 
             if masks is not None and masks.numel() > 0:
-                annotated = self._draw_masks(annotated, masks, labels, label_colors, category_id_to_label_id)
+                annotated = self._draw_masks(annotated, masks, labels, label_id_to_color, category_id_to_label_id)
         return annotated
 
     def _draw_masks(
@@ -84,10 +87,13 @@ class InferenceVisualizer:
             A new RGB frame with mask overlays applied.
         """
         masks_np = masks.detach().cpu().numpy()
+        labels_np: np.ndarray | None = None
+        if labels is not None and labels.numel() > 0:
+            labels_np = labels.detach().cpu().numpy()
         overlay = frame.copy()
 
         for mask_idx, mask in enumerate(masks_np):
-            category_id = self._extract_category_id(labels, mask_idx)
+            category_id = self._extract_category_id_from_array(labels_np, mask_idx)
             color = self._resolve_color_for_category(category_id, label_colors, category_id_to_label_id)
 
             mask_bool = mask > 0.5
@@ -97,20 +103,20 @@ class InferenceVisualizer:
         return overlay
 
     @staticmethod
-    def _extract_category_id(labels: torch.Tensor | None, index: int) -> int | None:
+    def _extract_category_id_from_array(labels_np: np.ndarray | None, index: int) -> int | None:
         """
-        Convert a label tensor entry to a Python int.
+        Extract category ID from numpy array.
 
         Args:
-            labels: Tensor of predicted category IDs.
+            labels_np: Numpy array of predicted category IDs (already on CPU).
             index: Index of the mask/label to read.
 
         Returns:
             Category ID as int, or None if unavailable.
         """
-        if labels is None or index >= len(labels):
+        if labels_np is None or index >= len(labels_np):
             return None
-        return int(labels[index].detach().cpu().item())
+        return int(labels_np[index])
 
     def _resolve_color_for_category(
         self,

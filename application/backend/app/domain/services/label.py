@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+from collections.abc import Iterable
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -21,12 +22,19 @@ from domain.repositories.label import LabelRepository
 from domain.repositories.project import ProjectRepository
 from domain.services.base import BaseService
 from domain.services.schemas.label import (
+    CategoryMappings,
     LabelCreateSchema,
     LabelSchema,
     LabelsListSchema,
     LabelUpdateSchema,
+    VisualizationLabel,
 )
-from domain.services.schemas.mappers.label import label_db_to_schema, label_schema_to_db, labels_db_to_list_items
+from domain.services.schemas.mappers.label import (
+    label_db_to_schema,
+    label_db_to_visualization_label,
+    label_schema_to_db,
+    labels_db_to_list_items,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -204,25 +212,30 @@ class LabelService(BaseService):
         logger.info("Label updated in project=%s label_id=%s name=%s", project_id, label.id, label.name)
         return label_db_to_schema(label=label)
 
-    def get_label_colors_for_visualization(self) -> dict[str, tuple[int, int, int]]:
+    def get_visualization_labels(self, project_id: UUID) -> list[VisualizationLabel]:
         """
-        Get label colors formatted for inference visualization.
+        Get all project labels formatted for inference visualization.
         Converts hex color strings to RGB tuples.
         """
-        current_project = self.project_repository.get_active()
-        labels = self.label_repository.list_all_by_project(current_project.id) if current_project else []
-        return {str(label.id): self._hex_to_rgb_tuple(label.color) for label in labels}
+        labels = self.label_repository.list_all_by_project(project_id)
+        return [label_db_to_visualization_label(label) for label in labels]
 
-    @staticmethod
-    def _hex_to_rgb_tuple(hex_color: str) -> tuple[int, int, int]:
+    def build_category_mappings(self, label_ids: Iterable[UUID]) -> CategoryMappings:
         """
-        Convert RGB hex color to RGB tuple.
+        Build deterministic bidirectional category ID mappings.
+
+        Category IDs are assigned in sorted order of label UUIDs (by string representation)
+        to ensure deterministic mapping across invocations.
+
         """
-        hex_value = hex_color.lstrip("#")
-        r = int(hex_value[0:2], 16)
-        g = int(hex_value[2:4], 16)
-        b = int(hex_value[4:6], 16)
-        return r, g, b
+        sorted_label_ids = sorted(set(label_ids), key=str)
+        label_to_category_id = {label_id: idx for idx, label_id in enumerate(sorted_label_ids)}
+        category_id_to_label_id = {idx: str(label_id) for label_id, idx in label_to_category_id.items()}
+
+        return CategoryMappings(
+            label_to_category_id=label_to_category_id,
+            category_id_to_label_id=category_id_to_label_id,
+        )
 
     def _handle_label_integrity_error(
         self,

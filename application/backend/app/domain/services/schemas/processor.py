@@ -80,7 +80,6 @@ class InputData:
 class OutputData:
     results: list[dict[str, torch.Tensor]]
     frame: np.ndarray  # frame loaded as numpy array in RGB HWC format (H, W, 3) with dtype=uint8
-    category_id_to_label_id: dict[int, str] | None = None
 
 
 class ProcessorSchema(BaseIDSchema):

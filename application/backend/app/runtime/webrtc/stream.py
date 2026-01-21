@@ -4,13 +4,13 @@
 import asyncio
 import logging
 import queue
+from collections.abc import Callable
 
 import numpy as np
 from aiortc import VideoStreamTrack
 from av import VideoFrame
 
-from domain.db.engine import get_session_factory
-from domain.services.label import LabelService
+from domain.services.schemas.label import VisualizationInfo
 from domain.services.schemas.processor import OutputData
 from runtime.webrtc.visualizer import InferenceVisualizer
 
@@ -26,12 +26,18 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
     Converts them to VideoFrame objects for WebRTC streaming.
     """
 
-    def __init__(self, stream_queue: queue.Queue[OutputData], enable_visualization: bool = True):
+    def __init__(
+        self,
+        stream_queue: queue.Queue[OutputData],
+        enable_visualization: bool = True,
+        visualization_info_provider: Callable[[], VisualizationInfo | None] | None = None,
+    ):
         super().__init__()
         self._stream_queue = stream_queue
         self._last_frame: np.ndarray | None = None
         self._enable_visualization = enable_visualization
         self._visualizer = InferenceVisualizer(enable_visualization)
+        self._visualization_info_provider = visualization_info_provider
 
     async def recv(self) -> VideoFrame:
         """
@@ -75,11 +81,8 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
             output_data: OutputData = await asyncio.to_thread(self._stream_queue.get, True, 0.5)
 
             if self._enable_visualization and self._visualizer:
-                session_factory = get_session_factory()
-                with session_factory() as session:
-                    label_svc = LabelService(session=session)
-                    label_colors = label_svc.get_label_colors_for_visualization()
-                np_frame = self._visualizer.visualize(output_data, label_colors)
+                vis_info = self._visualization_info_provider() if self._visualization_info_provider else None
+                np_frame = self._visualizer.visualize(output_data=output_data, visualization_info=vis_info)
             else:
                 np_frame = output_data.frame
 
