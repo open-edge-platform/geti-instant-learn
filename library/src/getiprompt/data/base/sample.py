@@ -13,6 +13,8 @@ import numpy as np
 import torch
 from torchvision import tv_tensors
 
+from getiprompt.data.utils.image import read_image, read_mask
+
 
 @dataclass
 class Sample:
@@ -134,3 +136,12 @@ class Sample:
     # Always lists to maintain consistency between single and multi-instance
     is_reference: list[bool] = field(default_factory=lambda: [False])
     n_shot: list[int] = field(default_factory=lambda: [-1])
+
+    def __post_init__(self) -> None:
+        """Auto-load images/masks from paths if arrays not provided."""
+        if self.image is None and self.image_path is not None:
+            self.image = read_image(self.image_path, as_tensor=True)  # CHW tensor
+
+        if self.masks is None and self.mask_paths is not None:
+            masks = [read_mask(p, as_tensor=True) for p in self.mask_paths]
+            self.masks = torch.stack(masks, dim=0)  # (N, H, W) tensor
