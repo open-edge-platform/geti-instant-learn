@@ -47,7 +47,6 @@ class Conv2d_BN(nn.Sequential):
         dilation: int = 1,
         groups: int = 1,
         bn_weight_init: float = 1,
-        resolution: int = -10000,
     ) -> None:
         super().__init__()
         self.add_module("c", nn.Conv2d(a, b, ks, stride, pad, dilation, groups, bias=False))

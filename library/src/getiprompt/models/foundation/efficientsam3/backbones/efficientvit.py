@@ -4,7 +4,7 @@
 """EfficientViT backbone for EfficientSAM3.
 
 Adapted from: https://github.com/SimonZeng7108/efficientsam3
-Original: https://github.com/mit-han-lab/efficientvit
+Original Repo: https://github.com/mit-han-lab/efficientvit
 """
 
 import warnings

@@ -4,14 +4,19 @@
 """EfficientSAM3 model for text and visual prompting.
 
 EfficientSAM3 is a distilled version of SAM3 that uses lightweight student backbones
-(EfficientViT, RepViT, TinyViT) to achieve faster inference while maintaining high
-segmentation quality through progressive hierarchical distillation.
+(EfficientViT, RepViT, TinyViT) to achieve faster inference while trading off some
+segmentation quality.
+
+The API is similar to SAM3. Supports text, point and box prompting.
+Reuses many components from SAM3 implementation.
 
 Available Models:
-    9 image encoder backbones × multiple text encoder options = flexible configurations
+    There are multple image encoders (9) and multiple text encoders (4) and can be combined.
+    Note that all combinations might not have weights released.
+    All 9 image encoders with MobileCLIP-S1 text encoder have a combined  checkpoint released.
 
-    Image Encoders:
-        - EfficientViT-B0: 0.68M params (fastest)
+    Image Encoders (approx # of params)
+        - EfficientViT-B0: 0.68M params
         - EfficientViT-B1: 4.64M params
         - EfficientViT-B2: 14.98M params
         - RepViT-M0.9: 4.72M params
@@ -22,20 +27,19 @@ Available Models:
         - TinyViT-21M: 20.62M params (default, best quality/speed trade-off)
 
     Text Encoders:
-        - MobileCLIP-S0: 4 layers, 512 dim (fastest)
-        - MobileCLIP-S1: 12 layers, 512 dim (default, balanced)
-        - MobileCLIP-B: 12 layers, causal masking
-        - MobileCLIP2-L: 12 layers, 768 dim (highest quality)
+        - MobileCLIP-S0
+        - MobileCLIP-S1 (default)
+        - MobileCLIP2-L
         - SAM3 Full: Original SAM3 text encoder (when text_encoder_type=None)
+
+    In the official repo, there is also a possibilty of using SAM3 image encoder with a distilled text encoder.
+    However, this combination performs very close to the full SAM3 model (at least in terms of speed) and is not included here.
 
 References:
     Paper: Progressive Hierarchical Distillation for Video Concept Segmentation from SAM1, 2, and 3
            https://arxiv.org/abs/2501.06950
     Code: https://github.com/SimonZeng7108/efficientsam3
     Models: https://huggingface.co/Simon7108528/EfficientSAM3
-
-This model uses smaller distilled student backbones (EfficientViT, RepViT, TinyViT) instead of
-the full ViT of SAM3, providing faster inference with some trade offs in segmentation quality.
 
 """
 
@@ -62,19 +66,18 @@ class EfficientSAM3(Model):
     """EfficientSAM3 model for text and visual prompting.
 
     This model uses smaller distilled student backbones (EfficientViT, RepViT, TinyViT)
-    instead of the full ViT of SAM3, providing faster inference with minimal trade-offs
-    in segmentation quality through knowledge distillation.
+    instead of the full ViT of SAM3, providing faster inference with trade-offs
+    in segmentation quality.
 
-    Available Models (9 image encoder backbones × multiple text encoders):
+    Available Models (9 image encoder backbones  multiple text encoders):
     Image Encoders:
         - EfficientViT-B0/B1/B2: 0.68M, 4.64M, 14.98M params
         - RepViT-M0.9/M1.1/M2.3: 4.72M, 7.77M, 22.40M params
         - TinyViT-5M/11M/21M: 5.07M, 10.55M, 20.62M params
 
     Text Encoders:
-        - MobileCLIP-S0/S1/B: Efficient student encoders
-        - MobileCLIP2-L: Larger variant
-        - None: Full SAM3 text encoder (highest quality)
+        - MobileCLIP-S0/S1/L: Efficient student encoders
+        - None: Full SAM3 text encoder
 
     References:
     Paper: https://arxiv.org/abs/2501.06950
@@ -91,35 +94,15 @@ class EfficientSAM3(Model):
     >>> # Create with default settings (TinyViT-21M + MobileCLIP-S1)
     >>> model = EfficientSAM3()
 
-    >>> # Create with EfficientViT backbone and MobileCLIP2-L text encoder
+    >>> # Create with EfficientViT backbone and MobileCLIP2-S1 text encoder
     >>> model = EfficientSAM3(
     ...     backbone_type="efficientvit-b2",
-    ...     text_encoder_type="MobileCLIP2-L",
+    ...     text_encoder_type="MobileCLIP2-S1",
     ... )
 
     >>> # Create with RepViT backbone and full SAM3 text encoder
     >>> model = EfficientSAM3(
-    ...     backbone_type="repvit-m2.3",
-    ...     text_encoder_type=None,  # Uses full SAM3 text encoder
-        >>> # Example 1: Text-based prompting
-        >>> target_image = torch.zeros((3, 1024, 1024))
-        >>> target_sample = Sample(
-        ...     image=target_image,
-        ...     categories=["shoe", "person"],  # Text prompts
-        ... )
-        >>> target_batch = Batch.collate([target_sample])
-        >>> infer_results = model.infer(target_batch)
 
-        >>> # Example 2: Visual prompting with bounding boxes
-        >>> target_sample = Sample(
-        ...     image=target_image,
-        ...     bboxes=np.array([[100, 100, 200, 200]]),  # [x, y, w, h]
-        ... )
-        >>> target_batch = Batch.collate([target_sample])
-        >>> infer_results = model.infer(target_batch)
-
-        >>> isinstance(infer_results, list)
-        True
     """
 
     @staticmethod
@@ -172,12 +155,10 @@ class EfficientSAM3(Model):
             device: The device to use ('cuda', 'xpu', or 'cpu'). Defaults to 'cuda'.
             confidence_threshold: The confidence threshold for filtering predictions.
                 Default is 0.1, as EfficientSAM3 produces lower scores than SAM3.
-            resolution: The input image resolution. Defaults to 1008.
+            resolution: The input image resolution. Defaults to 1008. Same as SAM3.
             precision: The precision to use ('bf16' or 'fp32'). Defaults to 'fp32'.
-            checkpoint_path: Path to model checkpoint. If None and load_from_HF=True,
-                automatically downloads from HuggingFace Hub.
-            load_from_HF: Whether to automatically download checkpoint from HuggingFace Hub
-                when checkpoint_path is None. Defaults to True.
+            load_from_HF: Whether to automatically download checkpoint from HuggingFace Hub.
+                Defaults to True.
             enable_segmentation: Whether to enable segmentation head. Defaults to True.
             enable_inst_interactivity: Whether to enable instance interactivity. Defaults to False.
             compile_models: Whether to compile the models for faster inference. Defaults to False.
@@ -186,7 +167,7 @@ class EfficientSAM3(Model):
                         'repvit-m0.9', 'repvit-m1.1', 'repvit-m2.3',
                         'tinyvit-5m', 'tinyvit-11m', 'tinyvit-21m'
             text_encoder_type: Type of text encoder. Defaults to 'MobileCLIP-S1'.
-                Options: 'MobileCLIP-S0', 'MobileCLIP-S1', 'MobileCLIP-B', 'MobileCLIP2-L',
+                Options: 'MobileCLIP-S0', 'MobileCLIP-S1', 'MobileCLIP2-L',
                         None (uses full SAM3 text encoder for highest quality)
         """
         super().__init__()
@@ -197,7 +178,7 @@ class EfficientSAM3(Model):
         self.backbone_type = backbone_type
         self.text_encoder_type = text_encoder_type
 
-        # Parse precision to torch dtype
+        # map precision to torch dtype
         precision_map = {
             "fp32": torch.float32,
             "bf16": torch.bfloat16,
@@ -205,13 +186,13 @@ class EfficientSAM3(Model):
         precision_dtype = precision_map.get(precision, torch.float32)
 
         # Setup precision
+        # TODO : Move setup_autocast to a common utility for SAM3 and EfficientSAM3
         self.autocast_ctx = self._setup_autocast(device=device, precision=precision_dtype)
 
         # Build the EfficientSAM3 model
         self.model = build_efficientsam3_image_model(
             bpe_path=bpe_path,
             device=device,
-            checkpoint_path=checkpoint_path,
             load_from_HF=load_from_HF,
             enable_segmentation=enable_segmentation,
             enable_inst_interactivity=enable_inst_interactivity,

@@ -3,8 +3,9 @@
 
 """MobileCLIP text encoder components for EfficientSAM3.
 
-Adapted from: https://github.com/SimonZeng7108/efficientsam3
-Original: Apple MobileCLIP
+Adapted from: https://github.com/SimonZeng7108/efficientsam3 (Modified for EfficientSAM3)
+Original MobileClip repo : https://github.com/apple/ml-mobileclip
+
 """
 
 import math
@@ -19,11 +20,6 @@ __all__ = [
     "MobileCLIPTextTransformer",
     "TextStudentEncoder",
 ]
-
-
-# ==============================================================================
-# Layer Norm variants
-# ==============================================================================
 
 
 class LayerNormFP32(nn.LayerNorm):
@@ -41,11 +37,6 @@ def get_normalization_layer(norm_type: str, num_features: int) -> nn.Module:
     if norm_type == "layer_norm_fp32":
         return LayerNormFP32(num_features)
     raise NotImplementedError(f"Option: {norm_type} not supported.")
-
-
-# ==============================================================================
-# Positional Embedding
-# ==============================================================================
 
 
 class LearnablePositionalEmbedding(nn.Module):
@@ -109,11 +100,6 @@ class PositionalEmbedding(nn.Module):
         return self.pos_embed(seq_len)
 
 
-# ==============================================================================
-# Multi-Head Attention
-# ==============================================================================
-
-
 class MultiHeadAttention(nn.Module):
     """Multi-head self-attention."""
 
@@ -175,11 +161,6 @@ class MultiHeadAttention(nn.Module):
         return out
 
 
-# ==============================================================================
-# Transformer Encoder
-# ==============================================================================
-
-
 class TransformerEncoder(nn.Module):
     """Transformer encoder layer."""
 
@@ -237,11 +218,6 @@ class TransformerEncoder(nn.Module):
         x = x + res
         x = x + self.drop_path(self.pre_norm_ffn(x))
         return x
-
-
-# ==============================================================================
-# MobileOne Block (for RepMixer)
-# ==============================================================================
 
 
 class SEBlock(nn.Module):
@@ -379,11 +355,6 @@ class MobileOneBlock(nn.Module):
         )
         mod_list.add_module("bn", nn.BatchNorm2d(num_features=self.out_channels))
         return mod_list
-
-
-# ==============================================================================
-# RepMixer Components
-# ==============================================================================
 
 
 class ConvFFN(nn.Module):
@@ -549,11 +520,6 @@ class RepMixerBlock(nn.Module):
         return x
 
 
-# ==============================================================================
-# MobileCLIP Text Transformer
-# ==============================================================================
-
-
 class MobileCLIPTextTransformer(nn.Module):
     """MobileCLIP Text Transformer encoder."""
 
@@ -703,11 +669,6 @@ class MobileCLIPTextTransformer(nn.Module):
 
         token_emb = token_emb @ self.projection_layer
         return token_emb
-
-
-# ==============================================================================
-# Text Student Encoder (SAM3 compatible wrapper)
-# ==============================================================================
 
 
 class TextStudentEncoder(nn.Module):

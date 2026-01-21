@@ -3,8 +3,7 @@
 
 """EfficientSAM3 Image model wrapper.
 
-This module provides an extended Sam3Image class with SAM1-style instance
-segmentation prediction methods (predict_inst, predict_inst_batch).
+This module extends Sam3Image class to be compatible with EfficientSAM3.
 
 These methods are specific to EfficientSAM3's use case of point/box prompting
 for instance segmentation, matching the API from the original efficientsam3 repo.

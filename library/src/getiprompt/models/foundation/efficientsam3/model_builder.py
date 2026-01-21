@@ -3,11 +3,9 @@
 
 """EfficientSAM3 model builder.
 
-This module provides factory functions to build EfficientSAM3 models with
-student backbones (EfficientViT, RepViT, TinyViT) instead of the full ViT.
+This module provides functions to build EfficientSAM3 models with
+student backbones (EfficientViT, RepViT, TinyViT).
 
-EfficientSAM3 achieves faster inference through knowledge distillation,
-using lightweight backbones while maintaining segmentation quality.
 
 Supported Image Encoder Backbones (9 variants):
     - EfficientViT: efficientvit-b0, efficientvit-b1, efficientvit-b2
@@ -17,7 +15,6 @@ Supported Image Encoder Backbones (9 variants):
 Supported Text Encoders (4 variants):
     - MobileCLIP-S0: Smallest, 4 layers, 512 dim
     - MobileCLIP-S1: Default, 12 layers, 512 dim
-    - MobileCLIP-B: 12 layers, causal masking
     - MobileCLIP2-L: Larger variant, 12 layers, 768 dim
     - None: Uses full SAM3 text encoder (from SAM3 codebase)
 
@@ -124,21 +121,22 @@ class EfficientSAM3TextEncoderType(StrEnum):
     # MobileCLIP variants (compact student text encoders)
     MOBILECLIP_S0 = "MobileCLIP-S0"  # 4 layers, smallest
     MOBILECLIP_S1 = "MobileCLIP-S1"  # 12 layers, default
-    MOBILECLIP_B = "MobileCLIP-B"  # 12 layers, causal masking
     MOBILECLIP2_L = "MobileCLIP2-L"  # Larger MobileCLIP2 variant
 
-
-# ==============================================================================
-# Model Checkpoint Registry
-# ==============================================================================
 
 EFFICIENTSAM3_HF_REPO = "Simon7108528/EfficientSAM3"
 EFFICIENTSAM3_HF_SUBFOLDER = "stage1_all_converted"
 
 # Registry mapping (backbone_type, text_encoder_type) to checkpoint filename
 # Note: text_encoder_type=None means SAM3 full text encoder (from SAM3 codebase)
+# There are multiple combinations. The file names do not fully form a standard pattern to logicaly
+# determine the filename from the given image+text encoder names. Therefore, a 1-1 mapping is used.
+
+# Note that since the efficientsam3 is still under active development, not all combinations of models
+# might be available.
+
 MODEL_CONFIGS = {
-    # SAM3 Full Text Encoder + EfficientSAM3 Image Encoder Models (image encoder only checkpoints)
+    # Type 1: EfficientSAM3 image encoders without text encoder (image encoder only checkpoints)
     (EfficientSAM3BackboneType.REPVIT_M0_9, None): "efficient_sam3_repvit_s.pt",
     (EfficientSAM3BackboneType.REPVIT_M1_1, None): "efficient_sam3_repvit_m.pt",
     (EfficientSAM3BackboneType.REPVIT_M2_3, None): "efficient_sam3_repvit_l.pt",
@@ -148,7 +146,8 @@ MODEL_CONFIGS = {
     (EfficientSAM3BackboneType.EFFICIENTVIT_B0, None): "efficient_sam3_efficientvit_s.pt",
     (EfficientSAM3BackboneType.EFFICIENTVIT_B1, None): "efficient_sam3_efficientvit_m.pt",
     (EfficientSAM3BackboneType.EFFICIENTVIT_B2, None): "efficient_sam3_efficientvit_l.pt",
-    # MobileCLIP-S1 Text Encoder + EfficientSAM3 Image Encoder Models (unified checkpoints)
+    # Type 2: Distilled Image Enccoders and Text Encoders (unified checkpoints)
+    # For unified checkpoints, only MobileCLIP-S1 text encoder variants are available currently.
     (
         EfficientSAM3BackboneType.REPVIT_M0_9,
         EfficientSAM3TextEncoderType.MOBILECLIP_S1,
@@ -186,11 +185,6 @@ MODEL_CONFIGS = {
         EfficientSAM3TextEncoderType.MOBILECLIP_S1,
     ): "efficient_sam3_efficientvit-b2_mobileclip_s1.pth",
 }
-
-
-# ==============================================================================
-# Shared component builders (reused from SAM3)
-# ==============================================================================
 
 
 def _create_position_encoding(
@@ -566,16 +560,6 @@ def _create_student_text_encoder(
                 "model_name": "base",
             },
         )
-    elif text_encoder_type == EfficientSAM3TextEncoderType.MOBILECLIP_B:
-        cfg.update(
-            {
-                "dim": 512,
-                "n_transformer_layers": 12,
-                "n_heads_per_layer": 8,
-                "model_name": "base",
-                "causal_masking": True,
-            },
-        )
     elif text_encoder_type == EfficientSAM3TextEncoderType.MOBILECLIP2_L:
         cfg.update(
             {
@@ -592,11 +576,6 @@ def _create_student_text_encoder(
         output_dim=256,  # SAM3 d_model
         bpe_path=bpe_path,
     )
-
-
-# ==============================================================================
-# Student Vision Backbone
-# ==============================================================================
 
 
 class ImageStudentEncoder(nn.Module):
@@ -798,11 +777,6 @@ def _create_student_vision_backbone(
     return vit_neck
 
 
-# ==============================================================================
-# Checkpoint loading
-# ==============================================================================
-
-
 def _load_checkpoint(
     model: EfficientSAM3Image,
     checkpoint_path: str | Path,
@@ -840,11 +814,6 @@ def _setup_device_and_mode(
     if eval_mode:
         model.eval()
     return model
-
-
-# ==============================================================================
-# Main builder function
-# ==============================================================================
 
 
 def get_checkpoint_filename(
@@ -965,13 +934,6 @@ def build_efficientsam3_image_model(
         >>> model = build_efficientsam3_image_model(
         ...     backbone_type=EfficientSAM3BackboneType.REPVIT_M2_3,
         ...     text_encoder_type=None,  # Uses full SAM3 text encoder
-        ... )
-
-        >>> # With custom checkpoint
-        >>> model = build_efficientsam3_image_model(
-        ...     backbone_type="tinyvit-21m",
-        ...     checkpoint_path="/path/to/checkpoint.pth",
-        ...     load_from_HF=False,
         ... )
     """
     # Convert string to enum if needed
