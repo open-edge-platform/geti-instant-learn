@@ -4,6 +4,7 @@
 import logging
 import time
 from pathlib import Path
+from threading import Lock
 
 import cv2
 
@@ -57,85 +58,116 @@ class VideoFileReader(StreamReader):
         self._fps: float = 30.0
         self._video_path: Path | None = None
         self._next_frame_time_s: float | None = None
+        self._lock = Lock()
         super().__init__()
 
     def connect(self) -> None:
         """Open the video file and initialize video properties."""
+        with self._lock:
+            self._video_path = Path(self._config.video_path)
+            self._video_capture = cv2.VideoCapture(str(self._video_path))
 
-        self._video_path = Path(self._config.video_path)
-        self._video_capture = cv2.VideoCapture(str(self._video_path))
+            if not self._video_capture.isOpened():
+                raise RuntimeError(f"Failed to open video file: {self._video_path}")
 
-        if not self._video_capture.isOpened():
-            raise RuntimeError(f"Failed to open video file: {self._video_path}")
-
-        self._total_frames = int(self._video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
-        self._fps = self._video_capture.get(cv2.CAP_PROP_FPS) or 30.0
-        self._next_frame_time_s = time.monotonic()
+            self._total_frames = int(self._video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
+            self._fps = self._video_capture.get(cv2.CAP_PROP_FPS) or 30.0
+            self._next_frame_time_s = time.monotonic()
 
         logger.info(f"Opened video: {self._video_path.name}, frames: {self._total_frames}, fps: {self._fps:.2f}")
 
     def __len__(self) -> int:
         """Return the total number of frames in the video."""
-        return self._total_frames
+        with self._lock:
+            return self._total_frames
 
     def _throttle_to_fps(self) -> None:
         """Sleep to pace frame reads to the configured FPS."""
-        if self._fps <= 0:
-            return
+        with self._lock:
+            if self._fps <= 0:
+                return
 
-        if self._next_frame_time_s is None:
-            self._next_frame_time_s = time.monotonic()
+            if self._next_frame_time_s is None:
+                self._next_frame_time_s = time.monotonic()
+
+            next_time_s = self._next_frame_time_s
+            fps = self._fps
 
         now_s = time.monotonic()
-        sleep_s = self._next_frame_time_s - now_s
+        sleep_s = next_time_s - now_s
         if sleep_s > 0:
             time.sleep(sleep_s)
 
-        frame_period_s = 1.0 / self._fps
-        self._next_frame_time_s = max(self._next_frame_time_s + frame_period_s, time.monotonic())
+        frame_period_s = 1.0 / fps
+        new_next_time_s = max(next_time_s + frame_period_s, time.monotonic())
+
+        with self._lock:
+            if self._next_frame_time_s is not None:
+                self._next_frame_time_s = new_next_time_s
 
     def read(self) -> InputData | None:
-        """
-        Read the current frame from the video.
+        """Read the current frame from the video.
 
-        When the end of the video is reached, playback automatically restarts from the beginning.
+        Returns:
+            InputData for the next frame, or None if the reader is closed.
+
+        Notes:
+            When the end of the video is reached, playback restarts from the beginning.
         """
-        if self._video_capture is None:
+        with self._lock:
+            cap = self._video_capture
+            video_path = self._video_path
+            next_time_s = self._next_frame_time_s
+            fps = self._fps
+        if cap is None or next_time_s is None or video_path is None:
             return None
 
         self._throttle_to_fps()
 
-        ret, frame = self._video_capture.read()
+        with self._lock:
+            cap = self._video_capture
+            video_path = self._video_path
+        if cap is None or video_path is None:
+            return None
 
-        # If end of video reached, loop back to beginning
+        ret, frame = cap.read()
+
         if not ret:
-            logger.info("End of video reached, restarting from beginning")
-            self._video_capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            self._next_frame_time_s = time.monotonic()
-            ret, frame = self._video_capture.read()
+            logger.debug("End of video reached, restarting from beginning")
+            with self._lock:
+                if self._video_capture is None:
+                    return None
+                self._video_capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                self._next_frame_time_s = time.monotonic()
+                cap = self._video_capture
+                video_path = self._video_path
+            if cap is None or video_path is None:
+                return None
 
+            ret, frame = cap.read()
             if not ret:
                 logger.error("Failed to read frame after restart")
                 return None
 
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
+        with self._lock:
+            fps = self._fps
+
         return InputData(
             timestamp=int(time.time() * 1000),
             frame=frame_rgb,
-            context={
-                "path": str(self._video_path),
-                "fps": self._fps,
-            },
+            context={"path": str(video_path), "fps": fps},
         )
 
     def close(self) -> None:
         """Clean up resources and release video capture."""
-        if self._video_capture is not None:
-            self._video_capture.release()
-            self._video_capture = None
+        with self._lock:
+            if self._video_capture is not None:
+                self._video_capture.release()
+                self._video_capture = None
 
-        self._total_frames = 0
-        self._video_path = None
-        self._next_frame_time_s = None
-        logger.info("Video reader closed")
+            self._total_frames = 0
+            self._video_path = None
+            self._next_frame_time_s = None
+            logger.info("Video reader closed")

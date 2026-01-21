@@ -116,3 +116,43 @@ class TestFrameBroadcaster:
         frame2 = "frame_2"
         broadcaster.broadcast(frame2)
         assert broadcaster.latest_frame == frame2
+
+    def test_clear_drains_all_consumer_queues_and_resets_latest_frame(self, broadcaster):
+        q1 = broadcaster.register()
+        q2 = broadcaster.register()
+
+        broadcaster.broadcast("frame1")
+        broadcaster.broadcast("frame2")
+
+        assert q1.qsize() == 2
+        assert q2.qsize() == 2
+        assert broadcaster.latest_frame == "frame2"
+
+        broadcaster.clear()
+
+        assert q1.empty()
+        assert q2.empty()
+        assert broadcaster.latest_frame is None
+        assert len(broadcaster.queues) == 2
+        assert q1 in broadcaster.queues
+        assert q2 in broadcaster.queues
+
+    def test_clear_then_register_does_not_receive_stale_latest_frame(self, broadcaster):
+        q1 = broadcaster.register()
+        broadcaster.broadcast("frame1")
+        assert q1.get_nowait() == "frame1"
+
+        broadcaster.clear()
+        q2 = broadcaster.register()
+
+        assert q2.empty()
+        assert broadcaster.latest_frame is None
+
+    def test_clear_is_safe_when_no_consumers(self, broadcaster):
+        assert len(broadcaster.queues) == 0
+        assert broadcaster.latest_frame is None
+
+        broadcaster.clear()
+
+        assert len(broadcaster.queues) == 0
+        assert broadcaster.latest_frame is None
