@@ -126,7 +126,10 @@ class MaskedFeatureExtractor(nn.Module):
             if num_patches < max_ref_patches:
                 pad_size = max_ref_patches - num_patches
                 embed_padding = torch.zeros(
-                    pad_size, ref_embed.shape[1], device=ref_embed.device, dtype=ref_embed.dtype
+                    pad_size,
+                    ref_embed.shape[1],
+                    device=ref_embed.device,
+                    dtype=ref_embed.dtype,
                 )
                 mask_padding = torch.zeros(pad_size, device=flatten_mask.device, dtype=flatten_mask.dtype)
                 ref_embed = torch.cat([ref_embed, embed_padding], dim=0)

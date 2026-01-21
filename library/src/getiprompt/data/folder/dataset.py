@@ -188,6 +188,10 @@ def make_folder_dataframe(
     if categories is not None:
         available_categories = [cat for cat in available_categories if cat in categories]
 
+        # If no available categories are found, use the categories passed in
+        if not available_categories:
+            available_categories = categories
+
     if not available_categories:
         msg = "No valid categories found"
         raise ValueError(msg)

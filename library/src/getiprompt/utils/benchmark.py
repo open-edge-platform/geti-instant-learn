@@ -13,7 +13,7 @@ import torch
 
 from getiprompt.components.prompt_generators import GroundingModel
 from getiprompt.data.base import Batch
-from getiprompt.models import GroundedSAM, Matcher, Model, PerDino, SoftMatcher
+from getiprompt.models import SAM3, GroundedSAM, Matcher, Model, PerDino, SoftMatcher
 from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
 
 logger = getLogger("Geti Prompt")
@@ -222,6 +222,13 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 grounding_model=GroundingModel(args.grounding_model),
                 box_threshold=args.box_threshold,
                 text_threshold=args.text_threshold,
+                precision=args.precision,
+                compile_models=args.compile_models,
+                device=args.device,
+            )
+        case ModelName.SAM3:
+            return SAM3(
+                confidence_threshold=args.mask_similarity_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
                 device=args.device,

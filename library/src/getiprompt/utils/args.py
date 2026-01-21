@@ -101,7 +101,7 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         "--mask_similarity_threshold",
         type=float,
         default=0.42,
-        help="Threshold for filtering masks based on average similarity",
+        help="Threshold for filtering masks based on mask similarity score",
     )
     parser.add_argument(
         "--num_foreground_points",

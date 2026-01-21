@@ -8,6 +8,7 @@ import { createContext, ReactNode, useContext } from 'react';
 import { useProjectIdentifier } from '@geti-prompt/hooks';
 import { useSuspenseQuery, UseSuspenseQueryResult } from '@tanstack/react-query';
 
+import { baseUrl } from '../../../api/client';
 import { getImageData, loadImage } from '../tools/utils';
 import type { RegionOfInterest } from '../types';
 
@@ -21,8 +22,7 @@ const useLoadImageQuery = (frameId: string): UseSuspenseQueryResult<ImageData, u
                 throw new Error("Can't fetch undefined media item");
             }
 
-            const apiUrl = import.meta.env.PUBLIC_API_URL ?? '';
-            const imageUrl = `${apiUrl}/api/v1/projects/${projectId}/frames/${frameId}`;
+            const imageUrl = `${baseUrl}/api/v1/projects/${projectId}/frames/${frameId}`;
             const image = await loadImage(imageUrl);
 
             return getImageData(image);

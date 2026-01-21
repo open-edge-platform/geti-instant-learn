@@ -147,6 +147,9 @@ class PerDino(Model):
                 "pred_masks": [num_masks, H, W]
                 "pred_scores": [num_masks]
                 "pred_labels": [num_masks] - category IDs
+
+        Raises:
+            RuntimeError: If reference features are not available.
         """
         if self.ref_features is None:
             msg = "No reference features. Call fit() first."

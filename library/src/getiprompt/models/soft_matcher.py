@@ -90,7 +90,7 @@ class SoftMatcher(Matcher):
             sam: The name of the SAM model to use.
             num_foreground_points: The number of foreground points to use.
             num_background_points: The number of background points to use.
-            mask_similarity_threshold: The similarity threshold for the mask.
+            mask_similarity_threshold: The mask similarity   threshold for filtering masks.
             use_sampling: Whether to use sampling.
             use_spatial_sampling: Whether to use spatial sampling.
             approximate_matching: Whether to use approximate matching.

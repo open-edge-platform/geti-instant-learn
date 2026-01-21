@@ -55,6 +55,12 @@ def target_batch(dataset: FolderDataset) -> Batch:
     return Batch.collate(samples)
 
 
+@pytest.fixture
+def aerial_maritime_root() -> Path:
+    """Return path to aerial maritime test dataset."""
+    return Path(__file__).parent.parent.parent.parent / "tests" / "assets" / "aerial_maritime"
+
+
 # Model classes mapping
 MODEL_CLASSES = {
     ModelName.GROUNDED_SAM: GroundedSAM,
@@ -63,10 +69,10 @@ MODEL_CLASSES = {
     ModelName.SOFT_MATCHER: SoftMatcher,
 }
 
-# SAM models to test
+# SAM models to test (SAM3 doesn't use SAM backend, will be handled separately)
 SAM_MODELS = [SAMModelName.SAM_HQ_TINY, SAMModelName.SAM2_TINY]
 
-# Models that support n-shots (all except GroundedSAM)
+# Models that support n-shots (all except GroundedSAM and SAM3)
 N_SHOT_SUPPORTED_MODELS = [ModelName.MATCHER, ModelName.PER_DINO, ModelName.SOFT_MATCHER]
 
 
@@ -86,6 +92,10 @@ class TestModelIntegration:
             sam_model: The SAM model to use.
             model_name: The model type to test.
         """
+        # Skip SAM3 as it doesn't use SAM backend
+        if model_name == ModelName.SAM3:
+            pytest.skip("SAM3 doesn't use SAM backend, tested separately")
+
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/geti-prompt/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
@@ -122,6 +132,10 @@ class TestModelIntegration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
+        # Skip SAM3 as it doesn't use SAM backend
+        if model_name == ModelName.SAM3:
+            pytest.skip("SAM3 doesn't use SAM backend, tested separately")
+
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/geti-prompt/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
@@ -171,8 +185,8 @@ class TestModelIntegration:
         """
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/geti-prompt/issues/367
-        if sam_model == SAMModelName.SAM2_TINY:
-            pytest.skip("Skipping test_n_shots_capability for SAM2-tiny")
+        if sam_model == SAMModelName.SAM2_TINY or model_name == ModelName.SAM3:
+            pytest.skip("Skipping test_n_shots_capability for SAM2-tiny or SAM3")
 
         if not fss1000_root.exists():
             pytest.skip("fss-1000 dataset not found")
@@ -278,6 +292,10 @@ class TestModelIntegration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
+        # Skip SAM3 as it doesn't use SAM backend
+        if model_name == ModelName.SAM3:
+            pytest.skip("SAM3 doesn't use SAM backend, tested separately")
+
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/geti-prompt/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
@@ -333,6 +351,10 @@ class TestModelIntegration:
             model_name: The model type to test.
             dataset: The dataset to use for testing.
         """
+        # Skip SAM3 as it doesn't use SAM backend
+        if model_name == ModelName.SAM3:
+            pytest.skip("SAM3 doesn't use SAM backend, tested separately")
+
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/geti-prompt/issues/367
         if sam_model == SAMModelName.SAM2_TINY:

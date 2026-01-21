@@ -1,7 +1,7 @@
 ################
 # Libraries Base
 ################
-FROM python:3.12-slim-bookworm@sha256:2c1bff202fdbaa9bdf199e1e4e08c8e75f30e3bb75c4419eb9995acb04b6251a AS backend-base
+FROM python:3.12-slim-bookworm@sha256:4a3ceab05b4e396df42a042415e43a286bb5793352b9258f889d6c7d38ed01fb AS backend-base
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
 # Disable Python downloads, because we want to use the system interpreter
@@ -35,7 +35,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 ##################
 # Geti UI packages
 ##################
-FROM node:24-alpine3.22@sha256:4f4a059445c5a6ef2b9d169d9afde176301263178141fc05ba657dab1c84f9a7 AS geti-ui-packages
+FROM node:24-alpine3.22@sha256:6f96670faefc1ec23520ce30e453e85bfdb94a43b49b7aac2b0d3ac3a902bf2f AS geti-ui-packages
 
 WORKDIR /home/app/web_ui/
 RUN apk add --no-cache git=2.49.1-r0
@@ -45,7 +45,7 @@ RUN npm run clone-geti-ui-packages
 #############
 # Web UI deps
 #############
-FROM node:24-alpine3.22@sha256:4f4a059445c5a6ef2b9d169d9afde176301263178141fc05ba657dab1c84f9a7 AS web-ui-base
+FROM node:24-alpine3.22@sha256:6f96670faefc1ec23520ce30e453e85bfdb94a43b49b7aac2b0d3ac3a902bf2f AS web-ui-base
 
 WORKDIR /home/app/web_ui/
 
@@ -71,7 +71,7 @@ RUN npm run build
 ##########################################
 # Base for CPU, GPU and XPU runtime images
 ##########################################
-FROM python:3.12-slim-bookworm@sha256:2c1bff202fdbaa9bdf199e1e4e08c8e75f30e3bb75c4419eb9995acb04b6251a AS runtime-base
+FROM python:3.12-slim-bookworm@sha256:4a3ceab05b4e396df42a042415e43a286bb5793352b9258f889d6c7d38ed01fb AS runtime-base
 
 ENV STATIC_FILES_DIR="/geti_prompt/html"
 ENV DB_DATA_DIR="/geti_prompt/data"
