@@ -5,11 +5,7 @@ Technical background and architectural concepts to help developers and advanced 
 ## Core Concepts
 
 ### Visual Prompting & Zero-Shot Learning
-The application relies on **Zero-Shot Learning (ZSL)** models, which allows it to detect objects that it hasn't been explicitly trained on. Instead of traditional training with thousands of labeled images, the user provides a "prompt" that describes the object of interest.
-
-- **Visual Prompting**: The user selects an object in a reference image (e.g., by drawing a box around it). The system extracts a visual embedding from this region and uses it to find similar objects in the live video stream.
-- **Text Prompting**: The user provides a text description (e.g., "red helmet"). The system converts this text into a semantic embedding to guide the detection model.
-- **Few-Shot Learning**: By providing multiple examples (visual features) of the same object, the system can refine its understanding, essentially moving from "zero-shot" (one description) to "few-shot" learning for better accuracy.
+The application relies on **Zero-Shot Learning (ZSL)** models, which allows it to detect objects that it hasn't been explicitly trained on. Instead of traditional training with thousands of labeled images, the user provides a "prompt" that describes the object of interest. For more details see the [library documentation](../../../library/docs/01-introduction.md)
 
 ### Pipelines
 The core of the application is the **Pipeline**, a multi-threaded streaming engine that orchestrates the flow of data from ingestion to inference and finally to output. It follows a classic **Source-Processor-Sink** pattern, where each component runs in its own thread to ensure non-blocking execution.
