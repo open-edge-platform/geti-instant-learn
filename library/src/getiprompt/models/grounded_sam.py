@@ -58,14 +58,14 @@ class GroundedSAM(Model):
         self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor)
         self.prompt_filter: BoxPromptFilter = BoxPromptFilter()
 
-    def fit(self, reference: Sample | Batch | list[Sample]) -> None:
+    def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """Perform learning step on the reference images and priors.
 
         Args:
             reference: Reference data to learn from. Accepts:
                 - Sample: A single reference sample
-                - Batch: A batch of reference samples
                 - list[Sample]: A list of reference samples
+                - Batch: A batch of reference samples
         """
         reference_batch = Batch.collate(reference)
         self.category_mapping = {}
@@ -74,14 +74,14 @@ class GroundedSAM(Model):
                 if category not in self.category_mapping:
                     self.category_mapping[category] = int(category_id)
 
-    def predict(self, target: Sample | Batch | list[Sample]) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Sample | list[Sample] | Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
 
         Args:
             target: Target data to infer. Accepts:
                 - Sample: A single target sample
-                - Batch: A batch of target samples
                 - list[Sample]: A list of target samples
+                - Batch: A batch of target samples
 
         Returns:
             A list of predictions, one per sample. Each prediction contains:

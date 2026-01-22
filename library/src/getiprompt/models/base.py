@@ -18,25 +18,25 @@ class Model(nn.Module):
     """This class is the base class for all models."""
 
     @abstractmethod
-    def fit(self, reference: Sample | Batch | list[Sample]) -> None:
+    def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """Learn the context from reference samples.
 
         Args:
             reference: Reference data to learn from. Accepts:
                 - Sample: A single reference sample
-                - Batch: A batch of reference samples
                 - list[Sample]: A list of reference samples
+                - Batch: A batch of reference samples
         """
 
     @abstractmethod
-    def predict(self, target: Sample | Batch | list[Sample]) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Sample | list[Sample] | Batch) -> list[dict[str, torch.Tensor]]:
         """Use the learned context to infer object locations.
 
         Args:
             target: Target data to infer. Accepts:
                 - Sample: A single target sample
-                - Batch: A batch of target samples
                 - list[Sample]: A list of target samples
+                - Batch: A batch of target samples
 
         Returns:
             A list of predictions, one per sample. Each prediction contains:

@@ -83,7 +83,7 @@ class DinoTxtZeroShotClassification(Model):
         )
         self.prompt_templates = prompt_templates
 
-    def fit(self, reference: Sample | Batch | list[Sample]) -> None:
+    def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """Perform learning step on the reference batch.
 
         DINOTxt extracts categories from the reference batch to create text priors.
@@ -91,8 +91,8 @@ class DinoTxtZeroShotClassification(Model):
         Args:
             reference: Reference data to learn from. Accepts:
                 - Sample: A single reference sample
-                - Batch: A batch of reference samples
                 - list[Sample]: A list of reference samples
+                - Batch: A batch of reference samples
 
         Raises:
             ValueError: If no reference samples with categories are provided.
@@ -136,14 +136,14 @@ class DinoTxtZeroShotClassification(Model):
         self.reference_features = self.dino_encoder.encode_text(category_mapping, self.prompt_templates)
 
     @torch.no_grad()
-    def predict(self, target: Sample | Batch | list[Sample]) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Sample | list[Sample] | Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference on the target batch.
 
         Args:
             target: Target data to infer. Accepts:
                 - Sample: A single target sample
-                - Batch: A batch of target samples
                 - list[Sample]: A list of target samples
+                - Batch: A batch of target samples
 
         Returns:
             A list of predictions, one per sample.

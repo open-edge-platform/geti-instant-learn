@@ -124,14 +124,14 @@ class PerDino(Model):
 
         self.ref_features: ReferenceFeatures | None = None
 
-    def fit(self, reference: Sample | Batch | list[Sample]) -> None:
+    def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """Learn from reference images.
 
         Args:
             reference: Reference data to learn from. Accepts:
                 - Sample: A single reference sample
-                - Batch: A batch of reference samples
                 - list[Sample]: A list of reference samples
+                - Batch: A batch of reference samples
         """
         reference_batch = Batch.collate(reference)
         reference_embeddings = self.encoder(reference_batch.images)
@@ -141,14 +141,14 @@ class PerDino(Model):
             reference_batch.category_ids,
         )
 
-    def predict(self, target: Sample | Batch | list[Sample]) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Sample | list[Sample] | Batch) -> list[dict[str, torch.Tensor]]:
         """Predict masks for target images.
 
         Args:
             target: Target data to infer. Accepts:
                 - Sample: A single target sample
-                - Batch: A batch of target samples
                 - list[Sample]: A list of target samples
+                - Batch: A batch of target samples
 
         Returns:
             List of predictions per image, each containing:

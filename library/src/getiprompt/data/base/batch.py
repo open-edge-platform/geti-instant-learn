@@ -250,7 +250,7 @@ class Batch:
         return [s.mask_paths for s in self.samples]
 
     @classmethod
-    def collate(cls, samples: Sample | Batch | list[Sample]) -> Batch:
+    def collate(cls, samples: Sample | list[Sample] | Batch) -> Batch:
         """Collate sample(s) into a batch.
 
         Simply wraps the sample(s) in a Batch.
