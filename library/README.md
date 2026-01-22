@@ -53,17 +53,15 @@ model = Matcher(device="xpu")
 # Create reference sample (auto-loads image and mask from paths)
 # Paths below are relative to the `library` directory in the repo; adjust if running from elsewhere.
 ref_sample = Sample(
-    image_path="examples/assets/fss-1000/images/apple/1.jpg",
-    mask_paths="examples/assets/fss-1000/masks/apple/1.png",
-    categories=["apple"],
-    category_ids=[0],
+    image_path="examples/assets/coco/000000286874.jpg",
+    mask_paths="examples/assets/coco/000000286874_mask.png",
 )
 
 # Fit on reference
 model.fit(ref_sample)
 
 # Predict on target image
-target_sample = Sample(image_path="examples/assets/fss-1000/images/apple/2.jpg")
+target_sample = Sample(image_path="examples/assets/coco/000000390341.jpg")
 predictions = model.predict(target_sample)
 
 # Access results
@@ -78,7 +76,7 @@ from getiprompt.components.sam import SAMPredictor
 from getiprompt.data.utils import read_image
 
 # Load reference image
-ref_image = read_image("examples/assets/fss-1000/images/apple/1.jpg")
+ref_image = read_image("examples/assets/coco/000000286874.jpg")
 
 # Initialize SAM predictor (auto-downloads weights)
 # Available models: "SAM-HQ-tiny", "SAM-HQ", "SAM2-tiny", "SAM2-small", "SAM2-base", "SAM2-large"
@@ -87,8 +85,8 @@ predictor = SAMPredictor("SAM-HQ-tiny", device="xpu")
 # Set image and generate mask from a point click
 predictor.set_image(ref_image)
 ref_mask, _, _ = predictor.forward(
-    point_coords=torch.tensor([[[51, 150]]], device="xpu"),  # Click on apple
-    point_labels=torch.tensor([[1]], device="xpu"),           # 1 = foreground
+    point_coords=torch.tensor([[[280, 237]]], device="xpu"),  # Click on elephant
+    point_labels=torch.tensor([[1]], device="xpu"),            # 1 = foreground
     multimask_output=False,
 )
 ```
@@ -106,15 +104,13 @@ model = Matcher(device="xpu")
 ref_sample = Sample(
     image=ref_image,
     masks=ref_mask[0],
-    categories=["apple"],
-    category_ids=[0],
 )
 
 # Fit on reference
 model.fit(ref_sample)
 
 # Predict on target image
-target_sample = Sample(image_path="examples/assets/fss-1000/images/apple/2.jpg")
+target_sample = Sample(image_path="examples/assets/coco/000000390341.jpg")
 predictions = model.predict(target_sample)
 
 # Access results
@@ -132,7 +128,7 @@ model = GroundedSAM(device="xpu")
 
 # Create reference sample with category labels (no masks needed)
 ref_sample = Sample(
-    categories=["apple"],
+    categories=["elephant"],
     category_ids=[0],
 )
 
@@ -140,7 +136,7 @@ ref_sample = Sample(
 model.fit(ref_sample)
 
 # Predict on target image using text prompts
-target_sample = Sample(image_path="examples/assets/fss-1000/images/apple/2.jpg")
+target_sample = Sample(image_path="examples/assets/coco/000000390341.jpg")
 predictions = model.predict(target_sample)
 
 # Access results
