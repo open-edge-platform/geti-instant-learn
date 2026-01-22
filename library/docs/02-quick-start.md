@@ -83,9 +83,7 @@ from getiprompt.data import Sample
 model = GroundedSAM(device="xpu")
 
 # Create reference with category labels only
-ref_sample = Sample(
-    categories=["elephant"],
-)
+ref_sample = Sample(categories=["elephant"])
 
 # Fit and predict
 model.fit(ref_sample)
