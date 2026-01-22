@@ -36,7 +36,7 @@ The application abstracts input and output devices to make the system flexible a
 
     The application supports two backends:
     - **PyTorch**: Standard deep learning backend.
-    - **OpenVINO™**: For hardware-optimized deployment on Intel CPUs, GPUs, and NPUs.
+    - **[OpenVINO™](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html)**: For hardware-optimized deployment on Intel CPUs, GPUs, and NPUs.
 
     Users can extend the application by implementing their own `ModelHandler`.
 
@@ -68,7 +68,7 @@ The runtime heart of the system. As described above, it consists of Source, Proc
 ### Accelerator Framework
 The Processor delegates inference to a backend framework:
 
-- **OpenVINO™**: Graph optimizations, quantization, and support for CPUs, GPUs.
+- **[OpenVINO™](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html)**: Graph optimizations, quantization, and support for CPUs, GPUs.
 - **PyTorch (XPU)**: Hardware acceleration on Intel GPUs via XPU device support.
 
 ### Hardware
