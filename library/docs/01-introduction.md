@@ -19,7 +19,7 @@ At its core, visual prompting uses:
 - **Feature matching** that compares visual patterns between reference and target images
 - **Guided segmentation** that uses these matches to precisely outline objects of interest
 
-This approach is valuable when you need to segment rare or novel object categories, or when you can't collect large training datasets due to privacy, time, or resource constraints.
+This approach is valuable when you have limited labeled data and want to quickly prototype object detection for new categories. Performance is strongest when target objects share visual characteristics with the model's training data. For specialized domains (medical imaging, satellite imagery), domain-specific fine-tuning may improve results.
 
 ## Key Features
 
