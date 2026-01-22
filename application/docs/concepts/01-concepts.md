@@ -1,13 +1,11 @@
-# Concepts & Developer Guide
+# Core Concepts
 
 Technical background and architectural concepts to help developers and advanced users understand Geti Prompt Application.
 
-## Core Concepts
-
-### Visual Prompting & Zero-Shot Learning
+## Visual Prompting & Zero-Shot Learning
 The application relies on **Zero-Shot Learning (ZSL)** models, which allows it to detect objects that it hasn't been explicitly trained on. Instead of traditional training with thousands of labeled images, the user provides a "prompt" that describes the object of interest. For more details see the [library documentation](../../../library/docs/01-introduction.md)
 
-### Pipelines
+## Pipelines
 The core of the application is the **Pipeline**, a multi-threaded streaming engine that orchestrates the flow of data from ingestion to inference and finally to output. It follows a classic **Source-Processor-Sink** pattern, where each component runs in its own thread to ensure non-blocking execution.
 
 <div align="center">
@@ -19,7 +17,7 @@ Data flows through the pipeline via **Broadcasters**, thread-safe intermediaries
 - **High Performance**: Heavy inference tasks don't block frame acquisition.
 - **Real-time Visualization**: The frontend (via WebRTC) can subscribe to the processed video stream without slowing down the pipeline.
 
-### Pipeline Components
+## Pipeline Components
 The application abstracts input and output devices to make the system flexible and extensible.
 
 - **Sources (Input)**: Ingests frames into the pipeline. A Source wraps a `Reader`—an abstraction over the actual input device (camera, video file, image folder). The Source calls the Reader's `read()` method to obtain frames, then broadcasts them to a queue where the Processor picks them up.
