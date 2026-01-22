@@ -68,7 +68,7 @@ pip install ./library[xpu]  # or [cpu], [gpu]
 from getiprompt.models import Matcher
 from getiprompt.data import Sample
 
-# Initialize Matcher
+# Initialize Matcher (device: "xpu", "cuda", or "cpu")
 model = Matcher(device="xpu")
 
 # Create reference sample (auto-loads image and mask from paths)

@@ -96,7 +96,7 @@ ref_mask, _, _ = predictor.forward(
 from getiprompt.models import Matcher
 from getiprompt.data import Sample
 
-# Initialize Matcher
+# Initialize Matcher (device: "xpu", "cuda", or "cpu")
 model = Matcher(device="xpu")
 
 # Create reference sample with the generated mask

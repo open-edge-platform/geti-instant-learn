@@ -34,9 +34,15 @@ This approach is valuable when you need to segment rare or novel object categori
 from getiprompt.models import Matcher
 from getiprompt.data import Sample
 
+# Use example assets from the library (apple images from FSS-1000)
+ref_image = "examples/assets/fss-1000/images/apple/1.jpg"
+ref_mask = "examples/assets/fss-1000/masks/apple/1.png"
+target_image = "examples/assets/fss-1000/images/apple/2.jpg"
+
+# Initialize Matcher (device: "xpu", "cuda", or "cpu")
 model = Matcher(device="xpu")
-model.fit(Sample(image_path="ref.jpg", mask_paths=["mask.png"]))
-predictions = model.predict(Sample(image_path="target.jpg"))
+model.fit(Sample(image_path=ref_image, mask_paths=[ref_mask]))
+predictions = model.predict(Sample(image_path=target_image))
 ```
 
 ## Supported Models
