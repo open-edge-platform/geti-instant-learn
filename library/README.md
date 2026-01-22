@@ -126,9 +126,7 @@ from getiprompt.data import Sample
 model = GroundedSAM(device="xpu")
 
 # Create reference sample with category labels (no masks needed)
-ref_sample = Sample(
-    categories=["elephant"],
-)
+ref_sample = Sample(categories=["elephant"])
 
 # Fit on reference (learns category-to-id mapping)
 model.fit(ref_sample)
