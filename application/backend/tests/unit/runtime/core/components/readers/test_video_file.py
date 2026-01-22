@@ -102,42 +102,6 @@ class TestVideoFileReaderLength:
         assert len(reader) == 123
 
 
-class TestVideoFileReaderThrottle:
-    def test_throttle_sleeps_for_positive_delta(self, reader: VideoFileReader) -> None:
-        reader._fps = 10.0
-        reader._next_frame_time_s = 101.0
-
-        with (
-            patch("runtime.core.components.readers.video_file.time.monotonic", return_value=100.0),
-            patch("runtime.core.components.readers.video_file.time.sleep") as mock_sleep,
-        ):
-            reader._throttle_to_fps()
-
-        mock_sleep.assert_called_once()
-        assert mock_sleep.call_args[0][0] == pytest.approx(1.0, abs=1e-6)
-
-    def test_throttle_no_sleep_when_late(self, reader: VideoFileReader) -> None:
-        reader._fps = 10.0
-        reader._next_frame_time_s = 100.0
-
-        with (
-            patch("runtime.core.components.readers.video_file.time.monotonic", return_value=101.0),
-            patch("runtime.core.components.readers.video_file.time.sleep") as mock_sleep,
-        ):
-            reader._throttle_to_fps()
-
-        mock_sleep.assert_not_called()
-
-    def test_throttle_skips_when_fps_non_positive(self, reader: VideoFileReader) -> None:
-        reader._fps = 0.0
-        reader._next_frame_time_s = 100.0
-
-        with patch("runtime.core.components.readers.video_file.time.sleep") as mock_sleep:
-            reader._throttle_to_fps()
-
-        mock_sleep.assert_not_called()
-
-
 class TestVideoFileReaderRead:
     def test_read_without_connect_returns_none(self, reader: VideoFileReader) -> None:
         assert reader.read() is None
@@ -213,6 +177,114 @@ class TestVideoFileReaderRead:
             data = reader.read()
 
         assert data is None
+
+    def test_read_sleeps_for_positive_delta(self, reader: VideoFileReader, mock_capture: MagicMock) -> None:
+        frame_bgr = np.zeros((10, 10, 3), dtype=np.uint8)
+        frame_rgb = np.ones((10, 10, 3), dtype=np.uint8)
+        mock_capture.read.return_value = (True, frame_bgr)
+
+        with (
+            patch("runtime.core.components.readers.video_file.cv2.VideoCapture", return_value=mock_capture),
+            patch("runtime.core.components.readers.video_file.cv2.cvtColor", return_value=frame_rgb),
+        ):
+            reader.connect()
+            reader._fps = 10.0
+            reader._next_frame_time_s = 101.0
+
+            with (
+                patch("runtime.core.components.readers.video_file.time.monotonic", return_value=100.0),
+                patch("runtime.core.components.readers.video_file.time.sleep") as mock_sleep,
+            ):
+                reader.read()
+
+            mock_sleep.assert_called_once()
+            assert mock_sleep.call_args[0][0] == pytest.approx(1.0, abs=1e-6)
+
+    def test_read_no_sleep_when_late(self, reader: VideoFileReader, mock_capture: MagicMock) -> None:
+        frame_bgr = np.zeros((10, 10, 3), dtype=np.uint8)
+        frame_rgb = np.ones((10, 10, 3), dtype=np.uint8)
+        mock_capture.read.return_value = (True, frame_bgr)
+
+        with (
+            patch("runtime.core.components.readers.video_file.cv2.VideoCapture", return_value=mock_capture),
+            patch("runtime.core.components.readers.video_file.cv2.cvtColor", return_value=frame_rgb),
+        ):
+            reader.connect()
+            reader._fps = 10.0
+            reader._next_frame_time_s = 100.0
+
+            with (
+                patch("runtime.core.components.readers.video_file.time.monotonic", return_value=101.0),
+                patch("runtime.core.components.readers.video_file.time.sleep") as mock_sleep,
+            ):
+                reader.read()
+
+            mock_sleep.assert_not_called()
+
+    def test_read_skips_throttle_when_fps_non_positive(self, reader: VideoFileReader, mock_capture: MagicMock) -> None:
+        frame_bgr = np.zeros((10, 10, 3), dtype=np.uint8)
+        frame_rgb = np.ones((10, 10, 3), dtype=np.uint8)
+        mock_capture.read.return_value = (True, frame_bgr)
+
+        with (
+            patch("runtime.core.components.readers.video_file.cv2.VideoCapture", return_value=mock_capture),
+            patch("runtime.core.components.readers.video_file.cv2.cvtColor", return_value=frame_rgb),
+        ):
+            reader.connect()
+            reader._fps = 0.0
+            reader._next_frame_time_s = 100.0
+
+            with (
+                patch("runtime.core.components.readers.video_file.time.monotonic", return_value=100.0),
+                patch("runtime.core.components.readers.video_file.time.sleep") as mock_sleep,
+            ):
+                reader.read()
+
+            mock_sleep.assert_not_called()
+
+
+class TestVideoFileReaderLockUsage:
+    """Test that the lock is used correctly to prevent race conditions."""
+
+    def test_connect_acquires_lock(self, reader: VideoFileReader, mock_capture: MagicMock) -> None:
+        mock_lock = MagicMock()
+        reader._lock = mock_lock
+        with patch("runtime.core.components.readers.video_file.cv2.VideoCapture", return_value=mock_capture):
+            reader.connect()
+
+        mock_lock.__enter__.assert_called_once()
+        mock_lock.__exit__.assert_called_once()
+
+    def test_read_acquires_lock_once(self, reader: VideoFileReader, mock_capture: MagicMock) -> None:
+        frame_bgr = np.zeros((10, 10, 3), dtype=np.uint8)
+        frame_rgb = np.ones((10, 10, 3), dtype=np.uint8)
+        mock_capture.read.return_value = (True, frame_bgr)
+
+        with (
+            patch("runtime.core.components.readers.video_file.cv2.VideoCapture", return_value=mock_capture),
+            patch("runtime.core.components.readers.video_file.cv2.cvtColor", return_value=frame_rgb),
+            patch("runtime.core.components.readers.video_file.time.sleep"),
+            patch("runtime.core.components.readers.video_file.time.monotonic", return_value=100.0),
+        ):
+            reader.connect()
+            mock_lock = MagicMock()
+            reader._lock = mock_lock
+
+            reader.read()
+
+            mock_lock.__enter__.assert_called_once()
+            mock_lock.__exit__.assert_called_once()
+
+    def test_close_acquires_lock(self, reader: VideoFileReader, mock_capture: MagicMock) -> None:
+        with patch("runtime.core.components.readers.video_file.cv2.VideoCapture", return_value=mock_capture):
+            reader.connect()
+
+        mock_lock = MagicMock()
+        reader._lock = mock_lock
+        reader.close()
+
+        mock_lock.__enter__.assert_called_once()
+        mock_lock.__exit__.assert_called_once()
 
 
 class TestVideoFileReaderClose:
