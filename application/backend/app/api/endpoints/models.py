@@ -32,19 +32,37 @@ logger = logging.getLogger(__name__)
                         "models": [
                             {
                                 "id": "550e8400-e29b-41d4-a716-446655440000",
-                                "name": "Active Model",
+                                "name": "Matcher Model",
                                 "active": True,
                                 "config": {
-                                    "confidence_threshold": 0.38,
                                     "model_type": "matcher",
-                                    "num_background_points": 3,
                                     "num_foreground_points": 5,
+                                    "num_background_points": 3,
+                                    "confidence_threshold": 0.38,
                                     "precision": "bf16",
                                     "sam_model": "SAM-HQ-tiny",
                                     "encoder_model": "dinov3_small",
                                     "use_mask_refinement": False,
+                                    "compile_models": False,
+                                    "use_nms": True,
                                 },
-                            }
+                            },
+                            {
+                                "id": "660e8400-e29b-41d4-a716-446655440001",
+                                "name": "PerDino Model",
+                                "active": False,
+                                "config": {
+                                    "model_type": "perdino",
+                                    "encoder_model": "dinov3_large",
+                                    "num_foreground_points": 40,
+                                    "num_background_points": 2,
+                                    "num_grid_cells": 16,
+                                    "similarity_threshold": 0.65,
+                                    "mask_similarity_threshold": 0.42,
+                                    "use_nms": True,
+                                    "compile_models": False,
+                                },
+                            },
                         ]
                     },
                 }
@@ -226,14 +244,16 @@ def get_model(project_id: UUID, model_id: UUID, model_service: ModelServiceDep) 
                         "name": "New Model",
                         "active": False,
                         "config": {
-                            "confidence_threshold": 0.38,
                             "model_type": "matcher",
-                            "num_background_points": 3,
                             "num_foreground_points": 5,
+                            "num_background_points": 3,
+                            "confidence_threshold": 0.38,
                             "precision": "bf16",
                             "sam_model": "SAM-HQ-tiny",
                             "encoder_model": "dinov3_small",
                             "use_mask_refinement": False,
+                            "compile_models": False,
+                            "use_nms": True,
                         },
                     },
                 }

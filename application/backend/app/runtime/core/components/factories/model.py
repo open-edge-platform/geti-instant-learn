@@ -3,8 +3,9 @@
 
 from getiprompt.data.base.batch import Batch
 from getiprompt.models.matcher import Matcher
+from getiprompt.models.per_dino import PerDino
 
-from domain.services.schemas.processor import MatcherConfig, ModelConfig
+from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig
 from runtime.core.components.base import ModelHandler
 from runtime.core.components.models.inference_model import InferenceModelHandler
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
@@ -30,6 +31,21 @@ class ModelFactory:
                     use_mask_refinement=config.use_mask_refinement,
                     sam=config.sam_model,
                     encoder_model=config.encoder_model,
+                    compile_models=config.compile_models,
+                    use_nms=config.use_nms,
+                )
+                return InferenceModelHandler(model, reference_batch)
+            case PerDinoConfig() as config:
+                model = PerDino(
+                    encoder_model=config.encoder_model,
+                    num_foreground_points=config.num_foreground_points,
+                    num_background_points=config.num_background_points,
+                    num_grid_cells=config.num_grid_cells,
+                    similarity_threshold=config.similarity_threshold,
+                    mask_similarity_threshold=config.mask_similarity_threshold,
+                    use_nms=config.use_nms,
+                    compile_models=config.compile_models,
+                    device=settings.device,
                 )
                 return InferenceModelHandler(model, reference_batch)
             case _:

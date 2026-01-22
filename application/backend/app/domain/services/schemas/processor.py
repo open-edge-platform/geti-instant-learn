@@ -16,6 +16,7 @@ from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedR
 
 class ModelType(StrEnum):
     MATCHER = "matcher"
+    PERDINO = "perdino"
 
 
 ALLOWED_SAM_MODELS: tuple[SAMModelName, ...] = (
@@ -33,6 +34,8 @@ class MatcherConfig(BaseModel):
     sam_model: SAMModelName = Field(default=SAMModelName.SAM_HQ_TINY)
     encoder_model: str = Field(default="dinov3_small")
     use_mask_refinement: bool = Field(default=False)
+    compile_models: bool = Field(default=False)
+    use_nms: bool = Field(default=False)
 
     @field_validator("sam_model", mode="before")
     @classmethod
@@ -61,12 +64,42 @@ class MatcherConfig(BaseModel):
                 "sam_model": "SAM-HQ-tiny",
                 "encoder_model": "dinov3_small",
                 "use_mask_refinement": False,
+                "compile_models": False,
+                "use_nms": True,
             }
         }
     }
 
 
-ModelConfig = Annotated[MatcherConfig, Field(discriminator="model_type")]
+class PerDinoConfig(BaseModel):
+    model_type: Literal[ModelType.PERDINO] = ModelType.PERDINO
+    encoder_model: str = Field(default="dinov3_large")
+    num_foreground_points: int = Field(default=40, gt=0, lt=100)
+    num_background_points: int = Field(default=2, ge=0, lt=10)
+    num_grid_cells: int = Field(default=16, gt=0)
+    similarity_threshold: float = Field(default=0.65, gt=0.0, lt=1.0)
+    mask_similarity_threshold: float = Field(default=0.42, gt=0.0, lt=1.0)
+    use_nms: bool = Field(default=False)
+    compile_models: bool = Field(default=False)
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "model_type": "perdino",
+                "encoder_model": "dinov3_large",
+                "num_foreground_points": 40,
+                "num_background_points": 2,
+                "num_grid_cells": 16,
+                "similarity_threshold": 0.65,
+                "mask_similarity_threshold": 0.42,
+                "use_nms": True,
+                "compile_models": False,
+            }
+        }
+    }
+
+
+ModelConfig = Annotated[MatcherConfig | PerDinoConfig, Field(discriminator="model_type")]
 
 
 @dataclass(kw_only=True)
