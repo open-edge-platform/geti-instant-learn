@@ -52,7 +52,7 @@ The application is structured as a layered edge server. Each layer has a clear r
 
 <div align="center">
 
-<img src="media/system-architecture.svg" width="1200px" alt="Diagram showing the application system architecture">
+<img src="media/system-architecture.svg" width="600px" alt="Diagram showing the application system architecture">
 </div>
 
 
