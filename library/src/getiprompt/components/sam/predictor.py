@@ -17,6 +17,7 @@ from segment_anything_hq.predictor import SamPredictor as _SamPredictor
 from torch import nn
 
 from getiprompt.data import ResizeLongestSide
+from getiprompt.data.utils import read_image
 from getiprompt.utils.constants import DATA_PATH, MODEL_MAP, SAMModelName
 from getiprompt.utils.optimization import optimize_model
 from getiprompt.utils.utils import download_file, precision_to_torch_dtype
@@ -404,7 +405,7 @@ class SAMPredictor(nn.Module):
         patched_encoder.to(device)
         self._predictor.model.prompt_encoder = patched_encoder
 
-    def set_image(self, image: torch.Tensor) -> None:
+    def set_image(self, image: torch.Tensor | str | Path) -> None:
         """Set image using PyTorch backend.
 
         Transforms the image to the target size and delegates to the underlying
@@ -412,8 +413,10 @@ class SAMPredictor(nn.Module):
         embeddings for efficient inference.
 
         Args:
-            image: Raw image tensor of shape (C, H, W)
+            image: Raw image tensor of shape (C, H, W), or path to image file.
         """
+        if isinstance(image, (str, Path)):
+            image = read_image(image)
         self._original_size = image.shape[-2:]
         transformed_image = self.transform.apply_image_torch(image).to(device=self.device)
         return self._predictor.set_torch_image(transformed_image, self._original_size)

@@ -87,7 +87,6 @@ predictor.set_image(ref_image)
 ref_mask, _, _ = predictor.forward(
     point_coords=torch.tensor([[[280, 237]]], device="xpu"),  # Click on elephant
     point_labels=torch.tensor([[1]], device="xpu"),            # 1 = foreground
-    multimask_output=False,
 )
 ```
 
@@ -129,7 +128,6 @@ model = GroundedSAM(device="xpu")
 # Create reference sample with category labels (no masks needed)
 ref_sample = Sample(
     categories=["elephant"],
-    category_ids=[0],
 )
 
 # Fit on reference (learns category-to-id mapping)

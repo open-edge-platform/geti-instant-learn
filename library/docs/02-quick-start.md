@@ -38,25 +38,35 @@ uv sync --extra full      # All dependencies
 ### Basic Usage with Matcher
 
 ```python
+import torch
 from getiprompt.models import Matcher
 from getiprompt.data import Sample
+from getiprompt.components.sam import SAMPredictor
+from getiprompt.utils.constants import SAMModelName
+
+# Generate reference mask from a point click using SAM
+predictor = SAMPredictor(SAMModelName.SAM_HQ_TINY, device="xpu")
+predictor.set_image("examples/assets/coco/000000286874.jpg")
+ref_mask, _, _ = predictor.forward(
+    point_coords=torch.tensor([[[280, 237]]], device="xpu"),  # Click on elephant
+    point_labels=torch.tensor([[1]], device="xpu"),           # 1 = foreground
+    multimask_output=False,
+)
 
 # Initialize Matcher (device: "xpu", "cuda", or "cpu")
 model = Matcher(device="xpu")
 
-# Create reference sample (auto-loads image and mask from paths)
+# Create reference sample with the generated mask
 ref_sample = Sample(
-    image_path="examples/assets/fss-1000/images/apple/1.jpg",
-    mask_paths="examples/assets/fss-1000/masks/apple/1.png",
-    categories=["apple"],
-    category_ids=[0],
+    image_path="examples/assets/coco/000000286874.jpg",
+    masks=ref_mask[0],
 )
 
 # Fit on reference
 model.fit(ref_sample)
 
 # Predict on target image
-target_sample = Sample(image_path="examples/assets/fss-1000/images/apple/2.jpg")
+target_sample = Sample(image_path="examples/assets/coco/000000390341.jpg")
 predictions = model.predict(target_sample)
 
 # Access results
@@ -74,13 +84,12 @@ model = GroundedSAM(device="xpu")
 
 # Create reference with category labels only
 ref_sample = Sample(
-    categories=["apple"],
-    category_ids=[0],
+    categories=["elephant"],
 )
 
 # Fit and predict
 model.fit(ref_sample)
-target_sample = Sample(image_path="examples/assets/fss-1000/images/apple/2.jpg")
+target_sample = Sample(image_path="examples/assets/coco/000000390341.jpg")
 predictions = model.predict(target_sample)
 
 # Access results

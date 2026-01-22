@@ -35,7 +35,7 @@ from getiprompt.models import Matcher
 from getiprompt.data import Sample
 
 model = Matcher(device="xpu")
-model.fit(Sample(image_path="ref.jpg", mask_paths=["mask.png"], categories=["apple"], category_ids=[0]))
+model.fit(Sample(image_path="ref.jpg", mask_paths=["mask.png"]))
 predictions = model.predict(Sample(image_path="target.jpg"))
 ```
 
