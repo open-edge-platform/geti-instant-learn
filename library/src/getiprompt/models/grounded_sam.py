@@ -11,7 +11,7 @@ from getiprompt.components.prompt_generators import GroundingModel, TextToBoxPro
 from getiprompt.components.sam import load_sam_model
 from getiprompt.data.base.batch import Batch
 from getiprompt.data.base.sample import Sample
-from getiprompt.models.base import Model, _to_batch
+from getiprompt.models.base import Model
 from getiprompt.utils.constants import SAMModelName
 
 
@@ -67,7 +67,7 @@ class GroundedSAM(Model):
                 - Batch: A batch of reference samples
                 - list[Sample]: A list of reference samples
         """
-        reference_batch = _to_batch(reference)
+        reference_batch = Batch.collate(reference)
         self.category_mapping = {}
         for sample in reference_batch.samples:
             for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
@@ -90,7 +90,7 @@ class GroundedSAM(Model):
                 "pred_labels": torch.Tensor of shape [num_masks]
                 "pred_boxes": torch.Tensor of shape [num_boxes, 5] with [x1, y1, x2, y2, score]
         """
-        target_batch = _to_batch(target)
+        target_batch = Batch.collate(target)
         # Generate box prompts (tensor format)
         box_prompts, category_ids = self.prompt_generator(
             target_batch.images,

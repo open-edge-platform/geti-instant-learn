@@ -15,7 +15,7 @@ from getiprompt.components.prompt_generators import BidirectionalPromptGenerator
 from getiprompt.components.sam import SamDecoder, load_sam_model
 from getiprompt.data.base.batch import Batch
 from getiprompt.data.base.sample import Sample
-from getiprompt.models.base import Model, _to_batch
+from getiprompt.models.base import Model
 from getiprompt.utils.constants import Backend, SAMModelName
 
 
@@ -223,7 +223,7 @@ class Matcher(Model):
                 - Batch: A batch of reference samples
                 - list[Sample]: A list of reference samples
         """
-        reference_batch = _to_batch(reference)
+        reference_batch = Batch.collate(reference)
         ref_embeddings = self.encoder(images=reference_batch.images)
         self.ref_features = self.masked_feature_extractor(
             ref_embeddings,
@@ -250,7 +250,7 @@ class Matcher(Model):
         Raises:
             RuntimeError: If fit() has not been called before predict().
         """
-        target_batch = _to_batch(target)
+        target_batch = Batch.collate(target)
         if self.ref_features is None:
             msg = "No reference features. Call fit() first."
             raise RuntimeError(msg)

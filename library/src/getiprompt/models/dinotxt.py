@@ -7,7 +7,7 @@ import torch
 
 from getiprompt.data.base.batch import Batch
 from getiprompt.data.base.sample import Sample
-from getiprompt.models.base import Model, _to_batch
+from getiprompt.models.base import Model
 from getiprompt.models.foundation.dinotxt import IMAGENET_TEMPLATES, DinoTextEncoder
 from getiprompt.utils import precision_to_torch_dtype
 from getiprompt.utils.constants import DINOv3BackboneSize
@@ -111,7 +111,7 @@ class DinoTxtZeroShotClassification(Model):
             ... )
             >>> dinotxt.fit(ref_sample)  # Can pass Sample directly
         """
-        reference_batch = _to_batch(reference)
+        reference_batch = Batch.collate(reference)
         if not reference_batch.samples:
             msg = "reference_batch must contain at least one sample"
             raise ValueError(msg)
@@ -168,7 +168,7 @@ class DinoTxtZeroShotClassification(Model):
             ... )
             >>> result = dinotxt.predict(target_sample)  # Can pass Sample directly
         """
-        target_batch = _to_batch(target)
+        target_batch = Batch.collate(target)
         target_images = target_batch.images
         target_features = self.dino_encoder.encode_image(target_images)
         target_features /= target_features.norm(dim=-1, keepdim=True)

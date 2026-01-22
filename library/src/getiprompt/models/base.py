@@ -14,25 +14,6 @@ from getiprompt.data.base.sample import Sample
 from getiprompt.utils.constants import Backend
 
 
-def _to_batch(data: Sample | Batch | list[Sample]) -> Batch:
-    """Convert input to Batch.
-
-    Args:
-        data: A Sample, Batch, or list of Samples.
-
-    Returns:
-        Batch: The input converted to a Batch.
-    """
-    if isinstance(data, Batch):
-        return data
-    if isinstance(data, Sample):
-        return Batch.collate([data])
-    if isinstance(data, list):
-        return Batch.collate(data)
-    msg = f"Expected Sample, Batch, or list[Sample], got {type(data)}"
-    raise TypeError(msg)
-
-
 class Model(nn.Module):
     """This class is the base class for all models."""
 

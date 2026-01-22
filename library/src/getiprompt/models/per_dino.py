@@ -12,7 +12,7 @@ from getiprompt.components.prompt_generators import GridPromptGenerator
 from getiprompt.components.sam import load_sam_model
 from getiprompt.data.base.batch import Batch
 from getiprompt.data.base.sample import Sample
-from getiprompt.models.base import Model, _to_batch
+from getiprompt.models.base import Model
 from getiprompt.utils.constants import Backend, SAMModelName
 
 
@@ -133,7 +133,7 @@ class PerDino(Model):
                 - Batch: A batch of reference samples
                 - list[Sample]: A list of reference samples
         """
-        reference_batch = _to_batch(reference)
+        reference_batch = Batch.collate(reference)
         reference_embeddings = self.encoder(reference_batch.images)
         self.ref_features = self.masked_feature_extractor(
             reference_embeddings,
@@ -159,7 +159,7 @@ class PerDino(Model):
         Raises:
             RuntimeError: If reference features are not available.
         """
-        target_batch = _to_batch(target)
+        target_batch = Batch.collate(target)
         if self.ref_features is None:
             msg = "No reference features. Call fit() first."
             raise RuntimeError(msg)
