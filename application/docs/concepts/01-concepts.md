@@ -26,18 +26,18 @@ The application abstracts input and output devices to make the system flexible a
 
 - **Sources (Input)**: Ingests frames into the pipeline. A Source wraps a `Reader`—an abstraction over the actual input device (camera, video file, image folder). The Source calls the Reader's `read()` method to obtain frames, then broadcasts them to a queue where the Processor picks them up.
 
-    **Flow Control Modes** determine how the Source invokes the Reader:
+  **Flow Control Modes** determine how the Source invokes the Reader:
 
-    - **Continuous Mode**: For infinite streams (IP cameras, webcams). The Source continuously calls `read()` in a loop.
-    - **Manual Mode**: For navigable datasets (image folders). The Source waits for an explicit "next" signal before calling `read()`.
+  - **Continuous Mode**: For infinite streams (IP cameras, webcams). The Source continuously calls `read()` in a loop.
+  - **Manual Mode**: For navigable datasets (image folders). The Source waits for an explicit "next" signal before calling `read()`.
 
-    The application includes standard Reader implementations: `UsbCameraReader`, `VideoStreamReader`, `ImageFolderReader`. Users can extend the application by implementing their own `StreamReader`.
+  The application includes standard Reader implementations: `UsbCameraReader`, `VideoStreamReader`, `ImageFolderReader`. Users can extend the application by implementing their own `StreamReader`.
 
 - **Processor (Inference)**: Performs inference on incoming frames. The Processor subscribes to the Source's broadcast queue, pulls frames, batches them for efficiency, and runs them through the Zero-Shot Learning model. After inference, it broadcasts the results (original frame + predictions) to another queue where the Sink and WebRTC frontend pick them up.
 
-    The Processor wraps a `ModelHandler`—an abstraction over the inference backend. The ModelHandler's `predict()` method takes a batch of frames and returns predictions (masks, scores, labels).
+  The Processor wraps a `ModelHandler`—an abstraction over the inference backend. The ModelHandler's `predict()` method takes a batch of frames and returns predictions (masks, scores, labels).
 
-    The application supports two backends:
+  The application supports two backends:
 
     - **PyTorch**: Standard deep learning backend.
     - **[OpenVINO™](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html)**: For hardware-optimized deployment on Intel CPUs, GPUs, and NPUs.
