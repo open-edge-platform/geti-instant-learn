@@ -74,11 +74,13 @@ class MatcherConfig(BaseModel):
 class PerDinoConfig(BaseModel):
     model_type: Literal[ModelType.PERDINO] = ModelType.PERDINO
     encoder_model: str = Field(default="dinov3_large")
-    num_foreground_points: int = Field(default=40, gt=0, lt=100)
+    sam_model: SAMModelName = Field(default=SAMModelName.SAM_HQ_TINY)
+    num_foreground_points: int = Field(default=80, gt=0, lt=500) # TODO ask Eugene whether we need max
     num_background_points: int = Field(default=2, ge=0, lt=10)
     num_grid_cells: int = Field(default=16, gt=0)
-    similarity_threshold: float = Field(default=0.65, gt=0.0, lt=1.0)
-    mask_similarity_threshold: float = Field(default=0.42, gt=0.0, lt=1.0)
+    similarity_threshold: float = Field(default=0.65, gt=0.0, lt=1.0)  # TODO ask
+    confidence_threshold: float = Field(default=0.01, gt=0.0, lt=1.0)
+    precision: str = Field(default="bf16", description="Model precision")
     use_nms: bool = Field(default=False)
     compile_models: bool = Field(default=False)
 
@@ -87,11 +89,13 @@ class PerDinoConfig(BaseModel):
             "example": {
                 "model_type": "perdino",
                 "encoder_model": "dinov3_large",
+                "sam_model": "SAM-HQ-tiny",
                 "num_foreground_points": 40,
                 "num_background_points": 2,
                 "num_grid_cells": 16,
                 "similarity_threshold": 0.65,
-                "mask_similarity_threshold": 0.42,
+                "confidence_threshold": 0.42,
+                "precision": "bf16",
                 "use_nms": True,
                 "compile_models": False,
             }

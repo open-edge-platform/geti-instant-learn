@@ -37,13 +37,15 @@ class ModelFactory:
                 return InferenceModelHandler(model, reference_batch)
             case PerDinoConfig() as config:
                 model = PerDino(
+                    sam=config.sam_model,
                     encoder_model=config.encoder_model,
                     num_foreground_points=config.num_foreground_points,
                     num_background_points=config.num_background_points,
                     num_grid_cells=config.num_grid_cells,
                     similarity_threshold=config.similarity_threshold,
-                    mask_similarity_threshold=config.mask_similarity_threshold,
+                    mask_similarity_threshold=config.confidence_threshold,
                     use_nms=config.use_nms,
+                    precision=config.precision,
                     compile_models=config.compile_models,
                     device=settings.device,
                 )

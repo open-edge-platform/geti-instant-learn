@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
                             },
                             {
                                 "id": "660e8400-e29b-41d4-a716-446655440001",
-                                "name": "PerDino Model",
+                                "name": "PerDINO Model",
                                 "active": False,
                                 "config": {
                                     "model_type": "perdino",
