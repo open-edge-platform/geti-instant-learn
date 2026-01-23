@@ -7,8 +7,8 @@
 import warnings
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 from torchvision.transforms import Normalize, Resize, ToTensor
 
 
@@ -17,14 +17,17 @@ class SAM2Transforms(nn.Module):
     """Transforms for SAM2-style image processing."""
 
     def __init__(
-        self, resolution, mask_threshold, max_hole_area=0.0, max_sprinkle_area=0.0
+        self,
+        resolution,
+        mask_threshold,
+        max_hole_area=0.0,
+        max_sprinkle_area=0.0,
     ):
-        """
-        Args:
-            resolution: Target resolution for image resize
-            mask_threshold: Threshold for mask binarization
-            max_hole_area: Maximum area for hole filling
-            max_sprinkle_area: Maximum area for sprinkle removal
+        """Args:
+        resolution: Target resolution for image resize
+        mask_threshold: Threshold for mask binarization
+        max_hole_area: Maximum area for hole filling
+        max_sprinkle_area: Maximum area for sprinkle removal
         """
         super().__init__()
         self.resolution = resolution
@@ -38,7 +41,7 @@ class SAM2Transforms(nn.Module):
             nn.Sequential(
                 Resize((self.resolution, self.resolution)),
                 Normalize(self.mean, self.std),
-            )
+            ),
         )
         self.device = None  # Will be set when used with a model
 
@@ -61,7 +64,10 @@ class SAM2Transforms(nn.Module):
         return img_batch
 
     def transform_coords(
-        self, coords: torch.Tensor, normalize=False, orig_hw=None
+        self,
+        coords: torch.Tensor,
+        normalize=False,
+        orig_hw=None,
     ) -> torch.Tensor:
         """Transform coordinates to model input space.
 
@@ -84,7 +90,10 @@ class SAM2Transforms(nn.Module):
         return coords
 
     def transform_boxes(
-        self, boxes: torch.Tensor, normalize=False, orig_hw=None
+        self,
+        boxes: torch.Tensor,
+        normalize=False,
+        orig_hw=None,
     ) -> torch.Tensor:
         """Transform boxes to model input space.
 
@@ -121,7 +130,7 @@ class SAM2Transforms(nn.Module):
             if self.max_hole_area > 0:
                 # Holes are those connected components in background with area <= self.fill_hole_area
                 labels, areas = connected_components(
-                    (mask_flat <= self.mask_threshold).to(torch.uint8)
+                    (mask_flat <= self.mask_threshold).to(torch.uint8),
                 )
                 is_hole = (labels > 0) & (areas <= self.max_hole_area)
                 is_hole = is_hole.reshape_as(masks)
@@ -129,7 +138,7 @@ class SAM2Transforms(nn.Module):
 
             if self.max_sprinkle_area > 0:
                 labels, areas = connected_components(
-                    (mask_flat > self.mask_threshold).to(torch.uint8)
+                    (mask_flat > self.mask_threshold).to(torch.uint8),
                 )
                 is_hole = (labels > 0) & (areas <= self.max_sprinkle_area)
                 is_hole = is_hole.reshape_as(masks)

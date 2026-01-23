@@ -1,9 +1,8 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates. All Rights Reserved
 
-from typing import Type
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class MLPBlock(nn.Module):
@@ -11,7 +10,7 @@ class MLPBlock(nn.Module):
         self,
         embedding_dim: int,
         mlp_dim: int,
-        act: Type[nn.Module] = nn.GELU,
+        act: type[nn.Module] = nn.GELU,
     ) -> None:
         super().__init__()
         self.lin1 = nn.Linear(embedding_dim, mlp_dim)
@@ -22,7 +21,7 @@ class MLPBlock(nn.Module):
         return self.lin2(self.act(self.lin1(x)))
 
 
-# From https://github.com/facebookresearch/detectron2/blob/main/detectron2/layers/batch_norm.py # noqa
+# From https://github.com/facebookresearch/detectron2/blob/main/detectron2/layers/batch_norm.py
 # Itself from https://github.com/facebookresearch/ConvNeXt/blob/d1fa8f6fef0a165b27399986cc2bdacc92777e40/models/convnext.py#L119  # noqa
 class LayerNorm2d(nn.Module):
     def __init__(self, num_channels: int, eps: float = 1e-6) -> None:

@@ -1,13 +1,10 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates. All Rights Reserved
 
-"""
-Adapted from:
+"""Adapted from:
 1. https://github.com/meta-llama/codellama/blob/main/llama/model.py
 2. https://github.com/naver-ai/rope-vit
 3. https://github.com/lucidrains/rotary-embedding-torch
 """
-
-from typing import Optional
 
 import torch
 from einops import rearrange, repeat
@@ -30,12 +27,8 @@ def compute_axial_cis(
     offset: int = 0,
     device=None,
 ):
-    freqs_x = 1.0 / (
-        theta ** (torch.arange(0, dim, 4, device=device)[: (dim // 4)].float() / dim)
-    )
-    freqs_y = 1.0 / (
-        theta ** (torch.arange(0, dim, 4, device=device)[: (dim // 4)].float() / dim)
-    )
+    freqs_x = 1.0 / (theta ** (torch.arange(0, dim, 4, device=device)[: (dim // 4)].float() / dim))
+    freqs_y = 1.0 / (theta ** (torch.arange(0, dim, 4, device=device)[: (dim // 4)].float() / dim))
 
     t_x, t_y = init_t_xy(end_x, end_y, scale_pos, offset, device=device)
     freqs_x = torch.outer(t_x, freqs_x)
@@ -60,11 +53,7 @@ def apply_rotary_enc(
     repeat_freqs_k: bool = False,
 ):
     xq_ = torch.view_as_complex(xq.float().reshape(*xq.shape[:-1], -1, 2))
-    xk_ = (
-        torch.view_as_complex(xk.float().reshape(*xk.shape[:-1], -1, 2))
-        if xk.shape[-2] != 0
-        else None
-    )
+    xk_ = torch.view_as_complex(xk.float().reshape(*xk.shape[:-1], -1, 2)) if xk.shape[-2] != 0 else None
     freqs_cis = reshape_for_broadcast(freqs_cis, xq_)
     xq_out = torch.view_as_real(xq_ * freqs_cis).flatten(3)
     if xk_ is None:
@@ -132,7 +121,7 @@ class VisionRotaryEmbeddingVE(nn.Module):
         self,
         dim: int,
         seq_len: int,
-        pt_seq_len: Optional[int] = None,
+        pt_seq_len: int | None = None,
         theta: float = 10000.0,
         offset: int = 1,  # specific to VE
     ):

@@ -145,7 +145,3 @@ cython_debug/
 tmp*
 lightning_logs
 datasets/
-workspace/
-
-#vs code workspace files
-*.code-workspace

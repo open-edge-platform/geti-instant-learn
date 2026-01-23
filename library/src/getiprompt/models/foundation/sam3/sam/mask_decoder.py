@@ -1,6 +1,5 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates. All Rights Reserved
 
-from typing import List, Optional, Tuple, Type
 
 import torch
 from torch import nn
@@ -16,7 +15,7 @@ class MaskDecoder(nn.Module):
         transformer_dim: int,
         transformer: nn.Module,
         num_multimask_outputs: int = 3,
-        activation: Type[nn.Module] = nn.GELU,
+        activation: type[nn.Module] = nn.GELU,
         iou_head_depth: int = 3,
         iou_head_hidden_dim: int = 256,
         use_high_res_features: bool = False,
@@ -28,8 +27,7 @@ class MaskDecoder(nn.Module):
         pred_obj_scores_mlp: bool = False,
         use_multimask_token_for_obj_ptr: bool = False,
     ) -> None:
-        """
-        Predicts masks given an image and prompt embeddings, using a
+        """Predicts masks given an image and prompt embeddings, using a
         transformer architecture.
 
         Arguments:
@@ -61,29 +59,38 @@ class MaskDecoder(nn.Module):
 
         self.output_upscaling = nn.Sequential(
             nn.ConvTranspose2d(
-                transformer_dim, transformer_dim // 4, kernel_size=2, stride=2
+                transformer_dim,
+                transformer_dim // 4,
+                kernel_size=2,
+                stride=2,
             ),
             LayerNorm2d(transformer_dim // 4),
             activation(),
             nn.ConvTranspose2d(
-                transformer_dim // 4, transformer_dim // 8, kernel_size=2, stride=2
+                transformer_dim // 4,
+                transformer_dim // 8,
+                kernel_size=2,
+                stride=2,
             ),
             activation(),
         )
         self.use_high_res_features = use_high_res_features
         if use_high_res_features:
             self.conv_s0 = nn.Conv2d(
-                transformer_dim, transformer_dim // 8, kernel_size=1, stride=1
+                transformer_dim,
+                transformer_dim // 8,
+                kernel_size=1,
+                stride=1,
             )
             self.conv_s1 = nn.Conv2d(
-                transformer_dim, transformer_dim // 4, kernel_size=1, stride=1
+                transformer_dim,
+                transformer_dim // 4,
+                kernel_size=1,
+                stride=1,
             )
 
         self.output_hypernetworks_mlps = nn.ModuleList(
-            [
-                MLP(transformer_dim, transformer_dim, transformer_dim // 8, 3)
-                for i in range(self.num_mask_tokens)
-            ]
+            [MLP(transformer_dim, transformer_dim, transformer_dim // 8, 3) for i in range(self.num_mask_tokens)],
         )
 
         self.iou_prediction_head = MLP(
@@ -112,10 +119,9 @@ class MaskDecoder(nn.Module):
         dense_prompt_embeddings: torch.Tensor,
         multimask_output: bool,
         repeat_image: bool,
-        high_res_features: Optional[List[torch.Tensor]] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Predict masks given image and prompt embeddings.
+        high_res_features: list[torch.Tensor] | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Predict masks given image and prompt embeddings.
 
         Arguments:
           image_embeddings (torch.Tensor): the embeddings from the image encoder
@@ -169,8 +175,8 @@ class MaskDecoder(nn.Module):
         sparse_prompt_embeddings: torch.Tensor,
         dense_prompt_embeddings: torch.Tensor,
         repeat_image: bool,
-        high_res_features: Optional[List[torch.Tensor]] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        high_res_features: list[torch.Tensor] | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Predicts masks. See 'forward' for more details."""
         # Concatenate output tokens
         s = 0
@@ -186,10 +192,13 @@ class MaskDecoder(nn.Module):
             s = 1
         else:
             output_tokens = torch.cat(
-                [self.iou_token.weight, self.mask_tokens.weight], dim=0
+                [self.iou_token.weight, self.mask_tokens.weight],
+                dim=0,
             )
         output_tokens = output_tokens.unsqueeze(0).expand(
-            sparse_prompt_embeddings.size(0), -1, -1
+            sparse_prompt_embeddings.size(0),
+            -1,
+            -1,
         )
         tokens = torch.cat((output_tokens, sparse_prompt_embeddings), dim=1)
 
@@ -200,9 +209,7 @@ class MaskDecoder(nn.Module):
             assert image_embeddings.shape[0] == tokens.shape[0]
             src = image_embeddings
         src = src + dense_prompt_embeddings
-        assert (
-            image_pe.size(0) == 1
-        ), "image_pe should have size 1 in batch dim (from `get_dense_pe()`)"
+        assert image_pe.size(0) == 1, "image_pe should have size 1 in batch dim (from `get_dense_pe()`)"
         pos_src = torch.repeat_interleave(image_pe, tokens.shape[0], dim=0)
         b, c, h, w = src.shape
 
@@ -221,10 +228,10 @@ class MaskDecoder(nn.Module):
             upscaled_embedding = act1(ln1(dc1(src) + feat_s1))
             upscaled_embedding = act2(dc2(upscaled_embedding) + feat_s0)
 
-        hyper_in_list: List[torch.Tensor] = []
+        hyper_in_list: list[torch.Tensor] = []
         for i in range(self.num_mask_tokens):
             hyper_in_list.append(
-                self.output_hypernetworks_mlps[i](mask_tokens_out[:, i, :])
+                self.output_hypernetworks_mlps[i](mask_tokens_out[:, i, :]),
             )
         hyper_in = torch.stack(hyper_in_list, dim=1)
         b, c, h, w = upscaled_embedding.shape
@@ -242,8 +249,7 @@ class MaskDecoder(nn.Module):
         return masks, iou_pred, mask_tokens_out, object_score_logits
 
     def _get_stability_scores(self, mask_logits):
-        """
-        Compute stability scores of the mask logits based on the IoU between upper and
+        """Compute stability scores of the mask logits based on the IoU between upper and
         lower thresholds.
         """
         mask_logits = mask_logits.flatten(-2)
@@ -254,8 +260,7 @@ class MaskDecoder(nn.Module):
         return stability_scores
 
     def _dynamic_multimask_via_stability(self, all_mask_logits, all_iou_scores):
-        """
-        When outputting a single mask, if the stability score from the current single-mask
+        """When outputting a single mask, if the stability score from the current single-mask
         output (based on output token 0) falls below a threshold, we instead select from
         multi-mask outputs (based on output token 1~3) the mask with the highest predicted
         IoU score. This is intended to ensure a valid mask for both clicking and tracking.
@@ -265,7 +270,8 @@ class MaskDecoder(nn.Module):
         multimask_iou_scores = all_iou_scores[:, 1:]
         best_scores_inds = torch.argmax(multimask_iou_scores, dim=-1)
         batch_inds = torch.arange(
-            multimask_iou_scores.size(0), device=all_iou_scores.device
+            multimask_iou_scores.size(0),
+            device=all_iou_scores.device,
         )
         best_multimask_logits = multimask_logits[batch_inds, best_scores_inds]
         best_multimask_logits = best_multimask_logits.unsqueeze(1)
@@ -307,7 +313,7 @@ class MLP(nn.Module):
         self.num_layers = num_layers
         h = [hidden_dim] * (num_layers - 1)
         self.layers = nn.ModuleList(
-            nn.Linear(n, k) for n, k in zip([input_dim] + h, h + [output_dim])
+            map(nn.Linear, [input_dim] + h, h + [output_dim]),
         )
         self.sigmoid_output = sigmoid_output
 

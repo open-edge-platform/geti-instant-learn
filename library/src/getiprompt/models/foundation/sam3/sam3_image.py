@@ -1,4 +1,3 @@
-# Copyright (C) 2025 Intel Corporation
 # Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
@@ -90,12 +89,6 @@ class Sam3Image(torch.nn.Module):
     def __init__(
         self,
         backbone: SAM3VLBackbone,
-        transformer,
-        input_geometry_encoder,
-        segmentation_head=None,
-        num_feature_levels=1,
-        o2m_mask_predict=True,
-        dot_prod_scoring=None,
         transformer: nn.Module,
         input_geometry_encoder: nn.Module,
         segmentation_head: nn.Module | None = None,
@@ -106,16 +99,12 @@ class Sam3Image(torch.nn.Module):
         multimask_output: bool = True,
         use_act_checkpoint_seg_head: bool = True,
         interactivity_in_encoder: bool = True,
-        matcher=None,
-        use_dot_prod_scoring=True,
         matcher: nn.Module | None = None,
         use_dot_prod_scoring: bool = True,
         supervise_joint_box_scores: bool = False,  # only relevant if using presence token/score
         detach_presence_in_joint_score: bool = False,  # only relevant if using presence token/score
         separate_scorer_for_instance: bool = False,
         num_interactive_steps_val: int = 0,
-        **kwargs,
-    ):
     ) -> None:
         """Initialize SAM3 Image model."""
         super().__init__()
@@ -161,23 +150,17 @@ class Sam3Image(torch.nn.Module):
         self.multimask_output = multimask_output
 
     @property
-    def device(self):
-        self._device = getattr(self, "_device", None) or next(self.parameters()).device
-        return self._device
-
-    def to(self, *args, **kwargs):
     def device(self) -> torch.device:
         """Get the device the model is on."""
         self._device = getattr(self, "_device", None) or next(self.parameters()).device
         return self._device
 
-    def to(self, *args, **kwargs) -> torch.nn.Module:
-        """Override to() to clear cached device."""
+    def to(self, *args: object, **kwargs: object) -> torch.nn.Module:
+        """Move model to device and clear cached device."""
         # clear cached _device in case the model is moved to a different device
         self._device = None
         return super().to(*args, **kwargs)
 
-    def _get_img_feats(self, backbone_out, img_ids):
     def _get_img_feats(
         self,
         backbone_out: dict[str, torch.Tensor],
@@ -190,7 +173,7 @@ class Sam3Image(torch.nn.Module):
                 # If this assert fails, it likely means we're requesting different img_ids (perhaps a different frame?)
                 # We currently don't expect this to happen. We could technically trigger a recompute here,
                 # but likely at the cost of a cpu<->gpu sync point, which would deteriorate perf
-                torch._assert_async((img_ids >= 0).all())
+                torch._assert_async((img_ids >= 0).all())  # noqa: SLF001
 
             vis_feats = backbone_out["backbone_fpn"][-self.num_feature_levels :]
             vis_pos_enc = backbone_out["vision_pos_enc"][-self.num_feature_levels :]
@@ -237,13 +220,6 @@ class Sam3Image(torch.nn.Module):
 
     def _encode_prompt(
         self,
-        backbone_out,
-        find_input,
-        geometric_prompt,
-        visual_prompt_embed=None,
-        visual_prompt_mask=None,
-        encode_text=True,
-        prev_mask_pred=None,
         backbone_out: dict[str, torch.Tensor],
         find_input: FindStage,
         geometric_prompt: Prompt,
@@ -251,7 +227,7 @@ class Sam3Image(torch.nn.Module):
         visual_prompt_mask: torch.Tensor | None = None,
         encode_text: bool = True,
         prev_mask_pred: torch.Tensor | None = None,
-    ):
+    ) -> tuple[torch.Tensor, torch.Tensor, dict[str, torch.Tensor]]:
         # index text features (note that regardless of early or late fusion, the batch size of
         # `txt_feats` is always the number of *prompts* in the encoder)
         txt_ids = find_input.text_ids
@@ -290,16 +266,12 @@ class Sam3Image(torch.nn.Module):
 
     def _run_encoder(
         self,
-        backbone_out,
-        find_input,
-        prompt,
-        prompt_mask,
         backbone_out: dict[str, torch.Tensor],
         find_input: FindStage,
         prompt: torch.Tensor,
         prompt_mask: torch.Tensor,
         encoder_extra_kwargs: dict | None = None,
-    ):
+    ) -> tuple[torch.Tensor, torch.Tensor, dict[str, torch.Tensor]]:
         feat_tuple = self._get_img_feats(backbone_out, find_input.img_ids)
         backbone_out, img_feats, img_pos_embeds, vis_feat_sizes = feat_tuple
 
@@ -334,13 +306,6 @@ class Sam3Image(torch.nn.Module):
 
     def _run_decoder(
         self,
-        pos_embed,
-        memory,
-        src_mask,
-        out,
-        prompt,
-        prompt_mask,
-        encoder_out,
         pos_embed: torch.Tensor,
         memory: torch.Tensor,
         src_mask: torch.Tensor,
@@ -348,7 +313,7 @@ class Sam3Image(torch.nn.Module):
         prompt: torch.Tensor,
         prompt_mask: torch.Tensor,
         encoder_out: dict[str, torch.Tensor],
-    ):
+    ) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
         bs = memory.shape[1]
         query_embed = self.transformer.decoder.query_embed.weight
         tgt = query_embed.unsqueeze(1).repeat(1, bs, 1)
@@ -387,13 +352,6 @@ class Sam3Image(torch.nn.Module):
 
     def _update_scores_and_boxes(
         self,
-        out,
-        hs,
-        reference_boxes,
-        prompt,
-        prompt_mask,
-        dec_presence_out=None,
-        is_instance_prompt=False,
         out: dict[str, torch.Tensor],
         hs: torch.Tensor,
         reference_boxes: torch.Tensor,
@@ -401,7 +359,7 @@ class Sam3Image(torch.nn.Module):
         prompt_mask: torch.Tensor,
         dec_presence_out: torch.Tensor | None = None,
         is_instance_prompt: bool = False,
-    ):
+    ) -> None:
         apply_dac = self.transformer.decoder.dac and self.training
         num_o2o = (hs.size(2) // 2) if apply_dac else hs.size(2)
         num_o2m = hs.size(2) - num_o2o
@@ -486,14 +444,6 @@ class Sam3Image(torch.nn.Module):
 
     def _run_segmentation_heads(
         self,
-        out,
-        backbone_out,
-        img_ids,
-        vis_feat_sizes,
-        encoder_hidden_states,
-        prompt,
-        prompt_mask,
-        hs,
         out: dict[str, torch.Tensor],
         backbone_out: dict[str, torch.Tensor],
         img_ids: torch.Tensor,
@@ -501,7 +451,7 @@ class Sam3Image(torch.nn.Module):
         prompt: torch.Tensor,
         prompt_mask: torch.Tensor,
         hs: torch.Tensor,
-    ):
+    ) -> None:
         apply_dac = self.transformer.decoder.dac and self.training
         if self.segmentation_head is not None:
             num_o2o = (hs.size(2) // 2) if apply_dac else hs.size(2)
@@ -532,7 +482,6 @@ class Sam3Image(torch.nn.Module):
         else:
             backbone_out.pop("backbone_fpn", None)
 
-    def _get_best_mask(self, out):
     def _get_best_mask(self, out: dict[str, torch.Tensor]) -> torch.Tensor:
         prev_mask_idx = out["pred_logits"].argmax(dim=1).squeeze(1)
         batch_idx = torch.arange(
@@ -544,22 +493,16 @@ class Sam3Image(torch.nn.Module):
         prev_mask_pred = self.geometry_encoder.mask_encoder.mask_downsampler(
             prev_mask_pred,
         )
-        prev_mask_pred = prev_mask_pred.flatten(-2).permute(2, 0, 1)
-
-        return prev_mask_pred
+        return prev_mask_pred.flatten(-2).permute(2, 0, 1)
 
     def forward_grounding(
         self,
-        backbone_out,
-        find_input,
-        find_target,
-        geometric_prompt: Prompt,
-    ):
         backbone_out: dict[str, torch.Tensor],
         find_input: FindStage,
         find_target: BatchedFindTarget,
         geometric_prompt: Prompt,
     ) -> dict[str, torch.Tensor]:
+        """Forward pass for grounding with find task."""
         with torch.profiler.record_function("SAM3Image._encode_prompt"):
             prompt, prompt_mask, backbone_out = self._encode_prompt(
                 backbone_out,
@@ -600,7 +543,6 @@ class Sam3Image(torch.nn.Module):
                 out=out,
                 backbone_out=backbone_out,
                 img_ids=find_input.img_ids,
-                vis_feat_sizes=encoder_out["vis_feat_sizes"],
                 encoder_hidden_states=out["encoder_hidden_states"],
                 prompt=prompt,
                 prompt_mask=prompt_mask,
@@ -611,9 +553,9 @@ class Sam3Image(torch.nn.Module):
             self._compute_matching(out, self.back_convert(find_target))
         return out
 
-    def _postprocess_out(self, out: dict, multimask_output: bool = False) -> dict:
     def _postprocess_out(self, out: dict[str, torch.Tensor], multimask_output: bool = False) -> dict[str, torch.Tensor]:
-        # For multimask output, during eval we return the single best mask with the dict keys expected by the evaluators,
+        # For multimask output, during eval we return the single best mask with the dict keys
+        # expected by the evaluators,
         # but also return the multimasks output with new keys.
         num_mask_boxes = out["pred_boxes"].size(1)
         if not self.training and multimask_output and num_mask_boxes > 1:
@@ -649,9 +591,10 @@ class Sam3Image(torch.nn.Module):
             box_mask=torch.zeros(num_prompts, 0, device=device, dtype=torch.bool),
         )
 
-    def forward(self, input: BatchedDatapoint) -> SAM3Output:
+    def forward(self, inputs: BatchedDatapoint) -> SAM3Output:
+        """Forward pass for SAM3 image model."""
         device = self.device
-        backbone_out = {"img_batch_all_stages": input.img_batch}
+        backbone_out = {"img_batch_all_stages": inputs.img_batch}
         backbone_out.update(self.backbone.forward_image(input.img_batch))
         num_frames = len(input.find_inputs)
         assert num_frames == 1
@@ -702,7 +645,9 @@ class Sam3Image(torch.nn.Module):
         for aux_out in out.get("aux_outputs", []):
             aux_out["indices"] = self.matcher(aux_out, targets)
 
-    def back_convert(self, targets: BatchedFindTarget) -> dict:
+    @staticmethod
+    def back_convert(targets: BatchedFindTarget) -> dict:
+        """Convert BatchedFindTarget to dict format."""
         return {
             "boxes": targets.boxes.view(-1, 4),
             "boxes_xyxy": box_cxcywh_to_xyxy(targets.boxes.view(-1, 4)),

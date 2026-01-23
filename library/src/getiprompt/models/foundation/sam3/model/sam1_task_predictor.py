@@ -20,12 +20,11 @@ class SAM3InteractiveImagePredictor:
         max_hole_area=0.0,
         max_sprinkle_area=0.0,
     ):
-        """
-        Args:
-            sam_model: SAM3 model instance
-            mask_threshold: Threshold for mask binarization
-            max_hole_area: Maximum area for hole filling
-            max_sprinkle_area: Maximum area for sprinkle removal
+        """Args:
+        sam_model: SAM3 model instance
+        mask_threshold: Threshold for mask binarization
+        max_hole_area: Maximum area for hole filling
+        max_sprinkle_area: Maximum area for sprinkle removal
         """
         self.model = sam_model
         self.mask_threshold = mask_threshold
@@ -48,7 +47,13 @@ class SAM3InteractiveImagePredictor:
         return self.model.device
 
     def _prep_prompts(
-        self, point_coords, point_labels, box=None, mask_input=None, normalize_coords=True, img_idx=-1
+        self,
+        point_coords,
+        point_labels,
+        box=None,
+        mask_input=None,
+        normalize_coords=True,
+        img_idx=-1,
     ):
         """Prepare prompts for prediction.
 
@@ -73,10 +78,14 @@ class SAM3InteractiveImagePredictor:
 
         if point_coords is not None:
             point_coords = torch.as_tensor(
-                point_coords, dtype=torch.float32, device=self.device
+                point_coords,
+                dtype=torch.float32,
+                device=self.device,
             )
             unnorm_coords = self._transforms.transform_coords(
-                point_coords, normalize=normalize_coords, orig_hw=orig_hw
+                point_coords,
+                normalize=normalize_coords,
+                orig_hw=orig_hw,
             )
             labels = torch.as_tensor(point_labels, dtype=torch.int32, device=self.device)
             if unnorm_coords.ndim == 2:
@@ -87,12 +96,16 @@ class SAM3InteractiveImagePredictor:
         if box is not None:
             box = torch.as_tensor(box, dtype=torch.float32, device=self.device)
             unnorm_box = self._transforms.transform_boxes(
-                box, normalize=normalize_coords, orig_hw=orig_hw
+                box,
+                normalize=normalize_coords,
+                orig_hw=orig_hw,
             )
 
         if mask_input is not None:
             mask_input = torch.as_tensor(
-                mask_input, dtype=torch.float32, device=self.device
+                mask_input,
+                dtype=torch.float32,
+                device=self.device,
             )
             if mask_input.ndim == 2:
                 mask_input = mask_input.unsqueeze(0).unsqueeze(0)
@@ -128,10 +141,9 @@ class SAM3InteractiveImagePredictor:
             vision_feats[-1] = vision_feats[-1] + self.model.no_mem_embed
 
         # Transform from (B, C, H, W) to (B, H*W, C)
-        feats = [
-            feat.permute(0, 2, 3, 1).reshape(feat.shape[0], -1, feat.shape[1])
-            for feat in vision_feats[::-1]
-        ][::-1]
+        feats = [feat.permute(0, 2, 3, 1).reshape(feat.shape[0], -1, feat.shape[1]) for feat in vision_feats[::-1]][
+            ::-1
+        ]
         self._features = {"image_embed": feats[-1], "high_res_feats": feats[:-1]}
         self._is_image_set = True
 
@@ -154,10 +166,9 @@ class SAM3InteractiveImagePredictor:
             vision_feats[-1] = vision_feats[-1] + self.model.no_mem_embed
 
         # Transform from (B, C, H, W) to (B, H*W, C)
-        feats = [
-            feat.permute(0, 2, 3, 1).reshape(feat.shape[0], -1, feat.shape[1])
-            for feat in vision_feats[::-1]
-        ][::-1]
+        feats = [feat.permute(0, 2, 3, 1).reshape(feat.shape[0], -1, feat.shape[1]) for feat in vision_feats[::-1]][
+            ::-1
+        ]
         self._features = {"image_embed": feats[-1], "high_res_feats": feats[:-1]}
         self._is_image_set = True
 
@@ -193,7 +204,12 @@ class SAM3InteractiveImagePredictor:
 
         # Prepare prompts
         mask_input, unnorm_coords, labels, unnorm_box = self._prep_prompts(
-            point_coords, point_labels, box, mask_input, normalize_coords, img_idx
+            point_coords,
+            point_labels,
+            box,
+            mask_input,
+            normalize_coords,
+            img_idx,
         )
 
         # Merge boxes into points (following efficientsam3 approach)
@@ -297,7 +313,7 @@ class SAM3InteractiveImagePredictor:
 
         if self._is_batch:
             raise RuntimeError(
-                "This predictor is in batch mode. Use predict_batch for batched inference."
+                "This predictor is in batch mode. Use predict_batch for batched inference.",
             )
 
         masks, iou_predictions, low_res_masks = self._predict(
@@ -344,7 +360,7 @@ class SAM3InteractiveImagePredictor:
         """
         if not self._is_batch:
             raise RuntimeError(
-                "This predictor is not in batch mode. Use predict for single image inference."
+                "This predictor is not in batch mode. Use predict for single image inference.",
             )
 
         num_images = len(self._orig_hw) if isinstance(self._orig_hw, list) else 1

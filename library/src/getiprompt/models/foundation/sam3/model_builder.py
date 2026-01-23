@@ -3,6 +3,8 @@
 
 # Copyright (c) Meta Platforms, Inc. and affiliates. All Rights Reserved
 
+"""SAM3 model builder and factory functions."""
+
 from pathlib import Path
 
 import torch
@@ -46,7 +48,10 @@ def _setup_tf32() -> None:
 _setup_tf32()
 
 
-def _create_position_encoding(precompute_resolution=None, device="cuda") -> nn.Module:
+def _create_position_encoding(
+    precompute_resolution: tuple[int, int] | None = None,
+    device: str = "cuda",
+) -> nn.Module:
     """Create position encoding for visual backbone."""
     return PositionEmbeddingSine(
         num_pos_feats=256,
@@ -134,7 +139,6 @@ def _create_transformer_encoder() -> TransformerEncoderFusion:
         ),
     )
 
-    encoder = TransformerEncoderFusion(
     return TransformerEncoderFusion(
         layer=encoder_layer,
         num_layers=6,
@@ -145,7 +149,6 @@ def _create_transformer_encoder() -> TransformerEncoderFusion:
         add_pooled_text_to_img_feat=False,
         pool_text_with_mask=True,
     )
-    return encoder
 
 
 def _create_transformer_decoder() -> TransformerDecoder:
@@ -164,7 +167,6 @@ def _create_transformer_decoder() -> TransformerDecoder:
         use_text_cross_attention=True,
     )
 
-    decoder = TransformerDecoder(
     return TransformerDecoder(
         layer=decoder_layer,
         num_layers=6,
@@ -183,7 +185,6 @@ def _create_transformer_decoder() -> TransformerDecoder:
         use_act_checkpoint=True,
         presence_token=True,
     )
-    return decoder
 
 
 def _create_dot_product_scoring() -> DotProductScoring:
@@ -215,7 +216,6 @@ def _create_segmentation_head(compile_mode: str | None = None) -> nn.Module:
         embed_dim=256,
     )
 
-    segmentation_head = UniversalSegmentationHead(
     return UniversalSegmentationHead(
         hidden_dim=256,
         upsampling_stages=3,
@@ -226,7 +226,6 @@ def _create_segmentation_head(compile_mode: str | None = None) -> nn.Module:
         cross_attend_prompt=cross_attend_prompt,
         pixel_decoder=pixel_decoder,
     )
-    return segmentation_head
 
 
 def _create_geometry_encoder(device: str = "cuda") -> nn.Module:
@@ -258,7 +257,6 @@ def _create_geometry_encoder(device: str = "cuda") -> nn.Module:
     )
 
     # Create geometry encoder
-    input_geometry_encoder = SequenceGeometryEncoder(
     return SequenceGeometryEncoder(
         pos_enc=geo_pos_enc,
         encode_boxes_as_points=False,
@@ -275,15 +273,6 @@ def _create_geometry_encoder(device: str = "cuda") -> nn.Module:
         add_cls=True,
         add_post_encode_proj=True,
     )
-    return input_geometry_encoder
-
-
-def _create_sam3_model(
-    backbone,
-    transformer,
-    input_geometry_encoder,
-    segmentation_head,
-    dot_prod_scoring,
 
 
 def _create_sam3_model(
@@ -324,7 +313,6 @@ def _create_text_encoder(bpe_path: str) -> VETextEncoder:
 
 def _create_vision_backbone(
     compile_mode: str | None = None,
-    enable_inst_interactivity=True,
     enable_inst_interactivity: bool = True,
     device: str = "cuda",
 ) -> Sam3DualViTDetNeck:
@@ -342,7 +330,6 @@ def _create_vision_backbone(
     return vit_neck
 
 
-def _create_sam3_transformer(has_presence_token: bool = True) -> TransformerWrapper:
 def _create_sam3_transformer() -> TransformerWrapper:
     """Create SAM3 transformer encoder and decoder."""
     encoder: TransformerEncoderFusion = _create_transformer_encoder()
@@ -351,18 +338,6 @@ def _create_sam3_transformer() -> TransformerWrapper:
     return TransformerWrapper(encoder=encoder, decoder=decoder, d_model=256)
 
 
-def _load_checkpoint(model, checkpoint_path):
-    """Load model checkpoint from file."""
-    with g_pathmgr.open(checkpoint_path, "rb") as f:
-        ckpt = torch.load(f, map_location="cpu", weights_only=True)
-    if "model" in ckpt and isinstance(ckpt["model"], dict):
-        ckpt = ckpt["model"]
-    sam3_image_ckpt = {k.replace("detector.", ""): v for k, v in ckpt.items() if "detector" in k}
-    missing_keys, _ = model.load_state_dict(sam3_image_ckpt, strict=False)
-    if len(missing_keys) > 0:
-        print(
-            f"loaded {checkpoint_path} and found missing and/or unexpected keys:\n{missing_keys=}",
-        )
 def _load_checkpoint(model: nn.Module, checkpoint_path: str) -> None:
     """Load model checkpoint from file."""
     # nosemgrep: trailofbits.python.pickles-in-pytorch.pickles-in-pytorch
@@ -392,38 +367,32 @@ def build_sam3_image_model(
     bpe_path: Path | None = None,
     device: str = "cuda",
     checkpoint_path: Path | None = None,
-    load_from_HF: bool = True,
-    enable_segmentation: bool = True,
-    enable_inst_interactivity: bool = False,
-    compile: bool = False,
-):
     load_from_hf: bool = True,
     enable_segmentation: bool = True,
     enable_inst_interactivity: bool = False,
-    compile: bool = False,
+    enable_compile: bool = False,  # noqa: ARG001
 ) -> Sam3Image:
-    """Build SAM3 image model
+    """Build SAM3 image model.
 
     Args:
-        bpe_path: Path to the BPE tokenizer vocabulary
-        device: Device to load the model on ('cuda' or 'cpu')
-        checkpoint_path: Optional path to model checkpoint
-        load_from_hf: Whether to load the checkpoint from Hugging Face Hub
-        enable_segmentation: Whether to enable segmentation head
-        enable_inst_interactivity: Whether to enable instance interactivity (SAM 1 task)
-        compile: To enable compilation, set to True
+        bpe_path: Path to the BPE tokenizer vocabulary.
+        device: Device to load the model on ('cuda' or 'cpu').
+        checkpoint_path: Optional path to model checkpoint.
+        load_from_hf: Whether to load the checkpoint from Hugging Face Hub.
+        enable_segmentation: Whether to enable segmentation head.
+        enable_inst_interactivity: Whether to enable instance interactivity (SAM 1 task).
+        enable_compile: To enable compilation, set to True.
 
     Returns:
-        A SAM3 image model
+        A SAM3 image model.
 
     Raises:
-        FileNotFoundError: If the provided BPE path does not exist
+        FileNotFoundError: If the provided BPE path does not exist.
     """
     if bpe_path is None:
         bpe_path = Path(__file__).parent / "assets" / "bpe_simple_vocab_16e6.txt.gz"
 
     if not bpe_path.exists():
-        raise FileNotFoundError(f"BPE path {bpe_path} does not exist")
         msg = f"BPE path {bpe_path} does not exist"
         raise FileNotFoundError(msg)
 
@@ -460,7 +429,6 @@ def build_sam3_image_model(
         segmentation_head,
         dot_prod_scoring,
     )
-    if load_from_HF and checkpoint_path is None:
     if load_from_hf and checkpoint_path is None:
         checkpoint_path = download_ckpt_from_hf()
     # Load checkpoint if provided
@@ -471,13 +439,6 @@ def build_sam3_image_model(
     return _setup_device_and_mode(model, device, eval_mode=True)
 
 
-def download_ckpt_from_hf():
-    SAM3_MODEL_ID = "facebook/sam3"
-    SAM3_CKPT_NAME = "sam3.pt"
-    SAM3_CFG_NAME = "config.json"
-    _ = hf_hub_download(repo_id=SAM3_MODEL_ID, filename=SAM3_CFG_NAME)
-    checkpoint_path = hf_hub_download(repo_id=SAM3_MODEL_ID, filename=SAM3_CKPT_NAME)
-    return checkpoint_path
 def download_ckpt_from_hf() -> str:
     """Download SAM3 checkpoint from Hugging Face Hub."""
     sam3_model_id = "facebook/sam3"
