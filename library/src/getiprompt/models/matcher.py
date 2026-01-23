@@ -166,7 +166,7 @@ class Matcher(Model):
             num_background_points: Background points per category.
             encoder_model: Image encoder model ID.
             confidence_threshold: Minimum confidence score for keeping predicted masks
-                in the final output. Higher values = stricter filtering, fewer masks.
+                                 in the final output. Higher values = stricter filtering, fewer masks.
             use_mask_refinement: Whether to use 2-stage mask refinement with box prompts.
             use_nms: Whether to use NMS in SamDecoder.
             precision: Model precision ("bf16", "fp32").
