@@ -73,7 +73,7 @@ class SoftMatcher(Matcher):
         sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
         num_foreground_points: int = 40,
         num_background_points: int = 2,
-        mask_similarity_threshold: float | None = 0.42,
+        confidence_threshold: float | None = 0.42,
         use_sampling: bool = False,
         use_spatial_sampling: bool = False,
         approximate_matching: bool = False,
@@ -91,7 +91,8 @@ class SoftMatcher(Matcher):
             sam: The name of the SAM model to use.
             num_foreground_points: The number of foreground points to use.
             num_background_points: The number of background points to use.
-            mask_similarity_threshold: The mask similarity   threshold for filtering masks.
+            confidence_threshold: Minimum confidence score for keeping predicted masks
+                in the final output. Higher values = stricter filtering, fewer masks.
             use_sampling: Whether to use sampling.
             use_spatial_sampling: Whether to use spatial sampling.
             approximate_matching: Whether to use approximate matching.
@@ -106,7 +107,7 @@ class SoftMatcher(Matcher):
             sam=sam,
             num_foreground_points=num_foreground_points,
             num_background_points=num_background_points,
-            mask_similarity_threshold=mask_similarity_threshold,
+            confidence_threshold=confidence_threshold,
             use_nms=use_nms,
             encoder_model=encoder_model,
             precision=precision,
