@@ -52,6 +52,7 @@ from torchvision import tv_tensors
 from torchvision.ops import box_convert
 
 from getiprompt.data.base.batch import Batch
+from getiprompt.data.base.sample import Sample
 from getiprompt.models.foundation import Sam3Processor
 from getiprompt.models.foundation.efficientsam3 import (
     EfficientSAM3BackboneType,
@@ -324,13 +325,16 @@ class EfficientSAM3(Model):
         boxes[:, [1, 3]] /= img_h  # y1, y2
         return box_convert(boxes, "xyxy", "cxcywh")
 
-    def predict(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Sample | list[Sample] | Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
 
         Uses batch image encoding for efficiency when processing multiple images.
 
         Args:
-            target_batch: Batch of target samples with images and prompts.
+            target: Target data to infer. Accepts:
+                - Sample: A single target sample
+                - list[Sample]: A list of target samples
+                - Batch: A batch of target samples
 
         Returns:
             List of prediction dictionaries with keys:
@@ -338,6 +342,7 @@ class EfficientSAM3(Model):
             - pred_boxes: Predicted bounding boxes with scores [N, 5]
             - pred_labels: Predicted category labels [N]
         """
+        target_batch = Batch.collate(target)
         results = []
         samples = target_batch.samples
 
@@ -373,14 +378,17 @@ class EfficientSAM3(Model):
 
         return results
 
-    def fit(self, reference_batch: Batch) -> None:
+    def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """No-op for EfficientSAM3 as it performs zero-shot inference.
 
         EfficientSAM3 does not require a learning phase. This method exists
         only for API compatibility with the base Model class.
 
         Args:
-            reference_batch: Ignored. EfficientSAM3 uses prompts directly.
+            reference: Reference data (ignored). Accepts:
+                - Sample: A single reference sample
+                - list[Sample]: A list of reference samples
+                - Batch: A batch of reference samples
         """
         # EfficientSAM3 is a zero-shot model - no training/fitting required
         # Log warning if this is called (indicates user may expect few-shot behavior)
