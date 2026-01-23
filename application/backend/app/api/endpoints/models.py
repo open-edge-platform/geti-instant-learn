@@ -58,7 +58,7 @@ logger = logging.getLogger(__name__)
                                     "num_foreground_points": 40,
                                     "num_background_points": 2,
                                     "num_grid_cells": 16,
-                                    "similarity_threshold": 0.65,
+                                    "point_selection_threshold": 0.65,
                                     "confidence_threshold": 0.42,
                                     "precision": "bf16",
                                     "use_nms": True,

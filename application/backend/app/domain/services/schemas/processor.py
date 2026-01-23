@@ -31,6 +31,9 @@ class BaseModelConfig(BaseModel):
 
     sam_model: SAMModelName = Field(default=SAMModelName.SAM_HQ_TINY)
     encoder_model: str = Field(default="dinov3_large")
+    precision: str = Field(default="bf16", description="Model precision")
+    use_nms: bool = Field(default=True)
+    compile_models: bool = Field(default=False)
 
     @field_validator("sam_model", mode="before")
     @classmethod
@@ -51,14 +54,11 @@ class BaseModelConfig(BaseModel):
 
 class PerDinoConfig(BaseModelConfig):
     model_type: Literal[ModelType.PERDINO] = ModelType.PERDINO
-    num_foreground_points: int = Field(default=80, gt=0, lt=512)
-    num_background_points: int = Field(default=2, ge=0, lt=64)
+    num_foreground_points: int = Field(default=80, gt=0, lt=300)
+    num_background_points: int = Field(default=2, ge=0, lt=10)
     num_grid_cells: int = Field(default=16, gt=0)
-    similarity_threshold: float = Field(default=0.65, gt=0.0, lt=1.0)
+    point_selection_threshold: float = Field(default=0.65, gt=0.0, lt=1.0)
     confidence_threshold: float = Field(default=0.01, gt=0.0, lt=1.0)
-    precision: str = Field(default="bf16", description="Model precision")
-    use_nms: bool = Field(default=False)
-    compile_models: bool = Field(default=False)
 
     model_config = {
         "json_schema_extra": {
@@ -69,7 +69,7 @@ class PerDinoConfig(BaseModelConfig):
                 "num_foreground_points": 80,
                 "num_background_points": 2,
                 "num_grid_cells": 16,
-                "similarity_threshold": 0.65,
+                "point_selection_threshold": 0.65,
                 "confidence_threshold": 0.42,
                 "precision": "bf16",
                 "use_nms": True,
@@ -81,13 +81,10 @@ class PerDinoConfig(BaseModelConfig):
 
 class MatcherConfig(BaseModelConfig):
     model_type: Literal[ModelType.MATCHER] = ModelType.MATCHER
-    num_foreground_points: int = Field(default=5, gt=0, lt=256)
-    num_background_points: int = Field(default=3, ge=0, lt=64)
+    num_foreground_points: int = Field(default=5, gt=0, lt=300)
+    num_background_points: int = Field(default=3, ge=0, lt=10)
     confidence_threshold: float = Field(default=0.38, gt=0.0, lt=1.0)
-    precision: str = Field(default="bf16", description="Model precision")
     use_mask_refinement: bool = Field(default=False)
-    compile_models: bool = Field(default=False)
-    use_nms: bool = Field(default=False)
 
     model_config = {
         "json_schema_extra": {
@@ -109,18 +106,14 @@ class MatcherConfig(BaseModelConfig):
 
 class SoftMatcherConfig(BaseModelConfig):
     model_type: Literal[ModelType.SOFT_MATCHER] = ModelType.SOFT_MATCHER
-    num_foreground_points: int = Field(default=40, gt=0, lt=512)
-    num_background_points: int = Field(default=2, ge=0, lt=64)
+    num_foreground_points: int = Field(default=40, gt=0, lt=300)
+    num_background_points: int = Field(default=2, ge=0, lt=10)
     confidence_threshold: float = Field(default=0.42, gt=0.0, lt=1.0)
     use_sampling: bool = Field(default=False)
     use_spatial_sampling: bool = Field(default=False)
     approximate_matching: bool = Field(default=False)
     softmatching_score_threshold: float = Field(default=0.4, gt=0.0, lt=1.0)
     softmatching_bidirectional: bool = Field(default=False)
-    precision: str = Field(default="bf16", description="Model precision")
-    use_nms: bool = Field(default=True)
-    compile_models: bool = Field(default=False)
-
 
     model_config = {
         "json_schema_extra": {
