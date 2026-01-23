@@ -6,6 +6,7 @@
 import torch
 
 from getiprompt.data.base.batch import Batch
+from getiprompt.data.base.sample import Sample
 from getiprompt.models.base import Model
 from getiprompt.models.foundation.dinotxt import IMAGENET_TEMPLATES, DinoTextEncoder
 from getiprompt.utils import precision_to_torch_dtype
@@ -82,13 +83,16 @@ class DinoTxtZeroShotClassification(Model):
         )
         self.prompt_templates = prompt_templates
 
-    def fit(self, reference_batch: Batch) -> None:
+    def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """Perform learning step on the reference batch.
 
         DINOTxt extracts categories from the reference batch to create text priors.
 
         Args:
-            reference_batch: The reference batch containing samples with categories.
+            reference: Reference data to learn from. Accepts:
+                - Sample: A single reference sample
+                - list[Sample]: A list of reference samples
+                - Batch: A batch of reference samples
 
         Raises:
             ValueError: If no reference samples with categories are provided.
@@ -105,9 +109,9 @@ class DinoTxtZeroShotClassification(Model):
             ...     category_ids=np.array([0, 1]),
             ...     is_reference=[True, True],
             ... )
-            >>> ref_batch = Batch.collate([ref_sample])
-            >>> dinotxt.fit(ref_batch)
+            >>> dinotxt.fit(ref_sample)  # Can pass Sample directly
         """
+        reference_batch = Batch.collate(reference)
         if not reference_batch.samples:
             msg = "reference_batch must contain at least one sample"
             raise ValueError(msg)
@@ -132,18 +136,20 @@ class DinoTxtZeroShotClassification(Model):
         self.reference_features = self.dino_encoder.encode_text(category_mapping, self.prompt_templates)
 
     @torch.no_grad()
-    def predict(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Sample | list[Sample] | Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference on the target batch.
 
         Args:
-            target_batch: The target batch containing images to classify.
+            target: Target data to infer. Accepts:
+                - Sample: A single target sample
+                - list[Sample]: A list of target samples
+                - Batch: A batch of target samples
 
         Returns:
-            Results object containing the masks with predicted class IDs.
+            A list of predictions, one per sample.
 
         Examples:
             >>> from getiprompt.models import DinoTxtZeroShotClassification
-            >>> from getiprompt.data.base import Batch
             >>> from getiprompt.data.base.sample import Sample
             >>> import torch
             >>> import numpy as np
@@ -154,20 +160,15 @@ class DinoTxtZeroShotClassification(Model):
             ...     category_ids=np.array([0, 1]),
             ...     is_reference=[True, True],
             ... )
-            >>> ref_batch = Batch.collate([ref_sample])
-            >>> dinotxt.fit(ref_batch)
+            >>> dinotxt.fit(ref_sample)  # Can pass Sample directly
             >>> target_sample = Sample(
             ...     image=torch.zeros((3, 512, 512)),
             ...     is_reference=[False],
             ...     categories=["object"],
             ... )
-            >>> target_batch = Batch.collate([target_sample])
-            >>> result = dinotxt.predict(target_batch)
-            >>> isinstance(result, Results)
-            True
-            >>> result.masks is not None
-            True
+            >>> result = dinotxt.predict(target_sample)  # Can pass Sample directly
         """
+        target_batch = Batch.collate(target)
         target_images = target_batch.images
         target_features = self.dino_encoder.encode_image(target_images)
         target_features /= target_features.norm(dim=-1, keepdim=True)

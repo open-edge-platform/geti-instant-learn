@@ -10,6 +10,7 @@ import torch
 from torch import nn
 
 from getiprompt.data.base.batch import Batch
+from getiprompt.data.base.sample import Sample
 from getiprompt.utils.constants import Backend
 
 
@@ -17,27 +18,32 @@ class Model(nn.Module):
     """This class is the base class for all models."""
 
     @abstractmethod
-    def fit(self, reference_batch: Batch) -> None:
-        """This method learns the context.
+    def fit(self, reference: Sample | list[Sample] | Batch) -> None:
+        """Learn the context from reference samples.
 
         Args:
-            reference_batch(Batch): A batch of reference samples to learn from.
+            reference: Reference data to learn from. Accepts:
+                - Sample: A single reference sample
+                - list[Sample]: A list of reference samples
+                - Batch: A batch of reference samples
         """
 
     @abstractmethod
-    def predict(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
-        """This method uses the learned context to infer object locations.
+    def predict(self, target: Sample | list[Sample] | Batch) -> list[dict[str, torch.Tensor]]:
+        """Use the learned context to infer object locations.
 
         Args:
-            target_batch(Batch): A batch of target samples to infer.
+            target: Target data to infer. Accepts:
+                - Sample: A single target sample
+                - list[Sample]: A list of target samples
+                - Batch: A batch of target samples
 
         Returns:
-            predictions(list[dict[str, torch.Tensor]]): A list of predictions.
-            Each prediction contains:
-                "pred_masks": torch.Tensor of shape [num_masks, H, W]
-                "pred_points": torch.Tensor of shape [num_points, 4] with last dimension [x, y, score, fg_label]
-                "pred_boxes": torch.Tensor of shape [num_boxes, 5] with last dimension [x1, y1, x2, y2, score]
-                "pred_labels": torch.Tensor of shape [num_masks]
+            A list of predictions, one per sample. Each prediction contains:
+                - "pred_masks": torch.Tensor of shape [num_masks, H, W]
+                - "pred_points": torch.Tensor of shape [num_points, 4] with [x, y, score, fg_label]
+                - "pred_boxes": torch.Tensor of shape [num_boxes, 5] with [x1, y1, x2, y2, score]
+                - "pred_labels": torch.Tensor of shape [num_masks]
         """
 
     @abstractmethod

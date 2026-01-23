@@ -10,6 +10,7 @@ from getiprompt.components.filters import BoxPromptFilter
 from getiprompt.components.prompt_generators import GroundingModel, TextToBoxPromptGenerator
 from getiprompt.components.sam import load_sam_model
 from getiprompt.data.base.batch import Batch
+from getiprompt.data.base.sample import Sample
 from getiprompt.models.base import Model
 from getiprompt.utils.constants import SAMModelName
 
@@ -59,32 +60,39 @@ class GroundedSAM(Model):
         self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor, use_nms=use_nms)
         self.prompt_filter: BoxPromptFilter = BoxPromptFilter()
 
-    def fit(self, reference_batch: Batch) -> None:
+    def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """Perform learning step on the reference images and priors.
 
         Args:
-            reference_batch(Batch): The reference batch.
+            reference: Reference data to learn from. Accepts:
+                - Sample: A single reference sample
+                - list[Sample]: A list of reference samples
+                - Batch: A batch of reference samples
         """
+        reference_batch = Batch.collate(reference)
         self.category_mapping = {}
         for sample in reference_batch.samples:
             for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
                 if category not in self.category_mapping:
                     self.category_mapping[category] = int(category_id)
 
-    def predict(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Sample | list[Sample] | Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
 
         Args:
-            target_batch(Batch): The target batch.
+            target: Target data to infer. Accepts:
+                - Sample: A single target sample
+                - list[Sample]: A list of target samples
+                - Batch: A batch of target samples
 
         Returns:
-            predictions(list[dict[str, torch.Tensor]]): A list of predictions.
-            Each prediction contains:
+            A list of predictions, one per sample. Each prediction contains:
                 "pred_masks": torch.Tensor of shape [num_masks, H, W]
                 "pred_scores": torch.Tensor of shape [num_masks]
                 "pred_labels": torch.Tensor of shape [num_masks]
                 "pred_boxes": torch.Tensor of shape [num_boxes, 5] with [x1, y1, x2, y2, score]
         """
+        target_batch = Batch.collate(target)
         # Generate box prompts (tensor format)
         box_prompts, category_ids = self.prompt_generator(
             target_batch.images,

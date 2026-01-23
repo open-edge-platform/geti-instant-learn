@@ -92,16 +92,16 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         help="If passed, will save all",
     )
     parser.add_argument(
-        "--similarity_threshold",
+        "--point_selection_threshold",
         type=float,
         default=0.65,
-        help="Threshold for segmenting the image",
+        help="Minimum feature similarity for selecting foreground point prompts",
     )
     parser.add_argument(
-        "--mask_similarity_threshold",
+        "--confidence_threshold",
         type=float,
         default=0.42,
-        help="Threshold for filtering masks based on mask similarity score",
+        help="Minimum confidence score for keeping predicted masks in output",
     )
     parser.add_argument(
         "--num_foreground_points",

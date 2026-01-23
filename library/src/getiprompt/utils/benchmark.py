@@ -183,8 +183,8 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
                 num_grid_cells=args.num_grid_cells,
-                similarity_threshold=args.similarity_threshold,
-                mask_similarity_threshold=args.mask_similarity_threshold,
+                point_selection_threshold=args.point_selection_threshold,
+                confidence_threshold=args.confidence_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
                 device=args.device,
@@ -195,7 +195,7 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 encoder_model=args.encoder_model,
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
-                mask_similarity_threshold=args.mask_similarity_threshold,
+                confidence_threshold=args.confidence_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
                 device=args.device,
@@ -206,7 +206,7 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 encoder_model=args.encoder_model,
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
-                mask_similarity_threshold=args.mask_similarity_threshold,
+                confidence_threshold=args.confidence_threshold,
                 use_sampling=args.use_sampling,
                 use_spatial_sampling=args.use_spatial_sampling,
                 approximate_matching=args.approximate_matching,
@@ -228,7 +228,7 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
             )
         case ModelName.SAM3:
             return SAM3(
-                confidence_threshold=args.mask_similarity_threshold,
+                confidence_threshold=args.confidence_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
                 device=args.device,

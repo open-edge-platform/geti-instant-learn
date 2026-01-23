@@ -9,6 +9,7 @@ import torch
 from torchvision.ops import box_convert
 
 from getiprompt.data.base.batch import Batch
+from getiprompt.data.base.sample import Sample
 from getiprompt.models.foundation import Sam3Processor, build_sam3_image_model
 from getiprompt.utils.utils import setup_autocast
 
@@ -136,15 +137,19 @@ class SAM3(Model):
         # Category mapping from fit() - optional for consistency with GroundedSAM
         self.category_mapping: dict[str, int] | None = None
 
-    def fit(self, reference_batch: Batch) -> None:
+    def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """Store category mapping from reference batch for consistent API with GroundedSAM.
 
         This method is optional. If called, the stored categories will be used for all
         predictions. If not called, categories are taken from each target sample.
 
         Args:
-            reference_batch: The reference batch containing category information.
+            reference: Reference data to learn from. Accepts:
+                - Sample: A single reference sample
+                - list[Sample]: A list of reference samples
+                - Batch: A batch of reference samples
         """
+        reference_batch = Batch.collate(reference)
         self.category_mapping = {}
         for sample in reference_batch.samples:
             for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
@@ -229,14 +234,21 @@ class SAM3(Model):
         boxes[:, [1, 3]] /= img_h  # y1, y2
         return box_convert(boxes, "xyxy", "cxcywh")
 
-    def predict(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Sample | list[Sample] | Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
 
         Uses batch image encoding for efficiency when processing multiple images.
 
         If `fit()` was called, uses the stored category mapping for text prompts.
         Otherwise, uses per-sample categories from target_batch.
+
+        Args:
+            target: Target data to infer. Accepts:
+                - Sample: A single target sample
+                - list[Sample]: A list of target samples
+                - Batch: A batch of target samples
         """
+        target_batch = Batch.collate(target)
         results = []
         samples = target_batch.samples
 

@@ -22,13 +22,13 @@ on:
   push:
     branches:
       - main
-      - releases/**
+      - release/**
     tags:
       - v[0-9]+\.[0-9]+\.[0-9]+-RC[0-9]+
   pull_request:
     branches:
       - main
-      - releases/**
+      - release/**
 
 permissions: {} # No permissions by default
 

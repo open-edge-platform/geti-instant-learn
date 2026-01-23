@@ -236,10 +236,10 @@ class Sam3Processor:
         if "geometric_prompt" not in state:
             state["geometric_prompt"] = self.model._get_dummy_prompt()
 
-        if box is not None and label is not None:
+        if box is not None:
             # adding a batch and sequence dimension
             boxes = torch.tensor(box, device=self.device, dtype=torch.float32).view(1, 1, 4)
-            labels = torch.tensor([label], device=self.device, dtype=torch.bool).view(1, 1)
+            labels = torch.tensor([1] * len(boxes), device=self.device, dtype=torch.bool).view(1, 1)
             state["geometric_prompt"].append_boxes(boxes, labels)
 
         return self._forward_grounding(state)

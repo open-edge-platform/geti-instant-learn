@@ -8,6 +8,8 @@ The batch is a thin wrapper around list[Sample] with convenient
 properties for batch-level access to tensors.
 """
 
+from __future__ import annotations
+
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 
@@ -248,15 +250,17 @@ class Batch:
         return [s.mask_paths for s in self.samples]
 
     @classmethod
-    def collate(cls, samples: Sample | list[Sample]) -> "Batch":
+    def collate(cls, samples: Sample | list[Sample] | Batch) -> Batch:
         """Collate sample(s) into a batch.
 
         Simply wraps the sample(s) in a Batch.
         No data transformation is performed - tensor conversion happens
         lazily when properties are accessed.
 
+        This method is idempotent - passing a Batch returns it unchanged.
+
         Args:
-            samples: Single sample or list of samples to batch.
+            samples: Single sample, Batch, or list of samples to batch.
 
         Returns:
             Batch: The batched samples.
@@ -276,7 +280,17 @@ class Batch:
             >>> len(batch)
             1
             >>> images = batch.images  # Lazy conversion to tensors
+
+            Idempotent behavior (returns Batch unchanged):
+            >>> batch = Batch.collate(samples)
+            >>> same_batch = Batch.collate(batch)
+            >>> batch is same_batch
+            True
         """
+        # Return Batch unchanged (idempotent)
+        if isinstance(samples, Batch):
+            return samples
+
         # Convert single sample to list
         if isinstance(samples, Sample):
             samples = [samples]

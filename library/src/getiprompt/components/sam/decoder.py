@@ -60,7 +60,8 @@ class SamDecoder(nn.Module):
     Args:
         sam_predictor: PyTorch SAM predictor instance.
         target_length: Target length for image preprocessing. Default: 1024.
-        mask_similarity_threshold: Threshold for similarity-based mask filtering. Default: 0.38.
+        confidence_threshold: Minimum confidence score for keeping predicted masks
+        in the final output. Higher values = stricter filtering. Default: 0.38.
         nms_iou_threshold: IoU threshold for NMS. Default: 0.1.
         max_masks_per_category: Maximum masks to return per category (for padding). Default: 10.
         use_mask_refinement: Whether to use 2-stage mask refinement with box prompts. Default: False.
@@ -71,7 +72,7 @@ class SamDecoder(nn.Module):
     def __init__(
         self,
         sam_predictor: SAMPredictor,
-        mask_similarity_threshold: float = 0.38,
+        confidence_threshold: float = 0.38,
         nms_iou_threshold: float = 0.1,
         max_masks_per_category: int = 40,
         use_mask_refinement: bool = False,
@@ -81,7 +82,7 @@ class SamDecoder(nn.Module):
         """Initialize the traceable SAM decoder."""
         super().__init__()
         self.predictor = sam_predictor
-        self.mask_similarity_threshold = mask_similarity_threshold
+        self.confidence_threshold = confidence_threshold
         self.nms_iou_threshold = nms_iou_threshold
         self.max_masks_per_category = max_masks_per_category
         self.use_mask_refinement = use_mask_refinement
@@ -270,7 +271,7 @@ class SamDecoder(nn.Module):
         weighted_scores = (mask_scores * mask_weights.T)[0, :]
 
         # Apply threshold via masking, NOT early return
-        keep = weighted_scores > self.mask_similarity_threshold
+        keep = weighted_scores > self.confidence_threshold
 
         # Zero out scores for filtered masks instead of removing them
         weighted_scores = torch.where(keep, weighted_scores, torch.zeros_like(weighted_scores))
