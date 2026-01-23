@@ -61,7 +61,7 @@ class SamDecoder(nn.Module):
         sam_predictor: PyTorch SAM predictor instance.
         target_length: Target length for image preprocessing. Default: 1024.
         confidence_threshold: Minimum confidence score for keeping predicted masks
-            in the final output. Higher values = stricter filtering. Default: 0.38.
+        in the final output. Higher values = stricter filtering. Default: 0.38.
         nms_iou_threshold: IoU threshold for NMS. Default: 0.1.
         max_masks_per_category: Maximum masks to return per category (for padding). Default: 10.
         use_mask_refinement: Whether to use 2-stage mask refinement with box prompts. Default: False.
