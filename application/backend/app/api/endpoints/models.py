@@ -70,7 +70,7 @@ logger = logging.getLogger(__name__)
                                 "name": "SoftMatcher Model",
                                 "active": False,
                                 "config": {
-                                    "model_type": "softmatcher",
+                                    "model_type": "soft_matcher",
                                     "sam_model": "SAM-HQ-tiny",
                                     "encoder_model": "dinov3_large",
                                     "num_foreground_points": 40,
