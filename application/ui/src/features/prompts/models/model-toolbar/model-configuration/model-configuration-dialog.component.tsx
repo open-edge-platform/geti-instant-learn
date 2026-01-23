@@ -223,7 +223,9 @@ const PerDINOConfiguration = ({ model, onClose }: PerDINOConfigurationProps) => 
     const [precision, setPrecision] = useState<Precision>(model.config.precision as Precision);
     const [compileModels, setCompileModels] = useState<boolean>(model.config.compile_models);
     const [useNMS, setUseNMS] = useState<boolean>(model.config.use_nms);
-    const [similarityThreshold, setSimilarityThreshold] = useState<number>(model.config.similarity_threshold);
+    const [pointSelectionThreshold, setPointSelectionThreshold] = useState<number>(
+        model.config.point_selection_threshold
+    );
 
     const updateModelMutation = useUpdateModel();
 
@@ -232,7 +234,7 @@ const PerDINOConfiguration = ({ model, onClose }: PerDINOConfigurationProps) => 
         numberOfBackgroundPoints === model.config.num_background_points &&
         numberOfGridCells === model.config.num_grid_cells &&
         confidenceThreshold === model.config.confidence_threshold &&
-        similarityThreshold === model.config.similarity_threshold &&
+        pointSelectionThreshold === model.config.point_selection_threshold &&
         encoderModel === model.config.encoder_model &&
         decoderModel === model.config.sam_model &&
         precision === model.config.precision &&
@@ -253,7 +255,7 @@ const PerDINOConfiguration = ({ model, onClose }: PerDINOConfigurationProps) => 
                     num_background_points: numberOfBackgroundPoints,
                     num_grid_cells: numberOfGridCells,
                     confidence_threshold: confidenceThreshold,
-                    similarity_threshold: similarityThreshold,
+                    point_selection_threshold: pointSelectionThreshold,
                     encoder_model: encoderModel,
                     sam_model: decoderModel,
                     compile_models: compileModels,
@@ -315,12 +317,12 @@ const PerDINOConfiguration = ({ model, onClose }: PerDINOConfigurationProps) => 
                     value={confidenceThreshold}
                 />
                 <NumberField
-                    label={'Similarity threshold'}
+                    label={'Point selection threshold'}
                     minValue={0}
                     maxValue={1}
                     step={0.01}
-                    onChange={setSimilarityThreshold}
-                    value={similarityThreshold}
+                    onChange={setPointSelectionThreshold}
+                    value={pointSelectionThreshold}
                 />
                 <Selection label={'Precision'} value={precision} onChange={setPrecision} items={PRECISIONS} />
                 <Flex alignItems={'center'} width={'100%'} wrap={'wrap'}>
