@@ -45,82 +45,50 @@ Geti Prompt consists of two core components:
 
 ### Geti Prompt Library
 
-Install the library with `uv`:
+Install the library:
 
 ```bash
 cd library
+uv sync --extra xpu    # Intel XPU (recommended)
+uv sync --extra cpu    # CPU only
+uv sync --extra gpu    # CUDA support
+```
 
-# Intel XPU
-uv sync --extra xpu
+Or with pip:
 
-# CPU only
-uv sync --extra cpu
-
-# With CUDA support
-uv sync --extra gpu
+```bash
+pip install ./library[xpu]  # or [cpu], [gpu]
 ```
 
 <p align="center">
-  <img src="library/tests/assets/fss-1000/images/apple/1.jpg" width="250" alt="Reference Image">
-  <img src="library/tests/assets/fss-1000/masks/apple/1.png" width="250" alt="Reference Mask">
-  <img src="library/tests/assets/fss-1000/images/apple/2.jpg" width="250" alt="Target Image">
+  <img src="assets/readme-matcher-example.png" alt="Matcher Example: Reference Image → Reference Mask → Target Image → Prediction">
 </p>
-<p align="center"><i>Reference image → Reference mask → Target image</i></p>
-
-#### Step 1: Generate a reference mask using SAM
-
-```python
-import torch
-from getiprompt.components.sam import PyTorchSAMPredictor
-from getiprompt.utils.constants import SAMModelName
-from getiprompt.data.utils import read_image
-
-# Load reference image
-ref_image = read_image("library/tests/assets/fss-1000/images/apple/1.jpg")
-
-# Initialize SAM predictor (auto-downloads weights)
-predictor = PyTorchSAMPredictor(SAMModelName.SAM_HQ_TINY, device="xpu")
-
-# Set image and generate mask from a point click
-predictor.set_image(ref_image)
-ref_mask, _, _ = predictor.predict(
-    point_coords=torch.tensor([[[51, 150]]], device="xpu"),  # Click on apple
-    point_labels=torch.tensor([[1]], device="xpu"),          # 1 = foreground
-    multimask_output=False,
-)
-```
-
-#### Step 2: Fit and predict with Matcher
 
 ```python
 from getiprompt.models import Matcher
-from getiprompt.data import Batch, Sample
-from getiprompt.data.utils import read_image
+from getiprompt.data import Sample
 
-# Initialize Matcher
+# Initialize Matcher (device: "xpu", "cuda", or "cpu")
 model = Matcher(device="xpu")
 
-# Create reference sample with the generated mask
+# Create reference sample (auto-loads image and mask from paths)
 ref_sample = Sample(
-    image=ref_image,
-    masks=ref_mask[0],
-    categories=["apple"],
-    category_ids=[0],
+    image_path="library/examples/assets/coco/000000286874.jpg",
+    mask_paths="library/examples/assets/coco/000000286874_mask.png",
 )
 
 # Fit on reference
-model.fit(Batch.collate([ref_sample]))
+model.fit(ref_sample)
 
 # Predict on target image
-target_image = read_image("library/tests/assets/fss-1000/images/apple/2.jpg")
-target_sample = Sample(image=target_image)
-predictions = model.predict(Batch.collate([target_sample]))
+target_sample = Sample(image_path="library/examples/assets/coco/000000390341.jpg")
+predictions = model.predict(target_sample)
 
 # Access results
-masks = predictions[0]["pred_masks"]   # Predicted segmentation masks
+masks = predictions[0]["pred_masks"]  # Predicted segmentation masks
 ```
 
-> For detailed documentation, CLI usage, and benchmarking, see the [Library README](library/README.md).
+> For interactive mask generation with SAM, CLI usage, and benchmarking, see the [Library README](library/README.md).
 
 ### Geti Prompt Application
 

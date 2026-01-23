@@ -5,12 +5,10 @@ import logging
 from abc import ABC, abstractmethod
 from uuid import UUID
 
+from getiprompt.data.base.batch import Batch
 from sqlalchemy.orm import Session, sessionmaker
 
-from domain.db.models import PromptType
-from domain.services.label import LabelService
 from domain.services.project import ProjectService
-from domain.services.prompt import PromptService
 from runtime.core.components.factories.model import ModelFactory
 from runtime.core.components.factories.reader import StreamReaderFactory
 from runtime.core.components.factories.writer import StreamWriterFactory
@@ -27,7 +25,9 @@ class ComponentFactory(ABC):
     def create_source(self, project_id: UUID) -> Source: ...
 
     @abstractmethod
-    def create_processor(self, project_id: UUID) -> Processor: ...
+    def create_processor(
+        self, project_id: UUID, reference_batch: Batch, category_id_to_label_id: dict[int, str]
+    ) -> Processor: ...
 
     @abstractmethod
     def create_sink(self, project_id: UUID) -> Sink: ...
@@ -46,18 +46,18 @@ class DefaultComponentFactory(ComponentFactory):
             cfg = svc.get_pipeline_config(project_id)
         return Source(StreamReaderFactory.create(cfg.reader))
 
-    def create_processor(self, project_id: UUID) -> Processor:
+    def create_processor(
+        self, project_id: UUID, reference_batch: Batch, category_id_to_label_id: dict[int, str]
+    ) -> Processor:
         with self._session_factory() as session:
-            prompt_svc = PromptService(session)
             project_svc = ProjectService(session)
             cfg = project_svc.get_pipeline_config(project_id)
-            reference_batch = prompt_svc.get_reference_batch(project_id, PromptType.VISUAL)
-            logger.info("creating processor with model config: %s", cfg.processor)
+            logger.info("Creating processor with model config: %s", cfg.processor)
+
         return Processor(
-            ModelFactory.create(reference_batch, cfg.processor),
-            LabelService(session),
-            project_id,
-            get_settings().processor_batch_size,
+            model_handler=ModelFactory.create(reference_batch, cfg.processor),
+            batch_size=get_settings().processor_batch_size,
+            category_id_to_label_id=category_id_to_label_id,
         )
 
     def create_sink(self, project_id: UUID) -> Sink:

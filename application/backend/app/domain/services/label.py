@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+from collections.abc import Iterable
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -21,12 +22,19 @@ from domain.repositories.label import LabelRepository
 from domain.repositories.project import ProjectRepository
 from domain.services.base import BaseService
 from domain.services.schemas.label import (
+    CategoryMappings,
     LabelCreateSchema,
     LabelSchema,
     LabelsListSchema,
     LabelUpdateSchema,
+    VisualizationLabel,
 )
-from domain.services.schemas.mappers.label import label_db_to_schema, label_schema_to_db, labels_db_to_list_items
+from domain.services.schemas.mappers.label import (
+    label_db_to_schema,
+    label_db_to_visualization_label,
+    label_schema_to_db,
+    labels_db_to_list_items,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -203,6 +211,31 @@ class LabelService(BaseService):
 
         logger.info("Label updated in project=%s label_id=%s name=%s", project_id, label.id, label.name)
         return label_db_to_schema(label=label)
+
+    def get_visualization_labels(self, project_id: UUID) -> list[VisualizationLabel]:
+        """
+        Get all project labels formatted for inference visualization.
+        Converts hex color strings to RGB tuples.
+        """
+        labels = self.label_repository.list_all_by_project(project_id)
+        return [label_db_to_visualization_label(label) for label in labels]
+
+    def build_category_mappings(self, label_ids: Iterable[UUID]) -> CategoryMappings:
+        """
+        Build deterministic bidirectional category ID mappings.
+
+        Category IDs are assigned in sorted order of label UUIDs (by string representation)
+        to ensure deterministic mapping across invocations.
+
+        """
+        sorted_label_ids = sorted(set(label_ids), key=str)
+        label_to_category_id = {label_id: idx for idx, label_id in enumerate(sorted_label_ids)}
+        category_id_to_label_id = {idx: str(label_id) for label_id, idx in label_to_category_id.items()}
+
+        return CategoryMappings(
+            label_to_category_id=label_to_category_id,
+            category_id_to_label_id=category_id_to_label_id,
+        )
 
     def _handle_label_integrity_error(
         self,

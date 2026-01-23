@@ -11,6 +11,7 @@ from getiprompt.components.feature_extractors import MaskedFeatureExtractor, Ref
 from getiprompt.components.prompt_generators import GridPromptGenerator
 from getiprompt.components.sam import load_sam_model
 from getiprompt.data.base.batch import Batch
+from getiprompt.data.base.sample import Sample
 from getiprompt.models.base import Model
 from getiprompt.utils.constants import Backend, SAMModelName
 
@@ -65,6 +66,7 @@ class PerDino(Model):
         num_grid_cells: int = 16,
         similarity_threshold: float = 0.65,
         mask_similarity_threshold: float | None = 0.42,
+        use_nms: bool = True,
         precision: str = "bf16",
         compile_models: bool = False,
         device: str = "cuda",
@@ -85,6 +87,7 @@ class PerDino(Model):
             num_grid_cells: Number of grid cells for prompt generation.
             similarity_threshold: Threshold for foreground point selection.
             mask_similarity_threshold: Threshold for similarity-based mask filtering.
+            use_nms: Whether to use NMS in SamDecoder.
             precision: Model precision ("bf16", "fp32").
             compile_models: Whether to compile models with torch.compile.
             device: Device for inference.
@@ -124,17 +127,22 @@ class PerDino(Model):
 
         self.segmenter = SamDecoder(
             sam_predictor=self.sam_predictor,
-            confidence_threshold=confidence_threshold,
+            mask_similarity_threshold=mask_similarity_threshold,
+            use_nms=use_nms,
         )
 
         self.ref_features: ReferenceFeatures | None = None
 
-    def fit(self, reference_batch: Batch) -> None:
+    def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """Learn from reference images.
 
         Args:
-            reference_batch: Batch containing reference images, masks, and category IDs.
+            reference: Reference data to learn from. Accepts:
+                - Sample: A single reference sample
+                - list[Sample]: A list of reference samples
+                - Batch: A batch of reference samples
         """
+        reference_batch = Batch.collate(reference)
         reference_embeddings = self.encoder(reference_batch.images)
         self.ref_features = self.masked_feature_extractor(
             reference_embeddings,
@@ -142,11 +150,14 @@ class PerDino(Model):
             reference_batch.category_ids,
         )
 
-    def predict(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Sample | list[Sample] | Batch) -> list[dict[str, torch.Tensor]]:
         """Predict masks for target images.
 
         Args:
-            target_batch: Batch containing target images.
+            target: Target data to infer. Accepts:
+                - Sample: A single target sample
+                - list[Sample]: A list of target samples
+                - Batch: A batch of target samples
 
         Returns:
             List of predictions per image, each containing:
@@ -157,6 +168,7 @@ class PerDino(Model):
         Raises:
             RuntimeError: If reference features are not available.
         """
+        target_batch = Batch.collate(target)
         if self.ref_features is None:
             msg = "No reference features. Call fit() first."
             raise RuntimeError(msg)

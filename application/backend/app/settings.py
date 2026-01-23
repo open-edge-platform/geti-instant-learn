@@ -31,7 +31,6 @@ class Settings(BaseSettings):
         "and project components for finding and segmenting objects from just a few examples."
     )
     openapi_url: str = "/api/openapi.json"
-    debug: bool = Field(default=False, alias="DEBUG")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     log_format: str = "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s"
     environment: Literal["dev", "prod"] = "dev"
@@ -112,6 +111,10 @@ class Settings(BaseSettings):
     coturn_username: str = Field(default="user", alias="COTURN_USERNAME")
     coturn_password: str = Field(default="password", alias="COTURN_PASSWORD")
     stun_server: str | None = Field(default=None, alias="STUN_SERVER")
+
+    # Inference visualization settings
+    mask_alpha: float = Field(default=0.5, alias="MASK_ALPHA")
+    mask_outline_thickness: int = Field(default=3, alias="MASK_OUTLINE_THICKNESS")
 
     @property
     def ice_servers(self) -> list[dict]:

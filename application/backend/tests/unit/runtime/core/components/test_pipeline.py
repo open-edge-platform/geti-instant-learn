@@ -48,6 +48,7 @@ def mock_inbound_broadcaster():
     mock_broadcaster = Mock(spec=FrameBroadcaster)
     mock_broadcaster.register = Mock(return_value=Queue())
     mock_broadcaster.unregister = Mock()
+    mock_broadcaster.clear = Mock()
     return mock_broadcaster
 
 
@@ -56,6 +57,7 @@ def mock_outbound_broadcaster():
     mock_broadcaster = Mock(spec=FrameBroadcaster)
     mock_broadcaster.register = Mock(return_value=Queue())
     mock_broadcaster.unregister = Mock()
+    mock_broadcaster.clear = Mock()
     return mock_broadcaster
 
 
@@ -410,3 +412,66 @@ class TestPipeline:
 
         with pytest.raises(RuntimeError, match="No frame available from source"):
             pipeline.capture_frame()
+
+    def test_set_source_clears_inbound_and_outbound_broadcasters(
+        self,
+        project_id,
+        mock_source,
+        mock_inbound_broadcaster,
+        mock_outbound_broadcaster,
+        mock_frame_repository,
+    ):
+        pipeline = Pipeline(
+            project_id=project_id,
+            frame_repository=mock_frame_repository,
+            inbound_broadcaster=mock_inbound_broadcaster,
+            outbound_broadcaster=mock_outbound_broadcaster,
+        )
+
+        pipeline.set_source(mock_source)
+
+        mock_inbound_broadcaster.clear.assert_called_once()
+        mock_outbound_broadcaster.clear.assert_called_once()
+        pipeline.stop()
+
+    def test_set_processor_clears_inbound_and_outbound_broadcasters(
+        self,
+        project_id,
+        mock_processor,
+        mock_inbound_broadcaster,
+        mock_outbound_broadcaster,
+        mock_frame_repository,
+    ):
+        pipeline = Pipeline(
+            project_id=project_id,
+            frame_repository=mock_frame_repository,
+            inbound_broadcaster=mock_inbound_broadcaster,
+            outbound_broadcaster=mock_outbound_broadcaster,
+        )
+
+        pipeline.set_processor(mock_processor)
+
+        mock_inbound_broadcaster.clear.assert_called_once()
+        mock_outbound_broadcaster.clear.assert_called_once()
+        pipeline.stop()
+
+    def test_set_sink_clears_inbound_and_outbound_broadcasters(
+        self,
+        project_id,
+        mock_sink,
+        mock_inbound_broadcaster,
+        mock_outbound_broadcaster,
+        mock_frame_repository,
+    ):
+        pipeline = Pipeline(
+            project_id=project_id,
+            frame_repository=mock_frame_repository,
+            inbound_broadcaster=mock_inbound_broadcaster,
+            outbound_broadcaster=mock_outbound_broadcaster,
+        )
+
+        pipeline.set_sink(mock_sink)
+
+        mock_inbound_broadcaster.clear.assert_called_once()
+        mock_outbound_broadcaster.clear.assert_called_once()
+        pipeline.stop()

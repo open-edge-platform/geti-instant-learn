@@ -607,7 +607,7 @@ dev = [
 requires-dist = [
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.2.2.post1" },
     { name = "ftfy" },
-    { name = "getiprompt", extras = ["dev", "extras", "notebook"], marker = "extra == 'full'" },
+    { name = "getiprompt", extras = ["dev", "notebook"], marker = "extra == 'full'" },
     { name = "ipykernel", marker = "extra == 'notebook'", specifier = "==6.30.1" },
     { name = "jsonargparse" },
     { name = "jupyter", marker = "extra == 'notebook'", specifier = "==1.1.1" },

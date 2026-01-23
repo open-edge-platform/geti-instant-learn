@@ -65,6 +65,7 @@ class SamDecoder(nn.Module):
         max_masks_per_category: Maximum masks to return per category (for padding). Default: 10.
         use_mask_refinement: Whether to use 2-stage mask refinement with box prompts. Default: False.
         merge_masks_per_class: Whether to merge all masks into single mask per class. Default: True.
+        use_nms: Whether to use NMS when predicting masks. Default: True.
     """
 
     def __init__(
@@ -75,6 +76,7 @@ class SamDecoder(nn.Module):
         max_masks_per_category: int = 40,
         use_mask_refinement: bool = False,
         merge_masks_per_class: bool = True,
+        use_nms: bool = True,
     ) -> None:
         """Initialize the traceable SAM decoder."""
         super().__init__()
@@ -84,6 +86,7 @@ class SamDecoder(nn.Module):
         self.max_masks_per_category = max_masks_per_category
         self.use_mask_refinement = use_mask_refinement
         self.merge_masks_per_class = merge_masks_per_class
+        self.use_nms = use_nms
         self.device = sam_predictor.device
 
     def _preprocess_points(self, points: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -250,13 +253,14 @@ class SamDecoder(nn.Module):
             mask_weights = iou_preds[keep]
 
         # NMS - NOTE: torchvision NMS requires float32 inputs
-        nms_indices = nms(
-            boxes[:, 0, :].to(torch.float32),
-            mask_weights[:, 0].to(torch.float32),
-            iou_threshold=self.nms_iou_threshold,
-        )
-        masks = masks[nms_indices]
-        mask_weights = mask_weights[nms_indices]
+        if self.use_nms:
+            nms_indices = nms(
+                boxes[:, 0, :].to(torch.float32),
+                mask_weights[:, 0].to(torch.float32),
+                iou_threshold=self.nms_iou_threshold,
+            )
+            masks = masks[nms_indices]
+            mask_weights = mask_weights[nms_indices]
 
         # Similarity-based scoring - always compute
         sim_resized = self._resize_similarity(similarity, original_size)

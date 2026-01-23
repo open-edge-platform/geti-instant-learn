@@ -68,7 +68,7 @@ class Source(PipelineComponent):
                 self._inbound_broadcaster.broadcast(data)
 
             except Exception as e:
-                logger.error(f"Error reading from stream: {e}.")
+                logger.exception(f"Error reading from stream: {e}.")
                 time.sleep(0.1)
         logger.debug(f"Stopping the source {self._reader.__class__.__name__} loop")
 
@@ -79,7 +79,7 @@ class Source(PipelineComponent):
         try:
             self._reader.close()
         except Exception as e:
-            logger.error(f"Error closing reader: {e}")
+            logger.exception(f"Error closing reader: {e}")
 
     def seek(self, index: int) -> None:
         """
