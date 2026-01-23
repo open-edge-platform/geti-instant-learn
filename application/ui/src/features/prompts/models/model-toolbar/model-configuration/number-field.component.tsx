@@ -16,7 +16,7 @@ interface NumberFieldProps {
 
 export const NumberField = ({ label, maxValue, value, minValue, onChange, step }: NumberFieldProps) => {
     return (
-        <Flex alignItems={'end'} gap={'size-100'}>
+        <Flex alignItems={'end'} gap={'size-100'} width={'100%'}>
             <RootNumberField
                 label={label}
                 value={value}
@@ -26,6 +26,7 @@ export const NumberField = ({ label, maxValue, value, minValue, onChange, step }
                 maxValue={maxValue}
             />
             <Slider
+                flex={1}
                 isFilled
                 aria-label={label}
                 value={value}

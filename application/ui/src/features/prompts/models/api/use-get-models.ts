@@ -24,7 +24,7 @@ const useGetModelsQuery = (): ModelListType => {
     return data;
 };
 
-const getDefaultModel = (id: string): ModelType => {
+const getDefaultMatcherModel = (id: string): ModelType => {
     return {
         id,
         config: {
@@ -36,9 +36,32 @@ const getDefaultModel = (id: string): ModelType => {
             sam_model: 'SAM-HQ-tiny',
             encoder_model: 'dinov3_small',
             use_mask_refinement: false,
+            compile_models: false,
+            use_nms: true,
+        },
+        active: false,
+        name: `Matcher`,
+    };
+};
+
+const getDefaultPerDINOModel = (id: string): ModelType => {
+    return {
+        id,
+        config: {
+            model_type: 'perdino',
+            encoder_model: 'dinov3_large',
+            sam_model: 'SAM-HQ-tiny',
+            num_foreground_points: 40,
+            num_background_points: 2,
+            num_grid_cells: 16,
+            similarity_threshold: 0.65,
+            confidence_threshold: 0.42,
+            precision: 'bf16',
+            use_nms: true,
+            compile_models: true,
         },
         active: true,
-        name: `Matcher`,
+        name: 'PerDINO',
     };
 };
 
@@ -52,7 +75,8 @@ export const useGetModels = () => {
     useEffect(() => {
         if (models.length === 0 && !hasCreatedModel.current) {
             hasCreatedModel.current = true;
-            createModel(getDefaultModel(uuid()));
+            createModel(getDefaultMatcherModel(uuid()));
+            createModel(getDefaultPerDINOModel(uuid()));
         }
     }, [models.length, createModel]);
 

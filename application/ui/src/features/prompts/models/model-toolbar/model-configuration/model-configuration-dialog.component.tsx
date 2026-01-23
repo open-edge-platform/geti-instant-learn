@@ -5,7 +5,7 @@
 
 import { FormEvent, useState } from 'react';
 
-import { ModelType } from '@geti-prompt/api';
+import { MatcherModel, ModelType, PerDINOModel } from '@geti-prompt/api';
 import { Button, ButtonGroup, Content, Dialog, Divider, Flex, Form, Heading, Item, Picker, Switch } from '@geti/ui';
 
 import { useUpdateModel } from '../../api/use-update-model';
@@ -74,12 +74,12 @@ const Selection = <T extends string>({ value, onChange, label, items }: Selectio
     );
 };
 
-interface ModelConfigurationDialogProps {
-    model: ModelType;
+interface MatcherConfigurationProps {
+    model: MatcherModel;
     onClose: () => void;
 }
 
-export const ModelConfigurationDialog = ({ model, onClose }: ModelConfigurationDialogProps) => {
+const MatcherConfiguration = ({ model, onClose }: MatcherConfigurationProps) => {
     const [numberOfForegroundPoints, setNumberOfForegroundPoints] = useState<number>(
         model.config.num_foreground_points
     );
@@ -91,6 +91,8 @@ export const ModelConfigurationDialog = ({ model, onClose }: ModelConfigurationD
     const [decoderModel, setDecoderModel] = useState<DecoderModel>(model.config.sam_model);
     const [precision, setPrecision] = useState<Precision>(model.config.precision as Precision);
     const [useMaskRefinement, setUseMaskRefinement] = useState<boolean>(model.config.use_mask_refinement);
+    const [compileModels, setCompileModels] = useState<boolean>(model.config.compile_models);
+    const [useNMS, setUseNMS] = useState<boolean>(model.config.use_nms);
 
     const updateModelMutation = useUpdateModel();
 
@@ -101,7 +103,9 @@ export const ModelConfigurationDialog = ({ model, onClose }: ModelConfigurationD
         encoderModel === model.config.encoder_model &&
         decoderModel === model.config.sam_model &&
         precision === model.config.precision &&
-        useMaskRefinement === model.config.use_mask_refinement;
+        useMaskRefinement === model.config.use_mask_refinement &&
+        compileModels === model.config.compile_models &&
+        useNMS === model.config.use_nms;
 
     const updateModel = (event: FormEvent) => {
         event.preventDefault();
@@ -112,7 +116,6 @@ export const ModelConfigurationDialog = ({ model, onClose }: ModelConfigurationD
                 name: model.name,
                 id: model.id,
                 config: {
-                    // We don't support changing model types yet
                     model_type: model.config.model_type,
                     num_foreground_points: numberOfForegroundPoints,
                     num_background_points: numberOfBackgroundPoints,
@@ -120,6 +123,8 @@ export const ModelConfigurationDialog = ({ model, onClose }: ModelConfigurationD
                     encoder_model: encoderModel,
                     sam_model: decoderModel,
                     use_mask_refinement: useMaskRefinement,
+                    compile_models: compileModels,
+                    use_nms: useNMS,
                     precision,
                 },
             },
@@ -128,69 +133,240 @@ export const ModelConfigurationDialog = ({ model, onClose }: ModelConfigurationD
     };
 
     return (
-        <Dialog>
+        <Form onSubmit={updateModel}>
+            <Flex direction={'column'} gap={'size-200'}>
+                <Flex alignItems={'center'} gap={'size-200'}>
+                    <Selection
+                        label={'Encoder model'}
+                        items={ENCODER_MODELS}
+                        value={encoderModel}
+                        onChange={setEncoderModel}
+                    />
+                    <Selection
+                        label={'Decoder model'}
+                        items={DECODER_MODELS}
+                        value={decoderModel}
+                        onChange={setDecoderModel}
+                    />
+                </Flex>
+                <NumberField
+                    label={'Number of foreground points'}
+                    minValue={0}
+                    maxValue={100}
+                    step={1}
+                    onChange={setNumberOfForegroundPoints}
+                    value={numberOfForegroundPoints}
+                />
+                <NumberField
+                    label={'Number of background points'}
+                    minValue={0}
+                    maxValue={100}
+                    step={1}
+                    onChange={setNumberOfBackgroundPoints}
+                    value={numberOfBackgroundPoints}
+                />
+                <NumberField
+                    label={'Confidence threshold'}
+                    minValue={0}
+                    maxValue={1}
+                    step={0.01}
+                    onChange={setConfidenceThreshold}
+                    value={confidenceThreshold}
+                />
+                <Selection label={'Precision'} value={precision} onChange={setPrecision} items={PRECISIONS} />
+                <Flex alignItems={'center'} width={'100%'} wrap={'wrap'}>
+                    <Switch isEmphasized isSelected={useMaskRefinement} onChange={setUseMaskRefinement}>
+                        Use mask refinement
+                    </Switch>
+                    <Switch isEmphasized isSelected={useNMS} onChange={setUseNMS}>
+                        Merge overlapping results
+                    </Switch>
+                    <Switch isEmphasized isSelected={compileModels} onChange={setCompileModels}>
+                        Optimise models
+                    </Switch>
+                </Flex>
+                <ButtonGroup align={'end'}>
+                    <Button variant={'secondary'} onPress={onClose}>
+                        Cancel
+                    </Button>
+                    <Button
+                        type={'submit'}
+                        variant={'primary'}
+                        isPending={updateModelMutation.isPending}
+                        isDisabled={isConfigureButtonDisabled}
+                    >
+                        Configure
+                    </Button>
+                </ButtonGroup>
+            </Flex>
+        </Form>
+    );
+};
+
+interface PerDINOConfigurationProps {
+    model: PerDINOModel;
+    onClose: () => void;
+}
+
+const PerDINOConfiguration = ({ model, onClose }: PerDINOConfigurationProps) => {
+    const [numberOfForegroundPoints, setNumberOfForegroundPoints] = useState<number>(
+        model.config.num_foreground_points
+    );
+    const [numberOfBackgroundPoints, setNumberOfBackgroundPoints] = useState<number>(
+        model.config.num_background_points
+    );
+    const [numberOfGridCells, setNumberOfNumberOfGridCells] = useState<number>(model.config.num_grid_cells);
+    const [confidenceThreshold, setConfidenceThreshold] = useState<number>(model.config.confidence_threshold);
+    const [encoderModel, setEncoderModel] = useState<EncoderModel>(model.config.encoder_model as EncoderModel);
+    const [decoderModel, setDecoderModel] = useState<DecoderModel>(model.config.sam_model);
+    const [precision, setPrecision] = useState<Precision>(model.config.precision as Precision);
+    const [compileModels, setCompileModels] = useState<boolean>(model.config.compile_models);
+    const [useNMS, setUseNMS] = useState<boolean>(model.config.use_nms);
+    const [similarityThreshold, setSimilarityThreshold] = useState<number>(model.config.similarity_threshold);
+
+    const updateModelMutation = useUpdateModel();
+
+    const isConfigureButtonDisabled =
+        numberOfForegroundPoints === model.config.num_foreground_points &&
+        numberOfBackgroundPoints === model.config.num_background_points &&
+        numberOfGridCells === model.config.num_grid_cells &&
+        confidenceThreshold === model.config.confidence_threshold &&
+        similarityThreshold === model.config.similarity_threshold &&
+        encoderModel === model.config.encoder_model &&
+        decoderModel === model.config.sam_model &&
+        precision === model.config.precision &&
+        compileModels === model.config.compile_models &&
+        useNMS === model.config.use_nms;
+
+    const updateModel = (event: FormEvent) => {
+        event.preventDefault();
+
+        updateModelMutation.mutate(
+            {
+                active: model.active,
+                name: model.name,
+                id: model.id,
+                config: {
+                    model_type: model.config.model_type,
+                    num_foreground_points: numberOfForegroundPoints,
+                    num_background_points: numberOfBackgroundPoints,
+                    num_grid_cells: numberOfGridCells,
+                    confidence_threshold: confidenceThreshold,
+                    similarity_threshold: similarityThreshold,
+                    encoder_model: encoderModel,
+                    sam_model: decoderModel,
+                    compile_models: compileModels,
+                    use_nms: useNMS,
+                    precision,
+                },
+            },
+            onClose
+        );
+    };
+
+    return (
+        <Form onSubmit={updateModel}>
+            <Flex direction={'column'} gap={'size-200'}>
+                <Flex alignItems={'center'} gap={'size-200'}>
+                    <Selection
+                        label={'Encoder model'}
+                        items={ENCODER_MODELS}
+                        value={encoderModel}
+                        onChange={setEncoderModel}
+                    />
+                    <Selection
+                        label={'Decoder model'}
+                        items={DECODER_MODELS}
+                        value={decoderModel}
+                        onChange={setDecoderModel}
+                    />
+                </Flex>
+                <NumberField
+                    label={'Number of foreground points'}
+                    minValue={0}
+                    maxValue={100}
+                    step={1}
+                    onChange={setNumberOfForegroundPoints}
+                    value={numberOfForegroundPoints}
+                />
+                <NumberField
+                    label={'Number of background points'}
+                    minValue={0}
+                    maxValue={100}
+                    step={1}
+                    onChange={setNumberOfBackgroundPoints}
+                    value={numberOfBackgroundPoints}
+                />
+                <NumberField
+                    label={'Number of grid cells'}
+                    minValue={0}
+                    maxValue={100}
+                    step={1}
+                    onChange={setNumberOfNumberOfGridCells}
+                    value={numberOfGridCells}
+                />
+                <NumberField
+                    label={'Confidence threshold'}
+                    minValue={0}
+                    maxValue={1}
+                    step={0.01}
+                    onChange={setConfidenceThreshold}
+                    value={confidenceThreshold}
+                />
+                <NumberField
+                    label={'Similarity threshold'}
+                    minValue={0}
+                    maxValue={1}
+                    step={0.01}
+                    onChange={setSimilarityThreshold}
+                    value={similarityThreshold}
+                />
+                <Selection label={'Precision'} value={precision} onChange={setPrecision} items={PRECISIONS} />
+                <Flex alignItems={'center'}>
+                    <Switch isEmphasized isSelected={useNMS} onChange={setUseNMS}>
+                        Merge overlapping results
+                    </Switch>
+                    <Switch isEmphasized isSelected={compileModels} onChange={setCompileModels}>
+                        Optimise models
+                    </Switch>
+                </Flex>
+                <ButtonGroup align={'end'}>
+                    <Button variant={'secondary'} onPress={onClose}>
+                        Cancel
+                    </Button>
+                    <Button
+                        type={'submit'}
+                        variant={'primary'}
+                        isPending={updateModelMutation.isPending}
+                        isDisabled={isConfigureButtonDisabled}
+                    >
+                        Configure
+                    </Button>
+                </ButtonGroup>
+            </Flex>
+        </Form>
+    );
+};
+
+interface ModelConfigurationDialogProps {
+    model: ModelType;
+    onClose: () => void;
+}
+
+const isMatcherModel = (m: ModelType): m is MatcherModel => m.config.model_type === 'matcher';
+const isPerDINOModel = (m: ModelType): m is PerDINOModel => m.config.model_type === 'perdino';
+
+export const ModelConfigurationDialog = ({ model, onClose }: ModelConfigurationDialogProps) => {
+    return (
+        <Dialog width={'40vw'}>
             <Heading>Model configuration</Heading>
             <Divider size={'S'} />
             <Content>
-                <Form onSubmit={updateModel}>
-                    <Flex direction={'column'} gap={'size-200'}>
-                        <Flex alignItems={'center'} gap={'size-200'}>
-                            <Selection
-                                label={'Encoder model'}
-                                items={ENCODER_MODELS}
-                                value={encoderModel}
-                                onChange={setEncoderModel}
-                            />
-                            <Selection
-                                label={'Decoder model'}
-                                items={DECODER_MODELS}
-                                value={decoderModel}
-                                onChange={setDecoderModel}
-                            />
-                        </Flex>
-                        <NumberField
-                            label={'Number of foreground points'}
-                            minValue={0}
-                            maxValue={100}
-                            step={1}
-                            onChange={setNumberOfForegroundPoints}
-                            value={numberOfForegroundPoints}
-                        />
-                        <NumberField
-                            label={'Number of background points'}
-                            minValue={0}
-                            maxValue={100}
-                            step={1}
-                            onChange={setNumberOfBackgroundPoints}
-                            value={numberOfBackgroundPoints}
-                        />
-                        <NumberField
-                            label={'Confidence threshold'}
-                            minValue={0}
-                            maxValue={1}
-                            step={0.01}
-                            onChange={setConfidenceThreshold}
-                            value={confidenceThreshold}
-                        />
-                        <Selection label={'Precision'} value={precision} onChange={setPrecision} items={PRECISIONS} />
-                        <Switch isEmphasized isSelected={useMaskRefinement} onChange={setUseMaskRefinement}>
-                            Use mask refinement
-                        </Switch>
-                        <ButtonGroup align={'end'}>
-                            <Button variant={'secondary'} onPress={onClose}>
-                                Cancel
-                            </Button>
-                            <Button
-                                type={'submit'}
-                                variant={'primary'}
-                                isPending={updateModelMutation.isPending}
-                                isDisabled={isConfigureButtonDisabled}
-                            >
-                                Configure
-                            </Button>
-                        </ButtonGroup>
-                    </Flex>
-                </Form>
+                {isMatcherModel(model) ? (
+                    <MatcherConfiguration model={model} onClose={onClose} />
+                ) : isPerDINOModel(model) ? (
+                    <PerDINOConfiguration model={model} onClose={onClose} />
+                ) : null}
             </Content>
         </Dialog>
     );
