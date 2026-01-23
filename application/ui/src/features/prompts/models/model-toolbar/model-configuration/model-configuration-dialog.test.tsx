@@ -4,7 +4,7 @@
  */
 
 import { ModelType, ModelUpdateType } from '@geti-prompt/api';
-import { getMockedModel, render } from '@geti-prompt/test-utils';
+import { getMockedModelMatcher, render } from '@geti-prompt/test-utils';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
@@ -70,7 +70,7 @@ class ModelConfigurationDialogPage {
 }
 
 const renderModelConfigurationDialog = ({
-    model = getMockedModel(),
+    model = getMockedModelMatcher(),
     onClose = vi.fn(),
 }: { model?: ModelType; onClose?: () => void } = {}) => {
     const result = render(<ModelConfigurationDialog model={model} onClose={onClose} />);
@@ -83,16 +83,16 @@ const renderModelConfigurationDialog = ({
 
 describe('ModelConfigurationDialog', () => {
     it('disables configure button when parameters have not been changed', () => {
-        const model = getMockedModel();
+        const model = getMockedModelMatcher();
         const { modelConfigurationDialogPage } = renderModelConfigurationDialog({ model });
 
         expect(modelConfigurationDialogPage.configureButton).toBeDisabled();
     });
 
     it('enables configure button when any of the parameters has been changes', async () => {
-        const mockedModel = getMockedModel();
+        const mockedModel = getMockedModelMatcher();
 
-        const model = getMockedModel({
+        const model = getMockedModelMatcher({
             config: {
                 ...mockedModel.config,
                 num_foreground_points: 10,
@@ -153,7 +153,7 @@ describe('ModelConfigurationDialog', () => {
             })
         );
 
-        const model = getMockedModel();
+        const model = getMockedModelMatcher();
         const mockOnClose = vi.fn();
         const { modelConfigurationDialogPage } = renderModelConfigurationDialog({ model, onClose: mockOnClose });
 

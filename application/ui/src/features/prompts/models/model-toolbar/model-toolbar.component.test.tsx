@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { getMockedModel, render } from '@geti-prompt/test-utils';
+import { getMockedModelMatcher, render } from '@geti-prompt/test-utils';
 import { fireEvent, screen, within } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 
@@ -38,8 +38,8 @@ describe('ModelToolbar', () => {
             http.get('/api/v1/projects/{project_id}/models', () => {
                 return HttpResponse.json({
                     models: [
-                        getMockedModel({ id: 'model-1', name: 'Mega model', active: true }),
-                        getMockedModel({ id: 'model-2', name: 'Tiny model', active: false }),
+                        getMockedModelMatcher({ id: 'model-1', name: 'Mega model', active: true }),
+                        getMockedModelMatcher({ id: 'model-2', name: 'Tiny model', active: false }),
                     ],
                     pagination: { total: 0, count: 0, offset: 0, limit: 10 },
                 });
