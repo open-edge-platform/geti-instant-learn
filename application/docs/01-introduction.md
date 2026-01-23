@@ -6,7 +6,7 @@ Geti Prompt empowers edge users, ranging from domain experts to developers and d
 
 This open-source Python application facilitates users to prompt, run and manage configurable zero-shot/few-shot AI pipelines. Geti Prompt can simply be installed and used as a desktop application or deployed as a Docker image directly at the edge.
 
-Geti Prompt is part of the Geti Apps ecosystem and comes with its own VisionPrompt model framework. This open-source, modular framework facilitates easy experimentation with different state-of-the-art algorithms, backbones like SAM, MobileSAM, and DinoV2, and pipeline components.
+Geti Prompt is part of the Geti Apps ecosystem and comes with its own VisionPrompt model framework. This open-source, modular framework facilitates easy experimentation with different state-of-the-art algorithms, backbones like SAM and Dino family models, and pipeline components.
 
 <div align="center">
 
