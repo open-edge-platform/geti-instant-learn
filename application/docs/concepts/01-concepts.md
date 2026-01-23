@@ -39,14 +39,14 @@ The application abstracts input and output devices to make the system flexible a
 
   The application supports two backends:
 
-    - **PyTorch**: Standard deep learning backend.
-    - **[OpenVINO™](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html)**: For hardware-optimized deployment on Intel CPUs, GPUs, and NPUs.
+  - **PyTorch**: Standard deep learning backend.
+  - **[OpenVINO™](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html)**: For hardware-optimized deployment on Intel CPUs, GPUs, and NPUs.
 
-    Users can extend the application by implementing their own `ModelHandler`.
+  Users can extend the application by implementing their own `ModelHandler`.
 
 - **Sinks (Output)**: Exports inference results to external systems. A Sink subscribes to the Processor's broadcast queue, pulls results, and passes them to a `Writer`—an abstraction over the output destination. The Writer's `write()` method handles the actual export.
 
-    The application includes a standard Writer implementation: `MqttWriter` for publishing results to an MQTT broker.
+  The application includes a standard Writer implementation: `MqttWriter` for publishing results to an MQTT broker.
 
     Users can extend the application by implementing their own `StreamWriter` to support custom destinations (databases, PLCs, local files).
 
