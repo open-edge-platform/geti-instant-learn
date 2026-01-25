@@ -64,8 +64,8 @@ class PerDino(Model):
         num_foreground_points: int = 40,
         num_background_points: int = 2,
         num_grid_cells: int = 16,
-        similarity_threshold: float = 0.65,
-        mask_similarity_threshold: float | None = 0.42,
+        point_selection_threshold: float = 0.65,
+        confidence_threshold: float | None = 0.42,
         use_nms: bool = True,
         precision: str = "bf16",
         compile_models: bool = False,
@@ -79,8 +79,14 @@ class PerDino(Model):
             num_foreground_points: Maximum foreground points per category.
             num_background_points: Background points per category.
             num_grid_cells: Number of grid cells for prompt generation.
-            similarity_threshold: Threshold for foreground point selection.
-            mask_similarity_threshold: Threshold for similarity-based mask filtering.
+            point_selection_threshold: Minimum feature similarity for a pixel to be
+                selected as a foreground point prompt for SAM. Used during prompt
+                generation to identify candidate object locations. Higher values =
+                fewer, more confident point proposals.
+            confidence_threshold: Minimum confidence score for keeping predicted masks
+                in the final output. Computed as a weighted combination of SAM's IoU
+                prediction and mean similarity within the mask region. Higher values =
+                stricter filtering, fewer masks.
             use_nms: Whether to use NMS in SamDecoder.
             precision: Model precision ("bf16", "fp32").
             compile_models: Whether to compile models with torch.compile.
@@ -113,7 +119,7 @@ class PerDino(Model):
         max_points = num_foreground_points + num_background_points
         self.prompt_generator = GridPromptGenerator(
             num_grid_cells=num_grid_cells,
-            similarity_threshold=similarity_threshold,
+            point_selection_threshold=point_selection_threshold,
             num_bg_points=num_background_points,
             num_foreground_points=num_foreground_points,
             max_points=max_points,
@@ -121,7 +127,7 @@ class PerDino(Model):
 
         self.segmenter = SamDecoder(
             sam_predictor=self.sam_predictor,
-            mask_similarity_threshold=mask_similarity_threshold,
+            confidence_threshold=confidence_threshold,
             use_nms=use_nms,
         )
 

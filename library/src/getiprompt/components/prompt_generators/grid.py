@@ -17,7 +17,9 @@ class GridPromptGenerator(nn.Module):
 
     Args:
         num_grid_cells: Number of grid cells along each dimension. Default: 16.
-        similarity_threshold: Threshold for foreground point selection. Default: 0.65.
+        point_selection_threshold: Minimum feature similarity for selecting
+            foreground points. Higher values = fewer, more confident point
+            proposals. Default: 0.65.
         num_bg_points: Number of background points to sample. Default: 1.
         num_foreground_points: Maximum foreground points to keep per category. Default: 40.
         max_points: Maximum total points per category for output padding. Default: 42.
@@ -43,7 +45,7 @@ class GridPromptGenerator(nn.Module):
     def __init__(
         self,
         num_grid_cells: int = 16,
-        similarity_threshold: float = 0.65,
+        point_selection_threshold: float = 0.65,
         num_bg_points: int = 1,
         num_foreground_points: int = 40,
         max_points: int = 42,
@@ -54,7 +56,7 @@ class GridPromptGenerator(nn.Module):
             msg = "num_grid_cells must be positive."
             raise ValueError(msg)
         self.num_grid_cells = num_grid_cells
-        self.similarity_threshold = similarity_threshold
+        self.point_selection_threshold = point_selection_threshold
         self.num_bg_points = num_bg_points
         self.num_foreground_points = num_foreground_points
         self.max_points = max_points
@@ -73,7 +75,7 @@ class GridPromptGenerator(nn.Module):
         """
         map_w, map_h = similarity_map.shape
 
-        point_coords = torch.where(similarity_map > self.similarity_threshold)  # (x_indices, y_indices)
+        point_coords = torch.where(similarity_map > self.point_selection_threshold)  # (x_indices, y_indices)
         foreground_coords = torch.stack((point_coords[1], point_coords[0], similarity_map[point_coords]), axis=0).T
 
         if len(foreground_coords) == 0:

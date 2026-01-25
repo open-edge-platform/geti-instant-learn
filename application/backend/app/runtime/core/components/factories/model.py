@@ -24,7 +24,7 @@ class ModelFactory:
                 model = Matcher(
                     num_foreground_points=config.num_foreground_points,
                     num_background_points=config.num_background_points,
-                    mask_similarity_threshold=config.confidence_threshold,
+                    confidence_threshold=config.confidence_threshold,
                     precision=config.precision,
                     device=settings.device,
                     use_mask_refinement=config.use_mask_refinement,

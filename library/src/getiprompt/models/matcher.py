@@ -151,7 +151,7 @@ class Matcher(Model):
         num_foreground_points: int = 40,
         num_background_points: int = 2,
         encoder_model: str = "dinov3_large",
-        mask_similarity_threshold: float | None = 0.38,
+        confidence_threshold: float | None = 0.38,
         use_mask_refinement: bool = True,
         use_nms: bool = True,
         precision: str = "bf16",
@@ -165,7 +165,8 @@ class Matcher(Model):
             num_foreground_points: Maximum foreground points per category.
             num_background_points: Background points per category.
             encoder_model: Image encoder model ID.
-            mask_similarity_threshold: Threshold for similarity-based mask filtering.
+            confidence_threshold: Minimum confidence score for keeping predicted masks
+                                 in the final output. Higher values = stricter filtering, fewer masks.
             use_mask_refinement: Whether to use 2-stage mask refinement with box prompts.
             use_nms: Whether to use NMS in SamDecoder.
             precision: Model precision ("bf16", "fp32").
@@ -209,7 +210,7 @@ class Matcher(Model):
         # SAM decoder
         self.segmenter = SamDecoder(
             sam_predictor=self.sam_predictor,
-            mask_similarity_threshold=mask_similarity_threshold,
+            confidence_threshold=confidence_threshold,
             use_mask_refinement=use_mask_refinement,
             use_nms=use_nms,
         )

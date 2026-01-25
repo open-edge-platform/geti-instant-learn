@@ -34,7 +34,7 @@ class TestModelFactory:
                 mock_matcher.assert_called_once_with(
                     num_foreground_points=50,
                     num_background_points=3,
-                    mask_similarity_threshold=0.5,
+                    confidence_threshold=0.5,
                     precision="fp32",
                     device="cpu",
                     sam=SAMModelName.SAM_HQ_TINY,
