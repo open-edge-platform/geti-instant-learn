@@ -1,35 +1,12 @@
-# Architecture
-
-The backend uses a 3-layer architecture with strict unidirectional dependencies. This keeps the codebase modular, testable, and easy to reason about.
-
-## Layers
-
-| Layer | Responsibility | Can Import | Cannot Import |
-| ----- | -------------- | ---------- | ------------- |
-| **API** | Provide the interface for interacting with the zero-shot learning framework | Runtime, Domain | — |
-| **Runtime** | Execute zero-shot inference pipelines, manage video streams, broadcast predictions | Domain | API |
-| **Domain** | Persist projects, prompts, labels, and model configurations | None | API, Runtime |
-
-> **Rule:** Dependencies flow top-to-bottom only. Never import from a layer above.
-
-## Testing
-
-The layered architecture simplifies testing by providing clear boundaries for mocking.
-
-| Type        | Scope        | Approach                                   |
-| ----------- | ------------ | ------------------------------------------ |
-| Unit        | Single layer | Mock dependencies from the layer below     |
-| Integration | Data layer   | Test repositories against a real database  |
-
-## WebRTC Networking
+# WebRTC Networking
 
 Geti Prompt uses WebRTC for real-time video streaming between the browser (UI) and the backend. For WebRTC to work, the browser needs to know how to reach the backend's media server.
 
-### The Challenge
+## The Challenge
 
 The backend runs inside Docker or behind network infrastructure (NAT, load balancers, firewalls). The browser cannot directly connect to internal IPs like `172.17.0.2` or `10.0.0.5`. We need to tell the browser which address to use.
 
-### The Solution
+## The Solution
 
 Configure the backend to advertise a reachable address. Choose the method based on your deployment:
 
@@ -42,9 +19,7 @@ Configure the backend to advertise a reachable address. Choose the method based 
 
 > **Note:** Use only one configuration method at a time.
 
----
-
-### Port Requirements
+## Port Requirements
 
 When running without a relay server (TURN), the container's UDP ports must be accessible from the outside for direct media streaming. Whether running locally or in the cloud, you must map these ports from the container to the host to allow media traffic to flow.
 
@@ -53,8 +28,6 @@ When running without a relay server (TURN), the container's UDP ports must be ac
 | `50000-50050` | UDP      | WebRTC media |
 
 We constrain the UDP port range by setting `net.ipv4.ip_local_port_range` in the container's Linux network namespace. This limits ephemeral ports to `50000-50050`, making firewall rules predictable.
-
----
 
 ## Deployment Examples
 
@@ -118,8 +91,6 @@ docker run --rm \
 **Scenario:** Corporate firewalls block UDP traffic or non-standard ports. WebRTC media cannot get through.
 
 **Solution:** Route all traffic through a TURN relay server on TCP port 443 (usually allowed). A TURN server forwards all media between browser and backend — use it only when direct connections fail.
-
-**Solution:** Route all traffic through a TURN relay server on TCP port 443 (usually allowed).
 
 #### Step 1: Start the TURN server
 
