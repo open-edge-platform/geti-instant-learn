@@ -1,33 +1,31 @@
 # WebRTC Networking
 
-Geti Prompt uses WebRTC for real-time video streaming between the browser (UI) and the backend. For WebRTC to work, the browser needs to know how to reach the backend's media server.
+Geti Prompt uses WebRTC for real-time video streaming between the browser and backend. This guide explains how to configure WebRTC for different network environments.
 
-## The Challenge
+## Overview
 
-The backend runs inside Docker or behind network infrastructure (NAT, load balancers, firewalls). The browser cannot directly connect to internal IPs like `172.17.0.2` or `10.0.0.5`. We need to tell the browser which address to use.
+WebRTC requires the browser to establish a direct connection to the backend's media server. When the backend runs in Docker or behind network infrastructure (NAT, load balancers, firewalls), the browser cannot connect to internal IPs like `172.17.0.2` or `10.0.0.5`. The backend must advertise a reachable address.
 
-## The Solution
+## Configuration Options
 
-Configure the backend to advertise a reachable address. Choose the method based on your deployment:
+Choose the configuration method based on your deployment scenario:
 
-| Scenario | Challenge | Solution | Configuration |
-| -------- | --------- | -------- | ------------- |
-| [Local development](#local-network) | Docker container has internal IP | Tell backend to advertise `127.0.0.1` or LAN IP | `WEBRTC_ADVERTISE_IP="127.0.0.1"` |
-| [Cloud (public IP unknown)](#cloud-with-auto-discovery) | Server IP changes dynamically | Backend discovers its public IP via STUN | `ICE_SERVERS='[{"urls": "stun:stun.l.google.com:19302"}]'` |
-| [Cloud (public IP known)](#cloud-with-manual-ip) | Behind load balancer or have static IP/DNS | Tell backend to advertise the public IP or DNS | `WEBRTC_ADVERTISE_IP="203.0.113.10"` |
-| [Restrictive network](#restrictive-firewall-turn) | Firewall blocks UDP traffic | Relay all traffic through TURN server on TCP 443 | `ICE_SERVERS='[{"urls": "turn:...", ...}]'` |
-
-> **Note:** Use only one configuration method at a time.
+| Scenario | Description | Configuration |
+| -------- | ----------- | ------------- |
+| [Local development](#local-network) | Docker container with internal IP | `WEBRTC_ADVERTISE_IP="127.0.0.1"` |
+| [Cloud (auto-discovery)](#cloud-with-auto-discovery) | Dynamic public IP (auto-scaling, ephemeral instances) | `ICE_SERVERS='[{"urls": "stun:stun.l.google.com:19302"}]'` |
+| [Cloud (static IP/DNS)](#cloud-with-manual-ip) | Known public IP or DNS behind load balancer | `WEBRTC_ADVERTISE_IP="203.0.113.10"` |
+| [Restrictive firewall](#restrictive-firewall-turn) | UDP traffic blocked by firewall | `ICE_SERVERS='[{"urls": "turn:...", ...}]'` |
 
 ## Port Requirements
 
-When running without a relay server (TURN), the container's UDP ports must be accessible from the outside for direct media streaming. Whether running locally or in the cloud, you must map these ports from the container to the host to allow media traffic to flow.
+Direct media streaming requires UDP ports to be accessible from external clients. Map these ports from the container to the host:
 
 | Ports         | Protocol | Purpose      |
 | ------------- | -------- | ------------ |
 | `50000-50050` | UDP      | WebRTC media |
 
-We constrain the UDP port range by setting `net.ipv4.ip_local_port_range` in the container's Linux network namespace. This limits ephemeral ports to `50000-50050`, making firewall rules predictable.
+The container's `net.ipv4.ip_local_port_range` is set to `50000-50050` to constrain ephemeral ports, making firewall rules predictable.
 
 ## Deployment Examples
 
