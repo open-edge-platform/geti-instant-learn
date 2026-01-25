@@ -10,7 +10,6 @@ Geti Prompt is built upon its own VisionPrompt framework, which supports the lat
 
 > TODO: include what pipelines are supported for visual prompt & text prompt, how pipelines are configured, where to find more info about the pipeline benchmarks and characteristics, etc. Finish by redirecting user to dedicated “VisionPrompt framework” section.
 
-
 ## Visual prompting
 
 For visual prompting, users will be able to teach the model what it should be looking for by highlighting the object(s) of interest on an image. You can manually capture one or few reference images, define the label that correspond to the object that needs to be detected, and annotate the object accordingly to create a prompt. Based on this prompt, the model will then infer on the input data to try to detect the object of interest.
