@@ -93,9 +93,11 @@ just device=xpu application/run-image
 ## Documentation
 
 **Getting Started:**
+
 - [Quick Start Guide](docs/02-quick-start.md) - Get your first results quickly
 
 **Using Geti Prompt:**
+
 - [Inputs Configuration](docs/03-use-geti-prompt/01-inputs-configuration.md) - Configure cameras, videos, and datasets
 - [Prompt & Models](docs/03-use-geti-prompt/02-prompt-model.md) - Visual and text prompting
 - [Inference](docs/03-use-geti-prompt/03-inference.md) - Run zero-shot inference
@@ -104,6 +106,7 @@ just device=xpu application/run-image
 - [Integration](docs/03-use-geti-prompt/06-integration.md) - Business logic integration
 
 **Concepts:**
+
 - [Architecture](docs/04-concepts/01-architecture.md) - System design and components
 - [WebRTC Networking](docs/04-concepts/02-webrtc.md) - Video streaming configuration
 - [Storage](docs/04-concepts/03-storage.md) - Data persistence and Docker volumes
