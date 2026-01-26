@@ -44,7 +44,7 @@
       matchDatasources: ["pypi"],
     },
 
-    // Disable python upgrades, except patch and digital pinning
+    // Disable python upgrades, except patch and digest pinning
     {
       enabled: false,
       matchDatasources: ["python-version"],
