@@ -109,7 +109,7 @@ describe('ModelConfigurationDialog', () => {
         await modelConfigurationDialogPage.changeNumberOfForegroundPointes(model.config.num_foreground_points);
         expect(modelConfigurationDialogPage.configureButton).toBeDisabled();
 
-        await modelConfigurationDialogPage.changeNumberOfBackgroundPointes(50);
+        await modelConfigurationDialogPage.changeNumberOfBackgroundPointes(9);
         expect(modelConfigurationDialogPage.configureButton).toBeEnabled();
         await modelConfigurationDialogPage.changeNumberOfBackgroundPointes(model.config.num_background_points);
         expect(modelConfigurationDialogPage.configureButton).toBeDisabled();
@@ -150,8 +150,10 @@ describe('ModelConfigurationDialog', () => {
         const { modelConfigurationDialogPage } = renderModelConfigurationDialog({ model, onClose: mockOnClose });
 
         const numberOfForegroundPoints = 20;
-        const numberOfBackgroundPoints = 50;
+        const numberOfBackgroundPoints = 10;
         const confidenceThreshold = 0.8;
+        const numberOfGridCells = 16;
+        const pointSelectionThreshold = 0.65;
         const encoderModel = 'DINOv3 Base';
         const decoderModel = 'SAM2 Small';
         const precision = 'FP16';
@@ -171,10 +173,14 @@ describe('ModelConfigurationDialog', () => {
                     model_type: 'perdino',
                     num_foreground_points: numberOfForegroundPoints,
                     num_background_points: numberOfBackgroundPoints,
+                    num_grid_cells: numberOfGridCells,
+                    point_selection_threshold: pointSelectionThreshold,
                     confidence_threshold: confidenceThreshold,
                     sam_model: 'SAM2-small',
                     encoder_model: 'dinov3_base',
                     precision: precision.toLowerCase(),
+                    use_nms: model.config.use_nms,
+                    compile_models: model.config.compile_models,
                 })
             );
         });
