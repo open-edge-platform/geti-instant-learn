@@ -29,6 +29,8 @@ just device=xpu application/dev
 | `stun-server` | `""` | External STUN server URL |
 | `coturn-port` | `443` | Port for local TURN server |
 
+> **Note:** WebRTC parameters configure video streaming between browser and backend. See [WebRTC Networking](docs/04-concepts/02-webrtc.md) for deployment scenarios.
+
 </details>
 
 ### Run with Docker
@@ -49,7 +51,6 @@ just device=xpu application/build-image
 | :--- | :--- | :--- |
 | `device` | `cpu` | Hardware target: `cpu`, `xpu`, `cu126` |
 | `build-target` | `cpu` | Docker build stage: `cpu`, `xpu`, `gpu` |
-| `container-registry` | `localhost:5000/...` | Registry URL |
 | `version` | `latest` | Image version tag |
 
 </details>
@@ -70,11 +71,13 @@ just device=xpu application/run-image
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `port` | `9100` | Backend API port |
+| `port` | `9100` | Port for serving UI and API |
 | `webrtc-ports` | `50000-51000` | UDP port range for WebRTC |
 | `stun-server` | `""` | External STUN server URL |
 | `enable-coturn` | `false` | Enable local TURN server |
 | `coturn-port` | `443` | Port for TURN server |
+
+> **Note:** WebRTC parameters configure video streaming between browser and backend. See [WebRTC Networking](docs/04-concepts/02-webrtc.md) for deployment scenarios.
 
 *Hardware:*
 
@@ -87,10 +90,20 @@ just device=xpu application/run-image
 
 ---
 
-## 📖 Documentation
+## Documentation
 
-- **[Quick Start Guide](docs/02-quick-start.md)** - Get your first results quickly
-- **[Tutorials](docs/tutorials/01-tutorials.md)** - Step-by-step guides
-- **[How-to Guides](docs/how-to-guides/01-how-to-guides.md)** - Feature deep dives
-- **[Concepts & Architecture](docs/concepts/01-concepts.md)** - System design and core concepts
-- **[WebRTC Networking](docs/concepts/02-webrtc.md)** - Configure video streaming for different deployment scenarios
+**Getting Started:**
+- [Quick Start Guide](docs/02-quick-start.md) - Get your first results quickly
+
+**Using Geti Prompt:**
+- [Inputs Configuration](docs/03-use-geti-prompt/01-inputs-configuration.md) - Configure cameras, videos, and datasets
+- [Prompt & Models](docs/03-use-geti-prompt/02-prompt-model.md) - Visual and text prompting
+- [Inference](docs/03-use-geti-prompt/03-inference.md) - Run zero-shot inference
+- [Deployment](docs/03-use-geti-prompt/04-deployment.md) - Production deployment
+- [Monitoring](docs/03-use-geti-prompt/05-monitoring.md) - Monitor application performance
+- [Integration](docs/03-use-geti-prompt/06-integration.md) - Business logic integration
+
+**Concepts:**
+- [Architecture](docs/04-concepts/01-architecture.md) - System design and components
+- [WebRTC Networking](docs/04-concepts/02-webrtc.md) - Video streaming configuration
+- [Storage](docs/04-concepts/03-storage.md) - Data persistence and Docker volumes

@@ -10,11 +10,11 @@ Once running, access the application at `http://localhost:9100`
 
 ## Create Your First Project
 
-1. **Create a project:** Click "New Project" in the top navigation
+1. **Create a project:** Click "Create Project" on the welcome screen
 2. **Add input:** Select a sample dataset from the dropdown
 3. **Capture an image:** Click through the dataset to find a good example
-4. **Draw your prompt:** Use the annotation tool to select target objects (e.g., coffee berries)
-5. **Apply the prompt:** Click "Save" to instruct the model
+4. **Draw your prompt:** Use the annotation tool to select target objects and assign a label (e.g., coffee berries)
+5. **Apply the prompt:** Click "Save Prompt" to instruct the model
 6. **View results:** Navigate through the dataset to see zero-shot predictions
 
 The default PerDINO model runs automatically on all images using your visual prompt.
@@ -23,8 +23,7 @@ The default PerDINO model runs automatically on all images using your visual pro
 
 For optimal performance with zero-shot visual prompting models:
 
-- **Intel XPU (GPU/NPU)** — Best performance for real-time inference
-- **CPU with OpenVINO** — Optimized CPU inference for edge devices
+- **Intel GPU** — Best performance for real-time inference
 
 **Pre-configured systems:**
 
@@ -37,7 +36,7 @@ For optimal performance with zero-shot visual prompting models:
 | CPU | Intel Core Ultra (Series 1 or 2) | Intel Core Ultra 7 or 9 |
 | GPU | Intel Arc GPU (integrated) | Intel Arc Pro B580 or discrete Arc GPU |
 | RAM | 8 GB | 16 GB |
-| OS | Linux (Docker) or Windows (MSIX) | Ubuntu 24.04 or Windows 11 |
+| OS | Linux (Docker) or Windows 11 (MSIX) | Ubuntu 24.04 or Windows 11 |
 
 > **Note:** OpenVINO backend provides optimized CPU inference. Intel XPU recommended for real-time performance.
 
