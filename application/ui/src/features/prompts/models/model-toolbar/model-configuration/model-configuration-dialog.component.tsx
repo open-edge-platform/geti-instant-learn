@@ -152,8 +152,8 @@ const MatcherConfiguration = ({ model, onClose }: MatcherConfigurationProps) => 
                 </Flex>
                 <NumberField
                     label={'Number of foreground points'}
-                    minValue={0}
-                    maxValue={100}
+                    minValue={1}
+                    maxValue={300}
                     step={1}
                     onChange={setNumberOfForegroundPoints}
                     value={numberOfForegroundPoints}
@@ -161,7 +161,7 @@ const MatcherConfiguration = ({ model, onClose }: MatcherConfigurationProps) => 
                 <NumberField
                     label={'Number of background points'}
                     minValue={0}
-                    maxValue={100}
+                    maxValue={10}
                     step={1}
                     onChange={setNumberOfBackgroundPoints}
                     value={numberOfBackgroundPoints}
@@ -286,8 +286,8 @@ const PerDINOConfiguration = ({ model, onClose }: PerDINOConfigurationProps) => 
                 </Flex>
                 <NumberField
                     label={'Number of foreground points'}
-                    minValue={0}
-                    maxValue={100}
+                    minValue={1}
+                    maxValue={300}
                     step={1}
                     onChange={setNumberOfForegroundPoints}
                     value={numberOfForegroundPoints}
@@ -295,14 +295,14 @@ const PerDINOConfiguration = ({ model, onClose }: PerDINOConfigurationProps) => 
                 <NumberField
                     label={'Number of background points'}
                     minValue={0}
-                    maxValue={100}
+                    maxValue={10}
                     step={1}
                     onChange={setNumberOfBackgroundPoints}
                     value={numberOfBackgroundPoints}
                 />
                 <NumberField
                     label={'Number of grid cells'}
-                    minValue={0}
+                    minValue={1}
                     maxValue={100}
                     step={1}
                     onChange={setNumberOfNumberOfGridCells}
@@ -444,8 +444,8 @@ const SoftMatcherConfiguration = ({ model, onClose }: SoftMatcherConfigurationPr
                 </Flex>
                 <NumberField
                     label={'Number of foreground points'}
-                    minValue={0}
-                    maxValue={100}
+                    minValue={1}
+                    maxValue={300}
                     step={1}
                     onChange={setNumberOfForegroundPoints}
                     value={numberOfForegroundPoints}
@@ -453,7 +453,7 @@ const SoftMatcherConfiguration = ({ model, onClose }: SoftMatcherConfigurationPr
                 <NumberField
                     label={'Number of background points'}
                     minValue={0}
-                    maxValue={100}
+                    maxValue={10}
                     step={1}
                     onChange={setNumberOfBackgroundPoints}
                     value={numberOfBackgroundPoints}
