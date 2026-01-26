@@ -8,9 +8,10 @@
 
 import sys
 from pathlib import Path
+import os
 
 # Define paths
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent
 module_path = Path(project_root, "src")
 
 # Insert paths to sys.path
@@ -20,7 +21,7 @@ sys.path.insert(0, str(project_root.resolve()))
 project = 'Geti Prompt'
 copyright = 'Intel Corporation'
 author = 'Intel Corporation'
-release = '1.0'
+release = os.environ.get('VERSION', '1.0')
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -52,7 +53,7 @@ autodoc_default_options = {
 
 templates_path = ['_templates']
 exclude_patterns: list[str] = [
-    "_build",
+    ".build",
     "**.ipynb_checkpoints",
     "**/.pytest_cache",
     "**/.git",
