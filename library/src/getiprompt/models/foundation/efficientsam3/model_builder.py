@@ -45,9 +45,10 @@ Example:
 
 from enum import StrEnum
 from pathlib import Path
+from typing import Any
 
 import torch
-import torch.nn.functional as F
+import torch.nn.functional
 from huggingface_hub import hf_hub_download
 from torch import nn
 
@@ -82,11 +83,11 @@ from getiprompt.models.foundation.sam3.model.position_encoding import (
 from getiprompt.models.foundation.sam3.model.text_encoder_ve import VETextEncoder
 from getiprompt.models.foundation.sam3.model.tokenizer_ve import SimpleTokenizer
 from getiprompt.models.foundation.sam3.model.vl_combiner import SAM3VLBackbone
-from getiprompt.models.foundation.sam3.sam.mask_decoder import MaskDecoder
-from getiprompt.models.foundation.sam3.sam.prompt_encoder import PromptEncoder
-from getiprompt.models.foundation.sam3.sam.transformer import TwoWayTransformer
 
 from .efficientsam3_image import EfficientSAM3Image
+from .sam.mask_decoder import MaskDecoder
+from .sam.prompt_encoder import PromptEncoder
+from .sam.transformer import TwoWayTransformer
 
 __all__ = [
     "EfficientSAM3BackboneType",
@@ -250,7 +251,7 @@ def _create_transformer_encoder() -> TransformerEncoderFusion:
         ),
     )
 
-    encoder = TransformerEncoderFusion(
+    return TransformerEncoderFusion(
         layer=encoder_layer,
         num_layers=6,
         d_model=256,
@@ -260,7 +261,6 @@ def _create_transformer_encoder() -> TransformerEncoderFusion:
         add_pooled_text_to_img_feat=False,
         pool_text_with_mask=True,
     )
-    return encoder
 
 
 def _create_transformer_decoder() -> TransformerDecoder:
@@ -279,7 +279,7 @@ def _create_transformer_decoder() -> TransformerDecoder:
         use_text_cross_attention=True,
     )
 
-    decoder = TransformerDecoder(
+    return TransformerDecoder(
         layer=decoder_layer,
         num_layers=6,
         num_queries=200,
@@ -297,7 +297,6 @@ def _create_transformer_decoder() -> TransformerDecoder:
         use_act_checkpoint=True,
         presence_token=True,
     )
-    return decoder
 
 
 def _create_dot_product_scoring() -> DotProductScoring:
@@ -331,7 +330,7 @@ def _create_segmentation_head(
         embed_dim=256,
     )
 
-    segmentation_head = UniversalSegmentationHead(
+    return UniversalSegmentationHead(
         hidden_dim=256,
         upsampling_stages=3,
         aux_masks=False,
@@ -341,7 +340,6 @@ def _create_segmentation_head(
         cross_attend_prompt=cross_attend_prompt,
         pixel_decoder=pixel_decoder,
     )
-    return segmentation_head
 
 
 def _create_geometry_encoder(device: str = "cuda") -> SequenceGeometryEncoder:
@@ -371,7 +369,7 @@ def _create_geometry_encoder(device: str = "cuda") -> SequenceGeometryEncoder:
         ),
     )
 
-    input_geometry_encoder = SequenceGeometryEncoder(
+    return SequenceGeometryEncoder(
         pos_enc=geo_pos_enc,
         encode_boxes_as_points=False,
         points_direct_project=True,
@@ -387,7 +385,6 @@ def _create_geometry_encoder(device: str = "cuda") -> SequenceGeometryEncoder:
         add_cls=True,
         add_post_encode_proj=True,
     )
-    return input_geometry_encoder
 
 
 def _create_sam3_transformer() -> TransformerWrapper:
@@ -448,7 +445,7 @@ def _add_sam_heads(
     # Add attributes needed by SAM1 predictor
     model.directly_add_no_mem_embed = False
     model.no_mem_embed = torch.nn.Parameter(torch.zeros(1, 1, hidden_dim).to(device))
-    model._bb_feat_sizes = [(288, 288), (144, 144), (72, 72)]
+    model._bb_feat_sizes = [(288, 288), (144, 144), (72, 72)]  # noqa: SLF001
 
     # Build PromptEncoder and MaskDecoder from SAM
     model.sam_prompt_encoder = PromptEncoder(
@@ -477,14 +474,14 @@ def _add_sam_heads(
     ).to(device)
 
     # Add forward_image wrapper
-    def forward_image(img_batch):
+    def forward_image(img_batch) -> Any:  # noqa: ANN001, ANN401
         return model.backbone.forward_image(img_batch)
 
     model.forward_image = forward_image
 
     # Add _prepare_backbone_features wrapper
     # This matches the sam3_tracker_base.py implementation
-    def _prepare_backbone_features(backbone_out):
+    def _prepare_backbone_features(backbone_out) -> Any:  # noqa: ANN001, ANN401
         """Extract and prepare features from backbone output.
 
         Returns vision_feats in flattened format: HWxNxC for each feature level.
@@ -502,7 +499,7 @@ def _add_sam_heads(
 
         return backbone_out, vision_feats, vision_pos_embeds, feat_sizes
 
-    model._prepare_backbone_features = _prepare_backbone_features
+    model._prepare_backbone_features = _prepare_backbone_features  # noqa: SLF001
 
 
 def _create_text_encoder(bpe_path: str | Path) -> VETextEncoder:
@@ -522,7 +519,7 @@ def _create_student_text_encoder(
     text_encoder_type: EfficientSAM3TextEncoderType,
 ) -> nn.Module:
     """Create student text encoder (MobileCLIP variants)."""
-    from getiprompt.models.foundation.efficientsam3.backbones.mobile_clip import (
+    from getiprompt.models.foundation.efficientsam3.backbones.mobile_clip import (  # noqa: PLC0415
         TextStudentEncoder,
     )
 
@@ -594,6 +591,15 @@ class ImageStudentEncoder(nn.Module):
         embed_size: int = 72,
         img_size: int = 1008,
     ) -> None:
+        """Initialize student backbone wrapper.
+
+        Args:
+            backbone: The student backbone module.
+            in_channels: Input channels from backbone.
+            embed_dim: Output embedding dimension.
+            embed_size: Target spatial size.
+            img_size: Input image size.
+        """
         super().__init__()
         self.backbone = backbone
         self.embed_size = embed_size
@@ -606,10 +612,18 @@ class ImageStudentEncoder(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass through backbone and projection head.
+
+        Args:
+            x: Input tensor.
+
+        Returns:
+            Projected features.
+        """
         feats = self.backbone(x)
         feats = self.head(feats)
         if feats.shape[-1] != self.embed_size or feats.shape[-2] != self.embed_size:
-            feats = F.interpolate(
+            feats = torch.nn.functional.interpolate(
                 feats,
                 size=(self.embed_size, self.embed_size),
                 mode="bilinear",
@@ -618,7 +632,7 @@ class ImageStudentEncoder(nn.Module):
         return feats
 
 
-def _create_student_vision_backbone(
+def _create_student_vision_backbone(  # noqa: C901
     backbone_type: EfficientSAM3BackboneType,
     enable_inst_interactivity: bool = False,
     device: str = "cuda",
@@ -632,16 +646,19 @@ def _create_student_vision_backbone(
 
     Returns:
         Sam3DualViTDetNeck with student encoder.
+
+    Raises:
+        ValueError: If backbone_type is not supported.
     """
     position_encoding = _create_position_encoding(precompute_resolution=1008, device=device)
 
     # Create backbone based on type
-    if backbone_type in (
+    if backbone_type in {
         EfficientSAM3BackboneType.REPVIT_M0_9,
         EfficientSAM3BackboneType.REPVIT_M1_1,
         EfficientSAM3BackboneType.REPVIT_M2_3,
-    ):
-        from getiprompt.models.foundation.efficientsam3.backbones.repvit import (
+    }:
+        from getiprompt.models.foundation.efficientsam3.backbones.repvit import (  # noqa: PLC0415
             repvit_m0_9,
             repvit_m1_1,
             repvit_m2_3,
@@ -675,12 +692,12 @@ def _create_student_vision_backbone(
         wrapped_backbone = RepViTTrunkWrapper(backbone)
         in_channels = wrapped_backbone.channel_list[0]
 
-    elif backbone_type in (
+    elif backbone_type in {
         EfficientSAM3BackboneType.TINYVIT_5M,
         EfficientSAM3BackboneType.TINYVIT_11M,
         EfficientSAM3BackboneType.TINYVIT_21M,
-    ):
-        from getiprompt.models.foundation.efficientsam3.backbones.tiny_vit import (
+    }:
+        from getiprompt.models.foundation.efficientsam3.backbones.tiny_vit import (  # noqa: PLC0415
             tiny_vit_5m_224,
             tiny_vit_11m_224,
             tiny_vit_21m_224,
@@ -706,20 +723,19 @@ def _create_student_vision_backbone(
                 for layer in self.model.layers:
                     x = layer(x)
                 # Reshape from (B, L, C) to (B, C, H, W)
-                B, L, C = x.shape
-                H, W = self.model.layers[-1].input_resolution
-                x = x.view(B, H, W, C).permute(0, 3, 1, 2).contiguous()
-                return x
+                B, _L, C = x.shape  # noqa: N806
+                H, W = self.model.layers[-1].input_resolution  # noqa: N806
+                return x.view(B, H, W, C).permute(0, 3, 1, 2).contiguous()
 
         wrapped_backbone = TinyViTTrunkWrapper(backbone)
         in_channels = wrapped_backbone.channel_list[0]
 
-    elif backbone_type in (
+    elif backbone_type in {
         EfficientSAM3BackboneType.EFFICIENTVIT_B0,
         EfficientSAM3BackboneType.EFFICIENTVIT_B1,
         EfficientSAM3BackboneType.EFFICIENTVIT_B2,
-    ):
-        from getiprompt.models.foundation.efficientsam3.backbones.efficientvit import (
+    }:
+        from getiprompt.models.foundation.efficientsam3.backbones.efficientvit import (  # noqa: PLC0415
             efficientvit_b0,
             efficientvit_b1,
             efficientvit_b2,
@@ -750,7 +766,8 @@ def _create_student_vision_backbone(
         in_channels = wrapped_backbone.channel_list[0]
 
     else:
-        raise ValueError(f"Unknown backbone type: {backbone_type}")
+        msg = f"Unknown backbone type: {backbone_type}"
+        raise ValueError(msg)
 
     # Wrap with ImageStudentEncoder for projection
     student_encoder = ImageStudentEncoder(
@@ -769,12 +786,11 @@ def _create_student_vision_backbone(
     # (despite the parameter being named tensor_list)
     final_trunk = student_encoder
 
-    vit_neck = _create_vit_neck(
+    return _create_vit_neck(
         position_encoding,
         final_trunk,
         enable_inst_interactivity=enable_inst_interactivity,
     )
-    return vit_neck
 
 
 def _load_checkpoint(
@@ -791,7 +807,7 @@ def _load_checkpoint(
         checkpoint_path: Path to the checkpoint file.
         enable_inst_interactivity: Whether to load tracker/SAM heads weights.
     """
-    from getiprompt.models.foundation.efficientsam3.efficientsam3_checkpoint_loaders import (
+    from getiprompt.models.foundation.efficientsam3.efficientsam3_checkpoint_loaders import (  # noqa: PLC0415
         EfficientSAM3CheckpointPaths,
         EfficientSAM3UnifiedCheckpointLoader,
     )
@@ -835,10 +851,13 @@ def get_checkpoint_filename(
     key = (backbone_type, text_encoder_type)
     if key not in MODEL_CONFIGS:
         available = "\n".join(f"  - {bb.value} + {te.value if te else 'SAM3-full'}" for bb, te in MODEL_CONFIGS)
-        raise ValueError(
+        msg = (
             f"Model combination not available: {backbone_type.value} + "
             f"{text_encoder_type.value if text_encoder_type else 'SAM3-full'}\n"
-            f"Available combinations:\n{available}",
+            f"Available combinations:\n{available}"
+        )
+        raise ValueError(
+            msg,
         )
     return MODEL_CONFIGS[key]
 
@@ -855,35 +874,24 @@ def download_efficientsam3_from_hf(
 
     Returns:
         Path to downloaded checkpoint file
-
-    Raises:
-        ValueError: If the model combination is not available
     """
     checkpoint_filename = get_checkpoint_filename(backbone_type, text_encoder_type)
 
-    print(
-        f"Downloading EfficientSAM3 checkpoint: {checkpoint_filename} from HuggingFace Hub...\n"
-        f"Repository: {EFFICIENTSAM3_HF_REPO}/{EFFICIENTSAM3_HF_SUBFOLDER}",
-    )
-
-    checkpoint_path = hf_hub_download(
+    return hf_hub_download(
         repo_id=EFFICIENTSAM3_HF_REPO,
         filename=checkpoint_filename,
         subfolder=EFFICIENTSAM3_HF_SUBFOLDER,
     )
-
-    print(f"Checkpoint downloaded to: {checkpoint_path}")
-    return checkpoint_path
 
 
 def build_efficientsam3_image_model(
     bpe_path: str | Path | None = None,
     device: str = "cuda",
     checkpoint_path: str | Path | None = None,
-    load_from_HF: bool = True,
+    load_from_hf: bool = True,
     enable_segmentation: bool = True,
     enable_inst_interactivity: bool = False,
-    compile: bool = False,
+    use_compile: bool = False,
     backbone_type: EfficientSAM3BackboneType | str = EfficientSAM3BackboneType.TINYVIT_21M,
     text_encoder_type: EfficientSAM3TextEncoderType | str | None = EfficientSAM3TextEncoderType.MOBILECLIP_S1,
 ) -> EfficientSAM3Image:
@@ -897,13 +905,13 @@ def build_efficientsam3_image_model(
         bpe_path: Path to BPE tokenizer vocabulary. If None, uses default from SAM3.
         device: Device to load the model on ('cuda', 'xpu', or 'cpu'). Defaults to 'cuda'.
         checkpoint_path: Optional path to EfficientSAM3 model checkpoint. If None and
-            load_from_HF=True, automatically downloads from HuggingFace Hub.
-        load_from_HF: Whether to automatically download checkpoint from HuggingFace Hub
+            load_from_hf=True, automatically downloads from HuggingFace Hub.
+        load_from_hf: Whether to automatically download checkpoint from HuggingFace Hub
             when checkpoint_path is None. Defaults to True.
         enable_segmentation: Whether to enable segmentation head. Defaults to True.
         enable_inst_interactivity: Whether to enable SAM-style interactive segmentation
             with prompt encoder and mask decoder. Defaults to False.
-        compile: Whether to compile the model with torch.compile for faster inference.
+        use_compile: Whether to compile the model with torch.compile for faster inference.
             Defaults to False.
         backbone_type: Type of image encoder backbone. Accepts enum or string.
             Options: 'efficientvit-b0/b1/b2', 'repvit-m0.9/m1.1/m2.3', 'tinyvit-5m/11m/21m'.
@@ -917,7 +925,6 @@ def build_efficientsam3_image_model(
 
     Raises:
         FileNotFoundError: If BPE path does not exist.
-        ValueError: If backbone_type or text_encoder_type combination is not available.
 
     Examples:
         >>> # Default: TinyViT-21M + MobileCLIP-S1
@@ -948,9 +955,10 @@ def build_efficientsam3_image_model(
         bpe_path = Path(__file__).parent.parent / "sam3" / "assets" / "bpe_simple_vocab_16e6.txt.gz"
 
     if not Path(bpe_path).exists():
-        raise FileNotFoundError(f"BPE path {bpe_path} does not exist")
+        msg = f"BPE path {bpe_path} does not exist"
+        raise FileNotFoundError(msg)
 
-    compile_mode = "default" if compile else None
+    compile_mode = "default" if use_compile else None
 
     # Create vision encoder with student backbone
     vision_encoder = _create_student_vision_backbone(
@@ -998,7 +1006,7 @@ def build_efficientsam3_image_model(
         _add_sam_heads(model, image_size=1008, backbone_stride=14, device=device)
 
     # Auto-download checkpoint from HuggingFace if needed
-    if load_from_HF and checkpoint_path is None:
+    if load_from_hf and checkpoint_path is None:
         checkpoint_path = download_efficientsam3_from_hf(
             backbone_type=backbone_type,
             text_encoder_type=text_encoder_type,
@@ -1016,7 +1024,7 @@ def build_efficientsam3_image_model(
     # Create the interactive predictor if instance interactivity is enabled
     # This must be done AFTER checkpoint loading so the model has the correct weights
     if enable_inst_interactivity:
-        from getiprompt.models.foundation.sam3.model.sam1_task_predictor import (
+        from getiprompt.models.foundation.efficientsam3.sam1_task_predictor import (  # noqa: PLC0415
             SAM3InteractiveImagePredictor,
         )
 
@@ -1028,7 +1036,7 @@ def build_efficientsam3_image_model(
             max_sprinkle_area=0.0,
         )
         # Move predictor's transforms to device
-        predictor._transforms = predictor._transforms.to(device)
+        predictor._transforms = predictor._transforms.to(device)  # noqa: SLF001
         model.inst_interactive_predictor = predictor
 
     return model
