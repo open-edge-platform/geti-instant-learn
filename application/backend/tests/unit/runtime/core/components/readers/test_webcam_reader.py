@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 # test_usb_camera_reader.py
 
 from types import SimpleNamespace

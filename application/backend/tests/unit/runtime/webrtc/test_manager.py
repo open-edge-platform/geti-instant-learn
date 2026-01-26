@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 from queue import Queue
 from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4

@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 from domain.db.models import AnnotationDB
 from domain.services.schemas.annotation import AnnotationSchema
 

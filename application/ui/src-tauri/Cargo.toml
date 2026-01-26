@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 [package]
 name = "geti_prompt_ui"
 version = "0.1.0"

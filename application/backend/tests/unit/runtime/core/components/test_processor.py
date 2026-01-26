@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 from queue import Empty, Queue
 from unittest.mock import MagicMock
 
