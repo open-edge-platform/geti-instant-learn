@@ -29,10 +29,18 @@ type SinkWithoutConfig = Omit<SinkConfig, 'config'>;
 export type MQTTConfig = components['schemas']['MqttConfig'];
 export type MQTTSinkType = SinkWithoutConfig & { config: MQTTConfig };
 
+type MatcherConfig = components['schemas']['MatcherConfig'];
+type PerDINOConfig = components['schemas']['PerDinoConfig'];
+type SoftMatcherConfig = components['schemas']['SoftMatcherConfig'];
+
+export type ModelType = components['schemas']['ProcessorSchema'];
+export type MatcherModel = Omit<ModelType, 'config'> & { config: MatcherConfig };
+export type PerDINOModel = Omit<ModelType, 'config'> & { config: PerDINOConfig };
+export type SoftMatcherModel = Omit<ModelType, 'config'> & { config: SoftMatcherConfig };
+
 export { $api, client } from './client';
 export {
     type paths,
-    type SchemaProcessorSchema as ModelType,
     type SchemaProcessorUpdateSchema as ModelUpdateType,
     type SchemaProcessorListSchema as ModelListType,
     type SchemaProjectSchema as ProjectType,

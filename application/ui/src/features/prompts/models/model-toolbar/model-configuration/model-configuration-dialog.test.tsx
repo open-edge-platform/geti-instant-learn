@@ -60,10 +60,6 @@ class ModelConfigurationDialogPage {
         await this.changeSelection('Precision', value);
     }
 
-    async changeUseMaskRefinement() {
-        await userEvent.click(screen.getByRole('switch', { name: 'Use mask refinement' }));
-    }
-
     async configureModel() {
         await userEvent.click(this.configureButton);
     }
@@ -95,6 +91,7 @@ describe('ModelConfigurationDialog', () => {
         const model = getMockedModel({
             config: {
                 ...mockedModel.config,
+                model_type: 'matcher',
                 num_foreground_points: 10,
                 num_background_points: 10,
                 confidence_threshold: 0.2,
@@ -136,11 +133,6 @@ describe('ModelConfigurationDialog', () => {
         expect(modelConfigurationDialogPage.configureButton).toBeEnabled();
         await modelConfigurationDialogPage.changePrecision(model.config.precision.toUpperCase());
         expect(modelConfigurationDialogPage.configureButton).toBeDisabled();
-
-        await modelConfigurationDialogPage.changeUseMaskRefinement();
-        expect(modelConfigurationDialogPage.configureButton).toBeEnabled();
-        await modelConfigurationDialogPage.changeUseMaskRefinement();
-        expect(modelConfigurationDialogPage.configureButton).toBeDisabled();
     });
 
     it('configures the model', async () => {
@@ -163,7 +155,6 @@ describe('ModelConfigurationDialog', () => {
         const encoderModel = 'DINOv3 Base';
         const decoderModel = 'SAM2 Small';
         const precision = 'FP16';
-        const useMaskRefinement = true;
 
         await modelConfigurationDialogPage.changeNumberOfForegroundPointes(numberOfForegroundPoints);
         await modelConfigurationDialogPage.changeNumberOfBackgroundPointes(numberOfBackgroundPoints);
@@ -171,25 +162,21 @@ describe('ModelConfigurationDialog', () => {
         await modelConfigurationDialogPage.changeEncoderModel(encoderModel);
         await modelConfigurationDialogPage.changeDecoderModel(decoderModel);
         await modelConfigurationDialogPage.changePrecision(precision);
-        await modelConfigurationDialogPage.changeUseMaskRefinement();
 
         await modelConfigurationDialogPage.configureModel();
 
         await waitFor(() => {
-            expect(body).toEqual({
-                name: model.name,
-                active: model.active,
-                config: {
-                    model_type: 'matcher',
+            expect(body.config).toEqual(
+                expect.objectContaining({
+                    model_type: 'perdino',
                     num_foreground_points: numberOfForegroundPoints,
                     num_background_points: numberOfBackgroundPoints,
                     confidence_threshold: confidenceThreshold,
                     sam_model: 'SAM2-small',
                     encoder_model: 'dinov3_base',
-                    use_mask_refinement: useMaskRefinement,
                     precision: precision.toLowerCase(),
-                },
-            });
+                })
+            );
         });
 
         expect(mockOnClose).toHaveBeenCalled();

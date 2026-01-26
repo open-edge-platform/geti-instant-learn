@@ -3,23 +3,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ModelType } from '@geti-prompt/api';
+import type { ModelType } from '@geti-prompt/api';
 
 export const getMockedModel = (model?: Partial<ModelType>): ModelType => {
     return {
         id: 'some-id',
         config: {
-            confidence_threshold: 0.38,
-            model_type: 'matcher',
-            num_background_points: 2,
-            num_foreground_points: 40,
-            precision: 'bf16',
-            sam_model: 'SAM-HQ-tiny',
+            model_type: 'perdino',
             encoder_model: 'dinov3_large',
-            use_mask_refinement: false,
+            sam_model: 'SAM-HQ-tiny',
+            num_foreground_points: 40,
+            num_background_points: 2,
+            num_grid_cells: 16,
+            point_selection_threshold: 0.65,
+            confidence_threshold: 0.42,
+            precision: 'bf16',
+            use_nms: true,
+            compile_models: true,
         },
         active: true,
-        name: 'Mega model',
+        name: 'PerDINO',
         ...model,
     };
 };
