@@ -1,0 +1,69 @@
+name: Extract image FS
+
+on:
+  workflow_dispatch:
+
+permissions: {} # No permissions by default on workflow level
+
+jobs:
+  collect-packages-names:
+    name: Generate SBOM with Syft
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        ai-device: [xpu]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Install dependencies
+        uses: ./.github/actions/install-dependencies
+        with:
+          cleanup-runner: 'true'
+
+      - name: Build docker image
+        working-directory: application
+        id: image-name
+        env:
+          DEVICE: ${{ matrix.ai-device }}
+        run: |
+          just build-target="${DEVICE}" docker-build-context="--no-cache" build-image
+          IMAGE_NAME=$(just --evaluate build-target="${DEVICE}" image-name)
+          echo "image=${IMAGE_NAME}" >> $GITHUB_OUTPUT
+          echo "Image: ${IMAGE_NAME}"
+
+      - name: Cleanup docker cache
+        run: docker builder prune -f
+
+      - name: Generate filesystem tree
+        shell: bash
+        env:
+          TARGET: ${{ steps.image-name.outputs.image }}
+          DEVICE: ${{ matrix.ai-device }}
+        run: |
+          # Install tree utility
+          sudo apt-get update && sudo apt-get install -y tree
+          
+          # Create a temporary container and export filesystem
+          CONTAINER_ID=$(docker create "$TARGET")
+          mkdir -p ./image-fs
+          docker export "$CONTAINER_ID" | tar -xC ./image-fs
+          docker rm "$CONTAINER_ID"
+          
+          # Generate tree listing
+          tree -a -L 5 ./image-fs > filesystem_tree_$DEVICE.txt
+          
+          # Cleanup extracted filesystem
+          rm -rf ./image-fs
+
+      - name: Upload filesystem tree
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: filesystem_tree_${{ matrix.ai-device }}
+          path: filesystem_tree_*
+          retention-days: 5
