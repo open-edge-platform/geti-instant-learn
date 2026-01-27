@@ -7,8 +7,8 @@ on:
 permissions: {} # No permissions by default on workflow level
 
 jobs:
-  collect-packages-names:
-    name: Generate SBOM with Syft
+  fs-tree:
+    name: FS tree export ${{ matrix.ai-device }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -46,10 +46,7 @@ jobs:
         env:
           TARGET: ${{ steps.image-name.outputs.image }}
           DEVICE: ${{ matrix.ai-device }}
-        run: |
-          # Install tree utility
-          sudo apt-get update && sudo apt-get install -y tree
-          
+        run: |         
           # Create a temporary container and export filesystem
           CONTAINER_ID=$(docker create "$TARGET")
           mkdir -p ./image-fs
