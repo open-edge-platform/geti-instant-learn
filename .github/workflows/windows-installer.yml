@@ -30,7 +30,7 @@ on:
         options:
           - xpu
           - cpu
-          - gpu
+          - cuda
         default: "xpu"
       debug_build:
         description: "If the debug build should be produced"
@@ -67,22 +67,22 @@ jobs:
           BUILD_VERSION: ${{ inputs.build_version }}
         run: |
           Write-Host "DEBUG_BUILD=$env:DEBUG_BUILD"
-          
-          $TARGET = $(IF ($env:DEBUG_BUILD -eq "true") {"debug"} else {"release"})         
+
+          $TARGET = $(IF ($env:DEBUG_BUILD -eq "true") {"debug"} else {"release"})
           $UI_BUILD_PATH = $env:UI_TARGET_PATH + "\" + $TARGET
           Write-Host "UI_BUILD_PATH=$UI_BUILD_PATH"
           Add-Content -Path $env:GITHUB_ENV -Value "UI_BUILD_PATH=$UI_BUILD_PATH"
-          
-          $UI_MSIX_BUNDLE_PATH = $UI_BUILD_PATH + "\bundle\msix"  
+
+          $UI_MSIX_BUNDLE_PATH = $UI_BUILD_PATH + "\bundle\msix"
           Write-Host "UI_MSIX_BUNDLE_PATH=$UI_MSIX_BUNDLE_PATH"
           Add-Content -Path $env:GITHUB_ENV -Value "UI_MSIX_BUNDLE_PATH=$UI_MSIX_BUNDLE_PATH"
-          
+
           $PREFIX = $(IF ($env:DEBUG_BUILD -eq "true") {"-debug"} else {""})
           $MSIX_FILE_NAME = "geti-prompt-" + $env:DEVICE + "-" + $env:BUILD_VERSION + $PREFIX + ".msix"
           $MSIX_FILE_PATH = $UI_MSIX_BUNDLE_PATH + "\" + $MSIX_FILE_NAME
           Write-Host "MSIX_FILE_PATH=$MSIX_FILE_PATH"
-          Add-Content -Path $env:GITHUB_ENV -Value "MSIX_FILE_PATH=$MSIX_FILE_PATH"          
-          
+          Add-Content -Path $env:GITHUB_ENV -Value "MSIX_FILE_PATH=$MSIX_FILE_PATH"
+
 
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
