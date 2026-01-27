@@ -19,9 +19,3 @@ Geti Prompt is part of the Geti Apps ecosystem and comes with its own VisionProm
 4. **Deploy** – Once the prompted model meets the user’s performance requirements, the user can deploy the Geti Prompt application, including the prompted model, in different ways: as a containerized Docker image for deployment on remote edge servers and devices, or run the application & model directly on a local pc.
 5. **Inference** – The user can configure how the model output will be consumed. The user can set a destination of choice, e.g. publishing the results to a message bus.
 6. **Alert** – The generated output from the deployed model can be consumed by custom business logic flows built by users, so that action can be taken upon the inference results in an automated way, for example by using Node-RED.
-
-## Next Steps
-
-* **[Quick Start Guide](02-quick-start.md)**: Spin up the application locally or via Docker.
-* **[Tutorials](tutorials/01-tutorials.md)**: Walk through a complete end-to-end example.
-* **[Concepts](concepts/01-concepts.md)**: Understand the underlying technology (Pipelines, Sources, Sinks).
