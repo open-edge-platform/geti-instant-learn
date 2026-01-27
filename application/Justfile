@@ -14,7 +14,7 @@ host := "0.0.0.0"
 enable-coturn := "false"
 stun-server := ""
 webrtc-ports := "50000-51000"
-device := "cpu"  # cpu, cu126, xpu
+device := "cpu"  # cpu, cu128, xpu
 
 # Note: Binding port 443 may conflict with other services (e.g., HTTPS) on this host. Replace it with whatever port works/open for you.
 coturn-port := "443"
@@ -23,7 +23,7 @@ coturn-port := "443"
 # Variables used in the Justfile to build in Docker image
 # -------------------------------------------------------------------------------------------------
 docker-build-context := ""
-build-target := "cpu"  # options: cpu, gpu, xpu
+build-target := "cpu"  # options: cpu, cuda, xpu
 component-name := "geti-prompt"
 container-registry := 'localhost:5000/open-edge-platform'
 version := "latest"

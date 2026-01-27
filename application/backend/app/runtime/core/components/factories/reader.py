@@ -35,6 +35,7 @@ class StreamReaderFactory:
             case ImagesFolderConfig() as config:
                 return ImageFolderReader(config, supported_extensions=settings.supported_extensions)
             case SampleDatasetConfig() as config:
+                print("SampleDatasetConfig")
                 template_config = ImagesFolderConfig(
                     source_type=SourceType.IMAGES_FOLDER,
                     images_folder_path=str(settings.template_dataset_dir),
@@ -44,4 +45,5 @@ class StreamReaderFactory:
             case VideoFileConfig() as config:
                 return VideoFileReader(config=config)
             case _:
+                print("NoOpReader")
                 return NoOpReader()

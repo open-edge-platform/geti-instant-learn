@@ -12,7 +12,7 @@ dataset-dir := ".data/templates/datasets/coffee-berries"
 
 # Ensure version in GHA workflow matches uv version here
 uv_version := "0.9.7"
-device := "cpu" # cpu, cu126, xpu
+device := "cpu" # cpu, cu128, xpu
 
 default:
     @just --list

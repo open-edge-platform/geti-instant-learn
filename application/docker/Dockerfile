@@ -133,9 +133,9 @@ FROM runtime-base AS cpu
 COPY --from=backend-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
 
 ######################
-# Server (GPU version)
+# Server (CUDA version)
 ######################
-FROM runtime-base AS gpu
+FROM runtime-base AS cuda
 
 USER root
 

@@ -18,7 +18,7 @@ just application/dev
 just device=xpu application/dev
 
 # Optional: Run on NVIDIA GPU
-just device=cu126 application/dev
+just device=cu128 application/dev
 ```
 
 **Access at: [http://localhost:3000](http://localhost:3000)**
@@ -35,7 +35,7 @@ just application/run-image
 just device=xpu application/run-image
 
 # Run on NVIDIA GPU
-just device=cu126 application/run-image
+just device=cu128 application/run-image
 ```
 
 **Access at: [http://localhost:9100](http://localhost:9100)**
@@ -50,7 +50,7 @@ Customize startup with these variables:
 | :--- | :--- | :--- | :--- |
 | `port` | `9100` | Backend API port | All |
 | `ui-port` | `3000` | UI development server port | Source only |
-| `device` | `cpu` | Hardware target (`cpu`, `xpu`, `cu126`) | All |
+| `device` | `cpu` | Hardware target (`cpu`, `xpu`, `cu128`) | All |
 | `enable-coturn` | `false` | Enable local TURN server for WebRTC | All |
 | `stun-server` | `""` | External STUN server URL | All |
 | `webrtc-ports` | `50000-51000` | UDP port range for WebRTC | All |
