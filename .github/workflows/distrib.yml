@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 30
     strategy:
       matrix:
-        ai-device: [cpu, gpu, xpu]
+        ai-device: [cpu, cuda, xpu]
     steps:
       - name: Validate SHA format
         if: inputs.sha-commit != ''
