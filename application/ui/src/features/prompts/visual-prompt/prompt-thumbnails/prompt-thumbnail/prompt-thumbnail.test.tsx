@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { VisualPromptItemType } from '@geti-prompt/api';
-import { render } from '@geti-prompt/test-utils';
+import { VisualPromptItemType } from '@/api';
+import { render } from '@/test-utils';
 import { fireEvent, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 

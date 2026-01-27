@@ -14,7 +14,7 @@
  * Be careful when modifying these types, as they are integral to the query client's operation.
  */
 
-import { type paths } from '@geti-prompt/api';
+import { type paths } from '@/api';
 import type { HttpMethod } from 'openapi-typescript-helpers';
 
 type OperationFor<Paths extends paths, P extends keyof Paths, Method extends HttpMethod> = Method extends keyof Paths[P]

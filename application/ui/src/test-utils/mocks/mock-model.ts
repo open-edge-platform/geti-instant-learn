@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { ModelType } from '@geti-prompt/api';
+import type { ModelType } from '@/api';
 
 export const getMockedModel = (model?: Partial<ModelType>): ModelType => {
     return {

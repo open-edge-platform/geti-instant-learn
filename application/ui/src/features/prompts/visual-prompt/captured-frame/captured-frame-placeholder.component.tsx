@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Image } from '@geti-prompt/icons';
+import { Image } from '@/icons';
 import { Content, Flex } from '@geti/ui';
 
 import styles from './captured-frame-placeholder.module.scss';

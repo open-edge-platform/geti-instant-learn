@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { LabelType } from '@geti-prompt/api';
-import { getMockedLabel, render } from '@geti-prompt/test-utils';
+import { LabelType } from '@/api';
+import { getMockedLabel, render } from '@/test-utils';
 import { fireEvent, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';

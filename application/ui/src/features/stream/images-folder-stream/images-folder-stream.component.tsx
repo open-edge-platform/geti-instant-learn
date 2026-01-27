@@ -5,8 +5,8 @@
 
 import { useRef } from 'react';
 
-import { FrameAPIType } from '@geti-prompt/api';
-import { useEventListener } from '@geti-prompt/hooks';
+import { FrameAPIType } from '@/api';
+import { useEventListener } from '@/hooks';
 import { ActionButton, dimensionValue, Grid, Loading, minmax, View } from '@geti/ui';
 import { ChevronLeft, ChevronRight } from '@geti/ui/icons';
 

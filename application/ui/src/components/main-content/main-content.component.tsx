@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useGetSources } from '@geti-prompt/hooks';
-import { NoMedia } from '@geti-prompt/icons';
+import { useGetSources } from '@/hooks';
+import { NoMedia } from '@/icons';
 import { Content, Flex, View } from '@geti/ui';
 
 import { StreamContainer } from '../../features/stream/stream-container/stream-container.component';

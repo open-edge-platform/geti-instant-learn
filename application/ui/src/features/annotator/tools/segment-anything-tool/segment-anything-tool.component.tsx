@@ -5,7 +5,7 @@
 
 import { CSSProperties, PointerEvent, useRef, useState } from 'react';
 
-import { LabelType } from '@geti-prompt/api';
+import { LabelType } from '@/api';
 import { clampPointBetweenImage } from '@geti/smart-tools/utils';
 
 import { useZoom } from '../../../../components/zoom/zoom.provider';

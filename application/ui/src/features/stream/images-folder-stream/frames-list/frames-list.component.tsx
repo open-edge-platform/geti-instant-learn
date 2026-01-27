@@ -5,7 +5,7 @@
 
 import { RefObject, useLayoutEffect, useMemo } from 'react';
 
-import { type FrameAPIType } from '@geti-prompt/api';
+import { type FrameAPIType } from '@/api';
 import {
     AriaComponentsListBox,
     HorizontalLayout,

@@ -13,8 +13,8 @@ import {
     SinksListType,
     SourcesListType,
     VisualPromptListType,
-} from '@geti-prompt/api';
-import { queryClient } from '@geti-prompt/query-client';
+} from '@/api';
+import { queryClient } from '@/query-client';
 import { HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import fetchPolyfill, { Request as RequestPolyfill } from 'node-fetch';

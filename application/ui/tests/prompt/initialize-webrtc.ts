@@ -7,7 +7,7 @@ import { readFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { http } from '@geti-prompt/test-fixtures';
+import { http } from '@/test-fixtures';
 import { NetworkFixture } from '@msw/playwright';
 import { BrowserContext, Page } from '@playwright/test';
 import { HttpResponse } from 'msw';

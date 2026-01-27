@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { expect, http, test } from '@geti-prompt/test-fixtures';
+import { expect, http, test } from '@/test-fixtures';
 import { Page } from '@playwright/test';
 
 import { getMockedVisualPromptItem } from '../../src/test-utils/mocks/mock-prompt';
