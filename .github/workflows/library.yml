@@ -29,9 +29,9 @@ jobs:
       - name: Lint library
         working-directory: library
         run: |
-          just lint || exit 0
+          just lint
 
       - name: Run library tests
         working-directory: library
         run: |
-          just tests || exit 0
+          just tests
