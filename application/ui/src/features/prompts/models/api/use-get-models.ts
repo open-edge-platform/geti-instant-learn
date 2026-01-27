@@ -5,8 +5,8 @@
 
 import { useEffect, useRef } from 'react';
 
-import { $api, MatcherModel, ModelListType, PerDINOModel, SoftMatcherModel } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { $api, MatcherModel, ModelListType, PerDINOModel, SoftMatcherModel } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
 import { v4 as uuid } from 'uuid';
 
 import { useCreateModel } from './use-create-model';
@@ -30,8 +30,8 @@ const getDefaultMatcherModel = (id: string): MatcherModel => {
         config: {
             confidence_threshold: 0.38,
             model_type: 'matcher',
-            num_background_points: 2,
-            num_foreground_points: 40,
+            num_background_points: 3,
+            num_foreground_points: 5,
             precision: 'bf16',
             sam_model: 'SAM-HQ-tiny',
             encoder_model: 'dinov3_small',
@@ -49,16 +49,16 @@ const getDefaultPerDINOModel = (id: string): PerDINOModel => {
         id,
         config: {
             model_type: 'perdino',
-            encoder_model: 'dinov3_small',
+            encoder_model: 'dinov3_large',
             sam_model: 'SAM-HQ-tiny',
-            num_foreground_points: 90,
+            num_foreground_points: 40,
             num_background_points: 2,
             num_grid_cells: 16,
             point_selection_threshold: 0.65,
             confidence_threshold: 0.42,
             precision: 'bf16',
             use_nms: true,
-            compile_models: false,
+            compile_models: true,
         },
         active: true,
         name: 'PerDINO',
@@ -71,7 +71,7 @@ const getDefaultSoftMatcherModel = (id: string): SoftMatcherModel => {
         config: {
             model_type: 'soft_matcher',
             sam_model: 'SAM-HQ-tiny',
-            encoder_model: 'dinov3_small',
+            encoder_model: 'dinov3_large',
             num_foreground_points: 40,
             num_background_points: 2,
             confidence_threshold: 0.42,

@@ -5,7 +5,7 @@
 
 import { createContext, ReactNode, RefObject, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { useProjectIdentifier } from '@/hooks';
 import { toast } from '@geti/ui';
 
 import { WebRTCConnection, type WebRTCConnectionStatus } from './web-rtc-connection';

@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api, SinkCreateType } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { $api, SinkCreateType } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
 import { v4 as uuid } from 'uuid';
 
 const useCreateSinkMutation = (projectId: string) => {

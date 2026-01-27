@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { VisualPromptItemType } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { VisualPromptItemType } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
 import { ActionMenu, Item, Key, View } from '@geti/ui';
 
 import { useSelectedFrame } from '../../../../../shared/selected-frame-provider.component';

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { USBCameraSourceType, VisualPromptItemType } from '@geti-prompt/api';
+import { USBCameraSourceType, VisualPromptItemType } from '@/api';
 
 import { getMockedVisualPromptItem } from '../../src/test-utils/mocks/mock-prompt';
 

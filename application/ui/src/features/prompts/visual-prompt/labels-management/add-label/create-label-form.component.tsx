@@ -5,8 +5,8 @@
 
 import { useMemo } from 'react';
 
-import { LabelType } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { LabelType } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
 import { Flex } from '@geti/ui';
 import { Add } from '@geti/ui/icons';
 import { getDistinctColorBasedOnHash } from '@geti/ui/utils';

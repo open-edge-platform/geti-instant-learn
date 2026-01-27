@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
-import { getQueryKey } from '@geti-prompt/query-client';
+import { $api } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
+import { getQueryKey } from '@/query-client';
 import { useQueryClient } from '@tanstack/react-query';
 
 export const useActivateFrameMutation = () => {

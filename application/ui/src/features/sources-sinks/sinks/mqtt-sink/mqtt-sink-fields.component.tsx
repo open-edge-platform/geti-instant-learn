@@ -5,7 +5,7 @@
 
 import { Dispatch, SetStateAction } from 'react';
 
-import { MQTTSinkType } from '@geti-prompt/api';
+import { MQTTSinkType } from '@/api';
 import { Flex, NumberField, Switch, TextField } from '@geti/ui';
 
 interface MQTTSinkFieldsProps {

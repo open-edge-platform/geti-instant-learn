@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { MQTTSinkType } from '@geti-prompt/api';
-import { MQTT } from '@geti-prompt/icons';
+import { MQTTSinkType } from '@/api';
+import { MQTT } from '@/icons';
 
 import { PipelineEntityCard } from '../../pipeline-entity-card/pipeline-entity-card.component';
 

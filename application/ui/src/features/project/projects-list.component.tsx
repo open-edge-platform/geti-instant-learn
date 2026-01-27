@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ProjectType } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { ProjectType } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
 import { isEmpty } from 'lodash-es';
 import { useNavigate } from 'react-router';
 

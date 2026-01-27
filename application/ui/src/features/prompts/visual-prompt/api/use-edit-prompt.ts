@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api, VisualPromptType } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { $api, VisualPromptType } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
 
 import { convertAnnotationsToDTO } from '../../../../shared/utils';
 import { useAnnotationActions } from '../../../annotator/providers/annotation-actions-provider.component';

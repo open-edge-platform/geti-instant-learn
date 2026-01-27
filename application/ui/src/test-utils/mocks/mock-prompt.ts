@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { VisualPromptItemType, VisualPromptType } from '@geti-prompt/api';
+import { VisualPromptItemType, VisualPromptType } from '@/api';
 
 export const getMockedVisualPromptItem = (
     prompt: Partial<Omit<VisualPromptItemType, 'type'>> = {}

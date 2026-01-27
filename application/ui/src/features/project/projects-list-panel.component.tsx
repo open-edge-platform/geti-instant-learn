@@ -5,8 +5,8 @@
 
 import { useState } from 'react';
 
-import { $api, type ProjectType } from '@geti-prompt/api';
-import { useCurrentProject } from '@geti-prompt/hooks';
+import { $api, type ProjectType } from '@/api';
+import { useCurrentProject } from '@/hooks';
 import {
     ActionButton,
     ButtonGroup,

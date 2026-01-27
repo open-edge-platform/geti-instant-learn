@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api, SourceType } from '@geti-prompt/api';
+import { $api, SourceType } from '@/api';
 
 export const useAvailableSources = (sourceType: SourceType) => {
     return $api.useSuspenseQuery('get', '/api/v1/source-types/{source_type}/sources', {

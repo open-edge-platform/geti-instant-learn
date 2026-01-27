@@ -5,7 +5,7 @@
 
 import { Key, KeyboardEvent, useEffect, useRef, useState } from 'react';
 
-import { useOnOutsideClick } from '@geti-prompt/hooks';
+import { useOnOutsideClick } from '@/hooks';
 import { ActionMenu, AlertDialog, DialogContainer, Item, TextField, TextFieldRef, useUnwrapDOMRef } from '@geti/ui';
 
 import styles from './project-list-item.module.scss';

@@ -5,7 +5,7 @@
 
 import { CSSProperties } from 'react';
 
-import { useGetSources } from '@geti-prompt/hooks';
+import { useGetSources } from '@/hooks';
 import { Button, Flex, StatusLight, View } from '@geti/ui';
 
 import { SourcesSinks } from '../../features/sources-sinks/sources-sinks.component';

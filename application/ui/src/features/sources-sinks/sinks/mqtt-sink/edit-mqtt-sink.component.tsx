@@ -5,7 +5,7 @@
 
 import { FormEvent, useRef, useState } from 'react';
 
-import { MQTTSinkType } from '@geti-prompt/api';
+import { MQTTSinkType } from '@/api';
 import { Button, ButtonGroup, Form } from '@geti/ui';
 import { isEqual } from 'lodash-es';
 

@@ -5,7 +5,7 @@
 
 import { createContext, ReactNode, use, useEffect, useState } from 'react';
 
-import { LabelType, VisualPromptListType, VisualPromptType } from '@geti-prompt/api';
+import { LabelType, VisualPromptListType, VisualPromptType } from '@/api';
 
 import { useGetPrompt } from './api/use-get-prompt';
 import { useGetPrompts } from './api/use-get-prompts';
