@@ -3,7 +3,7 @@
 
 """Constants used in Geti Prompt."""
 
-from enum import Enum
+from enum import Enum, StrEnum
 from pathlib import Path
 
 
@@ -19,7 +19,7 @@ class Backend(Enum):
     TIMM = "timm"
 
 
-class SAMModelName(Enum):
+class SAMModelName(StrEnum):
     """Enum for SAM model types."""
 
     SAM_HQ = "SAM-HQ"
@@ -37,6 +37,7 @@ class ModelName(Enum):
     MATCHER = "Matcher"
     PER_DINO = "PerDino"
     SOFT_MATCHER = "SoftMatcher"
+    SAM3 = "SAM3"
 
 
 class DatasetName(Enum):

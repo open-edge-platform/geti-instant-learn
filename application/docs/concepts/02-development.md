@@ -5,7 +5,7 @@ The backend uses a 3-layer architecture with strict unidirectional dependencies.
 ## Layers
 
 | Layer | Responsibility | Can Import | Cannot Import |
-|-------|----------------|------------|---------------|
+| ----- | -------------- | ---------- | ------------- |
 | **API** | Provide the interface for interacting with the zero-shot learning framework | Runtime, Domain | — |
 | **Runtime** | Execute zero-shot inference pipelines, manage video streams, broadcast predictions | Domain | API |
 | **Domain** | Persist projects, prompts, labels, and model configurations | None | API, Runtime |
@@ -16,10 +16,10 @@ The backend uses a 3-layer architecture with strict unidirectional dependencies.
 
 The layered architecture simplifies testing by providing clear boundaries for mocking.
 
-| Type | Scope | Approach |
-|------|-------|----------|
-| Unit | Single layer | Mock dependencies from the layer below |
-| Integration | Data layer | Test repositories against a real database |
+| Type        | Scope        | Approach                                   |
+| ----------- | ------------ | ------------------------------------------ |
+| Unit        | Single layer | Mock dependencies from the layer below     |
+| Integration | Data layer   | Test repositories against a real database  |
 
 ## WebRTC Networking
 
@@ -34,7 +34,7 @@ The backend runs inside Docker or behind network infrastructure (NAT, load balan
 Configure the backend to advertise a reachable address. Choose the method based on your deployment:
 
 | Scenario | Challenge | Solution | Configuration |
-|----------|-----------|----------|---------------|
+| -------- | --------- | -------- | ------------- |
 | [Local development](#local-network) | Docker container has internal IP | Tell backend to advertise `127.0.0.1` or LAN IP | `WEBRTC_ADVERTISE_IP="127.0.0.1"` |
 | [Cloud (public IP unknown)](#cloud-with-auto-discovery) | Server IP changes dynamically | Backend discovers its public IP via STUN | `ICE_SERVERS='[{"urls": "stun:stun.l.google.com:19302"}]'` |
 | [Cloud (public IP known)](#cloud-with-manual-ip) | Behind load balancer or have static IP/DNS | Tell backend to advertise the public IP or DNS | `WEBRTC_ADVERTISE_IP="203.0.113.10"` |
@@ -48,9 +48,9 @@ Configure the backend to advertise a reachable address. Choose the method based 
 
 When running without a relay server (TURN), the container's UDP ports must be accessible from the outside for direct media streaming. Whether running locally or in the cloud, you must map these ports from the container to the host to allow media traffic to flow.
 
-| Ports | Protocol | Purpose |
-|-------|----------|---------|
-| `50000-50050` | UDP | WebRTC media |
+| Ports         | Protocol | Purpose      |
+| ------------- | -------- | ------------ |
+| `50000-50050` | UDP      | WebRTC media |
 
 We constrain the UDP port range by setting `net.ipv4.ip_local_port_range` in the container's Linux network namespace. This limits ephemeral ports to `50000-50050`, making firewall rules predictable.
 
@@ -121,7 +121,7 @@ docker run --rm \
 
 **Solution:** Route all traffic through a TURN relay server on TCP port 443 (usually allowed).
 
-**Step 1: Start the TURN server**
+#### Step 1: Start the TURN server
 
 ```bash
 # Using just
@@ -141,13 +141,13 @@ docker run --rm -d \
 
 The coturn server is configured via command-line arguments:
 
-*   `--listening-port=443`: Listens on the standard HTTPS port. You can change this via the `coturn-port` variable if port 443 is already in use on your host.
-*   `--no-udp`: Disables UDP listeners entirely to force TCP usage.
-*   `--user=user:password`: **For testing purposes only.**
-    *   These static credentials are provided for ease of development.
-    *   **Production Warning:** In a production environment, you should **never** use static credentials. Instead, use the **TURN REST API** (Time-Limited Credentials) mechanism. This involves sharing a secret key between the backend and the TURN server to generate temporary, expiring passwords for each client session. Coturn supports this via the `use-auth-secret` configuration.
+* `--listening-port=443`: Listens on the standard HTTPS port. You can change this via the `coturn-port` variable if port 443 is already in use on your host.
+* `--no-udp`: Disables UDP listeners entirely to force TCP usage.
+* `--user=user:password`: **For testing purposes only.**
+  * These static credentials are provided for ease of development.
+  * **Production Warning:** In a production environment, you should **never** use static credentials. Instead, use the **TURN REST API** (Time-Limited Credentials) mechanism. This involves sharing a secret key between the backend and the TURN server to generate temporary, expiring passwords for each client session. Coturn supports this via the `use-auth-secret` configuration.
 
-**Step 2: Start the application**
+#### Step 2: Start the application
 
 ```bash
 # Using just

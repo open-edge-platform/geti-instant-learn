@@ -6,8 +6,8 @@ on:
         description: "Specifies the build version to apply to all binaries produced by this workflow"
         type: string
         required: true
-      ai-device:
-        description: "Specifies the AI device to build the backend for (cpu, xpu, gpu)"
+      device:
+        description: "Specifies the device to build the backend for (cpu, xpu, gpu)"
         type: string
         required: true
         default: "xpu"
@@ -24,8 +24,8 @@ on:
         description: "Specifies the build version to apply to all binaries produced by this workflow"
         type: string
         required: true
-      ai-device:
-        description: "Specifies the AI device to build the backend for (cpu, xpu, gpu)"
+      device:
+        description: "Specifies the device to build the backend for (cpu, xpu, gpu)"
         required: true
         options:
           - xpu
@@ -48,6 +48,7 @@ env:
   UI_SRC_TAURI_PATH: .\application\ui\src-tauri
   UI_TARGET_PATH: .\application\ui\src-tauri\target
   MAKEAPP_PATH: "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.26100.0\\x64\\makeappx.exe"
+  SIGNTOOL_PATH: "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.26100.0\\x64\\signtool.exe"
 
 jobs:
   windows-installer:
@@ -62,8 +63,8 @@ jobs:
       - name: Define paths
         env:
           DEBUG_BUILD: ${{ inputs.debug_build }}
-          DEVICE: ${{ inputs.ai-device || 'xpu' }}
-          BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
+          DEVICE: ${{ inputs.device || 'xpu' }}
+          BUILD_VERSION: ${{ inputs.build_version }}
         run: |
           Write-Host "DEBUG_BUILD=$env:DEBUG_BUILD"
           
@@ -84,19 +85,19 @@ jobs:
           
 
       - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
       # Install and setup build tools
 
       - name: Set up Python
-        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
           python-version: "3.13"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@a02a550bdd3185dba2ebb6aa98d77047ce54ad21 # v6.2.1
+        uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7.2.0
         with:
           version: "0.9.7"
           enable-cache: true
@@ -106,14 +107,14 @@ jobs:
         run: choco install just --yes
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@6d9817901c499d6b02debbb57edb38d33daa680b
+        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
           toolchain: stable
 
       - name: Cache Rust dependencies & target
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
-          save-if: ${{ startsWith(github.ref_name, 'release/') || github.ref_name == 'develop' }}
+          save-if: ${{ startsWith(github.ref_name, 'release/') || github.ref_name == 'main' }}
           workspaces: |
             application\ui\src-tauri -> target
 
@@ -122,16 +123,16 @@ jobs:
       - name: Build OpenAPI spec
         working-directory: application/backend
         env:
-          DEVICE: ${{ inputs.ai-device || 'xpu' }}
+          DEVICE: ${{ inputs.device || 'xpu' }}
         run: |
-          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c ai-device="$env:DEVICE" gen-openapi
+          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c device="$env:DEVICE" gen-openapi
 
       - name: Build executable
         working-directory: application/backend
         env:
-          DEVICE: ${{ inputs.ai-device || 'xpu' }}
+          DEVICE: ${{ inputs.device || 'xpu' }}
         run: |
-          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c ai-device="$env:DEVICE" pyinstaller
+          just --shell "${{ env.GIT_SH_PATH }}" --shell-arg -c device="$env:DEVICE" pyinstaller
 
       # Copy backend artifacts to UI
 
@@ -148,7 +149,7 @@ jobs:
         # Build UI with Tauri
 
       - name: Setup Node & npm
-        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
         with:
           node-version-file: application/ui/.nvmrc
           cache: 'npm'
@@ -199,7 +200,24 @@ jobs:
           cp -r ${{ env.UI_SRC_TAURI_PATH }}\msix\* $env:UI_MSIX_BUNDLE_PATH
           & "${{ env.MAKEAPP_PATH }}" pack /d $env:UI_MSIX_BUNDLE_PATH /p $env:MSIX_FILE_PATH
 
+      - name: Sign MSIX package
+        env:
+          MSIX_SIGN_CERTIFICATE: ${{ secrets.MSIX_SIGN_CERTIFICATE }}
+          MSIX_SIGN_CERTIFICATE_PASSWORD: ${{ secrets.MSIX_SIGN_CERTIFICATE_PASSWORD }}
+        run: |
+          $bytes = [System.Convert]::FromBase64String($env:MSIX_SIGN_CERTIFICATE)
+          [System.IO.File]::WriteAllBytes("sign.pfx", $bytes)
+          try {
+            & "${{ env.SIGNTOOL_PATH }}" sign /fd SHA256 /a /f "sign.pfx" /p "$env:MSIX_SIGN_CERTIFICATE_PASSWORD" $env:MSIX_FILE_PATH
+          }
+          finally {
+            if (Test-Path "sign.pfx") {
+              Remove-Item "sign.pfx" -Force
+            }
+          }
+
       - name: Upload MSIX package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           path: ${{ env.MSIX_FILE_PATH }}
+          retention-days: 20

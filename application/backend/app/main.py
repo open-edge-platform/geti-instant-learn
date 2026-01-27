@@ -18,7 +18,7 @@ from starlette.responses import Response
 
 import api.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
 from api.error_handler import custom_exception_handler
-from api.routers import projects_router, webrtc_router
+from api.routers import projects_router, source_types_router, webrtc_router
 from domain.db.engine import get_session_factory, run_db_migrations
 from domain.dispatcher import ConfigChangeDispatcher
 from domain.services.schemas.health import HealthCheckSchema
@@ -41,11 +41,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     file_handler = logging.FileHandler(filename=settings.log_file, encoding="utf8")
     logging.basicConfig(
         handlers=[console_handler, file_handler],
-        level=logging.DEBUG if settings.debug else logging.INFO,
+        level=getattr(logging, settings.log_level.upper()),
         format=settings.log_format,
         force=True,
     )
     logger.info(f"Starting {settings.app_name} application...")
+    logger.info(settings.format_for_logging())
     run_db_migrations()
 
     app.state.config_dispatcher = ConfigChangeDispatcher()
@@ -92,6 +93,7 @@ async def health_check() -> HealthCheckSchema:
 
 
 fastapi_app.include_router(projects_router, prefix="/api/v1")
+fastapi_app.include_router(source_types_router, prefix="/api/v1")
 fastapi_app.include_router(webrtc_router, prefix="/api/v1")
 
 if (
@@ -145,7 +147,7 @@ def main() -> None:
         app,
         host=settings.host,
         port=settings.port,
-        log_level="debug" if settings.debug else "info",
+        log_level=settings.log_level.lower(),
         log_config=log_config,
     )
 

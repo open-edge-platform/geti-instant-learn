@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Benchmark utilities."""
@@ -13,7 +13,7 @@ import torch
 
 from getiprompt.components.prompt_generators import GroundingModel
 from getiprompt.data.base import Batch
-from getiprompt.models import GroundedSAM, InferenceMatcher, Matcher, Model, PerDino, SoftMatcher
+from getiprompt.models import SAM3, GroundedSAM, Matcher, Model, PerDino, SoftMatcher
 from getiprompt.utils.constants import DatasetName, ModelName, SAMModelName
 
 logger = getLogger("Geti Prompt")
@@ -172,31 +172,6 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
         The instantiated model.
     """
     # Check if OpenVINO backend is requested
-    backend = getattr(args, "backend", "pytorch").lower()
-    if backend == "openvino":
-        logger.info("Constructing model with OpenVINO backend: %s", model_name.value)
-        # Currently only Matcher supports OpenVINO backend
-        if model_name != ModelName.MATCHER:
-            msg = f"OpenVINO backend is currently only supported for Matcher model, not {model_name.value}"
-            raise NotImplementedError(msg)
-
-        # Get export directory
-        export_dir = getattr(args, "export_dir", None)
-        if export_dir is None:
-            export_dir = Path("./exports") / "matcher"
-        else:
-            export_dir = Path(export_dir)
-
-        return InferenceMatcher(
-            model_folder=export_dir,
-            sam=sam,
-            num_foreground_points=args.num_foreground_points,
-            num_background_points=args.num_background_points,
-            mask_similarity_threshold=args.mask_similarity_threshold,
-            device=args.device.lower(),
-            precision=args.precision.lower(),
-        )
-
     msg = f"Constructing model: {model_name.value}"
     logger.info(msg)
 
@@ -208,8 +183,8 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
                 num_grid_cells=args.num_grid_cells,
-                similarity_threshold=args.similarity_threshold,
-                mask_similarity_threshold=args.mask_similarity_threshold,
+                point_selection_threshold=args.point_selection_threshold,
+                confidence_threshold=args.confidence_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
                 device=args.device,
@@ -220,7 +195,7 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 encoder_model=args.encoder_model,
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
-                mask_similarity_threshold=args.mask_similarity_threshold,
+                confidence_threshold=args.confidence_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
                 device=args.device,
@@ -231,7 +206,7 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 encoder_model=args.encoder_model,
                 num_foreground_points=args.num_foreground_points,
                 num_background_points=args.num_background_points,
-                mask_similarity_threshold=args.mask_similarity_threshold,
+                confidence_threshold=args.confidence_threshold,
                 use_sampling=args.use_sampling,
                 use_spatial_sampling=args.use_spatial_sampling,
                 approximate_matching=args.approximate_matching,
@@ -247,6 +222,13 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 grounding_model=GroundingModel(args.grounding_model),
                 box_threshold=args.box_threshold,
                 text_threshold=args.text_threshold,
+                precision=args.precision,
+                compile_models=args.compile_models,
+                device=args.device,
+            )
+        case ModelName.SAM3:
+            return SAM3(
+                confidence_threshold=args.confidence_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
                 device=args.device,

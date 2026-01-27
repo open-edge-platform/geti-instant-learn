@@ -4,7 +4,6 @@
  */
 
 import { SinkConfig, SinkType } from '@geti-prompt/api';
-import { useCurrentProject } from '@geti-prompt/hooks';
 import { orderBy } from 'lodash-es';
 
 import { ExistingPipelineEntities } from '../../existing-pipeline-entities/existing-pipeline-entities.component';
@@ -23,7 +22,7 @@ const sortSinks = (sinks: SinkConfig[]): SinkConfig[] => {
     return orderBy(sinks, (sink) => sink.active, 'desc');
 };
 
-const getMenuItems = ({ isActiveProject, isActiveSink }: { isActiveProject: boolean; isActiveSink: boolean }) => {
+const getMenuItems = ({ isActiveSink }: { isActiveSink: boolean }) => {
     const items = [
         {
             key: 'connect',
@@ -43,18 +42,12 @@ const getMenuItems = ({ isActiveProject, isActiveSink }: { isActiveProject: bool
         if (item.key === 'connect' && isActiveSink) {
             return false;
         }
-        if (item.key === 'edit' && !isActiveProject) {
-            return false;
-        }
 
         return true;
     });
 };
 
 const ExistingSinksList = ({ sinks, onSetSinkInEditionId, onViewChange }: ExistingSinksListProps) => {
-    const { data: project } = useCurrentProject();
-    const isActiveProject = project.active;
-
     const deleteSinkMutation = useDeleteSink();
     const updateSinkMutation = useUpdateSink();
 
@@ -87,7 +80,7 @@ const ExistingSinksList = ({ sinks, onSetSinkInEditionId, onViewChange }: Existi
                         <MQTTSinkCard
                             key={sink.id}
                             sink={sink}
-                            menuItems={getMenuItems({ isActiveSink: sink.active, isActiveProject })}
+                            menuItems={getMenuItems({ isActiveSink: sink.active })}
                             onAction={handleAction(sink)}
                         />
                     );

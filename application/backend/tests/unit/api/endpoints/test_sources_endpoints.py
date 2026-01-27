@@ -18,7 +18,7 @@ from domain.errors import (
     ResourceUpdateConflictError,
 )
 from domain.services.schemas.base import Pagination
-from domain.services.schemas.reader import FrameListResponse, FrameMetadata, SourceType, WebCamConfig
+from domain.services.schemas.reader import FrameListResponse, FrameMetadata, SourceType, UsbCameraConfig
 from domain.services.schemas.source import SourceSchema, SourcesListSchema
 from runtime.errors import PipelineNotActiveError, SourceNotSeekableError
 
@@ -35,7 +35,7 @@ def make_source_schema(
     return SourceSchema(
         id=source_id,
         active=active,
-        config=WebCamConfig(source_type=SourceType.WEBCAM, device_id=device_id),
+        config=UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=device_id),
     )
 
 
@@ -106,7 +106,7 @@ def test_get_sources(client, behavior, expected_status, expected_len):
         assert ids == {str(SOURCE_ID_1), str(SOURCE_ID_2)}
         first = data["sources"][0]
         assert "config" in first
-        assert first["config"]["source_type"] == "webcam"
+        assert first["config"]["source_type"] == "usb_camera"
         assert "device_id" in first["config"]
         assert "pagination" in data
     else:
@@ -132,7 +132,7 @@ def test_create_source(client, behavior, expected_status):
 
         def create_source(self, project_id: UUID, create_data):
             assert project_id == PROJECT_ID
-            assert create_data.config.source_type == SourceType.WEBCAM
+            assert create_data.config.source_type == SourceType.USB_CAMERA
             if behavior == "success":
                 return make_source_schema(CREATED_ID, create_data.config.device_id, create_data.active)
             if behavior == "conflict_type":
@@ -160,7 +160,7 @@ def test_create_source(client, behavior, expected_status):
     payload = {
         "id": str(CREATED_ID),
         "active": True,
-        "config": {"source_type": "webcam", "device_id": 3},
+        "config": {"source_type": "usb_camera", "device_id": 3},
     }
     resp = client.post(f"/api/v1/projects/{PROJECT_ID}/sources", json=payload)
     assert resp.status_code == expected_status
@@ -168,7 +168,7 @@ def test_create_source(client, behavior, expected_status):
         data = resp.json()
         assert data["id"] == str(CREATED_ID)
         assert data["active"] is True
-        assert data["config"]["source_type"] == "webcam"
+        assert data["config"]["source_type"] == "usb_camera"
         assert data["config"]["device_id"] == 3
     else:
         assert "detail" in resp.json()
@@ -191,7 +191,7 @@ def test_update_source(client, behavior, expected_status):
         def update_source(self, project_id: UUID, source_id: UUID, update_data):
             assert project_id == PROJECT_ID
             assert source_id == SOURCE_ID_1
-            assert update_data.config.source_type == SourceType.WEBCAM
+            assert update_data.config.source_type == SourceType.USB_CAMERA
             if behavior == "success":
                 return make_source_schema(source_id, update_data.config.device_id, update_data.active)
             if behavior == "conflict":
@@ -211,7 +211,7 @@ def test_update_source(client, behavior, expected_status):
 
     payload = {
         "active": False,
-        "config": {"source_type": "webcam", "device_id": 7},
+        "config": {"source_type": "usb_camera", "device_id": 7},
     }
     resp = client.put(f"/api/v1/projects/{PROJECT_ID}/sources/{SOURCE_ID_1}", json=payload)
     assert resp.status_code == expected_status
@@ -219,7 +219,7 @@ def test_update_source(client, behavior, expected_status):
         data = resp.json()
         assert data["id"] == str(SOURCE_ID_1)
         assert data["config"]["device_id"] == 7
-        assert data["config"]["source_type"] == "webcam"
+        assert data["config"]["source_type"] == "usb_camera"
     else:
         assert "detail" in resp.json()
 

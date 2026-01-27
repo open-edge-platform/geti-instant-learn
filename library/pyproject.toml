@@ -21,9 +21,9 @@ classifiers = [
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # REQUIREMENTS                                                                #
 dependencies = [
-    "matplotlib==3.10.3",
+    "matplotlib==3.10.8",
     "numpy~=2.2.6",
-    "opencv-python==4.11.0.86",
+    "opencv-python~=4.13.0",
     "rich==14.0.0",
     "requests==2.32.4",
     "pycocotools==2.0.9",
@@ -50,7 +50,7 @@ dependencies = [
 dev = [
     "pytest~=8.3",
     "pytest-assume>=2.4.3",
-    "ruff~=0.11",
+    "ruff==0.11.12",
     "pre-commit~=4.1",
     "mypy~=1.15",
     "pytest-cov==2.11.1",
@@ -93,7 +93,7 @@ docs = [
 ]
 
 full = [
-    "getiprompt[dev, extras, notebook]",
+    "getiprompt[dev, notebook]",
 ]
 
 [project.scripts]

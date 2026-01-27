@@ -77,11 +77,16 @@ const MOCKED_MODELS_RESPONSE: ModelListType = {
         {
             id: 'some-id',
             config: {
-                mask_similarity_threshold: 0.38,
+                confidence_threshold: 0.38,
                 model_type: 'matcher',
                 num_background_points: 2,
                 num_foreground_points: 40,
                 precision: 'bf16',
+                sam_model: 'SAM-HQ-tiny',
+                encoder_model: 'dinov3_large',
+                use_mask_refinement: false,
+                use_nms: false,
+                compile_models: false,
             },
             active: true,
             name: 'Mega model',
@@ -173,4 +178,11 @@ const IntersectionObserverMock = vi.fn(() => ({
     unobserve: vi.fn(),
 }));
 
+const ResizeObserverMock = vi.fn().mockImplementation(() => ({
+    observe: vi.fn(),
+    unobserve: vi.fn(),
+    disconnect: vi.fn(),
+}));
+
 vi.stubGlobal('IntersectionObserver', IntersectionObserverMock);
+vi.stubGlobal('ResizeObserver', ResizeObserverMock);

@@ -19,7 +19,7 @@ export const SavePrompt = () => {
 
     return (
         <Button
-            justifySelf={'end'}
+            alignSelf={'end'}
             variant={'secondary'}
             isDisabled={isSavePromptDisabled}
             isPending={savePrompt.isPending}

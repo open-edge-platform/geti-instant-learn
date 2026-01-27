@@ -185,7 +185,7 @@ def visual_prompt_to_sample(
 
     # Convert frame: HWC numpy → CHW tensor
     frame_chw = tv_tensors.Image(from_numpy(frame).permute(2, 0, 1))
-    height, width = frame_chw.shape[:2]
+    height, width = frame_chw.shape[-2:]
 
     # Group annotations by label_id
     label_groups: dict[UUID, list[Any]] = {}

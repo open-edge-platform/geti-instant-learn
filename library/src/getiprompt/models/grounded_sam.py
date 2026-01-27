@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """This model uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
@@ -8,10 +8,11 @@ import torch
 from getiprompt.components import SamDecoder
 from getiprompt.components.filters import BoxPromptFilter
 from getiprompt.components.prompt_generators import GroundingModel, TextToBoxPromptGenerator
-from getiprompt.components.sam.base import SAMPredictor
+from getiprompt.components.sam import load_sam_model
 from getiprompt.data.base.batch import Batch
+from getiprompt.data.base.sample import Sample
 from getiprompt.models.base import Model
-from getiprompt.utils.constants import Backend, SAMModelName
+from getiprompt.utils.constants import SAMModelName
 
 
 class GroundedSAM(Model):
@@ -25,6 +26,7 @@ class GroundedSAM(Model):
         compile_models: bool = False,
         box_threshold: float = 0.4,
         text_threshold: float = 0.3,
+        use_nms: bool = True,
         device: str = "cuda",
     ) -> None:
         """Initialize the model.
@@ -36,12 +38,12 @@ class GroundedSAM(Model):
             compile_models: Whether to compile the models.
             box_threshold: The box threshold.
             text_threshold: The text threshold.
+            use_nms: Whether to use NMS in SamDecoder.
             device: The device to use.
         """
         super().__init__()
-        self.sam_predictor = SAMPredictor(
+        self.sam_predictor = load_sam_model(
             sam,
-            backend=Backend.PYTORCH,
             device=device,
             precision=precision,
             compile_models=compile_models,
@@ -55,39 +57,54 @@ class GroundedSAM(Model):
             precision=precision,
             compile_models=compile_models,
         )
-        self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor, target_length=1024)
+        self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor, use_nms=use_nms)
         self.prompt_filter: BoxPromptFilter = BoxPromptFilter()
 
-    def fit(self, reference_batch: Batch) -> None:
+    def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """Perform learning step on the reference images and priors.
 
         Args:
-            reference_batch(Batch): The reference batch.
+            reference: Reference data to learn from. Accepts:
+                - Sample: A single reference sample
+                - list[Sample]: A list of reference samples
+                - Batch: A batch of reference samples
         """
+        reference_batch = Batch.collate(reference)
         self.category_mapping = {}
         for sample in reference_batch.samples:
             for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
                 if category not in self.category_mapping:
                     self.category_mapping[category] = int(category_id)
 
-    def predict(self, target_batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Sample | list[Sample] | Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
 
         Args:
-            target_batch(Batch): The target batch.
+            target: Target data to infer. Accepts:
+                - Sample: A single target sample
+                - list[Sample]: A list of target samples
+                - Batch: A batch of target samples
 
         Returns:
-            predictions(list[dict[str, torch.Tensor]]): A list of predictions.
-            Each prediction contains:
+            A list of predictions, one per sample. Each prediction contains:
                 "pred_masks": torch.Tensor of shape [num_masks, H, W]
-                "pred_points": torch.Tensor of shape [num_points, 4] with last dimension [x, y, score, fg_label]
-                "pred_boxes": torch.Tensor of shape [num_boxes, 5] with last dimension [x1, y1, x2, y2, score]
+                "pred_scores": torch.Tensor of shape [num_masks]
                 "pred_labels": torch.Tensor of shape [num_masks]
+                "pred_boxes": torch.Tensor of shape [num_boxes, 5] with [x1, y1, x2, y2, score]
         """
-        # Start running the model
-        box_prompts = self.prompt_generator(target_batch.images, self.category_mapping)
+        target_batch = Batch.collate(target)
+        # Generate box prompts (tensor format)
+        box_prompts, category_ids = self.prompt_generator(
+            target_batch.images,
+            self.category_mapping,
+        )
+
+        # Filter box prompts
         box_prompts = self.prompt_filter(box_prompts)
+
+        # Decode masks
         return self.segmenter(
             target_batch.images,
+            category_ids,
             box_prompts=box_prompts,
         )

@@ -16,7 +16,7 @@ export class AnnotatorPage {
     }
 
     getFullScreen() {
-        return new AnnotatorPageFullScreen(this.page, this.page.getByRole('dialog'));
+        return this.page.getByRole('dialog').getByRole('heading', { name: 'Prompt builder' });
     }
 
     getCapturedFrame() {
@@ -80,8 +80,6 @@ export class AnnotatorPage {
 
     async openFullscreen() {
         await this.scope.getByRole('button', { name: 'Open full screen' }).click();
-
-        return new AnnotatorPageFullScreen(this.page, this.page.getByRole('dialog'));
     }
 
     async openSettings() {
@@ -107,14 +105,8 @@ export class AnnotatorPage {
     async getZoomValue() {
         return this.scope.getByTestId('zoom-level');
     }
-}
 
-class AnnotatorPageFullScreen extends AnnotatorPage {
-    constructor(page: Page, scope: Locator) {
-        super(page, scope);
-    }
-
-    async close() {
-        await this.scope.getByRole('button', { name: 'Close full screen' }).click();
+    async closeFullScreen() {
+        await this.scope.getByRole('button', { name: 'Close full screen' }).nth(1).click();
     }
 }

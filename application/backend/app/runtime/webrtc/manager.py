@@ -8,6 +8,7 @@ from uuid import UUID
 
 from aiortc import RTCConfiguration, RTCIceServer, RTCPeerConnection, RTCSessionDescription
 
+from domain.services.schemas.label import VisualizationInfo
 from domain.services.schemas.webrtc import Answer, Offer
 from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError
 from runtime.pipeline_manager import PipelineManager
@@ -32,6 +33,13 @@ class WebRTCManager:
         self.pipeline_manager = pipeline_manager
         self.sdp_handler = sdp_handler
 
+    def get_visualization_info(self, project_id: UUID) -> VisualizationInfo | None:
+        """Get visualization info for the active pipeline, returning None on failure."""
+        try:
+            return self.pipeline_manager.get_visualization_info(project_id)
+        except Exception:
+            return None
+
     async def handle_offer(self, project_id: UUID, offer: Offer) -> Answer:
         """Create an SDP offer for a new WebRTC connection."""
         settings = get_settings()
@@ -50,7 +58,11 @@ class WebRTCManager:
         self._pcs[offer.webrtc_id] = ConnectionData(connection=pc, queue=rtc_queue)
 
         # Add video track
-        track = InferenceVideoStreamTrack(stream_queue=rtc_queue, enable_visualization=True)
+        track = InferenceVideoStreamTrack(
+            stream_queue=rtc_queue,
+            enable_visualization=True,
+            visualization_info_provider=lambda: self.get_visualization_info(project_id),
+        )
         pc.addTrack(track)
 
         @pc.on("connectionstatechange")

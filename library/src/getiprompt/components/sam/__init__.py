@@ -1,15 +1,13 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """SAM predictor implementations for different backends."""
 
-from .base import SAMPredictor, load_sam_model
-from .openvino import OpenVINOSAMPredictor
-from .pytorch import PyTorchSAMPredictor
+from .decoder import SamDecoder
+from .predictor import SAMPredictor, load_sam_model
 
 __all__ = [
-    "OpenVINOSAMPredictor",
-    "PyTorchSAMPredictor",
     "SAMPredictor",
+    "SamDecoder",
     "load_sam_model",
 ]

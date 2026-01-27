@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Pure PyTorch linear sum assignment solver.
@@ -69,17 +69,10 @@ class LinearSumAssignment(nn.Module):
             row_ind: 1D tensor of assigned row indices.
             col_ind: 1D tensor of assigned column indices.
         """
-        n_rows, n_cols = cost_matrix.shape
-        if n_rows == 0 or n_cols == 0:
-            return (
-                torch.empty(0, dtype=torch.int64, device=cost_matrix.device),
-                torch.empty(0, dtype=torch.int64, device=cost_matrix.device),
-            )
-
         # Auto mode: use scipy for speed, switch to greedy during export
         if self._method_str == "auto":
             # Check for TorchScript/tracing first (covers jit.script, jit.trace, and onnx.export)
-            if torch.jit.is_scripting() or torch.jit.is_tracing():
+            if torch.onnx.is_in_onnx_export():
                 return self._greedy(cost_matrix)
             # Normal Python execution - use fast scipy
             return self._scipy(cost_matrix)
@@ -101,10 +94,10 @@ class LinearSumAssignment(nn.Module):
 
     def _greedy(self, cost_matrix: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Greedy approximation - O(n^2 x min(n,m)). ONNX/OpenVINO exportable."""
-        n_rows, n_cols = cost_matrix.shape
+        n_rows, n_cols = cost_matrix.size(0), cost_matrix.size(1)
         device = cost_matrix.device
         dtype = cost_matrix.dtype
-        n_assign = min(n_rows, n_cols)
+        n_assign = torch.minimum(n_rows, n_cols) if torch.onnx.is_in_onnx_export() else min(n_rows, n_cols)
 
         # Work with costs - negate if maximizing so we can always use argmax
         costs = cost_matrix.clone() if self.maximize else -cost_matrix.clone()

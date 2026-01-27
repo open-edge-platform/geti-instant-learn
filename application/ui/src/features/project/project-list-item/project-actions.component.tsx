@@ -101,8 +101,6 @@ export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition, projectN
 export const PROJECT_ACTIONS = {
     RENAME: 'Rename',
     DELETE: 'Delete',
-    ACTIVATE: 'Activate',
-    DEACTIVATE: 'Deactivate',
 };
 
 interface ProjectActionsProps {

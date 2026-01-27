@@ -9,3 +9,4 @@ export { getMockedProject } from './mocks/mock-project';
 export { getMockedSource } from './mocks/mock-source';
 export { getMockedModel } from './mocks/mock-model';
 export { getMockedImagesFolderSource } from './mocks/mock-images-folder-source';
+export { getMockedVideoFileSource } from './mocks/mock-video-file-source';

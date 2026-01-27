@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Visualization of predictions."""
@@ -34,7 +34,7 @@ def visualize_single_image(
     file_name: str,
     output_folder: str,
     color_map: dict[int, list[int]],
-) -> None:
+) -> np.ndarray:
     """Process a single image for visualization.
 
     This function can be used standalone for visualizing a single image,
@@ -48,9 +48,9 @@ def visualize_single_image(
         color_map: Dictionary mapping class indices to colors
     """
     pred_masks = prediction["pred_masks"]
-    pred_points = prediction["pred_points"]
-    pred_boxes = prediction["pred_boxes"]
     pred_labels = prediction["pred_labels"]
+    pred_points = prediction.get("pred_points", torch.empty(0, 4))
+    pred_boxes = prediction.get("pred_boxes", torch.empty(0, 5))
     image_np = image.permute(1, 2, 0).numpy()
     height, _ = image_np.shape[:2]
 
@@ -73,7 +73,7 @@ def visualize_single_image(
     if len(pred_masks):
         # Draw each instance mask with the same class color and a border
         for pred_label, pred_mask in zip(pred_labels, pred_masks, strict=False):
-            pred_label = pred_label.item()
+            pred_label = pred_label.item() if isinstance(pred_label, torch.Tensor) else pred_label
             pred_mask = pred_mask.cpu().numpy()
 
             # Apply mask with more transparency
@@ -106,7 +106,7 @@ def visualize_single_image(
     # Draw boxes and confidence scores if provided
     if len(pred_boxes):
         for pred_label, pred_box in zip(pred_labels, pred_boxes, strict=False):
-            pred_label = pred_label.item()
+            pred_label = pred_label.item() if isinstance(pred_label, torch.Tensor) else pred_label
             pred_box = pred_box.cpu().numpy()
             # box format in [x1, y1, x2, y2, score]
             x1, y1, x2, y2, _ = pred_box
@@ -115,6 +115,7 @@ def visualize_single_image(
 
     # Save visualization
     cv2.imwrite(output_path, cv2.cvtColor(image_vis, cv2.COLOR_RGB2BGR))
+    return image_vis
 
 
 class Visualizer:
