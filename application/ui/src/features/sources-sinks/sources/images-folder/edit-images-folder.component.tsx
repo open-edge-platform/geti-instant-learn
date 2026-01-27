@@ -5,9 +5,9 @@
 
 import { FormEvent, useState } from 'react';
 
-import { ImagesFolderSourceType } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
-import { getQueryKey } from '@geti-prompt/query-client';
+import { ImagesFolderSourceType } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
+import { getQueryKey } from '@/query-client';
 import { Flex, Form } from '@geti/ui';
 import { useQueryClient } from '@tanstack/react-query';
 

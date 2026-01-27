@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ModelType, ModelUpdateType } from '@geti-prompt/api';
-import { getMockedModel, render } from '@geti-prompt/test-utils';
+import { ModelType, ModelUpdateType } from '@/api';
+import { getMockedModel, render } from '@/test-utils';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';

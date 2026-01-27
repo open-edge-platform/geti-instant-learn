@@ -5,8 +5,8 @@
 
 import { ReactNode, useState } from 'react';
 
-import { SinkConfig, SinkType } from '@geti-prompt/api';
-import { MQTT } from '@geti-prompt/icons';
+import { SinkConfig, SinkType } from '@/api';
+import { MQTT } from '@/icons';
 
 import { DisclosureGroup } from '../disclosure-group/disclosure-group.component';
 import { PipelineEntityPanel } from '../pipeline-entity-panel/pipeline-entity-panel.component';

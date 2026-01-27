@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api } from '@geti-prompt/api';
-import { Fireworks } from '@geti-prompt/icons';
+import { $api } from '@/api';
+import { Fireworks } from '@/icons';
 import { Button, Content, Flex, Heading, IllustratedMessage, Text } from '@geti/ui';
 import { Navigate, useNavigate } from 'react-router';
 import { v4 as uuid } from 'uuid';

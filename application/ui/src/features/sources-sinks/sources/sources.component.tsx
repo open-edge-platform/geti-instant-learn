@@ -5,9 +5,9 @@
 
 import { ReactNode, Suspense, useState } from 'react';
 
-import { Source, SourceType } from '@geti-prompt/api';
-import { useGetSources } from '@geti-prompt/hooks';
-import { ImagesFolder as ImagesFolderIcon, UsbCamera, VideoFile } from '@geti-prompt/icons';
+import { Source, SourceType } from '@/api';
+import { useGetSources } from '@/hooks';
+import { ImagesFolder as ImagesFolderIcon, UsbCamera, VideoFile } from '@/icons';
 import { Loading } from '@geti/ui';
 import { Datasets } from '@geti/ui/icons';
 import { isEmpty } from 'lodash-es';

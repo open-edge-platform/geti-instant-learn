@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { render } from '@geti-prompt/test-utils';
+import { render } from '@/test-utils';
 import { fireEvent } from '@testing-library/react';
 
 import { Listener, WebRTCConnection, WebRTCConnectionStatus } from './web-rtc-connection';

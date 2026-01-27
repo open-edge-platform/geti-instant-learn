@@ -5,8 +5,8 @@
 
 import { ReactNode, useState } from 'react';
 
-import { useCurrentProject } from '@geti-prompt/hooks';
-import { Wand } from '@geti-prompt/icons';
+import { useCurrentProject } from '@/hooks';
+import { Wand } from '@/icons';
 import { Flex, ToggleButton, View } from '@geti/ui';
 import { Panel, Separator } from 'react-resizable-panels';
 

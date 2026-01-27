@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { FrameAPIType } from '@geti-prompt/api';
-import { render } from '@geti-prompt/test-utils';
+import { FrameAPIType } from '@/api';
+import { render } from '@/test-utils';
 import { fireEvent, screen, waitForElementToBeRemoved } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 import { SelectedFrameProvider } from 'src/shared/selected-frame-provider.component';

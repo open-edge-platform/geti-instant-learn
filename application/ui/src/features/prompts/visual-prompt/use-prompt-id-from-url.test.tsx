@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { renderHook } from '@geti-prompt/test-utils';
+import { renderHook } from '@/test-utils';
 import { act } from '@testing-library/react';
 
 import { usePromptIdFromUrl } from './use-prompt-id-from-url';

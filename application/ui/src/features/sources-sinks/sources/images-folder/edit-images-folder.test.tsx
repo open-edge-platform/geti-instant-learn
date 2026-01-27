@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ImagesFolderSourceType, SourceUpdateType } from '@geti-prompt/api';
-import { getMockedImagesFolderSource, render } from '@geti-prompt/test-utils';
+import { ImagesFolderSourceType, SourceUpdateType } from '@/api';
+import { getMockedImagesFolderSource, render } from '@/test-utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';

@@ -5,8 +5,8 @@
 
 import { useEffect } from 'react';
 
-import { $api, VisualPromptType } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { $api, VisualPromptType } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
 
 import { useSelectedFrame } from '../../../../shared/selected-frame-provider.component';
 

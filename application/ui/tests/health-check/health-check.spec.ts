@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { expect, http, test } from '@geti-prompt/test-fixtures';
+import { expect, http, test } from '@/test-fixtures';
 
 test.describe('Health Check', () => {
     test('Shows loading when health check is pending', async ({ page, network }) => {

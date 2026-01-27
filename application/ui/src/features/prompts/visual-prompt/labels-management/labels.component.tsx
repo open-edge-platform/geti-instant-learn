@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { LabelType } from '@geti-prompt/api';
+import { LabelType } from '@/api';
 import { Flex } from '@geti/ui';
 
 import { useVisualPrompt } from '../visual-prompt-provider.component';

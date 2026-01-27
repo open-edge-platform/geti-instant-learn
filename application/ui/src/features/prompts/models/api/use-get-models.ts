@@ -5,8 +5,8 @@
 
 import { useEffect, useRef } from 'react';
 
-import { $api, MatcherModel, ModelListType, PerDINOModel, SoftMatcherModel } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { $api, MatcherModel, ModelListType, PerDINOModel, SoftMatcherModel } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
 import { v4 as uuid } from 'uuid';
 
 import { useCreateModel } from './use-create-model';

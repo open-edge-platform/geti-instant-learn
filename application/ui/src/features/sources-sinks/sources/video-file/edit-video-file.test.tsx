@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { SourceUpdateType, VideoFileSourceType } from '@geti-prompt/api';
-import { getMockedVideoFileSource, render } from '@geti-prompt/test-utils';
+import { SourceUpdateType, VideoFileSourceType } from '@/api';
+import { getMockedVideoFileSource, render } from '@/test-utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';

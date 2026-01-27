@@ -5,7 +5,7 @@
 
 import { FormEvent, useState } from 'react';
 
-import { MatcherModel, ModelType, PerDINOModel, SoftMatcherModel } from '@geti-prompt/api';
+import { MatcherModel, ModelType, PerDINOModel, SoftMatcherModel } from '@/api';
 import { Button, ButtonGroup, Content, Dialog, Divider, Flex, Form, Heading, Item, Picker, Switch } from '@geti/ui';
 
 import { useUpdateModel } from '../../api/use-update-model';

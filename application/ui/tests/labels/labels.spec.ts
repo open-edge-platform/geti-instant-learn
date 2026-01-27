@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { LabelType } from '@geti-prompt/api';
-import { expect, http, test } from '@geti-prompt/test-fixtures';
+import { LabelType } from '@/api';
+import { expect, http, test } from '@/test-fixtures';
 import { NetworkFixture } from '@msw/playwright';
 import { Page } from '@playwright/test';
 

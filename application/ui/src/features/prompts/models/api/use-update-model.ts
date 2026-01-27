@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api, ModelType } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
-import { getQueryKey } from '@geti-prompt/query-client';
+import { $api, ModelType } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
+import { getQueryKey } from '@/query-client';
 import { useQueryClient } from '@tanstack/react-query';
 
 const useUpdateModelMutation = (projectId: string) => {

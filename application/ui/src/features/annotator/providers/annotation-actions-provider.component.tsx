@@ -5,7 +5,7 @@
 
 import { createContext, ReactNode, useContext, useMemo } from 'react';
 
-import { AnnotationType, LabelType } from '@geti-prompt/api';
+import { AnnotationType, LabelType } from '@/api';
 import { v4 as uuid } from 'uuid';
 
 import { convertAnnotationsFromDTO } from '../../../shared/utils';

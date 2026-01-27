@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api } from '@geti-prompt/api';
+import { $api } from '@/api';
 
 export const useDeleteProject = () => {
     const deleteProjectMutation = $api.useMutation('delete', '/api/v1/projects/{project_id}', {

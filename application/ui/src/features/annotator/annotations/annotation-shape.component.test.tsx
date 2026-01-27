@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { getMockedAnnotation, render } from '@geti-prompt/test-utils';
+import { getMockedAnnotation, render } from '@/test-utils';
 import { screen } from '@testing-library/react';
 
 import type { Annotation, Polygon, Rect } from '../types';

@@ -5,8 +5,8 @@
 
 import { useRef, useState } from 'react';
 
-import { LabelType } from '@geti-prompt/api';
-import { useOnOutsideClick } from '@geti-prompt/hooks';
+import { LabelType } from '@/api';
+import { useOnOutsideClick } from '@/hooks';
 import { DimensionValue, DOMRefValue, Flex, useUnwrapDOMRef } from '@geti/ui';
 import { Checkmark } from '@geti/ui/icons';
 

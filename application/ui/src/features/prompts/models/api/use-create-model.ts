@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api, ModelType } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { $api, ModelType } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
 
 // TODO: Figure out if the user will ever create a model or if we will provide pre-trained models only
 export const useCreateModel = () => {

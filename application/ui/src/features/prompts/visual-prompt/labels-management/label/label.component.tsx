@@ -15,7 +15,7 @@ import {
     useState,
 } from 'react';
 
-import { LabelType } from '@geti-prompt/api';
+import { LabelType } from '@/api';
 import { ActionButton, ColorPickerDialog, DOMRefValue, Form, TextField, TextFieldRef } from '@geti/ui';
 import { isEmpty } from 'lodash-es';
 

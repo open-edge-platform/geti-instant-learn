@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { LabelType } from '@geti-prompt/api';
+import { LabelType } from '@/api';
 
 export const MAX_LABEL_NAME_LENGTH = 100;
 

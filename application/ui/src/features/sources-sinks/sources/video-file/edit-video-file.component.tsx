@@ -5,7 +5,7 @@
 
 import { FormEvent, useState } from 'react';
 
-import { VideoFileSourceType } from '@geti-prompt/api';
+import { VideoFileSourceType } from '@/api';
 import { Flex, Form } from '@geti/ui';
 
 import { useUpdateSource } from '../api/use-update-source';

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { MatcherModel, ModelType, PerDINOModel, SoftMatcherModel } from '@geti-prompt/api';
+import { MatcherModel, ModelType, PerDINOModel, SoftMatcherModel } from '@/api';
 
 export const isMatcherModel = (m: ModelType): m is MatcherModel => m.config.model_type === 'matcher';
 export const isPerDINOModel = (m: ModelType): m is PerDINOModel => m.config.model_type === 'perdino';

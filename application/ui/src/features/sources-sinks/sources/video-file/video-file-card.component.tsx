@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { VideoFileSourceType } from '@geti-prompt/api';
-import { VideoFile } from '@geti-prompt/icons';
+import { VideoFileSourceType } from '@/api';
+import { VideoFile } from '@/icons';
 
 import { PipelineEntityCard } from '../../pipeline-entity-card/pipeline-entity-card.component';
 

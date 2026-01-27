@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ProjectType } from '@geti-prompt/api';
+import { ProjectType } from '@/api';
 
 export const getMockedProject = (customProject: Partial<ProjectType>): ProjectType => {
     return {

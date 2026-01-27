@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { LabelType } from '@geti-prompt/api';
+import { LabelType } from '@/api';
 import { Content, Dialog } from '@geti/ui';
 
 import { CreateLabelForm } from './create-label-form.component';
