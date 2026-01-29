@@ -12,7 +12,7 @@ The core of the application is the **Pipeline**, a multi-threaded streaming engi
 
 <div align="center">
 
-<img src="media/concepts.svg" width="600px" alt="Diagram showing the sequence of processing stages">
+<img src="media/concepts.svg" width="600px" alt="Diagram showing the sequence of processing stages"/>
 </div>
 
 Data flows through the pipeline via **Broadcasters**, thread-safe intermediaries that allow multiple consumers to receive frames simultaneously. This architecture allows:

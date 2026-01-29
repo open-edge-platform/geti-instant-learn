@@ -10,7 +10,7 @@ Geti Prompt is part of the Geti Apps ecosystem and comes with its own VisionProm
 
 <div align="center">
 
-<img src="media/workflow.png" width="600px" alt="An image showing the application workflow">
+<img src="media/workflow.png" width="600px" alt="An image showing the application workflow"/>
 </div>
 
 1. **View input source** – After installing Geti Prompt, users can directly connect a data source of choice, including usb camera, a watched folder with video and image files, to the application via its UI.
