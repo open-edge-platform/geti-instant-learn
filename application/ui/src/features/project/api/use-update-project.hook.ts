@@ -12,6 +12,9 @@ export const useUpdateProject = () => {
     const updateProjectMutation = $api.useMutation('put', '/api/v1/projects/{project_id}', {
         meta: {
             invalidates: [['get', '/api/v1/projects']],
+            error: {
+                notify: true,
+            },
         },
     });
 
