@@ -11,10 +11,6 @@ import { Outlet } from 'react-router';
 
 import { License } from '../features/license/license.component';
 
-/**
- * Copyright (C) 2025 Intel Corporation
- * SPDX-License-Identifier: Apache-2.0
- */
 const HealthCheckup = ({ children }: { children: ReactNode }) => {
     const { data } = $api.useQuery('get', '/health', undefined, {
         refetchInterval: (query) => {
@@ -24,16 +20,11 @@ const HealthCheckup = ({ children }: { children: ReactNode }) => {
     const [licenseAccepted, setLicenseAccepted] = useState<boolean>(false);
 
     if (data?.status === 'ok') {
-        /*if (licenseAccepted) {
-            return children
-        }*/
+        if (licenseAccepted) {
+            return children;
+        }
 
-        return (
-            <>
-                <License isVisible={!licenseAccepted} onAccept={() => setLicenseAccepted(true)} />
-                {licenseAccepted && children}
-            </>
-        );
+        return <License onAccept={() => setLicenseAccepted(true)} />;
     }
 
     return <IntelBrandedLoading />;
