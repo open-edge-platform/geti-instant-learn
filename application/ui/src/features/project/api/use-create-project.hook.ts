@@ -13,6 +13,9 @@ export const useCreateProjectMutation = () => {
     return $api.useMutation('post', '/api/v1/projects', {
         meta: {
             invalidates: [['get', '/api/v1/projects']],
+            error: {
+                notify: true,
+            },
         },
     });
 };
