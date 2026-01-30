@@ -259,6 +259,11 @@ class Batch:
 
         This method is idempotent - passing a Batch returns it unchanged.
 
+        n_shot values are automatically computed based on sample order and
+        category_ids. Each category gets sequential shot numbers (0, 1, 2, ...)
+        in the order they appear. Non-reference instances (is_reference=False)
+        get n_shot=-1.
+
         Args:
             samples: Single sample, Batch, or list of samples to batch.
 
@@ -299,4 +304,46 @@ class Batch:
             msg = "Cannot collate empty list of samples"
             raise ValueError(msg)
 
+        cls._compute_n_shot_inplace(samples)
+
         return cls(samples=samples)
+
+    @staticmethod
+    def _compute_n_shot_inplace(samples: list[Sample]) -> None:
+        """Compute n_shot values for samples based on category_id order.
+
+        For each category_id, assigns sequential shot numbers (0, 1, 2, ...)
+        in the order the category appears across all samples. Non-reference
+        instances (is_reference=False) get n_shot=-1 and don't affect counting.
+
+        Args:
+            samples: List of samples to update. Modified in-place.
+
+        Example:
+            Sample 1: category_ids=[0, 1], is_reference=[True, True]   -> n_shot=[0, 0]
+            Sample 2: category_ids=[0], is_reference=[True]            -> n_shot=[1]
+            Sample 3: category_ids=[1, 2], is_reference=[False, True]  -> n_shot=[-1, 0]
+        """
+        category_counts: dict[int, int] = {}
+
+        for sample in samples:
+            if sample.category_ids is None:
+                continue
+
+            # Convert to list if needed
+            cat_ids = sample.category_ids
+            if isinstance(cat_ids, (np.ndarray, torch.Tensor)):
+                cat_ids = cat_ids.tolist()
+
+            is_ref = sample.is_reference or [True] * len(cat_ids)
+
+            n_shot = []
+            for cat_id, ref in zip(cat_ids, is_ref):
+                if not ref:
+                    n_shot.append(-1)
+                else:
+                    shot = category_counts.get(cat_id, 0)
+                    n_shot.append(shot)
+                    category_counts[cat_id] = shot + 1
+
+            sample.n_shot = n_shot

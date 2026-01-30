@@ -171,7 +171,8 @@ class TestBatchBasic:  # noqa: PLR0904 Too many public methods (21 > 20)
 
         n_shot = batch.n_shot
         assert len(n_shot) == 1
-        assert n_shot[0] == [0, -1, 1]
+        # is_reference=[True, False, True]: middle instance is query (n_shot=-1)
+        assert n_shot[0] == [0, -1, 0]
 
     def test_batch_length(self, sample_single_instance: Sample, sample_multi_instance: Sample) -> None:
         """Test batch length property."""
@@ -292,8 +293,12 @@ class TestBatchBasic:  # noqa: PLR0904 Too many public methods (21 > 20)
 
         n_shot = batch.n_shot
         assert len(n_shot) == 2
-        assert n_shot[0] == [0]  # Single instance
-        assert n_shot[1] == [0, -1, 1]  # Multi instance
+        # sample_single has cat 0 (is_ref=True), sample_multi has cats [0, 1, 2] (is_ref=[True, False, True])
+        # cat 0: shot 0 (single), shot 1 (multi)
+        # cat 1: is_reference=False -> -1
+        # cat 2: shot 0 (first reference occurrence)
+        assert n_shot[0] == [0]  # Single instance: cat 0 first time
+        assert n_shot[1] == [1, -1, 0]  # Multi: cat 0 second, cat 1 query, cat 2 first
 
     def test_batch_image_paths_property(self, sample_single_instance: Sample, sample_multi_instance: Sample) -> None:
         """Test batch image_paths property."""
@@ -349,6 +354,54 @@ class TestBatchBasic:  # noqa: PLR0904 Too many public methods (21 > 20)
         category_ids = batch.category_ids
         assert isinstance(category_ids[0], torch.Tensor)
         assert category_ids[0].shape == (1,)
+
+    def test_batch_collate_computes_n_shot(self) -> None:
+        """Test that collate automatically computes n_shot based on category order."""
+        sample1 = Sample(
+            image=np.zeros((64, 64, 3), dtype=np.uint8),
+            masks=np.zeros((2, 64, 64), dtype=np.uint8),
+            category_ids=[0, 1],
+            is_reference=[True, True],
+        )
+        sample2 = Sample(
+            image=np.zeros((64, 64, 3), dtype=np.uint8),
+            masks=np.zeros((1, 64, 64), dtype=np.uint8),
+            category_ids=[0],
+            is_reference=[True],
+        )
+        sample3 = Sample(
+            image=np.zeros((64, 64, 3), dtype=np.uint8),
+            masks=np.zeros((2, 64, 64), dtype=np.uint8),
+            category_ids=[1, 2],
+            is_reference=[True, True],
+        )
+
+        batch = Batch.collate([sample1, sample2, sample3])
+
+        # Sample 1: cat 0 first time (shot 0), cat 1 first time (shot 0)
+        assert batch[0].n_shot == [0, 0]
+        # Sample 2: cat 0 second time (shot 1)
+        assert batch[1].n_shot == [1]
+        # Sample 3: cat 1 second time (shot 1), cat 2 first time (shot 0)
+        assert batch[2].n_shot == [1, 0]
+
+    def test_batch_collate_n_shot_single_category(self) -> None:
+        """Test n_shot computation with single category across multiple samples."""
+        samples = [
+            Sample(
+                image=np.zeros((64, 64, 3), dtype=np.uint8),
+                masks=np.zeros((1, 64, 64), dtype=np.uint8),
+                category_ids=[0],
+                is_reference=[True],
+            )
+            for _ in range(5)
+        ]
+
+        batch = Batch.collate(samples)
+
+        # Each sample should get sequential shot numbers
+        for i, sample in enumerate(batch):
+            assert sample.n_shot == [i]
 
 
 class TestBatchTensorConversion:
