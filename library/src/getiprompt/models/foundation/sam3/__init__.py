@@ -1,14 +1,32 @@
-# Copyright (C) 2025 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
+# Copyright 2025 The HuggingFace Team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-"""SAM3 model foundation."""
+"""SAM3 model components for HuggingFace Transformers."""
 
-from .model_builder import build_sam3_image_model
-from .sam3_image import Sam3Image
-from .sam3_image_processor import Sam3Processor
+from .image_processing_sam3_fast import Sam3ImageProcessorFast
+from .modeling_sam3 import Sam3Model
+from .processing_sam3 import Sam3Processor
 
 __all__ = [
-    "Sam3Image",
+    "Sam3Config",
+    "Sam3DETRDecoderConfig",
+    "Sam3DETREncoderConfig",
+    "Sam3GeometryEncoderConfig",
+    "Sam3ImageProcessorFast",
+    "Sam3MaskDecoderConfig",
+    "Sam3Model",
     "Sam3Processor",
-    "build_sam3_image_model",
+    "Sam3ViTConfig",
+    "Sam3VisionConfig",
 ]

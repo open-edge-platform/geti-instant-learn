@@ -6,12 +6,12 @@
 from itertools import zip_longest
 
 import torch
-from torchvision.ops import box_convert
+from transformers import CLIPTokenizerFast
 
 from getiprompt.data.base.batch import Batch
 from getiprompt.data.base.sample import Sample
-from getiprompt.models.foundation import Sam3Processor, build_sam3_image_model
-from getiprompt.utils.utils import setup_autocast
+from getiprompt.models.foundation.sam3 import Sam3ImageProcessorFast, Sam3Model, Sam3Processor
+from getiprompt.utils.utils import precision_to_torch_dtype
 
 from .base import Model
 
@@ -81,29 +81,19 @@ class SAM3(Model):
 
     def __init__(
         self,
-        bpe_path: str | None = None,
         device: str = "cuda",
         confidence_threshold: float = 0.5,
         resolution: int = 1008,
         precision: str = "fp32",
-        checkpoint_path: str | None = None,
-        load_from_hf: bool = True,
-        enable_segmentation: bool = True,
-        enable_inst_interactivity: bool = False,
         compile_models: bool = False,
     ) -> None:
         """Initialize the SAM3 model.
 
         Args:
-            bpe_path: Path to the BPE tokenizer vocabulary.
             device: The device to use ('cuda', 'xpu', or 'cpu').
             confidence_threshold: The confidence threshold for filtering predictions.
             resolution: The input image resolution.
             precision: The precision to use for the model ('bf16' or 'fp32').
-            checkpoint_path: Optional path to model checkpoint.
-            load_from_hf: Whether to load checkpoint from HuggingFace.
-            enable_segmentation: Whether to enable segmentation head.
-            enable_inst_interactivity: Whether to enable instance interactivity.
             compile_models: Whether to compile the models.
         """
         super().__init__()
@@ -111,31 +101,26 @@ class SAM3(Model):
         self.device = device
         self.confidence_threshold = confidence_threshold
         self.resolution = resolution
-
-        # Setup precision
-        self.autocast_ctx = setup_autocast(device=device, precision=precision)
-
-        # Build the SAM3 model
-        self.model = build_sam3_image_model(
-            bpe_path=bpe_path,
-            device=device,
-            checkpoint_path=checkpoint_path,
-            load_from_hf=load_from_hf,
-            enable_segmentation=enable_segmentation,
-            enable_inst_interactivity=enable_inst_interactivity,
-            compile=compile_models,
-        )
-
-        # Create processor
-        self.processor = Sam3Processor(
-            model=self.model,
-            resolution=resolution,
-            device=device,
-            confidence_threshold=confidence_threshold,
-        )
+        self.precision = precision
+        self.compile_models = compile_models
 
         # Category mapping from fit() - optional for consistency with GroundedSAM
         self.category_mapping: dict[str, int] | None = None
+
+        # Create processor manually with image processor and tokenizer
+        image_processor = Sam3ImageProcessorFast.from_pretrained("facebook/sam3")
+        tokenizer = CLIPTokenizerFast.from_pretrained("facebook/sam3")
+        self.input_processor = Sam3Processor(
+            image_processor=image_processor,
+            tokenizer=tokenizer,
+        )
+
+        self.model = Sam3Model.from_pretrained(
+            "facebook/sam3",
+            key_mapping={r"detector_model.(.+)": r"\1"},
+            torch_dtype=precision_to_torch_dtype(precision),
+            attn_implementation="sdpa",
+        ).to(device)
 
     def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """Store category mapping from reference batch for consistent API with GroundedSAM.
@@ -155,36 +140,6 @@ class SAM3(Model):
             for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
                 if category not in self.category_mapping:
                     self.category_mapping[category] = int(category_id)
-
-    def _process_predictions(
-        self,
-        inference_state: dict,
-        cat_id: int,
-        img_size: tuple[int, int],
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Process predictions from inference state.
-
-        Args:
-            inference_state: The inference state containing predictions.
-            cat_id: The category ID for the current prompt.
-            img_size: The image size (height, width).
-
-        Returns:
-            Tuple of (processed_masks, boxes_with_scores, labels).
-        """
-        # Get predictions from state
-        masks = inference_state.get("masks", torch.empty(0, *img_size))
-        boxes = inference_state.get("boxes", torch.empty(0, 4))
-        scores = inference_state.get("scores", torch.empty(0))
-        labels = torch.full((boxes.shape[0],), cat_id, dtype=torch.long, device=boxes.device)
-        # Process masks
-        if masks.ndim == 4 and masks.shape[1] == 1:
-            masks = masks.squeeze(1)  # [N, 1, H, W] -> [N, H, W]
-
-        # Add scores to boxes
-        if boxes.numel() > 0 and scores.numel() > 0:
-            boxes = torch.cat([boxes, scores.unsqueeze(-1)], dim=-1)  # [N, 4] -> [N, 5]
-        return masks, boxes, labels
 
     def _aggregate_results(
         self,
@@ -225,15 +180,6 @@ class SAM3(Model):
             "pred_labels": aggregated_labels,
         }
 
-    @staticmethod
-    def normalize_boxes(boxes: torch.Tensor, img_size: tuple[int, int]) -> torch.Tensor:
-        """Normalize boxes from absolute to relative coordinates."""
-        img_h, img_w = img_size
-        boxes = boxes.clone().to(torch.float32)
-        boxes[:, [0, 2]] /= img_w  # x1, x2
-        boxes[:, [1, 3]] /= img_h  # y1, y2
-        return box_convert(boxes, "xyxy", "cxcywh")
-
     def predict(self, target: Sample | list[Sample] | Batch) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
 
@@ -255,40 +201,55 @@ class SAM3(Model):
         # Use stored categories from fit() if available, otherwise use per-sample
         use_fitted_categories = self.category_mapping is not None
 
-        with self.autocast_ctx:
-            # Batch encode all images at once (expensive backbone forward pass)
-            images = [sample.image for sample in samples]
-            batch_state = self.processor.set_image_batch(images)
+        # Process each image's prompts individually
+        for sample in samples:
+            img_size = sample.image.shape[-2:]
+            bboxes = sample.bboxes if sample.bboxes is not None else []
+            
+            with torch.no_grad():
+                img_inputs = self.input_processor(images=sample.image, return_tensors="pt").to(self.device)
+                vision_embeds = self.model.get_vision_features(img_inputs.pixel_values)
 
-            # Process each image's prompts individually
-            for idx, sample in enumerate(samples):
-                img_size = sample.image.shape[-2:]
-                bboxes = self.normalize_boxes(sample.bboxes, img_size) if sample.bboxes is not None else []
+            # Determine text prompts and category IDs
+            if use_fitted_categories:
+                texts = list(self.category_mapping.keys())
+                category_ids = list(self.category_mapping.values())
+            else:
+                texts = sample.categories if sample.categories is not None else []
+                category_ids = sample.category_ids
 
-                # Determine text prompts and category IDs
-                if use_fitted_categories:
-                    texts = list(self.category_mapping.keys())
-                    category_ids = list(self.category_mapping.values())
-                else:
-                    texts = sample.categories if sample.categories is not None else []
-                    category_ids = sample.category_ids
+            all_masks: list[torch.Tensor] = []
+            all_boxes: list[torch.Tensor] = []
+            all_labels: list[torch.Tensor] = []
+            for text, bbox, cat_id in zip_longest(texts, bboxes, category_ids, fillvalue=None):
+                formatted_inputs = self.input_processor(
+                    text=[text] if text is not None else None,
+                    input_boxes=[bbox] if bbox is not None else None,
+                    input_boxes_labels=len(bbox) * [1] if bbox is not None else None,
+                    return_tensors="pt",
+                ).to(self.device)
+                with torch.no_grad():
+                    outputs = self.model(
+                        vision_embeds=vision_embeds,  # Reuse cached vision features
+                        input_ids=formatted_inputs.input_ids if "input_ids" in formatted_inputs else None,
+                        attention_mask=formatted_inputs.attention_mask if "attention_mask" in formatted_inputs else None,
+                        input_boxes=formatted_inputs.input_boxes if "input_boxes" in formatted_inputs else None,
+                        input_boxes_labels=formatted_inputs.input_boxes_labels if "input_boxes_labels" in formatted_inputs else None,
+                    )
+                result = self.input_processor.post_process_instance_segmentation(
+                    outputs,
+                    threshold=0.5,
+                    mask_threshold=0.5,
+                    target_sizes=img_inputs.get("original_sizes").tolist(),
+                )
+                boxes_with_scores = torch.cat(
+                    [result[0]["boxes"], result[0]["scores"].unsqueeze(1)],
+                    dim=1,
+                )
+                all_masks.append(result[0]["masks"].cpu())
+                all_boxes.append(boxes_with_scores.cpu())
+                all_labels.append(torch.full((len(result[0]["boxes"]),), cat_id, dtype=torch.int64))
 
-                # Extract single-image state from batch state
-                inference_state = self.processor.get_single_image_state(batch_state, idx)
-
-                all_masks: list[torch.Tensor] = []
-                all_boxes: list[torch.Tensor] = []
-                all_labels: list[torch.Tensor] = []
-                for text, bbox, cat_id in zip_longest(texts, bboxes, category_ids, fillvalue=None):
-                    inference_state = self.processor.set_prompt(inference_state, text=text, box=bbox)
-                    pred_masks, pred_boxes, pred_labels = self._process_predictions(inference_state, cat_id, img_size)
-                    all_masks.append(pred_masks)
-                    all_boxes.append(pred_boxes)
-                    all_labels.append(pred_labels)
-                    self.processor.reset_all_prompts(inference_state)
-
-                pred_result = self._aggregate_results(all_masks, all_boxes, all_labels, img_size)
-                self.processor.reset_all_prompts(inference_state)
-                results.append(pred_result)
+            results.append(self._aggregate_results(all_masks, all_boxes, all_labels, img_size))
 
         return results
