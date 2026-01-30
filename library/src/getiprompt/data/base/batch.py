@@ -304,12 +304,12 @@ class Batch:
             msg = "Cannot collate empty list of samples"
             raise ValueError(msg)
 
-        cls._compute_n_shot_inplace(samples)
+        cls._compute_n_shot(samples)
 
         return cls(samples=samples)
 
     @staticmethod
-    def _compute_n_shot_inplace(samples: list[Sample]) -> None:
+    def _compute_n_shot(samples: list[Sample]) -> None:
         """Compute n_shot values for samples based on category_id order.
 
         For each category_id, assigns sequential shot numbers (0, 1, 2, ...)
