@@ -335,10 +335,10 @@ class Batch:
             if isinstance(cat_ids, (np.ndarray, torch.Tensor)):
                 cat_ids = cat_ids.tolist()
 
-            is_ref = sample.is_reference or [True] * len(cat_ids)
+            is_ref = [True] * len(cat_ids) if sample.is_reference is None else sample.is_reference
 
             n_shot = []
-            for cat_id, ref in zip(cat_ids, is_ref):
+            for cat_id, ref in zip(cat_ids, is_ref, strict=True):
                 if not ref:
                     n_shot.append(-1)
                 else:
