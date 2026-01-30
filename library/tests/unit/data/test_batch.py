@@ -293,6 +293,7 @@ class TestBatchBasic:  # noqa: PLR0904 Too many public methods (21 > 20)
 
         n_shot = batch.n_shot
         assert len(n_shot) == 2
+        # Batch order: sample_single then sample_multi
         # sample_single has cat 0 (is_ref=True), sample_multi has cats [0, 1, 2] (is_ref=[True, False, True])
         # cat 0: shot 0 (single), shot 1 (multi)
         # cat 1: is_reference=False -> -1
