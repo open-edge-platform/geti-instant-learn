@@ -1,6 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
 import glob
+import os
 import platform
+import shutil
 from PyInstaller.utils.hooks import collect_all, collect_dynamic_libs, collect_submodules, collect_data_files
 
 datas = [
@@ -77,3 +79,10 @@ coll = COLLECT(
     upx_exclude=[],
     name='geti-prompt-backend',
 )
+
+dist_root = os.path.join('dist', 'geti-prompt-backend', '_internal')
+triton_backends_to_remove = ['nvidia', 'amd']
+for backend in triton_backends_to_remove:
+    backend_folder = os.path.join(dist_root, 'triton', 'backends', backend)
+    if os.path.isdir(backend_folder):
+        shutil.rmtree(backend_folder)

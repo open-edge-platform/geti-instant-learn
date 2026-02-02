@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { LabelType, USBCameraSourceType } from '@geti-prompt/api';
-import { http } from '@geti-prompt/test-fixtures';
+import { LabelType, USBCameraSourceType } from '@/api';
+import { http } from '@/test-fixtures';
 import { NetworkFixture } from '@msw/playwright';
 import { HttpResponse } from 'msw';
 

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { getMockedLabel, render } from '@geti-prompt/test-utils';
+import { getMockedLabel, render } from '@/test-utils';
 import { fireEvent, screen } from '@testing-library/react';
 import { ZoomState } from 'src/components/zoom/types';
 import { useZoom } from 'src/components/zoom/zoom.provider';

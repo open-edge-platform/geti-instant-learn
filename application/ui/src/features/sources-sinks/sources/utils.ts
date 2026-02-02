@@ -12,7 +12,7 @@ import {
     type SourceType,
     type USBCameraSourceType,
     type VideoFileSourceType,
-} from '@geti-prompt/api';
+} from '@/api';
 
 const getSource = <T extends Source>(sources: SourcesType | undefined, sourceType: SourceType) => {
     return sources?.filter((source) => source.config.source_type === sourceType)[0] as T | undefined;

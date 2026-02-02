@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ProjectType } from '@geti-prompt/api';
-import { getQueryKey } from '@geti-prompt/query-client';
+import { ProjectType } from '@/api';
+import { getQueryKey } from '@/query-client';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useUpdateProject } from './use-update-project.hook';

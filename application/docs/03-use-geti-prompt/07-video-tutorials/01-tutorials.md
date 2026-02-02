@@ -1,5 +1,7 @@
 # Tutorials
 
+> This section is under development
+
 Step-by-step guides for common workflows and tasks in Geti Prompt Application.
 
 ## Planned Tutorials
@@ -25,8 +27,3 @@ Step-by-step guides for common workflows and tasks in Geti Prompt Application.
 - Performance tuning tips
 -->
 <!-- etc. -->
-
-## Tips for Learning
-
-- Refer to [How-to Guides](../how-to-guides/01-how-to-guides.md) for detailed feature documentation
-- Check [Concepts](../concepts/01-concepts.md) for understanding underlying principles

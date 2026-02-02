@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Source, SourceType } from '@geti-prompt/api';
-import { useCurrentProject } from '@geti-prompt/hooks';
+import { Source, SourceType } from '@/api';
+import { useCurrentProject } from '@/hooks';
 import { orderBy } from 'lodash-es';
 
 import { ExistingPipelineEntities } from '../../existing-pipeline-entities/existing-pipeline-entities.component';

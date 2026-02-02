@@ -30,7 +30,7 @@ on:
         options:
           - xpu
           - cpu
-          - gpu
+          - cuda
         default: "xpu"
       debug_build:
         description: "If the debug build should be produced"

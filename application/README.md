@@ -12,67 +12,101 @@ Built with the [Geti Prompt Library](../library/) for model inference, FastAPI f
 
 ```bash
 # Start backend and frontend in development mode
-just application/dev
-
-# Recommended: Run on Intel XPU (GPU/NPU)
 just device=xpu application/dev
-
-# Optional: Run on NVIDIA GPU
-just device=cu126 application/dev
 ```
 
 **Access at: [http://localhost:3000](http://localhost:3000)**
+
+<details>
+<summary><b>Configuration parameters</b></summary>
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `port` | `9100` | Backend API port |
+| `ui-port` | `3000` | UI development server port |
+| `device` | `cpu` | Hardware target (`cpu`, `xpu`, `cu128`) |
+| `enable-coturn` | `false` | Enable local TURN server for WebRTC |
+| `stun-server` | `""` | External STUN server URL |
+| `coturn-port` | `443` | Port for local TURN server |
+
+> **Note:** WebRTC parameters configure video streaming between browser and backend. See [WebRTC Networking](docs/04-concepts/02-webrtc.md) for deployment scenarios.
+
+</details>
 
 ### Run with Docker
 
 **Prerequisites:** [Just](https://github.com/casey/just), Docker
 
+**Build the image:**
+
 ```bash
-# Build and run container
-just application/run-image
+# Build for Intel XPU (recommended)
+just device=xpu application/build-image
+```
 
-# Recommended: run on Intel XPU
+<details>
+<summary><b>Build parameters</b></summary>
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `device` | `cpu` | Hardware target: `cpu`, `xpu`, `cu128` |
+| `build-target` | `cpu` | Docker build stage: `cpu`, `xpu`, `cuda` |
+| `version` | `latest` | Image version tag |
+
+</details>
+
+**Run the image:**
+
+```bash
+# Run with default settings
 just device=xpu application/run-image
-
-# Run on NVIDIA GPU
-just device=cu126 application/run-image
 ```
 
 **Access at: [http://localhost:9100](http://localhost:9100)**
 
----
+<details>
+<summary><b>Runtime parameters</b></summary>
 
-## Configuration
+*Networking:*
 
-Customize startup with these variables:
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `port` | `9100` | Port for serving UI and API |
+| `webrtc-ports` | `50000-51000` | UDP port range for WebRTC |
+| `stun-server` | `""` | External STUN server URL |
+| `enable-coturn` | `false` | Enable local TURN server |
+| `coturn-port` | `443` | Port for TURN server |
 
-| Variable | Default | Description | Run mode |
-| :--- | :--- | :--- | :--- |
-| `port` | `9100` | Backend API port | All |
-| `ui-port` | `3000` | UI development server port | Source only |
-| `device` | `cpu` | Hardware target (`cpu`, `xpu`, `cu126`) | All |
-| `enable-coturn` | `false` | Enable local TURN server for WebRTC | All |
-| `stun-server` | `""` | External STUN server URL | All |
-| `webrtc-ports` | `50000-51000` | UDP port range for WebRTC | All |
-| `coturn-port` | `443` | Port for local TURN server | All |
-| `webcam-device` | `/dev/video0` | Path to webcam device | Docker only |
+> **Note:** WebRTC parameters configure video streaming between browser and backend. See [WebRTC Networking](docs/04-concepts/02-webrtc.md) for deployment scenarios.
 
-**Examples:**
+*Hardware:*
 
-```bash
-# Source mode with custom ports
-just port=8080 ui-port=4000 device=xpu application/dev
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `device` | `cpu` | Hardware target: `cpu`, `xpu`, `cu128` |
+| `webcam-device` | `/dev/video0` | Path to webcam device |
 
-# Docker with webcam passthrough
-just webcam-device="/dev/video1" application/run-image
-```
+</details>
 
 ---
 
-## 📖 Documentation
+## Documentation
 
-- **[Quick Start Guide](docs/02-quick-start.md)** - Detailed installation and configuration
-- **[Tutorials](docs/tutorials/01-tutorials.md)** - Step-by-step guides
-- **[How-to Guides](docs/how-to-guides/01-how-to-guides.md)** - Feature deep dives
-- **[Concepts & Architecture](docs/concepts/01-concepts.md)** - System design and core concepts
-- **[Development Guide](docs/concepts/02-development.md)** - Architecture layers, testing, and WebRTC networking
+**Getting Started:**
+
+- [Quick Start Guide](docs/02-quick-start.md) - Get your first results quickly
+
+**Using Geti Prompt:**
+
+- [Inputs Configuration](docs/03-use-geti-prompt/01-inputs-configuration.md) - Configure cameras, videos, and datasets
+- [Prompt & Models](docs/03-use-geti-prompt/02-prompt-model.md) - Visual and text prompting
+- [Inference](docs/03-use-geti-prompt/03-inference.md) - Run zero-shot inference
+- [Deployment](docs/03-use-geti-prompt/04-deployment.md) - Production deployment
+- [Monitoring](docs/03-use-geti-prompt/05-monitoring.md) - Monitor application performance
+- [Integration](docs/03-use-geti-prompt/06-integration.md) - Business logic integration
+
+**Concepts:**
+
+- [Architecture](docs/04-concepts/01-architecture.md) - System design and components
+- [WebRTC Networking](docs/04-concepts/02-webrtc.md) - Video streaming configuration
+- [Storage](docs/04-concepts/03-storage.md) - Data persistence and Docker volumes

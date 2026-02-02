@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { render } from '@geti-prompt/test-utils';
+import { render } from '@/test-utils';
 import { screen } from '@testing-library/react';
 
 import { Header } from './header.component';

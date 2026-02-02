@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Source } from '@geti-prompt/api';
+import { Source } from '@/api';
 
 export const getMockedSource = (source?: Partial<Source>): Source => {
     return {

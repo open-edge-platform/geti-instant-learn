@@ -5,7 +5,7 @@
 
 import { Suspense } from 'react';
 
-import { useGetSources } from '@geti-prompt/hooks';
+import { useGetSources } from '@/hooks';
 import { dimensionValue, Grid, Loading, minmax, View } from '@geti/ui';
 
 import {

@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { $api } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
 import { toast } from '@geti/ui';
 
 import { useSelectedFrame } from '../../../../shared/selected-frame-provider.component';
@@ -20,6 +20,9 @@ export const useDeletePrompt = () => {
             invalidates: [
                 ['get', '/api/v1/projects/{project_id}/prompts', { params: { path: { project_id: projectId } } }],
             ],
+            error: {
+                notify: true,
+            },
         },
         onSuccess: () => {
             if (selectedFrameId === prompt?.frame_id) {

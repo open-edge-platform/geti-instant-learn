@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { AnnotationPostType, AnnotationType, LabelType } from '@geti-prompt/api';
+import { AnnotationPostType, AnnotationType, LabelType } from '@/api';
 import { Point } from '@geti/smart-tools/types';
 import { v4 as uuid } from 'uuid';
 
