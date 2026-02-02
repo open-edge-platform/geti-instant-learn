@@ -16,8 +16,8 @@
 import math
 
 import torch
-import torch.nn.functional as F
 from torch import Tensor, nn
+from torch.nn import functional
 from transformers.pytorch_utils import compile_compatible_method_lru_cache
 
 from .common import (
@@ -72,14 +72,16 @@ class DecoderMLP(nn.Module):
         """Forward pass through the MLP.
 
         Args:
-            x (torch.Tensor): Input tensor of shape [batch_size, ..., input_dim].
+            x (torch.Tensor): Input tensor of shape [batch_size, ..., input_dim] with
+                floating-point dtype.
 
         Returns:
-            torch.Tensor: Output tensor of shape [batch_size, ..., output_dim].
+            torch.Tensor: Output tensor of shape [batch_size, ..., output_dim] with
+                floating-point dtype.
         """
-        x = F.relu(self.layer1(x))
+        x = functional.relu(self.layer1(x))
         if self.layer3 is not None:
-            x = F.relu(self.layer2(x))
+            x = functional.relu(self.layer2(x))
             x = self.layer3(x)
         else:
             x = self.layer2(x)
@@ -157,17 +159,18 @@ class DetrEncoderLayer(nn.Module):
 
         Args:
             vision_feats (Tensor): Vision features [batch_size, vision_len, hidden_size]
-                (main hidden states).
+                with floating-point dtype (main hidden states).
             prompt_feats (Tensor): Text prompt features
-                [batch_size, text_len, hidden_size].
+                [batch_size, text_len, hidden_size] with floating-point dtype.
             vision_pos_encoding (Tensor): Position encoding for vision
-                [batch_size, vision_len, hidden_size].
+                [batch_size, vision_len, hidden_size] with floating-point dtype.
             prompt_cross_attn_mask (Tensor | None): Cross-attention mask for prompt
-                features. Default: None.
+                features. If provided, dtype is bool or floating-point. Default: None.
             **kwargs: Additional keyword arguments passed to attention modules.
 
         Returns:
-            Tensor: Updated vision features [batch_size, vision_len, hidden_size].
+            Tensor: Updated vision features [batch_size, vision_len, hidden_size] with
+                floating-point dtype.
         """
         # Self-attention on vision features with position encoding
         residual = vision_feats
@@ -246,20 +249,22 @@ class DetrEncoder(nn.Module):
         super().__init__()
         self.hidden_size = hidden_size
 
-        self.layers = nn.ModuleList([
-            DetrEncoderLayer(
-                hidden_size=hidden_size,
-                num_attention_heads=num_attention_heads,
-                intermediate_size=intermediate_size,
-                dropout=dropout,
-                hidden_act=hidden_act,
-                hidden_dropout=hidden_dropout,
-            )
-            for _ in range(num_layers)
-        ])
+        self.layers = nn.ModuleList(
+            [
+                DetrEncoderLayer(
+                    hidden_size=hidden_size,
+                    num_attention_heads=num_attention_heads,
+                    intermediate_size=intermediate_size,
+                    dropout=dropout,
+                    hidden_act=hidden_act,
+                    hidden_dropout=hidden_dropout,
+                )
+                for _ in range(num_layers)
+            ],
+        )
 
+    @staticmethod
     def _prepare_multilevel_features(
-        self,
         vision_features: list[torch.Tensor],
         vision_pos_embeds: list[torch.Tensor],
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -270,30 +275,32 @@ class DetrEncoder(nn.Module):
 
         Args:
             vision_features (list[torch.Tensor]): List of vision features at different
-                levels [batch_size, channels, height, width].
+                levels [batch_size, channels, height, width] with floating-point dtype.
             vision_pos_embeds (list[torch.Tensor]): List of position embeddings for each
-                level [batch_size, channels, height, width].
+                level [batch_size, channels, height, width] with floating-point dtype.
 
         Returns:
             tuple[torch.Tensor, torch.Tensor, torch.Tensor]: Tuple containing:
-                - Flattened features [batch_size, total_seq_len, channels]
+                - Flattened features [batch_size, total_seq_len, channels] with
+                  floating-point dtype
                 - Flattened position embeddings [batch_size, total_seq_len, channels]
+                  with floating-point dtype
                 - Spatial metadata tensor [num_levels, 2] with (height, width)
         """
         features_flattened = []
         pos_embeds_flattened = []
         spatial_shapes = []
 
-        for features, pos_embed in zip(vision_features, vision_pos_embeds, strict=False):
-            height, width = features.shape[-2:]
+        for feature_map, pos_embed in zip(vision_features, vision_pos_embeds, strict=False):
+            height, width = feature_map.shape[-2:]
             spatial_shapes.append((height, width))
 
             # Flatten spatial dimensions: [batch_size, channels, height, width] -> [batch_size, height*width, channels]
-            features = features.flatten(2).transpose(1, 2)
-            pos_embed = pos_embed.flatten(2).transpose(1, 2)
+            flattened_features = feature_map.flatten(2).transpose(1, 2)
+            flattened_pos_embed = pos_embed.flatten(2).transpose(1, 2)
 
-            features_flattened.append(features)
-            pos_embeds_flattened.append(pos_embed)
+            features_flattened.append(flattened_features)
+            pos_embeds_flattened.append(flattened_pos_embed)
 
         # Concatenate all levels into single sequence
         features_flattened = torch.cat(features_flattened, dim=1)
@@ -323,13 +330,13 @@ class DetrEncoder(nn.Module):
 
         Args:
             vision_features (list[torch.Tensor]): List of vision features at different
-                levels.
+                levels with floating-point dtype.
             text_features (torch.Tensor): Text prompt features
-                [batch_size, seq_len, hidden_size].
+                [batch_size, seq_len, hidden_size] with floating-point dtype.
             vision_pos_embeds (list[torch.Tensor] | None): Optional list of position
-                embeddings for each level. Default: None.
+                embeddings for each level. If None, zeros are used. Default: None.
             text_mask (torch.Tensor | None): Optional text padding mask
-                [batch_size, seq_len]. Default: None.
+                [batch_size, seq_len] where True=valid, False=padding. Default: None.
             spatial_sizes (list[tuple[int, int]] | None): Optional list of (height,
                 width) tuples for reshaping. Default: None.
             **kwargs: Additional keyword arguments passed to encoder layers.
@@ -342,15 +349,42 @@ class DetrEncoder(nn.Module):
                 - 'spatial_shapes': Spatial shape metadata
                 - 'hidden_states': None (reserved for future use)
                 - 'attentions': None (reserved for future use)
+
+        Raises:
+            ValueError: If ``spatial_sizes`` is provided and its length does not match
+                the number of vision feature levels.
         """
         batch_size = vision_features[0].shape[0] if vision_features[0].dim() == 4 else vision_features[0].shape[1]
 
-        # TODO: See if we can remove that reshaping and just use the features as is.
+        if vision_pos_embeds is None:
+            vision_pos_embeds = [torch.zeros_like(feature) for feature in vision_features]
+
+        # Note(kun): Consider removing reshaping by using features directly.
         if spatial_sizes is not None:
-            for i, (height, width) in enumerate(spatial_sizes):
+            if len(spatial_sizes) != len(vision_features):
+                msg = "spatial_sizes must match the number of vision feature levels"
+                raise ValueError(msg)
+            reshaped_vision_features: list[torch.Tensor] = []
+            reshaped_pos_embeds: list[torch.Tensor] = []
+            for level_index, (height, width) in enumerate(spatial_sizes):
                 # Reshape from [height*width, batch_size, channels] to [batch_size, channels, height, width]
-                vision_features[i] = vision_features[i].reshape(height, width, batch_size, -1).permute(2, 3, 0, 1)
-                vision_pos_embeds[i] = vision_pos_embeds[i].reshape(height, width, batch_size, -1).permute(2, 3, 0, 1)
+                reshaped_feature = vision_features[level_index].reshape(
+                    height,
+                    width,
+                    batch_size,
+                    -1,
+                )
+                reshaped_vision_features.append(reshaped_feature.permute(2, 3, 0, 1))
+
+                reshaped_pos_embed = vision_pos_embeds[level_index].reshape(
+                    height,
+                    width,
+                    batch_size,
+                    -1,
+                )
+                reshaped_pos_embeds.append(reshaped_pos_embed.permute(2, 3, 0, 1))
+            vision_features = reshaped_vision_features
+            vision_pos_embeds = reshaped_pos_embeds
 
         # Flatten multi-level features for encoder processing
         (
@@ -359,9 +393,7 @@ class DetrEncoder(nn.Module):
             spatial_shapes,
         ) = self._prepare_multilevel_features(vision_features, vision_pos_embeds)
 
-        prompt_cross_attn_mask = None
-        if text_mask is not None:
-            prompt_cross_attn_mask = expand_attention_mask(text_mask)
+        prompt_cross_attn_mask = expand_attention_mask(text_mask) if text_mask is not None else None
 
         hidden_states = features_flattened
         for layer in self.layers:
@@ -466,26 +498,29 @@ class DetrDecoderLayer(nn.Module):
         Args:
             hidden_states (torch.Tensor): Query features
                 [batch_size, num_queries + 1, hidden_size] (includes presence token at
-                position 0).
+                position 0) with floating-point dtype.
             query_pos (torch.Tensor): Query position embeddings
-                [batch_size, num_queries, hidden_size].
-            text_features (torch.Tensor): Text features [batch_size, seq_len, hidden_size].
+                [batch_size, num_queries, hidden_size] with floating-point dtype.
+            text_features (torch.Tensor): Text features [batch_size, seq_len, hidden_size]
+                with floating-point dtype.
             vision_features (torch.Tensor): Vision features
-                [batch_size, height*width, hidden_size].
+                [batch_size, height*width, hidden_size] with floating-point dtype.
             vision_pos_encoding (torch.Tensor): Vision position encoding
-                [batch_size, height*width, hidden_size].
-            text_cross_attn_mask (torch.Tensor | None): Text cross-attention mask.
-                Default: None.
+                [batch_size, height*width, hidden_size] with floating-point dtype.
+            text_cross_attn_mask (torch.Tensor | None): Text cross-attention mask. If
+                provided, dtype is bool or floating-point. Default: None.
             vision_cross_attn_mask (torch.Tensor | None): Vision cross-attention mask,
-                already expanded for presence token. Default: None.
+                already expanded for presence token. If provided, dtype is bool or
+                floating-point. Default: None.
             **kwargs: Additional keyword arguments passed to attention modules.
 
         Returns:
             torch.Tensor: Updated hidden states (including presence token at
-                position 0) [batch_size, num_queries + 1, hidden_size].
+                position 0) [batch_size, num_queries + 1, hidden_size] with
+                floating-point dtype.
         """
         # Prepend zeros to query_pos for presence token
-        query_pos = F.pad(query_pos, (0, 0, 1, 0), mode="constant", value=0)
+        query_pos = functional.pad(query_pos, (0, 0, 1, 0), mode="constant", value=0)
 
         # Self-attention with query position encoding
         residual = hidden_states
@@ -585,17 +620,19 @@ class DetrDecoder(nn.Module):
         super().__init__()
         self.hidden_size = hidden_size
 
-        self.layers = nn.ModuleList([
-            DetrDecoderLayer(
-                hidden_size=hidden_size,
-                num_attention_heads=num_attention_heads,
-                intermediate_size=intermediate_size,
-                dropout=dropout,
-                hidden_act=hidden_act,
-                hidden_dropout=hidden_dropout,
-            )
-            for _ in range(num_layers)
-        ])
+        self.layers = nn.ModuleList(
+            [
+                DetrDecoderLayer(
+                    hidden_size=hidden_size,
+                    num_attention_heads=num_attention_heads,
+                    intermediate_size=intermediate_size,
+                    dropout=dropout,
+                    hidden_act=hidden_act,
+                    hidden_dropout=hidden_dropout,
+                )
+                for _ in range(num_layers)
+            ],
+        )
 
         self.output_layer_norm = nn.LayerNorm(hidden_size)
 
@@ -619,16 +656,16 @@ class DetrDecoder(nn.Module):
     @compile_compatible_method_lru_cache(maxsize=1)
     def _get_coords(
         self,
-        height: torch.Tensor,
-        width: torch.Tensor,
+        height: int,
+        width: int,
         dtype: torch.dtype,
         device: torch.device,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Generate normalized coordinate grids for relative position bias computation.
 
         Args:
-            height (torch.Tensor): Height of the spatial grid as a scalar tensor.
-            width (torch.Tensor): Width of the spatial grid as a scalar tensor.
+            height (int): Height of the spatial grid.
+            width (int): Width of the spatial grid.
             dtype (torch.dtype): Data type for the output tensors.
             device (torch.device): Device for the output tensors.
 
@@ -653,23 +690,26 @@ class DetrDecoder(nn.Module):
         the decoder attend to relevant spatial locations based on predicted box positions.
 
         Args:
-            reference_boxes (torch.Tensor): Reference boxes [batch_size, num_queries, 4]
-                in sigmoid space.
-            spatial_shape (tuple[torch.Tensor, torch.Tensor]): (height, width) of the
-                vision features as tensors.
+        reference_boxes (torch.Tensor): Reference boxes [batch_size, num_queries, 4]
+            in sigmoid space with floating-point dtype.
+        spatial_shape (tuple[torch.Tensor, torch.Tensor]): (height, width) of the
+            vision features as tensors.
 
         Returns:
-            torch.Tensor: RPB matrix [batch_size, num_heads, num_queries, height*width]
-                containing attention biases for each query to each spatial location.
+        torch.Tensor: RPB matrix [batch_size, num_heads, num_queries, height*width]
+            containing attention biases for each query to each spatial location with
+            floating-point dtype.
         """
         height, width = spatial_shape
         boxes_xyxy = box_cxcywh_to_xyxy(reference_boxes)
         batch_size, num_queries, _ = boxes_xyxy.shape
 
         # Generate coordinate grids
+        height_int = int(height)
+        width_int = int(width)
         coords_h, coords_w = self._get_coords(
-            height,
-            width,
+            height=height_int,
+            width=width_int,
             dtype=reference_boxes.dtype,
             device=reference_boxes.device,
         )
@@ -714,12 +754,13 @@ class DetrDecoder(nn.Module):
 
         Args:
             vision_features (torch.Tensor): Vision features [batch_size, height*width,
-                hidden_size].
-            text_features (torch.Tensor): Text features [batch_size, seq_len, hidden_size].
+                hidden_size] with floating-point dtype.
+            text_features (torch.Tensor): Text features [batch_size, seq_len, hidden_size]
+                with floating-point dtype.
             vision_pos_encoding (torch.Tensor): Vision position encoding
-                [batch_size, height*width, hidden_size].
+                [batch_size, height*width, hidden_size] with floating-point dtype.
             text_mask (torch.Tensor | None): Text padding mask [batch_size, seq_len] where
-                True=valid, False=padding. Default: None.
+                True=valid, False=padding (dtype=bool). Default: None.
             spatial_shapes (torch.Tensor | None): Spatial shapes [num_levels, 2].
                 Default: None.
             **kwargs: Additional keyword arguments passed to decoder layers.
@@ -734,6 +775,9 @@ class DetrDecoder(nn.Module):
                     [num_layers, batch_size, 1]
                 - 'hidden_states': None (reserved for future use)
                 - 'attentions': None (reserved for future use)
+
+        Raises:
+            ValueError: If ``spatial_shapes`` is provided with more than one level.
         """
         batch_size = vision_features.shape[0]
 
@@ -745,9 +789,7 @@ class DetrDecoder(nn.Module):
         # Concatenate presence token with query embeddings
         hidden_states = torch.cat([presence_token, query_embeds], dim=1)
 
-        text_cross_attn_mask = None
-        if text_mask is not None:
-            text_cross_attn_mask = expand_attention_mask(text_mask)
+        text_cross_attn_mask = expand_attention_mask(text_mask) if text_mask is not None else None
 
         intermediate_outputs = []
         intermediate_boxes = [reference_boxes]
@@ -761,11 +803,14 @@ class DetrDecoder(nn.Module):
 
             # Compute box relative position bias (RPB) attention mask
             vision_cross_attn_mask = None
-            if spatial_shapes is not None and spatial_shapes.shape[0] == 1:
+            if spatial_shapes is not None:
+                if spatial_shapes.shape[0] != 1:
+                    msg = "RPB mask expects a single spatial level"
+                    raise ValueError(msg)
                 spatial_shape = (spatial_shapes[0, 0], spatial_shapes[0, 1])
                 rpb_matrix = self._get_rpb_matrix(reference_boxes, spatial_shape)
                 # Prepend zeros row for presence token (it attends to all vision tokens equally)
-                vision_cross_attn_mask = F.pad(rpb_matrix, (0, 0, 1, 0), mode="constant", value=0)
+                vision_cross_attn_mask = functional.pad(rpb_matrix, (0, 0, 1, 0), mode="constant", value=0)
 
             hidden_states = layer(
                 hidden_states,

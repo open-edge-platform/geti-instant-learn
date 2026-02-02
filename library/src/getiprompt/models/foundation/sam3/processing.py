@@ -23,43 +23,91 @@ from transformers.tokenization_utils_base import BatchEncoding, PreTokenizedInpu
 from transformers.utils import TensorType
 
 
-def box_cxcywh_to_xyxy(x):
+def box_cxcywh_to_xyxy(x: torch.Tensor) -> torch.Tensor:
+    """Convert bounding boxes from (cx, cy, w, h) format to (x1, y1, x2, y2) format.
+
+    Args:
+    x (torch.Tensor): Boxes in (cx, cy, w, h) format.
+
+    Returns:
+    torch.Tensor: Boxes in (x1, y1, x2, y2) format.
+    """
     x_c, y_c, w, h = x.unbind(-1)
     b = [(x_c - 0.5 * w), (y_c - 0.5 * h), (x_c + 0.5 * w), (y_c + 0.5 * h)]
     return torch.stack(b, dim=-1)
 
 
-def box_cxcywh_to_xywh(x):
+def box_cxcywh_to_xywh(x: torch.Tensor) -> torch.Tensor:
+    """Convert bounding boxes from (cx, cy, w, h) format to (x, y, w, h) format.
+
+    Args:
+    x (torch.Tensor): Boxes in (cx, cy, w, h) format.
+
+    Returns:
+    torch.Tensor: Boxes in (x, y, w, h) format.
+    """
     x_c, y_c, w, h = x.unbind(-1)
     b = [(x_c - 0.5 * w), (y_c - 0.5 * h), (w), (h)]
     return torch.stack(b, dim=-1)
 
 
-def box_xywh_to_xyxy(x):
+def box_xywh_to_xyxy(x: torch.Tensor) -> torch.Tensor:
+    """Convert bounding boxes from (x, y, w, h) format to (x1, y1, x2, y2) format.
+
+    Args:
+    x (torch.Tensor): Boxes in (x, y, w, h) format.
+
+    Returns:
+    torch.Tensor: Boxes in (x1, y1, x2, y2) format.
+    """
     x, y, w, h = x.unbind(-1)
     b = [(x), (y), (x + w), (y + h)]
     return torch.stack(b, dim=-1)
 
 
-def box_xywh_to_cxcywh(x):
+def box_xywh_to_cxcywh(x: torch.Tensor) -> torch.Tensor:
+    """Convert bounding boxes from (x, y, w, h) format to (cx, cy, w, h) format.
+
+    Args:
+    x (torch.Tensor): Boxes in (x, y, w, h) format.
+
+    Returns:
+    torch.Tensor: Boxes in (cx, cy, w, h) format.
+    """
     x, y, w, h = x.unbind(-1)
     b = [(x + 0.5 * w), (y + 0.5 * h), (w), (h)]
     return torch.stack(b, dim=-1)
 
 
-def box_xyxy_to_xywh(x):
+def box_xyxy_to_xywh(x: torch.Tensor) -> torch.Tensor:
+    """Convert bounding boxes from (x1, y1, x2, y2) format to (x, y, w, h) format.
+
+    Args:
+    x (torch.Tensor): Boxes in (x1, y1, x2, y2) format.
+
+    Returns:
+    torch.Tensor: Boxes in (x, y, w, h) format.
+    """
     x, y, X, Y = x.unbind(-1)
     b = [(x), (y), (X - x), (Y - y)]
     return torch.stack(b, dim=-1)
 
 
-def box_xyxy_to_cxcywh(x):
+def box_xyxy_to_cxcywh(x: torch.Tensor) -> torch.Tensor:
+    """Convert bounding boxes from (x1, y1, x2, y2) format to (cx, cy, w, h) format.
+
+    Args:
+    x (torch.Tensor): Boxes in (x1, y1, x2, y2) format.
+
+    Returns:
+    torch.Tensor: Boxes in (cx, cy, w, h) format.
+    """
     x0, y0, x1, y1 = x.unbind(-1)
     b = [(x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0), (y1 - y0)]
     return torch.stack(b, dim=-1)
 
 
-def box_area(boxes):
+def box_area(boxes: torch.Tensor) -> torch.Tensor:
     """Batched version of box area. Boxes should be in [x0, y0, x1, y1] format.
 
     Inputs:
@@ -73,6 +121,17 @@ def box_area(boxes):
 
 
 class Processor(ProcessorMixin):
+    """Processor for SAM3 model.
+
+    Handles image preprocessing, text tokenization, and post-processing for
+    object detection and segmentation tasks.
+
+    Attributes:
+    attributes (list[str]): List of component attributes for ProcessorMixin.
+    image_processor_class (str): Class name for image processor.
+    tokenizer_class (str): Class name for tokenizer.
+    """
+
     # Define attributes for ProcessorMixin to know which components we have
     attributes = ["image_processor", "tokenizer"]
     # These class names tell the processor what types are valid
@@ -80,8 +139,16 @@ class Processor(ProcessorMixin):
     image_processor_class = "ImageProcessorFast"
     tokenizer_class = "CLIPTokenizerFast"
 
-    def check_argument_for_proper_class(self, argument_name, argument):
-        """Override to skip class validation since Sam3 classes aren't in stable transformers."""
+    def check_argument_for_proper_class(self, argument_name: str, argument: any) -> type:
+        """Override to skip class validation since Sam3 classes aren't in stable transformers.
+
+        Args:
+        argument_name (str): Name of the argument being validated.
+        argument (any): The argument value to validate.
+
+        Returns:
+        type: The type of the argument.
+        """
         # Simply return the argument's class without validation
         return type(argument)
 
@@ -93,10 +160,14 @@ class Processor(ProcessorMixin):
         point_pad_value: int = -10,
         **kwargs,
     ):
-        r"""target_size (`int`, *optional*):
-            The target size (target_size, target_size) to which the image will be resized.
-        point_pad_value (`int`, *optional*, defaults to -10):
-            The value used for padding input boxes.
+        """Initialize the Processor.
+
+        Args:
+        image_processor: Image processor instance.
+        tokenizer: Tokenizer instance.
+        target_size (int | None): Target size for image resizing. Defaults to None.
+        point_pad_value (int): Value used for padding. Defaults to -10.
+        **kwargs: Additional keyword arguments.
         """
         super().__init__(image_processor, tokenizer, **kwargs)
         self.point_pad_value = point_pad_value
@@ -113,26 +184,31 @@ class Processor(ProcessorMixin):
         return_tensors: str | TensorType | None = None,
         **kwargs,
     ) -> BatchEncoding:
-        r"""Images (`ImageInput`, *optional*):
-            The image(s) to process.
-        text (`str`, `list[str]`, `list[list[str]]`, *optional*):
-            The text to process.
-        segmentation_maps (`ImageInput`, *optional*):
-            The segmentation maps to process.
-        input_boxes (`list[list[list[float]]]`, `torch.Tensor`, *optional*):
-            The bounding boxes to process.
-        input_boxes_labels (`list[list[int]]`, `torch.Tensor`, *optional*):
-            The labels for the bounding boxes.
-        original_sizes (`list[list[float]]`, `torch.Tensor`, *optional*):
-            The original sizes of the images.
+        """Process inputs for the SAM3 model.
+
+        Processes images, text, segmentation maps, and bounding boxes for the SAM3 model.
+
+        Args:
+        images (ImageInput | None): The image(s) to process. Defaults to None.
+        text (TextInput | PreTokenizedInput | list[TextInput] | list[PreTokenizedInput] | None):
+            The text to process. Defaults to None.
+        segmentation_maps (ImageInput | None): The segmentation maps to process. Defaults to None.
+        input_boxes (list[list[list[float]]] | torch.Tensor | None):
+            The bounding boxes to process. Defaults to None.
+        input_boxes_labels (list[list[list[int]]] | torch.Tensor | None):
+            The labels for the bounding boxes. Defaults to None.
+        original_sizes (list[list[float]] | torch.Tensor | None):
+            The original sizes of the images. Defaults to None.
+        return_tensors (str | TensorType | None): Format for returned tensors. Defaults to None.
+        **kwargs: Additional keyword arguments.
 
         Returns:
-            A [`BatchEncoding`] with the following fields:
-            - `pixel_values` (`torch.Tensor`): The processed image(s).
-            - `original_sizes` (`list[list[float]]`): The original sizes of the images.
-            - `labels` (`torch.Tensor`): The processed segmentation maps (if provided).
-            - `input_boxes_labels` (`torch.Tensor`): The processed labels for the bounding boxes.
-            - `input_boxes` (`torch.Tensor`): The processed bounding boxes.
+        BatchEncoding: A BatchEncoding with the following fields:
+            - pixel_values (torch.Tensor): The processed image(s).
+            - original_sizes (list[list[float]]): The original sizes of the images.
+            - labels (torch.Tensor): The processed segmentation maps (if provided).
+            - input_boxes_labels (torch.Tensor): The processed labels for the bounding boxes.
+            - input_boxes (torch.Tensor): The processed bounding boxes.
         """
         encoding = None
         if images is not None:
@@ -235,7 +311,9 @@ class Processor(ProcessorMixin):
         return coords
 
     def _convert_to_nested_list(self, data, expected_depth, current_depth=0):
-        """Recursively convert various input formats (tensors, numpy arrays, lists) to nested lists.
+        """Recursively convert various input formats to nested lists.
+
+        Converts tensors, numpy arrays, and lists to nested lists.
         Preserves None values within lists.
 
         Args:
@@ -581,7 +659,9 @@ class Processor(ProcessorMixin):
         threshold: float = 0.3,
         target_sizes: list[tuple[int, int]] | None = None,
     ) -> list[dict[str, torch.Tensor]]:
-        """Converts the raw output of [`Model`] into final bounding boxes in
+        """Convert raw model outputs to bounding boxes.
+
+        Converts the raw output of [`Model`] into final bounding boxes in
         (top_left_x, top_left_y, bottom_right_x, bottom_right_y) format.
         This is a convenience wrapper around the image processor method.
 
@@ -642,7 +722,9 @@ class Processor(ProcessorMixin):
         mask_threshold: float = 0.5,
         target_sizes: list[tuple[int, int]] | None = None,
     ) -> list[dict[str, torch.Tensor]]:
-        """Converts the raw output of [`Model`] into instance segmentation predictions
+        """Convert raw model outputs to instance segmentation predictions.
+
+        Converts the raw output of [`Model`] into instance segmentation predictions
         with bounding boxes and masks. This is a convenience wrapper around the image
         processor method.
 

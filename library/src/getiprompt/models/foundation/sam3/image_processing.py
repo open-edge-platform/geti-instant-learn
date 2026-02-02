@@ -15,40 +15,33 @@
 """Image processing utilities for SAM3 model inference."""
 
 import math
+from collections.abc import Callable
 from copy import deepcopy
 from itertools import product
-from typing import Any, ClassVar, Optional, Union
+from typing import Any, ClassVar
 
 import numpy as np
 import torch
 from torch.nn import functional
 from torchvision.ops.boxes import batched_nms
-from transformers.image_processing_utils import BatchFeature, get_size_dict
+from transformers.image_processing_base import BatchFeature
 from transformers.image_processing_utils_fast import BaseImageProcessorFast
-from transformers.image_utils import (
-    IMAGENET_STANDARD_MEAN,
-    IMAGENET_STANDARD_STD,
-    ChannelDimension,
-    ImageInput,
-    PILImageResampling,
-    SizeDict,
-    pil_torch_interpolation_mapping,
-)
+from transformers.image_utils import ChannelDimension, ImageInput, PILImageResampling, SizeDict
 from transformers.processing_utils import ImagesKwargs, Unpack
-from transformers.utils import TensorType
+from transformers.utils.constants import IMAGENET_STANDARD_MEAN, IMAGENET_STANDARD_STD
 
 
 # Stub for auto_docstring if not available
-def auto_docstring(cls: type) -> type:
+def auto_docstring(obj: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator stub for automatic docstring generation.
 
     Args:
-        cls (type): The class to decorate.
+        obj (Callable[..., Any]): The object to decorate.
 
     Returns:
-        type: The decorated class unchanged.
+        Callable[..., Any]: The decorated object unchanged.
     """
-    return cls
+    return obj
 
 
 class FastImageProcessorKwargs(ImagesKwargs, total=False):
@@ -238,7 +231,7 @@ def _generate_crop_boxes(
     crop_n_layers: int = 0,
     overlap_ratio: float = 512 / 1500,
     points_per_crop: int | None = 32,
-    crop_n_points_downscale_factor: list[int] | None = None,
+    crop_n_points_downscale_factor: int = 1,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """Generate crop boxes for hierarchical image processing.
 
@@ -255,9 +248,8 @@ def _generate_crop_boxes(
             length. Defaults to 512 / 1500.
         points_per_crop (int | None, optional): Number of points to sample per crop.
             Defaults to 32.
-        crop_n_points_downscale_factor (list[int] | None, optional): The number of
-            points-per-side sampled in layer n is scaled down by this factor**n.
-            Defaults to None.
+        crop_n_points_downscale_factor (int, optional): Scale factor for points-per-side
+            sampling per layer. Defaults to 1.
 
     Returns:
         tuple: Containing:
@@ -272,9 +264,7 @@ def _generate_crop_boxes(
     if isinstance(image, list):
         msg = "Only one image is allowed for crop generation."
         raise TypeError(msg)
-    if crop_n_points_downscale_factor is None:
-        crop_n_points_downscale_factor = 1
-    original_size = image.shape[-2:]
+    original_size: tuple[int, int] = (int(image.shape[-2]), int(image.shape[-1]))
 
     points_grid = []
     for i in range(crop_n_layers + 1):
@@ -544,22 +534,22 @@ class ImageProcessorFast(BaseImageProcessorFast):
     Image processor for fast SAM3 inference.
     """
 
-    resample = PILImageResampling.BILINEAR
-    image_mean = IMAGENET_STANDARD_MEAN
-    image_std = IMAGENET_STANDARD_STD
+    resample: ClassVar[PILImageResampling] = PILImageResampling.BILINEAR
+    image_mean: ClassVar[tuple[float, ...]] = tuple(IMAGENET_STANDARD_MEAN)
+    image_std: ClassVar[tuple[float, ...]] = tuple(IMAGENET_STANDARD_STD)
     size: ClassVar[dict[str, int]] = {"height": 1008, "width": 1008}
     mask_size: ClassVar[dict[str, int]] = {"height": 288, "width": 288}
-    do_resize = True
-    do_rescale = True
-    do_normalize = True
-    do_convert_rgb = True
+    do_resize: ClassVar[bool] = True
+    do_rescale: ClassVar[bool] = True
+    do_normalize: ClassVar[bool] = True
+    do_convert_rgb: ClassVar[bool] = True
 
-    valid_kwargs = FastImageProcessorKwargs
+    valid_kwargs: ClassVar[type[FastImageProcessorKwargs]] = FastImageProcessorKwargs
 
     # modular artefacts
-    do_pad = None
-    pad_size = None
-    mask_pad_size = None
+    do_pad: ClassVar[bool | None] = None
+    pad_size: ClassVar[dict[str, int] | None] = None
+    mask_pad_size: ClassVar[dict[str, int] | None] = None
 
     def __init__(self, **kwargs: Unpack[FastImageProcessorKwargs]) -> None:
         """Initialize the image processor.
@@ -569,50 +559,45 @@ class ImageProcessorFast(BaseImageProcessorFast):
         """
         super().__init__(**kwargs)
 
+    # NOTE: Type checker struggles with BaseImageProcessorFast signatures in this file.
     def _further_process_kwargs(
         self,
         size: SizeDict | None = None,
-        mask_size: SizeDict | None = None,
+        crop_size: SizeDict | None = None,
+        pad_size: SizeDict | None = None,
         default_to_square: bool | None = None,
         image_mean: float | list[float] | None = None,
         image_std: float | list[float] | None = None,
         data_format: ChannelDimension | None = None,
-        **kwargs: Any,
-    ) -> dict:
+        **kwargs: object,
+    ) -> dict[str, Any]:
         """Update kwargs that need further processing before being validated.
 
-        Can be overridden by subclasses to customize the processing of kwargs.
+        Args:
+            size (SizeDict | None): Target image size for resizing. Defaults to None.
+            crop_size (SizeDict | None): Target crop size for cropping. Defaults to None.
+            pad_size (SizeDict | None): Target pad size for padding. Defaults to None.
+            default_to_square (bool): Whether to default size to square when a single
+                dimension is provided. Defaults to False.
+            image_mean (float | list[float] | None): Normalization mean. Defaults to None.
+            image_std (float | list[float] | None): Normalization std. Defaults to None.
+            data_format (ChannelDimension | None): Channel dimension format. Defaults to None.
+            **kwargs (Any): Additional keyword arguments.
+
+        Returns:
+            dict[str, Any]: Updated keyword arguments.
         """
-        if kwargs is None:
-            kwargs = {}
-        if size is not None:
-            size = SizeDict(**get_size_dict(size=size, default_to_square=default_to_square))
-        if mask_size is not None:
-            mask_size = SizeDict(**get_size_dict(mask_size, param_name="mask_size"))
-        if isinstance(image_mean, list):
-            image_mean = tuple(image_mean)
-        if isinstance(image_std, list):
-            image_std = tuple(image_std)
-        if data_format is None:
-            data_format = ChannelDimension.FIRST
-
-        kwargs["size"] = size
-        kwargs["mask_size"] = mask_size
-        kwargs["image_mean"] = image_mean
-        kwargs["image_std"] = image_std
-        kwargs["data_format"] = data_format
-
-        # torch resize uses interpolation instead of resample
-        # Check if resample is an int before checking if it's an instance of PILImageResampling
-        # because if pillow < 9.1.0, resample is an int and PILImageResampling is a module.
-        # Checking PILImageResampling will fail with error `TypeError: isinstance() arg 2 must be a type or tuple of
-        # types`.
-        resample = kwargs.pop("resample")
-        kwargs["interpolation"] = (
-            pil_torch_interpolation_mapping[resample] if isinstance(resample, (PILImageResampling, int)) else resample
+        processed = super()._further_process_kwargs(
+            size=size,
+            crop_size=crop_size,
+            pad_size=pad_size,
+            default_to_square=default_to_square,
+            image_mean=image_mean,
+            image_std=image_std,
+            data_format=data_format,
+            **kwargs,
         )
-
-        return kwargs
+        return dict(processed)
 
     @auto_docstring
     def preprocess(
@@ -636,77 +621,15 @@ class ImageProcessorFast(BaseImageProcessorFast):
             kwargs["do_convert_rgb"] = self.do_convert_rgb
         return super().preprocess(images, segmentation_maps, **kwargs)
 
-    def _preprocess_image_like_inputs(
-        self,
-        images: ImageInput,
-        segmentation_maps: ImageInput | None,
-        do_convert_rgb: bool,
-        input_data_format: ChannelDimension,
-        device: Union[str, "torch.device"] | None = None,
-        **kwargs: Unpack[FastImageProcessorKwargs],
-    ) -> BatchFeature:
-        """Preprocess image-like inputs."""
-        images = self._prepare_image_like_inputs(
-            images=images,
-            do_convert_rgb=do_convert_rgb,
-            input_data_format=input_data_format,
-            device=device,
-        )
-        original_sizes = [image.shape[-2:] for image in images]
-        images_kwargs = kwargs.copy()
-        pixel_values = self._preprocess(images, **images_kwargs)
-        data = {
-            "pixel_values": pixel_values,
-            "original_sizes": original_sizes,
-        }
-
-        if segmentation_maps is not None:
-            processed_segmentation_maps = self._prepare_image_like_inputs(
-                images=segmentation_maps,
-                expected_ndims=2,
-                do_convert_rgb=False,
-                input_data_format=ChannelDimension.FIRST,
-            )
-
-            segmentation_maps_kwargs = kwargs.copy()
-            segmentation_maps_kwargs.update(
-                {
-                    "do_normalize": False,
-                    "do_rescale": False,
-                    "interpolation": pil_torch_interpolation_mapping[PILImageResampling.NEAREST],
-                    "size": segmentation_maps_kwargs.pop("mask_size"),
-                },
-            )
-            processed_segmentation_maps = self._preprocess(
-                images=processed_segmentation_maps,
-                **segmentation_maps_kwargs,
-            )
-            data["labels"] = processed_segmentation_maps.squeeze(1).to(torch.int64)
-
-        return BatchFeature(data=data, tensor_type=kwargs["return_tensors"])
-
-    def _preprocess(
-        self,
-        images: list["torch.Tensor"],
-        return_tensors: str | TensorType | None,
-        disable_grouping: bool | None = None,
-        **kwargs: Any,
-    ) -> "torch.Tensor":
-        return (
-            super()
-            ._preprocess(images, return_tensors=return_tensors, disable_grouping=disable_grouping, **kwargs)
-            .pixel_values
-        )
-
     def generate_crop_boxes(
         self,
         image: "torch.Tensor",
         target_size: int,
         crop_n_layers: int = 0,
         overlap_ratio: float = 512 / 1500,
-        points_per_crop: int | None = 32,
-        crop_n_points_downscale_factor: list[int] | None = 1,
-        device: Optional["torch.device"] = None,
+        points_per_crop: int = 32,
+        crop_n_points_downscale_factor: int = 1,
+        device: torch.device | None = None,
     ) -> tuple["torch.Tensor", "torch.Tensor", "torch.Tensor", "torch.Tensor"]:
         """Generates a list of crop boxes of different sizes. Each layer has (2**i)**2 boxes for the ith layer.
 
@@ -722,9 +645,10 @@ class ImageProcessorFast(BaseImageProcessorFast):
                 Sets the degree to which crops overlap. In the first crop layer, crops will overlap by this fraction of
                 the image length. Later layers with more crops scale down this overlap.
             points_per_crop (`int`, *optional*, defaults to 32):
-                Number of points to sam3ple from each crop.
-            crop_n_points_downscale_factor (`list[int]`, *optional*, defaults to 1):
-                The number of points-per-side sam3pled in layer n is scaled down by crop_n_points_downscale_factor**n.
+                Number of points to sample from each crop.
+            crop_n_points_downscale_factor (`int`, *optional*, defaults to 1):
+                The number of points-per-side sam3pled in layer n is scaled down by
+                crop_n_points_downscale_factor**n.
             device (`torch.device`, *optional*, defaults to None):
                 Device to use for the computation. If None, cpu will be used.
             input_data_format (`str` or `ChannelDimension`, *optional*):
@@ -733,7 +657,10 @@ class ImageProcessorFast(BaseImageProcessorFast):
                 If `pt`, returns `torch.Tensor`.
         """
         image = self._process_image(image)
-        crop_boxes, points_per_crop, cropped_images, input_labels = _generate_crop_boxes(
+        if points_per_crop is None:
+            msg = "points_per_crop cannot be None."
+            raise ValueError(msg)
+        crop_boxes, points_per_crop_t, cropped_images, input_labels = _generate_crop_boxes(
             image,
             target_size,
             crop_n_layers,
@@ -744,14 +671,14 @@ class ImageProcessorFast(BaseImageProcessorFast):
         if device is None:
             device = torch.device("cpu")
         crop_boxes = crop_boxes.to(device)
-        points_per_crop = points_per_crop.to(device)
+        points_per_crop_t = points_per_crop_t.to(device)
         # cropped_images stays as torch.Tensor
         input_labels = input_labels.to(device)
 
-        return crop_boxes, points_per_crop, cropped_images, input_labels
+        return crop_boxes, points_per_crop_t, cropped_images, input_labels
 
+    @staticmethod
     def filter_masks(
-        self,
         masks: "torch.Tensor",
         iou_scores: "torch.Tensor",
         original_size: tuple[int, int],
@@ -760,7 +687,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
         stability_score_thresh: float = 0.95,
         mask_threshold: float = 0,
         stability_score_offset: int = 1,
-    ) -> tuple[list[dict[str, Any]], "torch.Tensor", "torch.Tensor"]:
+    ) -> tuple[list[dict[str, Any]], torch.Tensor, torch.Tensor]:
         """Filters the predicted masks by selecting only the ones that meets several criteria.
 
         The first criterion being that the iou scores needs to be greater than `pred_iou_thresh`.
@@ -844,7 +771,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
         max_hole_area: float = 0.0,  # noqa: ARG002
         max_sprinkle_area: float = 0.0,  # noqa: ARG002
         apply_non_overlapping_constraints: bool = False,
-        **kwargs: Any,  # noqa: ARG002
+        **kwargs: object,  # noqa: ARG002
     ) -> list["torch.Tensor"]:
         """Remove padding and upscale masks to the original image size.
 
@@ -892,13 +819,13 @@ class ImageProcessorFast(BaseImageProcessorFast):
 
         return output_masks
 
+    @staticmethod
     def post_process_for_mask_generation(
-        self,
-        all_masks: "torch.Tensor",
+        all_masks: list[dict[str, Any]],
         all_scores: "torch.Tensor",
         all_boxes: "torch.Tensor",
         crops_nms_thresh: float,
-    ) -> tuple["torch.Tensor", "torch.Tensor", "torch.Tensor"]:
+    ) -> tuple[list[torch.Tensor], "torch.Tensor", list[dict[str, Any]], "torch.Tensor"]:
         """Post processes mask that are generated by calling the Non Maximum Suppression algorithm.
 
         Post-processes mask generated for predicted masks.
@@ -915,7 +842,8 @@ class ImageProcessorFast(BaseImageProcessorFast):
         """
         return _post_process_for_mask_generation(all_masks, all_scores, all_boxes, crops_nms_thresh)
 
-    def _apply_non_overlapping_constraints(self, pred_masks: torch.Tensor) -> torch.Tensor:
+    @staticmethod
+    def _apply_non_overlapping_constraints(pred_masks: torch.Tensor) -> torch.Tensor:
         """Apply non-overlapping constraints to the object scores in pred_masks.
 
         Here we keep only the highest scoring object at each spatial location in pred_masks.
@@ -934,9 +862,9 @@ class ImageProcessorFast(BaseImageProcessorFast):
         # don't overlap (here sigmoid(-10.0)=4.5398e-05)
         return torch.where(keep, pred_masks, torch.clamp(pred_masks, max=-10.0))
 
+    @staticmethod
     def post_process_semantic_segmentation(
-        self,
-        outputs: dict | Any,
+        outputs: dict[str, torch.Tensor],
         target_sizes: list[tuple] | None = None,
         threshold: float = 0.5,
     ) -> list["torch.Tensor"]:
@@ -987,7 +915,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
             semantic_segmentation = []
 
             for idx in range(len(semantic_logits)):
-                resized_probs = torch.nn.functional.interpolate(
+                resized_probs = functional.interpolate(
                     semantic_probs[idx].unsqueeze(dim=0),
                     size=target_sizes[idx],
                     mode="bilinear",
@@ -1003,9 +931,9 @@ class ImageProcessorFast(BaseImageProcessorFast):
 
         return semantic_segmentation
 
+    @staticmethod
     def post_process_object_detection(
-        self,
-        outputs: dict | Any,
+        outputs: dict[str, torch.Tensor],
         threshold: float = 0.3,
         target_sizes: list[tuple] | None = None,
     ) -> list[dict[str, "torch.Tensor"]]:
@@ -1062,17 +990,17 @@ class ImageProcessorFast(BaseImageProcessorFast):
             batch_boxes = _scale_boxes(batch_boxes, target_sizes)
 
         results = []
-        for scores, boxes in zip(batch_scores, batch_boxes, strict=False):
-            keep = scores > threshold
-            scores = scores[keep]
-            boxes = boxes[keep]
-            results.append({"scores": scores, "boxes": boxes})
+        for score_vec, box_vec in zip(batch_scores, batch_boxes, strict=False):
+            keep = score_vec > threshold
+            kept_scores = score_vec[keep]
+            kept_boxes = box_vec[keep]
+            results.append({"scores": kept_scores, "boxes": kept_boxes})
 
         return results
 
+    @staticmethod
     def post_process_instance_segmentation(
-        self,
-        outputs: dict | Any,
+        outputs: dict[str, torch.Tensor],
         threshold: float = 0.3,
         mask_threshold: float = 0.5,
         target_sizes: list[tuple] | None = None,
@@ -1139,27 +1067,27 @@ class ImageProcessorFast(BaseImageProcessorFast):
             batch_boxes = _scale_boxes(batch_boxes, target_sizes)
 
         results = []
-        for idx, (scores, boxes, masks) in enumerate(zip(batch_scores, batch_boxes, batch_masks, strict=False)):
+        for idx, (score_vec, box_vec, mask_vec) in enumerate(zip(batch_scores, batch_boxes, batch_masks, strict=False)):
             # Filter by score threshold
-            keep = scores > threshold
-            scores = scores[keep]
-            boxes = boxes[keep]
-            masks = masks[keep]  # (num_keep, height, width)
+            keep = score_vec > threshold
+            kept_scores = score_vec[keep]
+            kept_boxes = box_vec[keep]
+            kept_masks = mask_vec[keep]  # (num_keep, height, width)
 
             # Resize masks to target size if provided
             if target_sizes is not None:
                 target_size = target_sizes[idx]
-                if len(masks) > 0:
-                    masks = torch.nn.functional.interpolate(
-                        masks.unsqueeze(0),  # (1, num_keep, height, width)
+                if len(kept_masks) > 0:
+                    kept_masks = functional.interpolate(
+                        kept_masks.unsqueeze(0),  # (1, num_keep, height, width)
                         size=target_size,
                         mode="bilinear",
                         align_corners=False,
                     ).squeeze(0)  # (num_keep, target_height, target_width)
 
             # Binarize masks
-            masks = (masks > mask_threshold).to(torch.long)
+            kept_masks = (kept_masks > mask_threshold).to(torch.long)
 
-            results.append({"scores": scores, "boxes": boxes, "masks": masks})
+            results.append({"scores": kept_scores, "boxes": kept_boxes, "masks": kept_masks})
 
         return results
