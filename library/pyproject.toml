@@ -222,7 +222,6 @@ notice-rgx = '# Copyright \(C\) (\d{4}(-\d{4})?) Intel Corporation\r?\n# SPDX-Li
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["PLR6301"]  # Ignore no-self-use for test methods
-"src/getiprompt/models/foundation/sam3/*.py" = ["CPY001"]  # Meta/HuggingFace copyright format
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #

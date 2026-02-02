@@ -48,11 +48,11 @@ runs:
         PR_NUMBER: ${{ github.event.number }}
 
       run: |
-
+        
         echo "Event: $EVENT_NAME"
         echo "Ref: $GITHUB_REF"
         echo "Ref Name: $GITHUB_REF_NAME"
-
+        
         case "$EVENT_NAME" in
           "push")
             if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
@@ -75,17 +75,17 @@ runs:
               echo "Generated version for push to other branch: $VERSION"
             fi
             ;;
-
+        
           "pull_request")
             VERSION="${BASE_VERSION}-pr-${PR_NUMBER}-${SHORT_SHA}"
             echo "Generated version for PR: $VERSION"
             ;;
-
+        
           "merge_group")
             VERSION="${BASE_VERSION}-mr-${SHORT_SHA}"
             echo "Generated version for merge queue: $VERSION"
             ;;
-
+        
           "workflow_dispatch")
             VERSION="${BASE_VERSION}-manual-${SHORT_SHA}"
             echo "Generated version for manual dispatch with ref: $VERSION"

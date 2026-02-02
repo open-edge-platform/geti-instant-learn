@@ -52,31 +52,31 @@ jobs:
       - name: Convert docker image SBOM to CSV v2
         run: |
           echo "Component name,Origin,License" > sbom-container-image.csv
-          jq -r '.packages[] | select(.name != null and .name != "") |
+          jq -r '.packages[] | select(.name != null and .name != "") | 
             {
               name: .name,
               origin: (
                 if (.externalRefs // []) | length > 0 then
                   (
-                    .externalRefs[] |
-                    select(.referenceCategory == "PACKAGE-MANAGER" and .referenceType == "purl") |
-                    .referenceLocator |
+                    .externalRefs[] | 
+                    select(.referenceCategory == "PACKAGE-MANAGER" and .referenceType == "purl") | 
+                    .referenceLocator | 
                     split("/")[0]
                   ) // ""
-                else ""
+                else "" 
                 end
               ),
               license: (
-                if (.licenseDeclared != null and .licenseDeclared != "" and .licenseDeclared != "NOASSERTION") then
+                if (.licenseDeclared != null and .licenseDeclared != "" and .licenseDeclared != "NOASSERTION") then 
                   .licenseDeclared
-                elif (.licenseConcluded != null and .licenseConcluded != "" and .licenseConcluded != "NOASSERTION") then
+                elif (.licenseConcluded != null and .licenseConcluded != "" and .licenseConcluded != "NOASSERTION") then 
                   .licenseConcluded
-                else
-                  "NOASSERTION"
+                else 
+                  "NOASSERTION" 
                 end
               )
-            } |
-            [.name, .origin, .license] |
+            } | 
+            [.name, .origin, .license] | 
             @csv' sbom-container-image.spdx.json >> sbom-container-image.csv
 
       - name: Upload docker image CSV

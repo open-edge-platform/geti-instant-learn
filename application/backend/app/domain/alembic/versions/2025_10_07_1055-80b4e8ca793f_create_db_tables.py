@@ -4,7 +4,7 @@
 """Create DB tables
 
 Revision ID: 80b4e8ca793f
-Revises:
+Revises: 
 Create Date: 2025-10-07 10:55:32.661994+00:00
 
 """
