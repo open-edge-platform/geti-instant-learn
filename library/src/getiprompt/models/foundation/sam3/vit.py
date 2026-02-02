@@ -16,16 +16,11 @@
 from collections.abc import Iterable
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from torch import Tensor
-
+from torch import Tensor, nn
 from transformers.modeling_layers import GradientCheckpointingLayer
 
-from .common import ACT2FN
-from .common import MLP, PreTrainedModelBase, SinePositionEmbedding
-from .configuration import VisionConfig, ViTConfig
-
+from .common import MLP, SinePositionEmbedding
 
 # =============================================================================
 # Utility Functions
@@ -33,8 +28,7 @@ from .configuration import VisionConfig, ViTConfig
 
 
 def rotate_pairwise(x):
-    """
-    pairwise rotation of the hidden dims of the input. Differerent from Llama Half-Tensor Rotation.
+    """Pairwise rotation of the hidden dims of the input. Differerent from Llama Half-Tensor Rotation.
 
     This is an optimized version of the following more explicit implementation:
     ```python
@@ -56,8 +50,7 @@ def apply_rotary_pos_emb_2d(
     cos: torch.Tensor,
     sin: torch.Tensor,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """
-    Apply rotary position embedding to query and key tensors for self-attention.
+    """Apply rotary position embedding to query and key tensors for self-attention.
 
     Args:
         q: Query tensor of shape (batch_size, num_windows, seq_len, num_heads, head_dim)
@@ -78,8 +71,7 @@ def apply_rotary_pos_emb_2d(
 
 
 def window_partition(hidden_state, window_size):
-    """
-    Partition into non-overlapping windows with padding if needed.
+    """Partition into non-overlapping windows with padding if needed.
 
     Args:
         hidden_state (`torch.Tensor`):
@@ -102,15 +94,19 @@ def window_partition(hidden_state, window_size):
     padded_height, padded_width = height + pad_height, width + pad_width
 
     hidden_state = hidden_state.view(
-        batch_size, padded_height // window_size, window_size, padded_width // window_size, window_size, num_channels
+        batch_size,
+        padded_height // window_size,
+        window_size,
+        padded_width // window_size,
+        window_size,
+        num_channels,
     )
     windows = hidden_state.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, num_channels)
     return windows, (padded_height, padded_width)
 
 
 def window_unpartition(windows, window_size, pad_height_width, height_width):
-    """
-    Window unpartition into original sequences and removing padding.
+    """Window unpartition into original sequences and removing padding.
 
     Args:
         windows (`torch.Tensor`):
@@ -129,7 +125,12 @@ def window_unpartition(windows, window_size, pad_height_width, height_width):
     height, width = height_width
     batch_size = windows.shape[0] // (padded_height * padded_width // window_size // window_size)
     hidden_state = windows.view(
-        batch_size, padded_height // window_size, padded_width // window_size, window_size, window_size, -1
+        batch_size,
+        padded_height // window_size,
+        padded_width // window_size,
+        window_size,
+        window_size,
+        -1,
     )
     hidden_state = hidden_state.permute(0, 1, 3, 2, 4, 5).contiguous()
     hidden_state = hidden_state.view(batch_size, padded_height, padded_width, -1)
@@ -145,8 +146,7 @@ def window_unpartition(windows, window_size, pad_height_width, height_width):
 
 
 class ViTRotaryEmbedding(nn.Module):
-    """
-    Vision Rotary Position Embedding for SAM3, following transformers library standards.
+    """Vision Rotary Position Embedding for SAM3, following transformers library standards.
     Supports 2D (axial) rotary embeddings for spatial dimensions.
     """
 
@@ -167,17 +167,24 @@ class ViTRotaryEmbedding(nn.Module):
         self.dim = dim
         self.rope_theta = rope_theta
         self.scale = scale
-        freqs = 1.0 / (rope_theta ** (torch.arange(0, dim, 4)[: (dim // 4)].float() / dim))
 
-        flattened_indices = torch.arange(end_x * end_y, dtype=torch.long)
-        x_positions = (flattened_indices % end_x) * scale
-        y_positions = torch.div(flattened_indices, end_x, rounding_mode="floor") * scale
+        # Register buffers (will be initialized by _init_weights)
+        self.register_buffer("rope_embeddings_cos", torch.empty(end_x * end_y, dim), persistent=False)
+        self.register_buffer("rope_embeddings_sin", torch.empty(end_x * end_y, dim), persistent=False)
+        self._init_weights()
+
+    def _init_weights(self) -> None:
+        """Initialize rotary position embeddings."""
+        freqs = 1.0 / (self.rope_theta ** (torch.arange(0, self.dim, 4)[: (self.dim // 4)].float() / self.dim))
+        flattened_indices = torch.arange(self.end_x * self.end_y, dtype=torch.long)
+        x_positions = (flattened_indices % self.end_x) * self.scale
+        y_positions = torch.div(flattened_indices, self.end_x, rounding_mode="floor") * self.scale
         freqs_x = torch.outer(x_positions, freqs).float()
         freqs_y = torch.outer(y_positions, freqs).float()
         inv_freq = torch.cat([freqs_x, freqs_y], dim=-1)
         inv_freq = inv_freq.repeat_interleave(2, dim=-1)
-        self.register_buffer("rope_embeddings_cos", inv_freq.cos(), persistent=False)
-        self.register_buffer("rope_embeddings_sin", inv_freq.sin(), persistent=False)
+        self.rope_embeddings_cos.data.copy_(inv_freq.cos())
+        self.rope_embeddings_sin.data.copy_(inv_freq.sin())
 
     @torch.no_grad()
     def forward(self) -> tuple[torch.Tensor, torch.Tensor]:
@@ -236,8 +243,7 @@ class ViTRoPEAttention(nn.Module):
 
 
 class ViTPatchEmbeddings(nn.Module):
-    """
-    This class turns `pixel_values` of shape `(batch_size, num_channels, height, width)` into the initial
+    """This class turns `pixel_values` of shape `(batch_size, num_channels, height, width)` into the initial
     `hidden_states` (patch embeddings) of shape `(batch_size, seq_length, hidden_size)` to be consumed by a
     Transformer.
     """
@@ -250,7 +256,11 @@ class ViTPatchEmbeddings(nn.Module):
         hidden_size: int = 1024,
     ):
         super().__init__()
-        image_size = pretrain_image_size if isinstance(pretrain_image_size, Iterable) else (pretrain_image_size, pretrain_image_size)
+        image_size = (
+            pretrain_image_size
+            if isinstance(pretrain_image_size, Iterable)
+            else (pretrain_image_size, pretrain_image_size)
+        )
         patch_size = patch_size if isinstance(patch_size, Iterable) else (patch_size, patch_size)
         num_patches = (image_size[1] // patch_size[1]) * (image_size[0] // patch_size[0])
         self.image_size = image_size
@@ -266,8 +276,7 @@ class ViTPatchEmbeddings(nn.Module):
 
 
 class ViTEmbeddings(nn.Module):
-    """
-    Construct the patch embeddings and position embeddings for SAM3 ViT.
+    """Construct the patch embeddings and position embeddings for SAM3 ViT.
 
     Position embeddings are tiled (not interpolated) when resizing to match different input sizes.
     """
@@ -279,8 +288,10 @@ class ViTEmbeddings(nn.Module):
         num_channels: int = 3,
         hidden_size: int = 1024,
         hidden_dropout: float = 0.0,
+        initializer_range: float = 0.02,
     ):
         super().__init__()
+        self.initializer_range = initializer_range
 
         self.patch_embeddings = ViTPatchEmbeddings(
             pretrain_image_size=pretrain_image_size,
@@ -289,10 +300,15 @@ class ViTEmbeddings(nn.Module):
             hidden_size=hidden_size,
         )
         num_patches = self.patch_embeddings.num_patches
-        self.position_embeddings = nn.Parameter(torch.randn(1, num_patches, hidden_size))
+        self.position_embeddings = nn.Parameter(torch.empty(1, num_patches, hidden_size))
 
         self.dropout = nn.Dropout(hidden_dropout)
         self.patch_size = patch_size
+        self._init_weights()
+
+    def _init_weights(self) -> None:
+        """Initialize position embeddings with normal distribution."""
+        nn.init.normal_(self.position_embeddings, mean=0.0, std=self.initializer_range)
 
     def _tile_position_embeddings(
         self,
@@ -300,8 +316,8 @@ class ViTEmbeddings(nn.Module):
         height: int,
         width: int,
     ) -> torch.Tensor:
-        """
-        Tile position embeddings to match target spatial dimensions.
+        """Tile position embeddings to match target spatial dimensions.
+
         Args:
             position_embeddings: Shape [1, num_pretrain_patches, hidden_size]
             height: Target height in patches
@@ -443,34 +459,60 @@ class ViTLayer(GradientCheckpointingLayer):
         return hidden_states
 
 
-class ViTModel(PreTrainedModelBase):
-    def __init__(self, config: ViTConfig):
-        super().__init__(config)
-        self.config = config
-        
-        # Extract config values
-        hidden_size = config.hidden_size
-        intermediate_size = config.intermediate_size
-        num_attention_heads = config.num_attention_heads
-        pretrain_image_size = config.pretrain_image_size
-        patch_size = config.patch_size
-        num_channels = config.num_channels
-        image_size = config.image_size
-        layer_norm_eps = config.layer_norm_eps
-        hidden_act = config.hidden_act
-        hidden_dropout = config.hidden_dropout
-        attention_dropout = config.attention_dropout
-        rope_theta = config.rope_theta
-        window_size = config.window_size
-        global_attn_indexes = config.global_attn_indexes
-        num_hidden_layers = config.num_hidden_layers
-        
+class ViTModel(nn.Module):
+    """Vision Transformer backbone for SAM3.
+
+    Args:
+        hidden_size: Dimensionality of the encoder layers. Default: 1024.
+        intermediate_size: Dimensionality of the feedforward (MLP) layers. Default: 4736.
+        num_hidden_layers: Number of hidden layers in the Transformer encoder. Default: 32.
+        num_attention_heads: Number of attention heads. Default: 16.
+        num_channels: Number of input image channels. Default: 3.
+        image_size: Expected input image size. Default: 1008.
+        patch_size: Size of image patches. Default: 14.
+        hidden_act: The non-linear activation function. Default: "gelu".
+        layer_norm_eps: Epsilon for layer normalization. Default: 1e-6.
+        attention_dropout: Dropout ratio for attention probabilities. Default: 0.0.
+        rope_theta: Base frequency for RoPE. Default: 10000.0.
+        window_size: Window size for windowed attention. Default: 24.
+        global_attn_indexes: Indexes of layers with global attention. Default: [7, 15, 23, 31].
+        pretrain_image_size: Pretrained model image size for position embedding init. Default: 336.
+        hidden_dropout: Dropout probability for hidden states. Default: 0.0.
+    """
+
+    def __init__(
+        self,
+        hidden_size: int = 1024,
+        intermediate_size: int = 4736,
+        num_hidden_layers: int = 32,
+        num_attention_heads: int = 16,
+        num_channels: int = 3,
+        image_size: int = 1008,
+        patch_size: int = 14,
+        hidden_act: str = "gelu",
+        layer_norm_eps: float = 1e-6,
+        attention_dropout: float = 0.0,
+        rope_theta: float = 10000.0,
+        window_size: int = 24,
+        global_attn_indexes: list[int] | None = None,
+        pretrain_image_size: int = 336,
+        hidden_dropout: float = 0.0,
+        initializer_range: float = 0.02,
+    ):
+        super().__init__()
+        if global_attn_indexes is None:
+            global_attn_indexes = [7, 15, 23, 31]
+
+        # Store for forward pass
+        self.patch_size = patch_size
+
         self.embeddings = ViTEmbeddings(
             pretrain_image_size=pretrain_image_size,
             patch_size=patch_size,
             num_channels=num_channels,
             hidden_size=hidden_size,
             hidden_dropout=hidden_dropout,
+            initializer_range=initializer_range,
         )
         self.layer_norm = nn.LayerNorm(hidden_size, eps=layer_norm_eps)
         self.layers = nn.ModuleList(
@@ -490,9 +532,8 @@ class ViTModel(PreTrainedModelBase):
                     window_size=window_size if i not in global_attn_indexes else 0,
                 )
                 for i in range(num_hidden_layers)
-            ]
+            ],
         )
-        self.post_init()
 
     def get_input_embeddings(self) -> ViTPatchEmbeddings:
         return self.embeddings.patch_embeddings
@@ -505,8 +546,8 @@ class ViTModel(PreTrainedModelBase):
         hidden_states = self.embeddings(pixel_values)  # [batch_size, seq_len, hidden_size]
 
         batch_size = hidden_states.shape[0]
-        height = pixel_values.shape[-2] // self.config.patch_size
-        width = pixel_values.shape[-1] // self.config.patch_size
+        height = pixel_values.shape[-2] // self.patch_size
+        width = pixel_values.shape[-1] // self.patch_size
         hidden_size = hidden_states.shape[-1]
 
         # Reshape to spatial format for windowed attention: [batch_size, height, width, hidden_size]
@@ -577,7 +618,7 @@ class VisionNeck(nn.Module):
             [
                 FPNLayer(in_channels=backbone_hidden_size, fpn_dim=fpn_hidden_size, scale_factor=scale)
                 for scale in scale_factors
-            ]
+            ],
         )
 
     def forward(self, hidden_states: torch.Tensor) -> tuple[tuple[torch.Tensor, ...], tuple[torch.Tensor, ...]]:
@@ -593,22 +634,85 @@ class VisionNeck(nn.Module):
         return fpn_hidden_states, fpn_position_encoding
 
 
-class VisionModel(PreTrainedModelBase):
-    """The vision model from Sam without any head or projection on top."""
-    config_class = VisionConfig
-    main_input_name = "pixel_values"
+class VisionModel(nn.Module):
+    """The vision model from SAM3 without any head or projection on top.
 
-    def __init__(self, config: VisionConfig):
-        super().__init__(config)
-        self.config = config
-        self.backbone = ViTModel(config.backbone_config)
-        self.neck = VisionNeck(
-            backbone_hidden_size=config.backbone_config.hidden_size,
-            fpn_hidden_size=config.fpn_hidden_size,
-            scale_factors=config.scale_factors,
+    Combines ViT backbone with FPN neck for multi-scale feature extraction.
+
+    Args:
+        hidden_size: Dimensionality of the ViT encoder layers. Default: 1024.
+        intermediate_size: Dimensionality of the ViT feedforward (MLP) layers. Default: 4736.
+        num_hidden_layers: Number of hidden layers in the ViT encoder. Default: 32.
+        num_attention_heads: Number of attention heads. Default: 16.
+        num_channels: Number of input image channels. Default: 3.
+        image_size: Expected input image size. Default: 1008.
+        patch_size: Size of image patches. Default: 14.
+        hidden_act: The non-linear activation function. Default: "gelu".
+        layer_norm_eps: Epsilon for layer normalization. Default: 1e-6.
+        attention_dropout: Dropout ratio for attention probabilities. Default: 0.0.
+        rope_theta: Base frequency for RoPE. Default: 10000.0.
+        window_size: Window size for windowed attention. Default: 24.
+        global_attn_indexes: Indexes of layers with global attention. Default: [7, 15, 23, 31].
+        pretrain_image_size: Pretrained model image size for position embedding init. Default: 336.
+        hidden_dropout: Dropout probability for hidden states. Default: 0.0.
+        initializer_range: Std deviation for weight initialization. Default: 0.02.
+        fpn_hidden_size: The hidden dimension of the FPN. Default: 256.
+        scale_factors: Scale factors for FPN multi-scale features. Default: [4.0, 2.0, 1.0, 0.5].
+    """
+
+    def __init__(
+        self,
+        hidden_size: int = 1024,
+        intermediate_size: int = 4736,
+        num_hidden_layers: int = 32,
+        num_attention_heads: int = 16,
+        num_channels: int = 3,
+        image_size: int = 1008,
+        patch_size: int = 14,
+        hidden_act: str = "gelu",
+        layer_norm_eps: float = 1e-6,
+        attention_dropout: float = 0.0,
+        rope_theta: float = 10000.0,
+        window_size: int = 24,
+        global_attn_indexes: list[int] | None = None,
+        pretrain_image_size: int = 336,
+        hidden_dropout: float = 0.0,
+        initializer_range: float = 0.02,
+        fpn_hidden_size: int = 256,
+        scale_factors: list[float] | None = None,
+    ):
+        super().__init__()
+        if global_attn_indexes is None:
+            global_attn_indexes = [7, 15, 23, 31]
+        if scale_factors is None:
+            scale_factors = [4.0, 2.0, 1.0, 0.5]
+
+        # Store for forward pass
+        self.patch_size = patch_size
+
+        self.backbone = ViTModel(
+            hidden_size=hidden_size,
+            intermediate_size=intermediate_size,
+            num_hidden_layers=num_hidden_layers,
+            num_attention_heads=num_attention_heads,
+            num_channels=num_channels,
+            image_size=image_size,
+            patch_size=patch_size,
+            hidden_act=hidden_act,
+            layer_norm_eps=layer_norm_eps,
+            attention_dropout=attention_dropout,
+            rope_theta=rope_theta,
+            window_size=window_size,
+            global_attn_indexes=global_attn_indexes,
+            pretrain_image_size=pretrain_image_size,
+            hidden_dropout=hidden_dropout,
+            initializer_range=initializer_range,
         )
-
-        self.post_init()
+        self.neck = VisionNeck(
+            backbone_hidden_size=hidden_size,
+            fpn_hidden_size=fpn_hidden_size,
+            scale_factors=scale_factors,
+        )
 
     def get_input_embeddings(self):
         return self.backbone.get_input_embeddings()
@@ -626,8 +730,8 @@ class VisionModel(PreTrainedModelBase):
 
         # Reshape for FPN neck: [batch_size, seq_len, hidden_size] -> [batch_size, hidden_size, height, width]
         batch_size = hidden_states.shape[0]
-        height = pixel_values.shape[-2] // self.config.backbone_config.patch_size
-        width = pixel_values.shape[-1] // self.config.backbone_config.patch_size
+        height = pixel_values.shape[-2] // self.patch_size
+        width = pixel_values.shape[-1] // self.patch_size
         hidden_states_spatial = hidden_states.view(batch_size, height, width, -1).permute(0, 3, 1, 2)
         fpn_hidden_states, fpn_position_encoding = self.neck(hidden_states_spatial)
 

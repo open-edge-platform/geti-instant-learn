@@ -20,6 +20,6 @@ from .processing import Processor
 
 __all__ = [
     "ImageProcessorFast",
-    "Sam3Model",
     "Processor",
+    "Sam3Model",
 ]

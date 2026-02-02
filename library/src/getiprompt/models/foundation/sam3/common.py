@@ -17,15 +17,9 @@ import logging
 import math
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from torch import Tensor
-
-from transformers.modeling_utils import PreTrainedModel
+from torch import Tensor, nn
 from transformers.pytorch_utils import compile_compatible_method_lru_cache
-
-from .configuration import Config
-
 
 # Activation functions used by SAM3
 ACT2FN = {
@@ -46,8 +40,7 @@ def inverse_sigmoid(x: torch.Tensor, eps: float = 1e-3) -> torch.Tensor:
 
 
 def concat_padded_sequences(seq1, mask1, seq2, mask2, return_index: bool = False):
-    """
-    Concatenates two right-padded sequences, such that the resulting sequence
+    """Concatenates two right-padded sequences, such that the resulting sequence
     is contiguous and also right-padded.
 
     Tensors are batch-first, masks are batch-first with True=valid, False=padding.
@@ -107,8 +100,7 @@ def box_cxcywh_to_xyxy(x):
 
 
 def expand_attention_mask(attention_mask: torch.Tensor, dtype: torch.dtype | None = None) -> torch.Tensor:
-    """
-    Expand a 2D padding mask to 4D for use with scaled_dot_product_attention.
+    """Expand a 2D padding mask to 4D for use with scaled_dot_product_attention.
 
     For bidirectional (full) attention, queries can attend to all valid (non-padding) keys.
     The mask is expanded from [batch_size, key_len] to [batch_size, 1, 1, key_len].
@@ -161,8 +153,7 @@ class MLP(nn.Module):
 
 
 class Attention(nn.Module):
-    """
-    Multi-head attention.
+    """Multi-head attention.
     Handles standard [batch_size, seq_len, hidden_size] tensors.
     """
 
@@ -190,8 +181,7 @@ class Attention(nn.Module):
         attention_mask: torch.Tensor | None = None,
         **kwargs,
     ) -> tuple[torch.Tensor, None]:
-        """
-        Args:
+        """Args:
             query: [batch_size, query_len, hidden_size]
             key: [batch_size, key_len, hidden_size]
             value: [batch_size, value_len, hidden_size]
@@ -225,13 +215,16 @@ class Attention(nn.Module):
 
 
 class SinePositionEmbedding(nn.Module):
-    """
-    This is a more standard version of the position embedding, very similar to the one used by the Attention is all you
+    """This is a more standard version of the position embedding, very similar to the one used by the Attention is all you
     need paper, generalized to work on images.
     """
 
     def __init__(
-        self, num_pos_feats: int = 64, temperature: int = 10000, normalize: bool = False, scale: float | None = None
+        self,
+        num_pos_feats: int = 64,
+        temperature: int = 10000,
+        normalize: bool = False,
+        scale: float | None = None,
     ):
         super().__init__()
         if scale is not None and normalize is False:
@@ -242,8 +235,7 @@ class SinePositionEmbedding(nn.Module):
         self.scale = 2 * math.pi if scale is None else scale
 
     def encode_1d_positions(self, x: torch.Tensor, y: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Encode 1D coordinate pairs using sine/cosine positional embeddings.
+        """Encode 1D coordinate pairs using sine/cosine positional embeddings.
 
         Args:
             x: 1D tensor of x coordinates (flattened)
@@ -265,8 +257,7 @@ class SinePositionEmbedding(nn.Module):
         return pos_x, pos_y
 
     def encode_boxes(self, boxes: torch.Tensor) -> torch.Tensor:
-        """
-        Encode 4D box coordinates (x, y, w, h) for decoder conditioning using sine/cosine embeddings.
+        """Encode 4D box coordinates (x, y, w, h) for decoder conditioning using sine/cosine embeddings.
 
         Args:
             boxes: Box coordinates [batch_size, num_queries, 4] in (x, y, w, h) format
@@ -324,46 +315,3 @@ class SinePositionEmbedding(nn.Module):
         pos_y = torch.stack((pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()), dim=4).flatten(3)
         pos = torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
         return pos
-
-
-class PreTrainedModelBase(PreTrainedModel):
-    config_class = Config
-    base_model_prefix = "sam3"
-    main_input_name = "pixel_values"
-    input_modalities = ["image", "text"]
-    _supports_sdpa = True
-    _supports_flash_attn = True
-    _supports_flex_attn = True
-    _supports_attention_backend = True
-
-    def _init_weights(self, module):
-        super()._init_weights(module)
-        # Import here to avoid circular import
-        from .vit import ViTEmbeddings, ViTRotaryEmbedding
-
-        if isinstance(module, ViTEmbeddings):
-            nn.init.normal_(module.position_embeddings, mean=0.0, std=self.config.initializer_range)
-        elif isinstance(module, ViTRotaryEmbedding):
-            end_x, end_y = module.end_x, module.end_y
-            dim = module.dim
-            freqs = 1.0 / (module.rope_theta ** (torch.arange(0, dim, 4)[: (dim // 4)].float() / dim))
-            flattened_indices = torch.arange(end_x * end_y, dtype=torch.long)
-            x_positions = (flattened_indices % end_x) * module.scale
-            y_positions = torch.div(flattened_indices, end_x, rounding_mode="floor") * module.scale
-            freqs_x = torch.outer(x_positions, freqs).float()
-            freqs_y = torch.outer(y_positions, freqs).float()
-            inv_freq = torch.cat([freqs_x, freqs_y], dim=-1)
-            inv_freq = inv_freq.repeat_interleave(2, dim=-1)
-            module.rope_embeddings_cos.data.copy_(inv_freq.cos())
-            module.rope_embeddings_sin.data.copy_(inv_freq.sin())
-
-
-__all__ = [
-    "inverse_sigmoid",
-    "concat_padded_sequences",
-    "box_cxcywh_to_xyxy",
-    "MLP",
-    "Attention",
-    "SinePositionEmbedding",
-    "PreTrainedModelBase",
-]

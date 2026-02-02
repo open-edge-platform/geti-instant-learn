@@ -11,19 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""
-Processor class for SAM3.
-"""
+"""Processor class for SAM3."""
 
 from copy import deepcopy
 
 import numpy as np
-
+import torch
 from transformers.image_utils import ImageInput
 from transformers.processing_utils import ProcessorMixin
 from transformers.tokenization_utils_base import BatchEncoding, PreTokenizedInput, TextInput
-from transformers.utils import TensorType, logging
-import torch
+from transformers.utils import TensorType
 
 
 def box_cxcywh_to_xyxy(x):
@@ -63,8 +60,7 @@ def box_xyxy_to_cxcywh(x):
 
 
 def box_area(boxes):
-    """
-    Batched version of box area. Boxes should be in [x0, y0, x1, y1] format.
+    """Batched version of box area. Boxes should be in [x0, y0, x1, y1] format.
 
     Inputs:
     - boxes: Tensor of shape (..., 4)
@@ -90,10 +86,14 @@ class Processor(ProcessorMixin):
         return type(argument)
 
     def __init__(
-        self, image_processor, tokenizer, target_size: int | None = None, point_pad_value: int = -10, **kwargs
+        self,
+        image_processor,
+        tokenizer,
+        target_size: int | None = None,
+        point_pad_value: int = -10,
+        **kwargs,
     ):
-        r"""
-        target_size (`int`, *optional*):
+        r"""target_size (`int`, *optional*):
             The target size (target_size, target_size) to which the image will be resized.
         point_pad_value (`int`, *optional*, defaults to -10):
             The value used for padding input boxes.
@@ -113,8 +113,7 @@ class Processor(ProcessorMixin):
         return_tensors: str | TensorType | None = None,
         **kwargs,
     ) -> BatchEncoding:
-        r"""
-        images (`ImageInput`, *optional*):
+        r"""Images (`ImageInput`, *optional*):
             The image(s) to process.
         text (`str`, `list[str]`, `list[list[str]]`, *optional*):
             The text to process.
@@ -186,7 +185,7 @@ class Processor(ProcessorMixin):
             if processed_boxes is not None and processed_boxes_labels is not None:
                 if boxes_max_dims != boxes_labels_max_dims:
                     raise ValueError(
-                        "Input boxes and labels have inconsistent dimensions. Please ensure they have the same dimensions."
+                        "Input boxes and labels have inconsistent dimensions. Please ensure they have the same dimensions.",
                     )
 
             # Pad and normalize all inputs to final tensor format
@@ -194,7 +193,10 @@ class Processor(ProcessorMixin):
                 padded_boxes = self._pad_nested_list(processed_boxes, boxes_max_dims + [4])
                 final_boxes = torch.tensor(padded_boxes, dtype=torch.float32)
                 self._normalize_tensor_coordinates(
-                    final_boxes, original_sizes, is_bounding_box=True, preserve_padding=True
+                    final_boxes,
+                    original_sizes,
+                    is_bounding_box=True,
+                    preserve_padding=True,
                 )
                 final_boxes = box_xyxy_to_cxcywh(final_boxes)
                 encoding.update({"input_boxes": final_boxes})
@@ -207,8 +209,7 @@ class Processor(ProcessorMixin):
         return encoding
 
     def _normalize_coordinates(self, coords: "torch.Tensor", original_size, is_bounding_box=False) -> "torch.Tensor":
-        """
-        Expects a numpy array of length 2 in the final dimension. Requires the original image size in (H, W) format.
+        """Expects a numpy array of length 2 in the final dimension. Requires the original image size in (H, W) format.
 
         Args:
             target_size (`int`):
@@ -234,8 +235,7 @@ class Processor(ProcessorMixin):
         return coords
 
     def _convert_to_nested_list(self, data, expected_depth, current_depth=0):
-        """
-        Recursively convert various input formats (tensors, numpy arrays, lists) to nested lists.
+        """Recursively convert various input formats (tensors, numpy arrays, lists) to nested lists.
         Preserves None values within lists.
 
         Args:
@@ -253,32 +253,26 @@ class Processor(ProcessorMixin):
         if isinstance(data, torch.Tensor):  # PyTorch tensor
             if current_depth == expected_depth - 2 or len(data.shape) <= 2:  # At coordinate level or small tensor
                 return data.numpy().tolist()
-            else:
-                return [self._convert_to_nested_list(item, expected_depth, current_depth + 1) for item in data]
-        elif isinstance(data, np.ndarray):  # NumPy array
+            return [self._convert_to_nested_list(item, expected_depth, current_depth + 1) for item in data]
+        if isinstance(data, np.ndarray):  # NumPy array
             if current_depth == expected_depth - 2 or len(data.shape) <= 2:  # At coordinate level or small array
                 return data.tolist()
-            else:
-                return [self._convert_to_nested_list(item, expected_depth, current_depth + 1) for item in data]
-        elif isinstance(data, list):
+            return [self._convert_to_nested_list(item, expected_depth, current_depth + 1) for item in data]
+        if isinstance(data, list):
             if current_depth == expected_depth:
                 # We've reached the expected depth, return as is
                 return data
-            else:
-                # Continue recursion, preserving None values
-                return [
-                    self._convert_to_nested_list(item, expected_depth, current_depth + 1) if item is not None else None
-                    for item in data
-                ]
-        elif isinstance(data, (int, float)):
+            # Continue recursion, preserving None values
+            return [
+                self._convert_to_nested_list(item, expected_depth, current_depth + 1) if item is not None else None
+                for item in data
+            ]
+        if isinstance(data, (int, float)):
             return data
-        else:
-            raise ValueError(f"Unsupported data type: {type(data)}")
+        raise ValueError(f"Unsupported data type: {type(data)}")
 
     def _resolve_text_prompts(self, text, input_boxes):
-        """
-        Resolve text prompts by setting defaults based on prompt types.
-        """
+        """Resolve text prompts by setting defaults based on prompt types."""
         # If no text provided, infer default based on prompt type
         if text is None:
             return "visual" if input_boxes else None
@@ -292,7 +286,7 @@ class Processor(ProcessorMixin):
         if input_boxes and len(text) != len(input_boxes):
             raise ValueError(
                 f"The number of text prompts must match the number of input boxes. "
-                f"Got {len(text)} text prompts and {len(input_boxes)} input boxes."
+                f"Got {len(text)} text prompts and {len(input_boxes)} input boxes.",
             )
 
         # Fill in None values with defaults based on corresponding prompt
@@ -303,8 +297,7 @@ class Processor(ProcessorMixin):
         return text
 
     def _get_nested_dimensions(self, nested_list, max_dims=None):
-        """
-        Get the maximum dimensions at each level of nesting, skipping None values.
+        """Get the maximum dimensions at each level of nesting, skipping None values.
 
         Args:
             nested_list (`list`):
@@ -343,8 +336,7 @@ class Processor(ProcessorMixin):
         return max_dims
 
     def _pad_nested_list(self, nested_list, target_dims, current_level=0, pad_value=None):
-        """
-        Recursively pad a nested list to match target dimensions. Replaces None values with padded structures.
+        """Recursively pad a nested list to match target dimensions. Replaces None values with padded structures.
 
         Args:
             nested_list (`list`):
@@ -377,24 +369,23 @@ class Processor(ProcessorMixin):
         if current_level == len(target_dims) - 1:
             # At the coordinate level, pad with pad_value
             nested_list.extend([pad_value] * (target_size - current_size))
-        else:
-            # At higher levels, pad with nested structures
-            if current_size > 0:
-                # Create appropriately sized template
-                if current_level < len(target_dims) - 2:
-                    # For non-coordinate levels, create empty nested structure
-                    template_dims = target_dims[current_level + 1 :]
-                    template = self._create_empty_nested_structure(template_dims, pad_value)
-                else:
-                    # For coordinate level, create list of pad_values
-                    template = [pad_value] * target_dims[current_level + 1]
-
-                nested_list.extend([deepcopy(template) for _ in range(target_size - current_size)])
-            else:
-                # Create from scratch
+        # At higher levels, pad with nested structures
+        elif current_size > 0:
+            # Create appropriately sized template
+            if current_level < len(target_dims) - 2:
+                # For non-coordinate levels, create empty nested structure
                 template_dims = target_dims[current_level + 1 :]
                 template = self._create_empty_nested_structure(template_dims, pad_value)
-                nested_list.extend([deepcopy(template) for _ in range(target_size)])
+            else:
+                # For coordinate level, create list of pad_values
+                template = [pad_value] * target_dims[current_level + 1]
+
+            nested_list.extend([deepcopy(template) for _ in range(target_size - current_size)])
+        else:
+            # Create from scratch
+            template_dims = target_dims[current_level + 1 :]
+            template = self._create_empty_nested_structure(template_dims, pad_value)
+            nested_list.extend([deepcopy(template) for _ in range(target_size)])
 
         # Recursively pad sublists, replacing None with padded structures
         if current_level < len(target_dims) - 1:
@@ -409,8 +400,7 @@ class Processor(ProcessorMixin):
         return nested_list
 
     def _create_empty_nested_structure(self, dims, pad_value):
-        """
-        Create an empty nested structure with given dimensions filled with pad_value.
+        """Create an empty nested structure with given dimensions filled with pad_value.
 
         Args:
             dims (`list`):
@@ -420,12 +410,10 @@ class Processor(ProcessorMixin):
         """
         if len(dims) == 1:
             return [pad_value] * dims[0]
-        else:
-            return [self._create_empty_nested_structure(dims[1:], pad_value) for _ in range(dims[0])]
+        return [self._create_empty_nested_structure(dims[1:], pad_value) for _ in range(dims[0])]
 
     def _get_nesting_level(self, input_list):
-        """
-        Get the nesting level of a list structure, skipping None values.
+        """Get the nesting level of a list structure, skipping None values.
 
         Args:
             input_list (`list`):
@@ -440,7 +428,7 @@ class Processor(ProcessorMixin):
                     return 1 + self._get_nesting_level(item)
             # All elements are None, treat as single level
             return 1
-        elif isinstance(input_list, (np.ndarray, torch.Tensor)):
+        if isinstance(input_list, (np.ndarray, torch.Tensor)):
             # For arrays/tensors, the nesting level is the number of dimensions
             return len(input_list.shape)
         return 0
@@ -453,10 +441,9 @@ class Processor(ProcessorMixin):
         expected_format: str,
         expected_coord_size: int | None = None,
     ) -> list:
-        """
-                Validate a single input by ensuring proper nesting and raising an error if the input is not valid.
+        """Validate a single input by ensuring proper nesting and raising an error if the input is not valid.
 
-                Args:
+        Args:
                     data (`torch.Tensor`, `np.ndarray`, or `list`):
                         Input data to process.
                     expected_depth (`int`):
@@ -477,12 +464,12 @@ class Processor(ProcessorMixin):
             # For tensors/arrays, we can directly check the number of dimensions
             if data.ndim != expected_depth:
                 raise ValueError(
-                    f"Input {input_name} must be a tensor/array with {expected_depth} dimensions. The expected nesting format is {expected_format}. Got {data.ndim} dimensions."
+                    f"Input {input_name} must be a tensor/array with {expected_depth} dimensions. The expected nesting format is {expected_format}. Got {data.ndim} dimensions.",
                 )
-            elif expected_coord_size is not None:
+            if expected_coord_size is not None:
                 if data.shape[-1] != expected_coord_size:
                     raise ValueError(
-                        f"Input {input_name} must be a tensor/array with {expected_coord_size} as the last dimension, got {data.shape[-1]}."
+                        f"Input {input_name} must be a tensor/array with {expected_coord_size} as the last dimension, got {data.shape[-1]}.",
                     )
             return self._convert_to_nested_list(data, expected_depth)
 
@@ -491,13 +478,12 @@ class Processor(ProcessorMixin):
             current_depth = self._get_nesting_level(data)
             if current_depth != expected_depth:
                 raise ValueError(
-                    f"Input {input_name} must be a nested list with {expected_depth} levels. The expected nesting format is {expected_format}. Got {current_depth} levels."
+                    f"Input {input_name} must be a nested list with {expected_depth} levels. The expected nesting format is {expected_format}. Got {current_depth} levels.",
                 )
             return self._convert_to_nested_list(data, expected_depth)
 
     def _normalize_tensor_coordinates(self, tensor, original_sizes, is_bounding_box=False, preserve_padding=False):
-        """
-        Helper method to normalize coordinates in a tensor across multiple images.
+        """Helper method to normalize coordinates in a tensor across multiple images.
 
         Args:
             tensor (`torch.Tensor`):
@@ -518,21 +504,24 @@ class Processor(ProcessorMixin):
             if img_idx < tensor.shape[0]:
                 original_size = original_sizes[img_idx] if img_idx < len(original_sizes) else original_sizes[0]
                 normalized_coords = self._normalize_coordinates(
-                    tensor[img_idx], original_size, is_bounding_box=is_bounding_box
+                    tensor[img_idx],
+                    original_size,
+                    is_bounding_box=is_bounding_box,
                 )
 
                 if preserve_padding:
                     # Only update non-padded values
                     img_mask = coord_mask[img_idx]
                     tensor[img_idx] = torch.where(
-                        img_mask.expand_as(tensor[img_idx]), normalized_coords, tensor[img_idx]
+                        img_mask.expand_as(tensor[img_idx]),
+                        normalized_coords,
+                        tensor[img_idx],
                     )
                 else:
                     tensor[img_idx] = normalized_coords
 
     def post_process_semantic_segmentation(self, outputs, target_sizes=None, threshold=0.5):
-        """
-        Converts the output of [`Model`] into semantic segmentation maps.
+        """Converts the output of [`Model`] into semantic segmentation maps.
 
         Args:
             outputs ([`Sam3ImageSegmentationOutput`]):
@@ -551,8 +540,7 @@ class Processor(ProcessorMixin):
         return self.image_processor.post_process_semantic_segmentation(outputs, target_sizes, threshold)
 
     def post_process_object_detection(self, outputs, threshold=0.3, target_sizes=None):
-        """
-        Converts the raw output of [`Model`] into final bounding boxes in (top_left_x, top_left_y,
+        """Converts the raw output of [`Model`] into final bounding boxes in (top_left_x, top_left_y,
         bottom_right_x, bottom_right_y) format. This is a convenience wrapper around the image processor method.
 
         Args:
@@ -571,7 +559,6 @@ class Processor(ProcessorMixin):
                   bottom_right_y) format.
 
         Example:
-
         ```python
         >>> from transformers import AutoModel, AutoProcessor
         >>> from PIL import Image
@@ -602,8 +589,7 @@ class Processor(ProcessorMixin):
         mask_threshold=0.5,
         target_sizes=None,
     ):
-        """
-        Converts the raw output of [`Model`] into instance segmentation predictions with bounding boxes and masks.
+        """Converts the raw output of [`Model`] into instance segmentation predictions with bounding boxes and masks.
         This is a convenience wrapper around the image processor method.
 
         Args:
@@ -627,7 +613,6 @@ class Processor(ProcessorMixin):
                   height, width).
 
         Example:
-
         ```python
         >>> from transformers import AutoModel, AutoProcessor
         >>> from PIL import Image
@@ -653,7 +638,10 @@ class Processor(ProcessorMixin):
         ```
         """
         return self.image_processor.post_process_instance_segmentation(
-            outputs, threshold, mask_threshold, target_sizes
+            outputs,
+            threshold,
+            mask_threshold,
+            target_sizes,
         )
 
 

@@ -10,7 +10,7 @@ from transformers import CLIPTokenizerFast
 
 from getiprompt.data.base.batch import Batch
 from getiprompt.data.base.sample import Sample
-from getiprompt.models.foundation.sam3 import ImageProcessorFast, Sam3Model, Processor
+from getiprompt.models.foundation.sam3 import ImageProcessorFast, Processor, Sam3Model
 from getiprompt.utils.utils import precision_to_torch_dtype
 
 from .base import Model
@@ -205,7 +205,7 @@ class SAM3(Model):
         for sample in samples:
             img_size = sample.image.shape[-2:]
             bboxes = sample.bboxes if sample.bboxes is not None else []
-            
+
             with torch.no_grad():
                 img_inputs = self.input_processor(images=sample.image, return_tensors="pt").to(self.device)
                 vision_embeds = self.model.get_vision_features(img_inputs.pixel_values)
@@ -232,9 +232,13 @@ class SAM3(Model):
                     outputs = self.model(
                         vision_embeds=vision_embeds,  # Reuse cached vision features
                         input_ids=formatted_inputs.input_ids if "input_ids" in formatted_inputs else None,
-                        attention_mask=formatted_inputs.attention_mask if "attention_mask" in formatted_inputs else None,
+                        attention_mask=formatted_inputs.attention_mask
+                        if "attention_mask" in formatted_inputs
+                        else None,
                         input_boxes=formatted_inputs.input_boxes if "input_boxes" in formatted_inputs else None,
-                        input_boxes_labels=formatted_inputs.input_boxes_labels if "input_boxes_labels" in formatted_inputs else None,
+                        input_boxes_labels=formatted_inputs.input_boxes_labels
+                        if "input_boxes_labels" in formatted_inputs
+                        else None,
                     )
                 result = self.input_processor.post_process_instance_segmentation(
                     outputs,

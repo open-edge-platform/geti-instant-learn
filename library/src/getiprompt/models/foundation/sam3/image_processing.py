@@ -22,7 +22,6 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torchvision.ops.boxes import batched_nms
-
 from transformers.image_processing_utils import BatchFeature, get_size_dict
 from transformers.image_processing_utils_fast import BaseImageProcessorFast
 from transformers.image_utils import (
@@ -37,15 +36,15 @@ from transformers.image_utils import (
 from transformers.processing_utils import ImagesKwargs, Unpack
 from transformers.utils import TensorType
 
+
 # Stub for auto_docstring if not available
 def auto_docstring(cls):
     return cls
 
 
 class FastImageProcessorKwargs(ImagesKwargs, total=False):
-    r"""
-    mask_size (`dict[str, int]`, *optional*):
-        The size `{"height": int, "width": int}` to resize the segmentation maps to.
+    r"""mask_size (`dict[str, int]`, *optional*):
+    The size `{"height": int, "width": int}` to resize the segmentation maps to.
     """
 
     mask_size: dict[str, int]
@@ -63,9 +62,7 @@ def _compute_stability_score(masks: "torch.Tensor", mask_threshold: float, stabi
 
 
 def _mask_to_rle(input_mask: "torch.Tensor"):
-    """
-    Encodes masks the run-length encoding (RLE), in the format expected by pycoco tools.
-    """
+    """Encodes masks the run-length encoding (RLE), in the format expected by pycoco tools."""
     # Put in fortran order and flatten height and width
     batch_size, height, width = input_mask.shape
     input_mask = input_mask.permute(0, 2, 1).flatten(1)
@@ -94,8 +91,7 @@ def _mask_to_rle(input_mask: "torch.Tensor"):
 
 
 def _batched_mask_to_box(masks: "torch.Tensor"):
-    """
-    Computes the bounding boxes around the given input masks. The bounding boxes are in the XYXY format which
+    """Computes the bounding boxes around the given input masks. The bounding boxes are in the XYXY format which
     corresponds the following required indices:
         - LEFT: left hand side of the bounding box
         - TOP: top of the bounding box
@@ -178,8 +174,7 @@ def _generate_crop_boxes(
     points_per_crop: int | None = 32,
     crop_n_points_downscale_factor: list[int] | None = 1,
 ) -> tuple[list[list[int]], list[int]]:
-    """
-    Generates a list of crop boxes of different sizes. Each layer has (2**i)**2 boxes for the ith layer.
+    """Generates a list of crop boxes of different sizes. Each layer has (2**i)**2 boxes for the ith layer.
 
     Args:
         image (Union[`numpy.ndarray`, `PIL.Image`, `torch.Tensor`]):
@@ -199,7 +194,6 @@ def _generate_crop_boxes(
         input_data_format (`str` or `ChannelDimension`, *optional*):
             The channel dimension format of the input image. If not provided, it will be inferred.
     """
-
     if isinstance(image, list):
         raise ValueError("Only one image is allowed for crop generation.")
     original_size = image.shape[-2:]
@@ -212,7 +206,12 @@ def _generate_crop_boxes(
     crop_boxes, layer_idxs = _generate_per_layer_crops(crop_n_layers, overlap_ratio, original_size)
 
     cropped_images, point_grid_per_crop = _generate_crop_images(
-        crop_boxes, image, points_grid, layer_idxs, target_size, original_size
+        crop_boxes,
+        image,
+        points_grid,
+        layer_idxs,
+        target_size,
+        original_size,
     )
     crop_boxes = torch.tensor(crop_boxes)
     crop_boxes = crop_boxes.float()
@@ -226,8 +225,7 @@ def _generate_crop_boxes(
 
 
 def _generate_per_layer_crops(crop_n_layers, overlap_ratio, original_size):
-    """
-    Generates 2 ** (layers idx + 1) crops for each crop_n_layers. Crops are in the XYWH format : The XYWH format
+    """Generates 2 ** (layers idx + 1) crops for each crop_n_layers. Crops are in the XYWH format : The XYWH format
     consists of the following required indices:
         - X: X coordinate of the top left of the bounding box
         - Y: Y coordinate of the top left of the bounding box
@@ -270,10 +268,15 @@ def _build_point_grid(n_per_side: int) -> torch.Tensor:
 
 
 def _generate_crop_images(
-    crop_boxes, image, points_grid, layer_idxs, target_size, original_size, input_data_format=None
+    crop_boxes,
+    image,
+    points_grid,
+    layer_idxs,
+    target_size,
+    original_size,
+    input_data_format=None,
 ):
-    """
-    Takes as an input bounding boxes that are used to crop the image. Based in the crops, the corresponding points are
+    """Takes as an input bounding boxes that are used to crop the image. Based in the crops, the corresponding points are
     also passed.
     """
     cropped_images = []
@@ -295,10 +298,12 @@ def _generate_crop_images(
 
 
 def _normalize_coordinates(
-    target_size: int, coords: torch.Tensor, original_size: tuple[int, int], is_bounding_box=False
+    target_size: int,
+    coords: torch.Tensor,
+    original_size: tuple[int, int],
+    is_bounding_box=False,
 ) -> torch.Tensor:
-    """
-    Expects a numpy array of length 2 in the final dimension. Requires the original image size in (height, width)
+    """Expects a numpy array of length 2 in the final dimension. Requires the original image size in (height, width)
     format.
     """
     old_height, old_width = original_size
@@ -337,8 +342,7 @@ def _rle_to_mask(rle: dict[str, Any]) -> torch.Tensor:
 
 
 def _post_process_for_mask_generation(rle_masks, iou_scores, mask_boxes, amg_crops_nms_thresh=0.7):
-    """
-    Perform NMS (Non Maximum Suppression) on the outputs.
+    """Perform NMS (Non Maximum Suppression) on the outputs.
 
     Args:
             rle_masks (`torch.Tensor`):
@@ -366,8 +370,7 @@ def _post_process_for_mask_generation(rle_masks, iou_scores, mask_boxes, amg_cro
 
 
 def _scale_boxes(boxes, target_sizes):
-    """
-    Scale batch of bounding boxes to the target sizes.
+    """Scale batch of bounding boxes to the target sizes.
 
     Args:
         boxes (`torch.Tensor` of shape `(batch_size, num_boxes, 4)`):
@@ -378,7 +381,6 @@ def _scale_boxes(boxes, target_sizes):
     Returns:
         `torch.Tensor` of shape `(batch_size, num_boxes, 4)`: Scaled bounding boxes.
     """
-
     if isinstance(target_sizes, (list, tuple)):
         image_height = torch.tensor([i[0] for i in target_sizes])
         image_width = torch.tensor([i[1] for i in target_sizes])
@@ -425,8 +427,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
         data_format: ChannelDimension | None = None,
         **kwargs,
     ) -> dict:
-        """
-        Update kwargs that need further processing before being validated
+        """Update kwargs that need further processing before being validated
         Can be overridden by subclasses to customize the processing of kwargs.
         """
         if kwargs is None:
@@ -466,9 +467,8 @@ class ImageProcessorFast(BaseImageProcessorFast):
         segmentation_maps: ImageInput | None = None,
         **kwargs: Unpack[FastImageProcessorKwargs],
     ) -> BatchFeature:
-        r"""
-        segmentation_maps (`ImageInput`, *optional*):
-            The segmentation maps to preprocess.
+        r"""segmentation_maps (`ImageInput`, *optional*):
+        The segmentation maps to preprocess.
         """
         # Ensure do_convert_rgb is in kwargs for compatibility with stable transformers
         if "do_convert_rgb" not in kwargs:
@@ -484,11 +484,12 @@ class ImageProcessorFast(BaseImageProcessorFast):
         device: Union[str, "torch.device"] | None = None,
         **kwargs: Unpack[FastImageProcessorKwargs],
     ) -> BatchFeature:
-        """
-        Preprocess image-like inputs.
-        """
+        """Preprocess image-like inputs."""
         images = self._prepare_image_like_inputs(
-            images=images, do_convert_rgb=do_convert_rgb, input_data_format=input_data_format, device=device
+            images=images,
+            do_convert_rgb=do_convert_rgb,
+            input_data_format=input_data_format,
+            device=device,
         )
         original_sizes = [image.shape[-2:] for image in images]
         images_kwargs = kwargs.copy()
@@ -513,10 +514,11 @@ class ImageProcessorFast(BaseImageProcessorFast):
                     "do_rescale": False,
                     "interpolation": pil_torch_interpolation_mapping[PILImageResampling.NEAREST],
                     "size": segmentation_maps_kwargs.pop("mask_size"),
-                }
+                },
             )
             processed_segmentation_maps = self._preprocess(
-                images=processed_segmentation_maps, **segmentation_maps_kwargs
+                images=processed_segmentation_maps,
+                **segmentation_maps_kwargs,
             )
             data["labels"] = processed_segmentation_maps.squeeze(1).to(torch.int64)
 
@@ -529,7 +531,11 @@ class ImageProcessorFast(BaseImageProcessorFast):
         disable_grouping: bool | None = None,
         **kwargs,
     ) -> "torch.Tensor":
-        return super()._preprocess(images, return_tensors=return_tensors, disable_grouping=disable_grouping, **kwargs).pixel_values
+        return (
+            super()
+            ._preprocess(images, return_tensors=return_tensors, disable_grouping=disable_grouping, **kwargs)
+            .pixel_values
+        )
 
     def generate_crop_boxes(
         self,
@@ -541,8 +547,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
         crop_n_points_downscale_factor: list[int] | None = 1,
         device: Optional["torch.device"] = None,
     ):
-        """
-        Generates a list of crop boxes of different sizes. Each layer has (2**i)**2 boxes for the ith layer.
+        """Generates a list of crop boxes of different sizes. Each layer has (2**i)**2 boxes for the ith layer.
 
         Args:
             image (`torch.Tensor`):
@@ -595,8 +600,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
         mask_threshold=0,
         stability_score_offset=1,
     ):
-        """
-        Filters the predicted masks by selecting only the ones that meets several criteria. The first criterion being
+        """Filters the predicted masks by selecting only the ones that meets several criteria. The first criterion being
         that the iou scores needs to be greater than `pred_iou_thresh`. The second criterion is that the stability
         score needs to be greater than `stability_score_thresh`. The method also converts the predicted masks to
         bounding boxes and pad the predicted masks if necessary.
@@ -650,7 +654,9 @@ class ImageProcessorFast(BaseImageProcessorFast):
         converted_boxes = _batched_mask_to_box(masks)
 
         keep_mask = ~_is_box_near_crop_edge(
-            converted_boxes, cropped_box_image, [0, 0, original_width, original_height]
+            converted_boxes,
+            cropped_box_image,
+            [0, 0, original_width, original_height],
         )
 
         scores = scores[keep_mask]
@@ -674,8 +680,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
         apply_non_overlapping_constraints=False,
         **kwargs,
     ):
-        """
-        Remove padding and upscale masks to the original image size.
+        """Remove padding and upscale masks to the original image size.
 
         Args:
             masks (`Union[torch.Tensor, List[torch.Tensor], np.ndarray, List[np.ndarray]]`):
@@ -717,8 +722,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
         return output_masks
 
     def post_process_for_mask_generation(self, all_masks, all_scores, all_boxes, crops_nms_thresh):
-        """
-        Post processes mask that are generated by calling the Non Maximum Suppression algorithm on the predicted masks.
+        """Post processes mask that are generated by calling the Non Maximum Suppression algorithm on the predicted masks.
 
         Args:
             all_masks (`torch.Tensor`):
@@ -733,8 +737,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
         return _post_process_for_mask_generation(all_masks, all_scores, all_boxes, crops_nms_thresh)
 
     def _apply_non_overlapping_constraints(self, pred_masks: torch.Tensor) -> torch.Tensor:
-        """
-        Apply non-overlapping constraints to the object scores in pred_masks. Here we
+        """Apply non-overlapping constraints to the object scores in pred_masks. Here we
         keep only the highest scoring object at each spatial location in pred_masks.
         """
         batch_size = pred_masks.size(0)
@@ -753,10 +756,12 @@ class ImageProcessorFast(BaseImageProcessorFast):
         return pred_masks
 
     def post_process_semantic_segmentation(
-        self, outputs, target_sizes: list[tuple] | None = None, threshold: float = 0.5
+        self,
+        outputs,
+        target_sizes: list[tuple] | None = None,
+        threshold: float = 0.5,
     ):
-        """
-        Converts the output of [`Model`] into semantic segmentation maps.
+        """Converts the output of [`Model`] into semantic segmentation maps.
 
         Args:
             outputs (`dict` or dataclass):
@@ -779,7 +784,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
         if semantic_logits is None:
             raise ValueError(
                 "Semantic segmentation output is not available in the model outputs. "
-                "Make sure the model was run with semantic segmentation enabled."
+                "Make sure the model was run with semantic segmentation enabled.",
             )
 
         # Apply sigmoid to convert logits to probabilities
@@ -789,7 +794,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
         if target_sizes is not None:
             if len(semantic_logits) != len(target_sizes):
                 raise ValueError(
-                    "Make sure that you pass in as many target sizes as the batch dimension of the logits"
+                    "Make sure that you pass in as many target sizes as the batch dimension of the logits",
                 )
 
             semantic_segmentation = []
@@ -812,8 +817,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
         return semantic_segmentation
 
     def post_process_object_detection(self, outputs, threshold: float = 0.3, target_sizes: list[tuple] | None = None):
-        """
-        Converts the raw output of [`Model`] into final bounding boxes in (top_left_x, top_left_y,
+        """Converts the raw output of [`Model`] into final bounding boxes in (top_left_x, top_left_y,
         bottom_right_x, bottom_right_y) format.
 
         Args:
@@ -832,9 +836,15 @@ class ImageProcessorFast(BaseImageProcessorFast):
                   bottom_right_y) format.
         """
         # Support both dict and dataclass-style outputs
-        pred_logits = outputs["pred_logits"] if isinstance(outputs, dict) else outputs.pred_logits  # (batch_size, num_queries)
-        pred_boxes = outputs["pred_boxes"] if isinstance(outputs, dict) else outputs.pred_boxes  # (batch_size, num_queries, 4) in xyxy format
-        presence_logits = outputs["presence_logits"] if isinstance(outputs, dict) else outputs.presence_logits  # (batch_size, 1) or None
+        pred_logits = (
+            outputs["pred_logits"] if isinstance(outputs, dict) else outputs.pred_logits
+        )  # (batch_size, num_queries)
+        pred_boxes = (
+            outputs["pred_boxes"] if isinstance(outputs, dict) else outputs.pred_boxes
+        )  # (batch_size, num_queries, 4) in xyxy format
+        presence_logits = (
+            outputs["presence_logits"] if isinstance(outputs, dict) else outputs.presence_logits
+        )  # (batch_size, 1) or None
 
         batch_size = pred_logits.shape[0]
 
@@ -855,7 +865,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
             batch_boxes = _scale_boxes(batch_boxes, target_sizes)
 
         results = []
-        for scores, boxes in zip(batch_scores, batch_boxes):
+        for scores, boxes in zip(batch_scores, batch_boxes, strict=False):
             keep = scores > threshold
             scores = scores[keep]
             boxes = boxes[keep]
@@ -870,8 +880,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
         mask_threshold: float = 0.5,
         target_sizes: list[tuple] | None = None,
     ):
-        """
-        Converts the raw output of [`Model`] into instance segmentation predictions with bounding boxes and masks.
+        """Converts the raw output of [`Model`] into instance segmentation predictions with bounding boxes and masks.
 
         Args:
             outputs (`dict` or dataclass):
@@ -894,10 +903,18 @@ class ImageProcessorFast(BaseImageProcessorFast):
                   height, width).
         """
         # Support both dict and dataclass-style outputs
-        pred_logits = outputs["pred_logits"] if isinstance(outputs, dict) else outputs.pred_logits  # (batch_size, num_queries)
-        pred_boxes = outputs["pred_boxes"] if isinstance(outputs, dict) else outputs.pred_boxes  # (batch_size, num_queries, 4) in xyxy format
-        pred_masks = outputs["pred_masks"] if isinstance(outputs, dict) else outputs.pred_masks  # (batch_size, num_queries, height, width)
-        presence_logits = outputs["presence_logits"] if isinstance(outputs, dict) else outputs.presence_logits  # (batch_size, 1) or None
+        pred_logits = (
+            outputs["pred_logits"] if isinstance(outputs, dict) else outputs.pred_logits
+        )  # (batch_size, num_queries)
+        pred_boxes = (
+            outputs["pred_boxes"] if isinstance(outputs, dict) else outputs.pred_boxes
+        )  # (batch_size, num_queries, 4) in xyxy format
+        pred_masks = (
+            outputs["pred_masks"] if isinstance(outputs, dict) else outputs.pred_masks
+        )  # (batch_size, num_queries, height, width)
+        presence_logits = (
+            outputs["presence_logits"] if isinstance(outputs, dict) else outputs.presence_logits
+        )  # (batch_size, 1) or None
 
         batch_size = pred_logits.shape[0]
 
@@ -921,7 +938,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
             batch_boxes = _scale_boxes(batch_boxes, target_sizes)
 
         results = []
-        for idx, (scores, boxes, masks) in enumerate(zip(batch_scores, batch_boxes, batch_masks)):
+        for idx, (scores, boxes, masks) in enumerate(zip(batch_scores, batch_boxes, batch_masks, strict=False)):
             # Filter by score threshold
             keep = scores > threshold
             scores = scores[keep]

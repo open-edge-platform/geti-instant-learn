@@ -16,22 +16,18 @@
 import math
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from torch import Tensor
-
+from torch import Tensor, nn
 from transformers.pytorch_utils import compile_compatible_method_lru_cache
 
 from .common import (
-    Attention,
     MLP,
-    PreTrainedModelBase,
+    Attention,
     SinePositionEmbedding,
     box_cxcywh_to_xyxy,
     expand_attention_mask,
     inverse_sigmoid,
 )
-from .configuration import DETRDecoderConfig, DETREncoderConfig
 
 
 class DecoderMLP(nn.Module):
@@ -102,8 +98,7 @@ class DetrEncoderLayer(nn.Module):
         prompt_cross_attn_mask: Tensor | None = None,
         **kwargs,
     ):
-        """
-        Forward pass for DETR encoder layer.
+        """Forward pass for DETR encoder layer.
 
         Args:
             vision_feats: Vision features [batch_size, vision_len, hidden_size] (main hidden states)
@@ -148,25 +143,33 @@ class DetrEncoderLayer(nn.Module):
         return hidden_states
 
 
-class DetrEncoder(PreTrainedModelBase):
-    """
-    DETR-style encoder that processes multi-level vision features with text fusion.
+class DetrEncoder(nn.Module):
+    """DETR-style encoder that processes multi-level vision features with text fusion.
 
     This encoder processes vision features from multiple levels (e.g., FPN features at different
     resolutions) and fuses them with text prompts through a stack of transformer encoder layers.
+
+    Args:
+        hidden_size: Dimensionality of the encoder layers. Default: 256.
+        num_layers: Number of encoder layers. Default: 6.
+        num_attention_heads: Number of attention heads. Default: 8.
+        intermediate_size: Dimensionality of the feedforward layers. Default: 2048.
+        dropout: Dropout probability. Default: 0.1.
+        hidden_act: Activation function in FFN. Default: "relu".
+        hidden_dropout: Dropout probability for hidden states. Default: 0.0.
     """
 
-    def __init__(self, config: DETREncoderConfig):
-        super().__init__(config)
-        self.config = config
-        hidden_size = config.hidden_size
-        num_layers = config.num_layers
-        num_attention_heads = config.num_attention_heads
-        intermediate_size = config.intermediate_size
-        dropout = config.dropout
-        hidden_act = config.hidden_act
-        hidden_dropout = config.hidden_dropout
-
+    def __init__(
+        self,
+        hidden_size: int = 256,
+        num_layers: int = 6,
+        num_attention_heads: int = 8,
+        intermediate_size: int = 2048,
+        dropout: float = 0.1,
+        hidden_act: str = "relu",
+        hidden_dropout: float = 0.0,
+    ):
+        super().__init__()
         self.hidden_size = hidden_size
 
         self.layers = nn.ModuleList([
@@ -181,15 +184,12 @@ class DetrEncoder(PreTrainedModelBase):
             for _ in range(num_layers)
         ])
 
-        self.post_init()
-
     def _prepare_multilevel_features(
         self,
         vision_features: list[torch.Tensor],
         vision_pos_embeds: list[torch.Tensor],
     ):
-        """
-        Prepare multi-level vision features by flattening spatial dimensions and adding level embeddings.
+        """Prepare multi-level vision features by flattening spatial dimensions and adding level embeddings.
 
         Args:
             vision_features: List of vision features at different levels [batch_size, channels, height, width]
@@ -202,7 +202,7 @@ class DetrEncoder(PreTrainedModelBase):
         pos_embeds_flattened = []
         spatial_shapes = []
 
-        for features, pos_embed in zip(vision_features, vision_pos_embeds):
+        for features, pos_embed in zip(vision_features, vision_pos_embeds, strict=False):
             height, width = features.shape[-2:]
             spatial_shapes.append((height, width))
 
@@ -234,8 +234,7 @@ class DetrEncoder(PreTrainedModelBase):
         spatial_sizes: list[tuple[int, int]] | None = None,
         **kwargs,
     ) -> dict[str, torch.Tensor | None]:
-        """
-        Forward pass for the DETR encoder.
+        """Forward pass for the DETR encoder.
 
         Args:
             vision_features: List of vision features at different levels
@@ -340,8 +339,7 @@ class DetrDecoderLayer(nn.Module):
         vision_cross_attn_mask: torch.Tensor | None = None,
         **kwargs,
     ) -> torch.Tensor:
-        """
-        Forward pass for decoder layer.
+        """Forward pass for decoder layer.
 
         Args:
             hidden_states: Query features [batch_size, num_queries + 1, hidden_size] (includes presence token at position 0)
@@ -408,32 +406,38 @@ class DetrDecoderLayer(nn.Module):
         return hidden_states
 
 
-class DetrDecoder(PreTrainedModelBase):
-    """
-    DETR-style decoder with box refinement and presence token.
+class DetrDecoder(nn.Module):
+    """DETR-style decoder with box refinement and presence token.
 
     Simplified version that assumes:
     - Box refinement is always enabled
     - Intermediate outputs are always returned
     - BoxRPB (relative position bias) with log-scale encoding
     - Presence token is used
+
+    Args:
+        hidden_size: Dimensionality of the decoder layers. Default: 256.
+        num_layers: Number of decoder layers. Default: 6.
+        num_queries: Number of object queries. Default: 200.
+        num_attention_heads: Number of attention heads. Default: 8.
+        intermediate_size: Dimensionality of the feedforward layers. Default: 2048.
+        dropout: Dropout probability. Default: 0.1.
+        hidden_act: Activation function in FFN. Default: "relu".
+        hidden_dropout: Dropout probability for hidden states. Default: 0.0.
     """
 
     def __init__(
         self,
-        config: DETRDecoderConfig,
+        hidden_size: int = 256,
+        num_layers: int = 6,
+        num_queries: int = 200,
+        num_attention_heads: int = 8,
+        intermediate_size: int = 2048,
+        dropout: float = 0.1,
+        hidden_act: str = "relu",
+        hidden_dropout: float = 0.0,
     ):
-        super().__init__(config)
-        self.config = config
-        hidden_size = config.hidden_size
-        num_layers = config.num_layers
-        num_queries = config.num_queries
-        num_attention_heads = config.num_attention_heads
-        intermediate_size = config.intermediate_size
-        dropout = config.dropout
-        hidden_act = config.hidden_act
-        hidden_dropout = config.hidden_dropout
-
+        super().__init__()
         self.hidden_size = hidden_size
 
         self.layers = nn.ModuleList([
@@ -467,11 +471,13 @@ class DetrDecoder(PreTrainedModelBase):
 
         self.position_encoding = SinePositionEmbedding(num_pos_feats=hidden_size // 2, normalize=False)
 
-        self.post_init()
-
     @compile_compatible_method_lru_cache(maxsize=1)
     def _get_coords(
-        self, height: torch.Tensor, width: torch.Tensor, dtype: torch.dtype, device: torch.device
+        self,
+        height: torch.Tensor,
+        width: torch.Tensor,
+        dtype: torch.dtype,
+        device: torch.device,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Generate normalized coordinate grids."""
         coords_h = torch.arange(0, height, device=device, dtype=dtype) / height
@@ -479,10 +485,11 @@ class DetrDecoder(PreTrainedModelBase):
         return coords_h, coords_w
 
     def _get_rpb_matrix(
-        self, reference_boxes: torch.Tensor, spatial_shape: tuple[torch.Tensor, torch.Tensor]
+        self,
+        reference_boxes: torch.Tensor,
+        spatial_shape: tuple[torch.Tensor, torch.Tensor],
     ) -> torch.Tensor:
-        """
-        Compute box relative position bias (RPB) matrix using log-scale encoding.
+        """Compute box relative position bias (RPB) matrix using log-scale encoding.
         RPB helps the decoder attend to relevant spatial locations based on predicted box positions.
 
         Args:
@@ -498,7 +505,10 @@ class DetrDecoder(PreTrainedModelBase):
 
         # Generate coordinate grids
         coords_h, coords_w = self._get_coords(
-            height, width, dtype=reference_boxes.dtype, device=reference_boxes.device
+            height,
+            width,
+            dtype=reference_boxes.dtype,
+            device=reference_boxes.device,
         )
 
         # Compute deltas between coordinates and box boundaries
@@ -519,7 +529,7 @@ class DetrDecoder(PreTrainedModelBase):
 
         # Combine into 2D bias matrix
         rpb_matrix = deltas_y.unsqueeze(3) + deltas_x.unsqueeze(
-            2
+            2,
         )  # [batch_size, num_queries, height, width, num_heads]
         rpb_matrix = rpb_matrix.flatten(2, 3)  # [batch_size, num_queries, height*width, num_heads]
         rpb_matrix = rpb_matrix.permute(0, 3, 1, 2).contiguous()  # [batch_size, num_heads, num_queries, height*width]
@@ -534,8 +544,7 @@ class DetrDecoder(PreTrainedModelBase):
         spatial_shapes: torch.Tensor | None = None,
         **kwargs,
     ) -> dict[str, torch.Tensor | None]:
-        """
-        Forward pass for the DETR decoder.
+        """Forward pass for the DETR decoder.
 
         Args:
             vision_features: Vision features [batch_size, height*width, hidden_size]
@@ -606,7 +615,8 @@ class DetrDecoder(PreTrainedModelBase):
             presence_hidden = hidden_states[:, :1]
             presence_logits = self.presence_head(self.presence_layer_norm(presence_hidden)).squeeze(-1)
             presence_logits = presence_logits.clamp(
-                min=-self.clamp_presence_logit_max_val, max=self.clamp_presence_logit_max_val
+                min=-self.clamp_presence_logit_max_val,
+                max=self.clamp_presence_logit_max_val,
             )
             intermediate_presence_logits.append(presence_logits)
 
@@ -622,12 +632,3 @@ class DetrDecoder(PreTrainedModelBase):
             "hidden_states": None,
             "attentions": None,
         }
-
-
-__all__ = [
-    "DecoderMLP",
-    "DetrEncoderLayer",
-    "DetrEncoder",
-    "DetrDecoderLayer",
-    "DetrDecoder",
-]
