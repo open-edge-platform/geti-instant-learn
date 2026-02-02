@@ -606,7 +606,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
     def preprocess(
         self,
         images: ImageInput,
-        segmentation_maps: ImageInput | None = None,
+        segmentation_maps: ImageInput | None = None,  # noqa: ARG002
         **kwargs: Unpack[FastImageProcessorKwargs],
     ) -> BatchFeature:
         r"""Preprocess images and segmentation maps.
@@ -614,6 +614,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
         Args:
             images (ImageInput): Images to preprocess.
             segmentation_maps (ImageInput, optional): Segmentation maps to preprocess.
+                Note: This parameter is accepted for API compatibility but not currently used.
             **kwargs (Unpack[FastImageProcessorKwargs]): Additional keyword arguments for preprocessing.
 
         Returns:
@@ -622,7 +623,9 @@ class ImageProcessorFast(BaseImageProcessorFast):
         # Ensure do_convert_rgb is in kwargs for compatibility with stable transformers
         if "do_convert_rgb" not in kwargs:
             kwargs["do_convert_rgb"] = self.do_convert_rgb
-        return super().preprocess(images, segmentation_maps, **kwargs)
+        # Note: segmentation_maps is not passed to parent as BaseImageProcessorFast
+        # in transformers 5.0 does not support this parameter
+        return super().preprocess(images, **kwargs)
 
     def generate_crop_boxes(
         self,

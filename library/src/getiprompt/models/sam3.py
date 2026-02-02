@@ -119,7 +119,6 @@ class SAM3(Model):
             "facebook/sam3",
             key_mapping={r"detector_model.(.+)": r"\1"},
             torch_dtype=precision_to_torch_dtype(precision),
-            attn_implementation="sdpa",
         ).to(device)
 
     def fit(self, reference: Sample | list[Sample] | Batch) -> None:
@@ -244,7 +243,7 @@ class SAM3(Model):
                     outputs,
                     threshold=0.5,
                     mask_threshold=0.5,
-                    target_sizes=img_inputs.get("original_sizes").tolist(),
+                    target_sizes=[img_size],
                 )
                 boxes_with_scores = torch.cat(
                     [result[0]["boxes"], result[0]["scores"].unsqueeze(1)],
