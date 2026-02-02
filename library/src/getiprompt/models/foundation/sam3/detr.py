@@ -1,3 +1,6 @@
+# Copyright (C) 2025-2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 # Copyright 2025 The Meta AI Authors and The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,6 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """DETR (DEtection TRansformer) encoder and decoder components for SAM3."""
 
 import math
@@ -201,9 +205,7 @@ class DetrEncoderLayer(nn.Module):
         residual = hidden_states
         hidden_states = self.layer_norm3(hidden_states)
         hidden_states = self.mlp(hidden_states)
-        hidden_states = self.dropout(hidden_states) + residual
-
-        return hidden_states
+        return self.dropout(hidden_states) + residual
 
 
 class DetrEncoder(nn.Module):
@@ -567,9 +569,7 @@ class DetrDecoderLayer(nn.Module):
         residual = hidden_states
         hidden_states = self.mlp(hidden_states)
         hidden_states = residual + self.mlp_dropout(hidden_states)
-        hidden_states = self.mlp_layer_norm(hidden_states)
-
-        return hidden_states
+        return self.mlp_layer_norm(hidden_states)
 
 
 class DetrDecoder(nn.Module):
@@ -735,8 +735,7 @@ class DetrDecoder(nn.Module):
             2,
         )  # [batch_size, num_queries, height, width, num_heads]
         rpb_matrix = rpb_matrix.flatten(2, 3)  # [batch_size, num_queries, height*width, num_heads]
-        rpb_matrix = rpb_matrix.permute(0, 3, 1, 2).contiguous()  # [batch_size, num_heads, num_queries, height*width]
-        return rpb_matrix
+        return rpb_matrix.permute(0, 3, 1, 2).contiguous()  # [batch_size, num_heads, num_queries, height*width]
 
     def forward(
         self,

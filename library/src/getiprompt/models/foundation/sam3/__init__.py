@@ -1,5 +1,6 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
 """SAM3 model components for HuggingFace Transformers.
 
 This module provides the main classes for SAM3 (Segment Anything Model 3):
