@@ -147,19 +147,16 @@ def visual_prompt_to_sample(
     prompt: PromptDB,
     frame: np.ndarray,
     label_to_category_id: dict[UUID, int],
-    label_shot_counts: dict[UUID, int],
 ) -> Sample:
     """
     Convert a visual prompt to a Sample with merged semantic masks.
 
     Multiple annotations of the same label are merged into a single semantic mask.
-    One image = one shot per category.
 
     Args:
         prompt: Visual prompt with annotations
         frame: RGB image as numpy array (H, W, C)
         label_to_category_id: Mapping from label UUID to category ID (shared across batch)
-        label_shot_counts: Current shot count per label (modified in-place)
 
     Returns:
         Sample with merged masks, one per unique label in the prompt
@@ -167,8 +164,6 @@ def visual_prompt_to_sample(
     Example:
         Prompt with 3 car annotations + 2 person annotations:
         - Creates 2 masks (1 for cars, 1 for persons)
-        - n_shot = [current_car_shot, current_person_shot]
-        - Updates label_shot_counts for both labels
     """
     if prompt.type != PromptType.VISUAL:
         raise ServiceError(f"Cannot convert non-visual prompt to sample: prompt type is {prompt.type}")
@@ -198,7 +193,6 @@ def visual_prompt_to_sample(
     categories = []
     category_ids = []
     is_reference = []
-    n_shot = []
 
     for label_id, polygons in sorted(label_groups.items(), key=lambda x: str(x[0])):
         if not polygons:
@@ -211,18 +205,10 @@ def visual_prompt_to_sample(
         category_id = label_to_category_id[label_id]
         category_name = str(label_id)
 
-        # Get the current shot number for this label (from previous prompts)
-        current_shot = label_shot_counts.get(label_id, 0)
-
-        # One merged semantic mask per label = one shot
         all_masks.append(semantic_mask)
         categories.append(category_name)
         category_ids.append(category_id)
         is_reference.append(True)
-        n_shot.append(current_shot)
-
-        # Increment by 1 per image-category pair
-        label_shot_counts[label_id] = current_shot + 1
 
     if not all_masks:
         raise ServiceError(f"No valid masks for prompt {prompt.id} after merging")
@@ -237,7 +223,6 @@ def visual_prompt_to_sample(
         categories=categories,
         category_ids=category_ids_array,
         is_reference=is_reference,
-        n_shot=n_shot,
         image_path=str(prompt.frame_id),
     )
 

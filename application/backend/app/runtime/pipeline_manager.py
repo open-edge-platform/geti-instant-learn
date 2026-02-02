@@ -360,8 +360,6 @@ class PipelineManager:
 
             category_mappings = label_svc.build_category_mappings(all_label_ids)
 
-            # track shot counts across prompts
-            label_shot_counts: dict[UUID, int] = {}
             samples = []
 
             for prompt in db_prompts:
@@ -376,9 +374,7 @@ class PipelineManager:
                         continue
 
                     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    sample = visual_prompt_to_sample(
-                        prompt, frame_rgb, category_mappings.label_to_category_id, label_shot_counts
-                    )
+                    sample = visual_prompt_to_sample(prompt, frame_rgb, category_mappings.label_to_category_id)
                     samples.append(sample)
 
                 except Exception as e:
@@ -391,15 +387,10 @@ class PipelineManager:
 
             batch = Batch.collate(samples)
             logger.debug("Reference batch: %s", batch)
-            shots_per_category = {
-                category_id: label_shot_counts.get(label_id, 0)
-                for label_id, category_id in category_mappings.label_to_category_id.items()
-            }
             logger.info(
-                "Created reference batch: project_id=%s, samples=%d, categories=%d, shots_per_category=%s",
+                "Created reference batch: project_id=%s, samples=%d, categories=%d",
                 project_id,
                 len(batch.samples),
                 len(category_mappings.label_to_category_id),
-                shots_per_category,
             )
             return batch, category_mappings.category_id_to_label_id
