@@ -81,9 +81,8 @@ coll = COLLECT(
 )
 
 dist_root = os.path.join('dist', 'geti-prompt-backend', '_internal')
-to_remove = os.path.join(dist_root, 'triton', 'backends', 'nvidia')
-if os.path.isdir(to_remove):
-    shutil.rmtree(to_remove)
-to_remove = os.path.join(dist_root, 'triton', 'backends', 'amd')
-if os.path.isdir(to_remove):
-    shutil.rmtree(to_remove)
+triton_backends_to_remove = ['nvidia', 'amd']
+for backend in triton_backends_to_remove:
+    backend_folder = os.path.join(dist_root, 'triton', 'backends', backend)
+    if os.path.isdir(backend_folder):
+        shutil.rmtree(backend_folder)
