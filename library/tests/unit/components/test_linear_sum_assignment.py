@@ -11,7 +11,7 @@ import pytest
 import torch
 from scipy.optimize import linear_sum_assignment as scipy_lsa
 
-from getiprompt.components.linear_sum_assignment import LinearSumAssignment, linear_sum_assignment
+from instantlearn.components.linear_sum_assignment import LinearSumAssignment, linear_sum_assignment
 
 
 class TestLinearSumAssignment:

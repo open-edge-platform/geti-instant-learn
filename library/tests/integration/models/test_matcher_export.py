@@ -15,11 +15,11 @@ import numpy as np
 import onnxruntime as ort
 import pytest
 
-from getiprompt.data.base import Batch
-from getiprompt.data.folder import FolderDataset
-from getiprompt.data.utils.image import read_image
-from getiprompt.models.matcher import Matcher
-from getiprompt.utils.constants import Backend, SAMModelName
+from instantlearn.data.base import Batch
+from instantlearn.data.folder import FolderDataset
+from instantlearn.data.utils.image import read_image
+from instantlearn.models.matcher import Matcher
+from instantlearn.utils.constants import Backend, SAMModelName
 
 
 @pytest.fixture

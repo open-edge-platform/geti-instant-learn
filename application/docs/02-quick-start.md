@@ -4,7 +4,7 @@ Get your first zero-shot segmentation results in minutes.
 
 ## Installation
 
-> **Note:** Pre-built binaries are not yet available. This section will be updated when container images are published to the registry. For now, build and run the application using Docker as described in the [Application README](https://github.com/open-edge-platform/geti-prompt/blob/main/application/README.md).
+> **Note:** Pre-built binaries are not yet available. This section will be updated when container images are published to the registry. For now, build and run the application using Docker as described in the [Application README](https://github.com/open-edge-platform/instant-learn/blob/main/application/README.md).
 
 Once running, access the application at `http://localhost:9100`
 

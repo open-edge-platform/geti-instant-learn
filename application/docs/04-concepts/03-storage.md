@@ -1,29 +1,29 @@
 # Storage
 
-This document describes how Geti Prompt stores and manages persistent data, including the file system layout, database configuration, and volume mounting for Docker deployments.
+This document describes how Geti Instant Learn stores and manages persistent data, including the file system layout, database configuration, and volume mounting for Docker deployments.
 
 ## Overview
 
-Geti Prompt uses a SQLite database for configuration persistence and a file-based structure for media assets (datasets, prompts, thumbnails).
+Geti Instant Learn uses a SQLite database for configuration persistence and a file-based structure for media assets (datasets, prompts, thumbnails).
 
 ## File System Layout
 
 ```
 data/                              # DB_DATA_DIR
-├── geti_prompt.db                 # SQLite database
+├── instant_learn.db                 # SQLite database
 └── templates/
     └── datasets/
         └── coffee-berries/        # Sample dataset
 
 logs/                              # LOGS_DIR
-└── geti-prompt-backend.log        # Application log
+└── instant-learn-backend.log        # Application log
 ```
 
 ## Database
 
 ### SQLite Configuration
 
-Geti Prompt uses **SQLite** as its embedded database for storing:
+Geti Instant Learn uses **SQLite** as its embedded database for storing:
 
 - Project configurations
 - Source settings (cameras, video files, image folders)
@@ -42,8 +42,8 @@ Database migrations are managed with [Alembic](https://alembic.sqlalchemy.org/).
 
 | Container Path         | Purpose                           |
 | ---------------------- | --------------------------------- |
-| `/geti_prompt/data`    | Database and user data            |
-| `/geti_prompt/logs`    | Application logs                  |
+| `/instant_learn/data`    | Database and user data            |
+| `/instant_learn/logs`    | Application logs                  |
 
 > **Note:** The container runs as non-root user (UID 10001). For bind mounts, ensure host directories have correct permissions.
 

@@ -9,7 +9,7 @@ import pytest
 import torch
 from torchvision.tv_tensors import Image
 
-from getiprompt.components.sam import SamDecoder
+from instantlearn.components.sam import SamDecoder
 
 
 class TestSamDecoderValidation:

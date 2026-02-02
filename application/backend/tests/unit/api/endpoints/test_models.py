@@ -4,7 +4,7 @@ import pytest
 from fastapi import FastAPI, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
-from getiprompt.utils.constants import SAMModelName
+from instantlearn.utils.constants import SAMModelName
 
 from api.error_handler import custom_exception_handler
 from api.routers import projects_router

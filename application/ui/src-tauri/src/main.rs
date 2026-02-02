@@ -9,12 +9,12 @@ use std::{
 };
 use tauri::RunEvent;
 
-/// “geti-prompt-backend.exe” on Windows, “geti-prompt-backend” elsewhere.
+/// “instant-learn-backend.exe” on Windows, “instant-learn-backend” elsewhere.
 fn backend_filename() -> &'static str {
     if cfg!(windows) {
-        "geti-prompt-backend.exe"
+        "instant-learn-backend.exe"
     } else {
-        "geti-prompt-backend"
+        "instant-learn-backend"
     }
 }
 
@@ -35,7 +35,7 @@ fn spawn_backend(port: u16) -> std::io::Result<Child> {
         .parent()
         .expect("failed to get parent directory of exe");
 
-    // Build the full path to geti-prompt-backend.exe
+    // Build the full path to instant-learn-backend.exe
     // Tauri build will have renamed the suffixed file to plain name next to the exe.
     let backend_path = exe_dir.join(backend_filename());
 

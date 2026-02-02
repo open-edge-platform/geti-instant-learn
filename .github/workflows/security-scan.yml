@@ -215,7 +215,7 @@ jobs:
               sleep 5
           done
 
-          EXPECTED_TITLE="Geti Prompt"
+          EXPECTED_TITLE="Geti Instant Learn"
           echo "Checking HTML title..."
 
           HTML_CONTENT=$(curl -sf $TEST_URL)

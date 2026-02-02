@@ -13,14 +13,14 @@ import pytest
 import torch
 from torchmetrics.segmentation import MeanIoU
 
-from getiprompt.data.base import Batch
-from getiprompt.data.folder import FolderDataset
-from getiprompt.models.grounded_sam import GroundedSAM
-from getiprompt.models.matcher import Matcher
-from getiprompt.models.per_dino import PerDino
-from getiprompt.models.soft_matcher import SoftMatcher
-from getiprompt.utils.benchmark import convert_masks_to_one_hot_tensor
-from getiprompt.utils.constants import ModelName, SAMModelName
+from instantlearn.data.base import Batch
+from instantlearn.data.folder import FolderDataset
+from instantlearn.models.grounded_sam import GroundedSAM
+from instantlearn.models.matcher import Matcher
+from instantlearn.models.per_dino import PerDino
+from instantlearn.models.soft_matcher import SoftMatcher
+from instantlearn.utils.benchmark import convert_masks_to_one_hot_tensor
+from instantlearn.utils.constants import ModelName, SAMModelName
 
 
 @pytest.fixture
@@ -97,7 +97,7 @@ class TestModelIntegration:
             pytest.skip("SAM3 doesn't use SAM backend, tested separately")
 
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
-        # https://github.com/open-edge-platform/geti-prompt/issues/367
+        # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
             pytest.skip("Skipping test_model_initialization for SAM2-tiny")
 
@@ -137,7 +137,7 @@ class TestModelIntegration:
             pytest.skip("SAM3 doesn't use SAM backend, tested separately")
 
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
-        # https://github.com/open-edge-platform/geti-prompt/issues/367
+        # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
             pytest.skip("Skipping test_model_learn_infer for SAM2-tiny")
 
@@ -184,7 +184,7 @@ class TestModelIntegration:
             fss1000_root: Path to fss-1000 dataset.
         """
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
-        # https://github.com/open-edge-platform/geti-prompt/issues/367
+        # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY or model_name == ModelName.SAM3:
             pytest.skip("Skipping test_n_shots_capability for SAM2-tiny or SAM3")
 
@@ -259,7 +259,7 @@ class TestModelIntegration:
             target_batch: Batch of target samples.
         """
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
-        # https://github.com/open-edge-platform/geti-prompt/issues/367
+        # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
             pytest.skip("Skipping test_model_input_validation for SAM2-tiny")
 
@@ -297,7 +297,7 @@ class TestModelIntegration:
             pytest.skip("SAM3 doesn't use SAM backend, tested separately")
 
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
-        # https://github.com/open-edge-platform/geti-prompt/issues/367
+        # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
             pytest.skip("Skipping test_model_input_validation for SAM2-tiny")
 
@@ -356,7 +356,7 @@ class TestModelIntegration:
             pytest.skip("SAM3 doesn't use SAM backend, tested separately")
 
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
-        # https://github.com/open-edge-platform/geti-prompt/issues/367
+        # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
             pytest.skip("Skipping test_model_metrics_calculation for SAM2-tiny")
 

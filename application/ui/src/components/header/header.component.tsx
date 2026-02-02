@@ -12,7 +12,7 @@ export const Header = ({ homeLink, children }: { homeLink: string; children: Rea
     return (
         <View gridArea={'header'} backgroundColor={'gray-200'}>
             <Flex height='100%' alignItems={'center'} justifyContent={'space-between'} marginX='1rem' gap='size-200'>
-                <Link to={homeLink}>Geti Prompt</Link>
+                <Link to={homeLink}>Geti Instant Learn</Link>
                 {children}
             </Flex>
         </View>

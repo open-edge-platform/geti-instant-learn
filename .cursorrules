@@ -1,4 +1,4 @@
-# Geti Prompt - AI Assistant Rules
+# Geti Instant Learn - AI Assistant Rules
 
 > **Note**: This file is synchronized with `.github/copilot-instructions.md`. Both Cursor and VS Code (GitHub Copilot) use these same standards.
 
@@ -199,7 +199,7 @@ application/ui/src/
 
 **Library**
 ```
-library/src/getiprompt/
+library/src/instantlearn/
 ├── configs/      # Configuration management
 ├── data/         # Data loading and processing
 ├── inference/    # Inference engine

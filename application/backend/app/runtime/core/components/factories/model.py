@@ -1,10 +1,10 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
-from getiprompt.data.base.batch import Batch
-from getiprompt.models.matcher import Matcher
-from getiprompt.models.per_dino import PerDino
-from getiprompt.models.soft_matcher import SoftMatcher
+from instantlearn.data.base.batch import Batch
+from instantlearn.models.matcher import Matcher
+from instantlearn.models.per_dino import PerDino
+from instantlearn.models.soft_matcher import SoftMatcher
 
 from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, SoftMatcherConfig
 from runtime.core.components.base import ModelHandler

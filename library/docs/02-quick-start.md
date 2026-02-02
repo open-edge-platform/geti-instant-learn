@@ -1,6 +1,6 @@
 # Quick Start
 
-Get up and running with the Geti Prompt Library in minutes.
+Get up and running with the Geti Instant Learn Library in minutes.
 
 ## Prerequisites
 
@@ -39,10 +39,10 @@ uv sync --extra full      # All dependencies
 
 ```python
 import torch
-from getiprompt.models import Matcher
-from getiprompt.data import Sample
-from getiprompt.components.sam import SAMPredictor
-from getiprompt.utils.constants import SAMModelName
+from instantlearn.models import Matcher
+from instantlearn.data import Sample
+from instantlearn.components.sam import SAMPredictor
+from instantlearn.utils.constants import SAMModelName
 
 # Generate reference mask from a point click using SAM
 predictor = SAMPredictor(SAMModelName.SAM_HQ_TINY, device="xpu")
@@ -76,8 +76,8 @@ masks = predictions[0]["pred_masks"]  # Predicted segmentation masks
 ### Text-Based Prompting with GroundedSAM
 
 ```python
-from getiprompt.models import GroundedSAM
-from getiprompt.data import Sample
+from instantlearn.models import GroundedSAM
+from instantlearn.data import Sample
 
 # Initialize GroundedSAM (no reference masks needed)
 model = GroundedSAM(device="xpu")
@@ -104,26 +104,26 @@ The library provides a command-line interface with three subcommands: `run`, `be
 
 ```bash
 # Run with predefined masks
-getiprompt run \
+instantlearn run \
   --reference_images path/to/reference/images \
   --target_images path/to/target/images \
   --reference_prompts path/to/reference/masks
 
 # Run with text prompt
-getiprompt run --target_images path/to/target/images --reference_text_prompt "can"
+instantlearn run --target_images path/to/target/images --reference_text_prompt "can"
 ```
 
 ### Benchmark on Datasets
 
 ```bash
 # Evaluate on LVIS dataset
-getiprompt benchmark --dataset_name LVIS --model Matcher
+instantlearn benchmark --dataset_name LVIS --model Matcher
 
 # Evaluate on PerSeg dataset
-getiprompt benchmark --dataset_name PerSeg --model Matcher
+instantlearn benchmark --dataset_name PerSeg --model Matcher
 
 # Run all models on all datasets
-getiprompt benchmark --model all --dataset_name all
+instantlearn benchmark --model all --dataset_name all
 ```
 
 > Results are saved to `~/outputs/` by default.

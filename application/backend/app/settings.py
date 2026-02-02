@@ -22,11 +22,11 @@ class Settings(BaseSettings):
     current_dir: Path = Path(__file__).parent.resolve()
 
     # Application
-    app_name: str = "Geti Prompt"
+    app_name: str = "Geti Instant Learn"
     version: str = "0.1.0"
-    summary: str = "Geti Prompt server"
+    summary: str = "Geti Instant Learn server"
     description: str = (
-        "Geti Prompt is a modular framework for few-shot visual segmentation using visual prompting techniques. "
+        "Geti Instant Learn is a modular framework for few-shot visual segmentation using visual prompting techniques. "
         "Enables easy experimentation with different algorithms, backbones (SAM, MobileSAM, EfficientViT-SAM, DinoV2), "
         "and project components for finding and segmenting objects from just a few examples."
     )
@@ -51,7 +51,7 @@ class Settings(BaseSettings):
 
     # Database
     db_data_dir: Path = Field(default=current_dir.parent / ".data", alias="DB_DATA_DIR")
-    db_filename: str = "geti_prompt.db"
+    db_filename: str = "instant_learn.db"
 
     # Template datasets
     template_dataset_path: str = Field(default="templates/datasets/coffee-berries", alias="TEMPLATE_DATASET_PATH")
@@ -77,7 +77,7 @@ class Settings(BaseSettings):
     @property
     def log_file(self) -> str:
         """Log file location"""
-        return str(self.logs_dir / "geti-prompt-backend.log")
+        return str(self.logs_dir / "instant-learn-backend.log")
 
     db_echo: bool = Field(default=False, alias="DB_ECHO")
 

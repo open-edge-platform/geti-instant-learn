@@ -55,7 +55,7 @@ export default defineConfig({
     },
 
     html: {
-        title: 'Geti Prompt',
+        title: 'Geti Instant Learn',
     },
 
     server: {

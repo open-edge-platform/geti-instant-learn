@@ -5,8 +5,8 @@ import logging
 from queue import Empty, Queue
 
 import torch
-from getiprompt.data.base.batch import Batch
-from getiprompt.data.base.sample import Sample
+from instantlearn.data.base.batch import Batch
+from instantlearn.data.base.sample import Sample
 from torchvision import tv_tensors
 
 from domain.services.schemas.processor import InputData, OutputData

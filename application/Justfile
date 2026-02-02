@@ -24,13 +24,13 @@ coturn-port := "443"
 # -------------------------------------------------------------------------------------------------
 docker-build-context := ""
 build-target := "cpu"  # options: cpu, cuda, xpu
-component-name := "geti-prompt"
+component-name := "instant-learn"
 container-registry := 'localhost:5000/open-edge-platform'
 version := "latest"
 image-name := container-registry / component-name / build-target + ":" + version
 
 source-dataset-dir := "backend/.data/templates/datasets/coffee-berries"
-target-dataset-dir := "/geti_prompt/data/templates/datasets/coffee-berries"
+target-dataset-dir := "/instant_learn/data/templates/datasets/coffee-berries"
 
 # Coturn settings
 coturn-image := "quay.io/coturn/coturn"
@@ -72,9 +72,9 @@ build-image: (download-dataset source-dataset-dir)
         --target {{ build-target }}
 
 # To persist the database, add this to `docker run` args:
-# `--volume "{{ component-name }}-data":/geti_prompt/data \`
+# `--volume "{{ component-name }}-data":/instant_learn/data \`
 # To persist logs, add this to `docker run` args:
-# `--volume "{{ component-name }}-logs":/geti_prompt/logs \`
+# `--volume "{{ component-name }}-logs":/instant_learn/logs \`
 # Add either line, or both.
 # launch geti prompt with optional webcam, volume and port mapping
 run-image: build-image
@@ -174,7 +174,7 @@ test-image:
       sleep 5
     done
 
-    EXPECTED_TITLE="Geti Prompt"
+    EXPECTED_TITLE="Geti Instant Learn"
     echo "Checking HTML title..."
 
     HTML_CONTENT=$(no_proxy=localhost curl -sf $TEST_URL)

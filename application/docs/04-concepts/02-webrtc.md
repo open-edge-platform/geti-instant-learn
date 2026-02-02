@@ -1,6 +1,6 @@
 # WebRTC Networking
 
-Geti Prompt uses WebRTC for real-time video streaming between the browser and backend. This guide explains how to configure WebRTC for different network environments.
+Geti Instant Learn uses WebRTC for real-time video streaming between the browser and backend. This guide explains how to configure WebRTC for different network environments.
 
 ## Overview
 
