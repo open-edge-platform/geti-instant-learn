@@ -16,8 +16,8 @@
 from collections.abc import Iterable
 
 import torch
-import torch.nn.functional as F
 from torch import Tensor, nn
+from torch.nn import functional
 from transformers.modeling_layers import GradientCheckpointingLayer
 
 from .common import MLP, SinePositionEmbedding
@@ -27,16 +27,24 @@ from .common import MLP, SinePositionEmbedding
 # =============================================================================
 
 
-def rotate_pairwise(x):
-    """Pairwise rotation of the hidden dims of the input. Differerent from Llama Half-Tensor Rotation.
+def rotate_pairwise(x: Tensor) -> Tensor:
+    """Pairwise rotation of the hidden dims of the input.
 
-    This is an optimized version of the following more explicit implementation:
+    Different from Llama Half-Tensor Rotation. This is an optimized version of
+    the following more explicit implementation:
+
     ```python
     x_rotated = torch.zeros_like(x, dtype=x.dtype, device=x.device)
     x_rotated[..., ::2] = -x[..., 1::2]
     x_rotated[..., 1::2] = x[..., ::2]
     return x_rotated
     ```
+
+    Args:
+        x (Tensor): Input tensor of shape (..., hidden_dim).
+
+    Returns:
+        Tensor: Rotated tensor of shape (..., hidden_dim).
     """
     x = x.view(*x.shape[:-1], -1, 2)
     x1, x2 = x.unbind(dim=-1)
@@ -45,21 +53,23 @@ def rotate_pairwise(x):
 
 
 def apply_rotary_pos_emb_2d(
-    q: torch.Tensor,
-    k: torch.Tensor,
-    cos: torch.Tensor,
-    sin: torch.Tensor,
-) -> tuple[torch.Tensor, torch.Tensor]:
+    q: Tensor,
+    k: Tensor,
+    cos: Tensor,
+    sin: Tensor,
+) -> tuple[Tensor, Tensor]:
     """Apply rotary position embedding to query and key tensors for self-attention.
 
     Args:
-        q: Query tensor of shape (batch_size, num_windows, seq_len, num_heads, head_dim)
-        k: Key tensor of shape (batch_size, num_windows, seq_len, num_heads, head_dim)
-        cos: Cosine position embedding of shape (seq_len, head_dim)
-        sin: Sine position embedding of shape (seq_len, head_dim)
+        q (Tensor): Query tensor of shape (batch_size, num_windows, seq_len,
+            num_heads, head_dim).
+        k (Tensor): Key tensor of shape (batch_size, num_windows, seq_len,
+            num_heads, head_dim).
+        cos (Tensor): Cosine position embedding of shape (seq_len, head_dim).
+        sin (Tensor): Sine position embedding of shape (seq_len, head_dim).
 
     Returns:
-        Rotated (q, k) tensors
+        tuple[Tensor, Tensor]: Rotated (q, k) tensors with same shapes as input.
     """
     q_embed = q.float()
     q_embed = (q_embed * cos) + (rotate_pairwise(q_embed) * sin)
@@ -70,19 +80,23 @@ def apply_rotary_pos_emb_2d(
     return q_embed.type_as(q), k_embed.type_as(k)
 
 
-def window_partition(hidden_state, window_size):
+def window_partition(
+    hidden_state: Tensor,
+    window_size: int,
+) -> tuple[Tensor, tuple[int, int]]:
     """Partition into non-overlapping windows with padding if needed.
 
     Args:
-        hidden_state (`torch.Tensor`):
-            Input tokens with [batch_size, height, width, num_channels].
-        window_size (`int`):
-            Window size.
+        hidden_state (Tensor): Input tokens with shape [batch_size, height, width,
+            num_channels].
+        window_size (int): Window size for partitioning.
 
     Returns:
-        `tuple(torch.FloatTensor)` comprising various elements:
-        - windows: windows after partition with [batch_size * num_windows, window_size, window_size, num_channels].
-        - (padded_height, padded_width): padded height and width before partition
+        tuple[Tensor, tuple[int, int]]: A tuple containing:
+            - windows (Tensor): Windows after partition with shape [batch_size *
+              num_windows, window_size, window_size, num_channels].
+            - (padded_height, padded_width) (tuple[int, int]): Padded height
+              and width before partition.
     """
     batch_size, height, width, num_channels = hidden_state.shape
     pad_height = (window_size - height % window_size) % window_size
@@ -105,21 +119,26 @@ def window_partition(hidden_state, window_size):
     return windows, (padded_height, padded_width)
 
 
-def window_unpartition(windows, window_size, pad_height_width, height_width):
+def window_unpartition(
+    windows: Tensor,
+    window_size: int,
+    pad_height_width: tuple[int, int],
+    height_width: tuple[int, int],
+) -> Tensor:
     """Window unpartition into original sequences and removing padding.
 
     Args:
-        windows (`torch.Tensor`):
-            Input tokens with [batch_size * num_windows, window_size, window_size, num_channels].
-        window_size (`int`):
-            Window size.
-        pad_height_width (`tuple[int]`):
-            Padded height and width (padded_height, padded_width).
-        height_width (`tuple[int]`):
-            Original height and width before padding.
+        windows (Tensor): Input tokens with shape [batch_size * num_windows,
+            window_size, window_size, num_channels].
+        window_size (int): Window size used for partitioning.
+        pad_height_width (tuple[int, int]): Padded (height, width) dimensions
+            from window_partition.
+        height_width (tuple[int, int]): Original (height, width) dimensions
+            before padding.
 
     Returns:
-        hidden_state: unpartitioned sequences with [batch_size, height, width, num_channels].
+        Tensor: Unpartitioned sequences with shape [batch_size, height, width,
+            num_channels].
     """
     padded_height, padded_width = pad_height_width
     height, width = height_width
@@ -136,8 +155,7 @@ def window_unpartition(windows, window_size, pad_height_width, height_width):
     hidden_state = hidden_state.view(batch_size, padded_height, padded_width, -1)
 
     # We always have height <= padded_height and width <= padded_width
-    hidden_state = hidden_state[:, :height, :width, :].contiguous()
-    return hidden_state
+    return hidden_state[:, :height, :width, :].contiguous()
 
 
 # =============================================================================
@@ -146,8 +164,19 @@ def window_unpartition(windows, window_size, pad_height_width, height_width):
 
 
 class ViTRotaryEmbedding(nn.Module):
-    """Vision Rotary Position Embedding for SAM3, following transformers library standards.
-    Supports 2D (axial) rotary embeddings for spatial dimensions.
+    """Vision Rotary Position Embedding for SAM3.
+
+    Supports 2D (axial) rotary embeddings for spatial dimensions, following
+    transformers library standards.
+
+    Attributes:
+        end_x (int): X dimension size for rotary embeddings.
+        end_y (int): Y dimension size for rotary embeddings.
+        dim (int): Dimension size for each position (head_dim).
+        rope_theta (float): Base frequency for rotary embeddings.
+        scale (float): Scale factor for rotary embeddings.
+        rope_embeddings_cos (Tensor): Cosine position embeddings.
+        rope_embeddings_sin (Tensor): Sine position embeddings.
     """
 
     def __init__(
@@ -158,11 +187,25 @@ class ViTRotaryEmbedding(nn.Module):
         num_attention_heads: int = 16,
         rope_theta: float = 10000.0,
         scale: float = 1.0,
-    ):
+    ) -> None:
+        """Initialize ViTRotaryEmbedding.
+
+        Args:
+            end_x (int): X dimension size for rotary embeddings.
+            end_y (int): Y dimension size for rotary embeddings.
+            hidden_size (int): Hidden size of the model. Default: 1024.
+            num_attention_heads (int): Number of attention heads. Default: 16.
+            rope_theta (float): Base frequency for rotary embeddings. Default: 10000.0.
+            scale (float): Scale factor for position indices. Default: 1.0.
+
+        Raises:
+            ValueError: If dimension is not divisible by 4 for axial RoPE.
+        """
         super().__init__()
         dim = hidden_size // num_attention_heads
         if dim % 4 != 0:
-            raise ValueError("Dimension must be divisible by 4 for axial RoPE")
+            msg = "Dimension must be divisible by 4 for axial RoPE"
+            raise ValueError(msg)
         self.end_x, self.end_y = end_x, end_y
         self.dim = dim
         self.rope_theta = rope_theta
@@ -187,20 +230,47 @@ class ViTRotaryEmbedding(nn.Module):
         self.rope_embeddings_sin.data.copy_(inv_freq.sin())
 
     @torch.no_grad()
-    def forward(self) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self) -> tuple[Tensor, Tensor]:
+        """Return pre-computed rotary position embeddings.
+
+        Returns:
+            tuple[Tensor, Tensor]: Cosine and sine embeddings tensors.
+        """
         # As the feature map size is fixed for each stage, we can just return the pre-computed embeddings.
         return self.rope_embeddings_cos, self.rope_embeddings_sin
 
 
 class ViTRoPEAttention(nn.Module):
-    """Self-attention with rotary position encoding."""
+    """Self-attention with rotary position encoding.
+
+    Implements multi-head self-attention with rotary position embeddings
+    for Vision Transformer.
+
+    Attributes:
+        hidden_size (int): Hidden dimension size.
+        num_attention_heads (int): Number of attention heads.
+        head_dim (int): Dimension per attention head.
+        scaling (float): Scaling factor for attention scores.
+        attention_dropout (float): Dropout rate for attention.
+        q_proj (Linear): Query projection layer.
+        k_proj (Linear): Key projection layer.
+        v_proj (Linear): Value projection layer.
+        o_proj (Linear): Output projection layer.
+    """
 
     def __init__(
         self,
         hidden_size: int = 1024,
         num_attention_heads: int = 16,
         attention_dropout: float = 0.0,
-    ):
+    ) -> None:
+        """Initialize ViTRoPEAttention.
+
+        Args:
+            hidden_size (int): Hidden dimension size. Default: 1024.
+            num_attention_heads (int): Number of attention heads. Default: 16.
+            attention_dropout (float): Dropout rate for attention. Default: 0.0.
+        """
         super().__init__()
         self.hidden_size = hidden_size
         self.num_attention_heads = num_attention_heads
@@ -215,10 +285,21 @@ class ViTRoPEAttention(nn.Module):
 
     def forward(
         self,
-        hidden_states: torch.Tensor,
-        position_embeddings: tuple[torch.Tensor, torch.Tensor],
-        **kwargs,
+        hidden_states: Tensor,
+        position_embeddings: tuple[Tensor, Tensor],
     ) -> tuple[Tensor, None]:
+        """Apply self-attention with rotary position embeddings.
+
+        Args:
+            hidden_states (Tensor): Input hidden states of shape (batch_size,
+                height, width, hidden_size).
+            position_embeddings (tuple[Tensor, Tensor]): Cosine and sine
+                position embeddings of shape (seq_len, head_dim).
+
+        Returns:
+            tuple[Tensor, None]: Attention output of shape (batch_size, height,
+                width, hidden_size) and None for compatibility.
+        """
         batch_size, height, width, _ = hidden_states.shape
         seq_len = height * width
         new_shape = (batch_size, seq_len, self.num_attention_heads, self.head_dim)
@@ -228,7 +309,7 @@ class ViTRoPEAttention(nn.Module):
         cos, sin = position_embeddings
         query, key = apply_rotary_pos_emb_2d(query, key, cos=cos, sin=sin)
 
-        attn_output = F.scaled_dot_product_attention(
+        attn_output = functional.scaled_dot_product_attention(
             query,
             key,
             value,
@@ -243,9 +324,18 @@ class ViTRoPEAttention(nn.Module):
 
 
 class ViTPatchEmbeddings(nn.Module):
-    """This class turns `pixel_values` of shape `(batch_size, num_channels, height, width)` into the initial
-    `hidden_states` (patch embeddings) of shape `(batch_size, seq_length, hidden_size)` to be consumed by a
-    Transformer.
+    """Convert pixel values to patch embeddings for ViT.
+
+    This class converts image pixels of shape (batch_size, num_channels, height,
+    width) into patch embeddings (batch_size, seq_length, hidden_size) to be
+    consumed by a Transformer.
+
+    Attributes:
+        image_size (tuple[int, int]): Expected input image size (height, width).
+        patch_size (tuple[int, int]): Size of each patch (height, width).
+        num_channels (int): Number of input image channels.
+        num_patches (int): Total number of patches.
+        projection (Conv2d): Convolutional layer for patch projection.
     """
 
     def __init__(
@@ -254,7 +344,15 @@ class ViTPatchEmbeddings(nn.Module):
         patch_size: int = 14,
         num_channels: int = 3,
         hidden_size: int = 1024,
-    ):
+    ) -> None:
+        """Initialize ViTPatchEmbeddings.
+
+        Args:
+            pretrain_image_size (int): Pretraining image size. Default: 336.
+            patch_size (int): Patch size. Default: 14.
+            num_channels (int): Number of input channels. Default: 3.
+            hidden_size (int): Hidden dimension size. Default: 1024.
+        """
         super().__init__()
         image_size = (
             pretrain_image_size
@@ -270,15 +368,31 @@ class ViTPatchEmbeddings(nn.Module):
 
         self.projection = nn.Conv2d(num_channels, hidden_size, kernel_size=patch_size, stride=patch_size, bias=False)
 
-    def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:
-        embeddings = self.projection(pixel_values.to(self.projection.weight.dtype)).flatten(2).transpose(1, 2)
-        return embeddings
+    def forward(self, pixel_values: Tensor) -> Tensor:
+        """Convert pixel values to patch embeddings.
+
+        Args:
+            pixel_values (Tensor): Input images of shape (batch_size, num_channels,
+                height, width).
+
+        Returns:
+            Tensor: Patch embeddings of shape (batch_size, seq_length, hidden_size).
+        """
+        return self.projection(pixel_values.to(self.projection.weight.dtype)).flatten(2).transpose(1, 2)
 
 
 class ViTEmbeddings(nn.Module):
-    """Construct the patch embeddings and position embeddings for SAM3 ViT.
+    """Patch embeddings and position embeddings for SAM3 ViT.
 
-    Position embeddings are tiled (not interpolated) when resizing to match different input sizes.
+    Combines patch embeddings with learnable position embeddings. Position
+    embeddings are tiled (not interpolated) when resizing to match different
+    input sizes.
+
+    Attributes:
+        patch_embeddings (ViTPatchEmbeddings): Patch embedding layer.
+        position_embeddings (Parameter): Learnable position embedding parameters.
+        dropout (Dropout): Dropout layer.
+        patch_size (int): Patch size.
     """
 
     def __init__(
@@ -289,7 +403,18 @@ class ViTEmbeddings(nn.Module):
         hidden_size: int = 1024,
         hidden_dropout: float = 0.0,
         initializer_range: float = 0.02,
-    ):
+    ) -> None:
+        """Initialize ViTEmbeddings.
+
+        Args:
+            pretrain_image_size (int): Pretraining image size. Default: 336.
+            patch_size (int): Patch size. Default: 14.
+            num_channels (int): Number of input channels. Default: 3.
+            hidden_size (int): Hidden dimension size. Default: 1024.
+            hidden_dropout (float): Dropout rate for hidden states. Default: 0.0.
+            initializer_range (float): Std deviation for weight initialization.
+                Default: 0.02.
+        """
         super().__init__()
         self.initializer_range = initializer_range
 
@@ -310,21 +435,23 @@ class ViTEmbeddings(nn.Module):
         """Initialize position embeddings with normal distribution."""
         nn.init.normal_(self.position_embeddings, mean=0.0, std=self.initializer_range)
 
+    @staticmethod
     def _tile_position_embeddings(
-        self,
-        position_embeddings: torch.Tensor,
+        position_embeddings: Tensor,
         height: int,
         width: int,
-    ) -> torch.Tensor:
+    ) -> Tensor:
         """Tile position embeddings to match target spatial dimensions.
 
         Args:
-            position_embeddings: Shape [1, num_pretrain_patches, hidden_size]
-            height: Target height in patches
-            width: Target width in patches
+            position_embeddings (Tensor): Shape [1, num_pretrain_patches,
+                hidden_size].
+            height (int): Target height in patches.
+            width (int): Target width in patches.
 
         Returns:
-            Shape [1, height * width, hidden_size]
+            Tensor: Tiled position embeddings of shape [1, height * width,
+                hidden_size].
         """
         pretrain_size = int(position_embeddings.shape[1] ** 0.5)
 
@@ -342,9 +469,18 @@ class ViTEmbeddings(nn.Module):
 
     def forward(
         self,
-        pixel_values: torch.Tensor,
-        interpolate_pos_encoding: bool = False,
-    ) -> torch.Tensor:
+        pixel_values: Tensor,
+    ) -> Tensor:
+        """Add patch and position embeddings.
+
+        Args:
+            pixel_values (Tensor): Input images of shape (batch_size, num_channels,
+                height, width).
+
+        Returns:
+            Tensor: Combined embeddings of shape (batch_size, seq_length,
+                hidden_size).
+        """
         height, width = pixel_values.shape[-2:]
         embeddings = self.patch_embeddings(pixel_values)
 
@@ -357,27 +493,62 @@ class ViTEmbeddings(nn.Module):
             height_patches,
             width_patches,
         )
-        embeddings = embeddings + position_embeddings
-        embeddings = self.dropout(embeddings)
-
-        return embeddings
+        embeddings += position_embeddings
+        return self.dropout(embeddings)
 
 
 class ViTLayerScale(nn.Module):
+    """Layer scaling for Vision Transformer residual connections.
+
+    Applies learnable scaling to layer outputs for improved training stability.
+
+    Attributes:
+        lambda1 (Parameter): Learnable scaling parameter.
+    """
+
     def __init__(
         self,
         hidden_size: int = 1024,
         layer_scale_init_value: float = 1.0,
     ) -> None:
+        """Initialize ViTLayerScale.
+
+        Args:
+            hidden_size (int): Hidden dimension size. Default: 1024.
+            layer_scale_init_value (float): Initial value for scaling parameter.
+                Default: 1.0.
+        """
         super().__init__()
         self.lambda1 = nn.Parameter(layer_scale_init_value * torch.ones(hidden_size))
 
-    def forward(self, hidden_state: torch.Tensor) -> torch.Tensor:
+    def forward(self, hidden_state: Tensor) -> Tensor:
+        """Scale hidden state.
+
+        Args:
+            hidden_state (Tensor): Input hidden state tensor.
+
+        Returns:
+            Tensor: Scaled hidden state.
+        """
         return hidden_state * self.lambda1
 
 
 class ViTLayer(GradientCheckpointingLayer):
-    """Vision Transformer layer with rotary position embeddings and optional windowed attention."""
+    """Vision Transformer layer with rotary position embeddings and windowed attention.
+
+    Implements a single transformer block with layer normalization, multi-head
+    self-attention, and feed-forward network. Supports optional windowed
+    attention for efficiency.
+
+    Attributes:
+        layer_norm1 (LayerNorm): Layer normalization for attention.
+        rotary_emb (ViTRotaryEmbedding): Rotary position embeddings.
+        attention (ViTRoPEAttention): Multi-head attention with RoPE.
+        layer_norm2 (LayerNorm): Layer normalization for MLP.
+        mlp (MLP): Feed-forward network.
+        dropout (Dropout): Dropout layer.
+        window_size (int): Window size for windowed attention (0 = global).
+    """
 
     def __init__(
         self,
@@ -394,6 +565,23 @@ class ViTLayer(GradientCheckpointingLayer):
         config_window_size: int = 24,
         window_size: int = 0,
     ) -> None:
+        """Initialize ViTLayer.
+
+        Args:
+            hidden_size (int): Hidden dimension size. Default: 1024.
+            intermediate_size (int): MLP intermediate dimension. Default: 4736.
+            num_attention_heads (int): Number of attention heads. Default: 16.
+            image_size (int): Input image size in pixels. Default: 1008.
+            patch_size (int): Patch size in pixels. Default: 14.
+            layer_norm_eps (float): Layer norm epsilon. Default: 1e-6.
+            hidden_act (str): Activation function name. Default: "gelu".
+            hidden_dropout (float): Hidden state dropout rate. Default: 0.0.
+            attention_dropout (float): Attention dropout rate. Default: 0.0.
+            rope_theta (float): RoPE base frequency. Default: 10000.0.
+            config_window_size (int): Configured window size. Default: 24.
+            window_size (int): Actual window size for attention (0=global).
+                Default: 0.
+        """
         super().__init__()
 
         img_size = image_size if isinstance(image_size, (list, tuple)) else (image_size, image_size)
@@ -427,13 +615,20 @@ class ViTLayer(GradientCheckpointingLayer):
 
         self.window_size = window_size
 
-        self.window_size = window_size
-
     def forward(
         self,
-        hidden_states: torch.Tensor,
-        **kwargs,
-    ) -> torch.Tensor:
+        hidden_states: Tensor,
+    ) -> Tensor:
+        """Apply transformer layer with attention and MLP.
+
+        Args:
+            hidden_states (Tensor): Input hidden states of shape (batch_size,
+                height, width, hidden_size).
+
+        Returns:
+            Tensor: Output hidden states of shape (batch_size, height, width,
+                hidden_size).
+        """
         residual = hidden_states
 
         hidden_states = self.layer_norm1(hidden_states)
@@ -444,7 +639,7 @@ class ViTLayer(GradientCheckpointingLayer):
             hidden_states, pad_height_width = window_partition(hidden_states, self.window_size)
 
         position_embeddings = self.rotary_emb()
-        hidden_states, _ = self.attention(hidden_states, position_embeddings, **kwargs)
+        hidden_states, _ = self.attention(hidden_states, position_embeddings)
 
         if self.window_size > 0:
             # Reverse window partition to restore original spatial layout
@@ -454,30 +649,40 @@ class ViTLayer(GradientCheckpointingLayer):
         residual = hidden_states
         hidden_states = self.layer_norm2(hidden_states)
         hidden_states = self.mlp(hidden_states)
-        hidden_states = residual + self.dropout(hidden_states)
-
-        return hidden_states
+        return residual + self.dropout(hidden_states)
 
 
 class ViTModel(nn.Module):
     """Vision Transformer backbone for SAM3.
 
+    Implements a complete Vision Transformer with patch embeddings, learnable
+    position embeddings, and stacked transformer layers with optional windowed
+    attention.
+
     Args:
-        hidden_size: Dimensionality of the encoder layers. Default: 1024.
-        intermediate_size: Dimensionality of the feedforward (MLP) layers. Default: 4736.
-        num_hidden_layers: Number of hidden layers in the Transformer encoder. Default: 32.
-        num_attention_heads: Number of attention heads. Default: 16.
-        num_channels: Number of input image channels. Default: 3.
-        image_size: Expected input image size. Default: 1008.
-        patch_size: Size of image patches. Default: 14.
-        hidden_act: The non-linear activation function. Default: "gelu".
-        layer_norm_eps: Epsilon for layer normalization. Default: 1e-6.
-        attention_dropout: Dropout ratio for attention probabilities. Default: 0.0.
-        rope_theta: Base frequency for RoPE. Default: 10000.0.
-        window_size: Window size for windowed attention. Default: 24.
-        global_attn_indexes: Indexes of layers with global attention. Default: [7, 15, 23, 31].
-        pretrain_image_size: Pretrained model image size for position embedding init. Default: 336.
-        hidden_dropout: Dropout probability for hidden states. Default: 0.0.
+        hidden_size (int): Dimensionality of the encoder layers. Default: 1024.
+        intermediate_size (int): Dimensionality of the feedforward (MLP) layers.
+            Default: 4736.
+        num_hidden_layers (int): Number of hidden layers in the Transformer
+            encoder. Default: 32.
+        num_attention_heads (int): Number of attention heads. Default: 16.
+        num_channels (int): Number of input image channels. Default: 3.
+        image_size (int): Expected input image size. Default: 1008.
+        patch_size (int): Size of image patches. Default: 14.
+        hidden_act (str): The non-linear activation function. Default: "gelu".
+        layer_norm_eps (float): Epsilon for layer normalization. Default: 1e-6.
+        attention_dropout (float): Dropout ratio for attention probabilities.
+            Default: 0.0.
+        rope_theta (float): Base frequency for RoPE. Default: 10000.0.
+        window_size (int): Window size for windowed attention. Default: 24.
+        global_attn_indexes (list[int] | None): Indexes of layers with global
+            attention. Default: [7, 15, 23, 31].
+        pretrain_image_size (int): Pretrained model image size for position
+            embedding init. Default: 336.
+        hidden_dropout (float): Dropout probability for hidden states.
+            Default: 0.0.
+        initializer_range (float): Std deviation for weight initialization.
+            Default: 0.02.
     """
 
     def __init__(
@@ -498,7 +703,30 @@ class ViTModel(nn.Module):
         pretrain_image_size: int = 336,
         hidden_dropout: float = 0.0,
         initializer_range: float = 0.02,
-    ):
+    ) -> None:
+        """Initialize ViTModel.
+
+        Args:
+            hidden_size (int): Dimensionality of encoder layers. Default: 1024.
+            intermediate_size (int): Dimensionality of feedforward layers.
+                Default: 4736.
+            num_hidden_layers (int): Number of transformer layers. Default: 32.
+            num_attention_heads (int): Number of attention heads. Default: 16.
+            num_channels (int): Number of input image channels. Default: 3.
+            image_size (int): Input image size in pixels. Default: 1008.
+            patch_size (int): Patch size in pixels. Default: 14.
+            hidden_act (str): Activation function name. Default: "gelu".
+            layer_norm_eps (float): Layer norm epsilon. Default: 1e-6.
+            attention_dropout (float): Attention dropout rate. Default: 0.0.
+            rope_theta (float): RoPE base frequency. Default: 10000.0.
+            window_size (int): Window size for windowed attention. Default: 24.
+            global_attn_indexes (list[int] | None): Layer indices with global
+                attention. Default: [7, 15, 23, 31].
+            pretrain_image_size (int): Pretrained image size. Default: 336.
+            hidden_dropout (float): Hidden state dropout rate. Default: 0.0.
+            initializer_range (float): Weight initialization std deviation.
+                Default: 0.02.
+        """
         super().__init__()
         if global_attn_indexes is None:
             global_attn_indexes = [7, 15, 23, 31]
@@ -536,13 +764,27 @@ class ViTModel(nn.Module):
         )
 
     def get_input_embeddings(self) -> ViTPatchEmbeddings:
+        """Get the patch embedding layer.
+
+        Returns:
+            ViTPatchEmbeddings: The patch embeddings module.
+        """
         return self.embeddings.patch_embeddings
 
     def forward(
         self,
-        pixel_values: torch.Tensor,
-        **kwargs,
-    ) -> dict[str, torch.Tensor]:
+        pixel_values: Tensor,
+    ) -> dict[str, Tensor]:
+        """Apply Vision Transformer backbone.
+
+        Args:
+            pixel_values (Tensor): Input images of shape (batch_size, num_channels,
+                height, width).
+
+        Returns:
+            dict[str, Tensor]: Dictionary with key "last_hidden_state" containing
+                output hidden states of shape (batch_size, seq_len, hidden_size).
+        """
         hidden_states = self.embeddings(pixel_values)  # [batch_size, seq_len, hidden_size]
 
         batch_size = hidden_states.shape[0]
@@ -555,7 +797,7 @@ class ViTModel(nn.Module):
 
         hidden_states = self.layer_norm(hidden_states)
         for layer in self.layers:
-            hidden_states = layer(hidden_states, **kwargs)
+            hidden_states = layer(hidden_states)
 
         # Reshape back to sequence format: [batch_size, height*width, hidden_size]
         hidden_states = hidden_states.view(batch_size, height * width, hidden_size)
@@ -564,7 +806,34 @@ class ViTModel(nn.Module):
 
 
 class FPNLayer(nn.Module):
-    def __init__(self, in_channels: int, fpn_dim: int, scale_factor: float):
+    """Feature Pyramid Network layer for multi-scale feature extraction.
+
+    Applies upsampling/downsampling and convolutions to adjust feature maps
+    to a target scale.
+
+    Attributes:
+        scale_factor (float): Scaling factor for this FPN layer.
+        scale_layers (ModuleList): Scaling operation layers.
+        proj1 (Conv2d): First projection convolution layer.
+        proj2 (Conv2d): Second projection convolution layer.
+    """
+
+    def __init__(
+        self,
+        in_channels: int,
+        fpn_dim: int,
+        scale_factor: float,
+    ) -> None:
+        """Initialize FPNLayer.
+
+        Args:
+            in_channels (int): Number of input channels.
+            fpn_dim (int): Output feature dimension.
+            scale_factor (float): Scaling factor for upsampling/downsampling.
+
+        Raises:
+            NotImplementedError: If scale_factor is not in [4.0, 2.0, 1.0, 0.5].
+        """
         super().__init__()
         self.scale_factor = scale_factor
 
@@ -585,29 +854,54 @@ class FPNLayer(nn.Module):
             self.scale_layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
             intermediate_channels = in_channels
         else:
-            raise NotImplementedError(f"scale_factor={scale_factor} is not supported yet.")
+            msg = f"scale_factor={scale_factor} is not supported yet."
+            raise NotImplementedError(msg)
 
         self.proj1 = nn.Conv2d(in_channels=intermediate_channels, out_channels=fpn_dim, kernel_size=1)
         self.proj2 = nn.Conv2d(in_channels=fpn_dim, out_channels=fpn_dim, kernel_size=3, padding=1)
 
-    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+    def forward(self, hidden_states: Tensor) -> Tensor:
+        """Apply FPN scaling and projections.
+
+        Args:
+            hidden_states (Tensor): Input feature map.
+
+        Returns:
+            Tensor: Output feature map of shape (..., fpn_dim, *, *).
+        """
         hidden_states = hidden_states.to(self.proj1.weight.dtype)
         for layer in self.scale_layers:
             hidden_states = layer(hidden_states)
 
         hidden_states = self.proj1(hidden_states)
-        hidden_states = self.proj2(hidden_states)
-
-        return hidden_states
+        return self.proj2(hidden_states)
 
 
 class VisionNeck(nn.Module):
+    """Vision Transformer feature pyramid neck for multi-scale features.
+
+    Applies FPN layers to generate multi-scale feature representations from
+    ViT backbone outputs.
+
+    Attributes:
+        position_encoding (SinePositionEmbedding): Sinusoidal position embedding.
+        fpn_layers (ModuleList): List of FPN layers for different scales.
+    """
+
     def __init__(
         self,
         backbone_hidden_size: int = 1024,
         fpn_hidden_size: int = 256,
         scale_factors: list[float] | None = None,
-    ):
+    ) -> None:
+        """Initialize VisionNeck.
+
+        Args:
+            backbone_hidden_size (int): Backbone hidden dimension. Default: 1024.
+            fpn_hidden_size (int): FPN output dimension. Default: 256.
+            scale_factors (list[float] | None): Scale factors for FPN layers.
+                Default: [4.0, 2.0, 1.0, 0.5].
+        """
         super().__init__()
         if scale_factors is None:
             scale_factors = [4.0, 2.0, 1.0, 0.5]
@@ -621,9 +915,23 @@ class VisionNeck(nn.Module):
             ],
         )
 
-    def forward(self, hidden_states: torch.Tensor) -> tuple[tuple[torch.Tensor, ...], tuple[torch.Tensor, ...]]:
-        fpn_hidden_states = ()
-        fpn_position_encoding = ()
+    def forward(
+        self,
+        hidden_states: Tensor,
+    ) -> tuple[tuple[Tensor, ...], tuple[Tensor, ...]]:
+        """Generate multi-scale features and position encodings.
+
+        Args:
+            hidden_states (Tensor): Backbone features of shape (batch_size,
+                hidden_size, height, width).
+
+        Returns:
+            tuple[tuple[Tensor, ...], tuple[Tensor, ...]]: A tuple containing:
+                - fpn_hidden_states: Multi-scale feature maps.
+                - fpn_position_encoding: Position encodings for each scale.
+        """
+        fpn_hidden_states: tuple[Tensor, ...] = ()
+        fpn_position_encoding: tuple[Tensor, ...] = ()
 
         for fpn_layer in self.fpn_layers:
             fpn_output = fpn_layer(hidden_states)
@@ -640,24 +948,32 @@ class VisionModel(nn.Module):
     Combines ViT backbone with FPN neck for multi-scale feature extraction.
 
     Args:
-        hidden_size: Dimensionality of the ViT encoder layers. Default: 1024.
-        intermediate_size: Dimensionality of the ViT feedforward (MLP) layers. Default: 4736.
-        num_hidden_layers: Number of hidden layers in the ViT encoder. Default: 32.
-        num_attention_heads: Number of attention heads. Default: 16.
-        num_channels: Number of input image channels. Default: 3.
-        image_size: Expected input image size. Default: 1008.
-        patch_size: Size of image patches. Default: 14.
-        hidden_act: The non-linear activation function. Default: "gelu".
-        layer_norm_eps: Epsilon for layer normalization. Default: 1e-6.
-        attention_dropout: Dropout ratio for attention probabilities. Default: 0.0.
-        rope_theta: Base frequency for RoPE. Default: 10000.0.
-        window_size: Window size for windowed attention. Default: 24.
-        global_attn_indexes: Indexes of layers with global attention. Default: [7, 15, 23, 31].
-        pretrain_image_size: Pretrained model image size for position embedding init. Default: 336.
-        hidden_dropout: Dropout probability for hidden states. Default: 0.0.
-        initializer_range: Std deviation for weight initialization. Default: 0.02.
-        fpn_hidden_size: The hidden dimension of the FPN. Default: 256.
-        scale_factors: Scale factors for FPN multi-scale features. Default: [4.0, 2.0, 1.0, 0.5].
+        hidden_size (int): Dimensionality of the ViT encoder layers. Default: 1024.
+        intermediate_size (int): Dimensionality of the ViT feedforward (MLP)
+            layers. Default: 4736.
+        num_hidden_layers (int): Number of hidden layers in the ViT encoder.
+            Default: 32.
+        num_attention_heads (int): Number of attention heads. Default: 16.
+        num_channels (int): Number of input image channels. Default: 3.
+        image_size (int): Expected input image size. Default: 1008.
+        patch_size (int): Size of image patches. Default: 14.
+        hidden_act (str): The non-linear activation function. Default: "gelu".
+        layer_norm_eps (float): Epsilon for layer normalization. Default: 1e-6.
+        attention_dropout (float): Dropout ratio for attention probabilities.
+            Default: 0.0.
+        rope_theta (float): Base frequency for RoPE. Default: 10000.0.
+        window_size (int): Window size for windowed attention. Default: 24.
+        global_attn_indexes (list[int] | None): Indexes of layers with global
+            attention. Default: [7, 15, 23, 31].
+        pretrain_image_size (int): Pretrained model image size for position
+            embedding init. Default: 336.
+        hidden_dropout (float): Dropout probability for hidden states.
+            Default: 0.0.
+        initializer_range (float): Std deviation for weight initialization.
+            Default: 0.02.
+        fpn_hidden_size (int): The hidden dimension of the FPN. Default: 256.
+        scale_factors (list[float] | None): Scale factors for FPN multi-scale
+            features. Default: [4.0, 2.0, 1.0, 0.5].
     """
 
     def __init__(
@@ -680,7 +996,32 @@ class VisionModel(nn.Module):
         initializer_range: float = 0.02,
         fpn_hidden_size: int = 256,
         scale_factors: list[float] | None = None,
-    ):
+    ) -> None:
+        """Initialize VisionModel.
+
+        Args:
+            hidden_size (int): ViT encoder hidden dimension. Default: 1024.
+            intermediate_size (int): ViT feedforward dimension. Default: 4736.
+            num_hidden_layers (int): Number of ViT layers. Default: 32.
+            num_attention_heads (int): Number of attention heads. Default: 16.
+            num_channels (int): Input image channels. Default: 3.
+            image_size (int): Input image size in pixels. Default: 1008.
+            patch_size (int): Patch size in pixels. Default: 14.
+            hidden_act (str): Activation function name. Default: "gelu".
+            layer_norm_eps (float): Layer norm epsilon. Default: 1e-6.
+            attention_dropout (float): Attention dropout rate. Default: 0.0.
+            rope_theta (float): RoPE base frequency. Default: 10000.0.
+            window_size (int): Window size for windowed attention. Default: 24.
+            global_attn_indexes (list[int] | None): Layer indices with global
+                attention. Default: [7, 15, 23, 31].
+            pretrain_image_size (int): Pretrained image size. Default: 336.
+            hidden_dropout (float): Hidden state dropout rate. Default: 0.0.
+            initializer_range (float): Weight initialization std deviation.
+                Default: 0.02.
+            fpn_hidden_size (int): FPN output dimension. Default: 256.
+            scale_factors (list[float] | None): FPN scale factors. Default:
+                [4.0, 2.0, 1.0, 0.5].
+        """
         super().__init__()
         if global_attn_indexes is None:
             global_attn_indexes = [7, 15, 23, 31]
@@ -714,18 +1055,41 @@ class VisionModel(nn.Module):
             scale_factors=scale_factors,
         )
 
-    def get_input_embeddings(self):
+    def get_input_embeddings(self) -> ViTPatchEmbeddings:
+        """Get the patch embedding layer.
+
+        Returns:
+            ViTPatchEmbeddings: The patch embeddings module from backbone.
+        """
         return self.backbone.get_input_embeddings()
 
     def forward(
         self,
-        pixel_values: torch.FloatTensor | None = None,
-        **kwargs,
-    ) -> dict[str, torch.Tensor | None]:
-        if pixel_values is None:
-            raise ValueError("You have to specify pixel_values")
+        pixel_values: Tensor | None = None,
+    ) -> dict[str, Tensor | None]:
+        """Apply complete vision model (ViT + FPN).
 
-        backbone_output = self.backbone(pixel_values, **kwargs)
+        Args:
+            pixel_values (Tensor | None): Input images of shape (batch_size,
+                num_channels, height, width). Required.
+
+        Returns:
+            dict[str, Tensor | None]: Dictionary containing:
+                - "last_hidden_state": ViT output of shape (batch_size, seq_len,
+                  hidden_size).
+                - "fpn_hidden_states": Tuple of FPN feature maps at different scales.
+                - "fpn_position_encoding": Tuple of position encodings for each FPN scale.
+                - "hidden_states": None (for compatibility).
+                - "attentions": None (for compatibility).
+
+        Raises:
+            ValueError: If pixel_values is None.
+        """
+        if pixel_values is None:
+            msg = "You have to specify pixel_values"
+            raise ValueError(msg)
+
+        backbone_output = self.backbone(pixel_values)
         hidden_states = backbone_output["last_hidden_state"]  # [batch_size, seq_len, hidden_size]
 
         # Reshape for FPN neck: [batch_size, seq_len, hidden_size] -> [batch_size, hidden_size, height, width]

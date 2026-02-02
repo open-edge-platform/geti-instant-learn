@@ -39,6 +39,12 @@ from .vit import VisionModel
 
 
 class GeometryEncoderLayer(nn.Module):
+    """Transformer layer for geometry encoding with self and cross-attention.
+
+    Applies layer normalization, self-attention on prompts, cross-attention to
+    vision features, and feedforward processing with residual connections.
+    """
+
     def __init__(
         self,
         hidden_size: int = 256,
@@ -47,7 +53,18 @@ class GeometryEncoderLayer(nn.Module):
         dropout: float = 0.1,
         hidden_act: str = "relu",
         hidden_dropout: float = 0.0,
-    ):
+    ) -> None:
+        """Initialize geometry encoder layer.
+
+        Args:
+            hidden_size (int): Hidden dimension size. Default: 256.
+            num_attention_heads (int): Number of attention heads. Default: 8.
+            intermediate_size (int): Feedforward intermediate dimension. Default:
+                2048.
+            dropout (float): Dropout probability. Default: 0.1.
+            hidden_act (str): Activation function type. Default: "relu".
+            hidden_dropout (float): Hidden state dropout probability. Default: 0.0.
+        """
         super().__init__()
         self.layer_norm1 = nn.LayerNorm(hidden_size)
         self.self_attn = Attention(
@@ -76,8 +93,24 @@ class GeometryEncoderLayer(nn.Module):
         vision_feats: Tensor,
         vision_pos_encoding: Tensor,
         prompt_mask: Tensor,
-        **kwargs,
-    ):
+        **kwargs: dict,
+    ) -> Tensor:
+        """Forward pass through the layer.
+
+        Args:
+            prompt_feats (Tensor): Prompt features [batch_size, num_prompts,
+                hidden_size].
+            vision_feats (Tensor): Vision features [batch_size, num_vision,
+                hidden_size].
+            vision_pos_encoding (Tensor): Vision position encoding [batch_size,
+                num_vision, hidden_size].
+            prompt_mask (Tensor): Attention mask for prompts [batch_size,
+                num_prompts, num_prompts].
+            **kwargs (dict): Additional keyword arguments for attention layers.
+
+        Returns:
+            Tensor: Processed features [batch_size, num_prompts, hidden_size].
+        """
         residual = prompt_feats
         hidden_states = self.layer_norm1(prompt_feats)
         hidden_states, _ = self.self_attn(
@@ -96,9 +129,7 @@ class GeometryEncoderLayer(nn.Module):
         residual = hidden_states
         hidden_states = self.layer_norm3(hidden_states)
         hidden_states = self.mlp(hidden_states)
-        hidden_states = self.dropout(hidden_states) + residual
-
-        return hidden_states
+        return self.dropout(hidden_states) + residual
 
 
 class GeometryEncoder(nn.Module):
@@ -132,7 +163,20 @@ class GeometryEncoder(nn.Module):
         hidden_act: str = "relu",
         hidden_dropout: float = 0.0,
         roi_size: int = 7,
-    ):
+    ) -> None:
+        """Initialize geometry encoder.
+
+        Args:
+            hidden_size (int): Hidden dimension size. Default: 256.
+            num_layers (int): Number of transformer layers. Default: 3.
+            num_attention_heads (int): Number of attention heads. Default: 8.
+            intermediate_size (int): Feedforward intermediate dimension. Default:
+                2048.
+            dropout (float): Dropout probability. Default: 0.1.
+            hidden_act (str): Activation function type. Default: "relu".
+            hidden_dropout (float): Hidden state dropout probability. Default: 0.0.
+            roi_size (int): ROI pool size for box features. Default: 7.
+        """
         super().__init__()
         self.hidden_size = hidden_size
         self.roi_size = roi_size
@@ -170,23 +214,44 @@ class GeometryEncoder(nn.Module):
         width: torch.Tensor,
         height: torch.Tensor,
     ) -> torch.Tensor:
-        """Encode box coordinates by combining position-encoded centers with raw width/height.
+        """Encode box coordinates with position encoding.
+
+        Combines position-encoded centers with raw width/height for box
+        representation.
 
         Args:
-            center_x: 1D tensor of box center x coordinates
-            center_y: 1D tensor of box center y coordinates
-            width: 1D tensor of box widths
-            height: 1D tensor of box heights
+            center_x (torch.Tensor): Box center x coordinates [num_boxes].
+            center_y (torch.Tensor): Box center y coordinates [num_boxes].
+            width (torch.Tensor): Box widths [num_boxes].
+            height (torch.Tensor): Box heights [num_boxes].
 
         Returns:
-            Encoded box coordinates [N, embedding_dim]
+            torch.Tensor: Encoded box coordinates [num_boxes, embedding_dim].
         """
         pos_x, pos_y = self.position_encoding.encode_1d_positions(center_x, center_y)
-        pos = torch.cat((pos_y, pos_x, height[:, None], width[:, None]), dim=1)
-        return pos
+        return torch.cat((pos_y, pos_x, height[:, None], width[:, None]), dim=1)
 
-    def _encode_boxes(self, boxes, boxes_mask, boxes_labels, vision_features):
-        """Encode box prompts. Mask convention: True=valid, False=padding."""
+    def _encode_boxes(
+        self,
+        boxes: torch.Tensor,
+        boxes_mask: torch.Tensor,
+        boxes_labels: torch.Tensor,
+        vision_features: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Encode box prompts with embeddings and labels.
+
+        Mask convention: True=valid, False=padding.
+
+        Args:
+            boxes (torch.Tensor): Box coordinates [batch_size, num_boxes, 4].
+            boxes_mask (torch.Tensor): Valid box mask [batch_size, num_boxes].
+            boxes_labels (torch.Tensor): Box labels [batch_size, num_boxes].
+            vision_features (torch.Tensor): Vision features [batch_size, hidden_size,
+                height, width].
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor]: Encoded boxes and mask.
+        """
         batch_size, num_boxes = boxes.shape[:2]
         height, width = vision_features.shape[-2:]
         boxes_embed = self.boxes_direct_project(boxes)
@@ -196,7 +261,7 @@ class GeometryEncoder(nn.Module):
         boxes_xyxy = box_cxcywh_to_xyxy(boxes)
         scale = torch.tensor([width, height, width, height], dtype=boxes_xyxy.dtype, device=boxes_xyxy.device)
         scale = scale.view(1, 1, 4)
-        boxes_xyxy = boxes_xyxy * scale
+        boxes_xyxy *= scale
         # ROI align expects list of boxes per batch element,
         # convert from bfloat16 to float16 as roi_align only supports float16 and float32
         dtype = torch.float16 if vision_features.dtype == torch.bfloat16 else vision_features.dtype
@@ -208,7 +273,7 @@ class GeometryEncoder(nn.Module):
 
         pooled_projection = self.boxes_pool_project(sampled_features)
         pooled_projection = pooled_projection.view(batch_size, num_boxes, self.hidden_size)
-        boxes_embed = boxes_embed + pooled_projection
+        boxes_embed += pooled_projection
 
         # Add position encoding
         center_x, center_y, box_width, box_height = boxes.unbind(-1)
@@ -220,7 +285,7 @@ class GeometryEncoder(nn.Module):
         )
         pos_enc = pos_enc.view(batch_size, num_boxes, pos_enc.shape[-1])
         pos_projection = self.boxes_pos_enc_project(pos_enc)
-        boxes_embed = boxes_embed + pos_projection
+        boxes_embed += pos_projection
 
         # Add label embeddings (positive/negative)
         label_embed = self.label_embed(boxes_labels.long())
@@ -233,18 +298,25 @@ class GeometryEncoder(nn.Module):
         box_labels: torch.Tensor,
         img_feats: tuple[torch.Tensor, ...],
         img_pos_embeds: tuple[torch.Tensor, ...] | None = None,
-    ):
-        """Forward pass for encoding geometric prompts.
+    ) -> dict[str, torch.Tensor]:
+        """Encode geometric prompts with transformer layers.
 
         Args:
-            box_embeddings: Box coordinates in CxCyWH format [batch_size, num_boxes, 4]
-            box_mask: Attention mask for boxes [batch_size, num_boxes]
-            box_labels: Labels for boxes (positive/negative) [batch_size, num_boxes]
-            img_feats: Image features from vision encoder
-            img_pos_embeds: Optional position embeddings for image features
+            box_embeddings (torch.Tensor): Box coordinates in CxCyWH format
+                [batch_size, num_boxes, 4].
+            box_mask (torch.Tensor): Attention mask for boxes [batch_size,
+                num_boxes].
+            box_labels (torch.Tensor): Labels for boxes (positive/negative)
+                [batch_size, num_boxes].
+            img_feats (tuple[torch.Tensor, ...]): Image features from vision
+                encoder.
+            img_pos_embeds (tuple[torch.Tensor, ...] | None): Optional position
+                embeddings for image features. Default: None.
 
         Returns:
-            GeometryEncoderOutput containing encoded geometry features and attention mask.
+            dict[str, torch.Tensor]: Dictionary with 'last_hidden_state' containing
+                encoded geometry features [batch_size, num_prompts, hidden_size]
+                and 'attention_mask' for padding.
         """
         batch_size = box_embeddings.shape[0]
 
@@ -293,8 +365,11 @@ class GeometryEncoder(nn.Module):
 
 
 class DotProductScoring(nn.Module):
-    """Computes classification scores by computing dot product between projected decoder queries and pooled text features.
-    This is used to determine confidence/presence scores for each query.
+    """Compute classification scores via dot product between query and text.
+
+    Computes scores by taking dot product between projected decoder queries
+    and pooled text features to determine confidence/presence scores for each
+    query.
     """
 
     def __init__(
@@ -302,7 +377,15 @@ class DotProductScoring(nn.Module):
         hidden_size: int = 256,
         intermediate_size: int = 2048,
         dropout: float = 0.1,
-    ):
+    ) -> None:
+        """Initialize dot product scoring module.
+
+        Args:
+            hidden_size (int): Hidden dimension size. Default: 256.
+            intermediate_size (int): Feedforward intermediate dimension. Default:
+                2048.
+            dropout (float): Dropout probability. Default: 0.1.
+        """
         super().__init__()
         projection_dim = hidden_size
 
@@ -324,15 +407,21 @@ class DotProductScoring(nn.Module):
         self.clamp_logits = True
         self.clamp_max_val = 12.0
 
-    def _pool_text_features(self, text_features: torch.Tensor, text_mask: torch.Tensor | None) -> torch.Tensor:
-        """Mean pool text features, accounting for padding.
+    def _pool_text_features(
+        self,
+        text_features: torch.Tensor,
+        text_mask: torch.Tensor | None,
+    ) -> torch.Tensor:
+        """Mean pool text features accounting for padding.
 
         Args:
-            text_features: [batch_size, seq_len, hidden_size]
-            text_mask: [batch_size, seq_len] where True indicates valid tokens, False indicates padding
+            text_features (torch.Tensor): Text features [batch_size, seq_len,
+                hidden_size].
+            text_mask (torch.Tensor | None): Valid token mask [batch_size, seq_len]
+                where True=valid, False=padding.
 
         Returns:
-            pooled_text: [batch_size, hidden_size]
+            torch.Tensor: Pooled text features [batch_size, hidden_size].
         """
         if text_mask is None:
             # No padding, simple mean
@@ -344,9 +433,7 @@ class DotProductScoring(nn.Module):
         num_valid = is_valid.sum(dim=1).clamp(min=1.0)  # [batch_size, 1]
 
         # Mean pool only over valid tokens
-        pooled_text = (text_features * is_valid).sum(dim=1) / num_valid  # [batch_size, hidden_size]
-
-        return pooled_text
+        return (text_features * is_valid).sum(dim=1) / num_valid  # [batch_size, hidden_size]
 
     def forward(
         self,
@@ -357,17 +444,21 @@ class DotProductScoring(nn.Module):
         """Compute classification scores via dot product.
 
         Args:
-            decoder_hidden_states: [num_layers, batch_size, num_queries, hidden_size]
-            text_features: [batch_size, seq_len, hidden_size]
-            text_mask: [batch_size, seq_len] where True=valid, False=padding
+            decoder_hidden_states (torch.Tensor): Decoder outputs
+                [num_layers, batch_size, num_queries, hidden_size].
+            text_features (torch.Tensor): Text embeddings [batch_size, seq_len,
+                hidden_size].
+            text_mask (torch.Tensor | None): Valid token mask [batch_size, seq_len]
+                where True=valid, False=padding. Default: None.
 
         Returns:
-            scores: [num_layers, batch_size, num_queries, 1]
+            torch.Tensor: Classification scores [num_layers, batch_size,
+                num_queries, 1].
         """
         orig_text_features = text_features
         text_features = self.text_mlp(text_features)
         text_features = self.text_mlp_dropout(text_features)
-        text_features = text_features + orig_text_features
+        text_features += orig_text_features
         text_features = self.text_mlp_out_norm(text_features)
 
         pooled_text = self._pool_text_features(text_features, text_mask)
@@ -377,7 +468,7 @@ class DotProductScoring(nn.Module):
 
         proj_text = proj_text.unsqueeze(-1)
         scores = torch.matmul(proj_queries, proj_text.unsqueeze(0))
-        scores = scores * self.scale
+        scores *= self.scale
         if self.clamp_logits:
             scores = scores.clamp(min=-self.clamp_max_val, max=self.clamp_max_val)
 
@@ -385,11 +476,17 @@ class DotProductScoring(nn.Module):
 
 
 class MaskEmbedder(nn.Module):
-    """MLP that embeds object queries for mask prediction.
-    Similar to MaskFormer's mask embedder.
+    """MLP for embedding object queries for mask prediction.
+
+    Similar to MaskFormer's mask embedder architecture with three linear layers.
     """
 
-    def __init__(self, hidden_size: int = 256):
+    def __init__(self, hidden_size: int = 256) -> None:
+        """Initialize mask embedder.
+
+        Args:
+            hidden_size (int): Hidden dimension size. Default: 256.
+        """
         super().__init__()
         self.layers = nn.ModuleList(
             [
@@ -401,11 +498,14 @@ class MaskEmbedder(nn.Module):
         self.activation = nn.ReLU()
 
     def forward(self, queries: torch.Tensor) -> torch.Tensor:
-        """Args:
-            queries: Query embeddings [batch_size, num_queries, hidden_size]
+        """Embed object queries for mask prediction.
+
+        Args:
+            queries (torch.Tensor): Query embeddings [batch_size, num_queries,
+                hidden_size].
 
         Returns:
-            Mask embeddings [batch_size, num_queries, hidden_size]
+            torch.Tensor: Mask embeddings [batch_size, num_queries, hidden_size].
         """
         hidden_states = queries
         for i, layer in enumerate(self.layers):
@@ -416,15 +516,23 @@ class MaskEmbedder(nn.Module):
 
 
 class PixelDecoder(nn.Module):
-    """Feature Pyramid Network (FPN) decoder that generates pixel-level features.
-    Inspired by MaskFormer's pixel decoder.
+    """Feature Pyramid Network (FPN) decoder for pixel-level features.
+
+    Inspired by MaskFormer's pixel decoder, generates multi-scale features
+    through upsampling and skip connections.
     """
 
     def __init__(
         self,
         hidden_size: int = 256,
         num_upsampling_stages: int = 3,
-    ):
+    ) -> None:
+        """Initialize pixel decoder.
+
+        Args:
+            hidden_size (int): Hidden dimension size. Default: 256.
+            num_upsampling_stages (int): Number of upsampling stages. Default: 3.
+        """
         super().__init__()
         self.conv_layers = nn.ModuleList(
             [
@@ -437,12 +545,16 @@ class PixelDecoder(nn.Module):
         self.out_channels = hidden_size
 
     def forward(self, backbone_features: list[torch.Tensor]) -> torch.Tensor:
-        """Args:
-            backbone_features: List of backbone features [batch_size, hidden_size, H_i, W_i]
-                              from low to high resolution (assumes already projected to hidden_size)
+        """Decode multi-scale backbone features to pixel embeddings.
+
+        Args:
+            backbone_features (list[torch.Tensor]): Backbone features
+                [batch_size, hidden_size, H_i, W_i] from low to high resolution
+                (assumes already projected to hidden_size).
 
         Returns:
-            Pixel embeddings [batch_size, hidden_size, H, W] at the finest resolution
+            torch.Tensor: Pixel embeddings [batch_size, hidden_size, H, W] at the
+                finest resolution.
         """
         # Start from the coarsest feature (last in list)
         prev_fpn = backbone_features[-1]
@@ -452,7 +564,7 @@ class PixelDecoder(nn.Module):
             prev_fpn = F.interpolate(prev_fpn, size=backbone_feat.shape[-2:], mode="nearest")
 
             # Add skip connection
-            prev_fpn = prev_fpn + backbone_feat
+            prev_fpn += backbone_feat
 
             # Apply conv and norm
             prev_fpn = self.conv_layers[layer_idx](prev_fpn)
@@ -463,14 +575,19 @@ class PixelDecoder(nn.Module):
 
 
 class MaskDecoder(nn.Module):
-    """Mask decoder that combines object queries with pixel-level features to predict instance masks.
-    Also produces a semantic segmentation output and supports cross-attention to prompts.
+    """Mask decoder for instance mask prediction from queries and features.
+
+    Combines object queries with pixel-level features to predict instance masks
+    and semantic segmentation. Supports cross-attention to prompts.
 
     Args:
-        hidden_size: Dimensionality of the mask decoder. Default: 256.
-        num_upsampling_stages: Number of upsampling stages in the pixel decoder (FPN). Default: 3.
-        num_attention_heads: Number of attention heads for prompt cross-attention. Default: 8.
-        dropout: Dropout probability for prompt cross-attention. Default: 0.0.
+        hidden_size (int): Dimensionality of the mask decoder. Default: 256.
+        num_upsampling_stages (int): Number of upsampling stages in pixel
+            decoder (FPN). Default: 3.
+        num_attention_heads (int): Number of attention heads for prompt
+            cross-attention. Default: 8.
+        dropout (float): Dropout probability for prompt cross-attention.
+            Default: 0.0.
     """
 
     def __init__(
@@ -479,7 +596,18 @@ class MaskDecoder(nn.Module):
         num_upsampling_stages: int = 3,
         num_attention_heads: int = 8,
         dropout: float = 0.0,
-    ):
+    ) -> None:
+        """Initialize mask decoder.
+
+        Args:
+            hidden_size (int): Dimensionality of the mask decoder. Default: 256.
+            num_upsampling_stages (int): Number of upsampling stages in pixel
+                decoder (FPN). Default: 3.
+            num_attention_heads (int): Number of attention heads for prompt
+                cross-attention. Default: 8.
+            dropout (float): Dropout probability for prompt cross-attention.
+                Default: 0.0.
+        """
         super().__init__()
         self.pixel_decoder = PixelDecoder(
             hidden_size=hidden_size,
@@ -506,17 +634,27 @@ class MaskDecoder(nn.Module):
         encoder_hidden_states: torch.Tensor,
         prompt_features: torch.Tensor | None = None,
         prompt_mask: torch.Tensor | None = None,
-        **kwargs,
+        **kwargs: dict,
     ) -> dict[str, torch.Tensor | None]:
-        """Args:
-            decoder_queries: Decoder output queries [batch_size, num_queries, hidden_size]
-            backbone_features: List of backbone features to process through FPN
-            encoder_hidden_states: Encoder outputs [batch_size, seq_len, hidden_size]
-            prompt_features: Prompt features (text + geometry) for cross-attention [batch_size, prompt_len, hidden_size]
-            prompt_mask: Padding mask [batch_size, prompt_len] where True=valid, False=padding
+        """Predict instance masks and semantic segmentation.
+
+        Args:
+            decoder_queries (torch.Tensor): Decoder output queries [batch_size,
+                num_queries, hidden_size].
+            backbone_features (list[torch.Tensor]): List of backbone features to
+                process through FPN.
+            encoder_hidden_states (torch.Tensor): Encoder outputs [batch_size,
+                seq_len, hidden_size].
+            prompt_features (torch.Tensor | None): Prompt features (text +
+                geometry) for cross-attention [batch_size, prompt_len,
+                hidden_size]. Default: None.
+            prompt_mask (torch.Tensor | None): Padding mask [batch_size,
+                prompt_len] where True=valid, False=padding. Default: None.
+            **kwargs (dict): Additional keyword arguments for attention layers.
 
         Returns:
-            MaskDecoderOutput containing predicted masks and semantic segmentation.
+            dict[str, torch.Tensor | None]: Dictionary with 'pred_masks',
+                'semantic_seg', and 'attentions'.
         """
         if prompt_features is not None:
             # Cross-attention: encoder features attend to prompt features
@@ -561,15 +699,19 @@ class MaskDecoder(nn.Module):
         backbone_features: list[torch.Tensor],
         encoder_hidden_states: torch.Tensor,
     ) -> torch.Tensor:
-        """Embed pixels by combining backbone FPN features with encoder vision features.
-        The encoder vision features replace the finest-resolution backbone feature.
+        """Embed pixels from backbone FPN features and encoder vision features.
+
+        The encoder vision features replace the finest-resolution backbone
+        feature.
 
         Args:
-            backbone_features: List of backbone features [batch_size, C, H_i, W_i]
-            encoder_hidden_states: Encoder outputs [batch_size, seq_len, hidden_size]
+            backbone_features (list[torch.Tensor]): List of backbone features
+                [batch_size, C, H_i, W_i].
+            encoder_hidden_states (torch.Tensor): Encoder outputs [batch_size,
+                seq_len, hidden_size].
 
         Returns:
-            Pixel embeddings [batch_size, hidden_size, H, W]
+            torch.Tensor: Pixel embeddings [batch_size, hidden_size, H, W].
         """
         backbone_visual_feats = [feat.clone() for feat in backbone_features]
 
@@ -584,72 +726,15 @@ class MaskDecoder(nn.Module):
         backbone_visual_feats[-1] = encoder_visual_embed
 
         # Process through FPN decoder
-        pixel_embed = self.pixel_decoder(backbone_visual_feats)
-
-        return pixel_embed
+        return self.pixel_decoder(backbone_visual_feats)
 
 
 class Sam3Model(nn.Module):
     """SAM3 (Segment Anything Model 3) for open-vocabulary instance segmentation.
 
-    This model combines:
-    - Vision encoder: ViT backbone with FPN neck for multi-scale features
-    - Text encoder: CLIP text encoder for text prompt encoding
-    - Geometry encoder: Encodes box prompts
-    - DETR encoder: Fuses vision and text features
-    - DETR decoder: Predicts object queries with box refinement
-    - Mask decoder: Predicts instance masks
-
-    Args:
-        vision_hidden_size: Dimensionality of the ViT encoder layers. Default: 1024.
-        vision_intermediate_size: Dimensionality of the ViT feedforward layers. Default: 4736.
-        vision_num_hidden_layers: Number of hidden layers in the ViT encoder. Default: 32.
-        vision_num_attention_heads: Number of ViT attention heads. Default: 16.
-        num_channels: Number of input image channels. Default: 3.
-        image_size: Expected input image size. Default: 1008.
-        patch_size: Size of image patches. Default: 14.
-        vision_hidden_act: ViT activation function. Default: "gelu".
-        vision_layer_norm_eps: Epsilon for ViT layer normalization. Default: 1e-6.
-        vision_attention_dropout: Dropout ratio for ViT attention. Default: 0.0.
-        rope_theta: Base frequency for RoPE. Default: 10000.0.
-        window_size: Window size for windowed attention. Default: 24.
-        global_attn_indexes: Indexes of layers with global attention. Default: [7, 15, 23, 31].
-        pretrain_image_size: Pretrained model image size for position embedding init. Default: 336.
-        vision_hidden_dropout: Dropout probability for ViT hidden states. Default: 0.0.
-        fpn_hidden_size: The hidden dimension of the FPN. Default: 256.
-        scale_factors: Scale factors for FPN multi-scale features. Default: [4.0, 2.0, 1.0, 0.5].
-        text_vocab_size: Vocabulary size for text encoder. Default: 49408.
-        text_hidden_size: Hidden size for text encoder. Default: 1024.
-        text_intermediate_size: Intermediate size for text encoder. Default: 4096.
-        text_projection_dim: CLIP projection dimension. Default: 512.
-        text_num_hidden_layers: Number of text encoder layers. Default: 24.
-        text_num_attention_heads: Number of text attention heads. Default: 16.
-        text_max_position_embeddings: Max sequence length for text. Default: 32.
-        text_hidden_act: Text encoder activation function. Default: "gelu".
-        geometry_hidden_size: Geometry encoder hidden size. Default: 256.
-        geometry_num_layers: Number of geometry encoder layers. Default: 3.
-        geometry_num_attention_heads: Geometry encoder attention heads. Default: 8.
-        geometry_intermediate_size: Geometry encoder intermediate size. Default: 2048.
-        geometry_dropout: Geometry encoder dropout. Default: 0.1.
-        geometry_hidden_act: Geometry encoder activation. Default: "relu".
-        geometry_roi_size: ROI size for box pooling. Default: 7.
-        detr_encoder_hidden_size: DETR encoder hidden size. Default: 256.
-        detr_encoder_num_layers: Number of DETR encoder layers. Default: 6.
-        detr_encoder_num_attention_heads: DETR encoder attention heads. Default: 8.
-        detr_encoder_intermediate_size: DETR encoder intermediate size. Default: 2048.
-        detr_encoder_dropout: DETR encoder dropout. Default: 0.1.
-        detr_encoder_hidden_act: DETR encoder activation. Default: "relu".
-        detr_decoder_hidden_size: DETR decoder hidden size. Default: 256.
-        detr_decoder_num_layers: Number of DETR decoder layers. Default: 6.
-        detr_decoder_num_queries: Number of object queries. Default: 200.
-        detr_decoder_num_attention_heads: DETR decoder attention heads. Default: 8.
-        detr_decoder_intermediate_size: DETR decoder intermediate size. Default: 2048.
-        detr_decoder_dropout: DETR decoder dropout. Default: 0.1.
-        detr_decoder_hidden_act: DETR decoder activation. Default: "relu".
-        mask_decoder_hidden_size: Mask decoder hidden size. Default: 256.
-        mask_decoder_num_upsampling_stages: Mask decoder upsampling stages. Default: 3.
-        mask_decoder_num_attention_heads: Mask decoder attention heads. Default: 8.
-        mask_decoder_dropout: Mask decoder dropout. Default: 0.0.
+    Combines vision encoder (ViT with FPN), text encoder (CLIP), geometry
+    encoder, DETR encoder/decoder for object detection, and mask decoder for
+    instance segmentation.
     """
 
     def __init__(
@@ -709,7 +794,13 @@ class Sam3Model(nn.Module):
         mask_decoder_num_upsampling_stages: int = 3,
         mask_decoder_num_attention_heads: int = 8,
         mask_decoder_dropout: float = 0.0,
-    ):
+    ) -> None:
+        """Initialize SAM3 model with all components.
+
+        See class docstring for parameter descriptions. All size parameters are
+        in dimensionality units, all dropout parameters are floats in [0, 1),
+        and all count parameters are integers.
+        """
         super().__init__()
         if global_attn_indexes is None:
             global_attn_indexes = [7, 15, 23, 31]
@@ -809,7 +900,7 @@ class Sam3Model(nn.Module):
         dtype: torch.dtype | None = None,
         torch_dtype: torch.dtype | None = None,
         key_mapping: dict | None = None,
-        **kwargs,
+        **kwargs: dict,
     ) -> "Sam3Model":
         """Load a pretrained SAM3 model from HuggingFace Hub or local path.
 
@@ -907,12 +998,21 @@ class Sam3Model(nn.Module):
         self,
         input_ids: torch.LongTensor,
         attention_mask: torch.Tensor | None = None,
-        **kwargs,
-    ):
-        r"""Get text features from the text encoder.
+        **kwargs: dict,
+    ) -> torch.Tensor:
+        """Extract text features from text encoder.
 
-        Returns the CLIP text model output with `pooler_output` attribute containing
-        the projected text embeddings.
+        Returns the CLIP text model output with pooler_output containing the
+        projected text embeddings.
+
+        Args:
+            input_ids (torch.LongTensor): Token IDs [batch_size, seq_len].
+            attention_mask (torch.Tensor | None): Attention mask [batch_size,
+                seq_len]. Default: None.
+            **kwargs (dict): Additional keyword arguments for text encoder.
+
+        Returns:
+            torch.Tensor: Text features with pooler_output projection.
         """
         text_outputs = self.text_encoder(
             input_ids=input_ids,
@@ -928,32 +1028,23 @@ class Sam3Model(nn.Module):
     def get_vision_features(
         self,
         pixel_values: torch.FloatTensor,
-        **kwargs,
+        **kwargs: dict,
     ) -> dict[str, torch.Tensor | None]:
-        r"""Example:
-        ```python
-        >>> from transformers import Model, Processor
-        >>> from PIL import Image
-        >>> import httpx
-        >>> from io import BytesIO
+        """Extract vision features from vision encoder.
 
-        >>> model = Model.from_pretrained("facebook/sam3")
-        >>> processor = Processor.from_pretrained("facebook/sam3")
+        Can be used to pre-compute vision embeddings for reuse across multiple
+        text prompts.
 
-        >>> # Pre-compute vision embeddings
-        >>> url = "http://images.cocodataset.org/val2017/000000077595.jpg"
-        >>> with httpx.stream("GET", url) as response:
-        ...     image = Image.open(BytesIO(response.read()))
-        >>> img_inputs = processor(images=image, return_tensors="pt")
-        >>> vision_embeds = model.get_vision_features(pixel_values=img_inputs.pixel_values)
+        Args:
+            pixel_values (torch.FloatTensor): Input images [batch_size, channels,
+                height, width].
+            **kwargs (dict): Additional keyword arguments for vision encoder.
 
-        >>> # Reuse vision embeddings for multiple text prompts
-        >>> text_inputs = processor(text="cat", return_tensors="pt")
-        >>> outputs = model(vision_embeds=vision_embeds, input_ids=text_inputs.input_ids)
-        ```
+        Returns:
+            dict[str, torch.Tensor | None]: Vision features and positional
+                encodings.
         """
-        vision_outputs = self.vision_encoder(pixel_values, **kwargs)
-        return vision_outputs
+        return self.vision_encoder(pixel_values, **kwargs)
 
     def forward(
         self,
@@ -964,40 +1055,39 @@ class Sam3Model(nn.Module):
         text_embeds: torch.FloatTensor | None = None,
         input_boxes: torch.FloatTensor | None = None,
         input_boxes_labels: torch.LongTensor | None = None,
-        **kwargs,
+        **kwargs: dict,
     ) -> dict[str, torch.Tensor | None]:
-        r"""vision_embeds (`dict`, *optional*):
-            Pre-computed vision embeddings. Can be used to easily reuse vision embeddings. If provided, `pixel_values`
-            should not be passed. Mutually exclusive with `pixel_values`.
-        text_embeds (`torch.FloatTensor` of shape `(batch_size, sequence_length, hidden_size)`, *optional*):
-            Pre-computed text embeddings. Can be used to easily reuse text embeddings. If provided, `input_ids`
-            should not be passed. Mutually exclusive with `input_ids`.
-        input_boxes (`torch.FloatTensor` of shape `(batch_size, num_boxes, 4)`, *optional*):
-            Normalized box coordinates in [0, 1] range, in (cx, cy, w, h) format.
-        input_boxes_labels (`torch.LongTensor` of shape `(batch_size, num_boxes)`, *optional*):
-            Labels for boxes: 1 (positive), 0 (negative).
+        """Predict instance masks, boxes, and logits for input images.
 
-        Example:
-        ```python
-        >>> from PIL import Image
-        >>> import httpx
-        >>> from io import BytesIO
-        >>> from transformers import AutoModel, AutoProcessor
+        Args:
+            pixel_values (torch.FloatTensor | None): Input images [batch_size,
+                channels, height, width]. Mutually exclusive with vision_embeds.
+                Default: None.
+            vision_embeds (dict[str, torch.Tensor] | None): Pre-computed vision
+                embeddings. Mutually exclusive with pixel_values. Default: None.
+            input_ids (torch.LongTensor | None): Text token IDs [batch_size,
+                seq_len]. Mutually exclusive with text_embeds. Default: None.
+            attention_mask (torch.Tensor | None): Text attention mask [batch_size,
+                seq_len]. Default: None.
+            text_embeds (torch.FloatTensor | None): Pre-computed text embeddings
+                [batch_size, seq_len, hidden_size]. Mutually exclusive with
+                input_ids. Default: None.
+            input_boxes (torch.FloatTensor | None): Box prompts in CxCyWH format
+                normalized to [0, 1] [batch_size, num_boxes, 4]. Default: None.
+            input_boxes_labels (torch.LongTensor | None): Box labels (1=positive,
+                0=negative) [batch_size, num_boxes]. Default: None.
+            **kwargs (dict): Additional keyword arguments for model components.
 
-        >>> model = AutoModel.from_pretrained("facebook/sam3")
-        >>> processor = AutoProcessor.from_pretrained("facebook/sam3")
+        Returns:
+            dict[str, torch.Tensor | None]: Dictionary with predicted masks
+                [batch_size, num_queries, height, width], boxes [batch_size,
+                num_queries, 4], logits [batch_size, num_queries, num_classes],
+                and other outputs.
 
-        >>> url = "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/transformers/model_doc/sam-car.png"
-        >>> with httpx.stream("GET", url) as response:
-        ...     image = Image.open(BytesIO(response.read())).convert("RGB")
-        >>> text = "car"
-        >>> inputs = processor(images=image, text=text, return_tensors="pt")
-
-        >>> # Get segmentation output
-        >>> outputs = model(**inputs)
-        >>> pred_masks = outputs["pred_masks"]
-        >>> pred_boxes = outputs["pred_boxes"]
-        ```
+        Raises:
+            ValueError: If pixel_values and vision_embeds are both or neither
+                provided, or if input_ids and text_embeds are both or neither
+                provided.
         """
         if (pixel_values is None) == (vision_embeds is None):
             raise ValueError("You must specify exactly one of pixel_values or vision_embeds")

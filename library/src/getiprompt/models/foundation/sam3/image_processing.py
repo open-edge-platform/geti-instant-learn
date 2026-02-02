@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Image processing utilities for SAM3 model inference."""
 
 import math
 from copy import deepcopy
@@ -20,7 +21,7 @@ from typing import Any, Optional, Union
 
 import numpy as np
 import torch
-import torch.nn.functional as F
+from torch.nn import functional
 from torchvision.ops.boxes import batched_nms
 from transformers.image_processing_utils import BatchFeature, get_size_dict
 from transformers.image_processing_utils_fast import BaseImageProcessorFast
@@ -38,31 +39,63 @@ from transformers.utils import TensorType
 
 
 # Stub for auto_docstring if not available
-def auto_docstring(cls):
+def auto_docstring(cls: type) -> type:
+    """Decorator stub for automatic docstring generation.
+
+    Args:
+        cls (type): The class to decorate.
+
+    Returns:
+        type: The decorated class unchanged.
+    """
     return cls
 
 
 class FastImageProcessorKwargs(ImagesKwargs, total=False):
-    r"""mask_size (`dict[str, int]`, *optional*):
-    The size `{"height": int, "width": int}` to resize the segmentation maps to.
+    """Additional keyword arguments for fast image processing.
+
+    Attributes:
+        mask_size (dict[str, int], optional): The size {"height": int, "width": int}
+            to resize the segmentation maps to.
     """
 
     mask_size: dict[str, int]
 
 
-def _compute_stability_score(masks: "torch.Tensor", mask_threshold: float, stability_score_offset: int):
+def _compute_stability_score(masks: torch.Tensor, mask_threshold: float, stability_score_offset: int) -> torch.Tensor:
+    """Compute stability scores for masks.
+
+    One mask is always contained inside the other. Saves memory by preventing
+    unnecessary cast to torch.int64.
+
+    Args:
+        masks (torch.Tensor): Binary masks of shape (batch_size, height, width).
+        mask_threshold (float): Threshold for binarizing masks.
+        stability_score_offset (int): Offset for stability score calculation.
+
+    Returns:
+        torch.Tensor: Stability scores of shape (batch_size,).
+    """
     # One mask is always contained inside the other.
     # Save memory by preventing unnecessary cast to torch.int64
     intersections = (
         (masks > (mask_threshold + stability_score_offset)).sum(-1, dtype=torch.int16).sum(-1, dtype=torch.int32)
     )
     unions = (masks > (mask_threshold - stability_score_offset)).sum(-1, dtype=torch.int16).sum(-1, dtype=torch.int32)
-    stability_scores = intersections / unions
-    return stability_scores
+    return intersections / unions
 
 
-def _mask_to_rle(input_mask: "torch.Tensor"):
-    """Encodes masks the run-length encoding (RLE), in the format expected by pycoco tools."""
+def _mask_to_rle(input_mask: torch.Tensor) -> list[dict[str, Any]]:
+    """Encode masks using run-length encoding (RLE).
+
+    Encodes masks in the format expected by pycoco tools.
+
+    Args:
+        input_mask (torch.Tensor): Binary masks of shape (batch_size, height, width).
+
+    Returns:
+        list[dict[str, Any]]: List of RLE-encoded masks with keys 'size' and 'counts'.
+    """
     # Put in fortran order and flatten height and width
     batch_size, height, width = input_mask.shape
     input_mask = input_mask.permute(0, 2, 1).flatten(1)
@@ -77,7 +110,8 @@ def _mask_to_rle(input_mask: "torch.Tensor"):
         cur_idxs = change_indices[change_indices[:, 0] == i, 1] + 1
         if len(cur_idxs) == 0:
             # No changes => either all 0 or all 1
-            # If the entire mask is 0, RLE is [height*width] or if the entire mask is 1, RLE is [0, height*width].
+            # If the entire mask is 0, RLE is [height*width] or if the entire mask is 1,
+            # RLE is [0, height*width].
             if input_mask[i, 0] == 0:
                 out.append({"size": [height, width], "counts": [height * width]})
             else:
@@ -85,24 +119,29 @@ def _mask_to_rle(input_mask: "torch.Tensor"):
             continue
         btw_idxs = cur_idxs[1:] - cur_idxs[:-1]
         counts = [] if input_mask[i, 0] == 0 else [0]
-        counts += [cur_idxs[0].item()] + btw_idxs.tolist() + [height * width - cur_idxs[-1].item()]
+        counts = [*counts, cur_idxs[0].item(), *btw_idxs.tolist(), height * width - cur_idxs[-1].item()]
         out.append({"size": [height, width], "counts": counts})
     return out
 
 
-def _batched_mask_to_box(masks: "torch.Tensor"):
-    """Computes the bounding boxes around the given input masks. The bounding boxes are in the XYXY format which
-    corresponds the following required indices:
+def _batched_mask_to_box(masks: torch.Tensor) -> torch.Tensor:
+    """Compute bounding boxes around masks.
+
+    Computes the bounding boxes around the given input masks. The bounding boxes
+    are in the XYXY format which corresponds to the following indices:
         - LEFT: left hand side of the bounding box
         - TOP: top of the bounding box
         - RIGHT: right of the bounding box
         - BOTTOM: bottom of the bounding box
 
-    Return [0,0,0,0] for an empty mask. For input shape channel_1 x channel_2 x ... x height x width, the output shape
-    is channel_1 x channel_2 x ... x 4.
+    Return [0,0,0,0] for an empty mask. For input shape channel_1 x channel_2 x
+    ... x height x width, the output shape is channel_1 x channel_2 x ... x 4.
 
     Args:
-        - masks (`torch.Tensor` of shape `(batch, nb_mask, height, width)`)
+        masks (torch.Tensor): Masks of shape (batch, nb_mask, height, width).
+
+    Returns:
+        torch.Tensor: Bounding boxes in XYXY format.
     """
     # torch.max below raises an error on empty inputs, just skip in this case
 
@@ -117,29 +156,45 @@ def _batched_mask_to_box(masks: "torch.Tensor"):
     in_height, _ = torch.max(masks, dim=-1)
     in_height_coords = in_height * torch.arange(height, device=in_height.device)[None, :]
     bottom_edges, _ = torch.max(in_height_coords, dim=-1)
-    in_height_coords = in_height_coords + height * (~in_height)
+    in_height_coords += height * (~in_height)
     top_edges, _ = torch.min(in_height_coords, dim=-1)
 
     # Get left and right edges
     in_width, _ = torch.max(masks, dim=-2)
     in_width_coords = in_width * torch.arange(width, device=in_width.device)[None, :]
     right_edges, _ = torch.max(in_width_coords, dim=-1)
-    in_width_coords = in_width_coords + width * (~in_width)
+    in_width_coords += width * (~in_width)
     left_edges, _ = torch.min(in_width_coords, dim=-1)
 
     # If the mask is empty the right edge will be to the left of the left edge.
     # Replace these boxes with [0, 0, 0, 0]
     empty_filter = (right_edges < left_edges) | (bottom_edges < top_edges)
     out = torch.stack([left_edges, top_edges, right_edges, bottom_edges], dim=-1)
-    out = out * (~empty_filter).unsqueeze(-1)
+    out *= (~empty_filter).unsqueeze(-1)
 
     # Return to original shape
-    out = out.reshape(*shape[:-2], 4)
-    return out
+    return out.reshape(*shape[:-2], 4)
 
 
-def _is_box_near_crop_edge(boxes, crop_box, orig_box, atol=20.0):
-    """Filter masks at the edge of a crop, but not at the edge of the original image."""
+def _is_box_near_crop_edge(
+    boxes: torch.Tensor,
+    crop_box: list[int],
+    orig_box: list[int],
+    atol: float = 20.0,
+) -> torch.Tensor:
+    """Check if boxes are near crop edges.
+
+    Filter masks at the edge of a crop, but not at the edge of the original image.
+
+    Args:
+        boxes (torch.Tensor): Bounding boxes to check.
+        crop_box (list[int]): Crop box coordinates [x1, y1, x2, y2].
+        orig_box (list[int]): Original image box coordinates [x1, y1, x2, y2].
+        atol (float, optional): Tolerance for edge detection. Defaults to 20.0.
+
+    Returns:
+        torch.Tensor: Boolean tensor indicating which boxes are near crop edges.
+    """
     crop_box_torch = torch.as_tensor(crop_box, dtype=torch.float, device=boxes.device)
     orig_box_torch = torch.as_tensor(orig_box, dtype=torch.float, device=boxes.device)
 
@@ -156,7 +211,18 @@ def _is_box_near_crop_edge(boxes, crop_box, orig_box, atol=20.0):
     return torch.any(near_crop_edge, dim=1)
 
 
-def _pad_masks(masks, crop_box: list[int], orig_height: int, orig_width: int):
+def _pad_masks(masks: torch.Tensor, crop_box: list[int], orig_height: int, orig_width: int) -> torch.Tensor:
+    """Pad masks to original image size.
+
+    Args:
+        masks (torch.Tensor): Masks to pad of shape (batch, height, width).
+        crop_box (list[int]): Crop box coordinates [left, top, right, bottom].
+        orig_height (int): Original image height.
+        orig_width (int): Original image width.
+
+    Returns:
+        torch.Tensor: Padded masks.
+    """
     left, top, right, bottom = crop_box
     if left == 0 and top == 0 and right == orig_width and bottom == orig_height:
         return masks
@@ -167,35 +233,47 @@ def _pad_masks(masks, crop_box: list[int], orig_height: int, orig_width: int):
 
 
 def _generate_crop_boxes(
-    image,
-    target_size: int,  # Is it tuple here?
+    image: torch.Tensor,
+    target_size: int,
     crop_n_layers: int = 0,
     overlap_ratio: float = 512 / 1500,
     points_per_crop: int | None = 32,
-    crop_n_points_downscale_factor: list[int] | None = 1,
-) -> tuple[list[list[int]], list[int]]:
-    """Generates a list of crop boxes of different sizes. Each layer has (2**i)**2 boxes for the ith layer.
+    crop_n_points_downscale_factor: list[int] | None = None,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Generate crop boxes for hierarchical image processing.
+
+    Generates a list of crop boxes of different sizes. Each layer has (2**i)**2
+    boxes for the ith layer.
 
     Args:
-        image (Union[`numpy.ndarray`, `PIL.Image`, `torch.Tensor`]):
-            Image to generate crops for.
-        target_size (`int`):
-            Size of the smallest crop.
-        crop_n_layers (`int`, *optional*):
-            If `crops_n_layers>0`, mask prediction will be run again on crops of the image. Sets the number of layers
-            to run, where each layer has 2**i_layer number of image crops.
-        overlap_ratio (`int`, *optional*):
-            Sets the degree to which crops overlap. In the first crop layer, crops will overlap by this fraction of the
-            image length. Later layers with more crops scale down this overlap.
-        points_per_crop (`int`, *optional*):
-            Number of points to sam3ple per crop.
-        crop_n_points_downscale_factor (`int`, *optional*):
-            The number of points-per-side sam3pled in layer n is scaled down by crop_n_points_downscale_factor**n.
-        input_data_format (`str` or `ChannelDimension`, *optional*):
-            The channel dimension format of the input image. If not provided, it will be inferred.
+        image (torch.Tensor): Image to generate crops for.
+        target_size (int): Size of the smallest crop.
+        crop_n_layers (int, optional): If >0, mask prediction will be run again on
+            crops of the image. Sets the number of layers to run. Defaults to 0.
+        overlap_ratio (float, optional): Sets the degree to which crops overlap. In
+            the first crop layer, crops will overlap by this fraction of the image
+            length. Defaults to 512 / 1500.
+        points_per_crop (int | None, optional): Number of points to sample per crop.
+            Defaults to 32.
+        crop_n_points_downscale_factor (list[int] | None, optional): The number of
+            points-per-side sampled in layer n is scaled down by this factor**n.
+            Defaults to None.
+
+    Returns:
+        tuple: Containing:
+            - crop_boxes (torch.Tensor): Crop box coordinates.
+            - points_per_crop (torch.Tensor): Points sampled per crop.
+            - cropped_images (torch.Tensor): Cropped image patches.
+            - input_labels (torch.Tensor): Input labels for crops.
+
+    Raises:
+        ValueError: If image is a list (only single images allowed).
     """
     if isinstance(image, list):
-        raise ValueError("Only one image is allowed for crop generation.")
+        msg = "Only one image is allowed for crop generation."
+        raise TypeError(msg)
+    if crop_n_points_downscale_factor is None:
+        crop_n_points_downscale_factor = 1
     original_size = image.shape[-2:]
 
     points_grid = []
@@ -213,24 +291,34 @@ def _generate_crop_boxes(
         target_size,
         original_size,
     )
-    crop_boxes = torch.tensor(crop_boxes)
-    crop_boxes = crop_boxes.float()
-    points_per_crop = torch.stack(point_grid_per_crop)
-    points_per_crop = points_per_crop.unsqueeze(0).permute(0, 2, 1, 3)
-    cropped_images = torch.stack(cropped_images)
+    crop_boxes_t = torch.tensor(crop_boxes)
+    crop_boxes_t = crop_boxes_t.float()
+    points_per_crop_t = torch.stack(point_grid_per_crop)
+    points_per_crop_t = points_per_crop_t.unsqueeze(0).permute(0, 2, 1, 3)
+    cropped_images_t = torch.stack(cropped_images)
 
-    input_labels = torch.ones_like(points_per_crop[:, :, :, 0], dtype=torch.int64)
+    input_labels = torch.ones_like(points_per_crop_t[:, :, :, 0], dtype=torch.int64)
 
-    return crop_boxes, points_per_crop, cropped_images, input_labels
+    return crop_boxes_t, points_per_crop_t, cropped_images_t, input_labels
 
 
-def _generate_per_layer_crops(crop_n_layers, overlap_ratio, original_size):
-    """Generates 2 ** (layers idx + 1) crops for each crop_n_layers. Crops are in the XYWH format : The XYWH format
-    consists of the following required indices:
-        - X: X coordinate of the top left of the bounding box
-        - Y: Y coordinate of the top left of the bounding box
-        - W: width of the bounding box
-        - H: height of the bounding box
+def _generate_per_layer_crops(
+    crop_n_layers: int,
+    overlap_ratio: float,
+    original_size: tuple[int, int],
+) -> tuple[list[list[int]], list[int]]:
+    """Generate crops for each layer.
+
+    Generates 2 ** (layers idx + 1) crops for each crop_n_layers. Crops are in
+    the XYWH format: X (x coordinate), Y (y coordinate), W (width), H (height).
+
+    Args:
+        crop_n_layers (int): Number of crop layers.
+        overlap_ratio (float): Overlap ratio for crops.
+        original_size (tuple[int, int]): Original image size (height, width).
+
+    Returns:
+        tuple: Containing crop_boxes and layer indices.
     """
     crop_boxes, layer_idxs = [], []
     im_height, im_width = original_size
@@ -243,8 +331,8 @@ def _generate_per_layer_crops(crop_n_layers, overlap_ratio, original_size):
         n_crops_per_side = 2 ** (i_layer + 1)
         overlap = int(overlap_ratio * short_side * (2 / n_crops_per_side))
 
-        crop_width = int(math.ceil((overlap * (n_crops_per_side - 1) + im_width) / n_crops_per_side))
-        crop_height = int(math.ceil((overlap * (n_crops_per_side - 1) + im_height) / n_crops_per_side))
+        crop_width = math.ceil((overlap * (n_crops_per_side - 1) + im_width) / n_crops_per_side)
+        crop_height = math.ceil((overlap * (n_crops_per_side - 1) + im_height) / n_crops_per_side)
 
         crop_box_x0 = [int((crop_width - overlap) * i) for i in range(n_crops_per_side)]
         crop_box_y0 = [int((crop_height - overlap) * i) for i in range(n_crops_per_side)]
@@ -258,26 +346,49 @@ def _generate_per_layer_crops(crop_n_layers, overlap_ratio, original_size):
 
 
 def _build_point_grid(n_per_side: int) -> torch.Tensor:
-    """Generates a 2D grid of points evenly spaced in [0,1]x[0,1]."""
+    """Generate a 2D grid of evenly spaced points.
+
+    Generates a 2D grid of points evenly spaced in [0,1]x[0,1].
+
+    Args:
+        n_per_side (int): Number of points per side.
+
+    Returns:
+        torch.Tensor: Grid of points of shape (n_per_side**2, 2).
+    """
     offset = 1 / (2 * n_per_side)
     points_one_side = torch.linspace(offset, 1 - offset, n_per_side)
     points_x = torch.tile(points_one_side[None, :], (n_per_side, 1))
     points_y = torch.tile(points_one_side[:, None], (1, n_per_side))
-    points = torch.stack([points_x, points_y], dim=-1).reshape(-1, 2)
-    return points
+    return torch.stack([points_x, points_y], dim=-1).reshape(-1, 2)
 
 
 def _generate_crop_images(
-    crop_boxes,
-    image,
-    points_grid,
-    layer_idxs,
-    target_size,
-    original_size,
-    input_data_format=None,
-):
-    """Takes as an input bounding boxes that are used to crop the image. Based in the crops, the corresponding points are
-    also passed.
+    crop_boxes: list,
+    image: torch.Tensor,
+    points_grid: list,
+    layer_idxs: list[int],
+    target_size: int,
+    original_size: tuple[int, int],
+    input_data_format: ChannelDimension | None = None,
+) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
+    """Generate cropped images and corresponding point grids.
+
+    Takes as an input bounding boxes that are used to crop the image. Based in the
+    crops, the corresponding points are also passed.
+
+    Args:
+        crop_boxes (list): List of crop box coordinates.
+        image (torch.Tensor): Image to crop.
+        points_grid (list): Grid of points for each layer.
+        layer_idxs (list[int]): Layer indices for each crop.
+        target_size (int): Target size for crops.
+        original_size (tuple[int, int]): Original image size.
+        input_data_format (ChannelDimension | None, optional): Channel dimension format.
+            Defaults to None.
+
+    Returns:
+        tuple: Containing cropped images and point grids per crop.
     """
     cropped_images = []
     total_points_per_crop = []
@@ -301,10 +412,22 @@ def _normalize_coordinates(
     target_size: int,
     coords: torch.Tensor,
     original_size: tuple[int, int],
-    is_bounding_box=False,
+    is_bounding_box: bool = False,
 ) -> torch.Tensor:
-    """Expects a numpy array of length 2 in the final dimension. Requires the original image size in (height, width)
-    format.
+    """Normalize coordinates to target image size.
+
+    Expects a tensor of length 2 in the final dimension. Requires the original
+    image size in (height, width) format.
+
+    Args:
+        target_size (int): Target image size.
+        coords (torch.Tensor): Coordinates to normalize.
+        original_size (tuple[int, int]): Original image size (height, width).
+        is_bounding_box (bool, optional): Whether coordinates are bounding boxes.
+            Defaults to False.
+
+    Returns:
+        torch.Tensor: Normalized coordinates.
     """
     old_height, old_width = original_size
 
@@ -318,8 +441,8 @@ def _normalize_coordinates(
     if is_bounding_box:
         coords = coords.reshape(-1, 2, 2)
 
-    coords[..., 0] = coords[..., 0] * (new_width / old_width)
-    coords[..., 1] = coords[..., 1] * (new_height / old_height)
+    coords[..., 0] *= new_width / old_width
+    coords[..., 1] *= new_height / old_height
 
     if is_bounding_box:
         coords = coords.reshape(-1, 4)
@@ -328,9 +451,18 @@ def _normalize_coordinates(
 
 
 def _rle_to_mask(rle: dict[str, Any]) -> torch.Tensor:
-    """Compute a binary mask from an uncompressed RLE."""
+    """Compute binary mask from RLE encoding.
+
+    Compute a binary mask from an uncompressed RLE representation.
+
+    Args:
+        rle (dict[str, Any]): RLE dictionary with keys 'size' and 'counts'.
+
+    Returns:
+        torch.Tensor: Binary mask tensor.
+    """
     height, width = rle["size"]
-    mask = torch.empty(height * width, dtype=bool)
+    mask = torch.empty(height * width, dtype=torch.bool)
     idx = 0
     parity = False
     for count in rle["counts"]:
@@ -341,18 +473,24 @@ def _rle_to_mask(rle: dict[str, Any]) -> torch.Tensor:
     return mask.transpose(0, 1)  # Reshape to original shape
 
 
-def _post_process_for_mask_generation(rle_masks, iou_scores, mask_boxes, amg_crops_nms_thresh=0.7):
-    """Perform NMS (Non Maximum Suppression) on the outputs.
+def _post_process_for_mask_generation(
+    rle_masks: list,
+    iou_scores: torch.Tensor,
+    mask_boxes: torch.Tensor,
+    amg_crops_nms_thresh: float = 0.7,
+) -> tuple[list, torch.Tensor, list, torch.Tensor]:
+    """Post-process masks using NMS algorithm.
+
+    Perform NMS (Non Maximum Suppression) on the outputs.
 
     Args:
-            rle_masks (`torch.Tensor`):
-                binary masks in the RLE format
-            iou_scores (`torch.Tensor` of shape (nb_masks, 1)):
-                iou_scores predicted by the model
-            mask_boxes (`torch.Tensor`):
-                The bounding boxes corresponding to segmentation masks
-            amg_crops_nms_thresh (`float`, *optional*, defaults to 0.7):
-                NMS threshold.
+        rle_masks (list): RLE-encoded masks.
+        iou_scores (torch.Tensor): IoU scores of shape (nb_masks, 1).
+        mask_boxes (torch.Tensor): Bounding boxes for masks.
+        amg_crops_nms_thresh (float, optional): NMS threshold. Defaults to 0.7.
+
+    Returns:
+        tuple: Containing filtered masks, scores, RLE masks, and boxes.
     """
     keep_by_nms = batched_nms(
         boxes=mask_boxes.float(),
@@ -369,17 +507,20 @@ def _post_process_for_mask_generation(rle_masks, iou_scores, mask_boxes, amg_cro
     return masks, iou_scores, rle_masks, mask_boxes
 
 
-def _scale_boxes(boxes, target_sizes):
-    """Scale batch of bounding boxes to the target sizes.
+def _scale_boxes(boxes: torch.Tensor, target_sizes: list[tuple[int, int]] | torch.Tensor) -> torch.Tensor:
+    """Scale batch of bounding boxes to target sizes.
 
     Args:
-        boxes (`torch.Tensor` of shape `(batch_size, num_boxes, 4)`):
-            Bounding boxes to scale. Each box is expected to be in (x1, y1, x2, y2) format.
-        target_sizes (`list[tuple[int, int]]` or `torch.Tensor` of shape `(batch_size, 2)`):
-            Target sizes to scale the boxes to. Each target size is expected to be in (height, width) format.
+        boxes (torch.Tensor): Bounding boxes of shape (batch_size, num_boxes, 4).
+            Each box is expected to be in (x1, y1, x2, y2) format.
+        target_sizes (list[tuple[int, int]] | torch.Tensor): Target sizes to scale
+            to. Each target size is expected to be in (height, width) format.
 
     Returns:
-        `torch.Tensor` of shape `(batch_size, num_boxes, 4)`: Scaled bounding boxes.
+        torch.Tensor: Scaled bounding boxes of shape (batch_size, num_boxes, 4).
+
+    Raises:
+        TypeError: If target_sizes is not a list, tuple, or torch.Tensor.
     """
     if isinstance(target_sizes, (list, tuple)):
         image_height = torch.tensor([i[0] for i in target_sizes])
@@ -387,16 +528,22 @@ def _scale_boxes(boxes, target_sizes):
     elif isinstance(target_sizes, torch.Tensor):
         image_height, image_width = target_sizes.unbind(1)
     else:
-        raise TypeError("`target_sizes` must be a list, tuple or torch.Tensor")
+        msg = "`target_sizes` must be a list, tuple or torch.Tensor"
+        raise TypeError(msg)
 
     scale_factor = torch.stack([image_width, image_height, image_width, image_height], dim=1)
     scale_factor = scale_factor.unsqueeze(1).to(boxes.device)
-    boxes = boxes * scale_factor
+    boxes *= scale_factor
     return boxes
 
 
 @auto_docstring
 class ImageProcessorFast(BaseImageProcessorFast):
+    """Fast image processor for SAM3 model.
+
+    Image processor for fast SAM3 inference.
+    """
+
     resample = PILImageResampling.BILINEAR
     image_mean = IMAGENET_STANDARD_MEAN
     image_std = IMAGENET_STANDARD_STD
@@ -414,7 +561,12 @@ class ImageProcessorFast(BaseImageProcessorFast):
     pad_size = None
     mask_pad_size = None
 
-    def __init__(self, **kwargs: Unpack[FastImageProcessorKwargs]):
+    def __init__(self, **kwargs: Unpack[FastImageProcessorKwargs]) -> None:
+        """Initialize the image processor.
+
+        Args:
+            **kwargs: Additional keyword arguments for image processing.
+        """
         super().__init__(**kwargs)
 
     def _further_process_kwargs(
@@ -428,6 +580,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
         **kwargs,
     ) -> dict:
         """Update kwargs that need further processing before being validated
+
         Can be overridden by subclasses to customize the processing of kwargs.
         """
         if kwargs is None:
@@ -467,8 +620,14 @@ class ImageProcessorFast(BaseImageProcessorFast):
         segmentation_maps: ImageInput | None = None,
         **kwargs: Unpack[FastImageProcessorKwargs],
     ) -> BatchFeature:
-        r"""segmentation_maps (`ImageInput`, *optional*):
-        The segmentation maps to preprocess.
+        r"""Preprocess images and segmentation maps.
+
+        Args:
+            images (ImageInput): Images to preprocess.
+            segmentation_maps (ImageInput, optional): Segmentation maps to preprocess.
+
+        Returns:
+            BatchFeature: Preprocessed outputs.
         """
         # Ensure do_convert_rgb is in kwargs for compatibility with stable transformers
         if "do_convert_rgb" not in kwargs:
@@ -546,7 +705,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
         points_per_crop: int | None = 32,
         crop_n_points_downscale_factor: list[int] | None = 1,
         device: Optional["torch.device"] = None,
-    ):
+    ) -> tuple["torch.Tensor", "torch.Tensor", "torch.Tensor", "torch.Tensor"]:
         """Generates a list of crop boxes of different sizes. Each layer has (2**i)**2 boxes for the ith layer.
 
         Args:
@@ -599,11 +758,13 @@ class ImageProcessorFast(BaseImageProcessorFast):
         stability_score_thresh=0.95,
         mask_threshold=0,
         stability_score_offset=1,
-    ):
-        """Filters the predicted masks by selecting only the ones that meets several criteria. The first criterion being
-        that the iou scores needs to be greater than `pred_iou_thresh`. The second criterion is that the stability
-        score needs to be greater than `stability_score_thresh`. The method also converts the predicted masks to
-        bounding boxes and pad the predicted masks if necessary.
+    ) -> tuple[list[dict[str, Any]], "torch.Tensor", "torch.Tensor"]:
+        """Filters the predicted masks by selecting only the ones that meets several criteria.
+
+        The first criterion being that the iou scores needs to be greater than `pred_iou_thresh`.
+        The second criterion is that the stability score needs to be greater than
+        `stability_score_thresh`. The method also converts the predicted masks to bounding boxes
+        and pad the predicted masks if necessary.
 
         Args:
             masks (`torch.Tensor`):
@@ -629,7 +790,8 @@ class ImageProcessorFast(BaseImageProcessorFast):
         masks = masks.flatten(0, 1)
 
         if masks.shape[0] != iou_scores.shape[0]:
-            raise ValueError("masks and iou_scores must have the sam3e batch size.")
+            msg = "masks and iou_scores must have the sam3e batch size."
+            raise ValueError(msg)
 
         if masks.device != iou_scores.device:
             iou_scores = iou_scores.to(masks.device)
@@ -639,12 +801,12 @@ class ImageProcessorFast(BaseImageProcessorFast):
         keep_mask = torch.ones(batch_size, dtype=torch.bool, device=masks.device)
 
         if pred_iou_thresh > 0.0:
-            keep_mask = keep_mask & (iou_scores > pred_iou_thresh)
+            keep_mask &= iou_scores > pred_iou_thresh
 
         # compute stability score
         if stability_score_thresh > 0.0:
             stability_scores = _compute_stability_score(masks, mask_threshold, stability_score_offset)
-            keep_mask = keep_mask & (stability_scores > stability_score_thresh)
+            keep_mask &= stability_scores > stability_score_thresh
 
         scores = iou_scores[keep_mask]
         masks = masks[keep_mask]
@@ -679,7 +841,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
         max_sprinkle_area=0.0,
         apply_non_overlapping_constraints=False,
         **kwargs,
-    ):
+    ) -> list["torch.Tensor"]:
         """Remove padding and upscale masks to the original image size.
 
         Args:
@@ -711,8 +873,9 @@ class ImageProcessorFast(BaseImageProcessorFast):
             if isinstance(masks[i], np.ndarray):
                 masks[i] = torch.from_numpy(masks[i])
             elif not isinstance(masks[i], torch.Tensor):
-                raise TypeError("Input masks should be a list of `torch.tensors` or a list of `np.ndarray`")
-            interpolated_mask = F.interpolate(masks[i], original_size, mode="bilinear", align_corners=False)
+                msg = "Input masks should be a list of `torch.tensors` or a list of `np.ndarray`"
+                raise TypeError(msg)
+            interpolated_mask = functional.interpolate(masks[i], original_size, mode="bilinear", align_corners=False)
             if apply_non_overlapping_constraints:
                 interpolated_mask = self._apply_non_overlapping_constraints(interpolated_mask)
             if binarize:
@@ -721,7 +884,13 @@ class ImageProcessorFast(BaseImageProcessorFast):
 
         return output_masks
 
-    def post_process_for_mask_generation(self, all_masks, all_scores, all_boxes, crops_nms_thresh):
+    def post_process_for_mask_generation(
+        self,
+        all_masks,
+        all_scores,
+        all_boxes,
+        crops_nms_thresh,
+    ) -> tuple["torch.Tensor", "torch.Tensor", "torch.Tensor"]:
         """Post processes mask that are generated by calling the Non Maximum Suppression algorithm on the predicted masks.
 
         Args:
@@ -737,8 +906,9 @@ class ImageProcessorFast(BaseImageProcessorFast):
         return _post_process_for_mask_generation(all_masks, all_scores, all_boxes, crops_nms_thresh)
 
     def _apply_non_overlapping_constraints(self, pred_masks: torch.Tensor) -> torch.Tensor:
-        """Apply non-overlapping constraints to the object scores in pred_masks. Here we
-        keep only the highest scoring object at each spatial location in pred_masks.
+        """Apply non-overlapping constraints to the object scores in pred_masks.
+
+        Here we keep only the highest scoring object at each spatial location in pred_masks.
         """
         batch_size = pred_masks.size(0)
         if batch_size == 1:
@@ -752,15 +922,14 @@ class ImageProcessorFast(BaseImageProcessorFast):
         keep = max_obj_inds == batch_obj_inds
         # suppress overlapping regions' scores below -10.0 so that the foreground regions
         # don't overlap (here sigmoid(-10.0)=4.5398e-05)
-        pred_masks = torch.where(keep, pred_masks, torch.clamp(pred_masks, max=-10.0))
-        return pred_masks
+        return torch.where(keep, pred_masks, torch.clamp(pred_masks, max=-10.0))
 
     def post_process_semantic_segmentation(
         self,
         outputs,
         target_sizes: list[tuple] | None = None,
         threshold: float = 0.5,
-    ):
+    ) -> list["torch.Tensor"]:
         """Converts the output of [`Model`] into semantic segmentation maps.
 
         Args:
@@ -782,9 +951,12 @@ class ImageProcessorFast(BaseImageProcessorFast):
         semantic_logits = outputs["semantic_seg"] if isinstance(outputs, dict) else outputs.semantic_seg
 
         if semantic_logits is None:
-            raise ValueError(
+            msg = (
                 "Semantic segmentation output is not available in the model outputs. "
-                "Make sure the model was run with semantic segmentation enabled.",
+                "Make sure the model was run with semantic segmentation enabled."
+            )
+            raise ValueError(
+                msg,
             )
 
         # Apply sigmoid to convert logits to probabilities
@@ -793,8 +965,9 @@ class ImageProcessorFast(BaseImageProcessorFast):
         # Resize and binarize semantic segmentation maps
         if target_sizes is not None:
             if len(semantic_logits) != len(target_sizes):
+                msg = "Make sure that you pass in as many target sizes as the batch dimension of the logits"
                 raise ValueError(
-                    "Make sure that you pass in as many target sizes as the batch dimension of the logits",
+                    msg,
                 )
 
             semantic_segmentation = []
@@ -816,9 +989,15 @@ class ImageProcessorFast(BaseImageProcessorFast):
 
         return semantic_segmentation
 
-    def post_process_object_detection(self, outputs, threshold: float = 0.3, target_sizes: list[tuple] | None = None):
-        """Converts the raw output of [`Model`] into final bounding boxes in (top_left_x, top_left_y,
-        bottom_right_x, bottom_right_y) format.
+    def post_process_object_detection(
+        self,
+        outputs,
+        threshold: float = 0.3,
+        target_sizes: list[tuple] | None = None,
+    ) -> list[dict[str, "torch.Tensor"]]:
+        """Converts the raw output of [`Model`] into final bounding boxes.
+
+        Converts to (top_left_x, top_left_y, bottom_right_x, bottom_right_y) format.
 
         Args:
             outputs (`dict` or dataclass):
@@ -849,13 +1028,14 @@ class ImageProcessorFast(BaseImageProcessorFast):
         batch_size = pred_logits.shape[0]
 
         if target_sizes is not None and len(target_sizes) != batch_size:
-            raise ValueError("Make sure that you pass in as many target sizes as images")
+            msg = "Make sure that you pass in as many target sizes as images"
+            raise ValueError(msg)
 
         # Compute scores: combine pred_logits with presence_logits if available
         batch_scores = pred_logits.sigmoid()
         if presence_logits is not None:
             presence_scores = presence_logits.sigmoid()  # (batch_size, 1)
-            batch_scores = batch_scores * presence_scores  # Broadcast multiplication
+            batch_scores *= presence_scores  # Broadcast multiplication
 
         # Boxes are already in xyxy format from the model
         batch_boxes = pred_boxes
@@ -879,7 +1059,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
         threshold: float = 0.3,
         mask_threshold: float = 0.5,
         target_sizes: list[tuple] | None = None,
-    ):
+    ) -> list[dict[str, "torch.Tensor"]]:
         """Converts the raw output of [`Model`] into instance segmentation predictions with bounding boxes and masks.
 
         Args:
@@ -919,13 +1099,14 @@ class ImageProcessorFast(BaseImageProcessorFast):
         batch_size = pred_logits.shape[0]
 
         if target_sizes is not None and len(target_sizes) != batch_size:
-            raise ValueError("Make sure that you pass in as many target sizes as images")
+            msg = "Make sure that you pass in as many target sizes as images"
+            raise ValueError(msg)
 
         # Compute scores: combine pred_logits with presence_logits if available
         batch_scores = pred_logits.sigmoid()
         if presence_logits is not None:
             presence_scores = presence_logits.sigmoid()  # (batch_size, 1)
-            batch_scores = batch_scores * presence_scores  # Broadcast multiplication
+            batch_scores *= presence_scores  # Broadcast multiplication
 
         # Apply sigmoid to mask logits
         batch_masks = pred_masks.sigmoid()
@@ -962,6 +1143,3 @@ class ImageProcessorFast(BaseImageProcessorFast):
             results.append({"scores": scores, "boxes": boxes, "masks": masks})
 
         return results
-
-
-__all__ = ["ImageProcessorFast"]

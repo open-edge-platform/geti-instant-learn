@@ -17,14 +17,14 @@ import logging
 import math
 
 import torch
-import torch.nn.functional as F
+import torch.nn.functional as f
 from torch import Tensor, nn
 from transformers.pytorch_utils import compile_compatible_method_lru_cache
 
 # Activation functions used by SAM3
 ACT2FN = {
-    "gelu": F.gelu,
-    "relu": F.relu,
+    "gelu": f.gelu,
+    "relu": f.relu,
 }
 
 
@@ -39,24 +39,36 @@ def inverse_sigmoid(x: torch.Tensor, eps: float = 1e-3) -> torch.Tensor:
     return torch.log(x1 / x2)
 
 
-def concat_padded_sequences(seq1, mask1, seq2, mask2, return_index: bool = False):
-    """Concatenates two right-padded sequences, such that the resulting sequence
-    is contiguous and also right-padded.
+def concat_padded_sequences(
+    seq1: torch.Tensor,
+    mask1: torch.Tensor,
+    seq2: torch.Tensor,
+    mask2: torch.Tensor,
+    return_index: bool = False,
+) -> tuple[torch.Tensor, torch.Tensor] | tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Concatenate two right-padded sequences into a single contiguous right-padded sequence.
 
-    Tensors are batch-first, masks are batch-first with True=valid, False=padding.
+    Concatenates two right-padded sequences such that the resulting sequence is contiguous
+    and also right-padded. Tensors are batch-first with masks in batch-first format
+    (True=valid, False=padding).
 
     Args:
-        seq1: A tensor of shape (batch_size, seq1_length, hidden_size).
-        mask1: A tensor of shape (batch_size, seq1_length) with True=valid, False=padding.
-        seq2: A tensor of shape (batch_size, seq2_length, hidden_size).
-        mask2: A tensor of shape (batch_size, seq2_length) with True=valid, False=padding.
-        return_index: If True, also returns the index of the ids of the element of seq2
-            in the concatenated sequence. This can be used to retrieve the elements of seq2.
+        seq1 (torch.Tensor): Sequence tensor of shape (batch_size, seq1_length, hidden_size).
+        mask1 (torch.Tensor): Boolean mask of shape (batch_size, seq1_length) where
+            True=valid and False=padding.
+        seq2 (torch.Tensor): Sequence tensor of shape (batch_size, seq2_length, hidden_size).
+        mask2 (torch.Tensor): Boolean mask of shape (batch_size, seq2_length) where
+            True=valid and False=padding.
+        return_index (bool): If True, also return the indices of seq2 elements in the
+            concatenated sequence. Defaults to False.
 
     Returns:
-        A tuple (concatenated_sequence, concatenated_mask) if return_index is False,
-        otherwise (concatenated_sequence, concatenated_mask, index).
-        The concatenated_mask uses True=valid, False=padding convention.
+        If return_index is False: tuple of (concatenated_sequence, concatenated_mask)
+            - concatenated_sequence (torch.Tensor): Concatenated sequence tensor.
+            - concatenated_mask (torch.Tensor): Concatenated mask using True=valid,
+                False=padding convention.
+        If return_index is True: tuple of (concatenated_sequence, concatenated_mask, index)
+            - index (torch.Tensor): Indices of seq2 elements in concatenated sequence.
     """
     batch_size, seq1_length, hidden_size = seq1.shape
     batch_size2, seq2_length, hidden_size2 = seq2.shape
@@ -81,7 +93,7 @@ def concat_padded_sequences(seq1, mask1, seq2, mask2, return_index: bool = False
 
     # Shift seq2 elements to start at the end of valid seq1
     index = torch.arange(seq2_length, device=seq2.device)[None].repeat(batch_size, 1)
-    index = index + actual_seq1_lengths[:, None]
+    index += actual_seq1_lengths[:, None]
 
     # Scatter seq2 into the right positions
     concatenated_sequence = concatenated_sequence.scatter(1, index[:, :, None].expand(-1, -1, hidden_size), seq2)
@@ -92,29 +104,48 @@ def concat_padded_sequences(seq1, mask1, seq2, mask2, return_index: bool = False
     return concatenated_sequence, concatenated_mask
 
 
-def box_cxcywh_to_xyxy(x):
-    """Convert boxes from (cx, cy, w, h) format to (x1, y1, x2, y2) format."""
+def box_cxcywh_to_xyxy(x: torch.Tensor) -> torch.Tensor:
+    """Convert bounding boxes from (cx, cy, w, h) format to (x1, y1, x2, y2) format.
+
+    Args:
+        x (torch.Tensor): Box coordinates in center-width-height format of shape
+            (..., 4) where last dimension is [cx, cy, w, h].
+
+    Returns:
+        torch.Tensor: Box coordinates in corner format of shape (..., 4) where last
+            dimension is [x1, y1, x2, y2].
+    """
     x_c, y_c, w, h = x.unbind(-1)
     b = [(x_c - 0.5 * w), (y_c - 0.5 * h), (x_c + 0.5 * w), (y_c + 0.5 * h)]
     return torch.stack(b, dim=-1)
 
 
-def expand_attention_mask(attention_mask: torch.Tensor, dtype: torch.dtype | None = None) -> torch.Tensor:
+def expand_attention_mask(
+    attention_mask: torch.Tensor,
+    dtype: torch.dtype | None = None,
+) -> torch.Tensor:
     """Expand a 2D padding mask to 4D for use with scaled_dot_product_attention.
 
-    For bidirectional (full) attention, queries can attend to all valid (non-padding) keys.
-    The mask is expanded from [batch_size, key_len] to [batch_size, 1, 1, key_len].
+    For bidirectional (full) attention, queries can attend to all valid (non-padding)
+    keys. The mask is expanded from [batch_size, key_len] to [batch_size, 1, 1, key_len].
 
     Args:
-        attention_mask: 2D boolean mask [batch_size, key_len] where True=valid, False=padding
-        dtype: Optional dtype for float conversion. If None, returns boolean mask.
+        attention_mask (torch.Tensor): 2D boolean mask of shape [batch_size, key_len]
+            where True=valid and False=padding.
+        dtype (torch.dtype | None): Optional dtype for float conversion. If None, returns
+            boolean mask. Defaults to None.
 
     Returns:
-        4D mask [batch_size, 1, 1, key_len] compatible with SDPA attn_mask parameter.
-        SDPA convention: True (or 0.0) = attend, False (or -inf) = mask out.
+        torch.Tensor: 4D mask of shape [batch_size, 1, 1, key_len] compatible with SDPA
+            attn_mask parameter. SDPA convention: True (or 0.0) = attend, False (or -inf)
+            = mask out.
+
+    Raises:
+        ValueError: If attention_mask is not 2-dimensional.
     """
     if attention_mask.ndim != 2:
-        raise ValueError(f"Expected 2D attention_mask, got {attention_mask.ndim}D")
+        msg = f"Expected 2D attention_mask, got {attention_mask.ndim}D"
+        raise ValueError(msg)
 
     # Expand: [B, S] -> [B, 1, 1, S]
     expanded_mask = attention_mask[:, None, None, :]
@@ -131,13 +162,29 @@ def expand_attention_mask(attention_mask: torch.Tensor, dtype: torch.dtype | Non
 
 
 class MLP(nn.Module):
+    """Multi-layer perceptron with configurable activation and dropout.
+
+    A simple feed-forward network with two linear layers and an activation function.
+    """
+
     def __init__(
         self,
         hidden_size: int = 1024,
         intermediate_size: int = 4736,
         hidden_act: str = "gelu",
         hidden_dropout: float = 0.0,
-    ):
+    ) -> None:
+        """Initialize MLP module.
+
+        Args:
+            hidden_size (int): Dimension of input and output features. Defaults to 1024.
+            intermediate_size (int): Dimension of the intermediate hidden layer.
+                Defaults to 4736.
+            hidden_act (str): Name of the activation function. Must be a key in ACT2FN.
+                Defaults to "gelu".
+            hidden_dropout (float): Dropout probability applied after the first linear
+                layer. Defaults to 0.0.
+        """
         super().__init__()
         self.activation_fn = ACT2FN[hidden_act]
         self.fc1 = nn.Linear(hidden_size, intermediate_size)
@@ -145,15 +192,24 @@ class MLP(nn.Module):
         self.dropout = nn.Dropout(hidden_dropout)
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        """Apply MLP transformation to hidden states.
+
+        Args:
+            hidden_states (torch.Tensor): Input tensor of shape (..., hidden_size).
+
+        Returns:
+            torch.Tensor: Output tensor of same shape as input (..., hidden_size).
+        """
         hidden_states = self.fc1(hidden_states)
         hidden_states = self.dropout(hidden_states)
         hidden_states = self.activation_fn(hidden_states)
-        hidden_states = self.fc2(hidden_states)
-        return hidden_states
+        return self.fc2(hidden_states)
 
 
 class Attention(nn.Module):
-    """Multi-head attention.
+    """Multi-head attention module.
+
+    Implements scaled dot-product attention with support for optional attention masks.
     Handles standard [batch_size, seq_len, hidden_size] tensors.
     """
 
@@ -161,7 +217,14 @@ class Attention(nn.Module):
         self,
         hidden_size: int = 256,
         num_attention_heads: int = 8,
-    ):
+    ) -> None:
+        """Initialize attention module.
+
+        Args:
+            hidden_size (int): Total dimension of the model. Defaults to 256.
+            num_attention_heads (int): Number of attention heads. Must divide hidden_size
+                evenly. Defaults to 8.
+        """
         super().__init__()
         self.hidden_size = hidden_size
         self.num_attention_heads = num_attention_heads
@@ -179,17 +242,29 @@ class Attention(nn.Module):
         key: torch.Tensor,
         value: torch.Tensor,
         attention_mask: torch.Tensor | None = None,
-        **kwargs,
+        **kwargs: dict,  # noqa: ARG002
     ) -> tuple[torch.Tensor, None]:
-        """Args:
-            query: [batch_size, query_len, hidden_size]
-            key: [batch_size, key_len, hidden_size]
-            value: [batch_size, value_len, hidden_size]
-            attention_mask: [batch_size, num_heads, query_len, key_len] or broadcastable
+        """Apply multi-head attention.
+
+        Computes scaled dot-product attention over queries, keys, and values. Supports
+        optional attention masks for masking invalid positions.
+
+        Args:
+            query (torch.Tensor): Query tensor of shape
+                [batch_size, query_len, hidden_size].
+            key (torch.Tensor): Key tensor of shape
+                [batch_size, key_len, hidden_size].
+            value (torch.Tensor): Value tensor of shape
+                [batch_size, value_len, hidden_size].
+            attention_mask (torch.Tensor | None): Optional attention mask. Can be shape
+                [batch_size, num_heads, query_len, key_len] or broadcastable. Defaults
+                to None.
+            **kwargs (dict): Additional keyword arguments (unused, for API compatibility).
 
         Returns:
-            Tuple of (output, None) - attention weights not returned by SDPA
-                output: [batch_size, query_len, hidden_size]
+            tuple[torch.Tensor, None]: Tuple of (output, None) where output has shape
+                [batch_size, query_len, hidden_size]. Attention weights are not
+                returned by SDPA.
         """
         batch_size = query.shape[0]
         query_len = query.shape[1]
@@ -199,7 +274,7 @@ class Attention(nn.Module):
         key = self.k_proj(key).view(batch_size, key_len, self.num_attention_heads, self.head_dim).transpose(1, 2)
         value = self.v_proj(value).view(batch_size, key_len, self.num_attention_heads, self.head_dim).transpose(1, 2)
 
-        attn_output = F.scaled_dot_product_attention(
+        attn_output = f.scaled_dot_product_attention(
             query,
             key,
             value,
@@ -215,8 +290,11 @@ class Attention(nn.Module):
 
 
 class SinePositionEmbedding(nn.Module):
-    """This is a more standard version of the position embedding, very similar to the one used by the Attention is all you
-    need paper, generalized to work on images.
+    """Sine/cosine positional embeddings for sequences and bounding boxes.
+
+    A standard version of position embedding similar to "Attention is All You Need",
+    generalized to work on images. Supports both 1D coordinate encoding and 4D box
+    coordinate encoding.
     """
 
     def __init__(
@@ -225,10 +303,25 @@ class SinePositionEmbedding(nn.Module):
         temperature: int = 10000,
         normalize: bool = False,
         scale: float | None = None,
-    ):
+    ) -> None:
+        """Initialize sine position embedding.
+
+        Args:
+            num_pos_feats (int): Number of positional features (half of output dimension
+                for 1D, quarter for 4D boxes). Defaults to 64.
+            temperature (int): Temperature parameter for positional embeddings. Controls
+                the frequency range of sine/cosine waves. Defaults to 10000.
+            normalize (bool): Whether to normalize position embeddings. Defaults to False.
+            scale (float | None): Scale factor for normalized embeddings. If provided,
+                normalize must be True. Defaults to None.
+
+        Raises:
+            ValueError: If scale is provided but normalize is False.
+        """
         super().__init__()
         if scale is not None and normalize is False:
-            raise ValueError("normalize should be True if scale is passed")
+            msg = "normalize should be True if scale is passed"
+            raise ValueError(msg)
         self.num_pos_feats = num_pos_feats
         self.temperature = temperature
         self.normalize = normalize
@@ -238,11 +331,12 @@ class SinePositionEmbedding(nn.Module):
         """Encode 1D coordinate pairs using sine/cosine positional embeddings.
 
         Args:
-            x: 1D tensor of x coordinates (flattened)
-            y: 1D tensor of y coordinates (flattened)
+            x (torch.Tensor): 1D tensor of x coordinates (flattened) of shape [n_coords].
+            y (torch.Tensor): 1D tensor of y coordinates (flattened) of shape [n_coords].
 
         Returns:
-            Tuple of (pos_x, pos_y) positional embeddings
+            tuple[torch.Tensor, torch.Tensor]: Tuple of (pos_x, pos_y) where each
+                element has shape [n_coords, num_pos_feats*2].
         """
         x_embed = x * self.scale
         y_embed = y * self.scale
@@ -257,13 +351,15 @@ class SinePositionEmbedding(nn.Module):
         return pos_x, pos_y
 
     def encode_boxes(self, boxes: torch.Tensor) -> torch.Tensor:
-        """Encode 4D box coordinates (x, y, w, h) for decoder conditioning using sine/cosine embeddings.
+        """Encode 4D box coordinates for decoder conditioning using sine/cosine embeddings.
 
         Args:
-            boxes: Box coordinates [batch_size, num_queries, 4] in (x, y, w, h) format
+            boxes (torch.Tensor): Box coordinates of shape [batch_size, num_queries, 4]
+                in (x, y, w, h) format.
 
         Returns:
-            Position embeddings [batch_size, num_queries, num_pos_feats*4]
+            torch.Tensor: Position embeddings of shape
+                [batch_size, num_queries, num_pos_feats*4].
         """
         assert boxes.size(-1) == 4, f"Expected 4D box coordinates (x, y, w, h), got shape {boxes.shape}"
         dim_t = torch.arange(self.num_pos_feats, dtype=torch.int64, device=boxes.device).to(boxes.dtype)
@@ -284,9 +380,7 @@ class SinePositionEmbedding(nn.Module):
         pos_w = torch.stack((pos_w[:, :, 0::2].sin(), pos_w[:, :, 1::2].cos()), dim=3).flatten(2)
         pos_h = torch.stack((pos_h[:, :, 0::2].sin(), pos_h[:, :, 1::2].cos()), dim=3).flatten(2)
 
-        pos = torch.cat((pos_y, pos_x, pos_w, pos_h), dim=2)
-
-        return pos
+        return torch.cat((pos_y, pos_x, pos_w, pos_h), dim=2)
 
     @compile_compatible_method_lru_cache(maxsize=4)
     def forward(
@@ -296,6 +390,19 @@ class SinePositionEmbedding(nn.Module):
         dtype: torch.dtype,
         mask: Tensor | None = None,
     ) -> Tensor:
+        """Generate sine/cosine positional embeddings for image features.
+
+        Args:
+            shape (torch.Size): Shape of the feature map [batch_size, channels, height, width].
+            device (torch.device | str): Device for the embeddings.
+            dtype (torch.dtype): Data type for the embeddings.
+            mask (Tensor | None): Optional binary mask of shape [batch_size, height, width]
+                where True=valid and False=padding. If None, creates all-valid mask.
+                Defaults to None.
+
+        Returns:
+            Tensor: Positional embeddings of shape [batch_size, num_pos_feats*2, height, width].
+        """
         if mask is None:
             mask = torch.zeros((shape[0], shape[2], shape[3]), device=device, dtype=torch.bool)
         not_mask = (~mask).to(dtype)
@@ -313,5 +420,4 @@ class SinePositionEmbedding(nn.Module):
         pos_y = y_embed[:, :, :, None] / dim_t
         pos_x = torch.stack((pos_x[:, :, :, 0::2].sin(), pos_x[:, :, :, 1::2].cos()), dim=4).flatten(3)
         pos_y = torch.stack((pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()), dim=4).flatten(3)
-        pos = torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
-        return pos
+        return torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
