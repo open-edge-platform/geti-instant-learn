@@ -82,7 +82,7 @@ def box_xywh_to_cxcywh(x: torch.Tensor) -> torch.Tensor:
     return torch.stack(b, dim=-1)
 
 
-def box_xyxy_to_xywh(x: torch.Tensor) -> torch.Tensor:
+def box_xyxy_to_xywh(x1: torch.Tensor) -> torch.Tensor:
     """Convert bounding boxes from (x1, y1, x2, y2) format to (x, y, w, h) format.
 
     Args:
@@ -91,8 +91,8 @@ def box_xyxy_to_xywh(x: torch.Tensor) -> torch.Tensor:
     Returns:
     torch.Tensor: Boxes in (x, y, w, h) format.
     """
-    x, y, X, Y = x.unbind(-1)
-    b = [(x), (y), (X - x), (Y - y)]
+    x1, y1, x2, y2 = x1.unbind(-1)
+    b = [(x1), (y1), (x2 - x1), (y2 - y1)]
     return torch.stack(b, dim=-1)
 
 
@@ -226,7 +226,8 @@ class Processor(ProcessorMixin):
                 original_sizes = original_sizes.cpu().tolist()
             encoding = BatchEncoding({"original_sizes": original_sizes}, tensor_type=return_tensors)
         elif input_boxes is not None:
-            raise ValueError("Either images or original_sizes must be provided if input_boxes is not None")
+            msg = "Either images or original_sizes must be provided if input_boxes is not None"
+            raise ValueError(msg)
 
         text = self._resolve_text_prompts(text, input_boxes)
         if text is not None:
@@ -263,9 +264,8 @@ class Processor(ProcessorMixin):
             # Ensure boxes and labels have consistent dimensions
             if processed_boxes is not None and processed_boxes_labels is not None:
                 if boxes_max_dims != boxes_labels_max_dims:
-                    raise ValueError(
-                        "Input boxes and labels have inconsistent dimensions. Please ensure they have the same dimensions.",
-                    )
+                    msg = "Input boxes and labels have inconsistent dimensions. Please ensure they have the same dimensions."
+                    raise ValueError(msg)
 
             # Pad and normalize all inputs to final tensor format
             if processed_boxes is not None:
@@ -365,10 +365,11 @@ class Processor(ProcessorMixin):
         text = list(text)  # Convert to list to allow modification
 
         if input_boxes and len(text) != len(input_boxes):
-            raise ValueError(
+            msg = (
                 f"The number of text prompts must match the number of input boxes. "
                 f"Got {len(text)} text prompts and {len(input_boxes)} input boxes.",
             )
+            raise ValueError(msg)
 
         # Fill in None values with defaults based on corresponding prompt
         for i, text_value in enumerate(text):
@@ -555,29 +556,32 @@ class Processor(ProcessorMixin):
         if isinstance(data, (torch.Tensor, np.ndarray)):
             # For tensors/arrays, we can directly check the number of dimensions
             if data.ndim != expected_depth:
-                raise ValueError(
+                msg = (
                     f"Input {input_name} must be a tensor/array with {expected_depth} "
                     f"dimensions. The expected nesting format is {expected_format}. "
                     f"Got {data.ndim} dimensions.",
                 )
+                raise ValueError(msg)
             if expected_coord_size is not None:
                 if data.shape[-1] != expected_coord_size:
-                    raise ValueError(
+                    msg = (
                         f"Input {input_name} must be a tensor/array with "
                         f"{expected_coord_size} as the last dimension, "
                         f"got {data.shape[-1]}.",
                     )
+                    raise ValueError(msg)
             return self._convert_to_nested_list(data, expected_depth)
 
         # Handle nested lists
         if isinstance(data, list):
             current_depth = self._get_nesting_level(data)
             if current_depth != expected_depth:
-                raise ValueError(
+                msg = (
                     f"Input {input_name} must be a nested list with {expected_depth} "
                     f"levels. The expected nesting format is {expected_format}. "
                     f"Got {current_depth} levels.",
                 )
+                raise ValueError(msg)
             return self._convert_to_nested_list(data, expected_depth)
 
     def _normalize_tensor_coordinates(
@@ -786,6 +790,3 @@ class Processor(ProcessorMixin):
             mask_threshold,
             target_sizes,
         )
-
-
-__all__ = ["Processor"]

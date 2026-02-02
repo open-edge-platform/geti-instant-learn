@@ -223,8 +223,9 @@ class SAM3(Model):
             for text, bbox, cat_id in zip_longest(texts, bboxes, category_ids, fillvalue=None):
                 formatted_inputs = self.input_processor(
                     text=[text] if text is not None else None,
-                    input_boxes=[bbox] if bbox is not None else None,
-                    input_boxes_labels=len(bbox) * [1] if bbox is not None else None,
+                    input_boxes=[[bbox]] if bbox is not None else None,  # "[image level, box level, box coordinates]"
+                    input_boxes_labels=[[1]] if bbox is not None else None,  # [image level, box level]
+                    original_sizes=[img_size],
                     return_tensors="pt",
                 ).to(self.device)
                 with torch.no_grad():

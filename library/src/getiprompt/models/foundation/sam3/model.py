@@ -17,6 +17,7 @@
 
 """SAM3 model and related components (GeometryEncoder, MaskDecoder, scoring, etc.)."""
 
+import logging
 import re
 from pathlib import Path
 
@@ -981,12 +982,8 @@ class Sam3Model(nn.Module):
         unexpected_keys = [k for k in unexpected_keys if not tracker_pattern.match(k)]
 
         if missing_keys:
-            import logging
-
             logging.warning(f"Missing keys when loading SAM3 model: {missing_keys}")
         if unexpected_keys:
-            import logging
-
             logging.warning(f"Unexpected keys when loading SAM3 model: {unexpected_keys}")
 
         # Move to device/dtype if specified
@@ -1093,10 +1090,12 @@ class Sam3Model(nn.Module):
                 provided.
         """
         if (pixel_values is None) == (vision_embeds is None):
-            raise ValueError("You must specify exactly one of pixel_values or vision_embeds")
+            msg = "You must specify exactly one of pixel_values or vision_embeds"
+            raise ValueError
 
         if (input_ids is None) == (text_embeds is None):
-            raise ValueError("You must specify exactly one of input_ids or text_embeds")
+            msg = "You must specify exactly one of input_ids or text_embeds"
+            raise ValueError(msg)
 
         if pixel_values is not None:
             batch_size = pixel_values.shape[0]
@@ -1105,10 +1104,7 @@ class Sam3Model(nn.Module):
             batch_size = vision_embeds["fpn_hidden_states"][0].shape[0]
             device = vision_embeds["fpn_hidden_states"][0].device
 
-        if vision_embeds is None:
-            vision_outputs = self.vision_encoder(pixel_values, **kwargs)
-        else:
-            vision_outputs = vision_embeds
+        vision_outputs = self.vision_encoder(pixel_values, **kwargs) if vision_embeds is None else vision_embeds
 
         fpn_hidden_states = vision_outputs["fpn_hidden_states"][:-1]
         fpn_position_encoding = vision_outputs["fpn_position_encoding"][:-1]
