@@ -21,7 +21,7 @@ from transformers.models.auto import AutoConfig
 _SAM3_CONFIG_MAPPING = {}
 
 
-class Sam3ViTConfig(PreTrainedConfig):
+class ViTConfig(PreTrainedConfig):
     r"""
     Configuration class for SAM3 Vision Encoder (ViT backbone).
 
@@ -112,9 +112,9 @@ class Sam3ViTConfig(PreTrainedConfig):
         self.initializer_range = initializer_range
 
 
-class Sam3VisionConfig(PreTrainedConfig):
+class VisionConfig(PreTrainedConfig):
     r"""
-    This is the configuration class to store the configuration of a [`Sam3VisionModel`]. It is used to instantiate a SAM
+    This is the configuration class to store the configuration of a [`VisionModel`]. It is used to instantiate a SAM
     vision encoder according to the specified arguments, defining the model architecture. Instantiating a configuration
     defaults will yield a similar configuration to that of SAM 3
     [facebook/sam3](https://huggingface.co/facebook/sam3) architecture.
@@ -123,7 +123,7 @@ class Sam3VisionConfig(PreTrainedConfig):
     documentation from [`PreTrainedConfig`] for more information.
 
     Args:
-        backbone_config (`Union[dict, "PreTrainedConfig"]`, *optional*, defaults to `Sam3ViTConfig()`):
+        backbone_config (`Union[dict, "PreTrainedConfig"]`, *optional*, defaults to `ViTConfig()`):
             Configuration for the vision backbone. This is used to instantiate the backbone using
             `AutoModel.from_config`.
         fpn_hidden_size (`int`, *optional*, defaults to 256):
@@ -191,7 +191,7 @@ class Sam3VisionConfig(PreTrainedConfig):
         self.backbone_config.image_size = value
 
 
-class Sam3GeometryEncoderConfig(PreTrainedConfig):
+class GeometryEncoderConfig(PreTrainedConfig):
     r"""
     Configuration class for SAM3 Geometry Encoder.
 
@@ -247,7 +247,7 @@ class Sam3GeometryEncoderConfig(PreTrainedConfig):
         self.initializer_range = initializer_range
 
 
-class Sam3DETREncoderConfig(PreTrainedConfig):
+class DETREncoderConfig(PreTrainedConfig):
     r"""
     Configuration class for SAM3 DETR Encoder (vision-text fusion encoder).
 
@@ -299,7 +299,7 @@ class Sam3DETREncoderConfig(PreTrainedConfig):
         self.initializer_range = initializer_range
 
 
-class Sam3DETRDecoderConfig(PreTrainedConfig):
+class DETRDecoderConfig(PreTrainedConfig):
     r"""
     Configuration class for SAM3 DETR Decoder (object query decoder).
 
@@ -355,7 +355,7 @@ class Sam3DETRDecoderConfig(PreTrainedConfig):
         self.initializer_range = initializer_range
 
 
-class Sam3MaskDecoderConfig(PreTrainedConfig):
+class MaskDecoderConfig(PreTrainedConfig):
     r"""
     Configuration class for SAM3 Mask Decoder (pixel-level mask prediction).
 
@@ -395,9 +395,9 @@ class Sam3MaskDecoderConfig(PreTrainedConfig):
         self.initializer_range = initializer_range
 
 
-class Sam3Config(PreTrainedConfig):
+class Config(PreTrainedConfig):
     r"""
-    Configuration class to store the configuration of a [`Sam3Model`].
+    Configuration class to store the configuration of a [`Model`].
 
     Instantiating a configuration defaults will yield a similar configuration to that of SAM 3
     [facebook/sam3](https://huggingface.co/facebook/sam3) architecture.
@@ -405,30 +405,30 @@ class Sam3Config(PreTrainedConfig):
     This is the main configuration class that combines all sub-configurations for the SAM3 model.
 
     Args:
-        vision_config (`dict` or `Sam3VisionConfig`, *optional*):
+        vision_config (`dict` or `VisionConfig`, *optional*):
             Configuration for the vision encoder.
         text_config (`dict` or `Sam3TextConfig`, *optional*):
             Configuration for the text encoder.
-        geometry_encoder_config (`dict` or `Sam3GeometryEncoderConfig`, *optional*):
+        geometry_encoder_config (`dict` or `GeometryEncoderConfig`, *optional*):
             Configuration for the geometry encoder.
-        detr_encoder_config (`dict` or `Sam3DETREncoderConfig`, *optional*):
+        detr_encoder_config (`dict` or `DETREncoderConfig`, *optional*):
             Configuration for the DETR encoder.
-        detr_decoder_config (`dict` or `Sam3DETRDecoderConfig`, *optional*):
+        detr_decoder_config (`dict` or `DETRDecoderConfig`, *optional*):
             Configuration for the DETR decoder.
-        mask_decoder_config (`dict` or `Sam3MaskDecoderConfig`, *optional*):
+        mask_decoder_config (`dict` or `MaskDecoderConfig`, *optional*):
             Configuration for the mask decoder.
         initializer_range (`float`, *optional*, defaults to 0.02):
             The standard deviation of the truncated_normal_initializer for initializing weight matrices.
 
     Example:
     ```python
-    >>> from transformers import Sam3Config, Sam3Model
+    >>> from transformers import Config, Model
 
     >>> # Initializing a SAM3 configuration
-    >>> configuration = Sam3Config()
+    >>> configuration = Config()
 
     >>> # Initializing a model from the configuration
-    >>> model = Sam3Model(configuration)
+    >>> model = Model(configuration)
 
     >>> # Accessing the model configuration
     >>> configuration = model.config
@@ -438,12 +438,12 @@ class Sam3Config(PreTrainedConfig):
     model_type = "sam3"
     is_composition = True
     sub_configs = {
-        "vision_config": Sam3VisionConfig,
+        "vision_config": VisionConfig,
         "text_config": CLIPTextConfig,
-        "geometry_encoder_config": Sam3GeometryEncoderConfig,
-        "detr_encoder_config": Sam3DETREncoderConfig,
-        "detr_decoder_config": Sam3DETRDecoderConfig,
-        "mask_decoder_config": Sam3MaskDecoderConfig,
+        "geometry_encoder_config": GeometryEncoderConfig,
+        "detr_encoder_config": DETREncoderConfig,
+        "detr_decoder_config": DETRDecoderConfig,
+        "mask_decoder_config": MaskDecoderConfig,
     }
 
     def __init__(
@@ -461,7 +461,7 @@ class Sam3Config(PreTrainedConfig):
         if vision_config is None:
             vision_config = {}
         if isinstance(vision_config, dict):
-            self.vision_config = Sam3VisionConfig(**vision_config)
+            self.vision_config = VisionConfig(**vision_config)
         else:
             self.vision_config = vision_config
 
@@ -486,7 +486,7 @@ class Sam3Config(PreTrainedConfig):
         if geometry_encoder_config is None:
             geometry_encoder_config = {}
         if isinstance(geometry_encoder_config, dict):
-            self.geometry_encoder_config = Sam3GeometryEncoderConfig(**geometry_encoder_config)
+            self.geometry_encoder_config = GeometryEncoderConfig(**geometry_encoder_config)
         else:
             self.geometry_encoder_config = geometry_encoder_config
 
@@ -494,7 +494,7 @@ class Sam3Config(PreTrainedConfig):
         if detr_encoder_config is None:
             detr_encoder_config = {}
         if isinstance(detr_encoder_config, dict):
-            self.detr_encoder_config = Sam3DETREncoderConfig(**detr_encoder_config)
+            self.detr_encoder_config = DETREncoderConfig(**detr_encoder_config)
         else:
             self.detr_encoder_config = detr_encoder_config
 
@@ -502,7 +502,7 @@ class Sam3Config(PreTrainedConfig):
         if detr_decoder_config is None:
             detr_decoder_config = {}
         if isinstance(detr_decoder_config, dict):
-            self.detr_decoder_config = Sam3DETRDecoderConfig(**detr_decoder_config)
+            self.detr_decoder_config = DETRDecoderConfig(**detr_decoder_config)
         else:
             self.detr_decoder_config = detr_decoder_config
 
@@ -510,7 +510,7 @@ class Sam3Config(PreTrainedConfig):
         if mask_decoder_config is None:
             mask_decoder_config = {}
         if isinstance(mask_decoder_config, dict):
-            self.mask_decoder_config = Sam3MaskDecoderConfig(**mask_decoder_config)
+            self.mask_decoder_config = MaskDecoderConfig(**mask_decoder_config)
         else:
             self.mask_decoder_config = mask_decoder_config
 
@@ -529,15 +529,15 @@ class Sam3Config(PreTrainedConfig):
 
 
 # Populate the local config mapping now that all classes are defined
-_SAM3_CONFIG_MAPPING["sam3_vit_model"] = Sam3ViTConfig
+_SAM3_CONFIG_MAPPING["sam3_vit_model"] = ViTConfig
 
 
 __all__ = [
-    "Sam3Config",
-    "Sam3ViTConfig",
-    "Sam3VisionConfig",
-    "Sam3GeometryEncoderConfig",
-    "Sam3DETREncoderConfig",
-    "Sam3DETRDecoderConfig",
-    "Sam3MaskDecoderConfig",
+    "Config",
+    "ViTConfig",
+    "VisionConfig",
+    "GeometryEncoderConfig",
+    "DETREncoderConfig",
+    "DETRDecoderConfig",
+    "MaskDecoderConfig",
 ]

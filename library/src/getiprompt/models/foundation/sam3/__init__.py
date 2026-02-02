@@ -14,19 +14,12 @@
 
 """SAM3 model components for HuggingFace Transformers."""
 
-from .image_processing_sam3_fast import Sam3ImageProcessorFast
-from .modeling_sam3 import Sam3Model
-from .processing_sam3 import Sam3Processor
+from .image_processing import ImageProcessorFast
+from .model import Sam3Model
+from .processing import Processor
 
 __all__ = [
-    "Sam3Config",
-    "Sam3DETRDecoderConfig",
-    "Sam3DETREncoderConfig",
-    "Sam3GeometryEncoderConfig",
-    "Sam3ImageProcessorFast",
-    "Sam3MaskDecoderConfig",
+    "ImageProcessorFast",
     "Sam3Model",
-    "Sam3Processor",
-    "Sam3ViTConfig",
-    "Sam3VisionConfig",
+    "Processor",
 ]

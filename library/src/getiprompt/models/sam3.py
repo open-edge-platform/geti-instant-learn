@@ -10,7 +10,7 @@ from transformers import CLIPTokenizerFast
 
 from getiprompt.data.base.batch import Batch
 from getiprompt.data.base.sample import Sample
-from getiprompt.models.foundation.sam3 import Sam3ImageProcessorFast, Sam3Model, Sam3Processor
+from getiprompt.models.foundation.sam3 import ImageProcessorFast, Sam3Model, Processor
 from getiprompt.utils.utils import precision_to_torch_dtype
 
 from .base import Model
@@ -108,9 +108,9 @@ class SAM3(Model):
         self.category_mapping: dict[str, int] | None = None
 
         # Create processor manually with image processor and tokenizer
-        image_processor = Sam3ImageProcessorFast.from_pretrained("facebook/sam3")
+        image_processor = ImageProcessorFast.from_pretrained("facebook/sam3")
         tokenizer = CLIPTokenizerFast.from_pretrained("facebook/sam3")
-        self.input_processor = Sam3Processor(
+        self.input_processor = Processor(
             image_processor=image_processor,
             tokenizer=tokenizer,
         )

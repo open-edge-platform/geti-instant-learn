@@ -76,12 +76,12 @@ def box_area(boxes):
     return (x1 - x0) * (y1 - y0)
 
 
-class Sam3Processor(ProcessorMixin):
+class Processor(ProcessorMixin):
     # Define attributes for ProcessorMixin to know which components we have
     attributes = ["image_processor", "tokenizer"]
     # These class names tell the processor what types are valid
     # Using None or tuple allows any class to pass validation
-    image_processor_class = "Sam3ImageProcessorFast"
+    image_processor_class = "ImageProcessorFast"
     tokenizer_class = "CLIPTokenizerFast"
 
     def check_argument_for_proper_class(self, argument_name, argument):
@@ -532,7 +532,7 @@ class Sam3Processor(ProcessorMixin):
 
     def post_process_semantic_segmentation(self, outputs, target_sizes=None, threshold=0.5):
         """
-        Converts the output of [`Sam3Model`] into semantic segmentation maps.
+        Converts the output of [`Model`] into semantic segmentation maps.
 
         Args:
             outputs ([`Sam3ImageSegmentationOutput`]):
@@ -552,7 +552,7 @@ class Sam3Processor(ProcessorMixin):
 
     def post_process_object_detection(self, outputs, threshold=0.3, target_sizes=None):
         """
-        Converts the raw output of [`Sam3Model`] into final bounding boxes in (top_left_x, top_left_y,
+        Converts the raw output of [`Model`] into final bounding boxes in (top_left_x, top_left_y,
         bottom_right_x, bottom_right_y) format. This is a convenience wrapper around the image processor method.
 
         Args:
@@ -603,7 +603,7 @@ class Sam3Processor(ProcessorMixin):
         target_sizes=None,
     ):
         """
-        Converts the raw output of [`Sam3Model`] into instance segmentation predictions with bounding boxes and masks.
+        Converts the raw output of [`Model`] into instance segmentation predictions with bounding boxes and masks.
         This is a convenience wrapper around the image processor method.
 
         Args:
@@ -657,4 +657,4 @@ class Sam3Processor(ProcessorMixin):
         )
 
 
-__all__ = ["Sam3Processor"]
+__all__ = ["Processor"]

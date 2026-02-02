@@ -42,7 +42,7 @@ def auto_docstring(cls):
     return cls
 
 
-class Sam3FastImageProcessorKwargs(ImagesKwargs, total=False):
+class FastImageProcessorKwargs(ImagesKwargs, total=False):
     r"""
     mask_size (`dict[str, int]`, *optional*):
         The size `{"height": int, "width": int}` to resize the segmentation maps to.
@@ -394,7 +394,7 @@ def _scale_boxes(boxes, target_sizes):
 
 
 @auto_docstring
-class Sam3ImageProcessorFast(BaseImageProcessorFast):
+class ImageProcessorFast(BaseImageProcessorFast):
     resample = PILImageResampling.BILINEAR
     image_mean = IMAGENET_STANDARD_MEAN
     image_std = IMAGENET_STANDARD_STD
@@ -405,14 +405,14 @@ class Sam3ImageProcessorFast(BaseImageProcessorFast):
     do_normalize = True
     do_convert_rgb = True
 
-    valid_kwargs = Sam3FastImageProcessorKwargs
+    valid_kwargs = FastImageProcessorKwargs
 
     # modular artefacts
     do_pad = None
     pad_size = None
     mask_pad_size = None
 
-    def __init__(self, **kwargs: Unpack[Sam3FastImageProcessorKwargs]):
+    def __init__(self, **kwargs: Unpack[FastImageProcessorKwargs]):
         super().__init__(**kwargs)
 
     def _further_process_kwargs(
@@ -464,7 +464,7 @@ class Sam3ImageProcessorFast(BaseImageProcessorFast):
         self,
         images: ImageInput,
         segmentation_maps: ImageInput | None = None,
-        **kwargs: Unpack[Sam3FastImageProcessorKwargs],
+        **kwargs: Unpack[FastImageProcessorKwargs],
     ) -> BatchFeature:
         r"""
         segmentation_maps (`ImageInput`, *optional*):
@@ -482,7 +482,7 @@ class Sam3ImageProcessorFast(BaseImageProcessorFast):
         do_convert_rgb: bool,
         input_data_format: ChannelDimension,
         device: Union[str, "torch.device"] | None = None,
-        **kwargs: Unpack[Sam3FastImageProcessorKwargs],
+        **kwargs: Unpack[FastImageProcessorKwargs],
     ) -> BatchFeature:
         """
         Preprocess image-like inputs.
@@ -756,10 +756,10 @@ class Sam3ImageProcessorFast(BaseImageProcessorFast):
         self, outputs, target_sizes: list[tuple] | None = None, threshold: float = 0.5
     ):
         """
-        Converts the output of [`Sam3Model`] into semantic segmentation maps.
+        Converts the output of [`Model`] into semantic segmentation maps.
 
         Args:
-            outputs ([`Sam3ImageSegmentationOutput`]):
+            outputs (`dict` or dataclass):
                 Raw outputs of the model containing semantic_seg.
             target_sizes (`list[tuple]` of length `batch_size`, *optional*):
                 List of tuples corresponding to the requested final size (height, width) of each prediction. If unset,
@@ -774,7 +774,7 @@ class Sam3ImageProcessorFast(BaseImageProcessorFast):
         """
         # Get semantic segmentation output
         # semantic_seg has shape (batch_size, 1, height, width)
-        semantic_logits = outputs.semantic_seg
+        semantic_logits = outputs["semantic_seg"] if isinstance(outputs, dict) else outputs.semantic_seg
 
         if semantic_logits is None:
             raise ValueError(
@@ -813,11 +813,11 @@ class Sam3ImageProcessorFast(BaseImageProcessorFast):
 
     def post_process_object_detection(self, outputs, threshold: float = 0.3, target_sizes: list[tuple] | None = None):
         """
-        Converts the raw output of [`Sam3Model`] into final bounding boxes in (top_left_x, top_left_y,
+        Converts the raw output of [`Model`] into final bounding boxes in (top_left_x, top_left_y,
         bottom_right_x, bottom_right_y) format.
 
         Args:
-            outputs ([`Sam3ImageSegmentationOutput`]):
+            outputs (`dict` or dataclass):
                 Raw outputs of the model containing pred_boxes, pred_logits, and optionally presence_logits.
             threshold (`float`, *optional*, defaults to 0.3):
                 Score threshold to keep object detection predictions.
@@ -831,9 +831,10 @@ class Sam3ImageProcessorFast(BaseImageProcessorFast):
                 - **boxes** (`torch.Tensor`): Image bounding boxes in (top_left_x, top_left_y, bottom_right_x,
                   bottom_right_y) format.
         """
-        pred_logits = outputs.pred_logits  # (batch_size, num_queries)
-        pred_boxes = outputs.pred_boxes  # (batch_size, num_queries, 4) in xyxy format
-        presence_logits = outputs.presence_logits  # (batch_size, 1) or None
+        # Support both dict and dataclass-style outputs
+        pred_logits = outputs["pred_logits"] if isinstance(outputs, dict) else outputs.pred_logits  # (batch_size, num_queries)
+        pred_boxes = outputs["pred_boxes"] if isinstance(outputs, dict) else outputs.pred_boxes  # (batch_size, num_queries, 4) in xyxy format
+        presence_logits = outputs["presence_logits"] if isinstance(outputs, dict) else outputs.presence_logits  # (batch_size, 1) or None
 
         batch_size = pred_logits.shape[0]
 
@@ -870,10 +871,10 @@ class Sam3ImageProcessorFast(BaseImageProcessorFast):
         target_sizes: list[tuple] | None = None,
     ):
         """
-        Converts the raw output of [`Sam3Model`] into instance segmentation predictions with bounding boxes and masks.
+        Converts the raw output of [`Model`] into instance segmentation predictions with bounding boxes and masks.
 
         Args:
-            outputs ([`Sam3ImageSegmentationOutput`]):
+            outputs (`dict` or dataclass):
                 Raw outputs of the model containing pred_boxes, pred_logits, pred_masks, and optionally
                 presence_logits.
             threshold (`float`, *optional*, defaults to 0.3):
@@ -892,10 +893,11 @@ class Sam3ImageProcessorFast(BaseImageProcessorFast):
                 - **masks** (`torch.Tensor`): Binary segmentation masks for each instance, shape (num_instances,
                   height, width).
         """
-        pred_logits = outputs.pred_logits  # (batch_size, num_queries)
-        pred_boxes = outputs.pred_boxes  # (batch_size, num_queries, 4) in xyxy format
-        pred_masks = outputs.pred_masks  # (batch_size, num_queries, height, width)
-        presence_logits = outputs.presence_logits  # (batch_size, 1) or None
+        # Support both dict and dataclass-style outputs
+        pred_logits = outputs["pred_logits"] if isinstance(outputs, dict) else outputs.pred_logits  # (batch_size, num_queries)
+        pred_boxes = outputs["pred_boxes"] if isinstance(outputs, dict) else outputs.pred_boxes  # (batch_size, num_queries, 4) in xyxy format
+        pred_masks = outputs["pred_masks"] if isinstance(outputs, dict) else outputs.pred_masks  # (batch_size, num_queries, height, width)
+        presence_logits = outputs["presence_logits"] if isinstance(outputs, dict) else outputs.presence_logits  # (batch_size, 1) or None
 
         batch_size = pred_logits.shape[0]
 
@@ -945,4 +947,4 @@ class Sam3ImageProcessorFast(BaseImageProcessorFast):
         return results
 
 
-__all__ = ["Sam3ImageProcessorFast"]
+__all__ = ["ImageProcessorFast"]
