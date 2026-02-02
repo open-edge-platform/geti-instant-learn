@@ -412,12 +412,18 @@ class Processor(ProcessorMixin):
             return [pad_value] * dims[0]
         return [self._create_empty_nested_structure(dims[1:], pad_value) for _ in range(dims[0])]
 
-    def _get_nesting_level(self, input_list):
+    def _get_nesting_level(
+        self,
+        input_list: list | np.ndarray | torch.Tensor,
+    ) -> int:
         """Get the nesting level of a list structure, skipping None values.
 
         Args:
-            input_list (`list`):
-                The list to get the nesting level of.
+            input_list (list | np.ndarray | torch.Tensor):
+                The list, array, or tensor to get the nesting level of.
+
+        Returns:
+            (int): The nesting level of the input structure.
         """
         if isinstance(input_list, list):
             if len(input_list) == 0:
@@ -435,26 +441,31 @@ class Processor(ProcessorMixin):
 
     def _validate_single_input(
         self,
-        data: torch.Tensor | np.ndarray | list,
+        data: torch.Tensor | np.ndarray | list | None,
         expected_depth: int,
         input_name: str,
         expected_format: str,
         expected_coord_size: int | None = None,
-    ) -> list:
-        """Validate a single input by ensuring proper nesting and raising an error if the input is not valid.
+    ) -> list | None:
+        """Validate a single input by ensuring proper nesting and raising an error if invalid.
 
         Args:
-                    data (`torch.Tensor`, `np.ndarray`, or `list`):
-                        Input data to process.
-                    expected_depth (`int`):
-                        Expected nesting depth.
-                    input_name (`str`):
-                        Name of the input for error messages.
-                    expected_format (`str`):
-                        The expected format of the input.
-                    expected_coord_size (`int`, *optional*):
-                        Expected coordinate size (4 for boxes, None for labels).
-        .
+            data (torch.Tensor | np.ndarray | list | None):
+                Input data to process.
+            expected_depth (int):
+                Expected nesting depth.
+            input_name (str):
+                Name of the input for error messages.
+            expected_format (str):
+                The expected format of the input.
+            expected_coord_size (int | None, *optional*, defaults to None):
+                Expected coordinate size (4 for boxes, None for labels).
+
+        Returns:
+            (list | None): Nested list representation of the input, or None if input is None.
+
+        Raises:
+            ValueError: If the input has incorrect nesting depth or coordinate size.
         """
         if data is None:
             return None
@@ -464,12 +475,16 @@ class Processor(ProcessorMixin):
             # For tensors/arrays, we can directly check the number of dimensions
             if data.ndim != expected_depth:
                 raise ValueError(
-                    f"Input {input_name} must be a tensor/array with {expected_depth} dimensions. The expected nesting format is {expected_format}. Got {data.ndim} dimensions.",
+                    f"Input {input_name} must be a tensor/array with {expected_depth} "
+                    f"dimensions. The expected nesting format is {expected_format}. "
+                    f"Got {data.ndim} dimensions.",
                 )
             if expected_coord_size is not None:
                 if data.shape[-1] != expected_coord_size:
                     raise ValueError(
-                        f"Input {input_name} must be a tensor/array with {expected_coord_size} as the last dimension, got {data.shape[-1]}.",
+                        f"Input {input_name} must be a tensor/array with "
+                        f"{expected_coord_size} as the last dimension, "
+                        f"got {data.shape[-1]}.",
                     )
             return self._convert_to_nested_list(data, expected_depth)
 
@@ -478,22 +493,33 @@ class Processor(ProcessorMixin):
             current_depth = self._get_nesting_level(data)
             if current_depth != expected_depth:
                 raise ValueError(
-                    f"Input {input_name} must be a nested list with {expected_depth} levels. The expected nesting format is {expected_format}. Got {current_depth} levels.",
+                    f"Input {input_name} must be a nested list with {expected_depth} "
+                    f"levels. The expected nesting format is {expected_format}. "
+                    f"Got {current_depth} levels.",
                 )
             return self._convert_to_nested_list(data, expected_depth)
 
-    def _normalize_tensor_coordinates(self, tensor, original_sizes, is_bounding_box=False, preserve_padding=False):
+    def _normalize_tensor_coordinates(
+        self,
+        tensor: torch.Tensor,
+        original_sizes: list[list[float]],
+        is_bounding_box: bool = False,
+        preserve_padding: bool = False,
+    ) -> None:
         """Helper method to normalize coordinates in a tensor across multiple images.
 
         Args:
-            tensor (`torch.Tensor`):
-                Input tensor with coordinates.
-            original_sizes (`list`):
-                Original image sizes.
-            is_bounding_box (`bool`, *optional*, defaults to `False`):
+            tensor (torch.Tensor):
+                Input tensor with coordinates to normalize in-place.
+            original_sizes (list[list[float]]):
+                Original image sizes in (height, width) format.
+            is_bounding_box (bool, *optional*, defaults to False):
                 Whether coordinates are bounding boxes.
-            preserve_padding (`bool`, *optional*, defaults to `False`):
+            preserve_padding (bool, *optional*, defaults to False):
                 Whether to preserve padding values (for boxes).
+
+        Returns:
+            None
         """
         if preserve_padding:
             # For boxes: avoid normalizing pad values
@@ -520,43 +546,64 @@ class Processor(ProcessorMixin):
                 else:
                     tensor[img_idx] = normalized_coords
 
-    def post_process_semantic_segmentation(self, outputs, target_sizes=None, threshold=0.5):
+    def post_process_semantic_segmentation(
+        self,
+        outputs: dict,
+        target_sizes: list[tuple[int, int]] | None = None,
+        threshold: float = 0.5,
+    ) -> list[torch.Tensor]:
         """Converts the output of [`Model`] into semantic segmentation maps.
 
         Args:
-            outputs ([`Sam3ImageSegmentationOutput`]):
+            outputs (dict):
                 Raw outputs of the model containing semantic_seg.
-            target_sizes (`list[tuple]` of length `batch_size`, *optional*):
-                List of tuples corresponding to the requested final size (height, width) of each prediction. If unset,
-                predictions will not be resized.
-            threshold (`float`, *optional*, defaults to 0.5):
+            target_sizes (list[tuple[int, int]] | None, *optional*):
+                List of tuples corresponding to the requested final size (height, width)
+                of each prediction. If unset, predictions will not be resized.
+            threshold (float, *optional*, defaults to 0.5):
                 Threshold for binarizing the semantic segmentation masks.
 
         Returns:
-            semantic_segmentation: `list[torch.Tensor]` of length `batch_size`, where each item is a semantic
-            segmentation map of shape (height, width) corresponding to the target_sizes entry (if `target_sizes` is
-            specified). Each entry is a binary mask (0 or 1).
+            (list[torch.Tensor]): List of length `batch_size`, where each item is a
+            semantic segmentation map of shape (height, width) with binary mask
+            (0 or 1) corresponding to the target_sizes entry (if `target_sizes` is
+            specified).
         """
-        return self.image_processor.post_process_semantic_segmentation(outputs, target_sizes, threshold)
+        return self.image_processor.post_process_semantic_segmentation(
+            outputs,
+            target_sizes,
+            threshold,
+        )
 
-    def post_process_object_detection(self, outputs, threshold=0.3, target_sizes=None):
-        """Converts the raw output of [`Model`] into final bounding boxes in (top_left_x, top_left_y,
-        bottom_right_x, bottom_right_y) format. This is a convenience wrapper around the image processor method.
+    def post_process_object_detection(
+        self,
+        outputs: dict,
+        threshold: float = 0.3,
+        target_sizes: list[tuple[int, int]] | None = None,
+    ) -> list[dict[str, torch.Tensor]]:
+        """Converts the raw output of [`Model`] into final bounding boxes in
+        (top_left_x, top_left_y, bottom_right_x, bottom_right_y) format.
+        This is a convenience wrapper around the image processor method.
 
         Args:
-            outputs ([`Sam3ImageSegmentationOutput`]):
-                Raw outputs of the model containing pred_boxes, pred_logits, and optionally presence_logits.
-            threshold (`float`, *optional*, defaults to 0.3):
+            outputs (dict):
+                Raw outputs of the model containing pred_boxes, pred_logits, and
+                optionally presence_logits.
+            threshold (float, *optional*, defaults to 0.3):
                 Score threshold to keep object detection predictions.
-            target_sizes (`list[tuple[int, int]]`, *optional*):
-                List of tuples (`tuple[int, int]`) containing the target size `(height, width)` of each image in the
-                batch. If unset, predictions will not be resized.
+            target_sizes (list[tuple[int, int]] | None, *optional*):
+                List of tuples (`tuple[int, int]`) containing the target size
+                `(height, width)` of each image in the batch. If unset, predictions
+                will not be resized.
 
         Returns:
-            `list[dict]`: A list of dictionaries, each dictionary containing the following keys:
-                - **scores** (`torch.Tensor`): The confidence scores for each predicted box on the image.
-                - **boxes** (`torch.Tensor`): Image bounding boxes in (top_left_x, top_left_y, bottom_right_x,
-                  bottom_right_y) format.
+            (list[dict[str, torch.Tensor]]): A list of dictionaries, each dictionary
+            containing the following keys:
+
+                - **scores** (`torch.Tensor`): The confidence scores for each predicted
+                  box on the image.
+                - **boxes** (`torch.Tensor`): Image bounding boxes in (top_left_x,
+                  top_left_y, bottom_right_x, bottom_right_y) format.
 
         Example:
         ```python
@@ -575,42 +622,53 @@ class Processor(ProcessorMixin):
         >>> outputs = model(**inputs)
 
         >>> # Post-process to get bounding boxes
-        >>> results = processor.post_process_object_detection(outputs, threshold=0.3, target_sizes=[image.size[::-1]])
+        >>> results = processor.post_process_object_detection(
+        ...     outputs, threshold=0.3, target_sizes=[image.size[::-1]]
+        ... )
         >>> boxes = results[0]["boxes"]
         >>> scores = results[0]["scores"]
         ```
         """
-        return self.image_processor.post_process_object_detection(outputs, threshold, target_sizes)
+        return self.image_processor.post_process_object_detection(
+            outputs,
+            threshold,
+            target_sizes,
+        )
 
     def post_process_instance_segmentation(
         self,
-        outputs,
-        threshold=0.3,
-        mask_threshold=0.5,
-        target_sizes=None,
-    ):
-        """Converts the raw output of [`Model`] into instance segmentation predictions with bounding boxes and masks.
-        This is a convenience wrapper around the image processor method.
+        outputs: dict,
+        threshold: float = 0.3,
+        mask_threshold: float = 0.5,
+        target_sizes: list[tuple[int, int]] | None = None,
+    ) -> list[dict[str, torch.Tensor]]:
+        """Converts the raw output of [`Model`] into instance segmentation predictions
+        with bounding boxes and masks. This is a convenience wrapper around the image
+        processor method.
 
         Args:
-            outputs ([`Sam3ImageSegmentationOutput`]):
-                Raw outputs of the model containing pred_boxes, pred_logits, pred_masks, and optionally
-                presence_logits.
-            threshold (`float`, *optional*, defaults to 0.3):
+            outputs (dict):
+                Raw outputs of the model containing pred_boxes, pred_logits, pred_masks,
+                and optionally presence_logits.
+            threshold (float, *optional*, defaults to 0.3):
                 Score threshold to keep instance predictions.
-            mask_threshold (`float`, *optional*, defaults to 0.5):
+            mask_threshold (float, *optional*, defaults to 0.5):
                 Threshold for binarizing the predicted masks.
-            target_sizes (`list[tuple[int, int]]`, *optional*):
-                List of tuples (`tuple[int, int]`) containing the target size `(height, width)` of each image in the
-                batch. If unset, predictions will not be resized.
+            target_sizes (list[tuple[int, int]] | None, *optional*):
+                List of tuples (`tuple[int, int]`) containing the target size
+                `(height, width)` of each image in the batch. If unset, predictions
+                will not be resized.
 
         Returns:
-            `list[dict]`: A list of dictionaries, each dictionary containing the following keys:
-                - **scores** (`torch.Tensor`): The confidence scores for each predicted instance on the image.
-                - **boxes** (`torch.Tensor`): Image bounding boxes in (top_left_x, top_left_y, bottom_right_x,
-                  bottom_right_y) format.
-                - **masks** (`torch.Tensor`): Binary segmentation masks for each instance, shape (num_instances,
-                  height, width).
+            (list[dict[str, torch.Tensor]]): A list of dictionaries, each dictionary
+            containing the following keys:
+
+                - **scores** (`torch.Tensor`): The confidence scores for each predicted
+                  instance on the image.
+                - **boxes** (`torch.Tensor`): Image bounding boxes in (top_left_x,
+                  top_left_y, bottom_right_x, bottom_right_y) format.
+                - **masks** (`torch.Tensor`): Binary segmentation masks for each instance,
+                  shape (num_instances, height, width).
 
         Example:
         ```python
