@@ -4,7 +4,6 @@
 import logging
 from uuid import UUID
 
-import cv2
 import numpy as np
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -45,7 +44,6 @@ from domain.services.schemas.prompt import (
     TextPromptCreateSchema,
     VisualPromptCreateSchema,
     VisualPromptUpdateSchema,
-    VisualPromptWithFrameSchema,
 )
 from domain.services.thumbnail import generate_thumbnail
 
@@ -138,61 +136,6 @@ class PromptService(BaseService):
             raise ResourceNotFoundError(resource_type=ResourceType.PROMPT, resource_id=str(prompt_id))
         denormalized_prompt = self._denormalization(project_id=project_id, data=prompt)
         return prompt_db_to_schema(denormalized_prompt, include_thumbnail=False)
-
-    def get_visual_prompts_with_frames(
-        self, project_id: UUID, prompt_type: PromptType
-    ) -> list[VisualPromptWithFrameSchema]:
-        """
-        Retrieve all visual prompts with their frames loaded as numpy arrays.
-
-        This method is designed for batch processing (e.g., training data generation).
-        It handles frame loading, validation, and color space conversion.
-
-        Parameters:
-            project_id: Owning project UUID.
-            prompt_type: Type of prompts to retrieve (typically PromptType.VISUAL).
-
-        Returns:
-            List of prompts with their frames as RGB numpy arrays.
-            Prompts with missing or invalid frames are skipped with warnings.
-
-        Raises:
-            ResourceNotFoundError: If project does not exist.
-        """
-        self._ensure_project(project_id)
-
-        prompts = self.prompt_repository.list_all_by_project(project_id=project_id, prompt_type=prompt_type)
-
-        prompts_with_frames = []
-        for prompt in prompts:
-            if not prompt.frame_id:
-                logger.warning("Visual prompt missing frame_id: prompt_id=%s", prompt.id)
-                continue
-
-            try:
-                frame = self.frame_repository.read_frame(project_id, prompt.frame_id)
-                if frame is None:
-                    logger.warning("Frame not found: prompt_id=%s, frame_id=%s", prompt.id, prompt.frame_id)
-                    continue
-
-                # Convert BGR to RGB for training
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-                # Convert to schema - keep denormalized for training
-                prompt_schema = prompt_db_to_schema(prompt, include_thumbnail=False)
-                prompts_with_frames.append(VisualPromptWithFrameSchema(prompt=prompt_schema, frame=frame_rgb))
-
-            except Exception as e:
-                logger.warning("Failed to load frame for prompt: prompt_id=%s, error=%s", prompt.id, e)
-                continue
-
-        logger.info(
-            "Loaded %d visual prompts with frames for project_id=%s (out of %d total)",
-            len(prompts_with_frames),
-            project_id,
-            len(prompts),
-        )
-        return prompts_with_frames
 
     def create_prompt(self, project_id: UUID, create_data: PromptCreateSchema) -> PromptSchema:
         """

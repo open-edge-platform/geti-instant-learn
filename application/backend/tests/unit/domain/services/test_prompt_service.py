@@ -29,7 +29,6 @@ from domain.services.schemas.prompt import (
     TextPromptCreateSchema,
     TextPromptUpdateSchema,
     VisualPromptCreateSchema,
-    VisualPromptSchema,
     VisualPromptUpdateSchema,
 )
 
@@ -800,80 +799,3 @@ def test_update_visual_prompt_single_frame_read_for_normalization_and_deduplicat
 
     assert service.frame_repository.read_frame.call_count == 2
     service.session.commit.assert_called_once()
-
-
-def test_get_visual_prompts_with_frames_success(service, mock_project, project_id, test_image):
-    frame_id_1 = uuid.uuid4()
-    frame_id_2 = uuid.uuid4()
-    label_id = uuid.uuid4()
-
-    annotation_1 = make_annotation_db(label_id=label_id)
-    annotation_2 = make_annotation_db(label_id=label_id)
-
-    prompt_1 = make_visual_prompt_db(frame_id=frame_id_1, project_id=project_id, annotations=[annotation_1])
-    prompt_2 = make_visual_prompt_db(frame_id=frame_id_2, project_id=project_id, annotations=[annotation_2])
-
-    service.prompt_repository.list_all_by_project.return_value = [prompt_1, prompt_2]
-    service.frame_repository.read_frame.return_value = test_image
-
-    results = service.get_visual_prompts_with_frames(project_id, PromptType.VISUAL)
-
-    assert len(results) == 2
-    assert all(hasattr(r, "prompt") and hasattr(r, "frame") for r in results)
-    assert all(isinstance(r.prompt, VisualPromptSchema) for r in results)
-    assert all(isinstance(r.frame, np.ndarray) for r in results)
-    assert all(r.frame.shape == test_image.shape for r in results)
-
-    service.prompt_repository.list_all_by_project.assert_called_once_with(
-        project_id=project_id, prompt_type=PromptType.VISUAL
-    )
-    assert service.frame_repository.read_frame.call_count == 2
-
-
-def test_get_visual_prompts_with_frames_skips_missing_frames(service, mock_project, project_id, test_image):
-    frame_id_1 = uuid.uuid4()
-    frame_id_2 = uuid.uuid4()
-    label_id = uuid.uuid4()
-
-    annotation = make_annotation_db(label_id=label_id)
-
-    prompt_1 = make_visual_prompt_db(frame_id=frame_id_1, project_id=project_id, annotations=[annotation])
-    prompt_2 = make_visual_prompt_db(frame_id=frame_id_2, project_id=project_id, annotations=[annotation])
-
-    service.prompt_repository.list_all_by_project.return_value = [prompt_1, prompt_2]
-
-    # First frame succeeds, second fails
-    service.frame_repository.read_frame.side_effect = [test_image, None]
-
-    results = service.get_visual_prompts_with_frames(project_id, PromptType.VISUAL)
-
-    assert len(results) == 1
-    assert results[0].prompt.id == prompt_1.id
-
-
-def test_get_visual_prompts_with_frames_skips_prompts_without_frame_id(service, mock_project, project_id):
-    label_id = uuid.uuid4()
-    annotation = make_annotation_db(label_id=label_id)
-
-    prompt = make_visual_prompt_db(frame_id=None, project_id=project_id, annotations=[annotation])
-
-    service.prompt_repository.list_all_by_project.return_value = [prompt]
-
-    results = service.get_visual_prompts_with_frames(project_id, PromptType.VISUAL)
-
-    assert len(results) == 0
-
-
-def test_get_visual_prompts_with_frames_handles_frame_load_errors(service, mock_project, project_id):
-    frame_id = uuid.uuid4()
-    label_id = uuid.uuid4()
-    annotation = make_annotation_db(label_id=label_id)
-
-    prompt = make_visual_prompt_db(frame_id=frame_id, project_id=project_id, annotations=[annotation])
-
-    service.prompt_repository.list_all_by_project.return_value = [prompt]
-    service.frame_repository.read_frame.side_effect = Exception("File system error")
-
-    results = service.get_visual_prompts_with_frames(project_id, PromptType.VISUAL)
-
-    assert len(results) == 0

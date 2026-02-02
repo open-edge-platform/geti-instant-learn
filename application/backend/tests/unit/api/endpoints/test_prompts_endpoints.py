@@ -22,6 +22,7 @@ from domain.services.schemas.base import Pagination
 from domain.services.schemas.prompt import (
     PromptsListSchema,
     TextPromptSchema,
+    VisualPromptListItemSchema,
     VisualPromptSchema,
 )
 
@@ -101,7 +102,7 @@ def test_get_all_prompts(client, behavior, expected_status, expected_count):
             if behavior == "some_prompts":
                 prompts = [
                     TextPromptSchema(id=PROMPT_ID, type=PromptType.TEXT, content="find red car"),
-                    VisualPromptSchema(
+                    VisualPromptListItemSchema(
                         id=SECOND_PROMPT_ID,
                         type=PromptType.VISUAL,
                         frame_id=FRAME_ID,

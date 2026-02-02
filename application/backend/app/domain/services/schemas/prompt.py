@@ -1,11 +1,9 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from dataclasses import dataclass
 from typing import Annotated, Literal
 from uuid import UUID
 
-import numpy as np
 from pydantic import BaseModel, Field
 
 from domain.db.models import PromptType
@@ -128,21 +126,24 @@ class VisualPromptSchema(BaseIDSchema):
     type: Literal[PromptType.VISUAL]  # type: ignore[valid-type]
     frame_id: UUID
     annotations: list[AnnotationSchema]
-    thumbnail: str | None = Field(None, description="Base64-encoded thumbnail image with annotations")
 
 
 PromptSchema = Annotated[VisualPromptSchema | TextPromptSchema, Field(discriminator="type")]
 
 
+class VisualPromptListItemSchema(BaseIDSchema):
+    """Schema for a visual prompt in list response (includes thumbnail)."""
+
+    type: Literal[PromptType.VISUAL]  # type: ignore[valid-type]
+    frame_id: UUID
+    annotations: list[AnnotationSchema]
+    thumbnail: str = Field(..., description="Base64-encoded thumbnail image with annotations")
+
+
+PromptListItemSchema = Annotated[VisualPromptListItemSchema | TextPromptSchema, Field(discriminator="type")]
+
+
 class PromptsListSchema(PaginatedResponse):
     """Schema for listing prompts."""
 
-    prompts: list[PromptSchema]
-
-
-@dataclass
-class VisualPromptWithFrameSchema:
-    """Visual prompt with its frame as numpy array (for internal use)."""
-
-    prompt: PromptSchema
-    frame: np.ndarray
+    prompts: list[PromptListItemSchema]

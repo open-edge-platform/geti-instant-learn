@@ -345,23 +345,22 @@ class TestPipelineManager:
             },
             label_id=label_id,
         )
-        visual_prompt = SimpleNamespace(
-            id=uuid4(), type=PromptType.VISUAL, frame_id=frame_id, annotations=[annotation_db]
-        )
+        visual_prompt = SimpleNamespace(id=uuid4(), frame_id=frame_id, annotations=[annotation_db])
 
-        frame_rgb = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
-        prompt_with_frame = SimpleNamespace(prompt=visual_prompt, frame=frame_rgb)
+        frame_bgr = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
         fake_sample = MagicMock(name="Sample")
         fake_batch = MagicMock(name="Batch")
         fake_batch.samples = [fake_sample]
 
         with (
-            patch("runtime.pipeline_manager.PromptService") as prompt_svc_cls,
+            patch("runtime.pipeline_manager.PromptRepository") as prompt_repo_cls,
             patch("runtime.pipeline_manager.LabelService") as label_svc_cls,
+            patch.object(mgr._frame_repository, "read_frame", return_value=frame_bgr) as read_frame,
+            patch("runtime.pipeline_manager.cv2.cvtColor", return_value=np.zeros((64, 64, 3), dtype=np.uint8)),
             patch("runtime.pipeline_manager.visual_prompt_to_sample", return_value=fake_sample),
             patch("runtime.pipeline_manager.Batch.collate", return_value=fake_batch),
         ):
-            prompt_svc_cls.return_value.get_visual_prompts_with_frames.return_value = [prompt_with_frame]
+            prompt_repo_cls.return_value.list_all_by_project.return_value = [visual_prompt]
             label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
                 label_to_category_id={label_id: 0},
                 category_id_to_label_id={0: str(label_id)},
@@ -374,9 +373,10 @@ class TestPipelineManager:
         assert batch is fake_batch
         assert category_id_to_label_id == {0: str(label_id)}
 
-        prompt_svc_cls.return_value.get_visual_prompts_with_frames.assert_called_once_with(
-            project_id, PromptType.VISUAL
+        prompt_repo_cls.return_value.list_all_by_project.assert_called_once_with(
+            project_id=project_id, prompt_type=PromptType.VISUAL
         )
+        read_frame.assert_called_once_with(project_id, frame_id)
 
     def test_get_reference_batch_category_mapping_sorted_by_label_id_string(self, dispatcher, session_factory) -> None:
         mgr = PipelineManager(dispatcher, session_factory)
@@ -388,23 +388,22 @@ class TestPipelineManager:
 
         ann_1 = SimpleNamespace(id=uuid4(), config={"type": "polygon", "points": []}, label_id=label_id_b)
         ann_2 = SimpleNamespace(id=uuid4(), config={"type": "polygon", "points": []}, label_id=label_id_a)
-        visual_prompt = SimpleNamespace(
-            id=uuid4(), type=PromptType.VISUAL, frame_id=frame_id, annotations=[ann_1, ann_2]
-        )
+        visual_prompt = SimpleNamespace(id=uuid4(), frame_id=frame_id, annotations=[ann_1, ann_2])
 
-        frame_rgb = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
-        prompt_with_frame = SimpleNamespace(prompt=visual_prompt, frame=frame_rgb)
+        frame_bgr = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
         fake_sample = MagicMock(name="Sample")
         fake_batch = MagicMock(name="Batch")
         fake_batch.samples = [fake_sample]
 
         with (
-            patch("runtime.pipeline_manager.PromptService") as prompt_svc_cls,
+            patch("runtime.pipeline_manager.PromptRepository") as prompt_repo_cls,
             patch("runtime.pipeline_manager.LabelService") as label_svc_cls,
+            patch.object(mgr._frame_repository, "read_frame", return_value=frame_bgr),
+            patch("runtime.pipeline_manager.cv2.cvtColor", return_value=np.zeros((64, 64, 3), dtype=np.uint8)),
             patch("runtime.pipeline_manager.visual_prompt_to_sample", return_value=fake_sample),
             patch("runtime.pipeline_manager.Batch.collate", return_value=fake_batch),
         ):
-            prompt_svc_cls.return_value.get_visual_prompts_with_frames.return_value = [prompt_with_frame]
+            prompt_repo_cls.return_value.list_all_by_project.return_value = [visual_prompt]
             label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
                 label_to_category_id={label_id_a: 0, label_id_b: 1},
                 category_id_to_label_id={0: str(label_id_a), 1: str(label_id_b)},
@@ -421,13 +420,10 @@ class TestPipelineManager:
         project_id = uuid4()
 
         with (
-            patch("runtime.pipeline_manager.PromptService") as prompt_svc_cls,
-            patch("runtime.pipeline_manager.LabelService") as label_svc_cls,
+            patch("runtime.pipeline_manager.PromptRepository") as prompt_repo_cls,
+            patch("runtime.pipeline_manager.LabelService"),
         ):
-            prompt_svc_cls.return_value.get_visual_prompts_with_frames.return_value = []
-            label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
-                label_to_category_id={}, category_id_to_label_id={}
-            )
+            prompt_repo_cls.return_value.list_all_by_project.return_value = []
 
             result = mgr.get_reference_batch(project_id, PromptType.VISUAL)
 
@@ -436,13 +432,16 @@ class TestPipelineManager:
     def test_get_reference_batch_visual_prompt_frame_not_found_returns_none(self, dispatcher, session_factory) -> None:
         mgr = PipelineManager(dispatcher, session_factory)
         project_id = uuid4()
+        frame_id = uuid4()
+
+        visual_prompt = SimpleNamespace(id=uuid4(), frame_id=frame_id, annotations=[])
 
         with (
-            patch("runtime.pipeline_manager.PromptService") as prompt_svc_cls,
+            patch("runtime.pipeline_manager.PromptRepository") as prompt_repo_cls,
             patch("runtime.pipeline_manager.LabelService") as label_svc_cls,
+            patch.object(mgr._frame_repository, "read_frame", return_value=None),
         ):
-            # PromptService returns empty list when frames can't be loaded
-            prompt_svc_cls.return_value.get_visual_prompts_with_frames.return_value = []
+            prompt_repo_cls.return_value.list_all_by_project.return_value = [visual_prompt]
             label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
                 label_to_category_id={}, category_id_to_label_id={}
             )
@@ -458,16 +457,18 @@ class TestPipelineManager:
         project_id = uuid4()
         frame_id = uuid4()
 
-        visual_prompt = SimpleNamespace(id=uuid4(), type=PromptType.VISUAL, frame_id=frame_id, annotations=[])
-        frame_rgb = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
-        prompt_with_frame = SimpleNamespace(prompt=visual_prompt, frame=frame_rgb)
+        visual_prompt = SimpleNamespace(id=uuid4(), frame_id=frame_id, annotations=[])
+
+        frame_bgr = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
 
         with (
-            patch("runtime.pipeline_manager.PromptService") as prompt_svc_cls,
+            patch("runtime.pipeline_manager.PromptRepository") as prompt_repo_cls,
             patch("runtime.pipeline_manager.LabelService") as label_svc_cls,
+            patch.object(mgr._frame_repository, "read_frame", return_value=frame_bgr),
+            patch("runtime.pipeline_manager.cv2.cvtColor", return_value=np.zeros((64, 64, 3), dtype=np.uint8)),
             patch("runtime.pipeline_manager.visual_prompt_to_sample", side_effect=Exception("Mapper error")),
         ):
-            prompt_svc_cls.return_value.get_visual_prompts_with_frames.return_value = [prompt_with_frame]
+            prompt_repo_cls.return_value.list_all_by_project.return_value = [visual_prompt]
             label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
                 label_to_category_id={}, category_id_to_label_id={}
             )
