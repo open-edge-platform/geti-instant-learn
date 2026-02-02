@@ -17,7 +17,7 @@
 import math
 from copy import deepcopy
 from itertools import product
-from typing import Any, Optional, Union
+from typing import Any, ClassVar, Optional, Union
 
 import numpy as np
 import torch
@@ -267,7 +267,7 @@ def _generate_crop_boxes(
             - input_labels (torch.Tensor): Input labels for crops.
 
     Raises:
-        ValueError: If image is a list (only single images allowed).
+        TypeError: If image is a list (only single images allowed).
     """
     if isinstance(image, list):
         msg = "Only one image is allowed for crop generation."
@@ -370,7 +370,7 @@ def _generate_crop_images(
     layer_idxs: list[int],
     target_size: int,
     original_size: tuple[int, int],
-    input_data_format: ChannelDimension | None = None,
+    _input_data_format: ChannelDimension | None = None,
 ) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
     """Generate cropped images and corresponding point grids.
 
@@ -384,7 +384,7 @@ def _generate_crop_images(
         layer_idxs (list[int]): Layer indices for each crop.
         target_size (int): Target size for crops.
         original_size (tuple[int, int]): Original image size.
-        input_data_format (ChannelDimension | None, optional): Channel dimension format.
+        _input_data_format (ChannelDimension | None, optional): Channel dimension format.
             Defaults to None.
 
     Returns:
@@ -547,8 +547,8 @@ class ImageProcessorFast(BaseImageProcessorFast):
     resample = PILImageResampling.BILINEAR
     image_mean = IMAGENET_STANDARD_MEAN
     image_std = IMAGENET_STANDARD_STD
-    size = {"height": 1008, "width": 1008}
-    mask_size = {"height": 288, "width": 288}
+    size: ClassVar[dict[str, int]] = {"height": 1008, "width": 1008}
+    mask_size: ClassVar[dict[str, int]] = {"height": 288, "width": 288}
     do_resize = True
     do_rescale = True
     do_normalize = True
@@ -579,7 +579,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
         data_format: ChannelDimension | None = None,
         **kwargs,
     ) -> dict:
-        """Update kwargs that need further processing before being validated
+        """Update kwargs that need further processing before being validated.
 
         Can be overridden by subclasses to customize the processing of kwargs.
         """
@@ -625,6 +625,7 @@ class ImageProcessorFast(BaseImageProcessorFast):
         Args:
             images (ImageInput): Images to preprocess.
             segmentation_maps (ImageInput, optional): Segmentation maps to preprocess.
+            **kwargs (Unpack[FastImageProcessorKwargs]): Additional keyword arguments for preprocessing.
 
         Returns:
             BatchFeature: Preprocessed outputs.
@@ -784,6 +785,8 @@ class ImageProcessorFast(BaseImageProcessorFast):
             stability_score_offset (`float`, *optional*, defaults to 1):
                 The offset for the stability score used in the `_compute_stability_score` method.
 
+        Raises:
+            ValueError: If masks and iou_scores have different batch sizes.
         """
         original_height, original_width = original_size
         iou_scores = iou_scores.flatten(0, 1)
@@ -833,8 +836,8 @@ class ImageProcessorFast(BaseImageProcessorFast):
 
     def post_process_masks(
         self,
-        masks: list["torch.Tensor"] | "torch.Tensor" | "np.ndarray",
-        original_sizes: list[tuple[int, int]] | "torch.Tensor",
+        masks: list[torch.Tensor] | torch.Tensor | np.ndarray,
+        original_sizes: list[tuple[int, int]] | torch.Tensor,
         mask_threshold: float = 0.0,
         binarize: bool = True,
         max_hole_area: float = 0.0,
@@ -860,10 +863,14 @@ class ImageProcessorFast(BaseImageProcessorFast):
                 The maximum area of a sprinkle to fill.
             apply_non_overlapping_constraints (`bool`, *optional*, defaults to `False`):
                 Whether to apply non-overlapping constraints to the masks.
+            **kwargs: Additional keyword arguments (unused, for compatibility).
 
         Returns:
             (`torch.Tensor`): Batched masks in batch_size, num_channels, height, width) format, where (height, width)
             is given by original_size.
+
+        Raises:
+            TypeError: If input masks are not torch.Tensor or np.ndarray.
         """
         if isinstance(original_sizes, (torch.Tensor, np.ndarray)):
             original_sizes = original_sizes.tolist()
@@ -945,6 +952,9 @@ class ImageProcessorFast(BaseImageProcessorFast):
             semantic_segmentation: `list[torch.Tensor]` of length `batch_size`, where each item is a semantic
             segmentation map of shape (height, width) corresponding to the target_sizes entry (if `target_sizes` is
             specified). Each entry is a binary mask (0 or 1).
+
+        Raises:
+            ValueError: If semantic segmentation output is not available or target_sizes length doesn't match batch size.
         """
         # Get semantic segmentation output
         # semantic_seg has shape (batch_size, 1, height, width)
@@ -1013,6 +1023,9 @@ class ImageProcessorFast(BaseImageProcessorFast):
                 - **scores** (`torch.Tensor`): The confidence scores for each predicted box on the image.
                 - **boxes** (`torch.Tensor`): Image bounding boxes in (top_left_x, top_left_y, bottom_right_x,
                   bottom_right_y) format.
+
+        Raises:
+            ValueError: If target_sizes length doesn't match batch size.
         """
         # Support both dict and dataclass-style outputs
         pred_logits = (
@@ -1081,6 +1094,9 @@ class ImageProcessorFast(BaseImageProcessorFast):
                   bottom_right_y) format.
                 - **masks** (`torch.Tensor`): Binary segmentation masks for each instance, shape (num_instances,
                   height, width).
+
+        Raises:
+            ValueError: If target_sizes length doesn't match batch size.
         """
         # Support both dict and dataclass-style outputs
         pred_logits = (
