@@ -119,7 +119,7 @@ class SAM3(Model):
             "facebook/sam3",
             key_mapping={r"detector_model.(.+)": r"\1"},
             torch_dtype=precision_to_torch_dtype(precision),
-        ).to(device)
+        ).to(device).eval()
 
     def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """Store category mapping from reference batch for consistent API with GroundedSAM.
@@ -242,7 +242,7 @@ class SAM3(Model):
                     )
                 result = self.input_processor.post_process_instance_segmentation(
                     outputs,
-                    threshold=0.5,
+                    threshold=self.confidence_threshold,
                     mask_threshold=0.5,
                     target_sizes=[img_size],
                 )
