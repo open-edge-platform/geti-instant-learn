@@ -3,14 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { expect, http, test } from '@geti-prompt/test-fixtures';
+import { expect, http, test } from '@/test-fixtures';
 
 import { registerApiLabels } from '../labels/mocks';
 import { initializeWebRTC } from '../prompt/initialize-webrtc';
-import { WEBCAM_SOURCE } from '../prompt/mocks';
+import { USB_CAMERA_SOURCE } from '../prompt/mocks';
 import { ANNOTATOR_PAGE_TIMEOUT, expectToHaveAnnotations, expectToNotHaveAnnotations } from './utils';
 
-test('Annotator', async ({ network, page, context, streamPage, annotatorPage, labelsPage }) => {
+test(`Annotator`, async ({ network, page, context, streamPage, annotatorPage, labelsPage }) => {
     test.setTimeout(ANNOTATOR_PAGE_TIMEOUT);
 
     await initializeWebRTC({ page, context, network });
@@ -20,7 +20,7 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage, la
     network.use(
         http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {
             return response(200).json({
-                sources: [WEBCAM_SOURCE],
+                sources: [USB_CAMERA_SOURCE],
                 pagination: {
                     count: 1,
                     total: 1,
@@ -31,7 +31,7 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage, la
         }),
 
         http.put('/api/v1/projects/{project_id}/sources/{source_id}', ({ response }) =>
-            response(200).json(WEBCAM_SOURCE)
+            response(200).json(USB_CAMERA_SOURCE)
         )
     );
 
@@ -52,10 +52,10 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage, la
     });
 
     await test.step('Adds annotation', async () => {
-        await expect(page.getByText('Processing image, please wait...')).toBeVisible({
+        await expect(annotatorPage.getProcessingImage()).toBeVisible({
             timeout: ANNOTATOR_PAGE_TIMEOUT,
         });
-        await expect(page.getByText('Processing image, please wait...')).toBeHidden({
+        await expect(annotatorPage.getProcessingImage()).toBeHidden({
             timeout: ANNOTATOR_PAGE_TIMEOUT,
         });
 
@@ -117,10 +117,8 @@ test('Annotator', async ({ network, page, context, streamPage, annotatorPage, la
 
         await expectToHaveAnnotations({ annotatorPage });
 
-        // Open settings just for fun
-        await annotatorPage.openSettings();
-        await annotatorPage.closeSettings();
+        await expect(annotatorPage.getFullScreen()).toBeVisible();
 
-        await annotatorPage.closeFullscreen();
+        await annotatorPage.closeFullScreen();
     });
 });

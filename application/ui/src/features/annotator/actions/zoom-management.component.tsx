@@ -21,14 +21,14 @@ export const ZoomManagement = () => {
             <Grid alignItems={'center'} columns={['size-400', 'size-450', 'size-400']} gap={'size-50'}>
                 <TooltipTrigger>
                     <ActionButton
-                        aria-label={'Zoom in'}
+                        aria-label={'Zoom out'}
                         isQuiet
-                        onPress={() => onZoomChange(1)}
-                        isDisabled={zoom.scale >= zoom.maxZoomIn}
+                        onPress={() => onZoomChange(-1)}
+                        isDisabled={zoom.scale <= zoom.initialCoordinates.scale}
                     >
-                        <Add />
+                        <Remove />
                     </ActionButton>
-                    <Tooltip>Zoom in</Tooltip>
+                    <Tooltip>Zoom out</Tooltip>
                 </TooltipTrigger>
 
                 <Text
@@ -40,14 +40,14 @@ export const ZoomManagement = () => {
 
                 <TooltipTrigger>
                     <ActionButton
-                        aria-label={'Zoom out'}
+                        aria-label={'Zoom in'}
                         isQuiet
-                        onPress={() => onZoomChange(-1)}
-                        isDisabled={zoom.scale <= zoom.initialCoordinates.scale}
+                        onPress={() => onZoomChange(1)}
+                        isDisabled={zoom.scale >= zoom.maxZoomIn}
                     >
-                        <Remove />
+                        <Add />
                     </ActionButton>
-                    <Tooltip>Zoom out</Tooltip>
+                    <Tooltip>Zoom in</Tooltip>
                 </TooltipTrigger>
             </Grid>
 

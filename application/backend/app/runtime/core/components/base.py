@@ -8,10 +8,10 @@ from types import TracebackType
 from typing import Any, TypeVar
 
 import torch
-from getiprompt.data.base.batch import Batch
+from instantlearn.data.base.batch import Batch
 
 from domain.services.schemas.processor import InputData
-from domain.services.schemas.reader import FrameListResponse
+from domain.services.schemas.reader import FrameListResponse, ReaderConfig
 from runtime.core.components.errors import UnsupportedOperationError
 
 IN = TypeVar("IN")
@@ -65,6 +65,20 @@ class StreamReader(AbstractContextManager, ABC):
 
     """
 
+    @property
+    def requires_manual_control(self) -> bool:
+        """
+        Indicates whether this reader requires manual externally controlled iteration
+        instead of continuous streaming.
+
+        If True:
+            - The Source should not continuously loop calling read()
+            - The Source should wait for external triggers (seek/next)
+        If False (default):
+            - The Source should loop continuously (e.g. for video/camera)
+        """
+        return False
+
     def connect(self) -> None:
         pass
 
@@ -101,6 +115,10 @@ class StreamReader(AbstractContextManager, ABC):
         """
         raise UnsupportedOperationError
 
+    @classmethod
+    def discover(cls) -> list[ReaderConfig]:
+        raise UnsupportedOperationError
+
 
 class StreamWriter(AbstractContextManager, ABC):
     """An abstract interface for writing processed frames to various sinks."""
@@ -127,5 +145,5 @@ class ModelHandler(ABC):
         pass
 
     @abstractmethod
-    def infer(self, batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, batch: Batch) -> list[dict[str, torch.Tensor]]:
         pass

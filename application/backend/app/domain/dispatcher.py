@@ -3,6 +3,7 @@
 
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from enum import StrEnum
 from typing import Protocol
 from uuid import UUID
 
@@ -23,12 +24,20 @@ class ProjectDeactivationEvent(BaseModel):
     project_id: UUID
 
 
+class ComponentType(StrEnum):
+    """Enum for configurable types of pipeline components."""
+
+    SOURCE = "source"
+    PROCESSOR = "processor"
+    SINK = "sink"
+
+
 class ComponentConfigChangeEvent(BaseModel):
     """Event fired when a component of the active pipeline changes."""
 
     project_id: UUID
-    component_type: str
-    component_id: str
+    component_type: ComponentType
+    component_id: UUID
 
 
 ConfigChangeEvent = ProjectActivationEvent | ProjectDeactivationEvent | ComponentConfigChangeEvent
@@ -60,8 +69,21 @@ class ConfigChangeDispatcher:
             self._listeners.append(listener)
 
     def dispatch(self, event: ConfigChangeEvent) -> None:
-        for listener in self._listeners:
-            self._executor.submit(self._safe_notify, listener, event)
+        """
+        Dispatch a configuration change event to all subscribed listeners.
+        Events for sinks and sources are dispatched synchronously to avoid race conditions for the UI,
+        the rest is dispatched asynchronously.
+
+        """
+        if isinstance(event, ComponentConfigChangeEvent) and event.component_type in (
+            ComponentType.SOURCE,
+            ComponentType.SINK,
+        ):
+            for listener in self._listeners:
+                self._safe_notify(listener, event)
+        else:
+            for listener in self._listeners:
+                self._executor.submit(self._safe_notify, listener, event)
 
     def _safe_notify(self, listener: ConfigChangeListener, event: ConfigChangeEvent) -> None:
         try:

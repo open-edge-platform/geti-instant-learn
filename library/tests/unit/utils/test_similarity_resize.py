@@ -6,7 +6,7 @@
 import pytest
 import torch
 
-from getiprompt.utils.similarity_resize import resize_similarity_maps
+from instantlearn.utils.similarity_resize import resize_similarity_maps
 
 
 class TestResizeSimilarityMapBasic:

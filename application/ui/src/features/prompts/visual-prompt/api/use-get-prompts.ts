@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api, VisualPromptListType } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { $api, VisualPromptListType } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
 
 export const useGetPrompts = (): VisualPromptListType['prompts'] => {
     const { projectId } = useProjectIdentifier();

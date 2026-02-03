@@ -1,0 +1,128 @@
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+"""SoftMatcher model."""
+
+from instantlearn.components.prompt_generators import SoftmatcherPromptGenerator
+from instantlearn.models.matcher import Matcher
+from instantlearn.utils.constants import SAMModelName
+
+
+class SoftMatcher(Matcher):
+    """This is the SoftMatcher model.
+
+    Instead of using a linear sum assignment, this model uses a soft matching algorithm to generate prompts
+    for the segmenter.
+
+    This model is based on the paper:
+    "Probabilistic Feature Matching for Fast Scalable Visual Prompting"
+    https://www.ijcai.org/proceedings/2024/1000.pdf
+
+    Main novelties:
+    - Replaces the bidirectional prompt generator with a soft matching algorithm, for very fast computation
+    - Can use Random Fourier Features to approximate the similarity map to increase prompt generation speed
+
+    We have added several sampling techniques to increase the performance of the model.
+
+    Examples:
+        >>> from instantlearn.models import SoftMatcher
+        >>> from instantlearn.data.base import Batch
+        >>> from instantlearn.data.base.sample import Sample
+        >>> from instantlearn.types import Results
+        >>> from torchvision import tv_tensors
+        >>> import torch
+        >>> import numpy as np
+        >>>
+        >>> soft_matcher = SoftMatcher()
+        >>>
+        >>> # Create mock inputs
+        >>> ref_image = np.zeros((1024, 1024, 3), dtype=np.uint8)
+        >>> target_image = np.zeros((1024, 1024, 3), dtype=np.uint8)
+        >>> ref_mask = torch.ones(30, 30, dtype=torch.bool)
+        >>>
+        >>> # Create reference sample
+        >>> ref_sample = Sample(
+        ...     image=ref_image,
+        ...     masks=ref_mask.unsqueeze(0).numpy(),
+        ...     category_ids=np.array([1]),
+        ...     is_reference=[True],
+        ...     categories=["object"],
+        ... )
+        >>> ref_batch = Batch.collate([ref_sample])
+        >>>
+        >>> # Create target sample
+        >>> target_sample = Sample(
+        ...     image=target_image,
+        ...     is_reference=[False],
+        ...     categories=["object"],
+        ... )
+        >>> target_batch = Batch.collate([target_sample])
+        >>>
+        >>> # Run fit and predict
+        >>> soft_matcher.fit(ref_batch)
+        >>> predict_results = soft_matcher.predict(target_batch)
+        >>>
+        >>> isinstance(predict_results, Results)
+        True
+        >>> predict_results.masks is not None
+        True
+    """
+
+    def __init__(
+        self,
+        sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
+        num_foreground_points: int = 40,
+        num_background_points: int = 2,
+        confidence_threshold: float | None = 0.42,
+        use_sampling: bool = False,
+        use_spatial_sampling: bool = False,
+        approximate_matching: bool = False,
+        softmatching_score_threshold: float = 0.4,
+        softmatching_bidirectional: bool = False,
+        encoder_model: str = "dinov3_large",
+        use_nms: bool = True,
+        precision: str = "bf16",
+        compile_models: bool = False,
+        device: str = "cuda",
+    ) -> None:
+        """Initialize the SoftMatcher model.
+
+        Args:
+            sam: The name of the SAM model to use.
+            num_foreground_points: The number of foreground points to use.
+            num_background_points: The number of background points to use.
+            confidence_threshold: Minimum confidence score for keeping predicted masks
+                in the final output. Higher values = stricter filtering, fewer masks.
+            use_sampling: Whether to use sampling.
+            use_spatial_sampling: Whether to use spatial sampling.
+            approximate_matching: Whether to use approximate matching.
+            softmatching_score_threshold: The score threshold for the soft matching.
+            softmatching_bidirectional: Whether to use bidirectional soft matching.
+            encoder_model: The encoder model to use.
+            precision: The precision to use for the model.
+            compile_models: Whether to compile the models.
+            device: The device to use for the model.
+        """
+        super().__init__(
+            sam=sam,
+            num_foreground_points=num_foreground_points,
+            num_background_points=num_background_points,
+            confidence_threshold=confidence_threshold,
+            use_nms=use_nms,
+            encoder_model=encoder_model,
+            precision=precision,
+            compile_models=compile_models,
+            device=device,
+        )
+        self.prompt_generator = SoftmatcherPromptGenerator(
+            encoder_input_size=self.encoder.input_size,
+            encoder_patch_size=self.encoder.patch_size,
+            encoder_feature_size=self.encoder.feature_size,
+            num_background_points=num_background_points,
+            num_foreground_points=num_foreground_points,
+            use_sampling=use_sampling,
+            use_spatial_sampling=use_spatial_sampling,
+            approximate_matching=approximate_matching,
+            softmatching_score_threshold=softmatching_score_threshold,
+            softmatching_bidirectional=softmatching_bidirectional,
+        )

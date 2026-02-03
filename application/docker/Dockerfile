@@ -1,7 +1,7 @@
 ##################
 # Geti UI packages
 ##################
-FROM node:24-alpine3.22@sha256:2867d550cf9d8bb50059a0fff528741f11a84d985c732e60e19e8e75c7239c43 AS geti-ui-packages
+FROM node:24-alpine3.22@sha256:bb089be859f2741e5ede9d85f47dc7daca754015b50e9642a7a45c5252807d2c AS geti-ui-packages
 
 WORKDIR /home/app/web_ui/
 RUN apk add --no-cache git=2.49.1-r0
@@ -11,7 +11,7 @@ RUN npm run clone-geti-ui-packages
 #############
 # Web UI deps
 #############
-FROM node:24-alpine3.22@sha256:2867d550cf9d8bb50059a0fff528741f11a84d985c732e60e19e8e75c7239c43 AS web-ui-base
+FROM node:24-alpine3.22@sha256:bb089be859f2741e5ede9d85f47dc7daca754015b50e9642a7a45c5252807d2c AS web-ui-base
 
 WORKDIR /home/app/web_ui/
 
@@ -24,16 +24,12 @@ COPY --link ui/tsconfig.json ./
 COPY --link ui/rsbuild.config.ts ./
 COPY --link ui/src/ src/
 
-ARG PUBLIC_API_URL=""
-ENV PUBLIC_API_URL=${PUBLIC_API_URL}
-
 ########
 # Web UI
 ########
 FROM web-ui-base AS web-ui
 
-ARG ASSET_PREFIX=""
-ENV ASSET_PREFIX=${ASSET_PREFIX}
+ENV ASSET_PREFIX="/html"
 
 # build with --no-cache in case of sub-dependency changes (from geti)
 RUN npm run build
@@ -41,37 +37,37 @@ RUN npm run build
 ##########################################
 # Base for CPU, GPU and XPU runtime images
 ##########################################
-FROM python:3.12-slim-bookworm@sha256:78e702aee4d693e769430f0d7b4f4858d8ea3f1118dc3f57fee3f757d0ca64b1 AS runtime-base
+
+FROM python:3.12-slim-bookworm@sha256:4a3ceab05b4e396df42a042415e43a286bb5793352b9258f889d6c7d38ed01fb AS runtime-base
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 # Disable Python downloads, because we want to use the system interpreter
 ENV UV_PYTHON_DOWNLOADS=0
 
-ARG STATIC_FILES_DIR=""
-ENV STATIC_FILES_DIR=${STATIC_FILES_DIR}
-ARG DB_DATA_DIR=""
-ENV DB_DATA_DIR=${DB_DATA_DIR}
-ENV PYTHONPATH=/geti_prompt/app
-ENV PATH="${PYTHONPATH}/backend/.venv/bin:$PATH"
-ENV LIBRARY_PATH="/geti_prompt/library"
+ENV STATIC_FILES_DIR="/instant_learn/html"
+ENV DB_DATA_DIR="/instant_learn/data"
+ENV LOGS_DIR="/instant_learn/logs"
+ENV PATH="/instant_learn/.venv/bin:$PATH"
+ENV PYTHONPATH=/instant_learn/app
+
 ARG UID=10001
 ENV UID=${UID}
 ARG USER_NAME="non-root"
 ENV USER_NAME=${USER_NAME}
-ARG PUBLIC_API_URL=""
-ENV PUBLIC_API_URL=${PUBLIC_API_URL}
 ARG TARGET_DATASET_DIR=""
 ARG SOURCE_DATASET_DIR=""
+ARG DEVICE=""
+ENV DEVICE=${DEVICE}
 
-# Create directory and set ownership before VOLUME instruction
+# Create directory and set ownership so mounting a volume works correctly
 RUN mkdir -p ${DB_DATA_DIR} && chown ${UID}:${UID} ${DB_DATA_DIR}
-VOLUME ${DB_DATA_DIR}
+RUN mkdir -p ${LOGS_DIR} && chown ${UID}:${UID} ${LOGS_DIR}
 
 # Install OpenGL libraries for opencv-python
 RUN apt-get update && apt-get install -y --no-install-recommends \
       git=1:2.39.5-0+deb12u2 \
       libgl1=1.6.0-1 \
-      libglib2.0-0=2.74.6-2+deb12u7 \
+      libglib2.0-0=2.74.6-2+deb12u8 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -92,15 +88,19 @@ WORKDIR ${PYTHONPATH}/backend
 COPY --link --chown=${UID} ${SOURCE_DATASET_DIR} ${TARGET_DATASET_DIR}
 
 # Copy library and create proper directory structure
-COPY --link --from=libs --chown=${UID} ./src ${LIBRARY_PATH}/src
-COPY --link --from=libs --chown=${UID} ./pyproject.toml ${LIBRARY_PATH}/pyproject.toml
+COPY --from=backend-base --chown=${UID} /instant_learn/library/src /instant_learn/library/src
+
 # Copy backend source code
 COPY --link --chown=${UID} backend/app ${PYTHONPATH}
 COPY --chown=${UID} --from=ghcr.io/astral-sh/uv:0.9.7@sha256:ba4857bf2a068e9bc0e64eed8563b065908a4cd6bfb66b531a9c424c8e25e142 /uv /bin/uv
 COPY --from=web-ui --chown=${UID} /home/app/web_ui/dist/ ${STATIC_FILES_DIR}
 
+
+WORKDIR /instant_learn
+
+
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD uv run python -c "import urllib.request; urllib.request.urlopen('${PUBLIC_API_URL}/health')" || exit 1
+    CMD uv run python -c "import urllib.request; urllib.request.urlopen('http://localhost:9100/health')" || exit 1
 
 USER ${USER_NAME}
 
@@ -250,7 +250,7 @@ FROM runtime-base AS xpu
 USER root
 
 RUN apt-get update  \
-    && apt-get install -y --no-install-recommends wget=1.21.3-1+deb12u1 gpg=2.2.40-1.1+deb12u1 \
+    && apt-get install -y --no-install-recommends wget=1.21.3-1+deb12u1 gpg=2.2.40-1.1+deb12u2 \
     && wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
        gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg \
     && echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy unified" | \

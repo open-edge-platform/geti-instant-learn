@@ -5,7 +5,7 @@
 
 import { ReactNode, Suspense } from 'react';
 
-import { Flex, Grid, Loading, minmax } from '@geti/ui';
+import { Flex, Grid, Loading } from '@geti/ui';
 
 import { AnnotationProviders } from '../../../annotator/annotation-providers/annotation-providers.component';
 import { useVisualPrompt } from '../visual-prompt-provider.component';
@@ -54,7 +54,7 @@ export const CapturedFrame = ({ frameId }: CapturedFrameProps) => {
                 width={'100%'}
                 height={'size-6000'}
                 areas={['labels', 'image', 'actions']}
-                rows={[minmax('size-500', 'auto'), 'auto', 'size-500']}
+                rows={['max-content', 'auto', 'size-500']}
                 UNSAFE_style={{
                     backgroundColor: 'var(--spectrum-global-color-gray-200)',
                 }}

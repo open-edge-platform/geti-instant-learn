@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api, LabelType } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { $api, LabelType } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
 
 export const useProjectLabels = (): LabelType[] => {
     const { projectId } = useProjectIdentifier();

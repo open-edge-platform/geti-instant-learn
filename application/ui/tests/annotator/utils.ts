@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { expect } from '@geti-prompt/test-fixtures';
+import { expect } from '@/test-fixtures';
 
 import { AnnotatorPage } from './annotator-page';
 

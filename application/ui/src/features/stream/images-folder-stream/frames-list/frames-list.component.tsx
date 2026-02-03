@@ -5,7 +5,7 @@
 
 import { RefObject, useLayoutEffect, useMemo } from 'react';
 
-import { type FrameAPIType } from '@geti-prompt/api';
+import { type FrameAPIType } from '@/api';
 import {
     AriaComponentsListBox,
     HorizontalLayout,
@@ -75,7 +75,7 @@ export const FramesList = ({
     useScrollToActiveFrame(ref, activeFrameIndex);
 
     return (
-        <View height={'100%'} padding={'size-200'} backgroundColor={'gray-100'}>
+        <View height={'100%'} padding={'size-200'}>
             <Virtualizer<HorizontalLayoutOptions> layout={HorizontalLayout} layoutOptions={LAYOUT_OPTIONS}>
                 <AriaComponentsListBox
                     orientation={'horizontal'}

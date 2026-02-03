@@ -2,11 +2,13 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import logging
+import uuid
 from queue import Queue
-from threading import Thread
+from threading import Lock, Thread
 from typing import Self
 from uuid import UUID
 
+from domain.repositories.frame import FrameRepository
 from domain.services.schemas.processor import InputData, OutputData
 from domain.services.schemas.reader import FrameListResponse
 from runtime.core.components.base import PipelineComponent
@@ -51,15 +53,18 @@ class Pipeline:
     def __init__(
         self,
         project_id: UUID,
+        frame_repository: FrameRepository,
         inbound_broadcaster: FrameBroadcaster[InputData] = FrameBroadcaster[InputData](),
         outbound_broadcaster: FrameBroadcaster[OutputData] = FrameBroadcaster[OutputData](),
     ):
         # todo: remove project id from the pipeline as it is the application impl details
         self._project_id = project_id
+        self._frame_repository = frame_repository
         self._inbound_broadcaster = inbound_broadcaster
         self._outbound_broadcaster = outbound_broadcaster
         self._threads: dict[type[PipelineComponent], Thread] = {}
         self._components: dict[type[PipelineComponent], PipelineComponent] = {}
+        self._lock = Lock()
         self._is_running = False
 
         logger.debug(f"Pipeline created for project_id={project_id}")
@@ -83,41 +88,35 @@ class Pipeline:
         """Unregister a WebRTC consumer."""
         return self._outbound_broadcaster.unregister(queue=queue)
 
-    def register_inbound_consumer(self) -> Queue[InputData]:
-        """Register a consumer for raw input frames from the source."""
-        return self._inbound_broadcaster.register()
-
-    def unregister_inbound_consumer(self, queue: Queue[InputData]) -> None:
-        """Unregister a consumer for raw input frames."""
-        self._inbound_broadcaster.unregister(queue)
-
     def start(self) -> None:
-        if self._is_running:
-            logger.warning(f"Pipeline already running for project_id={self._project_id}")
-            return
-        logger.debug(f"Starting pipeline for project_id={self._project_id}")
-        for component_cls, component in self._components.items():
-            thread = Thread(target=component, daemon=False)
-            thread.start()
-            self._threads[component_cls] = thread
-        self._is_running = True
+        with self._lock:
+            if self._is_running:
+                logger.warning(f"Pipeline already running for project_id={self._project_id}")
+                return
+            logger.debug(f"Starting pipeline for project_id={self._project_id}")
+            for component_cls, component in self._components.items():
+                thread = Thread(target=component, daemon=False)
+                thread.start()
+                self._threads[component_cls] = thread
+            self._is_running = True
         logger.debug(f"Pipeline started for project_id={self._project_id}")
 
     def stop(self) -> None:
-        if not self._is_running:
-            logger.warning(f"Pipeline already stopped for project_id={self._project_id}")
-            return
-        logger.debug(f"Stopping pipeline for project_id={self._project_id}")
+        with self._lock:
+            if not self._is_running:
+                logger.warning(f"Pipeline already stopped for project_id={self._project_id}")
+                return
+            logger.debug(f"Stopping pipeline for project_id={self._project_id}")
 
-        for component_cls in [Source, Processor, Sink]:
-            component = self._components.get(component_cls)
-            if component:
-                component.stop()
-                thread = self._threads.get(component_cls)
-                if thread and thread.is_alive():
-                    thread.join(timeout=5)
+            for component_cls in [Source, Processor, Sink]:
+                component = self._components.get(component_cls)
+                if component:
+                    component.stop()
+                    thread = self._threads.get(component_cls)
+                    if thread and thread.is_alive():
+                        thread.join(timeout=5)
 
-        self._is_running = False
+            self._is_running = False
         logger.debug(f"Pipeline stopped for project_id={self._project_id}")
 
     def set_source(self, source: Source, start: bool = False) -> Self:
@@ -146,36 +145,59 @@ class Pipeline:
         """
         component_cls = new_component.__class__
 
-        # Stop the current component if one exists
-        current_component = self._components.get(component_cls)
-        if current_component:
-            current_component.stop()
-            thread = self._threads.get(component_cls)
-            if thread and thread.is_alive():
-                thread.join(timeout=5)
+        with self._lock:
+            # Stop the current component if one exists
+            current_component = self._components.get(component_cls)
+            if current_component:
+                current_component.stop()
+                thread = self._threads.get(component_cls)
+                if thread and thread.is_alive():
+                    thread.join(timeout=5)
+                    if thread.is_alive():
+                        logger.warning(f"{component_cls.__name__} thread did not stop cleanly")
 
-        self._components[component_cls] = new_component
-        thread = Thread(target=new_component, daemon=False)
-        self._threads[component_cls] = thread
-        if start:
-            thread.start()
+            self._inbound_broadcaster.clear()
+            self._outbound_broadcaster.clear()
+
+            self._components[component_cls] = new_component
+            if start:
+                thread = Thread(target=new_component, daemon=False)
+                thread.start()
+                self._threads[component_cls] = thread
+                logger.debug(f"Started new {component_cls.__name__}")
 
     def seek(self, index: int) -> None:
         """Seek to a specific frame in the source."""
-        source: Source = self._components.get(Source)
-        if source:
-            source.seek(index)
+        with self._lock:
+            source: Source = self._components.get(Source)
+            if source:
+                source.seek(index)
 
     def get_frame_index(self) -> int:
         """Get current frame position from the source."""
-        source: Source = self._components.get(Source)
-        if source:
-            return source.index()
-        return 0
+        with self._lock:
+            source: Source = self._components.get(Source)
+            if source:
+                return source.index()
+            return 0
+
+    def capture_frame(self) -> UUID:
+        """
+        Capture the latest frame from the inbound stream.
+        """
+        input_data = self._inbound_broadcaster.latest_frame
+        if input_data is None:
+            raise RuntimeError("No frame available from source")
+
+        frame_id = uuid.uuid4()
+        self._frame_repository.save_frame(self._project_id, frame_id, input_data.frame)
+        logger.info(f"Captured frame {frame_id} for project {self._project_id}")
+        return frame_id
 
     def list_frames(self, offset: int = 0, limit: int = 30) -> FrameListResponse:
         """Get paginated list of frames from the source."""
-        source: Source = self._components.get(Source)
-        if source:
-            return source.list_frames(offset, limit)
-        raise ValueError("No source component available")
+        with self._lock:
+            source: Source = self._components.get(Source)
+            if source:
+                return source.list_frames(offset, limit)
+            raise ValueError("No source component available")

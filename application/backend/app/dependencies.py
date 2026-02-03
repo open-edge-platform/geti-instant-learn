@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from collections.abc import Generator
 from typing import Annotated
 
 from fastapi import Depends, Request
@@ -19,6 +18,7 @@ from domain.repositories.source import SourceRepository
 from domain.services import LabelService, ModelService, ProjectService, PromptService, SinkService, SourceService
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.frame import FrameService
+from runtime.services.source_type import SourceTypeService
 from runtime.webrtc.manager import WebRTCManager
 from settings import get_settings
 
@@ -96,40 +96,11 @@ def get_source_service(
 
 def get_frame_service(
     frame_repo: Annotated[FrameRepository, Depends(get_frame_repository)],
-    project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
-    source_repo: Annotated[SourceRepository, Depends(get_source_repository)],
 ) -> FrameService:
     """
-    Dependency that provides a FrameService instance without queue (for GET requests).
-    This is lightweight and doesn't register any consumers with the pipeline.
+    Dependency that provides a FrameService instance.
     """
-    return FrameService(frame_repo, project_repo, source_repo)
-
-
-def get_frame_service_with_queue(
-    pipeline_manager: Annotated[PipelineManager, Depends(get_pipeline_manager)],
-    frame_repo: Annotated[FrameRepository, Depends(get_frame_repository)],
-    project_repo: Annotated[ProjectRepository, Depends(get_project_repository)],
-    source_repo: Annotated[SourceRepository, Depends(get_source_repository)],
-) -> Generator[FrameService]:
-    """
-    Dependency that provides a FrameService instance with managed queue lifecycle (for POST requests).
-    Only use this for endpoints that need to capture frames from the pipeline.
-    """
-    active_project = project_repo.get_active()
-    if not active_project:
-        # no active project - service will fail gracefully in capture_frame
-        yield FrameService(frame_repo, project_repo, source_repo)
-        return
-    inbound_queue = pipeline_manager.register_inbound_consumer(active_project.id)
-
-    try:
-        yield FrameService(frame_repo, project_repo, source_repo, inbound_queue)
-    finally:
-        try:
-            pipeline_manager.unregister_inbound_consumer(active_project.id, inbound_queue)
-        except Exception as e:
-            logger.warning(f"Failed to unregister inbound consumer queue: {e}")
+    return FrameService(frame_repo)
 
 
 def get_prompt_service(
@@ -163,13 +134,18 @@ def get_sink_service(
     return SinkService(session=session, config_change_dispatcher=dispatcher)
 
 
+def get_discovery_service() -> SourceTypeService:
+    """Dependency that provides a DiscoveryService instance."""
+    return SourceTypeService()
+
+
 # --- Dependency aliases ---
 ProjectServiceDep = Annotated[ProjectService, Depends(get_project_service)]
 SourceServiceDep = Annotated[SourceService, Depends(get_source_service)]
 FrameServiceDep = Annotated[FrameService, Depends(get_frame_service)]
-FrameServiceWithQueueDep = Annotated[FrameService, Depends(get_frame_service_with_queue)]
 LabelServiceDep = Annotated[LabelService, Depends(get_label_service)]
 PromptServiceDep = Annotated[PromptService, Depends(get_prompt_service)]
 PipelineManagerDep = Annotated[PipelineManager, Depends(get_pipeline_manager)]
 ModelServiceDep = Annotated[ModelService, Depends(get_model_service)]
 SinkServiceDep = Annotated[SinkService, Depends(get_sink_service)]
+DiscoveryServiceDep = Annotated[SourceTypeService, Depends(get_discovery_service)]

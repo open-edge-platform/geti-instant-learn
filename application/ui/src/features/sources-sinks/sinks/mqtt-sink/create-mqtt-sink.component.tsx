@@ -3,8 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Button, Form } from '@geti/ui';
+import { FormEvent, useState } from 'react';
 
+import { MQTTSinkType } from '@/api';
+import { Button, ButtonGroup, Form } from '@geti/ui';
+import { isEmpty } from 'lodash-es';
+
+import { useCreateSink } from '../api/use-create-sink';
 import { MQTTSinkFields } from './mqtt-sink-fields.component';
 
 interface CreateMQTTSinkProps {
@@ -12,18 +17,37 @@ interface CreateMQTTSinkProps {
 }
 
 export const CreateMQTTSink = ({ onSaved }: CreateMQTTSinkProps) => {
-    const createSink = () => {
-        //createSinkMutation.mutate({})
-        onSaved();
+    const createSinkMutation = useCreateSink();
+    const [sinkConfig, setSinkConfig] = useState<MQTTSinkType['config']>({
+        sink_type: 'mqtt',
+        name: '',
+        broker_port: 0,
+        broker_host: '',
+        topic: '',
+        auth_required: false,
+    });
+
+    const isApplyDisabled =
+        isEmpty(sinkConfig.name) ||
+        isEmpty(sinkConfig.broker_host) ||
+        isEmpty(sinkConfig.topic) ||
+        createSinkMutation.isPending;
+
+    const createSink = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        createSinkMutation.mutate(sinkConfig, onSaved);
     };
 
     return (
-        <Form>
-            <MQTTSinkFields />
+        <Form validationBehavior={'native'} onSubmit={createSink}>
+            <MQTTSinkFields sinkConfig={sinkConfig} onSetSinkConfig={setSinkConfig} />
 
-            <Button width={'max-content'} onPress={createSink}>
-                Apply
-            </Button>
+            <ButtonGroup>
+                <Button type={'submit'} isDisabled={isApplyDisabled} isPending={createSinkMutation.isPending}>
+                    Apply
+                </Button>
+            </ButtonGroup>
         </Form>
     );
 };

@@ -5,8 +5,8 @@
 
 import { Key, KeyboardEvent, useEffect, useRef, useState } from 'react';
 
-import { useOnOutsideClick } from '@geti-prompt/hooks';
-import { ActionMenu, AlertDialog, DialogContainer, Item, TextField, TextFieldRef } from '@geti/ui';
+import { useOnOutsideClick } from '@/hooks';
+import { ActionMenu, AlertDialog, DialogContainer, Item, TextField, TextFieldRef, useUnwrapDOMRef } from '@geti/ui';
 
 import styles from './project-list-item.module.scss';
 
@@ -18,7 +18,9 @@ interface ProjectEditionProps {
 }
 
 export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition, projectNames }: ProjectEditionProps) => {
-    const textFieldRef = useRef<TextFieldRef>(null);
+    const wrappedTextFieldRef = useRef<TextFieldRef>(null);
+    const textFieldRef = useUnwrapDOMRef(wrappedTextFieldRef);
+
     const [newName, setNewName] = useState<string>(name);
 
     const handleBlur = () => {
@@ -65,7 +67,7 @@ export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition, projectN
     };
 
     useEffect(() => {
-        textFieldRef.current?.select();
+        wrappedTextFieldRef.current?.focus();
     }, []);
 
     useOnOutsideClick(textFieldRef, onResetProjectInEdition);
@@ -83,7 +85,7 @@ export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition, projectN
         >
             <TextField
                 isQuiet
-                ref={textFieldRef}
+                ref={wrappedTextFieldRef}
                 value={newName}
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
@@ -99,8 +101,6 @@ export const ProjectEdition = ({ name, onBlur, onResetProjectInEdition, projectN
 export const PROJECT_ACTIONS = {
     RENAME: 'Rename',
     DELETE: 'Delete',
-    ACTIVATE: 'Activate',
-    DEACTIVATE: 'Deactivate',
 };
 
 interface ProjectActionsProps {

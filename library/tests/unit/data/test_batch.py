@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 import torch
 
-from getiprompt.data.base.batch import Batch
-from getiprompt.data.base.sample import Sample
+from instantlearn.data.base.batch import Batch
+from instantlearn.data.base.sample import Sample
 
 # Create a random generator for consistent testing
 _rng = np.random.default_rng(42)

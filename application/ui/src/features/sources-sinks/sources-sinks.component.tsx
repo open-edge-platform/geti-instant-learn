@@ -5,7 +5,7 @@
 
 import { Suspense } from 'react';
 
-import { InputOutput } from '@geti-prompt/icons';
+import { InputOutput } from '@/icons';
 import {
     Button,
     Content,
@@ -27,11 +27,11 @@ import { Sources } from './sources/sources.component';
 
 const ITEMS = [
     {
-        label: 'Input Setup',
+        label: 'Input',
         content: <Sources />,
     },
     {
-        label: 'Output Setup',
+        label: 'Output',
         content: <Sinks />,
     },
 ];

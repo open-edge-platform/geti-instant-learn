@@ -5,10 +5,12 @@ from uuid import uuid4
 import pytest
 from aiortc import RTCPeerConnection, RTCSessionDescription
 
+from domain.services.schemas.label import CategoryMappings, RGBColor, VisualizationInfo, VisualizationLabel
 from domain.services.schemas.webrtc import Answer, Offer
 from runtime.errors import PipelineProjectMismatchError
 from runtime.pipeline_manager import PipelineManager
 from runtime.webrtc.manager import WebRTCManager
+from runtime.webrtc.sdp_handler import SDPHandler
 
 PROJECT_ID = uuid4()
 
@@ -23,15 +25,30 @@ def mock_pipeline_manager():
 
 
 @pytest.fixture
-def webrtc_manager(mock_pipeline_manager):
+def mock_sdp_handler():
+    """Create a mock SDPHandler."""
+    handler = Mock(spec=SDPHandler)
+    handler.mangle_sdp = AsyncMock(return_value="mangled-sdp")
+    return handler
+
+
+@pytest.fixture
+def webrtc_manager(mock_pipeline_manager, mock_sdp_handler):
     """Create a WebRTCManager instance with mocked dependencies."""
-    return WebRTCManager(pipeline_manager=mock_pipeline_manager)
+    return WebRTCManager(pipeline_manager=mock_pipeline_manager, sdp_handler=mock_sdp_handler)
 
 
 @pytest.fixture
 def sample_offer():
     """Create a sample Offer object."""
     return Offer(webrtc_id="test-webrtc-id", sdp="v=0\r\n", type="offer")
+
+
+def _make_vis_info() -> VisualizationInfo:
+    return VisualizationInfo(
+        label_colors=[VisualizationLabel(id=uuid4(), color=RGBColor(1, 2, 3), object_name=None)],
+        category_mappings=CategoryMappings(label_to_category_id={}, category_id_to_label_id={}),
+    )
 
 
 @pytest.mark.asyncio
@@ -226,3 +243,52 @@ async def test_cleanup_all_connections(webrtc_manager, mock_pipeline_manager):
         # Verify close was called on each peer connection
         for mock_pc in mock_pcs:
             mock_pc.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_offer_with_hostname_resolution(webrtc_manager, mock_pipeline_manager, sample_offer):
+    with (
+        patch("runtime.webrtc.manager.RTCPeerConnection") as MockRTCPeerConnection,
+        patch("runtime.webrtc.manager.InferenceVideoStreamTrack") as MockTrack,
+        patch("runtime.webrtc.manager.get_settings") as mock_get_settings,
+    ):
+        # Setup settings
+        mock_settings = Mock()
+        mock_settings.ice_servers = []
+        mock_settings.webrtc_advertise_ip = "my-domain.com"
+        mock_get_settings.return_value = mock_settings
+
+        # Setup mocks
+        mock_pc = AsyncMock(spec=RTCPeerConnection)
+        mock_pc.localDescription = Mock(sdp="original-sdp", type="answer")
+        MockRTCPeerConnection.return_value = mock_pc
+        MockTrack.return_value = Mock()
+
+        # Configure SDP handler mock
+        webrtc_manager.sdp_handler.mangle_sdp.return_value = "mangled-sdp"
+
+        answer = await webrtc_manager.handle_offer(PROJECT_ID, sample_offer)
+
+        # Verify mangling was called with domain name (resolution happens inside handler)
+        webrtc_manager.sdp_handler.mangle_sdp.assert_called_once_with("original-sdp", "my-domain.com")
+
+        assert answer.sdp == "mangled-sdp"
+
+
+def test_get_visualization_info_returns_value(webrtc_manager, mock_pipeline_manager) -> None:
+    vis_info = _make_vis_info()
+    mock_pipeline_manager.get_visualization_info.return_value = vis_info
+
+    result = webrtc_manager.get_visualization_info(PROJECT_ID)
+
+    assert result is vis_info
+    mock_pipeline_manager.get_visualization_info.assert_called_once_with(PROJECT_ID)
+
+
+def test_get_visualization_info_returns_none_on_error(webrtc_manager, mock_pipeline_manager) -> None:
+    mock_pipeline_manager.get_visualization_info.side_effect = RuntimeError("db error")
+
+    result = webrtc_manager.get_visualization_info(PROJECT_ID)
+
+    assert result is None
+    mock_pipeline_manager.get_visualization_info.assert_called_once_with(PROJECT_ID)

@@ -6,34 +6,37 @@ py_path := "tests:src"
 # Ensure version in GHA workflow matches uv version here
 uv_version := "0.9.7"
 
+# Sphinx documentation variables
+DOCSSOURCEDIR := "sphinx"
+DOCSBUILDDIR  := "sphinx/.build"
+
+# List available tasks
 default:
     @just --list
 
-# -------------------------------------------------------------------------------------------------
-# Environment
-# -------------------------------------------------------------------------------------------------
+# Install uv
 pre-venv:
     if ! uv self version | grep {{uv_version}} >/dev/null; then \
         curl --proto '=https' --tlsv1.2 -LsSf "https://github.com/astral-sh/uv/releases/download/{{uv_version}}/uv-installer.sh" | sh; \
     fi
 
+# Create virtual environment
 venv: pre-venv
     uv lock --check
     uv sync --extra cpu --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
 
+# Update lock file
 venv-lock: pre-venv
     uv lock
 
-# -------------------------------------------------------------------------------------------------
-# Tests
-# -------------------------------------------------------------------------------------------------
+# Unit tests
 test-unit: venv
     if [ -d "./tests/unit" ]; then \
         PYTHONPATH={{py_path}} uv run pytest ./tests/unit -v; \
     else \
         echo "./tests/unit directory not found - skipping unit tests"; \
     fi
-
+# Integration tests
 test-integration: venv
     if [ -d "./tests/integration" ]; then \
         PYTHONPATH={{py_path}} uv run pytest ./tests/integration -v; \
@@ -41,21 +44,39 @@ test-integration: venv
         echo "./tests/integration directory not found - skipping integration tests"; \
     fi
 
+# Run all tests
 tests: test-unit test-integration
 
-# -------------------------------------------------------------------------------------------------
 # Static analysis / style
-# -------------------------------------------------------------------------------------------------
-
 style-fix: venv
     uv run ruff check --config pyproject.toml --fix
     uv run ruff format --config pyproject.toml
 
+# Linting
 lint: venv _ruff _mypy
 
+# Ruff linter
 _ruff:
     uv run ruff check --config pyproject.toml --output-format=github .
     uv run ruff format --check --config pyproject.toml .
 
+# Mypy type checker
 _mypy:
     uv run mypy . --config-file=pyproject.toml
+
+# Create virtual environment for building API reference docs
+venv-api-reference: pre-venv
+    uv lock --check
+    uv sync --extra docs --extra cpu
+
+# Build API reference HTML documentation
+api-reference-html: venv-api-reference
+	uv run sphinx-build -b html {{DOCSSOURCEDIR}} "{{DOCSBUILDDIR}}"/html
+
+# Build API reference Markdown documentation
+api-reference-markdown: venv-api-reference
+	uv run sphinx-build -b markdown {{DOCSSOURCEDIR}} "{{DOCSBUILDDIR}}"/md
+
+# Remove autosummary generated files. Can be removed when https://github.com/sphinx-doc/sphinx/issues/1999 is fixed.
+clean-api-reference:
+	rm -rf "{{DOCSSOURCEDIR}}/_autosummary"

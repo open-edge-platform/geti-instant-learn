@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api, SinkUpdateType } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { $api, SinkUpdateType } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
 
 const useUpdateSinkMutation = (projectId: string) => {
     return $api.useMutation('put', '/api/v1/projects/{project_id}/sinks/{sink_id}', {
@@ -23,7 +23,7 @@ export const useUpdateSink = () => {
     const { projectId } = useProjectIdentifier();
     const updateSinkMutation = useUpdateSinkMutation(projectId);
 
-    const updateSink = ({ sinkId, body }: { sinkId: string; body: SinkUpdateType }, onSuccess: () => void) => {
+    const updateSink = ({ sinkId, body }: { sinkId: string; body: SinkUpdateType }, onSuccess?: () => void) => {
         updateSinkMutation.mutate(
             {
                 body,

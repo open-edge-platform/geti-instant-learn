@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Flex, Grid } from '@geti/ui';
+import { Flex } from '@geti/ui';
 
 import { useSelectedFrame } from '../../../shared/selected-frame-provider.component';
 import { CapturedFramePlaceholder } from './captured-frame/captured-frame-placeholder.component';
@@ -16,7 +16,7 @@ export const VisualPrompt = () => {
 
     return (
         <Flex direction={'column'} gap={'size-300'} height={'100%'}>
-            <Grid minHeight={'size-6000'} gap={'size-300'}>
+            <Flex direction={'column'} minHeight={'size-6000'} gap={'size-300'} flex={1}>
                 {selectedFrameId === null ? (
                     <CapturedFramePlaceholder />
                 ) : (
@@ -25,7 +25,7 @@ export const VisualPrompt = () => {
                         <SavePrompt />
                     </CapturedFrameProviders>
                 )}
-            </Grid>
+            </Flex>
 
             <PromptThumbnailList />
         </Flex>

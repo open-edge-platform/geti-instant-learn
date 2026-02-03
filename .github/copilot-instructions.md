@@ -1,10 +1,10 @@
-# GitHub Copilot Instructions for Geti Prompt
+# GitHub Copilot Instructions for Geti Instant Learn
 
 > **Note**: This file is synchronized with `.cursorrules`. Both Cursor and VS Code (GitHub Copilot) use these same standards.
 
 ## Table of Contents
 
-- [GitHub Copilot Instructions for Geti Prompt](#github-copilot-instructions-for-geti-prompt)
+- [GitHub Copilot Instructions for Geti Instant Learn](#github-copilot-instructions-for-instant-learn)
   - [Table of Contents](#table-of-contents)
   - [Project Overview](#project-overview)
   - [Coding Standards](#coding-standards)
@@ -226,7 +226,7 @@ application/ui/src/
 **Library**
 
 ```
-library/src/getiprompt/
+library/src/instantlearn/
 ├── configs/      # Configuration management
 ├── data/         # Data loading and processing
 ├── inference/    # Inference engine

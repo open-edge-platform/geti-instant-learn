@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ImagesFolderSourceType } from '@geti-prompt/api';
+import { ImagesFolderSourceType } from '@/api';
 
 export const getMockedImagesFolderSource = (
     source: Partial<{ active: boolean; imagesFolderPath: string }> = {}

@@ -63,3 +63,7 @@ svg {
     }
     z-index: 100000 !important;
 }
+
+button[class*='spectrum-BaseButton'] {
+    cursor: pointer;
+}

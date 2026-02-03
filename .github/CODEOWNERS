@@ -2,16 +2,24 @@
 * @Daankrol @mpryahin @LenaRudaya @piotrgrubicki
 
 # Backend
-application/backend/ @mpryahin @LenaRudaya @piotrgrubicki
+application/backend/ @mpryahin @LenaRudaya @michalad1 @piotrgrubicki
 
 # Frontend
-application/ui/ @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura @romanowska
+application/ui/ @dwesolow @pplaskie @jpggvilaca @MarkRedeman @camiloHimura
 
 # Deploy
-deploy/ @mpryahin @LenaRudaya @piotrgrubicki
+deploy/ @mpryahin @LenaRudaya @michalad1 @piotrgrubicki
 
 # Docs
-docs/ @Daankrol @mpryahin @LenaRudaya @eugene123tw @dwesolow @pplaskie @samet-akcay
+docs/ @Daankrol @mpryahin @LenaRudaya @eugene123tw @dwesolow @pplaskie @samet-akcay @rajeshgangireddy
 
 # Lib
-library/ @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay
+library/ @Daankrol @mpryahin @LenaRudaya @eugene123tw @samet-akcay @rajeshgangireddy
+
+# CI and security
+.github/actions/                        @open-edge-platform/geti-ci-maintain
+.github/workflows/                      @open-edge-platform/geti-ci-maintain
+.github/bandit_config.yml               @open-edge-platform/geti-ci-maintain
+.github/renovate.json5                  @open-edge-platform/geti-ci-maintain
+security.md                             @open-edge-platform/geti-ci-maintain
+.semgrepignore                          @open-edge-platform/geti-ci-maintain

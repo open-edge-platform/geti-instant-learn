@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { usePromptMode } from '@geti-prompt/hooks';
-import { render } from '@geti-prompt/test-utils';
+import { usePromptMode } from '@/hooks';
+import { render } from '@/test-utils';
 import { fireEvent, screen } from '@testing-library/react';
 
 import { PromptModes } from './prompt-modes.component';

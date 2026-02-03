@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { FrameAPIType } from '@geti-prompt/api';
-import { render } from '@geti-prompt/test-utils';
+import { FrameAPIType } from '@/api';
+import { render } from '@/test-utils';
 import { fireEvent, screen, waitForElementToBeRemoved } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 import { SelectedFrameProvider } from 'src/shared/selected-frame-provider.component';
@@ -12,6 +12,7 @@ import { beforeEach } from 'vitest';
 
 import { paths } from '../../../constants/paths';
 import { http, server } from '../../../setup-test';
+import { FullScreenModeProvider } from '../../annotator/actions/full-screen-mode.component';
 import { WebRTCConnectionProvider } from '../web-rtc/web-rtc-connection-provider';
 import { ImagesFolderStream } from './images-folder-stream.component';
 
@@ -26,9 +27,11 @@ const getMockedFrame = (frame: Partial<FrameAPIType> = {}): FrameAPIType => {
 const renderImagesFolderStream = async (mode = 'visual', sourceId = '1234') => {
     render(
         <SelectedFrameProvider>
-            <WebRTCConnectionProvider>
-                <ImagesFolderStream sourceId={sourceId} />
-            </WebRTCConnectionProvider>
+            <FullScreenModeProvider>
+                <WebRTCConnectionProvider>
+                    <ImagesFolderStream sourceId={sourceId} />
+                </WebRTCConnectionProvider>
+            </FullScreenModeProvider>
         </SelectedFrameProvider>,
         {
             route: `/projects/1?mode=${mode}`,

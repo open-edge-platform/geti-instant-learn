@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { SourceCreateType } from '@geti-prompt/api';
-import { render } from '@geti-prompt/test-utils';
+import { SourceCreateType } from '@/api';
+import { render } from '@/test-utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
@@ -17,7 +17,7 @@ class ImagesFolderSourcePage {
     constructor() {}
 
     get folderPathField() {
-        return screen.getByRole('textbox', { name: 'Folder path' });
+        return screen.getByRole('textbox', { name: /Folder path/ });
     }
 
     get applyButton() {
@@ -43,7 +43,7 @@ const renderImagesFolder = (onSaved = vi.fn()) => {
     };
 };
 
-describe('ImagesFolder', () => {
+describe('CreateImagesFolder', () => {
     it('disables submit button when path is empty', () => {
         const { imagesFolderSourcePage } = renderImagesFolder();
 

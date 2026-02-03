@@ -5,23 +5,24 @@
 
 import { RefObject, useEffect, useRef } from 'react';
 
-import { TextFieldRef } from '@geti/ui';
-
-export const useOnOutsideClick = (textFieldRef: RefObject<TextFieldRef | null>, onClickOutside: () => void) => {
-    const resetProjectInEditionRef = useRef(onClickOutside);
+export const useOnOutsideClick = <T extends HTMLElement>(ref: RefObject<T | null>, onClickOutside: () => void) => {
+    const clickOutsideRef = useRef(onClickOutside);
 
     useEffect(() => {
-        resetProjectInEditionRef.current = onClickOutside;
+        clickOutsideRef.current = onClickOutside;
     }, [onClickOutside]);
 
     useEffect(() => {
+        if (ref.current === null) return;
         const abortController = new AbortController();
 
         document.addEventListener(
             'click',
             (event) => {
-                if (!textFieldRef.current?.UNSAFE_getDOMNode()?.contains(event.target as Node)) {
-                    resetProjectInEditionRef.current();
+                if (ref.current === null) return;
+
+                if (!ref.current?.contains(event.target as Node)) {
+                    clickOutsideRef.current();
                 }
             },
             { signal: abortController.signal }
@@ -29,5 +30,5 @@ export const useOnOutsideClick = (textFieldRef: RefObject<TextFieldRef | null>, 
         return () => {
             abortController.abort();
         };
-    }, [textFieldRef]);
+    }, [ref]);
 };

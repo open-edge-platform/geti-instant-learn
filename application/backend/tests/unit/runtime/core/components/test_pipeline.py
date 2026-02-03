@@ -1,9 +1,12 @@
+import time
 from queue import Queue
-from unittest.mock import Mock, patch
-from uuid import uuid4
+from threading import Thread
+from unittest.mock import Mock, PropertyMock, patch
+from uuid import UUID, uuid4
 
 import pytest
 
+from domain.repositories.frame import FrameRepository
 from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.pipeline import Pipeline
 from runtime.core.components.processor import Processor
@@ -45,6 +48,7 @@ def mock_inbound_broadcaster():
     mock_broadcaster = Mock(spec=FrameBroadcaster)
     mock_broadcaster.register = Mock(return_value=Queue())
     mock_broadcaster.unregister = Mock()
+    mock_broadcaster.clear = Mock()
     return mock_broadcaster
 
 
@@ -53,28 +57,42 @@ def mock_outbound_broadcaster():
     mock_broadcaster = Mock(spec=FrameBroadcaster)
     mock_broadcaster.register = Mock(return_value=Queue())
     mock_broadcaster.unregister = Mock()
+    mock_broadcaster.clear = Mock()
     return mock_broadcaster
 
 
+@pytest.fixture
+def mock_frame_repository():
+    return Mock(spec=FrameRepository)
+
+
 class TestPipeline:
-    def test_pipeline_initialization_with_no_components(self, project_id):
-        pipeline = Pipeline(project_id=project_id)
+    def test_pipeline_initialization_with_no_components(self, project_id, mock_frame_repository):
+        pipeline = Pipeline(project_id=project_id, frame_repository=mock_frame_repository)
         assert pipeline.project_id == project_id
         assert pipeline._components == {}
         assert pipeline.is_running is False
         pipeline.stop()
 
-    def test_is_running_is_false_after_initialization(self, project_id):
-        pipeline = Pipeline(project_id=project_id)
+    def test_is_running_is_false_after_initialization(self, project_id, mock_frame_repository):
+        pipeline = Pipeline(project_id=project_id, frame_repository=mock_frame_repository)
         assert pipeline.is_running is False
         pipeline.stop()
 
     def test_is_running_is_true_after_start(
-        self, project_id, mock_source, mock_processor, mock_sink, mock_inbound_broadcaster, mock_outbound_broadcaster
+        self,
+        project_id,
+        mock_source,
+        mock_processor,
+        mock_sink,
+        mock_inbound_broadcaster,
+        mock_outbound_broadcaster,
+        mock_frame_repository,
     ):
         pipeline = (
             Pipeline(
                 project_id=project_id,
+                frame_repository=mock_frame_repository,
                 inbound_broadcaster=mock_inbound_broadcaster,
                 outbound_broadcaster=mock_outbound_broadcaster,
             )
@@ -94,11 +112,19 @@ class TestPipeline:
         pipeline.stop()
 
     def test_is_running_is_false_after_stop(
-        self, project_id, mock_source, mock_processor, mock_sink, mock_inbound_broadcaster, mock_outbound_broadcaster
+        self,
+        project_id,
+        mock_source,
+        mock_processor,
+        mock_sink,
+        mock_inbound_broadcaster,
+        mock_outbound_broadcaster,
+        mock_frame_repository,
     ):
         pipeline = (
             Pipeline(
                 project_id=project_id,
+                frame_repository=mock_frame_repository,
                 inbound_broadcaster=mock_inbound_broadcaster,
                 outbound_broadcaster=mock_outbound_broadcaster,
             )
@@ -117,10 +143,13 @@ class TestPipeline:
             pipeline.stop()
             assert pipeline.is_running is False
 
-    def test_set_source_registers_component(self, project_id, mock_source, mock_inbound_broadcaster):
+    def test_set_source_registers_component(
+        self, project_id, mock_source, mock_inbound_broadcaster, mock_frame_repository
+    ):
         """Test that set_source registers the source component."""
         pipeline = Pipeline(
             project_id=project_id,
+            frame_repository=mock_frame_repository,
             inbound_broadcaster=mock_inbound_broadcaster,
         )
 
@@ -133,11 +162,17 @@ class TestPipeline:
         pipeline.stop()
 
     def test_set_processor_registers_component(
-        self, project_id, mock_processor, mock_inbound_broadcaster, mock_outbound_broadcaster
+        self,
+        project_id,
+        mock_processor,
+        mock_inbound_broadcaster,
+        mock_outbound_broadcaster,
+        mock_frame_repository,
     ):
         """Test that set_processor registers the processor component."""
         pipeline = Pipeline(
             project_id=project_id,
+            frame_repository=mock_frame_repository,
             inbound_broadcaster=mock_inbound_broadcaster,
             outbound_broadcaster=mock_outbound_broadcaster,
         )
@@ -150,10 +185,13 @@ class TestPipeline:
         mock_processor.setup.assert_called_once_with(mock_inbound_broadcaster, mock_outbound_broadcaster)
         pipeline.stop()
 
-    def test_set_sink_registers_component(self, project_id, mock_sink, mock_outbound_broadcaster):
+    def test_set_sink_registers_component(
+        self, project_id, mock_sink, mock_outbound_broadcaster, mock_frame_repository
+    ):
         """Test that set_sink registers the sink component."""
         pipeline = Pipeline(
             project_id=project_id,
+            frame_repository=mock_frame_repository,
             outbound_broadcaster=mock_outbound_broadcaster,
         )
 
@@ -165,21 +203,15 @@ class TestPipeline:
         mock_sink.setup.assert_called_once_with(mock_outbound_broadcaster)
         pipeline.stop()
 
-    def test_pipeline_registers_and_unregisters_inbound_consumer(self, project_id, mock_inbound_broadcaster):
-        """Test registering and unregistering inbound consumers."""
-        pipeline = Pipeline(project_id=project_id, inbound_broadcaster=mock_inbound_broadcaster)
-
-        consumer_queue = pipeline.register_inbound_consumer()
-        mock_inbound_broadcaster.register.assert_called_once()
-        assert isinstance(consumer_queue, Queue)
-
-        pipeline.unregister_inbound_consumer(consumer_queue)
-        mock_inbound_broadcaster.unregister.assert_called_once_with(consumer_queue)
-        pipeline.stop()
-
-    def test_pipeline_registers_and_unregisters_webrtc_consumer(self, project_id, mock_outbound_broadcaster):
+    def test_pipeline_registers_and_unregisters_webrtc_consumer(
+        self, project_id, mock_outbound_broadcaster, mock_frame_repository
+    ):
         """Test registering and unregistering WebRTC consumers."""
-        pipeline = Pipeline(project_id=project_id, outbound_broadcaster=mock_outbound_broadcaster)
+        pipeline = Pipeline(
+            project_id=project_id,
+            frame_repository=mock_frame_repository,
+            outbound_broadcaster=mock_outbound_broadcaster,
+        )
 
         webrtc_queue = pipeline.register_webrtc()
         mock_outbound_broadcaster.register.assert_called_once()
@@ -190,12 +222,20 @@ class TestPipeline:
         pipeline.stop()
 
     def test_pipeline_start_creates_threads_for_all_components(
-        self, project_id, mock_source, mock_processor, mock_sink, mock_inbound_broadcaster, mock_outbound_broadcaster
+        self,
+        project_id,
+        mock_source,
+        mock_processor,
+        mock_sink,
+        mock_inbound_broadcaster,
+        mock_outbound_broadcaster,
+        mock_frame_repository,
     ):
         """Test that start() creates threads for all registered components."""
         pipeline = (
             Pipeline(
                 project_id=project_id,
+                frame_repository=mock_frame_repository,
                 inbound_broadcaster=mock_inbound_broadcaster,
                 outbound_broadcaster=mock_outbound_broadcaster,
             )
@@ -215,12 +255,20 @@ class TestPipeline:
                 mock_thread.start.assert_called_once()
 
     def test_pipeline_stop_stops_components(
-        self, project_id, mock_source, mock_processor, mock_sink, mock_inbound_broadcaster, mock_outbound_broadcaster
+        self,
+        project_id,
+        mock_source,
+        mock_processor,
+        mock_sink,
+        mock_inbound_broadcaster,
+        mock_outbound_broadcaster,
+        mock_frame_repository,
     ):
         """Test that stop() stops all components."""
         pipeline = (
             Pipeline(
                 project_id=project_id,
+                frame_repository=mock_frame_repository,
                 inbound_broadcaster=mock_inbound_broadcaster,
                 outbound_broadcaster=mock_outbound_broadcaster,
             )
@@ -239,11 +287,19 @@ class TestPipeline:
         mock_sink.stop.assert_called_once()
 
     def test_start_does_nothing_if_already_running(
-        self, project_id, mock_source, mock_processor, mock_sink, mock_inbound_broadcaster, mock_outbound_broadcaster
+        self,
+        project_id,
+        mock_source,
+        mock_processor,
+        mock_sink,
+        mock_inbound_broadcaster,
+        mock_outbound_broadcaster,
+        mock_frame_repository,
     ):
         pipeline = (
             Pipeline(
                 project_id=project_id,
+                frame_repository=mock_frame_repository,
                 inbound_broadcaster=mock_inbound_broadcaster,
                 outbound_broadcaster=mock_outbound_broadcaster,
             )
@@ -268,11 +324,19 @@ class TestPipeline:
         pipeline.stop()
 
     def test_stop_does_nothing_if_already_stopped(
-        self, project_id, mock_source, mock_processor, mock_sink, mock_inbound_broadcaster, mock_outbound_broadcaster
+        self,
+        project_id,
+        mock_source,
+        mock_processor,
+        mock_sink,
+        mock_inbound_broadcaster,
+        mock_outbound_broadcaster,
+        mock_frame_repository,
     ):
         pipeline = (
             Pipeline(
                 project_id=project_id,
+                frame_repository=mock_frame_repository,
                 inbound_broadcaster=mock_inbound_broadcaster,
                 outbound_broadcaster=mock_outbound_broadcaster,
             )
@@ -287,4 +351,127 @@ class TestPipeline:
         mock_source.stop.assert_not_called()
         mock_processor.stop.assert_not_called()
         mock_sink.stop.assert_not_called()
-        assert pipeline.is_running is False
+
+    def test_get_frame_index_waits_for_switch(self, project_id, mock_frame_repository):
+        pipeline = Pipeline(project_id=project_id, frame_repository=mock_frame_repository)
+
+        old_source = Mock(spec=Source)
+        old_source.index.return_value = 5
+        old_source.stop = Mock()
+        old_source.setup = Mock()
+
+        new_source = Mock(spec=Source)
+        new_source.index.return_value = 10
+        new_source.stop = Mock()
+        new_source.setup = Mock()
+
+        def slow_stop():
+            time.sleep(0.5)
+
+        old_source.stop.side_effect = slow_stop
+
+        pipeline.set_source(old_source)
+
+        def switch_source():
+            pipeline.set_source(new_source)
+
+        switch_thread = Thread(target=switch_source)
+
+        switch_thread.start()
+        time.sleep(0.1)
+        idx = pipeline.get_frame_index()
+        switch_thread.join()
+
+        assert idx == 10
+
+    def test_capture_frame_success(self, project_id, mock_inbound_broadcaster, mock_frame_repository):
+        pipeline = Pipeline(
+            project_id=project_id,
+            frame_repository=mock_frame_repository,
+            inbound_broadcaster=mock_inbound_broadcaster,
+        )
+
+        mock_input_data = Mock()
+        mock_input_data.frame = Mock()
+        type(mock_inbound_broadcaster).latest_frame = PropertyMock(return_value=mock_input_data)
+
+        frame_id = pipeline.capture_frame()
+
+        assert isinstance(frame_id, UUID)
+        # Check that save_frame was called with the project_id, the frame_id, and the frame data
+        mock_frame_repository.save_frame.assert_called_once_with(project_id, frame_id, mock_input_data.frame)
+
+    def test_capture_frame_raises_error_if_no_frame(self, project_id, mock_inbound_broadcaster, mock_frame_repository):
+        pipeline = Pipeline(
+            project_id=project_id,
+            frame_repository=mock_frame_repository,
+            inbound_broadcaster=mock_inbound_broadcaster,
+        )
+
+        type(mock_inbound_broadcaster).latest_frame = PropertyMock(return_value=None)
+
+        with pytest.raises(RuntimeError, match="No frame available from source"):
+            pipeline.capture_frame()
+
+    def test_set_source_clears_inbound_and_outbound_broadcasters(
+        self,
+        project_id,
+        mock_source,
+        mock_inbound_broadcaster,
+        mock_outbound_broadcaster,
+        mock_frame_repository,
+    ):
+        pipeline = Pipeline(
+            project_id=project_id,
+            frame_repository=mock_frame_repository,
+            inbound_broadcaster=mock_inbound_broadcaster,
+            outbound_broadcaster=mock_outbound_broadcaster,
+        )
+
+        pipeline.set_source(mock_source)
+
+        mock_inbound_broadcaster.clear.assert_called_once()
+        mock_outbound_broadcaster.clear.assert_called_once()
+        pipeline.stop()
+
+    def test_set_processor_clears_inbound_and_outbound_broadcasters(
+        self,
+        project_id,
+        mock_processor,
+        mock_inbound_broadcaster,
+        mock_outbound_broadcaster,
+        mock_frame_repository,
+    ):
+        pipeline = Pipeline(
+            project_id=project_id,
+            frame_repository=mock_frame_repository,
+            inbound_broadcaster=mock_inbound_broadcaster,
+            outbound_broadcaster=mock_outbound_broadcaster,
+        )
+
+        pipeline.set_processor(mock_processor)
+
+        mock_inbound_broadcaster.clear.assert_called_once()
+        mock_outbound_broadcaster.clear.assert_called_once()
+        pipeline.stop()
+
+    def test_set_sink_clears_inbound_and_outbound_broadcasters(
+        self,
+        project_id,
+        mock_sink,
+        mock_inbound_broadcaster,
+        mock_outbound_broadcaster,
+        mock_frame_repository,
+    ):
+        pipeline = Pipeline(
+            project_id=project_id,
+            frame_repository=mock_frame_repository,
+            inbound_broadcaster=mock_inbound_broadcaster,
+            outbound_broadcaster=mock_outbound_broadcaster,
+        )
+
+        pipeline.set_sink(mock_sink)
+
+        mock_inbound_broadcaster.clear.assert_called_once()
+        mock_outbound_broadcaster.clear.assert_called_once()
+        pipeline.stop()

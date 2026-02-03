@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { $api } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
 
 const useDeleteSinkMutation = (projectId: string) => {
     return $api.useMutation('delete', '/api/v1/projects/{project_id}/sinks/{sink_id}', {
@@ -22,5 +22,26 @@ const useDeleteSinkMutation = (projectId: string) => {
 export const useDeleteSink = () => {
     const { projectId } = useProjectIdentifier();
 
-    return useDeleteSinkMutation(projectId);
+    const deleteSinkMutation = useDeleteSinkMutation(projectId);
+
+    const deleteSink = (sinkId: string, onSuccess?: () => void) => {
+        deleteSinkMutation.mutate(
+            {
+                params: {
+                    path: {
+                        project_id: projectId,
+                        sink_id: sinkId,
+                    },
+                },
+            },
+            {
+                onSuccess,
+            }
+        );
+    };
+
+    return {
+        mutate: deleteSink,
+        isPending: deleteSinkMutation.isPending,
+    };
 };

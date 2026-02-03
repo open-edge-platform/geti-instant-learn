@@ -6,6 +6,11 @@ on:
         description: "Specifies the build version to apply to all binaries produced by this workflow"
         type: string
         required: true
+      sha-commit:
+        description: "SHA to checkout"
+        type: string
+        default: ""
+        required: false
   workflow_dispatch:
 jobs:
   component-check:
@@ -16,29 +21,29 @@ jobs:
     timeout-minutes: 30
     strategy:
       matrix:
-        ai-device: [cpu, gpu, xpu]
+        ai-device: [cpu, cuda, xpu]
     steps:
+      - name: Validate SHA format
+        if: inputs.sha-commit != ''
+        env:
+          SHA_COMMIT: ${{ inputs.sha-commit }}
+        run: |
+          if ! echo "${SHA_COMMIT}" | grep -qE '^[0-9a-f]{40}$'; then
+            echo "Error: Invalid SHA format. Expected 40 hexadecimal characters."
+            exit 1
+          fi
+
       - name: Checkout code
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+          ref: ${{ inputs.sha-commit || '' }}
 
-      - name: Initial cleanup
-        uses: ./.github/actions/cleanup-runner
+      - name: Install dependencies
+        uses: ./.github/actions/install-dependencies
         with:
-          type: "initial"
-
-      - name: Install Just
-        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3.0.0
-        with:
-          just-version: '1.43.1'
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@1e862dfacbd1d6d858c55d9b792c756523627244 # v7.1.4
-        with:
-          version: "0.9.7"
-          enable-cache: true
-          cache-dependency-glob: "application/backend/uv.lock"
+          uv-cache-dependency-glob: 'application/backend/uv.lock'
+          cleanup-runner: 'true'
 
       - name: Build docker image for ${{ matrix.ai-device }}
         working-directory: application
@@ -46,7 +51,7 @@ jobs:
           BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just ai-device="${DEVICE}" version="${BUILD_VERSION}" docker-build-context="--no-cache" build-image
+          just build-target="${DEVICE}" version="${BUILD_VERSION}" docker-build-context="--no-cache" build-image
 
       - name: Show size of the image for ${{ matrix.ai-device }}
         working-directory: application
@@ -54,7 +59,7 @@ jobs:
           BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just ai-device="${DEVICE}" version="${BUILD_VERSION}" show-size
+          just build-target="${DEVICE}" version="${BUILD_VERSION}" show-size
 
       - name: Test image for ${{ matrix.ai-device }}
         working-directory: application
@@ -62,4 +67,4 @@ jobs:
           BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just ai-device="${DEVICE}" version="${BUILD_VERSION}" test-image
+          just build-target="${DEVICE}" version="${BUILD_VERSION}" test-image

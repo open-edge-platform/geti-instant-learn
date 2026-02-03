@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { $api } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
+import { getQueryKey } from '@/query-client';
 import { useQueryClient } from '@tanstack/react-query';
 
 export const useActivateFrameMutation = () => {
@@ -40,7 +41,7 @@ export const useActivateFrame = () => {
             {
                 onSuccess: async () => {
                     await queryClient.invalidateQueries({
-                        queryKey: [
+                        queryKey: getQueryKey([
                             'get',
                             '/api/v1/projects/{project_id}/sources/{source_id}/frames/index',
                             {
@@ -51,7 +52,7 @@ export const useActivateFrame = () => {
                                     },
                                 },
                             },
-                        ],
+                        ]),
                     });
                     onSuccess();
                 },

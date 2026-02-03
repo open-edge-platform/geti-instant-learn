@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { $api } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
 import { toast } from '@geti/ui';
 import { v4 as uuid } from 'uuid';
 
@@ -32,7 +32,7 @@ const useSavePromptMutation = () => {
 export const useSavePrompt = () => {
     const { projectId } = useProjectIdentifier();
     const { annotations } = useAnnotationActions();
-    const { roi, frameId } = useAnnotator();
+    const { frameId } = useAnnotator();
     const { setPromptId, prompt } = useVisualPrompt();
 
     const savePromptMutation = useSavePromptMutation();
@@ -45,7 +45,7 @@ export const useSavePrompt = () => {
                     id: uuid(),
                     type: 'VISUAL',
                     frame_id: frameId,
-                    annotations: convertAnnotationsToDTO(annotations, roi),
+                    annotations: convertAnnotationsToDTO(annotations),
                 },
                 params: {
                     path: {

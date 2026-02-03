@@ -5,8 +5,8 @@
 
 import { useRef } from 'react';
 
-import { $api, FramesResponseType } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { $api, FramesResponseType } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
 import { uniqBy } from 'lodash-es';
 
 const LIMIT = 30;
