@@ -22,7 +22,7 @@ def _run_migrations(db_url: str) -> None:
 @pytest.fixture(scope="session")
 def fxt_db_url(tmp_path_factory) -> str:
     db_dir = tmp_path_factory.mktemp("db")
-    db_file = db_dir / "test_geti_prompt.sqlite"
+    db_file = db_dir / "test_instant_learn.sqlite"
     return f"sqlite:///{db_file}"
 
 

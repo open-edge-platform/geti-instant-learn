@@ -1,8 +1,8 @@
-# Geti Prompt Application
+# Geti Instant Learn Application
 
 Full-stack web application for deploying zero-shot visual prompting models on live video streams, cameras, and video files.
 
-Built with the [Geti Prompt Library](../library/) for model inference, FastAPI for the backend, and React for the frontend.
+Built with the [Geti Instant Learn Library](../library/) for model inference, FastAPI for the backend, and React for the frontend.
 
 ## Quick Start
 
@@ -96,14 +96,14 @@ just device=xpu application/run-image
 
 - [Quick Start Guide](docs/02-quick-start.md) - Get your first results quickly
 
-**Using Geti Prompt:**
+**Using Geti Instant Learn:**
 
-- [Inputs Configuration](docs/03-use-geti-prompt/01-inputs-configuration.md) - Configure cameras, videos, and datasets
-- [Prompt & Models](docs/03-use-geti-prompt/02-prompt-model.md) - Visual and text prompting
-- [Inference](docs/03-use-geti-prompt/03-inference.md) - Run zero-shot inference
-- [Deployment](docs/03-use-geti-prompt/04-deployment.md) - Production deployment
-- [Monitoring](docs/03-use-geti-prompt/05-monitoring.md) - Monitor application performance
-- [Integration](docs/03-use-geti-prompt/06-integration.md) - Business logic integration
+- [Inputs Configuration](docs/03-use-instant-learn/01-inputs-configuration.md) - Configure cameras, videos, and datasets
+- [Prompt & Models](docs/03-use-instant-learn/02-prompt-model.md) - Visual and text prompting
+- [Inference](docs/03-use-instant-learn/03-inference.md) - Run zero-shot inference
+- [Deployment](docs/03-use-instant-learn/04-deployment.md) - Production deployment
+- [Monitoring](docs/03-use-instant-learn/05-monitoring.md) - Monitor application performance
+- [Integration](docs/03-use-instant-learn/06-integration.md) - Business logic integration
 
 **Concepts:**
 

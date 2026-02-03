@@ -1,6 +1,6 @@
 # Introduction
 
-The Geti Prompt Library provides a robust platform for experimenting with visual prompting techniques. Its modular pipeline design allows researchers and developers to easily combine, swap, and extend components such as backbone networks, feature extractors, matching algorithms, and mask generators.
+The Geti Instant Learn Library provides a robust platform for experimenting with visual prompting techniques. Its modular pipeline design allows researchers and developers to easily combine, swap, and extend components such as backbone networks, feature extractors, matching algorithms, and mask generators.
 
 ## Installation
 
@@ -44,8 +44,8 @@ uv sync --extra full
 **Basic usage with existing mask files:**
 
 ```python
-from getiprompt.models import Matcher
-from getiprompt.data import Sample
+from instantlearn.models import Matcher
+from instantlearn.data import Sample
 
 # Initialize Matcher (device: "xpu", "cuda", or "cpu")
 model = Matcher(device="xpu")
@@ -72,8 +72,8 @@ masks = predictions[0]["pred_masks"]  # Predicted segmentation masks
 
 ```python
 import torch
-from getiprompt.components.sam import SAMPredictor
-from getiprompt.data.utils import read_image
+from instantlearn.components.sam import SAMPredictor
+from instantlearn.data.utils import read_image
 
 # Load reference image
 ref_image = read_image("examples/assets/coco/000000286874.jpg")
@@ -93,8 +93,8 @@ ref_mask, _, _ = predictor.forward(
 **Fit and predict with the generated mask:**
 
 ```python
-from getiprompt.models import Matcher
-from getiprompt.data import Sample
+from instantlearn.models import Matcher
+from instantlearn.data import Sample
 
 # Initialize Matcher (device: "xpu", "cuda", or "cpu")
 model = Matcher(device="xpu")
@@ -119,8 +119,8 @@ masks = predictions[0]["pred_masks"]  # Predicted segmentation masks
 **Fit and predict with GroundedSAM (text-based prompting):**
 
 ```python
-from getiprompt.models import GroundedSAM
-from getiprompt.data import Sample
+from instantlearn.models import GroundedSAM
+from instantlearn.data import Sample
 
 # Initialize GroundedSAM (text-based visual prompting)
 model = GroundedSAM(device="xpu")
@@ -146,8 +146,8 @@ labels = predictions[0]["pred_labels"] # Category labels
 You can configure Matcher with different encoder and SAM models:
 
 ```python
-from getiprompt.models import Matcher
-from getiprompt.utils.constants import SAMModelName
+from instantlearn.models import Matcher
+from instantlearn.utils.constants import SAMModelName
 
 # Use a lighter model for faster inference
 model = Matcher(
@@ -208,8 +208,8 @@ your_dataset/
 ```
 
 ```python
-from getiprompt.data.folder import FolderDataset
-from getiprompt.data.base import Batch
+from instantlearn.data.folder import FolderDataset
+from instantlearn.data.base import Batch
 
 # Load your dataset
 dataset = FolderDataset(
@@ -239,16 +239,16 @@ Evaluate models on standard datasets:
 
 ```bash
 # Benchmark on LVIS dataset (default)
-getiprompt benchmark --dataset_name LVIS --model Matcher
+instantlearn benchmark --dataset_name LVIS --model Matcher
 
 # Benchmark on PerSeg dataset
-getiprompt benchmark --dataset_name PerSeg --model Matcher
+instantlearn benchmark --dataset_name PerSeg --model Matcher
 
 # Run all models on a dataset
-getiprompt benchmark --dataset_name LVIS --model all
+instantlearn benchmark --dataset_name LVIS --model all
 
 # Comprehensive benchmark (all models, all datasets)
-getiprompt benchmark --model all --dataset_name all
+instantlearn benchmark --model all --dataset_name all
 ```
 
 > Results are saved to `~/outputs/` by default.
@@ -258,7 +258,7 @@ getiprompt benchmark --model all --dataset_name all
 To run benchmarks with the LVIS dataset, set up the following folder structure:
 
 ```text
-~/.cache/getiprompt/datasets/lvis/
+~/.cache/instantlearn/datasets/lvis/
 ├── train2017/
 │   ├── 000000000009.jpg
 │   ├── 000000000025.jpg
@@ -274,7 +274,7 @@ To run benchmarks with the LVIS dataset, set up the following folder structure:
 **Download COCO images:**
 
 ```bash
-cd ~/.cache/getiprompt/datasets/lvis
+cd ~/.cache/instantlearn/datasets/lvis
 
 # Download and extract images
 wget http://images.cocodataset.org/zips/train2017.zip
@@ -337,10 +337,10 @@ Approximate GPU memory requirements for different model configurations:
 
 | Algorithm | Description | Paper | Repository | Code |
 | --------- | ----------- | ----- | ---------- | ---- |
-| **Matcher** | Standard feature matching pipeline using SAM. | [Matcher](https://arxiv.org/abs/2305.13310) | [Matcher](https://github.com/aim-uofa/Matcher) | [matcher.py](src/getiprompt/models/matcher/matcher.py) |
-| **SoftMatcher** | Enhanced matching pipeline with soft feature comparison, inspired by Optimal Transport. | [IJCAI 2024](https://www.ijcai.org/proceedings/2024/1000.pdf) | N/A | [soft_matcher.py](src/getiprompt/models/soft_matcher.py) |
-| **PerDino** | Personalized DINO-based prompting, leveraging DINOv2/v3 features for robust matching. | [PerSAM](https://arxiv.org/abs/2305.03048) | [Personalize-SAM](https://github.com/ZrrSkywalker/Personalize-SAM) | [per_dino.py](src/getiprompt/models/per_dino.py) |
-| **GroundedSAM** | Combines Grounding DINO and SAM for text-based visual prompting and segmentation. | [Grounding DINO](https://arxiv.org/abs/2303.05499), [SAM](https://arxiv.org/abs/2304.02643) | [GroundedSAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) | [grounded_sam.py](src/getiprompt/models/grounded_sam.py) |
+| **Matcher** | Standard feature matching pipeline using SAM. | [Matcher](https://arxiv.org/abs/2305.13310) | [Matcher](https://github.com/aim-uofa/Matcher) | [matcher.py](src/instantlearn/models/matcher/matcher.py) |
+| **SoftMatcher** | Enhanced matching pipeline with soft feature comparison, inspired by Optimal Transport. | [IJCAI 2024](https://www.ijcai.org/proceedings/2024/1000.pdf) | N/A | [soft_matcher.py](src/instantlearn/models/soft_matcher.py) |
+| **PerDino** | Personalized DINO-based prompting, leveraging DINOv2/v3 features for robust matching. | [PerSAM](https://arxiv.org/abs/2305.03048) | [Personalize-SAM](https://github.com/ZrrSkywalker/Personalize-SAM) | [per_dino.py](src/instantlearn/models/per_dino.py) |
+| **GroundedSAM** | Combines Grounding DINO and SAM for text-based visual prompting and segmentation. | [Grounding DINO](https://arxiv.org/abs/2303.05499), [SAM](https://arxiv.org/abs/2304.02643) | [GroundedSAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) | [grounded_sam.py](src/instantlearn/models/grounded_sam.py) |
 
 ### Foundation Models (Backbones)
 

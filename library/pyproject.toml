@@ -5,10 +5,10 @@ requires = ["setuptools>=64.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "getiprompt"
+name = "instantlearn"
 version = "0.1.0"
-authors = [{ name = "Geti Prompt Contributors" }]
-description = "Geti Prompt - A modular framework for visual prompting"
+authors = [{ name = "Geti Instant Learn Contributors" }]
+description = "Geti Instant Learn - A modular framework for visual prompting"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.12, <3.13"
@@ -98,14 +98,14 @@ docs = [
 ]
 
 full = [
-    "getiprompt[dev, notebook]",
+    "instantlearn[dev, notebook]",
 ]
 
 [project.scripts]
-getiprompt = "getiprompt.cli:main"
+instantlearn = "instantlearn.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/getiprompt"]
+packages = ["src/instantlearn"]
 
 [tool.uv]
 package = true
@@ -202,7 +202,7 @@ exclude = [
     "dist",
     "node_modules",
     "venv",
-    "src/getiprompt/models/grounding_dino.py",
+    "src/instantlearn/models/grounding_dino.py",
 ]
 
 # Same as Black.

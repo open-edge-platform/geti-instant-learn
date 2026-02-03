@@ -7,8 +7,8 @@ from typing import Annotated, Any, Literal
 
 import numpy as np
 import torch
-from getiprompt.components.encoders.timm import AVAILABLE_IMAGE_ENCODERS
-from getiprompt.utils.constants import SAMModelName
+from instantlearn.components.encoders.timm import AVAILABLE_IMAGE_ENCODERS
+from instantlearn.utils.constants import SAMModelName
 from pydantic import BaseModel, Field, field_validator
 
 from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse

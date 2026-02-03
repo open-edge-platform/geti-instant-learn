@@ -24,7 +24,7 @@ body:
       label: Component
       description: Which part of the project does this affect?
       options:
-        - Library (getiprompt Framework)
+        - Library (instantlearn Framework)
         - Backend (FastAPI server)
         - UI (React frontend)
         - CI/CD

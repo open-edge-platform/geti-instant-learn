@@ -1,10 +1,10 @@
-# Geti Prompt UI
+# Geti Instant Learn UI
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 [![Node Version](https://img.shields.io/badge/node-24.2.0-brightgreen)](https://nodejs.org/)
 [![NPM Version](https://img.shields.io/badge/npm-11.3.0-blue)](https://www.npmjs.com/)
 
-A modular UI for Geti Prompt, a framework for few-shot visual segmentation using visual prompting techniques. This UI enables experimentation with different algorithms, backbones, and project components for finding and segmenting objects from just a few examples.
+A modular UI for Geti Instant Learn, a framework for few-shot visual segmentation using visual prompting techniques. This UI enables experimentation with different algorithms, backbones, and project components for finding and segmenting objects from just a few examples.
 
 ---
 

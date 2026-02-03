@@ -1,4 +1,4 @@
-# Geti Prompt Library
+# Geti Instant Learn Library
 
 A flexible and modular framework for exploring, developing, and evaluating visual prompting algorithms.
 
@@ -31,8 +31,8 @@ This approach is valuable when you have limited labeled data and want to quickly
 ## Example
 
 ```python
-from getiprompt.models import Matcher
-from getiprompt.data import Sample
+from instantlearn.models import Matcher
+from instantlearn.data import Sample
 
 # Use example assets from the library (apple images from FSS-1000)
 ref_image = "examples/assets/fss-1000/images/apple/1.jpg"
@@ -74,4 +74,4 @@ predictions = model.predict(Sample(image_path=target_image))
 
 ## Acknowledgements
 
-This project builds upon several open-source repositories. See the [third-party-programs.txt](https://github.com/open-edge-platform/geti-prompt/blob/main/third-party-programs.txt) file for the full list.
+This project builds upon several open-source repositories. See the [third-party-programs.txt](https://github.com/open-edge-platform/instant-learn/blob/main/third-party-programs.txt) file for the full list.

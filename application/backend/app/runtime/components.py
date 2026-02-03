@@ -5,7 +5,7 @@ import logging
 from abc import ABC, abstractmethod
 from uuid import UUID
 
-from getiprompt.data.base.batch import Batch
+from instantlearn.data.base.batch import Batch
 from sqlalchemy.orm import Session, sessionmaker
 
 from domain.services.project import ProjectService

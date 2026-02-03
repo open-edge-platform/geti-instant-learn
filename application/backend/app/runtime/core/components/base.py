@@ -8,7 +8,7 @@ from types import TracebackType
 from typing import Any, TypeVar
 
 import torch
-from getiprompt.data.base.batch import Batch
+from instantlearn.data.base.batch import Batch
 
 from domain.services.schemas.processor import InputData
 from domain.services.schemas.reader import FrameListResponse, ReaderConfig

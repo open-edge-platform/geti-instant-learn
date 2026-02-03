@@ -1,5 +1,5 @@
 
-template-dataset-url := "https://storage.geti.intel.com/geti-prompt/Frames.zip"
+template-dataset-url := "https://storage.geti.intel.com/instant-learn/Frames.zip"
 
 check-proxy:
     #!/usr/bin/env bash

@@ -7,7 +7,7 @@ import threading
 from uuid import UUID
 
 import cv2
-from getiprompt.data.base.batch import Batch
+from instantlearn.data.base.batch import Batch
 from sqlalchemy.orm import Session, sessionmaker
 
 from domain.db.models import PromptType

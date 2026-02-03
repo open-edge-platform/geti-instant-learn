@@ -54,7 +54,7 @@ export const Welcome = () => {
         <Layout>
             <IllustratedMessage>
                 <Fireworks />
-                <Heading level={1}>Welcome to Geti Prompt!</Heading>
+                <Heading level={1}>Welcome to Geti Instant Learn!</Heading>
                 <Content>
                     <Flex direction={'column'} gap={'size-200'}>
                         <Text>To start exploring visual and text prompts</Text>

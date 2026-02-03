@@ -7,7 +7,7 @@ on:
         type: string
         required: true
       device:
-        description: "Specifies the device to build the backend for (cpu, xpu, gpu)"
+        description: "Specifies the device to build the backend for (cpu, xpu, cuda)"
         type: string
         required: true
         default: "xpu"
@@ -25,7 +25,7 @@ on:
         type: string
         required: true
       device:
-        description: "Specifies the device to build the backend for (cpu, xpu, gpu)"
+        description: "Specifies the device to build the backend for (cpu, xpu, cuda)"
         required: true
         options:
           - xpu
@@ -43,7 +43,7 @@ env:
   BACKEND_PATH: .\application\backend
   UI_PATH: .\application\ui
   BACKEND_BUILD_PATH: .\application\backend\.build
-  BACKEND_DIST_PATH: .\application\backend\dist\geti-prompt-backend
+  BACKEND_DIST_PATH: .\application\backend\dist\instant-learn-backend
   UI_SRC_API_PATH: .\application\ui\src\api
   UI_SRC_TAURI_PATH: .\application\ui\src-tauri
   UI_TARGET_PATH: .\application\ui\src-tauri\target
@@ -78,26 +78,26 @@ jobs:
           Add-Content -Path $env:GITHUB_ENV -Value "UI_MSIX_BUNDLE_PATH=$UI_MSIX_BUNDLE_PATH"
 
           $PREFIX = $(IF ($env:DEBUG_BUILD -eq "true") {"-debug"} else {""})
-          $MSIX_FILE_NAME = "geti-prompt-" + $env:DEVICE + "-" + $env:BUILD_VERSION + $PREFIX + ".msix"
+          $MSIX_FILE_NAME = "instant-learn-" + $env:DEVICE + "-" + $env:BUILD_VERSION + $PREFIX + ".msix"
           $MSIX_FILE_PATH = $UI_MSIX_BUNDLE_PATH + "\" + $MSIX_FILE_NAME
           Write-Host "MSIX_FILE_PATH=$MSIX_FILE_PATH"
           Add-Content -Path $env:GITHUB_ENV -Value "MSIX_FILE_PATH=$MSIX_FILE_PATH"
 
 
       - name: Checkout code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
       # Install and setup build tools
 
       - name: Set up Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.13"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7.2.0
+        uses: astral-sh/setup-uv@803947b9bd8e9f986429fa0c5a41c367cd732b41 # v7.2.1
         with:
           version: "0.9.7"
           enable-cache: true
@@ -140,7 +140,7 @@ jobs:
         run: |
           cp -r ${{ env.BACKEND_DIST_PATH }}\_internal ${{ env.UI_SRC_TAURI_PATH }}
           cp -r ${{ env.BACKEND_DIST_PATH }}\InitialData ${{ env.UI_SRC_TAURI_PATH }}
-          cp -r ${{ env.BACKEND_DIST_PATH }}\geti-prompt-backend.exe ${{ env.UI_SRC_TAURI_PATH }}\geti-prompt-backend-x86_64-pc-windows-msvc.exe
+          cp -r ${{ env.BACKEND_DIST_PATH }}\instant-learn-backend.exe ${{ env.UI_SRC_TAURI_PATH }}\instant-learn-backend-x86_64-pc-windows-msvc.exe
 
       - name: Copy OpenAPI spec
         run: |
@@ -149,7 +149,7 @@ jobs:
         # Build UI with Tauri
 
       - name: Setup Node & npm
-        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version-file: application/ui/.nvmrc
           cache: 'npm'
@@ -193,8 +193,8 @@ jobs:
       - name: Create MSIX package
         run: |
           mkdir -p $env:UI_MSIX_BUNDLE_PATH
-          cp $env:UI_BUILD_PATH\geti-prompt-backend.exe $env:UI_MSIX_BUNDLE_PATH
-          cp $env:UI_BUILD_PATH\geti_prompt_ui.exe $env:UI_MSIX_BUNDLE_PATH
+          cp $env:UI_BUILD_PATH\instant-learn-backend.exe $env:UI_MSIX_BUNDLE_PATH
+          cp $env:UI_BUILD_PATH\instant_learn_ui.exe $env:UI_MSIX_BUNDLE_PATH
           cp -r $env:UI_BUILD_PATH\_internal $env:UI_MSIX_BUNDLE_PATH
           cp -r $env:UI_BUILD_PATH\InitialData $env:UI_MSIX_BUNDLE_PATH
           cp -r ${{ env.UI_SRC_TAURI_PATH }}\msix\* $env:UI_MSIX_BUNDLE_PATH

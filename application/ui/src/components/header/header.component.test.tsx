@@ -16,7 +16,7 @@ describe('Header', () => {
             </Header>
         );
 
-        expect(await screen.findByText('Geti Prompt')).toBeInTheDocument();
+        expect(await screen.findByText('Geti Instant Learn')).toBeInTheDocument();
         expect(await screen.findByText('Here we are')).toBeInTheDocument();
     });
 });

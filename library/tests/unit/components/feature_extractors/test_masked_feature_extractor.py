@@ -6,8 +6,8 @@
 import pytest
 import torch
 
-from getiprompt.components.feature_extractors import MaskedFeatureExtractor
-from getiprompt.components.feature_extractors.reference_features import ReferenceFeatures
+from instantlearn.components.feature_extractors import MaskedFeatureExtractor
+from instantlearn.components.feature_extractors.reference_features import ReferenceFeatures
 
 
 class TestMaskedFeatureExtractor:

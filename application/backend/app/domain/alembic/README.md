@@ -1,6 +1,6 @@
 # Alembic migration environment structure
 
-Alembic is a lightweight database migration tool, used for managing and applying changes to the schema of the Geti Prompt's SQLite database.
+Alembic is a lightweight database migration tool, used for managing and applying changes to the schema of the Geti Instant Learn's SQLite database.
 
 `env.py` - a Python script that is run whenever the alembic migration tool is invoked. At the very least, it contains instructions to configure and generate a SQLAlchemy engine, procure a connection from that engine along with a transaction, and then invoke the migration engine, using the connection as a source of database connectivity. The way migrations run is entirely customizable.
 
