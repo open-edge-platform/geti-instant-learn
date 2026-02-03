@@ -47,7 +47,7 @@ ENV UV_PYTHON_DOWNLOADS=0
 ENV STATIC_FILES_DIR="/instant_learn/html"
 ENV DB_DATA_DIR="/instant_learn/data"
 ENV LOGS_DIR="/instant_learn/logs"
-ENV PATH="/instant_learn/.venv/bin:$PATH"
+ENV PATH="/instant_learn/app/backend/.venv/bin:$PATH"
 ENV PYTHONPATH=/instant_learn/app
 
 ARG UID=10001
@@ -65,9 +65,9 @@ RUN mkdir -p ${LOGS_DIR} && chown ${UID}:${UID} ${LOGS_DIR}
 
 # Install OpenGL libraries for opencv-python
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      git=1:2.39.5-0+deb12u2 \
-      libgl1=1.6.0-1 \
-      libglib2.0-0=2.74.6-2+deb12u8 \
+    git=1:2.39.5-0+deb12u2 \
+    libgl1=1.6.0-1 \
+    libglib2.0-0=2.74.6-2+deb12u8 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -81,23 +81,20 @@ RUN useradd -l -u ${UID} ${USER_NAME} \
     && rm -rf /root/.cache/pip
 
 # Change to a subdirectory so ../../library resolves correctly
-RUN mkdir -p ${PYTHONPATH}/backend
-WORKDIR ${PYTHONPATH}/backend
+RUN mkdir -p /instant_learn/app/backend
+WORKDIR /instant_learn/app/backend
 
 # Add sample dataset with coffee berries
 COPY --link --chown=${UID} ${SOURCE_DATASET_DIR} ${TARGET_DATASET_DIR}
 
 # Copy library and create proper directory structure
-COPY --from=backend-base --chown=${UID} /instant_learn/library/src /instant_learn/library/src
+COPY --link --from=libs --chown=${UID} ./src /instant_learn/library/src
+COPY --link --from=libs --chown=${UID} ./pyproject.toml /instant_learn/library/pyproject.toml
 
 # Copy backend source code
-COPY --link --chown=${UID} backend/app ${PYTHONPATH}
+COPY --link --chown=${UID} backend/app /instant_learn/app
 COPY --chown=${UID} --from=ghcr.io/astral-sh/uv:0.9.7@sha256:ba4857bf2a068e9bc0e64eed8563b065908a4cd6bfb66b531a9c424c8e25e142 /uv /bin/uv
 COPY --from=web-ui --chown=${UID} /home/app/web_ui/dist/ ${STATIC_FILES_DIR}
-
-
-WORKDIR /instant_learn
-
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD uv run python -c "import urllib.request; urllib.request.urlopen('http://localhost:9100/health')" || exit 1
@@ -121,11 +118,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 RUN apt-get remove -y git \
     && apt-get autoremove -y \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* ${LIBRARY_PATH}/pyproject.toml
+    && rm -rf /var/lib/apt/lists/* /instant_learn/library/pyproject.toml
 
 USER ${USER_NAME}
 
-WORKDIR "/geti_prompt"
+WORKDIR "/instant_learn"
 
 #######################
 # Intermediary GPU Base
@@ -145,19 +142,19 @@ RUN apt-get update  \
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-      nvidia-open=580.105.08-1 \
+    nvidia-open=580.105.08-1 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=backend/uv.lock,target=uv.lock \
     --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra cu126 --extra mqtt
+    uv sync --frozen --no-dev --no-editable --extra cuda --extra mqtt
 
 RUN apt-get remove -y git \
     && apt-get autoremove -y \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* ${LIBRARY_PATH}/pyproject.toml
+    && rm -rf /var/lib/apt/lists/* /instant_learn/library/pyproject.toml
 
 FROM gpu-base AS cleanup-gpu
 
@@ -167,28 +164,28 @@ RUN echo "Removing non-redistributable CUDA components per NVIDIA EULA..." && \
     SEARCH_PATHS="/usr /opt ${PYTHONPATH}" && \
     # Add any detected venvs
     for venv in $(find ${PYTHONPATH} -name "site-packages" -type d 2>/dev/null | sed 's|/lib/python[0-9.]*/site-packages||' | sort -u); do \
-        if [ -d "$venv" ]; then \
-            SEARCH_PATHS="$SEARCH_PATHS $venv"; \
-        fi; \
+    if [ -d "$venv" ]; then \
+    SEARCH_PATHS="$SEARCH_PATHS $venv"; \
+    fi; \
     done && \
     echo "Cleaning CUDA components in: $SEARCH_PATHS" && \
     # Remove development tools (non-redistributable)
     find $SEARCH_PATHS -type f \( \
-        -name "nvcc" -o \
-        -name "cuda-gdb" -o \
-        -name "nvprof" -o \
-        -name "nvdisasm" -o \
-        -name "cuobjdump" -o \
-        -name "cuda-memcheck" -o \
-        -name "nsight*" -o \
-        -name "compute-sanitizer" -o \
-        -name "ncu" -o \
-        -name "nv-nsight-cu*" \
+    -name "nvcc" -o \
+    -name "cuda-gdb" -o \
+    -name "nvprof" -o \
+    -name "nvdisasm" -o \
+    -name "cuobjdump" -o \
+    -name "cuda-memcheck" -o \
+    -name "nsight*" -o \
+    -name "compute-sanitizer" -o \
+    -name "ncu" -o \
+    -name "nv-nsight-cu*" \
     \) -delete 2>/dev/null || true && \
     # Remove headers and include directories (non-redistributable)
     find $SEARCH_PATHS -type d \( \
-        -name "include" -o \
-        -name "headers" \
+    -name "include" -o \
+    -name "headers" \
     \) -path "*cuda*" -exec rm -rf {} + 2>/dev/null || true && \
     # Remove NVIDIA package includes specifically
     find $SEARCH_PATHS -type d -path "*/nvidia/*/include" -exec rm -rf {} + 2>/dev/null || true && \
@@ -197,18 +194,18 @@ RUN echo "Removing non-redistributable CUDA components per NVIDIA EULA..." && \
     find $SEARCH_PATHS -name "*.a" -path "*nvidia*" -delete 2>/dev/null || true && \
     # Remove documentation and samples (non-redistributable)
     find $SEARCH_PATHS -type d \( \
-        -name "doc" -o \
-        -name "docs" -o \
-        -name "documentation" -o \
-        -name "samples" -o \
-        -name "sample" \
+    -name "doc" -o \
+    -name "docs" -o \
+    -name "documentation" -o \
+    -name "samples" -o \
+    -name "sample" \
     \) -path "*cuda*" -exec rm -rf {} + 2>/dev/null || true && \
     # Remove specific non-redistributable CUPTI components
     find $SEARCH_PATHS -type f \( \
-        -name "libcheckpoint.so*" -o \
-        -name "libnvperf_host.so*" -o \
-        -name "libnvperf_target.so*" -o \
-        -name "libpcsamplingutil.so*" \
+    -name "libcheckpoint.so*" -o \
+    -name "libnvperf_host.so*" -o \
+    -name "libnvperf_target.so*" -o \
+    -name "libpcsamplingutil.so*" \
     \) -path "*cupti*" -delete 2>/dev/null || true && \
     # Remove cuSolver MG libraries (enterprise feature)
     find $SEARCH_PATHS -name "libcusolverMg.so*" -delete 2>/dev/null || true && \
@@ -216,31 +213,31 @@ RUN echo "Removing non-redistributable CUDA components per NVIDIA EULA..." && \
     find $SEARCH_PATHS -type d -path "*/triton/backends/nvidia" -exec rm -rf {} + 2>/dev/null || true && \
     # System package cleanup
     apt-get remove -y \
-        cuda-compiler-* \
-        cuda-cuobjdump-* \
-        cuda-gdb-* \
-        cuda-memcheck-* \
-        cuda-nvcc-* \
-        cuda-nvdisasm-* \
-        cuda-nvprof-* \
-        cuda-sanitizer-* \
-        cuda-documentation-* \
-        cuda-samples-* \
-        nsight-* \
-        2>/dev/null || true && \
+    cuda-compiler-* \
+    cuda-cuobjdump-* \
+    cuda-gdb-* \
+    cuda-memcheck-* \
+    cuda-nvcc-* \
+    cuda-nvdisasm-* \
+    cuda-nvprof-* \
+    cuda-sanitizer-* \
+    cuda-documentation-* \
+    cuda-samples-* \
+    nsight-* \
+    2>/dev/null || true && \
     apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ######################
 # Server (GPU version)
 ######################
-FROM runtime-base AS gpu
+FROM runtime-base AS cuda
 
 COPY --link --from=cleanup-gpu --chown=${UID} /usr/local /usr/local
 COPY --link --from=cleanup-gpu --chown=${UID} ${PYTHONPATH} ${PYTHONPATH}
 
 USER ${USER_NAME}
 
-WORKDIR "/geti_prompt"
+WORKDIR "/instant_learn"
 
 ######################
 # Server (XPU version)
@@ -252,9 +249,9 @@ USER root
 RUN apt-get update  \
     && apt-get install -y --no-install-recommends wget=1.21.3-1+deb12u1 gpg=2.2.40-1.1+deb12u2 \
     && wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
-       gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg \
+    gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg \
     && echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy unified" | \
-      tee /etc/apt/sources.list.d/intel-gpu-jammy.list \
+    tee /etc/apt/sources.list.d/intel-gpu-jammy.list \
     && apt-get update && apt-get install -y --no-install-recommends \
     libze-intel-gpu1=25.18.33578.15-1146~22.04  \
     libze1=1.21.9.0-1136~22.04  \
@@ -275,9 +272,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 RUN apt-get remove -y git \
     && apt-get autoremove -y \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* ${LIBRARY_PATH}/pyproject.toml
+    && rm -rf /var/lib/apt/lists/* /instant_learn/library/pyproject.toml
 
 # needed to define it here to allow installation of packages
 USER ${USER_NAME}
 
-WORKDIR "/geti_prompt"
+WORKDIR "/instant_learn"
