@@ -128,6 +128,8 @@ class SinkService(BaseService):
             f"name={sink_name} "
             f"active={create_data.active}"
         )
+        # Connection validation happens before the DB transaction to avoid holding locks
+        # during potentially slow network calls.
         self.sink_connection_validator.validate(config=create_data.config, sink_id=None)
         try:
             with self.db_transaction():
@@ -194,6 +196,8 @@ class SinkService(BaseService):
                 field="sink_type",
             )
 
+        # Connection validation happens before the DB transaction to avoid holding locks
+        # during potentially slow network calls.
         self.sink_connection_validator.validate(config=update_data.config, sink_id=sink_id)
         try:
             with self.db_transaction():
