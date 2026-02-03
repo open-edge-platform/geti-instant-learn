@@ -8,6 +8,9 @@ echo ""
 
 PATTERNS=(
     "Geti Prompt:Geti Instant Learn"
+    "geti prompt:Geti Instant Learn"
+    "geti/prompt:geti/instantlearn"
+    "geti.prompt:instant.learn"
     "GetiPrompt:InstantLearn"
     "GETI_PROMPT:INSTANT_LEARN"
     "GETIPROMPT:INSTANTLEARN"
