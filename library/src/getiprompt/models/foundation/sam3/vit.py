@@ -1,3 +1,6 @@
+# Copyright (C) 2025-2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 # Copyright 2025 The Meta AI Authors and The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,6 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Vision Transformer (ViT) components for SAM3."""
 
 from collections.abc import Iterable
@@ -21,146 +25,6 @@ from torch.nn import functional
 from transformers.modeling_layers import GradientCheckpointingLayer
 
 from .common import MLP, SinePositionEmbedding
-
-# =============================================================================
-# Utility Functions
-# =============================================================================
-
-
-def rotate_pairwise(x: Tensor) -> Tensor:
-    """Pairwise rotation of the hidden dims of the input.
-
-    Different from Llama Half-Tensor Rotation. This is an optimized version of
-    the following more explicit implementation:
-
-    ```python
-    x_rotated = torch.zeros_like(x, dtype=x.dtype, device=x.device)
-    x_rotated[..., ::2] = -x[..., 1::2]
-    x_rotated[..., 1::2] = x[..., ::2]
-    return x_rotated
-    ```
-
-    Args:
-        x (Tensor): Input tensor of shape (..., hidden_dim).
-
-    Returns:
-        Tensor: Rotated tensor of shape (..., hidden_dim).
-    """
-    x = x.view(*x.shape[:-1], -1, 2)
-    x1, x2 = x.unbind(dim=-1)
-    x = torch.stack((-x2, x1), dim=-1)
-    return x.flatten(start_dim=-2)
-
-
-def apply_rotary_pos_emb_2d(
-    q: Tensor,
-    k: Tensor,
-    cos: Tensor,
-    sin: Tensor,
-) -> tuple[Tensor, Tensor]:
-    """Apply rotary position embedding to query and key tensors for self-attention.
-
-    Args:
-        q (Tensor): Query tensor of shape (batch_size, num_windows, seq_len,
-            num_heads, head_dim).
-        k (Tensor): Key tensor of shape (batch_size, num_windows, seq_len,
-            num_heads, head_dim).
-        cos (Tensor): Cosine position embedding of shape (seq_len, head_dim).
-        sin (Tensor): Sine position embedding of shape (seq_len, head_dim).
-
-    Returns:
-        tuple[Tensor, Tensor]: Rotated (q, k) tensors with same shapes as input.
-    """
-    q_embed = q.float()
-    q_embed = (q_embed * cos) + (rotate_pairwise(q_embed) * sin)
-
-    k_embed = k.float()
-    k_embed = (k_embed * cos) + (rotate_pairwise(k_embed) * sin)
-
-    return q_embed.type_as(q), k_embed.type_as(k)
-
-
-def window_partition(
-    hidden_state: Tensor,
-    window_size: int,
-) -> tuple[Tensor, tuple[int, int]]:
-    """Partition into non-overlapping windows with padding if needed.
-
-    Args:
-        hidden_state (Tensor): Input tokens with shape [batch_size, height, width,
-            num_channels].
-        window_size (int): Window size for partitioning.
-
-    Returns:
-        tuple[Tensor, tuple[int, int]]: A tuple containing:
-            - windows (Tensor): Windows after partition with shape [batch_size *
-              num_windows, window_size, window_size, num_channels].
-            - (padded_height, padded_width) (tuple[int, int]): Padded height
-              and width before partition.
-    """
-    batch_size, height, width, num_channels = hidden_state.shape
-    pad_height = (window_size - height % window_size) % window_size
-    pad_width = (window_size - width % window_size) % window_size
-
-    # Noop in case pad_width == 0 and pad_height == 0.
-    hidden_state = nn.functional.pad(hidden_state, (0, 0, 0, pad_width, 0, pad_height))
-
-    padded_height, padded_width = height + pad_height, width + pad_width
-
-    hidden_state = hidden_state.view(
-        batch_size,
-        padded_height // window_size,
-        window_size,
-        padded_width // window_size,
-        window_size,
-        num_channels,
-    )
-    windows = hidden_state.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, num_channels)
-    return windows, (padded_height, padded_width)
-
-
-def window_unpartition(
-    windows: Tensor,
-    window_size: int,
-    pad_height_width: tuple[int, int],
-    height_width: tuple[int, int],
-) -> Tensor:
-    """Window unpartition into original sequences and removing padding.
-
-    Args:
-        windows (Tensor): Input tokens with shape [batch_size * num_windows,
-            window_size, window_size, num_channels].
-        window_size (int): Window size used for partitioning.
-        pad_height_width (tuple[int, int]): Padded (height, width) dimensions
-            from window_partition.
-        height_width (tuple[int, int]): Original (height, width) dimensions
-            before padding.
-
-    Returns:
-        Tensor: Unpartitioned sequences with shape [batch_size, height, width,
-            num_channels].
-    """
-    padded_height, padded_width = pad_height_width
-    height, width = height_width
-    batch_size = windows.shape[0] // (padded_height * padded_width // window_size // window_size)
-    hidden_state = windows.view(
-        batch_size,
-        padded_height // window_size,
-        padded_width // window_size,
-        window_size,
-        window_size,
-        -1,
-    )
-    hidden_state = hidden_state.permute(0, 1, 3, 2, 4, 5).contiguous()
-    hidden_state = hidden_state.view(batch_size, padded_height, padded_width, -1)
-
-    # We always have height <= padded_height and width <= padded_width
-    return hidden_state[:, :height, :width, :].contiguous()
-
-
-# =============================================================================
-# Classes
-# =============================================================================
 
 
 class ViTRotaryEmbedding(nn.Module):
@@ -283,6 +147,60 @@ class ViTRoPEAttention(nn.Module):
         self.v_proj = nn.Linear(hidden_size, hidden_size)
         self.o_proj = nn.Linear(hidden_size, hidden_size)
 
+    @staticmethod
+    def _rotate_pairwise(x: Tensor) -> Tensor:
+        """Pairwise rotation of the hidden dims of the input.
+
+        Different from Llama Half-Tensor Rotation. This is an optimized version of
+        the following more explicit implementation:
+
+        ```python
+        x_rotated = torch.zeros_like(x, dtype=x.dtype, device=x.device)
+        x_rotated[..., ::2] = -x[..., 1::2]
+        x_rotated[..., 1::2] = x[..., ::2]
+        return x_rotated
+        ```
+
+        Args:
+            x (Tensor): Input tensor of shape (..., hidden_dim).
+
+        Returns:
+            Tensor: Rotated tensor of shape (..., hidden_dim).
+        """
+        x = x.view(*x.shape[:-1], -1, 2)
+        x1, x2 = x.unbind(dim=-1)
+        x = torch.stack((-x2, x1), dim=-1)
+        return x.flatten(start_dim=-2)
+
+    @staticmethod
+    def _apply_rotary_pos_emb_2d(
+        q: Tensor,
+        k: Tensor,
+        cos: Tensor,
+        sin: Tensor,
+    ) -> tuple[Tensor, Tensor]:
+        """Apply rotary position embedding to query and key tensors for self-attention.
+
+        Args:
+            q (Tensor): Query tensor of shape (batch_size, num_windows, seq_len,
+                num_heads, head_dim).
+            k (Tensor): Key tensor of shape (batch_size, num_windows, seq_len,
+                num_heads, head_dim).
+            cos (Tensor): Cosine position embedding of shape (seq_len, head_dim).
+            sin (Tensor): Sine position embedding of shape (seq_len, head_dim).
+
+        Returns:
+            tuple[Tensor, Tensor]: Rotated (q, k) tensors with same shapes as input.
+        """
+        rotate = ViTRoPEAttention._rotate_pairwise
+        q_embed = q.float()
+        q_embed = (q_embed * cos) + (rotate(q_embed) * sin)
+
+        k_embed = k.float()
+        k_embed = (k_embed * cos) + (rotate(k_embed) * sin)
+
+        return q_embed.type_as(q), k_embed.type_as(k)
+
     def forward(
         self,
         hidden_states: Tensor,
@@ -307,7 +225,7 @@ class ViTRoPEAttention(nn.Module):
         key = self.k_proj(hidden_states).view(*new_shape).transpose(1, 2)
         value = self.v_proj(hidden_states).view(*new_shape).transpose(1, 2)
         cos, sin = position_embeddings
-        query, key = apply_rotary_pos_emb_2d(query, key, cos=cos, sin=sin)
+        query, key = self._apply_rotary_pos_emb_2d(query, key, cos=cos, sin=sin)
 
         attn_output = functional.scaled_dot_product_attention(
             query,
@@ -615,6 +533,84 @@ class ViTLayer(GradientCheckpointingLayer):
 
         self.window_size = window_size
 
+    @staticmethod
+    def _window_partition(
+        hidden_state: Tensor,
+        window_size: int,
+    ) -> tuple[Tensor, tuple[int, int]]:
+        """Partition into non-overlapping windows with padding if needed.
+
+        Args:
+            hidden_state (Tensor): Input tokens with shape [batch_size, height, width,
+                num_channels].
+            window_size (int): Window size for partitioning.
+
+        Returns:
+            tuple[Tensor, tuple[int, int]]: A tuple containing:
+                - windows (Tensor): Windows after partition with shape [batch_size *
+                  num_windows, window_size, window_size, num_channels].
+                - (padded_height, padded_width) (tuple[int, int]): Padded height
+                  and width before partition.
+        """
+        batch_size, height, width, num_channels = hidden_state.shape
+        pad_height = (window_size - height % window_size) % window_size
+        pad_width = (window_size - width % window_size) % window_size
+
+        # Noop in case pad_width == 0 and pad_height == 0.
+        hidden_state = nn.functional.pad(hidden_state, (0, 0, 0, pad_width, 0, pad_height))
+
+        padded_height, padded_width = height + pad_height, width + pad_width
+
+        hidden_state = hidden_state.view(
+            batch_size,
+            padded_height // window_size,
+            window_size,
+            padded_width // window_size,
+            window_size,
+            num_channels,
+        )
+        windows = hidden_state.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, num_channels)
+        return windows, (padded_height, padded_width)
+
+    @staticmethod
+    def _window_unpartition(
+        windows: Tensor,
+        window_size: int,
+        pad_height_width: tuple[int, int],
+        height_width: tuple[int, int],
+    ) -> Tensor:
+        """Window unpartition into original sequences and removing padding.
+
+        Args:
+            windows (Tensor): Input tokens with shape [batch_size * num_windows,
+                window_size, window_size, num_channels].
+            window_size (int): Window size used for partitioning.
+            pad_height_width (tuple[int, int]): Padded (height, width) dimensions
+                from window_partition.
+            height_width (tuple[int, int]): Original (height, width) dimensions
+                before padding.
+
+        Returns:
+            Tensor: Unpartitioned sequences with shape [batch_size, height, width,
+                num_channels].
+        """
+        padded_height, padded_width = pad_height_width
+        height, width = height_width
+        batch_size = windows.shape[0] // (padded_height * padded_width // window_size // window_size)
+        hidden_state = windows.view(
+            batch_size,
+            padded_height // window_size,
+            padded_width // window_size,
+            window_size,
+            window_size,
+            -1,
+        )
+        hidden_state = hidden_state.permute(0, 1, 3, 2, 4, 5).contiguous()
+        hidden_state = hidden_state.view(batch_size, padded_height, padded_width, -1)
+
+        # We always have height <= padded_height and width <= padded_width
+        return hidden_state[:, :height, :width, :].contiguous()
+
     def forward(
         self,
         hidden_states: Tensor,
@@ -636,14 +632,14 @@ class ViTLayer(GradientCheckpointingLayer):
         if self.window_size > 0:
             height, width = hidden_states.shape[1], hidden_states.shape[2]
             # Partition into non-overlapping windows for efficient attention
-            hidden_states, pad_height_width = window_partition(hidden_states, self.window_size)
+            hidden_states, pad_height_width = self._window_partition(hidden_states, self.window_size)
 
         position_embeddings = self.rotary_emb()
         hidden_states, _ = self.attention(hidden_states, position_embeddings)
 
         if self.window_size > 0:
             # Reverse window partition to restore original spatial layout
-            hidden_states = window_unpartition(hidden_states, self.window_size, pad_height_width, (height, width))
+            hidden_states = self._window_unpartition(hidden_states, self.window_size, pad_height_width, (height, width))
 
         hidden_states = residual + hidden_states
         residual = hidden_states
