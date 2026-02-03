@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from collections.abc import Iterable
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -10,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from api.error_handler import extract_constraint_name
 from domain.db.constraints import UniqueConstraintName
-from domain.db.models import LabelDB, ProjectDB
+from domain.db.models import LabelDB, ProjectDB, PromptType
 from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceInUseError,
@@ -220,15 +219,23 @@ class LabelService(BaseService):
         labels = self.label_repository.list_all_by_project(project_id)
         return [label_db_to_visualization_label(label) for label in labels]
 
-    def build_category_mappings(self, label_ids: Iterable[UUID]) -> CategoryMappings:
+    def build_category_mappings(self, project_id: UUID, prompt_type: PromptType | None = None) -> CategoryMappings:
         """
-        Build deterministic bidirectional category ID mappings.
+        Build deterministic bidirectional category ID mappings for a project.
 
-        Category IDs are assigned in sorted order of label UUIDs (by string representation)
+        Fetches all label IDs from prompts in the project using a JOIN query,
+        then assigns category IDs in sorted order of label UUIDs (by string representation)
         to ensure deterministic mapping across invocations.
 
+        Args:
+            project_id: The project UUID.
+            prompt_type: Optional prompt type filter (VISUAL or TEXT).
+
+        Returns:
+            CategoryMappings with bidirectional label-category mappings.
         """
-        sorted_label_ids = sorted(set(label_ids), key=str)
+        label_ids = self.label_repository.get_label_ids_by_project_and_prompt_type(project_id, prompt_type)
+        sorted_label_ids = sorted(label_ids, key=str)
         label_to_category_id = {label_id: idx for idx, label_id in enumerate(sorted_label_ids)}
         category_id_to_label_id = {idx: str(label_id) for label_id, idx in label_to_category_id.items()}
 

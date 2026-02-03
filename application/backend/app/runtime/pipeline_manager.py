@@ -115,15 +115,9 @@ class PipelineManager:
         """
         with self._session_factory() as session:
             label_svc = LabelService(session=session)
-            prompt_repo = PromptRepository(session=session)
 
             vis_labels = label_svc.get_visualization_labels(project_id)
-            prompts = prompt_repo.list_all_by_project(project_id=project_id, prompt_type=PromptType.VISUAL)
-            all_label_ids: set[UUID] = set()
-            for prompt in prompts:
-                all_label_ids.update(ann.label_id for ann in prompt.annotations)
-
-            category_mappings = label_svc.build_category_mappings(all_label_ids)
+            category_mappings = label_svc.build_category_mappings(project_id, PromptType.VISUAL)
 
         with self._visualization_lock:
             self._visualization_info = VisualizationInfo(
@@ -354,52 +348,39 @@ class PipelineManager:
                 logger.info("No prompts found for project_id=%s, prompt_type=%s", project_id, prompt_type)
                 return None
 
-            all_label_ids: set[UUID] = set()
-            for prompt in db_prompts:
-                all_label_ids.update(ann.label_id for ann in prompt.annotations)
+            category_mappings = label_svc.build_category_mappings(project_id, prompt_type)
 
-            category_mappings = label_svc.build_category_mappings(all_label_ids)
+        samples = []
 
-            # track shot counts across prompts
-            label_shot_counts: dict[UUID, int] = {}
-            samples = []
+        for prompt in db_prompts:
+            if not prompt.frame_id:
+                logger.warning("Visual prompt missing frame_id: prompt_id=%s", prompt.id)
+                continue
 
-            for prompt in db_prompts:
-                if not prompt.frame_id:
-                    logger.warning("Visual prompt missing frame_id: prompt_id=%s", prompt.id)
+            try:
+                frame = self._frame_repository.read_frame(project_id, prompt.frame_id)
+                if frame is None:
+                    logger.warning("Frame not found: prompt_id=%s, frame_id=%s", prompt.id, prompt.frame_id)
                     continue
 
-                try:
-                    frame = self._frame_repository.read_frame(project_id, prompt.frame_id)
-                    if frame is None:
-                        logger.warning("Frame not found: prompt_id=%s, frame_id=%s", prompt.id, prompt.frame_id)
-                        continue
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                sample = visual_prompt_to_sample(prompt, frame_rgb, category_mappings.label_to_category_id)
+                samples.append(sample)
 
-                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    sample = visual_prompt_to_sample(
-                        prompt, frame_rgb, category_mappings.label_to_category_id, label_shot_counts
-                    )
-                    samples.append(sample)
+            except Exception as e:
+                logger.warning("Failed to convert prompt: prompt_id=%s, error=%s", prompt.id, e)
+                continue
 
-                except Exception as e:
-                    logger.warning("Failed to convert prompt: prompt_id=%s, error=%s", prompt.id, e)
-                    continue
+        if not samples:
+            logger.info("No valid samples generated: project_id=%s", project_id)
+            return None
 
-            if not samples:
-                logger.info("No valid samples generated: project_id=%s", project_id)
-                return None
-
-            batch = Batch.collate(samples)
-            logger.debug("Reference batch: %s", batch)
-            shots_per_category = {
-                category_id: label_shot_counts.get(label_id, 0)
-                for label_id, category_id in category_mappings.label_to_category_id.items()
-            }
-            logger.info(
-                "Created reference batch: project_id=%s, samples=%d, categories=%d, shots_per_category=%s",
-                project_id,
-                len(batch.samples),
-                len(category_mappings.label_to_category_id),
-                shots_per_category,
-            )
-            return batch, category_mappings.category_id_to_label_id
+        batch = Batch.collate(samples)
+        logger.debug("Reference batch: %s", batch)
+        logger.info(
+            "Created reference batch: project_id=%s, samples=%d, categories=%d",
+            project_id,
+            len(batch.samples),
+            len(category_mappings.label_to_category_id),
+        )
+        return batch, category_mappings.category_id_to_label_id

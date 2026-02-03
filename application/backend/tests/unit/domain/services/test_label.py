@@ -8,7 +8,7 @@ import pytest
 from pydantic_extra_types.color import Color
 from sqlalchemy.exc import IntegrityError
 
-from domain.db.models import LabelDB
+from domain.db.models import LabelDB, PromptType
 from domain.errors import ResourceAlreadyExistsError, ResourceNotFoundError, ResourceType
 from domain.services.label import LabelService
 from domain.services.schemas.label import (
@@ -228,11 +228,14 @@ def test_get_visualization_labels_returns_rgb_mapping(label_service, mock_label_
     mock_label_repository.list_all_by_project.assert_called_once_with(project_id)
 
 
-def test_build_category_mappings_sorted_by_label_id_string(label_service) -> None:
+def test_build_category_mappings_sorted_by_label_id_string(label_service, mock_label_repository) -> None:
+    project_id = uuid4()
     label_id_a = UUID("00000000-0000-0000-0000-00000000000a")
     label_id_b = UUID("00000000-0000-0000-0000-00000000000b")
 
-    mappings = label_service.build_category_mappings([label_id_b, label_id_a])
+    mock_label_repository.get_label_ids_by_project_and_prompt_type.return_value = {label_id_b, label_id_a}
+
+    mappings = label_service.build_category_mappings(project_id, PromptType.VISUAL)
 
     assert isinstance(mappings, CategoryMappings)
     assert mappings.category_id_to_label_id == {
@@ -243,3 +246,31 @@ def test_build_category_mappings_sorted_by_label_id_string(label_service) -> Non
         label_id_a: 0,
         label_id_b: 1,
     }
+    mock_label_repository.get_label_ids_by_project_and_prompt_type.assert_called_once_with(
+        project_id, PromptType.VISUAL
+    )
+
+
+def test_build_category_mappings_empty(label_service, mock_label_repository) -> None:
+    project_id = uuid4()
+    mock_label_repository.get_label_ids_by_project_and_prompt_type.return_value = set()
+
+    mappings = label_service.build_category_mappings(project_id, None)
+
+    assert isinstance(mappings, CategoryMappings)
+    assert mappings.category_id_to_label_id == {}
+    assert mappings.label_to_category_id == {}
+    mock_label_repository.get_label_ids_by_project_and_prompt_type.assert_called_once_with(project_id, None)
+
+
+def test_build_category_mappings_without_prompt_type(label_service, mock_label_repository) -> None:
+    project_id = uuid4()
+    label_id = uuid4()
+    mock_label_repository.get_label_ids_by_project_and_prompt_type.return_value = {label_id}
+
+    mappings = label_service.build_category_mappings(project_id)
+
+    assert isinstance(mappings, CategoryMappings)
+    assert mappings.category_id_to_label_id == {0: str(label_id)}
+    assert mappings.label_to_category_id == {label_id: 0}
+    mock_label_repository.get_label_ids_by_project_and_prompt_type.assert_called_once_with(project_id, None)

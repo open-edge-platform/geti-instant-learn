@@ -53,13 +53,11 @@ class TestPromptMapper:
         )
 
         label_to_category_id = {label_id: 0}
-        label_shot_counts: dict[uuid.UUID, int] = {}
 
         result = visual_prompt_to_sample(
             prompt_db,
             frame=sample_frame,
             label_to_category_id=label_to_category_id,
-            label_shot_counts=label_shot_counts,
         )
 
         assert result is not None
@@ -67,7 +65,6 @@ class TestPromptMapper:
         assert np.array_equal(result.image.permute(1, 2, 0).numpy(), sample_frame)
         assert len(result.categories) == 1
         assert result.categories[0] == str(label_id)
-        assert label_shot_counts[label_id] == 1
 
     def test_visual_prompt_to_sample_raises_error_without_polygons(self, sample_frame: np.ndarray) -> None:
         prompt_id = uuid.uuid4()
@@ -93,14 +90,12 @@ class TestPromptMapper:
         )
 
         label_to_category_id = {label_id: 0}
-        label_shot_counts: dict[uuid.UUID, int] = {}
 
         with pytest.raises(ServiceError, match="must have at least one polygon annotation"):
             visual_prompt_to_sample(
                 prompt_db,
                 frame=sample_frame,
                 label_to_category_id=label_to_category_id,
-                label_shot_counts=label_shot_counts,
             )
 
     def test_visual_prompt_to_sample_with_multiple_polygons(self, sample_frame: np.ndarray) -> None:
@@ -140,13 +135,11 @@ class TestPromptMapper:
         )
 
         label_to_category_id = {label_id_1: 0, label_id_2: 1}
-        label_shot_counts: dict[uuid.UUID, int] = {}
 
         result = visual_prompt_to_sample(
             prompt_db,
             frame=sample_frame,
             label_to_category_id=label_to_category_id,
-            label_shot_counts=label_shot_counts,
         )
 
         assert result is not None
@@ -154,8 +147,6 @@ class TestPromptMapper:
         assert len(result.categories) == 2
         assert str(label_id_1) in result.categories
         assert str(label_id_2) in result.categories
-        assert label_shot_counts[label_id_1] == 1
-        assert label_shot_counts[label_id_2] == 1
 
     def test_visual_prompt_to_sample_raises_error_for_text_prompt(self, sample_frame: np.ndarray) -> None:
         prompt_id = uuid.uuid4()
@@ -171,14 +162,12 @@ class TestPromptMapper:
         )
 
         label_to_category_id: dict[uuid.UUID, int] = {}
-        label_shot_counts: dict[uuid.UUID, int] = {}
 
         with pytest.raises(ServiceError, match="Cannot convert non-visual prompt"):
             visual_prompt_to_sample(
                 prompt_db,
                 frame=sample_frame,
                 label_to_category_id=label_to_category_id,
-                label_shot_counts=label_shot_counts,
             )
 
     def test_visual_prompt_to_sample_raises_error_without_annotations(self, sample_frame: np.ndarray) -> None:
@@ -195,14 +184,12 @@ class TestPromptMapper:
         )
 
         label_to_category_id: dict[uuid.UUID, int] = {}
-        label_shot_counts: dict[uuid.UUID, int] = {}
 
         with pytest.raises(ServiceError, match="has no valid annotations"):
             visual_prompt_to_sample(
                 prompt_db,
                 frame=sample_frame,
                 label_to_category_id=label_to_category_id,
-                label_shot_counts=label_shot_counts,
             )
 
     def test_deduplicate_annotations_removes_exact_duplicates(self) -> None:
