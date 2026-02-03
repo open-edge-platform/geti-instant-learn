@@ -23,7 +23,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import torch.nn.functional as F
+import torch.nn.functional
 import torchvision
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
@@ -412,8 +412,8 @@ class DotProductScoring(nn.Module):
         self.clamp_logits = True
         self.clamp_max_val = 12.0
 
+    @staticmethod
     def _pool_text_features(
-        self,
         text_features: torch.Tensor,
         text_mask: torch.Tensor | None,
     ) -> torch.Tensor:
@@ -566,7 +566,7 @@ class PixelDecoder(nn.Module):
         # Iterate through features from coarse to fine (excluding the last which we started with)
         for layer_idx, backbone_feat in enumerate(reversed(backbone_features[:-1])):
             # Upsample previous FPN output to match current backbone feature size
-            prev_fpn = F.interpolate(prev_fpn, size=backbone_feat.shape[-2:], mode="nearest")
+            prev_fpn = torch.nn.functional.interpolate(prev_fpn, size=backbone_feat.shape[-2:], mode="nearest")
 
             # Add skip connection
             prev_fpn += backbone_feat
@@ -574,7 +574,7 @@ class PixelDecoder(nn.Module):
             # Apply conv and norm
             prev_fpn = self.conv_layers[layer_idx](prev_fpn)
             prev_fpn = self.norms[layer_idx](prev_fpn)
-            prev_fpn = F.relu(prev_fpn)
+            prev_fpn = torch.nn.functional.relu(prev_fpn)
 
         return prev_fpn
 
@@ -934,22 +934,11 @@ class Sam3Model(nn.Module):
         if path.exists():
             # Local path
             model_path = path / "model.safetensors"
-            if not model_path.exists():
-                # Try sharded format
-                model_path = path / "model-00001-of-00002.safetensors"
         else:
-            # HuggingFace Hub - download model files
-            try:
-                model_path = hf_hub_download(
-                    repo_id=pretrained_model_name_or_path,
-                    filename="model.safetensors",
-                )
-            except Exception:
-                # Try sharded format
-                model_path = hf_hub_download(
-                    repo_id=pretrained_model_name_or_path,
-                    filename="model-00001-of-00002.safetensors",
-                )
+            model_path = hf_hub_download(
+                repo_id=pretrained_model_name_or_path,
+                filename="model.safetensors",
+            )
 
         # Load state dict
         state_dict = load_file(model_path)
@@ -1125,7 +1114,7 @@ class Sam3Model(nn.Module):
 
         if has_geometry_prompts:
             if input_boxes is not None and input_boxes.numel() > 0:
-                box_embeddings = input_boxes  # [batch_size, num_boxes, 4]
+                box_embeddings = input_boxes.to(dtype=text_features.dtype)  # [batch_size, num_boxes, 4]
                 box_labels = (
                     input_boxes_labels
                     if input_boxes_labels is not None

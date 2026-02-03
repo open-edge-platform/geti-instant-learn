@@ -1,792 +1,515 @@
 # Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# Copyright 2025 The HuggingFace Inc. team.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-"""Processor class for SAM3."""
+"""ONNX-traceable image preprocessor for SAM3 model.
 
-from copy import deepcopy
+This module provides an ONNX-compatible image preprocessing pipeline that replaces
+the transformers-dependent ImageProcessorFast. All operations are pure PyTorch to
+ensure ONNX traceability.
+"""
 
-import numpy as np
 import torch
-from transformers.image_utils import ImageInput
-from transformers.processing_utils import ProcessorMixin
-from transformers.tokenization_utils_base import BatchEncoding, PreTokenizedInput, TextInput
-from transformers.utils import TensorType
+from torch import nn
+from torch.nn import functional
 
 
-def box_cxcywh_to_xyxy(x: torch.Tensor) -> torch.Tensor:
-    """Convert bounding boxes from (cx, cy, w, h) format to (x1, y1, x2, y2) format.
+class Sam3Preprocessor(nn.Module):
+    """ONNX-traceable image preprocessor for SAM3.
 
-    Args:
-    x (torch.Tensor): Boxes in (cx, cy, w, h) format.
-
-    Returns:
-    torch.Tensor: Boxes in (x1, y1, x2, y2) format.
-    """
-    x_c, y_c, w, h = x.unbind(-1)
-    b = [(x_c - 0.5 * w), (y_c - 0.5 * h), (x_c + 0.5 * w), (y_c + 0.5 * h)]
-    return torch.stack(b, dim=-1)
-
-
-def box_cxcywh_to_xywh(x: torch.Tensor) -> torch.Tensor:
-    """Convert bounding boxes from (cx, cy, w, h) format to (x, y, w, h) format.
+    This preprocessor handles image resizing, padding, and normalization using
+    only PyTorch operations, making it fully ONNX-traceable. It replaces the
+    transformers-dependent ImageProcessorFast.
 
     Args:
-    x (torch.Tensor): Boxes in (cx, cy, w, h) format.
-
-    Returns:
-    torch.Tensor: Boxes in (x, y, w, h) format.
-    """
-    x_c, y_c, w, h = x.unbind(-1)
-    b = [(x_c - 0.5 * w), (y_c - 0.5 * h), (w), (h)]
-    return torch.stack(b, dim=-1)
-
-
-def box_xywh_to_xyxy(x: torch.Tensor) -> torch.Tensor:
-    """Convert bounding boxes from (x, y, w, h) format to (x1, y1, x2, y2) format.
-
-    Args:
-    x (torch.Tensor): Boxes in (x, y, w, h) format.
-
-    Returns:
-    torch.Tensor: Boxes in (x1, y1, x2, y2) format.
-    """
-    x, y, w, h = x.unbind(-1)
-    b = [(x), (y), (x + w), (y + h)]
-    return torch.stack(b, dim=-1)
-
-
-def box_xywh_to_cxcywh(x: torch.Tensor) -> torch.Tensor:
-    """Convert bounding boxes from (x, y, w, h) format to (cx, cy, w, h) format.
-
-    Args:
-    x (torch.Tensor): Boxes in (x, y, w, h) format.
-
-    Returns:
-    torch.Tensor: Boxes in (cx, cy, w, h) format.
-    """
-    x, y, w, h = x.unbind(-1)
-    b = [(x + 0.5 * w), (y + 0.5 * h), (w), (h)]
-    return torch.stack(b, dim=-1)
-
-
-def box_xyxy_to_xywh(x1: torch.Tensor) -> torch.Tensor:
-    """Convert bounding boxes from (x1, y1, x2, y2) format to (x, y, w, h) format.
-
-    Args:
-    x (torch.Tensor): Boxes in (x1, y1, x2, y2) format.
-
-    Returns:
-    torch.Tensor: Boxes in (x, y, w, h) format.
-    """
-    x1, y1, x2, y2 = x1.unbind(-1)
-    b = [(x1), (y1), (x2 - x1), (y2 - y1)]
-    return torch.stack(b, dim=-1)
-
-
-def box_xyxy_to_cxcywh(x: torch.Tensor) -> torch.Tensor:
-    """Convert bounding boxes from (x1, y1, x2, y2) format to (cx, cy, w, h) format.
-
-    Args:
-    x (torch.Tensor): Boxes in (x1, y1, x2, y2) format.
-
-    Returns:
-    torch.Tensor: Boxes in (cx, cy, w, h) format.
-    """
-    x0, y0, x1, y1 = x.unbind(-1)
-    b = [(x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0), (y1 - y0)]
-    return torch.stack(b, dim=-1)
-
-
-def box_area(boxes: torch.Tensor) -> torch.Tensor:
-    """Batched version of box area. Boxes should be in [x0, y0, x1, y1] format.
-
-    Inputs:
-    - boxes: Tensor of shape (..., 4)
-
-    Returns:
-    - areas: Tensor of shape (...,)
-    """
-    x0, y0, x1, y1 = boxes.unbind(-1)
-    return (x1 - x0) * (y1 - y0)
-
-
-class Processor(ProcessorMixin):
-    """Processor for SAM3 model.
-
-    Handles image preprocessing, text tokenization, and post-processing for
-    object detection and segmentation tasks.
+        target_size: The target size for the longest dimension of the image.
+                    Default: 1008 (standard SAM3 input size).
 
     Attributes:
-    attributes (list[str]): List of component attributes for ProcessorMixin.
-    image_processor_class (str): Class name for image processor.
-    tokenizer_class (str): Class name for tokenizer.
+        target_size: The target size for the longest dimension.
+        mean: SAM3 normalization mean [0.5, 0.5, 0.5] (registered as buffer).
+        std: SAM3 normalization standard deviation [0.5, 0.5, 0.5] (registered as buffer).
+
+    Example:
+        >>> import torch
+        >>> preprocessor = Sam3Preprocessor(target_size=1008)
+        >>> image = torch.randint(0, 256, (1, 3, 480, 640), dtype=torch.uint8)
+        >>> pixel_values, original_sizes = preprocessor(image)
+        >>> pixel_values.shape
+        torch.Size([1, 3, 1008, 1008])
     """
 
-    # Define attributes for ProcessorMixin to know which components we have
-    attributes = ["image_processor", "tokenizer"]
-    # These class names tell the processor what types are valid
-    # Using None or tuple allows any class to pass validation
-    image_processor_class = "ImageProcessorFast"
-    tokenizer_class = "CLIPTokenizerFast"
-
-    def check_argument_for_proper_class(self, argument_name: str, argument: any) -> type:
-        """Override to skip class validation since Sam3 classes aren't in stable transformers.
+    def __init__(self, target_size: int = 1008) -> None:
+        """Initialize the preprocessor.
 
         Args:
-        argument_name (str): Name of the argument being validated.
-        argument (any): The argument value to validate.
-
-        Returns:
-        type: The type of the argument.
+            target_size: The target size for the longest dimension. Default: 1008.
         """
-        # Simply return the argument's class without validation
-        return type(argument)
-
-    def __init__(
-        self,
-        image_processor,
-        tokenizer,
-        target_size: int | None = None,
-        point_pad_value: int = -10,
-        **kwargs,
-    ):
-        """Initialize the Processor.
-
-        Args:
-        image_processor: Image processor instance.
-        tokenizer: Tokenizer instance.
-        target_size (int | None): Target size for image resizing. Defaults to None.
-        point_pad_value (int): Value used for padding. Defaults to -10.
-        **kwargs: Additional keyword arguments.
-        """
-        super().__init__(image_processor, tokenizer, **kwargs)
-        self.point_pad_value = point_pad_value
-        self.target_size = target_size if target_size is not None else self.image_processor.size["height"]
-
-    def __call__(
-        self,
-        images: ImageInput | None = None,
-        text: TextInput | PreTokenizedInput | list[TextInput] | list[PreTokenizedInput] | None = None,
-        segmentation_maps: ImageInput | None = None,
-        input_boxes: list[list[list[float]]] | torch.Tensor | None = None,
-        input_boxes_labels: list[list[list[int]]] | torch.Tensor | None = None,
-        original_sizes: list[list[float]] | torch.Tensor | None = None,
-        return_tensors: str | TensorType | None = None,
-        **kwargs,
-    ) -> BatchEncoding:
-        """Process inputs for the SAM3 model.
-
-        Processes images, text, segmentation maps, and bounding boxes for the SAM3 model.
-
-        Args:
-        images (ImageInput | None): The image(s) to process. Defaults to None.
-        text (TextInput | PreTokenizedInput | list[TextInput] | list[PreTokenizedInput] | None):
-            The text to process. Defaults to None.
-        segmentation_maps (ImageInput | None): The segmentation maps to process. Defaults to None.
-        input_boxes (list[list[list[float]]] | torch.Tensor | None):
-            The bounding boxes to process. Defaults to None.
-        input_boxes_labels (list[list[list[int]]] | torch.Tensor | None):
-            The labels for the bounding boxes. Defaults to None.
-        original_sizes (list[list[float]] | torch.Tensor | None):
-            The original sizes of the images. Defaults to None.
-        return_tensors (str | TensorType | None): Format for returned tensors. Defaults to None.
-        **kwargs: Additional keyword arguments.
-
-        Returns:
-        BatchEncoding: A BatchEncoding with the following fields:
-            - pixel_values (torch.Tensor): The processed image(s).
-            - original_sizes (list[list[float]]): The original sizes of the images.
-            - labels (torch.Tensor): The processed segmentation maps (if provided).
-            - input_boxes_labels (torch.Tensor): The processed labels for the bounding boxes.
-            - input_boxes (torch.Tensor): The processed bounding boxes.
-        """
-        encoding = None
-        if images is not None:
-            encoding = self.image_processor(
-                images,
-                segmentation_maps=segmentation_maps,
-                return_tensors=return_tensors,
-                **kwargs,
-            )
-        elif original_sizes is not None:
-            if isinstance(original_sizes, torch.Tensor):
-                original_sizes = original_sizes.cpu().tolist()
-            encoding = BatchEncoding({"original_sizes": original_sizes}, tensor_type=return_tensors)
-        elif input_boxes is not None:
-            msg = "Either images or original_sizes must be provided if input_boxes is not None"
-            raise ValueError(msg)
-
-        text = self._resolve_text_prompts(text, input_boxes)
-        if text is not None:
-            text_inputs = self.tokenizer(text, return_tensors=return_tensors, padding="max_length", max_length=32)
-            if encoding is not None:
-                encoding.update(text_inputs)
-            else:
-                encoding = text_inputs
-
-        # Process input boxes if provided
-        if input_boxes is not None:
-            original_sizes = encoding["original_sizes"]
-            # Validate and convert inputs to standardized format
-            processed_boxes = self._validate_single_input(
-                input_boxes,
-                expected_depth=3,
-                input_name="boxes",
-                expected_format="[image level, box level, box coordinates]",
-                expected_coord_size=4,
-            )
-            processed_boxes_labels = self._validate_single_input(
-                input_boxes_labels,
-                expected_depth=2,
-                input_name="labels",
-                expected_format="[image level, box level]",
-            )
-
-            # Get padding requirements for all inputs
-            if processed_boxes is not None:
-                boxes_max_dims = self._get_nested_dimensions(processed_boxes)[:2]
-            if processed_boxes_labels is not None:
-                boxes_labels_max_dims = self._get_nested_dimensions(processed_boxes_labels)[:2]
-
-            # Ensure boxes and labels have consistent dimensions
-            if processed_boxes is not None and processed_boxes_labels is not None:
-                if boxes_max_dims != boxes_labels_max_dims:
-                    msg = "Input boxes and labels have inconsistent dimensions. Please ensure they have the same dimensions."
-                    raise ValueError(msg)
-
-            # Pad and normalize all inputs to final tensor format
-            if processed_boxes is not None:
-                padded_boxes = self._pad_nested_list(processed_boxes, boxes_max_dims + [4])
-                final_boxes = torch.tensor(padded_boxes, dtype=torch.float32)
-                self._normalize_tensor_coordinates(
-                    final_boxes,
-                    original_sizes,
-                    is_bounding_box=True,
-                    preserve_padding=True,
-                )
-                final_boxes = box_xyxy_to_cxcywh(final_boxes)
-                encoding.update({"input_boxes": final_boxes})
-
-            if processed_boxes_labels is not None:
-                padded_boxes_labels = self._pad_nested_list(processed_boxes_labels, boxes_labels_max_dims)
-                final_boxes_labels = torch.tensor(padded_boxes_labels, dtype=torch.int64)
-                encoding.update({"input_boxes_labels": final_boxes_labels})
-
-        return encoding
-
-    def _normalize_coordinates(self, coords: "torch.Tensor", original_size, is_bounding_box=False) -> "torch.Tensor":
-        """Expects a numpy array of length 2 in the final dimension. Requires the original image size in (H, W) format.
-
-        Args:
-            target_size (`int`):
-                The target size of the image.
-            coords (`torch.Tensor`):
-                The coordinates to be normalized.
-            original_size (`tuple`):
-                The original size of the image.
-            is_bounding_box (`bool`, *optional*, defaults to `False`):
-                Whether the coordinates are bounding boxes.
-        """
-        old_h, old_w = original_size
-        coords = deepcopy(coords).float()
-
-        if is_bounding_box:
-            coords = coords.reshape(-1, 2, 2)
-        coords[..., 0] = coords[..., 0] / old_w
-        coords[..., 1] = coords[..., 1] / old_h
-
-        if is_bounding_box:
-            coords = coords.reshape(-1, 4)
-
-        return coords
-
-    def _convert_to_nested_list(self, data, expected_depth, current_depth=0):
-        """Recursively convert various input formats to nested lists.
-
-        Converts tensors, numpy arrays, and lists to nested lists.
-        Preserves None values within lists.
-
-        Args:
-            data: Input data in any format (may be None or contain None values)
-            expected_depth: Expected nesting depth
-            current_depth: Current depth in recursion
-
-        Returns:
-            Nested list representation of the data (or None)
-        """
-        if data is None:
-            return None
-
-        # Convert tensor/numpy to list if we're at a leaf level or if it's a multi-dimensional array
-        if isinstance(data, torch.Tensor):  # PyTorch tensor
-            if current_depth == expected_depth - 2 or len(data.shape) <= 2:  # At coordinate level or small tensor
-                return data.numpy().tolist()
-            return [self._convert_to_nested_list(item, expected_depth, current_depth + 1) for item in data]
-        if isinstance(data, np.ndarray):  # NumPy array
-            if current_depth == expected_depth - 2 or len(data.shape) <= 2:  # At coordinate level or small array
-                return data.tolist()
-            return [self._convert_to_nested_list(item, expected_depth, current_depth + 1) for item in data]
-        if isinstance(data, list):
-            if current_depth == expected_depth:
-                # We've reached the expected depth, return as is
-                return data
-            # Continue recursion, preserving None values
-            return [
-                self._convert_to_nested_list(item, expected_depth, current_depth + 1) if item is not None else None
-                for item in data
-            ]
-        if isinstance(data, (int, float)):
-            return data
-        raise ValueError(f"Unsupported data type: {type(data)}")
-
-    def _resolve_text_prompts(self, text, input_boxes):
-        """Resolve text prompts by setting defaults based on prompt types."""
-        # If no text provided, infer default based on prompt type
-        if text is None:
-            return "visual" if input_boxes else None
-
-        if not isinstance(text, (list, tuple)):
-            return text
-
-        # Validate list/tuple length matches both prompt types if provided
-        text = list(text)  # Convert to list to allow modification
-
-        if input_boxes and len(text) != len(input_boxes):
-            msg = (
-                f"The number of text prompts must match the number of input boxes. "
-                f"Got {len(text)} text prompts and {len(input_boxes)} input boxes.",
-            )
-            raise ValueError(msg)
-
-        # Fill in None values with defaults based on corresponding prompt
-        for i, text_value in enumerate(text):
-            if text_value is None and input_boxes and input_boxes[i] is not None:
-                text[i] = "visual"
-
-        return text
-
-    def _get_nested_dimensions(self, nested_list, max_dims=None):
-        """Get the maximum dimensions at each level of nesting, skipping None values.
-
-        Args:
-            nested_list (`list`):
-                Nested list structure (may contain None values).
-            max_dims (`list`, *optional*):
-                Current maximum dimensions (for recursion).
-
-        Returns:
-            `list`: A list of maximum dimensions for each nesting level.
-        """
-        if max_dims is None:
-            max_dims = []
-
-        if not isinstance(nested_list, list):
-            return max_dims
-
-        if len(max_dims) == 0:
-            max_dims.append(len(nested_list))
-        else:
-            max_dims[0] = max(max_dims[0], len(nested_list))
-
-        if len(nested_list) > 0:
-            for item in nested_list:
-                # Skip None values
-                if item is None:
-                    continue
-                if isinstance(item, list):
-                    sub_dims = self._get_nested_dimensions(item)
-                    # Merge sub_dims into max_dims
-                    for i, dim in enumerate(sub_dims):
-                        if i + 1 >= len(max_dims):
-                            max_dims.append(dim)
-                        else:
-                            max_dims[i + 1] = max(max_dims[i + 1], dim)
-
-        return max_dims
-
-    def _pad_nested_list(self, nested_list, target_dims, current_level=0, pad_value=None):
-        """Recursively pad a nested list to match target dimensions. Replaces None values with padded structures.
-
-        Args:
-            nested_list (`list`):
-                Nested list to pad (may contain None values).
-            target_dims (`list`):
-                Target dimensions for each level.
-            current_level (`int`, *optional*, defaults to 0):
-                Current nesting level.
-            pad_value (`int`, *optional*):
-                Value to use for padding.
-
-        Returns:
-            `list`: The padded nested list.
-        """
-        if pad_value is None:
-            pad_value = self.point_pad_value
-
-        if current_level >= len(target_dims):
-            return nested_list
-
-        # Ensure we have a list
-        if not isinstance(nested_list, list):
-            nested_list = [nested_list]
-
-        # Pad current level
-        current_size = len(nested_list)
-        target_size = target_dims[current_level]
-
-        # Pad with appropriate values
-        if current_level == len(target_dims) - 1:
-            # At the coordinate level, pad with pad_value
-            nested_list.extend([pad_value] * (target_size - current_size))
-        # At higher levels, pad with nested structures
-        elif current_size > 0:
-            # Create appropriately sized template
-            if current_level < len(target_dims) - 2:
-                # For non-coordinate levels, create empty nested structure
-                template_dims = target_dims[current_level + 1 :]
-                template = self._create_empty_nested_structure(template_dims, pad_value)
-            else:
-                # For coordinate level, create list of pad_values
-                template = [pad_value] * target_dims[current_level + 1]
-
-            nested_list.extend([deepcopy(template) for _ in range(target_size - current_size)])
-        else:
-            # Create from scratch
-            template_dims = target_dims[current_level + 1 :]
-            template = self._create_empty_nested_structure(template_dims, pad_value)
-            nested_list.extend([deepcopy(template) for _ in range(target_size)])
-
-        # Recursively pad sublists, replacing None with padded structures
-        if current_level < len(target_dims) - 1:
-            for i in range(len(nested_list)):
-                if nested_list[i] is None:
-                    # Replace None with fully padded structure
-                    template_dims = target_dims[current_level + 1 :]
-                    nested_list[i] = self._create_empty_nested_structure(template_dims, pad_value)
-                elif isinstance(nested_list[i], list):
-                    nested_list[i] = self._pad_nested_list(nested_list[i], target_dims, current_level + 1, pad_value)
-
-        return nested_list
-
-    def _create_empty_nested_structure(self, dims, pad_value):
-        """Create an empty nested structure with given dimensions filled with pad_value.
-
-        Args:
-            dims (`list`):
-                The dimensions of the nested structure.
-            pad_value (`int`):
-                The value to fill the structure with.
-        """
-        if len(dims) == 1:
-            return [pad_value] * dims[0]
-        return [self._create_empty_nested_structure(dims[1:], pad_value) for _ in range(dims[0])]
-
-    def _get_nesting_level(
-        self,
-        input_list: list | np.ndarray | torch.Tensor,
-    ) -> int:
-        """Get the nesting level of a list structure, skipping None values.
-
-        Args:
-            input_list (list | np.ndarray | torch.Tensor):
-                The list, array, or tensor to get the nesting level of.
-
-        Returns:
-            (int): The nesting level of the input structure.
-        """
-        if isinstance(input_list, list):
-            if len(input_list) == 0:
-                return 1
-            # Find first non-None element to determine nesting level
-            for item in input_list:
-                if item is not None:
-                    return 1 + self._get_nesting_level(item)
-            # All elements are None, treat as single level
-            return 1
-        if isinstance(input_list, (np.ndarray, torch.Tensor)):
-            # For arrays/tensors, the nesting level is the number of dimensions
-            return len(input_list.shape)
-        return 0
-
-    def _validate_single_input(
-        self,
-        data: torch.Tensor | np.ndarray | list | None,
-        expected_depth: int,
-        input_name: str,
-        expected_format: str,
-        expected_coord_size: int | None = None,
-    ) -> list | None:
-        """Validate a single input by ensuring proper nesting and raising an error if invalid.
-
-        Args:
-            data (torch.Tensor | np.ndarray | list | None):
-                Input data to process.
-            expected_depth (int):
-                Expected nesting depth.
-            input_name (str):
-                Name of the input for error messages.
-            expected_format (str):
-                The expected format of the input.
-            expected_coord_size (int | None, *optional*, defaults to None):
-                Expected coordinate size (4 for boxes, None for labels).
-
-        Returns:
-            (list | None): Nested list representation of the input, or None if input is None.
-
-        Raises:
-            ValueError: If the input has incorrect nesting depth or coordinate size.
-        """
-        if data is None:
-            return None
-
-        # Handle tensors and numpy arrays first
-        if isinstance(data, (torch.Tensor, np.ndarray)):
-            # For tensors/arrays, we can directly check the number of dimensions
-            if data.ndim != expected_depth:
-                msg = (
-                    f"Input {input_name} must be a tensor/array with {expected_depth} "
-                    f"dimensions. The expected nesting format is {expected_format}. "
-                    f"Got {data.ndim} dimensions.",
-                )
-                raise ValueError(msg)
-            if expected_coord_size is not None:
-                if data.shape[-1] != expected_coord_size:
-                    msg = (
-                        f"Input {input_name} must be a tensor/array with "
-                        f"{expected_coord_size} as the last dimension, "
-                        f"got {data.shape[-1]}.",
-                    )
-                    raise ValueError(msg)
-            return self._convert_to_nested_list(data, expected_depth)
-
-        # Handle nested lists
-        if isinstance(data, list):
-            current_depth = self._get_nesting_level(data)
-            if current_depth != expected_depth:
-                msg = (
-                    f"Input {input_name} must be a nested list with {expected_depth} "
-                    f"levels. The expected nesting format is {expected_format}. "
-                    f"Got {current_depth} levels.",
-                )
-                raise ValueError(msg)
-            return self._convert_to_nested_list(data, expected_depth)
-
-    def _normalize_tensor_coordinates(
-        self,
-        tensor: torch.Tensor,
-        original_sizes: list[list[float]],
-        is_bounding_box: bool = False,
-        preserve_padding: bool = False,
-    ) -> None:
-        """Helper method to normalize coordinates in a tensor across multiple images.
-
-        Args:
-            tensor (torch.Tensor):
-                Input tensor with coordinates to normalize in-place.
-            original_sizes (list[list[float]]):
-                Original image sizes in (height, width) format.
-            is_bounding_box (bool, *optional*, defaults to False):
-                Whether coordinates are bounding boxes.
-            preserve_padding (bool, *optional*, defaults to False):
-                Whether to preserve padding values (for boxes).
-
-        Returns:
-            None
-        """
-        if preserve_padding:
-            # For boxes: avoid normalizing pad values
-            mask = tensor != self.point_pad_value
-            coord_mask = mask.all(dim=-1, keepdim=True)
-
-        for img_idx in range(len(original_sizes)):
-            if img_idx < tensor.shape[0]:
-                original_size = original_sizes[img_idx] if img_idx < len(original_sizes) else original_sizes[0]
-                normalized_coords = self._normalize_coordinates(
-                    tensor[img_idx],
-                    original_size,
-                    is_bounding_box=is_bounding_box,
-                )
-
-                if preserve_padding:
-                    # Only update non-padded values
-                    img_mask = coord_mask[img_idx]
-                    tensor[img_idx] = torch.where(
-                        img_mask.expand_as(tensor[img_idx]),
-                        normalized_coords,
-                        tensor[img_idx],
-                    )
-                else:
-                    tensor[img_idx] = normalized_coords
-
-    def post_process_semantic_segmentation(
-        self,
-        outputs: dict,
-        target_sizes: list[tuple[int, int]] | None = None,
-        threshold: float = 0.5,
-    ) -> list[torch.Tensor]:
-        """Converts the output of [`Model`] into semantic segmentation maps.
-
-        Args:
-            outputs (dict):
-                Raw outputs of the model containing semantic_seg.
-            target_sizes (list[tuple[int, int]] | None, *optional*):
-                List of tuples corresponding to the requested final size (height, width)
-                of each prediction. If unset, predictions will not be resized.
-            threshold (float, *optional*, defaults to 0.5):
-                Threshold for binarizing the semantic segmentation masks.
-
-        Returns:
-            (list[torch.Tensor]): List of length `batch_size`, where each item is a
-            semantic segmentation map of shape (height, width) with binary mask
-            (0 or 1) corresponding to the target_sizes entry (if `target_sizes` is
-            specified).
-        """
-        return self.image_processor.post_process_semantic_segmentation(
-            outputs,
-            target_sizes,
-            threshold,
+        super().__init__()
+        self.target_size = target_size
+
+        # Register SAM3 normalization constants as buffers for ONNX compatibility
+        # SAM3 uses mean=0.5, std=0.5 to map [0,1] to [-1,1]
+        self.register_buffer(
+            "mean",
+            torch.tensor([0.5, 0.5, 0.5], dtype=torch.float32).reshape(1, 3, 1, 1),
+        )
+        self.register_buffer(
+            "std",
+            torch.tensor([0.5, 0.5, 0.5], dtype=torch.float32).reshape(1, 3, 1, 1),
         )
 
-    def post_process_object_detection(
-        self,
-        outputs: dict,
-        threshold: float = 0.3,
-        target_sizes: list[tuple[int, int]] | None = None,
-    ) -> list[dict[str, torch.Tensor]]:
-        """Convert raw model outputs to bounding boxes.
+    @staticmethod
+    def get_preprocess_shape(oldh: int, oldw: int, long_side_length: int) -> tuple[int, int]:
+        """Compute the output size given input size and target long side length.
 
-        Converts the raw output of [`Model`] into final bounding boxes in
-        (top_left_x, top_left_y, bottom_right_x, bottom_right_y) format.
-        This is a convenience wrapper around the image processor method.
+        Scales the image such that the longest dimension becomes long_side_length
+        while maintaining aspect ratio.
 
         Args:
-            outputs (dict):
-                Raw outputs of the model containing pred_boxes, pred_logits, and
-                optionally presence_logits.
-            threshold (float, *optional*, defaults to 0.3):
-                Score threshold to keep object detection predictions.
-            target_sizes (list[tuple[int, int]] | None, *optional*):
-                List of tuples (`tuple[int, int]`) containing the target size
-                `(height, width)` of each image in the batch. If unset, predictions
-                will not be resized.
+            oldh: Original image height.
+            oldw: Original image width.
+            long_side_length: The target length for the longest dimension.
 
         Returns:
-            (list[dict[str, torch.Tensor]]): A list of dictionaries, each dictionary
-            containing the following keys:
-
-                - **scores** (`torch.Tensor`): The confidence scores for each predicted
-                  box on the image.
-                - **boxes** (`torch.Tensor`): Image bounding boxes in (top_left_x,
-                  top_left_y, bottom_right_x, bottom_right_y) format.
+            Tuple of (new_height, new_width) maintaining aspect ratio.
 
         Example:
-        ```python
-        >>> from transformers import AutoModel, AutoProcessor
-        >>> from PIL import Image
-        >>> import httpx
-        >>> from io import BytesIO
-
-        >>> model = AutoModel.from_pretrained("facebook/sam3-base")
-        >>> processor = AutoProcessor.from_pretrained("facebook/sam3-base")
-
-        >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
-        >>> with httpx.stream("GET", url) as response:
-        ...     image = Image.open(BytesIO(response.read()))
-        >>> inputs = processor(images=image, text="cat", return_tensors="pt")
-        >>> outputs = model(**inputs)
-
-        >>> # Post-process to get bounding boxes
-        >>> results = processor.post_process_object_detection(
-        ...     outputs, threshold=0.3, target_sizes=[image.size[::-1]]
-        ... )
-        >>> boxes = results[0]["boxes"]
-        >>> scores = results[0]["scores"]
-        ```
+            >>> Sam3Preprocessor.get_preprocess_shape(480, 640, 1008)
+            (756, 1008)
         """
-        return self.image_processor.post_process_object_detection(
-            outputs,
-            threshold,
-            target_sizes,
+        scale = long_side_length * 1.0 / max(oldh, oldw)
+        newh = int(oldh * scale + 0.5)
+        neww = int(oldw * scale + 0.5)
+        return (newh, neww)
+
+    def forward(self, pixel_values: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Preprocess image for SAM3 inference.
+
+        Handles input format conversion, resizing to target size (without maintaining
+        aspect ratio), and SAM3 normalization.
+
+        Args:
+            pixel_values: Input image tensor with shape (B, C, H, W).
+                         Can be uint8 (0-255) or float (0-1).
+
+        Returns:
+            Tuple containing:
+                - pixel_values: Preprocessed image tensor with shape (B, 3, target_size, target_size)
+                  and SAM3 normalized values (range [-1, 1]).
+                - original_sizes: Tensor with shape (B, 2) containing [height, width] of input images.
+
+        Example:
+            >>> preprocessor = Sam3Preprocessor(target_size=1008)
+            >>> # uint8 input
+            >>> img_uint8 = torch.randint(0, 256, (2, 3, 480, 640), dtype=torch.uint8)
+            >>> pixel_values, orig_sizes = preprocessor(img_uint8)
+            >>> pixel_values.shape
+            torch.Size([2, 3, 1008, 1008])
+            >>> orig_sizes.shape
+            torch.Size([2, 2])
+            >>> # float input
+            >>> img_float = torch.rand(2, 3, 480, 640, dtype=torch.float32)
+            >>> pixel_values, orig_sizes = preprocessor(img_float)
+        """
+        assert pixel_values.ndim == 4, f"Expected BCHW tensor, got shape {pixel_values.shape}"
+
+        # Get original sizes before any processing
+        batch_size = pixel_values.shape[0]
+        original_height = pixel_values.shape[2]
+        original_width = pixel_values.shape[3]
+        original_sizes = torch.tensor(
+            [[original_height, original_width]] * batch_size,
+            dtype=torch.int32,
+            device=pixel_values.device,
         )
 
-    def post_process_instance_segmentation(
+        # Resize first while still uint8 (matches HF behavior)
+        pixel_values = functional.interpolate(
+            pixel_values.float(),  # F.interpolate needs float, but we'll round back
+            size=(self.target_size, self.target_size),
+            mode="bilinear",
+            align_corners=False,
+            antialias=True,
+        )
+        # Round to simulate uint8 behavior during resize, then rescale
+        pixel_values = pixel_values.round().clamp(0, 255) / 255.0
+
+        # Normalize with SAM3 mean and std (maps [0,1] to [-1,1])
+        pixel_values = (pixel_values - self.mean) / self.std
+
+        return pixel_values, original_sizes
+
+
+class Sam3PromptPreprocessor(nn.Module):
+    """ONNX-traceable prompt preprocessor for SAM3.
+
+    This preprocessor handles box normalization and padding for SAM3 prompt inputs.
+    It converts absolute box coordinates to normalized cxcywh format suitable for
+    ONNX tracing.
+
+    Args:
+        target_size: The target size for the preprocessed image. Default: 1008.
+        pad_value: Sentinel value used for padding boxes. Default: -10.0.
+
+    Attributes:
+        target_size: The target size for the preprocessed image.
+        pad_value: Sentinel value for padding boxes.
+
+    Example:
+        >>> import torch
+        >>> preprocessor = Sam3PromptPreprocessor(target_size=1008)
+        >>> boxes = torch.tensor([[[100, 100, 200, 200]]], dtype=torch.float32)
+        >>> img_sizes = torch.tensor([[480, 640]], dtype=torch.int32)
+        >>> norm_boxes = preprocessor(boxes, img_sizes)
+        >>> norm_boxes.shape
+        torch.Size([1, 1, 4])
+    """
+
+    def __init__(self, target_size: int = 1008, pad_value: float = -10.0) -> None:
+        """Initialize the prompt preprocessor.
+
+        Args:
+            target_size: The target size for the preprocessed image. Default: 1008.
+            pad_value: Sentinel value used for padding boxes. Default: -10.0.
+        """
+        super().__init__()
+        self.target_size = target_size
+        self.pad_value = pad_value
+
+    @staticmethod
+    def box_xyxy_to_cxcywh(boxes: torch.Tensor) -> torch.Tensor:
+        """Convert bounding boxes from (x1, y1, x2, y2) format to (cx, cy, w, h) format.
+
+        Args:
+            boxes: Boxes in (x1, y1, x2, y2) format.
+
+        Returns:
+            Boxes in (cx, cy, w, h) format.
+        """
+        x0, y0, x1, y1 = boxes.unbind(-1)
+        b = [(x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0), (y1 - y0)]
+        return torch.stack(b, dim=-1)
+
+    def forward(
+        self,
+        input_boxes: torch.Tensor | list | tuple,
+        original_sizes: torch.Tensor,
+    ) -> torch.Tensor:
+        """Preprocess prompts for SAM3 inference.
+
+        Normalizes boxes from absolute coordinates to [0, 1] range and converts
+        from xyxy to cxcywh format.
+
+        Args:
+            input_boxes: Input boxes in xyxy format. Can be:
+                - Tensor with shape (B, N, 4)
+                - Tensor with shape (4,) for a single box
+                - List/tuple [x1, y1, x2, y2] for a single box
+                Coordinates are in absolute pixel values.
+            original_sizes: Tensor with shape (B, 2) containing [height, width]
+                           of the original images.
+
+        Returns:
+            Normalized boxes tensor with shape (B, N, 4) in cxcywh format,
+            with values in [0, 1] range.
+
+        Example:
+            >>> preprocessor = Sam3PromptPreprocessor()
+            >>> # Tensor input
+            >>> boxes = torch.tensor([[[100, 100, 200, 200]]], dtype=torch.float32)
+            >>> sizes = torch.tensor([[480, 640]], dtype=torch.int32)
+            >>> norm_boxes = preprocessor(boxes, sizes)
+            >>> # List input (single box)
+            >>> norm_boxes = preprocessor([100, 100, 200, 200], sizes)
+        """
+        # Convert to tensor if needed and ensure shape (B, N, 4)
+        if not isinstance(input_boxes, torch.Tensor):
+            input_boxes = torch.tensor(input_boxes, dtype=torch.float32)
+        input_boxes = input_boxes.to(device=original_sizes.device, dtype=torch.float32)
+
+        if input_boxes.ndim == 1:  # (4,) -> (1, 1, 4)
+            input_boxes = input_boxes.unsqueeze(0).unsqueeze(0)
+        elif input_boxes.ndim == 2:  # (N, 4) -> (1, N, 4)
+            input_boxes = input_boxes.unsqueeze(0)
+
+        # Extract height and width from original_sizes (B, 2)
+        heights = original_sizes[:, 0:1].float()  # (B, 1)
+        widths = original_sizes[:, 1:2].float()  # (B, 1)
+
+        # Create scale factor: [width, height, width, height]
+        scale_factor = torch.cat([widths, heights, widths, heights], dim=1)  # (B, 4)
+        scale_factor = scale_factor.unsqueeze(1)  # (B, 1, 4)
+
+        # Normalize boxes to [0, 1] range
+        normalized_boxes = input_boxes / scale_factor
+
+        # Convert from xyxy to cxcywh format
+        normalized_boxes = self.box_xyxy_to_cxcywh(normalized_boxes)
+
+        return normalized_boxes
+
+
+class Sam3Postprocessor(nn.Module):
+    """ONNX-traceable postprocessor for SAM3.
+
+    This postprocessor handles the conversion of raw model outputs to final predictions
+    with separate forward paths for ONNX (tensor-only) and eager mode (list-based).
+
+    Args:
+        target_size: The target size for mask interpolation. Default: 1008.
+
+    Attributes:
+        target_size: The target size for mask interpolation.
+
+    Example:
+        >>> import torch
+        >>> postprocessor = Sam3Postprocessor(target_size=1008)
+        >>> outputs = {
+        ...     "pred_logits": torch.randn(1, 10),
+        ...     "pred_boxes": torch.rand(1, 10, 4),
+        ...     "pred_masks": torch.randn(1, 10, 256, 256),
+        ...     "presence_logits": torch.randn(1, 1),
+        ... }
+        >>> target_sizes = [(480, 640)]
+        >>> results = postprocessor.forward_eager(outputs, target_sizes)
+    """
+
+    def __init__(self, target_size: int = 1008) -> None:
+        """Initialize the postprocessor.
+
+        Args:
+            target_size: The target size for mask interpolation. Default: 1008.
+        """
+        super().__init__()
+        self.target_size = target_size
+
+    @staticmethod
+    def box_cxcywh_to_xyxy(boxes: torch.Tensor) -> torch.Tensor:
+        """Convert bounding boxes from (cx, cy, w, h) format to (x1, y1, x2, y2) format.
+
+        Args:
+            boxes: Boxes in (cx, cy, w, h) format.
+
+        Returns:
+            Boxes in (x1, y1, x2, y2) format.
+        """
+        x_c, y_c, w, h = boxes.unbind(-1)
+        b = [(x_c - 0.5 * w), (y_c - 0.5 * h), (x_c + 0.5 * w), (y_c + 0.5 * h)]
+        return torch.stack(b, dim=-1)
+
+    @staticmethod
+    def _scale_boxes(boxes: torch.Tensor, target_sizes: list[tuple[int, int]]) -> torch.Tensor:
+        """Scale batch of bounding boxes to target sizes.
+
+        Args:
+            boxes: Bounding boxes of shape (batch_size, num_boxes, 4).
+                  Each box is expected to be in (x1, y1, x2, y2) format.
+            target_sizes: Target sizes to scale to. Each target size is expected
+                         to be in (height, width) format.
+
+        Returns:
+            Scaled bounding boxes of shape (batch_size, num_boxes, 4).
+        """
+        image_height = torch.tensor([i[0] for i in target_sizes])
+        image_width = torch.tensor([i[1] for i in target_sizes])
+
+        scale_factor = torch.stack([image_width, image_height, image_width, image_height], dim=1)
+        scale_factor = scale_factor.unsqueeze(1).to(boxes.device)
+        boxes *= scale_factor
+        return boxes
+
+    def forward(
         self,
         outputs: dict,
+        target_sizes: torch.Tensor | list[tuple[int, int]],
         threshold: float = 0.3,
         mask_threshold: float = 0.5,
-        target_sizes: list[tuple[int, int]] | None = None,
-    ) -> list[dict[str, torch.Tensor]]:
-        """Convert raw model outputs to instance segmentation predictions.
+    ) -> list[dict[str, torch.Tensor]] | tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Postprocess model outputs, dispatching to ONNX or eager mode.
 
-        Converts the raw output of [`Model`] into instance segmentation predictions
-        with bounding boxes and masks. This is a convenience wrapper around the image
-        processor method.
+        Automatically selects the appropriate implementation based on whether
+        ONNX export is in progress.
 
         Args:
-            outputs (dict):
-                Raw outputs of the model containing pred_boxes, pred_logits, pred_masks,
-                and optionally presence_logits.
-            threshold (float, *optional*, defaults to 0.3):
-                Score threshold to keep instance predictions.
-            mask_threshold (float, *optional*, defaults to 0.5):
-                Threshold for binarizing the predicted masks.
-            target_sizes (list[tuple[int, int]] | None, *optional*):
-                List of tuples (`tuple[int, int]`) containing the target size
-                `(height, width)` of each image in the batch. If unset, predictions
-                will not be resized.
+            outputs: Dictionary containing model outputs.
+            target_sizes: Target sizes as tensor (B, 2) or list of (height, width) tuples.
+            threshold: Score threshold for predictions. Default: 0.3.
+            mask_threshold: Threshold for binarizing masks. Default: 0.5.
 
         Returns:
-            (list[dict[str, torch.Tensor]]): A list of dictionaries, each dictionary
-            containing the following keys:
+            ONNX mode: Tuple of (scores, boxes, masks, counts) tensors.
+            Eager mode: List of dicts with 'scores', 'boxes', 'masks' keys.
+        """
+        if torch.onnx.is_in_onnx_export():
+            assert isinstance(target_sizes, torch.Tensor), "ONNX mode requires tensor target_sizes"
+            return self.forward_onnx(outputs, target_sizes, threshold, mask_threshold)
 
-                - **scores** (`torch.Tensor`): The confidence scores for each predicted
-                  instance on the image.
-                - **boxes** (`torch.Tensor`): Image bounding boxes in (top_left_x,
-                  top_left_y, bottom_right_x, bottom_right_y) format.
-                - **masks** (`torch.Tensor`): Binary segmentation masks for each instance,
-                  shape (num_instances, height, width).
+        # Convert tensor to list for eager mode
+        if isinstance(target_sizes, torch.Tensor):
+            target_sizes = [(int(target_sizes[i, 0]), int(target_sizes[i, 1])) for i in range(target_sizes.shape[0])]
+        return self.forward_eager(outputs, target_sizes, threshold, mask_threshold)
+
+    def forward_onnx(
+        self,
+        outputs: dict,
+        target_sizes: torch.Tensor,
+        threshold: float = 0.3,
+        mask_threshold: float = 0.5,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Postprocess model outputs for ONNX inference.
+
+        ONNX-compatible version that returns padded tensors instead of Python lists.
+
+        Args:
+            outputs: Dictionary containing model outputs with keys:
+                    - pred_logits: (B, N) confidence scores
+                    - pred_boxes: (B, N, 4) boxes in xyxy format (normalized [0,1])
+                    - pred_masks: (B, N, H, W) mask logits
+                    - presence_logits: (B, 1) presence scores (optional)
+            target_sizes: Tensor with shape (B, 2) containing [height, width] for each image.
+            threshold: Score threshold to keep instance predictions. Default: 0.3.
+            mask_threshold: Threshold for binarizing the predicted masks. Default: 0.5.
+
+        Returns:
+            Tuple of (scores, boxes, masks, counts):
+                - scores: Padded scores tensor (B, max_detections)
+                - boxes: Padded boxes tensor (B, max_detections, 4)
+                - masks: Padded masks tensor (B, max_detections, H, W)
+                - counts: Number of valid detections per image (B,)
 
         Example:
-        ```python
-        >>> from transformers import AutoModel, AutoProcessor
-        >>> from PIL import Image
-        >>> import httpx
-        >>> from io import BytesIO
-
-        >>> model = AutoModel.from_pretrained("facebook/sam3-base")
-        >>> processor = AutoProcessor.from_pretrained("facebook/sam3-base")
-
-        >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
-        >>> with httpx.stream("GET", url) as response:
-        ...     image = Image.open(BytesIO(response.read()))
-        >>> inputs = processor(images=image, text="cat", return_tensors="pt")
-        >>> outputs = model(**inputs)
-
-        >>> # Post-process to get instance segmentation
-        >>> results = processor.post_process_instance_segmentation(
-        ...     outputs, threshold=0.3, target_sizes=[image.size[::-1]]
-        ... )
-        >>> masks = results[0]["masks"]
-        >>> boxes = results[0]["boxes"]
-        >>> scores = results[0]["scores"]
-        ```
+            >>> postprocessor = Sam3Postprocessor()
+            >>> outputs = {...}  # Model outputs
+            >>> target_sizes = torch.tensor([[480, 640]], dtype=torch.int32)
+            >>> scores, boxes, masks, counts = postprocessor.forward_onnx(outputs, target_sizes)
         """
-        return self.image_processor.post_process_instance_segmentation(
-            outputs,
-            threshold,
-            mask_threshold,
-            target_sizes,
-        )
+        # Extract outputs
+        pred_logits = outputs["pred_logits"]  # (B, N)
+        pred_boxes = outputs["pred_boxes"]  # (B, N, 4) in xyxy format (normalized [0,1])
+        pred_masks = outputs["pred_masks"]  # (B, N, H, W)
+        presence_logits = outputs.get("presence_logits")  # (B, 1) or None
+
+        # Compute scores
+        batch_scores = pred_logits.sigmoid()
+        if presence_logits is not None:
+            presence_scores = presence_logits.sigmoid()  # (B, 1)
+            batch_scores = batch_scores * presence_scores  # Broadcast multiplication
+
+        # Apply sigmoid to mask logits
+        batch_masks = pred_masks.sigmoid()
+
+        # Boxes are already in xyxy format from the model
+        batch_boxes = pred_boxes
+
+        # Scale boxes to target sizes
+        # Convert target_sizes tensor to list of tuples for compatibility
+        batch_size = target_sizes.shape[0]
+        target_sizes_list = [(target_sizes[i, 0].item(), target_sizes[i, 1].item()) for i in range(batch_size)]
+        batch_boxes = self._scale_boxes(batch_boxes, target_sizes_list)
+
+        # Interpolate masks to target size
+        all_masks = []
+        for idx in range(batch_size):
+            target_h, target_w = target_sizes[idx, 0].item(), target_sizes[idx, 1].item()
+            masks = batch_masks[idx : idx + 1]  # (1, N, H, W)
+            masks = functional.interpolate(
+                masks,
+                size=(target_h, target_w),
+                mode="bilinear",
+                align_corners=False,
+            )
+            all_masks.append(masks)
+        batch_masks = torch.cat(all_masks, dim=0)  # (B, N, target_H, target_W)
+
+        # Binarize masks
+        batch_masks = (batch_masks > mask_threshold).float()
+
+        # Filter by score threshold
+        keep_mask = batch_scores > threshold  # (B, N)
+
+        # For ONNX compatibility, we return padded tensors with counts
+        # instead of variable-length lists
+        return batch_scores, batch_boxes, batch_masks, keep_mask.sum(dim=1)
+
+    def forward_eager(
+        self,
+        outputs: dict,
+        target_sizes: list[tuple[int, int]],
+        threshold: float = 0.3,
+        mask_threshold: float = 0.5,
+    ) -> list[dict[str, torch.Tensor]]:
+        """Postprocess model outputs for eager mode inference.
+
+        Returns Python list of dicts for compatibility with current API.
+
+        Args:
+            outputs: Dictionary containing model outputs with keys:
+                    - pred_logits: (B, N) confidence scores
+                    - pred_boxes: (B, N, 4) boxes in xyxy format (normalized [0,1])
+                    - pred_masks: (B, N, H, W) mask logits
+                    - presence_logits: (B, 1) presence scores (optional)
+            target_sizes: List of tuples containing (height, width) for each image.
+            threshold: Score threshold to keep instance predictions. Default: 0.3.
+            mask_threshold: Threshold for binarizing the predicted masks. Default: 0.5.
+
+        Returns:
+            List of dictionaries, each containing:
+                - scores: Confidence scores for kept instances (N_keep,)
+                - boxes: Bounding boxes in xyxy format (N_keep, 4)
+                - masks: Binary segmentation masks (N_keep, H, W)
+
+        Example:
+            >>> postprocessor = Sam3Postprocessor()
+            >>> outputs = {...}  # Model outputs
+            >>> target_sizes = [(480, 640)]
+            >>> results = postprocessor.forward_eager(outputs, target_sizes)
+            >>> results[0]["scores"]  # Scores for first image
+        """
+        # Extract outputs
+        pred_logits = outputs["pred_logits"]  # (B, N)
+        pred_boxes = outputs["pred_boxes"]  # (B, N, 4) in xyxy format (normalized [0,1])
+        pred_masks = outputs["pred_masks"]  # (B, N, H, W)
+        presence_logits = outputs.get("presence_logits")  # (B, 1) or None
+
+        batch_size = pred_logits.shape[0]  # noqa: F841
+
+        # Compute scores
+        batch_scores = pred_logits.sigmoid()
+        if presence_logits is not None:
+            presence_scores = presence_logits.sigmoid()  # (B, 1)
+            batch_scores = batch_scores * presence_scores  # Broadcast multiplication
+
+        # Apply sigmoid to mask logits
+        batch_masks = pred_masks.sigmoid()
+
+        # Boxes are already in xyxy format from the model
+        batch_boxes = pred_boxes
+
+        # Scale boxes to target sizes
+        batch_boxes = self._scale_boxes(batch_boxes, target_sizes)
+
+        # Process each image in the batch
+        results = []
+        for idx, (score_vec, box_vec, mask_vec) in enumerate(zip(batch_scores, batch_boxes, batch_masks, strict=False)):
+            # Filter by score threshold
+            keep = score_vec > threshold
+            kept_scores = score_vec[keep]
+            kept_boxes = box_vec[keep]
+            kept_masks = mask_vec[keep]  # (num_keep, H, W)
+
+            # Resize masks to target size
+            target_size = target_sizes[idx]
+            if len(kept_masks) > 0:
+                kept_masks = functional.interpolate(
+                    kept_masks.unsqueeze(0),  # (1, num_keep, H, W)
+                    size=target_size,
+                    mode="bilinear",
+                    align_corners=False,
+                ).squeeze(0)  # (num_keep, target_H, target_W)
+
+            # Binarize masks
+            kept_masks = (kept_masks > mask_threshold).long()
+
+            results.append({"scores": kept_scores, "boxes": kept_boxes, "masks": kept_masks})
+
+        return results

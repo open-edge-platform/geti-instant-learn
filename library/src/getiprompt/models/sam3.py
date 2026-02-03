@@ -10,7 +10,12 @@ from transformers import CLIPTokenizerFast
 
 from getiprompt.data.base.batch import Batch
 from getiprompt.data.base.sample import Sample
-from getiprompt.models.foundation.sam3 import ImageProcessorFast, Processor, Sam3Model
+from getiprompt.models.foundation.sam3 import Sam3Model
+from getiprompt.models.foundation.sam3.processing import (
+    Sam3Postprocessor,
+    Sam3Preprocessor,
+    Sam3PromptPreprocessor,
+)
 from getiprompt.utils.utils import precision_to_torch_dtype
 
 from .base import Model
@@ -107,19 +112,22 @@ class SAM3(Model):
         # Category mapping from fit() - optional for consistency with GroundedSAM
         self.category_mapping: dict[str, int] | None = None
 
-        # Create processor manually with image processor and tokenizer
-        image_processor = ImageProcessorFast.from_pretrained("facebook/sam3")
-        tokenizer = CLIPTokenizerFast.from_pretrained("facebook/sam3")
-        self.input_processor = Processor(
-            image_processor=image_processor,
-            tokenizer=tokenizer,
-        )
+        # Preprocessors and postprocessor
+        self.image_preprocessor = Sam3Preprocessor(target_size=resolution).to(device)
+        self.prompt_preprocessor = Sam3PromptPreprocessor(target_size=resolution).to(device)
+        self.postprocessor = Sam3Postprocessor(target_size=resolution).to(device)
 
-        self.model = Sam3Model.from_pretrained(
-            "facebook/sam3",
-            key_mapping={r"detector_model.(.+)": r"\1"},
-            torch_dtype=precision_to_torch_dtype(precision),
-        ).to(device).eval()
+        # Tokenizer for text prompts (still from transformers, but not used in ONNX path)
+        self.tokenizer = CLIPTokenizerFast.from_pretrained("jetjodh/sam3")
+
+        self.model = (
+            Sam3Model.from_pretrained(
+                "jetjodh/sam3",
+                torch_dtype=precision_to_torch_dtype(precision),
+            )
+            .to(device)
+            .eval()
+        )
 
     def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """Store category mapping from reference batch for consistent API with GroundedSAM.
@@ -205,42 +213,51 @@ class SAM3(Model):
             img_size = sample.image.shape[-2:]
             bboxes = sample.bboxes if sample.bboxes is not None else []
 
+            # Preprocess image
+            image_tensor = sample.image.unsqueeze(0) if sample.image.ndim == 3 else sample.image
             with torch.no_grad():
-                img_inputs = self.input_processor(images=sample.image, return_tensors="pt").to(self.device)
-                vision_embeds = self.model.get_vision_features(img_inputs.pixel_values)
+                pixel_values, original_sizes = self.image_preprocessor(image_tensor.to(self.device))
+                vision_embeds = self.model.get_vision_features(pixel_values)
 
             # Determine text prompts and category IDs
             if use_fitted_categories:
                 texts = list(self.category_mapping.keys())
                 category_ids = list(self.category_mapping.values())
             else:
-                texts = sample.categories if sample.categories is not None else []
+                texts = sample.categories or []
                 category_ids = sample.category_ids
+                # Use "visual" placeholder when only bboxes are provided
+                if len(bboxes) and len(texts) != len(bboxes):
+                    texts = ["visual"] * len(bboxes)
 
             all_masks: list[torch.Tensor] = []
             all_boxes: list[torch.Tensor] = []
             all_labels: list[torch.Tensor] = []
+
             for text, bbox, cat_id in zip_longest(texts, bboxes, category_ids, fillvalue=None):
-                formatted_inputs = self.input_processor(
-                    text=[text] if text is not None else None,
-                    input_boxes=[[bbox]] if bbox is not None else None,  # "[image level, box level, box coordinates]"
-                    input_boxes_labels=[[1]] if bbox is not None else None,  # [image level, box level]
-                    original_sizes=[img_size],
-                    return_tensors="pt",
-                ).to(self.device)
+                # Tokenize text prompt (default to "visual" for bbox-only prompts)
+                text_inputs = self.tokenizer([text or "visual"], return_tensors="pt", padding=True)
+                input_ids = text_inputs.input_ids.to(self.device)
+                attention_mask = text_inputs.attention_mask.to(self.device)
+
+                # Prepare box inputs if bbox is provided (xyxy format)
+                input_boxes = None
+                input_boxes_labels = None
+                if bbox is not None:
+                    input_boxes = self.prompt_preprocessor(bbox, original_sizes)
+                    input_boxes_labels = torch.ones((1, 1), dtype=torch.long, device=self.device)
+
                 with torch.no_grad():
                     outputs = self.model(
-                        vision_embeds=vision_embeds,  # Reuse cached vision features
-                        input_ids=formatted_inputs.input_ids if "input_ids" in formatted_inputs else None,
-                        attention_mask=formatted_inputs.attention_mask
-                        if "attention_mask" in formatted_inputs
-                        else None,
-                        input_boxes=formatted_inputs.input_boxes if "input_boxes" in formatted_inputs else None,
-                        input_boxes_labels=formatted_inputs.input_boxes_labels
-                        if "input_boxes_labels" in formatted_inputs
-                        else None,
+                        vision_embeds=vision_embeds,
+                        input_ids=input_ids,
+                        attention_mask=attention_mask,
+                        input_boxes=input_boxes,
+                        input_boxes_labels=input_boxes_labels,
                     )
-                result = self.input_processor.post_process_instance_segmentation(
+
+                # Postprocess
+                result = self.postprocessor(
                     outputs,
                     threshold=self.confidence_threshold,
                     mask_threshold=0.5,
