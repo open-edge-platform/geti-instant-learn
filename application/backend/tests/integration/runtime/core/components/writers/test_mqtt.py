@@ -124,3 +124,17 @@ class TestMqtt:
         finally:
             writer.close()
             teardown()
+
+    def test_connect_invalid_host_port_reports_error(self):
+        host = "127.0.0.1"
+        port = 1  # closed port for fast connection refusal
+        topic = "mqtt/invalid-connection"
+        config = mqtt_config(broker_host=host, broker_port=port, topic=topic)
+        writer = MqttWriter(config=config)
+
+        try:
+            with pytest.raises(ConnectionError):
+                writer.write(_frame("should-fail"))
+            assert writer._connected is False
+        finally:
+            writer.close()

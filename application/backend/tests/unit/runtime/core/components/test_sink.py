@@ -1,11 +1,15 @@
 from queue import Empty, Queue
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock, Mock, call, patch
+from uuid import uuid4
 
 import pytest
 
+from domain.errors import ResourceConnectionError, ResourceType
+from domain.services.schemas.writer import WriterConfig
 from runtime.core.components.base import StreamWriter
 from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.sink import Sink
+from runtime.core.components.validators.sink_connection import RuntimeSinkConnectionValidator
 
 test_cases = [
     ("writes_all_items", ["data1", "data2", "data3"], ["data1", "data2", "data3"]),
@@ -53,3 +57,40 @@ class TestSink:
 
         expected_calls = [call(item) for item in expected_writes]
         assert self.mock_stream_writer.write.call_args_list == expected_calls
+
+
+class TestSinkConnectionValidator:
+    def test_validate_calls_connect_and_cleanup(self):
+        validator = RuntimeSinkConnectionValidator()
+        writer = Mock()
+        writer.connect.return_value = None
+        writer.close.return_value = None
+        config = WriterConfig(broker_host="localhost", broker_port=1883, topic="test")
+
+        with patch(
+            "runtime.core.components.validators.sink_connection.StreamWriterFactory.create",
+            return_value=writer,
+        ):
+            validator.validate(config=config, sink_id=None)
+
+        writer.connect.assert_called_once()
+        writer.close.assert_called_once()
+
+    def test_validate_raises_resource_connection_error(self):
+        validator = RuntimeSinkConnectionValidator()
+        writer = Mock()
+        writer.connect.side_effect = ConnectionError("Failed to connect")
+        writer.close.return_value = None
+        config = WriterConfig(broker_host="localhost", broker_port=1883, topic="test")
+        sink_id = uuid4()
+
+        with patch(
+            "runtime.core.components.validators.sink_connection.StreamWriterFactory.create",
+            return_value=writer,
+        ):
+            with pytest.raises(ResourceConnectionError) as exc_info:
+                validator.validate(config=config, sink_id=sink_id)
+
+        assert exc_info.value.resource_type == ResourceType.SINK
+        assert exc_info.value.resource_id == str(sink_id)
+        writer.close.assert_called_once()

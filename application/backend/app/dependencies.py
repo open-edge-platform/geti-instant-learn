@@ -16,6 +16,7 @@ from domain.repositories.prompt import PromptRepository
 from domain.repositories.sink import SinkRepository
 from domain.repositories.source import SourceRepository
 from domain.services import LabelService, ModelService, ProjectService, PromptService, SinkService, SourceService
+from runtime.core.components.validators import RuntimeSinkConnectionValidator
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.frame import FrameService
 from runtime.services.source_type import SourceTypeService
@@ -131,7 +132,11 @@ def get_sink_service(
     dispatcher: Annotated[ConfigChangeDispatcher, Depends(get_config_dispatcher)],
 ) -> SinkService:
     """Dependency that provides a SinkService instance."""
-    return SinkService(session=session, config_change_dispatcher=dispatcher)
+    return SinkService(
+        session=session,
+        config_change_dispatcher=dispatcher,
+        sink_connection_validator=RuntimeSinkConnectionValidator(),
+    )
 
 
 def get_discovery_service() -> SourceTypeService:

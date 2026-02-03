@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 
 from domain.errors import (
     ResourceAlreadyExistsError,
+    ResourceConnectionError,
     ResourceInUseError,
     ResourceNotFoundError,
     ResourceUpdateConflictError,
@@ -62,6 +63,7 @@ def custom_exception_handler(request: Request, exc: Exception) -> JSONResponse: 
         exc,
         (
             ResourceUpdateConflictError
+            | ResourceConnectionError
             | PipelineNotActiveError
             | PipelineProjectMismatchError
             | SourceMismatchError

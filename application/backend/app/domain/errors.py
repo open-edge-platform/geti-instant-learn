@@ -78,6 +78,14 @@ class ResourceAlreadyExistsError(ResourceError):
         self.field = field
 
 
+class ResourceConnectionError(ResourceError):
+    """Exception raised when a resource fails connectivity validation."""
+
+    def __init__(self, resource_type: ResourceType, resource_id: str | None = None, message: str | None = None):
+        msg = message or f"{resource_type.value} connection check failed."
+        super().__init__(resource_type, resource_id, msg)
+
+
 class ResourceUpdateConflictError(ResourceError):
     """Exception raised when attempting to modify an immutable attribute of a resource."""
 

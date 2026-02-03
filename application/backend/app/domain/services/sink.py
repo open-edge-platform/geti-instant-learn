@@ -31,6 +31,7 @@ from domain.services.schemas.sink import (
     SinksListSchema,
     SinkUpdateSchema,
 )
+from domain.services.validators import NoOpSinkConnectionValidator, SinkConnectionValidator
 
 logger = logging.getLogger(__name__)
 
@@ -51,10 +52,12 @@ class SinkService(BaseService):
         sink_repository: SinkRepository | None = None,
         project_repository: ProjectRepository | None = None,
         config_change_dispatcher: ConfigChangeDispatcher | None = None,
+        sink_connection_validator: SinkConnectionValidator | None = None,
     ):
         super().__init__(session=session, config_change_dispatcher=config_change_dispatcher)
         self.sink_repository = sink_repository or SinkRepository(session=session)
         self.project_repository = project_repository or ProjectRepository(session=session)
+        self.sink_connection_validator = sink_connection_validator or NoOpSinkConnectionValidator()
 
     def list_sinks(self, project_id: UUID, offset: int = 0, limit: int = 20) -> SinksListSchema:
         """
@@ -125,6 +128,7 @@ class SinkService(BaseService):
             f"name={sink_name} "
             f"active={create_data.active}"
         )
+        self.sink_connection_validator.validate(config=create_data.config, sink_id=None)
         try:
             with self.db_transaction():
                 if create_data.active:
@@ -190,6 +194,7 @@ class SinkService(BaseService):
                 field="sink_type",
             )
 
+        self.sink_connection_validator.validate(config=update_data.config, sink_id=sink_id)
         try:
             with self.db_transaction():
                 if update_data.active and not sink.active:
