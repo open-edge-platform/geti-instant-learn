@@ -16,6 +16,9 @@ const useUpdateModelMutation = (projectId: string) => {
             invalidates: [
                 ['get', '/api/v1/projects/{project_id}/models', { params: { path: { project_id: projectId } } }],
             ],
+            error: {
+                notify: true,
+            },
         },
         onSuccess: ({ id }) => {
             queryClient.invalidateQueries({

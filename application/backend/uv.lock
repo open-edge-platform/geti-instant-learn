@@ -509,210 +509,6 @@ wheels = [
 ]
 
 [[package]]
-name = "geti-prompt-backend"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "aiortc" },
-    { name = "alembic" },
-    { name = "cv2-enumerate-cameras" },
-    { name = "fastapi" },
-    { name = "numpy" },
-    { name = "opencv-python-headless" },
-    { name = "pydantic-extra-types" },
-    { name = "pydantic-settings" },
-    { name = "python-multipart" },
-    { name = "sqlalchemy" },
-    { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.optional-dependencies]
-cpu = [
-    { name = "getiprompt", marker = "(extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-cuda') or (extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-xpu') or (extra == 'extra-10-getiprompt-cuda' and extra == 'extra-10-getiprompt-xpu') or (extra != 'extra-10-getiprompt-xpu' and extra == 'extra-19-geti-prompt-backend-cpu') or (extra != 'extra-10-getiprompt-xpu' and extra == 'extra-19-geti-prompt-backend-cuda' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra != 'extra-10-getiprompt-cpu' and extra != 'extra-10-getiprompt-cuda' and extra == 'extra-19-geti-prompt-backend-cpu') or (extra != 'extra-10-getiprompt-cpu' and extra != 'extra-10-getiprompt-cuda' and extra == 'extra-19-geti-prompt-backend-cuda' and extra == 'extra-19-geti-prompt-backend-xpu')" },
-    { name = "getiprompt", extra = ["cpu"], marker = "(extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-cuda') or (extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-xpu') or (extra == 'extra-10-getiprompt-cpu' and extra == 'extra-19-geti-prompt-backend-cpu') or (extra == 'extra-10-getiprompt-cuda' and extra == 'extra-10-getiprompt-xpu') or (extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda') or (extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra != 'extra-10-getiprompt-xpu' and extra != 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra != 'extra-10-getiprompt-cpu' and extra != 'extra-10-getiprompt-cuda' and extra == 'extra-19-geti-prompt-backend-cuda' and extra == 'extra-19-geti-prompt-backend-xpu')" },
-]
-cuda = [
-    { name = "getiprompt", marker = "(extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-cuda') or (extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-xpu') or (extra == 'extra-10-getiprompt-cuda' and extra == 'extra-10-getiprompt-xpu') or (extra != 'extra-10-getiprompt-xpu' and extra == 'extra-19-geti-prompt-backend-cuda') or (extra != 'extra-10-getiprompt-xpu' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra != 'extra-10-getiprompt-cpu' and extra != 'extra-10-getiprompt-cuda' and extra == 'extra-19-geti-prompt-backend-cuda') or (extra != 'extra-10-getiprompt-cpu' and extra != 'extra-10-getiprompt-cuda' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-xpu')" },
-    { name = "getiprompt", extra = ["cuda"], marker = "(extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-cuda') or (extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-xpu') or (extra == 'extra-10-getiprompt-cuda' and extra == 'extra-10-getiprompt-xpu') or (extra != 'extra-10-getiprompt-xpu' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda') or (extra != 'extra-10-getiprompt-xpu' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra == 'extra-10-getiprompt-cuda' and extra != 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda') or (extra != 'extra-10-getiprompt-cuda' and extra != 'extra-10-getiprompt-xpu' and extra == 'extra-19-geti-prompt-backend-cuda' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra != 'extra-10-getiprompt-cpu' and extra != 'extra-10-getiprompt-cuda' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda') or (extra != 'extra-10-getiprompt-cpu' and extra != 'extra-10-getiprompt-cuda' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra != 'extra-10-getiprompt-cpu' and extra != 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda' and extra == 'extra-19-geti-prompt-backend-xpu')" },
-]
-installer = [
-    { name = "pyinstaller" },
-    { name = "python-dotenv" },
-]
-mqtt = [
-    { name = "paho-mqtt" },
-]
-xpu = [
-    { name = "getiprompt", marker = "(extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-cuda') or (extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-xpu') or (extra == 'extra-10-getiprompt-cuda' and extra == 'extra-10-getiprompt-xpu') or (extra != 'extra-10-getiprompt-xpu' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra != 'extra-10-getiprompt-xpu' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda') or (extra != 'extra-10-getiprompt-cpu' and extra != 'extra-10-getiprompt-cuda' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda') or (extra != 'extra-10-getiprompt-cpu' and extra != 'extra-10-getiprompt-cuda' and extra != 'extra-19-geti-prompt-backend-cuda' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra != 'extra-10-getiprompt-cpu' and extra != 'extra-10-getiprompt-cuda' and extra != 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-xpu')" },
-    { name = "getiprompt", extra = ["xpu"], marker = "(extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-cuda') or (extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-xpu') or (extra == 'extra-10-getiprompt-cuda' and extra == 'extra-10-getiprompt-xpu') or (extra == 'extra-10-getiprompt-xpu' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda') or (extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra == 'extra-19-geti-prompt-backend-cuda' and extra == 'extra-19-geti-prompt-backend-xpu')" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "httpx" },
-    { name = "mypy" },
-    { name = "openapi-markdown" },
-    { name = "pre-commit" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "pytest-html" },
-    { name = "pytest-mock" },
-    { name = "ruff" },
-    { name = "testcontainers" },
-    { name = "types-requests" },
-    { name = "werkzeug" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "aiortc", specifier = "~=1.14.0" },
-    { name = "alembic", specifier = "~=1.16.5" },
-    { name = "cv2-enumerate-cameras", specifier = ">=1.2.2,<1.3" },
-    { name = "fastapi", specifier = "~=0.123.8" },
-    { name = "getiprompt", extras = ["cpu"], marker = "extra == 'cpu'", editable = "../../library" },
-    { name = "getiprompt", extras = ["cuda"], marker = "extra == 'cuda'", editable = "../../library" },
-    { name = "getiprompt", extras = ["xpu"], marker = "extra == 'xpu'", editable = "../../library" },
-    { name = "numpy", specifier = "~=2.2.6" },
-    { name = "opencv-python-headless", specifier = "~=4.13.0" },
-    { name = "paho-mqtt", marker = "extra == 'mqtt'", specifier = "~=2.1.0" },
-    { name = "pydantic-extra-types", specifier = "~=2.10.6" },
-    { name = "pydantic-settings", specifier = "~=2.10.1" },
-    { name = "pyinstaller", marker = "extra == 'installer'", specifier = "~=6.16.0" },
-    { name = "python-dotenv", marker = "extra == 'installer'", specifier = "~=1.2.1" },
-    { name = "python-multipart", specifier = "~=0.0.20" },
-    { name = "sqlalchemy", specifier = "~=2.0.43" },
-    { name = "uvicorn", extras = ["standard"], specifier = "~=0.35.0" },
-]
-provides-extras = ["cpu", "cuda", "xpu", "installer", "mqtt"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "httpx", specifier = "~=0.23" },
-    { name = "mypy", specifier = "~=1.15" },
-    { name = "openapi-markdown", specifier = "==0.4.3" },
-    { name = "pre-commit", specifier = "~=4.1" },
-    { name = "pytest", specifier = "~=8.3" },
-    { name = "pytest-asyncio", specifier = "==1.2.0" },
-    { name = "pytest-cov", specifier = "==2.11.1" },
-    { name = "pytest-html", specifier = "~=4.0.0" },
-    { name = "pytest-mock", specifier = "~=3.10" },
-    { name = "ruff", specifier = "==0.11.12" },
-    { name = "testcontainers", extras = ["mqtt"], specifier = "==4.13.3" },
-    { name = "types-requests", specifier = "==2.28.11.13" },
-    { name = "werkzeug", specifier = ">=3.1.5" },
-]
-
-[[package]]
-name = "getiprompt"
-version = "0.1.0"
-source = { editable = "../../library" }
-dependencies = [
-    { name = "ftfy" },
-    { name = "jsonargparse" },
-    { name = "lvis" },
-    { name = "markupsafe" },
-    { name = "matplotlib" },
-    { name = "numpy" },
-    { name = "onnx" },
-    { name = "onnxruntime" },
-    { name = "opencv-python" },
-    { name = "openvino" },
-    { name = "polars" },
-    { name = "pot" },
-    { name = "pycocotools" },
-    { name = "requests" },
-    { name = "rich" },
-    { name = "sam-2" },
-    { name = "scikit-image" },
-    { name = "scikit-learn" },
-    { name = "scipy" },
-    { name = "segment-anything-hq" },
-    { name = "timm" },
-    { name = "torchmetrics" },
-    { name = "transformers" },
-]
-
-[package.optional-dependencies]
-cpu = [
-    { name = "torch", version = "2.10.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra == 'extra-10-getiprompt-cpu' and extra == 'extra-19-geti-prompt-backend-cpu') or (sys_platform == 'linux' and extra != 'extra-10-getiprompt-xpu' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda') or (sys_platform == 'linux' and extra != 'extra-10-getiprompt-xpu' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-xpu') or (sys_platform == 'win32' and extra != 'extra-10-getiprompt-xpu' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda') or (sys_platform == 'win32' and extra != 'extra-10-getiprompt-xpu' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-cuda') or (extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-xpu') or (extra == 'extra-10-getiprompt-cuda' and extra == 'extra-10-getiprompt-xpu') or (extra == 'extra-10-getiprompt-cuda' and extra == 'extra-19-geti-prompt-backend-cuda' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra == 'extra-10-getiprompt-cuda' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda') or (extra == 'extra-10-getiprompt-cuda' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra != 'extra-10-getiprompt-cpu' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda') or (extra != 'extra-10-getiprompt-cpu' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra != 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda' and extra == 'extra-19-geti-prompt-backend-xpu')" },
-    { name = "torch", version = "2.10.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'linux' and extra == 'extra-10-getiprompt-cpu' and extra == 'extra-19-geti-prompt-backend-cpu') or (sys_platform == 'win32' and extra == 'extra-10-getiprompt-cpu' and extra == 'extra-19-geti-prompt-backend-cpu') or (extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-cuda') or (extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-xpu') or (extra == 'extra-10-getiprompt-cuda' and extra == 'extra-10-getiprompt-xpu') or (extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda') or (extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra == 'extra-19-geti-prompt-backend-cuda' and extra == 'extra-19-geti-prompt-backend-xpu')" },
-    { name = "torchvision", version = "0.25.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra == 'extra-10-getiprompt-cpu' and extra == 'extra-19-geti-prompt-backend-cpu') or (sys_platform == 'linux' and extra != 'extra-10-getiprompt-xpu' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda') or (sys_platform == 'linux' and extra != 'extra-10-getiprompt-xpu' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-xpu') or (sys_platform == 'win32' and extra != 'extra-10-getiprompt-xpu' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda') or (sys_platform == 'win32' and extra != 'extra-10-getiprompt-xpu' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-cuda') or (extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-xpu') or (extra == 'extra-10-getiprompt-cuda' and extra == 'extra-10-getiprompt-xpu') or (extra == 'extra-10-getiprompt-cuda' and extra == 'extra-19-geti-prompt-backend-cuda' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra == 'extra-10-getiprompt-cuda' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda') or (extra == 'extra-10-getiprompt-cuda' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra != 'extra-10-getiprompt-cpu' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda') or (extra != 'extra-10-getiprompt-cpu' and extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra != 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda' and extra == 'extra-19-geti-prompt-backend-xpu')" },
-    { name = "torchvision", version = "0.25.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'linux' and extra == 'extra-10-getiprompt-cpu' and extra == 'extra-19-geti-prompt-backend-cpu') or (sys_platform == 'win32' and extra == 'extra-10-getiprompt-cpu' and extra == 'extra-19-geti-prompt-backend-cpu') or (extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-cuda') or (extra == 'extra-10-getiprompt-cpu' and extra == 'extra-10-getiprompt-xpu') or (extra == 'extra-10-getiprompt-cuda' and extra == 'extra-10-getiprompt-xpu') or (extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-cuda') or (extra == 'extra-19-geti-prompt-backend-cpu' and extra == 'extra-19-geti-prompt-backend-xpu') or (extra == 'extra-19-geti-prompt-backend-cuda' and extra == 'extra-19-geti-prompt-backend-xpu')" },
-]
-cuda = [
-    { name = "torch", version = "2.10.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" } },
-    { name = "torchvision", version = "0.25.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" } },
-]
-xpu = [
-    { name = "torch", version = "2.10.0+xpu", source = { registry = "https://download.pytorch.org/whl/xpu" } },
-    { name = "torchvision", version = "0.25.0+xpu", source = { registry = "https://download.pytorch.org/whl/xpu" } },
-    { name = "triton-xpu" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "build", marker = "extra == 'dev'", specifier = ">=1.2.2.post1" },
-    { name = "ftfy" },
-    { name = "getiprompt", extras = ["dev", "notebook"], marker = "extra == 'full'" },
-    { name = "ipykernel", marker = "extra == 'notebook'", specifier = "==6.30.1" },
-    { name = "jsonargparse" },
-    { name = "jupyter", marker = "extra == 'notebook'", specifier = "==1.1.1" },
-    { name = "lvis", specifier = "==0.5.3" },
-    { name = "markupsafe", specifier = "==3.0.2" },
-    { name = "matplotlib", specifier = "==3.10.8" },
-    { name = "myst-parser", marker = "extra == 'docs'", specifier = ">=2.0.0" },
-    { name = "numpy", specifier = "~=2.2.6" },
-    { name = "onnx", specifier = ">=1.19.1" },
-    { name = "onnxruntime", specifier = ">=1.23.2" },
-    { name = "opencv-python", specifier = "~=4.13.0" },
-    { name = "openvino", specifier = "==2025.3.0" },
-    { name = "polars", specifier = ">=1.31.0,<2.0.0" },
-    { name = "pot", specifier = "==0.9.5" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = "==4.2.0" },
-    { name = "pycocotools", specifier = "==2.0.9" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = "==8.4.0" },
-    { name = "pytest-assume", marker = "extra == 'dev'" },
-    { name = "requests", specifier = "==2.32.4" },
-    { name = "rich", specifier = "==14.0.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = "==0.11.12" },
-    { name = "sam-2", git = "https://github.com/facebookresearch/sam2.git?rev=2b90b9f" },
-    { name = "scikit-image", specifier = "==0.24.0" },
-    { name = "scikit-learn", specifier = "==1.6.1" },
-    { name = "scipy", specifier = "==1.15.3" },
-    { name = "segment-anything-hq", specifier = "==0.3" },
-    { name = "sphinx", marker = "extra == 'docs'", specifier = ">=7.0.0" },
-    { name = "sphinx-autodoc-typehints", marker = "extra == 'docs'", specifier = ">=2.0.0" },
-    { name = "sphinx-book-theme", marker = "extra == 'docs'", specifier = ">=1.1.0" },
-    { name = "sphinx-markdown-builder", marker = "extra == 'docs'", specifier = "==0.6.9" },
-    { name = "timm", specifier = "==1.0.22" },
-    { name = "torch", marker = "(sys_platform == 'linux' and extra == 'cpu') or (sys_platform == 'win32' and extra == 'cpu')", specifier = "==2.10.0+cpu", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "getiprompt", extra = "cpu" } },
-    { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32' and extra == 'cpu'", specifier = "==2.10.0" },
-    { name = "torch", marker = "extra == 'cuda'", specifier = "==2.10.0+cu128", index = "https://download.pytorch.org/whl/cu128", conflict = { package = "getiprompt", extra = "cuda" } },
-    { name = "torch", marker = "extra == 'xpu'", specifier = "==2.10.0+xpu", index = "https://download.pytorch.org/whl/xpu", conflict = { package = "getiprompt", extra = "xpu" } },
-    { name = "torchmetrics", specifier = "==1.8.2" },
-    { name = "torchvision", marker = "(sys_platform == 'linux' and extra == 'cpu') or (sys_platform == 'win32' and extra == 'cpu')", specifier = "==0.25.0+cpu", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "getiprompt", extra = "cpu" } },
-    { name = "torchvision", marker = "sys_platform != 'linux' and sys_platform != 'win32' and extra == 'cpu'", specifier = "==0.25.0" },
-    { name = "torchvision", marker = "extra == 'cuda'", specifier = "==0.25.0+cu128", index = "https://download.pytorch.org/whl/cu128", conflict = { package = "getiprompt", extra = "cuda" } },
-    { name = "torchvision", marker = "extra == 'xpu'", specifier = "==0.25.0+xpu", index = "https://download.pytorch.org/whl/xpu", conflict = { package = "getiprompt", extra = "xpu" } },
-    { name = "transformers", specifier = "==4.56.2" },
-    { name = "triton-xpu", marker = "extra == 'xpu'", specifier = "==3.6.0", index = "https://download.pytorch.org/whl/xpu", conflict = { package = "getiprompt", extra = "xpu" } },
-    { name = "twine", marker = "extra == 'dev'", specifier = ">=6.1.0" },
-]
-provides-extras = ["cpu", "cuda", "xpu", "notebook", "dev", "docs", "full"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "mypy", specifier = "~=1.15" },
-    { name = "pre-commit", specifier = "~=4.1" },
-    { name = "pytest", specifier = "~=8.3" },
-    { name = "pytest-assume", specifier = ">=2.4.3" },
-    { name = "pytest-cov", specifier = "==2.11.1" },
-    { name = "pytest-html", specifier = "~=4.0.0" },
-    { name = "ruff", specifier = "==0.11.12" },
-]
-
-[[package]]
 name = "google-crc32c"
 version = "1.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -811,7 +607,7 @@ wheels = [
 
 [[package]]
 name = "huggingface-hub"
-version = "0.36.0"
+version = "0.36.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "filelock" },
@@ -823,9 +619,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/98/63/4910c5fa9128fdadf6a9c5ac138e8b1b6cee4ca44bf7915bbfbce4e355ee/huggingface_hub-0.36.0.tar.gz", hash = "sha256:47b3f0e2539c39bf5cde015d63b72ec49baff67b6931c3d97f3f84532e2b8d25", size = 463358, upload-time = "2025-10-23T12:12:01.413Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/45/54/096903f02ca14eb2670a4d11729da44a026c0bababec8c15f160441124c5/huggingface_hub-0.36.1.tar.gz", hash = "sha256:5a3b8bf87e182ad6f1692c196bb9ec9ade7755311d5d5e792dc45045f77283ad", size = 649681, upload-time = "2026-02-02T10:46:58.287Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cb/bd/1a875e0d592d447cbc02805fd3fe0f497714d6a2583f59d14fa9ebad96eb/huggingface_hub-0.36.0-py3-none-any.whl", hash = "sha256:7bcc9ad17d5b3f07b57c78e79d527102d08313caa278a641993acddcb894548d", size = 566094, upload-time = "2025-10-23T12:11:59.557Z" },
+    { url = "https://files.pythonhosted.org/packages/94/cb/8f5141b3c21d1ecdf87852506eb583fec497c7e9803a168fe4aec64252bb/huggingface_hub-0.36.1-py3-none-any.whl", hash = "sha256:c6fa8a8f7b8559bc624ebb7e218fb72171b30f6049ebe08f8bfc2a44b38ece50", size = 566283, upload-time = "2026-02-02T10:46:56.459Z" },
 ]
 
 [[package]]
@@ -1237,14 +1033,14 @@ wheels = [
 
 [[package]]
 name = "jsonargparse"
-version = "4.45.0"
+version = "4.46.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/25/98/6a30ed2349c6a22a4401505022647542c6dbd952907a19c4dc797af70b98/jsonargparse-4.45.0.tar.gz", hash = "sha256:a082420a224c19843c396ac452a4dc7164d253688e0a6e4b7b01fabe81d72f4d", size = 219928, upload-time = "2025-12-26T14:27:50.324Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6a/0f/333d4aa9c62edf3cf2c11f5bac8f487ece29b94be7ea2c6acb1a9265a723/jsonargparse-4.46.0.tar.gz", hash = "sha256:4c331448841fea9cb2b41bf99adbea70a63f82cac516f2f13030378b3d93c329", size = 222042, upload-time = "2026-02-02T10:29:13.837Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f3/63/aca864d4cd1bd03b4cec6ed9746c2c88807e590a54620a825610ffde56b3/jsonargparse-4.45.0-py3-none-any.whl", hash = "sha256:008211ef73065493e5526d2fd1d10ad5bf24801d6c95a55dfd94984a7dcd4f09", size = 243933, upload-time = "2025-12-26T14:27:48.416Z" },
+    { url = "https://files.pythonhosted.org/packages/c0/6d/55e0db968193fcb12a3b4a9d823f6f9c8a39df1e28345daa3772b61f4389/jsonargparse-4.46.0-py3-none-any.whl", hash = "sha256:1f218fc2af1190c6425860e40af2003c8ca1f59e10d656fc67bbc32380a25ec3", size = 246093, upload-time = "2026-02-02T10:29:11.837Z" },
 ]
 
 [[package]]
@@ -3580,18 +3376,18 @@ wheels = [
 
 [[package]]
 name = "wrapt"
-version = "2.1.0"
+version = "2.1.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/86/31/afb4cf08b9892430ec419a3f0f469fb978cb013f4432e0edb9c2cf06f081/wrapt-2.1.0.tar.gz", hash = "sha256:757ff1de7e1d8db1839846672aaecf4978af433cc57e808255b83980e9651914", size = 80924, upload-time = "2026-01-31T23:25:58.917Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f7/37/ae31f40bec90de2f88d9597d0b5281e23ffe85b893a47ca5d9c05c63a4f6/wrapt-2.1.1.tar.gz", hash = "sha256:5fdcb09bf6db023d88f312bd0767594b414655d58090fc1c46b3414415f67fac", size = 81329, upload-time = "2026-02-03T02:12:13.786Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f8/6f/c731b1fbbcdf9bd202809c6fa354c4237b663dd82a95035a7cbe899cfd25/wrapt-2.1.0-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:a64c0fb29c89810973f312a04c067b63523e7303b9a2653820cbf16474c2e5cf", size = 61149, upload-time = "2026-01-31T23:25:29.092Z" },
-    { url = "https://files.pythonhosted.org/packages/b2/da/7022458a1d99f0c59720a0b0fd4b1966f8df6d41e741aadfe43bc5350547/wrapt-2.1.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:5509d9150ed01c4149e40020fa68e917d5c4bb77d311e79535565c2a0418afcb", size = 61743, upload-time = "2026-01-31T23:26:14.338Z" },
-    { url = "https://files.pythonhosted.org/packages/b5/f4/57cc12c3fc6f4fe6ccfc15567cc1ac8aeb53a9946a675adc3df7a1ee4e6a/wrapt-2.1.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:52bb58b3207ace156b6134235fd43140994597704fd07d148cbcfb474ee084ea", size = 121331, upload-time = "2026-01-31T23:25:37.294Z" },
-    { url = "https://files.pythonhosted.org/packages/5e/a4/a96ea114298f81f02c07313da85fd46a2a57bbe12389d0619ac3371f691c/wrapt-2.1.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:7112cbf72fc4035afe1e3314a311654c41dd92c2932021ef76f5ca87583917b3", size = 122907, upload-time = "2026-01-31T23:26:49.604Z" },
-    { url = "https://files.pythonhosted.org/packages/ac/43/df73362b6e47f92aaff0fc3fc459314025c795f75d61724c83232dee199c/wrapt-2.1.0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:e90656b433808a0ab68e95aaf9f588aea5c8c7a514e180849dfc638ba00ec449", size = 121337, upload-time = "2026-01-31T23:26:04.072Z" },
-    { url = "https://files.pythonhosted.org/packages/51/4f/8147e3b9a7887cee4eeb3a3414265ad4649a156832a08063f55aa7842af0/wrapt-2.1.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:e45f54903da38fc4f6f66397fd550fc0dac6164b4c5e721c1b4eb05664181821", size = 120461, upload-time = "2026-01-31T23:26:43.055Z" },
-    { url = "https://files.pythonhosted.org/packages/35/b1/eea720fcca8a05dec848a6d11a47c20f59bdabdcc444ba3be0589350eb7a/wrapt-2.1.0-cp312-cp312-win32.whl", hash = "sha256:6653bf30dbbafd55cb4553195cc60b94920b6711a8835866c0e02aa9f22c5598", size = 58089, upload-time = "2026-01-31T23:26:47.773Z" },
-    { url = "https://files.pythonhosted.org/packages/af/79/8a8f3f8c71ee3379191b69e47f32115fa25cdb6d5b581d74c64d5c897fa7/wrapt-2.1.0-cp312-cp312-win_amd64.whl", hash = "sha256:d61238a072501ed071a9f4b9567d10c2eb3d2f1a0258ae79b47160871d8f29c3", size = 60330, upload-time = "2026-01-31T23:26:12.518Z" },
-    { url = "https://files.pythonhosted.org/packages/08/4e/e992d05c3d2f7163883a65ead2620ff5fe7b3d44d7c2136ce981e40e453d/wrapt-2.1.0-cp312-cp312-win_arm64.whl", hash = "sha256:9e971000347f61271725e801ef44fa5d01b52720e59737f0d96280bffb98c5d1", size = 58727, upload-time = "2026-01-31T23:26:53.222Z" },
-    { url = "https://files.pythonhosted.org/packages/57/e9/70983b75d4abd6f85cffc6df79c623220ec5a579ceaacabac35c904b7b52/wrapt-2.1.0-py3-none-any.whl", hash = "sha256:e035693a0d25ea5bf5826df3e203dff7d091b0d5442aaefec9ca8f2bab38417f", size = 43886, upload-time = "2026-01-31T23:25:07.22Z" },
+    { url = "https://files.pythonhosted.org/packages/df/cb/4d5255d19bbd12be7f8ee2c1fb4269dddec9cef777ef17174d357468efaa/wrapt-2.1.1-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:ab8e3793b239db021a18782a5823fcdea63b9fe75d0e340957f5828ef55fcc02", size = 61143, upload-time = "2026-02-03T02:11:46.313Z" },
+    { url = "https://files.pythonhosted.org/packages/6f/07/7ed02daa35542023464e3c8b7cb937fa61f6c61c0361ecf8f5fecf8ad8da/wrapt-2.1.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:7c0300007836373d1c2df105b40777986accb738053a92fe09b615a7a4547e9f", size = 61740, upload-time = "2026-02-03T02:12:51.966Z" },
+    { url = "https://files.pythonhosted.org/packages/c4/60/a237a4e4a36f6d966061ccc9b017627d448161b19e0a3ab80a7c7c97f859/wrapt-2.1.1-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:2b27c070fd1132ab23957bcd4ee3ba707a91e653a9268dc1afbd39b77b2799f7", size = 121327, upload-time = "2026-02-03T02:11:06.796Z" },
+    { url = "https://files.pythonhosted.org/packages/ae/fe/9139058a3daa8818fc67e6460a2340e8bbcf3aef8b15d0301338bbe181ca/wrapt-2.1.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:8b0e36d845e8b6f50949b6b65fc6cd279f47a1944582ed4ec8258cd136d89a64", size = 122903, upload-time = "2026-02-03T02:12:48.657Z" },
+    { url = "https://files.pythonhosted.org/packages/91/10/b8479202b4164649675846a531763531f0a6608339558b5a0a718fc49a8d/wrapt-2.1.1-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:4aeea04a9889370fcfb1ef828c4cc583f36a875061505cd6cd9ba24d8b43cc36", size = 121333, upload-time = "2026-02-03T02:11:32.148Z" },
+    { url = "https://files.pythonhosted.org/packages/5f/75/75fc793b791d79444aca2c03ccde64e8b99eda321b003f267d570b7b0985/wrapt-2.1.1-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:d88b46bb0dce9f74b6817bc1758ff2125e1ca9e1377d62ea35b6896142ab6825", size = 120458, upload-time = "2026-02-03T02:11:16.039Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/8f/c3f30d511082ca6d947c405f9d8f6c8eaf83cfde527c439ec2c9a30eb5ea/wrapt-2.1.1-cp312-cp312-win32.whl", hash = "sha256:63decff76ca685b5c557082dfbea865f3f5f6d45766a89bff8dc61d336348833", size = 58086, upload-time = "2026-02-03T02:12:35.041Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/c8/37625b643eea2849f10c3b90f69c7462faa4134448d4443234adaf122ae5/wrapt-2.1.1-cp312-cp312-win_amd64.whl", hash = "sha256:b828235d26c1e35aca4107039802ae4b1411be0fe0367dd5b7e4d90e562fcbcd", size = 60328, upload-time = "2026-02-03T02:12:45.808Z" },
+    { url = "https://files.pythonhosted.org/packages/ce/79/56242f07572d5682ba8065a9d4d9c2218313f576e3c3471873c2a5355ffd/wrapt-2.1.1-cp312-cp312-win_arm64.whl", hash = "sha256:75128507413a9f1bcbe2db88fd18fbdbf80f264b82fa33a6996cdeaf01c52352", size = 58722, upload-time = "2026-02-03T02:12:27.949Z" },
+    { url = "https://files.pythonhosted.org/packages/c4/da/5a086bf4c22a41995312db104ec2ffeee2cf6accca9faaee5315c790377d/wrapt-2.1.1-py3-none-any.whl", hash = "sha256:3b0f4629eb954394a3d7c7a1c8cca25f0b07cefe6aa8545e862e9778152de5b7", size = 43886, upload-time = "2026-02-03T02:11:45.048Z" },
 ]
