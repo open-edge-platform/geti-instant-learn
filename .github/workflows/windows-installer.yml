@@ -43,7 +43,7 @@ env:
   BACKEND_PATH: .\application\backend
   UI_PATH: .\application\ui
   BACKEND_BUILD_PATH: .\application\backend\.build
-  BACKEND_DIST_PATH: .\application\backend\dist\geti-prompt-backend
+  BACKEND_DIST_PATH: .\application\backend\dist\instant-learn-backend
   UI_SRC_API_PATH: .\application\ui\src\api
   UI_SRC_TAURI_PATH: .\application\ui\src-tauri
   UI_TARGET_PATH: .\application\ui\src-tauri\target
@@ -78,7 +78,7 @@ jobs:
           Add-Content -Path $env:GITHUB_ENV -Value "UI_MSIX_BUNDLE_PATH=$UI_MSIX_BUNDLE_PATH"
 
           $PREFIX = $(IF ($env:DEBUG_BUILD -eq "true") {"-debug"} else {""})
-          $MSIX_FILE_NAME = "geti-prompt-" + $env:DEVICE + "-" + $env:BUILD_VERSION + $PREFIX + ".msix"
+          $MSIX_FILE_NAME = "instant-learn-" + $env:DEVICE + "-" + $env:BUILD_VERSION + $PREFIX + ".msix"
           $MSIX_FILE_PATH = $UI_MSIX_BUNDLE_PATH + "\" + $MSIX_FILE_NAME
           Write-Host "MSIX_FILE_PATH=$MSIX_FILE_PATH"
           Add-Content -Path $env:GITHUB_ENV -Value "MSIX_FILE_PATH=$MSIX_FILE_PATH"
@@ -140,7 +140,7 @@ jobs:
         run: |
           cp -r ${{ env.BACKEND_DIST_PATH }}\_internal ${{ env.UI_SRC_TAURI_PATH }}
           cp -r ${{ env.BACKEND_DIST_PATH }}\InitialData ${{ env.UI_SRC_TAURI_PATH }}
-          cp -r ${{ env.BACKEND_DIST_PATH }}\geti-prompt-backend.exe ${{ env.UI_SRC_TAURI_PATH }}\geti-prompt-backend-x86_64-pc-windows-msvc.exe
+          cp -r ${{ env.BACKEND_DIST_PATH }}\instant-learn-backend.exe ${{ env.UI_SRC_TAURI_PATH }}\instant-learn-backend-x86_64-pc-windows-msvc.exe
 
       - name: Copy OpenAPI spec
         run: |
@@ -193,8 +193,8 @@ jobs:
       - name: Create MSIX package
         run: |
           mkdir -p $env:UI_MSIX_BUNDLE_PATH
-          cp $env:UI_BUILD_PATH\geti-prompt-backend.exe $env:UI_MSIX_BUNDLE_PATH
-          cp $env:UI_BUILD_PATH\geti_prompt_ui.exe $env:UI_MSIX_BUNDLE_PATH
+          cp $env:UI_BUILD_PATH\instant-learn-backend.exe $env:UI_MSIX_BUNDLE_PATH
+          cp $env:UI_BUILD_PATH\instant_learn_ui.exe $env:UI_MSIX_BUNDLE_PATH
           cp -r $env:UI_BUILD_PATH\_internal $env:UI_MSIX_BUNDLE_PATH
           cp -r $env:UI_BUILD_PATH\InitialData $env:UI_MSIX_BUNDLE_PATH
           cp -r ${{ env.UI_SRC_TAURI_PATH }}\msix\* $env:UI_MSIX_BUNDLE_PATH

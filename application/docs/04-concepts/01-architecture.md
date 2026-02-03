@@ -1,10 +1,10 @@
 # Architecture
 
-Technical background and architectural concepts to help developers and advanced users understand Geti Prompt Application.
+Technical background and architectural concepts to help developers and advanced users understand Geti Instant Learn Application.
 
 ## Visual Prompting & Zero-Shot Learning
 
-The application relies on **Zero-Shot Learning (ZSL)** models, which allows it to detect objects that it hasn't been explicitly trained on. Instead of traditional training with thousands of labeled images, the user provides a "prompt" that describes the object of interest. For more details see the [library documentation](https://github.com/open-edge-platform/geti-prompt/blob/main/library/docs/01-introduction.md)
+The application relies on **Zero-Shot Learning (ZSL)** models, which allows it to detect objects that it hasn't been explicitly trained on. Instead of traditional training with thousands of labeled images, the user provides a "prompt" that describes the object of interest. For more details see the [library documentation](https://github.com/open-edge-platform/instant-learn/blob/main/library/docs/01-introduction.md)
 
 ## Pipelines
 
@@ -82,4 +82,4 @@ The Processor delegates inference to a backend framework:
 
 The application runs on edge devices with CPU, GPU compute. The accelerator framework abstracts the hardware, allowing the same pipeline to execute on different platforms.
 
-See [Recommended Hardware Specifications](https://github.com/open-edge-platform/geti-prompt/blob/main/application/docs/02-quick-start.md#recommended-hardware-specifications) for detailed hardware requirements.
+See [Recommended Hardware Specifications](https://github.com/open-edge-platform/instant-learn/blob/main/application/docs/02-quick-start.md#recommended-hardware-specifications) for detailed hardware requirements.

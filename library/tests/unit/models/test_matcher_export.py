@@ -10,9 +10,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 
-from getiprompt.components.feature_extractors import ReferenceFeatures
-from getiprompt.models.matcher import Matcher
-from getiprompt.utils.constants import Backend
+from instantlearn.components.feature_extractors import ReferenceFeatures
+from instantlearn.models.matcher import Matcher
+from instantlearn.utils.constants import Backend
 
 
 class TestMatcherExport:
@@ -43,8 +43,8 @@ class TestMatcherExport:
             "segmenter": MagicMock(),
         }
 
-    @patch("getiprompt.models.matcher.load_sam_model")
-    @patch("getiprompt.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.ImageEncoder")
     def test_export_creates_directory(
         self,
         mock_image_encoder: MagicMock,
@@ -74,8 +74,8 @@ class TestMatcherExport:
 
         assert export_dir.exists()
 
-    @patch("getiprompt.models.matcher.load_sam_model")
-    @patch("getiprompt.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.ImageEncoder")
     def test_export_onnx_returns_correct_path(
         self,
         mock_image_encoder: MagicMock,
@@ -101,8 +101,8 @@ class TestMatcherExport:
 
         assert result == tmp_path / "matcher.onnx"
 
-    @patch("getiprompt.models.matcher.load_sam_model")
-    @patch("getiprompt.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.ImageEncoder")
     def test_export_openvino_returns_correct_path(
         self,
         mock_image_encoder: MagicMock,
@@ -133,8 +133,8 @@ class TestMatcherExport:
 
         assert result == tmp_path / "matcher.xml"
 
-    @patch("getiprompt.models.matcher.load_sam_model")
-    @patch("getiprompt.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.ImageEncoder")
     def test_export_onnx_calls_torch_export(
         self,
         mock_image_encoder: MagicMock,
@@ -164,8 +164,8 @@ class TestMatcherExport:
         assert call_kwargs["output_names"] == ["masks", "scores", "labels"]
         assert "dynamic_axes" in call_kwargs
 
-    @patch("getiprompt.models.matcher.load_sam_model")
-    @patch("getiprompt.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.ImageEncoder")
     def test_export_openvino_calls_convert_model(
         self,
         mock_image_encoder: MagicMock,
@@ -197,8 +197,8 @@ class TestMatcherExport:
         mock_convert.assert_called_once()
         mock_save.assert_called_once()
 
-    @patch("getiprompt.models.matcher.load_sam_model")
-    @patch("getiprompt.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.ImageEncoder")
     def test_export_string_path_converted_to_path(
         self,
         mock_image_encoder: MagicMock,
@@ -227,8 +227,8 @@ class TestMatcherExport:
         assert isinstance(result, Path)
         assert Path(str_path).exists()
 
-    @patch("getiprompt.models.matcher.load_sam_model")
-    @patch("getiprompt.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.ImageEncoder")
     def test_export_default_backend_is_onnx(
         self,
         mock_image_encoder: MagicMock,
@@ -254,8 +254,8 @@ class TestMatcherExport:
         # Default backend should be ONNX, returning .onnx file
         assert result.suffix == ".onnx"
 
-    @patch("getiprompt.models.matcher.load_sam_model")
-    @patch("getiprompt.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.ImageEncoder")
     def test_export_unsupported_backend_returns_export_dir(
         self,
         mock_image_encoder: MagicMock,

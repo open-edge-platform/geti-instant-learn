@@ -10,7 +10,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from getiprompt.data.base import Batch, Dataset, Sample
+from instantlearn.data.base import Batch, Dataset, Sample
 
 
 class TestLVISDataset:
@@ -59,7 +59,7 @@ class TestLVISDataset:
         dataset.df = mock_lvis_dataframe
         return dataset
 
-    @patch("getiprompt.data.base.base.read_image")
+    @patch("instantlearn.data.base.base.read_image")
     def test_lvis_sample_creation(
         self,
         mock_read_image: MagicMock,
@@ -82,7 +82,7 @@ class TestLVISDataset:
         assert sample.masks is not None
         assert sample.masks.shape[0] == 2  # Two masks for first image
 
-    @patch("getiprompt.data.base.base.read_image")
+    @patch("instantlearn.data.base.base.read_image")
     def test_lvis_batch_creation(
         self,
         mock_read_image: MagicMock,
@@ -128,7 +128,7 @@ class TestLVISDataset:
         car_df = mock_lvis_dataset.get_reference_samples_df(category="car")
         assert len(car_df) == 1  # Only one image has "car" reference
 
-    @patch("getiprompt.data.base.base.read_image")
+    @patch("instantlearn.data.base.base.read_image")
     def test_lvis_sample_metadata(
         self,
         mock_read_image: MagicMock,
@@ -146,7 +146,7 @@ class TestLVISDataset:
         assert sample.is_reference == [True, False]
         assert sample.n_shot == [0, -1]
 
-    @patch("getiprompt.data.base.base.read_image")
+    @patch("instantlearn.data.base.base.read_image")
     def test_lvis_batch_properties(
         self,
         mock_read_image: MagicMock,
@@ -166,7 +166,7 @@ class TestLVISDataset:
         assert batch.is_reference == [[True, False], [True], [False, False, False]]
         assert batch.n_shot == [[0, -1], [0], [-1, -1, -1]]
 
-    @patch("getiprompt.data.base.base.read_image")
+    @patch("instantlearn.data.base.base.read_image")
     def test_lvis_data_consistency(
         self,
         mock_read_image: MagicMock,
@@ -191,7 +191,7 @@ class TestLVISDataset:
             assert isinstance(sample.is_reference, list)
             assert isinstance(sample.n_shot, list)
 
-    @patch("getiprompt.data.base.base.read_image")
+    @patch("instantlearn.data.base.base.read_image")
     def test_lvis_batch_tensor_conversion(
         self,
         mock_read_image: MagicMock,
@@ -213,7 +213,7 @@ class TestLVISDataset:
         assert len(batch.category_ids[1]) == 1  # Second image has 1 instance
         assert len(batch.category_ids[2]) == 3  # Third image has 3 instances
 
-    @patch("getiprompt.data.base.base.read_image")
+    @patch("instantlearn.data.base.base.read_image")
     def test_lvis_sample_loading(
         self,
         mock_read_image: MagicMock,

@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from getiprompt.data.base.sample import Sample
+from instantlearn.data.base.sample import Sample
 
 from domain.db.models import PromptType
 from domain.errors import ServiceError

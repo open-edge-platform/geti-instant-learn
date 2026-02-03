@@ -4,7 +4,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from getiprompt.utils.constants import SAMModelName
+from instantlearn.utils.constants import SAMModelName
 
 from domain.services.schemas.processor import MatcherConfig, PerDinoConfig, SoftMatcherConfig
 from runtime.core.components.factories.model import ModelFactory

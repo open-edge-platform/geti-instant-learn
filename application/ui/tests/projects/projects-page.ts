@@ -19,7 +19,7 @@ export class ProjectPage {
     }
 
     get welcomeHeader() {
-        return this.page.getByRole('heading', { name: 'Welcome to Geti Prompt' });
+        return this.page.getByRole('heading', { name: 'Welcome to Geti Instant Learn' });
     }
 
     get projectsHeader() {

@@ -1,4 +1,4 @@
-Welcome to Geti Prompt API Reference Documentation!
+Welcome to Geti Instant Learn API Reference Documentation!
 ##################################
 
 .. toctree::
@@ -6,4 +6,4 @@ Welcome to Geti Prompt API Reference Documentation!
   :hidden:
   :caption: API Reference
 
-  getiprompt_module
+  instantlearn_module

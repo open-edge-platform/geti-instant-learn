@@ -1,8 +1,8 @@
 import logging
 
 import torch
-from getiprompt.data.base.batch import Batch
-from getiprompt.models.base import Model
+from instantlearn.data.base.batch import Batch
+from instantlearn.models.base import Model
 
 from runtime.core.components.base import ModelHandler
 

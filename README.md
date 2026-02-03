@@ -1,7 +1,7 @@
 <!-- markdownlint-disable MD013 MD033 MD041 MD042 -->
 <div align="center">
 
-<img src="assets/geti-prompt-header.png" width="1200px" alt="Geti Prompt Logo - A framework for developing, benchmarking, and deploying zero-shot visual prompting algorithms on the edge">
+<img src="assets/instant-learn-header.png" width="1200px" alt="Geti Instant Learn Logo - A framework for developing, benchmarking, and deploying zero-shot visual prompting algorithms on the edge">
 
 **A framework for developing, benchmarking, and deploying zero-shot visual prompting algorithms on the edge.**
 
@@ -27,7 +27,7 @@ Visual prompting offers a powerful alternative to traditional training. Instead 
 
 ## Getting Started
 
-Geti Prompt consists of two core components:
+Geti Instant Learn consists of two core components:
 
 - **Python Library**: The foundation for research and zero/few shots algorithm development.
 - **Full Stack Application**: Leverages the library to enable real-time inference on live streams, video files, and images.
@@ -43,7 +43,7 @@ Geti Prompt consists of two core components:
 
 </details>
 
-### Geti Prompt Library
+### Geti Instant Learn Library
 
 Install the library:
 
@@ -65,8 +65,8 @@ pip install ./library[xpu]  # or [cpu], [gpu]
 </p>
 
 ```python
-from getiprompt.models import Matcher
-from getiprompt.data import Sample
+from instantlearn.models import Matcher
+from instantlearn.data import Sample
 
 # Initialize Matcher (device: "xpu", "cuda", or "cpu")
 model = Matcher(device="xpu")
@@ -90,7 +90,7 @@ masks = predictions[0]["pred_masks"]  # Predicted segmentation masks
 
 > For interactive mask generation with SAM, CLI usage, and benchmarking, see the [Library README](library/README.md).
 
-### Geti Prompt Application
+### Geti Instant Learn Application
 
 **Full-stack web interface for real-time inference.**
 
@@ -106,7 +106,7 @@ Access at: http://localhost:3000
 
 ## Supported Models and Algorithms
 
-Geti Prompt supports a variety of foundation models and visual prompting algorithms, optimized for different performance needs.
+Geti Instant Learn supports a variety of foundation models and visual prompting algorithms, optimized for different performance needs.
 
 ### Visual Prompting Algorithms
 
@@ -138,11 +138,11 @@ Geti Prompt supports a variety of foundation models and visual prompting algorit
 
 ## Community
 
-- To report a bug or submit a feature request, please open a [GitHub issue](https://github.com/open-edge-platform/geti-prompt/issues).
+- To report a bug or submit a feature request, please open a [GitHub issue](https://github.com/open-edge-platform/instant-learn/issues).
 - Ask questions via [GitHub Discussions](https://github.com/open-edge-platform/geti/discussions).
 
 ## License
 
-Geti Prompt is licensed under the [Apache License 2.0](LICENSE).
+Geti Instant Learn is licensed under the [Apache License 2.0](LICENSE).
 
 FFmpeg is an open source project licensed under LGPL and GPL. See <https://www.ffmpeg.org/legal.html>. You are solely responsible for determining if your use of FFmpeg requires any additional licenses. Intel is not responsible for obtaining any such licenses, nor liable for any licensing fees due, in connection with your use of FFmpeg.

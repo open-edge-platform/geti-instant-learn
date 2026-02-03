@@ -1,9 +1,9 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 [project]
-name = "geti-prompt-backend"
+name = "instant-learn-backend"
 version = "0.1.0"
-description = "Geti Prompt service"
+description = "Geti Instant Learn service"
 requires-python = ">=3.12.12, <3.13"
 
 dependencies = [
@@ -38,9 +38,9 @@ dev = [
 ]
 
 [project.optional-dependencies]
-cpu = ["getiprompt[cpu]"]
-cuda = ["getiprompt[cuda]"]
-xpu = ["getiprompt[xpu]"]
+cpu = ["instantlearn[cpu]"]
+cuda = ["instantlearn[cuda]"]
+xpu = ["instantlearn[xpu]"]
 installer = ["pyinstaller~=6.16.0", "python-dotenv~=1.2.1"]
 
 mqtt = [
@@ -59,15 +59,15 @@ conflicts = [
     # redeclare library conflicts to workaround bug with uv dependency resolution
     # For details, see: https://github.com/astral-sh/uv/issues/9942
     [
-        { package = "getiprompt", extra = "cpu" },
-        { package = "getiprompt", extra = "cuda" },
-        { package = "getiprompt", extra = "xpu" },
+        { package = "instantlearn", extra = "cpu" },
+        { package = "instantlearn", extra = "cuda" },
+        { package = "instantlearn", extra = "xpu" },
     ],
 ]
 
 
 [tool.uv.sources]
-getiprompt = { path = "../../library", editable = true }
+instantlearn = { path = "../../library", editable = true }
 
 
 [tool.pytest.ini_options]
