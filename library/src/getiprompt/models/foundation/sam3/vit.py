@@ -22,7 +22,6 @@ from collections.abc import Iterable
 import torch
 from torch import Tensor, nn
 from torch.nn import functional
-from transformers.modeling_layers import GradientCheckpointingLayer
 
 from .common import MLP, SinePositionEmbedding
 
@@ -451,7 +450,7 @@ class ViTLayerScale(nn.Module):
         return hidden_state * self.lambda1
 
 
-class ViTLayer(GradientCheckpointingLayer):
+class ViTLayer(nn.Module):
     """Vision Transformer layer with rotary position embeddings and windowed attention.
 
     Implements a single transformer block with layer normalization, multi-head
