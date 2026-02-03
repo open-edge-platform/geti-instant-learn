@@ -8,15 +8,15 @@ from itertools import zip_longest
 import torch
 from transformers import CLIPTokenizerFast
 
-from getiprompt.data.base.batch import Batch
-from getiprompt.data.base.sample import Sample
-from getiprompt.models.foundation.sam3 import Sam3Model
-from getiprompt.models.foundation.sam3.processing import (
+from instantlearn.data.base.batch import Batch
+from instantlearn.data.base.sample import Sample
+from instantlearn.models.foundation.sam3 import Sam3Model
+from instantlearn.models.foundation.sam3.processing import (
     Sam3Postprocessor,
     Sam3Preprocessor,
     Sam3PromptPreprocessor,
 )
-from getiprompt.utils.utils import precision_to_torch_dtype
+from instantlearn.utils.utils import precision_to_torch_dtype
 
 from .base import Model
 
