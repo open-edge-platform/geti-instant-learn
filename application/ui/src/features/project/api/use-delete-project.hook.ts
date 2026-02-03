@@ -9,6 +9,9 @@ export const useDeleteProject = () => {
     const deleteProjectMutation = $api.useMutation('delete', '/api/v1/projects/{project_id}', {
         meta: {
             awaits: [['get', '/api/v1/projects']],
+            error: {
+                notify: true,
+            },
         },
     });
 

@@ -20,6 +20,9 @@ export const useDeletePrompt = () => {
             invalidates: [
                 ['get', '/api/v1/projects/{project_id}/prompts', { params: { path: { project_id: projectId } } }],
             ],
+            error: {
+                notify: true,
+            },
         },
         onSuccess: () => {
             if (selectedFrameId === prompt?.frame_id) {

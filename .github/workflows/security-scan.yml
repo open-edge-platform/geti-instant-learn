@@ -43,12 +43,12 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           # FIXME: needed for tj-actions/changed-files to gather changed files, once repository becomes public this argument should be set to false
           persist-credentials: true
       - name: Run Zizmor scan
-        uses: open-edge-platform/geti-ci/actions/zizmor@d12afacb644860a6971f0ff3dc63b460b127b6ac
+        uses: open-edge-platform/geti-ci/actions/zizmor@eee8dda846963533ec8b4498086f4432e3adea59
         with:
           scan-scope: ${{ github.event_name == 'pull_request' && 'changed' || 'all' }}
           severity-level: ${{ github.event_name == 'pull_request' && 'LOW' || 'LOW' }}
@@ -61,12 +61,12 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           # FIXME: needed for tj-actions/changed-files to gather changed files, once repository becomes public this argument should be set to false
           persist-credentials: true
       - name: Run Bandit scan
-        uses: open-edge-platform/geti-ci/actions/bandit@d12afacb644860a6971f0ff3dc63b460b127b6ac
+        uses: open-edge-platform/geti-ci/actions/bandit@eee8dda846963533ec8b4498086f4432e3adea59
         with:
           scan-scope: ${{ github.event_name == 'pull_request' && 'changed' || 'all' }}
           severity-level: ${{ github.event_name == 'pull_request' && 'HIGH' || 'LOW' }}
@@ -80,12 +80,12 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
           fetch-depth: 0
       - name: Run Semgrep scan
-        uses: open-edge-platform/geti-ci/actions/semgrep@d12afacb644860a6971f0ff3dc63b460b127b6ac
+        uses: open-edge-platform/geti-ci/actions/semgrep@eee8dda846963533ec8b4498086f4432e3adea59
         with:
           scan-scope: ${{ github.event_name == 'pull_request' && 'changed' || 'all' }}
           severity: ${{ github.event_name == 'pull_request' && 'HIGH' || 'LOW' }}
@@ -98,12 +98,12 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
       - name: Run Trivy scan
         id: trivy
-        uses: open-edge-platform/geti-ci/actions/trivy@d12afacb644860a6971f0ff3dc63b460b127b6ac
+        uses: open-edge-platform/geti-ci/actions/trivy@eee8dda846963533ec8b4498086f4432e3adea59
         with:
           scan_type: "fs"
           scan-scope: all
@@ -123,7 +123,7 @@ jobs:
         ai-device: [cpu, gpu, xpu]
     steps:
       - name: Checkout code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
@@ -148,7 +148,7 @@ jobs:
 
       - name: Run Trivy scan
         id: trivy
-        uses: open-edge-platform/geti-ci/actions/trivy@d12afacb644860a6971f0ff3dc63b460b127b6ac
+        uses: open-edge-platform/geti-ci/actions/trivy@eee8dda846963533ec8b4498086f4432e3adea59
         with:
           artifact-name: "trivy-results-docker-${{ matrix.ai-device }}"
           scan_type: "image"
@@ -170,7 +170,7 @@ jobs:
         ai-device: [xpu]
     steps:
       - name: Checkout code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
@@ -261,7 +261,7 @@ jobs:
             --report-junit-path schemathesis-report/junit.xml
 
       - name: Upload Schemathesis report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: always()
         with:
           name: schemathesis-report-${{ matrix.ai-device }}
@@ -295,7 +295,7 @@ jobs:
           fi
 
       - name: Upload container logs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: always()
         with:
           name: container-logs
