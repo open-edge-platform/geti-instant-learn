@@ -18,10 +18,10 @@ module_path = Path(project_root, "src")
 sys.path.insert(0, str(module_path.resolve()))
 sys.path.insert(0, str(project_root.resolve()))
 
-project = 'Geti Instant Learn'
-copyright = 'Intel Corporation'
-author = 'Intel Corporation'
-release = os.environ.get('VERSION', '1.0')
+project = "Geti Instant Learn"
+copyright = "Intel Corporation"
+author = "Intel Corporation"
+release = os.environ.get("VERSION", "1.0")
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
