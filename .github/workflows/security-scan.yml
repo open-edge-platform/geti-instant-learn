@@ -48,7 +48,7 @@ jobs:
           # FIXME: needed for tj-actions/changed-files to gather changed files, once repository becomes public this argument should be set to false
           persist-credentials: true
       - name: Run Zizmor scan
-        uses: open-edge-platform/geti-ci/actions/zizmor@eee8dda846963533ec8b4498086f4432e3adea59
+        uses: open-edge-platform/geti-ci/actions/zizmor@7779df7d86b55c19cb56d6bebefed9c55d09859b
         with:
           scan-scope: ${{ github.event_name == 'pull_request' && 'changed' || 'all' }}
           severity-level: ${{ github.event_name == 'pull_request' && 'LOW' || 'LOW' }}
@@ -66,7 +66,7 @@ jobs:
           # FIXME: needed for tj-actions/changed-files to gather changed files, once repository becomes public this argument should be set to false
           persist-credentials: true
       - name: Run Bandit scan
-        uses: open-edge-platform/geti-ci/actions/bandit@eee8dda846963533ec8b4498086f4432e3adea59
+        uses: open-edge-platform/geti-ci/actions/bandit@7779df7d86b55c19cb56d6bebefed9c55d09859b
         with:
           scan-scope: ${{ github.event_name == 'pull_request' && 'changed' || 'all' }}
           severity-level: ${{ github.event_name == 'pull_request' && 'HIGH' || 'LOW' }}
@@ -85,7 +85,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Run Semgrep scan
-        uses: open-edge-platform/geti-ci/actions/semgrep@eee8dda846963533ec8b4498086f4432e3adea59
+        uses: open-edge-platform/geti-ci/actions/semgrep@7779df7d86b55c19cb56d6bebefed9c55d09859b
         with:
           scan-scope: ${{ github.event_name == 'pull_request' && 'changed' || 'all' }}
           severity: ${{ github.event_name == 'pull_request' && 'HIGH' || 'LOW' }}
@@ -103,7 +103,7 @@ jobs:
           persist-credentials: false
       - name: Run Trivy scan
         id: trivy
-        uses: open-edge-platform/geti-ci/actions/trivy@eee8dda846963533ec8b4498086f4432e3adea59
+        uses: open-edge-platform/geti-ci/actions/trivy@7779df7d86b55c19cb56d6bebefed9c55d09859b
         with:
           scan_type: "fs"
           scan-scope: all
@@ -148,7 +148,7 @@ jobs:
 
       - name: Run Trivy scan
         id: trivy
-        uses: open-edge-platform/geti-ci/actions/trivy@eee8dda846963533ec8b4498086f4432e3adea59
+        uses: open-edge-platform/geti-ci/actions/trivy@7779df7d86b55c19cb56d6bebefed9c55d09859b
         with:
           artifact-name: "trivy-results-docker-${{ matrix.ai-device }}"
           scan_type: "image"
