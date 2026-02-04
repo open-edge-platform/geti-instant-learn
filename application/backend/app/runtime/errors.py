@@ -20,3 +20,11 @@ class SourceNotSeekableError(PipelineManagerError):
 
 class SourceMismatchError(PipelineManagerError):
     """Exception raised when the provided source_id does not match the active pipeline's active source."""
+
+
+class ValidatorError(Exception):
+    """Base exception for PipelineManager errors."""
+
+
+class SinkConnectionError(ValidatorError):
+    """Exception raised when a resource fails connectivity validation."""

@@ -12,7 +12,6 @@ from domain.db.models import ProjectDB, SinkDB
 from domain.dispatcher import ComponentConfigChangeEvent, ComponentType, ConfigChangeDispatcher
 from domain.errors import (
     ResourceAlreadyExistsError,
-    ResourceConnectionError,
     ResourceNotFoundError,
     ResourceType,
     ResourceUpdateConflictError,
@@ -27,7 +26,6 @@ from domain.services.schemas.sink import (
 )
 from domain.services.schemas.writer import WriterType
 from domain.services.sink import SinkService
-from domain.services.validators import SinkConnectionValidator
 
 
 @pytest.fixture
@@ -59,18 +57,11 @@ def mock_dispatcher():
 
 
 @pytest.fixture
-def mock_sink_connection_validator():
-    """Mock sink connection validator."""
-    return Mock(spec=SinkConnectionValidator)
-
-
-@pytest.fixture
 def sink_service(
     mock_session,
     mock_sink_repository,
     mock_project_repository,
     mock_dispatcher,
-    mock_sink_connection_validator,
 ):
     """Create SinkService instance with mocked dependencies."""
     return SinkService(
@@ -78,7 +69,6 @@ def sink_service(
         sink_repository=mock_sink_repository,
         project_repository=mock_project_repository,
         config_change_dispatcher=mock_dispatcher,
-        sink_connection_validator=mock_sink_connection_validator,
     )
 
 
@@ -402,29 +392,6 @@ class TestCreateSink:
         with pytest.raises(ResourceNotFoundError):
             sink_service.create_sink(project_id, sink_create_data)
 
-    def test_create_sink_connection_error(
-        self,
-        sink_service,
-        mock_project_repository,
-        mock_sink_connection_validator,
-        project_id,
-        mock_project,
-        sink_create_data,
-    ):
-        """Test creating a sink when connection validation fails."""
-        # Arrange
-        mock_project_repository.get_by_id.return_value = mock_project
-        mock_sink_connection_validator.validate.side_effect = ResourceConnectionError(
-            resource_type=ResourceType.SINK,
-            message="Failed to connect",
-        )
-
-        # Act & Assert
-        with pytest.raises(ResourceConnectionError) as exc_info:
-            sink_service.create_sink(project_id, sink_create_data)
-
-        assert exc_info.value.resource_type == ResourceType.SINK
-
 
 class TestUpdateSink:
     """Tests for update_sink method."""
@@ -577,33 +544,6 @@ class TestUpdateSink:
 
         assert exc_info.value.resource_type == ResourceType.PROJECT
 
-    def test_update_sink_connection_error(
-        self,
-        sink_service,
-        mock_project_repository,
-        mock_sink_repository,
-        mock_sink_connection_validator,
-        project_id,
-        sink_id,
-        mock_project,
-        mock_sink,
-        sink_update_data,
-    ):
-        """Test updating a sink when connection validation fails."""
-        # Arrange
-        mock_project_repository.get_by_id.return_value = mock_project
-        mock_sink_repository.get_by_id_and_project.return_value = mock_sink
-        mock_sink_connection_validator.validate.side_effect = ResourceConnectionError(
-            resource_type=ResourceType.SINK,
-            message="Failed to connect",
-        )
-
-        # Act & Assert
-        with pytest.raises(ResourceConnectionError) as exc_info:
-            sink_service.update_sink(project_id, sink_id, sink_update_data)
-
-        assert exc_info.value.resource_type == ResourceType.SINK
-
 
 class TestDeleteSink:
     """Tests for delete_sink method."""
@@ -746,7 +686,6 @@ class TestEventDispatcher:
         mock_session,
         mock_sink_repository,
         mock_project_repository,
-        mock_sink_connection_validator,
         project_id,
         mock_project,
         sink_create_data,
@@ -758,7 +697,6 @@ class TestEventDispatcher:
             sink_repository=mock_sink_repository,
             project_repository=mock_project_repository,
             config_change_dispatcher=None,
-            sink_connection_validator=mock_sink_connection_validator,
         )
         mock_project_repository.get_by_id.return_value = mock_project
 

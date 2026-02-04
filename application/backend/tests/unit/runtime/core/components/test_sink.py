@@ -1,15 +1,14 @@
 from queue import Empty, Queue
 from unittest.mock import MagicMock, Mock, call, patch
-from uuid import uuid4
 
 import pytest
 
-from domain.errors import ResourceConnectionError, ResourceType
 from domain.services.schemas.writer import WriterConfig
 from runtime.core.components.base import StreamWriter
 from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.sink import Sink
 from runtime.core.components.validators.sink_connection import RuntimeSinkConnectionValidator
+from runtime.errors import SinkConnectionError
 
 test_cases = [
     ("writes_all_items", ["data1", "data2", "data3"], ["data1", "data2", "data3"]),
@@ -71,7 +70,7 @@ class TestSinkConnectionValidator:
             "runtime.core.components.validators.sink_connection.StreamWriterFactory.create",
             return_value=writer,
         ):
-            validator.validate(config=config, sink_id=None)
+            validator.validate(config=config)
 
         writer.connect.assert_called_once()
         writer.close.assert_called_once()
@@ -82,15 +81,12 @@ class TestSinkConnectionValidator:
         writer.connect.side_effect = ConnectionError("Failed to connect")
         writer.close.return_value = None
         config = WriterConfig(broker_host="localhost", broker_port=1883, topic="test")
-        sink_id = uuid4()
 
         with patch(
             "runtime.core.components.validators.sink_connection.StreamWriterFactory.create",
             return_value=writer,
         ):
-            with pytest.raises(ResourceConnectionError) as exc_info:
-                validator.validate(config=config, sink_id=sink_id)
+            with pytest.raises(SinkConnectionError):
+                validator.validate(config=config)
 
-        assert exc_info.value.resource_type == ResourceType.SINK
-        assert exc_info.value.resource_id == str(sink_id)
         writer.close.assert_called_once()

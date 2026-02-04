@@ -1,6 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from unittest.mock import patch
 from uuid import UUID, uuid4
 
 import pytest
@@ -159,7 +160,8 @@ def test_create_sink(client, behavior, expected_status):
         "active": True,
         "config": {"sink_type": "mqtt"},
     }
-    resp = client.post(f"/api/v1/projects/{PROJECT_ID}/sinks", json=payload)
+    with patch("runtime.core.components.validators.sink_connection.RuntimeSinkConnectionValidator.validate"):
+        resp = client.post(f"/api/v1/projects/{PROJECT_ID}/sinks", json=payload)
     assert resp.status_code == expected_status
     if behavior == "success":
         data = resp.json()
@@ -209,7 +211,8 @@ def test_update_sink(client, behavior, expected_status):
         "active": False,
         "config": {"sink_type": "mqtt"},
     }
-    resp = client.put(f"/api/v1/projects/{PROJECT_ID}/sinks/{SINK_ID_1}", json=payload)
+    with patch("runtime.core.components.validators.sink_connection.RuntimeSinkConnectionValidator.validate"):
+        resp = client.put(f"/api/v1/projects/{PROJECT_ID}/sinks/{SINK_ID_1}", json=payload)
     assert resp.status_code == expected_status
     if behavior == "success":
         data = resp.json()
