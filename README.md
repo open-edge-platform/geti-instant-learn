@@ -1,7 +1,7 @@
 <!-- markdownlint-disable MD013 MD033 MD041 MD042 -->
 <div align="center">
 
-<img src="assets/instant-learn-header.png" width="1200px" alt="Geti Instant Learn Logo - A framework for developing, benchmarking, and deploying zero-shot visual prompting algorithms on the edge">
+<img src="assets/instant-learn-header.png" alt="Geti Instant Learn Logo - A framework for developing, benchmarking, and deploying zero-shot visual prompting algorithms on the edge">
 
 **A framework for developing, benchmarking, and deploying zero-shot visual prompting algorithms on the edge.**
 
