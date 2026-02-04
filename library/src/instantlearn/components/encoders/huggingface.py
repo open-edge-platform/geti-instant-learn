@@ -11,21 +11,10 @@ from torch.nn import functional
 from torchvision import tv_tensors
 from transformers import AutoImageProcessor, AutoModel
 
+from instantlearn.utils import HUGGINGFACE_AVAILABLE_IMAGE_ENCODERS as AVAILABLE_IMAGE_ENCODERS
 from instantlearn.utils import precision_to_torch_dtype
 
 logger = getLogger("Geti Instant Learn")
-
-AVAILABLE_IMAGE_ENCODERS = {
-    "dinov2_small": ("facebook/dinov2-with-registers-small", "0d9846e56b43a21fa46d7f3f5070f0506a5795a9"),
-    "dinov2_base": ("facebook/dinov2-with-registers-base", "a1d738ccfa7ae170945f210395d99dde8adb1805"),
-    "dinov2_large": ("facebook/dinov2-with-registers-large", "e4c89a4e05589de9b3e188688a303d0f3c04d0f3"),
-    "dinov2_giant": ("facebook/dinov2-with-registers-giant", "8d0d49f77fb8b5dd78842496ff14afe7dd4d85cb"),
-    "dinov3_small": ("facebook/dinov3-vits16-pretrain-lvd1689m", "114c1379950215c8b35dfcd4e90a5c251dde0d32"),
-    "dinov3_small_plus": ("facebook/dinov3-vits16plus-pretrain-lvd1689m", "c93d816fc9e567563bc068f01475bec89cc634a6"),
-    "dinov3_base": ("facebook/dinov3-vitb16-pretrain-lvd1689m", "5931719e67bbdb9737e363e781fb0c67687896bc"),
-    "dinov3_large": ("facebook/dinov3-vitl16-pretrain-lvd1689m", "ea8dc2863c51be0a264bab82070e3e8836b02d51"),
-    "dinov3_huge": ("facebook/dinov3-vith16plus-pretrain-lvd1689m", "c807c9eeea853df70aec4069e6f56b28ddc82acc"),
-}
 
 
 class HuggingFaceImageEncoder(nn.Module):
