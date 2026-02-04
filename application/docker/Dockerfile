@@ -1,7 +1,7 @@
 ################
 # Libraries Base
 ################
-FROM python:3.12-slim-bookworm@sha256:4a3ceab05b4e396df42a042415e43a286bb5793352b9258f889d6c7d38ed01fb AS backend-base
+FROM python:3.12-slim-bookworm@sha256:ae30458df6c5167adfff1131d78f8c306805a35bb20d8333c20ddfb70715f5e2 AS backend-base
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
 # Disable Python downloads, because we want to use the system interpreter
@@ -71,7 +71,7 @@ RUN npm run build
 ##########################################
 # Base for CPU, GPU and XPU runtime images
 ##########################################
-FROM python:3.12-slim-bookworm@sha256:4a3ceab05b4e396df42a042415e43a286bb5793352b9258f889d6c7d38ed01fb AS runtime-base
+FROM python:3.12-slim-bookworm@sha256:ae30458df6c5167adfff1131d78f8c306805a35bb20d8333c20ddfb70715f5e2 AS runtime-base
 
 ENV STATIC_FILES_DIR="/instant_learn/html"
 ENV DB_DATA_DIR="/instant_learn/data"
