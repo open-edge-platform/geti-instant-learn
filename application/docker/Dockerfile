@@ -1,7 +1,7 @@
 ################
 # Libraries Base
 ################
-FROM python:3.12-slim-bookworm@sha256:ae30458df6c5167adfff1131d78f8c306805a35bb20d8333c20ddfb70715f5e2 AS backend-base
+FROM python:3.13-slim@sha256:baf66684c5fcafbda38a54b227ee30ec41e40af1e4073edee3a7110a417756ba AS backend-base
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
 # Disable Python downloads, because we want to use the system interpreter
@@ -12,7 +12,7 @@ WORKDIR /instant_learn/
 
 # Install git for git dependencies (sam-2)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git=1:2.39.5-0+deb12u2 \
+    git \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -71,7 +71,7 @@ RUN npm run build
 ##########################################
 # Base for CPU, GPU and XPU runtime images
 ##########################################
-FROM python:3.12-slim-bookworm@sha256:ae30458df6c5167adfff1131d78f8c306805a35bb20d8333c20ddfb70715f5e2 AS runtime-base
+FROM python:3.13-slim@sha256:baf66684c5fcafbda38a54b227ee30ec41e40af1e4073edee3a7110a417756ba AS runtime-base
 
 ENV STATIC_FILES_DIR="/instant_learn/html"
 ENV DB_DATA_DIR="/instant_learn/data"
@@ -93,8 +93,8 @@ RUN mkdir -p ${LOGS_DIR} && chown ${UID}:${UID} ${LOGS_DIR}
 
 # Install OpenGL libraries for opencv-python
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      libgl1=1.6.0-1 \
-      libglib2.0-0=2.74.6-2+deb12u8 \
+    libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -148,7 +148,7 @@ RUN apt-get update  \
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-      nvidia-open=580.105.08-1 \
+    nvidia-open=580.105.08-1 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -164,22 +164,37 @@ FROM runtime-base AS xpu
 
 USER root
 
+# based on https://dgpu-docs.intel.com/driver/client/overview.html#ubuntu-22.04
+# Includes Intel graphics drivers (steps from https://dgpu-docs.intel.com/driver/client/overview.html#ubuntu-latest)
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+RUN echo "deb [arch=amd64 trusted=yes] https://ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu noble main" \
+    | tee /etc/apt/sources.list.d/kobuk-intel.list
+
+# hadolint ignore=DL3008
 RUN apt-get update  \
-    && apt-get install -y --no-install-recommends wget=1.21.3-1+deb12u1 gpg=2.2.40-1.1+deb12u2 \
-    && wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
-       gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg \
-    && echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy unified" | \
-      tee /etc/apt/sources.list.d/intel-gpu-jammy.list \
-    && apt-get update && apt-get install -y --no-install-recommends \
-    libze-intel-gpu1  \
-    libze1  \
-    intel-opencl-icd  \
-    clinfo \
-    libze-dev \
-    intel-ocloc \
+    && apt-get install -y --no-install-recommends \
+    libze-intel-gpu1 libze1 libze-dev intel-metrics-discovery intel-opencl-icd clinfo intel-gsc intel-ocloc \
+    intel-media-va-driver-non-free libmfx-gen1 libvpl2 libvpl-tools libva-glx2 va-driver-all vainfo \
     && rm -rf /var/lib/apt/lists/* \
-    && apt-get remove -y wget gpg \
     && apt-get clean
+
+# RUN apt-get update  \
+#     && apt-get install -y --no-install-recommends wget=1.21.3-1+deb12u1 gpg=2.2.40-1.1+deb12u2 \
+#     && wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
+#        gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg \
+#     && echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy unified" | \
+#       tee /etc/apt/sources.list.d/intel-gpu-jammy.list \
+#     && apt-get update && apt-get install -y --no-install-recommends \
+#     libze-intel-gpu1  \
+#     libze1  \
+#     intel-opencl-icd  \
+#     clinfo \
+#     libze-dev \
+#     intel-ocloc \
+#     && rm -rf /var/lib/apt/lists/* \
+#     && apt-get remove -y wget gpg \
+#     && apt-get clean
 
 # needed to define it here to allow installation of packages
 USER ${USER_NAME}
