@@ -140,8 +140,8 @@ FROM runtime-base AS cuda
 USER root
 
 RUN apt-get update  \
-    && apt-get install -y --no-install-recommends wget=1.21.3-1+deb12u1 \
-    && wget -q https://developer.download.nvidia.com/compute/cuda/repos/debian12/x86_64/cuda-keyring_1.1-1_all.deb \
+    && apt-get install -y --no-install-recommends wget=1.25.0-2 \
+    && wget -q https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/cuda-keyring_1.1-1_all.deb \
     && dpkg -i cuda-keyring_1.1-1_all.deb \
     && rm -rf cuda-keyring_1.1-1_all.deb \
     && apt-get remove -y wget
@@ -164,8 +164,7 @@ FROM runtime-base AS xpu
 
 USER root
 
-# based on https://dgpu-docs.intel.com/driver/client/overview.html#ubuntu-22.04
-# Includes Intel graphics drivers (steps from https://dgpu-docs.intel.com/driver/client/overview.html#ubuntu-latest)
+# based on https://dgpu-docs.intel.com/driver/client/overview.html#ubuntu-latest
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN echo "deb [arch=amd64 trusted=yes] https://ppa.launchpadcontent.net/kobuk-team/intel-graphics/ubuntu noble main" \
@@ -178,23 +177,6 @@ RUN apt-get update  \
     intel-media-va-driver-non-free libmfx-gen1 libvpl2 libvpl-tools libva-glx2 va-driver-all vainfo \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
-
-# RUN apt-get update  \
-#     && apt-get install -y --no-install-recommends wget=1.21.3-1+deb12u1 gpg=2.2.40-1.1+deb12u2 \
-#     && wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
-#        gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg \
-#     && echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy unified" | \
-#       tee /etc/apt/sources.list.d/intel-gpu-jammy.list \
-#     && apt-get update && apt-get install -y --no-install-recommends \
-#     libze-intel-gpu1  \
-#     libze1  \
-#     intel-opencl-icd  \
-#     clinfo \
-#     libze-dev \
-#     intel-ocloc \
-#     && rm -rf /var/lib/apt/lists/* \
-#     && apt-get remove -y wget gpg \
-#     && apt-get clean
 
 # needed to define it here to allow installation of packages
 USER ${USER_NAME}
