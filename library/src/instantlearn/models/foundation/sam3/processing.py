@@ -339,7 +339,9 @@ class Sam3Postprocessor(nn.Module):
             Eager mode: List of dicts with 'scores', 'boxes', 'masks' keys.
         """
         if torch.onnx.is_in_onnx_export():
-            assert isinstance(target_sizes, torch.Tensor), "ONNX mode requires tensor target_sizes"
+            if not isinstance(target_sizes, torch.Tensor):
+                msg = "ONNX mode requires tensor target_sizes"
+                raise TypeError(msg)
             return self.forward_onnx(outputs, target_sizes, threshold, mask_threshold)
 
         # Convert tensor to list for eager mode

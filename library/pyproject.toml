@@ -169,7 +169,6 @@ lint.ignore = [
     "FBT001",  # Boolean-typed positional argument in function definition
     "FBT002",  # Boolean default positional argument in function definition
     "PLR0912", # Too many branches
-    "S101",  # Use of assert detected.
     "PT018",  # Assertion should be broken down into multiple parts
 ]
 
@@ -221,7 +220,10 @@ convention = "google"
 notice-rgx = '# Copyright \(C\) (\d{4}(-\d{4})?) Intel Corporation\r?\n# SPDX-License-Identifier: Apache-2\.0'
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["PLR6301"]  # Ignore no-self-use for test methods
+"tests/**/*.py" = [
+    "PLR6301",  # Ignore no-self-use for test methods
+    "S101",     # Use of assert detected
+]
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
