@@ -2,18 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Copyright 2025 The Meta AI Authors and The HuggingFace Team. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
 """SAM3 model and related components (GeometryEncoder, MaskDecoder, scoring, etc.)."""
 
@@ -27,7 +16,7 @@ import torch.nn.functional
 import torchvision
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
-from torch import Tensor, nn
+from torch import nn
 from transformers import CLIPTextConfig, CLIPTextModelWithProjection
 
 from .common import (
@@ -94,31 +83,31 @@ class GeometryEncoderLayer(nn.Module):
 
     def forward(
         self,
-        prompt_feats: Tensor,
-        vision_feats: Tensor,
-        vision_pos_encoding: Tensor,
-        prompt_mask: Tensor,
+        prompt_feats: torch.Tensor,
+        vision_feats: torch.Tensor,
+        vision_pos_encoding: torch.Tensor,
+        prompt_mask: torch.Tensor,
         **kwargs: dict,
-    ) -> Tensor:
+    ) -> torch.Tensor:
         """Forward pass through the layer.
 
         Args:
-            prompt_feats (Tensor): Prompt features [batch_size, num_prompts,
+            prompt_feats (torch.Tensor): Prompt features [batch_size, num_prompts,
                 hidden_size].
-            vision_feats (Tensor): Vision features [batch_size, num_vision,
+            vision_feats (torch.Tensor): Vision features [batch_size, num_vision,
                 hidden_size].
-            vision_pos_encoding (Tensor): Vision position encoding [batch_size,
+            vision_pos_encoding (torch.Tensor): Vision position encoding [batch_size,
                 num_vision, hidden_size].
-            prompt_mask (Tensor): Attention mask for prompts [batch_size,
+            prompt_mask (torch.Tensor): Attention mask for prompts [batch_size,
                 num_prompts, num_prompts].
             **kwargs (dict): Additional keyword arguments for attention layers.
 
         Returns:
-            Tensor: Processed features [batch_size, num_prompts, hidden_size].
+            torch.Tensor: Processed features [batch_size, num_prompts, hidden_size].
         """
         residual = prompt_feats
         hidden_states = self.layer_norm1(prompt_feats)
-        hidden_states, _ = self.self_attn(
+        hidden_states = self.self_attn(
             query=hidden_states,
             key=hidden_states,
             value=hidden_states,
@@ -129,7 +118,7 @@ class GeometryEncoderLayer(nn.Module):
         residual = hidden_states
         hidden_states = self.layer_norm2(hidden_states)
         key = vision_feats + vision_pos_encoding
-        hidden_states, _ = self.cross_attn(query=hidden_states, key=key, value=vision_feats, **kwargs)
+        hidden_states = self.cross_attn(query=hidden_states, key=key, value=vision_feats, **kwargs)
         hidden_states = self.dropout(hidden_states) + residual
         residual = hidden_states
         hidden_states = self.layer_norm3(hidden_states)
@@ -670,7 +659,7 @@ class MaskDecoder(nn.Module):
             if prompt_mask is not None:
                 cross_attn_mask = expand_attention_mask(prompt_mask)
 
-            attn_output, _ = self.prompt_cross_attn(
+            attn_output = self.prompt_cross_attn(
                 query=normed_hidden_states,
                 key=prompt_features,
                 value=prompt_features,

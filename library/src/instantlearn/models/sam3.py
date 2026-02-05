@@ -16,7 +16,7 @@ from instantlearn.models.foundation.sam3.processing import (
     Sam3Preprocessor,
     Sam3PromptPreprocessor,
 )
-from instantlearn.utils.utils import precision_to_torch_dtype
+from instantlearn.utils import precision_to_torch_dtype
 
 from .base import Model
 

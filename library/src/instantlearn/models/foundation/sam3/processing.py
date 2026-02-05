@@ -3,8 +3,7 @@
 
 """ONNX-traceable image preprocessor for SAM3 model.
 
-This module provides an ONNX-compatible image preprocessing pipeline that replaces
-the transformers-dependent ImageProcessorFast. All operations are pure PyTorch to
+This module provides an ONNX-compatible image preprocessing, all operations are pure PyTorch to
 ensure ONNX traceability.
 """
 
@@ -17,8 +16,7 @@ class Sam3Preprocessor(nn.Module):
     """ONNX-traceable image preprocessor for SAM3.
 
     This preprocessor handles image resizing, padding, and normalization using
-    only PyTorch operations, making it fully ONNX-traceable. It replaces the
-    transformers-dependent ImageProcessorFast.
+    only PyTorch operations, making it fully ONNX-traceable.
 
     Args:
         target_size: The target size for the longest dimension of the image.

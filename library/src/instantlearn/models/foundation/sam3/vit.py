@@ -2,25 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Copyright 2025 The Meta AI Authors and The HuggingFace Team. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
 """Vision Transformer (ViT) components for SAM3."""
 
 from collections.abc import Iterable
 
 import torch
-from torch import Tensor, nn
+from torch import nn
 from torch.nn import functional
 
 from .common import MLP, SinePositionEmbedding
@@ -38,8 +27,8 @@ class ViTRotaryEmbedding(nn.Module):
         dim (int): Dimension size for each position (head_dim).
         rope_theta (float): Base frequency for rotary embeddings.
         scale (float): Scale factor for rotary embeddings.
-        rope_embeddings_cos (Tensor): Cosine position embeddings.
-        rope_embeddings_sin (Tensor): Sine position embeddings.
+        rope_embeddings_cos (torch.Tensor): Cosine position embeddings.
+        rope_embeddings_sin (torch.Tensor): Sine position embeddings.
     """
 
     def __init__(
@@ -93,11 +82,11 @@ class ViTRotaryEmbedding(nn.Module):
         self.rope_embeddings_sin.data.copy_(inv_freq.sin())
 
     @torch.no_grad()
-    def forward(self) -> tuple[Tensor, Tensor]:
+    def forward(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Return pre-computed rotary position embeddings.
 
         Returns:
-            tuple[Tensor, Tensor]: Cosine and sine embeddings tensors.
+            tuple[torch.Tensor, torch.Tensor]: Cosine and sine embeddings tensors.
         """
         # As the feature map size is fixed for each stage, we can just return the pre-computed embeddings.
         return self.rope_embeddings_cos, self.rope_embeddings_sin
@@ -147,7 +136,7 @@ class ViTRoPEAttention(nn.Module):
         self.o_proj = nn.Linear(hidden_size, hidden_size)
 
     @staticmethod
-    def _rotate_pairwise(x: Tensor) -> Tensor:
+    def _rotate_pairwise(x: torch.Tensor) -> torch.Tensor:
         """Pairwise rotation of the hidden dims of the input.
 
         Different from Llama Half-Tensor Rotation. This is an optimized version of
@@ -173,23 +162,23 @@ class ViTRoPEAttention(nn.Module):
 
     @staticmethod
     def _apply_rotary_pos_emb_2d(
-        q: Tensor,
-        k: Tensor,
-        cos: Tensor,
-        sin: Tensor,
-    ) -> tuple[Tensor, Tensor]:
+        q: torch.Tensor,
+        k: torch.Tensor,
+        cos: torch.Tensor,
+        sin: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Apply rotary position embedding to query and key tensors for self-attention.
 
         Args:
-            q (Tensor): Query tensor of shape (batch_size, num_windows, seq_len,
+            q (torch.Tensor): Query tensor of shape (batch_size, num_windows, seq_len,
                 num_heads, head_dim).
-            k (Tensor): Key tensor of shape (batch_size, num_windows, seq_len,
+            k (torch.Tensor): Key tensor of shape (batch_size, num_windows, seq_len,
                 num_heads, head_dim).
-            cos (Tensor): Cosine position embedding of shape (seq_len, head_dim).
-            sin (Tensor): Sine position embedding of shape (seq_len, head_dim).
+            cos (torch.Tensor): Cosine position embedding of shape (seq_len, head_dim).
+            sin (torch.Tensor): Sine position embedding of shape (seq_len, head_dim).
 
         Returns:
-            tuple[Tensor, Tensor]: Rotated (q, k) tensors with same shapes as input.
+            tuple[torch.Tensor, torch.Tensor]: Rotated (q, k) tensors with same shapes as input.
         """
         rotate = ViTRoPEAttention._rotate_pairwise
         q_embed = q.float()
@@ -202,20 +191,19 @@ class ViTRoPEAttention(nn.Module):
 
     def forward(
         self,
-        hidden_states: Tensor,
-        position_embeddings: tuple[Tensor, Tensor],
-    ) -> tuple[Tensor, None]:
+        hidden_states: torch.Tensor,
+        position_embeddings: tuple[torch.Tensor, torch.Tensor],
+    ) -> torch.Tensor:
         """Apply self-attention with rotary position embeddings.
 
         Args:
-            hidden_states (Tensor): Input hidden states of shape (batch_size,
+            hidden_states (torch.Tensor): Input hidden states of shape (batch_size,
                 height, width, hidden_size).
-            position_embeddings (tuple[Tensor, Tensor]): Cosine and sine
+            position_embeddings (tuple[torch.Tensor, torch.Tensor]): Cosine and sine
                 position embeddings of shape (seq_len, head_dim).
 
         Returns:
-            tuple[Tensor, None]: Attention output of shape (batch_size, height,
-                width, hidden_size) and None for compatibility.
+            torch.Tensor: Attention output of shape (batch_size, height, width, hidden_size).
         """
         batch_size, height, width, _ = hidden_states.shape
         seq_len = height * width
@@ -236,8 +224,7 @@ class ViTRoPEAttention(nn.Module):
         )
 
         attn_output = attn_output.transpose(1, 2).reshape(batch_size, height, width, -1).contiguous()
-        attn_output = self.o_proj(attn_output)
-        return attn_output, None
+        return self.o_proj(attn_output)
 
 
 class ViTPatchEmbeddings(nn.Module):
@@ -285,15 +272,14 @@ class ViTPatchEmbeddings(nn.Module):
 
         self.projection = nn.Conv2d(num_channels, hidden_size, kernel_size=patch_size, stride=patch_size, bias=False)
 
-    def forward(self, pixel_values: Tensor) -> Tensor:
+    def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:
         """Convert pixel values to patch embeddings.
 
         Args:
-            pixel_values (Tensor): Input images of shape (batch_size, num_channels,
-                height, width).
+            pixel_values (torch.Tensor): Input images of shape (batch_size, num_channels, height, width).
 
         Returns:
-            Tensor: Patch embeddings of shape (batch_size, seq_length, hidden_size).
+            torch.Tensor: Patch embeddings of shape (batch_size, seq_length, hidden_size).
         """
         return self.projection(pixel_values.to(self.projection.weight.dtype)).flatten(2).transpose(1, 2)
 
@@ -354,20 +340,20 @@ class ViTEmbeddings(nn.Module):
 
     @staticmethod
     def _tile_position_embeddings(
-        position_embeddings: Tensor,
+        position_embeddings: torch.Tensor,
         height: int,
         width: int,
-    ) -> Tensor:
+    ) -> torch.Tensor:
         """Tile position embeddings to match target spatial dimensions.
 
         Args:
-            position_embeddings (Tensor): Shape [1, num_pretrain_patches,
+            position_embeddings (torch.Tensor): Shape [1, num_pretrain_patches,
                 hidden_size].
             height (int): Target height in patches.
             width (int): Target width in patches.
 
         Returns:
-            Tensor: Tiled position embeddings of shape [1, height * width,
+            torch.Tensor: Tiled position embeddings of shape [1, height * width,
                 hidden_size].
         """
         pretrain_size = int(position_embeddings.shape[1] ** 0.5)
@@ -386,16 +372,16 @@ class ViTEmbeddings(nn.Module):
 
     def forward(
         self,
-        pixel_values: Tensor,
-    ) -> Tensor:
+        pixel_values: torch.Tensor,
+    ) -> torch.Tensor:
         """Add patch and position embeddings.
 
         Args:
-            pixel_values (Tensor): Input images of shape (batch_size, num_channels,
+            pixel_values (torch.Tensor): Input images of shape (batch_size, num_channels,
                 height, width).
 
         Returns:
-            Tensor: Combined embeddings of shape (batch_size, seq_length,
+            torch.Tensor: Combined embeddings of shape (batch_size, seq_length,
                 hidden_size).
         """
         height, width = pixel_values.shape[-2:]
@@ -438,14 +424,14 @@ class ViTLayerScale(nn.Module):
         super().__init__()
         self.lambda1 = nn.Parameter(layer_scale_init_value * torch.ones(hidden_size))
 
-    def forward(self, hidden_state: Tensor) -> Tensor:
+    def forward(self, hidden_state: torch.Tensor) -> torch.Tensor:
         """Scale hidden state.
 
         Args:
-            hidden_state (Tensor): Input hidden state tensor.
+            hidden_state (torch.Tensor): Input hidden state tensor.
 
         Returns:
-            Tensor: Scaled hidden state.
+            torch.Tensor: Scaled hidden state.
         """
         return hidden_state * self.lambda1
 
@@ -534,19 +520,19 @@ class ViTLayer(nn.Module):
 
     @staticmethod
     def _window_partition(
-        hidden_state: Tensor,
+        hidden_state: torch.Tensor,
         window_size: int,
-    ) -> tuple[Tensor, tuple[int, int]]:
+    ) -> tuple[torch.Tensor, tuple[int, int]]:
         """Partition into non-overlapping windows with padding if needed.
 
         Args:
-            hidden_state (Tensor): Input tokens with shape [batch_size, height, width,
+            hidden_state (torch.Tensor): Input tokens with shape [batch_size, height, width,
                 num_channels].
             window_size (int): Window size for partitioning.
 
         Returns:
-            tuple[Tensor, tuple[int, int]]: A tuple containing:
-                - windows (Tensor): Windows after partition with shape [batch_size *
+            tuple[torch.Tensor, tuple[int, int]]: A tuple containing:
+                - windows (torch.Tensor): Windows after partition with shape [batch_size *
                   num_windows, window_size, window_size, num_channels].
                 - (padded_height, padded_width) (tuple[int, int]): Padded height
                   and width before partition.
@@ -573,15 +559,15 @@ class ViTLayer(nn.Module):
 
     @staticmethod
     def _window_unpartition(
-        windows: Tensor,
+        windows: torch.Tensor,
         window_size: int,
         pad_height_width: tuple[int, int],
         height_width: tuple[int, int],
-    ) -> Tensor:
+    ) -> torch.Tensor:
         """Window unpartition into original sequences and removing padding.
 
         Args:
-            windows (Tensor): Input tokens with shape [batch_size * num_windows,
+            windows (torch.Tensor): Input tokens with shape [batch_size * num_windows,
                 window_size, window_size, num_channels].
             window_size (int): Window size used for partitioning.
             pad_height_width (tuple[int, int]): Padded (height, width) dimensions
@@ -590,7 +576,7 @@ class ViTLayer(nn.Module):
                 before padding.
 
         Returns:
-            Tensor: Unpartitioned sequences with shape [batch_size, height, width,
+            torch.Tensor: Unpartitioned sequences with shape [batch_size, height, width,
                 num_channels].
         """
         padded_height, padded_width = pad_height_width
@@ -612,16 +598,16 @@ class ViTLayer(nn.Module):
 
     def forward(
         self,
-        hidden_states: Tensor,
-    ) -> Tensor:
+        hidden_states: torch.Tensor,
+    ) -> torch.Tensor:
         """Apply transformer layer with attention and MLP.
 
         Args:
-            hidden_states (Tensor): Input hidden states of shape (batch_size,
+            hidden_states (torch.Tensor): Input hidden states of shape (batch_size,
                 height, width, hidden_size).
 
         Returns:
-            Tensor: Output hidden states of shape (batch_size, height, width,
+            torch.Tensor: Output hidden states of shape (batch_size, height, width,
                 hidden_size).
         """
         residual = hidden_states
@@ -634,7 +620,7 @@ class ViTLayer(nn.Module):
             hidden_states, pad_height_width = self._window_partition(hidden_states, self.window_size)
 
         position_embeddings = self.rotary_emb()
-        hidden_states, _ = self.attention(hidden_states, position_embeddings)
+        hidden_states = self.attention(hidden_states, position_embeddings)
 
         if self.window_size > 0:
             # Reverse window partition to restore original spatial layout
@@ -768,16 +754,16 @@ class ViTModel(nn.Module):
 
     def forward(
         self,
-        pixel_values: Tensor,
-    ) -> dict[str, Tensor]:
+        pixel_values: torch.Tensor,
+    ) -> dict[str, torch.Tensor]:
         """Apply Vision Transformer backbone.
 
         Args:
-            pixel_values (Tensor): Input images of shape (batch_size, num_channels,
+            pixel_values (torch.Tensor): Input images of shape (batch_size, num_channels,
                 height, width).
 
         Returns:
-            dict[str, Tensor]: Dictionary with key "last_hidden_state" containing
+            dict[str, torch.Tensor]: Dictionary with key "last_hidden_state" containing
                 output hidden states of shape (batch_size, seq_len, hidden_size).
         """
         hidden_states = self.embeddings(pixel_values)  # [batch_size, seq_len, hidden_size]
@@ -855,14 +841,14 @@ class FPNLayer(nn.Module):
         self.proj1 = nn.Conv2d(in_channels=intermediate_channels, out_channels=fpn_dim, kernel_size=1)
         self.proj2 = nn.Conv2d(in_channels=fpn_dim, out_channels=fpn_dim, kernel_size=3, padding=1)
 
-    def forward(self, hidden_states: Tensor) -> Tensor:
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         """Apply FPN scaling and projections.
 
         Args:
-            hidden_states (Tensor): Input feature map.
+            hidden_states (torch.Tensor): Input feature map.
 
         Returns:
-            Tensor: Output feature map of shape (..., fpn_dim, *, *).
+            torch.Tensor: Output feature map of shape (..., fpn_dim, *, *).
         """
         hidden_states = hidden_states.to(self.proj1.weight.dtype)
         for layer in self.scale_layers:
@@ -912,21 +898,21 @@ class VisionNeck(nn.Module):
 
     def forward(
         self,
-        hidden_states: Tensor,
-    ) -> tuple[tuple[Tensor, ...], tuple[Tensor, ...]]:
+        hidden_states: torch.Tensor,
+    ) -> tuple[tuple[torch.Tensor, ...], tuple[torch.Tensor, ...]]:
         """Generate multi-scale features and position encodings.
 
         Args:
-            hidden_states (Tensor): Backbone features of shape (batch_size,
+            hidden_states (torch.Tensor): Backbone features of shape (batch_size,
                 hidden_size, height, width).
 
         Returns:
-            tuple[tuple[Tensor, ...], tuple[Tensor, ...]]: A tuple containing:
+            tuple[tuple[torch.Tensor, ...], tuple[torch.Tensor, ...]]: A tuple containing:
                 - fpn_hidden_states: Multi-scale feature maps.
                 - fpn_position_encoding: Position encodings for each scale.
         """
-        fpn_hidden_states: tuple[Tensor, ...] = ()
-        fpn_position_encoding: tuple[Tensor, ...] = ()
+        fpn_hidden_states: tuple[torch.Tensor, ...] = ()
+        fpn_position_encoding: tuple[torch.Tensor, ...] = ()
 
         for fpn_layer in self.fpn_layers:
             fpn_output = fpn_layer(hidden_states)
@@ -1060,16 +1046,16 @@ class VisionModel(nn.Module):
 
     def forward(
         self,
-        pixel_values: Tensor | None = None,
-    ) -> dict[str, Tensor | None]:
+        pixel_values: torch.Tensor | None = None,
+    ) -> dict[str, torch.Tensor | None]:
         """Apply complete vision model (ViT + FPN).
 
         Args:
-            pixel_values (Tensor | None): Input images of shape (batch_size,
+            pixel_values (torch.Tensor | None): Input images of shape (batch_size,
                 num_channels, height, width). Required.
 
         Returns:
-            dict[str, Tensor | None]: Dictionary containing:
+            dict[str, torch.Tensor | None]: Dictionary containing:
                 - "last_hidden_state": ViT output of shape (batch_size, seq_len,
                   hidden_size).
                 - "fpn_hidden_states": Tuple of FPN feature maps at different scales.

@@ -2,18 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Copyright 2025 The Meta AI Authors and The HuggingFace Team. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
 """Common utilities and base classes for SAM3 model components."""
 
@@ -21,7 +10,7 @@ import logging
 import math
 
 import torch
-from torch import Tensor, nn
+from torch import nn
 from torch.nn import functional
 from transformers.pytorch_utils import compile_compatible_method_lru_cache
 
@@ -90,13 +79,13 @@ def concat_padded_sequences(
     Raises:
         ValueError: If batch sizes or sequence lengths do not match between inputs.
     """
-    batch_size, seq1_length, hidden_size = seq1.shape
-    batch_size2, seq2_length, hidden_size2 = seq2.shape
+    batch1_size, seq1_length, hidden1_size = seq1.shape
+    batch2_size, seq2_length, hidden2_size = seq2.shape
 
-    if not (batch_size == batch_size2 == mask1.size(0) == mask2.size(0)):
+    if not (batch1_size == batch2_size == mask1.size(0) == mask2.size(0)):
         msg = "Sequence batch sizes and mask batch sizes must match."
         raise ValueError(msg)
-    if hidden_size != hidden_size2:
+    if hidden1_size != hidden2_size:
         msg = "Sequence hidden sizes must match."
         raise ValueError(msg)
     if seq1_length != mask1.size(1):
@@ -112,20 +101,20 @@ def concat_padded_sequences(
     final_lengths = actual_seq1_lengths + actual_seq2_lengths
     max_length = seq1_length + seq2_length
 
-    concatenated_mask = torch.arange(max_length, device=seq2.device)[None].repeat(batch_size, 1)
+    concatenated_mask = torch.arange(max_length, device=seq2.device)[None].repeat(batch1_size, 1)
     concatenated_mask = concatenated_mask < final_lengths[:, None]
 
-    concatenated_sequence = torch.zeros((batch_size, max_length, hidden_size), device=seq2.device, dtype=seq2.dtype)
+    concatenated_sequence = torch.zeros((batch1_size, max_length, hidden1_size), device=seq2.device, dtype=seq2.dtype)
     concatenated_sequence[:, :seq1_length, :] = seq1
 
     # Shift seq2 elements to start at the end of valid seq1
-    index = torch.arange(seq2_length, device=seq2.device)[None].repeat(batch_size, 1)
+    index = torch.arange(seq2_length, device=seq2.device)[None].repeat(batch1_size, 1)
     index += actual_seq1_lengths[:, None]
 
     # Scatter seq2 into the right positions
     concatenated_sequence = concatenated_sequence.scatter(
         1,
-        index[:, :, None].expand(-1, -1, hidden_size),
+        index[:, :, None].expand(-1, -1, hidden1_size),
         seq2,
     )
 
@@ -276,7 +265,7 @@ class Attention(nn.Module):
         value: torch.Tensor,
         attention_mask: torch.Tensor | None = None,
         **kwargs: dict,  # noqa: ARG002
-    ) -> tuple[torch.Tensor, None]:
+    ) -> torch.Tensor:
         """Apply multi-head attention.
 
         Computes scaled dot-product attention over queries, keys, and values. Supports
@@ -296,9 +285,8 @@ class Attention(nn.Module):
         **kwargs (dict): Additional keyword arguments (unused, for API compatibility).
 
         Returns:
-        tuple[torch.Tensor, None]: Tuple of (output, None) where output has shape
-            [batch_size, query_len, hidden_size] with floating-point dtype. Attention
-            weights are not returned by SDPA.
+            torch.Tensor: Output tensor of shape [batch_size, query_len, hidden_size] with floating-point dtype.
+                Attention weights are not returned by SDPA.
         """
         batch_size = query.shape[0]
         query_len = query.shape[1]
@@ -323,7 +311,7 @@ class Attention(nn.Module):
         attn_output = attn_output.transpose(1, 2).reshape(batch_size, query_len, self.hidden_size).contiguous()
         attn_output = self.o_proj(attn_output)
 
-        return attn_output, None
+        return attn_output
 
 
 class SinePositionEmbedding(nn.Module):
@@ -432,20 +420,20 @@ class SinePositionEmbedding(nn.Module):
         shape: torch.Size,
         device: torch.device | str,
         dtype: torch.dtype,
-        mask: Tensor | None = None,
-    ) -> Tensor:
+        mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         """Generate sine/cosine positional embeddings for image features.
 
         Args:
         shape (torch.Size): Shape of the feature map [batch_size, channels, height, width].
         device (torch.device | str): Device for the embeddings.
         dtype (torch.dtype): Floating-point dtype for the embeddings.
-        mask (Tensor | None): Optional binary mask of shape [batch_size, height, width]
+        mask (torch.Tensor | None): Optional binary mask of shape [batch_size, height, width]
             where True=valid and False=padding (dtype=bool). If None, creates an
             all-valid mask. Defaults to None.
 
         Returns:
-        Tensor: Positional embeddings of shape [batch_size, num_pos_feats*2, height, width]
+        torch.Tensor: Positional embeddings of shape [batch_size, num_pos_feats*2, height, width]
             with dtype matching ``dtype``.
         """
         if mask is None:

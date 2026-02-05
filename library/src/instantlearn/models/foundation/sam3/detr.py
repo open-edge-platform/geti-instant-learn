@@ -2,25 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Copyright 2025 The Meta AI Authors and The HuggingFace Team. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
 """DETR (DEtection TRansformer) encoder and decoder components for SAM3."""
 
 import math
 
 import torch
-from torch import Tensor, nn
+from torch import nn
 from torch.nn import functional
 from transformers.pytorch_utils import compile_compatible_method_lru_cache
 
@@ -150,37 +139,37 @@ class DetrEncoderLayer(nn.Module):
 
     def forward(
         self,
-        vision_feats: Tensor,
-        prompt_feats: Tensor,
-        vision_pos_encoding: Tensor,
-        prompt_cross_attn_mask: Tensor | None = None,
+        vision_feats: torch.Tensor,
+        prompt_feats: torch.Tensor,
+        vision_pos_encoding: torch.Tensor,
+        prompt_cross_attn_mask: torch.Tensor | None = None,
         **kwargs: dict,
-    ) -> Tensor:
+    ) -> torch.Tensor:
         """Forward pass for DETR encoder layer.
 
         Applies self-attention to vision features with position encoding, followed by
         cross-attention between vision (query) and text (key/value) features, then an MLP.
 
         Args:
-            vision_feats (Tensor): Vision features [batch_size, vision_len, hidden_size]
+            vision_feats (torch.Tensor): Vision features [batch_size, vision_len, hidden_size]
                 with floating-point dtype (main hidden states).
-            prompt_feats (Tensor): Text prompt features
+            prompt_feats (torch.Tensor): Text prompt features
                 [batch_size, text_len, hidden_size] with floating-point dtype.
-            vision_pos_encoding (Tensor): Position encoding for vision
+            vision_pos_encoding (torch.Tensor): Position encoding for vision
                 [batch_size, vision_len, hidden_size] with floating-point dtype.
-            prompt_cross_attn_mask (Tensor | None): Cross-attention mask for prompt
+            prompt_cross_attn_mask (torch.Tensor | None): Cross-attention mask for prompt
                 features. If provided, dtype is bool or floating-point. Default: None.
             **kwargs: Additional keyword arguments passed to attention modules.
 
         Returns:
-            Tensor: Updated vision features [batch_size, vision_len, hidden_size] with
+            torch.Tensor: Updated vision features [batch_size, vision_len, hidden_size] with
                 floating-point dtype.
         """
         # Self-attention on vision features with position encoding
         residual = vision_feats
         hidden_states = self.layer_norm1(vision_feats)
         hidden_states_with_pos = hidden_states + vision_pos_encoding
-        hidden_states, _ = self.self_attn(
+        hidden_states = self.self_attn(
             query=hidden_states_with_pos,
             key=hidden_states_with_pos,
             value=hidden_states,
@@ -192,7 +181,7 @@ class DetrEncoderLayer(nn.Module):
         residual = hidden_states
         hidden_states = self.layer_norm2(hidden_states)
 
-        hidden_states, _ = self.cross_attn(
+        hidden_states = self.cross_attn(
             query=hidden_states,
             key=prompt_feats,
             value=prompt_feats,
@@ -361,7 +350,6 @@ class DetrEncoder(nn.Module):
         if vision_pos_embeds is None:
             vision_pos_embeds = [torch.zeros_like(feature) for feature in vision_features]
 
-        # Note(kun): Consider removing reshaping by using features directly.
         if spatial_sizes is not None:
             if len(spatial_sizes) != len(vision_features):
                 msg = "spatial_sizes must match the number of vision feature levels"
@@ -527,7 +515,7 @@ class DetrDecoderLayer(nn.Module):
         # Self-attention with query position encoding
         residual = hidden_states
         query_with_pos = hidden_states + query_pos
-        attn_output, _ = self.self_attn(
+        attn_output = self.self_attn(
             query=query_with_pos,
             key=query_with_pos,
             value=hidden_states,
@@ -541,7 +529,7 @@ class DetrDecoderLayer(nn.Module):
         residual = hidden_states
         query_with_pos = hidden_states + query_pos
 
-        attn_output, _ = self.text_cross_attn(
+        attn_output = self.text_cross_attn(
             query=query_with_pos,
             key=text_features,
             value=text_features,
@@ -555,7 +543,7 @@ class DetrDecoderLayer(nn.Module):
         residual = hidden_states
         query_with_pos = hidden_states + query_pos
         key_with_pos = vision_features + vision_pos_encoding
-        attn_output, _ = self.vision_cross_attn(
+        attn_output = self.vision_cross_attn(
             query=query_with_pos,
             key=key_with_pos,
             value=vision_features,
