@@ -148,7 +148,7 @@ RUN apt-get update  \
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-    nvidia-open=580.105.08-1 \
+    nvidia-open=590.48.01-1 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 

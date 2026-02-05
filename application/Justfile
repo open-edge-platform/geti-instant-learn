@@ -26,7 +26,7 @@ docker-build-context := ""
 build-target := "cpu"  # options: cpu, cuda, xpu
 component-name := "instant-learn"
 container-registry := 'localhost:5000/open-edge-platform'
-version := "13"
+version := "latest"
 image-name := container-registry / component-name / build-target + ":" + version
 
 source-dataset-dir := "backend/.data/templates/datasets/coffee-berries"

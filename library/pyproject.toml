@@ -11,7 +11,7 @@ authors = [{ name = "Geti Instant Learn Contributors" }]
 description = "Geti Instant Learn - A modular framework for visual prompting"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.13,<3.14"
+requires-python = ">=3.13, <3.14"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
