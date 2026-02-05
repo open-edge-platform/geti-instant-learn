@@ -12,7 +12,7 @@ WORKDIR /instant_learn/
 
 # Install git for git dependencies (sam-2)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
+    git=1:2.47.3-0+deb13u1 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -93,8 +93,8 @@ RUN mkdir -p ${LOGS_DIR} && chown ${UID}:${UID} ${LOGS_DIR}
 
 # Install OpenGL libraries for opencv-python
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 \
-    libglib2.0-0 \
+    libgl1=1.7.0-1+b2 \
+    libglib2.0-0=2.84.4-3~deb13u2 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -173,8 +173,21 @@ RUN echo "deb [arch=amd64 trusted=yes] https://ppa.launchpadcontent.net/kobuk-te
 # hadolint ignore=DL3008
 RUN apt-get update  \
     && apt-get install -y --no-install-recommends \
-    libze-intel-gpu1 libze1 libze-dev intel-metrics-discovery intel-opencl-icd clinfo intel-gsc intel-ocloc \
-    intel-media-va-driver-non-free libmfx-gen1 libvpl2 libvpl-tools libva-glx2 va-driver-all vainfo \
+    libze-intel-gpu1=26.01.36711.4-1~24.04~ppa1 \
+    libze1=1.26.2-1~24.04~ppa1 \
+    libze-dev=1.26.2-1~24.04~ppa1 \
+    intel-metrics-discovery=1.14.183-1~24.04~ppa1 \
+    intel-opencl-icd=26.01.36711.4-1~24.04~ppa1 \
+    clinfo=3.0.25.02.14-1 \
+    intel-gsc=0.9.5-1~24.04~ppa2 \
+    intel-ocloc=26.01.36711.4-1~24.04~ppa1 \
+    intel-media-va-driver-non-free=25.4.6-1~24.04~ppa1 \
+    libmfx-gen1=25.4.0-0ubuntu1~24.04~ppa1 \
+    libvpl2=1:2.16.0-1~24.04~ppa1 \
+    libvpl-tools=1.5.0-1~24.04~ppa1 \
+    libva-glx2=2.22.0-3 \
+    va-driver-all=2.22.0-3 \
+    vainfo=2.22.0+ds1-2 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
