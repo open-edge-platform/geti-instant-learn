@@ -1,14 +1,14 @@
-# Copyright (C) 2025-2026 Intel Corporation
+# Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""SAM3 model components."""
+"""SAM3 model foundation."""
 
-from .model import Sam3Model
-from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
+from .model_builder import build_sam3_image_model
+from .sam3_image import Sam3Image
+from .sam3_image_processor import Sam3Processor
 
 __all__ = [
-    "Sam3Model",
-    "Sam3Postprocessor",
-    "Sam3Preprocessor",
-    "Sam3PromptPreprocessor",
+    "Sam3Image",
+    "Sam3Processor",
+    "build_sam3_image_model",
 ]

@@ -4,8 +4,8 @@
 """Cosine similarity matcher."""
 
 import torch
-import torch.nn.functional
 from torch import nn
+from torch.nn import functional as F
 
 
 class CosineSimilarity(nn.Module):
@@ -86,7 +86,7 @@ class CosineSimilarity(nn.Module):
 
                 # Resize to feature_size
                 sim_resized = (
-                    torch.nn.functional.interpolate(
+                    F.interpolate(
                         sim_map,
                         size=(feat_size, feat_size),
                         mode="bilinear",
