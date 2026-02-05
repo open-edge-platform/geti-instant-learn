@@ -1,7 +1,7 @@
 <!-- markdownlint-disable MD013 MD033 MD041 MD042 -->
 <div align="center">
 
-<img src="assets/instant-learn-header.png" width="1200px" alt="Geti Instant Learn Logo - A framework for developing, benchmarking, and deploying zero-shot visual prompting algorithms on the edge">
+<img src="assets/instant-learn-header.png" alt="Geti Instant Learn Logo - A framework for developing, benchmarking, and deploying zero-shot visual prompting algorithms on the edge">
 
 **A framework for developing, benchmarking, and deploying zero-shot visual prompting algorithms on the edge.**
 
@@ -12,10 +12,6 @@
 # Introduction
 
 Visual prompting offers a powerful alternative to traditional training. Instead of curating thousands of labeled images, you simply show the model one or a few examples of what you are looking for. The model effectively "learns" instantly, detecting and segmenting similar objects in new images or live video streams without retraining.
-
-<p align="center">
- <image src="https://github.com/user-attachments/assets/9ccc585d-6590-4e54-b766-d95bdccf725d" width="1200"/>
-</p>
 
 ## Key Features
 

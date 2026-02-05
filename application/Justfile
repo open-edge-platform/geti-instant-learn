@@ -57,7 +57,7 @@ dev:
 
     wait
 
-# build geti prompt with optional port mapping
+# build Geti Instant Learn with optional port mapping
 build-image: (download-dataset source-dataset-dir)
     @echo "Building docker image for component: {{ component-name }}"
     @docker build \
@@ -76,7 +76,7 @@ build-image: (download-dataset source-dataset-dir)
 # To persist logs, add this to `docker run` args:
 # `--volume "{{ component-name }}-logs":/instant_learn/logs \`
 # Add either line, or both.
-# launch geti prompt with optional webcam, volume and port mapping
+# launch Geti Instant Learn with optional webcam, volume and port mapping
 run-image: build-image
     #!/usr/bin/env bash
     set -euo pipefail
@@ -136,7 +136,7 @@ show-size:
     # https://github.com/casey/just?tab=readme-ov-file#escaping-
     @docker image inspect "{{ image-name }}" --format='{{{{.Size}}' | numfmt --to=iec
 
-# test geti prompt docker image using bash script
+# test Geti Instant Learn docker image using bash script
 test-image:
     #!/usr/bin/env bash
     echo "Testing docker image for component: {{ component-name }} with build-target: {{ build-target }}"

@@ -18,32 +18,3 @@ Once running, access the application at `http://localhost:9100`
 6. **View results:** Navigate through the dataset to see zero-shot predictions
 
 The default PerDINO model runs automatically on all images using your visual prompt.
-
-## Recommended Hardware Setups
-
-For optimal performance with zero-shot visual prompting models:
-
-- **Intel GPU** — Best performance for real-time inference
-
-**Pre-configured systems:**
-
-- [Edge AI Systems Catalog](https://builders.intel.com/ecosystem-engagement/solution-hub/edge-ai-catalog/partner-spotlight?cp=35%2CArray&cid=37&type=system) — Certified edge AI systems from Intel partners
-
-**Build your own:**
-
-| Component | Minimum | Recommended |
-| :--- | :--- | :--- |
-| CPU | Intel Core Ultra (Series 1 or 2) | Intel Core Ultra 7 or 9 |
-| GPU | Intel Arc GPU (integrated) | Intel Arc Pro B580 or discrete Arc GPU |
-| RAM | 8 GB | 16 GB |
-| OS | Linux (Docker) or Windows 11 (MSIX) | Ubuntu 24.04 or Windows 11 |
-
-> **Note:** OpenVINO backend provides optimized CPU inference. Intel XPU recommended for real-time performance.
-
-## Recommended Hardware Specifications
-
-**Intel XPU Options:**
-
-- **[Intel Arc GPU for Edge](https://www.intel.com/content/www/us/en/products/details/discrete-gpus/arc/edge.html)** — Discrete GPUs optimized for edge AI workloads
-- **[Built-in Intel Arc Pro GPU](https://www.intel.com/content/www/us/en/products/docs/discrete-gpus/arc/mobile/overview.html)** — Integrated graphics in mobile processors
-- **[Intel Arc Pro B-Series](https://www.intel.com/content/www/us/en/products/docs/discrete-gpus/arc/workstations/b-series/overview.html)** — Professional graphics cards for workstations
