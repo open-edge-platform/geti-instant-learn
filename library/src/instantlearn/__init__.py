@@ -11,8 +11,4 @@ accepted by either:
 
 from instantlearn_license import LicenseService
 
-# allow utils module to be imported without license check
-_is_utils_import = getattr(__import__("instantlearn.utils", fromlist=[""]), "_IMPORTING_FROM_UTILS", False)
-
-if not _is_utils_import:
-    LicenseService().require_accepted()
+LicenseService().require_accepted()

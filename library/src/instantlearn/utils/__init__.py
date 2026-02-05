@@ -3,15 +3,13 @@
 
 """Utils."""
 
-from .constants import HUGGINGFACE_AVAILABLE_IMAGE_ENCODERS, TIMM_AVAILABLE_IMAGE_ENCODERS, Backend
+from .constants import HUGGINGFACE_AVAILABLE_IMAGE_ENCODERS, TIMM_AVAILABLE_IMAGE_ENCODERS, Backend, SAMModelName
 from .similarity_resize import resize_similarity_maps
 from .utils import (
     download_file,
     precision_to_torch_dtype,
     setup_logger,
 )
-
-_IMPORTING_FROM_UTILS = True
 
 __all__ = [
     "HUGGINGFACE_AVAILABLE_IMAGE_ENCODERS",
@@ -20,5 +18,6 @@ __all__ = [
     "download_file",
     "precision_to_torch_dtype",
     "resize_similarity_maps",
+    "SAMModelName",
     "setup_logger",
 ]

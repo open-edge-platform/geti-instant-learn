@@ -33,6 +33,7 @@ dev: _venv (download-dataset dataset-dir)
     CORS_ORIGINS='*' \
     WEBRTC_ADVERTISE_IP='{{ host-ip }}' \
     DEVICE='{{ if device =~ "cu.*" { "cuda" } else { device } }}' \
+    INSTANTLEARN_SKIP_LICENSE_CHECK_ON_IMPORT='1' \
     PYTHONPATH=app uv run uvicorn main:app --reload --host {{ host }} --port {{ port }}
 
 

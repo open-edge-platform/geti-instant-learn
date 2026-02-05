@@ -7,8 +7,7 @@ from typing import Annotated, Any, Literal
 
 import numpy as np
 import torch
-from instantlearn.components.encoders.timm import AVAILABLE_IMAGE_ENCODERS
-from instantlearn.utils.constants import SAMModelName
+from instantlearn.utils import TIMM_AVAILABLE_IMAGE_ENCODERS, SAMModelName
 from pydantic import BaseModel, Field, field_validator
 
 from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
@@ -47,8 +46,10 @@ class BaseModelConfig(BaseModel):
     @field_validator("encoder_model")
     @classmethod
     def validate_encoder_model(cls, v: str) -> str:
-        if v not in AVAILABLE_IMAGE_ENCODERS:
-            raise ValueError(f"Supported encoder must be one of {list(AVAILABLE_IMAGE_ENCODERS.keys())}, got '{v}'")
+        if v not in TIMM_AVAILABLE_IMAGE_ENCODERS:
+            raise ValueError(
+                f"Supported encoder must be one of {list(TIMM_AVAILABLE_IMAGE_ENCODERS.keys())}, got '{v}'"
+            )
         return v
 
 

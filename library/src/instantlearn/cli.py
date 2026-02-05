@@ -5,47 +5,16 @@
 
 import logging
 import sys
-
 from jsonargparse import ActionConfigFile, ArgumentParser, Namespace
 
+from instantlearn.models import Model
+from instantlearn.scripts.benchmark import perform_benchmark_experiment
+from instantlearn.scripts.run import run_model
+from instantlearn.utils.args import populate_benchmark_parser
+from instantlearn.utils.utils import setup_logger
 from instantlearn_license import LicenseNotAcceptedError, LicenseService
 
-logger = logging.getLogger(__name__)
-
-
-def _ensure_license_accepted() -> None:
-    """Ensure license is accepted before proceeding with CLI.
-
-    In interactive mode, prompts the user to accept. In non-interactive
-    mode, raises LicenseNotAcceptedError with instructions.
-
-    Raises:
-        LicenseNotAcceptedError: If a license is not accepted.
-    """
-    service = LicenseService()
-    service.require_accepted(interactive=True)
-
-
-def main() -> None:
-    """Main function for the CLI."""
-    try:
-        _ensure_license_accepted()
-    except LicenseNotAcceptedError as e:
-        logger.error(str(e))
-        sys.exit(1)
-
-    # # Now safe to import the rest of instantlearn
-    # from jsonargparse import ActionConfigFile, ArgumentParser, Namespace
-    #
-    # from instantlearn.models import Model
-    # from instantlearn.scripts.benchmark import perform_benchmark_experiment
-    # from instantlearn.scripts.run import run_model
-    # from instantlearn.utils.args import populate_benchmark_parser
-    from instantlearn.utils.utils import setup_logger
-
-    setup_logger()
-
-    InstantLearnCLI()
+logger = logging.getLogger("Geti Instant Learn")
 
 
 class InstantLearnCLI:
@@ -53,10 +22,6 @@ class InstantLearnCLI:
 
     def __init__(self) -> None:
         """Initialize the Geti Instant Learn CLI."""
-        from instantlearn.utils.utils import setup_logger
-
-        setup_logger()
-
         self.parser = ArgumentParser(description="Geti Instant Learn CLI", env_prefix="instantlearn")
         self._add_subcommands()
         self.execute()
@@ -64,8 +29,6 @@ class InstantLearnCLI:
     @staticmethod
     def add_run_arguments(parser: ArgumentParser) -> None:
         """Add arguments for the run subcommand."""
-        from instantlearn.models import Model
-
         parser.add_subclass_arguments(Model, "model", required=True)
         parser.add_argument(
             "--data_root",
@@ -109,15 +72,11 @@ class InstantLearnCLI:
     @staticmethod
     def add_benchmark_arguments(parser: ArgumentParser) -> None:
         """Add arguments for the benchmark subcommand."""
-        from instantlearn.utils.args import populate_benchmark_parser
-
         # TODO(Daankrol): rewrite benchmark script into a class and add arguments here  # noqa: TD003
         populate_benchmark_parser(parser)
 
     def execute(self) -> None:
         """Execute the CLI."""
-        from instantlearn.utils.utils import setup_logger
-
         cfg = self.parser.parse_args()
         log_level = cfg[cfg.subcommand].log_level if "log_level" in cfg[cfg.subcommand] else "INFO"
         setup_logger(log_level=log_level)
@@ -165,9 +124,6 @@ class InstantLearnCLI:
         Raises:
             ValueError: If the subcommand is invalid.
         """
-        from instantlearn.scripts.benchmark import perform_benchmark_experiment
-        from instantlearn.scripts.run import run_model
-
         subcommand = config.subcommand
         match subcommand:
             case "run":
@@ -186,6 +142,27 @@ class InstantLearnCLI:
                 msg = f"Invalid subcommand: {subcommand}"
                 raise ValueError(msg)
 
+
+def _ensure_license_accepted() -> None:
+    """Ensure license is accepted before proceeding with CLI.
+
+    Raises:
+        LicenseNotAcceptedError: If a license is not accepted.
+    """
+    service = LicenseService()
+    service.require_accepted(interactive=True)
+
+
+def main() -> None:
+    """Main function for the CLI."""
+    try:
+        _ensure_license_accepted()
+    except LicenseNotAcceptedError as e:
+        logger.error(str(e))
+        sys.exit(1)
+
+    setup_logger()
+    InstantLearnCLI()
 
 if __name__ == "__main__":
     main()
