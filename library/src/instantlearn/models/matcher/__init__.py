@@ -7,12 +7,12 @@ This package contains the Matcher model implementation based on the paper
 'Segment Anything with One Shot Using All-Purpose Feature Matching'.
 """
 
-from .prompt_generators import BidirectionalPromptGenerator
 from .matcher import (
     EncoderForwardFeaturesWrapper,
     Matcher,
     MatcherInferenceGraph,
 )
+from .prompt_generators import BidirectionalPromptGenerator
 
 __all__ = [
     "BidirectionalPromptGenerator",

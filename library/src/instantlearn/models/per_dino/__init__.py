@@ -7,8 +7,8 @@ This package contains the PerDino algorithm model for one-shot segmentation,
 which matches reference objects using DINOv2 features and cosine similarity.
 """
 
-from .prompt_generators import GridPromptGenerator
 from .per_dino import PerDino
+from .prompt_generators import GridPromptGenerator
 
 __all__ = [
     "GridPromptGenerator",

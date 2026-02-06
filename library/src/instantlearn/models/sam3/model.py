@@ -31,6 +31,8 @@ from .common import (
 from .detr import DecoderMLP, DetrDecoder, DetrEncoder
 from .vit import VisionModel
 
+logger = logging.getLogger(__name__)
+
 
 class GeometryEncoderLayer(nn.Module):
     """Transformer layer for geometry encoding with self and cross-attention.
@@ -960,9 +962,11 @@ class Sam3Model(nn.Module):
         unexpected_keys = [k for k in unexpected_keys if not tracker_pattern.match(k)]
 
         if missing_keys:
-            logging.warning(f"Missing keys when loading SAM3 model: {missing_keys}")
+            msg = f"Missing keys when loading SAM3 model: {missing_keys}"
+            logger.warning(msg)
         if unexpected_keys:
-            logging.warning(f"Unexpected keys when loading SAM3 model: {unexpected_keys}")
+            msg = f"Unexpected keys when loading SAM3 model: {unexpected_keys}"
+            logger.warning(msg)
 
         # Move to device/dtype if specified
         if device is not None:

@@ -101,7 +101,6 @@ def precision_to_openvino_type(precision: str) -> ov.Type:
         OpenVINO Type (ov.Type.f32, ov.Type.f16, etc.)
 
     Raises:
-        ImportError: If openvino is not installed
         ValueError: If precision is not supported
     """
     precision_map = {

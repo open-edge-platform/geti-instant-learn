@@ -11,7 +11,7 @@ from .dinotxt import DinoTxtZeroShotClassification
 from .encoder import IMAGENET_TEMPLATES, DinoTextEncoder
 
 __all__ = [
+    "IMAGENET_TEMPLATES",
     "DinoTextEncoder",
     "DinoTxtZeroShotClassification",
-    "IMAGENET_TEMPLATES",
 ]

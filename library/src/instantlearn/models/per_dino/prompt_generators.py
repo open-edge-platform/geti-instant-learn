@@ -50,7 +50,20 @@ class GridPromptGenerator(nn.Module):
         num_foreground_points: int = 40,
         max_points: int = 42,
     ) -> None:
-        """Initialize the GridPromptGenerator."""
+        """Initialize the GridPromptGenerator.
+
+        Args:
+            num_grid_cells: Number of grid cells along each dimension. Default: 16.
+            point_selection_threshold: Minimum feature similarity for selecting
+                foreground points. Higher values = fewer, more confident point
+                proposals. Default: 0.65.
+            num_bg_points: Number of background points to sample. Default: 1.
+            num_foreground_points: Maximum foreground points to keep per category. Default: 40.
+            max_points: Maximum total points per category for output padding. Default: 42.
+
+        Raises:
+            ValueError: If num_grid_cells is not positive.
+        """
         super().__init__()
         if num_grid_cells <= 0:
             msg = "num_grid_cells must be positive."

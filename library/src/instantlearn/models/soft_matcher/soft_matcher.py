@@ -100,6 +100,7 @@ class SoftMatcher(Matcher):
             softmatching_score_threshold: The score threshold for the soft matching.
             softmatching_bidirectional: Whether to use bidirectional soft matching.
             encoder_model: The encoder model to use.
+            use_nms: Whether to use non-maximum suppression on the predicted masks.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
             device: The device to use for the model.

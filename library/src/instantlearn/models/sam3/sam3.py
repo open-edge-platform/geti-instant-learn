@@ -144,8 +144,8 @@ class SAM3(Model):
                 if category not in self.category_mapping:
                     self.category_mapping[category] = int(category_id)
 
+    @staticmethod
     def _aggregate_results(
-        self,
         all_masks: list[torch.Tensor],
         all_boxes: list[torch.Tensor],
         all_labels: list[torch.Tensor],

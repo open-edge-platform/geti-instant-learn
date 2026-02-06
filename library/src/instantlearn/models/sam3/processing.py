@@ -90,6 +90,9 @@ class Sam3Preprocessor(nn.Module):
             pixel_values: Input image tensor with shape (B, C, H, W).
                          Can be uint8 (0-255) or float (0-1).
 
+        Raises:
+            ValueError: If input tensor does not have 4 dimensions or if the number of channels is not 3.
+
         Returns:
             Tuple containing:
                 - pixel_values: Preprocessed image tensor with shape (B, 3, target_size, target_size)
@@ -109,7 +112,9 @@ class Sam3Preprocessor(nn.Module):
             >>> img_float = torch.rand(2, 3, 480, 640, dtype=torch.float32)
             >>> pixel_values, orig_sizes = preprocessor(img_float)
         """
-        assert pixel_values.ndim == 4, f"Expected BCHW tensor, got shape {pixel_values.shape}"
+        if pixel_values.ndim != 4:
+            msg = f"Expected input shape (B, C, H, W), got {pixel_values.shape}"
+            raise ValueError(msg)
 
         # Get original sizes before any processing
         batch_size = pixel_values.shape[0]
@@ -242,9 +247,7 @@ class Sam3PromptPreprocessor(nn.Module):
         normalized_boxes = input_boxes / scale_factor
 
         # Convert from xyxy to cxcywh format
-        normalized_boxes = self.box_xyxy_to_cxcywh(normalized_boxes)
-
-        return normalized_boxes
+        return self.box_xyxy_to_cxcywh(normalized_boxes)
 
 
 class Sam3Postprocessor(nn.Module):
@@ -272,14 +275,23 @@ class Sam3Postprocessor(nn.Module):
         >>> results = postprocessor.forward_eager(outputs, target_sizes)
     """
 
-    def __init__(self, target_size: int = 1008) -> None:
+    def __init__(
+        self,
+        target_size: int = 1008,
+        threshold: float = 0.3,
+        mask_threshold: float = 0.5,
+    ) -> None:
         """Initialize the postprocessor.
 
         Args:
             target_size: The target size for mask interpolation. Default: 1008.
+            threshold: Score threshold for filtering predictions. Default: 0.3.
+            mask_threshold: Threshold for binarizing masks. Default: 0.5.
         """
         super().__init__()
         self.target_size = target_size
+        self.threshold = threshold
+        self.mask_threshold = mask_threshold
 
     @staticmethod
     def box_cxcywh_to_xyxy(boxes: torch.Tensor) -> torch.Tensor:
@@ -316,200 +328,107 @@ class Sam3Postprocessor(nn.Module):
         boxes *= scale_factor
         return boxes
 
+    def _preprocess_outputs(
+        self,
+        outputs: dict,
+        target_sizes: list[tuple[int, int]],
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Extract outputs and post-process model predictions.
+
+        Computes scores with presence weighting, applies sigmoid to masks,
+        and scales boxes to target sizes.
+
+        Args:
+            outputs: Dictionary containing model outputs.
+            target_sizes: List of (height, width) tuples for each image.
+
+        Returns:
+            Tuple of (batch_scores, batch_boxes, batch_masks) tensors.
+        """
+        pred_logits = outputs["pred_logits"]  # (B, N)
+        pred_boxes = outputs["pred_boxes"]  # (B, N, 4) normalized [0,1]
+        pred_masks = outputs["pred_masks"]  # (B, N, H, W)
+        presence_logits = outputs.get("presence_logits")  # (B, 1) or None
+
+        # Compute scores with optional presence weighting
+        batch_scores = pred_logits.sigmoid()
+        if presence_logits is not None:
+            batch_scores *= presence_logits.sigmoid()
+
+        # Apply sigmoid to mask logits
+        batch_masks = pred_masks.sigmoid()
+
+        # Scale boxes to target sizes
+        batch_boxes = self._scale_boxes(pred_boxes, target_sizes)
+
+        return batch_scores, batch_boxes, batch_masks
+
+    def _postprocess_single(
+        self,
+        scores: torch.Tensor,
+        boxes: torch.Tensor,
+        masks: torch.Tensor,
+        target_size: tuple[int, int],
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Postprocess predictions for a single image.
+
+        Filters by score threshold, interpolates kept masks to target size,
+        and binarizes masks.
+
+        Args:
+            scores: Confidence scores (N,).
+            boxes: Bounding boxes (N, 4).
+            masks: Mask logits after sigmoid (N, H, W).
+            target_size: Target (height, width) for mask interpolation.
+
+        Returns:
+            Tuple of (kept_scores, kept_boxes, kept_masks) with only predictions
+            above the threshold.
+        """
+        # Filter by score threshold
+        keep = scores > self.threshold
+        kept_scores = scores[keep]
+        kept_boxes = boxes[keep]
+        kept_masks = masks[keep]  # (num_keep, H, W)
+
+        # Interpolate kept masks to target size
+        if kept_masks.numel() > 0:
+            kept_masks = functional.interpolate(
+                kept_masks.unsqueeze(0),  # (1, num_keep, H, W)
+                size=target_size,
+                mode="bilinear",
+                align_corners=False,
+            ).squeeze(0)  # (num_keep, H, W)
+
+        # Binarize masks
+        kept_masks = (kept_masks > self.mask_threshold).to(torch.int64)
+
+        return kept_scores, kept_boxes, kept_masks
+
     def forward(
         self,
         outputs: dict,
         target_sizes: torch.Tensor | list[tuple[int, int]],
-        threshold: float = 0.3,
-        mask_threshold: float = 0.5,
-    ) -> list[dict[str, torch.Tensor]] | tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Postprocess model outputs, dispatching to ONNX or eager mode.
-
-        Automatically selects the appropriate implementation based on whether
-        ONNX export is in progress.
+    ) -> list[dict[str, torch.Tensor]] | tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Postprocess model outputs to final predictions.
 
         Args:
             outputs: Dictionary containing model outputs.
             target_sizes: Target sizes as tensor (B, 2) or list of (height, width) tuples.
-            threshold: Score threshold for predictions. Default: 0.3.
-            mask_threshold: Threshold for binarizing masks. Default: 0.5.
 
         Returns:
-            ONNX mode: Tuple of (scores, boxes, masks, counts) tensors.
+            ONNX mode: Tuple of (scores, boxes, masks) tensors (filtered).
             Eager mode: List of dicts with 'scores', 'boxes', 'masks' keys.
         """
-        if torch.onnx.is_in_onnx_export():
-            if not isinstance(target_sizes, torch.Tensor):
-                msg = "ONNX mode requires tensor target_sizes"
-                raise TypeError(msg)
-            return self.forward_onnx(outputs, target_sizes, threshold, mask_threshold)
+        batch_scores, batch_boxes, batch_masks = self._preprocess_outputs(outputs, target_sizes)
 
-        # Convert tensor to list for eager mode
-        if isinstance(target_sizes, torch.Tensor):
-            target_sizes = [(int(target_sizes[i, 0]), int(target_sizes[i, 1])) for i in range(target_sizes.shape[0])]
-        return self.forward_eager(outputs, target_sizes, threshold, mask_threshold)
-
-    def forward_onnx(
-        self,
-        outputs: dict,
-        target_sizes: torch.Tensor,
-        threshold: float = 0.3,
-        mask_threshold: float = 0.5,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Postprocess model outputs for ONNX inference.
-
-        ONNX-compatible version that returns padded tensors instead of Python lists.
-
-        Args:
-            outputs: Dictionary containing model outputs with keys:
-                    - pred_logits: (B, N) confidence scores
-                    - pred_boxes: (B, N, 4) boxes in xyxy format (normalized [0,1])
-                    - pred_masks: (B, N, H, W) mask logits
-                    - presence_logits: (B, 1) presence scores (optional)
-            target_sizes: Tensor with shape (B, 2) containing [height, width] for each image.
-            threshold: Score threshold to keep instance predictions. Default: 0.3.
-            mask_threshold: Threshold for binarizing the predicted masks. Default: 0.5.
-
-        Returns:
-            Tuple of (scores, boxes, masks, counts):
-                - scores: Padded scores tensor (B, max_detections)
-                - boxes: Padded boxes tensor (B, max_detections, 4)
-                - masks: Padded masks tensor (B, max_detections, H, W)
-                - counts: Number of valid detections per image (B,)
-
-        Example:
-            >>> postprocessor = Sam3Postprocessor()
-            >>> outputs = {...}  # Model outputs
-            >>> target_sizes = torch.tensor([[480, 640]], dtype=torch.int32)
-            >>> scores, boxes, masks, counts = postprocessor.forward_onnx(outputs, target_sizes)
-        """
-        # Extract outputs
-        pred_logits = outputs["pred_logits"]  # (B, N)
-        pred_boxes = outputs["pred_boxes"]  # (B, N, 4) in xyxy format (normalized [0,1])
-        pred_masks = outputs["pred_masks"]  # (B, N, H, W)
-        presence_logits = outputs.get("presence_logits")  # (B, 1) or None
-
-        # Compute scores
-        batch_scores = pred_logits.sigmoid()
-        if presence_logits is not None:
-            presence_scores = presence_logits.sigmoid()  # (B, 1)
-            batch_scores = batch_scores * presence_scores  # Broadcast multiplication
-
-        # Apply sigmoid to mask logits
-        batch_masks = pred_masks.sigmoid()
-
-        # Boxes are already in xyxy format from the model
-        batch_boxes = pred_boxes
-
-        # Scale boxes to target sizes
-        # Convert target_sizes tensor to list of tuples for compatibility
-        batch_size = target_sizes.shape[0]
-        target_sizes_list = [(target_sizes[i, 0].item(), target_sizes[i, 1].item()) for i in range(batch_size)]
-        batch_boxes = self._scale_boxes(batch_boxes, target_sizes_list)
-
-        # Interpolate masks to target size
-        all_masks = []
-        for idx in range(batch_size):
-            target_h, target_w = target_sizes[idx, 0].item(), target_sizes[idx, 1].item()
-            masks = batch_masks[idx : idx + 1]  # (1, N, H, W)
-            masks = functional.interpolate(
-                masks,
-                size=(target_h, target_w),
-                mode="bilinear",
-                align_corners=False,
-            )
-            all_masks.append(masks)
-        batch_masks = torch.cat(all_masks, dim=0)  # (B, N, target_H, target_W)
-
-        # Binarize masks
-        batch_masks = (batch_masks > mask_threshold).float()
-
-        # Filter by score threshold
-        keep_mask = batch_scores > threshold  # (B, N)
-
-        # For ONNX compatibility, we return padded tensors with counts
-        # instead of variable-length lists
-        return batch_scores, batch_boxes, batch_masks, keep_mask.sum(dim=1)
-
-    def forward_eager(
-        self,
-        outputs: dict,
-        target_sizes: list[tuple[int, int]],
-        threshold: float = 0.3,
-        mask_threshold: float = 0.5,
-    ) -> list[dict[str, torch.Tensor]]:
-        """Postprocess model outputs for eager mode inference.
-
-        Returns Python list of dicts for compatibility with current API.
-
-        Args:
-            outputs: Dictionary containing model outputs with keys:
-                    - pred_logits: (B, N) confidence scores
-                    - pred_boxes: (B, N, 4) boxes in xyxy format (normalized [0,1])
-                    - pred_masks: (B, N, H, W) mask logits
-                    - presence_logits: (B, 1) presence scores (optional)
-            target_sizes: List of tuples containing (height, width) for each image.
-            threshold: Score threshold to keep instance predictions. Default: 0.3.
-            mask_threshold: Threshold for binarizing the predicted masks. Default: 0.5.
-
-        Returns:
-            List of dictionaries, each containing:
-                - scores: Confidence scores for kept instances (N_keep,)
-                - boxes: Bounding boxes in xyxy format (N_keep, 4)
-                - masks: Binary segmentation masks (N_keep, H, W)
-
-        Example:
-            >>> postprocessor = Sam3Postprocessor()
-            >>> outputs = {...}  # Model outputs
-            >>> target_sizes = [(480, 640)]
-            >>> results = postprocessor.forward_eager(outputs, target_sizes)
-            >>> results[0]["scores"]  # Scores for first image
-        """
-        # Extract outputs
-        pred_logits = outputs["pred_logits"]  # (B, N)
-        pred_boxes = outputs["pred_boxes"]  # (B, N, 4) in xyxy format (normalized [0,1])
-        pred_masks = outputs["pred_masks"]  # (B, N, H, W)
-        presence_logits = outputs.get("presence_logits")  # (B, 1) or None
-
-        batch_size = pred_logits.shape[0]  # noqa: F841
-
-        # Compute scores
-        batch_scores = pred_logits.sigmoid()
-        if presence_logits is not None:
-            presence_scores = presence_logits.sigmoid()  # (B, 1)
-            batch_scores = batch_scores * presence_scores  # Broadcast multiplication
-
-        # Apply sigmoid to mask logits
-        batch_masks = pred_masks.sigmoid()
-
-        # Boxes are already in xyxy format from the model
-        batch_boxes = pred_boxes
-
-        # Scale boxes to target sizes
-        batch_boxes = self._scale_boxes(batch_boxes, target_sizes)
-
-        # Process each image in the batch
         results = []
-        for idx, (score_vec, box_vec, mask_vec) in enumerate(zip(batch_scores, batch_boxes, batch_masks, strict=False)):
-            # Filter by score threshold
-            keep = score_vec > threshold
-            kept_scores = score_vec[keep]
-            kept_boxes = box_vec[keep]
-            kept_masks = mask_vec[keep]  # (num_keep, H, W)
-
-            # Resize masks to target size
-            target_size = target_sizes[idx]
-            if len(kept_masks) > 0:
-                kept_masks = functional.interpolate(
-                    kept_masks.unsqueeze(0),  # (1, num_keep, H, W)
-                    size=target_size,
-                    mode="bilinear",
-                    align_corners=False,
-                ).squeeze(0)  # (num_keep, target_H, target_W)
-
-            # Binarize masks
-            kept_masks = (kept_masks > mask_threshold).long()
-
-            results.append({"scores": kept_scores, "boxes": kept_boxes, "masks": kept_masks})
+        for idx, (scores, boxes, masks) in enumerate(zip(batch_scores, batch_boxes, batch_masks, strict=False)):
+            kept_scores, kept_boxes, kept_masks = self._postprocess_single(scores, boxes, masks, target_sizes[idx])
+            if torch.onnx.is_in_onnx_export():
+                # In ONNX export, we return tensors with all predictions (including those below threshold)
+                results.append((kept_scores, kept_boxes, kept_masks))
+            else:
+                results.append({"scores": kept_scores, "boxes": kept_boxes, "masks": kept_masks})
 
         return results
