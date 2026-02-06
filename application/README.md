@@ -17,7 +17,7 @@ License links:
 - [SAM3 License](https://github.com/facebookresearch/sam3/blob/main/LICENSE)
 - [DINOv3 License](https://github.com/facebookresearch/dinov3/blob/main/LICENSE.md)
 
-In order to consent, you must set an environment variable `GETIPROMPT_LICENSES_ACCEPTED=1` or accept terms when first importing the library to the project.
+In order to consent, you must set an environment variable `INSTANTLEARN_LICENSE_ACCEPTED=1` or accept terms when first importing the library to the project.
 
 ## Quick Start
 
