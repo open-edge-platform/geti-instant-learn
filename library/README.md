@@ -2,6 +2,20 @@
 
 The Geti Instant Learn Library provides a robust platform for experimenting with visual prompting techniques. Its modular pipeline design allows researchers and developers to easily combine, swap, and extend components such as backbone networks, feature extractors, matching algorithms, and mask generators.
 
+## License acceptance
+
+By installing, using, or distributing this library, you acknowledge that
+- you have read and understood the license terms at the links below;
+- confirmed the linked terms govern the contents you seek to access and use; and
+- accepted and agreed to the linked license terms.
+
+Licence links:
+
+- [SAM3 License](https://github.com/facebookresearch/sam3/blob/main/LICENSE)
+- [DINOv3 License](https://github.com/facebookresearch/dinov3/blob/main/LICENSE.md)
+
+In order to consent, you must set an environment variable `GETIPROMPT_LICENSES_ACCEPTED=1` or accept terms when first importing the library to the project.
+
 ## Installation
 
 ```bash

@@ -4,6 +4,20 @@ Full-stack web application for deploying zero-shot visual prompting models on li
 
 Built with the [Geti Instant Learn Library](../library/) for model inference, FastAPI for the backend, and React for the frontend.
 
+## License acceptance
+
+By installing, using, or distributing this application, you acknowledge that
+- you have read and understood the license terms at the links below;
+- confirmed the linked terms govern the contents you seek to access and use; and
+- accepted and agreed to the linked license terms.
+
+Licence links:
+
+- [SAM3 License](https://github.com/facebookresearch/sam3/blob/main/LICENSE)
+- [DINOv3 License](https://github.com/facebookresearch/dinov3/blob/main/LICENSE.md)
+
+In order to consent, you must set an environment variable `GETIPROMPT_LICENSES_ACCEPTED=1` or accept terms when first importing the library to the project.
+
 ## Quick Start
 
 ### Run from Source (Development)
