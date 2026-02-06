@@ -1852,7 +1852,8 @@ class GroundingDinoDecoder(GroundingDinoPreTrainedModel):
         multiple self-attention and cross-attention layers.
 
         Some tweaks for Grounding DINO:
-            - `position_embeddings`, `reference_points`, `spatial_shapes` and `valid_ratios` are added to the forward pass.
+            - `position_embeddings`, `reference_points`, `spatial_shapes` and `valid_ratios` are added 
+               to the forward pass.
             - it also returns a stack of intermediate outputs and reference points from all decoding layers.
 
         Args:

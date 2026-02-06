@@ -111,7 +111,11 @@ class SAM3(Model):
         # Preprocessors and postprocessor
         self.image_preprocessor = Sam3Preprocessor(target_size=resolution).to(device)
         self.prompt_preprocessor = Sam3PromptPreprocessor(target_size=resolution).to(device)
-        self.postprocessor = Sam3Postprocessor(target_size=resolution).to(device)
+        self.postprocessor = Sam3Postprocessor(
+            target_size=resolution,
+            threshold=confidence_threshold,
+            mask_threshold=0.5,
+        ).to(device)
 
         # Tokenizer for text prompts (still from transformers, but not used in ONNX path)
         self.tokenizer = CLIPTokenizerFast.from_pretrained("jetjodh/sam3")
@@ -253,12 +257,7 @@ class SAM3(Model):
                     )
 
                 # Postprocess
-                result = self.postprocessor(
-                    outputs,
-                    threshold=self.confidence_threshold,
-                    mask_threshold=0.5,
-                    target_sizes=[img_size],
-                )
+                result = self.postprocessor(outputs, target_sizes=[img_size])
                 boxes_with_scores = torch.cat(
                     [result[0]["boxes"], result[0]["scores"].unsqueeze(1)],
                     dim=1,
