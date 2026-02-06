@@ -1,7 +1,7 @@
-"""Generate bounding boxes using a zero shot object detector."""
-
 # Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+"""Generate bounding boxes using a zero shot object detector."""
 
 from difflib import SequenceMatcher
 from enum import Enum
@@ -104,7 +104,7 @@ class TextToBoxPromptGenerator(nn.Module):
 
         processor = AutoProcessor.from_pretrained(model_id)
         if model_id.startswith("fushh7/llmdet_swin"):
-            from instantlearn.models.foundation import GroundingDinoForObjectDetection
+            from .grounding_dino import GroundingDinoForObjectDetection
 
             model = GroundingDinoForObjectDetection.from_pretrained(
                 model_id,

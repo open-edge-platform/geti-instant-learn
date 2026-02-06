@@ -8,9 +8,10 @@ import torch
 from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.base import Model
-from instantlearn.models.foundation.dinotxt import IMAGENET_TEMPLATES, DinoTextEncoder
 from instantlearn.utils import precision_to_torch_dtype
 from instantlearn.utils.constants import DINOv3BackboneSize
+
+from .encoder import IMAGENET_TEMPLATES, DinoTextEncoder
 
 
 class DinoTxtZeroShotClassification(Model):

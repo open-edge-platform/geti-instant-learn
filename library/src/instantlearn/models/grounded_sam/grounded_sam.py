@@ -6,13 +6,14 @@
 import torch
 
 from instantlearn.components import SamDecoder
-from instantlearn.components.filters import BoxPromptFilter
-from instantlearn.components.prompt_generators import GroundingModel, TextToBoxPromptGenerator
 from instantlearn.components.sam import load_sam_model
 from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.base import Model
 from instantlearn.utils.constants import SAMModelName
+
+from .grounded import GroundingModel, TextToBoxPromptGenerator
+from .prompt_filter import BoxPromptFilter
 
 
 class GroundedSAM(Model):

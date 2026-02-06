@@ -3,9 +3,10 @@
 
 """SoftMatcher model."""
 
-from instantlearn.components.prompt_generators import SoftmatcherPromptGenerator
 from instantlearn.models.matcher import Matcher
 from instantlearn.utils.constants import SAMModelName
+
+from .prompt_generator import SoftmatcherPromptGenerator
 
 
 class SoftMatcher(Matcher):

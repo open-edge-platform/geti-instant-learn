@@ -8,7 +8,7 @@ from enum import Enum
 from typing import TypeVar
 
 from instantlearn.components.encoders import AVAILABLE_IMAGE_ENCODERS
-from instantlearn.components.prompt_generators import GroundingModel
+from instantlearn.models.grounded_sam import GroundingModel
 from instantlearn.utils.constants import DatasetName, ModelName, SAMModelName
 
 # Generate help strings with choices

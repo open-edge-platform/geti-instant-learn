@@ -11,12 +11,13 @@ from torch.nn import functional
 
 from instantlearn.components.encoders import ImageEncoder
 from instantlearn.components.feature_extractors import MaskedFeatureExtractor, ReferenceFeatures
-from instantlearn.components.prompt_generators import BidirectionalPromptGenerator
 from instantlearn.components.sam import SamDecoder, load_sam_model
 from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.base import Model
 from instantlearn.utils.constants import Backend, SAMModelName
+
+from .prompt_generators import BidirectionalPromptGenerator
 
 
 class EncoderForwardFeaturesWrapper(nn.Module):

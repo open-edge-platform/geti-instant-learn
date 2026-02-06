@@ -10,15 +10,11 @@ from transformers import CLIPTokenizerFast
 
 from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.sample import Sample
-from instantlearn.models.foundation.sam3 import Sam3Model
-from instantlearn.models.foundation.sam3.processing import (
-    Sam3Postprocessor,
-    Sam3Preprocessor,
-    Sam3PromptPreprocessor,
-)
+from instantlearn.models.base import Model
 from instantlearn.utils import precision_to_torch_dtype
 
-from .base import Model
+from .model import Sam3Model
+from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
 
 
 class SAM3(Model):
