@@ -53,18 +53,16 @@ venv-lock: _pre-venv
 
 # Run unit tests
 test-unit: _venv
-    INSTANTLEARN_SKIP_LICENSE_CHECK_ON_IMPORT='1' \
     if [ -d "./tests/unit" ]; then \
-        uv run pytest ./tests/unit -v; \
+        INSTANTLEARN_SKIP_LICENSE_CHECK_ON_IMPORT='1' uv run pytest ./tests/unit -v; \
     else \
         echo "./tests/unit directory not found - skipping unit tests"; \
     fi
 
 # Run integration tests
 test-integration: _venv
-    INSTANTLEARN_SKIP_LICENSE_CHECK_ON_IMPORT='1' \
     if [ -d "./tests/integration" ]; then \
-        uv run pytest ./tests/integration -v; \
+        INSTANTLEARN_SKIP_LICENSE_CHECK_ON_IMPORT='1' uv run pytest ./tests/integration -v; \
     else \
         echo "./tests/integration directory not found - skipping integration tests"; \
     fi
