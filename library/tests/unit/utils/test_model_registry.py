@@ -5,7 +5,7 @@
 
 import pytest
 
-from getiprompt.registry import (
+from instantlearn.registry import (
     MODEL_REGISTRY,
     Capability,
     Modality,
