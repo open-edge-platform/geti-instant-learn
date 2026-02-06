@@ -111,8 +111,7 @@ class TestDinoTxtZeroShotClassification:
     def test_learn_with_empty_reference_batch(model_instance: DinoTxtZeroShotClassification) -> None:
         """Test that fit raises ValueError when no reference samples are provided."""
         with pytest.raises(ValueError, match="Cannot collate empty list of samples"):
-            empty_batch = Batch.collate([])
-            model_instance.fit(empty_batch)
+            model_instance.fit(Batch.collate([]))
 
     @staticmethod
     def test_infer_without_learning(

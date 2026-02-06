@@ -69,8 +69,8 @@ MODEL_CLASSES = {
     ModelName.SOFT_MATCHER: SoftMatcher,
 }
 
-# SAM models to test (SAM3 doesn't use SAM backend, will be handled separately)
-SAM_MODELS = [SAMModelName.SAM_HQ_TINY, SAMModelName.SAM2_TINY]
+# SAM models to test (string model IDs from registry)
+SAM_MODELS = ["sam-hq-tiny", "sam2-tiny"]
 
 # Models that support n-shots (all except GroundedSAM and SAM3)
 N_SHOT_SUPPORTED_MODELS = [ModelName.MATCHER, ModelName.PER_DINO, ModelName.SOFT_MATCHER]
@@ -83,13 +83,13 @@ class TestModelIntegration:
     @pytest.mark.parametrize("model_name", ModelName)
     def test_model_initialization(
         self,
-        sam_model: SAMModelName,
+        sam_model: str,
         model_name: ModelName,
     ) -> None:
         """Test that models can be initialized with different SAM backends.
 
         Args:
-            sam_model: The SAM model to use.
+            sam_model: The SAM model ID (e.g., "sam-hq-tiny").
             model_name: The model type to test.
         """
         # Skip SAM3 as it doesn't use SAM backend
@@ -97,8 +97,8 @@ class TestModelIntegration:
             pytest.skip("SAM3 doesn't use SAM backend, tested separately")
 
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
-        # https://github.com/open-edge-platform/instant-learn/issues/367
-        if sam_model == SAMModelName.SAM2_TINY:
+        # https://github.com/open-edge-platform/instant.learn/issues/367
+        if sam_model == "sam2-tiny":
             pytest.skip("Skipping test_model_initialization for SAM2-tiny")
 
         model_class = MODEL_CLASSES[model_name]
@@ -107,7 +107,7 @@ class TestModelIntegration:
         if model_name == ModelName.GROUNDED_SAM:
             model = model_class(sam=sam_model, device="cpu", precision="fp32")
         else:
-            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov3_small")
+            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov3-small")
 
         assert model is not None
         assert hasattr(model, "fit")
@@ -119,7 +119,7 @@ class TestModelIntegration:
     @pytest.mark.parametrize("model_name", ModelName)
     def test_model_fit_predict(
         self,
-        sam_model: SAMModelName,
+        sam_model: str,
         model_name: ModelName,
         reference_batch: Batch,
         target_batch: Batch,
@@ -127,7 +127,7 @@ class TestModelIntegration:
         """Test that models can learn from reference data and infer on target data.
 
         Args:
-            sam_model: The SAM model to use.
+            sam_model: The SAM model ID (e.g., "sam-hq-tiny").
             model_name: The model type to test.
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
@@ -137,8 +137,8 @@ class TestModelIntegration:
             pytest.skip("SAM3 doesn't use SAM backend, tested separately")
 
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
-        # https://github.com/open-edge-platform/instant-learn/issues/367
-        if sam_model == SAMModelName.SAM2_TINY:
+        # https://github.com/open-edge-platform/instant.learn/issues/367
+        if sam_model == "sam2-tiny":
             pytest.skip("Skipping test_model_learn_infer for SAM2-tiny")
 
         model_class = MODEL_CLASSES[model_name]
@@ -147,7 +147,7 @@ class TestModelIntegration:
         if model_name == ModelName.GROUNDED_SAM:
             model = model_class(sam=sam_model, device="cpu", precision="fp32")
         else:
-            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov3_small")
+            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov3-small")
 
         # Test fit method
         model.fit(reference_batch)
@@ -169,7 +169,7 @@ class TestModelIntegration:
     @pytest.mark.parametrize("model_name", N_SHOT_SUPPORTED_MODELS)
     def test_n_shots_capability(
         self,
-        sam_model: SAMModelName,
+        sam_model: str,
         model_name: ModelName,
         fss1000_root: Path,
     ) -> None:
@@ -179,14 +179,14 @@ class TestModelIntegration:
         (n-shots > 1) and that the number of reference samples affects the results.
 
         Args:
-            sam_model: The SAM model to use.
+            sam_model: The SAM model ID (e.g., "sam-hq-tiny").
             model_name: The model type to test (must support n-shots).
             fss1000_root: Path to fss-1000 dataset.
         """
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
-        # https://github.com/open-edge-platform/instant-learn/issues/367
-        if sam_model == SAMModelName.SAM2_TINY or model_name == ModelName.SAM3:
-            pytest.skip("Skipping test_n_shots_capability for SAM2-tiny or SAM3")
+        # https://github.com/open-edge-platform/instant.learn/issues/367
+        if sam_model == "sam2-tiny":
+            pytest.skip("Skipping test_n_shots_capability for SAM2-tiny")
 
         if not fss1000_root.exists():
             pytest.skip("fss-1000 dataset not found")
@@ -206,7 +206,7 @@ class TestModelIntegration:
             sam=sam_model,
             device="cpu",
             precision="fp32",
-            encoder_model="dinov3_small",
+            encoder_model="dinov3-small",
         )
         model_1shot.fit(ref_batch_1shot)
         predictions_1shot = model_1shot.predict(target_batch)
@@ -226,7 +226,7 @@ class TestModelIntegration:
                 sam=sam_model,
                 device="cpu",
                 precision="fp32",
-                encoder_model="dinov3_small",
+                encoder_model="dinov3-small",
             )
             model_2shot.fit(ref_batch_2shot)
             predictions_2shot = model_2shot.predict(target_batch_2shot)
@@ -244,7 +244,7 @@ class TestModelIntegration:
     @pytest.mark.parametrize("sam_model", SAM_MODELS)
     def test_grounded_sam_no_n_shots(
         self,
-        sam_model: SAMModelName,
+        sam_model: str,
         reference_batch: Batch,
         target_batch: Batch,
     ) -> None:
@@ -254,13 +254,13 @@ class TestModelIntegration:
         in the same way as other models. It only needs category mapping.
 
         Args:
-            sam_model: The SAM model to use.
+            sam_model: The SAM model ID (e.g., "sam-hq-tiny").
             reference_batch: Batch of reference samples (for category mapping).
             target_batch: Batch of target samples.
         """
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
-        # https://github.com/open-edge-platform/instant-learn/issues/367
-        if sam_model == SAMModelName.SAM2_TINY:
+        # https://github.com/open-edge-platform/instant.learn/issues/367
+        if sam_model == "sam2-tiny":
             pytest.skip("Skipping test_model_input_validation for SAM2-tiny")
 
         model = GroundedSAM(sam=sam_model, device="cpu", precision="fp32")
@@ -279,7 +279,7 @@ class TestModelIntegration:
     @pytest.mark.parametrize("model_name", ModelName)
     def test_model_input_validation(
         self,
-        sam_model: SAMModelName,
+        sam_model: str,
         model_name: ModelName,
         reference_batch: Batch,
         target_batch: Batch,
@@ -287,7 +287,7 @@ class TestModelIntegration:
         """Test that models validate inputs correctly.
 
         Args:
-            sam_model: The SAM model to use.
+            sam_model: The SAM model ID (e.g., "sam-hq-tiny").
             model_name: The model type to test.
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
@@ -297,8 +297,8 @@ class TestModelIntegration:
             pytest.skip("SAM3 doesn't use SAM backend, tested separately")
 
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
-        # https://github.com/open-edge-platform/instant-learn/issues/367
-        if sam_model == SAMModelName.SAM2_TINY:
+        # https://github.com/open-edge-platform/instant.learn/issues/367
+        if sam_model == "sam2-tiny":
             pytest.skip("Skipping test_model_input_validation for SAM2-tiny")
 
         model_class = MODEL_CLASSES[model_name]
@@ -307,7 +307,7 @@ class TestModelIntegration:
         if model_name == ModelName.GROUNDED_SAM:
             model = model_class(sam=sam_model, device="cpu", precision="fp32")
         else:
-            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov3_small")
+            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov3-small")
 
         # Validate that reference batch has required fields
         assert len(reference_batch) > 0
@@ -335,7 +335,7 @@ class TestModelIntegration:
     @pytest.mark.parametrize("model_name", ModelName)
     def test_model_metrics_calculation(
         self,
-        sam_model: SAMModelName,
+        sam_model: str,
         model_name: ModelName,
         dataset: FolderDataset,
     ) -> None:
@@ -347,7 +347,7 @@ class TestModelIntegration:
         3. Metrics have valid values (within expected ranges)
 
         Args:
-            sam_model: The SAM model to use.
+            sam_model: The SAM model ID (e.g., "sam-hq-tiny").
             model_name: The model type to test.
             dataset: The dataset to use for testing.
         """
@@ -356,8 +356,8 @@ class TestModelIntegration:
             pytest.skip("SAM3 doesn't use SAM backend, tested separately")
 
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
-        # https://github.com/open-edge-platform/instant-learn/issues/367
-        if sam_model == SAMModelName.SAM2_TINY:
+        # https://github.com/open-edge-platform/instant.learn/issues/367
+        if sam_model == "sam2-tiny":
             pytest.skip("Skipping test_model_metrics_calculation for SAM2-tiny")
 
         model_class = MODEL_CLASSES[model_name]
@@ -366,7 +366,7 @@ class TestModelIntegration:
         if model_name == ModelName.GROUNDED_SAM:
             model = model_class(sam=sam_model, device="cpu", precision="fp32")
         else:
-            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov3_small")
+            model = model_class(sam=sam_model, device="cpu", precision="fp32", encoder_model="dinov3-small")
 
         # Get reference and target samples for first category
         categories = dataset.categories

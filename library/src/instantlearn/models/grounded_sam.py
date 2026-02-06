@@ -18,9 +18,11 @@ from instantlearn.utils.constants import SAMModelName
 class GroundedSAM(Model):
     """This model uses a zero-shot object detector (from Huggingface) to generate boxes for SAM."""
 
+    DEFAULT_SAM = "sam-hq-tiny"
+
     def __init__(
         self,
-        sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
+        sam: str = DEFAULT_SAM,
         grounding_model: GroundingModel = GroundingModel.LLMDET_TINY,
         precision: str = "bf16",
         compile_models: bool = False,
@@ -32,7 +34,7 @@ class GroundedSAM(Model):
         """Initialize the model.
 
         Args:
-            sam: The SAM model name.
+            sam: Model ID for the segmenter (e.g., "sam-hq-tiny", "sam-hq").
             grounding_model: The grounding model to use.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.

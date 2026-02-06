@@ -18,7 +18,7 @@ logger = getLogger("Geti Instant Learn")
 
 
 def load_image_encoder(
-    model_id: str = "dinov3_large",
+    model_id: str = "dinov3-large",
     device: str = "cuda",
     backend: Backend = Backend.TIMM,
     model_path: Path | None = None,
@@ -33,9 +33,7 @@ def load_image_encoder(
     and flexibility, while OpenVINO provides optimized inference.
 
     Args:
-        model_id: The DINO model variant to use. Options:
-            - "dinov2_small", "dinov2_base", "dinov2_large", "dinov2_giant" (HuggingFace only)
-            - "dinov3_small", "dinov3_small_plus", "dinov3_base", "dinov3_large", "dinov3_huge"
+        model_id: The model ID (e.g., "dinov3-large", "dinov3-small").
         device: Device to run inference on. For HuggingFace/TIMM: "cuda" or "cpu".
             For OpenVINO: "CPU", "GPU", or "AUTO".
         backend: Which backend to use: Backend.HUGGINGFACE, Backend.TIMM, or Backend.OPENVINO.
@@ -53,29 +51,21 @@ def load_image_encoder(
 
     Raises:
         ValueError: If backend is not valid.
-        FileNotFoundError: If OpenVINO model_path doesn't exist.
 
     Examples:
-        >>> # HuggingFace backend (DINOv2 models)
-        >>> encoder = load_image_encoder(
-        ...     model_id="dinov2_large",
-        ...     device="cuda",
-        ...     backend=Backend.HUGGINGFACE
-        ... )
-        >>>
         >>> # TIMM backend (DINOv3 models)
         >>> encoder = load_image_encoder(
-        ...     model_id="dinov3_large",
+        ...     model_id="dinov3-large",
         ...     device="cuda",
         ...     backend=Backend.TIMM
         ... )
         >>>
         >>> # Export to OpenVINO
-        >>> ov_path = encoder.export(Path("./exported/dinov2_large"))
+        >>> ov_path = encoder.export(Path("./exported/dinov3-large"))
         >>>
         >>> # OpenVINO backend (optimized inference)
         >>> ov_encoder = load_image_encoder(
-        ...     model_id="dinov2_large",
+        ...     model_id="dinov3-large",
         ...     device="CPU",
         ...     backend=Backend.OPENVINO,
         ...     model_path=ov_path
@@ -114,7 +104,7 @@ class ImageEncoder(nn.Module):
         >>> import torch
         >>>
         >>> # Create encoder with TIMM backend
-        >>> encoder = ImageEncoder(model_id="dinov3_large", backend=Backend.TIMM)
+        >>> encoder = ImageEncoder(model_id="dinov3-large", backend=Backend.TIMM)
         >>> sample_image = torch.zeros((3, 518, 518))
         >>> features = encoder([sample_image])
         >>> features.shape
@@ -125,7 +115,7 @@ class ImageEncoder(nn.Module):
         >>>
         >>> # Load with OpenVINO backend
         >>> ov_encoder = ImageEncoder(
-        ...     model_id="dinov2_large",
+        ...     model_id="dinov3-large",
         ...     backend=Backend.OPENVINO,
         ...     model_path=ov_path
         ... )
@@ -133,7 +123,7 @@ class ImageEncoder(nn.Module):
 
     def __init__(
         self,
-        model_id: str = "dinov3_large",
+        model_id: str = "dinov3-large",
         backend: Backend = Backend.TIMM,
         device: str = "cuda",
         precision: str = "bf16",
@@ -144,9 +134,7 @@ class ImageEncoder(nn.Module):
         """Initialize the image encoder.
 
         Args:
-            model_id: The DINO model variant to use. Options:
-                - "dinov2_small", "dinov2_base", "dinov2_large", "dinov2_giant" (HuggingFace)
-                - "dinov3_small", "dinov3_small_plus", "dinov3_base", "dinov3_large", "dinov3_huge" (TIMM)
+            model_id: The model ID (e.g., "dinov3-large", "dinov3-small").
             backend: Which backend to use: Backend.HUGGINGFACE, Backend.TIMM, or Backend.OPENVINO.
             device: Device to run inference on. For HuggingFace/TIMM: "cuda" or "cpu".
                 For OpenVINO: "CPU", "GPU", or "AUTO".

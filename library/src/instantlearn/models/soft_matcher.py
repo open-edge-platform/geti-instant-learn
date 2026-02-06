@@ -70,7 +70,7 @@ class SoftMatcher(Matcher):
 
     def __init__(
         self,
-        sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
+        sam: str = Matcher.DEFAULT_SAM,
         num_foreground_points: int = 40,
         num_background_points: int = 2,
         confidence_threshold: float | None = 0.42,
@@ -88,7 +88,7 @@ class SoftMatcher(Matcher):
         """Initialize the SoftMatcher model.
 
         Args:
-            sam: The name of the SAM model to use.
+            sam: Model ID for the segmenter (e.g., "sam-hq-tiny", "sam-hq").
             num_foreground_points: The number of foreground points to use.
             num_background_points: The number of background points to use.
             confidence_threshold: Minimum confidence score for keeping predicted masks
@@ -98,7 +98,7 @@ class SoftMatcher(Matcher):
             approximate_matching: Whether to use approximate matching.
             softmatching_score_threshold: The score threshold for the soft matching.
             softmatching_bidirectional: Whether to use bidirectional soft matching.
-            encoder_model: The encoder model to use.
+            encoder_model: Model ID for the encoder (e.g., "dinov3-large").
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
             device: The device to use for the model.

@@ -15,18 +15,6 @@ from instantlearn.utils import precision_to_torch_dtype
 
 logger = getLogger("Geti Instant Learn")
 
-AVAILABLE_IMAGE_ENCODERS = {
-    "dinov2_small": ("facebook/dinov2-with-registers-small", "0d9846e56b43a21fa46d7f3f5070f0506a5795a9"),
-    "dinov2_base": ("facebook/dinov2-with-registers-base", "a1d738ccfa7ae170945f210395d99dde8adb1805"),
-    "dinov2_large": ("facebook/dinov2-with-registers-large", "e4c89a4e05589de9b3e188688a303d0f3c04d0f3"),
-    "dinov2_giant": ("facebook/dinov2-with-registers-giant", "8d0d49f77fb8b5dd78842496ff14afe7dd4d85cb"),
-    "dinov3_small": ("facebook/dinov3-vits16-pretrain-lvd1689m", "114c1379950215c8b35dfcd4e90a5c251dde0d32"),
-    "dinov3_small_plus": ("facebook/dinov3-vits16plus-pretrain-lvd1689m", "c93d816fc9e567563bc068f01475bec89cc634a6"),
-    "dinov3_base": ("facebook/dinov3-vitb16-pretrain-lvd1689m", "5931719e67bbdb9737e363e781fb0c67687896bc"),
-    "dinov3_large": ("facebook/dinov3-vitl16-pretrain-lvd1689m", "ea8dc2863c51be0a264bab82070e3e8836b02d51"),
-    "dinov3_huge": ("facebook/dinov3-vith16plus-pretrain-lvd1689m", "c807c9eeea853df70aec4069e6f56b28ddc82acc"),
-}
-
 
 class HuggingFaceImageEncoder(nn.Module):
     """HuggingFace backend for DINO image encoder.
@@ -41,7 +29,7 @@ class HuggingFaceImageEncoder(nn.Module):
         >>>
         >>> # Create a sample image
         >>> sample_image = torch.zeros((3, 518, 518))
-        >>> encoder = HuggingFaceImageEncoder(model_id="dinov2_large")
+        >>> encoder = HuggingFaceImageEncoder(model_id="dinov2-large")
         >>> features = encoder(images=[sample_image])
         >>> features.shape
         torch.Size([1369, 1024])
@@ -49,7 +37,7 @@ class HuggingFaceImageEncoder(nn.Module):
 
     def __init__(
         self,
-        model_id: str = "dinov3_large",
+        model_id: str = "dinov2-large",
         device: str = "cuda",
         precision: str = "bf16",
         compile_models: bool = False,
@@ -58,28 +46,38 @@ class HuggingFaceImageEncoder(nn.Module):
         """Initialize the encoder.
 
         Args:
-            model_id: The model id to use.
+            model_id: The model ID (e.g., "dinov2-large").
             device: The device to use.
             precision: The precision to use.
             compile_models: Whether to compile the models.
             input_size: The input size to use.
 
         Raises:
-            ValueError: If the model ID is invalid.
+            ValueError: If the model ID is invalid or not an encoder type.
         """
         from instantlearn.utils.optimization import optimize_model
 
         super().__init__()
 
-        if model_id not in AVAILABLE_IMAGE_ENCODERS:
-            msg = f"Invalid model ID: {model_id}. Valid model IDs: {list(AVAILABLE_IMAGE_ENCODERS.keys())}"
+        # Validate model exists in registry
+        model_meta = get_model(model_id)
+        if model_meta is None:
+            valid = [m.id for m in get_models_by_type(ModelType.ENCODER)]
+            msg = f"Invalid model ID: '{model_id}'. Valid encoders: {valid}"
+            raise ValueError(msg)
+        if model_meta.type != ModelType.ENCODER:
+            msg = f"Model '{model_id}' is not an encoder (type: {model_meta.type})"
+            raise ValueError(msg)
+        if model_meta.hf_model_id is None:
+            msg = f"Model '{model_id}' has no hf_model_id configured"
             raise ValueError(msg)
 
         self.model_id = model_id
         self.input_size = input_size
         self.device = device
 
-        hf_model_id, revision = AVAILABLE_IMAGE_ENCODERS[model_id]
+        hf_model_id = model_meta.hf_model_id
+        revision = model_meta.hf_revision
 
         msg = f"Loading DINO model {hf_model_id} with revision {revision}"
         logger.info(msg)

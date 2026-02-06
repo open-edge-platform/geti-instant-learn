@@ -9,8 +9,6 @@ from .timm import AVAILABLE_IMAGE_ENCODERS as TIMM_AVAILABLE_IMAGE_ENCODERS
 from .timm import TimmImageEncoder
 
 __all__ = [
-    "AVAILABLE_IMAGE_ENCODERS",
-    "TIMM_AVAILABLE_IMAGE_ENCODERS",
     "HuggingFaceImageEncoder",
     "ImageEncoder",
     "TimmImageEncoder",

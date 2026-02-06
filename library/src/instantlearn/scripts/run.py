@@ -65,7 +65,6 @@ def run_model(
 
     Raises:
         ValueError: If the dataset is not found or invalid, or if required parameters are missing.
-        FileNotFoundError: If the dataset is not found.
     """
     # Check if model is a Grounding model
     is_grounding_model = isinstance(model, GroundedSAM)
