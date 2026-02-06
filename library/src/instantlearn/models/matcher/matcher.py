@@ -337,6 +337,7 @@ class Matcher(Model):
                     "labels": {0: "num_masks"},
                 },
                 verbose=True,
+                dynamo=False,
             )
             return onnx_path
 
@@ -360,6 +361,7 @@ class Matcher(Model):
                         "scores": {0: "num_masks"},
                         "labels": {0: "num_masks"},
                     },
+                    dynamo=False,
                 )
                 # Convert ONNX to OpenVINO
                 ov_model = openvino.convert_model(onnx_path)

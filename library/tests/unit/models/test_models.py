@@ -31,8 +31,8 @@ class TestPerDino:
             "segmenter": MagicMock(),
         }
 
-    @patch("instantlearn.models.per_dino.load_sam_model")
-    @patch("instantlearn.models.per_dino.ImageEncoder")
+    @patch("instantlearn.models.per_dino.per_dino.load_sam_model")
+    @patch("instantlearn.models.per_dino.per_dino.ImageEncoder")
     def test_per_dino_initialization(
         self,
         mock_image_encoder: MagicMock,
@@ -52,8 +52,8 @@ class TestPerDino:
         assert hasattr(model, "prompt_generator")
         assert hasattr(model, "segmenter")
 
-    @patch("instantlearn.models.per_dino.load_sam_model")
-    @patch("instantlearn.models.per_dino.ImageEncoder")
+    @patch("instantlearn.models.per_dino.per_dino.load_sam_model")
+    @patch("instantlearn.models.per_dino.per_dino.ImageEncoder")
     def test_per_dino_forward_pass(
         self,
         mock_image_encoder: MagicMock,
@@ -93,8 +93,8 @@ class TestPerDino:
         assert "pred_labels" in predictions[0]
         model.predict.assert_called_once_with(target_images)
 
-    @patch("instantlearn.models.per_dino.load_sam_model")
-    @patch("instantlearn.models.per_dino.ImageEncoder")
+    @patch("instantlearn.models.per_dino.per_dino.load_sam_model")
+    @patch("instantlearn.models.per_dino.per_dino.ImageEncoder")
     def test_per_dino_multi_instance_filtering(
         self,
         mock_image_encoder: MagicMock,
@@ -143,8 +143,8 @@ class TestMatcher:
             "segmenter": MagicMock(),
         }
 
-    @patch("instantlearn.models.matcher.load_sam_model")
-    @patch("instantlearn.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.matcher.ImageEncoder")
     def test_matcher_initialization(
         self,
         mock_image_encoder: MagicMock,
@@ -163,8 +163,8 @@ class TestMatcher:
         assert hasattr(model, "prompt_generator")
         assert hasattr(model, "segmenter")
 
-    @patch("instantlearn.models.matcher.load_sam_model")
-    @patch("instantlearn.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.matcher.ImageEncoder")
     def test_matcher_forward_pass(
         self,
         mock_image_encoder: MagicMock,
@@ -204,8 +204,8 @@ class TestMatcher:
         assert "pred_labels" in predictions[0]
         model.predict.assert_called_once_with(target_images)
 
-    @patch("instantlearn.models.matcher.load_sam_model")
-    @patch("instantlearn.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.matcher.ImageEncoder")
     def test_matcher_multi_instance_filtering(
         self,
         mock_image_encoder: MagicMock,
@@ -254,8 +254,8 @@ class TestSoftMatcher:
             "segmenter": MagicMock(),
         }
 
-    @patch("instantlearn.models.matcher.load_sam_model")
-    @patch("instantlearn.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.matcher.ImageEncoder")
     def test_soft_matcher_initialization(
         self,
         mock_image_encoder: MagicMock,
@@ -274,8 +274,8 @@ class TestSoftMatcher:
         assert hasattr(model, "prompt_generator")
         assert hasattr(model, "segmenter")
 
-    @patch("instantlearn.models.matcher.load_sam_model")
-    @patch("instantlearn.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.matcher.ImageEncoder")
     def test_soft_matcher_forward_pass(
         self,
         mock_image_encoder: MagicMock,
@@ -315,8 +315,8 @@ class TestSoftMatcher:
         assert "pred_labels" in predictions[0]
         model.predict.assert_called_once_with(target_images)
 
-    @patch("instantlearn.models.matcher.load_sam_model")
-    @patch("instantlearn.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.matcher.ImageEncoder")
     def test_soft_matcher_multi_instance_filtering(
         self,
         mock_image_encoder: MagicMock,
@@ -363,7 +363,7 @@ class TestGroundedSAM:
             "multi_instance_prior_filter": MagicMock(),
         }
 
-    @patch("instantlearn.models.grounded_sam.load_sam_model")
+    @patch("instantlearn.models.grounded_sam.grounded_sam.load_sam_model")
     def test_grounded_sam_initialization(self, mock_load_sam: MagicMock, mock_components: dict[str, Any]) -> None:
         """Test GroundedSAM initialization with new components."""
         mock_load_sam.return_value = mock_components["sam_predictor"]
@@ -375,7 +375,7 @@ class TestGroundedSAM:
         assert hasattr(model, "segmenter")
         assert hasattr(model, "prompt_filter")
 
-    @patch("instantlearn.models.grounded_sam.load_sam_model")
+    @patch("instantlearn.models.grounded_sam.grounded_sam.load_sam_model")
     def test_grounded_sam_forward_pass(self, mock_load_sam: MagicMock, mock_components: dict[str, Any]) -> None:
         """Test GroundedSAM forward pass with new architecture."""
         mock_load_sam.return_value = mock_components["sam_predictor"]
@@ -409,7 +409,7 @@ class TestGroundedSAM:
         assert "pred_labels" in predictions[0]
         model.predict.assert_called_once_with(target_images)
 
-    @patch("instantlearn.models.grounded_sam.load_sam_model")
+    @patch("instantlearn.models.grounded_sam.grounded_sam.load_sam_model")
     def test_grounded_sam_multi_instance_filtering(
         self,
         mock_load_sam: MagicMock,

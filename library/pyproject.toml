@@ -44,6 +44,7 @@ dependencies = [
     "openvino==2025.3.0",
     "onnx>=1.19.1",
     "onnxruntime>=1.23.2",
+    "onnxscript>=0.6.0",
 ]
 
 [dependency-groups]

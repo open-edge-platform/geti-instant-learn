@@ -122,7 +122,7 @@ class TestDinoTxtZeroShotClassification:
         """Test that predict raises AttributeError when fit hasn't been called."""
         sample_images, _ = sample_dataset
         # Convert numpy arrays to Image objects and create Batch
-        image_objects = [Image(img) for img in sample_images]
+        image_objects = [Image(img.transpose(2,0,1)) for img in sample_images]
         samples = [Sample(image=img, is_reference=[False], categories=["object"]) for img in image_objects]
         target_batch = Batch.collate(samples)
         with pytest.raises(AttributeError):
@@ -141,7 +141,7 @@ class TestDinoTxtZeroShotClassification:
         model_instance.fit(sample_reference_batch)
 
         # Convert numpy arrays to Image objects and create Batch
-        image_objects = [Image(img) for img in sample_images]
+        image_objects = [Image(img.transpose(2,0,1)) for img in sample_images]
         samples = [Sample(image=img, is_reference=[False], categories=["object"]) for img in image_objects]
         target_batch = Batch.collate(samples)
 
