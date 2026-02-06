@@ -6,6 +6,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import Query, Response, status
+from instantlearn_license.service import LicenseNotAcceptedError, LicenseService
 
 from api.routers import projects_router
 from dependencies import ProjectServiceDep
@@ -15,7 +16,6 @@ from domain.services.schemas.project import (
     ProjectsListSchema,
     ProjectUpdateSchema,
 )
-from instantlearn_license.service import LicenseNotAcceptedError, LicenseService
 
 logger = logging.getLogger(__name__)
 

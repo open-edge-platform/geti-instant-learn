@@ -7,6 +7,7 @@ import re
 from fastapi import Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from instantlearn_license.service import LicenseNotAcceptedError
 from sqlalchemy.exc import IntegrityError
 
 from domain.errors import (
@@ -15,7 +16,6 @@ from domain.errors import (
     ResourceNotFoundError,
     ResourceUpdateConflictError,
 )
-from instantlearn_license.service import LicenseNotAcceptedError
 from runtime.errors import (
     PipelineNotActiveError,
     PipelineProjectMismatchError,

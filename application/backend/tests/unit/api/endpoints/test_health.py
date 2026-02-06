@@ -57,4 +57,3 @@ class TestHealthEndpoint:
         data = resp.json()
         assert data["status"] == "ok"
         assert data["license_accepted"] is False
-

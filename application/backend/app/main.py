@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from instantlearn_license.service import LicenseService
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
@@ -22,7 +23,6 @@ from api.routers import license_router, projects_router, source_types_router, we
 from domain.db.engine import get_session_factory, run_db_migrations
 from domain.dispatcher import ConfigChangeDispatcher
 from domain.services.schemas.health import HealthCheckSchema
-from instantlearn_license.service import LicenseService
 from runtime.pipeline_manager import PipelineManager
 from runtime.webrtc.manager import WebRTCManager
 from runtime.webrtc.sdp_handler import SDPHandler

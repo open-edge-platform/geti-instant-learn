@@ -4,10 +4,10 @@
 import logging
 
 from fastapi import status
+from instantlearn_license.service import LicenseService
 
 from api.routers import license_router
 from domain.services.schemas.license import LicenseAcceptedSchema
-from instantlearn_license.service import LicenseService
 
 logger = logging.getLogger(__name__)
 
