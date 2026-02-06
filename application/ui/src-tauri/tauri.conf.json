@@ -12,7 +12,7 @@
     "app": {
         "windows": [
             {
-                "title": "Geti Prompt",
+                "title": "Geti Instant Learn",
                 "width": 800,
                 "height": 600,
                 "resizable": true,
@@ -21,12 +21,13 @@
         ],
         "security": {
             "csp": null
-        }
+        },
+        "withGlobalTauri": true
     },
     "bundle": {
         "active": true,
         "targets": ["app"],
-        "externalBin": ["geti-prompt-backend"],
+        "externalBin": ["instant-learn-backend"],
         "resources": ["_internal", "InitialData"],
         "icon": ["icons/icon.ico"]
     }

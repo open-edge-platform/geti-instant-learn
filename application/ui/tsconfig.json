@@ -5,11 +5,11 @@
         "types": ["vitest/globals", "@testing-library/jest-dom"],
         "baseUrl": ".",
         "paths": {
-            "@geti-prompt/test-utils": ["./src/test-utils"],
-            "@geti-prompt/icons": ["./src/assets/icons"],
-            "@geti-prompt/api": ["./src/api"],
-            "@geti-prompt/hooks": ["src/shared/hooks"],
-            "@geti-prompt/query-client": ["./src/query-client/query-client"]
+            "@/test-utils": ["./src/test-utils"],
+            "@/icons": ["./src/assets/icons"],
+            "@/api": ["./src/api"],
+            "@/hooks": ["src/shared/hooks"],
+            "@/query-client": ["./src/query-client/query-client"]
         }
     }
 }

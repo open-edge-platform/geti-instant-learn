@@ -5,8 +5,9 @@
 
 import { ReactNode } from 'react';
 
-import type { AnnotationType, LabelType } from '@geti-prompt/api';
+import type { AnnotationType, LabelType } from '@/api';
 
+import { FullScreenModeProvider } from '../actions/full-screen-mode.component';
 import { CanvasSettingsProvider } from '../actions/settings/canvas-settings-provider.component';
 import { AnnotationActionsProvider } from '../providers/annotation-actions-provider.component';
 import { AnnotationVisibilityProvider } from '../providers/annotation-visibility-provider.component';
@@ -26,7 +27,9 @@ export const AnnotationProviders = ({ children, frameId, initialAnnotationsDTO, 
             <SelectAnnotationProvider>
                 <AnnotationActionsProvider initialAnnotationsDTO={initialAnnotationsDTO} labels={labels}>
                     <AnnotationVisibilityProvider>
-                        <CanvasSettingsProvider>{children}</CanvasSettingsProvider>
+                        <FullScreenModeProvider>
+                            <CanvasSettingsProvider>{children}</CanvasSettingsProvider>
+                        </FullScreenModeProvider>
                     </AnnotationVisibilityProvider>
                 </AnnotationActionsProvider>
             </SelectAnnotationProvider>

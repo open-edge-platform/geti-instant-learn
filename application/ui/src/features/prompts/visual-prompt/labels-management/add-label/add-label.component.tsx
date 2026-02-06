@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { LabelType } from '@geti-prompt/api';
+import { LabelType } from '@/api';
 import { Button, DialogTrigger } from '@geti/ui';
 
 import { AddLabelDialog } from './add-label-dialog.component';

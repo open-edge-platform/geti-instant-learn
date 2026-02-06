@@ -4,9 +4,7 @@
 import logging
 from uuid import UUID
 
-import cv2
 import numpy as np
-from getiprompt.data.base.batch import Batch
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -37,7 +35,6 @@ from domain.services.schemas.mappers.prompt import (
     prompt_db_to_schema,
     prompt_update_schema_to_db,
     prompts_db_to_schemas,
-    visual_prompt_to_sample,
 )
 from domain.services.schemas.prompt import (
     PromptCreateSchema,
@@ -56,7 +53,6 @@ logger = logging.getLogger(__name__)
 class PromptService(BaseService):
     """
     Service layer orchestrating Prompt use cases.
-
     Responsibilities:
       - Enforce business rules.
       - Enforce invariants (single text prompt per project, visual prompts must have existing frame_id).
@@ -118,89 +114,6 @@ class PromptService(BaseService):
         )
 
         return PromptsListSchema(prompts=prompts, pagination=pagination)
-
-    def get_reference_batch(self, project_id: UUID, prompt_type: PromptType) -> Batch | None:
-        """
-        Get all prompts of a specific type for a project, formatted for model training.
-
-        Combines multiple prompts into a batch where each prompt becomes a separate sample.
-        Maintains consistent category IDs and N-shot numbering across all samples.
-
-        Args:
-            project_id: Owning project UUID.
-            prompt_type: The type of prompts to retrieve (currently only VISUAL is supported).
-
-        Returns:
-            A Batch containing Sample objects ready for training, or None if no valid samples found.
-        """
-        if prompt_type == PromptType.TEXT:
-            logger.warning("Text prompts are not supported for training data generation for project_id=%s", project_id)
-            return None
-
-        db_prompts = self.prompt_repository.list_all_by_project(project_id=project_id, prompt_type=prompt_type)
-
-        if not db_prompts:
-            logger.info("No prompts found for project_id=%s, prompt_type=%s", project_id, prompt_type)
-            return None
-
-        all_label_ids: set[UUID] = set()
-        for prompt in db_prompts:
-            all_label_ids.update(ann.label_id for ann in prompt.annotations)
-
-        # Create consistent label-to-category-ID mapping for the entire batch
-        label_to_category_id = {label_id: idx for idx, label_id in enumerate(sorted(all_label_ids, key=str))}
-
-        # Track shot counts across all prompts (modified in-place)
-        label_shot_counts: dict[UUID, int] = {}
-
-        samples = []
-        for prompt in db_prompts:
-            if not prompt.frame_id:
-                logger.warning("Visual prompt missing frame_id: prompt_id=%s", prompt.id)
-                continue
-
-            try:
-                frame = self.frame_repository.read_frame(project_id, prompt.frame_id)
-                if frame is None:
-                    logger.warning(
-                        "Frame not found: prompt_id=%s, frame_id=%s, project_id=%s",
-                        prompt.id,
-                        prompt.frame_id,
-                        project_id,
-                    )
-                    continue
-
-                # Convert BGR to RGB
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-                # Convert with batch-level state
-                sample = visual_prompt_to_sample(prompt, frame_rgb, label_to_category_id, label_shot_counts)
-                samples.append(sample)
-
-            except ServiceError as e:
-                logger.warning("Failed to convert prompt to sample: prompt_id=%s, error=%s", prompt.id, str(e))
-                continue
-
-        if not samples:
-            logger.info("No valid samples generated: project_id=%s", project_id)
-            return None
-
-        batch = Batch.collate(samples)
-        logger.info(f"Reference batch: {batch}")
-
-        unique_categories = len(label_to_category_id)
-        shots_per_category = {
-            category_id: label_shot_counts.get(label_id, 0) for label_id, category_id in label_to_category_id.items()
-        }
-
-        logger.info(
-            "Created reference batch: project_id=%s, samples=%d, categories=%d, shots_per_category=%s",
-            project_id,
-            len(batch),
-            unique_categories,
-            shots_per_category,
-        )
-        return batch
 
     def get_prompt(self, project_id: UUID, prompt_id: UUID) -> PromptSchema:
         """

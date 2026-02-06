@@ -5,10 +5,10 @@ requires = ["setuptools>=64.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "getiprompt"
+name = "instantlearn"
 version = "0.1.0"
-authors = [{ name = "Geti Prompt Contributors" }]
-description = "Geti Prompt - A modular framework for visual prompting"
+authors = [{ name = "Geti Instant Learn Contributors" }]
+description = "Geti Instant Learn - A modular framework for visual prompting"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.12, <3.13"
@@ -21,9 +21,9 @@ classifiers = [
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # REQUIREMENTS                                                                #
 dependencies = [
-    "matplotlib==3.10.3",
+    "matplotlib==3.10.8",
     "numpy~=2.2.6",
-    "opencv-python==4.11.0.86",
+    "opencv-python~=4.13.0",
     "rich==14.0.0",
     "requests==2.32.4",
     "pycocotools==2.0.9",
@@ -50,7 +50,7 @@ dependencies = [
 dev = [
     "pytest~=8.3",
     "pytest-assume>=2.4.3",
-    "ruff~=0.11",
+    "ruff==0.11.12",
     "pre-commit~=4.1",
     "mypy~=1.15",
     "pytest-cov==2.11.1",
@@ -60,17 +60,22 @@ dev = [
 [project.optional-dependencies]
 # PyTorch dependency groups
 cpu = [
-    "torch==2.8.0",
-    "torchvision==0.23.0",
+    # Note: platform-specific wheels are only available for Linux and Windows.
+    # For macOS, there is only one version of torch (default) available via PyPI.
+    "torch==2.10.0+cpu ; sys_platform == 'linux' or sys_platform == 'win32'",
+    "torchvision==0.25.0+cpu ; sys_platform == 'linux' or sys_platform == 'win32'",
+    "torch==2.10.0 ; sys_platform != 'linux' and sys_platform != 'win32'",
+    "torchvision==0.25.0 ; sys_platform != 'linux' and sys_platform != 'win32'"
 ]
-gpu = [
-    "torch==2.8.0",
-    "torchvision==0.23.0",
+cuda = [
+    "torch==2.10.0+cu128",
+    "torchvision==0.25.0+cu128"
 ]
+
 xpu = [
-    "torch==2.10.0.dev20251202+xpu",
-    "torchvision==0.25.0.dev20251203+xpu",
-    "pytorch-triton-xpu==3.5.0+gitaa01f5c2",
+    "torch==2.10.0+xpu",
+    "triton-xpu==3.6.0",
+    "torchvision==0.25.0+xpu"
 ]
 notebook = [
     "jupyter==1.1.1",
@@ -84,16 +89,23 @@ dev = [
     "build>=1.2.2.post1",
     "twine>=6.1.0",
 ]
+docs = [
+    "myst-parser>=2.0.0",
+    "sphinx>=7.0.0",
+    "sphinx_autodoc_typehints>=2.0.0",
+    "sphinx_book_theme>=1.1.0",
+    "sphinx-markdown-builder==0.6.9",
+]
 
 full = [
-    "getiprompt[dev, extras, notebook]",
+    "instantlearn[dev, notebook]",
 ]
 
 [project.scripts]
-getiprompt = "getiprompt.cli:main"
+instantlearn = "instantlearn.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/getiprompt"]
+packages = ["src/instantlearn"]
 
 [tool.uv]
 package = true
@@ -101,40 +113,42 @@ managed = true
 conflicts = [
     [
         { extra = "cpu" },
-        { extra = "gpu" },
         { extra = "xpu" },
+        { extra = "cuda" },
     ],
 ]
 
 [[tool.uv.index]]
-name = "pytorch-cpu"
+name = "torch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
 [[tool.uv.index]]
-name = "pytorch-cu126"
-url = "https://download.pytorch.org/whl/cu126"
+name = "torch-cuda"
+url = "https://download.pytorch.org/whl/cu128"
 explicit = true
 
 [[tool.uv.index]]
-name = "pytorch-xpu"
-url = "https://download.pytorch.org/whl/nightly/xpu"
+name = "torch-xpu"
+url = "https://download.pytorch.org/whl/xpu"
 explicit = true
 
 [tool.uv.sources]
 sam-2 = { git = "https://github.com/facebookresearch/sam2.git", rev = "2b90b9f"}
 torch = [
-    { index = "pytorch-cpu", extra = "cpu" },
-    { index = "pytorch-cu126", extra = "gpu" },
-    { index = "pytorch-xpu", extra = "xpu" },
+    # Note: Pytorch indexes only provide pre-built wheels for Linux and Windows.
+    # For other platforms (e.g., macOS), Pytorch has to be installed from the default PyPI index.
+    { index = "torch-cpu", extra = "cpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'"},
+    { index = "torch-xpu", extra = "xpu"},
+    { index = "torch-cuda", extra = "cuda"},
+]
+triton-xpu = [
+    { index = "torch-xpu", extra = "xpu"},
 ]
 torchvision = [
-    { index = "pytorch-cpu", extra = "cpu" },
-    { index = "pytorch-cu126", extra = "gpu" },
-    { index = "pytorch-xpu", extra = "xpu" },
-]
-pytorch-triton-xpu = [
-    { index = "pytorch-xpu", extra = "xpu" },
+    { index = "torch-cpu", extra = "cpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'"},
+    { index = "torch-xpu", extra = "xpu"},
+    { index = "torch-cuda", extra = "cuda"},
 ]
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -155,7 +169,6 @@ lint.ignore = [
     "FBT001",  # Boolean-typed positional argument in function definition
     "FBT002",  # Boolean default positional argument in function definition
     "PLR0912", # Too many branches
-    "S101",  # Use of assert detected.
     "PT018",  # Assertion should be broken down into multiple parts
 ]
 
@@ -188,7 +201,7 @@ exclude = [
     "dist",
     "node_modules",
     "venv",
-    "src/getiprompt/models/grounding_dino.py",
+    "src/instantlearn/models/grounding_dino.py",
 ]
 
 # Same as Black.
@@ -207,7 +220,10 @@ convention = "google"
 notice-rgx = '# Copyright \(C\) (\d{4}(-\d{4})?) Intel Corporation\r?\n# SPDX-License-Identifier: Apache-2\.0'
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["PLR6301"]  # Ignore no-self-use for test methods
+"tests/**/*.py" = [
+    "PLR6301",  # Ignore no-self-use for test methods
+    "S101",     # Use of assert detected
+]
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #

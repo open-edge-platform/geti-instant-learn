@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for GetiPromptDataset base class."""
+"""Unit tests for InstantLearnDataset base class."""
 
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -11,11 +11,11 @@ import polars as pl
 import pytest
 import torch
 
-from getiprompt.data.base import Batch, Dataset, Sample
+from instantlearn.data.base import Batch, Dataset, Sample
 
 
 class MockDataset(Dataset):
-    """Mock dataset for testing GetiPromptDataset base class."""
+    """Mock dataset for testing InstantLearnDataset base class."""
 
     def _load_dataframe(self) -> pl.DataFrame:
         """Load mock DataFrame."""
@@ -44,8 +44,8 @@ class MockDataset(Dataset):
         return self._load_dataframe()
 
 
-class TestGetiPromptDatasetBasic:
-    """Test GetiPromptDataset basic functionality."""
+class TestInstantLearnDatasetBasic:
+    """Test InstantLearnDataset basic functionality."""
 
     def test_dataset_initialization(self) -> None:
         """Test dataset initialization."""
@@ -99,10 +99,10 @@ class TestGetiPromptDatasetBasic:
         assert len(dataset) == 3
 
 
-class TestGetiPromptDatasetCore:
-    """Test GetiPromptDataset core functionality."""
+class TestInstantLearnDatasetCore:
+    """Test InstantLearnDataset core functionality."""
 
-    @patch("getiprompt.data.base.base.read_image")
+    @patch("instantlearn.data.base.base.read_image")
     def test_dataset_getitem(self, mock_read_image: MagicMock) -> None:
         """Test dataset __getitem__ method."""
         # Mock image reading
@@ -124,7 +124,7 @@ class TestGetiPromptDatasetCore:
         assert sample.masks is not None
         assert sample.masks.shape[0] == 1  # One mask
 
-    @patch("getiprompt.data.base.base.read_image")
+    @patch("instantlearn.data.base.base.read_image")
     def test_dataset_getitem_with_bboxes(self, mock_read_image: MagicMock) -> None:
         """Test dataset __getitem__ with bboxes."""
         # Mock image reading
@@ -153,8 +153,8 @@ class TestGetiPromptDatasetCore:
         assert sample.bboxes[0, 3] == 120
 
 
-class TestGetiPromptDatasetProperties:
-    """Test GetiPromptDataset properties and metadata."""
+class TestInstantLearnDatasetProperties:
+    """Test InstantLearnDataset properties and metadata."""
 
     def test_dataset_categories_property(self) -> None:
         """Test dataset categories property."""
@@ -215,8 +215,8 @@ class TestGetiPromptDatasetProperties:
             dataset.get_category_id("unknown")
 
 
-class TestGetiPromptDatasetFiltering:
-    """Test GetiPromptDataset filtering functionality."""
+class TestInstantLearnDatasetFiltering:
+    """Test InstantLearnDataset filtering functionality."""
 
     def test_dataset_get_reference_samples_df(self) -> None:
         """Test get_reference_samples_df method."""
@@ -280,8 +280,8 @@ class TestGetiPromptDatasetFiltering:
         assert len(dog_target_dataset) == 1
 
 
-class TestGetiPromptDatasetOperations:
-    """Test GetiPromptDataset operations."""
+class TestInstantLearnDatasetOperations:
+    """Test InstantLearnDataset operations."""
 
     def test_dataset_subsample(self) -> None:
         """Test subsample method."""
@@ -350,10 +350,10 @@ class TestGetiPromptDatasetOperations:
         assert dataset.collate_fn == Batch.collate
 
 
-class TestGetiPromptDatasetAdvanced:
-    """Test GetiPromptDataset advanced functionality."""
+class TestInstantLearnDatasetAdvanced:
+    """Test InstantLearnDataset advanced functionality."""
 
-    @patch("getiprompt.data.base.base.read_image")
+    @patch("instantlearn.data.base.base.read_image")
     def test_dataset_multi_instance_support(self, mock_read_image: MagicMock) -> None:
         """Test dataset with multi-instance data."""
         # Mock image reading
@@ -410,7 +410,7 @@ class TestGetiPromptDatasetAdvanced:
         assert dataset.category_ids == []
         assert dataset.num_categories == 0
 
-    @patch("getiprompt.data.base.base.read_image")
+    @patch("instantlearn.data.base.base.read_image")
     def test_dataset_missing_optional_columns(self, mock_read_image: MagicMock) -> None:
         """Test dataset with missing optional columns."""
         # Mock image reading

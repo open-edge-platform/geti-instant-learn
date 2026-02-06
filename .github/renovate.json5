@@ -44,12 +44,13 @@
       matchDatasources: ["pypi"],
     },
 
-    // Python version in TOML is updated manually
+    // Disable python upgrades, except patch and digest pinning
     {
       enabled: false,
       matchDatasources: ["python-version"],
       matchDepTypes: ["requires-python"],
       matchDepNames: ["python"],
+      matchUpdateTypes: ["major", "minor"],
     },
 
     // Group GitHub Actions updates

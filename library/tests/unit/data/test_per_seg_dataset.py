@@ -10,7 +10,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from getiprompt.data.base import Batch, Dataset, Sample
+from instantlearn.data.base import Batch, Dataset, Sample
 
 
 class TestPerSegDataset:
@@ -55,7 +55,7 @@ class TestPerSegDataset:
         dataset.df = mock_perseg_dataframe
         return dataset
 
-    @patch("getiprompt.data.base.base.read_image")
+    @patch("instantlearn.data.base.base.read_image")
     def test_perseg_sample_creation(
         self,
         mock_read_image: MagicMock,
@@ -78,7 +78,7 @@ class TestPerSegDataset:
         assert sample.masks is not None
         assert sample.masks.shape[0] == 1  # One mask for first image
 
-    @patch("getiprompt.data.base.base.read_image")
+    @patch("instantlearn.data.base.base.read_image")
     def test_perseg_batch_creation(
         self,
         mock_read_image: MagicMock,
@@ -128,7 +128,7 @@ class TestPerSegDataset:
         dog_df = mock_perseg_dataset.get_reference_samples_df(category="dog")
         assert len(dog_df) == 1  # Only one image has "dog" reference
 
-    @patch("getiprompt.data.base.base.read_image")
+    @patch("instantlearn.data.base.base.read_image")
     def test_perseg_sample_metadata(
         self,
         mock_read_image: MagicMock,
@@ -146,7 +146,7 @@ class TestPerSegDataset:
         assert sample.is_reference == [True]
         assert sample.n_shot == [0]
 
-    @patch("getiprompt.data.base.base.read_image")
+    @patch("instantlearn.data.base.base.read_image")
     def test_perseg_batch_properties(
         self,
         mock_read_image: MagicMock,
@@ -166,7 +166,7 @@ class TestPerSegDataset:
         assert batch.is_reference == [[True], [False], [True]]
         assert batch.n_shot == [[0], [-1], [0]]
 
-    @patch("getiprompt.data.base.base.read_image")
+    @patch("instantlearn.data.base.base.read_image")
     def test_perseg_data_consistency(
         self,
         mock_read_image: MagicMock,
@@ -191,7 +191,7 @@ class TestPerSegDataset:
             assert isinstance(sample.is_reference, list)
             assert isinstance(sample.n_shot, list)
 
-    @patch("getiprompt.data.base.base.read_image")
+    @patch("instantlearn.data.base.base.read_image")
     def test_perseg_batch_tensor_conversion(
         self,
         mock_read_image: MagicMock,
@@ -213,7 +213,7 @@ class TestPerSegDataset:
         assert len(batch.category_ids[1]) == 1  # Second image has 1 instance
         assert len(batch.category_ids[2]) == 1  # Third image has 1 instance
 
-    @patch("getiprompt.data.base.base.read_image")
+    @patch("instantlearn.data.base.base.read_image")
     def test_perseg_sample_loading(
         self,
         mock_read_image: MagicMock,

@@ -181,7 +181,9 @@ class TestImageFolderReaderRead:
         assert isinstance(data.timestamp, int)
         assert "path" in data.context
         assert "index" in data.context
+        assert "requires_manual_control" in data.context
         assert data.context["index"] == 0
+        assert data.context["requires_manual_control"] is True
 
     def test_read_does_not_increment_index(self, reader):
         reader.connect()

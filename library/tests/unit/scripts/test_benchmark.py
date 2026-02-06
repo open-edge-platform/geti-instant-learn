@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 
-from getiprompt.scripts.benchmark import load_dataset_by_name, perform_benchmark_experiment, predict_on_dataset
-from getiprompt.utils.args import get_arguments
+from instantlearn.scripts.benchmark import load_dataset_by_name, perform_benchmark_experiment, predict_on_dataset
+from instantlearn.utils.args import get_arguments
 
 
 class TestBenchmarkCLI:
@@ -36,27 +36,27 @@ class TestBenchmarkCLI:
 class TestBenchmarkDatasetHandling:
     """Test dataset handling in benchmark script."""
 
-    @patch("getiprompt.scripts.benchmark.Path")
+    @patch("instantlearn.scripts.benchmark.Path")
     def test_load_dataset_by_name_lvis(self, mock_path: Path) -> None:
         """Test dataset loading with LVIS dataset."""
         mock_path.return_value = Path("/home/user/datasets")
 
         # Mock dataset classes
-        with patch("getiprompt.scripts.benchmark.LVISDataset") as mock_lvis:
+        with patch("instantlearn.scripts.benchmark.LVISDataset") as mock_lvis:
             mock_lvis.return_value = MagicMock()
 
             load_dataset_by_name("lvis", categories="default")
 
             mock_lvis.assert_called_once()
 
-    @patch("getiprompt.scripts.benchmark.Path")
+    @patch("instantlearn.scripts.benchmark.Path")
     def test_load_dataset_by_name_perseg(self, mock_path: Path) -> None:
         """Test dataset loading with PerSeg dataset."""
         custom_path = "/custom/datasets"
         mock_path.return_value = Path(custom_path)
 
         # Mock dataset classes
-        with patch("getiprompt.scripts.benchmark.PerSegDataset") as mock_perseg:
+        with patch("instantlearn.scripts.benchmark.PerSegDataset") as mock_perseg:
             mock_perseg.return_value = MagicMock()
 
             load_dataset_by_name("perseg", categories="default", dataset_root=custom_path)
@@ -65,7 +65,7 @@ class TestBenchmarkDatasetHandling:
 
     def test_load_dataset_by_name_all_categories(self) -> None:
         """Test dataset loading with all categories."""
-        with patch("getiprompt.scripts.benchmark.LVISDataset") as mock_lvis:
+        with patch("instantlearn.scripts.benchmark.LVISDataset") as mock_lvis:
             mock_lvis.return_value = MagicMock()
 
             load_dataset_by_name("lvis", categories="all")
@@ -74,7 +74,7 @@ class TestBenchmarkDatasetHandling:
 
     def test_load_dataset_by_name_category_filtering(self) -> None:
         """Test dataset loading with category filtering."""
-        with patch("getiprompt.scripts.benchmark.LVISDataset") as mock_lvis:
+        with patch("instantlearn.scripts.benchmark.LVISDataset") as mock_lvis:
             mock_lvis.return_value = MagicMock()
 
             # Test with specific category
@@ -90,7 +90,7 @@ class TestBenchmarkDatasetHandling:
 
     def test_load_dataset_by_name_error_handling(self) -> None:
         """Test error handling in dataset loading."""
-        with patch("getiprompt.scripts.benchmark.LVISDataset") as mock_lvis:
+        with patch("instantlearn.scripts.benchmark.LVISDataset") as mock_lvis:
             mock_lvis.side_effect = FileNotFoundError("Dataset not found")
 
             with pytest.raises(FileNotFoundError):
@@ -103,11 +103,11 @@ class TestBenchmarkModelHandling:
     def test_predict_on_dataset_single_model(self) -> None:
         """Test running prediction on dataset with single model."""
         with (
-            patch("getiprompt.scripts.benchmark.load_model") as mock_load_model,
-            patch("getiprompt.scripts.benchmark.MeanIoU") as mock_metrics,
-            patch("getiprompt.scripts.benchmark.learn_from_category") as mock_learn,
-            patch("getiprompt.scripts.benchmark.predict_on_category") as mock_infer,
-            patch("getiprompt.scripts.benchmark.prepare_output_directory") as mock_handle_path,
+            patch("instantlearn.scripts.benchmark.load_model") as mock_load_model,
+            patch("instantlearn.scripts.benchmark.MeanIoU") as mock_metrics,
+            patch("instantlearn.scripts.benchmark.learn_from_category") as mock_learn,
+            patch("instantlearn.scripts.benchmark.predict_on_category") as mock_infer,
+            patch("instantlearn.scripts.benchmark.prepare_output_directory") as mock_handle_path,
         ):
             mock_model = MagicMock()
             mock_load_model.return_value = mock_model
@@ -154,7 +154,7 @@ class TestBenchmarkModelHandling:
 
     def test_predict_on_dataset_error_handling(self) -> None:
         """Test error handling in dataset prediction."""
-        with patch("getiprompt.scripts.benchmark.load_model") as mock_load_model:
+        with patch("instantlearn.scripts.benchmark.load_model") as mock_load_model:
             mock_load_model.side_effect = RuntimeError("Model loading failed")
 
             mock_dataset = MagicMock()
@@ -180,15 +180,15 @@ class TestBenchmarkOutputHandling:
     def test_output_directory_creation(self) -> None:
         """Test output directory creation."""
         with (
-            patch("getiprompt.scripts.benchmark.Path.mkdir") as mock_mkdir,
-            patch("getiprompt.scripts.benchmark.Path.exists") as mock_exists,
-            patch("getiprompt.scripts.benchmark.get_arguments") as mock_get_args,
-            patch("getiprompt.scripts.benchmark.parse_experiment_args") as mock_parse_args,
-            patch("getiprompt.scripts.benchmark.load_dataset_by_name") as mock_load_dataset,
-            patch("getiprompt.scripts.benchmark.load_model") as mock_load_model,
-            patch("getiprompt.scripts.benchmark.predict_on_dataset") as mock_predict,
-            patch("getiprompt.scripts.benchmark._save_results") as mock_save,
-            patch("getiprompt.scripts.benchmark.setup_logger") as mock_setup_logger,
+            patch("instantlearn.scripts.benchmark.Path.mkdir") as mock_mkdir,
+            patch("instantlearn.scripts.benchmark.Path.exists") as mock_exists,
+            patch("instantlearn.scripts.benchmark.get_arguments") as mock_get_args,
+            patch("instantlearn.scripts.benchmark.parse_experiment_args") as mock_parse_args,
+            patch("instantlearn.scripts.benchmark.load_dataset_by_name") as mock_load_dataset,
+            patch("instantlearn.scripts.benchmark.load_model") as mock_load_model,
+            patch("instantlearn.scripts.benchmark.predict_on_dataset") as mock_predict,
+            patch("instantlearn.scripts.benchmark._save_results") as mock_save,
+            patch("instantlearn.scripts.benchmark.setup_logger") as mock_setup_logger,
         ):
             mock_exists.return_value = False
             mock_args = MagicMock()
@@ -213,13 +213,13 @@ class TestBenchmarkOutputHandling:
     def test_results_saving(self) -> None:
         """Test saving benchmark results."""
         with (
-            patch("getiprompt.scripts.benchmark.get_arguments") as mock_get_args,
-            patch("getiprompt.scripts.benchmark.parse_experiment_args") as mock_parse_args,
-            patch("getiprompt.scripts.benchmark.load_dataset_by_name") as mock_load_dataset,
-            patch("getiprompt.scripts.benchmark.load_model") as mock_load_model,
-            patch("getiprompt.scripts.benchmark.predict_on_dataset") as mock_predict,
-            patch("getiprompt.scripts.benchmark._save_results") as mock_save,
-            patch("getiprompt.scripts.benchmark.setup_logger") as mock_setup_logger,
+            patch("instantlearn.scripts.benchmark.get_arguments") as mock_get_args,
+            patch("instantlearn.scripts.benchmark.parse_experiment_args") as mock_parse_args,
+            patch("instantlearn.scripts.benchmark.load_dataset_by_name") as mock_load_dataset,
+            patch("instantlearn.scripts.benchmark.load_model") as mock_load_model,
+            patch("instantlearn.scripts.benchmark.predict_on_dataset") as mock_predict,
+            patch("instantlearn.scripts.benchmark._save_results") as mock_save,
+            patch("instantlearn.scripts.benchmark.setup_logger") as mock_setup_logger,
         ):
             mock_args = MagicMock()
             mock_args.log_level = "INFO"
@@ -242,13 +242,13 @@ class TestBenchmarkOutputHandling:
     def test_results_formatting(self) -> None:
         """Test results formatting."""
         with (
-            patch("getiprompt.scripts.benchmark.get_arguments") as mock_get_args,
-            patch("getiprompt.scripts.benchmark.parse_experiment_args") as mock_parse_args,
-            patch("getiprompt.scripts.benchmark.load_dataset_by_name") as mock_load_dataset,
-            patch("getiprompt.scripts.benchmark.load_model") as mock_load_model,
-            patch("getiprompt.scripts.benchmark.predict_on_dataset") as mock_predict,
-            patch("getiprompt.scripts.benchmark._save_results") as mock_save,
-            patch("getiprompt.scripts.benchmark.setup_logger") as mock_setup_logger,
+            patch("instantlearn.scripts.benchmark.get_arguments") as mock_get_args,
+            patch("instantlearn.scripts.benchmark.parse_experiment_args") as mock_parse_args,
+            patch("instantlearn.scripts.benchmark.load_dataset_by_name") as mock_load_dataset,
+            patch("instantlearn.scripts.benchmark.load_model") as mock_load_model,
+            patch("instantlearn.scripts.benchmark.predict_on_dataset") as mock_predict,
+            patch("instantlearn.scripts.benchmark._save_results") as mock_save,
+            patch("instantlearn.scripts.benchmark.setup_logger") as mock_setup_logger,
         ):
             mock_args = MagicMock()
             mock_args.log_level = "INFO"
@@ -276,13 +276,13 @@ class TestBenchmarkIntegration:
     def test_perform_benchmark_experiment_integration(self) -> None:
         """Test benchmark experiment integration."""
         with (
-            patch("getiprompt.scripts.benchmark.get_arguments") as mock_get_args,
-            patch("getiprompt.scripts.benchmark.parse_experiment_args") as mock_parse_args,
-            patch("getiprompt.scripts.benchmark.load_dataset_by_name") as mock_load_dataset,
-            patch("getiprompt.scripts.benchmark.load_model") as mock_load_model,
-            patch("getiprompt.scripts.benchmark.predict_on_dataset") as mock_predict,
-            patch("getiprompt.scripts.benchmark._save_results") as mock_save,
-            patch("getiprompt.scripts.benchmark.setup_logger") as mock_setup_logger,
+            patch("instantlearn.scripts.benchmark.get_arguments") as mock_get_args,
+            patch("instantlearn.scripts.benchmark.parse_experiment_args") as mock_parse_args,
+            patch("instantlearn.scripts.benchmark.load_dataset_by_name") as mock_load_dataset,
+            patch("instantlearn.scripts.benchmark.load_model") as mock_load_model,
+            patch("instantlearn.scripts.benchmark.predict_on_dataset") as mock_predict,
+            patch("instantlearn.scripts.benchmark._save_results") as mock_save,
+            patch("instantlearn.scripts.benchmark.setup_logger") as mock_setup_logger,
         ):
             mock_args = MagicMock()
             mock_args.log_level = "INFO"
@@ -308,12 +308,12 @@ class TestBenchmarkIntegration:
     def test_perform_benchmark_experiment_with_custom_args(self) -> None:
         """Test benchmark experiment with custom arguments."""
         with (
-            patch("getiprompt.scripts.benchmark.parse_experiment_args") as mock_parse_args,
-            patch("getiprompt.scripts.benchmark.load_dataset_by_name") as mock_load_dataset,
-            patch("getiprompt.scripts.benchmark.load_model") as mock_load_model,
-            patch("getiprompt.scripts.benchmark.predict_on_dataset") as mock_predict,
-            patch("getiprompt.scripts.benchmark._save_results") as mock_save,
-            patch("getiprompt.scripts.benchmark.setup_logger") as mock_setup_logger,
+            patch("instantlearn.scripts.benchmark.parse_experiment_args") as mock_parse_args,
+            patch("instantlearn.scripts.benchmark.load_dataset_by_name") as mock_load_dataset,
+            patch("instantlearn.scripts.benchmark.load_model") as mock_load_model,
+            patch("instantlearn.scripts.benchmark.predict_on_dataset") as mock_predict,
+            patch("instantlearn.scripts.benchmark._save_results") as mock_save,
+            patch("instantlearn.scripts.benchmark.setup_logger") as mock_setup_logger,
         ):
             mock_parse_args.return_value = (
                 [MagicMock(value="lvis")],
@@ -343,10 +343,10 @@ class TestBenchmarkIntegration:
     def test_perform_benchmark_experiment_error_handling(self) -> None:
         """Test error handling in benchmark experiment."""
         with (
-            patch("getiprompt.scripts.benchmark.get_arguments") as mock_get_args,
-            patch("getiprompt.scripts.benchmark.parse_experiment_args") as mock_parse_args,
-            patch("getiprompt.scripts.benchmark.load_dataset_by_name") as mock_load_dataset,
-            patch("getiprompt.scripts.benchmark.setup_logger") as mock_setup_logger,
+            patch("instantlearn.scripts.benchmark.get_arguments") as mock_get_args,
+            patch("instantlearn.scripts.benchmark.parse_experiment_args") as mock_parse_args,
+            patch("instantlearn.scripts.benchmark.load_dataset_by_name") as mock_load_dataset,
+            patch("instantlearn.scripts.benchmark.setup_logger") as mock_setup_logger,
         ):
             mock_args = MagicMock()
             mock_args.log_level = "INFO"
@@ -365,13 +365,13 @@ class TestBenchmarkIntegration:
     def test_perform_benchmark_experiment_performance_tracking(self) -> None:
         """Test performance tracking in benchmark experiment."""
         with (
-            patch("getiprompt.scripts.benchmark.get_arguments") as mock_get_args,
-            patch("getiprompt.scripts.benchmark.parse_experiment_args") as mock_parse_args,
-            patch("getiprompt.scripts.benchmark.load_dataset_by_name") as mock_load_dataset,
-            patch("getiprompt.scripts.benchmark.load_model") as mock_load_model,
-            patch("getiprompt.scripts.benchmark.predict_on_dataset") as mock_predict,
-            patch("getiprompt.scripts.benchmark._save_results") as mock_save,
-            patch("getiprompt.scripts.benchmark.setup_logger") as mock_setup_logger,
+            patch("instantlearn.scripts.benchmark.get_arguments") as mock_get_args,
+            patch("instantlearn.scripts.benchmark.parse_experiment_args") as mock_parse_args,
+            patch("instantlearn.scripts.benchmark.load_dataset_by_name") as mock_load_dataset,
+            patch("instantlearn.scripts.benchmark.load_model") as mock_load_model,
+            patch("instantlearn.scripts.benchmark.predict_on_dataset") as mock_predict,
+            patch("instantlearn.scripts.benchmark._save_results") as mock_save,
+            patch("instantlearn.scripts.benchmark.setup_logger") as mock_setup_logger,
         ):
             mock_args = MagicMock()
             mock_args.log_level = "INFO"
@@ -405,8 +405,8 @@ class TestBenchmarkCLIValidation:
         for dataset in valid_datasets:
             # Test that load_dataset_by_name can handle these datasets
             with (
-                patch("getiprompt.scripts.benchmark.LVISDataset") as mock_lvis,
-                patch("getiprompt.scripts.benchmark.PerSegDataset") as mock_perseg,
+                patch("instantlearn.scripts.benchmark.LVISDataset") as mock_lvis,
+                patch("instantlearn.scripts.benchmark.PerSegDataset") as mock_perseg,
             ):
                 mock_lvis.return_value = MagicMock()
                 mock_perseg.return_value = MagicMock()

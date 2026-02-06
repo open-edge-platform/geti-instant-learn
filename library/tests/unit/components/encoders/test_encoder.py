@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Tests for the ImageEncoder."""
@@ -10,9 +10,12 @@ import pytest
 import torch
 from torchvision.tv_tensors import Image
 
-from getiprompt.components.encoders import ImageEncoder
-from getiprompt.registry import ModelType, get_models_by_type
-from getiprompt.utils.constants import Backend
+from instantlearn.components.encoders import (
+    AVAILABLE_IMAGE_ENCODERS,
+    TIMM_AVAILABLE_IMAGE_ENCODERS,
+    ImageEncoder,
+)
+from instantlearn.utils.constants import Backend
 
 # Get encoder model IDs from registry, filtered by family for HuggingFace vs TIMM
 HUGGINGFACE_ENCODER_IDS = [m.id for m in get_models_by_type(ModelType.ENCODER) if m.family == "DINOv2"]
@@ -94,11 +97,11 @@ class TestEncoder:
         return mock_model_instance
 
     @pytest.mark.parametrize("backend", [Backend.HUGGINGFACE, Backend.TIMM])
-    @patch("getiprompt.utils.optimization.optimize_model")
-    @patch("getiprompt.components.encoders.timm.timm.create_model")
-    @patch("getiprompt.components.encoders.timm.timm.data.resolve_model_data_config")
-    @patch("getiprompt.components.encoders.huggingface.AutoModel")
-    @patch("getiprompt.components.encoders.huggingface.AutoImageProcessor")
+    @patch("instantlearn.utils.optimization.optimize_model")
+    @patch("instantlearn.components.encoders.timm.timm.create_model")
+    @patch("instantlearn.components.encoders.timm.timm.data.resolve_model_data_config")
+    @patch("instantlearn.components.encoders.huggingface.AutoModel")
+    @patch("instantlearn.components.encoders.huggingface.AutoImageProcessor")
     def test_encoder_initialization(
         self,
         mock_processor: Mock,
@@ -131,11 +134,11 @@ class TestEncoder:
         pytest.assume(encoder.patch_size == expected_patch_size)
 
     @pytest.mark.parametrize("backend", [Backend.HUGGINGFACE, Backend.TIMM])
-    @patch("getiprompt.utils.optimization.optimize_model")
-    @patch("getiprompt.components.encoders.timm.timm.create_model")
-    @patch("getiprompt.components.encoders.timm.timm.data.resolve_model_data_config")
-    @patch("getiprompt.components.encoders.huggingface.AutoModel")
-    @patch("getiprompt.components.encoders.huggingface.AutoImageProcessor")
+    @patch("instantlearn.utils.optimization.optimize_model")
+    @patch("instantlearn.components.encoders.timm.timm.create_model")
+    @patch("instantlearn.components.encoders.timm.timm.data.resolve_model_data_config")
+    @patch("instantlearn.components.encoders.huggingface.AutoModel")
+    @patch("instantlearn.components.encoders.huggingface.AutoImageProcessor")
     def test_call_without_priors(
         self,
         mock_processor: Mock,
@@ -181,9 +184,9 @@ class TestEncoder:
         """Test that all valid HuggingFace model IDs are accepted."""
         for model_id in HUGGINGFACE_ENCODER_IDS:
             with (
-                patch("getiprompt.utils.optimization.optimize_model") as mock_optimize,
-                patch("getiprompt.components.encoders.huggingface.AutoModel") as mock_model,
-                patch("getiprompt.components.encoders.huggingface.AutoImageProcessor") as mock_processor,
+                patch("instantlearn.utils.optimization.optimize_model") as mock_optimize,
+                patch("instantlearn.components.encoders.huggingface.AutoModel") as mock_model,
+                patch("instantlearn.components.encoders.huggingface.AutoImageProcessor") as mock_processor,
             ):
                 # Setup mocks with proper structure
                 mock_model_instance = Mock()
@@ -205,10 +208,10 @@ class TestEncoder:
         """Test that all valid TIMM model IDs are accepted."""
         for model_id in TIMM_ENCODER_IDS:
             with (
-                patch("getiprompt.utils.optimization.optimize_model") as mock_optimize,
-                patch("getiprompt.components.encoders.timm.timm.create_model") as mock_timm_create,
+                patch("instantlearn.utils.optimization.optimize_model") as mock_optimize,
+                patch("instantlearn.components.encoders.timm.timm.create_model") as mock_timm_create,
                 patch(
-                    "getiprompt.components.encoders.timm.timm.data.resolve_model_data_config",
+                    "instantlearn.components.encoders.timm.timm.data.resolve_model_data_config",
                 ) as mock_timm_data_config,
             ):
                 # Setup mocks with proper structure
@@ -231,11 +234,11 @@ class TestEncoder:
                 pytest.assume(encoder.model_id == model_id)
 
     @pytest.mark.parametrize("backend", [Backend.HUGGINGFACE, Backend.TIMM])
-    @patch("getiprompt.utils.optimization.optimize_model")
-    @patch("getiprompt.components.encoders.timm.timm.create_model")
-    @patch("getiprompt.components.encoders.timm.timm.data.resolve_model_data_config")
-    @patch("getiprompt.components.encoders.huggingface.AutoModel")
-    @patch("getiprompt.components.encoders.huggingface.AutoImageProcessor")
+    @patch("instantlearn.utils.optimization.optimize_model")
+    @patch("instantlearn.components.encoders.timm.timm.create_model")
+    @patch("instantlearn.components.encoders.timm.timm.data.resolve_model_data_config")
+    @patch("instantlearn.components.encoders.huggingface.AutoModel")
+    @patch("instantlearn.components.encoders.huggingface.AutoImageProcessor")
     def test_encoder_with_different_input_sizes(
         self,
         mock_processor: Mock,
@@ -261,11 +264,11 @@ class TestEncoder:
             pytest.assume(encoder.input_size == input_size)
 
     @pytest.mark.parametrize("backend", [Backend.HUGGINGFACE, Backend.TIMM])
-    @patch("getiprompt.utils.optimization.optimize_model")
-    @patch("getiprompt.components.encoders.timm.timm.create_model")
-    @patch("getiprompt.components.encoders.timm.timm.data.resolve_model_data_config")
-    @patch("getiprompt.components.encoders.huggingface.AutoModel")
-    @patch("getiprompt.components.encoders.huggingface.AutoImageProcessor")
+    @patch("instantlearn.utils.optimization.optimize_model")
+    @patch("instantlearn.components.encoders.timm.timm.create_model")
+    @patch("instantlearn.components.encoders.timm.timm.data.resolve_model_data_config")
+    @patch("instantlearn.components.encoders.huggingface.AutoModel")
+    @patch("instantlearn.components.encoders.huggingface.AutoImageProcessor")
     def test_encoder_with_different_precisions(
         self,
         mock_processor: Mock,
@@ -298,11 +301,11 @@ class TestEncoder:
             pytest.assume(encoder._model.precision == expected_dtype)
 
     @pytest.mark.parametrize("backend", [Backend.HUGGINGFACE, Backend.TIMM])
-    @patch("getiprompt.utils.optimization.optimize_model")
-    @patch("getiprompt.components.encoders.timm.timm.create_model")
-    @patch("getiprompt.components.encoders.timm.timm.data.resolve_model_data_config")
-    @patch("getiprompt.components.encoders.huggingface.AutoModel")
-    @patch("getiprompt.components.encoders.huggingface.AutoImageProcessor")
+    @patch("instantlearn.utils.optimization.optimize_model")
+    @patch("instantlearn.components.encoders.timm.timm.create_model")
+    @patch("instantlearn.components.encoders.timm.timm.data.resolve_model_data_config")
+    @patch("instantlearn.components.encoders.huggingface.AutoModel")
+    @patch("instantlearn.components.encoders.huggingface.AutoImageProcessor")
     def test_encoder_with_compile_models(
         self,
         mock_processor: Mock,
@@ -331,11 +334,11 @@ class TestEncoder:
         pytest.assume(call_args[1]["compile_models"] is True)
 
     @pytest.mark.parametrize("backend", [Backend.HUGGINGFACE, Backend.TIMM])
-    @patch("getiprompt.utils.optimization.optimize_model")
-    @patch("getiprompt.components.encoders.timm.timm.create_model")
-    @patch("getiprompt.components.encoders.timm.timm.data.resolve_model_data_config")
-    @patch("getiprompt.components.encoders.huggingface.AutoModel")
-    @patch("getiprompt.components.encoders.huggingface.AutoImageProcessor")
+    @patch("instantlearn.utils.optimization.optimize_model")
+    @patch("instantlearn.components.encoders.timm.timm.create_model")
+    @patch("instantlearn.components.encoders.timm.timm.data.resolve_model_data_config")
+    @patch("instantlearn.components.encoders.huggingface.AutoModel")
+    @patch("instantlearn.components.encoders.huggingface.AutoImageProcessor")
     def test_encoder_device_handling(
         self,
         mock_processor: Mock,
@@ -371,7 +374,7 @@ class TestEncoder:
             ImageEncoder(model_id="nonexistent_model")
 
     @staticmethod
-    @patch("getiprompt.components.encoders.huggingface.AutoModel")
+    @patch("instantlearn.components.encoders.huggingface.AutoModel")
     def test_huggingface_access_error(mock_model: Mock) -> None:
         """Test error handling for HuggingFace access issues."""
         # Mock OSError for gated repo
@@ -390,7 +393,7 @@ class TestEncoderIntegration:
     @staticmethod
     def test_forward_with_real_model_comprehensive(backend: Backend) -> None:
         """Comprehensive integration test with real DINO models for both backends."""
-        model_id = "dinov2-small" if backend == Backend.HUGGINGFACE else "dinov3-small"
+        model_id = "dinov2_small" if backend == Backend.HUGGINGFACE else "dinov3_small"
         encoder = ImageEncoder(model_id=model_id, backend=backend, device="cpu", input_size=224)
 
         # Create test image
@@ -450,7 +453,7 @@ class TestEncoderIntegration:
     @staticmethod
     def test_feature_quality_and_consistency(backend: Backend) -> None:
         """Test that extracted embeddings are meaningful and consistent for both backends."""
-        model_id = "dinov2-small" if backend == Backend.HUGGINGFACE else "dinov3-small"
+        model_id = "dinov2_small" if backend == Backend.HUGGINGFACE else "dinov3_small"
         encoder = ImageEncoder(model_id=model_id, backend=backend, device="cpu", input_size=224)
 
         # Create identical images
@@ -479,7 +482,8 @@ class TestEncoderIntegration:
     @staticmethod
     def test_different_model_sizes(backend: Backend) -> None:
         """Test with different DINO model sizes to verify configuration for both backends."""
-        model_id = "dinov2-base" if backend == Backend.HUGGINGFACE else "dinov3-base"
+        model_id = "dinov2_base" if backend == Backend.HUGGINGFACE else "dinov3_base"
+
         # Test with base model (larger than small)
         encoder_base = ImageEncoder(model_id=model_id, backend=backend, device="cpu", input_size=224)
 

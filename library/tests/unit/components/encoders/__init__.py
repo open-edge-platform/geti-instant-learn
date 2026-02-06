@@ -1,4 +1,4 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Geti Prompt - Unit tests for encoders package."""
+"""Geti Instant Learn - Unit tests for encoders package."""

@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Source, SourceType } from '@geti-prompt/api';
-import { useCurrentProject } from '@geti-prompt/hooks';
+import { Source, SourceType } from '@/api';
+import { useCurrentProject } from '@/hooks';
 import { orderBy } from 'lodash-es';
 
 import { ExistingPipelineEntities } from '../../existing-pipeline-entities/existing-pipeline-entities.component';
@@ -12,18 +12,17 @@ import { useDeleteSource } from '../api/use-delete-source';
 import { useUpdateSource } from '../api/use-update-source';
 import { ImagesFolderSourceCard } from '../images-folder/images-folder-card.component';
 import { SampleDatasetCard } from '../sample-dataset/sample-dataset-card.component';
-import { isImagesFolderSource, isTestDatasetSource, isWebcamSource, SourcesViews } from '../utils';
-import { WebcamSourceCard } from '../webcam/webcam-source-card.component';
+import { UsbCameraSourceCard } from '../usb-camera/usb-camera-source-card.component';
+import {
+    isImagesFolderSource,
+    isTestDatasetSource,
+    isUsbCameraSource,
+    isVideoFileSource,
+    SourcesViews,
+} from '../utils';
+import { VideoFileCard } from '../video-file/video-file-card.component';
 
-const getMenuItems = ({
-    isActiveProject,
-    isActiveSource,
-    isTestDataset,
-}: {
-    isActiveProject: boolean;
-    isActiveSource: boolean;
-    isTestDataset: boolean;
-}) => {
+const getMenuItems = ({ isActiveSource, isTestDataset }: { isActiveSource: boolean; isTestDataset: boolean }) => {
     const items = [
         {
             key: 'connect',
@@ -43,9 +42,7 @@ const getMenuItems = ({
         if (item.key === 'connect' && isActiveSource) {
             return false;
         }
-        if (item.key === 'edit' && !isActiveProject) {
-            return false;
-        }
+
         if (item.key === 'edit' && isTestDataset) {
             return false;
         }
@@ -65,7 +62,6 @@ interface ExistingSourcesListProps {
 
 const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: ExistingSourcesListProps) => {
     const { data: project } = useCurrentProject();
-    const isActiveProject = project.active;
 
     const updateSource = useUpdateSource();
     const deleteSource = useDeleteSource();
@@ -98,23 +94,28 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
             {sortSources(sources).map((source) => {
                 const isActiveSource = source.active;
 
+                const menuItems = getMenuItems({
+                    isActiveSource,
+                    isTestDataset: isTestDatasetSource(source),
+                });
+
                 if (isTestDatasetSource(source)) {
                     return (
                         <SampleDatasetCard
                             key={source.id}
                             source={source}
-                            menuItems={getMenuItems({ isActiveSource, isActiveProject, isTestDataset: true })}
+                            menuItems={menuItems}
                             onAction={handleAction(source)}
                         />
                     );
                 }
 
-                if (isWebcamSource(source)) {
+                if (isUsbCameraSource(source)) {
                     return (
-                        <WebcamSourceCard
+                        <UsbCameraSourceCard
                             key={source.id}
                             source={source}
-                            menuItems={getMenuItems({ isActiveSource, isActiveProject, isTestDataset: false })}
+                            menuItems={menuItems}
                             onAction={handleAction(source)}
                         />
                     );
@@ -125,7 +126,18 @@ const ExistingSourcesList = ({ sources, onSetSourceInEditionId, onViewChange }: 
                         <ImagesFolderSourceCard
                             key={source.id}
                             source={source}
-                            menuItems={getMenuItems({ isActiveSource, isActiveProject, isTestDataset: false })}
+                            menuItems={menuItems}
+                            onAction={handleAction(source)}
+                        />
+                    );
+                }
+
+                if (isVideoFileSource(source)) {
+                    return (
+                        <VideoFileCard
+                            key={source.id}
+                            source={source}
+                            menuItems={menuItems}
                             onAction={handleAction(source)}
                         />
                     );
@@ -141,7 +153,7 @@ interface ExistingSourcesProps {
     onSetSourceInEditionId: (sourceId: string) => void;
 }
 
-const AVAILABLE_SOURCE_TYPES: SourceType[] = ['webcam', 'images_folder', 'sample_dataset'];
+const AVAILABLE_SOURCE_TYPES: SourceType[] = ['usb_camera', 'images_folder', 'sample_dataset', 'video_file'];
 
 export const ExistingSources = ({ sources, onViewChange, onSetSourceInEditionId }: ExistingSourcesProps) => {
     const canCreateSource = !AVAILABLE_SOURCE_TYPES.every((type) =>

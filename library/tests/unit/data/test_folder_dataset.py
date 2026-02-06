@@ -10,8 +10,8 @@ import polars as pl
 import pytest
 import torch
 
-from getiprompt.data.base import Batch, Sample
-from getiprompt.data.folder import FolderDataset
+from instantlearn.data.base import Batch, Sample
+from instantlearn.data.folder import FolderDataset
 
 
 class TestFolderDatasetBasic:
@@ -169,7 +169,7 @@ class TestFolderDatasetWithFSS1000:
         basketball_samples = dataset.df.filter(pl.col("categories").list.contains("basketball"))
         assert basketball_samples["is_reference"].list.first().sum() == 3  # First 3 are references
 
-    @patch("getiprompt.data.base.base.read_image")
+    @patch("instantlearn.data.base.base.read_image")
     def test_sample_loading(self, mock_read_image: MagicMock, fss1000_root: Path) -> None:
         """Test sample loading from fss-1000."""
         if not fss1000_root.exists():
@@ -224,8 +224,8 @@ class TestFolderDatasetSampleLoading:
 
         return FolderDataset(root=tmp_path, n_shots=2)
 
-    @patch("getiprompt.data.base.base.read_image")
-    @patch("getiprompt.data.folder.dataset.read_mask")
+    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.folder.dataset.read_mask")
     def test_sample_creation(
         self,
         mock_read_mask: MagicMock,
@@ -248,8 +248,8 @@ class TestFolderDatasetSampleLoading:
         assert len(sample.is_reference) == 1
         assert len(sample.n_shot) == 1
 
-    @patch("getiprompt.data.base.base.read_image")
-    @patch("getiprompt.data.folder.dataset.read_mask")
+    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.folder.dataset.read_mask")
     def test_sample_metadata(
         self,
         mock_read_mask: MagicMock,
@@ -276,8 +276,8 @@ class TestFolderDatasetSampleLoading:
         assert sample2.is_reference == [False]
         assert sample2.n_shot == [-1]
 
-    @patch("getiprompt.data.base.base.read_image")
-    @patch("getiprompt.data.folder.dataset.read_mask")
+    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.folder.dataset.read_mask")
     def test_sample_image_path(
         self,
         mock_read_mask: MagicMock,
@@ -294,8 +294,8 @@ class TestFolderDatasetSampleLoading:
         assert sample.image_path.endswith(".jpg")
         assert "test_category" in sample.image_path
 
-    @patch("getiprompt.data.base.base.read_image")
-    @patch("getiprompt.data.folder.dataset.read_mask")
+    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.folder.dataset.read_mask")
     def test_sample_mask_paths(
         self,
         mock_read_mask: MagicMock,
@@ -385,8 +385,8 @@ class TestFolderDatasetBatch:
 
         return FolderDataset(root=tmp_path, n_shots=1)
 
-    @patch("getiprompt.data.base.base.read_image")
-    @patch("getiprompt.data.folder.dataset.read_mask")
+    @patch("instantlearn.data.base.base.read_image")
+    @patch("instantlearn.data.folder.dataset.read_mask")
     def test_batch_creation(
         self,
         mock_read_mask: MagicMock,

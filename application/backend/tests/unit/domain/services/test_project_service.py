@@ -19,7 +19,7 @@ def make_active_source(device_id: int = 0):
     return SimpleNamespace(
         id=uuid.uuid4(),
         active=True,
-        config={"source_type": "webcam", "device_id": device_id},
+        config={"source_type": "usb_camera", "device_id": device_id},
     )
 
 
@@ -48,6 +48,7 @@ def make_project(
     sources=None,
     processors=None,
     sinks=None,
+    prompts=None,
 ):
     if project_id is None:
         project_id = uuid.uuid4()
@@ -57,7 +58,11 @@ def make_project(
         processors = []
     if sinks is None:
         sinks = []
-    return SimpleNamespace(id=project_id, name=name, active=active, sources=sources, processors=processors, sinks=sinks)
+    if prompts is None:
+        prompts = []
+    return SimpleNamespace(
+        id=project_id, name=name, active=active, sources=sources, processors=processors, sinks=sinks, prompts=prompts
+    )
 
 
 @pytest.fixture
@@ -304,7 +309,7 @@ def test_pipeline_config_with_active_source(service, repo_mock):
     assert isinstance(cfg, PipelineConfig)
     assert cfg.project_id == pid
     assert cfg.reader is not None
-    assert cfg.reader.source_type == "webcam"
+    assert cfg.reader.source_type == "usb_camera"
     assert cfg.processor is None
     assert cfg.writer is None
 
@@ -314,7 +319,7 @@ def test_pipeline_config_without_active_source(service, repo_mock):
     inactive_source = SimpleNamespace(
         id=uuid.uuid4(),
         active=False,
-        config={"source_type": "webcam"},
+        config={"source_type": "usb_camera"},
     )
     project_active = make_project(project_id=pid, active=True, sources=[inactive_source])
     repo_mock.get_by_id.return_value = project_active
@@ -345,7 +350,7 @@ def test_pipeline_config_with_source_and_sink(service, repo_mock):
     assert isinstance(cfg, PipelineConfig)
     assert cfg.project_id == pid
     assert cfg.reader is not None
-    assert cfg.reader.source_type == "webcam"
+    assert cfg.reader.source_type == "usb_camera"
     assert cfg.processor is None
     assert cfg.writer is not None
     assert cfg.writer.sink_type == "mqtt"
@@ -370,7 +375,7 @@ def test_pipeline_config_with_source_sink_and_model(service, repo_mock):
     assert isinstance(cfg, PipelineConfig)
     assert cfg.project_id == pid
     assert cfg.reader is not None
-    assert cfg.reader.source_type == "webcam"
+    assert cfg.reader.source_type == "usb_camera"
     assert cfg.processor is not None
     assert cfg.processor.model_type == "matcher"
     assert cfg.writer is not None
@@ -394,7 +399,7 @@ def test_active_pipeline_config_success(service, repo_mock):
     assert isinstance(cfg, PipelineConfig)
     assert cfg.project_id == project_active.id
     assert cfg.reader is not None
-    assert cfg.reader.source_type == "webcam"
+    assert cfg.reader.source_type == "usb_camera"
 
 
 def test_create_emits_activation_event(service, repo_mock, dispatcher_mock):
@@ -444,6 +449,31 @@ def test_delete_inactive_emits_no_event(service, repo_mock, dispatcher_mock):
     service.delete_project(project_inactive.id)
 
     dispatcher_mock.dispatch.assert_not_called()
+
+
+def test_delete_project_with_prompts_and_annotations(service, repo_mock, session_mock):
+    """Test that deleting a project with prompts and annotations succeeds.
+
+    Verifies the deletion flow:
+    1. Prompts are deleted first
+    2. Session flush removes annotations via CASCADE
+    3. Project deletion cascades to labels
+    """
+    pid = uuid.uuid4()
+    prompt = SimpleNamespace(id=uuid.uuid4())
+
+    # Project with prompts (annotations exist but handled by cascade)
+    project = make_project(project_id=pid, active=True, prompts=[prompt])
+    repo_mock.get_by_id.return_value = project
+
+    service.delete_project(pid)
+
+    # Verify deletion sequence
+    repo_mock.get_by_id.assert_called_once_with(pid)
+    session_mock.delete.assert_called_once_with(prompt)
+    session_mock.flush.assert_called_once()
+    repo_mock.delete.assert_called_once_with(pid)
+    session_mock.commit.assert_called_once()
 
 
 def test_update_activate_emits_activation_event(service, repo_mock, dispatcher_mock):

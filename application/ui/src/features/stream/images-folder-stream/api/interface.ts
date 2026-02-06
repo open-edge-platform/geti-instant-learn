@@ -3,6 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { type FrameAPIType } from '@geti-prompt/api';
+import { type FrameAPIType } from '@/api';
 
 export type FrameType = Pick<FrameAPIType, 'index'> & { thumbnail: FrameAPIType['thumbnail'] | null };

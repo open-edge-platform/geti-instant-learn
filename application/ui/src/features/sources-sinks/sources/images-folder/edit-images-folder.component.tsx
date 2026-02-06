@@ -5,9 +5,9 @@
 
 import { FormEvent, useState } from 'react';
 
-import { ImagesFolderSourceType } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
-import { getQueryKey } from '@geti-prompt/query-client';
+import { ImagesFolderSourceType } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
+import { getQueryKey } from '@/query-client';
 import { Flex, Form } from '@geti/ui';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -91,7 +91,7 @@ export const EditImagesFolder = ({ source, onSaved }: EditImagesFolderProps) => 
         updateImagesFolderSource.isPending;
 
     const handleUpdateImagesFolder = (active: boolean) => {
-        updateImagesFolderSource.mutate({ folderPath, active }, onSaved);
+        updateImagesFolderSource.mutate({ folderPath: folderPath.trim(), active }, onSaved);
     };
 
     const handleSave = () => {

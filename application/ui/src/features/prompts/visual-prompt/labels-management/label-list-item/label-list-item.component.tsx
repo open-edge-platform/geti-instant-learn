@@ -5,8 +5,8 @@
 
 import { useState } from 'react';
 
-import { LabelType } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { LabelType } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
 import { ActionButton, Tooltip, TooltipTrigger } from '@geti/ui';
 import { Close, Edit } from '@geti/ui/icons';
 

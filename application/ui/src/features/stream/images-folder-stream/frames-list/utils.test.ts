@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { FrameAPIType } from '@geti-prompt/api';
+import { FrameAPIType } from '@/api';
 
 import { fulfillWithEmptyFrames } from './utils';
 

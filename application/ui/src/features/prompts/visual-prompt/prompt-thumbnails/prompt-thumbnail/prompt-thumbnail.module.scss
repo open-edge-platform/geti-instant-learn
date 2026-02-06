@@ -13,6 +13,7 @@
     height: 100%;
     width: 100%;
     transition: transform 0.2s ease-in-out;
+    object-fit: cover;
 
     &:hover {
         transform: scale(1.1);

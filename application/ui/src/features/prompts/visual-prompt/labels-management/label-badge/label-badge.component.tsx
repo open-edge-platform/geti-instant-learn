@@ -5,7 +5,7 @@
 
 import { CSSProperties, ReactNode } from 'react';
 
-import { LabelType } from '@geti-prompt/api';
+import { LabelType } from '@/api';
 import { Text } from '@geti/ui';
 import { clsx } from 'clsx';
 import { usePress } from 'react-aria';
