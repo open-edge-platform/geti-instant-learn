@@ -37,9 +37,7 @@ def load_image_encoder(
         device: Device to run inference on. For HuggingFace/TIMM: "cuda" or "cpu".
         backend: Which backend to use: Backend.HUGGINGFACE or Backend.TIMM.
         precision: Precision for HuggingFace/TIMM backend: "fp32", "fp16", or "bf16".
-            Ignored for OpenVINO.
         compile_models: Whether to compile model with torch.compile.
-            Ignored for OpenVINO.
         input_size: Input image size (height and width).
 
     Returns:
