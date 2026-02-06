@@ -6,9 +6,9 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+import os
 import sys
 from pathlib import Path
-import os
 
 # Define paths
 project_root = Path(__file__).parent
@@ -18,25 +18,25 @@ module_path = Path(project_root, "src")
 sys.path.insert(0, str(module_path.resolve()))
 sys.path.insert(0, str(project_root.resolve()))
 
-project = 'Geti Instant Learn'
-copyright = 'Intel Corporation'
-author = 'Intel Corporation'
-release = os.environ.get('VERSION', '1.0')
+project = "Geti Instant Learn"
+copyright = "Intel Corporation"
+author = "Intel Corporation"
+release = os.environ.get("VERSION", "1.0")
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
-    'sphinx.ext.autodoc',        # this is the plugin to generate api docs
-    'sphinx_autodoc_typehints',  # another part of this plugin
-    'sphinx.ext.autosummary',    # Create neat summary tables
-    'myst_parser',               # .md files parser - without it it won't accept .md files as a source
-    'sphinx_markdown_builder',   # to build markdown files
+    "sphinx.ext.autodoc",  # this is the plugin to generate api docs
+    "sphinx_autodoc_typehints",  # another part of this plugin
+    "sphinx.ext.autosummary",  # Create neat summary tables
+    "myst_parser",  # .md files parser - without it it won't accept .md files as a source
+    "sphinx_markdown_builder",  # to build markdown files
 ]
 
 source_suffix = {
-    '.rst': 'restructuredtext',
-    '.md': 'markdown',
+    ".rst": "restructuredtext",
+    ".md": "markdown",
 }
 
 autosummary_generate = True  # Turn on sphinx.ext.autosummary
@@ -51,7 +51,7 @@ autodoc_default_options = {
     "show-inheritance": True,
 }
 
-templates_path = ['_templates']
+templates_path = ["_templates"]
 exclude_patterns: list[str] = [
     ".build",
     "**.ipynb_checkpoints",

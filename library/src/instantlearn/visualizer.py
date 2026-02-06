@@ -107,7 +107,7 @@ def visualize_single_image(
     if len(pred_boxes):
         for pred_label, pred_box in zip(pred_labels, pred_boxes, strict=False):
             pred_label = pred_label.item() if isinstance(pred_label, torch.Tensor) else pred_label
-            pred_box = pred_box.cpu().numpy()
+            pred_box = pred_box.float().cpu().numpy()
             # box format in [x1, y1, x2, y2, score]
             x1, y1, x2, y2, _ = pred_box
             x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
