@@ -5,11 +5,12 @@ The Geti Instant Learn Library provides a robust platform for experimenting with
 ## License acceptance
 
 By installing, using, or distributing this library, you acknowledge that
+
 - you have read and understood the license terms at the links below;
 - confirmed the linked terms govern the contents you seek to access and use; and
 - accepted and agreed to the linked license terms.
 
-Licence links:
+License links:
 
 - [SAM3 License](https://github.com/facebookresearch/sam3/blob/main/LICENSE)
 - [DINOv3 License](https://github.com/facebookresearch/dinov3/blob/main/LICENSE.md)
