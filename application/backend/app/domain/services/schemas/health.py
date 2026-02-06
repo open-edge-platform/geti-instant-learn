@@ -13,11 +13,13 @@ class HealthStatus(StrEnum):
 
 class HealthCheckSchema(BaseModel):
     status: Literal[HealthStatus.OK]
+    license_accepted: bool
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "status": "ok",
+                "license_accepted": True,
             }
         }
     }

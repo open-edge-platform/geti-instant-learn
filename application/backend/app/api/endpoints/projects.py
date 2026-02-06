@@ -15,6 +15,7 @@ from domain.services.schemas.project import (
     ProjectsListSchema,
     ProjectUpdateSchema,
 )
+from instantlearn_license.service import LicenseNotAcceptedError, LicenseService
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,9 @@ logger = logging.getLogger(__name__)
                 }
             },
         },
+        status.HTTP_403_FORBIDDEN: {
+            "description": "License not accepted.",
+        },
         status.HTTP_409_CONFLICT: {
             "description": "Project with this name already exists.",
         },
@@ -56,6 +60,10 @@ def create_project(
     project_service: ProjectServiceDep,
 ) -> Response:
     """Create a new project with the given name."""
+    license_service = LicenseService()
+    if not license_service.is_accepted():
+        raise LicenseNotAcceptedError("Geti Instant Learn License must be accepted before creating projects.")
+
     project = project_service.create_project(payload)
     logger.info(f"Successfully created '{project.name}' project with id {project.id}")
 
