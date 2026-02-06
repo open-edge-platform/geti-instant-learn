@@ -6,7 +6,7 @@ from collections.abc import Iterable
 
 from domain.db.models import LabelDB
 from domain.services.schemas.base import Pagination
-from domain.services.schemas.label import LabelCreateSchema, LabelSchema, LabelsListSchema
+from domain.services.schemas.label import LabelCreateSchema, LabelSchema, LabelsListSchema, RGBColor, VisualizationLabel
 
 
 def label_db_to_schema(label: LabelDB) -> LabelSchema:
@@ -67,3 +67,21 @@ def random_color() -> str:
         secrets.randbelow(256),
     )
     return f"#{red:02x}{green:02x}{blue:02x}"
+
+
+def _hex_to_rgb_tuple(hex_color: str) -> RGBColor:
+    """
+    Convert RGB hex color to RGB tuple.
+    """
+    hex_value = hex_color.lstrip("#")
+    r = int(hex_value[0:2], 16)
+    g = int(hex_value[2:4], 16)
+    b = int(hex_value[4:6], 16)
+    return RGBColor(r, g, b)
+
+
+def label_db_to_visualization_label(label: LabelDB) -> VisualizationLabel:
+    """
+    Map a LabelDB entity to VisualizationLabel.
+    """
+    return VisualizationLabel(id=label.id, color=_hex_to_rgb_tuple(label.color), object_name=label.name)

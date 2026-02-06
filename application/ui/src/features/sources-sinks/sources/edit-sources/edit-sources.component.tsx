@@ -5,7 +5,7 @@
 
 import { ReactNode, Suspense } from 'react';
 
-import { Source } from '@geti-prompt/api';
+import { Source } from '@/api';
 import { Loading } from '@geti/ui';
 
 import { PipelineEntityPanel } from '../../pipeline-entity-panel/pipeline-entity-panel.component';

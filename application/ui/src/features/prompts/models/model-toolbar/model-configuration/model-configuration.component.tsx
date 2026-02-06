@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ModelType } from '@geti-prompt/api';
-import { Cog } from '@geti-prompt/icons';
+import { ModelType } from '@/api';
+import { Cog } from '@/icons';
 import { ActionButton, DialogTrigger } from '@geti/ui';
 
 import { ModelConfigurationDialog } from './model-configuration-dialog.component';

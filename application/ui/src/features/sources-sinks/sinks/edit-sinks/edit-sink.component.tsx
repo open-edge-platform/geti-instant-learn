@@ -5,7 +5,7 @@
 
 import { ReactNode } from 'react';
 
-import { SinkConfig } from '@geti-prompt/api';
+import { SinkConfig } from '@/api';
 
 import { PipelineEntityPanel } from '../../pipeline-entity-panel/pipeline-entity-panel.component';
 import { EditMQTTSink } from '../mqtt-sink/edit-mqtt-sink.component';

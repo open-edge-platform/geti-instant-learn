@@ -5,7 +5,7 @@
 
 import { ReactNode } from 'react';
 
-import type { AnnotationType, LabelType } from '@geti-prompt/api';
+import type { AnnotationType, LabelType } from '@/api';
 
 import { FullScreenModeProvider } from '../actions/full-screen-mode.component';
 import { CanvasSettingsProvider } from '../actions/settings/canvas-settings-provider.component';

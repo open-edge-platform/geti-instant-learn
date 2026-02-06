@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ImagesFolderSourceType } from '@geti-prompt/api';
-import { ImagesFolder } from '@geti-prompt/icons';
+import { ImagesFolderSourceType } from '@/api';
+import { ImagesFolder } from '@/icons';
 
 import { PipelineEntityCard } from '../../pipeline-entity-card/pipeline-entity-card.component';
 

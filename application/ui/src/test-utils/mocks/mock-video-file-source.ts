@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { VideoFileSourceType } from '@geti-prompt/api';
+import { VideoFileSourceType } from '@/api';
 
 export const getMockedVideoFileSource = (
     source: Partial<{ active: boolean; filePath: string; id: string }> = {}

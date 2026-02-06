@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { usePromptMode, type PromptMode } from '@geti-prompt/hooks';
+import { usePromptMode, type PromptMode } from '@/hooks';
 import { Flex, Text, ToggleButtons } from '@geti/ui';
 
 import styles from './prompt-modes.module.scss';

@@ -5,7 +5,7 @@
 
 import { Key, MouseEventHandler, useState } from 'react';
 
-import { $api, type ProjectType } from '@geti-prompt/api';
+import { $api, type ProjectType } from '@/api';
 import { ActionButton, Flex, Grid, Heading, PhotoPlaceholder, repeat, Text, View } from '@geti/ui';
 import { AddCircle } from '@geti/ui/icons';
 import { clsx } from 'clsx';

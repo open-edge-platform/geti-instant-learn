@@ -6,7 +6,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import numpy as np
-from getiprompt.data.base.sample import Sample
+from instantlearn.data.base.sample import Sample
 from torch import from_numpy
 from torchvision import tv_tensors
 

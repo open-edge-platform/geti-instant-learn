@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { USBCameraSourceType } from '@geti-prompt/api';
-import { UsbCamera } from '@geti-prompt/icons';
+import { USBCameraSourceType } from '@/api';
+import { UsbCamera } from '@/icons';
 
 import { PipelineEntityCard } from '../../pipeline-entity-card/pipeline-entity-card.component';
 

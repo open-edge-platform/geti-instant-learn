@@ -72,6 +72,22 @@ class FrameBroadcaster[T]:
                 except Exception:
                     logger.exception("Error broadcasting to queue")
 
+    def clear(self) -> None:
+        """
+        Drop all queued frames for all consumers.
+        Keeps consumer queues registered, but drains them so no stale frames are delivered
+        after a component swap (e.g., changing the source).
+        """
+        with self._lock:
+            for q in self.queues:
+                while True:
+                    try:
+                        q.get_nowait()
+                    except Empty:
+                        logger.debug("Drained queued frames for consumer queue %s", id(q))
+                        break
+            self._latest_frame = None
+
     def _handle_full_queue(self, queue: Queue[T], frame: T) -> None:
         """Handle a full queue by dropping the oldest frame and adding the new one."""
         try:

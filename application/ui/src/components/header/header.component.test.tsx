@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { render } from '@geti-prompt/test-utils';
+import { render } from '@/test-utils';
 import { screen } from '@testing-library/react';
 
 import { Header } from './header.component';
@@ -16,7 +16,7 @@ describe('Header', () => {
             </Header>
         );
 
-        expect(await screen.findByText('Geti Prompt')).toBeInTheDocument();
+        expect(await screen.findByText('Geti Instant Learn')).toBeInTheDocument();
         expect(await screen.findByText('Here we are')).toBeInTheDocument();
     });
 });

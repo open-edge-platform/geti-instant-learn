@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ModelType, ModelUpdateType } from '@geti-prompt/api';
-import { getMockedModel, render } from '@geti-prompt/test-utils';
+import { ModelType, ModelUpdateType } from '@/api';
+import { getMockedModel, render } from '@/test-utils';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
@@ -60,10 +60,6 @@ class ModelConfigurationDialogPage {
         await this.changeSelection('Precision', value);
     }
 
-    async changeUseMaskRefinement() {
-        await userEvent.click(screen.getByRole('switch', { name: 'Use mask refinement' }));
-    }
-
     async configureModel() {
         await userEvent.click(this.configureButton);
     }
@@ -95,6 +91,7 @@ describe('ModelConfigurationDialog', () => {
         const model = getMockedModel({
             config: {
                 ...mockedModel.config,
+                model_type: 'matcher',
                 num_foreground_points: 10,
                 num_background_points: 10,
                 confidence_threshold: 0.2,
@@ -112,7 +109,7 @@ describe('ModelConfigurationDialog', () => {
         await modelConfigurationDialogPage.changeNumberOfForegroundPointes(model.config.num_foreground_points);
         expect(modelConfigurationDialogPage.configureButton).toBeDisabled();
 
-        await modelConfigurationDialogPage.changeNumberOfBackgroundPointes(50);
+        await modelConfigurationDialogPage.changeNumberOfBackgroundPointes(9);
         expect(modelConfigurationDialogPage.configureButton).toBeEnabled();
         await modelConfigurationDialogPage.changeNumberOfBackgroundPointes(model.config.num_background_points);
         expect(modelConfigurationDialogPage.configureButton).toBeDisabled();
@@ -136,11 +133,6 @@ describe('ModelConfigurationDialog', () => {
         expect(modelConfigurationDialogPage.configureButton).toBeEnabled();
         await modelConfigurationDialogPage.changePrecision(model.config.precision.toUpperCase());
         expect(modelConfigurationDialogPage.configureButton).toBeDisabled();
-
-        await modelConfigurationDialogPage.changeUseMaskRefinement();
-        expect(modelConfigurationDialogPage.configureButton).toBeEnabled();
-        await modelConfigurationDialogPage.changeUseMaskRefinement();
-        expect(modelConfigurationDialogPage.configureButton).toBeDisabled();
     });
 
     it('configures the model', async () => {
@@ -158,12 +150,13 @@ describe('ModelConfigurationDialog', () => {
         const { modelConfigurationDialogPage } = renderModelConfigurationDialog({ model, onClose: mockOnClose });
 
         const numberOfForegroundPoints = 20;
-        const numberOfBackgroundPoints = 50;
+        const numberOfBackgroundPoints = 10;
         const confidenceThreshold = 0.8;
+        const numberOfGridCells = 16;
+        const pointSelectionThreshold = 0.65;
         const encoderModel = 'DINOv3 Base';
         const decoderModel = 'SAM2 Small';
         const precision = 'FP16';
-        const useMaskRefinement = true;
 
         await modelConfigurationDialogPage.changeNumberOfForegroundPointes(numberOfForegroundPoints);
         await modelConfigurationDialogPage.changeNumberOfBackgroundPointes(numberOfBackgroundPoints);
@@ -171,25 +164,25 @@ describe('ModelConfigurationDialog', () => {
         await modelConfigurationDialogPage.changeEncoderModel(encoderModel);
         await modelConfigurationDialogPage.changeDecoderModel(decoderModel);
         await modelConfigurationDialogPage.changePrecision(precision);
-        await modelConfigurationDialogPage.changeUseMaskRefinement();
 
         await modelConfigurationDialogPage.configureModel();
 
         await waitFor(() => {
-            expect(body).toEqual({
-                name: model.name,
-                active: model.active,
-                config: {
-                    model_type: 'matcher',
+            expect(body.config).toEqual(
+                expect.objectContaining({
+                    model_type: 'perdino',
                     num_foreground_points: numberOfForegroundPoints,
                     num_background_points: numberOfBackgroundPoints,
+                    num_grid_cells: numberOfGridCells,
+                    point_selection_threshold: pointSelectionThreshold,
                     confidence_threshold: confidenceThreshold,
                     sam_model: 'SAM2-small',
                     encoder_model: 'dinov3_base',
-                    use_mask_refinement: useMaskRefinement,
                     precision: precision.toLowerCase(),
-                },
-            });
+                    use_nms: model.config.use_nms,
+                    compile_models: model.config.compile_models,
+                })
+            );
         });
 
         expect(mockOnClose).toHaveBeenCalled();

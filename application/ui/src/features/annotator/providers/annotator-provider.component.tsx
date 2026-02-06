@@ -5,7 +5,7 @@
 
 import { createContext, ReactNode, useContext } from 'react';
 
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { useProjectIdentifier } from '@/hooks';
 import { useSuspenseQuery, UseSuspenseQueryResult } from '@tanstack/react-query';
 
 import { baseUrl } from '../../../api/client';

@@ -5,7 +5,7 @@
 
 import { useEffect } from 'react';
 
-import { useCurrentProject, useProjectIdentifier } from '@geti-prompt/hooks';
+import { useCurrentProject, useProjectIdentifier } from '@/hooks';
 import { Flex, Grid, minmax, View } from '@geti/ui';
 import { Group, Panel } from 'react-resizable-panels';
 

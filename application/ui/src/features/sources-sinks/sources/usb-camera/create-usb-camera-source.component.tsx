@@ -5,7 +5,7 @@
 
 import { FormEvent, useState } from 'react';
 
-import { USBCameraConfig } from '@geti-prompt/api';
+import { USBCameraConfig } from '@/api';
 import { Button, ButtonGroup, Flex, Form, View } from '@geti/ui';
 
 import { useCreateSource } from '../api/use-create-source';

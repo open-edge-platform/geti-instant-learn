@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { paths } from '@geti-prompt/api';
+import type { paths } from '@/api';
 import { toast } from '@geti/ui';
 import { matchQuery, MutationCache, Query, QueryCache, QueryClient } from '@tanstack/react-query';
 

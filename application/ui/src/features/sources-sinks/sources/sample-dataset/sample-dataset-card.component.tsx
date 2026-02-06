@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { SampleDatasetSourceType } from '@geti-prompt/api';
+import { SampleDatasetSourceType } from '@/api';
 import { Flex, View } from '@geti/ui';
 import { Datasets } from '@geti/ui/icons';
 

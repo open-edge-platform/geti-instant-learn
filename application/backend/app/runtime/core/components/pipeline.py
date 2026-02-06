@@ -156,6 +156,9 @@ class Pipeline:
                     if thread.is_alive():
                         logger.warning(f"{component_cls.__name__} thread did not stop cleanly")
 
+            self._inbound_broadcaster.clear()
+            self._outbound_broadcaster.clear()
+
             self._components[component_cls] = new_component
             if start:
                 thread = Thread(target=new_component, daemon=False)

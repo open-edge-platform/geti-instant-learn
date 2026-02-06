@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { getMockedSource, render } from '@geti-prompt/test-utils';
+import { getMockedSource, render } from '@/test-utils';
 import { screen } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 

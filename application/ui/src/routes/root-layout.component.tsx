@@ -5,7 +5,7 @@
 
 import { ReactNode, Suspense } from 'react';
 
-import { $api } from '@geti-prompt/api';
+import { $api } from '@/api';
 import { IntelBrandedLoading, Toast } from '@geti/ui';
 import { Outlet } from 'react-router';
 

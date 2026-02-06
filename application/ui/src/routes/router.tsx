@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api } from '@geti-prompt/api';
+import { $api } from '@/api';
 import { Navigate } from 'react-router';
 import { createBrowserRouter } from 'react-router-dom';
 

@@ -5,7 +5,7 @@
 
 import { RefObject } from 'react';
 
-import { LabelType } from '@geti-prompt/api';
+import { LabelType } from '@/api';
 import { Point } from '@geti/smart-tools/types';
 import { ActionButton, Flex, View } from '@geti/ui';
 import { Close } from '@geti/ui/icons';

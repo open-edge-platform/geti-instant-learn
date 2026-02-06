@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { USBCameraConfig } from '@geti-prompt/api';
+import { USBCameraConfig } from '@/api';
 import { Item, Picker } from '@geti/ui';
 
 export interface UsbCameraFieldsProps {

@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { $api } from '@geti-prompt/api';
-import { useProjectIdentifier } from '@geti-prompt/hooks';
+import { $api } from '@/api';
+import { useProjectIdentifier } from '@/hooks';
 
 const useUpdateLabelMutation = (projectId: string) => {
     return $api.useMutation('put', '/api/v1/projects/{project_id}/labels/{label_id}', {

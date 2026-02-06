@@ -11,9 +11,9 @@ import torch
 from skimage.draw import random_shapes
 from torchvision.tv_tensors import Image
 
-from getiprompt.data.base.batch import Batch
-from getiprompt.data.base.sample import Sample
-from getiprompt.models.dinotxt import DinoTxtZeroShotClassification
+from instantlearn.data.base.batch import Batch
+from instantlearn.data.base.sample import Sample
+from instantlearn.models.dinotxt import DinoTxtZeroShotClassification
 
 
 @pytest.fixture
@@ -34,7 +34,7 @@ def model_instance(mock_dino_encoder: MagicMock) -> DinoTxtZeroShotClassificatio
     Returns:
         DinoTxtZeroShotClassification: An instance configured for CPU testing.
     """
-    with patch("getiprompt.models.dinotxt.DinoTextEncoder") as mock_encoder_class:
+    with patch("instantlearn.models.dinotxt.DinoTextEncoder") as mock_encoder_class:
         mock_encoder_class.return_value = mock_dino_encoder
         return DinoTxtZeroShotClassification(
             device="cpu",  # Use CPU for testing
@@ -91,7 +91,7 @@ class TestDinoTxtZeroShotClassification:
     """Test cases for the DinoTxtZeroShotClassification pipeline."""
 
     @staticmethod
-    @patch("getiprompt.models.dinotxt.DinoTextEncoder")
+    @patch("instantlearn.models.dinotxt.DinoTextEncoder")
     def test_pipeline_initialization_with_custom_params(mock_encoder_class: MagicMock) -> None:
         """Test pipeline initialization with custom parameters."""
         mock_encoder = MagicMock()

@@ -47,8 +47,7 @@ class TestProcessor:
         self.mock_outbound_broadcaster = MagicMock(spec=FrameBroadcaster)
         self.mock_model_handler = MagicMock()
         self.mock_model_handler.predict.side_effect = lambda batch: [{}] * len(batch)
-        self.mock_label_service = MagicMock()
-        self.runner = Processor(self.mock_model_handler, self.mock_label_service)
+        self.runner = Processor(self.mock_model_handler, batch_size=3)
         self.runner.setup(self.mock_inbound_broadcaster, self.mock_outbound_broadcaster)
 
     @pytest.mark.parametrize(
@@ -154,3 +153,7 @@ class TestProcessor:
 
         # Should broadcast 3 individual results
         assert self.mock_outbound_broadcaster.broadcast.call_count == 3
+
+    def test_init_accepts_category_id_to_label_id(self):
+        runner = Processor(self.mock_model_handler, batch_size=2, category_id_to_label_id={0: "label-0"})
+        assert runner is not None

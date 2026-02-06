@@ -1,14 +1,14 @@
 ################
 # Libraries Base
 ################
-FROM python:3.12-slim-bookworm@sha256:4a3ceab05b4e396df42a042415e43a286bb5793352b9258f889d6c7d38ed01fb AS backend-base
+FROM python:3.12-slim-bookworm@sha256:ae30458df6c5167adfff1131d78f8c306805a35bb20d8333c20ddfb70715f5e2 AS backend-base
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
 # Disable Python downloads, because we want to use the system interpreter
 ENV UV_PYTHON_DOWNLOADS=0
 
 COPY --from=ghcr.io/astral-sh/uv:0.9.7@sha256:ba4857bf2a068e9bc0e64eed8563b065908a4cd6bfb66b531a9c424c8e25e142 /uv /bin/uv
-WORKDIR /geti_prompt/
+WORKDIR /instant_learn/
 
 # Install git for git dependencies (sam-2)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -17,12 +17,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean
 
 # Copy library and create proper directory structure
-COPY --link --from=libs ./src /geti_prompt/library/src
-COPY --link --from=libs ./pyproject.toml /geti_prompt/library/pyproject.toml
+COPY --link --from=libs ./src /instant_learn/library/src
+COPY --link --from=libs ./pyproject.toml /instant_learn/library/pyproject.toml
 
 # Change to a subdirectory so ../../library resolves correctly
-RUN mkdir -p /geti_prompt/app/backend
-WORKDIR /geti_prompt/app/backend
+RUN mkdir -p /instant_learn/app/backend
+WORKDIR /instant_learn/app/backend
 
 ARG DEVICE=""
 ENV DEVICE=${DEVICE}
@@ -35,7 +35,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 ##################
 # Geti UI packages
 ##################
-FROM node:24-alpine3.22@sha256:6f96670faefc1ec23520ce30e453e85bfdb94a43b49b7aac2b0d3ac3a902bf2f AS geti-ui-packages
+FROM node:24-alpine3.22@sha256:bb089be859f2741e5ede9d85f47dc7daca754015b50e9642a7a45c5252807d2c AS geti-ui-packages
 
 WORKDIR /home/app/web_ui/
 RUN apk add --no-cache git=2.49.1-r0
@@ -45,7 +45,7 @@ RUN npm run clone-geti-ui-packages
 #############
 # Web UI deps
 #############
-FROM node:24-alpine3.22@sha256:6f96670faefc1ec23520ce30e453e85bfdb94a43b49b7aac2b0d3ac3a902bf2f AS web-ui-base
+FROM node:24-alpine3.22@sha256:bb089be859f2741e5ede9d85f47dc7daca754015b50e9642a7a45c5252807d2c AS web-ui-base
 
 WORKDIR /home/app/web_ui/
 
@@ -71,13 +71,13 @@ RUN npm run build
 ##########################################
 # Base for CPU, GPU and XPU runtime images
 ##########################################
-FROM python:3.12-slim-bookworm@sha256:4a3ceab05b4e396df42a042415e43a286bb5793352b9258f889d6c7d38ed01fb AS runtime-base
+FROM python:3.12-slim-bookworm@sha256:ae30458df6c5167adfff1131d78f8c306805a35bb20d8333c20ddfb70715f5e2 AS runtime-base
 
-ENV STATIC_FILES_DIR="/geti_prompt/html"
-ENV DB_DATA_DIR="/geti_prompt/data"
-ENV LOGS_DIR="/geti_prompt/logs"
-ENV PATH="/geti_prompt/.venv/bin:$PATH"
-ENV PYTHONPATH=/geti_prompt/app
+ENV STATIC_FILES_DIR="/instant_learn/html"
+ENV DB_DATA_DIR="/instant_learn/data"
+ENV LOGS_DIR="/instant_learn/logs"
+ENV PATH="/instant_learn/.venv/bin:$PATH"
+ENV PYTHONPATH=/instant_learn/app
 ARG UID=10001
 ENV UID=${UID}
 ARG USER_NAME="non-root"
@@ -111,12 +111,12 @@ RUN useradd -l -u ${UID} ${USER_NAME} \
 COPY --link --chown=${UID} ${SOURCE_DATASET_DIR} ${TARGET_DATASET_DIR}
 
 # Copy backend source code
-COPY --link --chown=${UID} backend/app /geti_prompt/app
-COPY --from=backend-base --chown=${UID} /geti_prompt/library/src /geti_prompt/library/src
+COPY --link --chown=${UID} backend/app /instant_learn/app
+COPY --from=backend-base --chown=${UID} /instant_learn/library/src /instant_learn/library/src
 COPY --from=backend-base --chown=${UID} /bin/uv /bin/uv
 COPY --from=web-ui --chown=${UID} /home/app/web_ui/dist/ ${STATIC_FILES_DIR}
 
-WORKDIR /geti_prompt
+WORKDIR /instant_learn
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD uv run python -c "import urllib.request; urllib.request.urlopen('http://localhost:9100/health')" || exit 1
@@ -130,12 +130,12 @@ CMD ["uv", "run", "app/main.py"]
 ######################
 FROM runtime-base AS cpu
 
-COPY --from=backend-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
+COPY --from=backend-base --chown=${UID} /instant_learn/app/backend/.venv /instant_learn/.venv
 
 ######################
-# Server (GPU version)
+# Server (CUDA version)
 ######################
-FROM runtime-base AS gpu
+FROM runtime-base AS cuda
 
 USER root
 
@@ -155,7 +155,7 @@ RUN apt-get update \
 # needed to define it here to allow installation of packages
 USER ${USER_NAME}
 
-COPY --from=backend-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
+COPY --from=backend-base --chown=${UID} /instant_learn/app/backend/.venv /instant_learn/.venv
 
 ######################
 # Server (XPU version)
@@ -184,4 +184,4 @@ RUN apt-get update  \
 # needed to define it here to allow installation of packages
 USER ${USER_NAME}
 
-COPY --from=backend-base --chown=${UID} /geti_prompt/app/backend/.venv /geti_prompt/.venv
+COPY --from=backend-base --chown=${UID} /instant_learn/app/backend/.venv /instant_learn/.venv

@@ -5,7 +5,7 @@
 
 import { Suspense } from 'react';
 
-import { InputOutput } from '@geti-prompt/icons';
+import { InputOutput } from '@/icons';
 import {
     Button,
     Content,
