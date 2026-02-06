@@ -19,14 +19,15 @@ def mocked_writer(monkeypatch):
 
 
 class TestMqttWriter:
-    def test_write_connects_and_publishes(self, mocked_writer):
+    def test_write_publishes_when_connected(self, mocked_writer):
         writer, client = mocked_writer
         writer._client = client
-        writer.connect = MagicMock(side_effect=lambda: setattr(writer, "_connected", True))
+        writer._connected = True
+        writer.connect = MagicMock()
 
         writer.write(SimpleNamespace(results={"foo": "bar"}))
 
-        writer.connect.assert_called_once()
+        writer.connect.assert_not_called()
         client.publish.assert_called_once_with("topic/1", '{"foo": "bar"}')
         assert writer._connected is True
 
@@ -53,4 +54,12 @@ class TestMqttWriter:
         writer._client = None
 
         with pytest.raises(RuntimeError, match="client is not initialised"):
+            writer.write("payload")
+
+    def test_write_raises_when_not_connected(self, mocked_writer):
+        writer, client = mocked_writer
+        writer._client = client
+        writer._connected = False
+
+        with pytest.raises(RuntimeError, match="client is not connected"):
             writer.write("payload")

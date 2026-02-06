@@ -63,7 +63,7 @@ class MqttWriter(StreamWriter):
             raise RuntimeError("MQTT client is not initialised")
 
         if not self._connected:
-            self.connect()
+            raise RuntimeError("MQTT client is not connected")
 
         logger.info(f"Publishing data to MQTT topic: {self._config.topic}")
         payload = json.dumps(data.results)

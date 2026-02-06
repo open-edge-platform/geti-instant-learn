@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from unittest.mock import patch
+from unittest.mock import Mock
 from uuid import UUID, uuid4
 
 import pytest
@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from api.error_handler import custom_exception_handler
 from api.routers import projects_router
-from dependencies import SessionDep, get_config_dispatcher, get_sink_service
+from dependencies import SessionDep, get_config_dispatcher, get_sink_connection_validator, get_sink_service
 from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
@@ -40,6 +40,9 @@ def app():
             pass
 
     app.dependency_overrides[get_config_dispatcher] = lambda: DummyDispatcher()
+    validator = Mock()
+    validator.validate.return_value = None
+    app.dependency_overrides[get_sink_connection_validator] = lambda: validator
 
     app.add_exception_handler(Exception, custom_exception_handler)
     app.add_exception_handler(RequestValidationError, custom_exception_handler)
@@ -160,8 +163,7 @@ def test_create_sink(client, behavior, expected_status):
         "active": True,
         "config": {"sink_type": "mqtt"},
     }
-    with patch("runtime.core.components.validators.sink_connection.RuntimeSinkConnectionValidator.validate"):
-        resp = client.post(f"/api/v1/projects/{PROJECT_ID}/sinks", json=payload)
+    resp = client.post(f"/api/v1/projects/{PROJECT_ID}/sinks", json=payload)
     assert resp.status_code == expected_status
     if behavior == "success":
         data = resp.json()
@@ -211,8 +213,7 @@ def test_update_sink(client, behavior, expected_status):
         "active": False,
         "config": {"sink_type": "mqtt"},
     }
-    with patch("runtime.core.components.validators.sink_connection.RuntimeSinkConnectionValidator.validate"):
-        resp = client.put(f"/api/v1/projects/{PROJECT_ID}/sinks/{SINK_ID_1}", json=payload)
+    resp = client.put(f"/api/v1/projects/{PROJECT_ID}/sinks/{SINK_ID_1}", json=payload)
     assert resp.status_code == expected_status
     if behavior == "success":
         data = resp.json()
