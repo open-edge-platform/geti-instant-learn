@@ -14,6 +14,7 @@ from instantlearn.utils.args import populate_benchmark_parser
 from instantlearn.utils.utils import setup_logger
 from instantlearn_license import LicenseNotAcceptedError, LicenseService
 
+setup_logger()
 logger = logging.getLogger("Geti Instant Learn")
 
 
@@ -161,7 +162,6 @@ def main() -> None:
         logger.error(str(e))
         sys.exit(1)
 
-    setup_logger()
     InstantLearnCLI()
 
 if __name__ == "__main__":
