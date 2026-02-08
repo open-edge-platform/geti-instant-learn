@@ -1,7 +1,7 @@
 ################
 # Libraries Base
 ################
-FROM python:3.13-slim@sha256:baf66684c5fcafbda38a54b227ee30ec41e40af1e4073edee3a7110a417756ba AS backend-base
+FROM python:3.13-slim@sha256:3de9a8d7aedbb7984dc18f2dff178a7850f16c1ae7c34ba9d7ecc23d0755e35f AS backend-base
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
 # Disable Python downloads, because we want to use the system interpreter
@@ -71,7 +71,7 @@ RUN npm run build
 ##########################################
 # Base for CPU, GPU and XPU runtime images
 ##########################################
-FROM python:3.13-slim@sha256:baf66684c5fcafbda38a54b227ee30ec41e40af1e4073edee3a7110a417756ba AS runtime-base
+FROM python:3.13-slim@sha256:3de9a8d7aedbb7984dc18f2dff178a7850f16c1ae7c34ba9d7ecc23d0755e35f AS runtime-base
 
 ENV STATIC_FILES_DIR="/instant_learn/html"
 ENV DB_DATA_DIR="/instant_learn/data"
