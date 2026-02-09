@@ -19,7 +19,7 @@ logger = getLogger("Geti Instant Learn")
 def load_image_encoder(
     model_id: str = "dinov3_large",
     device: str = "cuda",
-    backend: Backend = Backend.TIMM,
+    backend: str | Backend = Backend.TIMM,
     precision: str = "bf16",
     compile_models: bool = False,
     input_size: int = 512,
@@ -35,7 +35,7 @@ def load_image_encoder(
             - "dinov2_small", "dinov2_base", "dinov2_large", "dinov2_giant" (HuggingFace only)
             - "dinov3_small", "dinov3_small_plus", "dinov3_base", "dinov3_large", "dinov3_huge"
         device: Device to run inference on. For HuggingFace/TIMM: "cuda" or "cpu".
-        backend: Which backend to use: Backend.HUGGINGFACE or Backend.TIMM.
+        backend: Which backend to use: Backend.HUGGINGFACE ("huggingface") or Backend.TIMM ("timm").
         precision: Precision for HuggingFace/TIMM backend: "fp32", "fp16", or "bf16".
         compile_models: Whether to compile model with torch.compile.
         input_size: Input image size (height and width).
@@ -51,14 +51,14 @@ def load_image_encoder(
         >>> encoder = load_image_encoder(
         ...     model_id="dinov2_large",
         ...     device="cuda",
-        ...     backend=Backend.HUGGINGFACE
+        ...     backend=Backend.HUGGINGFACE  # or "huggingface"
         ... )
         >>>
         >>> # TIMM backend (DINOv3 models)
         >>> encoder = load_image_encoder(
         ...     model_id="dinov3_large",
         ...     device="cuda",
-        ...     backend=Backend.TIMM
+        ...     backend=Backend.TIMM  # or "timm"
         ... )
     """
     if backend == Backend.HUGGINGFACE:
@@ -104,7 +104,7 @@ class ImageEncoder(nn.Module):
     def __init__(
         self,
         model_id: str = "dinov3_large",
-        backend: Backend = Backend.TIMM,
+        backend: str | Backend = Backend.TIMM,
         device: str = "cuda",
         precision: str = "bf16",
         compile_models: bool = False,

@@ -9,7 +9,7 @@ from instantlearn.components import CosineSimilarity, SamDecoder
 from instantlearn.components.encoders import ImageEncoder
 from instantlearn.components.feature_extractors import MaskedFeatureExtractor, ReferenceFeatures
 from instantlearn.components.sam import load_sam_model
-from instantlearn.data.base.batch import Batch
+from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.base import Model
 from instantlearn.utils.constants import Backend, SAMModelName
@@ -151,7 +151,7 @@ class PerDino(Model):
             reference_batch.category_ids,
         )
 
-    def predict(self, target: Sample | list[Sample] | Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
         """Predict masks for target images.
 
         Args:
@@ -159,6 +159,8 @@ class PerDino(Model):
                 - Sample: A single target sample
                 - list[Sample]: A list of target samples
                 - Batch: A batch of target samples
+                - str | Path: A single image path
+                - list[str] | list[Path]: Multiple image paths
 
         Returns:
             List of predictions per image, each containing:

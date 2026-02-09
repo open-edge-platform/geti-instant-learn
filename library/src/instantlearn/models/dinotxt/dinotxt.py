@@ -5,7 +5,7 @@
 
 import torch
 
-from instantlearn.data.base.batch import Batch
+from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.base import Model
 from instantlearn.utils import precision_to_torch_dtype
@@ -137,7 +137,7 @@ class DinoTxtZeroShotClassification(Model):
         self.reference_features = self.dino_encoder.encode_text(category_mapping, self.prompt_templates)
 
     @torch.no_grad()
-    def predict(self, target: Sample | list[Sample] | Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
         """Perform inference on the target batch.
 
         Args:
@@ -145,6 +145,8 @@ class DinoTxtZeroShotClassification(Model):
                 - Sample: A single target sample
                 - list[Sample]: A list of target samples
                 - Batch: A batch of target samples
+                - str | Path: A single image path
+                - list[str] | list[Path]: Multiple image paths
 
         Returns:
             A list of predictions, one per sample.

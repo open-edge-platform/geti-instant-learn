@@ -7,7 +7,7 @@ import torch
 
 from instantlearn.components import SamDecoder
 from instantlearn.components.sam import load_sam_model
-from instantlearn.data.base.batch import Batch
+from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.base import Model
 from instantlearn.utils.constants import SAMModelName
@@ -77,7 +77,7 @@ class GroundedSAM(Model):
                 if category not in self.category_mapping:
                     self.category_mapping[category] = int(category_id)
 
-    def predict(self, target: Sample | list[Sample] | Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
 
         Args:
@@ -85,6 +85,8 @@ class GroundedSAM(Model):
                 - Sample: A single target sample
                 - list[Sample]: A list of target samples
                 - Batch: A batch of target samples
+                - str | Path: A single image path
+                - list[str] | list[Path]: Multiple image paths
 
         Returns:
             A list of predictions, one per sample. Each prediction contains:

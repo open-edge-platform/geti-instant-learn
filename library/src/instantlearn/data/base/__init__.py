@@ -4,11 +4,12 @@
 """Base classes for datasets."""
 
 from .base import Dataset
-from .batch import Batch
+from .batch import Batch, Collatable
 from .sample import Sample
 
 __all__ = [
     "Batch",
+    "Collatable",
     "Dataset",
     "Sample",
 ]

@@ -8,7 +8,7 @@ from itertools import zip_longest
 import torch
 from transformers import CLIPTokenizerFast
 
-from instantlearn.data.base.batch import Batch
+from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.base import Model
 from instantlearn.utils import precision_to_torch_dtype
@@ -187,7 +187,7 @@ class SAM3(Model):
             "pred_labels": aggregated_labels,
         }
 
-    def predict(self, target: Sample | list[Sample] | Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
 
         Uses batch image encoding for efficiency when processing multiple images.
@@ -200,6 +200,8 @@ class SAM3(Model):
                 - Sample: A single target sample
                 - list[Sample]: A list of target samples
                 - Batch: A batch of target samples
+                - str | Path: A single image path
+                - list[str] | list[Path]: Multiple image paths
         """
         target_batch = Batch.collate(target)
         results = []

@@ -56,8 +56,43 @@ Or with pip:
 pip install ./library[xpu]  # or [cpu], [gpu]
 ```
 
+#### SAM3: Zero-Shot Text Prompting
+
+SAM3 uses text prompts (category names) for zero-shot segmentation — no reference mask needed. You provide the category for each image you want to segment.
+
 <p align="center">
-  <img src="assets/readme-matcher-example.png" alt="Matcher Example: Reference Image → Reference Mask → Target Image → Prediction">
+  <img src="assets/readme-sam3-example.png" alt="SAM3 Example: Text-prompted segmentation on multiple elephant images">
+</p>
+
+```python
+from instantlearn.models import SAM3
+from instantlearn.data import Sample
+
+# Initialize SAM3 (device: "xpu", "cuda", or "cpu")
+model = SAM3(device="xpu")
+
+# Each sample needs a text prompt — fit + predict per image
+sample1 = Sample(
+    image_path="library/examples/assets/coco/000000286874.jpg",
+    categories=["elephant"],
+)
+model.fit(sample1)
+predictions = model.predict(sample1)
+
+sample2 = Sample(
+    image_path="library/examples/assets/coco/000000173279.jpg",
+    categories=["elephant"],
+)
+model.fit(sample2)
+predictions = model.predict(sample2)
+```
+
+Since SAM3 requires a text prompt for every sample, this is where **Matcher** comes in — you fit once with a reference mask (one-shot) and predict on any number of new images without providing prompts again.
+
+#### Matcher: One-Shot Visual Prompting
+
+<p align="center">
+  <img src="assets/readme-matcher-example.png" alt="Matcher Example: Reference Image → Reference Mask → 3 Predictions">
 </p>
 
 ```python
@@ -73,15 +108,19 @@ ref_sample = Sample(
     mask_paths="library/examples/assets/coco/000000286874_mask.png",
 )
 
-# Fit on reference
+# Fit once on reference
 model.fit(ref_sample)
 
-# Predict on target image
-target_sample = Sample(image_path="library/examples/assets/coco/000000390341.jpg")
-predictions = model.predict(target_sample)
+# Predict on multiple target images — no prompts needed
+predictions = model.predict([
+    "library/examples/assets/coco/000000390341.jpg",
+    "library/examples/assets/coco/000000173279.jpg",
+    "library/examples/assets/coco/000000267704.jpg",
+])
 
-# Access results
-masks = predictions[0]["pred_masks"]  # Predicted segmentation masks
+# Access results for each image
+for pred in predictions:
+    masks = pred["pred_masks"]  # Predicted segmentation masks
 ```
 
 > For interactive mask generation with SAM, CLI usage, and benchmarking, see the [Library README](library/README.md).

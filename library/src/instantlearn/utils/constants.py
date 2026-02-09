@@ -7,7 +7,7 @@ from enum import Enum, StrEnum
 from pathlib import Path
 
 
-class Backend(Enum):
+class Backend(StrEnum):
     """Enum for backends."""
 
     ONNX = "onnx"
