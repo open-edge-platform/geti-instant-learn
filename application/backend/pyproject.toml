@@ -4,7 +4,7 @@
 name = "instant-learn-backend"
 version = "0.1.0"
 description = "Geti Instant Learn service"
-requires-python = ">=3.12.12, <3.13"
+requires-python = ">=3.13, <3.14"
 
 dependencies = [
     "fastapi~=0.123.8",
@@ -124,7 +124,7 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 max-args = 7
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 ignore_missing_imports = true
 exclude = "^.*/tests/.*\\.py|app/alembic/.*\\.py"
 show_error_codes = true

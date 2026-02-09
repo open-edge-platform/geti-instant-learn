@@ -10,14 +10,17 @@ properties for batch-level access to tensors.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
 from torchvision import tv_tensors
 
 from instantlearn.data.base.sample import Sample
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 @dataclass

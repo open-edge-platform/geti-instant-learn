@@ -25,7 +25,7 @@ from instantlearn.utils.constants import Backend, SAMModelName
 @pytest.fixture
 def fss1000_root() -> Path:
     """Return path to fss-1000 test dataset."""
-    return Path(__file__).parent.parent.parent / "assets" / "fss-1000"
+    return Path(__file__).parent.parent.parent.parent / "examples" / "assets" / "fss-1000"
 
 
 @pytest.fixture

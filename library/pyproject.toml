@@ -11,7 +11,7 @@ authors = [{ name = "Geti Instant Learn Contributors" }]
 description = "Geti Instant Learn - A modular framework for visual prompting"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.12, <3.13"
+requires-python = ">=3.13, <3.14"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
@@ -26,12 +26,12 @@ dependencies = [
     "opencv-python~=4.13.0",
     "rich==14.0.0",
     "requests==2.32.4",
-    "pycocotools==2.0.9",
+    "pycocotools==2.0.11",
     "scipy==1.15.3",
-    "pot==0.9.5",
+    "pot==0.9.6",
     "polars>=1.31.0,<2.0.0",
     "scikit-learn==1.6.1",
-    "scikit-image==0.24.0",
+    "scikit-image==0.26.0",
     "transformers==4.56.2",
     "segment-anything-hq==0.3",
     "timm==1.0.22",
@@ -44,6 +44,9 @@ dependencies = [
     "openvino==2025.3.0",
     "onnx>=1.19.1",
     "onnxruntime>=1.23.2",
+    # ONNXScript is used for authoring and transforming ONNX graphs in
+    # Instant Learn's ONNX-based model export and optimization utilities.
+    "onnxscript>=0.6.0",
 ]
 
 [dependency-groups]
@@ -169,7 +172,6 @@ lint.ignore = [
     "FBT001",  # Boolean-typed positional argument in function definition
     "FBT002",  # Boolean default positional argument in function definition
     "PLR0912", # Too many branches
-    "S101",  # Use of assert detected.
     "PT018",  # Assertion should be broken down into multiple parts
 ]
 
@@ -221,7 +223,10 @@ convention = "google"
 notice-rgx = '# Copyright \(C\) (\d{4}(-\d{4})?) Intel Corporation\r?\n# SPDX-License-Identifier: Apache-2\.0'
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["PLR6301"]  # Ignore no-self-use for test methods
+"tests/**/*.py" = [
+    "PLR6301",  # Ignore no-self-use for test methods
+    "S101",     # Use of assert detected
+]
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #

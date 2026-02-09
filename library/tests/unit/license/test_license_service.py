@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Unit tests for LicenseService."""
@@ -145,29 +145,64 @@ def test_eof_on_input_raises_error(license_service: LicenseService, clean_env) -
 
 
 def test_auto_detects_interactive_mode(license_service: LicenseService, clean_env) -> None:
-    with patch.object(LicenseService, "_is_interactive", return_value=False) as mock:
+    with patch.object(license_service, "_is_interactive", return_value=False) as mock:
         with pytest.raises(LicenseNotAcceptedError):
             license_service.require_accepted()
         mock.assert_called_once()
 
-def test_not_interactive_when_no_tty() -> None:
+
+def test_not_interactive_when_no_tty(license_service: LicenseService) -> None:
     with patch("sys.stdin.isatty", return_value=False):
-        assert LicenseService._is_interactive() is False
+        assert license_service._is_interactive() is False
 
 
 @pytest.mark.parametrize(
     "ci_var", ["CI", "GITHUB_ACTIONS", "GITLAB_CI", "JENKINS_URL", "KUBERNETES_SERVICE_HOST"]
 )
-def test_not_interactive_in_ci_environments(ci_var: str) -> None:
+def test_not_interactive_in_ci_environments(license_service: LicenseService, ci_var: str) -> None:
     with patch("sys.stdin.isatty", return_value=True):
         with patch.dict("os.environ", {ci_var: "true"}, clear=True):
-            assert LicenseService._is_interactive() is False
+            assert license_service._is_interactive() is False
 
 
-def test_interactive_with_tty_and_no_ci() -> None:
+def test_interactive_with_tty_and_no_ci(license_service: LicenseService) -> None:
     with patch("sys.stdin.isatty", return_value=True):
         with patch.dict("os.environ", {}, clear=True):
-            assert LicenseService._is_interactive() is True
+            assert license_service._is_interactive() is True
+
+
+def test_is_jupyter_notebook_returns_true_for_zmq_shell(license_service: LicenseService) -> None:
+    mock_ipython = type("MockIPython", (), {"__class__": type("ZMQInteractiveShell", (), {})})()
+
+    with patch("instantlearn_license.service.get_ipython", return_value=mock_ipython, create=True):
+        assert license_service._is_jupyter_notebook() is True
+
+
+def test_is_jupyter_notebook_returns_false_for_terminal_ipython(license_service: LicenseService) -> None:
+    mock_ipython = type("MockIPython", (), {"__class__": type("TerminalInteractiveShell", (), {})})()
+
+    with patch("instantlearn_license.service.get_ipython", return_value=mock_ipython, create=True):
+        assert license_service._is_jupyter_notebook() is False
+
+
+def test_is_jupyter_notebook_returns_false_when_not_in_ipython(license_service: LicenseService) -> None:
+    with patch("instantlearn_license.service.get_ipython", side_effect=NameError, create=True):
+        assert license_service._is_jupyter_notebook() is False
+
+
+def test_interactive_in_jupyter_notebook(license_service: LicenseService) -> None:
+    with patch.object(license_service, "_is_jupyter_notebook", return_value=True):
+        with patch("sys.stdin.isatty", return_value=False):
+            assert license_service._is_interactive() is True
+
+
+def test_jupyter_notebook_can_accept_license(
+        license_service: LicenseService, temp_consent_file: Path, clean_env) -> None:
+    with patch.object(license_service, "_is_jupyter_notebook", return_value=True):
+        with patch("sys.stdin.isatty", return_value=False):
+            with patch("builtins.input", return_value="y"):
+                license_service.require_accepted()
+                assert temp_consent_file.exists()
 
 
 def test_error_default_message_includes_instructions() -> None:
