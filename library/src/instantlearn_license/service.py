@@ -122,14 +122,26 @@ class LicenseService:
         logger.info("License accepted. Consent file created at %s", consent_path)
 
     @staticmethod
-    def _is_interactive() -> bool:
+    def _is_jupyter_notebook() -> bool:
+        """Check if the code is running in a Jupyter notebook environment."""
+        try:
+            shell = get_ipython().__class__.__name__  # type: ignore[name-defined]
+            return shell == "ZMQInteractiveShell"
+        except NameError:
+            return False
+
+    def _is_interactive(self) -> bool:
         """Determine if the current context is interactive.
 
         Checks multiple indicators:
+        - Running in Jupyter notebook
         - stdin is a TTY
         - Not running in common CI environments
         - Not running under common non-interactive indicators
         """
+        if self._is_jupyter_notebook():
+            return True
+
         if not sys.stdin.isatty():
             return False
 
