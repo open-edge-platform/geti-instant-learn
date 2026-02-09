@@ -473,6 +473,9 @@ class SamDecoder(nn.Module):
             box_prompts: Box prompts [T, C, max_boxes, 5] (optional)
             similarities: Similarity maps [T, C, feat_size, feat_size] (optional)
 
+        Raises:
+            ValueError: If both or neither of point_prompts and box_prompts are provided.
+
         Returns:
             List of predictions per image, each containing:
                 "pred_masks": [num_valid_masks, H, W]

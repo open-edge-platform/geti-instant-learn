@@ -4,7 +4,6 @@
 """Base ImageEncoder class and factory function for creating image encoders."""
 
 from logging import getLogger
-from pathlib import Path
 
 import torch
 from torch import nn
@@ -21,7 +20,6 @@ def load_image_encoder(
     model_id: str = "dinov3_large",
     device: str = "cuda",
     backend: Backend = Backend.TIMM,
-    model_path: Path | None = None,
     precision: str = "bf16",
     compile_models: bool = False,
     input_size: int = 512,
@@ -37,23 +35,16 @@ def load_image_encoder(
             - "dinov2_small", "dinov2_base", "dinov2_large", "dinov2_giant" (HuggingFace only)
             - "dinov3_small", "dinov3_small_plus", "dinov3_base", "dinov3_large", "dinov3_huge"
         device: Device to run inference on. For HuggingFace/TIMM: "cuda" or "cpu".
-            For OpenVINO: "CPU", "GPU", or "AUTO".
-        backend: Which backend to use: Backend.HUGGINGFACE, Backend.TIMM, or Backend.OPENVINO.
-        model_path: Path to model weights/IR files.
-            - HuggingFace/TIMM: Not used (will download from hub)
-            - OpenVINO: Path to exported IR directory (required)
+        backend: Which backend to use: Backend.HUGGINGFACE or Backend.TIMM.
         precision: Precision for HuggingFace/TIMM backend: "fp32", "fp16", or "bf16".
-            Ignored for OpenVINO.
         compile_models: Whether to compile model with torch.compile.
-            Ignored for OpenVINO.
         input_size: Input image size (height and width).
 
     Returns:
-        Image encoder instance (HuggingFaceImageEncoder, TimmImageEncoder, or OpenVINOImageEncoder).
+        Image encoder instance (HuggingFaceImageEncoder or TimmImageEncoder).
 
     Raises:
         ValueError: If backend is not valid.
-        FileNotFoundError: If OpenVINO model_path doesn't exist.
 
     Examples:
         >>> # HuggingFace backend (DINOv2 models)
@@ -68,17 +59,6 @@ def load_image_encoder(
         ...     model_id="dinov3_large",
         ...     device="cuda",
         ...     backend=Backend.TIMM
-        ... )
-        >>>
-        >>> # Export to OpenVINO
-        >>> ov_path = encoder.export(Path("./exported/dinov2_large"))
-        >>>
-        >>> # OpenVINO backend (optimized inference)
-        >>> ov_encoder = load_image_encoder(
-        ...     model_id="dinov2_large",
-        ...     device="CPU",
-        ...     backend=Backend.OPENVINO,
-        ...     model_path=ov_path
         ... )
     """
     if backend == Backend.HUGGINGFACE:
@@ -98,7 +78,7 @@ def load_image_encoder(
             input_size=input_size,
         )
 
-    msg = f"Invalid backend: {backend}. Must be Backend.HUGGINGFACE, Backend.TIMM, or Backend.OPENVINO"
+    msg = f"Invalid backend: {backend}. Must be Backend.HUGGINGFACE or Backend.TIMM"
     raise ValueError(msg)
 
 
@@ -106,7 +86,7 @@ class ImageEncoder(nn.Module):
     """Unified image encoder wrapper supporting multiple backends.
 
     This class provides a unified interface for image encoding using different
-    backends (HuggingFace, TIMM, OpenVINO). It wraps the underlying encoder
+    backends (HuggingFace, TIMM). It wraps the underlying encoder
     implementation and exposes common properties and methods.
 
     Examples:
@@ -119,16 +99,6 @@ class ImageEncoder(nn.Module):
         >>> features = encoder([sample_image])
         >>> features.shape
         torch.Size([1, 1369, 1024])
-        >>>
-        >>> # Export to OpenVINO
-        >>> ov_path = encoder.export(Path("./exported"))
-        >>>
-        >>> # Load with OpenVINO backend
-        >>> ov_encoder = ImageEncoder(
-        ...     model_id="dinov2_large",
-        ...     backend=Backend.OPENVINO,
-        ...     model_path=ov_path
-        ... )
     """
 
     def __init__(
@@ -139,7 +109,6 @@ class ImageEncoder(nn.Module):
         precision: str = "bf16",
         compile_models: bool = False,
         input_size: int = 512,
-        model_path: Path | None = None,
     ) -> None:
         """Initialize the image encoder.
 
@@ -147,15 +116,11 @@ class ImageEncoder(nn.Module):
             model_id: The DINO model variant to use. Options:
                 - "dinov2_small", "dinov2_base", "dinov2_large", "dinov2_giant" (HuggingFace)
                 - "dinov3_small", "dinov3_small_plus", "dinov3_base", "dinov3_large", "dinov3_huge" (TIMM)
-            backend: Which backend to use: Backend.HUGGINGFACE, Backend.TIMM, or Backend.OPENVINO.
+            backend: Which backend to use: Backend.HUGGINGFACE or Backend.TIMM.
             device: Device to run inference on. For HuggingFace/TIMM: "cuda" or "cpu".
-                For OpenVINO: "CPU", "GPU", or "AUTO".
             precision: Precision for HuggingFace/TIMM backend: "fp32", "fp16", or "bf16".
-                Ignored for OpenVINO.
             compile_models: Whether to compile model with torch.compile.
-                Ignored for OpenVINO.
             input_size: Input image size (height and width).
-            model_path: Path to exported model (required for OpenVINO backend).
         """
         super().__init__()
         self.backend = backend
@@ -163,7 +128,6 @@ class ImageEncoder(nn.Module):
             model_id=model_id,
             device=device,
             backend=backend,
-            model_path=model_path,
             precision=precision,
             compile_models=compile_models,
             input_size=input_size,

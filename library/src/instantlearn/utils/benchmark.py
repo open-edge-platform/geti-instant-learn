@@ -11,9 +11,9 @@ from pathlib import Path
 import polars as pl
 import torch
 
-from instantlearn.components.prompt_generators import GroundingModel
 from instantlearn.data.base import Batch
 from instantlearn.models import SAM3, GroundedSAM, Matcher, Model, PerDino, SoftMatcher
+from instantlearn.models.grounded_sam import GroundingModel
 from instantlearn.utils.constants import DatasetName, ModelName, SAMModelName
 
 logger = getLogger("Geti Instant Learn")

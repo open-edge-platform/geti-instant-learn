@@ -16,9 +16,6 @@ from torch.nn import functional
 from torchvision import transforms, tv_tensors
 from torchvision.transforms.functional import resize, to_pil_image
 
-# TODO(Eugene): refactor ResizeLongestSide only keeping torch.Tensor implemenataion.
-# https://github.com/open-edge-platform/instant-learn/issues/174
-
 
 class ToTensor(transforms.ToTensor):
     """Convert a ``PIL Image`` or ``numpy.ndarray`` to tensor, or keep as is if already a tensor."""
