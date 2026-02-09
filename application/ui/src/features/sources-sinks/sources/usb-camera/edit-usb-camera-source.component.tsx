@@ -35,6 +35,7 @@ const EditUsbCameraSourceContent = ({ source, onSaved, availableUsbCameras }: Ed
                     source_type: 'usb_camera',
                     device_id: selectedDeviceId,
                     seekable: false,
+                    name: source.config.name,
                 },
                 active,
             },
