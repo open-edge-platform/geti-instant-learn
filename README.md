@@ -58,7 +58,7 @@ pip install ./library[xpu]  # or [cpu], [gpu]
 
 #### SAM3: Zero-Shot Text Prompting
 
-SAM3 performs zero-shot segmentation using text prompts (category names) or bounding boxes — no reference mask needed. 
+SAM3 performs zero-shot segmentation using text prompts (category names) or bounding boxes — no reference mask needed.
 You provide a list of categories you want to segment in any image.
 
 <p align="center">
