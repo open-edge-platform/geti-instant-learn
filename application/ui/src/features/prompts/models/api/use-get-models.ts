@@ -5,7 +5,7 @@
 
 import { useEffect, useRef } from 'react';
 
-import { $api, MatcherModel, ModelListType, PerDINOModel, SoftMatcherModel } from '@/api';
+import { $api, MatcherModel, ModelListType, PerDINOModel, Sam3Model, SoftMatcherModel } from '@/api';
 import { useProjectIdentifier } from '@/hooks';
 import { v4 as uuid } from 'uuid';
 
@@ -89,6 +89,21 @@ const getDefaultSoftMatcherModel = (id: string): SoftMatcherModel => {
     };
 };
 
+const getDefaultSam3Model = (id: string): Sam3Model => {
+    return {
+        id,
+        config: {
+            model_type: 'sam3',
+            confidence_threshold: 0.5,
+            resolution: 1008,
+            precision: 'fp32',
+            compile_models: false,
+        },
+        active: false,
+        name: 'SAM3',
+    };
+};
+
 export const useGetModels = () => {
     const { models } = useGetModelsQuery();
     const createModel = useCreateModel();
@@ -102,6 +117,7 @@ export const useGetModels = () => {
             createModel(getDefaultPerDINOModel(uuid()));
             createModel(getDefaultSoftMatcherModel(uuid()));
             createModel(getDefaultMatcherModel(uuid()));
+            createModel(getDefaultSam3Model(uuid()));
         }
     }, [models.length, createModel]);
 

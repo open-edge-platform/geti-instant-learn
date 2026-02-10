@@ -228,9 +228,13 @@ def test_get_visualization_labels_returns_rgb_mapping(label_service, mock_label_
     mock_label_repository.list_all_by_project.assert_called_once_with(project_id)
 
 
-def test_build_category_mappings_sorted_by_label_id_string(label_service) -> None:
+def test_build_category_mappings_sorted_by_label_id_string(label_service, mock_label_repository) -> None:
     label_id_a = UUID("00000000-0000-0000-0000-00000000000a")
     label_id_b = UUID("00000000-0000-0000-0000-00000000000b")
+
+    label_a = LabelDB(id=label_id_a, project_id=PROJECT_ID, name="apple", color="#ff0000")
+    label_b = LabelDB(id=label_id_b, project_id=PROJECT_ID, name="banana", color="#00ff00")
+    mock_label_repository.get_by_id.side_effect = lambda lid: {label_id_a: label_a, label_id_b: label_b}[lid]
 
     mappings = label_service.build_category_mappings([label_id_b, label_id_a])
 
@@ -242,4 +246,8 @@ def test_build_category_mappings_sorted_by_label_id_string(label_service) -> Non
     assert mappings.label_to_category_id == {
         label_id_a: 0,
         label_id_b: 1,
+    }
+    assert mappings.label_id_to_name == {
+        label_id_a: "apple",
+        label_id_b: "banana",
     }

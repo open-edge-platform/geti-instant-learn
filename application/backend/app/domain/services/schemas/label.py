@@ -57,6 +57,7 @@ class CategoryMappings:
 
     label_to_category_id: dict[UUID, int]
     category_id_to_label_id: dict[int, str]
+    label_id_to_name: dict[UUID, str]
 
 
 @dataclass(frozen=True)

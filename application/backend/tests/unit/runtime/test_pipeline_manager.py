@@ -364,6 +364,7 @@ class TestPipelineManager:
             label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
                 label_to_category_id={label_id: 0},
                 category_id_to_label_id={0: str(label_id)},
+                label_id_to_name={label_id: "test_label"},
             )
 
             result = mgr.get_reference_batch(project_id, PromptType.VISUAL)
@@ -407,6 +408,7 @@ class TestPipelineManager:
             label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
                 label_to_category_id={label_id_a: 0, label_id_b: 1},
                 category_id_to_label_id={0: str(label_id_a), 1: str(label_id_b)},
+                label_id_to_name={label_id_a: "label_a", label_id_b: "label_b"},
             )
 
             result = mgr.get_reference_batch(project_id, PromptType.VISUAL)
@@ -443,7 +445,7 @@ class TestPipelineManager:
         ):
             prompt_repo_cls.return_value.list_all_by_project.return_value = [visual_prompt]
             label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
-                label_to_category_id={}, category_id_to_label_id={}
+                label_to_category_id={}, category_id_to_label_id={}, label_id_to_name={}
             )
 
             result = mgr.get_reference_batch(project_id, PromptType.VISUAL)
@@ -470,7 +472,7 @@ class TestPipelineManager:
         ):
             prompt_repo_cls.return_value.list_all_by_project.return_value = [visual_prompt]
             label_svc_cls.return_value.build_category_mappings.return_value = SimpleNamespace(
-                label_to_category_id={}, category_id_to_label_id={}
+                label_to_category_id={}, category_id_to_label_id={}, label_id_to_name={}
             )
 
             result = mgr.get_reference_batch(project_id, PromptType.VISUAL)

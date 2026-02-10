@@ -18,6 +18,7 @@ class ModelType(StrEnum):
     MATCHER = "matcher"
     PERDINO = "perdino"
     SOFT_MATCHER = "soft_matcher"
+    SAM3 = "sam3"
 
 
 ALLOWED_SAM_MODELS: tuple[SAMModelName, ...] = (
@@ -137,7 +138,29 @@ class SoftMatcherConfig(BaseModelConfig):
     }
 
 
-ModelConfig = Annotated[PerDinoConfig | MatcherConfig | SoftMatcherConfig, Field(discriminator="model_type")]
+class Sam3Config(BaseModel):
+    """Configuration for SAM3 text-prompted segmentation model."""
+
+    model_type: Literal[ModelType.SAM3] = ModelType.SAM3
+    confidence_threshold: float = Field(default=0.5, gt=0.0, lt=1.0)
+    resolution: int = Field(default=1008, gt=0)
+    precision: str = Field(default="fp32", description="Model precision ('bf16' or 'fp32')")
+    compile_models: bool = Field(default=False)
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "model_type": "sam3",
+                "confidence_threshold": 0.5,
+                "resolution": 1008,
+                "precision": "fp32",
+                "compile_models": False,
+            }
+        }
+    }
+
+
+ModelConfig = Annotated[PerDinoConfig | MatcherConfig | SoftMatcherConfig | Sam3Config, Field(discriminator="model_type")]
 
 
 @dataclass(kw_only=True)

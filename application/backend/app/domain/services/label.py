@@ -232,9 +232,20 @@ class LabelService(BaseService):
         label_to_category_id = {label_id: idx for idx, label_id in enumerate(sorted_label_ids)}
         category_id_to_label_id = {idx: str(label_id) for label_id, idx in label_to_category_id.items()}
 
+        # Resolve label names from DB for text-based model prompting (e.g. SAM3)
+        label_id_to_name: dict[UUID, str] = {}
+        for label_id in sorted_label_ids:
+            label = self.label_repository.get_by_id(label_id)
+            if label is not None:
+                label_id_to_name[label_id] = label.name
+            else:
+                logger.warning("Label not found in DB: %s, falling back to UUID string", label_id)
+                label_id_to_name[label_id] = str(label_id)
+
         return CategoryMappings(
             label_to_category_id=label_to_category_id,
             category_id_to_label_id=category_id_to_label_id,
+            label_id_to_name=label_id_to_name,
         )
 
     def _handle_label_integrity_error(

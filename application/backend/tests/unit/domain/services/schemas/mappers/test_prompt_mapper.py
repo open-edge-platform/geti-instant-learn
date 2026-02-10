@@ -54,19 +54,21 @@ class TestPromptMapper:
 
         label_to_category_id = {label_id: 0}
         label_shot_counts: dict[uuid.UUID, int] = {}
+        label_id_to_name = {label_id: "test_object"}
 
         result = visual_prompt_to_sample(
             prompt_db,
             frame=sample_frame,
             label_to_category_id=label_to_category_id,
             label_shot_counts=label_shot_counts,
+            label_id_to_name=label_id_to_name,
         )
 
         assert result is not None
         assert isinstance(result, Sample)
         assert np.array_equal(result.image.permute(1, 2, 0).numpy(), sample_frame)
         assert len(result.categories) == 1
-        assert result.categories[0] == str(label_id)
+        assert result.categories[0] == "test_object"
         assert label_shot_counts[label_id] == 1
 
     def test_visual_prompt_to_sample_raises_error_without_polygons(self, sample_frame: np.ndarray) -> None:
@@ -141,19 +143,21 @@ class TestPromptMapper:
 
         label_to_category_id = {label_id_1: 0, label_id_2: 1}
         label_shot_counts: dict[uuid.UUID, int] = {}
+        label_id_to_name = {label_id_1: "car", label_id_2: "person"}
 
         result = visual_prompt_to_sample(
             prompt_db,
             frame=sample_frame,
             label_to_category_id=label_to_category_id,
             label_shot_counts=label_shot_counts,
+            label_id_to_name=label_id_to_name,
         )
 
         assert result is not None
         assert isinstance(result, Sample)
         assert len(result.categories) == 2
-        assert str(label_id_1) in result.categories
-        assert str(label_id_2) in result.categories
+        assert "car" in result.categories
+        assert "person" in result.categories
         assert label_shot_counts[label_id_1] == 1
         assert label_shot_counts[label_id_2] == 1
 

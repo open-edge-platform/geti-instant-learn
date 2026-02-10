@@ -148,6 +148,7 @@ def visual_prompt_to_sample(
     frame: np.ndarray,
     label_to_category_id: dict[UUID, int],
     label_shot_counts: dict[UUID, int],
+    label_id_to_name: dict[UUID, str] | None = None,
 ) -> Sample:
     """
     Convert a visual prompt to a Sample with merged semantic masks.
@@ -160,6 +161,8 @@ def visual_prompt_to_sample(
         frame: RGB image as numpy array (H, W, C)
         label_to_category_id: Mapping from label UUID to category ID (shared across batch)
         label_shot_counts: Current shot count per label (modified in-place)
+        label_id_to_name: Mapping from label UUID to human-readable name.
+            Used as text prompts by models like SAM3. Falls back to UUID string if not provided.
 
     Returns:
         Sample with merged masks, one per unique label in the prompt
@@ -209,7 +212,7 @@ def visual_prompt_to_sample(
         semantic_mask = np.any(instance_masks, axis=0).astype(np.uint8)  # (H, W) boolean
 
         category_id = label_to_category_id[label_id]
-        category_name = str(label_id)
+        category_name = label_id_to_name.get(label_id, str(label_id)) if label_id_to_name else str(label_id)
 
         # Get the current shot number for this label (from previous prompts)
         current_shot = label_shot_counts.get(label_id, 0)

@@ -377,7 +377,11 @@ class PipelineManager:
 
                     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     sample = visual_prompt_to_sample(
-                        prompt, frame_rgb, category_mappings.label_to_category_id, label_shot_counts
+                        prompt,
+                        frame_rgb,
+                        category_mappings.label_to_category_id,
+                        label_shot_counts,
+                        label_id_to_name=category_mappings.label_id_to_name,
                     )
                     samples.append(sample)
 
