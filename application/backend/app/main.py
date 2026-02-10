@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from instantlearn_license.service import LicenseService
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
@@ -18,7 +19,7 @@ from starlette.responses import Response
 
 import api.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
 from api.error_handler import custom_exception_handler
-from api.routers import projects_router, source_types_router, webrtc_router
+from api.routers import license_router, projects_router, source_types_router, webrtc_router
 from domain.db.engine import get_session_factory, run_db_migrations
 from domain.dispatcher import ConfigChangeDispatcher
 from domain.services.schemas.health import HealthCheckSchema
@@ -89,12 +90,14 @@ fastapi_app.add_exception_handler(RequestValidationError, custom_exception_handl
 @fastapi_app.get(path="/health", tags=["Health"])
 async def health_check() -> HealthCheckSchema:
     """Health check endpoint"""
-    return HealthCheckSchema(status="ok")
+    license_service = LicenseService()
+    return HealthCheckSchema(status="ok", license_accepted=license_service.is_accepted())
 
 
 fastapi_app.include_router(projects_router, prefix="/api/v1")
 fastapi_app.include_router(source_types_router, prefix="/api/v1")
 fastapi_app.include_router(webrtc_router, prefix="/api/v1")
+fastapi_app.include_router(license_router, prefix="/api/v1")
 
 if (
     settings.static_files_dir

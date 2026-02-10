@@ -1,5 +1,5 @@
-#  Copyright (C) 2025 Intel Corporation
-#  SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
 
 from enum import StrEnum
 from typing import Literal
@@ -13,11 +13,13 @@ class HealthStatus(StrEnum):
 
 class HealthCheckSchema(BaseModel):
     status: Literal[HealthStatus.OK]
+    license_accepted: bool
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "status": "ok",
+                "license_accepted": True,
             }
         }
     }

@@ -13,16 +13,9 @@ from torchvision import tv_tensors
 from torchvision.transforms.v2 import Compose, Normalize, Resize, ToDtype
 
 from instantlearn.utils import precision_to_torch_dtype
+from instantlearn.utils.constants import TIMM_AVAILABLE_IMAGE_ENCODERS as AVAILABLE_IMAGE_ENCODERS
 
 logger = getLogger("Geti Instant Learn")
-
-AVAILABLE_IMAGE_ENCODERS = {
-    "dinov3_small": "timm/vit_small_patch16_dinov3.lvd1689m",
-    "dinov3_small_plus": "timm/vit_small_plus_patch16_dinov3.lvd1689m",
-    "dinov3_base": "timm/vit_base_patch16_dinov3.lvd1689m",
-    "dinov3_large": "timm/vit_large_patch16_dinov3.lvd1689m",
-    "dinov3_huge": "timm/vit_huge_plus_patch16_dinov3.lvd1689m",
-}
 
 
 class TimmImageEncoder(nn.Module):

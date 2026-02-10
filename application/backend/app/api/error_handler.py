@@ -7,6 +7,7 @@ import re
 from fastapi import Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from instantlearn_license.service import LicenseNotAcceptedError
 from sqlalchemy.exc import IntegrityError
 
 from domain.errors import (
@@ -41,6 +42,14 @@ def custom_exception_handler(request: Request, exc: Exception) -> JSONResponse: 
         body_str = request._body.decode("utf-8") if hasattr(request, "_body") and request._body else ""
     except Exception:
         body_str = "<unable to read body>"
+
+    if isinstance(exc, LicenseNotAcceptedError):
+        logger.warning(
+            f"License not accepted: {request.method} {request.url.path}. "
+            f"User must accept license terms before using this endpoint."
+        )
+        message = "License not accepted. Please accept the license terms before using this feature."
+        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": message})
 
     if isinstance(exc, ResourceNotFoundError):
         logger.debug(

@@ -3,6 +3,8 @@
 
 """This module contains the Geti Instant Learn CLI."""
 
+import logging
+import sys
 from jsonargparse import ActionConfigFile, ArgumentParser, Namespace
 
 from instantlearn.models import Model
@@ -10,8 +12,10 @@ from instantlearn.scripts.benchmark import perform_benchmark_experiment
 from instantlearn.scripts.run import run_model
 from instantlearn.utils.args import populate_benchmark_parser
 from instantlearn.utils.utils import setup_logger
+from instantlearn_license import LicenseNotAcceptedError, LicenseService
 
 setup_logger()
+logger = logging.getLogger("Geti Instant Learn")
 
 
 class InstantLearnCLI:
@@ -139,10 +143,25 @@ class InstantLearnCLI:
                 raise ValueError(msg)
 
 
+def _ensure_license_accepted() -> None:
+    """Ensure license is accepted before proceeding with CLI.
+
+    Raises:
+        LicenseNotAcceptedError: If a license is not accepted.
+    """
+    service = LicenseService()
+    service.require_accepted(interactive=True)
+
+
 def main() -> None:
     """Main function for the CLI."""
-    InstantLearnCLI()
+    try:
+        _ensure_license_accepted()
+    except LicenseNotAcceptedError as e:
+        logger.error(str(e))
+        sys.exit(1)
 
+    InstantLearnCLI()
 
 if __name__ == "__main__":
     main()

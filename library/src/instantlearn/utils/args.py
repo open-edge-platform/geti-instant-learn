@@ -7,9 +7,8 @@ import argparse
 from enum import Enum
 from typing import TypeVar
 
-from instantlearn.components.encoders import AVAILABLE_IMAGE_ENCODERS
 from instantlearn.models.grounded_sam import GroundingModel
-from instantlearn.utils.constants import DatasetName, ModelName, SAMModelName
+from instantlearn.utils.constants import HUGGINGFACE_AVAILABLE_IMAGE_ENCODERS, DatasetName, ModelName, SAMModelName
 
 # Generate help strings with choices
 AVAILABLE_SAM_MODELS = ", ".join([model.value for model in SAMModelName])
@@ -176,7 +175,7 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         "--encoder_model",
         type=str,
         default="dinov3_large",
-        choices=list(AVAILABLE_IMAGE_ENCODERS),
+        choices=list(HUGGINGFACE_AVAILABLE_IMAGE_ENCODERS),
         help="ImageEncoder model id",
     )
     parser.add_argument(
