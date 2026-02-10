@@ -19,6 +19,7 @@ default:
 
 # Generate OpenAPI specification from FastAPI app
 gen-openapi: _venv
+    INSTANTLEARN_SKIP_LICENSE_CHECK_ON_IMPORT='1' \
     PYTHONPATH=app uv run --no-sync openapi.py .build
 
 # Generate OpenAPI specification and convert to markdown
@@ -33,6 +34,7 @@ dev: _venv (download-dataset dataset-dir)
     CORS_ORIGINS='*' \
     WEBRTC_ADVERTISE_IP='{{ host-ip }}' \
     DEVICE='{{ if device =~ "cu.*" { "cuda" } else { device } }}' \
+    INSTANTLEARN_SKIP_LICENSE_CHECK_ON_IMPORT='1' \
     PYTHONPATH=app uv run uvicorn main:app --reload --host {{ host }} --port {{ port }}
 
 
@@ -52,7 +54,7 @@ venv-lock: _pre-venv
 # Run unit tests
 test-unit: _venv
     if [ -d "./tests/unit" ]; then \
-        uv run pytest ./tests/unit -v; \
+        INSTANTLEARN_SKIP_LICENSE_CHECK_ON_IMPORT='1' uv run pytest ./tests/unit -v; \
     else \
         echo "./tests/unit directory not found - skipping unit tests"; \
     fi
@@ -60,7 +62,7 @@ test-unit: _venv
 # Run integration tests
 test-integration: _venv
     if [ -d "./tests/integration" ]; then \
-        uv run pytest ./tests/integration -v; \
+        INSTANTLEARN_SKIP_LICENSE_CHECK_ON_IMPORT='1' uv run pytest ./tests/integration -v; \
     else \
         echo "./tests/integration directory not found - skipping integration tests"; \
     fi

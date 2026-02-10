@@ -78,6 +78,7 @@ ENV DB_DATA_DIR="/instant_learn/data"
 ENV LOGS_DIR="/instant_learn/logs"
 ENV PATH="/instant_learn/.venv/bin:$PATH"
 ENV PYTHONPATH=/instant_learn/app
+ENV INSTANTLEARN_SKIP_LICENSE_CHECK_ON_IMPORT=1
 ARG UID=10001
 ENV UID=${UID}
 ARG USER_NAME="non-root"

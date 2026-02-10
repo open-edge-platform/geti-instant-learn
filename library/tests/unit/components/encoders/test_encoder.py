@@ -10,12 +10,8 @@ import pytest
 import torch
 from torchvision.tv_tensors import Image
 
-from instantlearn.components.encoders import (
-    AVAILABLE_IMAGE_ENCODERS,
-    TIMM_AVAILABLE_IMAGE_ENCODERS,
-    ImageEncoder,
-)
-from instantlearn.utils.constants import Backend
+from instantlearn.components.encoders import ImageEncoder
+from instantlearn.utils.constants import HUGGINGFACE_AVAILABLE_IMAGE_ENCODERS, TIMM_AVAILABLE_IMAGE_ENCODERS, Backend
 
 
 class TestEncoder:
@@ -178,7 +174,7 @@ class TestEncoder:
     @staticmethod
     def test_valid_model_ids_huggingface() -> None:
         """Test that all valid HuggingFace model IDs are accepted."""
-        for model_id in AVAILABLE_IMAGE_ENCODERS:
+        for model_id in HUGGINGFACE_AVAILABLE_IMAGE_ENCODERS:
             with (
                 patch("instantlearn.utils.optimization.optimize_model") as mock_optimize,
                 patch("instantlearn.components.encoders.huggingface.AutoModel") as mock_model,

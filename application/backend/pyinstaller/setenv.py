@@ -13,3 +13,6 @@ if loaded:
     print("Dotenv loaded")
 else:
     print("No dotenv file found")
+
+# skip license check by library - license acceptance is handled through UI
+os.environ.setdefault("INSTANTLEARN_SKIP_LICENSE_CHECK_ON_IMPORT", "1")
