@@ -11,7 +11,7 @@ coturn-port := "443"
 dataset-dir := ".data/templates/datasets/coffee-berries"
 
 # Ensure version in GHA workflow matches uv version here
-uv_version := "0.9.7"
+uv_version := "0.10.0"
 device := "cpu" # cpu, cu128, xpu
 
 default:
