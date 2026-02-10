@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, TypeAlias
+from typing import TYPE_CHECKING, Union
 
 import numpy as np
 import torch
@@ -22,6 +22,10 @@ from instantlearn.data.base.sample import Sample
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+
+#: Union type for all inputs accepted by :meth:`Batch.collate`.
+Collatable = Union[Sample, list[Sample], "Batch", str, Path, list[str], list[Path]]
 
 
 @dataclass
@@ -330,7 +334,3 @@ class Batch:
             raise ValueError(msg)
 
         return cls(samples=samples)
-
-
-#: Union type for all inputs accepted by :meth:`Batch.collate`.
-Collatable: TypeAlias = Sample | list[Sample] | Batch | str | Path | list[str] | list[Path]

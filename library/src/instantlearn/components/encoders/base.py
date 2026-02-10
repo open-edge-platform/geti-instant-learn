@@ -61,6 +61,13 @@ def load_image_encoder(
         ...     backend=Backend.TIMM  # or "timm"
         ... )
     """
+    try:
+        backend = Backend(backend)
+    except ValueError:
+        valid = ", ".join(f"'{b.value}'" for b in (Backend.HUGGINGFACE, Backend.TIMM))
+        msg = f"Invalid backend: '{backend}'. Must be one of {valid}."
+        raise ValueError(msg) from None
+
     if backend == Backend.HUGGINGFACE:
         return HuggingFaceImageEncoder(
             model_id=model_id,
@@ -78,7 +85,8 @@ def load_image_encoder(
             input_size=input_size,
         )
 
-    msg = f"Invalid backend: {backend}. Must be Backend.HUGGINGFACE or Backend.TIMM"
+    valid = ", ".join(f"'{b.value}'" for b in (Backend.HUGGINGFACE, Backend.TIMM))
+    msg = f"Invalid backend: '{backend}'. Must be one of {valid}."
     raise ValueError(msg)
 
 

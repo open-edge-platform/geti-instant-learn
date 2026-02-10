@@ -58,7 +58,8 @@ pip install ./library[xpu]  # or [cpu], [gpu]
 
 #### SAM3: Zero-Shot Text Prompting
 
-SAM3 uses text prompts (category names) for zero-shot segmentation — no reference mask needed. You provide the category for each image you want to segment.
+SAM3 performs zero-shot segmentation using text prompts (category names) or bounding boxes — no reference mask needed. 
+You provide a list of categories you want to segment in any image.
 
 <p align="center">
   <img src="assets/readme-sam3-example.png" alt="SAM3 Example: Text-prompted segmentation on multiple elephant images">
@@ -71,23 +72,22 @@ from instantlearn.data import Sample
 # Initialize SAM3 (device: "xpu", "cuda", or "cpu")
 model = SAM3(device="xpu")
 
-# Each sample needs a text prompt — fit + predict per image
-sample1 = Sample(
-    image_path="library/examples/assets/coco/000000286874.jpg",
-    categories=["elephant"],
-)
-model.fit(sample1)
-predictions = model.predict(sample1)
-
-sample2 = Sample(
-    image_path="library/examples/assets/coco/000000173279.jpg",
-    categories=["elephant"],
-)
-model.fit(sample2)
-predictions = model.predict(sample2)
+# SAM3 is zero-shot — no fit() required. Just provide categories per sample.
+predictions = model.predict([
+    Sample(image_path="library/examples/assets/coco/000000286874.jpg", categories=["elephant"]),
+    Sample(image_path="library/examples/assets/coco/000000173279.jpg", categories=["elephant"]),
+])
 ```
 
-Since SAM3 requires a text prompt for every sample, this is where **Matcher** comes in — you fit once with a reference mask (one-shot) and predict on any number of new images without providing prompts again.
+> **Tip:** Calling `model.fit(sample)` is optional for SAM3. If called, the fitted
+> categories are reused for all subsequent `predict()` calls so you don't need to
+> specify categories on every target sample. If not called, categories are taken from
+> each target sample directly.
+
+For more examples of SAM3 capabilities, see the [SAM3 aerial & maritime notebook](library/examples/sam3_aerial_maritime_example.ipynb).
+
+Since SAM3 requires a text prompt for every sample (unless `fit()` is used), this is where **Matcher** comes in —
+you fit once with a reference mask (one-shot) and predict on any number of new images without providing prompts again.
 
 #### Matcher: One-Shot Visual Prompting
 
