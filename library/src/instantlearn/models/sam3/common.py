@@ -309,9 +309,7 @@ class Attention(nn.Module):
         )
 
         attn_output = attn_output.transpose(1, 2).reshape(batch_size, query_len, self.hidden_size).contiguous()
-        attn_output = self.o_proj(attn_output)
-
-        return attn_output
+        return self.o_proj(attn_output)
 
 
 class SinePositionEmbedding(nn.Module):

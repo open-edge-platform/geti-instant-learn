@@ -8,17 +8,13 @@ from itertools import zip_longest
 import torch
 from transformers import CLIPTokenizerFast
 
-from instantlearn.data.base.batch import Batch
+from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
-from instantlearn.models.foundation.sam3 import Sam3Model
-from instantlearn.models.foundation.sam3.processing import (
-    Sam3Postprocessor,
-    Sam3Preprocessor,
-    Sam3PromptPreprocessor,
-)
+from instantlearn.models.base import Model
 from instantlearn.utils import precision_to_torch_dtype
 
-from .base import Model
+from .model import Sam3Model
+from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
 
 
 class SAM3(Model):
@@ -115,7 +111,11 @@ class SAM3(Model):
         # Preprocessors and postprocessor
         self.image_preprocessor = Sam3Preprocessor(target_size=resolution).to(device)
         self.prompt_preprocessor = Sam3PromptPreprocessor(target_size=resolution).to(device)
-        self.postprocessor = Sam3Postprocessor(target_size=resolution).to(device)
+        self.postprocessor = Sam3Postprocessor(
+            target_size=resolution,
+            threshold=confidence_threshold,
+            mask_threshold=0.5,
+        ).to(device)
 
         # Tokenizer for text prompts (still from transformers, but not used in ONNX path)
         self.tokenizer = CLIPTokenizerFast.from_pretrained("jetjodh/sam3")
@@ -148,8 +148,8 @@ class SAM3(Model):
                 if category not in self.category_mapping:
                     self.category_mapping[category] = int(category_id)
 
+    @staticmethod
     def _aggregate_results(
-        self,
         all_masks: list[torch.Tensor],
         all_boxes: list[torch.Tensor],
         all_labels: list[torch.Tensor],
@@ -187,7 +187,7 @@ class SAM3(Model):
             "pred_labels": aggregated_labels,
         }
 
-    def predict(self, target: Sample | list[Sample] | Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
         """Perform inference step on the target images.
 
         Uses batch image encoding for efficiency when processing multiple images.
@@ -200,6 +200,8 @@ class SAM3(Model):
                 - Sample: A single target sample
                 - list[Sample]: A list of target samples
                 - Batch: A batch of target samples
+                - str | Path: A single image path
+                - list[str] | list[Path]: Multiple image paths
         """
         target_batch = Batch.collate(target)
         results = []
@@ -257,12 +259,7 @@ class SAM3(Model):
                     )
 
                 # Postprocess
-                result = self.postprocessor(
-                    outputs,
-                    threshold=self.confidence_threshold,
-                    mask_threshold=0.5,
-                    target_sizes=[img_size],
-                )
+                result = self.postprocessor(outputs, target_sizes=[img_size])
                 boxes_with_scores = torch.cat(
                     [result[0]["boxes"], result[0]["scores"].unsqueeze(1)],
                     dim=1,

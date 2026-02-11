@@ -9,7 +9,7 @@ from pathlib import Path
 import torch
 from torch import nn
 
-from instantlearn.data.base.batch import Batch
+from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
 from instantlearn.utils.constants import Backend
 
@@ -29,7 +29,7 @@ class Model(nn.Module):
         """
 
     @abstractmethod
-    def predict(self, target: Sample | list[Sample] | Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
         """Use the learned context to infer object locations.
 
         Args:
@@ -37,6 +37,8 @@ class Model(nn.Module):
                 - Sample: A single target sample
                 - list[Sample]: A list of target samples
                 - Batch: A batch of target samples
+                - str | Path: A single image path
+                - list[str] | list[Path]: Multiple image paths
 
         Returns:
             A list of predictions, one per sample. Each prediction contains:
@@ -50,7 +52,7 @@ class Model(nn.Module):
     def export(
         self,
         export_dir: str | Path,
-        backend: Backend = Backend.ONNX,
+        backend: str | Backend = Backend.ONNX,
         **kwargs,
     ) -> Path:
         """This method exports the model to a given path.

@@ -3,9 +3,10 @@
 
 """SoftMatcher model."""
 
-from instantlearn.components.prompt_generators import SoftmatcherPromptGenerator
 from instantlearn.models.matcher import Matcher
 from instantlearn.utils.constants import SAMModelName
+
+from .prompt_generator import SoftmatcherPromptGenerator
 
 
 class SoftMatcher(Matcher):
@@ -99,6 +100,7 @@ class SoftMatcher(Matcher):
             softmatching_score_threshold: The score threshold for the soft matching.
             softmatching_bidirectional: Whether to use bidirectional soft matching.
             encoder_model: The encoder model to use.
+            use_nms: Whether to use non-maximum suppression on the predicted masks.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
             device: The device to use for the model.

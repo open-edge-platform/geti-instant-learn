@@ -6,7 +6,7 @@
 import pytest
 import torch
 
-from instantlearn.components.filters import BoxPromptFilter
+from instantlearn.models.grounded_sam import BoxPromptFilter
 
 
 def test_multi_instance_prior_filter_large_boxes_filtered() -> None:

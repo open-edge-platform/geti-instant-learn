@@ -44,6 +44,9 @@ dependencies = [
     "openvino==2025.3.0",
     "onnx>=1.19.1",
     "onnxruntime>=1.23.2",
+    # ONNXScript is used for authoring and transforming ONNX graphs in
+    # Instant Learn's ONNX-based model export and optimization utilities.
+    "onnxscript>=0.6.0",
 ]
 
 [dependency-groups]

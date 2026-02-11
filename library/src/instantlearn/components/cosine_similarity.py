@@ -51,7 +51,7 @@ class CosineSimilarity(nn.Module):
         """Compute cosine similarity between reference and target features.
 
         Args:
-            masked_ref_embeddings: Reference embeddings [C, 1, embed_dim]
+            reference_embeddings: Reference embeddings [C, 1, embed_dim]
             target_embeddings: Target embeddings [T, num_patches, embed_dim]
             category_ids: List of category IDs [C]
 
@@ -68,7 +68,7 @@ class CosineSimilarity(nn.Module):
 
         for t_idx in range(num_targets):
             target_embed = target_embeddings[t_idx]
-            target_embed = target_embed / target_embed.norm(dim=-1, keepdim=True)
+            target_embed /= target_embed.norm(dim=-1, keepdim=True)
 
             # Reshape if needed
             if target_embed.dim() == 3:

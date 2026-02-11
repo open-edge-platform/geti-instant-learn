@@ -8,7 +8,7 @@ from logging import getLogger
 import torch
 from torch.nn import functional
 
-from instantlearn.components.prompt_generators import BidirectionalPromptGenerator
+from instantlearn.models.matcher import BidirectionalPromptGenerator
 
 logger = getLogger("Geti Instant Learn")
 

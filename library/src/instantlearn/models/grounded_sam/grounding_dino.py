@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # Copyright 2024 IDEA Research and The HuggingFace Inc. team. All rights reserved.
@@ -1852,7 +1852,8 @@ class GroundingDinoDecoder(GroundingDinoPreTrainedModel):
         multiple self-attention and cross-attention layers.
 
         Some tweaks for Grounding DINO:
-            - `position_embeddings`, `reference_points`, `spatial_shapes` and `valid_ratios` are added to the forward pass.
+            - `position_embeddings`, `reference_points`, `spatial_shapes` and `valid_ratios` are added
+              to the forward pass.
             - it also returns a stack of intermediate outputs and reference points from all decoding layers.
 
         Args:

@@ -25,8 +25,8 @@ class TestSample:
         assert sample.masks is None
         assert sample.bboxes is None
         assert sample.points is None
-        assert sample.categories is None
-        assert sample.category_ids is None
+        assert sample.categories == ["object"]
+        assert sample.category_ids == [0]
         assert sample.mask_paths is None
         assert sample.is_reference == [False]
         assert sample.n_shot == [-1]
@@ -126,8 +126,8 @@ class TestSample:
         assert sample.masks is None
         assert sample.bboxes is None
         assert sample.points is None
-        assert sample.categories is None
-        assert sample.category_ids is None
+        assert sample.categories == ["object"]
+        assert sample.category_ids == [0]
         assert sample.mask_paths is None
         assert sample.is_reference == [False]
         assert sample.n_shot == [-1]

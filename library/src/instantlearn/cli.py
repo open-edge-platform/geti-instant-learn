@@ -69,7 +69,6 @@ class InstantLearnCLI:
     @staticmethod
     def add_benchmark_arguments(parser: ArgumentParser) -> None:
         """Add arguments for the benchmark subcommand."""
-        # TODO(Daankrol): rewrite benchmark script into a class and add arguments here  # noqa: TD003
         populate_benchmark_parser(parser)
 
     def execute(self) -> None:

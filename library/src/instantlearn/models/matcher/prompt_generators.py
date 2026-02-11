@@ -206,8 +206,8 @@ class BidirectionalPromptGenerator(nn.Module):
         scale_h = original_size[0].float() / encoder_input_size
         scale_w = original_size[1].float() / encoder_input_size
 
-        x_image = x_image * scale_w
-        y_image = y_image * scale_h
+        x_image *= scale_w
+        y_image *= scale_h
 
         return torch.stack(
             [
@@ -338,6 +338,7 @@ class BidirectionalPromptGenerator(nn.Module):
                 masked reference embeddings as value.
             flatten_ref_masks(dict[int, torch.Tensor]): Dictionary of flattened reference masks, with class_id as key
                 and flattened reference masks as value.
+            category_ids(list[int]): List of category IDs to process
             target_embeddings(torch.Tensor): Target embeddings
             original_sizes(list[tuple[int, int]]): Original sizes of the target images
 

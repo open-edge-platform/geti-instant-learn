@@ -11,12 +11,13 @@ from torch.nn import functional
 
 from instantlearn.components.encoders import ImageEncoder
 from instantlearn.components.feature_extractors import MaskedFeatureExtractor, ReferenceFeatures
-from instantlearn.components.prompt_generators import BidirectionalPromptGenerator
 from instantlearn.components.sam import SamDecoder, load_sam_model
-from instantlearn.data.base.batch import Batch
+from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.base import Model
 from instantlearn.utils.constants import Backend, SAMModelName
+
+from .prompt_generators import BidirectionalPromptGenerator
 
 
 class EncoderForwardFeaturesWrapper(nn.Module):
@@ -236,7 +237,7 @@ class Matcher(Model):
         )
         return self.ref_features
 
-    def predict(self, target: Sample | list[Sample] | Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
         """Predict masks for target images.
 
         Args:
@@ -244,6 +245,8 @@ class Matcher(Model):
                 - Sample: A single target sample
                 - list[Sample]: A list of target samples
                 - Batch: A batch of target samples
+                - str | Path: A single image path
+                - list[str] | list[Path]: Multiple image paths
 
         Returns:
             List of predictions per image, each containing:
@@ -291,7 +294,7 @@ class Matcher(Model):
         self,
         reference_features: ReferenceFeatures,
         export_dir: str | Path = Path("./exports/matcher"),
-        backend: Backend = Backend.ONNX,
+        backend: str | Backend = Backend.ONNX,
     ) -> Path:
         """Export model components.
 
@@ -336,6 +339,7 @@ class Matcher(Model):
                     "labels": {0: "num_masks"},
                 },
                 verbose=True,
+                dynamo=False,
             )
             return onnx_path
 
@@ -359,6 +363,7 @@ class Matcher(Model):
                         "scores": {0: "num_masks"},
                         "labels": {0: "num_masks"},
                     },
+                    dynamo=False,
                 )
                 # Convert ONNX to OpenVINO
                 ov_model = openvino.convert_model(onnx_path)

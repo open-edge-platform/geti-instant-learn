@@ -10,14 +10,22 @@ properties for batch-level access to tensors.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import TYPE_CHECKING, Union
 
 import numpy as np
 import torch
 from torchvision import tv_tensors
 
 from instantlearn.data.base.sample import Sample
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+
+#: Union type for all inputs accepted by :meth:`Batch.collate`.
+Collatable = Union[Sample, list[Sample], "Batch", str, Path, list[str], list[Path]]
 
 
 @dataclass
@@ -250,22 +258,28 @@ class Batch:
         return [s.mask_paths for s in self.samples]
 
     @classmethod
-    def collate(cls, samples: Sample | list[Sample] | Batch) -> Batch:
+    def collate(cls, samples: Collatable) -> Batch:
         """Collate sample(s) into a batch.
 
-        Simply wraps the sample(s) in a Batch.
-        No data transformation is performed - tensor conversion happens
-        lazily when properties are accessed.
+        Wraps the input in a Batch, converting image paths to Samples
+        when necessary. No further data transformation is performed —
+        tensor conversion happens lazily when properties are accessed.
 
-        This method is idempotent - passing a Batch returns it unchanged.
+        This method is idempotent — passing a Batch returns it unchanged.
 
         Args:
-            samples: Single sample, Batch, or list of samples to batch.
+            samples: Input to batch. Accepts:
+                - :class:`Sample`: A single sample.
+                - ``list[Sample]``: A list of samples.
+                - :class:`Batch`: Returned unchanged.
+                - ``str | Path``: A single image path (creates a target Sample).
+                - ``list[str] | list[Path]``: Multiple image paths.
 
         Returns:
             Batch: The batched samples.
 
         Raises:
+            TypeError: If *samples* is not a supported type.
             ValueError: If the sample list is empty.
 
         Examples:
@@ -281,6 +295,14 @@ class Batch:
             1
             >>> images = batch.images  # Lazy conversion to tensors
 
+            Collate from image paths:
+            >>> batch = Batch.collate("image.jpg")
+            >>> len(batch)
+            1
+            >>> batch = Batch.collate(["img1.jpg", "img2.jpg"])
+            >>> len(batch)
+            2
+
             Idempotent behavior (returns Batch unchanged):
             >>> batch = Batch.collate(samples)
             >>> same_batch = Batch.collate(batch)
@@ -294,6 +316,18 @@ class Batch:
         # Convert single sample to list
         if isinstance(samples, Sample):
             samples = [samples]
+
+        # Convert a single path to a one-element list
+        elif isinstance(samples, (str, Path)):
+            samples = [Sample(image_path=str(samples))]
+
+        # Convert list of paths to list of Samples
+        elif isinstance(samples, list) and samples and isinstance(samples[0], (str, Path)):
+            samples = [Sample(image_path=str(p)) for p in samples]
+
+        if not isinstance(samples, list):
+            msg = f"Unsupported input type for collate: {type(samples)}"
+            raise TypeError(msg)
 
         if not samples:
             msg = "Cannot collate empty list of samples"
