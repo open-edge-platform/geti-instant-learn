@@ -58,18 +58,18 @@ runs:
             if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
               VERSION="${BASE_VERSION}-dev-${SHORT_SHA}"
               echo "Generated version for push to main: $VERSION"
-            elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
-              # Check if versions in TAG (ignoring RC suffix) match the file version
-              TAG_VERSION_CLEAN=$(echo "$GITHUB_REF_NAME" | sed 's/^v//')
-              TAG_BASE=$(echo "$TAG_VERSION_CLEAN" | sed 's/-RC[0-9]*$//')
-
-              if [[ "$BASE_VERSION" == "$TAG_BASE" ]]; then
-                VERSION="$TAG_VERSION_CLEAN"
-                echo "Generated version for RC tag: $VERSION"
+            elif [[ "$GITHUB_REF_NAME" == release* ]]; then
+              if [[ "$GITHUB_REF_NAME" == *app* ]]; then
+                PRODUCT="app"
+              elif [[ "$GITHUB_REF_NAME" == *lib* ]]; then
+                PRODUCT="lib"
               else
-                echo "Error: Version mismatch. File version: $BASE_VERSION, Tag base version: $TAG_BASE"
+                echo "Error: Release branch must include 'app' or 'lib' in name"
                 exit 1
               fi
+
+              VERSION="${BASE_VERSION}-release-${PRODUCT}-${SHORT_SHA}"
+              echo "Generated version for release branch: $VERSION"
             else
               VERSION="${BASE_VERSION}-feature-${SHORT_SHA}"
               echo "Generated version for push to other branch: $VERSION"
