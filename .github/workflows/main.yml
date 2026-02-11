@@ -87,6 +87,8 @@ jobs:
     needs: [build-parameters]
     permissions:
       contents: read
+      packages: write # Permission to push packages to GHCR
+      id-token: write # Permission to request OIDC token for signing images
     if: github.event_name != 'push' && needs.build-parameters.outputs.components-list && contains(fromJson(needs.build-parameters.outputs.components-list), 'distrib')
     uses: ./.github/workflows/distrib.yml
     with:

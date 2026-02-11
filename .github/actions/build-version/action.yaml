@@ -46,9 +46,7 @@ runs:
         BASE_VERSION: ${{ steps.read-version.outputs.version }}
         SHORT_SHA: ${{ steps.short-sha.outputs.short-sha }}
         PR_NUMBER: ${{ github.event.number }}
-
       run: |
-        
         echo "Event: $EVENT_NAME"
         echo "Ref: $GITHUB_REF"
         echo "Ref Name: $GITHUB_REF_NAME"
