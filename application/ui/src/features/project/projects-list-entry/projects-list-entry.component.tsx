@@ -9,6 +9,7 @@ import { $api, type ProjectType } from '@/api';
 import { ActionButton, Flex, Grid, Heading, PhotoPlaceholder, repeat, Text, View } from '@geti/ui';
 import { AddCircle } from '@geti/ui/icons';
 import { clsx } from 'clsx';
+import { useNavigate } from 'react-router';
 import { Link } from 'react-router-dom';
 
 import { paths } from '../../../constants/paths';
@@ -70,6 +71,7 @@ const ProjectCard = ({ project, projectNames, activeProject }: ProjectCardProps)
     const updateProject = useUpdateProject();
     const deleteProject = useDeleteProject();
     const activateProject = useActivateProject();
+    const navigate = useNavigate();
 
     const handleAction = (key: Key) => {
         if (key === PROJECT_ACTIONS.RENAME) {
@@ -87,7 +89,13 @@ const ProjectCard = ({ project, projectNames, activeProject }: ProjectCardProps)
     };
 
     const handleDelete = () => {
-        deleteProject(project.id);
+        deleteProject(project.id, () => {
+            // project names do not include the current project name, so if they are empty, we navigate to the
+            // welcome page
+            if (projectNames.length === 0) {
+                navigate(paths.welcome({}));
+            }
+        });
     };
 
     const isInEditionState = projectIDInEdition === project.id;
