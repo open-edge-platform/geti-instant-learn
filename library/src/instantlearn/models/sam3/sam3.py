@@ -1,10 +1,13 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """SAM3 model for text and visual prompting."""
 
+import logging
+from enum import Enum
 from itertools import zip_longest
 
+import numpy as np
 import torch
 from transformers import CLIPTokenizerFast
 
@@ -16,6 +19,23 @@ from instantlearn.utils import precision_to_torch_dtype
 from .model import Sam3Model
 from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
 
+logger = logging.getLogger(__name__)
+
+
+class Sam3PromptMode(str, Enum):
+    """Prompt mode for SAM3 inference.
+
+    Attributes:
+        CLASSIC: Original SAM3 behavior. Text/box prompts are provided per target
+            image. Boxes are encoded against the target image's own features.
+        VISUAL_EXEMPLAR: Cross-image visual query detection. Box prompts on a
+            reference image are encoded during fit() and reused for all target
+            images. Enables "draw box on image A → detect similar on images B, C, D".
+    """
+
+    CLASSIC = "classic"
+    VISUAL_EXEMPLAR = "visual_exemplar"
+
 
 class SAM3(Model):
     """SAM3 model for text and visual prompting.
@@ -26,58 +46,45 @@ class SAM3(Model):
     **Important: SAM3 differs from other prompt-based models** in that it does NOT
     require a separate learning phase. Instead, it performs zero-shot segmentation
     directly during inference using:
-    - Text prompts (category names) provided via `fit()` or per-sample `categories`, OR
-    - Visual prompts (bounding boxes) provided in the `bboxes` field of each sample
+    - Text prompts (category names) provided via ``fit()`` or per-sample ``categories``, OR
+    - Visual prompts (bounding boxes) provided in the ``bboxes`` field of each sample
 
     At least one of these prompt types must be provided for each sample during inference.
 
     NOTE: Currently, SAM3 does not work well with torch.bfloat16 precision.
 
-    Usage Patterns:
-        **Pattern 1: Consistent text prompting via `fit()`**
-        Use `fit()` to store categories, then `predict()` applies them to all images.
+    Prompt Modes:
+        **CLASSIC** (default): Original SAM3 behavior. Text/box prompts are
+        provided per target image. ``fit()`` only stores category names.
 
-        **Pattern 2: Per-sample prompting**
-        Skip `fit()` and provide categories/bboxes directly in each target sample.
+        **VISUAL_EXEMPLAR**: Cross-image visual query detection. During ``fit()``,
+        box prompts on reference images are encoded into geometry features and
+        cached. During ``predict()``, these cached features are reused for each
+        target image — no boxes needed on targets.
 
     Examples:
         >>> from instantlearn.models import SAM3
+        >>> from instantlearn.models.sam3.sam3 import Sam3PromptMode
         >>> from instantlearn.data.base import Batch
         >>> from instantlearn.data.base.sample import Sample
         >>> import torch
         >>> import numpy as np
 
+        >>> # Classic mode (default)
         >>> sam3 = SAM3()
+        >>> ref_sample = Sample(categories=["shoe", "person"], category_ids=[0, 1])
+        >>> sam3.fit(ref_sample)
+        >>> results = sam3.predict(Sample(image=torch.zeros((3, 1024, 1024))))
 
-        >>> # Example 1: Using fit() to set category prompts directly in reference samples without passing reference images.
+        >>> # Visual exemplar mode: draw box on reference → detect on targets
+        >>> sam3_ve = SAM3(prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR)
         >>> ref_sample = Sample(
-        ...     categories=["shoe", "person"],
-        ...     category_ids=[0, 1],
-        ... )
-        >>> sam3.fit(Batch.collate([ref_sample]))
-        >>> target_batch = Batch.collate([Sample(image=torch.zeros((3, 1024, 1024)))])
-        >>> infer_results = sam3.infer(target_batch)
-
-        >>> # Example 2: Per-sample text prompting (without fit) but set category prompts in each target sample.
-        >>> sam3_no_fit = SAM3()
-        >>> target_sample = Sample(
         ...     image=torch.zeros((3, 1024, 1024)),
-        ...     categories=["shoe", "person"],  # Category prompts per sample
-        ...     category_ids=[0, 1],
+        ...     bboxes=np.array([[100, 100, 200, 200]]),  # [x, y, w, h] on reference
+        ...     category_ids=np.array([0]),
         ... )
-        >>> target_batch = Batch.collate([target_sample])
-        >>> infer_results = sam3_no_fit.infer(target_batch)
-
-        >>> # Example 3: Visual prompting with bounding boxes
-        >>> target_sample = Sample(
-        ...     image=torch.zeros((3, 1024, 1024)),
-        ...     bboxes=np.array([[100, 100, 200, 200]]),  # [x, y, w, h]
-        ... )
-        >>> target_batch = Batch.collate([target_sample])
-        >>> infer_results = sam3_no_fit.infer(target_batch)
-
-        >>> isinstance(infer_results, list)
-        True
+        >>> sam3_ve.fit(ref_sample)
+        >>> results = sam3_ve.predict(Sample(image=torch.zeros((3, 1024, 1024))))
     """
 
     def __init__(
@@ -87,6 +94,8 @@ class SAM3(Model):
         resolution: int = 1008,
         precision: str = "fp32",
         compile_models: bool = False,
+        prompt_mode: Sam3PromptMode | str = Sam3PromptMode.CLASSIC,
+        drop_spatial_bias: bool = True,
     ) -> None:
         """Initialize the SAM3 model.
 
@@ -96,6 +105,12 @@ class SAM3(Model):
             resolution: The input image resolution.
             precision: The precision to use for the model ('bf16' or 'fp32').
             compile_models: Whether to compile the models.
+            prompt_mode: Prompt mode for inference. 'classic' for original SAM3
+                behavior, 'visual_exemplar' for cross-image visual query detection.
+            drop_spatial_bias: When True and in VISUAL_EXEMPLAR mode, skip
+                coordinate projection and position encoding in the geometry
+                encoder, keeping only ROI-pooled visual features. This removes
+                spatial bias from the reference image position. Default: True.
         """
         super().__init__()
 
@@ -104,9 +119,18 @@ class SAM3(Model):
         self.resolution = resolution
         self.precision = precision
         self.compile_models = compile_models
+        self.prompt_mode = Sam3PromptMode(prompt_mode)
+        self.drop_spatial_bias = drop_spatial_bias
 
         # Category mapping from fit() - optional for consistency with GroundedSAM
         self.category_mapping: dict[str, int] | None = None
+
+        # Visual exemplar cached features (set during fit in VISUAL_EXEMPLAR mode)
+        self.exemplar_geometry_features: list[torch.Tensor] | None = None
+        self.exemplar_geometry_mask: list[torch.Tensor] | None = None
+        self.exemplar_text_features: list[torch.Tensor] | None = None
+        self.exemplar_text_mask: list[torch.Tensor] | None = None
+        self.exemplar_category_ids: list[int] | None = None
 
         # Preprocessors and postprocessor
         self.image_preprocessor = Sam3Preprocessor(target_size=resolution).to(device)
@@ -130,23 +154,145 @@ class SAM3(Model):
         )
 
     def fit(self, reference: Sample | list[Sample] | Batch) -> None:
-        """Store category mapping from reference batch for consistent API with GroundedSAM.
+        """Learn from reference samples.
 
-        This method is optional. If called, the stored categories will be used for all
-        predictions. If not called, categories are taken from each target sample.
+        In CLASSIC mode, stores category mapping only (no image processing).
+        In VISUAL_EXEMPLAR mode, encodes box prompts on reference images into
+        geometry features and caches them for reuse during predict().
 
         Args:
             reference: Reference data to learn from. Accepts:
                 - Sample: A single reference sample
                 - list[Sample]: A list of reference samples
                 - Batch: A batch of reference samples
+
+        Raises:
+            ValueError: If in VISUAL_EXEMPLAR mode and no bboxes are provided
+                in any reference sample.
         """
         reference_batch = Batch.collate(reference)
+
+        if self.prompt_mode == Sam3PromptMode.CLASSIC:
+            self._fit_classic(reference_batch)
+        else:
+            self._fit_visual_exemplar(reference_batch)
+
+    def _fit_classic(self, reference_batch: Batch) -> None:
+        """Store category mapping from reference batch.
+
+        Args:
+            reference_batch: Batch of reference samples.
+        """
         self.category_mapping = {}
         for sample in reference_batch.samples:
+            if sample.categories is None or sample.category_ids is None:
+                continue
             for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
                 if category not in self.category_mapping:
                     self.category_mapping[category] = int(category_id)
+
+    @torch.no_grad()
+    def _fit_visual_exemplar(self, reference_batch: Batch) -> None:
+        """Encode visual exemplar features from reference images and boxes.
+
+        For each reference sample with bounding boxes, encodes the box regions
+        using the GeometryEncoder against the reference image's ViT features.
+        Results are cached for reuse in predict().
+
+        Args:
+            reference_batch: Batch of reference samples with images and bboxes.
+
+        Raises:
+            ValueError: If no reference samples contain bboxes.
+        """
+        all_geometry_features: list[torch.Tensor] = []
+        all_geometry_masks: list[torch.Tensor] = []
+        all_category_ids: list[int] = []
+        all_text_prompts: list[str] = []
+
+        for sample in reference_batch.samples:
+            bboxes = sample.bboxes
+            if bboxes is None or (isinstance(bboxes, np.ndarray) and bboxes.size == 0):
+                continue
+            if sample.image is None:
+                msg = "VISUAL_EXEMPLAR mode requires images in reference samples."
+                raise ValueError(msg)
+
+            # Preprocess reference image
+            image_tensor = sample.image.unsqueeze(0) if sample.image.ndim == 3 else sample.image
+            pixel_values, original_sizes = self.image_preprocessor(image_tensor.to(self.device))
+            vision_embeds = self.model.get_vision_features(pixel_values)
+
+            fpn_hidden_states = vision_embeds["fpn_hidden_states"][:-1]
+            fpn_position_encoding = vision_embeds["fpn_position_encoding"][:-1]
+
+            # Build aligned lists: categories/category_ids default to "visual"/0
+            categories = sample.categories if sample.categories is not None else ["visual"] * len(bboxes)
+            category_ids = sample.category_ids if sample.category_ids is not None else [0] * len(bboxes)
+
+            # Encode each box individually to get per-exemplar features
+            for bbox, category, cat_id in zip(bboxes, categories, category_ids, strict=True):
+                input_boxes = self.prompt_preprocessor(bbox, original_sizes)
+                input_boxes_labels = torch.ones((1, 1), dtype=torch.long, device=self.device)
+
+                box_embeddings = input_boxes.to(dtype=fpn_hidden_states[0].dtype)
+                box_mask = torch.ones(1, 1, dtype=torch.bool, device=self.device)
+
+                geometry_outputs = self.model.geometry_encoder(
+                    box_embeddings=box_embeddings,
+                    box_mask=box_mask,
+                    box_labels=input_boxes_labels,
+                    img_feats=fpn_hidden_states,
+                    img_pos_embeds=fpn_position_encoding,
+                    drop_spatial_bias=self.drop_spatial_bias,
+                )
+
+                all_geometry_features.append(geometry_outputs["last_hidden_state"])
+                all_geometry_masks.append(geometry_outputs["attention_mask"])
+                all_category_ids.append(int(cat_id))
+                all_text_prompts.append(category)
+
+        if not all_geometry_features:
+            msg = "VISUAL_EXEMPLAR mode requires at least one reference sample with bboxes."
+            raise ValueError(msg)
+
+        # Cache geometry features (each exemplar is [1, num_prompts, 256])
+        self.exemplar_geometry_features = all_geometry_features
+        self.exemplar_geometry_mask = all_geometry_masks
+        self.exemplar_category_ids = all_category_ids
+
+        # Pre-compute text features per unique text prompt, then map per exemplar
+        unique_prompts = list(dict.fromkeys(all_text_prompts))  # preserve order, deduplicate
+        text_cache: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
+        for prompt in unique_prompts:
+            text_inputs = self.tokenizer([prompt], return_tensors="pt", padding="max_length", max_length=32)
+            input_ids = text_inputs.input_ids.to(self.device)
+            attention_mask = text_inputs.attention_mask.to(self.device)
+            text_outputs = self.model.get_text_features(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+            )
+            text_cache[prompt] = (text_outputs.pooler_output, attention_mask.bool())
+
+        # Store per-exemplar text features aligned with geometry features
+        self.exemplar_text_features = [text_cache[p][0] for p in all_text_prompts]
+        self.exemplar_text_mask = [text_cache[p][1] for p in all_text_prompts]
+
+        # Also store category mapping if categories are available
+        self.category_mapping = {}
+        for sample in reference_batch.samples:
+            if sample.categories is None or sample.category_ids is None:
+                continue
+            for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
+                if category not in self.category_mapping:
+                    self.category_mapping[category] = int(category_id)
+
+        logger.info(
+            "Cached %d visual exemplar(s): prompts=%s, category_ids=%s",
+            len(all_category_ids),
+            all_text_prompts,
+            all_category_ids,
+        )
 
     @staticmethod
     def _aggregate_results(
@@ -188,12 +334,10 @@ class SAM3(Model):
         }
 
     def predict(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
-        """Perform inference step on the target images.
+        """Perform inference on target images.
 
-        Uses batch image encoding for efficiency when processing multiple images.
-
-        If `fit()` was called, uses the stored category mapping for text prompts.
-        Otherwise, uses per-sample categories from target_batch.
+        In CLASSIC mode, processes text/box prompts per target image.
+        In VISUAL_EXEMPLAR mode, reuses cached exemplar features from fit().
 
         Args:
             target: Target data to infer. Accepts:
@@ -202,6 +346,26 @@ class SAM3(Model):
                 - Batch: A batch of target samples
                 - str | Path: A single image path
                 - list[str] | list[Path]: Multiple image paths
+
+        Returns:
+            List of prediction dicts per image with 'pred_masks', 'pred_boxes',
+            'pred_labels'.
+
+        Raises:
+            RuntimeError: If in VISUAL_EXEMPLAR mode and fit() has not been called.
+        """
+        if self.prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
+            return self._predict_visual_exemplar(target)
+        return self._predict_classic(target)
+
+    def _predict_classic(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
+        """Classic SAM3 prediction with per-image text/box prompts.
+
+        Args:
+            target: Target data to infer.
+
+        Returns:
+            List of prediction dicts per image.
         """
         target_batch = Batch.collate(target)
         results = []
@@ -238,7 +402,7 @@ class SAM3(Model):
 
             for text, bbox, cat_id in zip_longest(texts, bboxes, category_ids, fillvalue=None):
                 # Tokenize text prompt (default to "visual" for bbox-only prompts)
-                text_inputs = self.tokenizer([text or "visual"], return_tensors="pt", padding=True)
+                text_inputs = self.tokenizer([text or "visual"], return_tensors="pt", padding="max_length", max_length=32)
                 input_ids = text_inputs.input_ids.to(self.device)
                 attention_mask = text_inputs.attention_mask.to(self.device)
 
@@ -256,6 +420,75 @@ class SAM3(Model):
                         attention_mask=attention_mask,
                         input_boxes=input_boxes,
                         input_boxes_labels=input_boxes_labels,
+                    )
+
+                # Postprocess
+                result = self.postprocessor(outputs, target_sizes=[img_size])
+                boxes_with_scores = torch.cat(
+                    [result[0]["boxes"], result[0]["scores"].unsqueeze(1)],
+                    dim=1,
+                )
+                all_masks.append(result[0]["masks"].cpu())
+                all_boxes.append(boxes_with_scores.cpu())
+                all_labels.append(torch.full((len(result[0]["boxes"]),), cat_id, dtype=torch.int64))
+
+            results.append(self._aggregate_results(all_masks, all_boxes, all_labels, img_size))
+
+        return results
+
+    def _predict_visual_exemplar(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
+        """Visual exemplar prediction using cached geometry features from fit().
+
+        For each target image, reuses the cached exemplar geometry features
+        (extracted from reference images during fit) as prompt conditioning.
+
+        Args:
+            target: Target data to infer.
+
+        Returns:
+            List of prediction dicts per image.
+
+        Raises:
+            RuntimeError: If fit() has not been called.
+        """
+        if self.exemplar_geometry_features is None:
+            msg = "No cached exemplar features. Call fit() with reference images and bboxes first."
+            raise RuntimeError(msg)
+
+        target_batch = Batch.collate(target)
+        results = []
+
+        for sample in target_batch.samples:
+            img_size = sample.image.shape[-2:]
+
+            # Preprocess target image
+            image_tensor = sample.image.unsqueeze(0) if sample.image.ndim == 3 else sample.image
+            with torch.no_grad():
+                pixel_values, original_sizes = self.image_preprocessor(image_tensor.to(self.device))
+                vision_embeds = self.model.get_vision_features(pixel_values)
+
+            all_masks: list[torch.Tensor] = []
+            all_boxes: list[torch.Tensor] = []
+            all_labels: list[torch.Tensor] = []
+
+            # Run detection for each cached exemplar
+            for i, (geo_feats, geo_mask, text_feats, text_mask, cat_id) in enumerate(
+                zip(
+                    self.exemplar_geometry_features,
+                    self.exemplar_geometry_mask,
+                    self.exemplar_text_features,
+                    self.exemplar_text_mask,
+                    self.exemplar_category_ids,
+                    strict=True,
+                )
+            ):
+                with torch.no_grad():
+                    outputs = self.model(
+                        vision_embeds=vision_embeds,
+                        text_embeds=text_feats,
+                        attention_mask=text_mask.long(),
+                        precomputed_geometry_features=geo_feats,
+                        precomputed_geometry_mask=geo_mask,
                     )
 
                 # Postprocess

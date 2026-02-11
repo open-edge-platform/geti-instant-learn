@@ -233,6 +233,7 @@ class GeometryEncoder(nn.Module):
         boxes_mask: torch.Tensor,
         boxes_labels: torch.Tensor,
         vision_features: torch.Tensor,
+        drop_spatial_bias: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Encode box prompts with embeddings and labels.
 
@@ -244,13 +245,16 @@ class GeometryEncoder(nn.Module):
             boxes_labels (torch.Tensor): Box labels [batch_size, num_boxes].
             vision_features (torch.Tensor): Vision features [batch_size, hidden_size,
                 height, width].
+            drop_spatial_bias (bool): If True, skip coordinate projection and
+                position encoding, keeping only ROI-pooled visual features.
+                Useful for cross-image exemplar detection where the reference
+                box position is irrelevant to target images. Default: False.
 
         Returns:
             tuple[torch.Tensor, torch.Tensor]: Encoded boxes and mask.
         """
         batch_size, num_boxes = boxes.shape[:2]
         height, width = vision_features.shape[-2:]
-        boxes_embed = self.boxes_direct_project(boxes)
 
         # Pool features using ROI align
         # Convert boxes from CxCyWH to xyxy format and denormalize
@@ -269,19 +273,26 @@ class GeometryEncoder(nn.Module):
 
         pooled_projection = self.boxes_pool_project(sampled_features)
         pooled_projection = pooled_projection.view(batch_size, num_boxes, self.hidden_size)
-        boxes_embed += pooled_projection
 
-        # Add position encoding
-        center_x, center_y, box_width, box_height = boxes.unbind(-1)
-        pos_enc = self._encode_box_coordinates(
-            center_x.flatten(),
-            center_y.flatten(),
-            box_width.flatten(),
-            box_height.flatten(),
-        )
-        pos_enc = pos_enc.view(batch_size, num_boxes, pos_enc.shape[-1])
-        pos_projection = self.boxes_pos_enc_project(pos_enc)
-        boxes_embed += pos_projection
+        if drop_spatial_bias:
+            # Cross-image mode: only ROI-pooled visual features (no spatial bias)
+            boxes_embed = pooled_projection
+        else:
+            # Same-image mode (original): coordinates + ROI + position encoding
+            boxes_embed = self.boxes_direct_project(boxes)
+            boxes_embed += pooled_projection
+
+            # Add position encoding
+            center_x, center_y, box_width, box_height = boxes.unbind(-1)
+            pos_enc = self._encode_box_coordinates(
+                center_x.flatten(),
+                center_y.flatten(),
+                box_width.flatten(),
+                box_height.flatten(),
+            )
+            pos_enc = pos_enc.view(batch_size, num_boxes, pos_enc.shape[-1])
+            pos_projection = self.boxes_pos_enc_project(pos_enc)
+            boxes_embed += pos_projection
 
         # Add label embeddings (positive/negative)
         label_embed = self.label_embed(boxes_labels.long())
@@ -294,6 +305,7 @@ class GeometryEncoder(nn.Module):
         box_labels: torch.Tensor,
         img_feats: tuple[torch.Tensor, ...],
         img_pos_embeds: tuple[torch.Tensor, ...] | None = None,
+        drop_spatial_bias: bool = False,
     ) -> dict[str, torch.Tensor]:
         """Encode geometric prompts with transformer layers.
 
@@ -308,6 +320,9 @@ class GeometryEncoder(nn.Module):
                 encoder.
             img_pos_embeds (tuple[torch.Tensor, ...] | None): Optional position
                 embeddings for image features. Default: None.
+            drop_spatial_bias (bool): If True, skip coordinate projection and
+                position encoding in box encoding, keeping only ROI-pooled
+                visual features. Default: False.
 
         Returns:
             dict[str, torch.Tensor]: Dictionary with 'last_hidden_state' containing
@@ -328,7 +343,10 @@ class GeometryEncoder(nn.Module):
         normalized_img_feats = self.vision_layer_norm(img_feats_last)
         normalized_img_feats = normalized_img_feats.permute(0, 3, 1, 2)  # [B, C, H, W]
 
-        prompt_embeds, prompt_mask = self._encode_boxes(box_embeddings, box_mask, box_labels, normalized_img_feats)
+        prompt_embeds, prompt_mask = self._encode_boxes(
+            box_embeddings, box_mask, box_labels, normalized_img_feats,
+            drop_spatial_bias=drop_spatial_bias,
+        )
 
         # Add CLS token (always valid)
         cls_embed = self.cls_embed.weight.view(1, self.hidden_size).unsqueeze(0).expand(batch_size, -1, -1)
@@ -1037,6 +1055,9 @@ class Sam3Model(nn.Module):
         text_embeds: torch.FloatTensor | None = None,
         input_boxes: torch.FloatTensor | None = None,
         input_boxes_labels: torch.LongTensor | None = None,
+        precomputed_geometry_features: torch.FloatTensor | None = None,
+        precomputed_geometry_mask: torch.Tensor | None = None,
+        drop_spatial_bias: bool = False,
         **kwargs: dict,
     ) -> dict[str, torch.Tensor | None]:
         """Predict instance masks, boxes, and logits for input images.
@@ -1058,6 +1079,15 @@ class Sam3Model(nn.Module):
                 normalized to [0, 1] [batch_size, num_boxes, 4]. Default: None.
             input_boxes_labels (torch.LongTensor | None): Box labels (1=positive,
                 0=negative) [batch_size, num_boxes]. Default: None.
+            precomputed_geometry_features (torch.FloatTensor | None): Pre-computed
+                geometry prompt features from a reference image [batch_size,
+                num_prompts, hidden_size]. When provided, input_boxes are ignored
+                and these features are used directly. Default: None.
+            precomputed_geometry_mask (torch.Tensor | None): Attention mask for
+                precomputed geometry features [batch_size, num_prompts].
+                Default: None.
+            drop_spatial_bias (bool): If True, skip coordinate projection and
+                position encoding in geometry encoder. Default: False.
             **kwargs (dict): Additional keyword arguments for model components.
 
         Returns:
@@ -1100,29 +1130,28 @@ class Sam3Model(nn.Module):
             text_features = text_embeds
 
         text_mask = attention_mask.bool() if attention_mask is not None else None
-        has_geometry_prompts = input_boxes is not None and input_boxes.numel() > 0
 
         geometry_prompt_features = None
         geometry_prompt_mask = None
 
-        if has_geometry_prompts:
-            if input_boxes is not None and input_boxes.numel() > 0:
-                box_embeddings = input_boxes.to(dtype=text_features.dtype)  # [batch_size, num_boxes, 4]
-                box_labels = (
-                    input_boxes_labels
-                    if input_boxes_labels is not None
-                    else torch.ones_like(box_embeddings[..., 0], dtype=torch.long)
-                )
-                box_mask = (
-                    (input_boxes_labels != -10)
-                    if input_boxes_labels is not None
-                    else torch.ones(batch_size, input_boxes.shape[1], dtype=torch.bool, device=device)
-                )
-                box_labels = torch.where(box_labels == -10, 0, box_labels)
-            else:
-                box_embeddings = torch.zeros(batch_size, 0, 4, dtype=text_features.dtype, device=device)
-                box_labels = torch.zeros(batch_size, 0, dtype=torch.long, device=device)
-                box_mask = torch.zeros(batch_size, 0, dtype=torch.bool, device=device)
+        if precomputed_geometry_features is not None:
+            # Use pre-computed exemplar features (cross-image visual query mode)
+            geometry_prompt_features = precomputed_geometry_features
+            geometry_prompt_mask = precomputed_geometry_mask
+        elif input_boxes is not None and input_boxes.numel() > 0:
+            # Compute geometry features from boxes on this image (same-image mode)
+            box_embeddings = input_boxes.to(dtype=text_features.dtype)  # [batch_size, num_boxes, 4]
+            box_labels = (
+                input_boxes_labels
+                if input_boxes_labels is not None
+                else torch.ones_like(box_embeddings[..., 0], dtype=torch.long)
+            )
+            box_mask = (
+                (input_boxes_labels != -10)
+                if input_boxes_labels is not None
+                else torch.ones(batch_size, input_boxes.shape[1], dtype=torch.bool, device=device)
+            )
+            box_labels = torch.where(box_labels == -10, 0, box_labels)
 
             geometry_outputs = self.geometry_encoder(
                 box_embeddings=box_embeddings,
@@ -1130,6 +1159,7 @@ class Sam3Model(nn.Module):
                 box_labels=box_labels,
                 img_feats=fpn_hidden_states,
                 img_pos_embeds=fpn_position_encoding,
+                drop_spatial_bias=drop_spatial_bias,
             )
 
             geometry_prompt_features = geometry_outputs["last_hidden_state"]

@@ -138,7 +138,7 @@ def learn_from_category(dataset: Dataset, model: Model, category_name: str) -> N
         category_name: The category to learn from
     """
     reference_dataset = dataset.get_reference_dataset(category=category_name)
-    reference_batch = Batch.collate(reference_dataset)
+    reference_batch = Batch.collate([sample for sample in reference_dataset])
     # Learn
     model.fit(reference_batch)
 
