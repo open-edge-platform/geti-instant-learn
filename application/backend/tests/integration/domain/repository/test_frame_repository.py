@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import pytest
 
-from domain.repositories.frame import FrameRepository
+from domain.repositories.frame import ColorFormat, FrameRepository
 
 
 @pytest.fixture
@@ -153,7 +153,7 @@ def test_read_frame_returns_frame_when_exists(frame_repository, sample_frame):
     assert retrieved_frame.dtype == np.uint8
 
 
-def test_read_frame_returns_bgr_format(frame_repository):
+def test_read_frame_returns_bgr_format_by_default(frame_repository):
     project_id = uuid4()
     frame_id = uuid4()
     height = 640
@@ -171,12 +171,38 @@ def test_read_frame_returns_bgr_format(frame_repository):
     assert bgr_frame_output is not None
     assert bgr_frame_output.shape == (height, width, channels)
 
-    # read_frame returns BGR format (as stored by OpenCV), so verify BGR values
+    # read_frame returns BGR format by default (as stored by OpenCV)
     # Input was RGB [10, 128, 245], saved as BGR, so we expect BGR [245, 128, 10]
     pixel = bgr_frame_output[50, 50]
     assert abs(int(pixel[0]) - 245) <= 10, f"Blue channel mismatch: expected ~245, got {pixel[0]}"
     assert abs(int(pixel[1]) - 128) <= 10, f"Green channel mismatch: expected ~128, got {pixel[1]}"
     assert abs(int(pixel[2]) - 10) <= 10, f"Red channel mismatch: expected ~10, got {pixel[2]}"
+
+
+def test_read_frame_returns_rgb_format_when_requested(frame_repository):
+    project_id = uuid4()
+    frame_id = uuid4()
+    height = 640
+    width = 480
+    channels = 3
+
+    # Create a frame with specific colors in RGB format
+    # Red=10, Green=128, Blue=245
+    rgb_frame_input = np.zeros((height, width, channels), dtype=np.uint8)
+    rgb_frame_input[:, :] = [10, 128, 245]
+
+    frame_repository.save_frame(project_id, frame_id, rgb_frame_input)
+    rgb_frame_output = frame_repository.read_frame(project_id, frame_id, ColorFormat.RGB)
+
+    assert rgb_frame_output is not None
+    assert rgb_frame_output.shape == (height, width, channels)
+
+    # read_frame with ColorFormat.RGB should return RGB format
+    # Input was RGB [10, 128, 245], so output should match (with JPEG tolerance)
+    pixel = rgb_frame_output[50, 50]
+    assert abs(int(pixel[0]) - 10) <= 10, f"Red channel mismatch: expected ~10, got {pixel[0]}"
+    assert abs(int(pixel[1]) - 128) <= 10, f"Green channel mismatch: expected ~128, got {pixel[1]}"
+    assert abs(int(pixel[2]) - 245) <= 10, f"Blue channel mismatch: expected ~245, got {pixel[2]}"
 
 
 def test_read_frame_returns_none_when_not_exists(frame_repository):

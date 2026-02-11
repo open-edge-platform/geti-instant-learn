@@ -6,7 +6,6 @@ import queue
 import threading
 from uuid import UUID
 
-import cv2
 from instantlearn.data.base.batch import Batch
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -20,9 +19,9 @@ from domain.dispatcher import (
     ProjectDeactivationEvent,
 )
 from domain.repositories.frame import FrameRepository
-from domain.repositories.prompt import PromptRepository
 from domain.services.label import LabelService
 from domain.services.project import ProjectService
+from domain.services.prompt import PromptService
 from domain.services.schemas.label import VisualizationInfo
 from domain.services.schemas.mappers.prompt import visual_prompt_to_sample
 from domain.services.schemas.pipeline import PipelineConfig
@@ -340,11 +339,12 @@ class PipelineManager:
             return None
 
         with self._session_factory() as session:
-            prompt_repo = PromptRepository(session=session)
             label_svc = LabelService(session=session)
+            prompt_svc = PromptService(session=session)
 
-            db_prompts = prompt_repo.list_all_by_project(project_id=project_id, prompt_type=prompt_type)
-            if not db_prompts:
+            visual_prompts = prompt_svc.get_visual_prompts_with_frames(project_id=project_id, prompt_type=prompt_type)
+
+            if not visual_prompts:
                 logger.info("No prompts found for project_id=%s, prompt_type=%s", project_id, prompt_type)
                 return None
 
@@ -352,19 +352,9 @@ class PipelineManager:
 
         samples = []
 
-        for prompt in db_prompts:
-            if not prompt.frame_id:
-                logger.warning("Visual prompt missing frame_id: prompt_id=%s", prompt.id)
-                continue
-
+        for prompt in visual_prompts:
             try:
-                frame = self._frame_repository.read_frame(project_id, prompt.frame_id)
-                if frame is None:
-                    logger.warning("Frame not found: prompt_id=%s, frame_id=%s", prompt.id, prompt.frame_id)
-                    continue
-
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                sample = visual_prompt_to_sample(prompt, frame_rgb, category_mappings.label_to_category_id)
+                sample = visual_prompt_to_sample(prompt, category_mappings.label_to_category_id)
                 samples.append(sample)
 
             except Exception as e:

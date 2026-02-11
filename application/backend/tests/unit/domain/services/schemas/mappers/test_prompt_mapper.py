@@ -18,6 +18,7 @@ from domain.services.schemas.annotation import (
     RectangleAnnotation,
 )
 from domain.services.schemas.mappers.prompt import deduplicate_annotations, visual_prompt_to_sample
+from domain.services.schemas.prompt import VisualPromptWithFrameSchema
 
 
 class TestPromptMapper:
@@ -27,7 +28,6 @@ class TestPromptMapper:
 
     def test_visual_prompt_to_sample_with_frame(self, sample_frame: np.ndarray) -> None:
         prompt_id = uuid.uuid4()
-        project_id = uuid.uuid4()
         frame_id = uuid.uuid4()
         label_id = uuid.uuid4()
 
@@ -36,29 +36,19 @@ class TestPromptMapper:
             points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.1), Point(x=0.5, y=0.5), Point(x=0.1, y=0.5)],
         )
 
-        annotation_db = SimpleNamespace(
-            id=uuid.uuid4(),
-            config=config.model_dump(),
-            label_id=label_id,
-            prompt_id=prompt_id,
-        )
+        annotation = AnnotationSchema(config=config, label_id=label_id)
 
-        prompt_db = SimpleNamespace(
+        prompt = VisualPromptWithFrameSchema(
             id=prompt_id,
             type=PromptType.VISUAL,
-            text=None,
             frame_id=frame_id,
-            project_id=project_id,
-            annotations=[annotation_db],
+            annotations=[annotation],
+            frame=sample_frame,
         )
 
         label_to_category_id = {label_id: 0}
 
-        result = visual_prompt_to_sample(
-            prompt_db,
-            frame=sample_frame,
-            label_to_category_id=label_to_category_id,
-        )
+        result = visual_prompt_to_sample(prompt, label_to_category_id)
 
         assert result is not None
         assert isinstance(result, Sample)
@@ -73,30 +63,20 @@ class TestPromptMapper:
 
         config = RectangleAnnotation(type=AnnotationType.RECTANGLE, points=[Point(x=0.1, y=0.1), Point(x=0.5, y=0.5)])
 
-        annotation_db = SimpleNamespace(
-            id=uuid.uuid4(),
-            config=config.model_dump(),
-            label_id=label_id,
-            prompt_id=prompt_id,
-        )
+        annotation = AnnotationSchema(config=config, label_id=label_id)
 
-        prompt_db = SimpleNamespace(
+        prompt = VisualPromptWithFrameSchema(
             id=prompt_id,
             type=PromptType.VISUAL,
-            text=None,
             frame_id=frame_id,
-            project_id=uuid.uuid4(),
-            annotations=[annotation_db],
+            annotations=[annotation],
+            frame=sample_frame,
         )
 
         label_to_category_id = {label_id: 0}
 
         with pytest.raises(ServiceError, match="must have at least one polygon annotation"):
-            visual_prompt_to_sample(
-                prompt_db,
-                frame=sample_frame,
-                label_to_category_id=label_to_category_id,
-            )
+            visual_prompt_to_sample(prompt, label_to_category_id)
 
     def test_visual_prompt_to_sample_with_multiple_polygons(self, sample_frame: np.ndarray) -> None:
         prompt_id = uuid.uuid4()
@@ -112,35 +92,20 @@ class TestPromptMapper:
             type=AnnotationType.POLYGON, points=[Point(x=0.5, y=0.5), Point(x=0.7, y=0.7), Point(x=0.6, y=0.8)]
         )
 
-        annotation_db_1 = SimpleNamespace(
-            id=uuid.uuid4(),
-            config=config_1.model_dump(),
-            label_id=label_id_1,
-            prompt_id=prompt_id,
-        )
-        annotation_db_2 = SimpleNamespace(
-            id=uuid.uuid4(),
-            config=config_2.model_dump(),
-            label_id=label_id_2,
-            prompt_id=prompt_id,
-        )
+        annotation_1 = AnnotationSchema(config=config_1, label_id=label_id_1)
+        annotation_2 = AnnotationSchema(config=config_2, label_id=label_id_2)
 
-        prompt_db = SimpleNamespace(
+        prompt = VisualPromptWithFrameSchema(
             id=prompt_id,
             type=PromptType.VISUAL,
-            text=None,
             frame_id=frame_id,
-            project_id=uuid.uuid4(),
-            annotations=[annotation_db_1, annotation_db_2],
+            annotations=[annotation_1, annotation_2],
+            frame=sample_frame,
         )
 
         label_to_category_id = {label_id_1: 0, label_id_2: 1}
 
-        result = visual_prompt_to_sample(
-            prompt_db,
-            frame=sample_frame,
-            label_to_category_id=label_to_category_id,
-        )
+        result = visual_prompt_to_sample(prompt, label_to_category_id)
 
         assert result is not None
         assert isinstance(result, Sample)
@@ -150,47 +115,38 @@ class TestPromptMapper:
 
     def test_visual_prompt_to_sample_raises_error_for_text_prompt(self, sample_frame: np.ndarray) -> None:
         prompt_id = uuid.uuid4()
-        project_id = uuid.uuid4()
+        frame_id = uuid.uuid4()
 
-        prompt_db = SimpleNamespace(
+        # Using SimpleNamespace to bypass type restriction for testing error case
+        prompt = SimpleNamespace(
             id=prompt_id,
             type=PromptType.TEXT,
-            text="red car",
-            frame_id=None,
-            project_id=project_id,
+            frame_id=frame_id,
             annotations=[],
+            frame=sample_frame,
         )
 
         label_to_category_id: dict[uuid.UUID, int] = {}
 
         with pytest.raises(ServiceError, match="Cannot convert non-visual prompt"):
-            visual_prompt_to_sample(
-                prompt_db,
-                frame=sample_frame,
-                label_to_category_id=label_to_category_id,
-            )
+            visual_prompt_to_sample(prompt, label_to_category_id)  # type: ignore[arg-type]
 
     def test_visual_prompt_to_sample_raises_error_without_annotations(self, sample_frame: np.ndarray) -> None:
         prompt_id = uuid.uuid4()
         frame_id = uuid.uuid4()
 
-        prompt_db = SimpleNamespace(
+        prompt = VisualPromptWithFrameSchema(
             id=prompt_id,
             type=PromptType.VISUAL,
-            text=None,
             frame_id=frame_id,
-            project_id=uuid.uuid4(),
             annotations=[],
+            frame=sample_frame,
         )
 
         label_to_category_id: dict[uuid.UUID, int] = {}
 
         with pytest.raises(ServiceError, match="has no valid annotations"):
-            visual_prompt_to_sample(
-                prompt_db,
-                frame=sample_frame,
-                label_to_category_id=label_to_category_id,
-            )
+            visual_prompt_to_sample(prompt, label_to_category_id)
 
     def test_deduplicate_annotations_removes_exact_duplicates(self) -> None:
         label_id = uuid.uuid4()

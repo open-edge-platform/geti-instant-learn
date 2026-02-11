@@ -13,7 +13,6 @@ from torchvision import tv_tensors
 from domain.db.models import AnnotationDB, PromptDB, PromptType
 from domain.errors import ServiceError
 from domain.services.schemas.annotation import AnnotationSchema, AnnotationType
-from domain.services.schemas.mappers.annotation import annotations_db_to_schemas
 from domain.services.schemas.mappers.mask import polygons_to_masks
 from domain.services.schemas.prompt import (
     PromptCreateSchema,
@@ -25,6 +24,7 @@ from domain.services.schemas.prompt import (
     TextPromptUpdateSchema,
     VisualPromptListItemSchema,
     VisualPromptSchema,
+    VisualPromptWithFrameSchema,
 )
 
 
@@ -144,8 +144,7 @@ def prompt_update_schema_to_db(prompt_db: PromptDB, schema: PromptUpdateSchema) 
 
 
 def visual_prompt_to_sample(
-    prompt: PromptDB,
-    frame: np.ndarray,
+    prompt: VisualPromptWithFrameSchema,
     label_to_category_id: dict[UUID, int],
 ) -> Sample:
     """
@@ -154,12 +153,11 @@ def visual_prompt_to_sample(
     Multiple annotations of the same label are merged into a single semantic mask.
 
     Args:
-        prompt: Visual prompt with annotations
-        frame: RGB image as numpy array (H, W, C)
-        label_to_category_id: Mapping from label UUID to category ID (shared across batch)
+        prompt: Visual prompt with frame, annotations, and metadata.
+        label_to_category_id: Mapping from label UUID to category ID (shared across batch).
 
     Returns:
-        Sample with merged masks, one per unique label in the prompt
+        Sample with merged masks, one per unique label in the prompt.
 
     Example:
         Prompt with 3 car annotations + 2 person annotations:
@@ -168,18 +166,17 @@ def visual_prompt_to_sample(
     if prompt.type != PromptType.VISUAL:
         raise ServiceError(f"Cannot convert non-visual prompt to sample: prompt type is {prompt.type}")
 
-    annotations = annotations_db_to_schemas(prompt.annotations)
-    if not annotations:
+    if not prompt.annotations:
         raise ServiceError(
             f"Cannot convert visual prompt to sample: prompt {prompt.id} has no valid annotations with labels"
         )
 
-    polygon_annotations = [(ann, ann.config) for ann in annotations if ann.config.type == AnnotationType.POLYGON]
+    polygon_annotations = [(ann, ann.config) for ann in prompt.annotations if ann.config.type == AnnotationType.POLYGON]
     if not polygon_annotations:
         raise ServiceError("Cannot create training sample: visual prompt must have at least one polygon annotation.")
 
     # Convert frame: HWC numpy → CHW tensor
-    frame_chw = tv_tensors.Image(from_numpy(frame).permute(2, 0, 1))
+    frame_chw = tv_tensors.Image(from_numpy(prompt.frame).permute(2, 0, 1))
     height, width = frame_chw.shape[-2:]
 
     # Group annotations by label_id
@@ -223,7 +220,6 @@ def visual_prompt_to_sample(
         categories=categories,
         category_ids=category_ids_array,
         is_reference=is_reference,
-        image_path=str(prompt.frame_id),
     )
 
 

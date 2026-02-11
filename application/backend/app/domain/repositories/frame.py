@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+from enum import StrEnum
 from pathlib import Path
 from uuid import UUID
 
@@ -13,6 +14,13 @@ from settings import get_settings
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
+
+
+class ColorFormat(StrEnum):
+    """Color format for frame reading."""
+
+    BGR = "bgr"
+    RGB = "rgb"
 
 
 class FrameRepository:
@@ -56,8 +64,19 @@ class FrameRepository:
             return True
         return False
 
-    def read_frame(self, project_id: UUID, frame_id: UUID) -> np.ndarray | None:
-        """Load a frame from disk and convert from BGR to RGB."""
+    def read_frame(
+        self, project_id: UUID, frame_id: UUID, color_format: ColorFormat = ColorFormat.BGR
+    ) -> np.ndarray | None:
+        """Load a frame from disk.
+
+        Args:
+            project_id: The project UUID.
+            frame_id: The frame UUID.
+            color_format: Output color format (BGR or RGB). Defaults to BGR.
+
+        Returns:
+            Frame as numpy array in the specified color format, or None if not found.
+        """
         path = self._frame_path(project_id, frame_id)
         if not path.exists():
             logger.warning(f"Frame file not found: {path}")
@@ -66,6 +85,9 @@ class FrameRepository:
             frame = cv2.imread(str(path))
             if frame is None:
                 logger.error(f"Failed to read frame from {path}")
+                return None
+            if color_format == ColorFormat.RGB:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             return frame
         except cv2.error:
             logger.exception(f"OpenCV error while reading frame {frame_id} from {path}")

@@ -799,3 +799,130 @@ def test_update_visual_prompt_single_frame_read_for_normalization_and_deduplicat
 
     assert service.frame_repository.read_frame.call_count == 2
     service.session.commit.assert_called_once()
+
+
+# === Tests for get_visual_prompts_with_frames ===
+
+
+def test_get_visual_prompts_with_frames_returns_prompts_with_frames(service, project_id):
+    """Successfully loads prompts with frames converted to RGB."""
+    frame_id = uuid.uuid4()
+    label_id = uuid.uuid4()
+
+    annotation_db = SimpleNamespace(
+        id=uuid.uuid4(),
+        config={"type": "polygon", "points": [{"x": 0.1, "y": 0.1}, {"x": 0.5, "y": 0.5}, {"x": 0.1, "y": 0.5}]},
+        label_id=label_id,
+    )
+    prompt_db = make_visual_prompt_db(
+        project_id=project_id,
+        frame_id=frame_id,
+        annotations=[annotation_db],
+    )
+
+    # RGB frame from repository (already converted by read_frame with ColorFormat.RGB)
+    frame_rgb = np.zeros((64, 64, 3), dtype=np.uint8)
+    frame_rgb[:, :, 0] = 255  # Red channel in RGB
+
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.prompt_repository.list_all_by_project.return_value = [prompt_db]
+    service.frame_repository.read_frame.return_value = frame_rgb
+
+    result = service.get_visual_prompts_with_frames(project_id, PromptType.VISUAL)
+
+    assert len(result) == 1
+    assert result[0].id == prompt_db.id
+    assert result[0].type == PromptType.VISUAL
+    assert result[0].frame_id == frame_id
+    assert len(result[0].annotations) == 1
+    # Verify frame is passed through as-is (already RGB from repository)
+    assert result[0].frame[:, :, 0].sum() == 255 * 64 * 64  # Red channel has the value
+
+
+def test_get_visual_prompts_with_frames_returns_empty_list_when_no_prompts(service, project_id):
+    """Returns empty list when no prompts exist."""
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.prompt_repository.list_all_by_project.return_value = []
+
+    result = service.get_visual_prompts_with_frames(project_id, PromptType.VISUAL)
+
+    assert result == []
+
+
+def test_get_visual_prompts_with_frames_skips_prompts_without_frame_id(service, project_id):
+    """Skips prompts that have no frame_id."""
+    prompt_without_frame = SimpleNamespace(
+        id=uuid.uuid4(),
+        type=PromptType.VISUAL,
+        text=None,
+        frame_id=None,  # No frame_id
+        project_id=project_id,
+        annotations=[],
+    )
+
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.prompt_repository.list_all_by_project.return_value = [prompt_without_frame]
+
+    result = service.get_visual_prompts_with_frames(project_id, PromptType.VISUAL)
+
+    assert result == []
+    service.frame_repository.read_frame.assert_not_called()
+
+
+def test_get_visual_prompts_with_frames_skips_prompts_when_frame_not_found(service, project_id):
+    """Skips prompts when frame file doesn't exist."""
+    frame_id = uuid.uuid4()
+    prompt_db = make_visual_prompt_db(project_id=project_id, frame_id=frame_id)
+
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.prompt_repository.list_all_by_project.return_value = [prompt_db]
+    service.frame_repository.read_frame.return_value = None
+
+    result = service.get_visual_prompts_with_frames(project_id, PromptType.VISUAL)
+
+    assert result == []
+
+
+def test_get_visual_prompts_with_frames_skips_prompts_when_frame_read_fails(service, project_id):
+    """Skips prompts when frame reading raises an exception."""
+    frame_id = uuid.uuid4()
+    prompt_db = make_visual_prompt_db(project_id=project_id, frame_id=frame_id)
+
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.prompt_repository.list_all_by_project.return_value = [prompt_db]
+    service.frame_repository.read_frame.side_effect = Exception("IO Error")
+
+    result = service.get_visual_prompts_with_frames(project_id, PromptType.VISUAL)
+
+    assert result == []
+
+
+def test_get_visual_prompts_with_frames_raises_error_when_project_not_found(service, project_id):
+    """Raises ResourceNotFoundError when project doesn't exist."""
+    service.project_repository.get_by_id.return_value = None
+
+    with pytest.raises(ResourceNotFoundError) as exc_info:
+        service.get_visual_prompts_with_frames(project_id, PromptType.VISUAL)
+
+    assert exc_info.value.resource_type == ResourceType.PROJECT
+
+
+def test_get_visual_prompts_with_frames_processes_multiple_prompts_partially(service, project_id):
+    """Processes multiple prompts, skipping those with missing frames."""
+    frame_id_1 = uuid.uuid4()
+    frame_id_2 = uuid.uuid4()
+
+    prompt_1 = make_visual_prompt_db(project_id=project_id, frame_id=frame_id_1)
+    prompt_2 = make_visual_prompt_db(project_id=project_id, frame_id=frame_id_2)
+
+    frame_bgr = np.zeros((64, 64, 3), dtype=np.uint8)
+
+    service.project_repository.get_by_id.return_value = make_project(project_id)
+    service.prompt_repository.list_all_by_project.return_value = [prompt_1, prompt_2]
+    # First frame exists, second doesn't
+    service.frame_repository.read_frame.side_effect = [frame_bgr, None]
+
+    result = service.get_visual_prompts_with_frames(project_id, PromptType.VISUAL)
+
+    assert len(result) == 1
+    assert result[0].id == prompt_1.id

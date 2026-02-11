@@ -1,9 +1,11 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from dataclasses import dataclass
 from typing import Annotated, Literal
 from uuid import UUID
 
+import numpy as np
 from pydantic import BaseModel, Field
 
 from domain.db.models import PromptType
@@ -147,3 +149,25 @@ class PromptsListSchema(PaginatedResponse):
     """Schema for listing prompts."""
 
     prompts: list[PromptListItemSchema]
+
+
+@dataclass
+class VisualPromptWithFrameSchema:
+    """Visual prompt with frame data for model training.
+
+    This is a flat structure containing only the fields required by
+    visual_prompt_to_sample for converting prompts to training samples.
+
+    Attributes:
+        id: Unique identifier of the prompt.
+        type: Prompt type (should be VISUAL for this schema).
+        frame_id: UUID of the associated frame.
+        annotations: List of annotation schemas with config and label_id.
+        frame: RGB image as numpy array (H, W, C).
+    """
+
+    id: UUID
+    type: PromptType
+    frame_id: UUID
+    annotations: list[AnnotationSchema]
+    frame: np.ndarray
