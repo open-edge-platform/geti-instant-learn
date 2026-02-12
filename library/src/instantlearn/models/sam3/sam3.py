@@ -58,9 +58,9 @@ class SAM3(Model):
         provided per target image. ``fit()`` only stores category names.
 
         **VISUAL_EXEMPLAR**: Cross-image visual query detection. During ``fit()``,
-        box prompts on reference images are encoded into geometry features and
+        box/point prompts on reference images are encoded into geometry features and
         cached. During ``predict()``, these cached features are reused for each
-        target image — no boxes needed on targets.
+        target image — no boxes/points needed on targets.
 
     Examples:
         >>> from instantlearn.models import SAM3
@@ -76,15 +76,25 @@ class SAM3(Model):
         >>> sam3.fit(ref_sample)
         >>> results = sam3.predict(Sample(image=torch.zeros((3, 1024, 1024))))
 
-        >>> # Visual exemplar mode: draw box on reference → detect on targets
+        >>> # Visual exemplar mode with boxes
         >>> sam3_ve = SAM3(prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR)
         >>> ref_sample = Sample(
         ...     image=torch.zeros((3, 1024, 1024)),
-        ...     bboxes=np.array([[100, 100, 200, 200]]),  # [x, y, w, h] on reference
+        ...     bboxes=np.array([[100, 100, 200, 200]]),  # [x1, y1, x2, y2] on reference
         ...     category_ids=np.array([0]),
         ... )
         >>> sam3_ve.fit(ref_sample)
         >>> results = sam3_ve.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+
+        >>> # Visual exemplar mode with points
+        >>> sam3_pt = SAM3(prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR)
+        >>> ref_sample = Sample(
+        ...     image=torch.zeros((3, 1024, 1024)),
+        ...     points=np.array([[150, 150]]),  # [x, y] on reference
+        ...     category_ids=np.array([0]),
+        ... )
+        >>> sam3_pt.fit(ref_sample)
+        >>> results = sam3_pt.predict(Sample(image=torch.zeros((3, 1024, 1024))))
     """
 
     def __init__(
@@ -157,7 +167,7 @@ class SAM3(Model):
         """Learn from reference samples.
 
         In CLASSIC mode, stores category mapping only (no image processing).
-        In VISUAL_EXEMPLAR mode, encodes box prompts on reference images into
+        In VISUAL_EXEMPLAR mode, encodes box/point prompts on reference images into
         geometry features and caches them for reuse during predict().
 
         Args:
@@ -167,7 +177,7 @@ class SAM3(Model):
                 - Batch: A batch of reference samples
 
         Raises:
-            ValueError: If in VISUAL_EXEMPLAR mode and no bboxes are provided
+            ValueError: If in VISUAL_EXEMPLAR mode and no bboxes or points are provided
                 in any reference sample.
         """
         reference_batch = Batch.collate(reference)
@@ -193,17 +203,17 @@ class SAM3(Model):
 
     @torch.no_grad()
     def _fit_visual_exemplar(self, reference_batch: Batch) -> None:
-        """Encode visual exemplar features from reference images and boxes.
+        """Encode visual exemplar features from reference images and boxes/points.
 
-        For each reference sample with bounding boxes, encodes the box regions
+        For each reference sample with bounding boxes or points, encodes the regions
         using the GeometryEncoder against the reference image's ViT features.
         Results are cached for reuse in predict().
 
         Args:
-            reference_batch: Batch of reference samples with images and bboxes.
+            reference_batch: Batch of reference samples with images and bboxes/points.
 
         Raises:
-            ValueError: If no reference samples contain bboxes.
+            ValueError: If no reference samples contain bboxes or points.
         """
         all_geometry_features: list[torch.Tensor] = []
         all_geometry_masks: list[torch.Tensor] = []
@@ -212,7 +222,11 @@ class SAM3(Model):
 
         for sample in reference_batch.samples:
             bboxes = sample.bboxes
-            if bboxes is None or (isinstance(bboxes, np.ndarray) and bboxes.size == 0):
+            points = sample.points
+            has_bboxes = bboxes is not None and not (isinstance(bboxes, np.ndarray) and bboxes.size == 0)
+            has_points = points is not None and not (isinstance(points, np.ndarray) and points.size == 0)
+
+            if not has_bboxes and not has_points:
                 continue
             if sample.image is None:
                 msg = "VISUAL_EXEMPLAR mode requires images in reference samples."
@@ -226,34 +240,69 @@ class SAM3(Model):
             fpn_hidden_states = vision_embeds["fpn_hidden_states"][:-1]
             fpn_position_encoding = vision_embeds["fpn_position_encoding"][:-1]
 
-            # Build aligned lists: categories/category_ids default to "visual"/0
-            categories = sample.categories if sample.categories is not None else ["visual"] * len(bboxes)
-            category_ids = sample.category_ids if sample.category_ids is not None else [0] * len(bboxes)
+            # Determine number of prompts and build aligned lists
+            num_prompts = max(len(bboxes) if has_bboxes else 0, len(points) if has_points else 0)
+            categories = sample.categories if sample.categories is not None else ["visual"] * num_prompts
+            category_ids = sample.category_ids if sample.category_ids is not None else [0] * num_prompts
 
-            # Encode each box individually to get per-exemplar features
-            for bbox, category, cat_id in zip(bboxes, categories, category_ids, strict=True):
-                input_boxes = self.prompt_preprocessor(bbox, original_sizes)
-                input_boxes_labels = torch.ones((1, 1), dtype=torch.long, device=self.device)
+            # Encode each box with its center point to get per-exemplar features
+            # The geometry encoder concatenates box ROI features + center point features
+            if has_bboxes:
+                for bbox, category, cat_id in zip(bboxes, categories, category_ids, strict=True):
+                    input_boxes, _ = self.prompt_preprocessor(original_sizes, input_boxes=bbox)
+                    input_boxes_labels = torch.ones((1, 1), dtype=torch.long, device=self.device)
 
-                box_embeddings = input_boxes.to(dtype=fpn_hidden_states[0].dtype)
-                box_mask = torch.ones(1, 1, dtype=torch.bool, device=self.device)
+                    box_embeddings = input_boxes.to(dtype=fpn_hidden_states[0].dtype)
+                    box_mask = torch.ones(1, 1, dtype=torch.bool, device=self.device)
 
-                geometry_outputs = self.model.geometry_encoder(
-                    box_embeddings=box_embeddings,
-                    box_mask=box_mask,
-                    box_labels=input_boxes_labels,
-                    img_feats=fpn_hidden_states,
-                    img_pos_embeds=fpn_position_encoding,
-                    drop_spatial_bias=self.drop_spatial_bias,
-                )
+                    # Derive center point from box: [(x1+x2)/2, (y1+y2)/2]
+                    center_point = (input_boxes[..., :2] + input_boxes[..., 2:]) / 2  # (1, 1, 2)
+                    point_embeddings = center_point.to(dtype=fpn_hidden_states[0].dtype)
+                    point_mask = torch.ones(1, 1, dtype=torch.bool, device=self.device)
+                    point_labels = torch.ones((1, 1), dtype=torch.long, device=self.device)
 
-                all_geometry_features.append(geometry_outputs["last_hidden_state"])
-                all_geometry_masks.append(geometry_outputs["attention_mask"])
-                all_category_ids.append(int(cat_id))
-                all_text_prompts.append(category)
+                    geometry_outputs = self.model.geometry_encoder(
+                        box_embeddings=box_embeddings,
+                        box_mask=box_mask,
+                        box_labels=input_boxes_labels,
+                        point_embeddings=point_embeddings,
+                        point_mask=point_mask,
+                        point_labels=point_labels,
+                        img_feats=fpn_hidden_states,
+                        img_pos_embeds=fpn_position_encoding,
+                        drop_spatial_bias=self.drop_spatial_bias,
+                    )
+
+                    all_geometry_features.append(geometry_outputs["last_hidden_state"])
+                    all_geometry_masks.append(geometry_outputs["attention_mask"])
+                    all_category_ids.append(int(cat_id))
+                    all_text_prompts.append(category)
+
+            # Encode standalone points (when no box is provided)
+            if has_points and not has_bboxes:
+                for point, category, cat_id in zip(points, categories, category_ids, strict=True):
+                    _, input_points = self.prompt_preprocessor(original_sizes, input_points=point)
+                    input_points_labels = torch.ones((1, 1), dtype=torch.long, device=self.device)
+
+                    point_embeddings = input_points.to(dtype=fpn_hidden_states[0].dtype)
+                    point_mask = torch.ones(1, 1, dtype=torch.bool, device=self.device)
+
+                    geometry_outputs = self.model.geometry_encoder(
+                        point_embeddings=point_embeddings,
+                        point_mask=point_mask,
+                        point_labels=input_points_labels,
+                        img_feats=fpn_hidden_states,
+                        img_pos_embeds=fpn_position_encoding,
+                        drop_spatial_bias=self.drop_spatial_bias,
+                    )
+
+                    all_geometry_features.append(geometry_outputs["last_hidden_state"])
+                    all_geometry_masks.append(geometry_outputs["attention_mask"])
+                    all_category_ids.append(int(cat_id))
+                    all_text_prompts.append(category)
 
         if not all_geometry_features:
-            msg = "VISUAL_EXEMPLAR mode requires at least one reference sample with bboxes."
+            msg = "VISUAL_EXEMPLAR mode requires at least one reference sample with bboxes or points."
             raise ValueError(msg)
 
         # Cache geometry features (each exemplar is [1, num_prompts, 256])
@@ -359,7 +408,7 @@ class SAM3(Model):
         return self._predict_classic(target)
 
     def _predict_classic(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
-        """Classic SAM3 prediction with per-image text/box prompts.
+        """Classic SAM3 prediction with per-image text/box/point prompts.
 
         Args:
             target: Target data to infer.
@@ -378,6 +427,7 @@ class SAM3(Model):
         for sample in samples:
             img_size = sample.image.shape[-2:]
             bboxes = sample.bboxes if sample.bboxes is not None else []
+            points = sample.points if sample.points is not None else []
 
             # Preprocess image
             image_tensor = sample.image.unsqueeze(0) if sample.image.ndim == 3 else sample.image
@@ -392,16 +442,17 @@ class SAM3(Model):
             else:
                 texts = sample.categories or []
                 category_ids = sample.category_ids
-                # Use "visual" placeholder when only bboxes are provided
-                if len(bboxes) and len(texts) != len(bboxes):
-                    texts = ["visual"] * len(bboxes)
+                # Use "visual" placeholder when only bboxes/points are provided
+                num_visual_prompts = max(len(bboxes), len(points))
+                if num_visual_prompts and len(texts) != num_visual_prompts:
+                    texts = ["visual"] * num_visual_prompts
 
             all_masks: list[torch.Tensor] = []
             all_boxes: list[torch.Tensor] = []
             all_labels: list[torch.Tensor] = []
 
-            for text, bbox, cat_id in zip_longest(texts, bboxes, category_ids, fillvalue=None):
-                # Tokenize text prompt (default to "visual" for bbox-only prompts)
+            for text, bbox, point, cat_id in zip_longest(texts, bboxes, points, category_ids, fillvalue=None):
+                # Tokenize text prompt (default to "visual" for visual-only prompts)
                 text_inputs = self.tokenizer([text or "visual"], return_tensors="pt", padding="max_length", max_length=32)
                 input_ids = text_inputs.input_ids.to(self.device)
                 attention_mask = text_inputs.attention_mask.to(self.device)
@@ -410,8 +461,15 @@ class SAM3(Model):
                 input_boxes = None
                 input_boxes_labels = None
                 if bbox is not None:
-                    input_boxes = self.prompt_preprocessor(bbox, original_sizes)
+                    input_boxes, _ = self.prompt_preprocessor(original_sizes, input_boxes=bbox)
                     input_boxes_labels = torch.ones((1, 1), dtype=torch.long, device=self.device)
+
+                # Prepare point inputs if point is provided (xy format)
+                input_points = None
+                input_points_labels = None
+                if point is not None:
+                    _, input_points = self.prompt_preprocessor(original_sizes, input_points=point)
+                    input_points_labels = torch.ones((1, 1), dtype=torch.long, device=self.device)
 
                 with torch.no_grad():
                     outputs = self.model(
@@ -420,6 +478,8 @@ class SAM3(Model):
                         attention_mask=attention_mask,
                         input_boxes=input_boxes,
                         input_boxes_labels=input_boxes_labels,
+                        input_points=input_points,
+                        input_points_labels=input_points_labels,
                     )
 
                 # Postprocess

@@ -146,9 +146,10 @@ class Sam3Preprocessor(nn.Module):
 class Sam3PromptPreprocessor(nn.Module):
     """ONNX-traceable prompt preprocessor for SAM3.
 
-    This preprocessor handles box normalization and padding for SAM3 prompt inputs.
-    It converts absolute box coordinates to normalized cxcywh format suitable for
-    ONNX tracing.
+    This preprocessor handles box and point normalization for SAM3 prompt inputs.
+    It converts absolute coordinates to normalized format suitable for ONNX tracing:
+    - Boxes: absolute xyxy -> normalized cxcywh [0, 1]
+    - Points: absolute xy -> normalized xy [0, 1]
 
     Args:
         target_size: The target size for the preprocessed image. Default: 1008.
@@ -161,11 +162,21 @@ class Sam3PromptPreprocessor(nn.Module):
     Example:
         >>> import torch
         >>> preprocessor = Sam3PromptPreprocessor(target_size=1008)
-        >>> boxes = torch.tensor([[[100, 100, 200, 200]]], dtype=torch.float32)
-        >>> img_sizes = torch.tensor([[480, 640]], dtype=torch.int32)
-        >>> norm_boxes = preprocessor(boxes, img_sizes)
-        >>> norm_boxes.shape
+        >>> sizes = torch.tensor([[480, 640]], dtype=torch.int32)
+        >>> # Box only
+        >>> boxes, points = preprocessor(sizes, input_boxes=[100, 100, 200, 200])
+        >>> boxes.shape
         torch.Size([1, 1, 4])
+        >>> # Point only
+        >>> boxes, points = preprocessor(sizes, input_points=[150, 150])
+        >>> points.shape
+        torch.Size([1, 1, 2])
+        >>> # Both boxes and points
+        >>> boxes, points = preprocessor(
+        ...     sizes,
+        ...     input_boxes=torch.tensor([[[100, 100, 200, 200]]]),
+        ...     input_points=torch.tensor([[[150, 150]]]),
+        ... )
     """
 
     def __init__(self, target_size: int = 1008, pad_value: float = -10.0) -> None:
@@ -193,39 +204,12 @@ class Sam3PromptPreprocessor(nn.Module):
         b = [(x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0), (y1 - y0)]
         return torch.stack(b, dim=-1)
 
-    def forward(
+    def _normalize_boxes(
         self,
         input_boxes: torch.Tensor | list | tuple,
         original_sizes: torch.Tensor,
     ) -> torch.Tensor:
-        """Preprocess prompts for SAM3 inference.
-
-        Normalizes boxes from absolute coordinates to [0, 1] range and converts
-        from xyxy to cxcywh format.
-
-        Args:
-            input_boxes: Input boxes in xyxy format. Can be:
-                - Tensor with shape (B, N, 4)
-                - Tensor with shape (4,) for a single box
-                - List/tuple [x1, y1, x2, y2] for a single box
-                Coordinates are in absolute pixel values.
-            original_sizes: Tensor with shape (B, 2) containing [height, width]
-                           of the original images.
-
-        Returns:
-            Normalized boxes tensor with shape (B, N, 4) in cxcywh format,
-            with values in [0, 1] range.
-
-        Example:
-            >>> preprocessor = Sam3PromptPreprocessor()
-            >>> # Tensor input
-            >>> boxes = torch.tensor([[[100, 100, 200, 200]]], dtype=torch.float32)
-            >>> sizes = torch.tensor([[480, 640]], dtype=torch.int32)
-            >>> norm_boxes = preprocessor(boxes, sizes)
-            >>> # List input (single box)
-            >>> norm_boxes = preprocessor([100, 100, 200, 200], sizes)
-        """
-        # Convert to tensor if needed and ensure shape (B, N, 4)
+        """Normalize boxes from absolute xyxy to normalized cxcywh format."""
         if not isinstance(input_boxes, torch.Tensor):
             input_boxes = torch.tensor(input_boxes, dtype=torch.float32)
         input_boxes = input_boxes.to(device=original_sizes.device, dtype=torch.float32)
@@ -235,19 +219,87 @@ class Sam3PromptPreprocessor(nn.Module):
         elif input_boxes.ndim == 2:  # (N, 4) -> (1, N, 4)
             input_boxes = input_boxes.unsqueeze(0)
 
-        # Extract height and width from original_sizes (B, 2)
-        heights = original_sizes[:, 0:1].float()  # (B, 1)
-        widths = original_sizes[:, 1:2].float()  # (B, 1)
-
-        # Create scale factor: [width, height, width, height]
-        scale_factor = torch.cat([widths, heights, widths, heights], dim=1)  # (B, 4)
-        scale_factor = scale_factor.unsqueeze(1)  # (B, 1, 4)
-
-        # Normalize boxes to [0, 1] range
+        heights = original_sizes[:, 0:1].float()
+        widths = original_sizes[:, 1:2].float()
+        scale_factor = torch.cat([widths, heights, widths, heights], dim=1).unsqueeze(1)
         normalized_boxes = input_boxes / scale_factor
-
-        # Convert from xyxy to cxcywh format
         return self.box_xyxy_to_cxcywh(normalized_boxes)
+
+    def _normalize_points(
+        self,
+        input_points: torch.Tensor | list | tuple,
+        original_sizes: torch.Tensor,
+    ) -> torch.Tensor:
+        """Normalize points from absolute xy to normalized [0, 1] xy format."""
+        if not isinstance(input_points, torch.Tensor):
+            input_points = torch.tensor(input_points, dtype=torch.float32)
+        input_points = input_points.to(device=original_sizes.device, dtype=torch.float32)
+
+        if input_points.ndim == 1:  # (2,) -> (1, 1, 2)
+            input_points = input_points.unsqueeze(0).unsqueeze(0)
+        elif input_points.ndim == 2:  # (N, 2) -> (1, N, 2)
+            input_points = input_points.unsqueeze(0)
+
+        heights = original_sizes[:, 0:1].float()
+        widths = original_sizes[:, 1:2].float()
+        scale_factor = torch.cat([widths, heights], dim=1).unsqueeze(1)
+        return input_points / scale_factor
+
+    def forward(
+        self,
+        original_sizes: torch.Tensor,
+        input_boxes: torch.Tensor | list | tuple | None = None,
+        input_points: torch.Tensor | list | tuple | None = None,
+    ) -> tuple[torch.Tensor | None, torch.Tensor | None]:
+        """Preprocess box and point prompts for SAM3 inference.
+
+        Normalizes coordinates from absolute pixel values to [0, 1] range:
+        - Boxes: xyxy -> cxcywh normalized
+        - Points: xy -> xy normalized
+
+        Args:
+            original_sizes: Tensor with shape (B, 2) containing [height, width]
+                           of the original images.
+            input_boxes: Input boxes in xyxy format. Can be:
+                - Tensor with shape (B, N, 4)
+                - Tensor with shape (4,) for a single box
+                - List/tuple [x1, y1, x2, y2] for a single box
+                - None if no box prompts
+            input_points: Input points in xy format. Can be:
+                - Tensor with shape (B, N, 2)
+                - Tensor with shape (2,) for a single point
+                - List/tuple [x, y] for a single point
+                - None if no point prompts
+
+        Returns:
+            Tuple of (normalized_boxes, normalized_points) where:
+                - normalized_boxes: (B, N, 4) in cxcywh format or None
+                - normalized_points: (B, N, 2) in xy format or None
+
+        Example:
+            >>> preprocessor = Sam3PromptPreprocessor()
+            >>> sizes = torch.tensor([[480, 640]], dtype=torch.int32)
+            >>> # Box only
+            >>> boxes, points = preprocessor(sizes, input_boxes=[100, 100, 200, 200])
+            >>> # Point only
+            >>> boxes, points = preprocessor(sizes, input_points=[150, 200])
+            >>> # Both
+            >>> boxes, points = preprocessor(
+            ...     sizes,
+            ...     input_boxes=torch.tensor([[[100, 100, 200, 200]]]),
+            ...     input_points=torch.tensor([[[150, 200]]]),
+            ... )
+        """
+        normalized_boxes = None
+        normalized_points = None
+
+        if input_boxes is not None:
+            normalized_boxes = self._normalize_boxes(input_boxes, original_sizes)
+
+        if input_points is not None:
+            normalized_points = self._normalize_points(input_points, original_sizes)
+
+        return normalized_boxes, normalized_points
 
 
 class Sam3Postprocessor(nn.Module):
