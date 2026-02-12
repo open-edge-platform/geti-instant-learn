@@ -24,6 +24,7 @@ class UsbCameraConfig(BaseModel):
     seekable: bool = False
 
     model_config = {
+        "frozen": True,
         "json_schema_extra": {
             "example": {
                 "name": "Optional name",

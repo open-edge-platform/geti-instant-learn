@@ -30,7 +30,7 @@ class UsbCameraReader(BaseOpenCVReader):
         return cap
 
     @classmethod
-    def discover(cls) -> list[UsbCameraConfig]:
+    def discover(cls) -> set[UsbCameraConfig]:
         if platform.system() == "Windows":
             backends = [cv2.CAP_DSHOW, cv2.CAP_MSMF]
         elif platform.system() == "Darwin":  # macOS
@@ -38,21 +38,18 @@ class UsbCameraReader(BaseOpenCVReader):
         else:  # Linux
             backends = [cv2.CAP_V4L2]
 
-        devices: list[UsbCameraConfig] = []
-        camera_list = []
+        devices: set[UsbCameraConfig] = set()
 
         for backend in backends:
-            camera_list.extend(enumerate_cameras(backend))
-
-        camera_list.sort(key=lambda cam: cam.index)
-
-        for camera_info in camera_list:
-            devices.append(
-                UsbCameraConfig(
-                    source_type=SourceType.USB_CAMERA,
-                    device_id=camera_info.index,
-                    name=camera_info.name,
+            for camera_info in enumerate_cameras(backend):
+                devices.add(
+                    UsbCameraConfig(
+                        source_type=SourceType.USB_CAMERA,
+                        device_id=camera_info.index,
+                        name=camera_info.name,
+                    )
                 )
-            )
+
+        sorted_devices = sorted(devices, key=lambda device: device.device_id)
         logger.info(f"Found {cls.__name__} input device: {devices}")
-        return devices
+        return sorted_devices
