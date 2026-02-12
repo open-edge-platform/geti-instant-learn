@@ -1,6 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from unittest.mock import Mock
 from uuid import UUID, uuid4
 
 import pytest
@@ -10,7 +11,13 @@ from fastapi.testclient import TestClient
 
 from api.error_handler import custom_exception_handler
 from api.routers import projects_router
-from dependencies import SessionDep, get_config_dispatcher, get_pipeline_manager, get_source_service
+from dependencies import (
+    SessionDep,
+    get_config_dispatcher,
+    get_pipeline_manager,
+    get_source_connection_validator,
+    get_source_service,
+)
 from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
@@ -20,7 +27,7 @@ from domain.errors import (
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.reader import FrameListResponse, FrameMetadata, SourceType, UsbCameraConfig
 from domain.services.schemas.source import SourceSchema, SourcesListSchema
-from runtime.errors import PipelineNotActiveError, SourceNotSeekableError
+from runtime.errors import PipelineNotActiveError, SourceConnectionError, SourceNotSeekableError
 
 PROJECT_ID = uuid4()
 SOURCE_ID_1 = uuid4()
@@ -52,6 +59,9 @@ def app():
             pass
 
     app.dependency_overrides[get_config_dispatcher] = lambda: DummyDispatcher()
+    validator = Mock()
+    validator.validate.return_value = None
+    app.dependency_overrides[get_source_connection_validator] = lambda: validator
 
     app.add_exception_handler(Exception, custom_exception_handler)
     app.add_exception_handler(RequestValidationError, custom_exception_handler)
@@ -174,6 +184,40 @@ def test_create_source(client, behavior, expected_status):
         assert "detail" in resp.json()
 
 
+def test_create_source_validation_failure(client):
+    """Test that source creation fails when validation fails."""
+    CREATED_ID = uuid4()
+
+    class FakeService:
+        def __init__(self, session, config_change_dispatcher):
+            pass
+
+        def create_source(self, project_id: UUID, create_data):
+            # Should not be called if validation fails
+            raise AssertionError("Service should not be called when validation fails")
+
+    class FakeValidator:
+        def validate(self, config):
+            raise SourceConnectionError(
+                f"Camera device {config.device_id} opened but failed to capture frames. "
+                "The device may not be a valid capture device or may be in use by another application."
+            )
+
+    client.app.dependency_overrides[get_source_service] = lambda: FakeService(None, None)
+    client.app.dependency_overrides[get_source_connection_validator] = lambda: FakeValidator()
+
+    payload = {
+        "id": str(CREATED_ID),
+        "active": True,
+        "config": {"source_type": "usb_camera", "device_id": 99},
+    }
+    resp = client.post(f"/api/v1/projects/{PROJECT_ID}/sources", json=payload)
+    assert resp.status_code == 400
+    data = resp.json()
+    assert "failed to capture frames" in data["detail"]
+    assert "99" in data["detail"]
+
+
 @pytest.mark.parametrize(
     "behavior,expected_status",
     [
@@ -222,6 +266,35 @@ def test_update_source(client, behavior, expected_status):
         assert data["config"]["source_type"] == "usb_camera"
     else:
         assert "detail" in resp.json()
+
+
+def test_update_source_validation_failure(client):
+    """Test that source update fails when validation fails."""
+
+    class FakeService:
+        def __init__(self, session, config_change_dispatcher):
+            pass
+
+        def update_source(self, project_id: UUID, source_id: UUID, update_data):
+            # Should not be called if validation fails
+            raise AssertionError("Service should not be called when validation fails")
+
+    class FakeValidator:
+        def validate(self, config):
+            raise SourceConnectionError(f"Could not open video source: {config.device_id}")
+
+    client.app.dependency_overrides[get_source_service] = lambda: FakeService(None, None)
+    client.app.dependency_overrides[get_source_connection_validator] = lambda: FakeValidator()
+
+    payload = {
+        "active": False,
+        "config": {"source_type": "usb_camera", "device_id": 88},
+    }
+    resp = client.put(f"/api/v1/projects/{PROJECT_ID}/sources/{SOURCE_ID_1}", json=payload)
+    assert resp.status_code == 400
+    data = resp.json()
+    assert "Could not open video source" in data["detail"]
+    assert "88" in data["detail"]
 
 
 @pytest.mark.parametrize(

@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import Response, status
 
 from api.routers import projects_router
-from dependencies import PipelineManagerDep, SourceServiceDep
+from dependencies import PipelineManagerDep, SourceConnectionValidatorDep, SourceServiceDep
 from domain.services.schemas.reader import FrameIndexResponse, FrameListResponse
 from domain.services.schemas.source import SourceCreateSchema, SourceSchema, SourcesListSchema, SourceUpdateSchema
 from runtime.errors import (
@@ -47,10 +47,16 @@ def get_sources(
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
     },
 )
-def create_source(project_id: UUID, payload: SourceCreateSchema, source_service: SourceServiceDep) -> SourceSchema:
+def create_source(
+    project_id: UUID,
+    payload: SourceCreateSchema,
+    source_service: SourceServiceDep,
+    source_connection_validator: SourceConnectionValidatorDep,
+) -> SourceSchema:
     """
     Create a new source configuration for the project.
     """
+    source_connection_validator.validate(config=payload.config)
     return source_service.create_source(project_id=project_id, create_data=payload)
 
 
@@ -66,11 +72,16 @@ def create_source(project_id: UUID, payload: SourceCreateSchema, source_service:
     },
 )
 def update_source(
-    project_id: UUID, source_id: UUID, payload: SourceUpdateSchema, source_service: SourceServiceDep
+    project_id: UUID,
+    source_id: UUID,
+    payload: SourceUpdateSchema,
+    source_service: SourceServiceDep,
+    source_connection_validator: SourceConnectionValidatorDep,
 ) -> SourceSchema:
     """
     Update the project's source configuration.
     """
+    source_connection_validator.validate(config=payload.config)
     return source_service.update_source(project_id=project_id, source_id=source_id, update_data=payload)
 
 

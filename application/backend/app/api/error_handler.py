@@ -19,6 +19,7 @@ from runtime.errors import (
     PipelineNotActiveError,
     PipelineProjectMismatchError,
     SinkConnectionError,
+    SourceConnectionError,
     SourceMismatchError,
     SourceNotSeekableError,
 )
@@ -64,6 +65,7 @@ def custom_exception_handler(request: Request, exc: Exception) -> JSONResponse: 
         (
             ResourceUpdateConflictError
             | SinkConnectionError
+            | SourceConnectionError
             | PipelineNotActiveError
             | PipelineProjectMismatchError
             | SourceMismatchError

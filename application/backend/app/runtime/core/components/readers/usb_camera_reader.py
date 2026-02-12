@@ -24,13 +24,30 @@ class UsbCameraReader(BaseOpenCVReader):
         if not cap.isOpened():
             raise RuntimeError(f"Could not open video source: {self._config.device_id}")
 
-        # Set MJPEG codec for cross-platform compatibility
-        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("M", "J", "P", "G"))
+        # Try to set MJPEG codec for cross-platform compatibility
+        # Some cameras may not support this, so we don't fail if it doesn't work
+        try:
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("M", "J", "P", "G"))
+        except Exception as e:
+            logger.warning(f"Could not set MJPEG codec for device {self._config.device_id}: {e}")
 
+        # Validate the camera is actually working by attempting to read a frame
+        ret, frame = cap.read()
+        if not ret or frame is None:
+            cap.release()
+            raise RuntimeError(
+                f"Camera {self._config.name} on device {self._config.device_id} opened but failed to capture frames. "
+                "The device may not be a valid capture device or may be in use by another application."
+            )
+
+        logger.info(
+            f"Successfully connected to USB camera {self._config.name} from device {self._config.device_id},"
+            f" frame shape: {frame.shape}"
+        )
         return cap
 
     @classmethod
-    def discover(cls) -> set[UsbCameraConfig]:
+    def discover(cls) -> list[UsbCameraConfig]:
         if platform.system() == "Windows":
             backends = [cv2.CAP_DSHOW, cv2.CAP_MSMF]
         elif platform.system() == "Darwin":  # macOS
@@ -51,5 +68,5 @@ class UsbCameraReader(BaseOpenCVReader):
                 )
 
         sorted_devices = sorted(devices, key=lambda device: device.device_id)
-        logger.info(f"Found {cls.__name__} input device: {devices}")
+        logger.info(f"Found {len(sorted_devices)} {cls.__name__} device(s): {sorted_devices}")
         return sorted_devices

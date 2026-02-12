@@ -23,4 +23,8 @@ class SourceMismatchError(PipelineManagerError):
 
 
 class SinkConnectionError(Exception):
-    """Exception raised when a resource fails connectivity validation."""
+    """Exception raised when a sink fails connectivity validation."""
+
+
+class SourceConnectionError(Exception):
+    """Exception raised when a source fails connectivity validation."""

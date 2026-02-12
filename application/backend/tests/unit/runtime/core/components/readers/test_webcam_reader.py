@@ -29,17 +29,15 @@ def test_video_path(tmp_path):
     return video_path
 
 
-@pytest.fixture
-def usb_camera_config(test_video_path):
-    return UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=0)
-
-
 class TestUsbCameraReader:
-    def test_usb_camera_reader_connect(self, usb_camera_config, test_video_path, monkeypatch):
-        reader = UsbCameraReader(config=usb_camera_config)
-        monkeypatch.setattr(reader._config, "device_id", str(test_video_path))
+    def test_usb_camera_reader_connect(self, test_video_path):
+        # Create config with integer device id and route capture to test video
+        config = UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=0, name="Test Camera")
+        reader = UsbCameraReader(config=config)
 
-        reader.connect()
+        real_videocapture = cv2.VideoCapture
+        with patch("cv2.VideoCapture", side_effect=lambda *_: real_videocapture(str(test_video_path))):
+            reader.connect()
 
         assert reader._connected is True
         assert reader._cap is not None
@@ -47,11 +45,14 @@ class TestUsbCameraReader:
 
         reader.close()
 
-    def test_usb_camera_reader_read_frame(self, usb_camera_config, test_video_path, monkeypatch):
-        reader = UsbCameraReader(config=usb_camera_config)
-        monkeypatch.setattr(reader._config, "device_id", str(test_video_path))
+    def test_usb_camera_reader_read_frame(self, test_video_path):
+        # Create config with integer device id and route capture to test video
+        config = UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=0, name="Test Camera")
+        reader = UsbCameraReader(config=config)
 
-        reader.connect()
+        real_videocapture = cv2.VideoCapture
+        with patch("cv2.VideoCapture", side_effect=lambda *_: real_videocapture(str(test_video_path))):
+            reader.connect()
 
         data = reader.read()
 
@@ -63,13 +64,16 @@ class TestUsbCameraReader:
 
         reader.close()
 
-    def test_usb_camera_reader_end_of_stream(self, usb_camera_config, test_video_path, monkeypatch):
-        reader = UsbCameraReader(config=usb_camera_config)
-        monkeypatch.setattr(reader._config, "device_id", str(test_video_path))
+    def test_usb_camera_reader_end_of_stream(self, test_video_path):
+        # Create config with integer device id and route capture to test video
+        config = UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=0, name="Test Camera")
+        reader = UsbCameraReader(config=config)
 
-        reader.connect()
+        real_videocapture = cv2.VideoCapture
+        with patch("cv2.VideoCapture", side_effect=lambda *_: real_videocapture(str(test_video_path))):
+            reader.connect()
 
-        for _ in range(30):
+        for _ in range(29):
             data = reader.read()
             assert data is not None
 
@@ -79,15 +83,39 @@ class TestUsbCameraReader:
 
         reader.close()
 
-    def test_usb_camera_reader_connect_invalid_source(self, usb_camera_config, monkeypatch):
-        reader = UsbCameraReader(config=usb_camera_config)
-        monkeypatch.setattr(reader._config, "device_id", "/nonexistent/video.mp4")
+    def test_usb_camera_reader_connect_invalid_source(self):
+        # Create config with invalid device id
+        config = UsbCameraConfig(
+            source_type=SourceType.USB_CAMERA,
+            device_id=-1,
+            name="Test Camera",
+        )
+        reader = UsbCameraReader(config=config)
 
-        with pytest.raises(RuntimeError, match="Could not open video source"):
-            reader.connect()
+        with patch("cv2.VideoCapture") as mock_cap:
+            mock_cap.return_value.isOpened.return_value = False
 
-    def test_usb_camera_reader_read_before_connect(self, usb_camera_config):
-        reader = UsbCameraReader(config=usb_camera_config)
+            with pytest.raises(RuntimeError, match="Could not open video source"):
+                reader.connect()
+
+    def test_usb_camera_reader_connect_device_fails_to_capture(self):
+        """Test that connection fails if device opens but cannot capture frames."""
+        config = UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=0, name="Test Camera")
+        reader = UsbCameraReader(config=config)
+
+        # Mock a VideoCapture that opens but fails to read
+        with patch("cv2.VideoCapture") as mock_cap:
+            mock_cap.return_value.isOpened.return_value = True
+            mock_cap.return_value.read.return_value = (False, None)
+            mock_cap.return_value.set.return_value = True
+            mock_cap.return_value.release.return_value = None
+
+            with pytest.raises(RuntimeError, match="opened but failed to capture frames"):
+                reader.connect()
+
+    def test_usb_camera_reader_read_before_connect(self):
+        config = UsbCameraConfig(source_type=SourceType.USB_CAMERA, device_id=0, name="Test Camera")
+        reader = UsbCameraReader(config=config)
 
         with pytest.raises(RuntimeError, match="Video capture not initialized"):
             reader.read()
@@ -123,7 +151,7 @@ class TestUsbCameraReaderDiscover:
 
             # Verify enumerate_cameras was called for each expected backend
             assert mock_enumerate.call_count == backend_count
-            assert len(result) == len(fxt_camera_info_list) * backend_count
+            assert len(result) == len(fxt_camera_info_list)
 
     def test_discover_windows_success(self, fxt_camera_info_list):
         with (

@@ -17,6 +17,7 @@ from domain.repositories.sink import SinkRepository
 from domain.repositories.source import SourceRepository
 from domain.services import LabelService, ModelService, ProjectService, PromptService, SinkService, SourceService
 from runtime.core.components.validators.sink_connection import SinkConnectionValidator
+from runtime.core.components.validators.source_connection import SourceConnectionValidator
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.frame import FrameService
 from runtime.services.source_type import SourceTypeService
@@ -140,6 +141,11 @@ def get_sink_connection_validator() -> SinkConnectionValidator:
     return SinkConnectionValidator()
 
 
+def get_source_connection_validator() -> SourceConnectionValidator:
+    """Dependency that provides a source connection validator instance."""
+    return SourceConnectionValidator()
+
+
 def get_discovery_service() -> SourceTypeService:
     """Dependency that provides a DiscoveryService instance."""
     return SourceTypeService()
@@ -155,4 +161,5 @@ PipelineManagerDep = Annotated[PipelineManager, Depends(get_pipeline_manager)]
 ModelServiceDep = Annotated[ModelService, Depends(get_model_service)]
 SinkServiceDep = Annotated[SinkService, Depends(get_sink_service)]
 SinkConnectionValidatorDep = Annotated[SinkConnectionValidator, Depends(get_sink_connection_validator)]
+SourceConnectionValidatorDep = Annotated[SourceConnectionValidator, Depends(get_source_connection_validator)]
 DiscoveryServiceDep = Annotated[SourceTypeService, Depends(get_discovery_service)]

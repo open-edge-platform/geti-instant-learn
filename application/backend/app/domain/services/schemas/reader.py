@@ -32,7 +32,7 @@ class UsbCameraConfig(BaseModel):
                 "source_type": "usb_camera",
                 "device_id": 0,
             }
-        }
+        },
     }
 
 
