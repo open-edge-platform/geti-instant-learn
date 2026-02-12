@@ -142,11 +142,11 @@ class SAM3(Model):
         ).to(device)
 
         # Tokenizer for text prompts (still from transformers, but not used in ONNX path)
-        self.tokenizer = CLIPTokenizerFast.from_pretrained("jetjodh/sam3")
+        self.tokenizer = CLIPTokenizerFast.from_pretrained("facebook/sam3")
 
         self.model = (
             Sam3Model.from_pretrained(
-                "jetjodh/sam3",
+                "facebook/sam3",
                 torch_dtype=precision_to_torch_dtype(precision),
             )
             .to(device)
