@@ -76,9 +76,9 @@ cuda = [
 ]
 
 xpu = [
-    "torch==2.11.0.dev20260212+xpu",
+    "torch==2.11.0.dev20260211+xpu",
     "triton-xpu==3.7.0+git64bb0de3",
-    "torchvision==0.26.0.dev20260212+xpu"
+    "torchvision==0.26.0.dev20260211+xpu"
 ]
 notebook = [
     "jupyter==1.1.1",
