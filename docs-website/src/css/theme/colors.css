@@ -1,0 +1,28 @@
+:root {
+    --geti-color-aqua: #16cfb1;
+    --geti-color-aqua-opaque: rgba(22, 207, 177, 0.12);
+    --geti-color-black: #000;
+    --geti-color-classic-blue: #0054ae;
+    --geti-color-classic-blue-opaque: rgba(0, 84, 174, 0.12);
+    --geti-color-daisy: #edb200;
+    --geti-color-daisy-opaque: rgba(237, 178, 0, 0.12);
+    --geti-color-darker-classic-blue: #034891ff;
+    --geti-color-energy-blue: #00c7fd;
+    --geti-color-energy-blue-opaque: rgba(0, 199, 253, 0.12);
+    --geti-color-energy-blue-tint1: #6ddcff;
+    --geti-color-gray-50: #242528;
+    --geti-color-gray-75: #2e2f32;
+    --geti-color-gray-200: #3c3e42;
+    --geti-color-gray-700: #b7b9be;
+    --geti-color-moss: #8bae46;
+    --geti-color-moss-opaque: rgba(139, 174, 70, 0.12);
+    --geti-color-white: #fff;
+
+    --geti-nav-gradient-1: #27317f;
+    --geti-nav-gradient-2: #1a3483;
+    --geti-nav-gradient-3: #02227c;
+
+    --geti-color-text-black: var(--geti-color-black);
+    --geti-color-text-white: var(--geti-color-white);
+    --geti-color-text-white-transparent: rgba(255, 255, 255, 0.7);
+}

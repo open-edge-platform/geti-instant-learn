@@ -1,0 +1,85 @@
+@import './colors.css';
+
+html[data-theme='light'] {
+    --ifm-background-color: var(--geti-color-white);
+    --ifm-breadcrumb-color-active: var(--ifm-link-color);
+    --ifm-color-content: var(--geti-color-text-white);
+    --ifm-navbar-link-color: var(--geti-color-text-white);
+
+    --ifm-footer-color: var(--geti-color-text-black);
+
+    --ifm-dropdown-link-color: var(--geti-color-text-black);
+    --ifm-heading-color: var(--geti-color-text-black);
+
+    --ifm-hero-text-color: var(--geti-color-text-white);
+    --ifm-link-color: var(--geti-color-classic-blue);
+    --ifm-tabs-color-active-border: var(--ifm-link-color);
+
+    --geti-color-link-hover: var(--geti-color-text-white-transparent);
+    --geti-border-subtle-00: #e9e9e9;
+    --geti-header-color-reverse: var(--geti-color-text-white);
+    --geti-color-layer-01: #f9f9f9;
+    --geti-color-text-primary: #2b2c30;
+    --geti-color-text-secondary: #6a6d75;
+    --geti-color-text-secondary-reverse: var(--geti-color-gray-700);
+    --geti-color-section-bg: #f8f8f8;
+
+    --geti-tabs-list-background: #f8f8f8;
+    --geti-tab-item-border-color: var(--ifm-link-color);
+    --geti-tab-item-selected-background: var(--geti-color-white);
+
+    --geti-go-to-link-color: var(--geti-color-text-black);
+    --geti-go-to-link-hover-color: var(--geti-color-text-black);
+
+    --geti-footer-border-color: rgba(0, 0, 0, 0.08);
+
+    --geti-feature-image-background-color: var(--geti-color-white);
+    --geti-clean-btn-color: var(--geti-color-white);
+    --geti-back-to-top-button-color: var(--geti-color-white);
+    --geti-back-to-top-button-background-color: var(--geti-nav-gradient-3);
+    --geti-navbar-link-active-color: var(--geti-color-energy-blue-tint1);
+    --geti-navbar-logo-background-color: var(--geti-color-white);
+
+    --geti-navbar-search-input-color: var(--geti-color-text-white);
+    --geti-navbar-search-background-color: #122f84;
+    --geti-navbar-search-placeholder-color: var(--geti-color-text-white);
+
+    --geti-menu-color: var(--geti-color-text-primary);
+
+    --geti-hero-banner-background-image: url('../../../static/img/light/hero-banner-geti-light.webp');
+    --geti-navbar-search-icon: url('../../../static/img/light/magnifying-glass-light.svg');
+    --geti-color-divider: #e4e4e4;
+    --geti-code-block-background-color: var(--geti-color-white);
+
+    .navbar {
+        background: linear-gradient(
+            90deg,
+            var(--geti-nav-gradient-1) 6.98%,
+            var(--geti-nav-gradient-2) 46.6%,
+            var(--geti-nav-gradient-3) 79.11%
+        );
+    }
+
+    /* icons need background in light mode to be visible, no need to set it in dark theme */
+    .icon-bg {
+        background: var(--geti-color-gray-50);
+        box-shadow:
+            0 0.2rem 0.5rem rgba(0, 0, 0, 0.1),
+            0 0 0.0625rem rgba(0, 0, 0, 0.1);
+    }
+
+    .alert--info {
+        --ifm-alert-border-color: var(--geti-color-classic-blue);
+        --ifm-color-info-contrast-background: var(--geti-color-energy-blue-opaque);
+    }
+
+    .alert--success {
+        --ifm-alert-border-color: var(--geti-color-moss);
+        --ifm-color-info-contrast-background: var(--geti-color-moss-opaque);
+    }
+
+    .alert--warning {
+        --ifm-alert-border-color: var(--geti-color-daisy);
+        --ifm-color-info-contrast-background: var(--geti-color-daisy-opaque);
+    }
+}

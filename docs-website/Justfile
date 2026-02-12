@@ -1,0 +1,14 @@
+#!/usr/bin/env just --justfile
+
+set shell := ["bash", "-cu"]
+
+# Build documentation website
+build-docs-web-site:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    rm -rf docs/instant-learn/application && rm -rf docs/instant-learn/library && mkdir -p docs/instant-learn/application/docs docs/instant-learn/library/docs
+    cp -pR ../application/docs/* docs/instant-learn/application/docs
+    cp -pR ../library/docs/* docs/instant-learn/library/docs
+    npm install
+    npm run build

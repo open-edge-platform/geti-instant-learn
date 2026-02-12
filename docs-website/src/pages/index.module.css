@@ -1,0 +1,126 @@
+/**
+ * CSS files with the .module.css suffix will be treated as CSS modules
+ * and scoped locally.
+ */
+
+.main {
+    padding-bottom: 5rem;
+    position: relative;
+
+    display: grid;
+
+    --gap-size: 1.5rem;
+
+    gap: var(--gap-size);
+    grid-template-columns: 1fr min(73rem, 100% - var(--gap-size) * 2) 1fr;
+}
+
+@media (min-width: 996px) {
+    .main {
+        --gap-size: 3.5rem;
+    }
+}
+
+.main > * {
+    grid-column: 2;
+}
+
+.main .heroBanner {
+    grid-column: 1 / -1;
+}
+
+.heroBanner {
+    background-image: var(--geti-hero-banner-background-image);
+    background-size: cover;
+    background-position: right bottom;
+    background-repeat: no-repeat;
+    padding: 0;
+    margin-bottom: -2rem;
+    display: grid;
+    grid-template-columns: subgrid;
+    height: 400px;
+
+    @media (min-width: 600px) {
+        margin-bottom: -4rem;
+    }
+
+    @media (min-width: 900px) {
+        margin-bottom: -7.5rem;
+    }
+}
+
+@media (min-width: 900px) {
+    .heroBanner {
+        height: 330px;
+    }
+}
+
+.bannerContent {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin: 0 auto;
+    max-width: 73rem;
+    grid-column: 2;
+    flex-wrap: wrap;
+
+    svg {
+        margin: 0;
+    }
+
+    @media (min-width: 900px) {
+        margin-top: -4.3rem;
+    }
+}
+
+.bannerTextContent {
+    max-width: 580px;
+    
+    p {
+        color: var(--geti-header-color-reverse);
+    }
+}
+
+.bannerLogo {
+    max-width: 100%;
+    width: 300px;
+
+    img {
+        height: 100%;
+        width: 100%;
+    }
+}
+
+.title {
+    color: var(--geti-header-color-reverse);
+    font-weight: 400;
+    font-size: 1.5rem;
+
+    @media (min-width: 900px) {
+        font-size: 2.25rem;
+    }
+}
+
+.oep {
+    display: flex;    
+    margin-left: auto;
+    align-self: start;
+    margin-top: .5rem;
+    
+    a {
+        color: var(--geti-header-color-reverse);
+        text-decoration: underline;
+    }
+
+    @media (max-width: 1140px) {
+        margin-left: 0;
+    }
+
+    @media (max-width: 996px) {
+        margin-top: 0;
+
+        a {
+            font-size: 1rem;
+        }
+    }
+}

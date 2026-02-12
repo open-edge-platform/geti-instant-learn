@@ -1,0 +1,53 @@
+.featuresList {
+    display: flex;
+    flex-wrap: wrap;
+
+    gap: 2rem;
+    justify-content: center;
+    justify-items: center;
+
+    margin-bottom: 1.5rem;
+}
+
+.featureItem {
+    background-color: var(--geti-color-layer-01);
+    display: flex;
+    flex-direction: column;
+    border: 1px var(--geti-feature-border-color) solid;
+    max-width: 22rem;
+}
+
+.featureTitle {
+    font-weight: 500;
+}
+
+.featureDescription {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 1.5rem;
+    font-size: 0.875rem;
+    font-weight: 400;
+
+    p {
+        margin-bottom: 1.25rem;
+    }
+}
+
+.featureDescription a {
+    font-size: 1rem;
+}
+
+.featureImage {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 8rem;
+    background: var(--geti-feature-image-background-color);
+}
+
+.featureImage img {
+    object-fit: none;
+}

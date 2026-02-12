@@ -1,0 +1,52 @@
+.cardList {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(19.375rem, 1fr));
+    grid-template-rows: max-content;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.card {
+    display: block;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    background-color: var(--ifm-card-background-color);
+    box-shadow: var(--ifm-global-shadow-lw);
+    transition: all 0.2s ease-in-out;
+    text-decoration: none;
+    color: inherit;
+    height: 100%;
+}
+
+.card:hover {
+    box-shadow: var(--ifm-global-shadow-tl);
+    color: inherit;
+    text-decoration: none;
+}
+
+.cardLink {
+    color: inherit !important;
+    text-decoration: none !important;
+}
+
+.cardTitle {
+    font-size: 1.2rem;
+}
+
+.cardDescription {
+    font-size: 0.8rem;
+}
+
+.cardHeader {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+.cardGithubLink {
+    transition: transform 0.2s ease-in-out;
+}
+
+.cardGithubLink:hover {
+    transform: scale(1.1);
+}

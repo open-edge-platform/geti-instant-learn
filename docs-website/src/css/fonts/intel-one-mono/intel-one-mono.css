@@ -1,0 +1,55 @@
+@font-face {
+    font-family: 'IntelOne Mono';
+    src: url('./IntelOneMono-Light.woff') format('woff');
+    font-weight: 300; /* Light */
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'IntelOne Mono';
+    src: url('./IntelOneMono-LightItalic.woff') format('woff');
+    font-weight: 300; /* Light */
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'IntelOne Mono';
+    src: url('./IntelOneMono-Regular.woff') format('woff');
+    font-weight: 400; /* Regular */
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'IntelOne Mono';
+    src: url('./IntelOneMono-Italic.woff') format('woff');
+    font-weight: 400; /* Regular */
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'IntelOne Mono';
+    src: url('./IntelOneMono-Medium.woff') format('woff');
+    font-weight: 500; /* Medium */
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'IntelOne Mono';
+    src: url('./IntelOneMono-MediumItalic.woff') format('woff');
+    font-weight: 500; /* Medium */
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'IntelOne Mono';
+    src: url('./IntelOneMono-Bold.woff') format('woff');
+    font-weight: 700; /* Bold */
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'IntelOne Mono';
+    src: url('./IntelOneMono-BoldItalic.woff') format('woff');
+    font-weight: 700; /* Bold */
+    font-style: italic;
+}

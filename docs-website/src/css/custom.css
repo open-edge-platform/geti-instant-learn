@@ -1,0 +1,263 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+@import './fonts/intel-one-display/intel-one-display.css';
+@import './fonts/intel-one-text/intel-one-text.css';
+@import './fonts/intel-one-mono/intel-one-mono.css';
+@import './theme/dark.css';
+@import './theme/light.css';
+
+:root {
+    --geti-font-heading: 'IntelOne Display', ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
+    --geti-font-heading-weight: 500;
+    --font-body:
+        IntelOne, 'IntelOne Text', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-mono:
+        'IntelOne Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+        monospace;
+
+    --ifm-code-font-size: 95%;
+    --ifm-font-color-base: var(--geti-color-text-secondary);
+    --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+
+    --geti-feature-border-color: var(--geti-border-subtle-00);
+    --geti-h1-font-size: 2rem;
+    --ifm-heading-font-family: var(--geti-font-heading);
+    --ifm-heading-font-weight: var(--geti-font-heading-weight);
+    --ifm-menu-color-active: var(--ifm-link-color);
+    --ifm-color-primary: var(--geti-color-text-primary);
+
+    --ifm-menu-color-background-active: transparent;
+    --ifm-breadcrumb-item-background-active: transparent;
+
+    --ifm-tabs-color-active: var(--ifm-link-color);
+    --ifm-heading-margin-bottom: 0.75rem;
+
+    --ifm-menu-link-sublist-icon: url('../../static/img/chevron-up.svg');
+    --ifm-navbar-link-hover-color: var(--geti-navbar-link-active-color);
+    --ifm-footer-link-hover-color: var(--geti-color-link-hover);
+
+    --ifm-tabs-color-active: var(--geti-color-text-primary);
+    --ifm-tabs-color: var(--geti-color-text-secondary);
+    --ifm-footer-background-color: var(--ifm-background-color);
+    --ifm-menu-color: var(--geti-menu-color);
+
+    --prism-background-color: var(--ifm-background-color);
+    --search-local-input-active-border-color: transparent;
+    --search-local-highlight-color: var(--geti-color-text-secondary-reverse);
+}
+
+h1 {
+    font-size: var(--geti-h1-font-size);
+}
+
+span,
+p,
+a {
+    font-family: var(--font-body);
+}
+
+pre,
+pre span {
+    font-family: var(--font-mono);
+}
+
+.clean-btn {
+    color: var(--geti-clean-btn-color);
+}
+
+.navbar {
+    width: 100%;
+
+    .clean-btn {
+        color: var(--geti-header-color-reverse);
+        background: transparent;
+        &:hover {
+            color: var(--ifm-navbar-link-hover-color);
+            background: transparent;
+        }
+    }
+}
+
+.navbar__items .navbar__logo {
+    padding: 0 0.8rem 1.1rem;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 97px;
+    background-color: var(--geti-navbar-logo-background-color);
+}
+
+@media (min-width: 996px) {
+    .navbar__logo {
+        left: 0;
+    }
+
+    .navbar__items {
+        margin-left: 80px;
+    }
+}
+
+.navbar__link {
+    font-size: 0.875rem;
+    font-weight: normal;
+}
+
+.navbar__link:after {
+    top: 1px !important;
+    left: 2px !important;
+}
+
+.navbar__search-input {
+    border-radius: 3px;
+    color: var(--geti-navbar-search-input-color);
+    font-size: 0.875rem;
+    font-family: var(--font-body);
+    width: 11.5rem;
+    background: var(--geti-navbar-search-background-color) var(--geti-navbar-search-icon) no-repeat 0.75rem center /
+        1rem 1rem;
+
+    &::placeholder {
+        font-family: var(--font-body);
+        color: var(--geti-navbar-search-placeholder-color);
+    }
+
+    @media (min-width: 996px) {
+        width: 14.875rem;
+    }
+}
+
+.navbar-sidebar {
+    --ifm-navbar-background-color: var(--geti-navbar-logo-background-color);
+    --geti-header-color-reverse: var(--geti-color-text-primary);
+    --ifm-navbar-link-hover-color: var(--geti-color-text-secondary);
+}
+
+.tabs__item {
+    font-family: var(--font-body);
+    font-weight: 400;
+    padding: 0.75rem;
+    align-items: center;
+}
+
+.tabs__item--active {
+    font-weight: 500;
+}
+
+.theme-back-to-top-button {
+    background-color: var(--geti-back-to-top-button-background-color);
+    &::after {
+        background-color: var(--geti-back-to-top-button-color);
+    }
+}
+
+.theme-back-to-top-button {
+    background-color: var(--geti-back-to-top-button-background-color);
+    &::after {
+        background-color: var(--geti-back-to-top-button-color);
+    }
+}
+
+.menu__link {
+    font-size: 0.9rem;
+    font-family: var(--font-body);
+    font-weight: 400;
+    position: relative;
+}
+
+.navbar__link {
+    line-height: 0.75rem;
+}
+
+[class*='colorModeToggle'] {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+}
+
+.menu__caret:before,
+.menu__link--sublist-caret:after {
+    background: var(--ifm-menu-link-sublist-icon);
+    background-position: center;
+    background-repeat: no-repeat;
+    width: 0.75rem;
+    height: 0.75rem;
+}
+
+.table-of-contents {
+    font-size: 0.9rem;
+}
+
+.table-of-contents__link {
+    position: relative;
+    padding: var(--ifm-menu-link-padding-vertical) var(--ifm-menu-link-padding-horizontal);
+}
+
+.table-of-contents__link--active,
+.table-of-contents__link:hover {
+    background-color: var(--ifm-menu-color-background-active);
+    color: var(--ifm-link-color);
+}
+
+.backToTopButton::after {
+    mask: var(--ifm-menu-link-sublist-icon) 50% / 1rem 1rem no-repeat !important;
+}
+
+.breadcrumbs > .breadcrumbs__item:first-child {
+    display: none;
+}
+
+.breadcrumbs__item:not(:last-child)::after {
+    background: none;
+    content: '/';
+    margin: 0;
+}
+
+.icon-bg {
+    margin: 2px;
+    vertical-align: middle;
+    padding: 2px;
+}
+
+.image-margin {
+    margin-bottom: 2rem;
+}
+
+.sidebar-heading-chevron:before {
+    background: var(--ifm-menu-link-sublist-icon) 50% / 0.75rem 0.75rem !important;
+    background-repeat: no-repeat !important;
+}
+
+.sidebar-heading-link-title {
+    font-size: 0.875rem;
+    font-family: var(--font-body);
+    font-weight: 400;
+    position: relative;
+}
+
+.sidebar-search-placeholder {
+    font-size: 0.875rem;
+    font-weight: 400;
+}
+
+.scalar-app .download-button {
+    background-color: var(--ifm-link-color);
+    color: var(--geti-header-color-reverse) !important;
+    border-radius: 3px;
+    padding: 0.5em;
+    font-size: 0.875rem;
+}
+
+.dropdown:has(.dropdown__link--active) {
+    color: var(--geti-color-energy-blue-tint1);
+    color: var(--geti-color-energy-blue-tint1);
+    -webkit-text-decoration: none;
+    text-decoration: none;
+}

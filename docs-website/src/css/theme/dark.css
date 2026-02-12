@@ -1,0 +1,73 @@
+@import './colors.css';
+
+html[data-theme='dark'] {
+    --ifm-background-color: var(--geti-color-gray-50);
+    --ifm-breadcrumb-color-active: var(--ifm-link-color);
+    --ifm-color-content: var(--geti-color-text-black);
+    --ifm-navbar-link-color: var(--geti-color-text-black);
+    --ifm-navbar-background-color: var(--geti-color-energy-blue);
+    --ifm-footer-color: var(--geti-color-text-white);
+
+    --ifm-dropdown-link-color: var(--geti-color-text-white);
+    --ifm-heading-color: var(--geti-color-text-white);
+
+    --ifm-hero-text-color: var(--geti-color-text-black);
+    --ifm-link-color: var(--geti-color-energy-blue);
+    --ifm-tabs-color-active-border: var(--ifm-link-color);
+
+    --geti-color-link-hover: rgba(0, 0, 0, 0.3);
+    --geti-border-subtle-00: var(--geti-color-gray-200);
+    --geti-header-color-reverse: var(--geti-color-text-black);
+    --geti-color-layer-01: var(--geti-color-gray-75);
+    --geti-color-text-primary: #e9eaeb;
+    --geti-color-text-secondary: var(--geti-color-gray-700);
+    --geti-color-text-secondary-reverse: #6a6d75;
+    --geti-color-section-bg: var(--geti-color-gray-75);
+    --geti-tabs-list-background: var(--geti-color-gray-75);
+    --geti-tab-item-border-color: var(--geti-color-classic-blue);
+    --geti-tab-item-selected-background: var(--geti-color-gray-50);
+
+    --geti-go-to-link-color: var(--geti-color-text-white);
+    --geti-go-to-link-hover-color: var(--geti-color-text-white);
+
+    --geti-footer-border-color: var(--geti-color-gray-200);
+
+    --geti-feature-image-background-color: var(--geti-color-gray-50);
+    --geti-clean-btn-color: var(--geti-color-black);
+    --geti-back-to-top-button-color: var(--geti-color-black);
+    --geti-back-to-top-button-background-color: var(--geti-color-energy-blue);
+    --geti-navbar-link-active-color: var(--geti-color-classic-blue);
+    --geti-navbar-logo-background-color: var(--geti-color-gray-50);
+
+    --geti-navbar-search-input-color: var(--geti-color-text-black);
+    --geti-navbar-search-background-color: rgba(0, 22, 104, 0.06);
+    --geti-navbar-search-placeholder-color: var(--geti-color-text-black);
+
+    --geti-menu-color: var(--geti-color-gray-700);
+
+    --geti-hero-banner-background-image: url('../../../static/img/dark/hero-banner-geti-dark.png');
+    --geti-navbar-search-icon: url('../../../static/img/dark/magnifying-glass-dark.svg');
+    --geti-color-divider: rgba(288, 288, 288, 0.08);
+    --geti-code-block-background-color: var(--geti-color-gray-50);
+
+    .theme-doc-markdown {
+        strong {
+            color: var(--geti-color-text-primary);
+        }
+    }
+
+    .alert--info {
+        --ifm-alert-border-color: var(--geti-color-energy-blue);
+        --ifm-color-info-contrast-background: var(--geti-color-energy-blue-opaque);
+    }
+
+    .alert--success {
+        --ifm-alert-border-color: var(--geti-color-aqua);
+        --ifm-color-info-contrast-background: var(--geti-color-aqua-opaque);
+    }
+
+    .alert--warning {
+        --ifm-alert-border-color: var(--geti-color-daisy);
+        --ifm-color-info-contrast-background: var(--geti-color-daisy-opaque);
+    }
+}

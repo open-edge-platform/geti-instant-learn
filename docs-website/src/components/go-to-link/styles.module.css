@@ -1,0 +1,18 @@
+.goToLink {
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 500;
+    color: var(--geti-go-to-link-color);
+    display: flex;
+    align-items: center;
+    padding: 12px 0;
+
+    &:hover {
+        text-decoration: none;
+        color: var(--geti-go-to-link-hover-color);
+    }
+
+    @media (min-width: 996px) {
+        justify-content: space-between;
+    }
+}

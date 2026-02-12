@@ -53,10 +53,17 @@ coverage.xml
 cover/
 
 # Sphinx documentation
-library/docs/**/_build/
+library/sphinx/**/.build/
 
 # Autosummary generated rst files
-library/docs/**/_autosummary/
+library/sphinx/**/_autosummary/
+
+# Node dependencies
+**/node_modules
+
+# Generated files
+.docusaurus
+.cache-loader
 
 # PyBuilder
 .pybuilder/
@@ -147,6 +154,3 @@ cython_debug/
 # Custom
 tmp*
 lightning_logs
-
-# Autosummary generated rst files
-library/**/_autosummary/
