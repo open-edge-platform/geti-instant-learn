@@ -96,6 +96,17 @@ jobs:
         with:
           config: '.github/.markdownlint-cli2.jsonc'
 
+      - name: Set up NodeJS
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        with:
+          node-version: 22.12.0
+          cache: npm
+          cache-dependency-path: docs-website/package-lock.json
+
+      - name: Build docs website
+        working-directory: "docs-website"
+        run: just build-docs-web-site
+
   success:
     name: Status checks
     needs: [ build-parameters, library, backend, ui, distrib, markdown ]
