@@ -4,6 +4,7 @@
 import logging
 from queue import Empty, Queue
 
+import numpy as np
 import torch
 from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.sample import Sample
@@ -15,7 +16,7 @@ from runtime.core.components.broadcaster import FrameBroadcaster
 
 logger = logging.getLogger(__name__)
 
-EMPTY_RESULT: dict[str, torch.Tensor] = {}
+EMPTY_RESULT: dict[str, np.ndarray] = {}
 
 
 class Processor(PipelineComponent):
@@ -72,7 +73,7 @@ class Processor(PipelineComponent):
                 batch_results = self._model_handler.predict(Batch.collate(samples))
 
                 for i, data in enumerate(batch_data):
-                    results: dict[str, torch.Tensor] = batch_results[i] if i < len(batch_results) else EMPTY_RESULT
+                    results: dict[str, np.ndarray] = batch_results[i] if i < len(batch_results) else EMPTY_RESULT
                     output_data = OutputData(
                         frame=data.frame,
                         results=[results],

@@ -6,7 +6,6 @@ from enum import StrEnum
 from typing import Annotated, Any, Literal
 
 import numpy as np
-import torch
 from instantlearn.components.encoders.timm import AVAILABLE_IMAGE_ENCODERS
 from instantlearn.utils.constants import SAMModelName
 from pydantic import BaseModel, Field, field_validator
@@ -149,7 +148,7 @@ class InputData:
 
 @dataclass(kw_only=True)
 class OutputData:
-    results: list[dict[str, torch.Tensor]]
+    results: list[dict[str, np.ndarray]]
     frame: np.ndarray  # frame loaded as numpy array in RGB HWC format (H, W, 3) with dtype=uint8
 
 

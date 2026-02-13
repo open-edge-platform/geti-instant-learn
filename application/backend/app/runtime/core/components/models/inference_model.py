@@ -1,6 +1,6 @@
 import logging
 
-import torch
+import numpy as np
 from instantlearn.data.base.batch import Batch
 from instantlearn.models.base import Model
 
@@ -22,6 +22,7 @@ class InferenceModelHandler(ModelHandler):
         )
         self._model.fit(self._reference_batch)
 
-    def predict(self, batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, batch: Batch) -> list[dict[str, np.ndarray]]:
         logger.debug("Inference started: model=%s batch size=%d", type(self._model).__name__, len(batch.samples))
-        return self._model.predict(batch)
+        torch_results = self._model.predict(batch)
+        return [{k: v.detach().cpu().numpy() for k, v in result.items()} for result in torch_results]

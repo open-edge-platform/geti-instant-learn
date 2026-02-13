@@ -7,7 +7,7 @@ from threading import Event
 from types import TracebackType
 from typing import Any, TypeVar
 
-import torch
+import numpy as np
 from instantlearn.data.base.batch import Batch
 
 from domain.services.schemas.processor import InputData
@@ -152,5 +152,5 @@ class ModelHandler(ABC):
         pass
 
     @abstractmethod
-    def predict(self, batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, batch: Batch) -> list[dict[str, np.ndarray]]:
         pass

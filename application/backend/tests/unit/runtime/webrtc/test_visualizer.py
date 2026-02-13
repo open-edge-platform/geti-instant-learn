@@ -6,7 +6,6 @@ from uuid import UUID
 
 import numpy as np
 import pytest
-import torch
 
 from domain.services.schemas.label import CategoryMappings, RGBColor, VisualizationInfo, VisualizationLabel
 from domain.services.schemas.processor import OutputData
@@ -26,14 +25,14 @@ def fxt_visualizer() -> InferenceVisualizer:
         yield InferenceVisualizer(enable_visualization=True)
 
 
-def _single_pixel_mask(h: int, w: int, y: int, x: int) -> torch.Tensor:
-    mask = torch.zeros((1, h, w), dtype=torch.float32)
+def _single_pixel_mask(h: int, w: int, y: int, x: int) -> np.ndarray:
+    mask = np.zeros((1, h, w), dtype=np.float32)
     mask[0, y, x] = 1.0
     return mask
 
 
-def _two_pixel_disjoint_masks(h: int, w: int) -> torch.Tensor:
-    masks = torch.zeros((2, h, w), dtype=torch.float32)
+def _two_pixel_disjoint_masks(h: int, w: int) -> np.ndarray:
+    masks = np.zeros((2, h, w), dtype=np.float32)
     masks[0, 2, 2] = 1.0
     masks[1, 5, 5] = 1.0
     return masks
@@ -59,7 +58,7 @@ def test_visualize_disabled_returns_original_frame(fxt_frame: np.ndarray) -> Non
     viz = InferenceVisualizer(enable_visualization=False)
     output = OutputData(
         frame=fxt_frame,
-        results=[{"pred_masks": _single_pixel_mask(8, 8, 3, 3), "pred_labels": torch.tensor([0])}],
+        results=[{"pred_masks": _single_pixel_mask(8, 8, 3, 3), "pred_labels": np.array([0])}],
     )
 
     result = viz.visualize(output_data=output, visualization_info=None)
@@ -79,13 +78,13 @@ def test_visualize_no_results_returns_original_frame(
     [
         # category -> label_id -> label_colors
         (
-            torch.tensor([0], dtype=torch.int64),
+            np.array([0], dtype=np.int64),
             {0: "00000000-0000-0000-0000-000000000001"},
             {"00000000-0000-0000-0000-000000000001": (255, 0, 0)},
             (255, 0, 0),
         ),
         # no category->label_id mapping => deterministic per category
-        (torch.tensor([7], dtype=torch.int64), {}, {}, "deterministic:7"),
+        (np.array([7], dtype=np.int64), {}, {}, "deterministic:7"),
         # missing labels => default fallback
         (None, {}, {}, DEFAULT_FALLBACK_COLOR),
     ],
@@ -93,7 +92,7 @@ def test_visualize_no_results_returns_original_frame(
 def test_visualize_resolves_color_per_mask(
     fxt_visualizer: InferenceVisualizer,
     fxt_frame: np.ndarray,
-    labels: torch.Tensor | None,
+    labels: np.ndarray | None,
     category_id_to_label_id: dict[int, str],
     label_colors: dict[str, tuple[int, int, int]],
     expected: tuple[int, int, int] | str,
@@ -119,7 +118,7 @@ def test_visualize_applies_correct_colors_for_multiple_categories_in_single_pred
     fxt_visualizer: InferenceVisualizer, fxt_frame: np.ndarray
 ) -> None:
     masks = _two_pixel_disjoint_masks(8, 8)
-    labels = torch.tensor([0, 1], dtype=torch.int64)
+    labels = np.array([0, 1], dtype=np.int64)
 
     label_a = "00000000-0000-0000-0000-00000000000a"
     label_b = "00000000-0000-0000-0000-00000000000b"
@@ -144,9 +143,9 @@ def test_visualize_ignores_pred_boxes(fxt_visualizer: InferenceVisualizer, fxt_f
         frame=fxt_frame,
         results=[
             {
-                "pred_boxes": torch.tensor([[0.0, 0.0, 1.0, 1.0]]),
+                "pred_boxes": np.array([[0.0, 0.0, 1.0, 1.0]]),
                 "pred_masks": _single_pixel_mask(8, 8, 0, 0),
-                "pred_labels": torch.tensor([0], dtype=torch.int64),
+                "pred_labels": np.array([0], dtype=np.int64),
             }
         ],
     )
