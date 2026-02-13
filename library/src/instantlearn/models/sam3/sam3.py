@@ -104,7 +104,7 @@ class SAM3(Model):
         resolution: int = 1008,
         precision: str = "fp32",
         compile_models: bool = False,
-        prompt_mode: Sam3PromptMode | str = Sam3PromptMode.CLASSIC,
+        prompt_mode: Sam3PromptMode | str = Sam3PromptMode.VISUAL_EXEMPLAR,
         drop_spatial_bias: bool = True,
     ) -> None:
         """Initialize the SAM3 model.
@@ -209,6 +209,11 @@ class SAM3(Model):
         using the GeometryEncoder against the reference image's ViT features.
         Results are cached for reuse in predict().
 
+        Note:
+            Both boxes and points are encoded as point-only because point encoding transfers better 
+            across images (0.83 vs 0.59 mIoU): grid_sample at a single point captures
+            local appearance without averaging over an ROI region.
+
         Args:
             reference_batch: Batch of reference samples with images and bboxes/points.
 
@@ -245,61 +250,31 @@ class SAM3(Model):
             categories = sample.categories if sample.categories is not None else ["visual"] * num_prompts
             category_ids = sample.category_ids if sample.category_ids is not None else [0] * num_prompts
 
-            # Encode each box with its center point to get per-exemplar features
-            # The geometry encoder concatenates box ROI features + center point features
+            point_prompts: list[tuple[torch.Tensor, str, int]] = []
             if has_bboxes:
                 for bbox, category, cat_id in zip(bboxes, categories, category_ids, strict=True):
                     input_boxes, _ = self.prompt_preprocessor(original_sizes, input_boxes=bbox)
-                    input_boxes_labels = torch.ones((1, 1), dtype=torch.long, device=self.device)
-
-                    box_embeddings = input_boxes.to(dtype=fpn_hidden_states[0].dtype)
-                    box_mask = torch.ones(1, 1, dtype=torch.bool, device=self.device)
-
-                    # Derive center point from box: [(x1+x2)/2, (y1+y2)/2]
-                    center_point = (input_boxes[..., :2] + input_boxes[..., 2:]) / 2  # (1, 1, 2)
-                    point_embeddings = center_point.to(dtype=fpn_hidden_states[0].dtype)
-                    point_mask = torch.ones(1, 1, dtype=torch.bool, device=self.device)
-                    point_labels = torch.ones((1, 1), dtype=torch.long, device=self.device)
-
-                    geometry_outputs = self.model.geometry_encoder(
-                        box_embeddings=box_embeddings,
-                        box_mask=box_mask,
-                        box_labels=input_boxes_labels,
-                        point_embeddings=point_embeddings,
-                        point_mask=point_mask,
-                        point_labels=point_labels,
-                        img_feats=fpn_hidden_states,
-                        img_pos_embeds=fpn_position_encoding,
-                        drop_spatial_bias=self.drop_spatial_bias,
-                    )
-
-                    all_geometry_features.append(geometry_outputs["last_hidden_state"])
-                    all_geometry_masks.append(geometry_outputs["attention_mask"])
-                    all_category_ids.append(int(cat_id))
-                    all_text_prompts.append(category)
-
-            # Encode standalone points (when no box is provided)
-            if has_points and not has_bboxes:
+                    center = (input_boxes[..., :2] + input_boxes[..., 2:]) / 2  # (1, 1, 2)
+                    point_prompts.append((center, category, int(cat_id)))
+            elif has_points:
                 for point, category, cat_id in zip(points, categories, category_ids, strict=True):
                     _, input_points = self.prompt_preprocessor(original_sizes, input_points=point)
-                    input_points_labels = torch.ones((1, 1), dtype=torch.long, device=self.device)
+                    point_prompts.append((input_points, category, int(cat_id)))
 
-                    point_embeddings = input_points.to(dtype=fpn_hidden_states[0].dtype)
-                    point_mask = torch.ones(1, 1, dtype=torch.bool, device=self.device)
-
-                    geometry_outputs = self.model.geometry_encoder(
-                        point_embeddings=point_embeddings,
-                        point_mask=point_mask,
-                        point_labels=input_points_labels,
-                        img_feats=fpn_hidden_states,
-                        img_pos_embeds=fpn_position_encoding,
-                        drop_spatial_bias=self.drop_spatial_bias,
-                    )
-
-                    all_geometry_features.append(geometry_outputs["last_hidden_state"])
-                    all_geometry_masks.append(geometry_outputs["attention_mask"])
-                    all_category_ids.append(int(cat_id))
-                    all_text_prompts.append(category)
+            # Encode all prompts uniformly as points
+            for point_coord, category, cat_id in point_prompts:
+                geometry_outputs = self.model.geometry_encoder(
+                    point_embeddings=point_coord.to(dtype=fpn_hidden_states[0].dtype),
+                    point_mask=torch.ones(1, 1, dtype=torch.bool, device=self.device),
+                    point_labels=torch.ones((1, 1), dtype=torch.long, device=self.device),
+                    img_feats=fpn_hidden_states,
+                    img_pos_embeds=fpn_position_encoding,
+                    drop_spatial_bias=self.drop_spatial_bias,
+                )
+                all_geometry_features.append(geometry_outputs["last_hidden_state"])
+                all_geometry_masks.append(geometry_outputs["attention_mask"])
+                all_category_ids.append(cat_id)
+                all_text_prompts.append(category)
 
         if not all_geometry_features:
             msg = "VISUAL_EXEMPLAR mode requires at least one reference sample with bboxes or points."
