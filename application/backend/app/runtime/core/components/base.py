@@ -8,7 +8,6 @@ from types import TracebackType
 from typing import Any, TypeVar
 
 import numpy as np
-from instantlearn.data.base.batch import Batch
 
 from domain.services.schemas.processor import InputData
 from domain.services.schemas.reader import FrameListResponse, ReaderConfig
@@ -152,5 +151,5 @@ class ModelHandler(ABC):
         pass
 
     @abstractmethod
-    def predict(self, batch: Batch) -> list[dict[str, np.ndarray]]:
+    def predict(self, inputs: list[InputData]) -> list[dict[str, np.ndarray]]:
         pass

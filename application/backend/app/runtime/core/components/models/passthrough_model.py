@@ -1,8 +1,8 @@
 import logging
 
-import torch
-from instantlearn.data.base.batch import Batch
+import numpy as np
 
+from domain.services.schemas.processor import InputData
 from runtime.core.components.base import ModelHandler
 
 logger = logging.getLogger(__name__)
@@ -12,6 +12,6 @@ class PassThroughModelHandler(ModelHandler):
     def initialise(self) -> None:
         pass
 
-    def predict(self, batch: Batch) -> list[dict[str, torch.Tensor]]:  # noqa: ARG002
+    def predict(self, inputs: list[InputData]) -> list[dict[str, np.ndarray]]:  # noqa: ARG002
         logger.debug("Using PassThroughModelHandler, returning empty results.")
         return []

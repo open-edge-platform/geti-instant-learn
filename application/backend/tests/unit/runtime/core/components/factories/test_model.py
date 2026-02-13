@@ -38,7 +38,7 @@ class TestModelFactory:
 
         with patch("runtime.core.components.factories.model.get_settings", return_value=mock_settings):
             with patch("runtime.core.components.factories.model.Matcher") as mock_matcher:
-                with patch("runtime.core.components.factories.model.InferenceModelHandler") as mock_handler:
+                with patch("runtime.core.components.factories.model.TorchModelHandler") as mock_handler:
                     mock_model_instance = MagicMock()
                     mock_matcher.return_value = mock_model_instance
 
@@ -74,7 +74,7 @@ class TestModelFactory:
 
         with patch("runtime.core.components.factories.model.get_settings", return_value=mock_settings):
             with patch("runtime.core.components.factories.model.PerDino") as mock_perdino:
-                with patch("runtime.core.components.factories.model.InferenceModelHandler") as mock_handler:
+                with patch("runtime.core.components.factories.model.TorchModelHandler") as mock_handler:
                     mock_model_instance = MagicMock()
                     mock_perdino.return_value = mock_model_instance
 
@@ -114,7 +114,7 @@ class TestModelFactory:
 
         with patch("runtime.core.components.factories.model.get_settings", return_value=mock_settings):
             with patch("runtime.core.components.factories.model.SoftMatcher") as mock_softmatcher:
-                with patch("runtime.core.components.factories.model.InferenceModelHandler") as mock_handler:
+                with patch("runtime.core.components.factories.model.TorchModelHandler") as mock_handler:
                     mock_model_instance = MagicMock()
                     mock_softmatcher.return_value = mock_model_instance
 
@@ -176,7 +176,7 @@ class TestModelFactory:
         mock_settings.device = "cpu"
 
         with patch("runtime.core.components.factories.model.get_settings", return_value=mock_settings):
-            with patch("runtime.core.components.factories.model.InferenceModelHandler") as mock_handler:
+            with patch("runtime.core.components.factories.model.TorchModelHandler") as mock_handler:
                 with patch("runtime.core.components.factories.model.Matcher") as mock_matcher:
                     result = ModelFactory.create(mock_reference_batch, config)
 
@@ -220,7 +220,7 @@ class TestModelFactory:
 
         with patch("runtime.core.components.factories.model.get_settings", return_value=mock_settings):
             with patch(f"runtime.core.components.factories.model.{model_patch_name}"):
-                with patch("runtime.core.components.factories.model.InferenceModelHandler") as mock_handler:
+                with patch("runtime.core.components.factories.model.TorchModelHandler") as mock_handler:
                     mock_handler_instance = MagicMock()
                     mock_handler.return_value = mock_handler_instance
 
