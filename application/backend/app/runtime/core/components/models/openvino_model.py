@@ -1,10 +1,8 @@
 import logging
 
 import numpy as np
-import openvino
 from instantlearn.data.base.batch import Batch
 from instantlearn.models.base import Model
-from instantlearn.utils.constants import Backend
 
 from domain.services.schemas.processor import InputData
 from runtime.core.components.base import ModelHandler
