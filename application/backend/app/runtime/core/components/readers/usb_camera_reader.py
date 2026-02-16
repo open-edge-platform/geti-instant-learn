@@ -3,6 +3,7 @@
 
 import logging
 import platform
+import time
 
 import cv2
 from cv2_enumerate_cameras import enumerate_cameras
@@ -14,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 
 class UsbCameraReader(BaseOpenCVReader):
+    _initial_frame_attempts = 20
+    _initial_frame_retry_interval_sec = 0.1
+
     def __init__(self, config: ReaderConfig) -> None:
         self._config = config
         super().__init__()
@@ -31,9 +35,18 @@ class UsbCameraReader(BaseOpenCVReader):
         except Exception as e:
             logger.warning(f"Could not set MJPEG codec for device {self._config.device_id}: {e}")
 
-        # Validate the camera is actually working by attempting to read a frame
-        ret, frame = cap.read()
-        if not ret or frame is None:
+        # Validate the camera by reading an initial frame.
+        # Right after source switches, some cameras need a short warm-up period.
+        frame = None
+        for attempt in range(self._initial_frame_attempts):
+            ret, frame = cap.read()
+            if ret and frame is not None:
+                break
+
+            if attempt < self._initial_frame_attempts - 1:
+                time.sleep(self._initial_frame_retry_interval_sec)
+
+        if frame is None:
             cap.release()
             raise RuntimeError(
                 f"Camera {self._config.name} on device {self._config.device_id} opened but failed to capture frames. "
