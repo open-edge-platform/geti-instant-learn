@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class UsbCameraReader(BaseOpenCVReader):
-    _initial_frame_attempts = 60
+    _initial_frame_attempts = 100
     _initial_frame_retry_interval_sec = 0.1
 
     def __init__(self, config: ReaderConfig) -> None:
