@@ -12,7 +12,7 @@ import polars as pl
 import torch
 
 from instantlearn.data.base import Batch
-from instantlearn.models import SAM3, GroundedSAM, Matcher, Model, PerDino, SoftMatcher
+from instantlearn.models import SAM3, EfficientSAM3, GroundedSAM, Matcher, Model, PerDino, SoftMatcher
 from instantlearn.models.grounded_sam import GroundingModel
 from instantlearn.utils.constants import DatasetName, ModelName, SAMModelName
 
@@ -231,6 +231,12 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 confidence_threshold=args.confidence_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
+                device=args.device,
+            )
+        case ModelName.EFFICIENT_SAM3:
+            return EfficientSAM3(
+                confidence_threshold=args.confidence_threshold,
+                precision=args.precision,
                 device=args.device,
             )
         case _:

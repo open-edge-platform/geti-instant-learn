@@ -9,6 +9,7 @@ Shared components remain in the top-level components/ directory.
 
 from .base import Model
 from .dinotxt import DinoTxtZeroShotClassification
+from .efficient_sam3 import EfficientSAM3
 from .grounded_sam import GroundedSAM
 from .matcher import Matcher
 from .per_dino import PerDino
@@ -18,6 +19,7 @@ from .soft_matcher import SoftMatcher
 __all__ = [
     "SAM3",
     "DinoTxtZeroShotClassification",
+    "EfficientSAM3",
     "GroundedSAM",
     "Matcher",
     "Model",

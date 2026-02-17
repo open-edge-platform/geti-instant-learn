@@ -185,6 +185,11 @@ class GeometryEncoder(nn.Module):
         self.boxes_pool_project = nn.Conv2d(hidden_size, hidden_size, roi_size)
         self.boxes_pos_enc_project = nn.Linear(hidden_size + 2, hidden_size)
 
+        # Point prompt projections
+        self.points_direct_project = nn.Linear(2, hidden_size)
+        self.points_pool_project = nn.Linear(hidden_size, hidden_size)
+        self.points_pos_enc_project = nn.Linear(hidden_size, hidden_size)
+
         self.vision_layer_norm = nn.LayerNorm(hidden_size)
 
         self.final_proj = nn.Linear(hidden_size, hidden_size)
@@ -287,6 +292,61 @@ class GeometryEncoder(nn.Module):
         label_embed = self.label_embed(boxes_labels.long())
         return label_embed + boxes_embed, boxes_mask
 
+    def _encode_points(
+        self,
+        points: torch.Tensor,
+        points_mask: torch.Tensor,
+        points_labels: torch.Tensor,
+        vision_features: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Encode point prompts with embeddings and labels.
+
+        Similar to box encoding but uses bilinear sampling at point locations
+        instead of ROI align.
+
+        Args:
+            points: Point coordinates (x, y) normalized to [0, 1]
+                [batch_size, num_points, 2].
+            points_mask: Valid point mask [batch_size, num_points].
+            points_labels: Point labels [batch_size, num_points].
+            vision_features: Vision features [batch_size, hidden_size, height, width].
+
+        Returns:
+            Encoded point embeddings and mask.
+        """
+        batch_size, num_points = points.shape[:2]
+
+        # Direct projection of (x, y) coordinates
+        points_embed = self.points_direct_project(points)
+
+        # Sample features at point locations using bilinear interpolation
+        # grid_sample expects grid in [-1, 1] range with shape [B, N, 1, 2]
+        grid = points * 2 - 1
+        grid = grid.unsqueeze(2)
+        cast_dtype = torch.float16 if vision_features.dtype == torch.bfloat16 else vision_features.dtype
+        sampled = torch.nn.functional.grid_sample(
+            vision_features.to(cast_dtype),
+            grid.to(cast_dtype),
+            mode="bilinear",
+            align_corners=False,
+        ).to(vision_features.dtype)  # [B, C, N, 1]
+        sampled = sampled.squeeze(-1).transpose(1, 2)  # [B, N, C]
+        pool_projection = self.points_pool_project(sampled)
+        points_embed += pool_projection
+
+        # Position encoding at point (x, y) locations
+        px = points[..., 0].flatten()
+        py = points[..., 1].flatten()
+        pos_x, pos_y = self.position_encoding.encode_1d_positions(px, py)
+        pos_enc = torch.cat([pos_y, pos_x], dim=1)  # [B*N, hidden_size]
+        pos_enc = pos_enc.view(batch_size, num_points, -1)
+        pos_projection = self.points_pos_enc_project(pos_enc)
+        points_embed += pos_projection
+
+        # Add label embeddings (positive/negative)
+        label_embed = self.label_embed(points_labels.long())
+        return label_embed + points_embed, points_mask
+
     def forward(
         self,
         box_embeddings: torch.Tensor,
@@ -294,8 +354,14 @@ class GeometryEncoder(nn.Module):
         box_labels: torch.Tensor,
         img_feats: tuple[torch.Tensor, ...],
         img_pos_embeds: tuple[torch.Tensor, ...] | None = None,
+        point_embeddings: torch.Tensor | None = None,
+        point_mask: torch.Tensor | None = None,
+        point_labels: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
         """Encode geometric prompts with transformer layers.
+
+        Supports both box and point prompts. Box prompts use ROI align for feature
+        pooling, while point prompts use bilinear sampling at point locations.
 
         Args:
             box_embeddings (torch.Tensor): Box coordinates in CxCyWH format
@@ -308,6 +374,12 @@ class GeometryEncoder(nn.Module):
                 encoder.
             img_pos_embeds (tuple[torch.Tensor, ...] | None): Optional position
                 embeddings for image features. Default: None.
+            point_embeddings (torch.Tensor | None): Point coordinates (x, y)
+                normalized to [0, 1] [batch_size, num_points, 2]. Default: None.
+            point_mask (torch.Tensor | None): Valid point mask [batch_size,
+                num_points]. Default: None.
+            point_labels (torch.Tensor | None): Point labels (1=positive,
+                0=negative) [batch_size, num_points]. Default: None.
 
         Returns:
             dict[str, torch.Tensor]: Dictionary with 'last_hidden_state' containing
@@ -329,6 +401,35 @@ class GeometryEncoder(nn.Module):
         normalized_img_feats = normalized_img_feats.permute(0, 3, 1, 2)  # [B, C, H, W]
 
         prompt_embeds, prompt_mask = self._encode_boxes(box_embeddings, box_mask, box_labels, normalized_img_feats)
+
+        # Encode point prompts if provided and concatenate with box embeddings
+        if point_embeddings is not None and point_embeddings.numel() > 0:
+            if point_mask is None:
+                point_mask = torch.ones(
+                    batch_size,
+                    point_embeddings.shape[1],
+                    dtype=torch.bool,
+                    device=point_embeddings.device,
+                )
+            if point_labels is None:
+                point_labels = torch.ones(
+                    batch_size,
+                    point_embeddings.shape[1],
+                    dtype=torch.long,
+                    device=point_embeddings.device,
+                )
+            point_embeds, pt_mask = self._encode_points(
+                point_embeddings,
+                point_mask,
+                point_labels,
+                normalized_img_feats,
+            )
+            prompt_embeds, prompt_mask = concat_padded_sequences(
+                prompt_embeds,
+                prompt_mask,
+                point_embeds,
+                pt_mask,
+            )
 
         # Add CLS token (always valid)
         cls_embed = self.cls_embed.weight.view(1, self.hidden_size).unsqueeze(0).expand(batch_size, -1, -1)
@@ -803,8 +904,8 @@ class Sam3Model(nn.Module):
         if scale_factors is None:
             scale_factors = [4.0, 2.0, 1.0, 0.5]
 
-        # Vision encoder
-        self.vision_encoder = VisionModel(
+        # Vision encoder (overridable by subclasses)
+        self.vision_encoder = self._create_vision_encoder(
             hidden_size=vision_hidden_size,
             intermediate_size=vision_intermediate_size,
             num_hidden_layers=vision_num_hidden_layers,
@@ -824,8 +925,8 @@ class Sam3Model(nn.Module):
             scale_factors=scale_factors,
         )
 
-        # Text encoder (CLIP)
-        text_config = CLIPTextConfig(
+        # Text encoder (overridable by subclasses)
+        self.text_encoder, self.text_projection = self._create_text_encoder(
             vocab_size=text_vocab_size,
             hidden_size=text_hidden_size,
             intermediate_size=text_intermediate_size,
@@ -834,11 +935,9 @@ class Sam3Model(nn.Module):
             num_attention_heads=text_num_attention_heads,
             max_position_embeddings=text_max_position_embeddings,
             hidden_act=text_hidden_act,
+            detr_encoder_hidden_size=detr_encoder_hidden_size,
         )
-        self.text_encoder = CLIPTextModelWithProjection(text_config)
         self.vocab_size = text_vocab_size
-
-        self.text_projection = nn.Linear(text_hidden_size, detr_encoder_hidden_size)
 
         # Geometry encoder
         self.geometry_encoder = GeometryEncoder(
@@ -886,6 +985,66 @@ class Sam3Model(nn.Module):
             intermediate_size=detr_decoder_intermediate_size,
             dropout=detr_decoder_dropout,
         )
+
+    def _create_vision_encoder(self, **kwargs: dict) -> nn.Module:  # noqa: PLR6301
+        """Create the vision encoder. Override in subclasses for custom backbones.
+
+        Returns:
+            nn.Module: Vision encoder producing dict with fpn_hidden_states
+                and fpn_position_encoding keys.
+        """
+        return VisionModel(**kwargs)
+
+    def _create_text_encoder(self, **kwargs: dict) -> tuple[nn.Module, nn.Module]:  # noqa: PLR6301
+        """Create the text encoder and projection. Override for custom text encoders.
+
+        Returns:
+            tuple[nn.Module, nn.Module]: (text_encoder, text_projection).
+        """
+        detr_hidden = kwargs.pop("detr_encoder_hidden_size", 256)
+        text_hidden = kwargs.get("hidden_size", 1024)
+        text_config = CLIPTextConfig(
+            vocab_size=kwargs.get("vocab_size", 49408),
+            hidden_size=text_hidden,
+            intermediate_size=kwargs.get("intermediate_size", 4096),
+            projection_dim=kwargs.get("projection_dim", 512),
+            num_hidden_layers=kwargs.get("num_hidden_layers", 24),
+            num_attention_heads=kwargs.get("num_attention_heads", 16),
+            max_position_embeddings=kwargs.get("max_position_embeddings", 32),
+            hidden_act=kwargs.get("hidden_act", "gelu"),
+        )
+        encoder = CLIPTextModelWithProjection(text_config)
+        projection = nn.Linear(text_hidden, detr_hidden)
+        return encoder, projection
+
+    def _get_scoring_features(
+        self,
+        text_features: torch.Tensor,
+        text_mask: torch.Tensor | None,
+        encoder_text_features: torch.Tensor,
+        combined_prompt_mask: torch.Tensor | None,
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
+        """Return the features and mask used for dot-product scoring.
+
+        SAM3 default: use the encoder's combined text+geometry features so that
+        geometry prompts participate in the mean-pooled scoring signal.
+
+        Override in subclasses to change scoring behaviour (e.g. text-only).
+
+        Args:
+            text_features: Raw text encoder output
+                [batch_size, seq_len, hidden_size].
+            text_mask: Mask for raw text features [batch_size, seq_len].
+            encoder_text_features: DETR encoder output text features,
+                which may include geometry prompt features concatenated
+                [batch_size, combined_len, hidden_size].
+            combined_prompt_mask: Mask for encoder_text_features
+                [batch_size, combined_len].
+
+        Returns:
+            (features, mask) tuple to pass to ``DotProductScoring``.
+        """
+        return encoder_text_features, combined_prompt_mask
 
     @classmethod
     def from_pretrained(
@@ -1037,6 +1196,8 @@ class Sam3Model(nn.Module):
         text_embeds: torch.FloatTensor | None = None,
         input_boxes: torch.FloatTensor | None = None,
         input_boxes_labels: torch.LongTensor | None = None,
+        input_points: torch.FloatTensor | None = None,
+        input_points_labels: torch.LongTensor | None = None,
         **kwargs: dict,
     ) -> dict[str, torch.Tensor | None]:
         """Predict instance masks, boxes, and logits for input images.
@@ -1058,6 +1219,10 @@ class Sam3Model(nn.Module):
                 normalized to [0, 1] [batch_size, num_boxes, 4]. Default: None.
             input_boxes_labels (torch.LongTensor | None): Box labels (1=positive,
                 0=negative) [batch_size, num_boxes]. Default: None.
+            input_points (torch.FloatTensor | None): Point prompts (x, y)
+                normalized to [0, 1] [batch_size, num_points, 2]. Default: None.
+            input_points_labels (torch.LongTensor | None): Point labels (1=positive,
+                0=negative) [batch_size, num_points]. Default: None.
             **kwargs (dict): Additional keyword arguments for model components.
 
         Returns:
@@ -1073,7 +1238,7 @@ class Sam3Model(nn.Module):
         """
         if (pixel_values is None) == (vision_embeds is None):
             msg = "You must specify exactly one of pixel_values or vision_embeds"
-            raise ValueError
+            raise ValueError(msg)
 
         if (input_ids is None) == (text_embeds is None):
             msg = "You must specify exactly one of input_ids or text_embeds"
@@ -1100,13 +1265,15 @@ class Sam3Model(nn.Module):
             text_features = text_embeds
 
         text_mask = attention_mask.bool() if attention_mask is not None else None
-        has_geometry_prompts = input_boxes is not None and input_boxes.numel() > 0
+        has_box_prompts = input_boxes is not None and input_boxes.numel() > 0
+        has_point_prompts = input_points is not None and input_points.numel() > 0
+        has_geometry_prompts = has_box_prompts or has_point_prompts
 
         geometry_prompt_features = None
         geometry_prompt_mask = None
 
         if has_geometry_prompts:
-            if input_boxes is not None and input_boxes.numel() > 0:
+            if has_box_prompts:
                 box_embeddings = input_boxes.to(dtype=text_features.dtype)  # [batch_size, num_boxes, 4]
                 box_labels = (
                     input_boxes_labels
@@ -1124,12 +1291,28 @@ class Sam3Model(nn.Module):
                 box_labels = torch.zeros(batch_size, 0, dtype=torch.long, device=device)
                 box_mask = torch.zeros(batch_size, 0, dtype=torch.bool, device=device)
 
+            # Prepare point prompt arguments
+            pt_embeddings = None
+            pt_mask = None
+            pt_labels = None
+            if has_point_prompts:
+                pt_embeddings = input_points.to(dtype=text_features.dtype)
+                pt_labels = (
+                    input_points_labels
+                    if input_points_labels is not None
+                    else torch.ones(batch_size, input_points.shape[1], dtype=torch.long, device=device)
+                )
+                pt_mask = torch.ones(batch_size, input_points.shape[1], dtype=torch.bool, device=device)
+
             geometry_outputs = self.geometry_encoder(
                 box_embeddings=box_embeddings,
                 box_mask=box_mask,
                 box_labels=box_labels,
                 img_feats=fpn_hidden_states,
                 img_pos_embeds=fpn_position_encoding,
+                point_embeddings=pt_embeddings,
+                point_mask=pt_mask,
+                point_labels=pt_labels,
             )
 
             geometry_prompt_features = geometry_outputs["last_hidden_state"]
@@ -1185,16 +1368,24 @@ class Sam3Model(nn.Module):
         all_pred_boxes_cxcywh = (reference_boxes_inv_sig + all_box_offsets).sigmoid()
         all_pred_boxes = box_cxcywh_to_xyxy(all_pred_boxes_cxcywh)
 
+        scoring_features, scoring_mask = self._get_scoring_features(
+            text_features=text_features,
+            text_mask=text_mask,
+            encoder_text_features=encoder_outputs["text_features"],
+            combined_prompt_mask=combined_prompt_mask,
+        )
         all_pred_logits = self.dot_product_scoring(
             decoder_hidden_states=decoder_outputs["intermediate_hidden_states"],
-            text_features=encoder_outputs["text_features"],
-            text_mask=combined_prompt_mask,
+            text_features=scoring_features,
+            text_mask=scoring_mask,
         ).squeeze(-1)
 
         pred_logits = all_pred_logits[-1]
         pred_boxes = all_pred_boxes[-1]
         decoder_hidden_states = decoder_outputs["intermediate_hidden_states"][-1]
-        presence_logits = decoder_outputs["presence_logits"][-1]
+        presence_logits = (
+            decoder_outputs["presence_logits"][-1] if decoder_outputs["presence_logits"] is not None else None
+        )
 
         mask_outputs = self.mask_decoder(
             decoder_queries=decoder_hidden_states,
