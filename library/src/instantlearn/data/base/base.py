@@ -251,7 +251,9 @@ class Dataset(TorchDataset, ABC):
         split_by_reference_instances() for cleaner separation.
         """
         # Filter rows with at least one True in is_reference list
-        reference_df = self.df.filter(pl.col("is_reference").list.contains(item=True))
+        # Note: list.sum() > 0 is used instead of list.contains(item=True) because
+        # Polars list.contains has a known bug with boolean values on some platforms.
+        reference_df = self.df.filter(pl.col("is_reference").list.sum() > 0)
 
         if category is not None:
             # Further filter to rows containing the category
@@ -267,7 +269,9 @@ class Dataset(TorchDataset, ABC):
         split_by_reference_instances() for cleaner separation.
         """
         # Filter rows where is_reference does NOT contain True (all are False)
-        target_df = self.df.filter(~pl.col("is_reference").list.contains(item=True))
+        # Note: list.sum() is used instead of list.contains(item=True) because
+        # Polars list.contains has a known bug with boolean values on some platforms.
+        target_df = self.df.filter(pl.col("is_reference").list.sum() == 0)
 
         if category is not None:
             # Further filter to rows containing the category
