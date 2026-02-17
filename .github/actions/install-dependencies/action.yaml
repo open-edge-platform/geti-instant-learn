@@ -31,7 +31,7 @@ runs:
   steps:
     - name: Initial cleanup
       if: ${{ inputs.cleanup-runner == 'true' }}
-      uses: ./.github/actions/cleanup-runner
+      uses: open-edge-platform/geti-ci/actions/cleanup-runner@3a4b81ea648711eb638b34757427cd3ef71d19f1
       with:
         type: "initial"
 
