@@ -135,6 +135,7 @@ class SAM3(Model):
         resolution: int = 1008,
         precision: str = "fp32",
         compile_models: bool = False,
+        model_id: str = "facebook/sam3",
         prompt_mode: Sam3PromptMode | str = Sam3PromptMode.CLASSIC,
         drop_spatial_bias: bool = False,
     ) -> None:
@@ -146,6 +147,8 @@ class SAM3(Model):
             resolution: The input image resolution.
             precision: The precision to use for the model ('bf16' or 'fp32').
             compile_models: Whether to compile the models.
+            model_id: HuggingFace model ID or local path to load the SAM3 model
+                and tokenizer from. Default: "facebook/sam3".
             prompt_mode: Prompt mode for inference. 'classic' for original SAM3
                 behavior, 'visual_exemplar' for cross-image visual query detection.
             drop_spatial_bias: When True and in VISUAL_EXEMPLAR mode, skip
@@ -160,6 +163,7 @@ class SAM3(Model):
         self.resolution = resolution
         self.precision = precision
         self.compile_models = compile_models
+        self.model_id = model_id
         self.prompt_mode = Sam3PromptMode(prompt_mode)
         self.drop_spatial_bias = drop_spatial_bias
 
@@ -183,11 +187,11 @@ class SAM3(Model):
         ).to(device)
 
         # Tokenizer for text prompts (still from transformers, but not used in ONNX path)
-        self.tokenizer = CLIPTokenizerFast.from_pretrained("facebook/sam3")
+        self.tokenizer = CLIPTokenizerFast.from_pretrained(model_id)
 
         self.model = (
             Sam3Model.from_pretrained(
-                "facebook/sam3",
+                model_id,
                 torch_dtype=precision_to_torch_dtype(precision),
             )
             .to(device)
