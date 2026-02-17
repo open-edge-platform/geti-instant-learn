@@ -13,11 +13,16 @@ import pytest
 import torch
 from torchmetrics.segmentation import MeanIoU
 
+import numpy as np
+
 from instantlearn.data.base import Batch
+from instantlearn.data.base.sample import Sample
 from instantlearn.data.folder import FolderDataset
 from instantlearn.models.grounded_sam import GroundedSAM
 from instantlearn.models.matcher import Matcher
 from instantlearn.models.per_dino import PerDino
+from instantlearn.models.sam3 import SAM3
+from instantlearn.models.sam3.sam3 import Sam3PromptMode
 from instantlearn.models.soft_matcher import SoftMatcher
 from instantlearn.utils.benchmark import convert_masks_to_one_hot_tensor
 from instantlearn.utils.constants import ModelName, SAMModelName
@@ -75,12 +80,18 @@ SAM_MODELS = [SAMModelName.SAM_HQ_TINY, SAMModelName.SAM2_TINY]
 # Models that support n-shots (all except GroundedSAM and SAM3)
 N_SHOT_SUPPORTED_MODELS = [ModelName.MATCHER, ModelName.PER_DINO, ModelName.SOFT_MATCHER]
 
+# Non-SAM3 model names (SAM3 is tested separately with dedicated methods)
+NON_SAM3_MODELS = [m for m in ModelName if m not in (ModelName.SAM3, ModelName.SAM3_CLASSIC, ModelName.SAM3_VISUAL)]
+
+# SAM3 prompt modes to test
+SAM3_PROMPT_MODES = [Sam3PromptMode.CLASSIC, Sam3PromptMode.VISUAL_EXEMPLAR]
+
 
 class TestModelIntegration:
     """Integration tests for all model combinations."""
 
     @pytest.mark.parametrize("sam_model", SAM_MODELS)
-    @pytest.mark.parametrize("model_name", ModelName)
+    @pytest.mark.parametrize("model_name", NON_SAM3_MODELS)
     def test_model_initialization(
         self,
         sam_model: SAMModelName,
@@ -92,9 +103,6 @@ class TestModelIntegration:
             sam_model: The SAM model to use.
             model_name: The model type to test.
         """
-        # Skip SAM3 as it doesn't use SAM backend
-        if model_name == ModelName.SAM3:
-            pytest.skip("SAM3 doesn't use SAM backend, tested separately")
 
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/instant-learn/issues/367
@@ -116,7 +124,7 @@ class TestModelIntegration:
         assert callable(model.predict)
 
     @pytest.mark.parametrize("sam_model", SAM_MODELS)
-    @pytest.mark.parametrize("model_name", ModelName)
+    @pytest.mark.parametrize("model_name", NON_SAM3_MODELS)
     def test_model_fit_predict(
         self,
         sam_model: SAMModelName,
@@ -132,9 +140,6 @@ class TestModelIntegration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
-        # Skip SAM3 as it doesn't use SAM backend
-        if model_name == ModelName.SAM3:
-            pytest.skip("SAM3 doesn't use SAM backend, tested separately")
 
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/instant-learn/issues/367
@@ -185,8 +190,8 @@ class TestModelIntegration:
         """
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/instant-learn/issues/367
-        if sam_model == SAMModelName.SAM2_TINY or model_name == ModelName.SAM3:
-            pytest.skip("Skipping test_n_shots_capability for SAM2-tiny or SAM3")
+        if sam_model == SAMModelName.SAM2_TINY:
+            pytest.skip("Skipping test_n_shots_capability for SAM2-tiny")
 
         if not fss1000_root.exists():
             pytest.skip("fss-1000 dataset not found")
@@ -276,7 +281,7 @@ class TestModelIntegration:
         assert len(predictions) == len(target_batch)
 
     @pytest.mark.parametrize("sam_model", SAM_MODELS)
-    @pytest.mark.parametrize("model_name", ModelName)
+    @pytest.mark.parametrize("model_name", NON_SAM3_MODELS)
     def test_model_input_validation(
         self,
         sam_model: SAMModelName,
@@ -292,9 +297,6 @@ class TestModelIntegration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
-        # Skip SAM3 as it doesn't use SAM backend
-        if model_name == ModelName.SAM3:
-            pytest.skip("SAM3 doesn't use SAM backend, tested separately")
 
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/instant-learn/issues/367
@@ -332,7 +334,7 @@ class TestModelIntegration:
         assert len(predictions) == len(target_batch)
 
     @pytest.mark.parametrize("sam_model", SAM_MODELS)
-    @pytest.mark.parametrize("model_name", ModelName)
+    @pytest.mark.parametrize("model_name", NON_SAM3_MODELS)
     def test_model_metrics_calculation(
         self,
         sam_model: SAMModelName,
@@ -351,9 +353,6 @@ class TestModelIntegration:
             model_name: The model type to test.
             dataset: The dataset to use for testing.
         """
-        # Skip SAM3 as it doesn't use SAM backend
-        if model_name == ModelName.SAM3:
-            pytest.skip("SAM3 doesn't use SAM backend, tested separately")
 
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/instant-learn/issues/367
@@ -374,7 +373,7 @@ class TestModelIntegration:
             pytest.skip("No categories available in dataset")
 
         # Get reference batch
-        ref_batch = Batch.collate(dataset.get_reference_dataset())
+        ref_batch = Batch.collate(list(dataset.get_reference_dataset()))
 
         target_dataset = dataset.get_target_dataset()
         target_batch = Batch.collate(target_dataset[0])
@@ -405,4 +404,198 @@ class TestModelIntegration:
         for idx in range(len(categories)):
             iou_value = iou_per_class[idx].item()
             # -1 is returned if class is completely absent both from prediction and the ground truth labels.
+            assert iou_value >= -1
+
+
+class TestSAM3Integration:
+    """Integration tests for SAM3 model in classic and visual exemplar modes.
+
+    SAM3 does not use a SAM backend; it has its own architecture. These tests
+    exercise both prompt modes end-to-end with real data.
+    """
+
+    @pytest.mark.parametrize("prompt_mode", SAM3_PROMPT_MODES, ids=["classic", "visual"])
+    def test_sam3_initialization(self, prompt_mode: Sam3PromptMode) -> None:
+        """Test that SAM3 can be initialized in both prompt modes.
+
+        Args:
+            prompt_mode: The SAM3 prompt mode to test.
+        """
+        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id="jetjodh/sam3")
+
+        assert model is not None
+        assert model.prompt_mode == prompt_mode
+        assert hasattr(model, "fit")
+        assert hasattr(model, "predict")
+        assert callable(model.fit)
+        assert callable(model.predict)
+
+    @pytest.mark.parametrize("prompt_mode", SAM3_PROMPT_MODES, ids=["classic", "visual"])
+    def test_sam3_fit_predict(
+        self,
+        prompt_mode: Sam3PromptMode,
+        reference_batch: Batch,
+        target_batch: Batch,
+    ) -> None:
+        """Test SAM3 fit/predict cycle in both prompt modes.
+
+        Classic mode uses text prompts (category names) from the reference batch.
+        Visual mode uses bounding box prompts on reference images.
+
+        Args:
+            prompt_mode: The SAM3 prompt mode to test.
+            reference_batch: Batch of reference samples.
+            target_batch: Batch of target samples.
+        """
+        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode)
+
+        if prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
+            # Visual exemplar needs bboxes on reference images
+            ref_samples = []
+            for sample in reference_batch.samples:
+                h, w = sample.image.shape[-2:]
+                ref_samples.append(
+                    Sample(
+                        image=sample.image,
+                        bboxes=np.array([[w // 4, h // 4, 3 * w // 4, 3 * h // 4]]),
+                        categories=sample.categories[:1],
+                        category_ids=np.array([sample.category_ids[0]]),
+                    )
+                )
+            ref_input = Batch.collate(ref_samples)
+        else:
+            ref_input = reference_batch
+
+        model.fit(ref_input)
+
+        predictions = model.predict(target_batch)
+
+        assert isinstance(predictions, list)
+        assert len(predictions) == len(target_batch)
+        for prediction, image in zip(predictions, target_batch.images, strict=False):
+            assert isinstance(prediction["pred_masks"], torch.Tensor)
+            assert prediction["pred_masks"].shape[-2:] == image.shape[-2:]
+
+    @pytest.mark.parametrize("prompt_mode", SAM3_PROMPT_MODES, ids=["classic", "visual"])
+    def test_sam3_input_validation(
+        self,
+        prompt_mode: Sam3PromptMode,
+        reference_batch: Batch,
+        target_batch: Batch,
+    ) -> None:
+        """Test that SAM3 validates inputs correctly in both modes.
+
+        Args:
+            prompt_mode: The SAM3 prompt mode to test.
+            reference_batch: Batch of reference samples.
+            target_batch: Batch of target samples.
+        """
+        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id="jetjodh/sam3")
+
+        if prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
+            ref_samples = []
+            for sample in reference_batch.samples:
+                h, w = sample.image.shape[-2:]
+                ref_samples.append(
+                    Sample(
+                        image=sample.image,
+                        bboxes=np.array([[w // 4, h // 4, 3 * w // 4, 3 * h // 4]]),
+                        categories=sample.categories[:1],
+                        category_ids=np.array([sample.category_ids[0]]),
+                    )
+                )
+            ref_input = Batch.collate(ref_samples)
+        else:
+            ref_input = reference_batch
+
+        # Validate batch fields
+        assert len(ref_input) > 0
+        assert len(ref_input.images) > 0
+        assert all(img is not None for img in ref_input.images)
+
+        assert len(target_batch) > 0
+        assert len(target_batch.images) > 0
+        assert all(img is not None for img in target_batch.images)
+
+        model.fit(ref_input)
+        predictions = model.predict(target_batch)
+
+        assert isinstance(predictions, list)
+        assert len(predictions) == len(target_batch)
+
+    def test_sam3_visual_requires_prompts(self) -> None:
+        """Test that visual exemplar mode raises when no bboxes/points are provided."""
+        model = SAM3(device="cpu", precision="fp32", prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR, model_id="jetjodh/sam3")
+
+        ref_sample = Sample(
+            image=torch.zeros((3, 256, 256)),
+            categories=["object"],
+            category_ids=[0],
+        )
+
+        with pytest.raises(ValueError, match="bboxes or points"):
+            model.fit(ref_sample)
+
+    @pytest.mark.parametrize("prompt_mode", SAM3_PROMPT_MODES, ids=["classic", "visual"])
+    def test_sam3_metrics_calculation(
+        self,
+        prompt_mode: Sam3PromptMode,
+        dataset: FolderDataset,
+    ) -> None:
+        """Test that SAM3 predictions can be evaluated with metrics in both modes.
+
+        Args:
+            prompt_mode: The SAM3 prompt mode to test.
+            dataset: The dataset to use for testing.
+        """
+        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id="jetjodh/sam3")
+
+        categories = dataset.categories
+        if not categories:
+            pytest.skip("No categories available in dataset")
+
+        ref_dataset = dataset.get_reference_dataset()
+        ref_batch = Batch.collate(list(ref_dataset))
+
+        if prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
+            ref_samples = []
+            for sample in ref_batch.samples:
+                h, w = sample.image.shape[-2:]
+                ref_samples.append(
+                    Sample(
+                        image=sample.image,
+                        bboxes=np.array([[w // 4, h // 4, 3 * w // 4, 3 * h // 4]]),
+                        categories=sample.categories[:1],
+                        category_ids=np.array([sample.category_ids[0]]),
+                    )
+                )
+            ref_input = Batch.collate(ref_samples)
+        else:
+            ref_input = ref_batch
+
+        model.fit(ref_input)
+
+        target_dataset = dataset.get_target_dataset()
+        target_batch = Batch.collate(target_dataset[0])
+
+        predictions = model.predict(target_batch)
+
+        category_id_to_index = {
+            dataset.get_category_id(cat_name): idx for idx, cat_name in enumerate(categories)
+        }
+        batch_pred_tensors, batch_gt_tensors = convert_masks_to_one_hot_tensor(
+            predictions=predictions,
+            ground_truths=target_batch,
+            num_classes=len(categories),
+            category_id_to_index=category_id_to_index,
+            device="cpu",
+        )
+
+        metrics = MeanIoU(num_classes=len(categories), include_background=True, per_class=True).to("cpu")
+        for pred_tensor, gt_tensor in zip(batch_pred_tensors, batch_gt_tensors, strict=True):
+            metrics.update(pred_tensor, gt_tensor)
+
+        iou_per_class = metrics.compute()
+        for idx in range(len(categories)):
+            iou_value = iou_per_class[idx].item()
             assert iou_value >= -1
