@@ -301,13 +301,14 @@ def make_lvis_dataframe(
         explode_columns = ["categories", "category_ids", "segmentations", "is_reference", "n_shot"]
         data_frame = data_frame.explode(explode_columns)
 
-        # Wrap scalars back into single-element lists (Sample expects lists)
+        # Wrap scalars back into single-element lists (Sample expects lists).
+        # In SEMANTIC mode, there are no bounding boxes, so set bboxes to None.
         data_frame = data_frame.with_columns([
             pl.col("categories").map_elements(lambda x: [x], return_dtype=pl.List(pl.String)),
             pl.col("category_ids").map_elements(lambda x: [x], return_dtype=pl.List(pl.Int64)),
             pl.col("is_reference").map_elements(lambda x: [x], return_dtype=pl.List(pl.Boolean)),
             pl.col("n_shot").map_elements(lambda x: [x], return_dtype=pl.List(pl.Int64)),
-            pl.col("bboxes").map_elements(lambda x: [x], return_dtype=pl.List(pl.List(pl.Float64))),
+            pl.lit(None).alias("bboxes"),
         ])
 
     # Sort by image_id for consistency
