@@ -93,11 +93,10 @@ class TestMatcherExportIntegration:
         )
 
         # Fit on reference
-        ref_features = matcher.fit(reference_batch)
+        matcher.fit(reference_batch)
 
         # Export to ONNX
         exported_path = matcher.export(
-            reference_features=ref_features,
             export_dir=tmp_path,
             backend=Backend.ONNX,
         )
@@ -158,11 +157,10 @@ class TestMatcherExportIntegration:
         )
 
         # Fit on reference
-        ref_features = matcher.fit(reference_batch)
+        matcher.fit(reference_batch)
 
         # Export to OpenVINO
         exported_path = matcher.export(
-            reference_features=ref_features,
             export_dir=tmp_path,
             backend=Backend.OPENVINO,
         )

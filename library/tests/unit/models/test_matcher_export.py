@@ -60,6 +60,7 @@ class TestMatcherExport:
 
         model = Matcher(device="cpu")
         model.encoder = mock_components["encoder"]
+        model.ref_features = mock_reference_features
 
         export_dir = tmp_path / "new_export_dir"
         assert not export_dir.exists()
@@ -67,7 +68,6 @@ class TestMatcherExport:
         # Mock torch.onnx.export to avoid actual export
         with patch("torch.onnx.export"):
             model.export(
-                reference_features=mock_reference_features,
                 export_dir=export_dir,
                 backend=Backend.ONNX,
             )
@@ -91,10 +91,10 @@ class TestMatcherExport:
 
         model = Matcher(device="cpu")
         model.encoder = mock_components["encoder"]
+        model.ref_features = mock_reference_features
 
         with patch("torch.onnx.export"):
             result = model.export(
-                reference_features=mock_reference_features,
                 export_dir=tmp_path,
                 backend=Backend.ONNX,
             )
@@ -118,6 +118,7 @@ class TestMatcherExport:
 
         model = Matcher(device="cpu")
         model.encoder = mock_components["encoder"]
+        model.ref_features = mock_reference_features
 
         with (
             patch("torch.onnx.export"),
@@ -126,7 +127,6 @@ class TestMatcherExport:
         ):
             mock_convert.return_value = MagicMock()
             result = model.export(
-                reference_features=mock_reference_features,
                 export_dir=tmp_path,
                 backend=Backend.OPENVINO,
             )
@@ -150,10 +150,10 @@ class TestMatcherExport:
 
         model = Matcher(device="cpu")
         model.encoder = mock_components["encoder"]
+        model.ref_features = mock_reference_features
 
         with patch("torch.onnx.export") as mock_export:
             model.export(
-                reference_features=mock_reference_features,
                 export_dir=tmp_path,
                 backend=Backend.ONNX,
             )
@@ -181,6 +181,7 @@ class TestMatcherExport:
 
         model = Matcher(device="cpu")
         model.encoder = mock_components["encoder"]
+        model.ref_features = mock_reference_features
 
         with (
             patch("torch.onnx.export"),
@@ -189,7 +190,6 @@ class TestMatcherExport:
         ):
             mock_convert.return_value = MagicMock()
             model.export(
-                reference_features=mock_reference_features,
                 export_dir=tmp_path,
                 backend=Backend.OPENVINO,
             )
@@ -214,12 +214,12 @@ class TestMatcherExport:
 
         model = Matcher(device="cpu")
         model.encoder = mock_components["encoder"]
+        model.ref_features = mock_reference_features
 
         str_path = str(tmp_path / "string_path_export")
 
         with patch("torch.onnx.export"):
             result = model.export(
-                reference_features=mock_reference_features,
                 export_dir=str_path,
                 backend=Backend.ONNX,
             )
@@ -244,10 +244,10 @@ class TestMatcherExport:
 
         model = Matcher(device="cpu")
         model.encoder = mock_components["encoder"]
+        model.ref_features = mock_reference_features
 
         with patch("torch.onnx.export"):
             result = model.export(
-                reference_features=mock_reference_features,
                 export_dir=tmp_path,
             )
 
@@ -271,9 +271,9 @@ class TestMatcherExport:
 
         model = Matcher(device="cpu")
         model.encoder = mock_components["encoder"]
+        model.ref_features = mock_reference_features
 
         result = model.export(
-            reference_features=mock_reference_features,
             export_dir=tmp_path,
             backend=Backend.TENSORRT,  # Unsupported backend
         )
