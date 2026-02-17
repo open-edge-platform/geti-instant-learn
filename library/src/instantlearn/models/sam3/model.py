@@ -488,7 +488,9 @@ class GeometryEncoder(nn.Module):
         grid = points.unsqueeze(2)  # [B, num_points, 1, 2]
         grid = (grid * 2) - 1  # renormalize to [-1, 1]
         sampled = nn.functional.grid_sample(
-            vision_features, grid, align_corners=False
+            vision_features,
+            grid,
+            align_corners=False,
         )  # [B, C, num_points, 1]
         sampled = sampled.squeeze(-1).permute(0, 2, 1)  # [B, num_points, C]
         pooled_projection = self.points_pool_project(sampled)
@@ -504,7 +506,8 @@ class GeometryEncoder(nn.Module):
             # Add position encoding
             x, y = points.unbind(-1)  # [B, num_points] each
             pos_x, pos_y = self.position_encoding.encode_1d_positions(
-                x.flatten(), y.flatten()
+                x.flatten(),
+                y.flatten(),
             )
             pos_enc = torch.cat([pos_x, pos_y], dim=-1)  # [B*num_points, hidden_size]
             pos_enc = pos_enc.view(batch_size, num_points, -1)
@@ -653,7 +656,10 @@ class GeometryEncoder(nn.Module):
 
         if box_embeddings is not None and box_mask is not None:
             box_embeds, box_attn_mask = self._encode_boxes(
-                box_embeddings, box_mask, box_labels, normalized_img_feats,
+                box_embeddings,
+                box_mask,
+                box_labels,
+                normalized_img_feats,
                 drop_spatial_bias=drop_spatial_bias,
             )
             prompt_embeds = box_embeds
@@ -661,7 +667,10 @@ class GeometryEncoder(nn.Module):
 
         if point_embeddings is not None and point_mask is not None:
             point_embeds, point_attn_mask = self._encode_points(
-                point_embeddings, point_mask, point_labels, normalized_img_feats,
+                point_embeddings,
+                point_mask,
+                point_labels,
+                normalized_img_feats,
                 drop_spatial_bias=drop_spatial_bias,
             )
             if prompt_embeds is None:
@@ -670,7 +679,10 @@ class GeometryEncoder(nn.Module):
             else:
                 # Concatenate box and point embeddings
                 prompt_embeds, prompt_mask = concat_padded_sequences(
-                    prompt_embeds, prompt_mask, point_embeds, point_attn_mask
+                    prompt_embeds,
+                    prompt_mask,
+                    point_embeds,
+                    point_attn_mask,
                 )
 
         # Add CLS token (always valid)
@@ -1308,10 +1320,7 @@ class Sam3Model(nn.Module):
         # Filter out expected missing/unexpected keys
         # - tracker_* keys are from SAM2 tracker (not used in detection)
         tracker_pattern = re.compile(r"^(tracker_model\.|tracker_neck\.)")
-        unexpected_keys = [
-            k for k in unexpected_keys
-            if not tracker_pattern.match(k)
-        ]
+        unexpected_keys = [k for k in unexpected_keys if not tracker_pattern.match(k)]
 
         if missing_keys:
             msg = f"Missing keys when loading SAM3 model: {missing_keys}"

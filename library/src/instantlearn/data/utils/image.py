@@ -22,7 +22,7 @@ def _is_url(path: str | Path) -> bool:
     """Check if the given path is a URL."""
     try:
         result = urlparse(str(path))
-        return result.scheme in ("http", "https")
+        return result.scheme in {"http", "https"}
     except ValueError:
         return False
 
@@ -39,7 +39,6 @@ def _open_image(path: str | Path, mode: str = "RGB") -> PILImage.Image:
 
     Raises:
         FileNotFoundError: If a local file does not exist.
-        OSError: If the URL cannot be fetched or the data is not a valid image.
     """
     if _is_url(path):
         with urlopen(str(path)) as response:  # noqa: S310

@@ -4,6 +4,7 @@
 """SAM3 model for text and visual prompting."""
 
 import logging
+from collections import defaultdict
 from enum import Enum
 from itertools import zip_longest
 
@@ -95,6 +96,36 @@ class SAM3(Model):
         ... )
         >>> sam3_pt.fit(ref_sample)
         >>> results = sam3_pt.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+
+        >>> # N-shot: multiple point prompts for the same category (same image)
+        >>> sam3_nshot = SAM3(prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR)
+        >>> ref_sample = Sample(
+        ...     image=torch.zeros((3, 1024, 1024)),
+        ...     points=np.array([[100, 100], [200, 300], [400, 500]]),  # 3 shots
+        ...     categories=["shoe", "shoe", "shoe"],
+        ...     category_ids=np.array([0, 0, 0]),  # same category
+        ... )
+        >>> sam3_nshot.fit(ref_sample)  # encodes 3 points together
+        >>> results = sam3_nshot.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+
+        >>> # N-shot across multiple reference images
+        >>> sam3_cross = SAM3(prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR)
+        >>> refs = [
+        ...     Sample(
+        ...         image=torch.zeros((3, 1024, 1024)),
+        ...         points=np.array([[100, 100]]),
+        ...         categories=["shoe"],
+        ...         category_ids=np.array([0]),
+        ...     ),
+        ...     Sample(
+        ...         image=torch.zeros((3, 1024, 1024)),
+        ...         points=np.array([[200, 200]]),
+        ...         categories=["shoe"],
+        ...         category_ids=np.array([0]),  # same category, different image
+        ...     ),
+        ... ]
+        >>> sam3_cross.fit(refs)  # features concatenated across images
+        >>> results = sam3_cross.predict(Sample(image=torch.zeros((3, 1024, 1024))))
     """
 
     def __init__(
@@ -105,7 +136,7 @@ class SAM3(Model):
         precision: str = "fp32",
         compile_models: bool = False,
         prompt_mode: Sam3PromptMode | str = Sam3PromptMode.VISUAL_EXEMPLAR,
-        drop_spatial_bias: bool = True,
+        drop_spatial_bias: bool = False,
     ) -> None:
         """Initialize the SAM3 model.
 
@@ -120,7 +151,7 @@ class SAM3(Model):
             drop_spatial_bias: When True and in VISUAL_EXEMPLAR mode, skip
                 coordinate projection and position encoding in the geometry
                 encoder, keeping only ROI-pooled visual features. This removes
-                spatial bias from the reference image position. Default: True.
+                spatial bias from the reference image position. Default: False.
         """
         super().__init__()
 
@@ -163,6 +194,9 @@ class SAM3(Model):
             .eval()
         )
 
+    # -- Public API --
+
+    @torch.inference_mode()
     def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """Learn from reference samples.
 
@@ -187,176 +221,7 @@ class SAM3(Model):
         else:
             self._fit_visual_exemplar(reference_batch)
 
-    def _fit_classic(self, reference_batch: Batch) -> None:
-        """Store category mapping from reference batch.
-
-        Args:
-            reference_batch: Batch of reference samples.
-        """
-        self.category_mapping = {}
-        for sample in reference_batch.samples:
-            if sample.categories is None or sample.category_ids is None:
-                continue
-            for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
-                if category not in self.category_mapping:
-                    self.category_mapping[category] = int(category_id)
-
-    @torch.no_grad()
-    def _fit_visual_exemplar(self, reference_batch: Batch) -> None:
-        """Encode visual exemplar features from reference images and boxes/points.
-
-        For each reference sample with bounding boxes or points, encodes the regions
-        using the GeometryEncoder against the reference image's ViT features.
-        Results are cached for reuse in predict().
-
-        Note:
-            Both boxes and points are encoded as point-only because point encoding transfers better 
-            across images (0.83 vs 0.59 mIoU): grid_sample at a single point captures
-            local appearance without averaging over an ROI region.
-
-        Args:
-            reference_batch: Batch of reference samples with images and bboxes/points.
-
-        Raises:
-            ValueError: If no reference samples contain bboxes or points.
-        """
-        all_geometry_features: list[torch.Tensor] = []
-        all_geometry_masks: list[torch.Tensor] = []
-        all_category_ids: list[int] = []
-        all_text_prompts: list[str] = []
-
-        for sample in reference_batch.samples:
-            bboxes = sample.bboxes
-            points = sample.points
-            has_bboxes = bboxes is not None and not (isinstance(bboxes, np.ndarray) and bboxes.size == 0)
-            has_points = points is not None and not (isinstance(points, np.ndarray) and points.size == 0)
-
-            if not has_bboxes and not has_points:
-                continue
-            if sample.image is None:
-                msg = "VISUAL_EXEMPLAR mode requires images in reference samples."
-                raise ValueError(msg)
-
-            # Preprocess reference image
-            image_tensor = sample.image.unsqueeze(0) if sample.image.ndim == 3 else sample.image
-            pixel_values, original_sizes = self.image_preprocessor(image_tensor.to(self.device))
-            vision_embeds = self.model.get_vision_features(pixel_values)
-
-            fpn_hidden_states = vision_embeds["fpn_hidden_states"][:-1]
-            fpn_position_encoding = vision_embeds["fpn_position_encoding"][:-1]
-
-            # Determine number of prompts and build aligned lists
-            num_prompts = max(len(bboxes) if has_bboxes else 0, len(points) if has_points else 0)
-            categories = sample.categories if sample.categories is not None else ["visual"] * num_prompts
-            category_ids = sample.category_ids if sample.category_ids is not None else [0] * num_prompts
-
-            point_prompts: list[tuple[torch.Tensor, str, int]] = []
-            if has_bboxes:
-                for bbox, category, cat_id in zip(bboxes, categories, category_ids, strict=True):
-                    input_boxes, _ = self.prompt_preprocessor(original_sizes, input_boxes=bbox)
-                    center = (input_boxes[..., :2] + input_boxes[..., 2:]) / 2  # (1, 1, 2)
-                    point_prompts.append((center, category, int(cat_id)))
-            elif has_points:
-                for point, category, cat_id in zip(points, categories, category_ids, strict=True):
-                    _, input_points = self.prompt_preprocessor(original_sizes, input_points=point)
-                    point_prompts.append((input_points, category, int(cat_id)))
-
-            # Encode all prompts uniformly as points
-            for point_coord, category, cat_id in point_prompts:
-                geometry_outputs = self.model.geometry_encoder(
-                    point_embeddings=point_coord.to(dtype=fpn_hidden_states[0].dtype),
-                    point_mask=torch.ones(1, 1, dtype=torch.bool, device=self.device),
-                    point_labels=torch.ones((1, 1), dtype=torch.long, device=self.device),
-                    img_feats=fpn_hidden_states,
-                    img_pos_embeds=fpn_position_encoding,
-                    drop_spatial_bias=self.drop_spatial_bias,
-                )
-                all_geometry_features.append(geometry_outputs["last_hidden_state"])
-                all_geometry_masks.append(geometry_outputs["attention_mask"])
-                all_category_ids.append(cat_id)
-                all_text_prompts.append(category)
-
-        if not all_geometry_features:
-            msg = "VISUAL_EXEMPLAR mode requires at least one reference sample with bboxes or points."
-            raise ValueError(msg)
-
-        # Cache geometry features (each exemplar is [1, num_prompts, 256])
-        self.exemplar_geometry_features = all_geometry_features
-        self.exemplar_geometry_mask = all_geometry_masks
-        self.exemplar_category_ids = all_category_ids
-
-        # Pre-compute text features per unique text prompt, then map per exemplar
-        unique_prompts = list(dict.fromkeys(all_text_prompts))  # preserve order, deduplicate
-        text_cache: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
-        for prompt in unique_prompts:
-            text_inputs = self.tokenizer([prompt], return_tensors="pt", padding="max_length", max_length=32)
-            input_ids = text_inputs.input_ids.to(self.device)
-            attention_mask = text_inputs.attention_mask.to(self.device)
-            text_outputs = self.model.get_text_features(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-            )
-            text_cache[prompt] = (text_outputs.pooler_output, attention_mask.bool())
-
-        # Store per-exemplar text features aligned with geometry features
-        self.exemplar_text_features = [text_cache[p][0] for p in all_text_prompts]
-        self.exemplar_text_mask = [text_cache[p][1] for p in all_text_prompts]
-
-        # Also store category mapping if categories are available
-        self.category_mapping = {}
-        for sample in reference_batch.samples:
-            if sample.categories is None or sample.category_ids is None:
-                continue
-            for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
-                if category not in self.category_mapping:
-                    self.category_mapping[category] = int(category_id)
-
-        logger.info(
-            "Cached %d visual exemplar(s): prompts=%s, category_ids=%s",
-            len(all_category_ids),
-            all_text_prompts,
-            all_category_ids,
-        )
-
-    @staticmethod
-    def _aggregate_results(
-        all_masks: list[torch.Tensor],
-        all_boxes: list[torch.Tensor],
-        all_labels: list[torch.Tensor],
-        img_size: tuple[int, int],
-    ) -> dict[str, torch.Tensor]:
-        """Aggregate results from multiple predictions.
-
-        Args:
-            all_masks: List of mask tensors.
-            all_boxes: List of box tensors.
-            all_labels: List of labels.
-            img_size: The image size (height, width).
-
-        Returns:
-            Dictionary with aggregated predictions.
-        """
-        # Filter out empty tensors before concatenation
-        non_empty_masks = [masks for masks in all_masks if masks.numel() > 0]
-        non_empty_boxes = [boxes for boxes in all_boxes if boxes.numel() > 0]
-        non_empty_labels = [labels for labels in all_labels if labels.numel() > 0]
-
-        if non_empty_masks:
-            aggregated_masks = torch.cat(non_empty_masks, dim=0)
-            aggregated_boxes = torch.cat(non_empty_boxes, dim=0)
-            aggregated_labels = torch.cat(non_empty_labels, dim=0)
-        else:
-            # No predictions found
-            aggregated_masks = torch.empty(0, *img_size)
-            aggregated_boxes = torch.empty(0, 5)
-            aggregated_labels = torch.empty(0, dtype=torch.long)
-
-        return {
-            "pred_masks": aggregated_masks,
-            "pred_boxes": aggregated_boxes,
-            "pred_labels": aggregated_labels,
-        }
-
+    @torch.inference_mode()
     def predict(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
         """Perform inference on target images.
 
@@ -374,13 +239,237 @@ class SAM3(Model):
         Returns:
             List of prediction dicts per image with 'pred_masks', 'pred_boxes',
             'pred_labels'.
-
-        Raises:
-            RuntimeError: If in VISUAL_EXEMPLAR mode and fit() has not been called.
         """
         if self.prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
             return self._predict_visual_exemplar(target)
         return self._predict_classic(target)
+
+    # -- Fit internals --
+
+    def _fit_classic(self, reference_batch: Batch) -> None:
+        """Store category mapping from reference batch.
+
+        Args:
+            reference_batch: Batch of reference samples.
+        """
+        self.category_mapping = self._build_category_mapping(reference_batch)
+
+    def _fit_visual_exemplar(self, reference_batch: Batch) -> None:
+        """Encode visual exemplar features from reference images and boxes/points.
+
+        Supports n-shot encoding: multiple prompts for the same category are
+        batched together in a single geometry encoder call, enabling self-attention
+        between shots from the same image. Features from different images for the
+        same category are concatenated, giving the DETR decoder richer conditioning.
+
+        This means passing 3 point prompts for "shoe" produces a single, stronger
+        exemplar rather than 3 separate weak ones.
+
+        Note:
+            Both boxes and points are encoded as point-only because point encoding
+            transfers better across images (0.83 vs 0.59 mIoU): grid_sample at a
+            single point captures local appearance without averaging over an ROI
+            region.
+
+        Args:
+            reference_batch: Batch of reference samples with images and bboxes/points.
+
+        Raises:
+            ValueError: If no reference samples contain bboxes or points.
+        """
+        encoded_by_category, category_text_map = self._encode_batch_prompts(reference_batch)
+
+        if not encoded_by_category:
+            msg = "VISUAL_EXEMPLAR mode requires at least one reference sample with bboxes or points."
+            raise ValueError(msg)
+
+        geometry_features, geometry_masks, category_ids, text_prompts = self._aggregate_category_features(
+            encoded_by_category, category_text_map
+        )
+        self.exemplar_geometry_features = geometry_features
+        self.exemplar_geometry_mask = geometry_masks
+        self.exemplar_category_ids = category_ids
+        self.exemplar_text_features, self.exemplar_text_mask = self._cache_text_features(text_prompts)
+        self.category_mapping = self._build_category_mapping(reference_batch)
+
+        # Log shot counts per category
+        shot_info = {
+            category_text_map[cat_id]: sum(f[0].shape[1] for f in encoded_by_category[cat_id])
+            for cat_id in self.exemplar_category_ids
+        }
+        logger.info(
+            "Cached %d category exemplar(s) with n-shot encoding: %s, category_ids=%s",
+            len(self.exemplar_category_ids),
+            shot_info,
+            self.exemplar_category_ids,
+        )
+
+    def _encode_batch_prompts(
+        self,
+        reference_batch: Batch,
+    ) -> tuple[dict[int, list[tuple[torch.Tensor, torch.Tensor]]], dict[int, str]]:
+        """Encode all samples' box/point prompts into per-category geometry features.
+
+        Iterates over every sample in the batch so that the same category can
+        accumulate geometry features from different reference images (cross-image
+        n-shot).  For example, two samples each containing a "shoe" box will both
+        append to ``encoded_by_category[shoe_id]``; the downstream aggregation step
+        concatenates those features to give the DETR decoder richer conditioning.
+
+        Args:
+            reference_batch: Batch of reference samples with images and bboxes/points.
+
+        Returns:
+            Tuple of (encoded_by_category, category_text_map) where
+            encoded_by_category maps cat_id to list of (features, mask) tuples
+            and category_text_map maps cat_id to text name.
+
+        Raises:
+            ValueError: If a sample has prompts but no image.
+        """
+        encoded_by_category: dict[int, list[tuple[torch.Tensor, torch.Tensor]]] = defaultdict(list)
+        category_text_map: dict[int, str] = {}
+
+        for sample in reference_batch.samples:
+            self._encode_sample_prompts(sample, encoded_by_category, category_text_map)
+
+        return encoded_by_category, category_text_map
+
+    def _encode_sample_prompts(
+        self,
+        sample: Sample,
+        encoded_by_category: dict[int, list[tuple[torch.Tensor, torch.Tensor]]],
+        category_text_map: dict[int, str],
+    ) -> None:
+        """Encode one sample's box/point prompts into per-category geometry features.
+
+        Args:
+            sample: Reference sample with image and bboxes/points.
+            encoded_by_category: Accumulator mapping cat_id to encoded features.
+            category_text_map: Accumulator mapping cat_id to text name.
+
+        Raises:
+            ValueError: If the sample has prompts but no image.
+        """
+        bboxes = sample.bboxes
+        points = sample.points
+        has_bboxes = bboxes is not None and not (isinstance(bboxes, np.ndarray) and bboxes.size == 0)
+        has_points = points is not None and not (isinstance(points, np.ndarray) and points.size == 0)
+
+        if not has_bboxes and not has_points:
+            return
+        if sample.image is None:
+            msg = "VISUAL_EXEMPLAR mode requires images in reference samples."
+            raise ValueError(msg)
+
+        # Extract vision features
+        image_tensor = sample.image.unsqueeze(0) if sample.image.ndim == 3 else sample.image
+        pixel_values, original_sizes = self.image_preprocessor(image_tensor.to(self.device))
+        vision_embeds = self.model.get_vision_features(pixel_values)
+        fpn_hidden_states = vision_embeds["fpn_hidden_states"][:-1]
+        fpn_position_encoding = vision_embeds["fpn_position_encoding"][:-1]
+
+        # Build aligned metadata lists
+        num_prompts = max(len(bboxes) if has_bboxes else 0, len(points) if has_points else 0)
+        categories = sample.categories if sample.categories is not None else ["visual"] * num_prompts
+        category_ids = sample.category_ids if sample.category_ids is not None else [0] * num_prompts
+
+        # Convert prompts to point coords grouped by category
+        category_coords: dict[int, list[torch.Tensor]] = defaultdict(list)
+        prompts = bboxes if has_bboxes else points
+
+        for prompt, category, cat_id in zip(prompts, categories, category_ids, strict=True):
+            if has_bboxes:
+                input_boxes, _ = self.prompt_preprocessor(original_sizes, input_boxes=prompt)
+                coord = input_boxes[..., :2]  # box center (1, 1, 2)
+            else:
+                _, coord = self.prompt_preprocessor(original_sizes, input_points=prompt)
+            cat_id = int(cat_id)
+            category_coords[cat_id].append(coord)
+            category_text_map[cat_id] = category
+
+        # Encode each category's points together (same-image n-shot batching)
+        for cat_id, coords_list in category_coords.items():
+            all_coords = torch.cat(coords_list, dim=1)  # [1, N, 2]
+            num_points = all_coords.shape[1]
+
+            geometry_outputs = self.model.geometry_encoder(
+                point_embeddings=all_coords.to(dtype=fpn_hidden_states[0].dtype),
+                point_mask=torch.ones(1, num_points, dtype=torch.bool, device=self.device),
+                point_labels=torch.ones((1, num_points), dtype=torch.long, device=self.device),
+                img_feats=fpn_hidden_states,
+                img_pos_embeds=fpn_position_encoding,
+                drop_spatial_bias=self.drop_spatial_bias,
+            )
+            encoded_by_category[cat_id].append((
+                geometry_outputs["last_hidden_state"],
+                geometry_outputs["attention_mask"],
+            ))
+
+    @staticmethod
+    def _aggregate_category_features(
+        encoded_by_category: dict[int, list[tuple[torch.Tensor, torch.Tensor]]],
+        category_text_map: dict[int, str],
+    ) -> tuple[list[torch.Tensor], list[torch.Tensor], list[int], list[str]]:
+        """Merge per-category geometry features across reference images.
+
+        Args:
+            encoded_by_category: Per-category encoded features.
+            category_text_map: Mapping from cat_id to text name.
+
+        Returns:
+            Tuple of (geometry_features, geometry_masks, category_ids, text_prompts).
+        """
+        all_geometry_features: list[torch.Tensor] = []
+        all_geometry_masks: list[torch.Tensor] = []
+        all_category_ids: list[int] = []
+        all_text_prompts: list[str] = []
+
+        for cat_id in sorted(encoded_by_category.keys()):
+            features_list = encoded_by_category[cat_id]
+            if len(features_list) == 1:
+                geo_feats, geo_mask = features_list[0]
+            else:
+                geo_feats = torch.cat([f[0] for f in features_list], dim=1)
+                geo_mask = torch.cat([f[1] for f in features_list], dim=1)
+
+            all_geometry_features.append(geo_feats)
+            all_geometry_masks.append(geo_mask)
+            all_category_ids.append(cat_id)
+            all_text_prompts.append(category_text_map[cat_id])
+
+        return all_geometry_features, all_geometry_masks, all_category_ids, all_text_prompts
+
+    def _cache_text_features(
+        self,
+        text_prompts: list[str],
+    ) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
+        """Tokenize and embed text prompts.
+
+        Args:
+            text_prompts: Text prompts aligned with exemplar categories.
+
+        Returns:
+            Tuple of (text_features, text_masks) per exemplar.
+        """
+        unique_prompts = list(dict.fromkeys(text_prompts))
+        text_cache: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
+        for prompt in unique_prompts:
+            text_inputs = self.tokenizer([prompt], return_tensors="pt", padding="max_length", max_length=32)
+            input_ids = text_inputs.input_ids.to(self.device)
+            attention_mask = text_inputs.attention_mask.to(self.device)
+            text_outputs = self.model.get_text_features(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+            )
+            text_cache[prompt] = (text_outputs.pooler_output, attention_mask.bool())
+
+        return (
+            [text_cache[p][0] for p in text_prompts],
+            [text_cache[p][1] for p in text_prompts],
+        )
+
+    # -- Predict internals --
 
     def _predict_classic(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
         """Classic SAM3 prediction with per-image text/box/point prompts.
@@ -428,21 +517,26 @@ class SAM3(Model):
 
             for text, bbox, point, cat_id in zip_longest(texts, bboxes, points, category_ids, fillvalue=None):
                 # Tokenize text prompt (default to "visual" for visual-only prompts)
-                text_inputs = self.tokenizer([text or "visual"], return_tensors="pt", padding="max_length", max_length=32)
+                text_inputs = self.tokenizer(
+                    [text or "visual"],
+                    return_tensors="pt",
+                    padding="max_length",
+                    max_length=32,
+                )
                 input_ids = text_inputs.input_ids.to(self.device)
                 attention_mask = text_inputs.attention_mask.to(self.device)
 
                 # Prepare box inputs if bbox is provided (xyxy format)
                 input_boxes = None
                 input_boxes_labels = None
-                if bbox is not None:
+                if bbox is not None and len(bbox):
                     input_boxes, _ = self.prompt_preprocessor(original_sizes, input_boxes=bbox)
                     input_boxes_labels = torch.ones((1, 1), dtype=torch.long, device=self.device)
 
                 # Prepare point inputs if point is provided (xy format)
                 input_points = None
                 input_points_labels = None
-                if point is not None:
+                if point is not None and len(point):
                     _, input_points = self.prompt_preprocessor(original_sizes, input_points=point)
                     input_points_labels = torch.ones((1, 1), dtype=torch.long, device=self.device)
 
@@ -499,7 +593,7 @@ class SAM3(Model):
             # Preprocess target image
             image_tensor = sample.image.unsqueeze(0) if sample.image.ndim == 3 else sample.image
             with torch.no_grad():
-                pixel_values, original_sizes = self.image_preprocessor(image_tensor.to(self.device))
+                pixel_values, _ = self.image_preprocessor(image_tensor.to(self.device))
                 vision_embeds = self.model.get_vision_features(pixel_values)
 
             all_masks: list[torch.Tensor] = []
@@ -507,24 +601,21 @@ class SAM3(Model):
             all_labels: list[torch.Tensor] = []
 
             # Run detection for each cached exemplar
-            for i, (geo_feats, geo_mask, text_feats, text_mask, cat_id) in enumerate(
-                zip(
-                    self.exemplar_geometry_features,
-                    self.exemplar_geometry_mask,
-                    self.exemplar_text_features,
-                    self.exemplar_text_mask,
-                    self.exemplar_category_ids,
-                    strict=True,
-                )
+            for geo_feats, geo_mask, text_feats, text_mask, cat_id in zip(
+                self.exemplar_geometry_features,
+                self.exemplar_geometry_mask,
+                self.exemplar_text_features,
+                self.exemplar_text_mask,
+                self.exemplar_category_ids,
+                strict=True,
             ):
-                with torch.no_grad():
-                    outputs = self.model(
-                        vision_embeds=vision_embeds,
-                        text_embeds=text_feats,
-                        attention_mask=text_mask.long(),
-                        precomputed_geometry_features=geo_feats,
-                        precomputed_geometry_mask=geo_mask,
-                    )
+                outputs = self.model(
+                    vision_embeds=vision_embeds,
+                    text_embeds=text_feats,
+                    attention_mask=text_mask.long(),
+                    precomputed_geometry_features=geo_feats,
+                    precomputed_geometry_mask=geo_mask,
+                )
 
                 # Postprocess
                 result = self.postprocessor(outputs, target_sizes=[img_size])
@@ -539,3 +630,63 @@ class SAM3(Model):
             results.append(self._aggregate_results(all_masks, all_boxes, all_labels, img_size))
 
         return results
+
+    # -- Utilities --
+
+    @staticmethod
+    def _build_category_mapping(reference_batch: Batch) -> dict[str, int]:
+        """Build category name → id mapping from reference samples.
+
+        Args:
+            reference_batch: Batch of reference samples.
+
+        Returns:
+            Mapping from category name to category id.
+        """
+        mapping: dict[str, int] = {}
+        for sample in reference_batch.samples:
+            if sample.categories is None or sample.category_ids is None:
+                continue
+            for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
+                if category not in mapping:
+                    mapping[category] = int(category_id)
+        return mapping
+
+    @staticmethod
+    def _aggregate_results(
+        all_masks: list[torch.Tensor],
+        all_boxes: list[torch.Tensor],
+        all_labels: list[torch.Tensor],
+        img_size: tuple[int, int],
+    ) -> dict[str, torch.Tensor]:
+        """Aggregate results from multiple predictions.
+
+        Args:
+            all_masks: List of mask tensors.
+            all_boxes: List of box tensors.
+            all_labels: List of labels.
+            img_size: The image size (height, width).
+
+        Returns:
+            Dictionary with aggregated predictions.
+        """
+        # Filter out empty tensors before concatenation
+        non_empty_masks = [masks for masks in all_masks if masks.numel() > 0]
+        non_empty_boxes = [boxes for boxes in all_boxes if boxes.numel() > 0]
+        non_empty_labels = [labels for labels in all_labels if labels.numel() > 0]
+
+        if non_empty_masks:
+            aggregated_masks = torch.cat(non_empty_masks, dim=0)
+            aggregated_boxes = torch.cat(non_empty_boxes, dim=0)
+            aggregated_labels = torch.cat(non_empty_labels, dim=0)
+        else:
+            # No predictions found
+            aggregated_masks = torch.empty(0, *img_size)
+            aggregated_boxes = torch.empty(0, 5)
+            aggregated_labels = torch.empty(0, dtype=torch.long)
+
+        return {
+            "pred_masks": aggregated_masks,
+            "pred_boxes": aggregated_boxes,
+            "pred_labels": aggregated_labels,
+        }

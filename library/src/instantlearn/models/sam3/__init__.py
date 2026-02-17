@@ -16,6 +16,6 @@ __all__ = [
     "Sam3Model",
     "Sam3Postprocessor",
     "Sam3Preprocessor",
-    "Sam3PromptPreprocessor",
     "Sam3PromptMode",
+    "Sam3PromptPreprocessor",
 ]

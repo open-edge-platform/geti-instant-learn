@@ -16,10 +16,12 @@ from torchmetrics.segmentation import MeanIoU
 
 from instantlearn.data import Dataset, LVISDataset, PerSegDataset
 from instantlearn.data.base import Batch
-from instantlearn.models import Model
+from instantlearn.data.lvis import LVISAnnotationMode
+from instantlearn.models import SAM3, Model
 from instantlearn.utils import setup_logger
 from instantlearn.utils.args import get_arguments, parse_experiment_args
 from instantlearn.utils.benchmark import (
+    MODEL_ANNOTATION_MODES,
     _get_output_path_for_experiment,
     _save_results,
     convert_masks_to_one_hot_tensor,
@@ -90,6 +92,10 @@ def predict_on_category(
 
     for batch in dataloader:
         # Run prediction
+        if isinstance(model, SAM3):
+            for sample in batch:
+                sample.categories = ["visual"]  # Obscure category name to prevent cheating for SAM3
+
         predictions = model.predict(batch)
 
         # Convert masks to one-hot boolean tensors for torchmetrics
@@ -139,6 +145,16 @@ def learn_from_category(dataset: Dataset, model: Model, category_name: str) -> N
     """
     reference_dataset = dataset.get_reference_dataset(category=category_name)
     reference_batch = Batch.collate([sample for sample in reference_dataset])
+
+    # Filter to only the requested category — images may contain annotations
+    # for multiple categories in INSTANCE mode (e.g. LVIS).
+    samples = [
+        filtered
+        for sample in reference_batch.samples
+        if (filtered := sample.filter_by_category(category_name)) is not None
+    ]
+    reference_batch = Batch.collate(samples)
+
     # Learn
     model.fit(reference_batch)
 
@@ -276,6 +292,7 @@ def load_dataset_by_name(
     categories: list[str] | str | None = None,
     n_shots: int = 1,
     dataset_root: str | Path | None = None,
+    annotation_mode: LVISAnnotationMode = LVISAnnotationMode.SEMANTIC,
 ) -> Dataset:
     """Load a dataset by name.
 
@@ -289,6 +306,9 @@ def load_dataset_by_name(
             - list[str]: explicit list of category names
         n_shots: Number of reference shots per category
         dataset_root: Root directory where datasets are stored. If None, uses defaults.
+        annotation_mode: LVIS annotation mode. SEMANTIC merges instances per
+            category (for Matcher/SoftMatcher), INSTANCE keeps per-instance
+            masks and boxes (for SAM3). Ignored for non-LVIS datasets.
 
     Raises:
         ValueError: If the dataset name is unknown or preset is invalid.
@@ -374,6 +394,7 @@ def load_dataset_by_name(
             root=root,
             categories=resolved_categories,
             n_shots=n_shots,
+            annotation_mode=annotation_mode,
         )
     msg = f"Unknown dataset: {dataset_name}"
     raise ValueError(msg)
@@ -423,12 +444,16 @@ def perform_benchmark_experiment(args: Namespace | None = None) -> None:
         else:
             categories_arg = None  # Will default to "default" preset
 
+        # Resolve annotation mode from the model
+        annotation_mode = MODEL_ANNOTATION_MODES.get(model_enum, LVISAnnotationMode.SEMANTIC)
+
         # Load dataset using new API
         dataset = load_dataset_by_name(
             dataset_enum.value,
             categories=categories_arg,
             n_shots=args.n_shot,
             dataset_root=args.dataset_root,
+            annotation_mode=annotation_mode,
         )
 
         model = load_model(sam=backbone_enum, model_name=model_enum, args=args)

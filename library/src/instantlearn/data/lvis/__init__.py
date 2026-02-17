@@ -3,6 +3,6 @@
 
 """LVIS dataset for InstantLearn few-shot segmentation."""
 
-from .dataset import LVISDataset
+from .dataset import LVISAnnotationMode, LVISDataset
 
-__all__ = ["LVISDataset"]
+__all__ = ["LVISAnnotationMode", "LVISDataset"]
