@@ -2,6 +2,11 @@ name: distrib
 on:
   workflow_call:
     inputs:
+      ai_devices:
+        description: "JSON array of devices"
+        type: string
+        default: '["cpu","cuda","xpu"]'
+        required: false
       build_version:
         description: "Specifies the build version to apply to all binaries produced by this workflow"
         type: string
@@ -12,6 +17,13 @@ on:
         default: ""
         required: false
   workflow_dispatch:
+    inputs:
+      ai_devices:
+        description: "JSON array of devices"
+        type: string
+        default: '["cpu","cuda","xpu"]'
+        required: false
+
 jobs:
   component-check:
     name: Distrib workflow
@@ -21,7 +33,7 @@ jobs:
     timeout-minutes: 30
     strategy:
       matrix:
-        ai-device: [cpu, cuda, xpu]
+        ai-device: ${{ fromJson(inputs.ai_devices) }}
     steps:
       - name: Validate SHA format
         if: inputs.sha-commit != ''
