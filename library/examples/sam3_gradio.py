@@ -15,10 +15,10 @@ Supports two inference modes:
    without any reference image.
 
 Usage:
-    python sam3_web.py
-    python sam3_web.py -r ref.jpg -i target.jpg
-    python sam3_web.py --device cpu --threshold 0.3
-    python sam3_web.py --share  # public URL via Gradio
+    python sam3_gradio.py
+    python sam3_gradio.py -r ref.jpg -i target.jpg
+    python sam3_gradio.py --device cpu --threshold 0.3
+    python sam3_gradio.py --share  # public URL via Gradio
 """
 
 import argparse
