@@ -38,8 +38,15 @@ class UsbCameraReader(BaseOpenCVReader):
         # Validate the camera by reading an initial frame.
         # Right after source switches, some cameras need a short warm-up period.
         frame = None
+        last_read_error: cv2.error | None = None
         for attempt in range(self._initial_frame_attempts):
-            ret, frame = cap.read()
+            try:
+                ret, frame = cap.read()
+                last_read_error = None
+            except cv2.error as exc:
+                ret, frame = False, None
+                last_read_error = exc
+
             if ret and frame is not None:
                 break
 
@@ -48,6 +55,13 @@ class UsbCameraReader(BaseOpenCVReader):
 
         if frame is None:
             cap.release()
+            if last_read_error is not None:
+                logger.warning(
+                    "Transient OpenCV error while warming up camera %s (%s): %s",
+                    self._config.device_id,
+                    self._config.name,
+                    last_read_error,
+                )
             raise RuntimeError(
                 f"Camera {self._config.name} on device {self._config.device_id} opened but failed to capture frames. "
                 "The device may not be a valid capture device or may be in use by another application."
