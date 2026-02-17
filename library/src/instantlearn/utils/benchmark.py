@@ -27,6 +27,7 @@ MODEL_ANNOTATION_MODES: dict[ModelName, LVISAnnotationMode] = {
     ModelName.SOFT_MATCHER: LVISAnnotationMode.SEMANTIC,
     ModelName.PER_DINO: LVISAnnotationMode.SEMANTIC,
     ModelName.GROUNDED_SAM: LVISAnnotationMode.SEMANTIC,
+    ModelName.SAM3: LVISAnnotationMode.SEMANTIC,
     ModelName.SAM3_CLASSIC: LVISAnnotationMode.SEMANTIC,
     ModelName.SAM3_VISUAL: LVISAnnotationMode.INSTANCE,
 }

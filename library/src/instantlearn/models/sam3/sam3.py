@@ -135,7 +135,7 @@ class SAM3(Model):
         resolution: int = 1008,
         precision: str = "fp32",
         compile_models: bool = False,
-        prompt_mode: Sam3PromptMode | str = Sam3PromptMode.VISUAL_EXEMPLAR,
+        prompt_mode: Sam3PromptMode | str = Sam3PromptMode.CLASSIC,
         drop_spatial_bias: bool = False,
     ) -> None:
         """Initialize the SAM3 model.
@@ -347,8 +347,8 @@ class SAM3(Model):
         """
         bboxes = sample.bboxes
         points = sample.points
-        has_bboxes = bboxes is not None and not (isinstance(bboxes, np.ndarray) and bboxes.size == 0)
-        has_points = points is not None and not (isinstance(points, np.ndarray) and points.size == 0)
+        has_bboxes = bboxes is not None and not (isinstance(bboxes, (np.ndarray, torch.Tensor)) and bboxes.size == 0)
+        has_points = points is not None and not (isinstance(points, (np.ndarray, torch.Tensor)) and points.size == 0)
 
         if not has_bboxes and not has_points:
             return

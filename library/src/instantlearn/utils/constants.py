@@ -37,6 +37,7 @@ class ModelName(StrEnum):
     MATCHER = "Matcher"
     PER_DINO = "PerDino"
     SOFT_MATCHER = "SoftMatcher"
+    SAM3 = "SAM3-Classic"
     SAM3_CLASSIC = "SAM3-Classic"
     SAM3_VISUAL = "SAM3-Visual"
 

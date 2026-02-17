@@ -1079,7 +1079,7 @@ class Sam3Model(nn.Module):
 
         # Load state dict from .pt file
         # nosemgrep trailofbits.python.pickles-in-pytorch.pickles-in-pytorch
-        state_dict = torch.load(model_path, map_location="cpu", weights_only=False) # nosec: B614
+        state_dict = torch.load(model_path, map_location="cpu", weights_only=True)  # nosec: B614
         # Handle wrapped checkpoint formats
         if "model" in state_dict:
             state_dict = state_dict["model"]
