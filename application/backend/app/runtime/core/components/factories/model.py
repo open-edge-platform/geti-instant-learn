@@ -8,6 +8,7 @@ from instantlearn.models.soft_matcher import SoftMatcher
 
 from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, SoftMatcherConfig
 from runtime.core.components.base import ModelHandler
+from runtime.core.components.models.openvino_model import OpenVINOModelHandler
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
 from runtime.core.components.models.torch_model import TorchModelHandler
 from settings import get_settings
@@ -27,7 +28,11 @@ class ModelFactory:
                     num_foreground_points=config.num_foreground_points,
                     num_background_points=config.num_background_points,
                     confidence_threshold=config.confidence_threshold,
-                    precision=config.precision,
+                    # if the model is converted to the OV format, the precision should be strictly fp32
+                    # as a suggestion we can handle conversion at the higher level factory,
+                    # as it knows if the model should be converted or not and can override the configuration
+                    # of the model
+                    precision="fp32",
                     device=settings.device,
                     use_mask_refinement=config.use_mask_refinement,
                     sam=config.sam_model,
@@ -35,7 +40,8 @@ class ModelFactory:
                     compile_models=config.compile_models,
                     use_nms=config.use_nms,
                 )
-                return TorchModelHandler(model, reference_batch)
+                return OpenVINOModelHandler(model, reference_batch)
+
             case PerDinoConfig() as config:
                 model = PerDino(
                     sam=config.sam_model,
