@@ -33,7 +33,16 @@ class TorchModelHandler(ModelHandler):
         logger.debug("Inference started: model=%s batch size=%d", type(self._model).__name__, len(inputs))
         batch = self._build_batch(inputs)
         torch_results = self._model.predict(batch)
-        return [{k: v.detach().cpu().numpy() for k, v in result.items()} for result in torch_results]
+        results = []
+        for result in torch_results:
+            batch_result = {}
+            for k, v in result.items():
+                tensor = v
+                if isinstance(tensor, torch.Tensor) and tensor.dtype == torch.bfloat16:
+                    tensor = tensor.to(torch.float32)
+                batch_result[k] = tensor.detach().cpu().numpy()
+            results.append(batch_result)
+        return results
 
     @staticmethod
     def _build_batch(inputs: list[InputData]) -> Batch:
