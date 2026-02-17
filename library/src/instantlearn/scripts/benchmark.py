@@ -144,7 +144,7 @@ def learn_from_category(dataset: Dataset, model: Model, category_name: str) -> N
         category_name: The category to learn from
     """
     reference_dataset = dataset.get_reference_dataset(category=category_name)
-    reference_batch = Batch.collate([sample for sample in reference_dataset])
+    reference_batch = Batch.collate(list(reference_dataset))
 
     # Filter to only the requested category — images may contain annotations
     # for multiple categories in INSTANCE mode (e.g. LVIS).

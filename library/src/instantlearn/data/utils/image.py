@@ -69,9 +69,6 @@ def read_image(path: str | Path, as_tensor: bool = True) -> tv_tensors.Image | n
             This is intentional - models expect HWC format for preprocessing.
             The model preprocessors (HuggingFace, SAM) handle the channel permutation internally.
 
-    Raises:
-        FileNotFoundError: If a local image file does not exist.
-
     Example:
         >>> image = read_image("path/to/image.jpg")
         >>> image.shape

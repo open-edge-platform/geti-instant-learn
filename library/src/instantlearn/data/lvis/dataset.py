@@ -127,9 +127,6 @@ class LVISDataset(Dataset):
         Returns:
             torch.Tensor with shape (1, H, W) where 1 represents the single category
             in this row, and dtype torch.bool, or None if no segmentations are available.
-
-        Raises:
-            TypeError: If unknown segmentation format is encountered.
         """
         segmentations = raw_sample.get("segmentations")
         if not segmentations:

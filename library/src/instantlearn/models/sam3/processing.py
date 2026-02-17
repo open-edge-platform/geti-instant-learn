@@ -204,8 +204,8 @@ class Sam3PromptPreprocessor(nn.Module):
         b = [(x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0), (y1 - y0)]
         return torch.stack(b, dim=-1)
 
+    @staticmethod
     def _normalize_boxes(
-        self,
         input_boxes: torch.Tensor | list | tuple,
         original_sizes: torch.Tensor,
     ) -> torch.Tensor:
@@ -223,10 +223,10 @@ class Sam3PromptPreprocessor(nn.Module):
         widths = original_sizes[:, 1:2].float()
         scale_factor = torch.cat([widths, heights, widths, heights], dim=1).unsqueeze(1)
         normalized_boxes = input_boxes / scale_factor
-        return self.box_xyxy_to_cxcywh(normalized_boxes)
+        return Sam3PromptPreprocessor.box_xyxy_to_cxcywh(normalized_boxes)
 
+    @staticmethod
     def _normalize_points(
-        self,
         input_points: torch.Tensor | list | tuple,
         original_sizes: torch.Tensor,
     ) -> torch.Tensor:

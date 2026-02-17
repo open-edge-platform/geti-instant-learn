@@ -209,10 +209,6 @@ class SAM3(Model):
                 - Sample: A single reference sample
                 - list[Sample]: A list of reference samples
                 - Batch: A batch of reference samples
-
-        Raises:
-            ValueError: If in VISUAL_EXEMPLAR mode and no bboxes or points are provided
-                in any reference sample.
         """
         reference_batch = Batch.collate(reference)
 
@@ -284,7 +280,8 @@ class SAM3(Model):
             raise ValueError(msg)
 
         geometry_features, geometry_masks, category_ids, text_prompts = self._aggregate_category_features(
-            encoded_by_category, category_text_map
+            encoded_by_category,
+            category_text_map,
         )
         self.exemplar_geometry_features = geometry_features
         self.exemplar_geometry_mask = geometry_masks
@@ -323,9 +320,6 @@ class SAM3(Model):
             Tuple of (encoded_by_category, category_text_map) where
             encoded_by_category maps cat_id to list of (features, mask) tuples
             and category_text_map maps cat_id to text name.
-
-        Raises:
-            ValueError: If a sample has prompts but no image.
         """
         encoded_by_category: dict[int, list[tuple[torch.Tensor, torch.Tensor]]] = defaultdict(list)
         category_text_map: dict[int, str] = {}
