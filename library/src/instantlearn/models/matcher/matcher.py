@@ -341,7 +341,6 @@ class Matcher(Model):
                     "scores": {0: "num_masks"},
                     "labels": {0: "num_masks"},
                 },
-                verbose=True,
                 dynamo=False,
             )
             return onnx_path
@@ -368,8 +367,10 @@ class Matcher(Model):
                     },
                     dynamo=False,
                 )
-                # Convert ONNX to OpenVINO
-                ov_model = openvino.convert_model(onnx_path)
+                # Load ONNX with OpenVINO frontend directly to avoid framework autodetection
+                # that may probe torch.export PT2 loading and emit misleading warnings.
+                core = openvino.Core()
+                ov_model = core.read_model(str(onnx_path))
                 openvino.save_model(ov_model, export_path / "matcher.xml")
                 return export_path / "matcher.xml"
             except ImportError as e:

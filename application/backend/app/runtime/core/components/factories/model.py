@@ -20,28 +20,33 @@ class ModelFactory:
         if reference_batch is None:
             return PassThroughModelHandler()
         settings = get_settings()
+
+        is_cuda = settings.device == "cuda"
+
         if not settings.processor_inference_enabled:
             return PassThroughModelHandler()
         match config:
             case MatcherConfig() as config:
+                # if the model is converted to the OV format, the precision should be strictly fp32
+                # as a suggestion we can handle conversion at the higher level factory,
+                # as it knows if the model should be converted or not and can override the configuration
+                # of the model
+                precision = config.precision if is_cuda else "fp32"
                 model = Matcher(
+                    sam=config.sam_model,
+                    encoder_model=config.encoder_model,
                     num_foreground_points=config.num_foreground_points,
                     num_background_points=config.num_background_points,
                     confidence_threshold=config.confidence_threshold,
-                    # if the model is converted to the OV format, the precision should be strictly fp32
-                    # as a suggestion we can handle conversion at the higher level factory,
-                    # as it knows if the model should be converted or not and can override the configuration
-                    # of the model
-                    precision="fp32",
-                    device=settings.device,
                     use_mask_refinement=config.use_mask_refinement,
-                    sam=config.sam_model,
-                    encoder_model=config.encoder_model,
-                    compile_models=config.compile_models,
                     use_nms=config.use_nms,
+                    precision=precision,
+                    compile_models=config.compile_models,
+                    device=settings.device,
                 )
-                return OpenVINOModelHandler(model, reference_batch)
-
+                if is_cuda:
+                    return TorchModelHandler(model, reference_batch)
+                return OpenVINOModelHandler(model, reference_batch, precision=precision)
             case PerDinoConfig() as config:
                 model = PerDino(
                     sam=config.sam_model,

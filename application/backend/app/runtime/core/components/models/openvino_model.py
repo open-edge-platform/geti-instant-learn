@@ -3,6 +3,7 @@
 
 import logging
 import tempfile
+import time
 
 import numpy as np
 import openvino
@@ -19,14 +20,14 @@ logger = logging.getLogger(__name__)
 
 
 class OpenVINOModelHandler(ModelHandler):
-    def __init__(self, model: Model, reference_batch: Batch) -> None:
+    def __init__(self, model: Model, reference_batch: Batch, precision: str = "fp32") -> None:
         self._model = model
         self._reference_batch = reference_batch
+        self._precision = precision
         self._compiled_model = None
 
     def initialise(self) -> None:
         self._model.fit(self._reference_batch)
-        precision = "fp32"
 
         # Export on CPU to avoid XPU/CUDA compilation issues during tracing
         # The exported OpenVINO model can then be run on any device (CPU, GPU, etc.)
@@ -39,7 +40,7 @@ class OpenVINOModelHandler(ModelHandler):
                 core = openvino.Core()
                 ov_device = device_to_openvino_device("CPU")
                 core.set_property(
-                    ov_device, {properties.hint.inference_precision: precision_to_openvino_type(precision)}
+                    ov_device, {properties.hint.inference_precision: precision_to_openvino_type(self._precision)}
                 )
 
                 print(f"DEBUG: Compiling exported model from {path} for device {ov_device}...")
