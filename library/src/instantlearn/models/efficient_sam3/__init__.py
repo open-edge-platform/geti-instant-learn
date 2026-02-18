@@ -10,7 +10,9 @@ detection and segmentation pipeline.
 - EfficientSAM3: Uses EfficientSAM3Model and provides high level interface for predict (and fit).
 """
 
+from instantlearn.models.sam3.post_processing import PostProcessingConfig
+
 from .efficient_sam3 import EfficientSAM3
 from .model import EfficientSam3Model
 
-__all__ = ["EfficientSAM3", "EfficientSam3Model"]
+__all__ = ["EfficientSAM3", "EfficientSam3Model", "PostProcessingConfig"]

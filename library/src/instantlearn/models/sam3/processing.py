@@ -11,6 +11,8 @@ import torch
 from torch import nn
 from torch.nn import functional
 
+from .post_processing import PostProcessingConfig, apply_post_processing
+
 
 class Sam3Preprocessor(nn.Module):
     """ONNX-traceable image preprocessor for SAM3.
@@ -280,6 +282,7 @@ class Sam3Postprocessor(nn.Module):
         target_size: int = 1008,
         threshold: float = 0.3,
         mask_threshold: float = 0.5,
+        post_processing: PostProcessingConfig | None = None,
     ) -> None:
         """Initialize the postprocessor.
 
@@ -287,11 +290,16 @@ class Sam3Postprocessor(nn.Module):
             target_size: The target size for mask interpolation. Default: 1008.
             threshold: Score threshold for filtering predictions. Default: 0.3.
             mask_threshold: Threshold for binarizing masks. Default: 0.5.
+            post_processing: Optional post-processing configuration for NMS,
+                mask overlap removal, and non-overlapping pixel constraints.
+                When ``None``, no post-processing is applied beyond score
+                thresholding and mask binarization.
         """
         super().__init__()
         self.target_size = target_size
         self.threshold = threshold
         self.mask_threshold = mask_threshold
+        self.post_processing = post_processing
 
     @staticmethod
     def box_cxcywh_to_xyxy(boxes: torch.Tensor) -> torch.Tensor:
@@ -406,6 +414,14 @@ class Sam3Postprocessor(nn.Module):
 
         # Binarize masks
         kept_masks = (kept_masks > self.mask_threshold).to(torch.int64)
+
+        # Apply configurable post-processing (NMS, IoM suppression, etc.)
+        kept_scores, kept_boxes, kept_masks = apply_post_processing(
+            kept_scores,
+            kept_boxes,
+            kept_masks,
+            self.post_processing,
+        )
 
         return kept_scores, kept_boxes, kept_masks
 

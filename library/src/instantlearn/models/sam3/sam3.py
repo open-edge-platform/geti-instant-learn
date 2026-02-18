@@ -14,6 +14,7 @@ from instantlearn.models.base import Model
 from instantlearn.utils import precision_to_torch_dtype
 
 from .model import Sam3Model
+from .post_processing import PostProcessingConfig
 from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
 
 
@@ -49,7 +50,8 @@ class SAM3(Model):
 
         >>> sam3 = SAM3()
 
-        >>> # Example 1: Using fit() to set category prompts directly in reference samples without passing reference images.
+        >>> # Example 1: Using fit() to set category prompts directly in reference samples without
+        >>> # passing reference images.
         >>> ref_sample = Sample(
         ...     categories=["shoe", "person"],
         ...     category_ids=[0, 1],
@@ -87,6 +89,7 @@ class SAM3(Model):
         resolution: int = 1008,
         precision: str = "fp32",
         compile_models: bool = False,
+        post_processing: PostProcessingConfig | None = None,
     ) -> None:
         """Initialize the SAM3 model.
 
@@ -96,6 +99,8 @@ class SAM3(Model):
             resolution: The input image resolution.
             precision: The precision to use for the model ('bf16' or 'fp32').
             compile_models: Whether to compile the models.
+            post_processing: Optional post-processing configuration for NMS,
+                mask overlap removal, and non-overlapping pixel constraints.
         """
         super().__init__()
 
@@ -115,6 +120,7 @@ class SAM3(Model):
             target_size=resolution,
             threshold=confidence_threshold,
             mask_threshold=0.5,
+            post_processing=post_processing,
         ).to(device)
 
         # Tokenizer for text prompts (still from transformers, but not used in ONNX path)

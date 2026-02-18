@@ -17,6 +17,7 @@ from transformers import CLIPTokenizerFast
 
 from instantlearn.data.base.batch import Batch
 from instantlearn.models.base import Model
+from instantlearn.models.sam3.post_processing import PostProcessingConfig
 
 if TYPE_CHECKING:
     from instantlearn.data.base.sample import Sample
@@ -64,9 +65,10 @@ class EfficientSAM3(Model):
         backbone_type: str = "efficientvit",
         variant: str = "b2",
         device: str = "cuda",
-        confidence_threshold: float = 0.1,
+        confidence_threshold: float = 0.4,
         resolution: int = 1008,
         precision: str = "fp32",
+        post_processing: PostProcessingConfig | None = None,
     ) -> None:
         """Initialize the EfficientSAM3 model.
 
@@ -78,10 +80,18 @@ class EfficientSAM3(Model):
             variant: Model size variant within the backbone family.
             device: Target device ('cuda', 'xpu', or 'cpu').
             confidence_threshold: Score threshold for filtering predictions.
-                Default is 0.1, as EfficientSAM3 produces lower scores than SAM3
-                due to the distillation process.
+                Default is 0.4, balancing precision and IoU across datasets.
+                Sweep benchmarks (LVIS + PerSeg) showed ct=0.4 with IoM 0.3
+                gives the best trade-off: strong mask quality (IoU) while
+                keeping precision acceptable for real-time use.
             resolution: Input image resolution. Default: 1008.
             precision: Model precision ('fp32' or 'bf16').
+            post_processing: Optional post-processing configuration for NMS,
+                mask overlap removal, and non-overlapping pixel constraints.
+                Default enables mask IoM suppression at 0.3 — this removes
+                heavily overlapping low-quality masks without discarding
+                legitimate multi-object detections. IoM outperformed NMS
+                and other combinations in sweep benchmarks.
 
         Raises:
             ValueError: If backbone_type/variant is not supported.
@@ -92,6 +102,18 @@ class EfficientSAM3(Model):
         if key not in BACKBONE_CONFIG:
             msg = f"Unsupported backbone: {backbone_type}/{variant}. Available: {list(BACKBONE_CONFIG.keys())}"
             raise ValueError(msg)
+
+        # Default post-processing: mask IoM suppression at 0.3.
+        # Sweep benchmarks (LVIS + PerSeg) showed IoM 0.3 removes
+        # heavily-overlapping low-quality masks while preserving legitimate
+        # multi-object detections. It outperformed NMS, non-overlap, and
+        # all tested combinations on both precision and F1.
+        if post_processing is None:
+            post_processing = PostProcessingConfig(
+                mask_iom_threshold=0.3,
+                nms_iou_threshold=None,
+                remove_overlapping_pixels=False,
+            )
 
         self.backbone_type = backbone_type
         self.variant = variant
@@ -109,6 +131,7 @@ class EfficientSAM3(Model):
             target_size=resolution,
             threshold=confidence_threshold,
             mask_threshold=0.5,
+            post_processing=post_processing,
         ).to(device)
 
         # Reuse SAM3 CLIP tokenizer (same BPE vocabulary)
@@ -144,7 +167,7 @@ class EfficientSAM3(Model):
                 if category not in self.category_mapping:
                     self.category_mapping[category] = int(category_id)
 
-    # TODO(refactor): _aggregate_results and predict() are near-identical to
+    # TODO(refactor): _aggregate_results and predict() are near-identical to  # noqa: TD003, FIX002
     # SAM3. Extract shared logic into a common base class method during the
     # upcoming SAM3/EfficientSAM3 refactoring pass.
 
