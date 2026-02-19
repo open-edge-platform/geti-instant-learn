@@ -11,6 +11,16 @@ on:
         description: "Specifies the build version to apply to all binaries produced by this workflow"
         type: string
         required: true
+      image_name_prefix:
+        description: "Base name for the docker images (without tag)"
+        type: string
+        default: "ghcr.io/open-edge-platform/instant-learn/dev"
+        required: false
+      push_images:
+        description: "Push and sign docker images to GHCR"
+        type: boolean
+        default: false
+        required: false
       sha-commit:
         description: "SHA to checkout"
         type: string
@@ -25,15 +35,18 @@ on:
         required: false
 
 jobs:
-  component-check:
+  # Permissions are intentionally inherited from the caller workflow.
+  # main.yml grants read-only; app-release-candidate.yml grants write for push steps.
+  component-check: # zizmor: ignore[excessive-permissions]
     name: Distrib workflow
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     timeout-minutes: 30
     strategy:
       matrix:
         ai-device: ${{ fromJson(inputs.ai_devices) }}
+    env:
+      BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
+      IMAGE_NAME_PREFIX: ${{ inputs.image_name_prefix }}
     steps:
       - name: Validate SHA format
         if: inputs.sha-commit != ''
@@ -60,23 +73,57 @@ jobs:
       - name: Build docker image for ${{ matrix.ai-device }}
         working-directory: application
         env:
-          BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just build-target="${DEVICE}" version="${BUILD_VERSION}" docker-build-context="--no-cache" build-image
+          just \
+            build-target="${DEVICE}" \
+            version="${BUILD_VERSION}" \
+            image-name="${IMAGE_NAME_PREFIX}/${DEVICE}:${BUILD_VERSION}" \
+            docker-build-context="--no-cache" \
+            build-image
 
       - name: Show size of the image for ${{ matrix.ai-device }}
         working-directory: application
         env:
-          BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just build-target="${DEVICE}" version="${BUILD_VERSION}" show-size
+          just \
+            build-target="${DEVICE}" \
+            version="${BUILD_VERSION}" \
+            image-name="${IMAGE_NAME_PREFIX}/${DEVICE}:${BUILD_VERSION}" \
+            show-size
 
       - name: Test image for ${{ matrix.ai-device }}
         working-directory: application
         env:
-          BUILD_VERSION: ${{ inputs.build_version || 'latest' }}
           DEVICE: ${{ matrix.ai-device }}
         run: |
-          just build-target="${DEVICE}" version="${BUILD_VERSION}" test-image
+          just \
+            build-target="${DEVICE}" \
+            version="${BUILD_VERSION}" \
+            image-name="${IMAGE_NAME_PREFIX}/${DEVICE}:${BUILD_VERSION}" \
+            test-image
+
+      - name: Log in to GHCR
+        if: inputs.push_images
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag and push image for ${{ matrix.ai-device }}
+        if: inputs.push_images
+        env:
+          DEVICE: ${{ matrix.ai-device }}
+        run: |
+          IMAGE_NAME="${IMAGE_NAME_PREFIX}/${DEVICE}:${BUILD_VERSION}"
+          # docker push "${IMAGE_NAME}"
+          echo docker push "${IMAGE_NAME}"
+          echo "IMAGE_NAME=${IMAGE_NAME}" >> "$GITHUB_ENV"
+
+      # - name: Sign image for ${{ matrix.ai-device }}
+      #   if: inputs.push_images
+      #   uses: open-edge-platform/geti-ci/actions/sign-image@375de2eb018dae396c959f9b3a464f40271de969
+      #   with:
+      #     image-uri: ${{ env.IMAGE_NAME }}

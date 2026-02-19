@@ -1,0 +1,99 @@
+name: Application Release Candidate
+on:
+   ##### DELETE AFTER TESTING #####
+  pull_request:
+    ##### DELETE AFTER TESTING #####
+  push:
+    tags:
+      - app/v[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release artifact tag (e.g., app/v0.1.0rc1)"
+        required: true
+        type: string
+      sha:
+        description: "Git commit SHA to release (40-char hex string)"
+        required: true
+        type: string
+
+permissions: {} # No permissions by default
+
+jobs:
+  build-parameters:
+    name: Prepare build parameters
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    outputs:
+      build_version: "${{ steps.build-version.outputs.version }}"
+
+    steps:
+      - name: Validate workflow_dispatch SHA
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          INPUT_SHA: ${{ inputs.sha }}
+        run: |
+          if [[ ! "$INPUT_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "Error: Provided sha '$INPUT_SHA' is not a valid 40-char commit SHA"
+            exit 1
+          fi
+
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.sha || github.ref }}
+
+   ##### DELETE AFTER TESTING #####
+    #Uncomment the following line to test environment variable access in the prod environment
+    ##### DELETE AFTER TESTING #####
+      - name: Validate tag matches VERSION
+        id: build-version
+        working-directory: application
+        env:
+          TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+        run: |
+          TAG_BASE="${TAG#app/v}"
+          TAG_VERSION="${TAG_VERSION%rc*}"
+          FILE_VERSION="$(cat VERSION | tr -d '\n\r')"
+          
+          echo "::group::Build parameters"   
+          echo "Tag name: $TAG"
+          echo "Tag base: $TAG_BASE"
+          echo "Tag version: $TAG_VERSION"
+          echo "File version: $FILE_VERSION"
+          echo "::endgroup::"
+
+          # if [[ "$TAG_VERSION" != "$FILE_VERSION" ]]; then
+          #   echo "Error: Tag version '$TAG_VERSION' does not match VERSION file '$FILE_VERSION'"
+          #   exit 1
+          # fi
+
+          echo "version=$TAG_BASE" >> "$GITHUB_OUTPUT"
+
+  distrib:
+    name: Build and publish docker images
+    needs: build-parameters
+    uses: ./.github/workflows/distrib.yml
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    with:
+      build_version: ${{ needs.build-parameters.outputs.build_version }}
+      push_images: true
+
+  windows-installer:
+    name: Build Windows installer
+    needs: build-parameters
+    uses: ./.github/workflows/windows-installer.yml
+    permissions:
+      contents: read
+    secrets:
+      MSIX_SIGN_CERTIFICATE: ${{ secrets.MSIX_SIGN_CERTIFICATE }}
+      MSIX_SIGN_CERTIFICATE_PASSWORD: ${{ secrets.MSIX_SIGN_CERTIFICATE_PASSWORD }}
+    with:
+      build_version: ${{ needs.build-parameters.outputs.build_version }}
+      device: xpu
