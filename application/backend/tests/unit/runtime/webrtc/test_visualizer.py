@@ -18,10 +18,43 @@ def fxt_frame() -> np.ndarray:
 
 
 @pytest.fixture
+def fxt_large_frame() -> np.ndarray:
+    """Larger frame for box visualization tests."""
+    return np.zeros((100, 100, 3), dtype=np.uint8)
+
+
+@pytest.fixture
 def fxt_visualizer() -> InferenceVisualizer:
     with patch("runtime.webrtc.visualizer.get_settings") as mock_get_settings:
+        mock_get_settings.return_value.visualize_masks = True
+        mock_get_settings.return_value.visualize_boxes = False
         mock_get_settings.return_value.mask_alpha = 1.0
         mock_get_settings.return_value.mask_outline_thickness = 0
+        mock_get_settings.return_value.box_thickness = 2
+        yield InferenceVisualizer(enable_visualization=True)
+
+
+@pytest.fixture
+def fxt_visualizer_boxes_only() -> InferenceVisualizer:
+    """Visualizer configured to draw only boxes."""
+    with patch("runtime.webrtc.visualizer.get_settings") as mock_get_settings:
+        mock_get_settings.return_value.visualize_masks = False
+        mock_get_settings.return_value.visualize_boxes = True
+        mock_get_settings.return_value.mask_alpha = 1.0
+        mock_get_settings.return_value.mask_outline_thickness = 0
+        mock_get_settings.return_value.box_thickness = 2
+        yield InferenceVisualizer(enable_visualization=True)
+
+
+@pytest.fixture
+def fxt_visualizer_both() -> InferenceVisualizer:
+    """Visualizer configured to draw both masks and boxes."""
+    with patch("runtime.webrtc.visualizer.get_settings") as mock_get_settings:
+        mock_get_settings.return_value.visualize_masks = True
+        mock_get_settings.return_value.visualize_boxes = True
+        mock_get_settings.return_value.mask_alpha = 1.0
+        mock_get_settings.return_value.mask_outline_thickness = 0
+        mock_get_settings.return_value.box_thickness = 2
         yield InferenceVisualizer(enable_visualization=True)
 
 
@@ -135,21 +168,243 @@ def test_visualize_applies_correct_colors_for_multiple_categories_in_single_pred
     assert tuple(result[5, 5].tolist()) == (0, 255, 0)
 
 
-def test_visualize_ignores_pred_boxes(fxt_visualizer: InferenceVisualizer, fxt_frame: np.ndarray) -> None:
-    label_0 = "00000000-0000-0000-0000-000000000001"
-    vis_info = _make_vis_info(category_id_to_label_id={0: label_0}, label_colors={label_0: (0, 255, 0)})
-
+def test_visualize_masks_disabled_does_not_draw_masks(
+    fxt_visualizer_boxes_only: InferenceVisualizer, fxt_frame: np.ndarray
+) -> None:
     output = OutputData(
         frame=fxt_frame,
-        results=[
-            {
-                "pred_boxes": np.array([[0.0, 0.0, 1.0, 1.0]]),
-                "pred_masks": _single_pixel_mask(8, 8, 0, 0),
-                "pred_labels": np.array([0], dtype=np.int64),
-            }
+        results=[{"pred_masks": _single_pixel_mask(8, 8, 4, 4), "pred_labels": np.array([0])}],
+    )
+
+    result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=None)
+
+    # Frame should remain unchanged (all zeros) since masks are disabled and no boxes provided
+    assert tuple(result[4, 4].tolist()) == (0, 0, 0)
+
+
+def test_visualize_draws_box_with_correct_color(
+    fxt_visualizer_boxes_only: InferenceVisualizer, fxt_large_frame: np.ndarray
+) -> None:
+    label_id = "00000000-0000-0000-0000-000000000001"
+    vis_info = _make_vis_info(
+        category_id_to_label_id={0: label_id},
+        label_colors={label_id: (255, 0, 0)},
+    )
+
+    # Box from (10, 10) to (50, 50)
+    boxes = np.array([[10, 10, 50, 50]], dtype=np.float32)
+    labels = np.array([0], dtype=np.int64)
+
+    output = OutputData(
+        frame=fxt_large_frame,
+        results=[{"pred_boxes": boxes, "pred_labels": labels}],
+    )
+
+    result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=vis_info)
+
+    # Check that pixels on the box edge are colored (top edge at y=10)
+    assert tuple(result[10, 20].tolist()) == (255, 0, 0)
+    # Check that pixels inside the box are not colored (box is not filled)
+    assert tuple(result[30, 30].tolist()) == (0, 0, 0)
+
+
+def test_visualize_draws_box_with_score_column(
+    fxt_visualizer_boxes_only: InferenceVisualizer, fxt_large_frame: np.ndarray
+) -> None:
+    label_id = "00000000-0000-0000-0000-000000000001"
+    vis_info = _make_vis_info(
+        category_id_to_label_id={0: label_id},
+        label_colors={label_id: (0, 255, 0)},
+    )
+
+    # Box with score: [x1, y1, x2, y2, score]
+    boxes = np.array([[10, 10, 50, 50, 0.95]], dtype=np.float32)
+    labels = np.array([0], dtype=np.int64)
+
+    output = OutputData(
+        frame=fxt_large_frame,
+        results=[{"pred_boxes": boxes, "pred_labels": labels}],
+    )
+
+    result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=vis_info)
+
+    # Check that the box is drawn
+    assert tuple(result[10, 20].tolist()) == (0, 255, 0)
+
+
+def test_visualize_draws_multiple_boxes_with_different_colors(
+    fxt_visualizer_boxes_only: InferenceVisualizer, fxt_large_frame: np.ndarray
+) -> None:
+    label_a = "00000000-0000-0000-0000-00000000000a"
+    label_b = "00000000-0000-0000-0000-00000000000b"
+    vis_info = _make_vis_info(
+        category_id_to_label_id={0: label_a, 1: label_b},
+        label_colors={label_a: (255, 0, 0), label_b: (0, 0, 255)},
+    )
+
+    # Two non-overlapping boxes
+    boxes = np.array(
+        [
+            [10, 10, 30, 30],  # First box
+            [60, 60, 90, 90],  # Second box
         ],
+        dtype=np.float32,
+    )
+    labels = np.array([0, 1], dtype=np.int64)
+
+    output = OutputData(
+        frame=fxt_large_frame,
+        results=[{"pred_boxes": boxes, "pred_labels": labels}],
+    )
+
+    result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=vis_info)
+
+    # First box should be red
+    assert tuple(result[10, 15].tolist()) == (255, 0, 0)
+    # Second box should be blue
+    assert tuple(result[60, 70].tolist()) == (0, 0, 255)
+
+
+def test_visualize_box_without_labels_uses_fallback_color(
+    fxt_visualizer_boxes_only: InferenceVisualizer, fxt_large_frame: np.ndarray
+) -> None:
+    boxes = np.array([[10, 10, 50, 50]], dtype=np.float32)
+
+    output = OutputData(
+        frame=fxt_large_frame,
+        results=[{"pred_boxes": boxes, "pred_labels": None}],
+    )
+
+    result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=None)
+
+    # Should use DEFAULT_FALLBACK_COLOR
+    assert tuple(result[10, 20].tolist()) == DEFAULT_FALLBACK_COLOR
+
+
+def test_visualize_box_with_unmapped_category_uses_deterministic_color(
+    fxt_visualizer_boxes_only: InferenceVisualizer, fxt_large_frame: np.ndarray
+) -> None:
+    vis_info = _make_vis_info(category_id_to_label_id={}, label_colors={})
+
+    boxes = np.array([[10, 10, 50, 50]], dtype=np.float32)
+    labels = np.array([42], dtype=np.int64)  # Category 42 has no mapping
+
+    output = OutputData(
+        frame=fxt_large_frame,
+        results=[{"pred_boxes": boxes, "pred_labels": labels}],
+    )
+
+    result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=vis_info)
+
+    expected_color = fxt_visualizer_boxes_only._generate_deterministic_color(42)
+    assert tuple(result[10, 20].tolist()) == expected_color
+
+
+def test_visualize_empty_boxes_array_does_not_crash(
+    fxt_visualizer_boxes_only: InferenceVisualizer, fxt_large_frame: np.ndarray
+) -> None:
+    output = OutputData(
+        frame=fxt_large_frame,
+        results=[{"pred_boxes": np.array([]).reshape(0, 4), "pred_labels": np.array([])}],
+    )
+
+    result = fxt_visualizer_boxes_only.visualize(output_data=output, visualization_info=None)
+
+    # Frame should remain unchanged
+    np.testing.assert_array_equal(result, fxt_large_frame)
+
+
+def test_visualize_boxes_disabled_does_not_draw_boxes(
+    fxt_visualizer: InferenceVisualizer, fxt_large_frame: np.ndarray
+) -> None:
+    label_id = "00000000-0000-0000-0000-000000000001"
+    vis_info = _make_vis_info(
+        category_id_to_label_id={0: label_id},
+        label_colors={label_id: (255, 0, 0)},
+    )
+
+    boxes = np.array([[10, 10, 50, 50]], dtype=np.float32)
+    labels = np.array([0], dtype=np.int64)
+
+    output = OutputData(
+        frame=fxt_large_frame,
+        results=[{"pred_boxes": boxes, "pred_labels": labels}],
     )
 
     result = fxt_visualizer.visualize(output_data=output, visualization_info=vis_info)
 
-    assert tuple(result[0, 0].tolist()) == (0, 255, 0)
+    # Box edge should not be colored since boxes are disabled
+    assert tuple(result[10, 20].tolist()) == (0, 0, 0)
+
+
+def test_visualize_both_masks_and_boxes(fxt_visualizer_both: InferenceVisualizer, fxt_large_frame: np.ndarray) -> None:
+    label_id = "00000000-0000-0000-0000-000000000001"
+    vis_info = _make_vis_info(
+        category_id_to_label_id={0: label_id},
+        label_colors={label_id: (255, 0, 0)},
+    )
+
+    # Create a mask at position (50, 50)
+    mask = np.zeros((1, 100, 100), dtype=np.float32)
+    mask[0, 50, 50] = 1.0
+
+    # Create a box around a different area
+    boxes = np.array([[10, 10, 30, 30]], dtype=np.float32)
+    labels = np.array([0], dtype=np.int64)
+
+    output = OutputData(
+        frame=fxt_large_frame,
+        results=[{"pred_masks": mask, "pred_boxes": boxes, "pred_labels": labels}],
+    )
+
+    result = fxt_visualizer_both.visualize(output_data=output, visualization_info=vis_info)
+
+    # Mask pixel should be colored
+    assert tuple(result[50, 50].tolist()) == (255, 0, 0)
+    # Box edge should also be colored
+    assert tuple(result[10, 15].tolist()) == (255, 0, 0)
+    # Area outside both should remain black
+    assert tuple(result[80, 80].tolist()) == (0, 0, 0)
+
+
+def test_draw_boxes_method(fxt_visualizer_boxes_only: InferenceVisualizer, fxt_large_frame: np.ndarray) -> None:
+    label_id = "00000000-0000-0000-0000-000000000001"
+    label_colors = {label_id: (0, 255, 0)}
+    category_id_to_label_id = {0: label_id}
+
+    boxes = np.array([[20, 20, 40, 40]], dtype=np.float32)
+    labels = np.array([0], dtype=np.int64)
+
+    result = fxt_visualizer_boxes_only._draw_boxes(
+        fxt_large_frame.copy(),
+        boxes,
+        labels,
+        label_colors,
+        category_id_to_label_id,
+    )
+
+    # Check box edge is drawn
+    assert tuple(result[20, 30].tolist()) == (0, 255, 0)
+
+
+def test_visualize_prediction_with_only_boxes_no_masks(
+    fxt_visualizer_both: InferenceVisualizer, fxt_large_frame: np.ndarray
+) -> None:
+    label_id = "00000000-0000-0000-0000-000000000001"
+    vis_info = _make_vis_info(
+        category_id_to_label_id={0: label_id},
+        label_colors={label_id: (0, 0, 255)},
+    )
+
+    boxes = np.array([[10, 10, 50, 50]], dtype=np.float32)
+    labels = np.array([0], dtype=np.int64)
+
+    output = OutputData(
+        frame=fxt_large_frame,
+        results=[{"pred_boxes": boxes, "pred_labels": labels}],  # No pred_masks key
+    )
+
+    result = fxt_visualizer_both.visualize(output_data=output, visualization_info=vis_info)
+
+    # Box should be drawn
+    assert tuple(result[10, 20].tolist()) == (0, 0, 255)

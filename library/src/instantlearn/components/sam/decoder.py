@@ -501,11 +501,13 @@ class SamDecoder(nn.Module):
                     sims,
                     category_ids,
                 )
+                boxes = masks_to_boxes_traceable(masks)
                 predictions.append({
                     "pred_masks": masks,
                     "pred_scores": scores,
                     "pred_labels": labels,
                     "pred_points": points,
+                    "pred_boxes": boxes,
                 })
         else:
             for image, bxs in zip(images, box_prompts, strict=True):
