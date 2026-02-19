@@ -447,7 +447,7 @@ class TestSAM3Integration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
-        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode)
+        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id="jetjodh/sam3")
 
         if prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
             # Visual exemplar needs bboxes on reference images
