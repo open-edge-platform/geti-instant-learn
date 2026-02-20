@@ -10,9 +10,11 @@ for text and visual prompting segmentation.
 from .model import Sam3Model
 from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
 from .sam3 import SAM3
+from .sam3_openvino import SAM3OpenVINO
 
 __all__ = [
     "SAM3",
+    "SAM3OpenVINO",
     "Sam3Model",
     "Sam3Postprocessor",
     "Sam3Preprocessor",

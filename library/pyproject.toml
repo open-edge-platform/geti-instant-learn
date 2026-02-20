@@ -227,6 +227,12 @@ notice-rgx = '# Copyright \(C\) (\d{4}(-\d{4})?) Intel Corporation\r?\n# SPDX-Li
     "PLR6301",  # Ignore no-self-use for test methods
     "S101",     # Use of assert detected
 ]
+"scripts/**/*.py" = [
+    "INP001",   # Scripts are standalone, not packages
+]
+"examples/**/*.py" = [
+    "INP001",   # Examples are standalone, not packages
+]
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
