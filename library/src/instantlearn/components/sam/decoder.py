@@ -76,7 +76,7 @@ class SamDecoder(nn.Module):
         nms_iou_threshold: float = 0.1,
         max_masks_per_category: int = 40,
         use_mask_refinement: bool = False,
-        merge_masks_per_class: bool = True,
+        merge_masks_per_class: bool = False,
         use_nms: bool = True,
     ) -> None:
         """Initialize the traceable SAM decoder."""
