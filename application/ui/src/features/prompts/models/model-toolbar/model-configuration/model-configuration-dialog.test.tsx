@@ -180,7 +180,6 @@ describe('ModelConfigurationDialog', () => {
                     encoder_model: 'dinov3_base',
                     precision: precision.toLowerCase(),
                     use_nms: model.config.use_nms,
-                    compile_models: model.config.compile_models,
                 })
             );
         });
