@@ -8,6 +8,7 @@ import torch
 from instantlearn.components import CosineSimilarity, SamDecoder
 from instantlearn.components.encoders import ImageEncoder
 from instantlearn.components.feature_extractors import MaskedFeatureExtractor, ReferenceFeatures
+from instantlearn.components.postprocessing import PostProcessor
 from instantlearn.components.sam import load_sam_model
 from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
@@ -71,6 +72,7 @@ class PerDino(Model):
         precision: str = "bf16",
         compile_models: bool = False,
         device: str = "cuda",
+        postprocessor: PostProcessor | None = None,
     ) -> None:
         """Initialize the PerDino model.
 
@@ -92,8 +94,9 @@ class PerDino(Model):
             precision: Model precision ("bf16", "fp32").
             compile_models: Whether to compile models with torch.compile.
             device: Device for inference.
+            postprocessor: Optional post-processor applied after predict().
         """
-        super().__init__()
+        super().__init__(postprocessor=postprocessor)
         self.sam_predictor = load_sam_model(
             sam,
             device=device,
@@ -200,9 +203,10 @@ class PerDino(Model):
         )
 
         # Decode masks
-        return self.segmenter(
+        predictions = self.segmenter(
             target_batch.images,
             self.ref_features.category_ids,
             point_prompts=point_prompts,
             similarities=similarities,
         )
+        return self.apply_postprocessing(predictions)

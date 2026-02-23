@@ -11,6 +11,7 @@ from torch.nn import functional
 
 from instantlearn.components.encoders import ImageEncoder
 from instantlearn.components.feature_extractors import MaskedFeatureExtractor, ReferenceFeatures
+from instantlearn.components.postprocessing import PostProcessor, PostProcessorPipeline
 from instantlearn.components.sam import SamDecoder, load_sam_model
 from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
@@ -56,11 +57,25 @@ class MatcherInferenceGraph(nn.Module):
         prompt_generator: BidirectionalPromptGenerator,
         sam_decoder: SamDecoder,
         ref_features: ReferenceFeatures,
+        postprocessor: PostProcessor | None = None,
     ) -> None:
+        """Initialize the inference graph with frozen reference features."""
         super().__init__()
         self.encoder = encoder
         self.prompt_generator = prompt_generator
         self.sam_decoder = sam_decoder
+
+        # Include only ONNX-exportable post-processors
+        if postprocessor is not None:
+            if isinstance(postprocessor, PostProcessorPipeline):
+                subset = postprocessor.exportable_subset()
+                self.export_postprocessor: PostProcessor | None = subset if len(subset.processors) > 0 else None
+            elif postprocessor.exportable:
+                self.export_postprocessor = postprocessor
+            else:
+                self.export_postprocessor = None
+        else:
+            self.export_postprocessor = None
 
         # Freeze reference features as model constants
         self.register_buffer("ref_embeddings", ref_features.ref_embeddings)
@@ -91,12 +106,18 @@ class MatcherInferenceGraph(nn.Module):
         )
 
         # Decode using export-friendly method (single image, returns tensors)
-        return self.sam_decoder.forward_export(
+        masks, scores, labels = self.sam_decoder.forward_export(
             target_image[0],  # Single image [3, H, W]
             self.category_ids,
             point_prompts[0],  # [C, max_points, 4]
             similarities[0],  # [C, feat_size, feat_size]
         )
+
+        # Apply exportable post-processing (if any)
+        if self.export_postprocessor is not None:
+            masks, scores, labels = self.export_postprocessor(masks, scores, labels)
+
+        return masks, scores, labels
 
 
 class Matcher(Model):
@@ -158,6 +179,7 @@ class Matcher(Model):
         precision: str = "bf16",
         compile_models: bool = False,
         device: str = "cuda",
+        postprocessor: PostProcessor | None = None,
     ) -> None:
         """Initialize the Matcher model.
 
@@ -173,8 +195,9 @@ class Matcher(Model):
             precision: Model precision ("bf16", "fp32").
             compile_models: Whether to compile models with torch.compile.
             device: Device for inference.
+            postprocessor: Optional post-processor applied after predict().
         """
-        super().__init__()
+        super().__init__(postprocessor=postprocessor)
         # SAM predictor
         self.sam_predictor = load_sam_model(
             sam,
@@ -282,12 +305,13 @@ class Matcher(Model):
         )
 
         # Decode masks for all images
-        return self.segmenter(
+        predictions = self.segmenter(
             target_batch.images,
             self.ref_features.category_ids,
             point_prompts=point_prompts,
             similarities=similarities,
         )
+        return self.apply_postprocessing(predictions)
 
     @torch.no_grad()
     def export(
@@ -324,6 +348,7 @@ class Matcher(Model):
             prompt_generator=self.prompt_generator,
             sam_decoder=self.segmenter,
             ref_features=self.ref_features,
+            postprocessor=self.postprocessor,
         )
 
         target_image = torch.randn(1, 3, self.encoder.input_size, self.encoder.input_size)

@@ -3,6 +3,7 @@
 
 """SoftMatcher model."""
 
+from instantlearn.components.postprocessing import PostProcessor
 from instantlearn.models.matcher import Matcher
 from instantlearn.utils.constants import SAMModelName
 
@@ -85,6 +86,7 @@ class SoftMatcher(Matcher):
         precision: str = "bf16",
         compile_models: bool = False,
         device: str = "cuda",
+        postprocessor: PostProcessor | None = None,
     ) -> None:
         """Initialize the SoftMatcher model.
 
@@ -104,6 +106,7 @@ class SoftMatcher(Matcher):
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
             device: The device to use for the model.
+            postprocessor: Optional post-processor applied after predict().
         """
         super().__init__(
             sam=sam,
@@ -115,6 +118,7 @@ class SoftMatcher(Matcher):
             precision=precision,
             compile_models=compile_models,
             device=device,
+            postprocessor=postprocessor,
         )
         self.prompt_generator = SoftmatcherPromptGenerator(
             encoder_input_size=self.encoder.input_size,

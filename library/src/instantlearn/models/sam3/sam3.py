@@ -8,6 +8,7 @@ from itertools import zip_longest
 import torch
 from transformers import CLIPTokenizerFast
 
+from instantlearn.components.postprocessing import PostProcessor
 from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.base import Model
@@ -87,6 +88,7 @@ class SAM3(Model):
         resolution: int = 1008,
         precision: str = "fp32",
         compile_models: bool = False,
+        postprocessor: PostProcessor | None = None,
     ) -> None:
         """Initialize the SAM3 model.
 
@@ -96,8 +98,9 @@ class SAM3(Model):
             resolution: The input image resolution.
             precision: The precision to use for the model ('bf16' or 'fp32').
             compile_models: Whether to compile the models.
+            postprocessor: Optional post-processor applied after predict().
         """
-        super().__init__()
+        super().__init__(postprocessor=postprocessor)
 
         self.device = device
         self.confidence_threshold = confidence_threshold
@@ -111,7 +114,7 @@ class SAM3(Model):
         # Preprocessors and postprocessor
         self.image_preprocessor = Sam3Preprocessor(target_size=resolution).to(device)
         self.prompt_preprocessor = Sam3PromptPreprocessor(target_size=resolution).to(device)
-        self.postprocessor = Sam3Postprocessor(
+        self.sam3_postprocessor = Sam3Postprocessor(
             target_size=resolution,
             threshold=confidence_threshold,
             mask_threshold=0.5,
@@ -259,7 +262,7 @@ class SAM3(Model):
                     )
 
                 # Postprocess
-                result = self.postprocessor(outputs, target_sizes=[img_size])
+                result = self.sam3_postprocessor(outputs, target_sizes=[img_size])
                 boxes_with_scores = torch.cat(
                     [result[0]["boxes"], result[0]["scores"].unsqueeze(1)],
                     dim=1,
@@ -270,4 +273,4 @@ class SAM3(Model):
 
             results.append(self._aggregate_results(all_masks, all_boxes, all_labels, img_size))
 
-        return results
+        return self.apply_postprocessing(results)
