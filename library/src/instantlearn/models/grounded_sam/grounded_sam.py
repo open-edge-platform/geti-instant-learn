@@ -45,8 +45,8 @@ class GroundedSAM(Model):
             device: The device to use.
             postprocessor: Optional post-processor applied after predict().
         """
-        super().__init__(postprocessor=postprocessor)
         _ = use_nms  # Kept for backward compatibility with backend/UI config
+        super().__init__(postprocessor=postprocessor)
         self.sam_predictor = load_sam_model(
             sam,
             device=device,

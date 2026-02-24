@@ -70,17 +70,16 @@ class MatcherInferenceGraph(nn.Module):
         self.prompt_generator = prompt_generator
         self.sam_decoder = sam_decoder
 
-        # Include only ONNX-exportable post-processors
+        # Register only ONNX-exportable post-processors as a proper submodule
+        # so parameters are captured during tracing/export.
+        export_pp: PostProcessor | None = None
         if postprocessor is not None:
             if isinstance(postprocessor, PostProcessorPipeline):
                 subset = postprocessor.exportable_subset()
-                self.export_postprocessor: PostProcessor | None = subset if len(subset.processors) > 0 else None
+                export_pp = subset if len(subset) > 0 else None
             elif postprocessor.exportable:
-                self.export_postprocessor = postprocessor
-            else:
-                self.export_postprocessor = None
-        else:
-            self.export_postprocessor = None
+                export_pp = postprocessor
+        self.add_module("export_postprocessor", export_pp)
 
         # Freeze reference features as model constants
         self.register_buffer("ref_embeddings", ref_features.ref_embeddings)
@@ -181,6 +180,7 @@ class Matcher(Model):
         confidence_threshold: float | None = 0.38,
         use_mask_refinement: bool = True,
         use_nms: bool = True,
+        merge_masks_per_class: bool = True,
         precision: str = "bf16",
         compile_models: bool = False,
         device: str = "cuda",
@@ -196,23 +196,27 @@ class Matcher(Model):
             confidence_threshold: Minimum confidence score for keeping predicted masks
                                  in the final output. Higher values = stricter filtering, fewer masks.
             use_mask_refinement: Whether to use 2-stage mask refinement with box prompts.
-            use_nms: Whether to apply NMS before merging overlapping masks.
-                When True (default), the model's default post-processing pipeline
-                includes ``BoxNMS(iou_threshold=0.1)`` followed by
-                ``MergePerClassMasks()``.  Ignored when *postprocessor* is given.
+            use_nms: Whether to include ``BoxNMS(iou_threshold=0.1)`` in the
+                default post-processing pipeline.  Ignored when *postprocessor*
+                is provided explicitly.
+            merge_masks_per_class: Whether to include ``MergePerClassMasks()`` in
+                the default pipeline, collapsing per-instance masks into one mask
+                per class.  Ignored when *postprocessor* is provided explicitly.
             precision: Model precision ("bf16", "fp32").
             compile_models: Whether to compile models with torch.compile.
             device: Device for inference.
             postprocessor: Optional post-processor applied after predict().
-                Overrides the default pipeline built from *use_nms*.
+                Overrides the default pipeline built from *use_nms* and
+                *merge_masks_per_class*.
         """
-        super().__init__(postprocessor=postprocessor)
         if postprocessor is None:
-            steps = []
+            steps: list[PostProcessor] = []
             if use_nms:
                 steps.append(BoxNMS(iou_threshold=0.1))
-            steps.append(MergePerClassMasks())
-            self.postprocessor = PostProcessorPipeline(steps)
+            if merge_masks_per_class:
+                steps.append(MergePerClassMasks())
+            postprocessor = PostProcessorPipeline(steps) if steps else None
+        super().__init__(postprocessor=postprocessor)
         # SAM predictor
         self.sam_predictor = load_sam_model(
             sam,

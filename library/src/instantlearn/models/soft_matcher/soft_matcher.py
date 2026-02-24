@@ -83,6 +83,7 @@ class SoftMatcher(Matcher):
         softmatching_bidirectional: bool = False,
         encoder_model: str = "dinov3_large",
         use_nms: bool = True,
+        merge_masks_per_class: bool = True,
         precision: str = "bf16",
         compile_models: bool = False,
         device: str = "cuda",
@@ -102,11 +103,16 @@ class SoftMatcher(Matcher):
             softmatching_score_threshold: The score threshold for the soft matching.
             softmatching_bidirectional: Whether to use bidirectional soft matching.
             encoder_model: The encoder model to use.
-            use_nms: Whether to use non-maximum suppression on the predicted masks.
+            use_nms: Whether to include ``BoxNMS`` in the default pipeline.
+                Ignored when *postprocessor* is provided explicitly.
+            merge_masks_per_class: Whether to include ``MergePerClassMasks()`` in
+                the default pipeline.  Ignored when *postprocessor* is provided.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
             device: The device to use for the model.
             postprocessor: Optional post-processor applied after predict().
+                Overrides the default pipeline built from *use_nms* and
+                *merge_masks_per_class*.
         """
         super().__init__(
             sam=sam,
@@ -114,6 +120,7 @@ class SoftMatcher(Matcher):
             num_background_points=num_background_points,
             confidence_threshold=confidence_threshold,
             use_nms=use_nms,
+            merge_masks_per_class=merge_masks_per_class,
             encoder_model=encoder_model,
             precision=precision,
             compile_models=compile_models,

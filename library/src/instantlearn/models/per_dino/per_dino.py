@@ -74,6 +74,7 @@ class PerDino(Model):
         point_selection_threshold: float = 0.65,
         confidence_threshold: float | None = 0.42,
         use_nms: bool = True,
+        merge_masks_per_class: bool = True,
         precision: str = "bf16",
         compile_models: bool = False,
         device: str = "cuda",
@@ -95,23 +96,27 @@ class PerDino(Model):
                 in the final output. Computed as a weighted combination of SAM's IoU
                 prediction and mean similarity within the mask region. Higher values =
                 stricter filtering, fewer masks.
-            use_nms: Whether to apply NMS before merging overlapping masks.
-                When True (default), the model's default post-processing pipeline
-                includes ``BoxNMS(iou_threshold=0.1)`` followed by
-                ``MergePerClassMasks()``.  Ignored when *postprocessor* is given.
+            use_nms: Whether to include ``BoxNMS(iou_threshold=0.1)`` in the
+                default post-processing pipeline.  Ignored when *postprocessor*
+                is provided explicitly.
+            merge_masks_per_class: Whether to include ``MergePerClassMasks()`` in
+                the default pipeline, collapsing per-instance masks into one mask
+                per class.  Ignored when *postprocessor* is provided explicitly.
             precision: Model precision ("bf16", "fp32").
             compile_models: Whether to compile models with torch.compile.
             device: Device for inference.
             postprocessor: Optional post-processor applied after predict().
-                Overrides the default pipeline built from *use_nms*.
+                Overrides the default pipeline built from *use_nms* and
+                *merge_masks_per_class*.
         """
-        super().__init__(postprocessor=postprocessor)
         if postprocessor is None:
-            steps = []
+            steps: list[PostProcessor] = []
             if use_nms:
                 steps.append(BoxNMS(iou_threshold=0.1))
-            steps.append(MergePerClassMasks())
-            self.postprocessor = PostProcessorPipeline(steps)
+            if merge_masks_per_class:
+                steps.append(MergePerClassMasks())
+            postprocessor = PostProcessorPipeline(steps) if steps else None
+        super().__init__(postprocessor=postprocessor)
         self.sam_predictor = load_sam_model(
             sam,
             device=device,

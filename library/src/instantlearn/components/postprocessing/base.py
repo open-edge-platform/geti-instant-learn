@@ -12,12 +12,15 @@ exclude non-traceable operations at export time.
 
 from __future__ import annotations
 
+import logging
 from abc import abstractmethod
 
 import torch
 from torch import nn
 
 from instantlearn.components.sam.decoder import masks_to_boxes_traceable
+
+logger = logging.getLogger(__name__)
 
 
 class PostProcessor(nn.Module):
@@ -101,7 +104,20 @@ class PostProcessorPipeline(PostProcessor):
         Returns:
             A new ``PostProcessorPipeline`` with non-exportable processors removed.
         """
-        return PostProcessorPipeline([p for p in self.processors if p.exportable])
+        exportable = [p for p in self.processors if p.exportable]
+        if len(exportable) < len(self.processors):
+            skipped = [type(p).__name__ for p in self.processors if not p.exportable]
+            logger.warning(
+                "Skipping non-exportable post-processors for ONNX export: %s",
+                ", ".join(skipped),
+            )
+        if not exportable:
+            logger.warning("All post-processors are non-exportable — exported model will have no post-processing.")
+        return PostProcessorPipeline(exportable)
+
+    def __len__(self) -> int:
+        """Return the number of processors in the pipeline."""
+        return len(self.processors)
 
     def forward(
         self,
@@ -146,27 +162,32 @@ def apply_postprocessing(
 
     processed: list[dict[str, torch.Tensor]] = []
     for pred in predictions:
-        masks = pred["pred_masks"]
-        scores = pred.get("pred_scores", torch.ones(masks.size(0), device=masks.device))
+        orig_masks = pred["pred_masks"]
+        scores = pred.get("pred_scores", torch.ones(orig_masks.size(0), device=orig_masks.device))
         labels = pred["pred_labels"]
 
-        masks, scores, labels = postprocessor(masks, scores, labels)
+        new_masks, new_scores, new_labels = postprocessor(orig_masks, scores, labels)
 
         result: dict[str, torch.Tensor] = {
-            "pred_masks": masks,
-            "pred_scores": scores,
-            "pred_labels": labels,
+            "pred_masks": new_masks,
+            "pred_scores": new_scores,
+            "pred_labels": new_labels,
         }
 
-        # Recompute boxes from cleaned masks
-        if masks.numel() > 0 and masks.size(0) > 0:
-            boxes = masks_to_boxes_traceable(masks)
-            box_scores = scores.unsqueeze(1)
-            result["pred_boxes"] = torch.cat([boxes, box_scores], dim=1)
-        else:
-            result["pred_boxes"] = torch.empty(0, 5, device=masks.device)
+        # Only recompute boxes when masks were actually modified
+        masks_changed = (
+            new_masks.shape != orig_masks.shape or not torch.equal(new_masks, orig_masks)
+        )
 
-        # Preserve any extra keys (e.g. pred_points)
+        if masks_changed:
+            if new_masks.numel() > 0 and new_masks.size(0) > 0:
+                boxes = masks_to_boxes_traceable(new_masks)
+                box_scores = new_scores.unsqueeze(1)
+                result["pred_boxes"] = torch.cat([boxes, box_scores], dim=1)
+            else:
+                result["pred_boxes"] = torch.empty(0, 5, device=new_masks.device)
+
+        # Preserve any extra keys (e.g. pred_points, pred_boxes if unchanged)
         for key in pred:
             if key not in result:
                 result[key] = pred[key]
