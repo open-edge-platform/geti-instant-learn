@@ -6,7 +6,6 @@
 import torch
 from torch import nn
 from torch.nn import functional
-from torchvision.ops import nms
 
 from instantlearn.components.sam.predictor import SAMPredictor
 
@@ -57,37 +56,33 @@ class SamDecoder(nn.Module):
     This decoder processes point prompts and similarities as tensors instead of
     dictionaries, enabling full pipeline traceability.
 
+    Note:
+        NMS and per-class mask merging have been moved to the external
+        post-processing pipeline (``BoxNMS``, ``MergePerClassMasks``).  Models
+        build a default pipeline that replicates the old behaviour.  See
+        :mod:`instantlearn.components.postprocessing`.
+
     Args:
         sam_predictor: PyTorch SAM predictor instance.
-        target_length: Target length for image preprocessing. Default: 1024.
         confidence_threshold: Minimum confidence score for keeping predicted masks
-        in the final output. Higher values = stricter filtering. Default: 0.38.
-        nms_iou_threshold: IoU threshold for NMS. Default: 0.1.
-        max_masks_per_category: Maximum masks to return per category (for padding). Default: 10.
+            in the final output. Higher values = stricter filtering. Default: 0.38.
+        max_masks_per_category: Maximum masks to return per category (for padding). Default: 40.
         use_mask_refinement: Whether to use 2-stage mask refinement with box prompts. Default: False.
-        merge_masks_per_class: Whether to merge all masks into single mask per class. Default: True.
-        use_nms: Whether to use NMS when predicting masks. Default: True.
     """
 
     def __init__(
         self,
         sam_predictor: SAMPredictor,
         confidence_threshold: float = 0.38,
-        nms_iou_threshold: float = 0.1,
         max_masks_per_category: int = 40,
         use_mask_refinement: bool = False,
-        merge_masks_per_class: bool = True,
-        use_nms: bool = True,
     ) -> None:
         """Initialize the traceable SAM decoder."""
         super().__init__()
         self.predictor = sam_predictor
         self.confidence_threshold = confidence_threshold
-        self.nms_iou_threshold = nms_iou_threshold
         self.max_masks_per_category = max_masks_per_category
         self.use_mask_refinement = use_mask_refinement
-        self.merge_masks_per_class = merge_masks_per_class
-        self.use_nms = use_nms
         self.device = sam_predictor.device
 
     def _preprocess_points(self, points: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -253,17 +248,7 @@ class SamDecoder(nn.Module):
         else:
             mask_weights = iou_preds[keep]
 
-        # NMS - NOTE: torchvision NMS requires float32 inputs
-        if self.use_nms:
-            nms_indices = nms(
-                boxes[:, 0, :].to(torch.float32),
-                mask_weights[:, 0].to(torch.float32),
-                iou_threshold=self.nms_iou_threshold,
-            )
-            masks = masks[nms_indices]
-            mask_weights = mask_weights[nms_indices]
-
-        # Similarity-based scoring - always compute
+        # Similarity-based scoring
         sim_resized = self._resize_similarity(similarity, original_size)
         mask_sum = (sim_resized * masks).sum(dim=(1, 2))
         mask_area = masks.sum(dim=(1, 2)) + 1e-6  # Avoid div by zero
@@ -276,21 +261,8 @@ class SamDecoder(nn.Module):
         # Zero out scores for filtered masks instead of removing them
         weighted_scores = torch.where(keep, weighted_scores, torch.zeros_like(weighted_scores))
 
-        # For merge: compute merged result (handles empty case gracefully)
-        if self.merge_masks_per_class:
-            # Mask out filtered masks before merging
-            valid_masks = masks * keep.unsqueeze(-1).unsqueeze(-1)
-            merged_mask = (valid_masks.sum(0) > 0).unsqueeze(0)  # [1, H, W]
-
-            # For max score, use -inf for invalid to ensure they're not selected
-            scores_for_max = torch.where(keep, weighted_scores, torch.full_like(weighted_scores, -float("inf")))
-            merged_score = scores_for_max.max().unsqueeze(0)
-            # If all filtered out, score becomes -inf, clamp to 0
-            merged_score = torch.clamp(merged_score, min=0.0)
-            return merged_mask, merged_score
-
-        # For non-merge case: return with validity mask
-        # Caller should filter by scores > 0
+        # Return per-instance masks and scores
+        # NMS and merge are handled by the external post-processing pipeline
         return masks, weighted_scores
 
     def _process_single_image_with_points(

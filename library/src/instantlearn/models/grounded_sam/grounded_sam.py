@@ -46,6 +46,7 @@ class GroundedSAM(Model):
             postprocessor: Optional post-processor applied after predict().
         """
         super().__init__(postprocessor=postprocessor)
+        _ = use_nms  # Kept for backward compatibility with backend/UI config
         self.sam_predictor = load_sam_model(
             sam,
             device=device,
@@ -61,7 +62,7 @@ class GroundedSAM(Model):
             precision=precision,
             compile_models=compile_models,
         )
-        self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor, use_nms=use_nms)
+        self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor)
         self.prompt_filter: BoxPromptFilter = BoxPromptFilter()
 
     def fit(self, reference: Sample | list[Sample] | Batch) -> None:

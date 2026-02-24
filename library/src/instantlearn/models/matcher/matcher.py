@@ -11,7 +11,12 @@ from torch.nn import functional
 
 from instantlearn.components.encoders import ImageEncoder
 from instantlearn.components.feature_extractors import MaskedFeatureExtractor, ReferenceFeatures
-from instantlearn.components.postprocessing import PostProcessor, PostProcessorPipeline
+from instantlearn.components.postprocessing import (
+    BoxNMS,
+    MergePerClassMasks,
+    PostProcessor,
+    PostProcessorPipeline,
+)
 from instantlearn.components.sam import SamDecoder, load_sam_model
 from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
@@ -191,13 +196,23 @@ class Matcher(Model):
             confidence_threshold: Minimum confidence score for keeping predicted masks
                                  in the final output. Higher values = stricter filtering, fewer masks.
             use_mask_refinement: Whether to use 2-stage mask refinement with box prompts.
-            use_nms: Whether to use NMS in SamDecoder.
+            use_nms: Whether to apply NMS before merging overlapping masks.
+                When True (default), the model's default post-processing pipeline
+                includes ``BoxNMS(iou_threshold=0.1)`` followed by
+                ``MergePerClassMasks()``.  Ignored when *postprocessor* is given.
             precision: Model precision ("bf16", "fp32").
             compile_models: Whether to compile models with torch.compile.
             device: Device for inference.
             postprocessor: Optional post-processor applied after predict().
+                Overrides the default pipeline built from *use_nms*.
         """
         super().__init__(postprocessor=postprocessor)
+        if postprocessor is None:
+            steps = []
+            if use_nms:
+                steps.append(BoxNMS(iou_threshold=0.1))
+            steps.append(MergePerClassMasks())
+            self.postprocessor = PostProcessorPipeline(steps)
         # SAM predictor
         self.sam_predictor = load_sam_model(
             sam,
@@ -236,7 +251,6 @@ class Matcher(Model):
             sam_predictor=self.sam_predictor,
             confidence_threshold=confidence_threshold,
             use_mask_refinement=use_mask_refinement,
-            use_nms=use_nms,
         )
 
         # Reference features (set during fit)

@@ -22,6 +22,9 @@ Mask cleaning:
     - :class:`ConnectedComponentFilter` — remove small blobs (eager only)
     - :class:`HoleFilling` — fill enclosed holes (eager only)
 
+Mask merging:
+    - :class:`MergePerClassMasks` — OR-merge masks per class (one mask per label)
+
 Composition:
     - :class:`PostProcessorPipeline` — chain multiple processors
     - :func:`apply_postprocessing` — helper to apply to prediction dicts
@@ -45,6 +48,7 @@ Examples:
 from .base import PostProcessor, PostProcessorPipeline, apply_postprocessing
 from .connected_components import ConnectedComponentFilter, HoleFilling
 from .filtering import MinimumAreaFilter
+from .merge import MergePerClassMasks
 from .morphology import MorphologicalClosing, MorphologicalOpening
 from .nms import BoxNMS, MaskIoMNMS, MaskNMS, SoftNMS
 from .overlap import PanopticArgmaxAssignment
@@ -55,6 +59,7 @@ __all__ = [
     "HoleFilling",
     "MaskIoMNMS",
     "MaskNMS",
+    "MergePerClassMasks",
     "MinimumAreaFilter",
     "MorphologicalClosing",
     "MorphologicalOpening",
