@@ -7,6 +7,9 @@ on:
         type: string
         required: true
   workflow_dispatch:
+
+permissions: {} # No permissions by default
+
 jobs:
   component-check:
     name: Library workflow
@@ -24,7 +27,7 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/install-dependencies
         with:
-          uv-cache-dependency-glob: 'library/uv.lock'
+          uv-cache-dependency-glob: "library/uv.lock"
 
       - name: Lint library
         working-directory: library

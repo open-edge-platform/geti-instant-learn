@@ -1,8 +1,10 @@
 name: daily
 on:
   schedule:
-    - cron: '0 0 * * *' # Run every day at midnight UTC
+    - cron: "0 0 * * *" # Run every day at midnight UTC
   workflow_dispatch:
+
+permissions: {} # No permissions by default
 
 jobs:
   build-parameters:

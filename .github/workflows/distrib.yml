@@ -24,6 +24,8 @@ on:
         default: '["cpu","cuda","xpu"]'
         required: false
 
+permissions: {} # No permissions by default
+
 jobs:
   component-check:
     name: Distrib workflow
@@ -54,8 +56,8 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/install-dependencies
         with:
-          uv-cache-dependency-glob: 'application/backend/uv.lock'
-          cleanup-runner: 'true'
+          uv-cache-dependency-glob: "application/backend/uv.lock"
+          cleanup-runner: "true"
 
       - name: Build docker image for ${{ matrix.ai-device }}
         working-directory: application

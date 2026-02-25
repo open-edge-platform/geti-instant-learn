@@ -38,6 +38,8 @@ on:
         type: boolean
         default: false
 
+permissions: {} # No permissions by default
+
 env:
   GIT_SH_PATH: C:\Program Files\Git\bin\sh.exe
   BACKEND_PATH: .\application\backend
@@ -59,7 +61,6 @@ jobs:
     timeout-minutes: 60
 
     steps:
-
       - name: Define paths
         env:
           DEBUG_BUILD: ${{ inputs.debug_build }}
@@ -82,7 +83,6 @@ jobs:
           $MSIX_FILE_PATH = $UI_MSIX_BUNDLE_PATH + "\" + $MSIX_FILE_NAME
           Write-Host "MSIX_FILE_PATH=$MSIX_FILE_PATH"
           Add-Content -Path $env:GITHUB_ENV -Value "MSIX_FILE_PATH=$MSIX_FILE_PATH"
-
 
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -152,7 +152,7 @@ jobs:
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version-file: application/ui/.nvmrc
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: application/ui/package-lock.json
 
       - name: Enable long paths
