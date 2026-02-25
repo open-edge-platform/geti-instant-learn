@@ -12,11 +12,25 @@ import polars as pl
 import torch
 
 from instantlearn.data.base import Batch
+from instantlearn.data.lvis import LVISAnnotationMode
 from instantlearn.models import SAM3, GroundedSAM, Matcher, Model, PerDino, SoftMatcher
 from instantlearn.models.grounded_sam import GroundingModel
 from instantlearn.utils.constants import DatasetName, ModelName, SAMModelName
 
 logger = getLogger("Geti Instant Learn")
+
+# Maps each model to its required LVIS annotation mode.
+# SEMANTIC: merge instances into one mask per category (Matcher, SoftMatcher, etc.)
+# INSTANCE: keep per-instance masks + bounding boxes (SAM3)
+MODEL_ANNOTATION_MODES: dict[ModelName, LVISAnnotationMode] = {
+    ModelName.MATCHER: LVISAnnotationMode.SEMANTIC,
+    ModelName.SOFT_MATCHER: LVISAnnotationMode.SEMANTIC,
+    ModelName.PER_DINO: LVISAnnotationMode.SEMANTIC,
+    ModelName.GROUNDED_SAM: LVISAnnotationMode.SEMANTIC,
+    ModelName.SAM3: LVISAnnotationMode.SEMANTIC,
+    ModelName.SAM3_CLASSIC: LVISAnnotationMode.SEMANTIC,
+    ModelName.SAM3_VISUAL: LVISAnnotationMode.INSTANCE,
+}
 
 
 def prepare_output_directory(output_path: str, overwrite: bool) -> Path:
@@ -226,12 +240,21 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 compile_models=args.compile_models,
                 device=args.device,
             )
-        case ModelName.SAM3:
+        case ModelName.SAM3_CLASSIC:
             return SAM3(
                 confidence_threshold=args.confidence_threshold,
                 precision=args.precision,
                 compile_models=args.compile_models,
                 device=args.device,
+                prompt_mode="classic",
+            )
+        case ModelName.SAM3_VISUAL:
+            return SAM3(
+                confidence_threshold=args.confidence_threshold,
+                precision=args.precision,
+                compile_models=args.compile_models,
+                device=args.device,
+                prompt_mode="visual_exemplar",
             )
         case _:
             msg = f"Algorithm {model_name.value} not implemented yet"

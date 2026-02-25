@@ -98,3 +98,54 @@ class Sample:
         # Auto-generate category_ids from categories if not provided
         if self.category_ids is None:
             self.category_ids = list(range(len(self.categories)))
+
+    def filter_by_category(self, category_name: str) -> "Sample | None":
+        """Return a new Sample containing only instances matching the given category.
+
+        Filters categories, category_ids, masks, bboxes, and points to keep
+        only entries where the category matches ``category_name``. The image
+        and image_path are shared with the original sample.
+
+        Args:
+            category_name: The category name to keep.
+
+        Returns:
+            A new Sample with only the matching instances, or None if no
+            instances match.
+
+        Examples:
+            >>> sample = Sample(
+            ...     image=img,
+            ...     categories=["cat", "dog", "cat"],
+            ...     category_ids=[0, 1, 0],
+            ...     masks=masks_3hw,
+            ...     bboxes=bboxes_3x4,
+            ... )
+            >>> filtered = sample.filter_by_category("cat")
+            >>> len(filtered.categories)
+            2
+        """
+        if self.categories is None:
+            return None
+
+        indices = [i for i, cat in enumerate(self.categories) if cat == category_name]
+        if not indices:
+            return None
+
+        def _select(data: list | np.ndarray | torch.Tensor | None) -> list | np.ndarray | torch.Tensor | None:
+            if data is None:
+                return None
+            if isinstance(data, (np.ndarray, torch.Tensor)):
+                return data[indices]
+            return [data[i] for i in indices]
+
+        return Sample(
+            image=self.image,
+            image_path=self.image_path,
+            categories=[self.categories[i] for i in indices],
+            category_ids=_select(self.category_ids),
+            masks=_select(self.masks),
+            bboxes=_select(self.bboxes),
+            points=_select(self.points),
+            scores=_select(self.scores),
+        )

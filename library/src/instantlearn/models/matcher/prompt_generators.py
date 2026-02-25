@@ -180,7 +180,6 @@ class BidirectionalPromptGenerator(nn.Module):
         x = x.to(similarity_scores.device)
         y = y.to(similarity_scores.device)
 
-        # TODO[Eugene]: we could potentially filter low-confidence points here
         similarity_scores = similarity_scores.flatten()
         return torch.stack((x, y, similarity_scores), dim=1)
 
