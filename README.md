@@ -13,6 +13,10 @@
 
 Visual prompting offers a powerful alternative to traditional training. Instead of curating thousands of labeled images, you simply show the model one or a few examples of what you are looking for. The model effectively "learns" instantly, detecting and segmenting similar objects in new images or live video streams without retraining.
 
+<p align="center">
+ <image src="https://github.com/user-attachments/assets/2447ac7c-cfac-41b0-89b6-381325465f2c"/>
+</p>
+
 ## Key Features
 
 - **Library & Application**: A unified framework providing a **modular Python library** for research and development, and a **Full-Stack Application** for deploying those algorithms on live video streams.
