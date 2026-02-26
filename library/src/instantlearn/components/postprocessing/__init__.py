@@ -16,6 +16,9 @@ Overlap resolution:
     - :class:`SoftNMS` — Gaussian score decay
     - :class:`PanopticArgmaxAssignment` — pixel-level argmax overlap resolution
 
+Score filtering:
+    - :class:`ScoreFilter` — remove zero/low-score masks
+
 Mask cleaning:
     - :class:`MinimumAreaFilter` — area threshold filter
     - :class:`MorphologicalOpening` — remove small protrusions (ONNX-safe)
@@ -24,6 +27,7 @@ Mask cleaning:
     - :class:`HoleFilling` — fill enclosed holes (eager only)
 
 Mask merging:
+    - :class:`InstanceMerge` — merge spatially connected same-label masks (eager only)
     - :class:`MergePerClassMasks` — OR-merge masks per class (one mask per label)
 
 Composition:
@@ -48,8 +52,8 @@ Examples:
 
 from .base import PostProcessor, PostProcessorPipeline, apply_postprocessing
 from .connected_components import ConnectedComponentFilter, HoleFilling
-from .filtering import MinimumAreaFilter
-from .merge import MergePerClassMasks
+from .filtering import MinimumAreaFilter, ScoreFilter
+from .merge import InstanceMerge, MergePerClassMasks
 from .morphology import MorphologicalClosing, MorphologicalOpening
 from .nms import BoxIoMNMS, BoxNMS, MaskIoMNMS, MaskNMS, SoftNMS
 from .overlap import PanopticArgmaxAssignment
@@ -59,6 +63,7 @@ __all__ = [
     "BoxNMS",
     "ConnectedComponentFilter",
     "HoleFilling",
+    "InstanceMerge",
     "MaskIoMNMS",
     "MaskNMS",
     "MergePerClassMasks",
@@ -68,6 +73,7 @@ __all__ = [
     "PanopticArgmaxAssignment",
     "PostProcessor",
     "PostProcessorPipeline",
+    "ScoreFilter",
     "SoftNMS",
     "apply_postprocessing",
 ]

@@ -21,13 +21,15 @@ Post-processors covered
  3  | MaskIoMNMS                 | Overlap (NMS)      | yes
  4  | BoxIoMNMS                  | Overlap (NMS)      | yes
  5  | SoftNMS                    | Overlap (NMS)      | yes
- 6  | MinimumAreaFilter          | Filtering          | yes
- 7  | MorphologicalOpening       | Mask cleaning      | yes
- 8  | MorphologicalClosing       | Mask cleaning      | yes
- 9  | ConnectedComponentFilter   | Mask cleaning      | no
- 10 | HoleFilling                | Mask cleaning      | no
- 11 | PanopticArgmaxAssignment   | Overlap resolution | yes
- 12 | MergePerClassMasks         | Merging            | yes
+ 6  | ScoreFilter                | Filtering          | yes
+ 7  | MinimumAreaFilter          | Filtering          | yes
+ 8  | MorphologicalOpening       | Mask cleaning      | yes
+ 9  | MorphologicalClosing       | Mask cleaning      | yes
+ 10 | ConnectedComponentFilter   | Mask cleaning      | no
+ 11 | HoleFilling                | Mask cleaning      | no
+ 12 | PanopticArgmaxAssignment   | Overlap resolution | yes
+ 13 | MergePerClassMasks         | Merging            | yes
+ 14 | InstanceMerge              | Merging            | no
 
 Usage
 -----
@@ -51,6 +53,7 @@ from instantlearn.components.postprocessing import (
     BoxNMS,
     ConnectedComponentFilter,
     HoleFilling,
+    InstanceMerge,
     MaskIoMNMS,
     MaskNMS,
     MergePerClassMasks,
@@ -58,6 +61,7 @@ from instantlearn.components.postprocessing import (
     MorphologicalClosing,
     MorphologicalOpening,
     PanopticArgmaxAssignment,
+    ScoreFilter,
     SoftNMS,
     apply_postprocessing,
 )
@@ -364,9 +368,27 @@ def main(interactive: bool = False, instance_colors: bool = False) -> None:
     )
 
     # ===================================================================
-    # 6. MinimumAreaFilter
+    # 6. ScoreFilter
     # ===================================================================
-    print("\n========== 6. MinimumAreaFilter ==========")
+    print("\n========== 6. ScoreFilter ==========")
+    for min_score in [0.0, 0.1, 0.3]:
+        pp = ScoreFilter(min_score=min_score)
+        results = apply_postprocessing(copy.deepcopy(nms_predictions), pp)
+        title = f"ScoreFilter (min_score={min_score})"
+        print_summary(results, title)
+        show_predictions(
+            target_images,
+            results,
+            title,
+            filename=f"ScoreFilter_score{min_score}",
+            interactive=interactive,
+            instance_colors=instance_colors,
+        )
+
+    # ===================================================================
+    # 7. MinimumAreaFilter
+    # ===================================================================
+    print("\n========== 7. MinimumAreaFilter ==========")
     for min_area in [100, 500, 2000]:
         pp = MinimumAreaFilter(min_area=min_area)
         results = apply_postprocessing(copy.deepcopy(nms_predictions), pp)
@@ -382,9 +404,9 @@ def main(interactive: bool = False, instance_colors: bool = False) -> None:
         )
 
     # ===================================================================
-    # 7. MorphologicalOpening
+    # 8. MorphologicalOpening
     # ===================================================================
-    print("\n========== 7. MorphologicalOpening ==========")
+    print("\n========== 8. MorphologicalOpening ==========")
     for ks in [3, 7, 15]:
         pp = MorphologicalOpening(kernel_size=ks)
         results = apply_postprocessing(copy.deepcopy(nms_predictions), pp)
@@ -400,9 +422,9 @@ def main(interactive: bool = False, instance_colors: bool = False) -> None:
         )
 
     # ===================================================================
-    # 8. MorphologicalClosing
+    # 9. MorphologicalClosing
     # ===================================================================
-    print("\n========== 8. MorphologicalClosing ==========")
+    print("\n========== 9. MorphologicalClosing ==========")
     for ks in [3, 7, 15]:
         pp = MorphologicalClosing(kernel_size=ks)
         results = apply_postprocessing(copy.deepcopy(nms_predictions), pp)
@@ -418,9 +440,9 @@ def main(interactive: bool = False, instance_colors: bool = False) -> None:
         )
 
     # ===================================================================
-    # 9. ConnectedComponentFilter
+    # 10. ConnectedComponentFilter
     # ===================================================================
-    print("\n========== 9. ConnectedComponentFilter ==========")
+    print("\n========== 10. ConnectedComponentFilter ==========")
     for min_comp in [100, 500]:
         pp = ConnectedComponentFilter(min_component_area=min_comp)
         results = apply_postprocessing(copy.deepcopy(nms_predictions), pp)
@@ -436,9 +458,9 @@ def main(interactive: bool = False, instance_colors: bool = False) -> None:
         )
 
     # ===================================================================
-    # 10. HoleFilling
+    # 11. HoleFilling
     # ===================================================================
-    print("\n========== 10. HoleFilling ==========")
+    print("\n========== 11. HoleFilling ==========")
     pp = HoleFilling()
     results = apply_postprocessing(copy.deepcopy(nms_predictions), pp)
     print_summary(results, "HoleFilling")
@@ -452,9 +474,9 @@ def main(interactive: bool = False, instance_colors: bool = False) -> None:
     )
 
     # ===================================================================
-    # 11. PanopticArgmaxAssignment
+    # 12. PanopticArgmaxAssignment
     # ===================================================================
-    print("\n========== 11. PanopticArgmaxAssignment ==========")
+    print("\n========== 12. PanopticArgmaxAssignment ==========")
     for min_area in [0, 500]:
         pp = PanopticArgmaxAssignment(min_area=min_area)
         results = apply_postprocessing(copy.deepcopy(nms_predictions), pp)
@@ -470,9 +492,9 @@ def main(interactive: bool = False, instance_colors: bool = False) -> None:
         )
 
     # ===================================================================
-    # 12. MergePerClassMasks
+    # 13. MergePerClassMasks
     # ===================================================================
-    print("\n========== 12. MergePerClassMasks ==========")
+    print("\n========== 13. MergePerClassMasks ==========")
     pp = MergePerClassMasks()
     results = apply_postprocessing(copy.deepcopy(nms_predictions), pp)
     print_summary(results, "MergePerClassMasks")
@@ -484,6 +506,24 @@ def main(interactive: bool = False, instance_colors: bool = False) -> None:
         interactive=interactive,
         instance_colors=instance_colors,
     )
+
+    # ===================================================================
+    # 14. InstanceMerge
+    # ===================================================================
+    print("\n========== 14. InstanceMerge ==========")
+    for gap in [0, 5, 15]:
+        pp = InstanceMerge(iou_threshold=0.0, gap_pixels=gap)
+        results = apply_postprocessing(copy.deepcopy(nms_predictions), pp)
+        title = f"InstanceMerge (gap_pixels={gap})"
+        print_summary(results, title)
+        show_predictions(
+            target_images,
+            results,
+            title,
+            filename=f"InstanceMerge_gap{gap}",
+            interactive=interactive,
+            instance_colors=instance_colors,
+        )
 
     print(f"\nAll plots saved to {OUTPUT_DIR}/")
 
