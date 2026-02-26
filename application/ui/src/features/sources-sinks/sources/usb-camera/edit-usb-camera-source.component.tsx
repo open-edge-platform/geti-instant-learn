@@ -28,6 +28,8 @@ const EditUsbCameraSourceContent = ({ source, onSaved, availableUsbCameras }: Ed
     const isButtonDisabled = selectedDeviceId == source.config.device_id || updateUsbCameraSource.isPending;
 
     const handleUpdateUsbCameraSource = (active: boolean) => {
+        const name = availableUsbCameras.find((camera) => camera.device_id === selectedDeviceId)?.name;
+
         updateUsbCameraSource.mutate(
             source.id,
             {
@@ -35,6 +37,7 @@ const EditUsbCameraSourceContent = ({ source, onSaved, availableUsbCameras }: Ed
                     source_type: 'usb_camera',
                     device_id: selectedDeviceId,
                     seekable: false,
+                    name,
                 },
                 active,
             },

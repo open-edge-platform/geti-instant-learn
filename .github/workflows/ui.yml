@@ -3,6 +3,8 @@ on:
   workflow_call:
   workflow_dispatch:
 
+permissions: {} # No permissions by default
+
 jobs:
   generate-openapi-spec:
     name: Generate OpenAPI Spec
@@ -19,7 +21,7 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/install-dependencies
         with:
-          uv-cache-dependency-glob: 'application/backend/uv.lock'
+          uv-cache-dependency-glob: "application/backend/uv.lock"
 
       - name: Install system dependencies
         run: |
@@ -52,7 +54,7 @@ jobs:
         id: setup-node
         with:
           node-version-file: application/ui/.nvmrc
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: application/ui/package-lock.json
 
       - &install-npm-deps

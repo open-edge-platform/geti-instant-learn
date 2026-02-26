@@ -1,25 +1,9 @@
-@import './intel-one-display/intel-one-display.css';
-@import './intel-one-text/intel-one-text.css';
-@import './intel-one-mono/intel-one-mono.css';
+@import './roboto-flex/roboto-flex.css';
 
 :root {
-    --spectrum-global-font-family-monospace: 'IntelOne Mono', 'Courier New', monospace;
-    --spectrum-global-font-family-display: 'IntelOne Display', Arial, sans-serif;
+    --font-family: 'Roboto Flex', sans-serif;
 }
 
-[class*='spectrum'] {
-    font-family: 'IntelOne Text';
-}
-
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-    font-family: var(--spectrum-global-font-family-display);
-}
-
-code {
-    font-family: var(--spectrum-global-font-family-monospace);
+* {
+    font-family: var(--font-family);
 }

@@ -19,7 +19,6 @@ export const getMockedModel = (model?: Partial<ModelType>): ModelType => {
             confidence_threshold: 0.42,
             precision: 'bf16',
             use_nms: true,
-            compile_models: true,
         },
         active: true,
         name: 'PerDINO',

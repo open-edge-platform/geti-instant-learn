@@ -1,6 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from unittest.mock import Mock
 from uuid import UUID, uuid4
 
 import pytest
@@ -10,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from api.error_handler import custom_exception_handler
 from api.routers import projects_router
-from dependencies import SessionDep, get_config_dispatcher, get_sink_service
+from dependencies import SessionDep, get_config_dispatcher, get_sink_connection_validator, get_sink_service
 from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
@@ -39,6 +40,9 @@ def app():
             pass
 
     app.dependency_overrides[get_config_dispatcher] = lambda: DummyDispatcher()
+    validator = Mock()
+    validator.validate.return_value = None
+    app.dependency_overrides[get_sink_connection_validator] = lambda: validator
 
     app.add_exception_handler(Exception, custom_exception_handler)
     app.add_exception_handler(RequestValidationError, custom_exception_handler)

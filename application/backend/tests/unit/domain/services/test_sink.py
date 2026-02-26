@@ -57,7 +57,12 @@ def mock_dispatcher():
 
 
 @pytest.fixture
-def sink_service(mock_session, mock_sink_repository, mock_project_repository, mock_dispatcher):
+def sink_service(
+    mock_session,
+    mock_sink_repository,
+    mock_project_repository,
+    mock_dispatcher,
+):
     """Create SinkService instance with mocked dependencies."""
     return SinkService(
         session=mock_session,
@@ -677,7 +682,13 @@ class TestEventDispatcher:
         assert event.component_type == ComponentType.SINK
 
     def test_no_dispatcher_does_not_raise(
-        self, mock_session, mock_sink_repository, mock_project_repository, project_id, mock_project, sink_create_data
+        self,
+        mock_session,
+        mock_sink_repository,
+        mock_project_repository,
+        project_id,
+        mock_project,
+        sink_create_data,
     ):
         """Test that operations work without a dispatcher."""
         # Arrange

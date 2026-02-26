@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import Response, status
 
 from api.routers import projects_router
-from dependencies import SinkServiceDep
+from dependencies import SinkConnectionValidatorDep, SinkServiceDep
 from domain.services.schemas.sink import SinkCreateSchema, SinkSchema, SinksListSchema, SinkUpdateSchema
 
 logger = logging.getLogger(__name__)
@@ -132,10 +132,17 @@ def get_sinks(project_id: UUID, sink_service: SinkServiceDep, offset: int = 0, l
         },
     },
 )
-def update_sink(project_id: UUID, sink_id: UUID, payload: SinkUpdateSchema, sink_service: SinkServiceDep) -> SinkSchema:
+def update_sink(
+    project_id: UUID,
+    sink_id: UUID,
+    payload: SinkUpdateSchema,
+    sink_service: SinkServiceDep,
+    sink_connection_validator: SinkConnectionValidatorDep,
+) -> SinkSchema:
     """
     Update the project's sink configuration.
     """
+    sink_connection_validator.validate(config=payload.config)
     return sink_service.update_sink(project_id=project_id, sink_id=sink_id, update_data=payload)
 
 
@@ -234,8 +241,14 @@ def delete_sink(project_id: UUID, sink_id: UUID, sink_service: SinkServiceDep) -
         },
     },
 )
-def create_sink(project_id: UUID, payload: SinkCreateSchema, source_service: SinkServiceDep) -> SinkSchema:
+def create_sink(
+    project_id: UUID,
+    payload: SinkCreateSchema,
+    sink_service: SinkServiceDep,
+    sink_connection_validator: SinkConnectionValidatorDep,
+) -> SinkSchema:
     """
     Create a new sink configuration for the project.
     """
-    return source_service.create_sink(project_id=project_id, create_data=payload)
+    sink_connection_validator.validate(config=payload.config)
+    return sink_service.create_sink(project_id=project_id, create_data=payload)

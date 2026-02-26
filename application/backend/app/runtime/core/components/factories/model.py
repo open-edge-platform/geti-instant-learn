@@ -8,8 +8,8 @@ from instantlearn.models.soft_matcher import SoftMatcher
 
 from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, SoftMatcherConfig
 from runtime.core.components.base import ModelHandler
-from runtime.core.components.models.inference_model import InferenceModelHandler
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
+from runtime.core.components.models.torch_model import TorchModelHandler
 from settings import get_settings
 
 
@@ -32,10 +32,9 @@ class ModelFactory:
                     use_mask_refinement=config.use_mask_refinement,
                     sam=config.sam_model,
                     encoder_model=config.encoder_model,
-                    compile_models=config.compile_models,
                     use_nms=config.use_nms,
                 )
-                return InferenceModelHandler(model, reference_batch)
+                return TorchModelHandler(model, reference_batch)
             case PerDinoConfig() as config:
                 model = PerDino(
                     sam=config.sam_model,
@@ -47,10 +46,9 @@ class ModelFactory:
                     confidence_threshold=config.confidence_threshold,
                     use_nms=config.use_nms,
                     precision=config.precision,
-                    compile_models=config.compile_models,
                     device=settings.device,
                 )
-                return InferenceModelHandler(model, reference_batch)
+                return TorchModelHandler(model, reference_batch)
             case SoftMatcherConfig() as config:
                 model = SoftMatcher(
                     sam=config.sam_model,
@@ -65,9 +63,8 @@ class ModelFactory:
                     softmatching_bidirectional=config.softmatching_bidirectional,
                     use_nms=config.use_nms,
                     precision=config.precision,
-                    compile_models=config.compile_models,
                     device=settings.device,
                 )
-                return InferenceModelHandler(model, reference_batch)
+                return TorchModelHandler(model, reference_batch)
             case _:
                 return PassThroughModelHandler()

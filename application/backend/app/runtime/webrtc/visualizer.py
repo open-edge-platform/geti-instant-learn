@@ -5,7 +5,6 @@ import logging
 
 import cv2
 import numpy as np
-import torch
 
 from domain.services.schemas.label import VisualizationInfo
 from domain.services.schemas.processor import OutputData
@@ -55,21 +54,21 @@ class InferenceVisualizer:
         logger.debug("Visualizing the output data: %s, categories=%s", output_data, category_id_to_label_id)
         for prediction in output_data.results:
             boxes = prediction.get("pred_boxes")
-            if boxes is not None and boxes.numel() > 0:
+            if boxes is not None and boxes.size > 0:
                 logger.warning("pred_boxes visualization is not supported and will be ignored")
 
             masks = prediction.get("pred_masks")
             labels = prediction.get("pred_labels")
 
-            if masks is not None and masks.numel() > 0:
+            if masks is not None and masks.size > 0:
                 annotated = self._draw_masks(annotated, masks, labels, label_id_to_color, category_id_to_label_id)
         return annotated
 
     def _draw_masks(
         self,
         frame: np.ndarray,
-        masks: torch.Tensor,
-        labels: torch.Tensor | None,
+        masks: np.ndarray,
+        labels: np.ndarray | None,
         label_colors: dict[str, tuple[int, int, int]],
         category_id_to_label_id: dict[int, str],
     ) -> np.ndarray:
@@ -78,21 +77,20 @@ class InferenceVisualizer:
 
         Args:
             frame: RGB frame to draw on.
-            masks: Tensor of shape [N, H, W] with mask logits/probabilities.
-            labels: Tensor of shape [N] with category IDs for each mask.
+            masks: Array of shape [N, H, W] with mask logits/probabilities.
+            labels: Array of shape [N] with category IDs for each mask.
             label_colors: Mapping of label UUID (str) to RGB color tuple.
             category_id_to_label_id: Mapping of category ID (int) to label UUID (str).
 
         Returns:
             A new RGB frame with mask overlays applied.
         """
-        masks_np = masks.detach().cpu().numpy()
         labels_np: np.ndarray | None = None
-        if labels is not None and labels.numel() > 0:
-            labels_np = labels.detach().cpu().numpy()
+        if labels is not None and labels.size > 0:
+            labels_np = labels
         overlay = frame.copy()
 
-        for mask_idx, mask in enumerate(masks_np):
+        for mask_idx, mask in enumerate(masks):
             category_id = self._extract_category_id_from_array(labels_np, mask_idx)
             color = self._resolve_color_for_category(category_id, label_colors, category_id_to_label_id)
 

@@ -7,7 +7,7 @@ from enum import Enum, StrEnum
 from pathlib import Path
 
 
-class Backend(Enum):
+class Backend(StrEnum):
     """Enum for backends."""
 
     ONNX = "onnx"
@@ -30,14 +30,16 @@ class SAMModelName(StrEnum):
     SAM2_LARGE = "SAM2-large"
 
 
-class ModelName(Enum):
+class ModelName(StrEnum):
     """Enum for model types."""
 
     GROUNDED_SAM = "GroundedSAM"
     MATCHER = "Matcher"
     PER_DINO = "PerDino"
     SOFT_MATCHER = "SoftMatcher"
-    SAM3 = "SAM3"
+    SAM3 = "SAM3-Classic"
+    SAM3_CLASSIC = "SAM3-Classic"
+    SAM3_VISUAL = "SAM3-Visual"
 
 
 class DatasetName(Enum):

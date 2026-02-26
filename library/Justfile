@@ -4,7 +4,7 @@ set shell := ["bash", "-cu"]
 
 py_path := "tests:src"
 # Ensure version in GHA workflow matches uv version here
-uv_version := "0.9.7"
+uv_version := "0.10.0"
 
 # Sphinx documentation variables
 DOCSSOURCEDIR := "sphinx"

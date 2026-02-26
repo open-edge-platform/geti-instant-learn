@@ -6,7 +6,6 @@ from enum import StrEnum
 from typing import Annotated, Any, Literal
 
 import numpy as np
-import torch
 from instantlearn.components.encoders.timm import AVAILABLE_IMAGE_ENCODERS
 from instantlearn.utils.constants import SAMModelName
 from pydantic import BaseModel, Field, field_validator
@@ -33,7 +32,6 @@ class BaseModelConfig(BaseModel):
     encoder_model: str = Field(default="dinov3_small")
     precision: str = Field(default="bf16", description="Model precision")
     use_nms: bool = Field(default=True)
-    compile_models: bool = Field(default=False)
 
     @field_validator("sam_model", mode="before")
     @classmethod
@@ -73,7 +71,6 @@ class PerDinoConfig(BaseModelConfig):
                 "confidence_threshold": 0.42,
                 "precision": "bf16",
                 "use_nms": True,
-                "compile_models": False,
             }
         }
     }
@@ -97,7 +94,6 @@ class MatcherConfig(BaseModelConfig):
                 "sam_model": "SAM-HQ-tiny",
                 "encoder_model": "dinov3_small",
                 "use_mask_refinement": False,
-                "compile_models": False,
                 "use_nms": True,
             }
         }
@@ -131,7 +127,6 @@ class SoftMatcherConfig(BaseModelConfig):
                 "softmatching_bidirectional": False,
                 "precision": "bf16",
                 "use_nms": True,
-                "compile_models": False,
             }
         }
     }
@@ -149,7 +144,7 @@ class InputData:
 
 @dataclass(kw_only=True)
 class OutputData:
-    results: list[dict[str, torch.Tensor]]
+    results: list[dict[str, np.ndarray]]
     frame: np.ndarray  # frame loaded as numpy array in RGB HWC format (H, W, 3) with dtype=uint8
 
 

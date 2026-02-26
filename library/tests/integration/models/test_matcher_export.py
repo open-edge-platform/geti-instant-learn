@@ -25,7 +25,7 @@ from instantlearn.utils.constants import Backend, SAMModelName
 @pytest.fixture
 def fss1000_root() -> Path:
     """Return path to fss-1000 test dataset."""
-    return Path(__file__).parent.parent.parent / "assets" / "fss-1000"
+    return Path(__file__).parent.parent.parent.parent / "examples" / "assets" / "fss-1000"
 
 
 @pytest.fixture
@@ -93,11 +93,10 @@ class TestMatcherExportIntegration:
         )
 
         # Fit on reference
-        ref_features = matcher.fit(reference_batch)
+        matcher.fit(reference_batch)
 
         # Export to ONNX
         exported_path = matcher.export(
-            reference_features=ref_features,
             export_dir=tmp_path,
             backend=Backend.ONNX,
         )
@@ -158,11 +157,10 @@ class TestMatcherExportIntegration:
         )
 
         # Fit on reference
-        ref_features = matcher.fit(reference_batch)
+        matcher.fit(reference_batch)
 
         # Export to OpenVINO
         exported_path = matcher.export(
-            reference_features=ref_features,
             export_dir=tmp_path,
             backend=Backend.OPENVINO,
         )

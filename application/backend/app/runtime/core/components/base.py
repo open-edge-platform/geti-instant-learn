@@ -7,8 +7,7 @@ from threading import Event
 from types import TracebackType
 from typing import Any, TypeVar
 
-import torch
-from instantlearn.data.base.batch import Batch
+import numpy as np
 
 from domain.services.schemas.processor import InputData
 from domain.services.schemas.reader import FrameListResponse, ReaderConfig
@@ -127,6 +126,13 @@ class StreamWriter(AbstractContextManager, ABC):
     def write(self, data: Any) -> None:
         pass
 
+    def connect(self) -> None:
+        """Establish connection to the sink if required.
+
+        Implementations that do not require explicit connection setup may
+        leave this method as a no-op.
+        """
+
     def close(self) -> None:
         pass
 
@@ -145,5 +151,5 @@ class ModelHandler(ABC):
         pass
 
     @abstractmethod
-    def predict(self, batch: Batch) -> list[dict[str, torch.Tensor]]:
+    def predict(self, inputs: list[InputData]) -> list[dict[str, np.ndarray]]:
         pass

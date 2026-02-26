@@ -39,7 +39,7 @@ class TestSource:
         self.source.run()
 
         self.mock_stream_reader.connect.assert_called_once()
-        self.mock_stream_reader.close.assert_called_once()
+        assert self.mock_stream_reader.close.call_count == 2
 
         broadcast_calls = [call.args[0] for call in self.mock_broadcaster.broadcast.call_args_list]
         assert broadcast_calls == expected_broadcasts

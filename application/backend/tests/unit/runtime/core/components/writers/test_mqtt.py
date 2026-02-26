@@ -13,20 +13,21 @@ def mocked_writer(monkeypatch):
     client_instance = MagicMock()
     client_factory = MagicMock(return_value=client_instance)
     monkeypatch.setattr(mqtt_writer.mqtt, "Client", client_factory)
-    config = WriterConfig(broker_host="mqtt.example", topic="topic/1", port=1884)
+    config = WriterConfig(broker_host="mqtt.example", topic="topic/1", broker_port=1884)
     writer = MqttWriter(config=config)
     return writer, client_instance
 
 
 class TestMqttWriter:
-    def test_write_connects_and_publishes(self, mocked_writer):
+    def test_write_publishes_when_connected(self, mocked_writer):
         writer, client = mocked_writer
         writer._client = client
-        writer._connect = MagicMock(side_effect=lambda: setattr(writer, "_connected", True))
+        writer._connected = True
+        writer.connect = MagicMock()
 
         writer.write(SimpleNamespace(results={"foo": "bar"}))
 
-        writer._connect.assert_called_once()
+        writer.connect.assert_not_called()
         client.publish.assert_called_once_with("topic/1", '{"foo": "bar"}')
         assert writer._connected is True
 
@@ -34,7 +35,7 @@ class TestMqttWriter:
         writer, client = mocked_writer
         writer._connected = True
 
-        writer._connect()
+        writer.connect()
 
         client.connect.assert_not_called()
 
@@ -44,7 +45,7 @@ class TestMqttWriter:
         client.connect.side_effect = Exception("boom")
 
         with pytest.raises(ConnectionError, match="Failed to connect"):
-            writer._connect()
+            writer.connect()
 
         assert client.connect.call_count == mqtt_writer.MAX_RETRIES
 
@@ -53,4 +54,12 @@ class TestMqttWriter:
         writer._client = None
 
         with pytest.raises(RuntimeError, match="client is not initialised"):
+            writer.write("payload")
+
+    def test_write_raises_when_not_connected(self, mocked_writer):
+        writer, client = mocked_writer
+        writer._client = client
+        writer._connected = False
+
+        with pytest.raises(RuntimeError, match="client is not connected"):
             writer.write("payload")

@@ -34,7 +34,7 @@ def model_instance(mock_dino_encoder: MagicMock) -> DinoTxtZeroShotClassificatio
     Returns:
         DinoTxtZeroShotClassification: An instance configured for CPU testing.
     """
-    with patch("instantlearn.models.dinotxt.DinoTextEncoder") as mock_encoder_class:
+    with patch("instantlearn.models.dinotxt.dinotxt.DinoTextEncoder") as mock_encoder_class:
         mock_encoder_class.return_value = mock_dino_encoder
         return DinoTxtZeroShotClassification(
             device="cpu",  # Use CPU for testing
@@ -91,7 +91,7 @@ class TestDinoTxtZeroShotClassification:
     """Test cases for the DinoTxtZeroShotClassification pipeline."""
 
     @staticmethod
-    @patch("instantlearn.models.dinotxt.DinoTextEncoder")
+    @patch("instantlearn.models.dinotxt.dinotxt.DinoTextEncoder")
     def test_pipeline_initialization_with_custom_params(mock_encoder_class: MagicMock) -> None:
         """Test pipeline initialization with custom parameters."""
         mock_encoder = MagicMock()
@@ -122,7 +122,7 @@ class TestDinoTxtZeroShotClassification:
         """Test that predict raises AttributeError when fit hasn't been called."""
         sample_images, _ = sample_dataset
         # Convert numpy arrays to Image objects and create Batch
-        image_objects = [Image(img) for img in sample_images]
+        image_objects = [Image(img.transpose(2, 0, 1)) for img in sample_images]
         samples = [Sample(image=img, is_reference=[False], categories=["object"]) for img in image_objects]
         target_batch = Batch.collate(samples)
         with pytest.raises(AttributeError):
@@ -141,7 +141,7 @@ class TestDinoTxtZeroShotClassification:
         model_instance.fit(sample_reference_batch)
 
         # Convert numpy arrays to Image objects and create Batch
-        image_objects = [Image(img) for img in sample_images]
+        image_objects = [Image(img.transpose(2, 0, 1)) for img in sample_images]
         samples = [Sample(image=img, is_reference=[False], categories=["object"]) for img in image_objects]
         target_batch = Batch.collate(samples)
 

@@ -80,6 +80,7 @@ class TestExport:
                 input_names=["cost"],
                 output_names=["row", "col"],
                 opset_version=17,
+                dynamo=False,
             )
 
             # Validate ONNX model
@@ -109,6 +110,7 @@ class TestExport:
                 input_names=["cost"],
                 output_names=["row", "col"],
                 opset_version=17,
+                dynamo=False,
             )
 
             compiled = ov.Core().compile_model(str(path), "CPU")
@@ -163,5 +165,5 @@ class TestAutoMode:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "auto.onnx"
-            torch.onnx.export(solver, cost, str(path), opset_version=17)
+            torch.onnx.export(solver, cost, str(path), opset_version=17, dynamo=False)
             assert path.exists()

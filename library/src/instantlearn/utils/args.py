@@ -8,7 +8,7 @@ from enum import Enum
 from typing import TypeVar
 
 from instantlearn.components.encoders import AVAILABLE_IMAGE_ENCODERS
-from instantlearn.components.prompt_generators import GroundingModel
+from instantlearn.models.grounded_sam import GroundingModel
 from instantlearn.utils.constants import DatasetName, ModelName, SAMModelName
 
 # Generate help strings with choices
@@ -33,14 +33,12 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         "--sam",
         type=str,
         default="SAM-HQ-tiny",
-        choices=["all"] + [model.value for model in SAMModelName],
         help=HELP_SAM_ARG_MSG,
     )
     parser.add_argument(
         "--model",
         type=str,
         default="Matcher",
-        choices=["all"] + [p.value for p in ModelName],
         help=HELP_MODEL_ARG_MSG,
     )
     parser.add_argument(
@@ -53,7 +51,6 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
         "--dataset_name",
         type=str,
         default="lvis",
-        choices=["all"] + [d.value for d in DatasetName],
         help=HELP_DATASET_ARG_MSG,
     )
     parser.add_argument(
@@ -257,18 +254,19 @@ def _parse_enum_list(arg_str: str, enum_cls: type[TEnum], arg_name: str) -> list
     Raises:
         ValueError: If any provided value is not a valid enum member
     """
-    if arg_str == "all":
+    if arg_str.lower() == "all":
         return list(enum_cls)
 
     items_to_run = [p.strip() for p in arg_str.split(",")]
-    valid_enum_values = {e.value for e in enum_cls}
+    # Build case-insensitive lookup: lowercase value -> enum member
+    value_to_enum = {e.value.lower(): e for e in enum_cls}
 
-    invalid_items = [item for item in items_to_run if item not in valid_enum_values]
+    invalid_items = [item for item in items_to_run if item.lower() not in value_to_enum]
     if invalid_items:
         msg = f"Invalid {arg_name}(s): {invalid_items}. Available {arg_name}s: {[e.value for e in enum_cls]}"
         raise ValueError(msg)
 
-    return [enum_cls(item) for item in items_to_run]
+    return [value_to_enum[item.lower()] for item in items_to_run]
 
 
 def parse_experiment_args(args: argparse.Namespace) -> tuple[list[DatasetName], list[ModelName], list[SAMModelName]]:

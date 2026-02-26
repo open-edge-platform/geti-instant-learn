@@ -29,6 +29,7 @@ class Sink(PipelineComponent):
             raise RuntimeError("The sink should be initialized before being used")
         logger.debug("Starting a sink loop")
         with self._writer:
+            self._writer.connect()
             while not self._stop_event.is_set():
                 try:
                     data = self._out_queue.get(timeout=0.1)

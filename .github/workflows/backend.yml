@@ -7,6 +7,9 @@ on:
         type: string
         required: true
   workflow_dispatch:
+
+permissions: {} # No permissions by default
+
 jobs:
   component-check:
     name: Backend workflow
@@ -24,7 +27,7 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/install-dependencies
         with:
-          uv-cache-dependency-glob: 'application/backend/uv.lock'
+          uv-cache-dependency-glob: "application/backend/uv.lock"
 
       - name: Lint backend
         working-directory: application/backend

@@ -71,6 +71,8 @@ class Source(PipelineComponent):
                 logger.exception(f"Error reading from stream: {e}.")
                 time.sleep(0.1)
         logger.debug(f"Stopping the source {self._reader.__class__.__name__} loop")
+        # TODO: To investigate why reader.close() is fixing issue when switching cameras
+        self._reader.close()
 
     def _stop(self) -> None:
         """Clean up resources when component is stopped."""

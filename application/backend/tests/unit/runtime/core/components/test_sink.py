@@ -25,6 +25,7 @@ class TestSink:
         self.broadcaster.register.return_value = self.out_queue
         self.mock_stream_writer = MagicMock(spec=StreamWriter)
         self.mock_stream_writer.__enter__.return_value = self.mock_stream_writer
+        self.mock_stream_writer.connect.return_value = None
         self.sink = Sink(self.mock_stream_writer)
         self.sink.setup(self.broadcaster)
 
@@ -50,6 +51,7 @@ class TestSink:
 
         self.mock_stream_writer.__enter__.assert_called_once()
         self.mock_stream_writer.__exit__.assert_called_once()
+        self.mock_stream_writer.connect.assert_called_once()
 
         expected_calls = [call(item) for item in expected_writes]
         assert self.mock_stream_writer.write.call_args_list == expected_calls

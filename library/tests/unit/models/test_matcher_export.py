@@ -43,8 +43,8 @@ class TestMatcherExport:
             "segmenter": MagicMock(),
         }
 
-    @patch("instantlearn.models.matcher.load_sam_model")
-    @patch("instantlearn.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.matcher.ImageEncoder")
     def test_export_creates_directory(
         self,
         mock_image_encoder: MagicMock,
@@ -60,6 +60,7 @@ class TestMatcherExport:
 
         model = Matcher(device="cpu")
         model.encoder = mock_components["encoder"]
+        model.ref_features = mock_reference_features
 
         export_dir = tmp_path / "new_export_dir"
         assert not export_dir.exists()
@@ -67,15 +68,14 @@ class TestMatcherExport:
         # Mock torch.onnx.export to avoid actual export
         with patch("torch.onnx.export"):
             model.export(
-                reference_features=mock_reference_features,
                 export_dir=export_dir,
                 backend=Backend.ONNX,
             )
 
         assert export_dir.exists()
 
-    @patch("instantlearn.models.matcher.load_sam_model")
-    @patch("instantlearn.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.matcher.ImageEncoder")
     def test_export_onnx_returns_correct_path(
         self,
         mock_image_encoder: MagicMock,
@@ -91,18 +91,18 @@ class TestMatcherExport:
 
         model = Matcher(device="cpu")
         model.encoder = mock_components["encoder"]
+        model.ref_features = mock_reference_features
 
         with patch("torch.onnx.export"):
             result = model.export(
-                reference_features=mock_reference_features,
                 export_dir=tmp_path,
                 backend=Backend.ONNX,
             )
 
         assert result == tmp_path / "matcher.onnx"
 
-    @patch("instantlearn.models.matcher.load_sam_model")
-    @patch("instantlearn.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.matcher.ImageEncoder")
     def test_export_openvino_returns_correct_path(
         self,
         mock_image_encoder: MagicMock,
@@ -118,6 +118,7 @@ class TestMatcherExport:
 
         model = Matcher(device="cpu")
         model.encoder = mock_components["encoder"]
+        model.ref_features = mock_reference_features
 
         with (
             patch("torch.onnx.export"),
@@ -126,15 +127,14 @@ class TestMatcherExport:
         ):
             mock_convert.return_value = MagicMock()
             result = model.export(
-                reference_features=mock_reference_features,
                 export_dir=tmp_path,
                 backend=Backend.OPENVINO,
             )
 
         assert result == tmp_path / "matcher.xml"
 
-    @patch("instantlearn.models.matcher.load_sam_model")
-    @patch("instantlearn.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.matcher.ImageEncoder")
     def test_export_onnx_calls_torch_export(
         self,
         mock_image_encoder: MagicMock,
@@ -150,10 +150,10 @@ class TestMatcherExport:
 
         model = Matcher(device="cpu")
         model.encoder = mock_components["encoder"]
+        model.ref_features = mock_reference_features
 
         with patch("torch.onnx.export") as mock_export:
             model.export(
-                reference_features=mock_reference_features,
                 export_dir=tmp_path,
                 backend=Backend.ONNX,
             )
@@ -164,8 +164,8 @@ class TestMatcherExport:
         assert call_kwargs["output_names"] == ["masks", "scores", "labels"]
         assert "dynamic_axes" in call_kwargs
 
-    @patch("instantlearn.models.matcher.load_sam_model")
-    @patch("instantlearn.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.matcher.ImageEncoder")
     def test_export_openvino_calls_convert_model(
         self,
         mock_image_encoder: MagicMock,
@@ -181,6 +181,7 @@ class TestMatcherExport:
 
         model = Matcher(device="cpu")
         model.encoder = mock_components["encoder"]
+        model.ref_features = mock_reference_features
 
         with (
             patch("torch.onnx.export"),
@@ -189,7 +190,6 @@ class TestMatcherExport:
         ):
             mock_convert.return_value = MagicMock()
             model.export(
-                reference_features=mock_reference_features,
                 export_dir=tmp_path,
                 backend=Backend.OPENVINO,
             )
@@ -197,8 +197,8 @@ class TestMatcherExport:
         mock_convert.assert_called_once()
         mock_save.assert_called_once()
 
-    @patch("instantlearn.models.matcher.load_sam_model")
-    @patch("instantlearn.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.matcher.ImageEncoder")
     def test_export_string_path_converted_to_path(
         self,
         mock_image_encoder: MagicMock,
@@ -214,12 +214,12 @@ class TestMatcherExport:
 
         model = Matcher(device="cpu")
         model.encoder = mock_components["encoder"]
+        model.ref_features = mock_reference_features
 
         str_path = str(tmp_path / "string_path_export")
 
         with patch("torch.onnx.export"):
             result = model.export(
-                reference_features=mock_reference_features,
                 export_dir=str_path,
                 backend=Backend.ONNX,
             )
@@ -227,8 +227,8 @@ class TestMatcherExport:
         assert isinstance(result, Path)
         assert Path(str_path).exists()
 
-    @patch("instantlearn.models.matcher.load_sam_model")
-    @patch("instantlearn.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.matcher.ImageEncoder")
     def test_export_default_backend_is_onnx(
         self,
         mock_image_encoder: MagicMock,
@@ -244,18 +244,18 @@ class TestMatcherExport:
 
         model = Matcher(device="cpu")
         model.encoder = mock_components["encoder"]
+        model.ref_features = mock_reference_features
 
         with patch("torch.onnx.export"):
             result = model.export(
-                reference_features=mock_reference_features,
                 export_dir=tmp_path,
             )
 
         # Default backend should be ONNX, returning .onnx file
         assert result.suffix == ".onnx"
 
-    @patch("instantlearn.models.matcher.load_sam_model")
-    @patch("instantlearn.models.matcher.ImageEncoder")
+    @patch("instantlearn.models.matcher.matcher.load_sam_model")
+    @patch("instantlearn.models.matcher.matcher.ImageEncoder")
     def test_export_unsupported_backend_returns_export_dir(
         self,
         mock_image_encoder: MagicMock,
@@ -271,9 +271,9 @@ class TestMatcherExport:
 
         model = Matcher(device="cpu")
         model.encoder = mock_components["encoder"]
+        model.ref_features = mock_reference_features
 
         result = model.export(
-            reference_features=mock_reference_features,
             export_dir=tmp_path,
             backend=Backend.TENSORRT,  # Unsupported backend
         )

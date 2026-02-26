@@ -36,7 +36,7 @@ class MqttWriter(StreamWriter):
             logger.info("MQTT authentication is disabled")
         self._connected: bool = False
 
-    def _connect(self) -> None:
+    def connect(self) -> None:
         if self._client is None or self._connected:
             return
         for attempt in range(MAX_RETRIES):
@@ -52,7 +52,10 @@ class MqttWriter(StreamWriter):
             except Exception:
                 logger.exception("Connection failed")
                 time.sleep(RETRY_DELAY * (attempt + 1))
-        raise ConnectionError("Failed to connect to MQTT broker")
+        raise ConnectionError(
+            f"Failed to connect to MQTT broker {self._config.broker_host}:{self._config.broker_port} "
+            f"after {MAX_RETRIES} attempts"
+        )
 
     def write(self, data: OutputData) -> None:
         """Publish `data` to the configured MQTT topic."""
@@ -60,7 +63,7 @@ class MqttWriter(StreamWriter):
             raise RuntimeError("MQTT client is not initialised")
 
         if not self._connected:
-            self._connect()
+            raise RuntimeError("MQTT client is not connected")
 
         logger.info(f"Publishing data to MQTT topic: {self._config.topic}")
         payload = json.dumps(data.results)

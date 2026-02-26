@@ -94,7 +94,7 @@ jobs:
 
       - uses: DavidAnson/markdownlint-cli2-action@07035fd053f7be764496c0f8d8f9f41f98305101 #v22.0.0
         with:
-          config: '.github/.markdownlint-cli2.jsonc'
+          config: ".github/.markdownlint-cli2.jsonc"
 
       - name: Set up NodeJS
         uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
@@ -114,7 +114,7 @@ jobs:
 
   success:
     name: Status checks
-    needs: [ build-parameters, library, backend, ui, distrib, markdown ]
+    needs: [build-parameters, library, backend, ui, distrib, markdown]
     runs-on: ubuntu-latest
     if: ${{ always() && !cancelled() }}
     env:

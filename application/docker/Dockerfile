@@ -1,41 +1,7 @@
-################
-# Libraries Base
-################
-FROM python:3.13-slim@sha256:baf66684c5fcafbda38a54b227ee30ec41e40af1e4073edee3a7110a417756ba AS backend-base
-ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
-
-# Disable Python downloads, because we want to use the system interpreter
-ENV UV_PYTHON_DOWNLOADS=0
-
-COPY --from=ghcr.io/astral-sh/uv:0.9.7@sha256:ba4857bf2a068e9bc0e64eed8563b065908a4cd6bfb66b531a9c424c8e25e142 /uv /bin/uv
-WORKDIR /instant_learn/
-
-# Install git for git dependencies (sam-2)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git=1:2.47.3-0+deb13u1 \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
-
-# Copy library and create proper directory structure
-COPY --link --from=libs ./src /instant_learn/library/src
-COPY --link --from=libs ./pyproject.toml /instant_learn/library/pyproject.toml
-
-# Change to a subdirectory so ../../library resolves correctly
-RUN mkdir -p /instant_learn/app/backend
-WORKDIR /instant_learn/app/backend
-
-ARG DEVICE=""
-ENV DEVICE=${DEVICE}
-
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=backend/uv.lock,target=uv.lock \
-    --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-dev --no-editable --extra ${DEVICE} --extra mqtt
-
 ##################
 # Geti UI packages
 ##################
-FROM node:24-alpine3.22@sha256:bb089be859f2741e5ede9d85f47dc7daca754015b50e9642a7a45c5252807d2c AS geti-ui-packages
+FROM node:24-alpine3.22@sha256:d28696cabe6a72c5addbb608b344818e5a158d849174abd4b1ae85ab48536280 AS geti-ui-packages
 
 WORKDIR /home/app/web_ui/
 RUN apk add --no-cache git=2.49.1-r0
@@ -45,7 +11,7 @@ RUN npm run clone-geti-ui-packages
 #############
 # Web UI deps
 #############
-FROM node:24-alpine3.22@sha256:bb089be859f2741e5ede9d85f47dc7daca754015b50e9642a7a45c5252807d2c AS web-ui-base
+FROM node:24-alpine3.22@sha256:d28696cabe6a72c5addbb608b344818e5a158d849174abd4b1ae85ab48536280 AS web-ui-base
 
 WORKDIR /home/app/web_ui/
 
@@ -71,13 +37,18 @@ RUN npm run build
 ##########################################
 # Base for CPU, GPU and XPU runtime images
 ##########################################
-FROM python:3.13-slim@sha256:baf66684c5fcafbda38a54b227ee30ec41e40af1e4073edee3a7110a417756ba AS runtime-base
+FROM python:3.13-slim@sha256:3de9a8d7aedbb7984dc18f2dff178a7850f16c1ae7c34ba9d7ecc23d0755e35f AS runtime-base
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+# Disable Python downloads, because we want to use the system interpreter
+ENV UV_PYTHON_DOWNLOADS=0
 
 ENV STATIC_FILES_DIR="/instant_learn/html"
 ENV DB_DATA_DIR="/instant_learn/data"
 ENV LOGS_DIR="/instant_learn/logs"
-ENV PATH="/instant_learn/.venv/bin:$PATH"
+ENV PATH="/instant_learn/app/backend/.venv/bin:$PATH"
 ENV PYTHONPATH=/instant_learn/app
+
 ARG UID=10001
 ENV UID=${UID}
 ARG USER_NAME="non-root"
@@ -93,6 +64,7 @@ RUN mkdir -p ${LOGS_DIR} && chown ${UID}:${UID} ${LOGS_DIR}
 
 # Install OpenGL libraries for opencv-python
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    git=1:2.47.3-0+deb13u1 \
     libgl1=1.7.0-1+b2 \
     libglib2.0-0=2.84.4-3~deb13u2 \
     && rm -rf /var/lib/apt/lists/* \
@@ -107,16 +79,21 @@ RUN useradd -l -u ${UID} ${USER_NAME} \
     && pip3 uninstall -y setuptools pip wheel \
     && rm -rf /root/.cache/pip
 
+# Change to a subdirectory so ../../library resolves correctly
+RUN mkdir -p /instant_learn/app/backend
+WORKDIR /instant_learn/app/backend
+
 # Add sample dataset with coffee berries
 COPY --link --chown=${UID} ${SOURCE_DATASET_DIR} ${TARGET_DATASET_DIR}
 
+# Copy library and create proper directory structure
+COPY --link --from=libs --chown=${UID} ./src /instant_learn/library/src
+COPY --link --from=libs --chown=${UID} ./pyproject.toml /instant_learn/library/pyproject.toml
+
 # Copy backend source code
 COPY --link --chown=${UID} backend/app /instant_learn/app
-COPY --from=backend-base --chown=${UID} /instant_learn/library/src /instant_learn/library/src
-COPY --from=backend-base --chown=${UID} /bin/uv /bin/uv
+COPY --chown=${UID} --from=ghcr.io/astral-sh/uv:0.10.0@sha256:78a7ff97cd27b7124a5f3c2aefe146170793c56a1e03321dd31a289f6d82a04f /uv /bin/uv
 COPY --from=web-ui --chown=${UID} /home/app/web_ui/dist/ ${STATIC_FILES_DIR}
-
-WORKDIR /instant_learn
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD uv run python -c "import urllib.request; urllib.request.urlopen('http://localhost:9100/health')" || exit 1
@@ -130,12 +107,26 @@ CMD ["uv", "run", "app/main.py"]
 ######################
 FROM runtime-base AS cpu
 
-COPY --from=backend-base --chown=${UID} /instant_learn/app/backend/.venv /instant_learn/.venv
+USER root
 
-######################
-# Server (CUDA version)
-######################
-FROM runtime-base AS cuda
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=backend/uv.lock,target=uv.lock \
+    --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-dev --no-editable --extra cpu --extra mqtt
+
+RUN apt-get remove -y git \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /instant_learn/library/pyproject.toml
+
+USER ${USER_NAME}
+
+WORKDIR "/instant_learn"
+
+#######################
+# Intermediary GPU Base
+#######################
+FROM runtime-base AS gpu-base
 
 USER root
 
@@ -144,7 +135,9 @@ RUN apt-get update  \
     && wget -q https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/cuda-keyring_1.1-1_all.deb \
     && dpkg -i cuda-keyring_1.1-1_all.deb \
     && rm -rf cuda-keyring_1.1-1_all.deb \
-    && apt-get remove -y wget
+    && apt-get remove -y wget \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -152,10 +145,98 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# needed to define it here to allow installation of packages
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=backend/uv.lock,target=uv.lock \
+    --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-dev --no-editable --extra cuda --extra mqtt
+
+RUN apt-get remove -y git \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /instant_learn/library/pyproject.toml
+
+FROM gpu-base AS cleanup-gpu
+
+# CUDA EULA Compliance Cleanup
+RUN echo "Removing non-redistributable CUDA components per NVIDIA EULA..." && \
+    # Define search paths including venv
+    SEARCH_PATHS="/usr /opt ${PYTHONPATH}" && \
+    # Add any detected venvs
+    for venv in $(find ${PYTHONPATH} -name "site-packages" -type d 2>/dev/null | sed 's|/lib/python[0-9.]*/site-packages||' | sort -u); do \
+    if [ -d "$venv" ]; then \
+    SEARCH_PATHS="$SEARCH_PATHS $venv"; \
+    fi; \
+    done && \
+    echo "Cleaning CUDA components in: $SEARCH_PATHS" && \
+    # Remove development tools (non-redistributable)
+    find $SEARCH_PATHS -type f \( \
+    -name "nvcc" -o \
+    -name "cuda-gdb" -o \
+    -name "nvprof" -o \
+    -name "nvdisasm" -o \
+    -name "cuobjdump" -o \
+    -name "cuda-memcheck" -o \
+    -name "nsight*" -o \
+    -name "compute-sanitizer" -o \
+    -name "ncu" -o \
+    -name "nv-nsight-cu*" \
+    \) -delete 2>/dev/null || true && \
+    # Remove headers and include directories (non-redistributable)
+    find $SEARCH_PATHS -type d \( \
+    -name "include" -o \
+    -name "headers" \
+    \) -path "*cuda*" -exec rm -rf {} + 2>/dev/null || true && \
+    # Remove NVIDIA package includes specifically
+    find $SEARCH_PATHS -type d -path "*/nvidia/*/include" -exec rm -rf {} + 2>/dev/null || true && \
+    # Remove static libraries (typically non-redistributable)
+    find $SEARCH_PATHS -name "*.a" -path "*cuda*" -delete 2>/dev/null || true && \
+    find $SEARCH_PATHS -name "*.a" -path "*nvidia*" -delete 2>/dev/null || true && \
+    # Remove documentation and samples (non-redistributable)
+    find $SEARCH_PATHS -type d \( \
+    -name "doc" -o \
+    -name "docs" -o \
+    -name "documentation" -o \
+    -name "samples" -o \
+    -name "sample" \
+    \) -path "*cuda*" -exec rm -rf {} + 2>/dev/null || true && \
+    # Remove specific non-redistributable CUPTI components
+    find $SEARCH_PATHS -type f \( \
+    -name "libcheckpoint.so*" -o \
+    -name "libnvperf_host.so*" -o \
+    -name "libnvperf_target.so*" -o \
+    -name "libpcsamplingutil.so*" \
+    \) -path "*cupti*" -delete 2>/dev/null || true && \
+    # Remove cuSolver MG libraries (enterprise feature)
+    find $SEARCH_PATHS -name "libcusolverMg.so*" -delete 2>/dev/null || true && \
+    # Remove Triton NVIDIA backends (development components)
+    find $SEARCH_PATHS -type d -path "*/triton/backends/nvidia" -exec rm -rf {} + 2>/dev/null || true && \
+    # System package cleanup
+    apt-get remove -y \
+    cuda-compiler-* \
+    cuda-cuobjdump-* \
+    cuda-gdb-* \
+    cuda-memcheck-* \
+    cuda-nvcc-* \
+    cuda-nvdisasm-* \
+    cuda-nvprof-* \
+    cuda-sanitizer-* \
+    cuda-documentation-* \
+    cuda-samples-* \
+    nsight-* \
+    2>/dev/null || true && \
+    apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+######################
+# Server (GPU version)
+######################
+FROM runtime-base AS cuda
+
+COPY --link --from=cleanup-gpu --chown=${UID} /usr/local /usr/local
+COPY --link --from=cleanup-gpu --chown=${UID} ${PYTHONPATH} ${PYTHONPATH}
+
 USER ${USER_NAME}
 
-COPY --from=backend-base --chown=${UID} /instant_learn/app/backend/.venv /instant_learn/.venv
+WORKDIR "/instant_learn"
 
 ######################
 # Server (XPU version)
@@ -191,7 +272,17 @@ RUN apt-get update  \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=backend/uv.lock,target=uv.lock \
+    --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-dev --no-editable --extra xpu --extra mqtt
+
+RUN apt-get remove -y git \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /instant_learn/library/pyproject.toml
+
 # needed to define it here to allow installation of packages
 USER ${USER_NAME}
 
-COPY --from=backend-base --chown=${UID} /instant_learn/app/backend/.venv /instant_learn/.venv
+WORKDIR "/instant_learn"

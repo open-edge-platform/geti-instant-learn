@@ -78,30 +78,30 @@ class TestMqtt:
         host, port = mqtt_broker
         topic = "mqtt/round-trip"
         config = mqtt_config(broker_host=host, broker_port=port, topic=topic)
-        writer = MqttWriter(config=config)
         queue, teardown = _subscribe(host, port, topic)
 
         try:
-            message = _frame({"foo": "bar"})
-            writer.write(message)
-            assert queue.get(timeout=5) == json.dumps(message.results)
+            with MqttWriter(config=config) as writer:
+                message = _frame({"foo": "bar"})
+                writer.connect()
+                writer.write(message)
+                assert queue.get(timeout=5) == json.dumps(message.results)
         finally:
-            writer.close()
             teardown()
 
     def test_connect_without_credentials(self, mqtt_broker):
         host, port = mqtt_broker
         topic = "mqtt/no-auth"
         config = mqtt_config(broker_host=host, broker_port=port, topic=topic)
-        writer = MqttWriter(config=config)
         queue, teardown = _subscribe(host, port, topic)
 
         try:
-            writer.write(_frame("anonymous-message"))
-            assert queue.get(timeout=5) == json.dumps("anonymous-message")
-            assert writer._connected is True
+            with MqttWriter(config=config) as writer:
+                writer.connect()
+                writer.write(_frame("anonymous-message"))
+                assert queue.get(timeout=5) == json.dumps("anonymous-message")
+                assert writer._connected is True
         finally:
-            writer.close()
             teardown()
 
     def test_connect_with_credentials(self, mqtt_broker):
@@ -112,15 +112,26 @@ class TestMqtt:
         password = "integration-pass"
 
         config = mqtt_config(broker_host=host, broker_port=port, topic=topic, auth_required=True)
-        writer = MqttWriter(config=config, username=username, password=password)
         queue, teardown = _subscribe(host, port, topic)
 
         try:
-            writer.write(_frame("authenticated-message"))
-            assert queue.get(timeout=5) == json.dumps("authenticated-message")
-            assert writer._connected is True
-            assert writer._client._username.decode("utf-8") == "integration-user"
-            assert writer._client._password.decode("utf-8") == "integration-pass"
+            with MqttWriter(config=config, username=username, password=password) as writer:
+                writer.connect()
+                writer.write(_frame("authenticated-message"))
+                assert queue.get(timeout=5) == json.dumps("authenticated-message")
+                assert writer._connected is True
+                assert writer._client._username.decode("utf-8") == "integration-user"
+                assert writer._client._password.decode("utf-8") == "integration-pass"
         finally:
-            writer.close()
             teardown()
+
+    def test_connect_invalid_host_port_reports_error(self):
+        host = "127.0.0.1"
+        port = 1  # closed port for fast connection refusal
+        topic = "mqtt/invalid-connection"
+        config = mqtt_config(broker_host=host, broker_port=port, topic=topic)
+
+        with MqttWriter(config=config) as writer:
+            with pytest.raises(ConnectionError):
+                writer.connect()
+            assert writer._connected is False

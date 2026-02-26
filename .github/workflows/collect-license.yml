@@ -2,13 +2,16 @@ name: Collect License Information
 
 on:
   workflow_dispatch:
-permissions:
-  contents: read
+
+permissions: {} # No permissions by default
+
 
 jobs:
   collect-sbom-container-image:
     name: Generate SBOM with Syft
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       matrix:
         ai-device: [cpu, cuda, xpu]
@@ -89,6 +92,8 @@ jobs:
   collect-sbom-library:
     name: Collect Library Licenses
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
