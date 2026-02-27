@@ -382,7 +382,7 @@ class GeometryEncoder(nn.Module):
         point_embeddings: torch.Tensor | None = None,
         point_mask: torch.Tensor | None = None,
         point_labels: torch.Tensor | None = None,
-        img_feats: tuple[torch.Tensor, ...] = None,
+        img_feats: tuple[torch.Tensor, ...] | None = None,
         img_pos_embeds: tuple[torch.Tensor, ...] | None = None,
         drop_spatial_bias: bool = False,
     ) -> dict[str, torch.Tensor]:
@@ -1134,9 +1134,17 @@ class Sam3Model(nn.Module):
         missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=False)
 
         # Filter out expected missing/unexpected keys
-        # - tracker_* keys are from SAM2 tracker (not used in detection)
-        tracker_pattern = re.compile(r"^(tracker_model\.|tracker_neck\.)")
-        unexpected_keys = [k for k in unexpected_keys if not tracker_pattern.match(k)]
+        # - tracker* keys are from the SAM2 video tracker (not used in detection)
+        # - sam2_convs keys are SAM2-specific FPN convolutions
+        # - rotary_emb.rope_embeddings are registered buffers, not parameters
+        _expected_unexpected = re.compile(
+            r"^("
+            r"tracker_model\.|tracker_neck\.|tracker\."
+            r"|backbone\.vision_backbone\.sam2_convs\."
+            r"|vision_encoder\.backbone\.layers\.\d+\.rotary_emb\.rope_embeddings"
+            r")",
+        )
+        unexpected_keys = [k for k in unexpected_keys if not _expected_unexpected.match(k)]
 
         if missing_keys:
             msg = f"Missing keys when loading SAM3 model: {missing_keys}"

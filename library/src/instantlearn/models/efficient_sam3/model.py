@@ -67,6 +67,14 @@ class EfficientSam3Model(Sam3Model):
         self._variant = variant
         super().__init__(**kwargs)
 
+        # Override parent's ViT vision encoder with student backbone + FPN
+        self.vision_encoder = self._create_vision_encoder(**kwargs)
+
+        # Override parent's CLIP text encoder with MobileCLIP-S1 and
+        # re-create text_projection to match MobileCLIP hidden dim (512)
+        # instead of CLIP hidden dim (1024)
+        self.text_encoder, self.text_projection = self._create_text_encoder(**kwargs)
+
     def _create_vision_encoder(self, **kwargs: Any) -> nn.Module:  # noqa: ANN401
         """Create student vision encoder with timm backbone + FPN.
 
