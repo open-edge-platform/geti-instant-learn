@@ -217,7 +217,7 @@ class EfficientSam3Model(Sam3Model):
             )
 
         logger.info("Loading EfficientSAM3 checkpoint: %s", model_path)
-        raw_state_dict = torch.load(model_path, map_location="cpu", weights_only=True)
+        raw_state_dict = torch.load(model_path, map_location="cpu", weights_only=True)  # nosec: B614
 
         # Extract from nested 'model' key if present (HuggingFace checkpoint format)
         if "model" in raw_state_dict and isinstance(raw_state_dict["model"], dict):
