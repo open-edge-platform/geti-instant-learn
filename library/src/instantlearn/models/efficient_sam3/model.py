@@ -217,6 +217,7 @@ class EfficientSam3Model(Sam3Model):
             )
 
         logger.info("Loading EfficientSAM3 checkpoint: %s", model_path)
+        # nosemgrep trailofbits.python.pickles-in-pytorch.pickles-in-pytorch
         raw_state_dict = torch.load(model_path, map_location="cpu", weights_only=True)  # nosec: B614
 
         # Extract from nested 'model' key if present (HuggingFace checkpoint format)
