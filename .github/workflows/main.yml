@@ -92,6 +92,65 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Setup Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 22
+
+      - name: Validate MDX syntax in Markdown
+        shell: bash
+        run: |
+          echo "Validating MDX/JSX syntax in Markdown files..."
+          WORKDIR=$(mktemp -d)
+          cd "$WORKDIR"
+          npm init -y >/dev/null 2>&1
+          npm install --no-save @mdx-js/mdx@3 remark-comment fast-glob >/dev/null 2>&1
+          cat > "$WORKDIR/validate-mdx.mjs" << 'SCRIPT'
+          import { readFile } from "node:fs/promises";
+          import fg from "fast-glob";
+          import { compile } from "@mdx-js/mdx";
+          import remarkComment from 'remark-comment';
+          const workspace = process.env.WORKSPACE;
+          process.chdir(workspace);
+          const files = await fg(["application/docs/**/*.md", "library/docs/**/*.md"], {
+            ignore: [
+              "**/node_modules/**",
+              "**/.git/**",
+              "**/.venv/**",
+              "**/dist/**",
+              "**/build/**",
+              "**/.next/**"
+            ]
+          });
+          console.log(`Found ${files.length} markdown file(s) to validate\n`);
+          let hasErrors = false;
+          let errorCount = 0;
+          for (const file of files) {
+            try {
+              const source = await readFile(file, "utf8");
+              await compile(source, { filepath: file, remarkPlugins: [remarkComment] });
+              process.stdout.write(".");
+            } catch (error) {
+              hasErrors = true;
+              errorCount++;
+              process.stdout.write("\n");
+              console.error(`\n❌ MDX parse error in ${file}:`);
+              console.error(error.message ?? error);
+              if (error.position) {
+                console.error(`   Line ${error.position.start.line}, Column ${error.position.start.column}`);
+              }
+            }
+          }
+          console.log("\n");
+          if (hasErrors) {
+            console.error(`❌ Found ${errorCount} file(s) with MDX/JSX syntax errors`);
+            process.exit(1);
+          } else {
+            console.log(`✅ All ${files.length} file(s) passed MDX validation`);
+          }
+          SCRIPT
+          WORKSPACE="$GITHUB_WORKSPACE" NODE_PATH="$WORKDIR/node_modules" node "$WORKDIR/validate-mdx.mjs"
+
       - uses: DavidAnson/markdownlint-cli2-action@07035fd053f7be764496c0f8d8f9f41f98305101 #v22.0.0
         with:
           config: ".github/.markdownlint-cli2.jsonc"
