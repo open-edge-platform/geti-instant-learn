@@ -53,6 +53,8 @@ class Processor(PipelineComponent):
                 for _ in range(self._batch_size):
                     try:
                         input_data = self._in_queue.get(timeout=0.1)
+                        if input_data.trace:
+                            input_data.trace.record_start("processor")
                         batch_data.append(input_data)
 
                         if input_data.context.get("requires_manual_control", False):
@@ -67,9 +69,12 @@ class Processor(PipelineComponent):
 
                 for i, data in enumerate(batch_data):
                     results: dict[str, np.ndarray] = batch_results[i] if i < len(batch_results) else EMPTY_RESULT
+                    if data.trace:
+                        data.trace.record_end("processor")
                     output_data = OutputData(
                         frame=data.frame,
                         results=[results],
+                        trace=data.trace,
                     )
                     self._outbound_broadcaster.broadcast(output_data)
 

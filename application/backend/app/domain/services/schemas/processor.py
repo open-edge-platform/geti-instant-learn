@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
@@ -11,6 +11,7 @@ from instantlearn.utils.constants import SAMModelName
 from pydantic import BaseModel, Field, field_validator
 
 from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
+from domain.services.schemas.frame_trace import FrameTrace
 
 
 class ModelType(StrEnum):
@@ -140,12 +141,14 @@ class InputData:
     timestamp: int  # processing date-time in epoch milliseconds.
     frame: np.ndarray  # frame loaded as numpy array in RGB HWC format (H, W, 3) with dtype=uint8
     context: dict[str, Any]  # unstructured metadata about the source of the frame (camera ID, video file, etc.)
+    trace: FrameTrace | None = field(default=None, repr=False)  # optional per-frame tracing context
 
 
 @dataclass(kw_only=True)
 class OutputData:
     results: list[dict[str, np.ndarray]]
     frame: np.ndarray  # frame loaded as numpy array in RGB HWC format (H, W, 3) with dtype=uint8
+    trace: FrameTrace | None = field(default=None, repr=False)  # optional per-frame tracing context
 
 
 class ProcessorSchema(BaseIDSchema):

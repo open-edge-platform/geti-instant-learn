@@ -1,16 +1,25 @@
 from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
 
 from domain.services.schemas.base import Pagination
+from domain.services.schemas.processor import InputData
 from runtime.core.components.base import StreamReader
 from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.source import Source
 
+
+def make_input(name: str) -> InputData:
+    return InputData(timestamp=0, frame=np.zeros((2, 2, 3), dtype=np.uint8), context={"name": name})
+
+
+frame1, frame2, frame3, frame4 = make_input("frame1"), make_input("frame2"), make_input("frame3"), make_input("frame4")
+
 test_cases = [
-    ("happy_path", ["frame1", "frame2", "frame3"], ["frame1", "frame2", "frame3"]),
-    ("handles_nones", [None, "frame1", None, "frame2", "frame3", None], ["frame1", "frame2", "frame3"]),
-    ("broadcasts_all_frames", ["frame1", "frame2", "frame3", "frame4"], ["frame1", "frame2", "frame3", "frame4"]),
+    ("happy_path", [frame1, frame2, frame3], [frame1, frame2, frame3]),
+    ("handles_nones", [None, frame1, None, frame2, frame3, None], [frame1, frame2, frame3]),
+    ("broadcasts_all_frames", [frame1, frame2, frame3, frame4], [frame1, frame2, frame3, frame4]),
 ]
 
 
@@ -42,7 +51,10 @@ class TestSource:
         assert self.mock_stream_reader.close.call_count == 2
 
         broadcast_calls = [call.args[0] for call in self.mock_broadcaster.broadcast.call_args_list]
-        assert broadcast_calls == expected_broadcasts
+        assert len(broadcast_calls) == len(expected_broadcasts)
+        for actual, expected in zip(broadcast_calls, expected_broadcasts):
+            assert actual is expected
+            assert actual.trace is not None
 
     def test_seek_delegates_to_reader(self):
         self.source.seek(42)

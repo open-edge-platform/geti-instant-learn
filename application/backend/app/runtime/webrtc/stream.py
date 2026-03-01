@@ -80,6 +80,9 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
             logger.debug("Getting the frame from the stream_queue...")
             output_data: OutputData = await asyncio.to_thread(self._stream_queue.get, True, 0.5)
 
+            if output_data.trace:
+                output_data.trace.record_start("webrtc")
+
             if self._enable_visualization and self._visualizer:
                 vis_info = self._visualization_info_provider() if self._visualization_info_provider else None
                 np_frame = self._visualizer.visualize(output_data=output_data, visualization_info=vis_info)
@@ -87,6 +90,10 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
                 np_frame = output_data.frame
 
             self._last_frame = np_frame
+
+            if output_data.trace:
+                output_data.trace.record_end("webrtc")
+                logger.debug(output_data.trace.format_log())
         except queue.Empty:
             logger.debug("Empty queue. Using the last frame...")
             if self._last_frame is not None:

@@ -33,7 +33,15 @@ class Sink(PipelineComponent):
             while not self._stop_event.is_set():
                 try:
                     data = self._out_queue.get(timeout=0.1)
+
+                    if data.trace:
+                        data.trace.record_start("sink")
+
                     self._writer.write(data)
+
+                    if data.trace:
+                        data.trace.record_end("sink")
+                        logger.debug(data.trace.format_log())
                 except Empty:
                     continue
             logger.debug("Stopping the sink loop")
