@@ -49,7 +49,8 @@ class WebRTCManager:
 
         # use PipelineManager to get queue
         try:
-            rtc_queue = self.pipeline_manager.register_webrtc(project_id=project_id)
+            webrtc_consumer_name = f"webrtc-{offer.webrtc_id}"
+            rtc_queue = self.pipeline_manager.register_webrtc(project_id=project_id, consumer_name=webrtc_consumer_name)
         except (PipelineProjectMismatchError, PipelineNotActiveError) as exc:
             logger.exception(f"Failed to register WebRTC for project {project_id}: {exc}")
             raise
@@ -70,7 +71,7 @@ class WebRTCManager:
             if pc.connectionState in ["failed", "closed"]:
                 try:
                     # First unregister from pipeline manager (stops broadcasting to this queue)
-                    self.pipeline_manager.unregister_webrtc(rtc_queue, project_id=project_id)
+                    self.pipeline_manager.unregister_webrtc(webrtc_consumer_name, project_id=project_id)
                 except (PipelineProjectMismatchError, PipelineNotActiveError) as exc:
                     logger.exception(f"Failed to unregister WebRTC for project {project_id}: {exc}")
                     raise

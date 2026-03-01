@@ -213,12 +213,12 @@ class TestPipeline:
             outbound_broadcaster=mock_outbound_broadcaster,
         )
 
-        webrtc_queue = pipeline.register_webrtc()
-        mock_outbound_broadcaster.register.assert_called_once()
+        webrtc_queue = pipeline.register_webrtc("webrtc-123")
+        mock_outbound_broadcaster.register.assert_called_once_with("webrtc-123")
         assert isinstance(webrtc_queue, Queue)
 
-        pipeline.unregister_webrtc(webrtc_queue)
-        mock_outbound_broadcaster.unregister.assert_called_once_with(queue=webrtc_queue)
+        pipeline.unregister_webrtc("webrtc-123")
+        mock_outbound_broadcaster.unregister.assert_called_once_with("webrtc-123")
         pipeline.stop()
 
     def test_pipeline_start_creates_threads_for_all_components(

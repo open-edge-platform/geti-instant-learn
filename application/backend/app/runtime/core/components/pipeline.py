@@ -54,8 +54,8 @@ class Pipeline:
         self,
         project_id: UUID,
         frame_repository: FrameRepository,
-        inbound_broadcaster: FrameBroadcaster[InputData] = FrameBroadcaster[InputData](),
-        outbound_broadcaster: FrameBroadcaster[OutputData] = FrameBroadcaster[OutputData](),
+        inbound_broadcaster: FrameBroadcaster[InputData] = FrameBroadcaster[InputData]("inbound"),
+        outbound_broadcaster: FrameBroadcaster[OutputData] = FrameBroadcaster[OutputData]("outbound"),
     ):
         # todo: remove project id from the pipeline as it is the application impl details
         self._project_id = project_id
@@ -79,14 +79,14 @@ class Pipeline:
         """Check if the pipeline is currently running."""
         return self._is_running
 
-    def register_webrtc(self) -> Queue:
+    def register_webrtc(self, consumer_name: str) -> Queue:
         """Register a WebRTC consumer for processed output frames."""
         logger.debug("WebRTC registering to OutboundBroadcaster for processed frames (project_id=%s)", self._project_id)
-        return self._outbound_broadcaster.register()
+        return self._outbound_broadcaster.register(consumer_name)
 
-    def unregister_webrtc(self, queue: Queue) -> None:
+    def unregister_webrtc(self, consumer_name: str) -> None:
         """Unregister a WebRTC consumer."""
-        return self._outbound_broadcaster.unregister(queue=queue)
+        self._outbound_broadcaster.unregister(consumer_name)
 
     def start(self) -> None:
         with self._lock:

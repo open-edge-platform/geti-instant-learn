@@ -39,7 +39,7 @@ class Processor(PipelineComponent):
     ) -> None:
         self._inbound_broadcaster = inbound_broadcaster
         self._outbound_broadcaster = outbound_broadcaster
-        self._in_queue: Queue[InputData] = inbound_broadcaster.register()
+        self._in_queue: Queue[InputData] = inbound_broadcaster.register("processor")
         self._initialized = True
 
     def run(self) -> None:
@@ -85,4 +85,4 @@ class Processor(PipelineComponent):
         logger.debug("Stopping the pipeline runner loop")
 
     def _stop(self) -> None:
-        self._inbound_broadcaster.unregister(self._in_queue)
+        self._inbound_broadcaster.unregister("processor")

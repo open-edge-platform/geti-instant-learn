@@ -179,8 +179,8 @@ class PipelineManager:
             Pipeline(
                 project_id,
                 self._frame_repository,
-                FrameBroadcaster[InputData](),
-                FrameBroadcaster[OutputData](),
+                FrameBroadcaster[InputData]("inbound"),
+                FrameBroadcaster[OutputData]("outbound"),
             )
             .set_source(source)
             .set_processor(processor)
@@ -221,21 +221,21 @@ class PipelineManager:
     # 1. unify methods for registering/unregistering all types of consumers.
     # 2. use context manager to automatically unregister a queue when it exits the scope
 
-    def register_webrtc(self, project_id: UUID) -> queue.Queue:
+    def register_webrtc(self, project_id: UUID, consumer_name: str) -> queue.Queue:
         """Register webRTC in pipeline."""
         if self._pipeline is None:
             raise PipelineNotActiveError("No active pipeline to register to.")
         if project_id != self._pipeline.project_id:
             raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
-        return self._pipeline.register_webrtc()
+        return self._pipeline.register_webrtc(consumer_name)
 
-    def unregister_webrtc(self, target_queue: queue.Queue, project_id: UUID) -> None:
+    def unregister_webrtc(self, consumer_name: str, project_id: UUID) -> None:
         """Unregister webRTC in pipeline."""
         if self._pipeline is None:
             raise PipelineNotActiveError("No active pipeline to unregister from.")
         if project_id != self._pipeline.project_id:
             raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
-        return self._pipeline.unregister_webrtc(queue=target_queue)
+        self._pipeline.unregister_webrtc(consumer_name)
 
     def seek(self, project_id: UUID, index: int) -> None:
         """

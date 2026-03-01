@@ -1,4 +1,3 @@
-from queue import Queue
 from typing import Any
 
 import pytest
@@ -8,48 +7,43 @@ from runtime.core.components.broadcaster import FrameBroadcaster
 
 @pytest.fixture
 def broadcaster() -> FrameBroadcaster[Any]:
-    return FrameBroadcaster()
+    return FrameBroadcaster("test")
 
 
 class TestFrameBroadcaster:
     def test_register_adds_new_queue(self, broadcaster):
-        assert len(broadcaster.queues) == 0
+        assert broadcaster.consumer_count == 0
 
-        q1 = broadcaster.register()
-        q2 = broadcaster.register()
+        q1 = broadcaster.register("c1")
+        q2 = broadcaster.register("c2")
 
-        assert len(broadcaster.queues) == 2
-        assert q1 in broadcaster.queues
-        assert q2 in broadcaster.queues
+        assert broadcaster.consumer_count == 2
         assert q1 is not q2
 
     def test_unregister_removes_queue(self, broadcaster):
-        q1 = broadcaster.register()
-        q2 = broadcaster.register()
-        assert len(broadcaster.queues) == 2
+        broadcaster.register("c1")
+        broadcaster.register("c2")
+        assert broadcaster.consumer_count == 2
 
-        broadcaster.unregister(q1)
+        broadcaster.unregister("c1")
 
-        assert len(broadcaster.queues) == 1
-        assert q1 not in broadcaster.queues
-        assert q2 in broadcaster.queues
+        assert broadcaster.consumer_count == 1
 
-    def test_unregister_is_safe_for_non_existent_queue(self, broadcaster):
-        q1 = broadcaster.register()
-        a_non_existent_queue = Queue()
+    def test_unregister_is_safe_for_non_existent_name(self, broadcaster):
+        broadcaster.register("c1")
 
-        broadcaster.unregister(a_non_existent_queue)
-        assert len(broadcaster.queues) == 1
+        broadcaster.unregister("does-not-exist")
+        assert broadcaster.consumer_count == 1
 
-        broadcaster.unregister(q1)
-        assert len(broadcaster.queues) == 0
+        broadcaster.unregister("c1")
+        assert broadcaster.consumer_count == 0
 
-        broadcaster.unregister(q1)
-        assert len(broadcaster.queues) == 0
+        broadcaster.unregister("c1")
+        assert broadcaster.consumer_count == 0
 
     def test_broadcast_sends_to_all_consumers(self, broadcaster):
-        q1 = broadcaster.register()
-        q2 = broadcaster.register()
+        q1 = broadcaster.register("c1")
+        q2 = broadcaster.register("c2")
         frame = "test_frame"
 
         broadcaster.broadcast(frame)
@@ -58,8 +52,8 @@ class TestFrameBroadcaster:
         assert q2.get_nowait() == frame
 
     def test_broadcast_drops_oldest_frame_for_slow_consumer(self, broadcaster):
-        fast_consumer_q = broadcaster.register()
-        slow_consumer_q = broadcaster.register()
+        fast_consumer_q = broadcaster.register("fast")
+        slow_consumer_q = broadcaster.register("slow")
 
         # Simulate a slow consumer by filling its queue to capacity (maxsize=5).
         slow_consumer_q.put_nowait("frame0")
@@ -83,26 +77,26 @@ class TestFrameBroadcaster:
         assert slow_consumer_q.get_nowait() == "frame5"
 
     def test_register_receives_latest_frame_when_available(self, broadcaster):
-        q1 = broadcaster.register()
+        q1 = broadcaster.register("c1")
         assert q1.empty()
 
         frame1 = "test_frame_1"
         broadcaster.broadcast(frame1)
         assert q1.get_nowait() == frame1
 
-        q2 = broadcaster.register()
+        q2 = broadcaster.register("c2")
         assert not q2.empty()
         assert q2.get_nowait() == frame1
 
         frame2 = "test_frame_2"
         broadcaster.broadcast(frame2)
 
-        q3 = broadcaster.register()
+        q3 = broadcaster.register("c3")
         assert not q3.empty()
         assert q3.get_nowait() == frame2
 
     def test_register_without_broadcast_has_empty_queue(self, broadcaster):
-        q = broadcaster.register()
+        q = broadcaster.register("c1")
         assert q.empty()
         assert broadcaster.latest_frame is None
 
@@ -118,8 +112,8 @@ class TestFrameBroadcaster:
         assert broadcaster.latest_frame == frame2
 
     def test_clear_drains_all_consumer_queues_and_resets_latest_frame(self, broadcaster):
-        q1 = broadcaster.register()
-        q2 = broadcaster.register()
+        q1 = broadcaster.register("c1")
+        q2 = broadcaster.register("c2")
 
         broadcaster.broadcast("frame1")
         broadcaster.broadcast("frame2")
@@ -133,26 +127,24 @@ class TestFrameBroadcaster:
         assert q1.empty()
         assert q2.empty()
         assert broadcaster.latest_frame is None
-        assert len(broadcaster.queues) == 2
-        assert q1 in broadcaster.queues
-        assert q2 in broadcaster.queues
+        assert broadcaster.consumer_count == 2
 
     def test_clear_then_register_does_not_receive_stale_latest_frame(self, broadcaster):
-        q1 = broadcaster.register()
+        q1 = broadcaster.register("c1")
         broadcaster.broadcast("frame1")
         assert q1.get_nowait() == "frame1"
 
         broadcaster.clear()
-        q2 = broadcaster.register()
+        q2 = broadcaster.register("c2")
 
         assert q2.empty()
         assert broadcaster.latest_frame is None
 
     def test_clear_is_safe_when_no_consumers(self, broadcaster):
-        assert len(broadcaster.queues) == 0
+        assert broadcaster.consumer_count == 0
         assert broadcaster.latest_frame is None
 
         broadcaster.clear()
 
-        assert len(broadcaster.queues) == 0
+        assert broadcaster.consumer_count == 0
         assert broadcaster.latest_frame is None

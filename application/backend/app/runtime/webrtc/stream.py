@@ -4,6 +4,7 @@
 import asyncio
 import logging
 import queue
+import time
 from collections.abc import Callable
 
 import numpy as np
@@ -75,9 +76,11 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
 
         """
         pts, time_base = await self.next_timestamp()
+        wall_ms = time.monotonic() * 1000.0
+        pts_ms = pts * float(time_base) * 1000.0 if time_base else 0.0
 
         try:
-            logger.debug("Getting the frame from the stream_queue...")
+            logger.debug("Getting the frame from the stream_queue (depth: %d)...", self._stream_queue.qsize())
             output_data: OutputData = await asyncio.to_thread(self._stream_queue.get, True, 0.5)
 
             if output_data.trace:
@@ -93,7 +96,7 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
 
             if output_data.trace:
                 output_data.trace.record_end("webrtc")
-                logger.debug(output_data.trace.format_log())
+                logger.info(output_data.trace.format_log())
         except queue.Empty:
             logger.debug("Empty queue. Using the last frame...")
             if self._last_frame is not None:
@@ -105,6 +108,7 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
             raise
 
         logger.debug("Received the frame from the stream_queue.")
+        logger.debug("pts=%.2f ms | wall=%.2f ms | drift=%.2f ms", pts_ms, wall_ms, wall_ms - pts_ms)
         frame = VideoFrame.from_ndarray(np_frame, format="rgb24")
         frame.pts = pts
         frame.time_base = time_base

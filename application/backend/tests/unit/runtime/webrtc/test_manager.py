@@ -183,7 +183,7 @@ async def test_connection_state_change_triggers_cleanup(webrtc_manager, mock_pip
 
         # Get connection data
         conn_data = webrtc_manager._pcs[sample_offer.webrtc_id]
-        queue = conn_data.queue
+        assert conn_data.queue is not None
 
         mock_pc.connectionState = "closed"
 
@@ -192,7 +192,9 @@ async def test_connection_state_change_triggers_cleanup(webrtc_manager, mock_pip
         await captured_callback()
 
         # Verify unregister was called
-        mock_pipeline_manager.unregister_webrtc.assert_called_once_with(queue, project_id=PROJECT_ID)
+        mock_pipeline_manager.unregister_webrtc.assert_called_once_with(
+            f"webrtc-{sample_offer.webrtc_id}", project_id=PROJECT_ID
+        )
 
         # Verify connection removed from registry
         assert sample_offer.webrtc_id not in webrtc_manager._pcs
