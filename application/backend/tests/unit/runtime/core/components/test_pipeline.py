@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 import pytest
 
 from domain.repositories.frame import FrameRepository
-from runtime.core.components.broadcaster import FrameBroadcaster
+from runtime.core.components.broadcaster import FrameBroadcaster, FrameSlot
 from runtime.core.components.pipeline import Pipeline
 from runtime.core.components.processor import Processor
 from runtime.core.components.sink import Sink
@@ -203,22 +203,18 @@ class TestPipeline:
         mock_sink.setup.assert_called_once_with(mock_outbound_broadcaster)
         pipeline.stop()
 
-    def test_pipeline_registers_and_unregisters_webrtc_consumer(
-        self, project_id, mock_outbound_broadcaster, mock_frame_repository
-    ):
-        """Test registering and unregistering WebRTC consumers."""
+    def test_outbound_slot_delegates_to_broadcaster(self, project_id, mock_outbound_broadcaster, mock_frame_repository):
+        """Test that outbound_slot exposes the outbound broadcaster's slot."""
+        mock_slot = Mock(spec=FrameSlot)
+        mock_outbound_broadcaster.slot = mock_slot
+
         pipeline = Pipeline(
             project_id=project_id,
             frame_repository=mock_frame_repository,
             outbound_broadcaster=mock_outbound_broadcaster,
         )
 
-        webrtc_queue = pipeline.register_webrtc("webrtc-123")
-        mock_outbound_broadcaster.register.assert_called_once_with("webrtc-123")
-        assert isinstance(webrtc_queue, Queue)
-
-        pipeline.unregister_webrtc("webrtc-123")
-        mock_outbound_broadcaster.unregister.assert_called_once_with("webrtc-123")
+        assert pipeline.outbound_slot is mock_slot
         pipeline.stop()
 
     def test_pipeline_start_creates_threads_for_all_components(

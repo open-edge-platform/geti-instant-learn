@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from runtime.core.components.broadcaster import FrameBroadcaster
+from runtime.core.components.broadcaster import FrameBroadcaster, FrameSlot
 
 
 @pytest.fixture
@@ -148,3 +148,25 @@ class TestFrameBroadcaster:
 
         assert broadcaster.consumer_count == 0
         assert broadcaster.latest_frame is None
+
+    def test_slot_property_returns_frame_slot(self, broadcaster):
+        assert isinstance(broadcaster.slot, FrameSlot)
+
+    def test_slot_reflects_latest_broadcast(self, broadcaster):
+        broadcaster.register("c1")
+
+        assert broadcaster.slot.latest is None
+
+        broadcaster.broadcast("frame_a")
+        assert broadcaster.slot.latest == "frame_a"
+
+        broadcaster.broadcast("frame_b")
+        assert broadcaster.slot.latest == "frame_b"
+
+    def test_slot_cleared_by_clear(self, broadcaster):
+        broadcaster.register("c1")
+        broadcaster.broadcast("frame_x")
+
+        broadcaster.clear()
+
+        assert broadcaster.slot.latest is None

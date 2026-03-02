@@ -8,6 +8,26 @@ from threading import Lock
 logger = logging.getLogger(__name__)
 
 
+class FrameSlot[T]:
+    """A shared container holding the latest frame for external consumers."""
+
+    def __init__(self) -> None:
+        self._frame: T | None = None
+
+    @property
+    def latest(self) -> T | None:
+        """The most recently published frame, or None if nothing has been published."""
+        return self._frame
+
+    def update(self, frame: T) -> None:
+        """Publish a new frame, replacing any previously held value."""
+        self._frame = frame
+
+    def clear(self) -> None:
+        """Discard the held frame."""
+        self._frame = None
+
+
 class FrameBroadcaster[T]:
     """
     A thread-safe class to broadcast frames to multiple consumers.
@@ -15,21 +35,25 @@ class FrameBroadcaster[T]:
     It manages a named queue for each registered consumer. If a consumer's
     queue is full the oldest frame is dropped to make space for the new one.
 
-    The live nature of WebRTC streams requires consumers to be registered and unregistered dynamically as they connect
-    and disconnect. If we were to share a single queue for all consumers, they would compete for frames, effectively
-    stealing them from each other. This broadcaster ensures every consumer gets its own queue.
+    A FrameSlot is maintained alongside the queues so that external consumers
+    (e.g. WebRTC streams) can poll the latest frame without registering a queue.
     """
 
     def __init__(self, name: str = "unnamed") -> None:
         self.name = name
         self._consumers: dict[str, Queue[T]] = {}
         self._lock = Lock()
-        self._latest_frame: T | None = None
+        self._slot: FrameSlot[T] = FrameSlot[T]()
+
+    @property
+    def slot(self) -> FrameSlot[T]:
+        """Shared slot that always holds the latest broadcasted frame."""
+        return self._slot
 
     @property
     def latest_frame(self) -> T | None:
         """Get the most recently broadcasted frame."""
-        return self._latest_frame
+        return self._slot.latest
 
     @property
     def consumer_count(self) -> int:
@@ -47,9 +71,9 @@ class FrameBroadcaster[T]:
             self._consumers[consumer_name] = queue
 
             # Send the latest frame to new consumer if available
-            if self._latest_frame is not None:
+            if self._slot.latest is not None:
                 try:
-                    queue.put_nowait(self._latest_frame)
+                    queue.put_nowait(self._slot.latest)
                 except Full:
                     logging.warning("Could not send latest frame to new consumer - queue full")
 
@@ -70,8 +94,8 @@ class FrameBroadcaster[T]:
                 )
 
     def broadcast(self, frame: T) -> None:
-        """Broadcast frame to all registered queues."""
-        self._latest_frame = frame
+        """Broadcast frame to all registered queues and update the shared slot."""
+        self._slot.update(frame)
         with self._lock:
             for consumer_name, queue in self._consumers.items():
                 try:
@@ -96,7 +120,7 @@ class FrameBroadcaster[T]:
                     except Empty:
                         logger.debug("Drained queued frames for consumer '%s'", consumer_name)
                         break
-            self._latest_frame = None
+            self._slot.clear()
 
     def _handle_full_queue(self, consumer_name: str, queue: Queue[T], frame: T) -> None:
         """Handle a full queue by dropping the oldest frame and adding the new one."""
