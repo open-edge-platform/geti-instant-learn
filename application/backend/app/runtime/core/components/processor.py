@@ -39,7 +39,7 @@ class Processor(PipelineComponent):
     ) -> None:
         self._inbound_broadcaster = inbound_broadcaster
         self._outbound_broadcaster = outbound_broadcaster
-        self._in_queue: Queue[InputData] = inbound_broadcaster.register("processor")
+        self._in_queue: Queue[InputData] = inbound_broadcaster.register(self.__class__.__name__)
         self._initialized = True
 
     def run(self) -> None:
