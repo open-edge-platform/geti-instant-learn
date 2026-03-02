@@ -41,6 +41,14 @@ class TestFrameBroadcaster:
         broadcaster.unregister("c1")
         assert broadcaster.consumer_count == 0
 
+    def test_register_duplicate_name_raises(self, broadcaster):
+        broadcaster.register("c1")
+
+        with pytest.raises(ValueError, match="already registered"):
+            broadcaster.register("c1")
+
+        assert broadcaster.consumer_count == 1
+
     def test_broadcast_sends_to_all_consumers(self, broadcaster):
         q1 = broadcaster.register("c1")
         q2 = broadcaster.register("c2")

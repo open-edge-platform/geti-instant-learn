@@ -65,8 +65,17 @@ class FrameBroadcaster[T]:
 
         If a frame has already been broadcast, the latest frame is immediately
         added to the new consumer's queue so they don't miss the current state.
+
+        Raises:
+            ValueError: If a consumer with the same name is already registered.
         """
         with self._lock:
+            if consumer_name in self._consumers:
+                raise ValueError(
+                    f"{self.name}: consumer '{consumer_name}' is already registered. "
+                    "Unregister it first to avoid orphaned queues."
+                )
+
             queue: Queue[T] = Queue(maxsize=5)
             self._consumers[consumer_name] = queue
 
@@ -104,7 +113,8 @@ class FrameBroadcaster[T]:
                     self._handle_full_queue(consumer_name, queue, frame)
                 except Exception:
                     logger.exception("Error broadcasting to queue")
-                logger.debug("%s/%s depth: %d/%d", self.name, consumer_name, queue.qsize(), queue.maxsize)
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug("%s/%s depth: %d/%d", self.name, consumer_name, queue.qsize(), queue.maxsize)
 
     def clear(self) -> None:
         """

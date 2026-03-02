@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-import time
 from collections.abc import Callable
 
 import numpy as np
@@ -55,8 +54,6 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
         published yet.
         """
         pts, time_base = await self.next_timestamp()
-        wall_ms = time.monotonic() * 1000.0
-        pts_ms = pts * float(time_base) * 1000.0 if time_base else 0.0
 
         output_data = self._slot.latest
 
@@ -80,8 +77,6 @@ class InferenceVideoStreamTrack(VideoStreamTrack):
                 logger.info(output_data.trace.format_log())
 
         np_frame = self._last_frame if self._last_frame is not None else FALLBACK_FRAME
-
-        logger.debug("pts=%.2f ms | wall=%.2f ms | drift=%.2f ms", pts_ms, wall_ms, wall_ms - pts_ms)
         frame = VideoFrame.from_ndarray(np_frame, format="rgb24")
         frame.pts = pts
         frame.time_base = time_base
