@@ -471,3 +471,74 @@ class TestPipeline:
         mock_inbound_broadcaster.clear.assert_called_once()
         mock_outbound_broadcaster.clear.assert_called_once()
         pipeline.stop()
+
+    def test_stop_clears_components_and_threads(
+        self,
+        project_id,
+        mock_source,
+        mock_processor,
+        mock_sink,
+        mock_inbound_broadcaster,
+        mock_outbound_broadcaster,
+        mock_frame_repository,
+    ):
+        """After stop(), component and thread dicts should be empty so references are freed."""
+        pipeline = (
+            Pipeline(
+                project_id=project_id,
+                frame_repository=mock_frame_repository,
+                inbound_broadcaster=mock_inbound_broadcaster,
+                outbound_broadcaster=mock_outbound_broadcaster,
+            )
+            .set_source(mock_source)
+            .set_processor(mock_processor)
+            .set_sink(mock_sink)
+        )
+
+        with patch("runtime.core.components.pipeline.Thread") as mock_thread_class:
+            mock_thread_instances = [Mock() for _ in range(3)]
+            mock_thread_class.side_effect = mock_thread_instances
+            pipeline.start()
+
+        pipeline.stop()
+
+        assert pipeline._components == {}
+        assert pipeline._threads == {}
+        assert pipeline.is_running is False
+
+    def test_stop_component_removes_and_stops_single_component(
+        self,
+        project_id,
+        mock_processor,
+        mock_inbound_broadcaster,
+        mock_outbound_broadcaster,
+        mock_frame_repository,
+    ):
+        """stop_component should stop the given component class and remove it from the pipeline."""
+        pipeline = Pipeline(
+            project_id=project_id,
+            frame_repository=mock_frame_repository,
+            inbound_broadcaster=mock_inbound_broadcaster,
+            outbound_broadcaster=mock_outbound_broadcaster,
+        )
+
+        with patch("runtime.core.components.pipeline.Thread") as mock_thread_class:
+            mock_thread = Mock()
+            mock_thread.is_alive.return_value = False
+            mock_thread_class.return_value = mock_thread
+            pipeline.set_processor(mock_processor, start=True)
+
+        pipeline.stop_component(Processor)
+
+        mock_processor.stop.assert_called_once()
+        assert Processor not in pipeline._components
+        assert Processor not in pipeline._threads
+
+    def test_stop_component_noop_for_missing_component(
+        self,
+        project_id,
+        mock_frame_repository,
+    ):
+        """stop_component should not raise if the component was never registered."""
+        pipeline = Pipeline(project_id=project_id, frame_repository=mock_frame_repository)
+        pipeline.stop_component(Processor)  # should not raise

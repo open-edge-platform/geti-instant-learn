@@ -157,3 +157,23 @@ class TestProcessor:
     def test_init_accepts_category_id_to_label_id(self):
         runner = Processor(self.mock_model_handler, batch_size=2, category_id_to_label_id={0: "label-0"})
         assert runner is not None
+
+    def test_stop_calls_model_handler_cleanup(self):
+        """Stopping a processor must clean up the model handler to free device memory."""
+        self.runner.stop()
+        self.mock_model_handler.cleanup.assert_called_once()
+
+    def test_stop_without_setup_does_not_crash(self):
+        """Calling stop() on a Processor that was never setup() must not raise."""
+        model_handler = MagicMock()
+        processor = Processor(model_handler, batch_size=3)
+        processor.stop()
+        model_handler.cleanup.assert_called_once()
+
+    def test_stop_with_passthrough_model_handler(self):
+        """PassThroughModelHandler.cleanup() inherited no-op must not raise on stop."""
+        from runtime.core.components.models.passthrough_model import PassThroughModelHandler
+
+        handler = PassThroughModelHandler()
+        processor = Processor(handler, batch_size=3)
+        processor.stop()  # should not raise

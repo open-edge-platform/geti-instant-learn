@@ -34,7 +34,7 @@ class ModelFactory:
                     encoder_model=config.encoder_model,
                     use_nms=config.use_nms,
                 )
-                return TorchModelHandler(model, reference_batch)
+                return TorchModelHandler(model, reference_batch, device=settings.device)
             case PerDinoConfig() as config:
                 model = PerDino(
                     sam=config.sam_model,
@@ -48,7 +48,7 @@ class ModelFactory:
                     precision=config.precision,
                     device=settings.device,
                 )
-                return TorchModelHandler(model, reference_batch)
+                return TorchModelHandler(model, reference_batch, device=settings.device)
             case SoftMatcherConfig() as config:
                 model = SoftMatcher(
                     sam=config.sam_model,
@@ -65,6 +65,6 @@ class ModelFactory:
                     precision=config.precision,
                     device=settings.device,
                 )
-                return TorchModelHandler(model, reference_batch)
+                return TorchModelHandler(model, reference_batch, device=settings.device)
             case _:
                 return PassThroughModelHandler()

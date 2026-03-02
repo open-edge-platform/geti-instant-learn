@@ -54,7 +54,7 @@ class TestModelFactory:
                         encoder_model="dinov3_small",
                         use_nms=True,
                     )
-                    mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch)
+                    mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch, device="cpu")
 
     def test_factory_creates_perdino_model_with_config(self, mock_reference_batch, mock_settings):
         config = PerDinoConfig(
@@ -89,7 +89,7 @@ class TestModelFactory:
                         precision="bf16",
                         device="cpu",
                     )
-                    mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch)
+                    mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch, device="cpu")
 
     def test_factory_creates_softmatcher_model_with_config(self, mock_reference_batch, mock_settings):
         config = SoftMatcherConfig(
@@ -130,7 +130,7 @@ class TestModelFactory:
                         precision="bf16",
                         device="cpu",
                     )
-                    mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch)
+                    mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch, device="cpu")
 
     def test_factory_returns_passthrough_for_none_reference_batch(self):
         config = MatcherConfig(

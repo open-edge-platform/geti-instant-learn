@@ -153,3 +153,6 @@ class ModelHandler(ABC):
     @abstractmethod
     def predict(self, inputs: list[InputData]) -> list[dict[str, np.ndarray]]:
         pass
+
+    def cleanup(self) -> None:
+        """Release model resources and free device memory."""
