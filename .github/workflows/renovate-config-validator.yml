@@ -17,8 +17,7 @@ on:
     paths:
       - ".github/renovate.json5"
 
-permissions:
-  contents: read
+permissions: {} # No permissions by default
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
@@ -27,6 +26,8 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout configuration
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

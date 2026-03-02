@@ -7,13 +7,16 @@ on:
         type: string
         required: true
   workflow_dispatch:
+
+permissions: {} # No permissions by default
+
 jobs:
   component-check:
     name: Library workflow
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
@@ -24,7 +27,7 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/install-dependencies
         with:
-          uv-cache-dependency-glob: 'library/uv.lock'
+          uv-cache-dependency-glob: "library/uv.lock"
 
       - name: Lint library
         working-directory: library
@@ -34,4 +37,4 @@ jobs:
       - name: Run library tests
         working-directory: library
         run: |
-          just tests || exit 0
+          just tests

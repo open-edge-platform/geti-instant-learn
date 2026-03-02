@@ -28,6 +28,88 @@ def setup_colors(class_map: dict[int, str]) -> dict[int, list[int]]:
     return color_map
 
 
+def render_predictions(
+    image_rgb: np.ndarray,
+    prediction: dict[str, torch.Tensor],
+    color_map: dict[int, list[int]],
+    *,
+    show_scores: bool = True,
+) -> np.ndarray:
+    """Render prediction overlays (masks, boxes, points) onto an RGB image.
+
+    This is the shared rendering function used by both ``visualize_single_image``
+    (which additionally saves to disk) and external callers such as web UIs.
+
+    Args:
+        image_rgb: Image in RGB uint8 format (H, W, 3).
+        prediction: Dict with ``pred_masks``, ``pred_labels``, and optionally
+            ``pred_boxes`` (x1, y1, x2, y2, score) and ``pred_points``
+            (x, y, score, fg_label).
+        color_map: Mapping from class id to ``[R, G, B]`` color.
+        show_scores: Whether to draw confidence scores next to boxes.
+
+    Returns:
+        Annotated RGB image (uint8).
+    """
+    pred_masks = prediction["pred_masks"]
+    pred_labels = prediction["pred_labels"]
+    pred_points = prediction.get("pred_points", torch.empty(0, 4))
+    pred_boxes = prediction.get("pred_boxes", torch.empty(0, 5))
+
+    image_vis = image_rgb.copy()
+    h, w = image_vis.shape[:2]
+
+    # Draw masks
+    if len(pred_masks):
+        for pred_label, pred_mask in zip(pred_labels, pred_masks, strict=False):
+            pred_label = pred_label.item() if isinstance(pred_label, torch.Tensor) else pred_label
+            pred_mask = pred_mask.cpu().numpy()
+
+            # Resize mask to image dimensions if needed
+            if pred_mask.shape != (h, w):
+                mask_uint8 = pred_mask.astype(np.uint8) * 255
+                mask_uint8 = cv2.resize(mask_uint8, (w, h), interpolation=cv2.INTER_NEAREST)
+                pred_mask = mask_uint8 > 0
+
+            color = color_map.get(pred_label, [0, 255, 0])
+            masked_img = np.where(pred_mask[..., None], color, image_vis)
+            masked_img = masked_img.astype(np.uint8)
+            image_vis = cv2.addWeighted(image_vis, 0.6, masked_img, 0.4, 0)
+
+            mask_uint8 = pred_mask.astype(np.uint8) * 255
+            contours, _ = cv2.findContours(mask_uint8, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            cv2.drawContours(image_vis, contours, -1, (255, 255, 255), 1)
+
+    # Draw points
+    if len(pred_points):
+        for pred_point in pred_points:
+            pred_point = pred_point.float().cpu().numpy()
+            x, y, _, fg_label = int(pred_point[0]), int(pred_point[1]), pred_point[2], int(pred_point[3])
+            size = int(h / 100)
+            cv2.drawMarker(
+                image_vis,
+                (x, y),
+                (255, 255, 255),
+                cv2.MARKER_STAR if fg_label == 1.0 else cv2.MARKER_SQUARE,
+                size,
+            )
+
+    # Draw boxes
+    if len(pred_boxes):
+        for pred_label, pred_box in zip(pred_labels, pred_boxes, strict=False):
+            pred_label = pred_label.item() if isinstance(pred_label, torch.Tensor) else pred_label
+            pred_box = pred_box.float().cpu().numpy()
+            x1, y1, x2, y2, score = pred_box
+            x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+            color = color_map.get(pred_label, [0, 255, 0])
+            cv2.rectangle(image_vis, (x1, y1), (x2, y2), color=color, thickness=2)
+            if show_scores:
+                label = f"{100 * score:.0f}%"
+                cv2.putText(image_vis, label, (x1, max(y1 - 6, 12)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+
+    return image_vis
+
+
 def visualize_single_image(
     image: tv_tensors.Image,
     prediction: dict[str, torch.Tensor],
@@ -35,31 +117,28 @@ def visualize_single_image(
     output_folder: str,
     color_map: dict[int, list[int]],
 ) -> np.ndarray:
-    """Process a single image for visualization.
+    """Render predictions onto an image and save the result to disk.
 
-    This function can be used standalone for visualizing a single image,
-    for example in a Jupyter notebook.
+    Delegates rendering to ``render_predictions`` and handles file output
+    with automatic deduplication of existing filenames.
 
     Args:
-        image: Image to visualize
-        prediction: Prediction to visualize
-        file_name: File name to visualize
-        output_folder: Directory to save visualization images
-        color_map: Dictionary mapping class indices to colors
+        image: Image to visualize (CHW tensor).
+        prediction: Prediction dict (see ``render_predictions``).
+        file_name: Output file name.
+        output_folder: Directory to save visualization images.
+        color_map: Mapping from class id to ``[R, G, B]`` color.
+
+    Returns:
+        Annotated RGB image (uint8).
     """
-    pred_masks = prediction["pred_masks"]
-    pred_labels = prediction["pred_labels"]
-    pred_points = prediction.get("pred_points", torch.empty(0, 4))
-    pred_boxes = prediction.get("pred_boxes", torch.empty(0, 5))
     image_np = image.permute(1, 2, 0).numpy()
-    height, _ = image_np.shape[:2]
 
     output_path = Path(output_folder) / file_name
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # If file exists, append a number to avoid overwriting
+    # Avoid overwriting existing files
     if output_path.exists():
-        # Find next available filename by appending a number
         stem = output_path.stem
         suffix = output_path.suffix
         parent = output_path.parent
@@ -69,52 +148,9 @@ def visualize_single_image(
             output_path = parent / new_name
             counter += 1
 
-    image_vis = image_np.copy()
-    if len(pred_masks):
-        # Draw each instance mask with the same class color and a border
-        for pred_label, pred_mask in zip(pred_labels, pred_masks, strict=False):
-            pred_label = pred_label.item() if isinstance(pred_label, torch.Tensor) else pred_label
-            pred_mask = pred_mask.cpu().numpy()
+    image_vis = render_predictions(image_np, prediction, color_map)
 
-            # Apply mask with more transparency
-            masked_img = np.where(pred_mask[..., None], color_map[pred_label], image_vis)
-            # Ensure both arrays have the same data type for cv2.addWeighted
-            masked_img = masked_img.astype(np.uint8)
-            image_vis = cv2.addWeighted(image_vis, 0.6, masked_img, 0.4, 0)
-
-            # Add border to the mask
-            mask_uint8 = pred_mask.astype(np.uint8) * 255
-            contours, _ = cv2.findContours(mask_uint8, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-            cv2.drawContours(image_vis, contours, -1, (255, 255, 255), 1)
-
-    # Draw points and confidence scores if provided
-    if len(pred_points):
-        for pred_label, pred_point in zip(pred_labels, pred_points, strict=False):
-            # Draw star marker
-            pred_point = pred_point.float().cpu().numpy()
-            # point format in [x, y, score, fg_label]
-            x, y, _, fg_label = int(pred_point[0]), int(pred_point[1]), pred_point[2], int(pred_point[3])
-            size = int(height / 100)  # Scale marker size with image
-            cv2.drawMarker(
-                image_vis,
-                (x, y),
-                (255, 255, 255),
-                cv2.MARKER_STAR if fg_label == 1.0 else cv2.MARKER_SQUARE,
-                size,
-            )
-
-    # Draw boxes and confidence scores if provided
-    if len(pred_boxes):
-        for pred_label, pred_box in zip(pred_labels, pred_boxes, strict=False):
-            pred_label = pred_label.item() if isinstance(pred_label, torch.Tensor) else pred_label
-            pred_box = pred_box.float().cpu().numpy()
-            # box format in [x1, y1, x2, y2, score]
-            x1, y1, x2, y2, _ = pred_box
-            x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-            cv2.rectangle(image_vis, (x1, y1), (x2, y2), color=color_map[pred_label], thickness=2)
-
-    # Save visualization
-    cv2.imwrite(output_path, cv2.cvtColor(image_vis, cv2.COLOR_RGB2BGR))
+    cv2.imwrite(str(output_path), cv2.cvtColor(image_vis, cv2.COLOR_RGB2BGR))
     return image_vis
 
 
