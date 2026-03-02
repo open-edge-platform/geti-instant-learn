@@ -85,4 +85,4 @@ class Processor(PipelineComponent):
         logger.debug("Stopping the pipeline runner loop")
 
     def _stop(self) -> None:
-        self._inbound_broadcaster.unregister("processor")
+        self._inbound_broadcaster.unregister(self.__class__.__name__)
