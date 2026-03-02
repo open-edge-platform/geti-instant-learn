@@ -20,7 +20,7 @@ class Sink(PipelineComponent):
         self._initialized = False
 
     def setup(self, outbound_broadcaster: FrameBroadcaster[OutputData]) -> None:
-        self._out_queue = outbound_broadcaster.register("sink")
+        self._out_queue = outbound_broadcaster.register(self.__class__.__name__)
         self._outbound_broadcaster = outbound_broadcaster
         self._initialized = True
 
@@ -47,4 +47,4 @@ class Sink(PipelineComponent):
             logger.debug("Stopping the sink loop")
 
     def _stop(self) -> None:
-        self._outbound_broadcaster.unregister("sink")
+        self._outbound_broadcaster.unregister(self.__class__.__name__)
