@@ -3,7 +3,6 @@
 
 import logging
 import uuid
-from queue import Queue
 from threading import Lock, Thread
 from typing import Self
 from uuid import UUID
@@ -12,7 +11,7 @@ from domain.repositories.frame import FrameRepository
 from domain.services.schemas.processor import InputData, OutputData
 from domain.services.schemas.reader import FrameListResponse
 from runtime.core.components.base import PipelineComponent
-from runtime.core.components.broadcaster import FrameBroadcaster
+from runtime.core.components.broadcaster import FrameBroadcaster, FrameSlot
 from runtime.core.components.processor import Processor
 from runtime.core.components.sink import Sink
 from runtime.core.components.source import Source
@@ -54,8 +53,8 @@ class Pipeline:
         self,
         project_id: UUID,
         frame_repository: FrameRepository,
-        inbound_broadcaster: FrameBroadcaster[InputData] = FrameBroadcaster[InputData](),
-        outbound_broadcaster: FrameBroadcaster[OutputData] = FrameBroadcaster[OutputData](),
+        inbound_broadcaster: FrameBroadcaster[InputData] = FrameBroadcaster[InputData]("inbound"),
+        outbound_broadcaster: FrameBroadcaster[OutputData] = FrameBroadcaster[OutputData]("outbound"),
     ):
         # todo: remove project id from the pipeline as it is the application impl details
         self._project_id = project_id
@@ -79,14 +78,10 @@ class Pipeline:
         """Check if the pipeline is currently running."""
         return self._is_running
 
-    def register_webrtc(self) -> Queue:
-        """Register a WebRTC consumer for processed output frames."""
-        logger.debug("WebRTC registering to OutboundBroadcaster for processed frames (project_id=%s)", self._project_id)
-        return self._outbound_broadcaster.register()
-
-    def unregister_webrtc(self, queue: Queue) -> None:
-        """Unregister a WebRTC consumer."""
-        return self._outbound_broadcaster.unregister(queue=queue)
+    @property
+    def outbound_slot(self) -> FrameSlot[OutputData]:
+        """Shared slot holding the latest processed frame for external consumers."""
+        return self._outbound_broadcaster.slot
 
     def start(self) -> None:
         with self._lock:

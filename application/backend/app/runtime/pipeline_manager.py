@@ -2,7 +2,6 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import logging
-import queue
 import threading
 from uuid import UUID
 
@@ -29,7 +28,7 @@ from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.processor import InputData, OutputData
 from domain.services.schemas.reader import FrameListResponse
 from runtime.components import ComponentFactory, DefaultComponentFactory
-from runtime.core.components.broadcaster import FrameBroadcaster
+from runtime.core.components.broadcaster import FrameBroadcaster, FrameSlot
 from runtime.core.components.errors import UnsupportedOperationError
 from runtime.core.components.pipeline import Pipeline
 from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError, SourceNotSeekableError
@@ -179,8 +178,8 @@ class PipelineManager:
             Pipeline(
                 project_id,
                 self._frame_repository,
-                FrameBroadcaster[InputData](),
-                FrameBroadcaster[OutputData](),
+                FrameBroadcaster[InputData]("inbound"),
+                FrameBroadcaster[OutputData]("outbound"),
             )
             .set_source(source)
             .set_processor(processor)
@@ -217,25 +216,17 @@ class PipelineManager:
             case _ as unknown:
                 logger.error(f"Unknown component type {unknown}")
 
-    # todo:
-    # 1. unify methods for registering/unregistering all types of consumers.
-    # 2. use context manager to automatically unregister a queue when it exits the scope
+    def get_output_slot(self, project_id: UUID) -> FrameSlot[OutputData]:
+        """Get the shared output slot for reading the latest processed frame.
 
-    def register_webrtc(self, project_id: UUID) -> queue.Queue:
-        """Register webRTC in pipeline."""
+        External consumers (e.g. WebRTC streams) can poll this slot without
+        registering or unregistering — they simply read ``slot.latest``.
+        """
         if self._pipeline is None:
-            raise PipelineNotActiveError("No active pipeline to register to.")
+            raise PipelineNotActiveError("No active pipeline.")
         if project_id != self._pipeline.project_id:
             raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
-        return self._pipeline.register_webrtc()
-
-    def unregister_webrtc(self, target_queue: queue.Queue, project_id: UUID) -> None:
-        """Unregister webRTC in pipeline."""
-        if self._pipeline is None:
-            raise PipelineNotActiveError("No active pipeline to unregister from.")
-        if project_id != self._pipeline.project_id:
-            raise PipelineProjectMismatchError("Project ID does not match the active pipeline's project ID.")
-        return self._pipeline.unregister_webrtc(queue=target_queue)
+        return self._pipeline.outbound_slot
 
     def seek(self, project_id: UUID, index: int) -> None:
         """

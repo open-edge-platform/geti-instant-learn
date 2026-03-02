@@ -1,4 +1,3 @@
-from queue import Queue
 from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
 
@@ -7,6 +6,7 @@ from aiortc import RTCPeerConnection, RTCSessionDescription
 
 from domain.services.schemas.label import CategoryMappings, RGBColor, VisualizationInfo, VisualizationLabel
 from domain.services.schemas.webrtc import Answer, Offer
+from runtime.core.components.broadcaster import FrameSlot
 from runtime.errors import PipelineProjectMismatchError
 from runtime.pipeline_manager import PipelineManager
 from runtime.webrtc.manager import WebRTCManager
@@ -19,8 +19,7 @@ PROJECT_ID = uuid4()
 def mock_pipeline_manager():
     """Create a mock PipelineManager."""
     pm = Mock(spec=PipelineManager)
-    pm.register_webrtc.return_value = Queue()
-    pm.unregister_webrtc.return_value = None
+    pm.get_output_slot.return_value = FrameSlot()
     return pm
 
 
@@ -70,7 +69,7 @@ async def test_handle_offer_success(webrtc_manager, mock_pipeline_manager, sampl
         assert answer.sdp == "answer-sdp"
         assert answer.type == "answer"
         assert sample_offer.webrtc_id in webrtc_manager._pcs
-        mock_pipeline_manager.register_webrtc.assert_called_once()
+        mock_pipeline_manager.get_output_slot.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -78,15 +77,15 @@ async def test_handle_offer_project_id_mismatch(webrtc_manager, mock_pipeline_ma
     """Test offer handling fails when project IDs don't match."""
     wrong_project_id = uuid4()
 
-    # Mock register_webrtc to raise exception on project mismatch
-    mock_pipeline_manager.register_webrtc.side_effect = PipelineProjectMismatchError(
+    # Mock get_output_slot to raise exception on project mismatch
+    mock_pipeline_manager.get_output_slot.side_effect = PipelineProjectMismatchError(
         f"Project ID mismatch: expected {PROJECT_ID}, got {wrong_project_id}"
     )
 
     with pytest.raises(PipelineProjectMismatchError):
         await webrtc_manager.handle_offer(wrong_project_id, sample_offer)
 
-    mock_pipeline_manager.register_webrtc.assert_called_once()
+    mock_pipeline_manager.get_output_slot.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -180,10 +179,7 @@ async def test_connection_state_change_triggers_cleanup(webrtc_manager, mock_pip
 
         # Create connection
         await webrtc_manager.handle_offer(PROJECT_ID, sample_offer)
-
-        # Get connection data
-        conn_data = webrtc_manager._pcs[sample_offer.webrtc_id]
-        queue = conn_data.queue
+        assert sample_offer.webrtc_id in webrtc_manager._pcs
 
         mock_pc.connectionState = "closed"
 
@@ -191,16 +187,13 @@ async def test_connection_state_change_triggers_cleanup(webrtc_manager, mock_pip
         assert captured_callback is not None
         await captured_callback()
 
-        # Verify unregister was called
-        mock_pipeline_manager.unregister_webrtc.assert_called_once_with(queue, project_id=PROJECT_ID)
-
         # Verify connection removed from registry
         assert sample_offer.webrtc_id not in webrtc_manager._pcs
 
 
 @pytest.mark.asyncio
 async def test_cleanup_all_connections(webrtc_manager, mock_pipeline_manager):
-    """Test that cleanup() disposes all connections and queues."""
+    """Test that cleanup() disposes all connections."""
     # Create multiple offers
     num_connections = 3
     offers = [Offer(webrtc_id=f"conn-{i}", sdp="v=0\r\n", type="offer") for i in range(num_connections)]
@@ -227,12 +220,6 @@ async def test_cleanup_all_connections(webrtc_manager, mock_pipeline_manager):
         # Create all connections
         for offer in offers:
             await webrtc_manager.handle_offer(PROJECT_ID, offer)
-
-        # Get all queues and mock their shutdown methods
-        queues = []
-        for conn_data in webrtc_manager._pcs.values():
-            queue = conn_data.queue
-            queues.append(queue)
 
         # Execute cleanup
         await webrtc_manager.cleanup()
