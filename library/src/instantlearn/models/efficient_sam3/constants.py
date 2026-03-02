@@ -112,3 +112,30 @@ STUDENT_CONTEXT_LENGTH = 32
 IMAGE_ENCODER_EMBED_DIM = 1024  # Project backbone output to this dimension
 IMAGE_ENCODER_EMBED_SIZE = 72  # Spatial size of encoded features (matches SAM3 ViT output)
 IMAGE_ENCODER_IMAGE_SIZE = 1008  # Input image resolution
+
+# TinyViT architecture configs per variant (from SAM-HQ registrations).
+# SAM-HQ's timm factory functions ignore img_size, so we instantiate TinyViT
+# directly and pass these configs along with the runtime image_size.
+TINYVIT_CONFIGS: dict[str, dict] = {
+    "5m": {
+        "embed_dims": [64, 128, 160, 320],
+        "depths": [2, 2, 6, 2],
+        "num_heads": [2, 4, 5, 10],
+        "window_sizes": [7, 7, 14, 7],
+        "drop_path_rate": 0.0,
+    },
+    "11m": {
+        "embed_dims": [64, 128, 256, 448],
+        "depths": [2, 2, 6, 2],
+        "num_heads": [2, 4, 8, 14],
+        "window_sizes": [7, 7, 14, 7],
+        "drop_path_rate": 0.1,
+    },
+    "21m": {
+        "embed_dims": [96, 192, 384, 576],
+        "depths": [2, 2, 6, 2],
+        "num_heads": [3, 6, 12, 18],
+        "window_sizes": [7, 7, 14, 7],
+        "drop_path_rate": 0.2,
+    },
+}

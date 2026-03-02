@@ -8,10 +8,12 @@ and FPN neck to produce multi-scale features compatible with SAM3's DETR pipelin
 """
 
 import logging
+import math
 from typing import Any
 
 import timm
 import torch
+from segment_anything_hq.modeling.tiny_vit_sam import TinyViT
 from torch import nn
 from torch.nn import functional
 
@@ -21,6 +23,8 @@ from .constants import (
     BACKBONE_CONFIG,
     IMAGE_ENCODER_EMBED_DIM,
     IMAGE_ENCODER_EMBED_SIZE,
+    IMAGE_ENCODER_IMAGE_SIZE,
+    TINYVIT_CONFIGS,
 )
 
 logger = logging.getLogger(__name__)
@@ -103,6 +107,57 @@ class StudentBackboneTrunk(nn.Module):
         return self.model(x)
 
 
+class TinyViTBackboneTrunk(nn.Module):
+    """Wrapper for SAM-HQ TinyViT with manual feature extraction.
+
+    SAM-HQ's timm registration ignores ``img_size`` and
+    ``forward_features()`` hardcodes spatial dimensions (64*64), so we
+    cannot use ``timm.create_model`` or the default forward path.
+    This wrapper creates TinyViT directly with the correct ``img_size``
+    and manually runs ``patch_embed`` + all stages to extract features.
+
+    Uses attribute name ``model`` for checkpoint key compatibility with
+    ``StudentBackboneTrunk``.
+    """
+
+    def __init__(self, variant: str, image_size: int) -> None:
+        """Initialize with a SAM-HQ TinyViT model.
+
+        Args:
+            variant: TinyViT variant ('5m', '11m', '21m').
+            image_size: Input image resolution (e.g. 1008).
+
+        Raises:
+            ValueError: If variant is not supported.
+        """
+        super().__init__()
+        if variant not in TINYVIT_CONFIGS:
+            msg = f"Unsupported TinyViT variant: {variant}. Available: {list(TINYVIT_CONFIGS.keys())}"
+            raise ValueError(msg)
+
+        self.model = TinyViT(img_size=image_size, **TINYVIT_CONFIGS[variant])
+
+    def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
+        """Extract last-stage features from TinyViT.
+
+        Runs patch_embed + all layers manually, then reshapes the sequence
+        output to [B, C, H, W] for compatibility with the projection head.
+
+        Args:
+            x: Input images [B, 3, H, W].
+
+        Returns:
+            Single-element list containing [B, C, H, W] features.
+        """
+        x = self.model.patch_embed(x)
+        for layer in self.model.layers:
+            x = layer(x)
+        # x: [B, L, C] → [B, C, H, W]
+        b, seq_len, c = x.shape
+        h = w = math.isqrt(seq_len)
+        return [x.view(b, h, w, c).permute(0, 3, 1, 2).contiguous()]
+
+
 class StudentVisionModel(nn.Module):
     """Complete student vision model: timm backbone + projection head + FPN.
 
@@ -120,6 +175,7 @@ class StudentVisionModel(nn.Module):
         backbone_type: str = "efficientvit",
         variant: str = "b2",
         fpn_hidden_size: int = 256,
+        image_size: int = IMAGE_ENCODER_IMAGE_SIZE,
     ) -> None:
         """Initialize the student vision model.
 
@@ -127,6 +183,9 @@ class StudentVisionModel(nn.Module):
             backbone_type: Backbone family ('efficientvit', 'repvit', 'tinyvit').
             variant: Model size variant (e.g. 'b0', 'm1_1', '11m').
             fpn_hidden_size: FPN output dimension. Default: 256.
+            image_size: Input image resolution. Passed to the timm backbone so
+                that architectures with fixed-resolution bookkeeping (TinyViT)
+                compute correct internal spatial dimensions. Default: 1008.
 
         Raises:
             ValueError: If backbone_type/variant combination is not supported.
@@ -140,18 +199,27 @@ class StudentVisionModel(nn.Module):
         timm_name, out_channels = BACKBONE_CONFIG[key]
         logger.info("Creating student backbone: %s (timm: %s, channels: %d)", key, timm_name, out_channels)
 
-        # Create timm backbone with only the final stage output
-        backbone_model = timm.create_model(
-            timm_name,
-            pretrained=False,
-            features_only=True,
-            out_indices=(-1,),
-        )
-
         # Match original EfficientSAM3 hierarchy:
-        # trunk (ImageStudentEncoder) → student_trunk (StudentBackboneTrunk) → model (timm)
+        # trunk (ImageStudentEncoder) → student_trunk → model (backbone)
         self.trunk = nn.Module()
-        self.trunk.student_trunk = StudentBackboneTrunk(backbone_model)
+
+        if backbone_type == "tinyvit":
+            # SAM-HQ's timm registration ignores img_size (always uses 224)
+            # and forward_features() hardcodes spatial dims. Create TinyViT
+            # directly with the correct img_size and extract features manually.
+            self.trunk.student_trunk = TinyViTBackboneTrunk(
+                variant=variant,
+                image_size=image_size,
+            )
+        else:
+            backbone_model = timm.create_model(
+                timm_name,
+                pretrained=False,
+                features_only=True,
+                out_indices=(-1,),
+            )
+            self.trunk.student_trunk = StudentBackboneTrunk(backbone_model)
+
         self.trunk.projector = ImageProjectionHead(in_channels=out_channels)
 
         # FPN components as direct attributes (matching Sam3DualViTDetNeck)

@@ -84,10 +84,12 @@ class EfficientSam3Model(Sam3Model):
             StudentVisionModel producing SAM3-compatible output dict.
         """
         fpn_hidden_size = kwargs.get("fpn_hidden_size", 256)
+        image_size = kwargs.get("image_size", 1008)
         return StudentVisionModel(
             backbone_type=self._backbone_type,
             variant=self._variant,
             fpn_hidden_size=fpn_hidden_size,
+            image_size=image_size,
         )
 
     def _create_text_encoder(self, **kwargs: Any) -> tuple[nn.Module, nn.Module]:  # noqa: ANN401, PLR6301
@@ -561,11 +563,11 @@ def convert_efficientsam3_state_dict(
 # ---------------------------------------------------------------------------
 
 # Note: TinyViT backbone keys do NOT require conversion. The
-# segment_anything_hq package overrides timm's TinyViT model registrations,
-# so the timm-created backbone uses the same naming as the original SAM3
-# checkpoint (layers.N, patch_embed.seq, .c.). The SAM-HQ TinyViT also
-# retains its classifier head/norm_head parameters despite features_only=True;
-# these are unused at inference but load from the checkpoint without warnings.
+# segment_anything_hq package provides the same TinyViT implementation
+# used in the original checkpoint (layers.N, patch_embed.seq, .c.).
+# TinyViTBackboneTrunk creates TinyViT directly (bypassing SAM-HQ's
+# timm registration which ignores img_size) so all keys — including
+# norm_head, head, and neck — load from the checkpoint.
 
 _BACKBONE_PREFIX = "vision_encoder.trunk.student_trunk.model."
 
