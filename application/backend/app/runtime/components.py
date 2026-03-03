@@ -25,9 +25,7 @@ class ComponentFactory(ABC):
     def create_source(self, project_id: UUID) -> Source: ...
 
     @abstractmethod
-    def create_processor(
-        self, project_id: UUID, reference_batch: Batch, category_id_to_label_id: dict[int, str]
-    ) -> Processor: ...
+    def create_processor(self, project_id: UUID, reference_batch: Batch) -> Processor: ...
 
     @abstractmethod
     def create_sink(self, project_id: UUID) -> Sink: ...
@@ -46,13 +44,11 @@ class DefaultComponentFactory(ComponentFactory):
             cfg = svc.get_pipeline_config(project_id)
         return Source(StreamReaderFactory.create(cfg.reader))
 
-    def create_processor(
-        self, project_id: UUID, reference_batch: Batch, category_id_to_label_id: dict[int, str]
-    ) -> Processor:
+    def create_processor(self, project_id: UUID, reference_batch: Batch) -> Processor:
         with self._session_factory() as session:
             project_svc = ProjectService(session)
             cfg = project_svc.get_pipeline_config(project_id)
-            logger.info("Creating processor with model config: %s", cfg.processor)
+        logger.info("Creating processor with model config: %s", cfg.processor)
         settings = get_settings()
         return Processor(
             model_handler=ModelFactory.create(reference_batch, cfg.processor),

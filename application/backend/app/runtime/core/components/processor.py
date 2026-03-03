@@ -36,7 +36,7 @@ class FrameSkipPolicy:
     def __init__(self, interval: int = 3, skip_amount: int = 1) -> None:
         if interval < 0 or interval == 1:
             raise ValueError(f"frame_skip_interval must be > 1 or 0 for no skipping, got {interval}")
-        if skip_amount < 0 or skip_amount >= interval:
+        if interval > 0 and (skip_amount < 0 or skip_amount >= interval):
             raise ValueError(f"skip_amount must be >= 0 and < interval, got {skip_amount} and {interval}")
         self._interval = interval
         self._skip_amount = skip_amount
@@ -52,7 +52,7 @@ class FrameSkipPolicy:
 
     def should_skip(self) -> bool:
         """Return True if the current frame should be dropped. Advances the internal counter on every call."""
-        if self._interval == 0:
+        if self._interval == 0 or self._skip_amount == 0:
             return False
 
         position = self._counter % self._interval
@@ -82,9 +82,6 @@ class Processor(PipelineComponent):
         self._model_handler = model_handler
         self._batch_size = batch_size
         self._skip_policy = FrameSkipPolicy(interval=frame_skip_interval, skip_amount=frame_skip_amount)
-        self._inbound_broadcaster: FrameBroadcaster[InputData] | None = None
-        self._outbound_broadcaster: FrameBroadcaster[OutputData] | None = None
-        self._in_queue: Queue[InputData] | None = None
         self._initialized = False
 
     def setup(
@@ -115,7 +112,7 @@ class Processor(PipelineComponent):
                     try:
                         input_data: InputData = self._in_queue.get(timeout=0.1)
                         if input_data.trace:
-                            input_data.trace.record_start(self.__class__.__name__)
+                            input_data.trace.record_start("processor")
                     except Empty:
                         if batch_data:  # if we have partial batch data, process what we have
                             break
