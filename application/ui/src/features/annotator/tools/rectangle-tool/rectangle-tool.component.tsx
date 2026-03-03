@@ -3,8 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { LabelType } from '@/api';
-
 import { useZoom } from '../../../../components/zoom/zoom.provider';
 import { useVisualPrompt } from '../../../prompts/visual-prompt/visual-prompt-provider.component';
 import { useAnnotationActions } from '../../providers/annotation-actions-provider.component';
@@ -20,7 +18,7 @@ export const RectangleTool = () => {
 
     const handleComplete = (shapes: Rect[], annotationLabels: Label[]): void => {
         if (annotationLabels.length > 0) {
-            addAnnotations(shapes, annotationLabels as LabelType[]);
+            addAnnotations(shapes, annotationLabels);
         }
     };
 

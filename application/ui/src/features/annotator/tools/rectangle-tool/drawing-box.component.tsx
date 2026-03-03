@@ -124,11 +124,7 @@ export const DrawingBox = ({ roi, zoom, image, selectedLabel, onComplete }: Draw
             style={{ cursor: `url(${selectionCursor}) ${CURSOR_OFFSET}, auto` }}
         >
             {boundingBox ? (
-                <Rectangle
-                    ariaLabel={'bounding box'}
-                    rect={boundingBox}
-                    styles={DEFAULT_ANNOTATION_STYLES}
-                />
+                <Rectangle ariaLabel={'bounding box'} rect={boundingBox} styles={DEFAULT_ANNOTATION_STYLES} />
             ) : null}
             <Crosshair location={crosshair.location} zoom={zoom} />
         </SvgToolCanvas>
