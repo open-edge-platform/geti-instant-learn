@@ -5,9 +5,8 @@
 
 import { PointerEvent, useRef, useState } from 'react';
 
-import { clampBox, clampPointBetweenImage, pointsToRect } from '@geti/smart-tools/utils';
-
 import { useEventListener } from '@/hooks';
+import { clampBox, clampPointBetweenImage, pointsToRect } from '@geti/smart-tools/utils';
 
 import { Rectangle } from '../../shapes/rectangle.component';
 import type { Label, Point, Rect, RegionOfInterest } from '../../types';

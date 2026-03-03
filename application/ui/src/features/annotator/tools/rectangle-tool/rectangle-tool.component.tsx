@@ -24,13 +24,5 @@ export const RectangleTool = () => {
         }
     };
 
-    return (
-        <DrawingBox
-            roi={roi}
-            image={image}
-            zoom={zoom}
-            selectedLabel={selectedLabel}
-            onComplete={handleComplete}
-        />
-    );
+    return <DrawingBox roi={roi} image={image} zoom={zoom} selectedLabel={selectedLabel} onComplete={handleComplete} />;
 };
