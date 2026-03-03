@@ -39,9 +39,9 @@ class ModelFactory:
                     num_background_points=config.num_background_points,
                     confidence_threshold=config.confidence_threshold,
                     use_mask_refinement=config.use_mask_refinement,
-                    sam=config.sam_model,
-                    encoder_model=config.encoder_model,
                     use_nms=config.use_nms,
+                    precision=precision,
+                    device=settings.device,
                 )
                 if is_cuda:
                     return TorchModelHandler(model, reference_batch)
