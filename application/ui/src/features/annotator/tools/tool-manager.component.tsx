@@ -13,7 +13,7 @@ import { SegmentAnythingTool } from './segment-anything-tool/segment-anything-to
 export const ToolManager = () => {
     const models = useGetModels();
     const activeModel = models.find((m: ModelType) => m.active) ?? models[0];
-    const annotationType = activeModel !== undefined ? getAnnotationTypeForModel(activeModel) : 'rectangle';
+    const annotationType = getAnnotationTypeForModel(activeModel);
 
     return annotationType === 'rectangle' ? <RectangleTool /> : <SegmentAnythingTool />;
 };

@@ -32,6 +32,8 @@ export const DrawingBox = ({ roi, zoom, image, selectedLabel, onComplete }: Draw
     const [boundingBox, setBoundingBox] = useState<Rect | null>(null);
 
     const canvasRef = useRef<SVGRectElement>(null);
+    const svgRef = useRef<SVGSVGElement>(null);
+    const capturedPointerIdRef = useRef<number | null>(null);
 
     const clampPoint = clampPointBetweenImage(image);
     const crosshair = useCrosshair(canvasRef, zoom);
@@ -69,6 +71,7 @@ export const DrawingBox = ({ roi, zoom, image, selectedLabel, onComplete }: Draw
         const mouse = clampPoint(getRelativePoint(canvasRef.current, { x: event.clientX, y: event.clientY }, zoom));
 
         event.currentTarget.setPointerCapture(event.pointerId);
+        capturedPointerIdRef.current = event.pointerId;
 
         setStartPoint(mouse);
         setBoundingBox({ type: 'rectangle', x: mouse.x, y: mouse.y, width: 0, height: 0 });
@@ -91,6 +94,7 @@ export const DrawingBox = ({ roi, zoom, image, selectedLabel, onComplete }: Draw
         setCleanState();
 
         event.currentTarget.releasePointerCapture(event.pointerId);
+        capturedPointerIdRef.current = null;
     };
 
     const setCleanState = () => {
@@ -101,11 +105,16 @@ export const DrawingBox = ({ roi, zoom, image, selectedLabel, onComplete }: Draw
     useEventListener('keydown', (event: KeyboardEvent) => {
         if (event.key === 'Escape') {
             setCleanState();
+            if (svgRef.current !== null && capturedPointerIdRef.current !== null) {
+                svgRef.current.releasePointerCapture(capturedPointerIdRef.current);
+                capturedPointerIdRef.current = null;
+            }
         }
     });
 
     return (
         <SvgToolCanvas
+            ref={svgRef}
             image={image}
             canvasRef={canvasRef}
             onPointerMove={onPointerMove}
@@ -118,7 +127,7 @@ export const DrawingBox = ({ roi, zoom, image, selectedLabel, onComplete }: Draw
                 <Rectangle
                     ariaLabel={'bounding box'}
                     rect={boundingBox}
-                    styles={{ role: 'application', ...DEFAULT_ANNOTATION_STYLES }}
+                    styles={DEFAULT_ANNOTATION_STYLES}
                 />
             ) : null}
             <Crosshair location={crosshair.location} zoom={zoom} />
