@@ -53,11 +53,12 @@ class DefaultComponentFactory(ComponentFactory):
             project_svc = ProjectService(session)
             cfg = project_svc.get_pipeline_config(project_id)
             logger.info("Creating processor with model config: %s", cfg.processor)
-
+        settings = get_settings()
         return Processor(
             model_handler=ModelFactory.create(reference_batch, cfg.processor),
-            batch_size=get_settings().processor_batch_size,
-            category_id_to_label_id=category_id_to_label_id,
+            batch_size=settings.processor_batch_size,
+            frame_skip_interval=settings.processor_frame_skip_interval,
+            frame_skip_amount=settings.processor_frame_skip_amount,
         )
 
     def create_sink(self, project_id: UUID) -> Sink:
