@@ -115,19 +115,34 @@ class Pipeline:
         logger.debug(f"Pipeline stopped for project_id={self._project_id}")
 
     def set_source(self, source: Source, start: bool = False) -> Self:
-        source.setup(self._inbound_broadcaster)
-        self._register_component(source, start)
+        with self._lock:
+            self._stop_component(Source)
+            source.setup(self._inbound_broadcaster)
+            self._register_component(source, start)
         return self
 
     def set_sink(self, sink: Sink, start: bool = False) -> Self:
-        sink.setup(self._outbound_broadcaster)
-        self._register_component(sink, start)
+        with self._lock:
+            self._stop_component(Sink)
+            sink.setup(self._outbound_broadcaster)
+            self._register_component(sink, start)
         return self
 
     def set_processor(self, processor: Processor, start: bool = False) -> Self:
-        processor.setup(self._inbound_broadcaster, self._outbound_broadcaster)
-        self._register_component(processor, start)
+        with self._lock:
+            self._stop_component(Processor)
+            processor.setup(self._inbound_broadcaster, self._outbound_broadcaster)
+            self._register_component(processor, start)
         return self
+
+    def _stop_component(self, component_cls: type[PipelineComponent]) -> None:
+        """Stop and join the existing component of the given type, if any."""
+        current = self._components.get(component_cls)
+        if current:
+            current.stop()
+            thread = self._threads.get(component_cls)
+            if thread and thread.is_alive():
+                thread.join(timeout=5)
 
     def _register_component(self, new_component: PipelineComponent, start: bool = True) -> None:
         """
@@ -139,27 +154,14 @@ class Pipeline:
             new_component: The new component instance.
         """
         component_cls = new_component.__class__
-
-        with self._lock:
-            # Stop the current component if one exists
-            current_component = self._components.get(component_cls)
-            if current_component:
-                current_component.stop()
-                thread = self._threads.get(component_cls)
-                if thread and thread.is_alive():
-                    thread.join(timeout=5)
-                    if thread.is_alive():
-                        logger.warning(f"{component_cls.__name__} thread did not stop cleanly")
-
-            self._inbound_broadcaster.clear()
-            self._outbound_broadcaster.clear()
-
-            self._components[component_cls] = new_component
-            if start:
-                thread = Thread(target=new_component, daemon=False)
-                thread.start()
-                self._threads[component_cls] = thread
-                logger.debug(f"Started new {component_cls.__name__}")
+        self._inbound_broadcaster.clear()
+        self._outbound_broadcaster.clear()
+        self._components[component_cls] = new_component
+        if start:
+            thread = Thread(target=new_component, daemon=False)
+            thread.start()
+            self._threads[component_cls] = thread
+            logger.debug(f"Started new {component_cls.__name__}")
 
     def seek(self, index: int) -> None:
         """Seek to a specific frame in the source."""

@@ -171,7 +171,7 @@ class PipelineManager:
         """
         source = self._component_factory.create_source(project_id)
         reference_batch, category_id_to_label_id = self.get_reference_batch(project_id, PromptType.VISUAL) or (None, {})
-        processor = self._component_factory.create_processor(project_id, reference_batch, category_id_to_label_id)
+        processor = self._component_factory.create_processor(project_id, reference_batch)
         sink = self._component_factory.create_sink(project_id)
 
         return (
@@ -206,9 +206,7 @@ class PipelineManager:
                     None,
                     {},
                 )
-                processor = self._component_factory.create_processor(
-                    project_id, reference_batch, category_id_to_label_id
-                )
+                processor = self._component_factory.create_processor(project_id, reference_batch)
                 self._pipeline.set_processor(processor, True)
             case ComponentType.SINK:
                 sink = self._component_factory.create_sink(project_id)

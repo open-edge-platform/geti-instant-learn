@@ -102,7 +102,7 @@ class TestPipelineManager:
 
             svc_inst.get_active_pipeline_config.assert_called_once()
             mock_component_factory.create_source.assert_called_once_with(pipeline_cfg.project_id)
-            mock_component_factory.create_processor.assert_called_once_with(pipeline_cfg.project_id, None, {})
+            mock_component_factory.create_processor.assert_called_once_with(pipeline_cfg.project_id, None)
             mock_component_factory.create_sink.assert_called_once_with(pipeline_cfg.project_id)
 
             # Pipeline is called with project_id and two FrameBroadcasters
@@ -159,7 +159,7 @@ class TestPipelineManager:
             mgr.on_config_change(ev)
 
             mock_component_factory.create_source.assert_called_once_with(pid)
-            mock_component_factory.create_processor.assert_called_once_with(pid, None, {})
+            mock_component_factory.create_processor.assert_called_once_with(pid, None)
             mock_component_factory.create_sink.assert_called_once_with(pid)
 
             # Pipeline is called with project_id and two FrameBroadcasters
@@ -203,7 +203,7 @@ class TestPipelineManager:
 
             old_pipeline.stop.assert_called_once()
             mock_component_factory.create_source.assert_called_once_with(pid_new)
-            mock_component_factory.create_processor.assert_called_once_with(pid_new, None, {})
+            mock_component_factory.create_processor.assert_called_once_with(pid_new, None)
             mock_component_factory.create_sink.assert_called_once_with(pid_new)
 
             # Pipeline is called with project_id and two FrameBroadcasters
