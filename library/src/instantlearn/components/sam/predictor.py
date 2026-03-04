@@ -133,10 +133,11 @@ class PositionEmbeddingRandom(_PositionEmbeddingRandom):
 
     def _pe_encoding(self, coords: torch.Tensor) -> torch.Tensor:
         """Positionally encode points normalized to [0,1], preserving dtype."""
-        # Convert coords to match the gaussian matrix dtype
-        coords = coords.to(self.positional_encoding_gaussian_matrix.dtype)
+        # Convert coords to match the gaussian matrix device and dtype
+        gaussian_matrix = self.positional_encoding_gaussian_matrix
+        coords = coords.to(device=gaussian_matrix.device, dtype=gaussian_matrix.dtype)
         coords = 2 * coords - 1
-        coords = coords @ self.positional_encoding_gaussian_matrix
+        coords = coords @ gaussian_matrix
         coords = 2 * np.pi * coords
         return torch.cat([torch.sin(coords), torch.cos(coords)], dim=-1)
 
