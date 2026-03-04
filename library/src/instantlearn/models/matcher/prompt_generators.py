@@ -292,7 +292,14 @@ class BidirectionalPromptGenerator(nn.Module):
         # Compute similarity maps
         # Local similarity for output (at feature grid size, not resized)
         local_similarity = masked_ref_embed.unsqueeze(0) @ target_embed.T  # [1, num_patches]
-        local_similarity_grid = local_similarity.reshape(feat_size, feat_size)
+        similarity_flat = local_similarity.reshape(-1)
+        similarity_padding = torch.zeros(
+            expected_num_patches,
+            device=local_similarity.device,
+            dtype=local_similarity.dtype,
+        )
+        similarity_flat = torch.cat([similarity_flat, similarity_padding], dim=0)[:expected_num_patches]
+        local_similarity_grid = similarity_flat.reshape(feat_size, feat_size)
 
         # Full similarity map for matching
         similarity_map = ref_embed @ target_embed.T  # [num_patches_total, num_patches]
