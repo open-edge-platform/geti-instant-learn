@@ -279,10 +279,19 @@ class BidirectionalPromptGenerator(nn.Module):
             padded_points: Point prompts [max_points, 4] with (x, y, score, label), zero-padded
             similarity: Similarity map at feature grid size [feat_size, feat_size]
         """
+        feat_size = self.encoder_feature_size
+        expected_num_patches = feat_size * feat_size
+        target_padding = torch.zeros(
+            expected_num_patches,
+            target_embed.size(-1),
+            device=target_embed.device,
+            dtype=target_embed.dtype,
+        )
+        target_embed = torch.cat([target_embed, target_padding], dim=0)[:expected_num_patches]
+
         # Compute similarity maps
         # Local similarity for output (at feature grid size, not resized)
         local_similarity = masked_ref_embed.unsqueeze(0) @ target_embed.T  # [1, num_patches]
-        feat_size = self.encoder_feature_size
         local_similarity_grid = local_similarity.reshape(feat_size, feat_size)
 
         # Full similarity map for matching
