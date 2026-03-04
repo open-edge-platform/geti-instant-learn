@@ -90,8 +90,20 @@ class BidirectionalPromptGenerator(nn.Module):
         # Use nonzero().squeeze(-1) instead of nonzero(as_tuple=True)[0] for OpenVINO compatibility
         ref_idx = ref_mask.nonzero().squeeze(-1).to(similarity_map.device)
 
+        # Degenerate case: no reference indices available
+        if ref_idx.numel() == 0:
+            dummy_ref = torch.zeros(1, dtype=torch.long, device=similarity_map.device)
+            dummy_target = torch.zeros(1, dtype=torch.long, device=similarity_map.device)
+            dummy_score = torch.zeros(1, dtype=similarity_map.dtype, device=similarity_map.device)
+            return [dummy_ref, dummy_target], dummy_score
+
         # Forward pass (ref → target)
         fw_indices, fw_scores = BidirectionalPromptGenerator.ref_to_target_matching(similarity_map, ref_idx)
+        if fw_scores.numel() == 0:
+            dummy_ref = torch.zeros(1, dtype=torch.long, device=similarity_map.device)
+            dummy_target = torch.zeros(1, dtype=torch.long, device=similarity_map.device)
+            dummy_score = torch.zeros(1, dtype=similarity_map.dtype, device=similarity_map.device)
+            return [dummy_ref, dummy_target], dummy_score
         target_idx_fw = fw_indices[1]
 
         # Backward pass (target → ref)
