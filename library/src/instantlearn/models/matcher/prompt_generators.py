@@ -349,8 +349,21 @@ class BidirectionalPromptGenerator(nn.Module):
         num_targets = target_embeddings.size(0)
         num_categories = category_ids.shape[0] if isinstance(category_ids, torch.Tensor) else len(category_ids)
         feat_size = self.encoder_feature_size
+        expected_num_patches = feat_size * feat_size
         device = target_embeddings.device
         dtype = target_embeddings.dtype
+
+        # Normalize patch-token length for export robustness.
+        # Some traced encoder variants can return unexpected token counts (including empty).
+        # Concatenate a full zero padding tensor and slice to expected length to avoid conditionals.
+        patch_padding = torch.zeros(
+            num_targets,
+            expected_num_patches,
+            target_embeddings.size(-1),
+            device=device,
+            dtype=dtype,
+        )
+        target_embeddings = torch.cat([target_embeddings, patch_padding], dim=1)[:, :expected_num_patches, :]
 
         # Pre-allocate output tensors
         point_prompts = torch.zeros(num_targets, num_categories, self.max_points, 4, device=device, dtype=dtype)
