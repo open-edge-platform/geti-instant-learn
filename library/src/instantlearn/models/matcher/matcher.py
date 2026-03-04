@@ -72,22 +72,27 @@ class MatcherInferenceGraph(nn.Module):
 
     def forward(self, target_image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Single image forward pass for export: target_image [1, 3, H, W] → (masks, scores, labels)."""
-        # Get original size from input tensor [1, 3, H, W]
-        original_sizes = torch.stack([
-            torch.tensor(target_image.size(2)),
-            torch.tensor(target_image.size(3)),
-        ]).unsqueeze(0)
-
         # Encode target [1, num_patches, embed_dim]
         target_embeddings = self.encoder(target_image)
+        feature_device = target_embeddings.device
+
+        # Align frozen reference tensors to target embedding device for trace-time safety.
+        # This prevents mixed-device matmul when model buffers and encoder output diverge.
+        ref_embeddings = self.ref_embeddings.to(feature_device)
+        masked_ref_embeddings = self.masked_ref_embeddings.to(feature_device)
+        flatten_ref_masks = self.flatten_ref_masks.to(feature_device)
+        category_ids = self.category_ids.to(feature_device)
+
+        # Get original size from input tensor [1, 3, H, W] in a trace-friendly way
+        original_sizes = torch._shape_as_tensor(target_image)[2:4].to(feature_device).unsqueeze(0)
 
         # Generate prompts using frozen ref_features
         # point_prompts: [1, C, max_points, 4], num_points: [1, C], similarities: [1, C, feat_size, feat_size]
         point_prompts, similarities = self.prompt_generator.forward(
-            self.ref_embeddings,
-            self.masked_ref_embeddings,
-            self.flatten_ref_masks,
-            self.category_ids,
+            ref_embeddings,
+            masked_ref_embeddings,
+            flatten_ref_masks,
+            category_ids,
             target_embeddings,
             original_sizes,
         )
@@ -95,7 +100,7 @@ class MatcherInferenceGraph(nn.Module):
         # Decode using export-friendly method (single image, returns tensors)
         return self.sam_decoder.forward_export(
             target_image[0],  # Single image [3, H, W]
-            self.category_ids,
+            category_ids,
             point_prompts[0],  # [C, max_points, 4]
             similarities[0],  # [C, feat_size, feat_size]
         )

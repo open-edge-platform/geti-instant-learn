@@ -321,7 +321,7 @@ class BidirectionalPromptGenerator(nn.Module):
         ref_embeddings: torch.Tensor,
         masked_ref_embeddings: torch.Tensor,
         flatten_ref_masks: torch.Tensor,
-        category_ids: list[int],
+        category_ids: list[int] | torch.Tensor,
         target_embeddings: torch.Tensor,
         original_sizes: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -347,7 +347,7 @@ class BidirectionalPromptGenerator(nn.Module):
             similarities: [T, C, feat_size, feat_size] - similarity maps at feature grid size
         """
         num_targets = target_embeddings.size(0)
-        num_categories = len(category_ids)
+        num_categories = category_ids.shape[0] if isinstance(category_ids, torch.Tensor) else len(category_ids)
         feat_size = self.encoder_feature_size
         device = target_embeddings.device
         dtype = target_embeddings.dtype
