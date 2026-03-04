@@ -111,6 +111,8 @@ class Pipeline:
                     if thread and thread.is_alive():
                         thread.join(timeout=5)
 
+            self._components.clear()
+            self._threads.clear()
             self._is_running = False
         logger.debug(f"Pipeline stopped for project_id={self._project_id}")
 
@@ -128,6 +130,24 @@ class Pipeline:
         processor.setup(self._inbound_broadcaster, self._outbound_broadcaster)
         self._register_component(processor, start)
         return self
+
+    def stop_component(self, component_cls: type[PipelineComponent]) -> None:
+        """Stop and remove a single component, releasing its resources.
+
+        Args:
+            component_cls: The component class to stop (e.g. ``Processor``).
+        """
+        with self._lock:
+            component = self._components.pop(component_cls, None)
+            if component is None:
+                return
+            component.stop()
+            thread = self._threads.pop(component_cls, None)
+            if thread and thread.is_alive():
+                thread.join(timeout=5)
+                if thread.is_alive():
+                    logger.warning("%s thread did not stop cleanly", component_cls.__name__)
+        logger.debug("Stopped and removed %s", component_cls.__name__)
 
     def _register_component(self, new_component: PipelineComponent, start: bool = True) -> None:
         """

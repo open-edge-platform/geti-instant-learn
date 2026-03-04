@@ -257,6 +257,7 @@ class TestPipelineManager:
             mgr.on_config_change(ev)
 
             running.stop.assert_called_once()
+            assert mgr._pipeline is None
 
     def test_on_deactivation_ignores_non_matching_pipeline(self, dispatcher, session_factory):
         with patch("runtime.pipeline_manager.ProjectService"), patch("runtime.pipeline_manager.Pipeline"):
@@ -290,6 +291,43 @@ class TestPipelineManager:
 
             mock_component_factory.create_source.assert_called_once_with(pid)
             running.set_source.assert_called_once()
+
+    def test_on_processor_update_unloads_before_loading(self, dispatcher, session_factory, mock_component_factory):
+        """When the processor model is changed, the old one must be stopped first to free device memory."""
+        with (
+            patch("runtime.pipeline_manager.Pipeline"),
+            patch.object(PipelineManager, "get_reference_batch", return_value=None),
+            patch.object(PipelineManager, "_refresh_visualization_info", return_value=None),
+        ):
+            from runtime.core.components.processor import Processor
+
+            pid = uuid4()
+            component_id = uuid4()
+            running = Mock()
+            running.project_id = pid
+
+            # Track call ordering across pipeline and factory mocks
+            call_order: list[str] = []
+            running.stop_component.side_effect = lambda *a, **kw: call_order.append("stop_component")
+            mock_component_factory.create_processor.side_effect = lambda *a, **kw: (
+                call_order.append("create_processor") or Mock()
+            )
+
+            mgr = PipelineManager(dispatcher, session_factory, component_factory=mock_component_factory)
+            mgr._pipeline = running
+
+            ev = ComponentConfigChangeEvent(
+                project_id=pid, component_type=ComponentType.PROCESSOR, component_id=component_id
+            )
+            mgr.on_config_change(ev)
+
+            # Verify stop_component is called BEFORE create_processor (unload-before-load)
+            running.stop_component.assert_called_once_with(Processor)
+            mock_component_factory.create_processor.assert_called_once()
+            running.set_processor.assert_called_once()
+            assert call_order == ["stop_component", "create_processor"], (
+                f"Expected stop_component before create_processor, got: {call_order}"
+            )
 
     def test_on_component_update_ignores_mismatch(self, dispatcher, session_factory):
         with patch("runtime.pipeline_manager.Pipeline"):

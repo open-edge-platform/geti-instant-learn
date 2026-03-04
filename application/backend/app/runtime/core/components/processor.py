@@ -31,6 +31,8 @@ class Processor(PipelineComponent):
         self._model_handler = model_handler
         self._batch_size = batch_size
         self._category_id_to_label_id = category_id_to_label_id or {}
+        self._inbound_broadcaster: FrameBroadcaster[InputData] | None = None
+        self._in_queue: Queue[InputData] | None = None
 
     def setup(
         self,
@@ -85,4 +87,6 @@ class Processor(PipelineComponent):
         logger.debug("Stopping the pipeline runner loop")
 
     def _stop(self) -> None:
-        self._inbound_broadcaster.unregister(self.__class__.__name__)
+        if self._inbound_broadcaster is not None:
+            self._inbound_broadcaster.unregister(self.__class__.__name__)
+        self._model_handler.cleanup()

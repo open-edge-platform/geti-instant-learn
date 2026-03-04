@@ -1,6 +1,7 @@
 # Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import gc
 import logging
 
 import numpy as np
@@ -22,3 +23,17 @@ class OpenVINOModelHandler(ModelHandler):
 
     def predict(self, inputs: list[InputData]) -> list[dict[str, np.ndarray]]:
         raise NotImplementedError("OpenVINO inference is not yet implemented")
+
+    def cleanup(self) -> None:
+        """Release model and reference batch."""
+        logger.info("Cleaning up OpenVINOModelHandler")
+
+        if self._model is not None:
+            del self._model
+            self._model = None
+
+        if self._reference_batch is not None:
+            del self._reference_batch
+            self._reference_batch = None
+
+        gc.collect()

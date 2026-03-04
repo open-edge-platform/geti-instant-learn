@@ -31,6 +31,7 @@ from runtime.components import ComponentFactory, DefaultComponentFactory
 from runtime.core.components.broadcaster import FrameBroadcaster, FrameSlot
 from runtime.core.components.errors import UnsupportedOperationError
 from runtime.core.components.pipeline import Pipeline
+from runtime.core.components.processor import Processor
 from runtime.errors import PipelineNotActiveError, PipelineProjectMismatchError, SourceNotSeekableError
 
 logger = logging.getLogger(__name__)
@@ -139,6 +140,7 @@ class PipelineManager:
             case ProjectActivationEvent() as e:
                 if self._pipeline:
                     self._pipeline.stop()
+                    self._pipeline = None
                 self._pipeline = self._create_pipeline(e.project_id)
                 self._refresh_visualization_info(e.project_id)
                 self._pipeline.start()
@@ -147,6 +149,7 @@ class PipelineManager:
             case ProjectDeactivationEvent() as e:
                 if self._pipeline and self._pipeline.project_id == e.project_id:
                     self._pipeline.stop()
+                    self._pipeline = None
                     self._current_config = None
                     with self._visualization_lock:
                         self._visualization_info = None
@@ -160,11 +163,10 @@ class PipelineManager:
                     logger.info("Pipeline components updated for project %s", e.project_id)
 
     def _create_pipeline(self, project_id: UUID) -> Pipeline:
-        """
-        Create a new Pipeline instance with components built from the given configuration.
+        """Create a new Pipeline with all components for the given project.
 
         Args:
-            config: The pipeline configuration.
+            project_id: The project ID to build the pipeline for.
 
         Returns:
             A fully initialized Pipeline instance (not yet started).
@@ -187,8 +189,7 @@ class PipelineManager:
         )
 
     def _update_pipeline_components(self, project_id: UUID, component_type: ComponentType) -> None:
-        """
-        Compare current and new configurations, updating only changed components.
+        """Recreate and install the component for the given type.
 
         Args:
             project_id: The project ID for the pipeline.
@@ -202,6 +203,11 @@ class PipelineManager:
                 source = self._component_factory.create_source(project_id)
                 self._pipeline.set_source(source, True)
             case ComponentType.PROCESSOR:
+                # Unload-before-load: stop the current processor and free its
+                # model memory before loading the replacement.  This avoids
+                # having two models in device memory simultaneously.
+                self._pipeline.stop_component(Processor)
+
                 reference_batch, category_id_to_label_id = self.get_reference_batch(project_id, PromptType.VISUAL) or (
                     None,
                     {},
