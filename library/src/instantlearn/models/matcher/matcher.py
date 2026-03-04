@@ -324,9 +324,14 @@ class Matcher(Model):
         export_path.mkdir(parents=True, exist_ok=True)
 
         export_device = self.ref_features.device
+        if backend == Backend.OPENVINO:
+            export_device = torch.device("cpu")
         first_encoder_param = next(iter(self.encoder._model.model.parameters()), None)
-        if isinstance(first_encoder_param, torch.Tensor):
+        if backend != Backend.OPENVINO and isinstance(first_encoder_param, torch.Tensor):
             export_device = first_encoder_param.device
+
+        self.sam_predictor.sync_device(export_device)
+        self.segmenter.device = self.sam_predictor.device
         ref_features = self.ref_features.to(export_device)
 
         matcher = MatcherInferenceGraph(

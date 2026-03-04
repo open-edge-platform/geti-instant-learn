@@ -410,6 +410,16 @@ class SAMPredictor(nn.Module):
         patched_encoder.to(device)
         self._predictor.model.prompt_encoder = patched_encoder
 
+    def sync_device(self, device: str | torch.device) -> None:
+        """Synchronize predictor runtime and wrapped model to a target device."""
+        target_device = torch.device(device)
+        self.device = str(target_device)
+
+        if hasattr(self, "_predictor") and hasattr(self._predictor, "model"):
+            model = self._predictor.model
+            if isinstance(model, nn.Module):
+                model.to(target_device)
+
     def set_image(self, image: torch.Tensor | str | Path) -> None:
         """Set image using PyTorch backend.
 
