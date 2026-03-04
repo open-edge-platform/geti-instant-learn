@@ -292,9 +292,7 @@ class TestPipelineManager:
             mock_component_factory.create_source.assert_called_once_with(pid)
             running.set_source.assert_called_once()
 
-    def test_on_processor_update_unloads_before_loading(
-        self, dispatcher, session_factory, mock_component_factory
-    ):
+    def test_on_processor_update_unloads_before_loading(self, dispatcher, session_factory, mock_component_factory):
         """When the processor model is changed, the old one must be stopped first to free device memory."""
         with (
             patch("runtime.pipeline_manager.Pipeline"),
