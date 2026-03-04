@@ -184,19 +184,23 @@ class PromptEncoder(_PromptEncoder):
         self.pe_layer = PositionEmbeddingRandom(embed_dim // 2)
 
     def _embed_points(self, points: torch.Tensor, labels: torch.Tensor, pad: bool) -> torch.Tensor:
+        target_device = self._get_device()
+        target_dtype = self._get_dtype()
+        points = points.to(device=target_device, dtype=target_dtype)
+        labels = labels.to(device=target_device)
         points += 0.5  # Shift to center of pixel
         if pad:
-            padding_point = torch.zeros((points.shape[0], 1, 2), device=points.device, dtype=points.dtype)
-            padding_label = -torch.ones((labels.shape[0], 1), device=labels.device, dtype=labels.dtype)
+            padding_point = torch.zeros((points.shape[0], 1, 2), device=target_device, dtype=target_dtype)
+            padding_label = -torch.ones((labels.shape[0], 1), device=target_device, dtype=labels.dtype)
             points = torch.cat([points, padding_point], dim=1)
             labels = torch.cat([labels, padding_label], dim=1)
 
         point_embedding = self.pe_layer.forward_with_coords(points, self.input_image_size)
         # Use ONNX-compatible operations instead of boolean indexing
         # Create masks for each label type
-        mask_neg1 = (labels == -1).float().unsqueeze(-1)  # [B, N, 1]
-        mask_0 = (labels == 0).float().unsqueeze(-1)  # [B, N, 1]
-        mask_1 = (labels == 1).float().unsqueeze(-1)  # [B, N, 1]
+        mask_neg1 = (labels == -1).to(point_embedding.dtype).unsqueeze(-1)  # [B, N, 1]
+        mask_0 = (labels == 0).to(point_embedding.dtype).unsqueeze(-1)  # [B, N, 1]
+        mask_1 = (labels == 1).to(point_embedding.dtype).unsqueeze(-1)  # [B, N, 1]
 
         # Apply embeddings using element-wise multiplication
         point_embedding *= 1 - mask_neg1  # Zero out -1 labels
