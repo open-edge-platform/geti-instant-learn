@@ -160,8 +160,13 @@ _state = _AppState()
 # Helpers
 
 
+_VALID_DEVICES = frozenset({"auto", "cpu", "cuda", "xpu"})
+
+
 def _resolve_device(preference: str = "auto") -> str:
     """Resolve a device preference to an actual PyTorch device string."""
+    if preference not in _VALID_DEVICES:
+        preference = "auto"
     if preference != "auto":
         return preference
     if hasattr(torch, "xpu") and torch.xpu.is_available():
