@@ -42,7 +42,6 @@ from instantlearn.components.postprocessing import (
     MinimumAreaFilter,
     MorphologicalClosing,
     MorphologicalOpening,
-    PanopticArgmaxAssignment,
     PostProcessorPipeline,
     ScoreFilter,
     SoftNMS,
@@ -72,7 +71,6 @@ ALL_POSTPROCESSORS = [
     "MinimumAreaFilter",
     "MorphologicalOpening",
     "MorphologicalClosing",
-    "PanopticArgmaxAssignment",
     "MergePerClassMasks",
 ]
 
@@ -109,9 +107,6 @@ PARAM_SCHEMA: dict[str, list[dict]] = {
     "MorphologicalClosing": [
         {"name": "kernel_size", "default": 3, "min": 3, "max": 31, "step": 2},
     ],
-    "PanopticArgmaxAssignment": [
-        {"name": "min_area", "default": 0, "min": 0, "max": 10000, "step": 10},
-    ],
     "MergePerClassMasks": [],
 }
 
@@ -125,7 +120,6 @@ CLASS_MAP: dict[str, type] = {
     "MinimumAreaFilter": MinimumAreaFilter,
     "MorphologicalOpening": MorphologicalOpening,
     "MorphologicalClosing": MorphologicalClosing,
-    "PanopticArgmaxAssignment": PanopticArgmaxAssignment,
     "MergePerClassMasks": MergePerClassMasks,
 }
 
@@ -138,10 +132,10 @@ RECOMMENDED_PIPELINE: list[tuple[str, dict]] = [
     ("MinimumAreaFilter", {"min_area": 50}),
 ]
 
-# Current Matcher default pipeline
+# Current default pipeline
 CURRENT_DEFAULT: list[tuple[str, dict]] = [
-    ("BoxNMS", {"iou_threshold": 0.1}),
-    ("MergePerClassMasks", {}),
+    ("MaskIoMNMS", {"iom_threshold": 0.5}),
+    ("BoxIoMNMS", {"iom_threshold": 0.5}),
 ]
 
 
@@ -366,7 +360,7 @@ def fit_model(ref_mask_data: dict | None, device: str) -> str:
     resolved = _resolve_device(device)
     logger.info("Fitting Matcher on device=%s  image=%dx%d  mask_area=%d", resolved, w, h, int(mask.sum()))
 
-    model = Matcher(device=resolved, use_nms=False, merge_masks_per_class=False)
+    model = Matcher(device=resolved, postprocessor=None)
     ref_sample = Sample(image_path=str(ref_path), mask_paths=str(mask_path))
     model.fit(ref_sample)
     _state.model = model

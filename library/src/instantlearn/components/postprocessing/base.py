@@ -5,7 +5,7 @@
 
 Post-processors are ``nn.Module`` subclasses that transform segmentation
 predictions (masks, scores, labels) in a composable, chainable way.
-All post-processors use pure PyTorch operations and are ONNX/OpenVINO
+All post-processors must use pure PyTorch operations should be ONNX/OpenVINO
 exportable.
 """
 
@@ -31,7 +31,7 @@ class PostProcessor(nn.Module):
         - scores: ``[N]`` float tensor
         - labels: ``[N]`` int64 tensor
 
-    All post-processors use pure PyTorch operations and are ONNX/OpenVINO
+    All post-processors must use pure PyTorch operations should be ONNX/OpenVINO
     exportable.
     """
 

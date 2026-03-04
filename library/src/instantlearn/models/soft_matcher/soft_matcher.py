@@ -82,8 +82,6 @@ class SoftMatcher(Matcher):
         softmatching_score_threshold: float = 0.4,
         softmatching_bidirectional: bool = False,
         encoder_model: str = "dinov3_large",
-        use_nms: bool = True,
-        merge_masks_per_class: bool = True,
         precision: str = "bf16",
         compile_models: bool = False,
         device: str = "cuda",
@@ -103,24 +101,19 @@ class SoftMatcher(Matcher):
             softmatching_score_threshold: The score threshold for the soft matching.
             softmatching_bidirectional: Whether to use bidirectional soft matching.
             encoder_model: The encoder model to use.
-            use_nms: Whether to include ``BoxNMS`` in the default pipeline.
-                Ignored when *postprocessor* is provided explicitly.
-            merge_masks_per_class: Whether to include ``MergePerClassMasks()`` in
-                the default pipeline.  Ignored when *postprocessor* is provided.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
             device: The device to use for the model.
-            postprocessor: Optional post-processor applied after predict().
-                Overrides the default pipeline built from *use_nms* and
-                *merge_masks_per_class*.
+            postprocessor: Post-processor applied after predict().
+                Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
+                (MaskIoMNMS + BoxIoMNMS). Pass ``None`` explicitly to
+                disable all post-processing.
         """
         super().__init__(
             sam=sam,
             num_foreground_points=num_foreground_points,
             num_background_points=num_background_points,
             confidence_threshold=confidence_threshold,
-            use_nms=use_nms,
-            merge_masks_per_class=merge_masks_per_class,
             encoder_model=encoder_model,
             precision=precision,
             compile_models=compile_models,

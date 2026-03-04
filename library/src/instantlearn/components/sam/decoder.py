@@ -56,12 +56,6 @@ class SamDecoder(nn.Module):
     This decoder processes point prompts and similarities as tensors instead of
     dictionaries, enabling full pipeline traceability.
 
-    Note:
-        NMS and per-class mask merging have been moved to the external
-        post-processing pipeline (``BoxNMS``, ``MergePerClassMasks``).  Models
-        build a default pipeline that replicates the old behaviour.  See
-        :mod:`instantlearn.components.postprocessing`.
-
     Args:
         sam_predictor: PyTorch SAM predictor instance.
         confidence_threshold: Minimum confidence score for keeping predicted masks
@@ -262,7 +256,7 @@ class SamDecoder(nn.Module):
         weighted_scores = torch.where(keep, weighted_scores, torch.zeros_like(weighted_scores))
 
         # Return per-instance masks and scores
-        # NMS and merge are handled by the external post-processing pipeline
+        # Any post-processing like NMS or per-class merging is handled at the model level.
         return masks, weighted_scores
 
     def _process_single_image_with_points(

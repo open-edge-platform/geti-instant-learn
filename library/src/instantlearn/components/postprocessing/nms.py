@@ -53,11 +53,126 @@ def _pairwise_mask_iom(masks: torch.Tensor) -> torch.Tensor:
     return intersection / (min_areas + 1e-6)
 
 
+def _pairwise_box_iom(boxes: torch.Tensor) -> torch.Tensor:
+    """Compute pairwise IoM (Intersection over Minimum area) between boxes.
+
+    IoM is defined as ``intersection_area / min(area_i, area_j)``.
+    Boxes are in ``(x1, y1, x2, y2)`` format.
+
+    Args:
+        boxes: Bounding boxes ``[N, 4]``.
+
+    Returns:
+        IoM matrix ``[N, N]`` with values in ``[0, 1]``.
+    """
+    x1 = boxes[:, 0]
+    y1 = boxes[:, 1]
+    x2 = boxes[:, 2]
+    y2 = boxes[:, 3]
+    areas = (x2 - x1).clamp(min=0) * (y2 - y1).clamp(min=0)  # [N]
+
+    # Pairwise intersection
+    inter_x1 = torch.maximum(x1.unsqueeze(0), x1.unsqueeze(1))  # [N, N]
+    inter_y1 = torch.maximum(y1.unsqueeze(0), y1.unsqueeze(1))
+    inter_x2 = torch.minimum(x2.unsqueeze(0), x2.unsqueeze(1))
+    inter_y2 = torch.minimum(y2.unsqueeze(0), y2.unsqueeze(1))
+    inter_area = (inter_x2 - inter_x1).clamp(min=0) * (inter_y2 - inter_y1).clamp(min=0)
+
+    min_areas = torch.minimum(areas.unsqueeze(0), areas.unsqueeze(1))
+    return inter_area / (min_areas + 1e-6)
+
+
+def _greedy_nms(
+    scores: torch.Tensor,
+    overlap_matrix: torch.Tensor,
+    threshold: float,
+    areas: torch.Tensor | None = None,
+    score_margin: float | None = None,
+    area_ratio: float = 0.5,
+) -> torch.Tensor:
+    """Greedy NMS using a precomputed overlap matrix.
+
+    Supports **containment-aware suppression** when both ``areas`` and
+    ``score_margin`` are provided.  In standard greedy NMS, a small
+    high-scored mask (e.g. a cat's eye) suppresses a large lower-scored
+    mask (e.g. the whole cat body) because the eye overlaps heavily
+    with the body (IoM ≈ 1).  With containment-awareness enabled, if
+    the winner is *truly contained inside* the loser (winner area <
+    loser area * ``area_ratio``) *and* the score difference is within
+    ``score_margin``, the larger mask is preferred and the smaller one
+    is suppressed instead.
+
+    The ``area_ratio`` guard prevents false containment swaps between
+    similarly-sized masks (e.g. two body masks at 90 k vs 92 k pixels).
+    Only when the winner is **significantly** smaller than the loser
+    (e.g. eye 2 k inside body 90 k → ratio 0.02 < 0.5) does the swap
+    trigger.
+
+    Args:
+        scores: Confidence scores ``[N]``.
+        overlap_matrix: Pairwise overlap values ``[N, N]`` (IoU or IoM).
+        threshold: Overlap threshold for suppression.
+        areas: Per-mask areas ``[N]``.  Required for containment check.
+        score_margin: Maximum score gap below which the larger mask is
+            preferred over the smaller contained one.  ``None`` disables
+            the containment logic (standard greedy NMS).
+        area_ratio: Maximum winner/loser area ratio that counts as true
+            containment.  The swap only triggers when
+            ``areas[winner] < areas[loser] * area_ratio``.
+            Default: ``0.5`` (winner must be less than half the loser's
+            area).
+
+    Returns:
+        Indices of kept masks as a 1-D int64 tensor.
+    """
+    order = torch.argsort(scores, descending=True)
+    kept: list[int] = []
+    n = scores.size(0)
+
+    suppressed = torch.zeros(n, dtype=torch.bool, device=scores.device)
+
+    containment_aware = areas is not None and score_margin is not None
+
+    for i in range(n):
+        idx = order[i].item()
+        if suppressed[idx]:
+            continue
+        kept.append(idx)
+
+        # Suppress all lower-scored masks that overlap too much
+        for j in range(i + 1, n):
+            jdx = order[j].item()
+            if suppressed[jdx]:
+                continue
+            if overlap_matrix[idx, jdx] <= threshold:
+                continue
+
+            # Overlap exceeds threshold — decide who gets suppressed
+            if (
+                containment_aware
+                and areas[idx] < areas[jdx] * area_ratio
+                and (scores[idx] - scores[jdx]) < score_margin
+            ):
+                # Winner (idx) is truly contained inside loser (jdx):
+                # its area is less than area_ratio * the loser's area.
+                # Score gap is within margin → prefer the larger mask.
+                suppressed[idx] = True
+                # Remove idx from kept and replace with jdx
+                kept.remove(idx)
+                # Don't suppress jdx — it will be picked up in a later
+                # iteration (or this one re-processes it).
+                break
+            suppressed[jdx] = True
+
+    return torch.tensor(kept, dtype=torch.int64, device=scores.device)
+
+
 class MaskNMS(PostProcessor):
     """Non-Maximum Suppression using pairwise mask IoU.
 
     Greedy suppression: iterates masks by descending score, discards
-    any mask whose IoU with an already-kept mask exceeds ``iou_threshold``.
+    any mask whose IoU with an already-kept mask exceeds ``iou_threshold``
+    as done in SAM3 paper.
 
     Operates directly on binary masks rather than bounding boxes, so it
     handles non-rectangular shapes correctly.
@@ -136,39 +251,10 @@ class BoxNMS(PostProcessor):
         return masks[keep], scores[keep], labels[keep]
 
 
-def _pairwise_box_iom(boxes: torch.Tensor) -> torch.Tensor:
-    """Compute pairwise IoM (Intersection over Minimum area) between boxes.
-
-    IoM is defined as ``intersection_area / min(area_i, area_j)``.
-    Boxes are in ``(x1, y1, x2, y2)`` format.
-
-    Args:
-        boxes: Bounding boxes ``[N, 4]``.
-
-    Returns:
-        IoM matrix ``[N, N]`` with values in ``[0, 1]``.
-    """
-    x1 = boxes[:, 0]
-    y1 = boxes[:, 1]
-    x2 = boxes[:, 2]
-    y2 = boxes[:, 3]
-    areas = (x2 - x1).clamp(min=0) * (y2 - y1).clamp(min=0)  # [N]
-
-    # Pairwise intersection
-    inter_x1 = torch.maximum(x1.unsqueeze(0), x1.unsqueeze(1))  # [N, N]
-    inter_y1 = torch.maximum(y1.unsqueeze(0), y1.unsqueeze(1))
-    inter_x2 = torch.minimum(x2.unsqueeze(0), x2.unsqueeze(1))
-    inter_y2 = torch.minimum(y2.unsqueeze(0), y2.unsqueeze(1))
-    inter_area = (inter_x2 - inter_x1).clamp(min=0) * (inter_y2 - inter_y1).clamp(min=0)
-
-    min_areas = torch.minimum(areas.unsqueeze(0), areas.unsqueeze(1))
-    return inter_area / (min_areas + 1e-6)
-
-
 class BoxIoMNMS(PostProcessor):
     """Non-Maximum Suppression using bounding-box IoM (Intersection over Minimum).
 
-    Like :class:`MaskIoMNMS` but operates on bounding boxes derived from masks,
+    Similar to :class:`MaskIoMNMS` but operates on bounding boxes derived from masks,
     making it faster while still handling nested/contained objects well.
     A small box fully inside a larger one gets IoM ≈ 1.0 (suppressed),
     whereas IoU would be low (kept).
@@ -323,7 +409,9 @@ class SoftNMS(PostProcessor):
     This is gentler than hard NMS and works better when nearby distinct
     objects have overlapping masks.
 
-    Reference: Bodla et al., "Soft-NMS", ICCV 2017.
+    Reference: "Soft-NMS -- Improving Object Detection With One Line of Code"
+    https://arxiv.org/abs/1704.04503
+
 
     Args:
         sigma: Gaussian decay parameter. Smaller values = more aggressive
@@ -374,88 +462,3 @@ class SoftNMS(PostProcessor):
 
         keep = decayed_scores > self.score_threshold
         return masks[keep], decayed_scores[keep], labels[keep]
-
-
-def _greedy_nms(
-    scores: torch.Tensor,
-    overlap_matrix: torch.Tensor,
-    threshold: float,
-    areas: torch.Tensor | None = None,
-    score_margin: float | None = None,
-    area_ratio: float = 0.5,
-) -> torch.Tensor:
-    """Greedy NMS using a precomputed overlap matrix.
-
-    Supports **containment-aware suppression** when both ``areas`` and
-    ``score_margin`` are provided.  In standard greedy NMS, a small
-    high-scored mask (e.g. a cat's eye) suppresses a large lower-scored
-    mask (e.g. the whole cat body) because the eye overlaps heavily
-    with the body (IoM ≈ 1).  With containment-awareness enabled, if
-    the winner is *truly contained inside* the loser (winner area <
-    loser area * ``area_ratio``) *and* the score difference is within
-    ``score_margin``, the larger mask is preferred and the smaller one
-    is suppressed instead.
-
-    The ``area_ratio`` guard prevents false containment swaps between
-    similarly-sized masks (e.g. two body masks at 90 k vs 92 k pixels).
-    Only when the winner is **significantly** smaller than the loser
-    (e.g. eye 2 k inside body 90 k → ratio 0.02 < 0.5) does the swap
-    trigger.
-
-    Args:
-        scores: Confidence scores ``[N]``.
-        overlap_matrix: Pairwise overlap values ``[N, N]`` (IoU or IoM).
-        threshold: Overlap threshold for suppression.
-        areas: Per-mask areas ``[N]``.  Required for containment check.
-        score_margin: Maximum score gap below which the larger mask is
-            preferred over the smaller contained one.  ``None`` disables
-            the containment logic (standard greedy NMS).
-        area_ratio: Maximum winner/loser area ratio that counts as true
-            containment.  The swap only triggers when
-            ``areas[winner] < areas[loser] * area_ratio``.
-            Default: ``0.5`` (winner must be less than half the loser's
-            area).
-
-    Returns:
-        Indices of kept masks as a 1-D int64 tensor.
-    """
-    order = torch.argsort(scores, descending=True)
-    kept: list[int] = []
-    n = scores.size(0)
-
-    suppressed = torch.zeros(n, dtype=torch.bool, device=scores.device)
-
-    containment_aware = areas is not None and score_margin is not None
-
-    for i in range(n):
-        idx = order[i].item()
-        if suppressed[idx]:
-            continue
-        kept.append(idx)
-
-        # Suppress all lower-scored masks that overlap too much
-        for j in range(i + 1, n):
-            jdx = order[j].item()
-            if suppressed[jdx]:
-                continue
-            if overlap_matrix[idx, jdx] <= threshold:
-                continue
-
-            # Overlap exceeds threshold — decide who gets suppressed
-            if (
-                containment_aware
-                and areas[idx] < areas[jdx] * area_ratio
-                and (scores[idx] - scores[jdx]) < score_margin
-            ):
-                # Winner (idx) is truly contained inside loser (jdx):
-                # its area is less than area_ratio * the loser's area.
-                # Score gap is within margin → prefer the larger mask.
-                suppressed[idx] = True
-                # Remove idx from kept and replace with jdx
-                kept.remove(idx)
-                # Don't suppress jdx — it will be picked up in a later
-                # iteration (or this one re-processes it).
-                break
-            suppressed[jdx] = True
-
-    return torch.tensor(kept, dtype=torch.int64, device=scores.device)

@@ -16,7 +16,6 @@ Overlap resolution:
     - :class:`MaskIoMNMS` — mask-IoM based NMS (best for nested objects)
     - :class:`BoxIoMNMS` — box-IoM based NMS (fast + handles nesting)
     - :class:`SoftNMS` — Gaussian score decay
-    - :class:`PanopticArgmaxAssignment` — pixel-level argmax overlap resolution
 
 Score filtering:
     - :class:`ScoreFilter` — remove zero/low-score masks
@@ -32,29 +31,28 @@ Mask merging:
 Composition:
     - :class:`PostProcessorPipeline` — chain multiple processors
     - :func:`apply_postprocessing` — helper to apply to prediction dicts
+    - :func:`default_postprocessor` — standard default pipeline
 
 Examples:
     >>> from instantlearn.components.postprocessing import (
-    ...     MaskNMS,
+    ...     MaskIoMNMS,
     ...     MinimumAreaFilter,
     ...     MorphologicalOpening,
-    ...     PanopticArgmaxAssignment,
     ...     PostProcessorPipeline,
     ... )
     >>> pipeline = PostProcessorPipeline([
-    ...     MaskNMS(iou_threshold=0.5),
-    ...     PanopticArgmaxAssignment(),
+    ...     MaskIoMNMS(iom_threshold=0.5),
     ...     MinimumAreaFilter(min_area=64),
     ...     MorphologicalOpening(kernel_size=3),
     ... ])
 """
 
 from .base import PostProcessor, PostProcessorPipeline, apply_postprocessing
+from .defaults import default_postprocessor
 from .filtering import MinimumAreaFilter, ScoreFilter
 from .merge import MergePerClassMasks
 from .morphology import MorphologicalClosing, MorphologicalOpening
 from .nms import BoxIoMNMS, BoxNMS, MaskIoMNMS, MaskNMS, SoftNMS
-from .overlap import PanopticArgmaxAssignment
 
 __all__ = [
     "BoxIoMNMS",
@@ -65,10 +63,10 @@ __all__ = [
     "MinimumAreaFilter",
     "MorphologicalClosing",
     "MorphologicalOpening",
-    "PanopticArgmaxAssignment",
     "PostProcessor",
     "PostProcessorPipeline",
     "ScoreFilter",
     "SoftNMS",
     "apply_postprocessing",
+    "default_postprocessor",
 ]

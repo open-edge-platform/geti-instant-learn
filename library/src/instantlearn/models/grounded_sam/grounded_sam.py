@@ -28,7 +28,6 @@ class GroundedSAM(Model):
         compile_models: bool = False,
         box_threshold: float = 0.4,
         text_threshold: float = 0.3,
-        use_nms: bool = True,
         device: str = "cuda",
         postprocessor: PostProcessor | None = None,
     ) -> None:
@@ -41,11 +40,9 @@ class GroundedSAM(Model):
             compile_models: Whether to compile the models.
             box_threshold: The box threshold.
             text_threshold: The text threshold.
-            use_nms: Whether to use NMS in SamDecoder.
             device: The device to use.
             postprocessor: Optional post-processor applied after predict().
         """
-        _ = use_nms  # Kept for backward compatibility with backend/UI config
         super().__init__(postprocessor=postprocessor)
         self.sam_predictor = load_sam_model(
             sam,

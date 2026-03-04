@@ -14,9 +14,9 @@ class MergePerClassMasks(PostProcessor):
     """Merge all masks sharing the same label into a single mask per class.
 
     For each unique label, all corresponding masks are OR-merged into one
-    binary mask and the maximum score among them is kept. This replicates
-    the old ``SamDecoder.merge_masks_per_class=True`` behavior but as a
-    composable pipeline step — place it *after* NMS, morphology, etc.
+    binary mask and the maximum score among them is kept.  Place it
+    *after* NMS, morphology, etc. to collapse per-instance masks into
+    one mask per class.
 
     The merger discards zero-score entries (score ``<= 0``), which matches
     SamDecoder's convention of zeroing out filtered masks.
