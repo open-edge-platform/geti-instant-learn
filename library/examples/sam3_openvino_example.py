@@ -10,21 +10,22 @@ from the project README and SAM3 notebook. It covers:
     2. Per-sample text prompting — no fit() required
     3. Multi-category text prompting — detect multiple object types at once
     4. Box prompting — segment specific regions of interest
-    5. Combined text + box prompting — both prompt types together
+    5. Point prompting (native) — segment with click points (v3 models)
+    6. Combined text + box prompting — both prompt types together
+    7. Visual exemplar mode — few-shot detection from reference images (v3 models)
 
 Usage:
     # Using local OpenVINO model directory
     python examples/sam3_openvino_example.py --model-dir ./sam3-openvino/openvino-fp16
 
     # Download from HuggingFace Hub
-    python examples/sam3_openvino_example.py --repo-id rajeshgangireddy/sam3_openvino
+    python examples/sam3_openvino_example.py --repo-id rajeshgangireddy/exported_sam3
 
     # With visualization saved to disk
     python examples/sam3_openvino_example.py --model-dir ./sam3-openvino/openvino-fp16 --save-viz
 
-Note:
-    SAM3 v2 ONNX models do NOT support point prompts natively. Points must be
-    converted to small bounding boxes (see Example 5 for a workaround).
+    # Run only specific examples
+    python examples/sam3_openvino_example.py --model-dir ./sam3-openvino --examples 5,7
 """
 
 from __future__ import annotations
@@ -42,6 +43,7 @@ from huggingface_hub import snapshot_download
 from instantlearn.data import Sample
 from instantlearn.data.utils import read_image
 from instantlearn.models import SAM3OpenVINO
+from instantlearn.models.sam3 import Sam3PromptMode
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s", force=True)
 logger = logging.getLogger(__name__)
@@ -343,36 +345,28 @@ def example_4_box_prompt(model: SAM3OpenVINO, *, save_viz: bool = False) -> None
         )
 
 
-def example_5_point_as_box(model: SAM3OpenVINO, *, save_viz: bool = False) -> None:
-    """Example 5: Point prompt workaround using a small box.
+def example_5_point_prompt(model: SAM3OpenVINO, *, save_viz: bool = False) -> None:
+    """Example 5: Native point prompting.
 
-    SAM3 v2 ONNX models do not have a dedicated point prompt input.
-    A common workaround is to convert a point click into a small bounding box
-    centered on that point. This simulates point prompting behavior.
+    SAM3 models support point prompts natively through the separate geometry
+    encoder. Point coordinates are in [x, y] pixel format.
     """
     logger.info("")
     logger.info("=" * 70)
-    logger.info("Example 5: Point Prompt (via small box workaround)")
+    logger.info("Example 5: Native Point Prompting")
     logger.info("=" * 70)
 
     image = read_image(str(IMAGE_ELEPHANT_1))
-    _, h, w = image.shape
 
-    # Simulate a point click at the center of the elephant
+    # Click point at the center of the elephant
     point_x, point_y = 320, 260
-    # Convert point to a small box (±margin pixels)
-    margin = 10
-    box_from_point = [
-        max(0, point_x - margin),
-        max(0, point_y - margin),
-        min(w, point_x + margin),
-        min(h, point_y + margin),
-    ]
-    logger.info("Point click: (%d, %d) → box: %s", point_x, point_y, box_from_point)
+    logger.info("Point click: (%d, %d)", point_x, point_y)
 
     target = Sample(
         image=image,
-        bboxes=torch.tensor([box_from_point]),
+        points=np.array([[point_x, point_y]]),
+        categories=["elephant"],
+        category_ids=[0],
     )
 
     t0 = time.perf_counter()
@@ -380,12 +374,13 @@ def example_5_point_as_box(model: SAM3OpenVINO, *, save_viz: bool = False) -> No
     elapsed = time.perf_counter() - t0
     logger.info("Inference: %.2f s", elapsed)
 
-    print_prediction_summary(predictions[0])
+    print_prediction_summary(predictions[0], categories=["elephant"])
     if save_viz:
         save_visualization(
             IMAGE_ELEPHANT_1,
             predictions[0],
-            Path("outputs/sam3_ov_ex5_point_as_box.jpg"),
+            Path("outputs/sam3_ov_ex5_point_prompt.jpg"),
+            categories=["elephant"],
         )
 
 
@@ -425,6 +420,73 @@ def example_6_combined_text_and_box(model: SAM3OpenVINO, *, save_viz: bool = Fal
         )
 
 
+def example_7_visual_exemplar(model_dir: Path, device: str, confidence: float, *, save_viz: bool = False) -> None:
+    """Example 7: Visual exemplar mode (few-shot detection).
+
+    In visual exemplar mode, reference images with annotated bounding boxes are
+    used to "teach" the model what to look for. The model encodes the reference
+    prompts at ``fit()`` time and reuses them on new target images.
+
+    This example creates a separate SAM3OpenVINO instance with
+    ``prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR``.
+    """
+    logger.info("")
+    logger.info("=" * 70)
+    logger.info("Example 7: Visual Exemplar Mode (Few-Shot)")
+    logger.info("=" * 70)
+
+    # Check if required models are available
+    required = [model_dir / "prompt-decoder.xml", model_dir / "prompt-decoder.onnx"]
+    if not any(p.exists() for p in required):
+        logger.warning("Skipping — prompt-decoder model not found.")
+        return
+
+    # Create exemplar-mode model
+    ve_model = SAM3OpenVINO(
+        model_dir=model_dir,
+        device=device,
+        confidence_threshold=confidence,
+        prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR,
+    )
+
+    # Reference: one image with a box around the elephant
+    ref_image = read_image(str(IMAGE_ELEPHANT_1))
+    reference = Sample(
+        image=ref_image,
+        bboxes=np.array([[150, 100, 500, 400]]),  # xyxy around elephant
+        categories=["elephant"],
+        category_ids=[0],
+    )
+
+    logger.info("Fitting on reference image with 1 exemplar box...")
+    t0 = time.perf_counter()
+    ve_model.fit(reference)
+    fit_time = time.perf_counter() - t0
+    logger.info("Fit time: %.2f s", fit_time)
+
+    # Predict on target images
+    targets = [
+        Sample(image_path=str(IMAGE_ELEPHANT_2)),
+        Sample(image_path=str(IMAGE_ELEPHANT_4)),
+    ]
+
+    t0 = time.perf_counter()
+    predictions = ve_model.predict(targets)
+    elapsed = time.perf_counter() - t0
+    logger.info("Predict on %d images: %.2f s", len(targets), elapsed)
+
+    for idx, (target, pred) in enumerate(zip(targets, predictions, strict=True)):
+        logger.info("Image %d: %s", idx, Path(target.image_path).name)
+        print_prediction_summary(pred, categories=["elephant"])
+        if save_viz:
+            save_visualization(
+                Path(target.image_path),
+                pred,
+                Path(f"outputs/sam3_ov_ex7_exemplar_img{idx}.jpg"),
+                categories=["elephant"],
+            )
+
+
 def main() -> None:
     """Run all SAM3 OpenVINO examples."""
     parser = argparse.ArgumentParser(
@@ -441,7 +503,7 @@ def main() -> None:
         "--repo-id",
         type=str,
         default=None,
-        help="HuggingFace repo ID to download models from (e.g., rajeshgangireddy/sam3_openvino).",
+        help="HuggingFace repo ID to download models from (e.g., rajeshgangireddy/exported_sam3).",
     )
     parser.add_argument(
         "--device",
@@ -487,19 +549,32 @@ def main() -> None:
         2: example_2_per_sample_text_prompt,
         3: example_3_multi_category,
         4: example_4_box_prompt,
-        5: example_5_point_as_box,
+        5: example_5_point_prompt,
         6: example_6_combined_text_and_box,
     }
 
+    # Example 7 uses a different model instance (exemplar mode)
+    examples_special = {
+        7: lambda _model, save_viz: example_7_visual_exemplar(
+            model_dir,
+            args.device,
+            args.confidence,
+            save_viz=save_viz,
+        ),
+    }
+
     # Determine which examples to run
-    selected = list(examples.keys()) if args.examples == "all" else [int(x.strip()) for x in args.examples.split(",")]
+    all_nums = sorted({*examples, *examples_special})
+    selected = all_nums if args.examples == "all" else [int(x.strip()) for x in args.examples.split(",")]
 
     save_viz = args.save_viz
     for num in selected:
         if num in examples:
             examples[num](model, save_viz=save_viz)
+        elif num in examples_special:
+            examples_special[num](model, save_viz)
         else:
-            logger.warning("Unknown example number: %d (available: %s)", num, list(examples.keys()))
+            logger.warning("Unknown example number: %d (available: %s)", num, all_nums)
 
     logger.info("")
     logger.info("Done! All examples completed.")

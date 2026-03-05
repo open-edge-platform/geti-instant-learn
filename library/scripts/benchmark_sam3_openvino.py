@@ -7,7 +7,6 @@ Measures component-level and end-to-end latency for live-inference scenarios:
 
 **Model variants benchmarked:**
   - OpenVINO IR: FP16, NNCF-INT8, NNCF-INT4
-  - ONNX: FP16, Q8
 
 **Prompt types:**
   - Text prompt (category name → detect all instances)
@@ -29,17 +28,22 @@ Measures component-level and end-to-end latency for live-inference scenarios:
   - Image preprocessing (CPU/PyTorch)
   - Vision encoder (OpenVINO)
   - Text encoder (OpenVINO)
-  - Decoder (OpenVINO)
+  - Geometry encoder (OpenVINO) — for box/point prompts
+  - Prompt decoder (OpenVINO)
   - Postprocessing (CPU/PyTorch)
 
 Usage:
-    python scripts/benchmark_sam3_openvino.py --base-dir ./sam3-openvino
+    # Auto-download models from HuggingFace and benchmark (default)
+    python scripts/benchmark_sam3_openvino.py
 
     # Specific variant only
-    python scripts/benchmark_sam3_openvino.py --base-dir ./sam3-openvino --variants openvino-fp16
+    python scripts/benchmark_sam3_openvino.py --variants openvino-fp16
+
+    # Use local model directory instead of HuggingFace
+    python scripts/benchmark_sam3_openvino.py --base-dir ./sam3-openvino
 
     # More warmup / iterations
-    python scripts/benchmark_sam3_openvino.py --base-dir ./sam3-openvino --warmup 5 --iterations 20
+    python scripts/benchmark_sam3_openvino.py --warmup 5 --iterations 20
 """
 
 from __future__ import annotations
@@ -56,6 +60,7 @@ from pathlib import Path
 import numpy as np
 import openvino as ov
 import torch
+from huggingface_hub import snapshot_download
 from rich.console import Console
 from rich.table import Table
 from transformers import CLIPTokenizerFast
@@ -78,22 +83,22 @@ console = Console()
 
 RESOLUTION = 1008
 
-# Canonical v2 model file names
+# Default HuggingFace repo containing exported SAM3 models
+HF_REPO_ID = "rajeshgangireddy/exported_sam3"
+
+# Canonical model file names (v3 five-model split)
 VISION_ENCODER = "vision-encoder"
 TEXT_ENCODER = "text-encoder"
-DECODER = "geo-encoder-mask-decoder"
+GEOMETRY_ENCODER = "geometry-encoder"
+GEOMETRY_ENCODER_EXEMPLAR = "geometry-encoder-exemplar"
+PROMPT_DECODER = "prompt-decoder"
 
 # Model variants to benchmark (directory name -> human label)
 DEFAULT_VARIANTS: dict[str, str] = {
     "openvino-fp16": "OV-FP16",
     "openvino-nncf-int8": "OV-NNCF-INT8",
     "openvino-nncf-int4": "OV-NNCF-INT4",
-    "onnx-v2-fp16": "ONNX-FP16",
-    "onnx-q8": "ONNX-Q8",
 }
-
-# ONNX variants that cause uncatchable SIGABRT on GPU (OpenCL OOM)
-_ONNX_VARIANTS = {"onnx-v2-fp16", "onnx-q8"}
 
 # OpenVINO compile configs to benchmark (keyed by device category)
 OV_CONFIGS_CPU: dict[str, dict] = {
@@ -116,6 +121,47 @@ def _get_ov_configs(device: str) -> dict[str, dict]:
     return OV_CONFIGS_CPU
 
 
+def _download_variant(variant: str, repo_id: str = HF_REPO_ID) -> Path:
+    """Download a model variant from HuggingFace Hub and return its local path.
+
+    Args:
+        variant: Variant subdirectory name (e.g. ``openvino-fp16``).
+        repo_id: HuggingFace repository ID.
+
+    Returns:
+        Local path to the downloaded variant directory.
+    """
+    console.print(f"  Downloading [cyan]{variant}[/cyan] from [blue]{repo_id}[/blue]...")
+    cache_dir = snapshot_download(
+        repo_id=repo_id,
+        allow_patterns=[f"{variant}/*", "tokenizer*", "special_tokens_map*"],
+    )
+    return Path(cache_dir) / variant
+
+
+def _resolve_variant_path(base_dir: Path | None, variant: str) -> Path | None:
+    """Resolve a variant to a local directory, downloading from HF if needed.
+
+    Args:
+        base_dir: Local base directory, or ``None`` for HuggingFace download.
+        variant: Variant subdirectory name.
+
+    Returns:
+        Local path to the variant directory, or ``None`` if unavailable.
+    """
+    if base_dir is not None:
+        path = base_dir / variant
+        if not path.is_dir():
+            console.print(f"[yellow]Skipping {variant}: not found in {base_dir}[/yellow]")
+            return None
+        return path
+    try:
+        return _download_variant(variant)
+    except Exception:
+        logger.exception("Failed to download %s from HuggingFace", variant)
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Data classes for results
 # ---------------------------------------------------------------------------
@@ -126,6 +172,7 @@ class TimingResult:
     preprocess_ms: float = 0.0
     vision_encoder_ms: float = 0.0
     text_encoder_ms: float = 0.0
+    geometry_encoder_ms: float = 0.0
     decoder_ms: float = 0.0
     postprocess_ms: float = 0.0
 
@@ -133,13 +180,18 @@ class TimingResult:
     def total_ms(self) -> float:
         """Total end-to-end time in ms."""
         return (
-            self.preprocess_ms + self.vision_encoder_ms + self.text_encoder_ms + self.decoder_ms + self.postprocess_ms
+            self.preprocess_ms
+            + self.vision_encoder_ms
+            + self.text_encoder_ms
+            + self.geometry_encoder_ms
+            + self.decoder_ms
+            + self.postprocess_ms
         )
 
     @property
     def without_vision_ms(self) -> float:
         """Time without vision encoder (cached features scenario)."""
-        return self.text_encoder_ms + self.decoder_ms + self.postprocess_ms
+        return self.text_encoder_ms + self.geometry_encoder_ms + self.decoder_ms + self.postprocess_ms
 
 
 @dataclass
@@ -192,15 +244,21 @@ class BenchmarkModel:
 
         vision_path = self._find(model_dir, VISION_ENCODER)
         text_path = self._find(model_dir, TEXT_ENCODER)
-        decoder_path = self._find(model_dir, DECODER)
+        geo_path = self._find(model_dir, GEOMETRY_ENCODER)
+        geo_ex_path = self._find(model_dir, GEOMETRY_ENCODER_EXEMPLAR)
+        decoder_path = self._find(model_dir, PROMPT_DECODER)
 
         self.vision_model = core.compile_model(vision_path, device, compile_config)
         self.text_model = core.compile_model(text_path, device, compile_config)
+        self.geometry_model = core.compile_model(geo_path, device, compile_config)
+        self.geometry_exemplar_model = core.compile_model(geo_ex_path, device, compile_config)
         self.decoder_model = core.compile_model(decoder_path, device, compile_config)
 
         # Create infer requests for sync inference (avoids request creation overhead)
         self.vision_request = self.vision_model.create_infer_request()
         self.text_request = self.text_model.create_infer_request()
+        self.geometry_request = self.geometry_model.create_infer_request()
+        self.geometry_exemplar_request = self.geometry_exemplar_model.create_infer_request()
         self.decoder_request = self.decoder_model.create_infer_request()
 
         # Preprocessors
@@ -216,7 +274,7 @@ class BenchmarkModel:
         if (model_dir / "tokenizer.json").exists():
             self.tokenizer = CLIPTokenizerFast.from_pretrained(str(model_dir))
         else:
-            self.tokenizer = CLIPTokenizerFast.from_pretrained("jetjodh/sam3")
+            self.tokenizer = CLIPTokenizerFast.from_pretrained("rajeshgangireddy/exported_sam3")
 
     @staticmethod
     def _find(model_dir: Path, name: str) -> Path:
@@ -280,25 +338,47 @@ class BenchmarkModel:
         elapsed = (time.perf_counter() - t0) * 1000
         return text_features, text_mask, elapsed
 
-    def run_decoder(
+    def run_geometry_encoder(
         self,
         vision_features: dict[str, np.ndarray],
-        text_features: np.ndarray,
-        text_mask: np.ndarray,
         input_boxes: np.ndarray,
         input_boxes_labels: np.ndarray,
+        input_points: np.ndarray,
+        input_points_labels: np.ndarray,
+        *,
+        exemplar: bool = False,
+    ) -> tuple[np.ndarray, np.ndarray, float]:
+        """Run geometry encoder; returns (geometry_features, geometry_mask, elapsed_ms)."""
+        request = self.geometry_exemplar_request if exemplar else self.geometry_request
+        t0 = time.perf_counter()
+        request.infer([
+            vision_features["fpn_feat_2"],
+            vision_features["fpn_pos_2"],
+            input_boxes,
+            input_boxes_labels,
+            input_points,
+            input_points_labels,
+        ])
+        geo_features = request.get_tensor("geometry_features").data
+        geo_mask = request.get_tensor("geometry_mask").data
+        elapsed = (time.perf_counter() - t0) * 1000
+        return geo_features, geo_mask, elapsed
+
+    def run_prompt_decoder(
+        self,
+        vision_features: dict[str, np.ndarray],
+        prompt_features: np.ndarray,
+        prompt_mask: np.ndarray,
     ) -> tuple[dict[str, np.ndarray], float]:
-        """Run decoder; returns (outputs_dict, elapsed_ms)."""
+        """Run prompt decoder; returns (outputs_dict, elapsed_ms)."""
         t0 = time.perf_counter()
         self.decoder_request.infer([
             vision_features["fpn_feat_0"],
             vision_features["fpn_feat_1"],
             vision_features["fpn_feat_2"],
             vision_features["fpn_pos_2"],
-            text_features,
-            text_mask,
-            input_boxes,
-            input_boxes_labels,
+            prompt_features,
+            prompt_mask,
         ])
         result = {
             "pred_masks": self.decoder_request.get_tensor("pred_masks").data,
@@ -366,6 +446,13 @@ def _sentinel_box() -> tuple[np.ndarray, np.ndarray]:
     return boxes, labels
 
 
+def _sentinel_points() -> tuple[np.ndarray, np.ndarray]:
+    """Return sentinel point inputs (no point prompt)."""
+    points = np.zeros((1, 1, 2), dtype=np.float32)
+    labels = np.full((1, 1), -10, dtype=np.int64)
+    return points, labels
+
+
 def _real_box(
     preprocessor: Sam3PromptPreprocessor,
     bbox: np.ndarray,
@@ -373,7 +460,7 @@ def _real_box(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Convert a xyxy bbox to the model's normalized cxcywh format."""
     with torch.no_grad():
-        box_tensor = preprocessor(bbox, original_sizes)
+        box_tensor, _ = preprocessor(original_sizes, input_boxes=bbox)
     boxes = box_tensor.numpy().astype(np.float32)
     labels = np.ones((1, boxes.shape[1]), dtype=np.int64)
     return boxes, labels
@@ -402,23 +489,42 @@ def benchmark_single_inference(
     # 3. Text encoder
     text_features, text_mask, t_txt = model.run_text_encoder(text)
 
-    # 4. Prepare boxes
+    # 4. Geometry encoder (box/point prompts) or text-only
+    t_geo = 0.0
     if bbox is not None:
         input_boxes, input_boxes_labels = _real_box(
             model.prompt_preprocessor,
             bbox,
             original_sizes,
         )
-    else:
-        input_boxes, input_boxes_labels = _sentinel_box()
+        input_points, input_points_labels = _sentinel_points()
 
-    # 5. Decoder
-    decoder_outputs, t_dec = model.run_decoder(
+        geo_features, geo_mask, t_geo = model.run_geometry_encoder(
+            vision_features,
+            input_boxes,
+            input_boxes_labels,
+            input_points,
+            input_points_labels,
+        )
+
+        # Concatenate text + geometry features
+        prompt_features = np.concatenate(
+            [text_features, geo_features],
+            axis=1,
+        ).astype(np.float32)
+        prompt_mask = np.concatenate(
+            [text_mask.astype(bool), geo_mask.astype(bool)],
+            axis=1,
+        )
+    else:
+        prompt_features = text_features.astype(np.float32)
+        prompt_mask = text_mask.astype(bool)
+
+    # 5. Prompt decoder
+    decoder_outputs, t_dec = model.run_prompt_decoder(
         vision_features,
-        text_features,
-        text_mask,
-        input_boxes,
-        input_boxes_labels,
+        prompt_features,
+        prompt_mask,
     )
 
     # 6. Postprocess
@@ -428,6 +534,7 @@ def benchmark_single_inference(
         preprocess_ms=t_pre,
         vision_encoder_ms=t_vis,
         text_encoder_ms=t_txt,
+        geometry_encoder_ms=t_geo,
         decoder_ms=t_dec,
         postprocess_ms=t_post,
     )
@@ -442,9 +549,9 @@ def benchmark_cached_vision(
 ) -> list[TimingResult]:
     """Benchmark decoder-only inference with cached vision & text features.
 
-    This simulates the scenario where vision encoder output is cached (same
-    image) and text encoder output is cached (same prompt). Only decoder
-    + postprocess run per iteration.
+    Simulates the scenario where vision encoder output is cached (same
+    image) and text encoder output is cached (same prompt). Only geometry
+    encoder (if box/point) + prompt decoder + postprocess run per iteration.
     """
     img_size = image.shape[-2:]
 
@@ -453,26 +560,51 @@ def benchmark_cached_vision(
     vision_features, _ = model.run_vision_encoder(pixel_np)
     text_features, text_mask, _ = model.run_text_encoder(text)
 
-    if bbox is not None:
+    has_geometry = bbox is not None
+    if has_geometry:
         input_boxes, input_boxes_labels = _real_box(
             model.prompt_preprocessor,
             bbox,
             original_sizes,
         )
-    else:
-        input_boxes, input_boxes_labels = _sentinel_box()
+        input_points, input_points_labels = _sentinel_points()
 
     results: list[TimingResult] = []
     for _ in range(iterations):
-        decoder_outputs, t_dec = model.run_decoder(
+        t_geo = 0.0
+        if has_geometry:
+            geo_features, geo_mask, t_geo = model.run_geometry_encoder(
+                vision_features,
+                input_boxes,
+                input_boxes_labels,
+                input_points,
+                input_points_labels,
+            )
+            prompt_features = np.concatenate(
+                [text_features, geo_features],
+                axis=1,
+            ).astype(np.float32)
+            prompt_mask = np.concatenate(
+                [text_mask.astype(bool), geo_mask.astype(bool)],
+                axis=1,
+            )
+        else:
+            prompt_features = text_features.astype(np.float32)
+            prompt_mask = text_mask.astype(bool)
+
+        decoder_outputs, t_dec = model.run_prompt_decoder(
             vision_features,
-            text_features,
-            text_mask,
-            input_boxes,
-            input_boxes_labels,
+            prompt_features,
+            prompt_mask,
         )
         _, t_post = model.run_postprocess(decoder_outputs, img_size)
-        results.append(TimingResult(decoder_ms=t_dec, postprocess_ms=t_post))
+        results.append(
+            TimingResult(
+                geometry_encoder_ms=t_geo,
+                decoder_ms=t_dec,
+                postprocess_ms=t_post,
+            ),
+        )
     return results
 
 
@@ -485,10 +617,12 @@ def benchmark_live_stream(
     """Benchmark live-stream scenario: same prompt, different images.
 
     Text encoder output is cached; vision encoder runs per frame.
+    Text-only prompt — no geometry encoder.
     """
     # Cache text features once
     text_features, text_mask, _ = model.run_text_encoder(text)
-    input_boxes, input_boxes_labels = _sentinel_box()
+    prompt_features = text_features.astype(np.float32)
+    prompt_mask = text_mask.astype(bool)
 
     results: list[TimingResult] = []
     img_cycle = images * ((iterations // len(images)) + 1)
@@ -500,12 +634,10 @@ def benchmark_live_stream(
         pixel_np, _orig, t_pre = model.run_preprocess(image)
         vision_features, t_vis = model.run_vision_encoder(pixel_np)
 
-        decoder_outputs, t_dec = model.run_decoder(
+        decoder_outputs, t_dec = model.run_prompt_decoder(
             vision_features,
-            text_features,
-            text_mask,
-            input_boxes,
-            input_boxes_labels,
+            prompt_features,
+            prompt_mask,
         )
         _, t_post = model.run_postprocess(decoder_outputs, img_size)
 
@@ -599,7 +731,7 @@ def _benchmark_variant_config(
 
 
 def run_benchmarks(
-    base_dir: Path,
+    base_dir: Path | None,
     variants: list[str],
     device: str = "CPU",
     warmup: int = 3,
@@ -646,16 +778,9 @@ def run_benchmarks(
     all_results: list[BenchmarkResult] = []
 
     for variant_dir_name in variants:
-        # Skip ONNX variants on GPU — they cause uncatchable SIGABRT from OpenCL OOM
-        if device.upper().startswith("GPU") and variant_dir_name in _ONNX_VARIANTS:
-            console.print(
-                f"[yellow]Skipping {variant_dir_name} on GPU (ONNX on-the-fly compilation exceeds GPU memory)[/yellow]",
-            )
-            continue
-
-        variant_path = base_dir / variant_dir_name
-        if not variant_path.is_dir():
-            console.print(f"[yellow]Skipping {variant_dir_name}: not found[/yellow]")
+        # Resolve variant path: local directory or auto-download from HuggingFace
+        variant_path = _resolve_variant_path(base_dir, variant_dir_name)
+        if variant_path is None:
             continue
 
         label = DEFAULT_VARIANTS.get(variant_dir_name, variant_dir_name)
@@ -713,6 +838,7 @@ def print_summary_table(results: list[BenchmarkResult]) -> None:
     table.add_column("Preproc", justify="right")
     table.add_column("Vision Enc", justify="right")
     table.add_column("Text Enc", justify="right")
+    table.add_column("Geo Enc", justify="right")
     table.add_column("Decoder", justify="right")
     table.add_column("Postproc", justify="right")
     table.add_column("Total", justify="right", style="bold")
@@ -723,6 +849,7 @@ def print_summary_table(results: list[BenchmarkResult]) -> None:
         s_pre = r.stats("preprocess_ms")
         s_vis = r.stats("vision_encoder_ms")
         s_txt = r.stats("text_encoder_ms")
+        s_geo = r.stats("geometry_encoder_ms")
         s_dec = r.stats("decoder_ms")
         s_post = r.stats("postprocess_ms")
         s_total = r.stats("total_ms")
@@ -738,6 +865,7 @@ def print_summary_table(results: list[BenchmarkResult]) -> None:
             f"{s_pre['mean']:.1f}",
             f"{s_vis['mean']:.1f}",
             f"{s_txt['mean']:.1f}",
+            f"{s_geo['mean']:.1f}",
             f"{s_dec['mean']:.1f}",
             f"{s_post['mean']:.1f}",
             f"{s_total['mean']:.1f}",
@@ -766,7 +894,8 @@ def print_component_detail(results: list[BenchmarkResult]) -> None:
             ("preprocess_ms", "Preprocess"),
             ("vision_encoder_ms", "Vision Encoder"),
             ("text_encoder_ms", "Text Encoder"),
-            ("decoder_ms", "Decoder"),
+            ("geometry_encoder_ms", "Geometry Encoder"),
+            ("decoder_ms", "Prompt Decoder"),
             ("postprocess_ms", "Postprocess"),
             ("total_ms", "TOTAL"),
             ("without_vision_ms", "w/o Vision"),
@@ -803,7 +932,7 @@ def print_comparison_matrix(results: list[BenchmarkResult]) -> None:
     prompt_types = sorted({r.prompt_type for r in default_results})
     for pt in prompt_types:
         table.add_column(f"{pt} (total)", justify="right")
-        table.add_column(f"{pt} (dec)", justify="right")
+        table.add_column(f"{pt} (geo+dec)", justify="right")
 
     variant_names = sorted({r.variant for r in default_results})
     for variant in variant_names:
@@ -812,8 +941,10 @@ def print_comparison_matrix(results: list[BenchmarkResult]) -> None:
             match = [r for r in default_results if r.variant == variant and r.prompt_type == pt]
             if match:
                 s_total = match[0].stats("total_ms")
+                s_geo = match[0].stats("geometry_encoder_ms")
                 s_dec = match[0].stats("decoder_ms")
-                row.extend([f"{s_total['mean']:.1f}", f"{s_dec['mean']:.1f}"])
+                geo_dec = s_geo["mean"] + s_dec["mean"]
+                row.extend([f"{s_total['mean']:.1f}", f"{geo_dec:.1f}"])
             else:
                 row.extend(["—", "—"])
         table.add_row(*row)
@@ -908,8 +1039,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--base-dir",
         type=Path,
-        default=Path("./sam3-openvino"),
-        help="Directory containing model variant subdirectories.",
+        default=None,
+        help=(
+            "Local directory with model variant subdirectories."
+            " If omitted, models are auto-downloaded from HuggingFace."
+        ),
     )
     parser.add_argument(
         "--variants",
@@ -965,6 +1099,10 @@ def main() -> None:
     console.print(f"Device: {args.device}")
     console.print(f"Warmup: {args.warmup}, Iterations: {args.iterations}, Live frames: {args.live_frames}")
     console.print(f"Variants: {args.variants}")
+    if args.base_dir is not None:
+        console.print(f"Model source: local ({args.base_dir})")
+    else:
+        console.print(f"Model source: HuggingFace ({HF_REPO_ID})")
     ov_configs = _get_ov_configs(args.device)
     console.print(f"OV configs: {list(ov_configs.keys())}")
     console.print()

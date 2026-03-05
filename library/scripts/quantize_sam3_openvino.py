@@ -49,40 +49,25 @@ from pathlib import Path
 
 import numpy as np
 import openvino as ov
-import requests
 from rich.console import Console
-from rich.progress import BarColumn, DownloadColumn, Progress, TextColumn, TimeRemainingColumn, TransferSpeedColumn
 from rich.table import Table
 
 logger = logging.getLogger(__name__)
 
-# Pre-exported ONNX model URLs from usls project (v2 split - 3 models)
-ONNX_BASE_URL = "https://github.com/jamjamjon/assets/releases/download/sam3"
-
-# Canonical v2 model names
+# Canonical model names (5-model split)
 MODEL_NAMES = [
     "vision-encoder",
     "text-encoder",
-    "geo-encoder-mask-decoder",
+    "geometry-encoder",
+    "geometry-encoder-exemplar",
+    "prompt-decoder",
 ]
-
-# ONNX file suffixes for each quantization type
-ONNX_SUFFIXES: dict[str, str] = {
-    "fp32": "",
-    "fp16": "-fp16",
-    "q8": "-q8",
-    "q4f16": "-q4f16",
-    "bnb4": "-bnb4",
-}
-
-# Methods that download from usls
-USLS_METHODS = {"q8", "q4f16", "bnb4"}
 
 # Methods that use NNCF
 NNCF_METHODS = {"nncf-int8", "nncf-int4"}
 
 # All individual methods
-ALL_METHODS = USLS_METHODS | NNCF_METHODS
+ALL_METHODS = NNCF_METHODS
 
 # Tokenizer files needed for inference
 TOKENIZER_FILES = [
@@ -92,141 +77,6 @@ TOKENIZER_FILES = [
     "vocab.json",
     "merges.txt",
 ]
-
-
-def download_file(url: str, target_path: Path) -> None:
-    """Download a file from a URL with progress bar.
-
-    Args:
-        url: URL to download from.
-        target_path: Local path to save the file.
-    """
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-
-    disable_progress = not sys.stderr.isatty()
-    progress = Progress(
-        TextColumn("[bold blue]{task.fields[filename]}", justify="right"),
-        BarColumn(bar_width=None),
-        "[progress.percentage]{task.percentage:>3.1f}%",
-        " • ",
-        DownloadColumn(),
-        " • ",
-        TransferSpeedColumn(),
-        " • ",
-        TimeRemainingColumn(),
-        transient=True,
-        disable=disable_progress,
-    )
-
-    with requests.get(url, stream=True, timeout=60) as r:
-        r.raise_for_status()
-        total_size = int(r.headers.get("content-length", 0))
-        msg = f"Downloading {target_path.name} ({total_size / (1024 * 1024):.1f} MB)..."
-        logger.info(msg)
-
-        with progress:
-            task_id = progress.add_task("download", total=total_size, filename=target_path.name)
-            with target_path.open("wb") as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-                        progress.update(task_id, advance=len(chunk))
-
-    msg = f"Downloaded: {target_path}"
-    logger.info(msg)
-
-
-def download_quantized_onnx(quant_type: str, output_dir: Path) -> Path:
-    """Download pre-quantized SAM3 ONNX models from usls.
-
-    Args:
-        quant_type: Quantization type ("q8", "q4f16", or "bnb4").
-        output_dir: Base output directory.
-
-    Returns:
-        Path to directory containing downloaded ONNX models.
-    """
-    suffix = ONNX_SUFFIXES[quant_type]
-    onnx_dir = output_dir / f"onnx-v2-{quant_type}"
-    onnx_dir.mkdir(parents=True, exist_ok=True)
-
-    for model_name in MODEL_NAMES:
-        filename = f"{model_name}{suffix}.onnx"
-        target_path = onnx_dir / filename
-        if target_path.exists():
-            msg = f"Already exists, skipping: {target_path}"
-            logger.info(msg)
-            continue
-        url = f"{ONNX_BASE_URL}/{filename}"
-        download_file(url, target_path)
-
-    # Download tokenizer files
-    for filename in TOKENIZER_FILES:
-        target_path = onnx_dir / filename
-        if target_path.exists():
-            continue
-        url = f"{ONNX_BASE_URL}/{filename}"
-        try:
-            download_file(url, target_path)
-        except requests.HTTPError:
-            msg = f"Could not download {filename} (optional)"
-            logger.warning(msg)
-
-    return onnx_dir
-
-
-def organize_usls_quantized(quant_type: str, output_dir: Path) -> Path:
-    """Download pre-quantized ONNX from usls and organize with canonical names.
-
-    Quantized ONNX files are kept as ONNX rather than converted to OpenVINO IR,
-    because ``ov.convert_model()`` decompresses quantized weights, inflating the
-    model size (e.g., Q8 ONNX ~845 MB becomes ~3.1 GB as IR). OpenVINO can load
-    ONNX files directly, so no conversion is needed.
-
-    Files are copied with canonical names (e.g., ``vision-encoder.onnx``) so that
-    ``SAM3OpenVINO`` can find them using the standard search pattern.
-
-    Args:
-        quant_type: Quantization type ("q8", "q4f16", or "bnb4").
-        output_dir: Base output directory.
-
-    Returns:
-        Path to directory containing organized ONNX models.
-    """
-    logger.info("=" * 60)
-    logger.info("Processing usls pre-quantized variant: %s", quant_type)
-    logger.info("=" * 60)
-
-    onnx_dir = download_quantized_onnx(quant_type, output_dir)
-
-    # Output directory uses onnx- prefix to make it clear these are ONNX files
-    out_dir = output_dir / f"onnx-{quant_type}"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    suffix = ONNX_SUFFIXES[quant_type]
-    for model_name in MODEL_NAMES:
-        src = onnx_dir / f"{model_name}{suffix}.onnx"
-        # Canonical name so SAM3OpenVINO finds it as {name}.onnx
-        dst = out_dir / f"{model_name}.onnx"
-        if dst.exists():
-            size_mb = dst.stat().st_size / (1024 * 1024)
-            logger.info("Already exists: %s (%.1f MB)", dst, size_mb)
-            continue
-        if not src.exists():
-            logger.error("ONNX file not found: %s", src)
-            continue
-        shutil.copy2(src, dst)
-        size_mb = dst.stat().st_size / (1024 * 1024)
-        logger.info("Copied: %s → %s (%.1f MB)", src.name, dst, size_mb)
-
-    # Copy tokenizer files
-    for filename in TOKENIZER_FILES:
-        src = onnx_dir / filename
-        dst = out_dir / filename
-        if src.exists() and not dst.exists():
-            shutil.copy2(src, dst)
-
-    return out_dir
 
 
 def _compress_single_model(nncf: object, ov_model: ov.Model, mode: str) -> ov.Model:
@@ -305,7 +155,10 @@ def apply_nncf_weight_compression(
 
     core = ov.Core()
 
-    for model_name in MODEL_NAMES:
+    model_names = MODEL_NAMES
+    logger.info("Compressing %d models", len(model_names))
+
+    for model_name in model_names:
         xml_path = source_dir / f"{model_name}.xml"
         if not xml_path.exists():
             msg = f"Source model not found: {xml_path}"
@@ -341,7 +194,7 @@ def apply_nncf_weight_compression(
     return ir_dir
 
 
-def validate_openvino_models(model_dir: Path, device: str = "CPU") -> bool:
+def validate_openvino_models(model_dir: Path, device: str = "CPU") -> bool:  # noqa: C901, PLR0915
     """Validate that OpenVINO models can be loaded and run with dummy inputs.
 
     Tries .xml first, then falls back to .onnx files.
@@ -359,9 +212,11 @@ def validate_openvino_models(model_dir: Path, device: str = "CPU") -> bool:
 
     logger.info("Validating models in %s ...", model_dir)
 
+    model_names = MODEL_NAMES
+
     # Find model files (prefer .xml, fallback to .onnx)
     model_files = {}
-    for model_name in MODEL_NAMES:
+    for model_name in model_names:
         xml = model_dir / f"{model_name}.xml"
         if xml.exists():
             model_files[model_name] = xml
@@ -399,10 +254,50 @@ def validate_openvino_models(model_dir: Path, device: str = "CPU") -> bool:
             logger.exception("  text-encoder: FAILED")
             all_ok = False
 
-    # Validate decoder
-    if "geo-encoder-mask-decoder" in model_files:
+    # Geometry encoder (classic)
+    if "geometry-encoder" in model_files:
         try:
-            model = core.compile_model(model_files["geo-encoder-mask-decoder"], device)
+            model = core.compile_model(model_files["geometry-encoder"], device)
+            dummy_fpn2 = rng.standard_normal((1, 256, 72, 72)).astype(np.float32)
+            dummy_pos2 = rng.standard_normal((1, 256, 72, 72)).astype(np.float32)
+            result = model([
+                dummy_fpn2,
+                dummy_pos2,
+                rng.random((1, 1, 4)).astype(np.float32),
+                np.ones((1, 1), dtype=np.int64),
+                np.zeros((1, 1, 2), dtype=np.float32),
+                np.full((1, 1), -10, dtype=np.int64),
+            ])
+            shapes = {name: result[name].shape for name in ["geometry_features", "geometry_mask"]}
+            logger.info("  geometry-encoder: OK — %s", shapes)
+        except Exception:
+            logger.exception("  geometry-encoder: FAILED")
+            all_ok = False
+
+    # Geometry encoder (exemplar)
+    if "geometry-encoder-exemplar" in model_files:
+        try:
+            model = core.compile_model(model_files["geometry-encoder-exemplar"], device)
+            dummy_fpn2 = rng.standard_normal((1, 256, 72, 72)).astype(np.float32)
+            dummy_pos2 = rng.standard_normal((1, 256, 72, 72)).astype(np.float32)
+            result = model([
+                dummy_fpn2,
+                dummy_pos2,
+                np.zeros((1, 1, 4), dtype=np.float32),
+                np.full((1, 1), -10, dtype=np.int64),
+                rng.random((1, 1, 2)).astype(np.float32),
+                np.ones((1, 1), dtype=np.int64),
+            ])
+            shapes = {name: result[name].shape for name in ["geometry_features", "geometry_mask"]}
+            logger.info("  geometry-encoder-exemplar: OK — %s", shapes)
+        except Exception:
+            logger.exception("  geometry-encoder-exemplar: FAILED")
+            all_ok = False
+
+    # Prompt decoder
+    if "prompt-decoder" in model_files:
+        try:
+            model = core.compile_model(model_files["prompt-decoder"], device)
             result = model([
                 rng.standard_normal((1, 256, 288, 288)).astype(np.float32),
                 rng.standard_normal((1, 256, 144, 144)).astype(np.float32),
@@ -410,15 +305,13 @@ def validate_openvino_models(model_dir: Path, device: str = "CPU") -> bool:
                 rng.standard_normal((1, 256, 72, 72)).astype(np.float32),
                 rng.standard_normal((1, 32, 256)).astype(np.float32),
                 np.ones((1, 32), dtype=bool),
-                np.zeros((1, 1, 4), dtype=np.float32),
-                np.full((1, 1), -10, dtype=np.int64),
             ])
             shapes = {
                 name: result[name].shape for name in ["pred_masks", "pred_boxes", "pred_logits", "presence_logits"]
             }
-            logger.info("  geo-encoder-mask-decoder: OK — %s", shapes)
+            logger.info("  prompt-decoder: OK — %s", shapes)
         except Exception:
-            logger.exception("  geo-encoder-mask-decoder: FAILED")
+            logger.exception("  prompt-decoder: FAILED")
             all_ok = False
 
     status = "All models validated!" if all_ok else "Some models failed validation."
@@ -451,10 +344,8 @@ def print_comparison_table(output_dir: Path) -> None:
     console = Console()
     table = Table(title="SAM3 Quantization Comparison", show_header=True)
     table.add_column("Variant", style="cyan", width=20)
-    table.add_column("Vision Enc.", justify="right")
-    table.add_column("Text Enc.", justify="right")
-    table.add_column("Decoder", justify="right")
     table.add_column("Total", justify="right", style="bold")
+    table.add_column("Model Count", justify="right")
     table.add_column("Status", style="green")
 
     # Find all variant directories (openvino-* and onnx-*)
@@ -463,32 +354,31 @@ def print_comparison_table(output_dir: Path) -> None:
         if not variant_dir.is_dir():
             continue
         variant_name = variant_dir.name
-        for prefix in ("openvino-", "onnx-", "onnx-v2-"):
+        for prefix in ("openvino-", "onnx-"):
             variant_name = variant_name.replace(prefix, "", 1) if variant_name.startswith(prefix) else variant_name
         fmt = "IR" if variant_dir.name.startswith("openvino") else "ONNX"
         variant_label = f"{variant_name} ({fmt})"
 
-        sizes = {}
-        for model_name in MODEL_NAMES:
+        model_names = MODEL_NAMES
+        total_size = 0.0
+        found = 0
+        for model_name in model_names:
             bin_path = variant_dir / f"{model_name}.bin"
             if bin_path.exists():
-                sizes[model_name] = bin_path.stat().st_size / (1024 * 1024)
+                total_size += bin_path.stat().st_size / (1024 * 1024)
+                found += 1
             else:
-                # Check for onnx fallback
                 onnx_files = list(variant_dir.glob(f"{model_name}*.onnx"))
                 if onnx_files:
-                    sizes[model_name] = onnx_files[0].stat().st_size / (1024 * 1024)
+                    total_size += onnx_files[0].stat().st_size / (1024 * 1024)
+                    found += 1
 
-        total = sum(sizes.values())
-        has_all = len(sizes) == 3
-        status = "OK" if has_all else f"Missing {3 - len(sizes)} model(s)"
+        status = "OK" if found == len(model_names) else f"Missing {len(model_names) - found}"
 
         table.add_row(
             variant_label,
-            f"{sizes.get('vision-encoder', 0):.1f} MB",
-            f"{sizes.get('text-encoder', 0):.1f} MB",
-            f"{sizes.get('geo-encoder-mask-decoder', 0):.1f} MB",
-            f"{total:.1f} MB",
+            f"{total_size:.1f} MB",
+            f"{found}/{len(model_names)}",
             status,
         )
 
@@ -506,18 +396,13 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Methods:
-  q8          Download Q8 ONNX from usls, kept as ONNX (~845 MB)
-  q4f16       Download Q4F16 ONNX from usls, kept as ONNX (~564 MB)
-  bnb4        Download BNB4 ONNX from usls, kept as ONNX (~688 MB)
   nncf-int8   Apply NNCF INT8 weight compression to FP16 models (requires --source-dir)
   nncf-int4   Apply NNCF INT4 weight compression to FP16 models (requires --source-dir)
-  all-usls    Download and convert all usls variants (q8 + q4f16 + bnb4)
-  all         Run all methods (usls + NNCF, requires --source-dir for NNCF)
+  all         Run all NNCF methods (requires --source-dir)
 
 Examples:
-  python quantize_sam3_openvino.py --method q8 --validate
-  python quantize_sam3_openvino.py --method all-usls --output-dir ./sam3-openvino
   python quantize_sam3_openvino.py --method nncf-int8 --source-dir ./sam3-openvino/openvino-fp16
+  python quantize_sam3_openvino.py --method nncf-int4 --source-dir ./sam3-openvino/openvino-fp16
   python quantize_sam3_openvino.py --method all --source-dir ./sam3-openvino/openvino-fp16 --validate
         """,
     )
@@ -525,7 +410,7 @@ Examples:
         "--method",
         type=str,
         required=True,
-        choices=["q8", "q4f16", "bnb4", "nncf-int8", "nncf-int4", "all-usls", "all"],
+        choices=["nncf-int8", "nncf-int4", "all"],
         help="Quantization method to apply.",
     )
     parser.add_argument(
@@ -562,16 +447,13 @@ def _run_method(method: str, output_dir: Path, source_dir: Path | None) -> Path:
     """Run a single quantization method.
 
     Args:
-        method: Method name (e.g., "q8", "nncf-int8").
+        method: Method name (e.g., "nncf-int8", "nncf-int4").
         output_dir: Base output directory.
-        source_dir: Source directory for NNCF methods.
+        source_dir: Source directory with FP16 OpenVINO IR models.
 
     Returns:
         Path to directory containing the quantized models.
     """
-    if method in USLS_METHODS:
-        return organize_usls_quantized(method, output_dir)
-    # NNCF method
     nncf_mode = method.replace("nncf-", "")
     return apply_nncf_weight_compression(source_dir, output_dir, nncf_mode)
 
@@ -596,9 +478,8 @@ def main() -> None:
     methods_to_run = _resolve_methods(method)
 
     # Validate that source-dir is provided for NNCF
-    nncf_needed = any(m in NNCF_METHODS for m in methods_to_run)
-    if nncf_needed and source_dir is None:
-        parser.error("--source-dir is required for NNCF methods. Point it to your FP16 OpenVINO IR directory.")
+    if source_dir is None:
+        parser.error("--source-dir is required. Point it to your FP16 OpenVINO IR directory.")
 
     # Run each method
     result_dirs: dict[str, Path] = {}
@@ -623,7 +504,7 @@ def main() -> None:
         logger.info("  %s: %s (%.1f MB model files)", m, result_dir, size)
 
     # Print comparison table
-    if args.compare or method in {"all-usls", "all"}:
+    if args.compare or method == "all":
         print_comparison_table(output_dir)
 
 
@@ -631,13 +512,11 @@ def _resolve_methods(method: str) -> list[str]:
     """Resolve a method argument to a list of individual methods.
 
     Args:
-        method: Method string from CLI (may be "all-usls", "all", or a single method).
+        method: Method string from CLI (may be "all" or a single method).
 
     Returns:
         List of individual method names.
     """
-    if method == "all-usls":
-        return sorted(USLS_METHODS)
     if method == "all":
         return sorted(ALL_METHODS)
     return [method]

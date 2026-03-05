@@ -1,28 +1,36 @@
 # Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""SAM3 OpenVINO inference model for text and visual prompting.
+"""SAM3 OpenVINO inference model for text, box, point, and visual-exemplar prompting.
 
-This module provides SAM3OpenVINO, which loads pre-exported SAM3 ONNX or OpenVINO IR
-models and provides the same inference API as the PyTorch SAM3 model. It supports
-text prompts, box prompts, and combined prompts.
+This module provides ``SAM3OpenVINO``, which loads pre-exported SAM3 OpenVINO IR
+(or ONNX) models and provides the same inference API as the PyTorch ``SAM3`` model.
 
-The model expects 3 sub-models (v2 split from the usls project):
-    - vision-encoder: ViT + FPN backbone
-    - text-encoder: CLIP text encoder + projection
-    - geo-encoder-mask-decoder: Geometry encoder + DETR encoder/decoder + mask decoder
+Supported prompt types (matching PyTorch ``SAM3`` parity):
 
-Models can be loaded from:
-    - OpenVINO IR files (.xml/.bin)
-    - ONNX files (.onnx)
-    - HuggingFace Hub repository
+* **Text prompts** — category names via ``fit()`` or per-sample ``categories``
+* **Box prompts** — bounding boxes via the ``bboxes`` field
+* **Point prompts** — click points via the ``points`` field
+* **Combined text + box/point** — both at the same time
+* **Visual exemplar mode** — encode reference image prompts at ``fit()``
+  time, reuse cached features to detect similar objects on any target image
+
+The model expects 5 sub-models (custom-exported from ``Sam3Model``):
+
+* ``vision-encoder``   — ViT + FPN backbone
+* ``text-encoder``     — CLIP text encoder + projection
+* ``geometry-encoder`` — Geometry encoder (classic, ``drop_spatial_bias=False``)
+* ``geometry-encoder-exemplar`` — Geometry encoder (exemplar, ``drop_spatial_bias=True``)
+* ``prompt-decoder``   — DETR encoder/decoder + box refinement + scoring + mask decoder
 
 See Also:
-    - SAM3: PyTorch-based SAM3 model
-    - convert_sam3_to_openvino.py: Script to convert ONNX models to OpenVINO IR
+    - ``SAM3``: PyTorch-based SAM3 model
+    - ``export_openvino``: ONNX export wrappers and conversion utilities
+    - ``export_sam3_openvino.py``: CLI script for exporting models
 """
 
 import logging
+from collections import defaultdict
 from itertools import zip_longest
 from pathlib import Path
 
@@ -37,26 +45,53 @@ from instantlearn.models.base import Model
 from instantlearn.utils import device_to_openvino_device
 
 from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
+from .sam3 import Sam3PromptMode
 
 logger = logging.getLogger(__name__)
 
 # Default HuggingFace repo for tokenizer
-_DEFAULT_TOKENIZER_REPO = "jetjodh/sam3"
+_DEFAULT_TOKENIZER_REPO = "rajeshgangireddy/exported_sam3"
 
-# v2 model file names (canonical)
+# Sub-model file names
 _VISION_ENCODER = "vision-encoder"
 _TEXT_ENCODER = "text-encoder"
-_DECODER = "geo-encoder-mask-decoder"
+_GEOMETRY_ENCODER = "geometry-encoder"
+_GEOMETRY_ENCODER_EXEMPLAR = "geometry-encoder-exemplar"
+_PROMPT_DECODER = "prompt-decoder"
 
 
-def _find_model_file(model_dir: Path, name: str) -> Path:
+def _find_model_file(model_dir: Path, name: str) -> Path | None:
     """Find a model file in a directory, supporting OV IR (.xml) and ONNX (.onnx).
 
     Search order:
       1. ``{name}.xml`` — OpenVINO IR (preferred)
       2. ``{name}.onnx`` — canonical ONNX name
       3. ``{name}-fp16.onnx`` — FP16 ONNX variant
-      4. Any remaining ``{name}*.onnx`` — other quantized variants (Q8, Q4F16, etc.)
+      4. Any remaining ``{name}*.onnx`` — other quantised variants
+
+    Args:
+        model_dir: Directory to search.
+        name: Base name of the model (without extension).
+
+    Returns:
+        Path to the found model file, or ``None`` if not found.
+    """
+    candidates = [
+        model_dir / f"{name}.xml",
+        model_dir / f"{name}.onnx",
+        model_dir / f"{name}-fp16.onnx",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    onnx_variants = sorted(model_dir.glob(f"{name}*.onnx"))
+    if onnx_variants:
+        return onnx_variants[0]
+    return None
+
+
+def _require_model_file(model_dir: Path, name: str) -> Path:
+    """Find a model file or raise.
 
     Args:
         model_dir: Directory to search.
@@ -68,65 +103,67 @@ def _find_model_file(model_dir: Path, name: str) -> Path:
     Raises:
         FileNotFoundError: If no matching model file is found.
     """
-    # Prefer OpenVINO IR over ONNX
-    candidates = [
-        model_dir / f"{name}.xml",
-        model_dir / f"{name}.onnx",
-        model_dir / f"{name}-fp16.onnx",
-    ]
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    # Fallback: glob for any ONNX variant (e.g., {name}-q8.onnx, {name}-q4f16.onnx)
-    onnx_variants = sorted(model_dir.glob(f"{name}*.onnx"))
-    if onnx_variants:
-        return onnx_variants[0]
-    msg = f"Model '{name}' not found in {model_dir}. Expected one of: {[c.name for c in candidates]}"
-    raise FileNotFoundError(msg)
+    path = _find_model_file(model_dir, name)
+    if path is None:
+        msg = f"Model '{name}' not found in {model_dir}."
+        raise FileNotFoundError(msg)
+    return path
 
 
 class SAM3OpenVINO(Model):
-    """SAM3 model for text and visual prompting using OpenVINO inference.
+    """SAM3 model using OpenVINO runtime for inference.
 
-    This model provides the same inference capabilities as the PyTorch SAM3 model
-    but runs on OpenVINO runtime for optimized inference on Intel hardware (CPU, GPU).
+    Provides the same capabilities as the PyTorch ``SAM3`` model:
 
-    It loads 3 pre-exported sub-models (v2 split):
-        - Vision encoder: ViT + FPN backbone
-        - Text encoder: CLIP text encoder + projection
-        - Decoder: Geometry encoder + DETR + mask decoder
+    * **CLASSIC** mode — text, box, point, or combined prompts per target image.
+    * **VISUAL_EXEMPLAR** mode — encode reference-image prompts during ``fit()``
+      and reuse cached geometry features for every target image in ``predict()``.
 
-    Supports text prompts, box prompts, and combined prompts.
+    The model loads 4 (or 5) pre-exported sub-models from *model_dir*:
+
+    * ``vision-encoder``
+    * ``text-encoder``
+    * ``geometry-encoder``  (classic mode)
+    * ``geometry-encoder-exemplar``  (exemplar fit)
+    * ``prompt-decoder``
 
     Examples:
-        >>> from instantlearn.models.sam3 import SAM3OpenVINO
+        >>> from instantlearn.models.sam3 import SAM3OpenVINO, Sam3PromptMode
         >>> from instantlearn.data.base.sample import Sample
-        >>> import torch
-        >>> import numpy as np
+        >>> import torch, numpy as np
 
-        >>> # Load from local directory with OpenVINO IR files
+        >>> # Classic mode — text prompting
         >>> model = SAM3OpenVINO(model_dir="./sam3-openvino", device="CPU")
+        >>> model.fit(Sample(categories=["shoe", "person"], category_ids=[0, 1]))
+        >>> results = model.predict(Sample(image=torch.zeros((3, 1024, 1024))))
 
-        >>> # Example 1: Text prompting via fit()
-        >>> ref_sample = Sample(categories=["shoe", "person"], category_ids=[0, 1])
-        >>> model.fit(ref_sample)
-        >>> target = Sample(image=torch.zeros((3, 1024, 1024)))
-        >>> results = model.predict(target)
-
-        >>> # Example 2: Per-sample text prompting
-        >>> target = Sample(
-        ...     image=torch.zeros((3, 1024, 1024)),
-        ...     categories=["shoe"],
-        ...     category_ids=[0],
-        ... )
-        >>> results = model.predict(target)
-
-        >>> # Example 3: Box prompting
+        >>> # Classic mode — box prompting
         >>> target = Sample(
         ...     image=torch.zeros((3, 1024, 1024)),
         ...     bboxes=np.array([[100, 100, 200, 200]]),
         ... )
         >>> results = model.predict(target)
+
+        >>> # Classic mode — point prompting
+        >>> target = Sample(
+        ...     image=torch.zeros((3, 1024, 1024)),
+        ...     points=np.array([[150, 150]]),
+        ... )
+        >>> results = model.predict(target)
+
+        >>> # Visual exemplar mode
+        >>> model_ve = SAM3OpenVINO(
+        ...     model_dir="./sam3-openvino",
+        ...     prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR,
+        ... )
+        >>> ref = Sample(
+        ...     image=torch.zeros((3, 1024, 1024)),
+        ...     bboxes=np.array([[100, 100, 200, 200]]),
+        ...     categories=["shoe"],
+        ...     category_ids=[0],
+        ... )
+        >>> model_ve.fit(ref)
+        >>> results = model_ve.predict(Sample(image=torch.zeros((3, 1024, 1024))))
     """
 
     def __init__(
@@ -135,20 +172,24 @@ class SAM3OpenVINO(Model):
         device: str = "CPU",
         confidence_threshold: float = 0.5,
         resolution: int = 1008,
+        prompt_mode: Sam3PromptMode = Sam3PromptMode.CLASSIC,
+        drop_spatial_bias: bool = True,
         tokenizer_path: str | Path | None = None,
     ) -> None:
-        """Initialize SAM3 OpenVINO model.
+        """Initialise SAM3 OpenVINO model.
 
         Args:
-            model_dir: Directory containing OpenVINO IR (.xml/.bin) or ONNX (.onnx)
-                model files for the 3 v2 sub-models.
-            device: OpenVINO device for inference ("CPU", "GPU", "AUTO").
-                PyTorch-style names ("cuda", "cpu") are also accepted.
+            model_dir: Directory containing OpenVINO IR or ONNX sub-models.
+            device: OpenVINO device (``"CPU"``, ``"GPU"``, ``"AUTO"``).
+                PyTorch-style names (``"cuda"``, ``"cpu"``) are also accepted.
             confidence_threshold: Minimum confidence score for predictions.
-            resolution: Input image resolution (must match exported model, typically 1008).
-            tokenizer_path: Path to tokenizer directory or HuggingFace model ID.
-                If None, loads from the model_dir (if tokenizer.json exists there)
-                or falls back to "jetjodh/sam3" from HuggingFace Hub.
+            resolution: Input image resolution (must match exported model).
+            prompt_mode: ``Sam3PromptMode.CLASSIC`` or
+                ``Sam3PromptMode.VISUAL_EXEMPLAR``.
+            drop_spatial_bias: When True the exemplar geometry encoder drops
+                coordinate projections/position encodings and keeps only pooled
+                visual features (better for cross-image transfer).
+            tokenizer_path: Explicit tokenizer path or HuggingFace model ID.
         """
         super().__init__()
 
@@ -156,29 +197,52 @@ class SAM3OpenVINO(Model):
         self.ov_device = device_to_openvino_device(device)
         self.confidence_threshold = confidence_threshold
         self.resolution = resolution
+        self.prompt_mode = prompt_mode
+        self.drop_spatial_bias = drop_spatial_bias
 
-        # Category mapping from fit() — optional
+        # Category mapping from fit()
         self.category_mapping: dict[str, int] | None = None
 
-        # Load OpenVINO models
+        # Exemplar cache (populated in _fit_visual_exemplar)
+        self.exemplar_geometry_features: list[np.ndarray] | None = None
+        self.exemplar_geometry_mask: list[np.ndarray] | None = None
+        self.exemplar_text_features: list[np.ndarray] | None = None
+        self.exemplar_text_mask: list[np.ndarray] | None = None
+        self.exemplar_category_ids: list[int] | None = None
+
+        # -- Load sub-models --
         core = ov.Core()
 
-        vision_path = _find_model_file(self.model_dir, _VISION_ENCODER)
-        text_path = _find_model_file(self.model_dir, _TEXT_ENCODER)
-        decoder_path = _find_model_file(self.model_dir, _DECODER)
+        # Vision encoder + text encoder (always required)
+        vision_path = _require_model_file(self.model_dir, _VISION_ENCODER)
+        text_path = _require_model_file(self.model_dir, _TEXT_ENCODER)
 
-        msg = f"Loading SAM3 OpenVINO models from {self.model_dir} on {self.ov_device}..."
-        logger.info(msg)
-
+        logger.info("Loading SAM3 OpenVINO models from %s on %s...", self.model_dir, self.ov_device)
         self.vision_model = core.compile_model(vision_path, self.ov_device)
         self.text_model = core.compile_model(text_path, self.ov_device)
-        self.decoder_model = core.compile_model(decoder_path, self.ov_device)
-
         logger.info("  Vision encoder: %s", vision_path.name)
         logger.info("  Text encoder: %s", text_path.name)
-        logger.info("  Decoder: %s", decoder_path.name)
 
-        # Preprocessors (run on CPU with PyTorch)
+        # Load prompt decoder (required)
+        prompt_decoder_path = _require_model_file(self.model_dir, _PROMPT_DECODER)
+        self.decoder_model = core.compile_model(prompt_decoder_path, self.ov_device)
+        logger.info("  Prompt decoder: %s", prompt_decoder_path.name)
+
+        # Load geometry encoders (optional — needed for box/point/exemplar)
+        geo_path = _find_model_file(self.model_dir, _GEOMETRY_ENCODER)
+        if geo_path is not None:
+            self.geometry_model = core.compile_model(geo_path, self.ov_device)
+            logger.info("  Geometry encoder (classic): %s", geo_path.name)
+        else:
+            self.geometry_model = None
+
+        geo_ex_path = _find_model_file(self.model_dir, _GEOMETRY_ENCODER_EXEMPLAR)
+        if geo_ex_path is not None:
+            self.geometry_exemplar_model = core.compile_model(geo_ex_path, self.ov_device)
+            logger.info("  Geometry encoder (exemplar): %s", geo_ex_path.name)
+        else:
+            self.geometry_exemplar_model = None
+
         self.image_preprocessor = Sam3Preprocessor(target_size=resolution)
         self.prompt_preprocessor = Sam3PromptPreprocessor(target_size=resolution)
         self.postprocessor = Sam3Postprocessor(
@@ -189,55 +253,39 @@ class SAM3OpenVINO(Model):
 
         # Tokenizer
         self.tokenizer = self._load_tokenizer(tokenizer_path)
+        logger.info("SAM3 OpenVINO model loaded successfully (mode=%s).", prompt_mode.value)
 
-        logger.info("SAM3 OpenVINO model loaded successfully.")
+    # ------------------------------------------------------------------
+    # Tokenizer
+    # ------------------------------------------------------------------
 
     def _load_tokenizer(self, tokenizer_path: str | Path | None) -> CLIPTokenizerFast:
         """Load CLIP tokenizer from local path or HuggingFace.
 
         Args:
-            tokenizer_path: Explicit path/repo, or None for auto-detection.
+            tokenizer_path: Explicit path/repo, or ``None`` for auto-detection.
 
         Returns:
-            Loaded CLIPTokenizerFast instance.
+            Loaded ``CLIPTokenizerFast`` instance.
         """
         if tokenizer_path is not None:
             return CLIPTokenizerFast.from_pretrained(str(tokenizer_path))
-
-        # Try model_dir first (if tokenizer.json was copied there)
         if (self.model_dir / "tokenizer.json").exists():
             return CLIPTokenizerFast.from_pretrained(str(self.model_dir))
-
-        # Fall back to HuggingFace
         return CLIPTokenizerFast.from_pretrained(_DEFAULT_TOKENIZER_REPO)
 
-    def fit(self, reference: Sample | list[Sample] | Batch) -> None:
-        """Store category mapping from reference data for consistent text prompting.
-
-        This method is optional. If called, the stored categories will be used for all
-        predictions. If not called, categories are taken from each target sample.
-
-        Args:
-            reference: Reference data containing category information. Accepts:
-                - Sample: A single reference sample
-                - list[Sample]: A list of reference samples
-                - Batch: A batch of reference samples
-        """
-        reference_batch = Batch.collate(reference)
-        self.category_mapping = {}
-        for sample in reference_batch.samples:
-            for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
-                if category not in self.category_mapping:
-                    self.category_mapping[category] = int(category_id)
+    # ------------------------------------------------------------------
+    # Sub-model runners
+    # ------------------------------------------------------------------
 
     def _run_vision_encoder(self, pixel_values: np.ndarray) -> dict[str, np.ndarray]:
-        """Run vision encoder inference.
+        """Run vision encoder.
 
         Args:
-            pixel_values: Preprocessed image [1, 3, 1008, 1008] as float32 numpy array.
+            pixel_values: ``[1, 3, H, W]`` float32.
 
         Returns:
-            Dictionary with FPN features and position encodings.
+            Dict with ``fpn_feat_0``, ``fpn_feat_1``, ``fpn_feat_2``, ``fpn_pos_2``.
         """
         result = self.vision_model([pixel_values])
         return {
@@ -252,14 +300,14 @@ class SAM3OpenVINO(Model):
         input_ids: np.ndarray,
         attention_mask: np.ndarray,
     ) -> dict[str, np.ndarray]:
-        """Run text encoder inference.
+        """Run text encoder.
 
         Args:
-            input_ids: Token IDs [1, seq_len] as int64 numpy array.
-            attention_mask: Attention mask [1, seq_len] as int64 numpy array.
+            input_ids: ``[1, 32]`` int64.
+            attention_mask: ``[1, 32]`` int64.
 
         Returns:
-            Dictionary with text features and mask.
+            Dict with ``text_features`` and ``text_mask``.
         """
         result = self.text_model([input_ids, attention_mask])
         return {
@@ -267,35 +315,77 @@ class SAM3OpenVINO(Model):
             "text_mask": result["text_mask"],
         }
 
-    def _run_decoder(
+    def _run_geometry_encoder(
         self,
-        vision_features: dict[str, np.ndarray],
-        text_features: np.ndarray,
-        text_mask: np.ndarray,
+        fpn_feat_2: np.ndarray,
+        fpn_pos_2: np.ndarray,
         input_boxes: np.ndarray,
         input_boxes_labels: np.ndarray,
+        input_points: np.ndarray,
+        input_points_labels: np.ndarray,
+        *,
+        exemplar: bool = False,
     ) -> dict[str, np.ndarray]:
-        """Run decoder (geometry encoder + DETR + mask decoder) inference.
+        """Run geometry encoder.
+
+        Args:
+            fpn_feat_2: ``[1, 256, H, W]`` float32!
+            fpn_pos_2: ``[1, 256, H, W]`` float32.
+            input_boxes: ``[1, N, 4]`` cxcywh normalised.
+            input_boxes_labels: ``[1, N]`` int64.
+            input_points: ``[1, M, 2]`` xy normalised.
+            input_points_labels: ``[1, M]`` int64.
+            exemplar: Use the exemplar geometry encoder (``drop_spatial_bias=True``).
+
+        Returns:
+            Dict with ``geometry_features`` ``[1, K, 256]`` and
+            ``geometry_mask`` ``[1, K]``.
+
+        Raises:
+            RuntimeError: If the required geometry encoder model is not loaded.
+        """
+        model = self.geometry_exemplar_model if exemplar else self.geometry_model
+        if model is None:
+            variant = "exemplar" if exemplar else "classic"
+            msg = f"Geometry encoder ({variant}) is not loaded. Re-export models."
+            raise RuntimeError(msg)
+        result = model([
+            fpn_feat_2,
+            fpn_pos_2,
+            input_boxes,
+            input_boxes_labels,
+            input_points,
+            input_points_labels,
+        ])
+        return {
+            "geometry_features": result["geometry_features"],
+            "geometry_mask": result["geometry_mask"],
+        }
+
+    def _run_prompt_decoder(
+        self,
+        vision_features: dict[str, np.ndarray],
+        prompt_features: np.ndarray,
+        prompt_mask: np.ndarray,
+    ) -> dict[str, np.ndarray]:
+        """Run prompt decoder (DETR pipeline + mask decoder).
 
         Args:
             vision_features: FPN features from vision encoder.
-            text_features: Text features [1, seq_len, 256] as float32.
-            text_mask: Text mask [1, seq_len] as bool.
-            input_boxes: Box prompts [1, num_boxes, 4] in cxcywh normalized format.
-            input_boxes_labels: Box labels [1, num_boxes] (1=pos, 0=neg, -10=ignore).
+            prompt_features: ``[1, T, 256]`` pre-concatenated prompt features.
+            prompt_mask: ``[1, T]`` bool.
 
         Returns:
-            Dictionary with predicted masks, boxes, logits, and presence logits.
+            Dict with ``pred_masks``, ``pred_boxes``, ``pred_logits``,
+            ``presence_logits``.
         """
         result = self.decoder_model([
             vision_features["fpn_feat_0"],
             vision_features["fpn_feat_1"],
             vision_features["fpn_feat_2"],
             vision_features["fpn_pos_2"],
-            text_features,
-            text_mask,
-            input_boxes,
-            input_boxes_labels,
+            prompt_features,
+            prompt_mask,
         ])
         return {
             "pred_masks": result["pred_masks"],
@@ -304,137 +394,360 @@ class SAM3OpenVINO(Model):
             "presence_logits": result["presence_logits"],
         }
 
-    @staticmethod
-    def _aggregate_results(
-        all_masks: list[torch.Tensor],
-        all_boxes: list[torch.Tensor],
-        all_labels: list[torch.Tensor],
-        img_size: tuple[int, int],
-    ) -> dict[str, torch.Tensor]:
-        """Aggregate results from multiple prompt predictions for a single image.
+    # ------------------------------------------------------------------
+    # Tokenisation helpers
+    # ------------------------------------------------------------------
+
+    def _tokenize(self, text: str) -> tuple[np.ndarray, np.ndarray]:
+        """Tokenise a single text prompt and pad/truncate to length 32.
 
         Args:
-            all_masks: List of mask tensors from each prompt.
-            all_boxes: List of box tensors from each prompt.
-            all_labels: List of label tensors from each prompt.
-            img_size: Original image size (height, width).
+            text: Text prompt string.
 
         Returns:
-            Dictionary with aggregated predictions.
+            Tuple of ``(input_ids, attention_mask)`` as ``[1, 32]`` int64 arrays.
         """
-        non_empty_masks = [m for m in all_masks if m.numel() > 0]
-        non_empty_boxes = [b for b in all_boxes if b.numel() > 0]
-        non_empty_labels = [label for label in all_labels if label.numel() > 0]
+        text_inputs = self.tokenizer([text], return_tensors="np", padding=True)
+        input_ids = self._pad_or_truncate(text_inputs.input_ids.astype(np.int64), 32)
+        attention_mask = self._pad_or_truncate(text_inputs.attention_mask.astype(np.int64), 32)
+        return input_ids, attention_mask
 
-        if non_empty_masks:
-            return {
-                "pred_masks": torch.cat(non_empty_masks, dim=0),
-                "pred_boxes": torch.cat(non_empty_boxes, dim=0),
-                "pred_labels": torch.cat(non_empty_labels, dim=0),
-            }
+    @staticmethod
+    def _pad_or_truncate(arr: np.ndarray, target_len: int) -> np.ndarray:
+        """Pad or truncate a 2-D array to the target sequence length.
 
-        return {
-            "pred_masks": torch.empty(0, *img_size),
-            "pred_boxes": torch.empty(0, 5),
-            "pred_labels": torch.empty(0, dtype=torch.long),
+        Args:
+            arr: ``[batch, seq_len]``.
+            target_len: Target sequence length.
+
+        Returns:
+            ``[batch, target_len]``.
+        """
+        current_len = arr.shape[1]
+        if current_len == target_len:
+            return arr
+        if current_len > target_len:
+            return arr[:, :target_len]
+        padding = np.zeros((arr.shape[0], target_len - current_len), dtype=arr.dtype)
+        return np.concatenate([arr, padding], axis=1)
+
+    def fit(self, reference: Sample | list[Sample] | Batch) -> None:
+        """Learn from reference data.
+
+        * **CLASSIC** mode: stores category mapping only.
+        * **VISUAL_EXEMPLAR** mode: encodes reference image prompts into cached
+          geometry features for reuse during ``predict()``.
+
+        Args:
+            reference: Reference data containing category information and,
+                for exemplar mode, images with bboxes/points.
+        """
+        reference_batch = Batch.collate(reference)
+        if self.prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
+            self._fit_visual_exemplar(reference_batch)
+        else:
+            self._fit_classic(reference_batch)
+
+    def _fit_classic(self, reference_batch: Batch) -> None:
+        """Store category mapping (classic mode).
+
+        Args:
+            reference_batch: Batch of reference samples.
+        """
+        self.category_mapping = self._build_category_mapping(reference_batch)
+
+    def _fit_visual_exemplar(self, reference_batch: Batch) -> None:
+        """Encode exemplar geometry features from reference images.
+
+        Mirrors the PyTorch ``SAM3._fit_visual_exemplar()`` flow:
+
+        1. For each reference sample, run vision encoder.
+        2. Convert all box prompts to point-only (box centre) — point encoding
+           transfers better across images than ROI pooling.
+        3. Group prompts by category, encode with geometry encoder (exemplar).
+        4. Cross-image: concatenate features for the same category.
+        5. Encode text prompts and cache everything.
+
+        Args:
+            reference_batch: Batch of reference samples with images and prompts.
+
+        Raises:
+            ValueError: If no reference samples contain bboxes or points.
+        """
+        encoded_by_category: dict[int, list[tuple[np.ndarray, np.ndarray]]] = defaultdict(list)
+        category_text_map: dict[int, str] = {}
+
+        for sample in reference_batch.samples:
+            self._encode_sample_prompts(sample, encoded_by_category, category_text_map)
+
+        if not encoded_by_category:
+            msg = "VISUAL_EXEMPLAR mode requires at least one reference sample with bboxes or points."
+            raise ValueError(msg)
+
+        # Aggregate per-category features
+        geo_features_list: list[np.ndarray] = []
+        geo_masks_list: list[np.ndarray] = []
+        category_ids: list[int] = []
+        text_prompts: list[str] = []
+
+        for cat_id in sorted(encoded_by_category.keys()):
+            features_list = encoded_by_category[cat_id]
+            if len(features_list) == 1:
+                geo_feats, geo_mask = features_list[0]
+            else:
+                geo_feats = np.concatenate([f[0] for f in features_list], axis=1)
+                geo_mask = np.concatenate([f[1] for f in features_list], axis=1)
+
+            geo_features_list.append(geo_feats)
+            geo_masks_list.append(geo_mask)
+            category_ids.append(cat_id)
+            text_prompts.append(category_text_map[cat_id])
+
+        # Encode text prompts
+        text_features_list: list[np.ndarray] = []
+        text_masks_list: list[np.ndarray] = []
+        text_cache: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+
+        for prompt in text_prompts:
+            if prompt not in text_cache:
+                input_ids, attention_mask = self._tokenize(prompt)
+                text_out = self._run_text_encoder(input_ids, attention_mask)
+                text_cache[prompt] = (text_out["text_features"], text_out["text_mask"])
+            text_features_list.append(text_cache[prompt][0])
+            text_masks_list.append(text_cache[prompt][1])
+
+        # Store cached features
+        self.exemplar_geometry_features = geo_features_list
+        self.exemplar_geometry_mask = geo_masks_list
+        self.exemplar_text_features = text_features_list
+        self.exemplar_text_mask = text_masks_list
+        self.exemplar_category_ids = category_ids
+        self.category_mapping = self._build_category_mapping(reference_batch)
+
+        # Log shot counts
+        shot_info = {
+            category_text_map[cat_id]: sum(f[0].shape[1] for f in encoded_by_category[cat_id])
+            for cat_id in category_ids
         }
+        logger.info(
+            "Cached %d category exemplar(s): %s, category_ids=%s",
+            len(category_ids),
+            shot_info,
+            category_ids,
+        )
+
+    def _encode_sample_prompts(
+        self,
+        sample: Sample,
+        encoded_by_category: dict[int, list[tuple[np.ndarray, np.ndarray]]],
+        category_text_map: dict[int, str],
+    ) -> None:
+        """Encode one sample's box/point prompts into per-category geometry features.
+
+        All box prompts are converted to point-only (box centre ``[cx, cy]``)
+        because point encoding transfers better across images.
+
+        Args:
+            sample: Reference sample with image and bboxes/points.
+            encoded_by_category: Accumulator mapping cat_id to encoded features.
+            category_text_map: Accumulator mapping cat_id to text name.
+
+        Raises:
+            ValueError: If the sample has prompts but no image.
+        """
+        bboxes = sample.bboxes
+        points = sample.points
+        has_bboxes = bboxes is not None and not (isinstance(bboxes, (np.ndarray, torch.Tensor)) and bboxes.size == 0)
+        has_points = points is not None and not (isinstance(points, (np.ndarray, torch.Tensor)) and points.size == 0)
+
+        if not has_bboxes and not has_points:
+            return
+        if sample.image is None:
+            msg = "VISUAL_EXEMPLAR mode requires images in reference samples."
+            raise ValueError(msg)
+
+        # Run vision encoder
+        image_tensor = sample.image.unsqueeze(0) if sample.image.ndim == 3 else sample.image
+        with torch.no_grad():
+            pixel_values, original_sizes = self.image_preprocessor(image_tensor)
+        vision_features = self._run_vision_encoder(pixel_values.numpy())
+
+        # Build metadata
+        num_prompts = max(len(bboxes) if has_bboxes else 0, len(points) if has_points else 0)
+        categories = sample.categories if sample.categories is not None else ["visual"] * num_prompts
+        category_ids = sample.category_ids if sample.category_ids is not None else [0] * num_prompts
+
+        # Convert all prompts to normalised point coords grouped by category
+        category_coords: dict[int, list[np.ndarray]] = defaultdict(list)
+        prompts = bboxes if has_bboxes else points
+
+        for prompt, category, raw_cat_id in zip(prompts, categories, category_ids, strict=True):
+            if has_bboxes:
+                input_boxes, _ = self.prompt_preprocessor(original_sizes, input_boxes=prompt)
+                coord = input_boxes[..., :2].numpy()  # box centre [1, 1, 2]
+            else:
+                _, coord_tensor = self.prompt_preprocessor(original_sizes, input_points=prompt)
+                coord = coord_tensor.numpy()
+            int_cat_id = int(raw_cat_id)
+            category_coords[int_cat_id].append(coord)
+            category_text_map[int_cat_id] = category
+
+        # Encode each category's points together (n-shot batching)
+        for cat_id, coords_list in category_coords.items():
+            all_coords = np.concatenate(coords_list, axis=1)  # [1, N, 2]
+            num_pts = all_coords.shape[1]
+
+            # No boxes for exemplar — pass ignore sentinels
+            ignore_boxes = np.zeros((1, 1, 4), dtype=np.float32)
+            ignore_box_labels = np.full((1, 1), -10, dtype=np.int64)
+            point_labels = np.ones((1, num_pts), dtype=np.int64)
+
+            geo_out = self._run_geometry_encoder(
+                fpn_feat_2=vision_features["fpn_feat_2"],
+                fpn_pos_2=vision_features["fpn_pos_2"],
+                input_boxes=ignore_boxes,
+                input_boxes_labels=ignore_box_labels,
+                input_points=all_coords.astype(np.float32),
+                input_points_labels=point_labels,
+                exemplar=True,
+            )
+            encoded_by_category[cat_id].append((
+                np.array(geo_out["geometry_features"]),
+                np.array(geo_out["geometry_mask"]),
+            ))
 
     def predict(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
-        """Predict masks for target images using OpenVINO inference.
+        """Predict masks for target images.
 
-        Supports the same prompt types as the PyTorch SAM3 model:
-        - Text prompts (category names) via fit() or per-sample categories
-        - Box prompts (bounding boxes) via the bboxes field
-        - Combined text + box prompts
+        Supports all prompt types: text, box, point, and combined. In
+        visual-exemplar mode, uses cached geometry features from ``fit()``.
 
         Args:
-            target: Target data to infer. Accepts:
-                - Sample: A single target sample
-                - list[Sample]: A list of target samples
-                - Batch: A batch of target samples
-                - str | Path: A single image path
-                - list[str] | list[Path]: Multiple image paths
+            target: Target data to infer. Accepts Sample, list[Sample], Batch,
+                or file paths.
 
         Returns:
-            List of prediction dictionaries per image, each containing:
-                "pred_masks": [num_masks, H, W] — binary masks
-                "pred_boxes": [num_masks, 5] — boxes with scores (x1, y1, x2, y2, score)
-                "pred_labels": [num_masks] — category IDs
+            List of prediction dicts per image with ``pred_masks``,
+            ``pred_boxes``, ``pred_labels``.
+        """
+        if self.prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
+            return self._predict_visual_exemplar(target)
+        return self._predict_classic(target)
+
+    def _predict_classic(self, target: Collatable) -> list[dict[str, torch.Tensor]]:  # noqa: PLR0915
+        """Classic prediction with per-image text/box/point prompts.
+
+        Args:
+            target: Target data.
+
+        Returns:
+            List of prediction dicts per image.
         """
         target_batch = Batch.collate(target)
         results = []
-        samples = target_batch.samples
-
         use_fitted_categories = self.category_mapping is not None
 
-        for sample in samples:
+        for sample in target_batch.samples:
             img_size = sample.image.shape[-2:]
             bboxes = sample.bboxes if sample.bboxes is not None else []
+            points = sample.points if sample.points is not None else []
 
-            # Preprocess image (PyTorch on CPU)
+            # Preprocess image
             image_tensor = sample.image.unsqueeze(0) if sample.image.ndim == 3 else sample.image
             with torch.no_grad():
                 pixel_values, original_sizes = self.image_preprocessor(image_tensor)
-
-            # Run vision encoder (OpenVINO)
             vision_features = self._run_vision_encoder(pixel_values.numpy())
 
-            # Determine text prompts and category IDs
+            # Determine prompts
             if use_fitted_categories:
                 texts = list(self.category_mapping.keys())
                 category_ids = list(self.category_mapping.values())
             else:
                 texts = sample.categories or []
                 category_ids = sample.category_ids
-                if len(bboxes) and len(texts) != len(bboxes):
-                    texts = ["visual"] * len(bboxes)
+                num_visual = max(len(bboxes), len(points))
+                if num_visual and len(texts) != num_visual:
+                    texts = ["visual"] * num_visual
 
             all_masks: list[torch.Tensor] = []
             all_boxes: list[torch.Tensor] = []
             all_labels: list[torch.Tensor] = []
 
-            for text, bbox, cat_id in zip_longest(texts, bboxes, category_ids, fillvalue=None):
-                # Tokenize text prompt
-                text_inputs = self.tokenizer([text or "visual"], return_tensors="np", padding=True)
-                input_ids = text_inputs.input_ids.astype(np.int64)
-                attention_mask = text_inputs.attention_mask.astype(np.int64)
+            for text, bbox, point, cat_id in zip_longest(texts, bboxes, points, category_ids, fillvalue=None):
+                # Tokenise and encode text
+                input_ids, attention_mask = self._tokenize(text or "visual")
+                text_out = self._run_text_encoder(input_ids, attention_mask)
+                text_features = text_out["text_features"]  # [1, 32, 256]
+                text_mask = text_out["text_mask"]  # [1, 32]
 
-                # Pad/truncate to expected sequence length (32)
-                input_ids = self._pad_or_truncate(input_ids, 32)
-                attention_mask = self._pad_or_truncate(attention_mask, 32)
+                # Prepare geometry prompts (if any)
+                has_box = bbox is not None and len(bbox)
+                has_point = point is not None and len(point)
 
-                # Run text encoder (OpenVINO)
-                text_outputs = self._run_text_encoder(input_ids, attention_mask)
-
-                # Prepare box inputs
-                if bbox is not None:
+                if has_box or has_point:
+                    # Encode geometry prompts with separate geometry encoder
                     with torch.no_grad():
-                        box_tensor = self.prompt_preprocessor(bbox, original_sizes)
-                    input_boxes = box_tensor.numpy().astype(np.float32)
-                    input_boxes_labels = np.ones((1, input_boxes.shape[1]), dtype=np.int64)
+                        norm_boxes, norm_points = self.prompt_preprocessor(
+                            original_sizes,
+                            input_boxes=bbox if has_box else None,
+                            input_points=point if has_point else None,
+                        )
+
+                    if norm_boxes is not None:
+                        ov_boxes = norm_boxes.numpy().astype(np.float32)
+                        ov_box_labels = np.ones((1, ov_boxes.shape[1]), dtype=np.int64)
+                    else:
+                        ov_boxes = np.zeros((1, 1, 4), dtype=np.float32)
+                        ov_box_labels = np.full((1, 1), -10, dtype=np.int64)
+
+                    if norm_points is not None:
+                        ov_points = norm_points.numpy().astype(np.float32)
+                        ov_point_labels = np.ones((1, ov_points.shape[1]), dtype=np.int64)
+                    else:
+                        ov_points = np.zeros((1, 1, 2), dtype=np.float32)
+                        ov_point_labels = np.full((1, 1), -10, dtype=np.int64)
+
+                    geo_out = self._run_geometry_encoder(
+                        fpn_feat_2=vision_features["fpn_feat_2"],
+                        fpn_pos_2=vision_features["fpn_pos_2"],
+                        input_boxes=ov_boxes,
+                        input_boxes_labels=ov_box_labels,
+                        input_points=ov_points,
+                        input_points_labels=ov_point_labels,
+                    )
+
+                    # Concatenate text + geometry
+                    prompt_features = np.concatenate(
+                        [text_features, geo_out["geometry_features"]],
+                        axis=1,
+                    ).astype(np.float32)
+                    prompt_mask = np.concatenate(
+                        [text_mask.astype(bool), geo_out["geometry_mask"].astype(bool)],
+                        axis=1,
+                    )
+
+                    decoder_out = self._run_prompt_decoder(
+                        vision_features,
+                        prompt_features,
+                        prompt_mask,
+                    )
+
                 else:
-                    # No box prompt — pass sentinel values (-10 = ignore)
-                    input_boxes = np.zeros((1, 1, 4), dtype=np.float32)
-                    input_boxes_labels = np.full((1, 1), -10, dtype=np.int64)
+                    # Text-only as prompt features
+                    decoder_out = self._run_prompt_decoder(
+                        vision_features,
+                        text_features.astype(np.float32),
+                        text_mask.astype(bool),
+                    )
 
-                # Run decoder (OpenVINO)
-                decoder_outputs = self._run_decoder(
-                    vision_features=vision_features,
-                    text_features=text_outputs["text_features"],
-                    text_mask=text_outputs["text_mask"],
-                    input_boxes=input_boxes,
-                    input_boxes_labels=input_boxes_labels,
-                )
-
-                # Convert outputs to torch tensors for postprocessing
+                # Convert outputs and postprocess
                 outputs_torch = {
-                    "pred_masks": torch.from_numpy(np.array(decoder_outputs["pred_masks"])),
-                    "pred_boxes": torch.from_numpy(np.array(decoder_outputs["pred_boxes"])),
-                    "pred_logits": torch.from_numpy(np.array(decoder_outputs["pred_logits"])),
-                    "presence_logits": torch.from_numpy(np.array(decoder_outputs["presence_logits"])),
+                    "pred_masks": torch.from_numpy(np.array(decoder_out["pred_masks"])),
+                    "pred_boxes": torch.from_numpy(np.array(decoder_out["pred_boxes"])),
+                    "pred_logits": torch.from_numpy(np.array(decoder_out["pred_logits"])),
+                    "presence_logits": torch.from_numpy(np.array(decoder_out["presence_logits"])),
                 }
 
-                # Postprocess (PyTorch on CPU)
                 with torch.no_grad():
                     result = self.postprocessor(outputs_torch, target_sizes=[img_size])
 
@@ -450,25 +763,145 @@ class SAM3OpenVINO(Model):
 
         return results
 
-    @staticmethod
-    def _pad_or_truncate(arr: np.ndarray, target_len: int) -> np.ndarray:
-        """Pad or truncate a 2D array to the target sequence length.
+    def _predict_visual_exemplar(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
+        """Visual-exemplar prediction using cached geometry features from ``fit()``.
+
+        For each target image, reuses the cached exemplar geometry features
+        (extracted from reference images) as prompt conditioning together with
+        the cached text features.
 
         Args:
-            arr: Input array of shape [batch, seq_len].
-            target_len: Target sequence length.
+            target: Target data.
 
         Returns:
-            Array of shape [batch, target_len].
+            List of prediction dicts per image.
+
+        Raises:
+            RuntimeError: If ``fit()`` has not been called.
         """
-        current_len = arr.shape[1]
-        if current_len == target_len:
-            return arr
-        if current_len > target_len:
-            return arr[:, :target_len]
-        # Pad with zeros
-        padding = np.zeros((arr.shape[0], target_len - current_len), dtype=arr.dtype)
-        return np.concatenate([arr, padding], axis=1)
+        if self.exemplar_geometry_features is None:
+            msg = "No cached exemplar features. Call fit() with reference images and bboxes/points first."
+            raise RuntimeError(msg)
+
+        target_batch = Batch.collate(target)
+        results = []
+
+        for sample in target_batch.samples:
+            img_size = sample.image.shape[-2:]
+
+            # Preprocess target image
+            image_tensor = sample.image.unsqueeze(0) if sample.image.ndim == 3 else sample.image
+            with torch.no_grad():
+                pixel_values, _ = self.image_preprocessor(image_tensor)
+            vision_features = self._run_vision_encoder(pixel_values.numpy())
+
+            all_masks: list[torch.Tensor] = []
+            all_boxes: list[torch.Tensor] = []
+            all_labels: list[torch.Tensor] = []
+
+            # Run detection for each cached exemplar
+            for geo_feats, geo_mask, text_feats, text_mask, cat_id in zip(
+                self.exemplar_geometry_features,
+                self.exemplar_geometry_mask,
+                self.exemplar_text_features,
+                self.exemplar_text_mask,
+                self.exemplar_category_ids,
+                strict=True,
+            ):
+                # Concatenate text + geometry features
+                prompt_features = np.concatenate(
+                    [text_feats, geo_feats],
+                    axis=1,
+                ).astype(np.float32)
+                prompt_mask = np.concatenate(
+                    [text_mask.astype(bool), geo_mask.astype(bool)],
+                    axis=1,
+                )
+
+                decoder_out = self._run_prompt_decoder(
+                    vision_features,
+                    prompt_features,
+                    prompt_mask,
+                )
+
+                outputs_torch = {
+                    "pred_masks": torch.from_numpy(np.array(decoder_out["pred_masks"])),
+                    "pred_boxes": torch.from_numpy(np.array(decoder_out["pred_boxes"])),
+                    "pred_logits": torch.from_numpy(np.array(decoder_out["pred_logits"])),
+                    "presence_logits": torch.from_numpy(np.array(decoder_out["presence_logits"])),
+                }
+
+                with torch.no_grad():
+                    result = self.postprocessor(outputs_torch, target_sizes=[img_size])
+
+                boxes_with_scores = torch.cat(
+                    [result[0]["boxes"], result[0]["scores"].unsqueeze(1)],
+                    dim=1,
+                )
+                all_masks.append(result[0]["masks"])
+                all_boxes.append(boxes_with_scores)
+                all_labels.append(torch.full((len(result[0]["boxes"]),), cat_id, dtype=torch.int64))
+
+            results.append(self._aggregate_results(all_masks, all_boxes, all_labels, img_size))
+
+        return results
+
+    # ------------------------------------------------------------------
+    # Utilities
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _build_category_mapping(reference_batch: Batch) -> dict[str, int]:
+        """Build category name → id mapping from reference samples.
+
+        Args:
+            reference_batch: Batch of reference samples.
+
+        Returns:
+            Mapping from category name to category id.
+        """
+        mapping: dict[str, int] = {}
+        for sample in reference_batch.samples:
+            if sample.categories is None or sample.category_ids is None:
+                continue
+            for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
+                if category not in mapping:
+                    mapping[category] = int(category_id)
+        return mapping
+
+    @staticmethod
+    def _aggregate_results(
+        all_masks: list[torch.Tensor],
+        all_boxes: list[torch.Tensor],
+        all_labels: list[torch.Tensor],
+        img_size: tuple[int, int],
+    ) -> dict[str, torch.Tensor]:
+        """Aggregate results from multiple prompt predictions for one image.
+
+        Args:
+            all_masks: List of mask tensors.
+            all_boxes: List of box tensors.
+            all_labels: List of label tensors.
+            img_size: Original image size ``(height, width)``.
+
+        Returns:
+            Aggregated predictions dict.
+        """
+        non_empty_masks = [m for m in all_masks if m.numel() > 0]
+        non_empty_boxes = [b for b in all_boxes if b.numel() > 0]
+        non_empty_labels = [lb for lb in all_labels if lb.numel() > 0]
+
+        if non_empty_masks:
+            return {
+                "pred_masks": torch.cat(non_empty_masks, dim=0),
+                "pred_boxes": torch.cat(non_empty_boxes, dim=0),
+                "pred_labels": torch.cat(non_empty_labels, dim=0),
+            }
+        return {
+            "pred_masks": torch.empty(0, *img_size),
+            "pred_boxes": torch.empty(0, 5),
+            "pred_labels": torch.empty(0, dtype=torch.long),
+        }
 
     def export(
         self,
@@ -477,8 +910,9 @@ class SAM3OpenVINO(Model):
     ) -> Path:
         """Export is not applicable — this model already uses exported models.
 
-        This method exists to satisfy the Model interface. For converting ONNX
-        models to OpenVINO IR, use the convert_sam3_to_openvino.py script.
+        For exporting from PyTorch, use::
+
+            python scripts/export_sam3_openvino.py
 
         Args:
             export_dir: Not used.
@@ -489,7 +923,7 @@ class SAM3OpenVINO(Model):
         """
         msg = (
             "SAM3OpenVINO already uses pre-exported models. "
-            "To convert ONNX → OpenVINO, use: python scripts/convert_sam3_to_openvino.py"
+            "To export from PyTorch, use: python scripts/export_sam3_openvino.py"
         )
         logger.info(msg)
         return self.model_dir

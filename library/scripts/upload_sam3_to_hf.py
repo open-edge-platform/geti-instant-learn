@@ -11,7 +11,7 @@ Usage:
     python upload_sam3_to_hf.py --model-dir ./sam3-openvino/openvino-fp16
 
     # Upload to a specific repo
-    python upload_sam3_to_hf.py --model-dir ./sam3-openvino/openvino-fp16 --repo-id rajeshgangireddy/sam3_openvino
+    python upload_sam3_to_hf.py --model-dir ./sam3-openvino/openvino-fp16 --repo-id rajeshgangireddy/exported_sam3
 
     # Dry run (list files without uploading)
     python upload_sam3_to_hf.py --model-dir ./sam3-openvino/openvino-fp16 --dry-run
@@ -26,7 +26,7 @@ from huggingface_hub import HfApi
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_REPO_ID = "rajeshgangireddy/sam3_openvino"
+DEFAULT_REPO_ID = "rajeshgangireddy/exported_sam3"
 
 # Files to upload (OpenVINO IR + ONNX + tokenizer)
 UPLOAD_PATTERNS = [
