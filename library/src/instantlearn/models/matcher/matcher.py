@@ -83,8 +83,13 @@ class MatcherInferenceGraph(nn.Module):
         flatten_ref_masks = self.flatten_ref_masks.to(feature_device)
         category_ids = self.category_ids.to(feature_device)
 
-        # Get original size from input tensor [1, 3, H, W] in a trace-friendly way
-        original_sizes = torch._shape_as_tensor(target_image)[2:4].to(feature_device).unsqueeze(0)
+        # Get original size from input tensor [1, 3, H, W] using public APIs.
+        # Use ONNX shape op during export to preserve dynamic H/W, and a simple eager fallback otherwise.
+        if torch.onnx.is_in_onnx_export() and hasattr(torch.onnx, "operators"):
+            original_sizes = torch.onnx.operators.shape_as_tensor(target_image)[2:4]
+        else:
+            original_sizes = target_image.new_tensor(target_image.shape[2:4], dtype=torch.long)
+        original_sizes = original_sizes.to(feature_device).unsqueeze(0)
 
         # Generate prompts using frozen ref_features
         # point_prompts: [1, C, max_points, 4], num_points: [1, C], similarities: [1, C, feat_size, feat_size]

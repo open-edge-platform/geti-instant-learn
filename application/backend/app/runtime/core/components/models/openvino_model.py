@@ -32,7 +32,6 @@ class OpenVINOModelHandler(ModelHandler):
         # Export on CPU to avoid XPU/CUDA compilation issues during tracing
         # The exported OpenVINO model can then be run on any device (CPU, GPU, etc.)
         original_device = next(self._model.parameters()).device
-        print(f"DEBUG: Used device for model export: {original_device}")
         self._model.cpu()
         try:
             with tempfile.TemporaryDirectory() as tmp_dir:
@@ -44,14 +43,14 @@ class OpenVINOModelHandler(ModelHandler):
                     ov_device, {properties.hint.inference_precision: precision_to_openvino_type(self._precision)}
                 )
 
-                print(f"DEBUG: Compiling exported model from {path} for device {ov_device}...")
-                print(f"DEBUG: Reading model {path}...")
+                logger.debug(f"Compiling exported model from {path} for device {ov_device}...")
+                logger.debug(f"Reading model {path}...")
                 ov_model = core.read_model(str(path))
-                print(f"DEBUG: Compiling model to {ov_device} (this may take a few minutes)...")
+                logger.debug(f"Compiling model to {ov_device} (this may take a few minutes)...")
 
                 start_time = time.time()
                 self._compiled_model = core.compile_model(ov_model, ov_device)
-                print(f"DEBUG: Model compilation finished in {time.time() - start_time:.2f}s.")
+                logger.debug(f"Model compilation finished in {time.time() - start_time:.2f}s.")
         finally:
             self._model.to(original_device)
 
@@ -73,5 +72,4 @@ class OpenVINOModelHandler(ModelHandler):
                     "pred_labels": output["labels"],
                 }
             )
-        print(f"results ->>> {results}")
         return results

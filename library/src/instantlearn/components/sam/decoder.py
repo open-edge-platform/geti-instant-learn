@@ -318,7 +318,7 @@ class SamDecoder(nn.Module):
         orig_size = (h, w)
         self.predictor.set_image(image)
 
-        num_categories = category_ids.shape[0]
+        num_categories = category_ids.shape[0] if hasattr(category_ids, "shape") else len(category_ids)
         device = self.device
 
         all_masks = torch.zeros(num_categories, self.max_masks_per_category, h, w, device=device)

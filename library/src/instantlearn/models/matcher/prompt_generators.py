@@ -92,18 +92,17 @@ class BidirectionalPromptGenerator(nn.Module):
 
         # Degenerate case: no reference indices available
         if ref_idx.numel() == 0:
-            dummy_ref = torch.zeros(1, dtype=torch.long, device=similarity_map.device)
-            dummy_target = torch.zeros(1, dtype=torch.long, device=similarity_map.device)
-            dummy_score = torch.zeros(1, dtype=similarity_map.dtype, device=similarity_map.device)
-            return [dummy_ref, dummy_target], dummy_score
-
+            empty_ref = torch.empty(0, dtype=torch.long, device=similarity_map.device)
+            empty_target = torch.empty(0, dtype=torch.long, device=similarity_map.device)
+            empty_score = torch.empty(0, dtype=similarity_map.dtype, device=similarity_map.device)
+            return [empty_ref, empty_target], empty_score
         # Forward pass (ref → target)
         fw_indices, fw_scores = BidirectionalPromptGenerator.ref_to_target_matching(similarity_map, ref_idx)
         if fw_scores.numel() == 0:
-            dummy_ref = torch.zeros(1, dtype=torch.long, device=similarity_map.device)
-            dummy_target = torch.zeros(1, dtype=torch.long, device=similarity_map.device)
-            dummy_score = torch.zeros(1, dtype=similarity_map.dtype, device=similarity_map.device)
-            return [dummy_ref, dummy_target], dummy_score
+            empty_ref = torch.empty(0, dtype=torch.long, device=similarity_map.device)
+            empty_target = torch.empty(0, dtype=torch.long, device=similarity_map.device)
+            empty_score = torch.empty(0, dtype=similarity_map.dtype, device=similarity_map.device)
+            return [empty_ref, empty_target], empty_score
         target_idx_fw = fw_indices[1]
 
         # Backward pass (target → ref)
@@ -293,25 +292,12 @@ class BidirectionalPromptGenerator(nn.Module):
         """
         feat_size = self.encoder_feature_size
         expected_num_patches = feat_size * feat_size
-        target_padding = torch.zeros(
-            expected_num_patches,
-            target_embed.size(-1),
-            device=target_embed.device,
-            dtype=target_embed.dtype,
-        )
-        target_embed = torch.cat([target_embed, target_padding], dim=0)[:expected_num_patches]
+        target_embed = target_embed[:expected_num_patches]
 
         # Compute similarity maps
         # Local similarity for output (at feature grid size, not resized)
         local_similarity = masked_ref_embed.unsqueeze(0) @ target_embed.T  # [1, num_patches]
-        similarity_flat = local_similarity.reshape(-1)
-        similarity_padding = torch.zeros(
-            expected_num_patches,
-            device=local_similarity.device,
-            dtype=local_similarity.dtype,
-        )
-        similarity_flat = torch.cat([similarity_flat, similarity_padding], dim=0)[:expected_num_patches]
-        local_similarity_grid = similarity_flat.reshape(feat_size, feat_size)
+        local_similarity_grid = local_similarity.reshape(feat_size, feat_size)
 
         # Full similarity map for matching
         similarity_map = ref_embed @ target_embed.T  # [num_patches_total, num_patches]
