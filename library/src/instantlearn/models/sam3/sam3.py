@@ -5,6 +5,7 @@
 
 import logging
 from collections import defaultdict
+from contextlib import nullcontext
 from enum import Enum
 from itertools import zip_longest
 
@@ -18,6 +19,7 @@ from instantlearn.models.base import Model
 from instantlearn.utils import precision_to_torch_dtype
 
 from .model import Sam3Model
+from .post_processing import PostProcessingConfig
 from .processing import Sam3Postprocessor, Sam3Preprocessor, Sam3PromptPreprocessor
 
 logger = logging.getLogger(__name__)
@@ -136,6 +138,7 @@ class SAM3(Model):
         precision: str = "fp32",
         compile_models: bool = False,
         model_id: str = "facebook/sam3",
+        post_processing: PostProcessingConfig | None = None,
         prompt_mode: Sam3PromptMode | str = Sam3PromptMode.CLASSIC,
         drop_spatial_bias: bool = False,
     ) -> None:
@@ -149,6 +152,8 @@ class SAM3(Model):
             compile_models: Whether to compile the models.
             model_id: HuggingFace model ID or local path to load the SAM3 model
                 and tokenizer from. Default: "facebook/sam3".
+            post_processing: Optional post-processing configuration for NMS,
+                mask overlap removal, and non-overlapping pixel constraints.
             prompt_mode: Prompt mode for inference. 'classic' for original SAM3
                 behavior, 'visual_exemplar' for cross-image visual query detection.
             drop_spatial_bias: When True and in VISUAL_EXEMPLAR mode, skip
@@ -184,6 +189,7 @@ class SAM3(Model):
             target_size=resolution,
             threshold=confidence_threshold,
             mask_threshold=0.5,
+            post_processing=post_processing,
         ).to(device)
 
         # Tokenizer for text prompts (still from transformers, but not used in ONNX path)
@@ -197,6 +203,38 @@ class SAM3(Model):
             .to(device)
             .eval()
         )
+
+    # Hook methods for subclass customization
+
+    def _get_autocast_context(self) -> torch.autocast | nullcontext:  # noqa: PLR6301
+        """Return the autocast context manager for model inference.
+
+        SAM3 uses no autocast (nullcontext). Subclasses like EfficientSAM3
+        override this to enable torch.autocast for mixed-precision inference.
+
+        Returns:
+            A context manager (nullcontext or torch.autocast).
+        """
+        return nullcontext()
+
+    def _tokenize(self, texts: list[str]) -> dict[str, torch.Tensor]:
+        """Tokenize text prompts with model-specific settings.
+
+        SAM3 uses max_length=32 with default padding. Subclasses can override
+        for different tokenizer configurations (e.g. different max_length,
+        truncation).
+
+        Args:
+            texts: List of text strings to tokenize.
+
+        Returns:
+            Tokenizer output dict with input_ids and attention_mask on device.
+        """
+        text_inputs = self.tokenizer(texts, return_tensors="pt", padding="max_length", max_length=32)
+        return {
+            "input_ids": text_inputs.input_ids.to(self.device),
+            "attention_mask": text_inputs.attention_mask.to(self.device),
+        }
 
     # -- Public API --
 
@@ -362,8 +400,9 @@ class SAM3(Model):
 
         # Extract vision features
         image_tensor = sample.image.unsqueeze(0) if sample.image.ndim == 3 else sample.image
-        pixel_values, original_sizes = self.image_preprocessor(image_tensor.to(self.device))
-        vision_embeds = self.model.get_vision_features(pixel_values)
+        with self._get_autocast_context():
+            pixel_values, original_sizes = self.image_preprocessor(image_tensor.to(self.device))
+            vision_embeds = self.model.get_vision_features(pixel_values)
         fpn_hidden_states = vision_embeds["fpn_hidden_states"][:-1]
         fpn_position_encoding = vision_embeds["fpn_position_encoding"][:-1]
 
@@ -382,23 +421,24 @@ class SAM3(Model):
                 coord = input_boxes[..., :2]  # box center (1, 1, 2)
             else:
                 _, coord = self.prompt_preprocessor(original_sizes, input_points=prompt)
-            cat_id = int(cat_id)
-            category_coords[cat_id].append(coord)
-            category_text_map[cat_id] = category
+            cat_id_int = int(cat_id)
+            category_coords[cat_id_int].append(coord)
+            category_text_map[cat_id_int] = category
 
         # Encode each category's points together (same-image n-shot batching)
         for cat_id, coords_list in category_coords.items():
             all_coords = torch.cat(coords_list, dim=1)  # [1, N, 2]
             num_points = all_coords.shape[1]
 
-            geometry_outputs = self.model.geometry_encoder(
-                point_embeddings=all_coords.to(dtype=fpn_hidden_states[0].dtype),
-                point_mask=torch.ones(1, num_points, dtype=torch.bool, device=self.device),
-                point_labels=torch.ones((1, num_points), dtype=torch.long, device=self.device),
-                img_feats=fpn_hidden_states,
-                img_pos_embeds=fpn_position_encoding,
-                drop_spatial_bias=self.drop_spatial_bias,
-            )
+            with self._get_autocast_context():
+                geometry_outputs = self.model.geometry_encoder(
+                    point_embeddings=all_coords.to(dtype=fpn_hidden_states[0].dtype),
+                    point_mask=torch.ones(1, num_points, dtype=torch.bool, device=self.device),
+                    point_labels=torch.ones((1, num_points), dtype=torch.long, device=self.device),
+                    img_feats=fpn_hidden_states,
+                    img_pos_embeds=fpn_position_encoding,
+                    drop_spatial_bias=self.drop_spatial_bias,
+                )
             encoded_by_category[cat_id].append((
                 geometry_outputs["last_hidden_state"],
                 geometry_outputs["attention_mask"],
@@ -453,13 +493,14 @@ class SAM3(Model):
         unique_prompts = list(dict.fromkeys(text_prompts))
         text_cache: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
         for prompt in unique_prompts:
-            text_inputs = self.tokenizer([prompt], return_tensors="pt", padding="max_length", max_length=32)
-            input_ids = text_inputs.input_ids.to(self.device)
-            attention_mask = text_inputs.attention_mask.to(self.device)
-            text_outputs = self.model.get_text_features(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-            )
+            tokenized = self._tokenize([prompt])
+            input_ids = tokenized["input_ids"]
+            attention_mask = tokenized["attention_mask"]
+            with self._get_autocast_context():
+                text_outputs = self.model.get_text_features(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                )
             text_cache[prompt] = (text_outputs.pooler_output, attention_mask.bool())
 
         return (
@@ -469,7 +510,7 @@ class SAM3(Model):
 
     # -- Predict internals --
 
-    def _predict_classic(self, target: Collatable) -> list[dict[str, torch.Tensor]]:
+    def _predict_classic(self, target: Collatable) -> list[dict[str, torch.Tensor]]:  # noqa: PLR0915
         """Classic SAM3 prediction with per-image text/box/point prompts.
 
         Args:
@@ -493,7 +534,7 @@ class SAM3(Model):
 
             # Preprocess image
             image_tensor = sample.image.unsqueeze(0) if sample.image.ndim == 3 else sample.image
-            with torch.no_grad():
+            with torch.no_grad(), self._get_autocast_context():
                 pixel_values, original_sizes = self.image_preprocessor(image_tensor.to(self.device))
                 vision_embeds = self.model.get_vision_features(pixel_values)
 
@@ -515,14 +556,9 @@ class SAM3(Model):
 
             for text, bbox, point, cat_id in zip_longest(texts, bboxes, points, category_ids, fillvalue=None):
                 # Tokenize text prompt (default to "visual" for visual-only prompts)
-                text_inputs = self.tokenizer(
-                    [text or "visual"],
-                    return_tensors="pt",
-                    padding="max_length",
-                    max_length=32,
-                )
-                input_ids = text_inputs.input_ids.to(self.device)
-                attention_mask = text_inputs.attention_mask.to(self.device)
+                tokenized = self._tokenize([text or "visual"])
+                input_ids = tokenized["input_ids"]
+                attention_mask = tokenized["attention_mask"]
 
                 # Prepare box inputs if bbox is provided (xyxy format)
                 input_boxes = None
@@ -538,7 +574,7 @@ class SAM3(Model):
                     _, input_points = self.prompt_preprocessor(original_sizes, input_points=point)
                     input_points_labels = torch.ones((1, 1), dtype=torch.long, device=self.device)
 
-                with torch.no_grad():
+                with torch.no_grad(), self._get_autocast_context():
                     outputs = self.model(
                         vision_embeds=vision_embeds,
                         input_ids=input_ids,
@@ -549,8 +585,22 @@ class SAM3(Model):
                         input_points_labels=input_points_labels,
                     )
 
-                # Postprocess
-                result = self.postprocessor(outputs, target_sizes=[img_size])
+                # Postprocess — thread pixel-space point prompts through to
+                # the postprocessor so point-aware mask filtering is applied.
+                pixel_points = None
+                pixel_points_labels = None
+                if point is not None and len(point):
+                    pt = torch.as_tensor(point, dtype=torch.float32)
+                    if pt.ndim == 1:
+                        pt = pt.unsqueeze(0)  # (2,) -> (1, 2)
+                    pixel_points = [pt.to(self.device)]
+                    pixel_points_labels = [torch.ones(pt.shape[0], dtype=torch.long, device=self.device)]
+                result = self.postprocessor(
+                    outputs,
+                    target_sizes=[img_size],
+                    input_points=pixel_points,
+                    input_points_labels=pixel_points_labels,
+                )
                 boxes_with_scores = torch.cat(
                     [result[0]["boxes"], result[0]["scores"].unsqueeze(1)],
                     dim=1,
@@ -590,7 +640,7 @@ class SAM3(Model):
 
             # Preprocess target image
             image_tensor = sample.image.unsqueeze(0) if sample.image.ndim == 3 else sample.image
-            with torch.no_grad():
+            with torch.no_grad(), self._get_autocast_context():
                 pixel_values, _ = self.image_preprocessor(image_tensor.to(self.device))
                 vision_embeds = self.model.get_vision_features(pixel_values)
 
@@ -607,15 +657,17 @@ class SAM3(Model):
                 self.exemplar_category_ids,
                 strict=True,
             ):
-                outputs = self.model(
-                    vision_embeds=vision_embeds,
-                    text_embeds=text_feats,
-                    attention_mask=text_mask.long(),
-                    precomputed_geometry_features=geo_feats,
-                    precomputed_geometry_mask=geo_mask,
-                )
+                with torch.no_grad(), self._get_autocast_context():
+                    outputs = self.model(
+                        vision_embeds=vision_embeds,
+                        text_embeds=text_feats,
+                        attention_mask=text_mask.long(),
+                        precomputed_geometry_features=geo_feats,
+                        precomputed_geometry_mask=geo_mask,
+                    )
 
-                # Postprocess
+                # Postprocess — no raw point prompts needed here because
+                # geometry features were already encoded during fit().
                 result = self.postprocessor(outputs, target_sizes=[img_size])
                 boxes_with_scores = torch.cat(
                     [result[0]["boxes"], result[0]["scores"].unsqueeze(1)],
