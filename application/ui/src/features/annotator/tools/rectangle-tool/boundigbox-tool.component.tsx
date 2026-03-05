@@ -10,7 +10,7 @@ import { useAnnotator } from '../../providers/annotator-provider.component';
 import type { Label, Rect } from '../../types';
 import { DrawingBox } from './drawing-box.component';
 
-export const RectangleTool = () => {
+export const BoundingBoxTool = () => {
     const { scale: zoom } = useZoom();
     const { roi, image } = useAnnotator();
     const { addAnnotations } = useAnnotationActions();
