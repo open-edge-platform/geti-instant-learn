@@ -32,7 +32,6 @@ class TestModelFactory:
             sam_model=SAMModelName.SAM_HQ_TINY,
             encoder_model="dinov3_small",
             use_mask_refinement=True,
-            apply_postprocessing=True,
         )
 
         with patch("runtime.core.components.factories.model.get_settings", return_value=mock_settings):
@@ -52,7 +51,6 @@ class TestModelFactory:
                         use_mask_refinement=True,
                         sam=SAMModelName.SAM_HQ_TINY,
                         encoder_model="dinov3_small",
-                        postprocessor=ANY,
                     )
                     mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch)
 
@@ -66,7 +64,6 @@ class TestModelFactory:
             point_selection_threshold=0.65,
             confidence_threshold=0.42,
             precision="bf16",
-            apply_postprocessing=True,
         )
 
         with patch("runtime.core.components.factories.model.get_settings", return_value=mock_settings):
@@ -85,7 +82,6 @@ class TestModelFactory:
                         num_grid_cells=16,
                         point_selection_threshold=0.65,
                         confidence_threshold=0.42,
-                        postprocessor=ANY,
                         precision="bf16",
                         device="cpu",
                     )
@@ -104,7 +100,6 @@ class TestModelFactory:
             softmatching_score_threshold=0.5,
             softmatching_bidirectional=True,
             precision="bf16",
-            apply_postprocessing=True,
         )
 
         with patch("runtime.core.components.factories.model.get_settings", return_value=mock_settings):
@@ -126,7 +121,6 @@ class TestModelFactory:
                         approximate_matching=True,
                         softmatching_score_threshold=0.5,
                         softmatching_bidirectional=True,
-                        postprocessor=ANY,
                         precision="bf16",
                         device="cpu",
                     )

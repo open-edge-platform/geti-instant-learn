@@ -199,8 +199,7 @@ class Matcher(Model):
             device: Device for inference.
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
-                (MaskIoMNMS + BoxIoMNMS). Pass ``None`` explicitly to
-                disable all post-processing.
+                (MaskIoMNMS + BoxIoMNMS).
         """
         if postprocessor is None:
             postprocessor = default_postprocessor()

@@ -106,8 +106,7 @@ class SoftMatcher(Matcher):
             device: The device to use for the model.
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
-                (MaskIoMNMS + BoxIoMNMS). Pass ``None`` explicitly to
-                disable all post-processing.
+                (MaskIoMNMS + BoxIoMNMS).
         """
         super().__init__(
             sam=sam,

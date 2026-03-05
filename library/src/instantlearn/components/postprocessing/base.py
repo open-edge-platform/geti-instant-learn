@@ -5,8 +5,8 @@
 
 Post-processors are ``nn.Module`` subclasses that transform segmentation
 predictions (masks, scores, labels) in a composable, chainable way.
-All post-processors must use pure PyTorch operations should be ONNX/OpenVINO
-exportable.
+All post-processors should use pure PyTorch operations to remain
+ONNX/OpenVINO exportable (see individual class docs for exceptions).
 """
 
 from __future__ import annotations
@@ -31,8 +31,8 @@ class PostProcessor(nn.Module):
         - scores: ``[N]`` float tensor
         - labels: ``[N]`` int64 tensor
 
-    All post-processors must use pure PyTorch operations should be ONNX/OpenVINO
-    exportable.
+    All post-processors should use pure PyTorch operations to remain
+    ONNX/OpenVINO exportable (see individual class docs for exceptions).
     """
 
     @abstractmethod
@@ -142,6 +142,7 @@ def apply_postprocessing(
 
         # Only recompute boxes when masks were actually modified
         masks_changed = new_masks.shape != orig_masks.shape or not torch.equal(new_masks, orig_masks)
+        scores_changed = not torch.equal(new_scores, scores)
 
         if masks_changed:
             if new_masks.numel() > 0 and new_masks.size(0) > 0:
@@ -150,6 +151,11 @@ def apply_postprocessing(
                 result["pred_boxes"] = torch.cat([boxes, box_scores], dim=1)
             else:
                 result["pred_boxes"] = torch.empty(0, 5, device=new_masks.device)
+        elif scores_changed and "pred_boxes" in pred and pred["pred_boxes"].numel() > 0:
+            # Scores changed (e.g. SoftNMS decay) but masks did not:
+            # refresh the score column in pred_boxes to stay consistent.
+            result["pred_boxes"] = pred["pred_boxes"].clone()
+            result["pred_boxes"][:, 4] = new_scores
 
         # Preserve any extra keys (e.g. pred_points, pred_boxes if unchanged)
         for key in pred:

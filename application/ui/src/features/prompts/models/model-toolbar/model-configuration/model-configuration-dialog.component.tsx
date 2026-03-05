@@ -92,7 +92,6 @@ const MatcherConfiguration = ({ model, onClose }: MatcherConfigurationProps) => 
     const [decoderModel, setDecoderModel] = useState<DecoderModel>(model.config.sam_model);
     const [precision, setPrecision] = useState<Precision>(model.config.precision as Precision);
     const [useMaskRefinement, setUseMaskRefinement] = useState<boolean>(model.config.use_mask_refinement);
-    const [applyPostProcessing, setApplyPostProcessing] = useState<boolean>(model.config.apply_postprocessing);
 
     const updateModelMutation = useUpdateModel();
 
@@ -103,8 +102,7 @@ const MatcherConfiguration = ({ model, onClose }: MatcherConfigurationProps) => 
         encoderModel === model.config.encoder_model &&
         decoderModel === model.config.sam_model &&
         precision === model.config.precision &&
-        useMaskRefinement === model.config.use_mask_refinement &&
-        applyPostProcessing === model.config.apply_postprocessing;
+        useMaskRefinement === model.config.use_mask_refinement;
 
     const updateModel = (event: FormEvent) => {
         event.preventDefault();
@@ -122,7 +120,6 @@ const MatcherConfiguration = ({ model, onClose }: MatcherConfigurationProps) => 
                     encoder_model: encoderModel,
                     sam_model: decoderModel,
                     use_mask_refinement: useMaskRefinement,
-                    apply_postprocessing: applyPostProcessing,
                     precision,
                 },
             },
@@ -176,9 +173,6 @@ const MatcherConfiguration = ({ model, onClose }: MatcherConfigurationProps) => 
                     <Switch isEmphasized isSelected={useMaskRefinement} onChange={setUseMaskRefinement}>
                         Use mask refinement
                     </Switch>
-                    <Switch isEmphasized isSelected={applyPostProcessing} onChange={setApplyPostProcessing}>
-                        Clean overlapping results
-                    </Switch>
                 </Flex>
                 <ButtonGroup align={'end'}>
                     <Button variant={'secondary'} onPress={onClose}>
@@ -215,7 +209,6 @@ const PerDINOConfiguration = ({ model, onClose }: PerDINOConfigurationProps) => 
     const [encoderModel, setEncoderModel] = useState<EncoderModel>(model.config.encoder_model as EncoderModel);
     const [decoderModel, setDecoderModel] = useState<DecoderModel>(model.config.sam_model);
     const [precision, setPrecision] = useState<Precision>(model.config.precision as Precision);
-    const [applyPostProcessing, setApplyPostProcessing] = useState<boolean>(model.config.apply_postprocessing);
     const [pointSelectionThreshold, setPointSelectionThreshold] = useState<number>(
         model.config.point_selection_threshold
     );
@@ -230,8 +223,7 @@ const PerDINOConfiguration = ({ model, onClose }: PerDINOConfigurationProps) => 
         pointSelectionThreshold === model.config.point_selection_threshold &&
         encoderModel === model.config.encoder_model &&
         decoderModel === model.config.sam_model &&
-        precision === model.config.precision &&
-        applyPostProcessing === model.config.apply_postprocessing;
+        precision === model.config.precision;
 
     const updateModel = (event: FormEvent) => {
         event.preventDefault();
@@ -250,7 +242,6 @@ const PerDINOConfiguration = ({ model, onClose }: PerDINOConfigurationProps) => 
                     point_selection_threshold: pointSelectionThreshold,
                     encoder_model: encoderModel,
                     sam_model: decoderModel,
-                    apply_postprocessing: applyPostProcessing,
                     precision,
                 },
             },
@@ -316,11 +307,6 @@ const PerDINOConfiguration = ({ model, onClose }: PerDINOConfigurationProps) => 
                     value={pointSelectionThreshold}
                 />
                 <Selection label={'Precision'} value={precision} onChange={setPrecision} items={PRECISIONS} />
-                <Flex alignItems={'center'} width={'100%'} wrap={'wrap'}>
-                    <Switch isEmphasized isSelected={applyPostProcessing} onChange={setApplyPostProcessing}>
-                        Clean overlapping results
-                    </Switch>
-                </Flex>
                 <ButtonGroup align={'end'}>
                     <Button variant={'secondary'} onPress={onClose}>
                         Cancel
@@ -355,7 +341,6 @@ const SoftMatcherConfiguration = ({ model, onClose }: SoftMatcherConfigurationPr
     const [encoderModel, setEncoderModel] = useState<EncoderModel>(model.config.encoder_model as EncoderModel);
     const [decoderModel, setDecoderModel] = useState<DecoderModel>(model.config.sam_model);
     const [precision, setPrecision] = useState<Precision>(model.config.precision as Precision);
-    const [applyPostProcessing, setApplyPostProcessing] = useState<boolean>(model.config.apply_postprocessing);
     const [useSampling, setUseSampling] = useState<boolean>(model.config.use_sampling);
     const [useSpatialSampling, setUseSpatialSampling] = useState<boolean>(model.config.use_spatial_sampling);
     const [approximateMatching, setApproximateMatching] = useState<boolean>(model.config.approximate_matching);
@@ -375,7 +360,6 @@ const SoftMatcherConfiguration = ({ model, onClose }: SoftMatcherConfigurationPr
         encoderModel === model.config.encoder_model &&
         decoderModel === model.config.sam_model &&
         precision === model.config.precision &&
-        applyPostProcessing === model.config.apply_postprocessing &&
         useSampling === model.config.use_sampling &&
         useSpatialSampling === model.config.use_spatial_sampling &&
         approximateMatching === model.config.approximate_matching &&
@@ -397,7 +381,6 @@ const SoftMatcherConfiguration = ({ model, onClose }: SoftMatcherConfigurationPr
                     confidence_threshold: confidenceThreshold,
                     encoder_model: encoderModel,
                     sam_model: decoderModel,
-                    apply_postprocessing: applyPostProcessing,
                     softmatching_bidirectional: softMatchingBidirectional,
                     softmatching_score_threshold: softMatchingScoreThreshold,
                     approximate_matching: approximateMatching,
@@ -463,9 +446,6 @@ const SoftMatcherConfiguration = ({ model, onClose }: SoftMatcherConfigurationPr
                 <Flex alignItems={'center'} width={'100%'} wrap={'wrap'}>
                     <Switch isEmphasized isSelected={softMatchingBidirectional} onChange={setSoftMatchingBidirectional}>
                         Bidirectional soft matching
-                    </Switch>
-                    <Switch isEmphasized isSelected={applyPostProcessing} onChange={setApplyPostProcessing}>
-                        Clean overlapping results
                     </Switch>
                     <Switch isEmphasized isSelected={approximateMatching} onChange={setApproximateMatching}>
                         Approximate matching

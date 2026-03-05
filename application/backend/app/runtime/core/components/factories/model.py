@@ -1,7 +1,6 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
-from instantlearn.components.postprocessing import PostProcessor, default_postprocessor
 from instantlearn.data.base.batch import Batch
 from instantlearn.models.matcher import Matcher
 from instantlearn.models.per_dino import PerDino
@@ -12,11 +11,6 @@ from runtime.core.components.base import ModelHandler
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
 from runtime.core.components.models.torch_model import TorchModelHandler
 from settings import get_settings
-
-
-def _resolve_postprocessor(apply: bool) -> PostProcessor | None:
-    """Return the default pipeline when enabled, else None."""
-    return default_postprocessor() if apply else None
 
 
 class ModelFactory:
@@ -38,7 +32,6 @@ class ModelFactory:
                     use_mask_refinement=config.use_mask_refinement,
                     sam=config.sam_model,
                     encoder_model=config.encoder_model,
-                    postprocessor=_resolve_postprocessor(config.apply_postprocessing),
                 )
                 return TorchModelHandler(model, reference_batch)
             case PerDinoConfig() as config:
@@ -50,7 +43,6 @@ class ModelFactory:
                     num_grid_cells=config.num_grid_cells,
                     point_selection_threshold=config.point_selection_threshold,
                     confidence_threshold=config.confidence_threshold,
-                    postprocessor=_resolve_postprocessor(config.apply_postprocessing),
                     precision=config.precision,
                     device=settings.device,
                 )
@@ -67,7 +59,6 @@ class ModelFactory:
                     approximate_matching=config.approximate_matching,
                     softmatching_score_threshold=config.softmatching_score_threshold,
                     softmatching_bidirectional=config.softmatching_bidirectional,
-                    postprocessor=_resolve_postprocessor(config.apply_postprocessing),
                     precision=config.precision,
                     device=settings.device,
                 )

@@ -5,7 +5,8 @@
 
 Provides NMS variants operating on mask IoU, box IoU, mask IoM
 (Intersection over Minimum), box IoM, and Soft-NMS with Gaussian score decay.
-All implementations use pure PyTorch and are ONNX-exportable.
+All implementations use pure PyTorch operations and are ONNX-exportable,
+except :class:`BoxNMS` which depends on ``torchvision.ops.nms``.
 """
 
 from __future__ import annotations
@@ -124,6 +125,15 @@ def _greedy_nms(
 
     Returns:
         Indices of kept masks as a 1-D int64 tensor.
+
+    Note:
+        When containment-aware mode swaps out a winner ``idx`` (marking it
+        suppressed), any masks that ``idx`` already suppressed in the current
+        inner-loop iteration remain suppressed. This is intentional: those
+        masks had lower scores than ``idx`` and would typically also be
+        suppressed by the replacement winner ``jdx`` (which has a similar
+        score). Re-evaluating them would add complexity with negligible
+        practical benefit.
     """
     order = torch.argsort(scores, descending=True)
     kept: list[int] = []
@@ -217,6 +227,10 @@ class BoxNMS(PostProcessor):
     Boxes are derived from masks using :func:`masks_to_boxes_traceable`.
     This is the fastest NMS variant but may be inaccurate for
     non-rectangular masks.
+
+    .. note::
+        This processor depends on ``torchvision.ops.nms`` and may not be
+        ONNX-exportable. For an ONNX-safe alternative, use :class:`BoxIoMNMS`.
 
     Args:
         iou_threshold: IoU threshold for box overlap. Default: ``0.5``.
