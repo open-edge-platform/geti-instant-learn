@@ -39,11 +39,11 @@ class EncoderForwardFeaturesWrapper(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass to get encoder features."""
-        mean = self.IMAGENET_DEFAULT_MEAN.to(device=x.device, dtype=x.dtype)
-        std = self.IMAGENET_DEFAULT_STD.to(device=x.device, dtype=x.dtype)
+        imagenet_mean = self.IMAGENET_DEFAULT_MEAN.to(device=x.device, dtype=x.dtype)
+        imagenet_std = self.IMAGENET_DEFAULT_STD.to(device=x.device, dtype=x.dtype)
         x = x.float() / 255.0
         x = functional.interpolate(x, size=(self.input_size, self.input_size), mode="bilinear")
-        x = (x - mean[None, :, None, None]) / std[None, :, None, None]
+        x = (x - imagenet_mean[None, :, None, None]) / imagenet_std[None, :, None, None]
         features = self.encoder.forward_features(x)
         features = features[:, self.ignore_token_length :, :]  # ignore CLS and other tokens
         return functional.normalize(features, p=2, dim=-1)

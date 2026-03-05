@@ -291,8 +291,6 @@ class BidirectionalPromptGenerator(nn.Module):
             similarity: Similarity map at feature grid size [feat_size, feat_size]
         """
         feat_size = self.encoder_feature_size
-        expected_num_patches = feat_size * feat_size
-        target_embed = target_embed[:expected_num_patches]
 
         # Compute similarity maps
         # Local similarity for output (at feature grid size, not resized)
