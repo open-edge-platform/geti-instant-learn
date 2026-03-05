@@ -20,7 +20,5 @@ export const PromptMode = () => {
         );
     }
 
-    return (
-            <TextPrompt />
-    );
+    return <TextPrompt />;
 };
