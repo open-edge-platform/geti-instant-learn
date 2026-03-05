@@ -3,6 +3,7 @@
 
 """Matcher model, based on the paper 'Segment Anything with One Shot Using All-Purpose Feature Matching'."""
 
+import logging
 from pathlib import Path
 
 import torch
@@ -11,6 +12,10 @@ from torch.nn import functional
 
 from instantlearn.components.encoders import ImageEncoder
 from instantlearn.components.feature_extractors import MaskedFeatureExtractor, ReferenceFeatures
+from instantlearn.components.postprocessing import (
+    PostProcessor,
+    default_postprocessor,
+)
 from instantlearn.components.sam import SamDecoder, load_sam_model
 from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
@@ -19,12 +24,11 @@ from instantlearn.utils.constants import Backend, SAMModelName
 
 from .prompt_generators import BidirectionalPromptGenerator
 
+logger = logging.getLogger(__name__)
+
 
 class EncoderForwardFeaturesWrapper(nn.Module):
     """Wrapper for image encoder to expose forward_features method for export."""
-
-    IMAGENET_DEFAULT_MEAN = torch.tensor((0.485, 0.456, 0.406))
-    IMAGENET_DEFAULT_STD = torch.tensor((0.229, 0.224, 0.225))
 
     def __init__(
         self,
@@ -32,16 +36,25 @@ class EncoderForwardFeaturesWrapper(nn.Module):
         ignore_token_length: int,
         input_size: int = 512,
     ) -> None:
+        """Initialize the encoder wrapper.
+
+        Args:
+            encoder: The underlying encoder module.
+            ignore_token_length: Number of tokens to ignore.
+            input_size: Input image size.
+        """
         super().__init__()
         self.encoder = encoder
         self.ignore_token_length = ignore_token_length
         self.input_size = input_size
+        self.register_buffer("mean", torch.tensor((0.485, 0.456, 0.406)))
+        self.register_buffer("std", torch.tensor((0.229, 0.224, 0.225)))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass to get encoder features."""
         x = x.float() / 255.0
         x = functional.interpolate(x, size=(self.input_size, self.input_size), mode="bilinear")
-        x = (x - self.IMAGENET_DEFAULT_MEAN[None, :, None, None]) / self.IMAGENET_DEFAULT_STD[None, :, None, None]
+        x = (x - self.mean[None, :, None, None]) / self.std[None, :, None, None]
         features = self.encoder.forward_features(x)
         features = features[:, self.ignore_token_length :, :]  # ignore CLS and other tokens
         return functional.normalize(features, p=2, dim=-1)
@@ -56,11 +69,17 @@ class MatcherInferenceGraph(nn.Module):
         prompt_generator: BidirectionalPromptGenerator,
         sam_decoder: SamDecoder,
         ref_features: ReferenceFeatures,
+        postprocessor: PostProcessor | None = None,
     ) -> None:
+        """Initialize the inference graph with frozen reference features."""
         super().__init__()
         self.encoder = encoder
         self.prompt_generator = prompt_generator
         self.sam_decoder = sam_decoder
+
+        # Register post-processor as a proper submodule
+        # so parameters are captured during tracing/export.
+        self.add_module("export_postprocessor", postprocessor)
 
         # Freeze reference features as model constants
         self.register_buffer("ref_embeddings", ref_features.ref_embeddings)
@@ -91,12 +110,18 @@ class MatcherInferenceGraph(nn.Module):
         )
 
         # Decode using export-friendly method (single image, returns tensors)
-        return self.sam_decoder.forward_export(
+        masks, scores, labels = self.sam_decoder.forward_export(
             target_image[0],  # Single image [3, H, W]
             self.category_ids,
             point_prompts[0],  # [C, max_points, 4]
             similarities[0],  # [C, feat_size, feat_size]
         )
+
+        # Apply exportable post-processing (if any)
+        if self.export_postprocessor is not None:
+            masks, scores, labels = self.export_postprocessor(masks, scores, labels)
+
+        return masks, scores, labels
 
 
 class Matcher(Model):
@@ -154,10 +179,10 @@ class Matcher(Model):
         encoder_model: str = "dinov3_large",
         confidence_threshold: float | None = 0.38,
         use_mask_refinement: bool = True,
-        use_nms: bool = True,
         precision: str = "bf16",
         compile_models: bool = False,
         device: str = "cuda",
+        postprocessor: PostProcessor | None = None,
     ) -> None:
         """Initialize the Matcher model.
 
@@ -169,12 +194,16 @@ class Matcher(Model):
             confidence_threshold: Minimum confidence score for keeping predicted masks
                                  in the final output. Higher values = stricter filtering, fewer masks.
             use_mask_refinement: Whether to use 2-stage mask refinement with box prompts.
-            use_nms: Whether to use NMS in SamDecoder.
             precision: Model precision ("bf16", "fp32").
             compile_models: Whether to compile models with torch.compile.
             device: Device for inference.
+            postprocessor: Post-processor applied after predict().
+                Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
+                (MaskIoMNMS + BoxIoMNMS).
         """
-        super().__init__()
+        if postprocessor is None:
+            postprocessor = default_postprocessor()
+        super().__init__(postprocessor=postprocessor)
         # SAM predictor
         self.sam_predictor = load_sam_model(
             sam,
@@ -213,7 +242,6 @@ class Matcher(Model):
             sam_predictor=self.sam_predictor,
             confidence_threshold=confidence_threshold,
             use_mask_refinement=use_mask_refinement,
-            use_nms=use_nms,
         )
 
         # Reference features (set during fit)
@@ -282,12 +310,13 @@ class Matcher(Model):
         )
 
         # Decode masks for all images
-        return self.segmenter(
+        predictions = self.segmenter(
             target_batch.images,
             self.ref_features.category_ids,
             point_prompts=point_prompts,
             similarities=similarities,
         )
+        return self.apply_postprocessing(predictions)
 
     @torch.no_grad()
     def export(
@@ -300,7 +329,6 @@ class Matcher(Model):
         Args:
             export_dir: Directory to save exported models.
             backend: Export backend (ONNX, OpenVINO).
-            **kwargs: Additional export parameters.
 
         Returns:
             Path to export directory.
@@ -318,12 +346,13 @@ class Matcher(Model):
 
         matcher = MatcherInferenceGraph(
             encoder=EncoderForwardFeaturesWrapper(
-                self.encoder._model.model,
-                ignore_token_length=self.encoder._model.ignore_token_length,
+                self.encoder._model.model,  # noqa: SLF001
+                ignore_token_length=self.encoder._model.ignore_token_length,  # noqa: SLF001
             ),
             prompt_generator=self.prompt_generator,
             sam_decoder=self.segmenter,
             ref_features=self.ref_features,
+            postprocessor=self.postprocessor,
         )
 
         target_image = torch.randn(1, 3, self.encoder.input_size, self.encoder.input_size)
@@ -348,7 +377,7 @@ class Matcher(Model):
 
         if backend == Backend.OPENVINO:
             try:
-                import openvino
+                import openvino  # noqa: PLC0415
 
                 # Export to ONNX first, then convert to OpenVINO
                 # Direct PyTorch → OpenVINO conversion fails on many ops (aten::pad, aten::unbind, etc.)

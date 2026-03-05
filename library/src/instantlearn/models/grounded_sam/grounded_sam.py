@@ -6,6 +6,7 @@
 import torch
 
 from instantlearn.components import SamDecoder
+from instantlearn.components.postprocessing import PostProcessor
 from instantlearn.components.sam import load_sam_model
 from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
@@ -27,8 +28,8 @@ class GroundedSAM(Model):
         compile_models: bool = False,
         box_threshold: float = 0.4,
         text_threshold: float = 0.3,
-        use_nms: bool = True,
         device: str = "cuda",
+        postprocessor: PostProcessor | None = None,
     ) -> None:
         """Initialize the model.
 
@@ -39,10 +40,10 @@ class GroundedSAM(Model):
             compile_models: Whether to compile the models.
             box_threshold: The box threshold.
             text_threshold: The text threshold.
-            use_nms: Whether to use NMS in SamDecoder.
             device: The device to use.
+            postprocessor: Optional post-processor applied after predict().
         """
-        super().__init__()
+        super().__init__(postprocessor=postprocessor)
         self.sam_predictor = load_sam_model(
             sam,
             device=device,
@@ -58,7 +59,7 @@ class GroundedSAM(Model):
             precision=precision,
             compile_models=compile_models,
         )
-        self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor, use_nms=use_nms)
+        self.segmenter: SamDecoder = SamDecoder(sam_predictor=self.sam_predictor)
         self.prompt_filter: BoxPromptFilter = BoxPromptFilter()
 
     def fit(self, reference: Sample | list[Sample] | Batch) -> None:
@@ -106,8 +107,9 @@ class GroundedSAM(Model):
         box_prompts = self.prompt_filter(box_prompts)
 
         # Decode masks
-        return self.segmenter(
+        predictions = self.segmenter(
             target_batch.images,
             category_ids,
             box_prompts=box_prompts,
         )
+        return self.apply_postprocessing(predictions)

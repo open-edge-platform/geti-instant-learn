@@ -32,7 +32,6 @@ class ModelFactory:
                     use_mask_refinement=config.use_mask_refinement,
                     sam=config.sam_model,
                     encoder_model=config.encoder_model,
-                    use_nms=config.use_nms,
                 )
                 return TorchModelHandler(model, reference_batch)
             case PerDinoConfig() as config:
@@ -44,7 +43,6 @@ class ModelFactory:
                     num_grid_cells=config.num_grid_cells,
                     point_selection_threshold=config.point_selection_threshold,
                     confidence_threshold=config.confidence_threshold,
-                    use_nms=config.use_nms,
                     precision=config.precision,
                     device=settings.device,
                 )
@@ -61,7 +59,6 @@ class ModelFactory:
                     approximate_matching=config.approximate_matching,
                     softmatching_score_threshold=config.softmatching_score_threshold,
                     softmatching_bidirectional=config.softmatching_bidirectional,
-                    use_nms=config.use_nms,
                     precision=config.precision,
                     device=settings.device,
                 )
