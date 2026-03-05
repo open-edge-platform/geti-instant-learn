@@ -55,10 +55,12 @@ import statistics
 import sys
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 import openvino as ov
+import pandas as pd
 import torch
 from huggingface_hub import snapshot_download
 from rich.console import Console
@@ -1027,6 +1029,114 @@ def print_live_fps_table(results: list[BenchmarkResult]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Device info & results export
+# ---------------------------------------------------------------------------
+
+
+def _get_device_full_name(device: str) -> str:
+    """Get the full device name as reported by OpenVINO.
+
+    Args:
+        device: OpenVINO device string (e.g. ``CPU``, ``GPU``).
+
+    Returns:
+        Human-readable device name (e.g. ``Intel Core Ultra 7 265K``).
+    """
+    core = ov.Core()
+    try:
+        return core.get_property(device, "FULL_DEVICE_NAME")
+    except RuntimeError:
+        return device
+
+
+def _results_to_dataframe(results: list[BenchmarkResult]) -> pd.DataFrame:
+    """Convert benchmark results to a pandas DataFrame with per-row statistics.
+
+    Each row represents one (variant, config, prompt_type) combination with
+    mean, median, std, min, max for every timing component.
+    """
+    rows: list[dict[str, object]] = []
+
+    components = [
+        ("preprocess_ms", "Preprocess"),
+        ("vision_encoder_ms", "Vision Encoder"),
+        ("text_encoder_ms", "Text Encoder"),
+        ("geometry_encoder_ms", "Geometry Encoder"),
+        ("decoder_ms", "Prompt Decoder"),
+        ("postprocess_ms", "Postprocess"),
+        ("total_ms", "Total"),
+        ("without_vision_ms", "w/o Vision"),
+    ]
+
+    for r in results:
+        row: dict[str, object] = {
+            "Variant": r.variant,
+            "Config": r.config_name,
+            "Prompt": r.prompt_type,
+            "Iterations": len(r.timings),
+        }
+        total_mean = r.stats("total_ms")["mean"]
+        row["FPS"] = round(1000.0 / total_mean, 2) if total_mean > 0 else 0
+
+        for attr, label in components:
+            s = r.stats(attr)
+            row[f"{label} Mean (ms)"] = round(s["mean"], 2)
+            row[f"{label} Median (ms)"] = round(s["median"], 2)
+            row[f"{label} Std (ms)"] = round(s["std"], 2)
+            row[f"{label} Min (ms)"] = round(s["min"], 2)
+            row[f"{label} Max (ms)"] = round(s["max"], 2)
+
+        rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
+def save_results(
+    results: list[BenchmarkResult],
+    device: str,
+    output_dir: Path,
+) -> Path:
+    """Save benchmark results to an Excel file.
+
+    The file is named ``sam3_benchmark_{device}_{timestamp}.xlsx`` and includes
+    a metadata row with the device name as reported by OpenVINO.
+
+    Args:
+        results: Benchmark results to save.
+        device: OpenVINO device string used for benchmarking.
+        output_dir: Directory to write the output file.
+
+    Returns:
+        Path to the saved file.
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    device_name = _get_device_full_name(device)
+    timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
+    device_tag = device.lower().replace(".", "_")
+    filename = f"sam3_benchmark_{device_tag}_{timestamp}.xlsx"
+    filepath = output_dir / filename
+
+    dataframe = _results_to_dataframe(results)
+
+    # Metadata DataFrame
+    meta_df = pd.DataFrame([
+        {"Key": "Device", "Value": device},
+        {"Key": "Device Full Name", "Value": device_name},
+        {"Key": "Timestamp (UTC)", "Value": timestamp},
+        {"Key": "OpenVINO Version", "Value": ov.get_version()},
+    ])
+
+    with pd.ExcelWriter(filepath, engine="openpyxl") as writer:
+        meta_df.to_excel(writer, sheet_name="Device Info", index=False)
+        dataframe.to_excel(writer, sheet_name="Benchmark Results", index=False)
+
+    console.print(f"\n[bold green]Results saved to:[/bold green] {filepath}")
+    console.print(f"  Device: [cyan]{device_name}[/cyan]")
+    return filepath
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -1080,6 +1190,12 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print detailed per-component statistics.",
     )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("./benchmark_results"),
+        help="Directory to save benchmark results Excel file. Default: ./benchmark_results",
+    )
     return parser
 
 
@@ -1096,7 +1212,8 @@ def main() -> None:
     )
 
     console.rule("[bold]SAM3 OpenVINO Benchmark[/bold]")
-    console.print(f"Device: {args.device}")
+    device_name = _get_device_full_name(args.device)
+    console.print(f"Device: {args.device} ([cyan]{device_name}[/cyan])")
     console.print(f"Warmup: {args.warmup}, Iterations: {args.iterations}, Live frames: {args.live_frames}")
     console.print(f"Variants: {args.variants}")
     if args.base_dir is not None:
@@ -1135,6 +1252,9 @@ def main() -> None:
     if args.detail:
         console.rule("[bold]Detailed Statistics[/bold]")
         print_component_detail(results)
+
+    # Save results to Excel
+    save_results(results, args.device, args.output_dir)
 
 
 if __name__ == "__main__":
