@@ -16,7 +16,7 @@ from settings import get_settings
 
 class ModelFactory:
     @classmethod
-    def create(cls, reference_batch: Batch | None, config: ModelConfig | None) -> ModelHandler:
+    def create(cls, reference_batch: Batch | None, config: ModelConfig | None) -> ModelHandler:  # noqa: PLR0911
         if reference_batch is None:
             return PassThroughModelHandler()
         settings = get_settings()

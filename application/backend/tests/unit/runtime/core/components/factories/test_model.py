@@ -37,7 +37,7 @@ class TestModelFactory:
 
         with patch("runtime.core.components.factories.model.get_settings", return_value=mock_settings):
             with patch("runtime.core.components.factories.model.Matcher") as mock_matcher:
-                with patch("runtime.core.components.factories.model.TorchModelHandler") as mock_handler:
+                with patch("runtime.core.components.factories.model.OpenVINOModelHandler") as mock_handler:
                     mock_model_instance = MagicMock()
                     mock_matcher.return_value = mock_model_instance
 
@@ -54,7 +54,7 @@ class TestModelFactory:
                         encoder_model="dinov3_small",
                         use_nms=True,
                     )
-                    mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch)
+                    mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch, precision="fp32")
 
     def test_factory_creates_perdino_model_with_config(self, mock_reference_batch, mock_settings):
         config = PerDinoConfig(
@@ -214,11 +214,20 @@ class TestModelFactory:
 
         with patch("runtime.core.components.factories.model.get_settings", return_value=mock_settings):
             with patch(f"runtime.core.components.factories.model.{model_patch_name}"):
-                with patch("runtime.core.components.factories.model.TorchModelHandler") as mock_handler:
-                    mock_handler_instance = MagicMock()
-                    mock_handler.return_value = mock_handler_instance
+                with patch("runtime.core.components.factories.model.TorchModelHandler") as mock_torch_handler:
+                    with patch("runtime.core.components.factories.model.OpenVINOModelHandler") as mock_openvino_handler:
+                        mock_torch_handler_instance = MagicMock()
+                        mock_openvino_handler_instance = MagicMock()
+                        mock_torch_handler.return_value = mock_torch_handler_instance
+                        mock_openvino_handler.return_value = mock_openvino_handler_instance
 
-                    result = ModelFactory.create(mock_reference_batch, config)
+                        result = ModelFactory.create(mock_reference_batch, config)
 
-                    assert result is mock_handler_instance
-                    mock_handler.assert_called_once()
+                        if config_class == MatcherConfig:
+                            assert result is mock_openvino_handler_instance
+                            mock_openvino_handler.assert_called_once()
+                            mock_torch_handler.assert_not_called()
+                        else:
+                            assert result is mock_torch_handler_instance
+                            mock_torch_handler.assert_called_once()
+                            mock_openvino_handler.assert_not_called()
