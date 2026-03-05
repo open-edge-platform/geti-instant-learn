@@ -336,7 +336,7 @@ class BidirectionalPromptGenerator(nn.Module):
         category_ids: list[int] | torch.Tensor,
         target_embeddings: torch.Tensor,
         original_sizes: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Generate prompt candidates based on reference-target similarities.
 
         Uses bidirectional matching to create point prompts for the segmenter.
@@ -355,7 +355,6 @@ class BidirectionalPromptGenerator(nn.Module):
 
         Returns:
             point_prompts: [T, C, max_points, 4] - filtered and padded point prompts
-            num_points: [T, C] - actual valid point counts per (target, category)
             similarities: [T, C, feat_size, feat_size] - similarity maps at feature grid size
         """
         num_targets = target_embeddings.size(0)
