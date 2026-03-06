@@ -90,8 +90,19 @@ class BidirectionalPromptGenerator(nn.Module):
         # Use nonzero().squeeze(-1) instead of nonzero(as_tuple=True)[0] for OpenVINO compatibility
         ref_idx = ref_mask.nonzero().squeeze(-1).to(similarity_map.device)
 
+        # Degenerate case: no reference indices available
+        if ref_idx.numel() == 0:
+            empty_ref = torch.empty(0, dtype=torch.long, device=similarity_map.device)
+            empty_target = torch.empty(0, dtype=torch.long, device=similarity_map.device)
+            empty_score = torch.empty(0, dtype=similarity_map.dtype, device=similarity_map.device)
+            return [empty_ref, empty_target], empty_score
         # Forward pass (ref → target)
         fw_indices, fw_scores = BidirectionalPromptGenerator.ref_to_target_matching(similarity_map, ref_idx)
+        if fw_scores.numel() == 0:
+            empty_ref = torch.empty(0, dtype=torch.long, device=similarity_map.device)
+            empty_target = torch.empty(0, dtype=torch.long, device=similarity_map.device)
+            empty_score = torch.empty(0, dtype=similarity_map.dtype, device=similarity_map.device)
+            return [empty_ref, empty_target], empty_score
         target_idx_fw = fw_indices[1]
 
         # Backward pass (target → ref)
@@ -279,10 +290,11 @@ class BidirectionalPromptGenerator(nn.Module):
             padded_points: Point prompts [max_points, 4] with (x, y, score, label), zero-padded
             similarity: Similarity map at feature grid size [feat_size, feat_size]
         """
+        feat_size = self.encoder_feature_size
+
         # Compute similarity maps
         # Local similarity for output (at feature grid size, not resized)
         local_similarity = masked_ref_embed.unsqueeze(0) @ target_embed.T  # [1, num_patches]
-        feat_size = self.encoder_feature_size
         local_similarity_grid = local_similarity.reshape(feat_size, feat_size)
 
         # Full similarity map for matching
@@ -321,10 +333,10 @@ class BidirectionalPromptGenerator(nn.Module):
         ref_embeddings: torch.Tensor,
         masked_ref_embeddings: torch.Tensor,
         flatten_ref_masks: torch.Tensor,
-        category_ids: list[int],
+        category_ids: list[int] | torch.Tensor,
         target_embeddings: torch.Tensor,
         original_sizes: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Generate prompt candidates based on reference-target similarities.
 
         Uses bidirectional matching to create point prompts for the segmenter.
@@ -343,14 +355,26 @@ class BidirectionalPromptGenerator(nn.Module):
 
         Returns:
             point_prompts: [T, C, max_points, 4] - filtered and padded point prompts
-            num_points: [T, C] - actual valid point counts per (target, category)
             similarities: [T, C, feat_size, feat_size] - similarity maps at feature grid size
         """
         num_targets = target_embeddings.size(0)
-        num_categories = len(category_ids)
+        num_categories = category_ids.shape[0] if isinstance(category_ids, torch.Tensor) else len(category_ids)
         feat_size = self.encoder_feature_size
+        expected_num_patches = feat_size * feat_size
         device = target_embeddings.device
         dtype = target_embeddings.dtype
+
+        # Normalize patch-token length for export robustness.
+        # Some traced encoder variants can return unexpected token counts (including empty).
+        # Concatenate a full zero padding tensor and slice to expected length to avoid conditionals.
+        patch_padding = torch.zeros(
+            num_targets,
+            expected_num_patches,
+            target_embeddings.size(-1),
+            device=device,
+            dtype=dtype,
+        )
+        target_embeddings = torch.cat([target_embeddings, patch_padding], dim=1)[:, :expected_num_patches, :]
 
         # Pre-allocate output tensors
         point_prompts = torch.zeros(num_targets, num_categories, self.max_points, 4, device=device, dtype=dtype)
