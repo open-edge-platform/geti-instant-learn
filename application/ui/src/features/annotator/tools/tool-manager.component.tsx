@@ -7,7 +7,7 @@ import { ModelType } from '@/api';
 
 import { useGetModels } from '../../prompts/models/api/use-get-models';
 import { getAnnotationTypeForModel } from '../../prompts/models/utils';
-import { BoundingBoxTool } from './rectangle-tool/boundigbox-tool.component';
+import { BoundingBoxTool } from './boundingbox-tool/boundigbox-tool.component';
 import { SegmentAnythingTool } from './segment-anything-tool/segment-anything-tool.component';
 
 export const ToolManager = () => {
