@@ -1,0 +1,41 @@
+.badge {
+    --foregroundColor: lch(from var(--badgeBgColor) calc((50 - l) * infinity) 0 0);
+    --spectrum-high-contrast-button-text: var(--foregroundColor);
+
+    background-color: var(--badgeBgColor);
+    border-radius: var(--spectrum-alias-border-radius-regular);
+    padding: var(--spectrum-global-dimension-size-50) var(--spectrum-global-dimension-size-100);
+    display: flex;
+    align-items: center;
+    gap: var(--spectrum-global-dimension-size-50);
+    width: fit-content;
+    min-height: var(--spectrum-global-dimension-size-400);
+    transition: padding 0.2s;
+
+    & .deleteButton {
+        opacity: 0;
+        transition:
+            opacity 0.2s,
+            width 0.2s;
+        overflow: hidden;
+        min-width: unset;
+        width: 0;
+        height: var(--spectrum-global-dimension-size-300);
+        color: var(--foregroundColor);
+        border-radius: var(--spectrum-alias-border-radius-regular);
+    }
+}
+
+.badge:hover {
+    & .deleteButton {
+        opacity: 1;
+        background-color: color-mix(in srgb, var(--foregroundColor), transparent 80%) !important;
+        width: var(--spectrum-global-dimension-size-300);
+    }
+}
+
+.badgeText {
+    color: var(--foregroundColor);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
