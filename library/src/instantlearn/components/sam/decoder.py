@@ -76,7 +76,7 @@ class SamDecoder(nn.Module):
         nms_iou_threshold: float = 0.1,
         max_masks_per_category: int = 40,
         use_mask_refinement: bool = False,
-        merge_masks_per_class: bool = True,
+        merge_masks_per_class: bool = False,
         use_nms: bool = True,
     ) -> None:
         """Initialize the traceable SAM decoder."""
@@ -501,11 +501,13 @@ class SamDecoder(nn.Module):
                     sims,
                     category_ids,
                 )
+                boxes = masks_to_boxes_traceable(masks)
                 predictions.append({
                     "pred_masks": masks,
                     "pred_scores": scores,
                     "pred_labels": labels,
                     "pred_points": points,
+                    "pred_boxes": boxes,
                 })
         else:
             for image, bxs in zip(images, box_prompts, strict=True):
