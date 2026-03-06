@@ -150,4 +150,4 @@ lightning_logs
 
 # Autosummary generated rst files
 library/**/_autosummary/
-models/
+/models/
