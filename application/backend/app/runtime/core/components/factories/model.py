@@ -16,12 +16,48 @@ from settings import get_settings
 
 class ModelFactory:
     @classmethod
+    def _has_intel_gpu(cls) -> bool:
+        """Check whether an Intel GPU backend is available via PyTorch XPU."""
+        try:
+            import torch
+
+            return torch.xpu.is_available()
+        except (ImportError, AttributeError, RuntimeError):
+            return False
+
+    @classmethod
+    def _has_nvidia_gpu(cls) -> bool:
+        """Check whether a CUDA-capable NVIDIA GPU is available."""
+        try:
+            import torch
+
+            return torch.cuda.is_available()
+        except (ImportError, AttributeError, RuntimeError):
+            return False
+
+    @classmethod
+    def _resolve_device(cls, configured_device: str) -> str:
+        """Resolve `auto` device selection to a concrete backend.
+
+        Selection priority for `auto`: Intel GPU (xpu), NVIDIA GPU (cuda), then CPU.
+        """
+        if configured_device != "auto":
+            return configured_device
+
+        if cls._has_intel_gpu():
+            return "xpu"
+        if cls._has_nvidia_gpu():
+            return "cuda"
+        return "cpu"
+
+    @classmethod
     def create(cls, reference_batch: Batch | None, config: ModelConfig | None) -> ModelHandler:  # noqa: PLR0911
         if reference_batch is None:
             return PassThroughModelHandler()
         settings = get_settings()
+        selected_device = cls._resolve_device(settings.device)
 
-        is_cuda = settings.device == "cuda"
+        is_cuda = selected_device == "cuda"
 
         if not settings.processor_inference_enabled:
             return PassThroughModelHandler()
@@ -41,7 +77,7 @@ class ModelFactory:
                     use_mask_refinement=config.use_mask_refinement,
                     use_nms=config.use_nms,
                     precision=precision,
-                    device=settings.device,
+                    device=selected_device,
                 )
                 if is_cuda:
                     return TorchModelHandler(model, reference_batch)
@@ -57,7 +93,7 @@ class ModelFactory:
                     confidence_threshold=config.confidence_threshold,
                     use_nms=config.use_nms,
                     precision=config.precision,
-                    device=settings.device,
+                    device=selected_device,
                 )
                 return TorchModelHandler(model, reference_batch)
             case SoftMatcherConfig() as config:
@@ -74,7 +110,7 @@ class ModelFactory:
                     softmatching_bidirectional=config.softmatching_bidirectional,
                     use_nms=config.use_nms,
                     precision=config.precision,
-                    device=settings.device,
+                    device=selected_device,
                 )
                 return TorchModelHandler(model, reference_batch)
             case _:

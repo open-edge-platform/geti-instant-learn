@@ -23,6 +23,24 @@ class TestModelFactory:
         settings.processor_inference_enabled = True
         return settings
 
+    @pytest.mark.parametrize(
+        ("has_intel_gpu", "has_nvidia_gpu", "expected_device"),
+        [
+            (True, True, "xpu"),
+            (False, True, "cuda"),
+            (False, False, "cpu"),
+        ],
+    )
+    def test_resolve_device_auto_priority(self, has_intel_gpu, has_nvidia_gpu, expected_device):
+        with (
+            patch.object(ModelFactory, "_has_intel_gpu", return_value=has_intel_gpu),
+            patch.object(ModelFactory, "_has_nvidia_gpu", return_value=has_nvidia_gpu),
+        ):
+            assert ModelFactory._resolve_device("auto") == expected_device
+
+    def test_resolve_device_keeps_explicit_device(self):
+        assert ModelFactory._resolve_device("cuda") == "cuda"
+
     def test_factory_creates_matcher_model_with_config(self, mock_reference_batch, mock_settings):
         config = MatcherConfig(
             num_foreground_points=50,
