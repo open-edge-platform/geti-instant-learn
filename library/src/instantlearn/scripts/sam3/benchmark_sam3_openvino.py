@@ -60,7 +60,6 @@ from pathlib import Path
 
 import numpy as np
 import openvino as ov
-import pandas as pd
 import torch
 from huggingface_hub import snapshot_download
 from rich.console import Console
@@ -85,8 +84,8 @@ console = Console()
 
 RESOLUTION = 1008
 
-# Default HuggingFace repo containing exported SAM3 models
-HF_REPO_ID = "rajeshgangireddy/exported_sam3"
+# Default HuggingFace repo containing exported SAM3 OpenVINO models
+SAM3_HF_REPO_ID = "rajeshgangireddy/exported_sam3"
 
 # Canonical model file names (v3 five-model split)
 VISION_ENCODER = "vision-encoder"
@@ -123,7 +122,7 @@ def _get_ov_configs(device: str) -> dict[str, dict]:
     return OV_CONFIGS_CPU
 
 
-def _download_variant(variant: str, repo_id: str = HF_REPO_ID) -> Path:
+def _download_variant(variant: str, repo_id: str = SAM3_HF_REPO_ID) -> Path:
     """Download a model variant from HuggingFace Hub and return its local path.
 
     Args:
@@ -276,7 +275,7 @@ class BenchmarkModel:
         if (model_dir / "tokenizer.json").exists():
             self.tokenizer = CLIPTokenizerFast.from_pretrained(str(model_dir))
         else:
-            self.tokenizer = CLIPTokenizerFast.from_pretrained("rajeshgangireddy/exported_sam3")
+            self.tokenizer = CLIPTokenizerFast.from_pretrained(SAM3_HF_REPO_ID)
 
     @staticmethod
     def _find(model_dir: Path, name: str) -> Path:
@@ -1049,12 +1048,23 @@ def _get_device_full_name(device: str) -> str:
         return device
 
 
-def _results_to_dataframe(results: list[BenchmarkResult]) -> pd.DataFrame:
+def _results_to_dataframe(results: list[BenchmarkResult]):  # noqa: ANN202
     """Convert benchmark results to a pandas DataFrame with per-row statistics.
 
     Each row represents one (variant, config, prompt_type) combination with
     mean, median, std, min, max for every timing component.
+
+    Requires ``pandas`` (install with ``pip install pandas``).
+
+    Raises:
+        ImportError: If ``pandas`` is not installed.
     """
+    try:
+        import pandas as pd  # noqa: PLC0415
+    except ImportError as exc:
+        msg = "pandas is required to export results. Install it with: pip install pandas openpyxl"
+        raise ImportError(msg) from exc
+
     rows: list[dict[str, object]] = []
 
     components = [
@@ -1108,6 +1118,9 @@ def save_results(
 
     Returns:
         Path to the saved file.
+
+    Raises:
+        ImportError: If ``pandas`` or ``openpyxl`` is not installed.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1116,6 +1129,12 @@ def save_results(
     device_tag = device.lower().replace(".", "_")
     filename = f"sam3_benchmark_{device_tag}_{timestamp}.xlsx"
     filepath = output_dir / filename
+
+    try:
+        import pandas as pd  # noqa: PLC0415
+    except ImportError as exc:
+        msg = "pandas and openpyxl are required to save results. Install with: pip install pandas openpyxl"
+        raise ImportError(msg) from exc
 
     dataframe = _results_to_dataframe(results)
 
@@ -1219,7 +1238,7 @@ def main() -> None:
     if args.base_dir is not None:
         console.print(f"Model source: local ({args.base_dir})")
     else:
-        console.print(f"Model source: HuggingFace ({HF_REPO_ID})")
+        console.print(f"Model source: HuggingFace ({SAM3_HF_REPO_ID})")
     ov_configs = _get_ov_configs(args.device)
     console.print(f"OV configs: {list(ov_configs.keys())}")
     console.print()

@@ -130,40 +130,44 @@ class SAM3OpenVINO(Model):
     Examples:
         >>> from instantlearn.models.sam3 import SAM3OpenVINO, Sam3PromptMode
         >>> from instantlearn.data.base.sample import Sample
-        >>> import torch, numpy as np
+        >>> import numpy as np
 
         >>> # Classic mode — text prompting
         >>> model = SAM3OpenVINO(model_dir="./sam3-openvino", device="CPU")
-        >>> model.fit(Sample(categories=["shoe", "person"], category_ids=[0, 1]))
-        >>> results = model.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> model.fit(Sample(categories=["elephant"], category_ids=[0]))
+        >>> results = model.predict(
+        ...     Sample(image_path="examples/assets/coco/000000286874.jpg", categories=["elephant"]),
+        ... )
 
-        >>> # Classic mode — box prompting
+        >>> # Classic mode — box prompting (elephant bounding box)
         >>> target = Sample(
-        ...     image=torch.zeros((3, 1024, 1024)),
-        ...     bboxes=np.array([[100, 100, 200, 200]]),
+        ...     image_path="examples/assets/coco/000000286874.jpg",
+        ...     bboxes=np.array([[180, 105, 490, 370]]),
         ... )
         >>> results = model.predict(target)
 
-        >>> # Classic mode — point prompting
+        >>> # Classic mode — point prompting (click on elephant)
         >>> target = Sample(
-        ...     image=torch.zeros((3, 1024, 1024)),
-        ...     points=np.array([[150, 150]]),
+        ...     image_path="examples/assets/coco/000000286874.jpg",
+        ...     points=np.array([[335, 240]]),
         ... )
         >>> results = model.predict(target)
 
-        >>> # Visual exemplar mode
+        >>> # Visual exemplar mode — fit on one image, predict on another
         >>> model_ve = SAM3OpenVINO(
         ...     model_dir="./sam3-openvino",
         ...     prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR,
         ... )
         >>> ref = Sample(
-        ...     image=torch.zeros((3, 1024, 1024)),
-        ...     bboxes=np.array([[100, 100, 200, 200]]),
-        ...     categories=["shoe"],
+        ...     image_path="examples/assets/coco/000000286874.jpg",
+        ...     bboxes=np.array([[180, 105, 490, 370]]),
+        ...     categories=["elephant"],
         ...     category_ids=[0],
         ... )
         >>> model_ve.fit(ref)
-        >>> results = model_ve.predict(Sample(image=torch.zeros((3, 1024, 1024))))
+        >>> results = model_ve.predict(
+        ...     Sample(image_path="examples/assets/coco/000000390341.jpg"),
+        ... )
     """
 
     def __init__(

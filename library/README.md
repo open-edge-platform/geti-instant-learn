@@ -67,6 +67,27 @@ predictions = model.predict([
 
 For more examples of SAM3 capabilities, see the [SAM3 aerial & maritime notebook](examples/sam3_aerial_maritime_example.ipynb).
 
+#### SAM3 OpenVINO: Optimized Inference
+
+`SAM3OpenVINO` runs the same SAM3 pipeline on OpenVINO IR models for faster CPU/GPU inference without PyTorch at runtime.
+Pre-exported models are available on [HuggingFace](https://huggingface.co/rajeshgangireddy/exported_sam3) in FP16, INT8, and INT4 variants.
+
+```python
+from instantlearn.models import SAM3OpenVINO
+from instantlearn.data import Sample
+
+# Auto-downloads OpenVINO IR models from HuggingFace
+model = SAM3OpenVINO(variant="openvino-fp16", device="CPU")
+
+predictions = model.predict([
+    Sample(image_path="examples/assets/coco/000000286874.jpg", categories=["elephant"]),
+])
+```
+
+All prompt modes are supported: text, bounding box, point, combined, and visual exemplar.
+See [examples/sam3_openvino_example.py](examples/sam3_openvino_example.py) for the full set of examples.
+
+
 Since SAM3 requires a text prompt for every sample (unless `fit()` is used), this is where **Matcher** comes in —
 you fit once with a reference mask (one-shot) and predict on any number of new images without providing prompts again.
 
