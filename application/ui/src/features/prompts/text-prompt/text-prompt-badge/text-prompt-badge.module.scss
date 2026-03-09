@@ -26,7 +26,8 @@
     }
 }
 
-.badge:hover {
+.badge:hover,
+.badge:focus-within {
     & .deleteButton {
         opacity: 1;
         background-color: color-mix(in srgb, var(--foregroundColor), transparent 80%) !important;
