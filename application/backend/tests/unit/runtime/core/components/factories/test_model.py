@@ -41,6 +41,75 @@ class TestModelFactory:
     def test_resolve_device_keeps_explicit_device(self):
         assert ModelFactory._resolve_device("cuda") == "cuda"
 
+    @pytest.mark.parametrize(
+        ("resolved_device", "expected_precision", "use_torch_handler"),
+        [
+            ("cuda", "bf16", True),
+            ("xpu", "fp32", False),
+        ],
+    )
+    def test_factory_create_auto_uses_resolved_device_and_handler_branch(
+        self,
+        mock_reference_batch,
+        mock_settings,
+        resolved_device,
+        expected_precision,
+        use_torch_handler,
+    ):
+        config = MatcherConfig(
+            num_foreground_points=5,
+            num_background_points=3,
+            confidence_threshold=0.5,
+            precision="bf16",
+            sam_model=SAMModelName.SAM_HQ_TINY,
+            encoder_model="dinov3_small",
+            use_mask_refinement=True,
+            use_nms=True,
+        )
+        mock_settings.device = "auto"
+
+        with (
+            patch.multiple(
+                "runtime.core.components.factories.model",
+                get_settings=DEFAULT,
+                Matcher=DEFAULT,
+                TorchModelHandler=DEFAULT,
+                OpenVINOModelHandler=DEFAULT,
+            ) as mocks,
+            patch.object(ModelFactory, "_resolve_device", return_value=resolved_device) as mock_resolve,
+        ):
+            mocks["get_settings"].return_value = mock_settings
+            mock_matcher = mocks["Matcher"]
+            mock_torch_handler = mocks["TorchModelHandler"]
+            mock_openvino_handler = mocks["OpenVINOModelHandler"]
+
+            mock_model_instance = MagicMock()
+            mock_matcher.return_value = mock_model_instance
+
+            mock_torch_handler_instance = MagicMock()
+            mock_openvino_handler_instance = MagicMock()
+            mock_torch_handler.return_value = mock_torch_handler_instance
+            mock_openvino_handler.return_value = mock_openvino_handler_instance
+
+            result = ModelFactory.create(mock_reference_batch, config)
+
+            mock_resolve.assert_called_once_with("auto")
+            assert mock_matcher.call_args.kwargs["device"] == resolved_device
+            assert mock_matcher.call_args.kwargs["precision"] == expected_precision
+
+            if use_torch_handler:
+                assert result is mock_torch_handler_instance
+                mock_torch_handler.assert_called_once_with(mock_model_instance, mock_reference_batch)
+                mock_openvino_handler.assert_not_called()
+            else:
+                assert result is mock_openvino_handler_instance
+                mock_openvino_handler.assert_called_once_with(
+                    mock_model_instance,
+                    mock_reference_batch,
+                    precision="fp32",
+                )
+                mock_torch_handler.assert_not_called()
+
     def test_factory_creates_matcher_model_with_config(self, mock_reference_batch, mock_settings):
         config = MatcherConfig(
             num_foreground_points=50,
@@ -185,10 +254,18 @@ class TestModelFactory:
 
         assert isinstance(result, PassThroughModelHandler)
 
-    def test_factory_returns_passthrough_for_none_config(self, mock_reference_batch):
-        result = ModelFactory.create(mock_reference_batch, None)
+    def test_factory_returns_passthrough_for_none_config(self, mock_reference_batch, mock_settings):
+        mock_settings.device = "auto"
+
+        with (
+            patch.multiple("runtime.core.components.factories.model", get_settings=DEFAULT) as mocks,
+            patch.object(ModelFactory, "_resolve_device") as mock_resolve,
+        ):
+            mocks["get_settings"].return_value = mock_settings
+            result = ModelFactory.create(mock_reference_batch, None)
 
         assert isinstance(result, PassThroughModelHandler)
+        mock_resolve.assert_not_called()
 
     def test_factory_returns_passthrough_when_both_none(self):
         result = ModelFactory.create(None, None)
@@ -208,12 +285,15 @@ class TestModelFactory:
         mock_settings.processor_inference_enabled = False
         mock_settings.device = "cpu"
 
-        with patch.multiple(
-            "runtime.core.components.factories.model",
-            get_settings=DEFAULT,
-            TorchModelHandler=DEFAULT,
-            Matcher=DEFAULT,
-        ) as mocks:
+        with (
+            patch.multiple(
+                "runtime.core.components.factories.model",
+                get_settings=DEFAULT,
+                TorchModelHandler=DEFAULT,
+                Matcher=DEFAULT,
+            ) as mocks,
+            patch.object(ModelFactory, "_resolve_device") as mock_resolve,
+        ):
             mocks["get_settings"].return_value = mock_settings
             mock_handler = mocks["TorchModelHandler"]
             mock_matcher = mocks["Matcher"]
@@ -222,6 +302,7 @@ class TestModelFactory:
         assert isinstance(result, PassThroughModelHandler)
         mock_handler.assert_not_called()
         mock_matcher.assert_not_called()
+        mock_resolve.assert_not_called()
 
     @pytest.mark.parametrize(
         "config_class,model_patch_name",

@@ -55,12 +55,14 @@ class ModelFactory:
         if reference_batch is None:
             return PassThroughModelHandler()
         settings = get_settings()
-        selected_device = cls._resolve_device(settings.device)
-
-        is_cuda = selected_device == "cuda"
-
         if not settings.processor_inference_enabled:
             return PassThroughModelHandler()
+        if config is None:
+            return PassThroughModelHandler()
+
+        selected_device = cls._resolve_device(settings.device)
+        is_cuda = selected_device == "cuda"
+
         match config:
             case MatcherConfig() as config:
                 # if the model is converted to the OV format, the precision should be strictly fp32
