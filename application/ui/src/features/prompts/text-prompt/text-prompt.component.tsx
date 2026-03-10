@@ -79,11 +79,7 @@ export const TextPrompt = () => {
                     onKeyDown={handleKeyDown}
                     flex={1}
                 />
-                <ActionButton
-                    isDisabled={isSubmitDisabled}
-                    onPress={handleAdd}
-                    aria-label={'Add prompt'}
-                >
+                <ActionButton isDisabled={isSubmitDisabled} onPress={handleAdd} aria-label={'Add prompt'}>
                     <Add />
                 </ActionButton>
             </Flex>
