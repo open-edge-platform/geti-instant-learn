@@ -6,7 +6,8 @@
 import { KeyboardEvent, Suspense, useState } from 'react';
 
 import { useProjectIdentifier } from '@/hooks';
-import { Button, Flex, Loading, Text, TextArea } from '@geti/ui';
+import { ActionButton, Flex, Loading, Text, TextArea } from '@geti/ui';
+import { Add } from '@geti/ui/icons';
 
 import { useCreateTextPrompt, useDeleteTextPrompt, useGetTextPrompts } from './api/use-text-prompts';
 import { TextPromptBadge } from './text-prompt-badge/text-prompt-badge.component';
@@ -69,18 +70,22 @@ export const TextPrompt = () => {
 
     return (
         <Flex direction={'column'} gap={'size-200'}>
-            <TextArea
-                aria-label={'New text prompt'}
-                placeholder={'e.g. red car'}
-                value={content}
-                onChange={setContent}
-                onKeyDown={handleKeyDown}
-                width={'100%'}
-            />
-            <Flex justifyContent={'end'}>
-                <Button isDisabled={isSubmitDisabled} onPress={handleAdd}>
-                    Add
-                </Button>
+            <Flex gap={'size-100'} alignItems={'end'}>
+                <TextArea
+                    aria-label={'New text prompt'}
+                    placeholder={'e.g. red car'}
+                    value={content}
+                    onChange={setContent}
+                    onKeyDown={handleKeyDown}
+                    flex={1}
+                />
+                <ActionButton
+                    isDisabled={isSubmitDisabled}
+                    onPress={handleAdd}
+                    aria-label={'Add prompt'}
+                >
+                    <Add />
+                </ActionButton>
             </Flex>
             <Suspense fallback={<Loading mode={'inline'} size={'M'} />}>
                 <TextPromptBadgeList />
