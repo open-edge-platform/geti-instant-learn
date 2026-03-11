@@ -162,6 +162,16 @@ def apply_postprocessing(
             if key not in result:
                 result[key] = pred[key]
 
+        # Ensure pred_boxes is always present (e.g. point-prompt models
+        # like Matcher/PerDino don't produce boxes from the decoder).
+        if "pred_boxes" not in result:
+            if new_masks.numel() > 0 and new_masks.size(0) > 0:
+                boxes = masks_to_boxes_traceable(new_masks)
+                box_scores = new_scores.unsqueeze(1)
+                result["pred_boxes"] = torch.cat([boxes, box_scores], dim=1)
+            else:
+                result["pred_boxes"] = torch.empty(0, 5, device=new_masks.device)
+
         processed.append(result)
 
     return processed

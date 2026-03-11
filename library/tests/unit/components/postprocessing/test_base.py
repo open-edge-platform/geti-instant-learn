@@ -143,3 +143,35 @@ class TestApplyPostprocessing:
         processor = _Identity()
         result = apply_postprocessing(preds, processor)
         assert torch.equal(result[0]["pred_boxes"], original_boxes)
+
+    def test_boxes_computed_when_missing_from_input(self) -> None:
+        """Point-prompt models (Matcher/PerDino) don't produce pred_boxes; they should be derived from masks."""
+        masks = torch.zeros(2, 10, 10, dtype=torch.bool)
+        masks[0, 1:4, 2:6] = True
+        masks[1, 5:9, 3:8] = True
+        scores = torch.tensor([0.9, 0.8])
+        labels = torch.tensor([0, 1])
+        preds = [{"pred_masks": masks, "pred_scores": scores, "pred_labels": labels}]
+
+        processor = _Identity()
+        result = apply_postprocessing(preds, processor)
+
+        assert "pred_boxes" in result[0]
+        assert result[0]["pred_boxes"].shape == (2, 5)
+        # Verify box coordinates match mask extents
+        assert torch.allclose(result[0]["pred_boxes"][0, :4], torch.tensor([2.0, 1.0, 5.0, 3.0]))
+        assert torch.allclose(result[0]["pred_boxes"][1, :4], torch.tensor([3.0, 5.0, 7.0, 8.0]))
+
+    def test_boxes_computed_empty_when_no_masks_and_missing_from_input(self) -> None:
+        """When no masks remain and pred_boxes was never in the input, output should have empty boxes."""
+        masks = torch.zeros(1, 5, 5, dtype=torch.bool)
+        masks[0, 0, 0] = True
+        scores = torch.tensor([0.1])
+        labels = torch.tensor([0])
+        preds = [{"pred_masks": masks, "pred_scores": scores, "pred_labels": labels}]
+
+        processor = _DropLowScore()
+        result = apply_postprocessing(preds, processor)
+
+        assert "pred_boxes" in result[0]
+        assert result[0]["pred_boxes"].shape == (0, 5)
