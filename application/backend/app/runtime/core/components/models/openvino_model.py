@@ -5,6 +5,7 @@ import logging
 import tempfile
 import time
 
+import cv2
 import numpy as np
 import openvino
 import torch
@@ -22,6 +23,9 @@ logger = logging.getLogger(__name__)
 
 
 class OpenVINOModelHandler(ModelHandler):
+    _MIN_SCORE_THRESHOLD = 0.18
+    _MIN_MASK_AREA_RATIO = 5e-4
+
     def __init__(self, model: Model, reference_batch: Batch, precision: str) -> None:
         self._model = model
         self._reference_batch = reference_batch
@@ -73,6 +77,53 @@ class OpenVINOModelHandler(ModelHandler):
         mask_tensor = functional.interpolate(mask_tensor, size=(frame_h, frame_w), mode="nearest")
         resized = mask_tensor.squeeze(1).numpy()
         return resized > 0.5
+
+    @staticmethod
+    def _filter_predictions(
+        masks: np.ndarray,
+        scores: np.ndarray,
+        labels: np.ndarray,
+        frame_shape: tuple[int, int, int],
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Remove low-confidence and tiny noisy masks before visualization."""
+        if masks.ndim == 2:
+            masks = masks[None, ...]
+
+        scores = scores.reshape(-1)
+        labels = labels.reshape(-1)
+
+        count = min(masks.shape[0], scores.shape[0], labels.shape[0])
+        if count == 0:
+            return (
+                np.empty((0, frame_shape[0], frame_shape[1]), dtype=bool),
+                np.empty((0,), dtype=np.float32),
+                np.empty((0,), dtype=np.int64),
+            )
+
+        masks = masks[:count] > 0
+        scores = scores[:count].astype(np.float32, copy=False)
+        labels = labels[:count].astype(np.int64, copy=False)
+
+        frame_h, frame_w = frame_shape[:2]
+        min_area = max(256, int(frame_h * frame_w * OpenVINOModelHandler._MIN_MASK_AREA_RATIO))
+
+        cleaned_masks = np.zeros_like(masks, dtype=bool)
+        for i in range(count):
+            mask_uint8 = masks[i].astype(np.uint8)
+            num_labels, component_labels, stats, _ = cv2.connectedComponentsWithStats(mask_uint8, connectivity=8)
+            if num_labels <= 1:
+                continue
+            component_areas = stats[1:, cv2.CC_STAT_AREA]
+            largest_component_idx = int(component_areas.argmax()) + 1
+            cleaned_masks[i] = component_labels == largest_component_idx
+
+        areas = cleaned_masks.reshape(count, -1).sum(axis=1)
+
+        valid = labels >= 0
+        valid &= scores > OpenVINOModelHandler._MIN_SCORE_THRESHOLD
+        valid &= areas >= min_area
+
+        return cleaned_masks[valid], scores[valid], labels[valid]
 
     def initialise(self) -> None:
         self._model.fit(self._reference_batch)
@@ -142,11 +193,19 @@ class OpenVINOModelHandler(ModelHandler):
             output = self._infer_request.infer({self._input_port: image})
             pred_masks = np.asarray(output[self._masks_output_port])
             pred_masks = self._resize_masks_to_frame(pred_masks, input_data.frame.shape)
+            pred_scores = np.asarray(output[self._scores_output_port])
+            pred_labels = np.asarray(output[self._labels_output_port])
+            pred_masks, pred_scores, pred_labels = self._filter_predictions(
+                pred_masks,
+                pred_scores,
+                pred_labels,
+                input_data.frame.shape,
+            )
             results.append(
                 {
                     "pred_masks": pred_masks,
-                    "pred_scores": np.asarray(output[self._scores_output_port]),
-                    "pred_labels": np.asarray(output[self._labels_output_port]),
+                    "pred_scores": pred_scores,
+                    "pred_labels": pred_labels,
                 }
             )
         return results
