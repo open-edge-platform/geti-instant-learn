@@ -31,7 +31,7 @@
   // `matchBaseBranches` in specific rule
   baseBranches: ["main"],
 
-  enabledManagers: ["github-actions", "pep621", "dockerfile", "npm"],
+  enabledManagers: ["github-actions", "pep621", "dockerfile", "npm", "cargo"],
 
   // Set limit to 10
   ignorePresets: [":prHourlyLimit2"],
