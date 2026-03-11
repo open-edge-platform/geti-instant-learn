@@ -38,10 +38,10 @@
   prHourlyLimit: 10,
 
   packageRules: [
-    // Disable non-security upgrades for pypi, crate and npm, except lock file update
+    // Disable non-security upgrades for pypi and crate, except lock file update
     {
       enabled: false,
-      matchDatasources: ["pypi", "crate", "npm"],
+      matchDatasources: ["pypi", "crate"],
     },
 
     // Disable python upgrades, except patch and digest pinning
@@ -120,6 +120,13 @@
       matchDatasources: ["docker"],
       matchPackageNames: ["ghcr.io/astral-sh/uv"],
       matchUpdateTypes: ["major", "minor", "patch"],
+    },
+
+    // Disable non-security and lock file upgrades for npm
+    // FIXME: lock update is disabled due to dependency conflict issue
+    {
+      enabled: false,
+      matchManagers: ["npm"],
     },
 
     // NPM version in package.json is updated manually
