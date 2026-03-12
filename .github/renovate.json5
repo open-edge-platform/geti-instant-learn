@@ -31,17 +31,17 @@
   // `matchBaseBranches` in specific rule
   baseBranches: ["main"],
 
-  enabledManagers: ["github-actions", "pep621", "dockerfile", "npm"],
+  enabledManagers: ["github-actions", "pep621", "dockerfile", "npm", "cargo"],
 
   // Set limit to 10
   ignorePresets: [":prHourlyLimit2"],
   prHourlyLimit: 10,
 
   packageRules: [
-    // Disable non-security upgrades for pypi, except lock file update
+    // Disable non-security upgrades for pypi and crate, except lock file update
     {
       enabled: false,
-      matchDatasources: ["pypi"],
+      matchDatasources: ["pypi", "crate"],
     },
 
     // Disable python upgrades, except patch and digest pinning
@@ -123,7 +123,7 @@
     },
 
     // Disable non-security and lock file upgrades for npm
-    // Lock is updated manually
+    // FIXME: lock update is disabled due to dependency conflict issue
     {
       enabled: false,
       matchManagers: ["npm"],
