@@ -39,6 +39,9 @@ const test = testBase.extend<Fixtures>({
                             id: '1',
                             name: 'Project #1',
                             active: true,
+                            config: {
+                                device: 'cpu',
+                            },
                         },
                     ],
                     pagination: { total: 1, count: 1, offset: 0, limit: 10 },
@@ -49,6 +52,9 @@ const test = testBase.extend<Fixtures>({
                     id: '1',
                     name: 'Project #1',
                     active: true,
+                    config: {
+                        device: 'cpu',
+                    },
                 });
             }),
             http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {
