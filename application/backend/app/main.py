@@ -88,7 +88,7 @@ fastapi_app.add_exception_handler(RequestValidationError, custom_exception_handl
 
 
 @fastapi_app.get(path="/health", tags=["Health"])
-async def health_check() -> HealthCheckSchema:
+def health_check() -> HealthCheckSchema:
     """Health check endpoint"""
     license_service = LicenseService()
     return HealthCheckSchema(status=HealthStatus.OK, license_accepted=license_service.is_accepted())
