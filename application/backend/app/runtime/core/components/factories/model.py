@@ -14,9 +14,8 @@ from runtime.core.components.models.torch_model import TorchModelHandler
 from settings import get_settings
 
 
-class ModelFactory:
-    @classmethod
-    def _has_intel_gpu(cls) -> bool:
+class DeviceResolver:
+    def _has_intel_gpu(self) -> bool:
         """Check whether an Intel GPU backend is available via PyTorch XPU."""
         try:
             import torch
@@ -25,8 +24,7 @@ class ModelFactory:
         except (ImportError, AttributeError, RuntimeError):
             return False
 
-    @classmethod
-    def _has_nvidia_gpu(cls) -> bool:
+    def _has_nvidia_gpu(self) -> bool:
         """Check whether a CUDA-capable NVIDIA GPU is available."""
         try:
             import torch
@@ -35,8 +33,7 @@ class ModelFactory:
         except (ImportError, AttributeError, RuntimeError):
             return False
 
-    @classmethod
-    def _resolve_device(cls, configured_device: str) -> str:
+    def resolve_device(self, configured_device: str) -> str:
         """Resolve `auto` device selection to a concrete backend.
 
         Selection priority for `auto`: Intel GPU (xpu), NVIDIA GPU (cuda), then CPU.
@@ -44,14 +41,18 @@ class ModelFactory:
         if configured_device != "auto":
             return configured_device
 
-        if cls._has_intel_gpu():
+        if self._has_intel_gpu():
             return "xpu"
-        if cls._has_nvidia_gpu():
+        if self._has_nvidia_gpu():
             return "cuda"
         return "cpu"
 
-    @classmethod
-    def create(cls, reference_batch: Batch | None, config: ModelConfig | None) -> ModelHandler:  # noqa: PLR0911
+
+class ModelFactory:
+    def __init__(self, device_resolver: DeviceResolver | None = None) -> None:
+        self._device_resolver = device_resolver or DeviceResolver()
+
+    def create(self, reference_batch: Batch | None, config: ModelConfig | None) -> ModelHandler:  # noqa: PLR0911
         if reference_batch is None:
             return PassThroughModelHandler()
         settings = get_settings()
@@ -60,7 +61,7 @@ class ModelFactory:
         if config is None:
             return PassThroughModelHandler()
 
-        selected_device = cls._resolve_device(settings.device)
+        selected_device = self._device_resolver.resolve_device(settings.device)
         is_cuda = selected_device == "cuda"
 
         match config:
