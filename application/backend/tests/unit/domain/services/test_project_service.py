@@ -61,7 +61,14 @@ def make_project(
     if prompts is None:
         prompts = []
     return SimpleNamespace(
-        id=project_id, name=name, active=active, sources=sources, processors=processors, sinks=sinks, prompts=prompts
+        id=project_id,
+        name=name,
+        active=active,
+        config={"device": "cpu"},
+        sources=sources,
+        processors=processors,
+        sinks=sinks,
+        prompts=prompts,
     )
 
 
@@ -100,9 +107,22 @@ def test_create_project_success(service, repo_mock, session_mock, explicit_id):
     assert isinstance(result, ProjectSchema)
     assert result.name == "alpha"
     assert result.active is True
+    assert result.config.device == "cpu"
     repo_mock.add.assert_called_once()
     session_mock.commit.assert_called_once()
     session_mock.refresh.assert_called_once()
+
+
+def test_create_project_with_device_success(service, repo_mock, session_mock):
+    data = ProjectCreateSchema(name="alpha", config={"device": "xpu"})
+    repo_mock.get_active.return_value = None
+
+    result = service.create_project(data)
+
+    assert isinstance(result, ProjectSchema)
+    assert result.config.device == "xpu"
+    repo_mock.add.assert_called_once()
+    session_mock.commit.assert_called_once()
 
 
 def test_create_project_duplicate_name_raises_integrity_error(service, repo_mock, session_mock):
@@ -211,6 +231,22 @@ def test_update_project_success(service, repo_mock, session_mock):
 
     assert updated.name == "new"
     assert updated.active is False
+    assert updated.config.device == "cpu"
+    session_mock.commit.assert_called_once()
+    repo_mock.update.assert_called_once()
+
+
+def test_update_project_device_success(service, repo_mock, session_mock):
+    pid = uuid.uuid4()
+    existing = make_project(project_id=pid, name="old")
+    repo_mock.get_by_id.return_value = existing
+    repo_mock.update.return_value = existing
+
+    data = ProjectUpdateSchema(config={"device": "cuda"})
+    updated = service.update_project(pid, data)
+
+    assert updated.config.device == "cuda"
+    assert existing.config["device"] == "cuda"
     session_mock.commit.assert_called_once()
     repo_mock.update.assert_called_once()
 
