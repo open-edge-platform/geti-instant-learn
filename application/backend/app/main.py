@@ -19,11 +19,11 @@ from starlette.responses import Response
 import api.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
 from api.error_handler import custom_exception_handler
 from api.routers import license_router, projects_router, source_types_router, webrtc_router
+from dependencies import LicenseServiceDep
 from domain.db.engine import get_session_factory, run_db_migrations
 from domain.dispatcher import ConfigChangeDispatcher
 from domain.services.schemas.health import HealthCheckSchema, HealthStatus
 from runtime.pipeline_manager import PipelineManager
-from runtime.services.license import LicenseService
 from runtime.webrtc.manager import WebRTCManager
 from runtime.webrtc.sdp_handler import SDPHandler
 from settings import get_settings
@@ -88,9 +88,8 @@ fastapi_app.add_exception_handler(RequestValidationError, custom_exception_handl
 
 
 @fastapi_app.get(path="/health", tags=["Health"])
-def health_check() -> HealthCheckSchema:
+def health_check(license_service: LicenseServiceDep) -> HealthCheckSchema:
     """Health check endpoint"""
-    license_service = LicenseService()
     return HealthCheckSchema(status=HealthStatus.OK, license_accepted=license_service.is_accepted())
 
 

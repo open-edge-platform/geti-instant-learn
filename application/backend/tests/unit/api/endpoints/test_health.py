@@ -1,59 +1,34 @@
 # Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
-from domain.services.schemas.health import HealthCheckSchema
-
-
-@pytest.fixture
-def app():
-    app = FastAPI()
-
-    @app.get("/health")
-    async def health_check() -> HealthCheckSchema:
-        from runtime.services.license import LicenseService
-
-        license_service = LicenseService()
-        return HealthCheckSchema(status="ok", license_accepted=license_service.is_accepted())
-
-    return app
+from domain.services.schemas.health import HealthStatus
+from main import health_check
 
 
 @pytest.fixture
-def client(app):
-    return TestClient(app, raise_server_exceptions=False)
+def mock_license_service():
+    return MagicMock()
 
 
 class TestHealthEndpoint:
-    """Tests for GET /health endpoint."""
+    def test_health_check_license_accepted(self, mock_license_service):
+        mock_license_service.is_accepted.return_value = True
 
-    def test_health_check_license_accepted(self, client):
-        """Health check returns license_accepted=True when the license is accepted."""
-        mock_service = MagicMock()
-        mock_service.is_accepted.return_value = True
+        result = health_check(license_service=mock_license_service)
 
-        with patch("runtime.services.license.LicenseService", return_value=mock_service):
-            resp = client.get("/health")
+        assert result.status == HealthStatus.OK
+        assert result.license_accepted is True
+        mock_license_service.is_accepted.assert_called_once()
 
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "ok"
-        assert data["license_accepted"] is True
+    def test_health_check_license_not_accepted(self, mock_license_service):
+        mock_license_service.is_accepted.return_value = False
 
-    def test_health_check_license_not_accepted(self, client):
-        """Health check returns license_accepted=False when the license is not accepted."""
-        mock_service = MagicMock()
-        mock_service.is_accepted.return_value = False
+        result = health_check(license_service=mock_license_service)
 
-        with patch("runtime.services.license.LicenseService", return_value=mock_service):
-            resp = client.get("/health")
-
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "ok"
-        assert data["license_accepted"] is False
+        assert result.status == HealthStatus.OK
+        assert result.license_accepted is False
+        mock_license_service.is_accepted.assert_called_once()

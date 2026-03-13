@@ -6,8 +6,8 @@ import logging
 from fastapi import status
 
 from api.routers import license_router
+from dependencies import LicenseServiceDep
 from domain.services.schemas.license import LicenseAcceptedSchema
-from runtime.services.license import LicenseService
 
 logger = logging.getLogger(__name__)
 
@@ -25,13 +25,11 @@ logger = logging.getLogger(__name__)
         },
     },
 )
-def accept_license() -> LicenseAcceptedSchema:
+def accept_license(license_service: LicenseServiceDep) -> LicenseAcceptedSchema:
     """Accept the third-party license terms"""
-    service = LicenseService()
-
-    if not service.is_accepted():
-        service.accept()
-        logger.info("License accepted via API endpoint")
+    if not license_service.is_accepted():
+        license_service.accept()
+        logger.info("Geti Instant Learn License has been accepted via API endpoint")
     else:
         logger.debug("License was already accepted")
 

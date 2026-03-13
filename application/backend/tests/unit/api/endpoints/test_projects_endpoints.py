@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
 import pytest
@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from api.error_handler import custom_exception_handler
 from api.routers import projects_router
-from dependencies import SessionDep, get_config_dispatcher, get_project_service
+from dependencies import SessionDep, get_config_dispatcher, get_license_service, get_project_service
 from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
@@ -53,30 +53,23 @@ def app():
 
 
 @pytest.fixture
+def mock_license_service():
+    return MagicMock()
+
+
+@pytest.fixture
 def client(app):
     return TestClient(app, raise_server_exceptions=False)
 
 
-@pytest.fixture
-def mock_license_accepted():
-    """Mock LicenseService to return license accepted."""
-    mock_service = MagicMock()
-    mock_service.is_accepted.return_value = True
-    with patch("api.endpoints.projects.LicenseService", return_value=mock_service):
-        yield mock_service
-
-
-@pytest.fixture
-def mock_license_not_accepted():
-    """Mock LicenseService to return license not accepted."""
-    mock_service = MagicMock()
-    mock_service.is_accepted.return_value = False
-    with patch("api.endpoints.projects.LicenseService", return_value=mock_service):
-        yield mock_service
-
-
 class TestCreateProject:
     """Tests for POST /projects endpoint."""
+
+    @pytest.fixture(autouse=True)
+    def override_license_service(self, app, mock_license_service):
+        app.dependency_overrides[get_license_service] = lambda: mock_license_service
+        yield
+        app.dependency_overrides.pop(get_license_service, None)
 
     @pytest.mark.parametrize(
         "behavior,expected_status,expect_location,expect_substring",
@@ -87,8 +80,11 @@ class TestCreateProject:
         ],
     )
     def test_create_project_with_license_accepted(
-        self, client, mock_license_accepted, behavior, expected_status, expect_location, expect_substring
+        self, app, client, mock_license_service, behavior, expected_status, expect_location, expect_substring
     ):
+        """Test project creation with license accepted."""
+        mock_license_service.is_accepted.return_value = True
+
         class FakeService:
             def __init__(self, session, config_change_dispatcher):
                 pass
@@ -108,12 +104,13 @@ class TestCreateProject:
                     raise RuntimeError("Database connection failed")
                 raise AssertionError("Unhandled behavior")
 
-        client.app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
+        app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
 
         payload = {"id": PROJECT_ID_STR, "name": "myproj"}
         resp = client.post("/api/v1/projects", json=payload)
 
         assert resp.status_code == expected_status
+        mock_license_service.is_accepted.assert_called_once()
         if expect_location:
             assert resp.headers.get("Location") == f"/projects/{PROJECT_ID_STR}"
             response_data = resp.json()
@@ -123,25 +120,25 @@ class TestCreateProject:
             if expect_substring:
                 assert expect_substring.lower() in resp.json()["detail"].lower()
 
-    def test_create_project_license_not_accepted(self, client, mock_license_not_accepted):
+    def test_create_project_license_not_accepted(self, app, client, mock_license_service):
         """Creating a project without accepting license returns 403."""
+        mock_license_service.is_accepted.return_value = False
 
         class FakeService:
             def __init__(self, session, config_change_dispatcher):
                 pass
 
             def create_project(self, payload):
-                # Should not be called
                 raise AssertionError("create_project should not be called when license is not accepted")
 
-        client.app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
+        app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
 
         payload = {"name": "myproj"}
         resp = client.post("/api/v1/projects", json=payload)
 
         assert resp.status_code == 403
         assert "license" in resp.json()["detail"].lower()
-        mock_license_not_accepted.is_accepted.assert_called_once()
+        mock_license_service.is_accepted.assert_called_once()
 
 
 @pytest.mark.parametrize(
@@ -152,7 +149,7 @@ class TestCreateProject:
         ("error", 500),
     ],
 )
-def test_delete_project(client, behavior, expected_status):
+def test_delete_project(app, client, behavior, expected_status):
     class FakeService:
         def __init__(self, session, config_change_dispatcher):
             pass
@@ -170,7 +167,7 @@ def test_delete_project(client, behavior, expected_status):
                 raise RuntimeError("Database error")
             raise AssertionError("Unhandled behavior")
 
-    client.app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
+    app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
 
     resp = client.delete(f"/api/v1/projects/{PROJECT_ID_STR}")
     assert resp.status_code == expected_status

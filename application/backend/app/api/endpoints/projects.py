@@ -8,14 +8,14 @@ from uuid import UUID
 from fastapi import Query, Response, status
 
 from api.routers import projects_router
-from dependencies import ProjectServiceDep
+from dependencies import LicenseServiceDep, ProjectServiceDep
 from domain.services.schemas.project import (
     ProjectCreateSchema,
     ProjectSchema,
     ProjectsListSchema,
     ProjectUpdateSchema,
 )
-from runtime.services.license import LicenseNotAcceptedError, LicenseService
+from runtime.services.license import LicenseNotAcceptedError
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +58,9 @@ logger = logging.getLogger(__name__)
 def create_project(
     payload: ProjectCreateSchema,
     project_service: ProjectServiceDep,
+    license_service: LicenseServiceDep,
 ) -> Response:
     """Create a new project with the given name."""
-    license_service = LicenseService()
     if not license_service.is_accepted():
         raise LicenseNotAcceptedError("Geti Instant Learn License must be accepted before creating projects.")
 
