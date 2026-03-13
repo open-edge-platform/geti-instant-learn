@@ -128,7 +128,12 @@ class ProjectService(BaseService):
           - Rename if `name` provided and different (enforces uniqueness via DB constraint).
           - Apply desired activation state if it differs.
         """
-        update_device = update_data.config.device if update_data.config is not None else None
+        config_updates = (
+            update_data.config.model_dump(exclude_unset=True, exclude_none=True)
+            if update_data.config is not None
+            else {}
+        )
+        update_device = config_updates.get("device")
         logger.debug(
             "Project update requested: id=%s name=%s active=%s device=%s",
             project_id,
@@ -147,9 +152,9 @@ class ProjectService(BaseService):
                     logger.debug("Renaming project id=%s from '%s' to '%s'", project_id, project.name, update_data.name)
                     project.name = update_data.name
 
-                if update_data.config is not None:
+                if config_updates:
                     project_config = dict(project.config or {})
-                    project_config.update(update_data.config.model_dump())
+                    project_config.update(config_updates)
                     project.config = project_config
 
                 if update_data.active is not None and project.active != update_data.active:
