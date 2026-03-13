@@ -8,8 +8,9 @@ transform segmentation predictions (masks, scores, labels). They can
 be attached to any model via the ``postprocessor`` parameter and are
 automatically included in ONNX export.
 
-All processors use pure PyTorch operations and are ONNX/OpenVINO exportable,
-except :class:`BoxNMS` which depends on ``torchvision``.
+All processors are ONNX/OpenVINO exportable (:class:`BoxNMS` uses
+``torchvision.ops.nms`` which has a registered ONNX symbolic mapping
+to the native ``NonMaxSuppression`` operator).
 
 Overlap resolution:
     - :class:`MaskNMS` — mask-IoU based NMS

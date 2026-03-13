@@ -5,17 +5,20 @@
 
 Provides NMS variants operating on mask IoU, box IoU, mask IoM
 (Intersection over Minimum), box IoM, and Soft-NMS with Gaussian score decay.
-All implementations use pure PyTorch operations and are ONNX-exportable,
-except :class:`BoxNMS` which depends on ``torchvision.ops.nms``.
+All implementations are ONNX/OpenVINO exportable.
 """
 
 from __future__ import annotations
+
+import logging
 
 import torch
 from torchvision.ops import nms as torchvision_nms
 
 from instantlearn.components.postprocessing.base import PostProcessor
 from instantlearn.components.sam.decoder import masks_to_boxes_traceable
+
+logger = logging.getLogger(__name__)
 
 
 def _pairwise_mask_iou(masks: torch.Tensor) -> torch.Tensor:
@@ -177,6 +180,102 @@ def _greedy_nms(
     return torch.tensor(kept, dtype=torch.int64, device=scores.device)
 
 
+def _matrix_nms(
+    scores: torch.Tensor,
+    overlap_matrix: torch.Tensor,
+    threshold: float,
+) -> torch.Tensor:
+    """Vectorized (matrix) NMS using a precomputed overlap matrix.
+
+    Unlike :func:`_greedy_nms`, this implementation uses **no Python
+    loops** and is fully ONNX/OpenVINO exportable.  It sorts masks by
+    descending score, builds a strictly-lower-triangular view of the
+    overlap matrix (each mask only sees higher-scored masks), and keeps
+    masks whose maximum overlap with any higher-scored mask is at or
+    below ``threshold``.
+
+    Trade-off vs greedy: matrix NMS does not cascade suppressions (if A
+    suppresses B, B cannot influence C).  In practice, results are very
+    similar for typical mask counts.
+
+    Args:
+        scores: Confidence scores ``[N]``.
+        overlap_matrix: Pairwise overlap values ``[N, N]`` (IoU or IoM).
+        threshold: Overlap threshold for suppression.
+
+    Returns:
+        Indices of kept masks (in original ordering) as a 1-D int64 tensor.
+    """
+    order = torch.argsort(scores, descending=True)
+
+    # Reorder overlap matrix so rows/cols follow descending score
+    sorted_overlap = overlap_matrix[order][:, order]  # [N, N]
+
+    # Lower-triangular mask (row i only sees columns 0..i-1 = higher-scored)
+    lower_tri = torch.ones_like(sorted_overlap).tril(diagonal=-1)
+
+    # Max overlap of each mask with any higher-scored mask
+    max_overlap = (sorted_overlap * lower_tri).max(dim=1).values  # [N]
+
+    # Keep masks where max overlap with higher-scored masks <= threshold
+    keep_sorted = max_overlap <= threshold
+
+    # Map back to original indices
+    return order[keep_sorted]
+
+
+def _matrix_soft_nms(
+    scores: torch.Tensor,
+    iou_matrix: torch.Tensor,
+    sigma: float,
+    score_threshold: float,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Vectorized Soft-NMS with Gaussian score decay.
+
+    Fully ONNX/OpenVINO exportable (no Python loops).  Sorts masks by
+    descending score, then for each mask computes a cumulative Gaussian
+    decay from all higher-scored masks::
+
+        decay_i = exp( -sum_{j < i} IoU(i,j)^2 / sigma )
+        s_i' = s_i * decay_i
+
+    This is equivalent to the sequential greedy Soft-NMS when the
+    processing order is fixed (higher-scored masks always processed
+    first, their scores unchanged).
+
+    Args:
+        scores: Confidence scores ``[N]``.
+        iou_matrix: Pairwise IoU matrix ``[N, N]``.
+        sigma: Gaussian decay parameter.
+        score_threshold: Minimum score after decay.
+
+    Returns:
+        Tuple of (kept_indices, decayed_scores_for_kept) in original ordering.
+    """
+    order = torch.argsort(scores, descending=True)
+
+    sorted_iou = iou_matrix[order][:, order]  # [N, N]
+    sorted_scores = scores[order]  # [N]
+
+    # Lower-triangular mask (row i sees columns 0..i-1)
+    lower_tri = torch.ones_like(sorted_iou).tril(diagonal=-1)
+
+    # Sum of IoU^2 with all higher-scored masks
+    iou_sq = sorted_iou * sorted_iou  # [N, N]
+    decay_sum = (iou_sq * lower_tri).sum(dim=1)  # [N]
+
+    # Gaussian decay: exp(-sum / sigma)
+    decay = torch.exp(-decay_sum / sigma)
+    decayed = sorted_scores * decay
+
+    keep_sorted = decayed > score_threshold
+
+    kept_original = order[keep_sorted]
+    kept_scores = decayed[keep_sorted]
+
+    return kept_original, kept_scores
+
+
 class MaskNMS(PostProcessor):
     """Non-Maximum Suppression using pairwise mask IoU.
 
@@ -217,7 +316,10 @@ class MaskNMS(PostProcessor):
             return masks, scores, labels
 
         iou_matrix = _pairwise_mask_iou(masks.bool())
-        keep = _greedy_nms(scores, iou_matrix, self.iou_threshold)
+        if torch.onnx.is_in_onnx_export():
+            keep = _matrix_nms(scores, iou_matrix, self.iou_threshold)
+        else:
+            keep = _greedy_nms(scores, iou_matrix, self.iou_threshold)
         return masks[keep], scores[keep], labels[keep]
 
 
@@ -228,9 +330,10 @@ class BoxNMS(PostProcessor):
     This is the fastest NMS variant but may be inaccurate for
     non-rectangular masks.
 
-    .. note::
-        This processor depends on ``torchvision.ops.nms`` and may not be
-        ONNX-exportable. For an ONNX-safe alternative, use :class:`BoxIoMNMS`.
+    ONNX/OpenVINO exportable: ``torchvision.ops.nms`` has a registered
+    ONNX symbolic that maps to the native ``ONNX::NonMaxSuppression``
+    operator, which OpenVINO converts to its hardware-optimized
+    ``NonMaxSuppression-9`` op.
 
     Args:
         iou_threshold: IoU threshold for box overlap. Default: ``0.5``.
@@ -326,15 +429,23 @@ class BoxIoMNMS(PostProcessor):
 
         boxes = masks_to_boxes_traceable(masks)
         iom_matrix = _pairwise_box_iom(boxes.float())
-        areas = masks.bool().flatten(1).sum(dim=1).float() if self.score_margin is not None else None
-        keep = _greedy_nms(
-            scores,
-            iom_matrix,
-            self.iom_threshold,
-            areas=areas,
-            score_margin=self.score_margin,
-            area_ratio=self.area_ratio,
-        )
+        if torch.onnx.is_in_onnx_export():
+            if self.score_margin is not None:
+                logger.warning(
+                    "Containment-aware mode (score_margin) is not supported"
+                    " during ONNX export. Falling back to standard matrix NMS.",
+                )
+            keep = _matrix_nms(scores, iom_matrix, self.iom_threshold)
+        else:
+            areas = masks.bool().flatten(1).sum(dim=1).float() if self.score_margin is not None else None
+            keep = _greedy_nms(
+                scores,
+                iom_matrix,
+                self.iom_threshold,
+                areas=areas,
+                score_margin=self.score_margin,
+                area_ratio=self.area_ratio,
+            )
         return masks[keep], scores[keep], labels[keep]
 
 
@@ -399,15 +510,23 @@ class MaskIoMNMS(PostProcessor):
             return masks, scores, labels
 
         iom_matrix = _pairwise_mask_iom(masks.bool())
-        areas = masks.bool().flatten(1).sum(dim=1).float() if self.score_margin is not None else None
-        keep = _greedy_nms(
-            scores,
-            iom_matrix,
-            self.iom_threshold,
-            areas=areas,
-            score_margin=self.score_margin,
-            area_ratio=self.area_ratio,
-        )
+        if torch.onnx.is_in_onnx_export():
+            if self.score_margin is not None:
+                logger.warning(
+                    "Containment-aware mode (score_margin) is not supported"
+                    " during ONNX export. Falling back to standard matrix NMS.",
+                )
+            keep = _matrix_nms(scores, iom_matrix, self.iom_threshold)
+        else:
+            areas = masks.bool().flatten(1).sum(dim=1).float() if self.score_margin is not None else None
+            keep = _greedy_nms(
+                scores,
+                iom_matrix,
+                self.iom_threshold,
+                areas=areas,
+                score_margin=self.score_margin,
+                area_ratio=self.area_ratio,
+            )
         return masks[keep], scores[keep], labels[keep]
 
 
@@ -459,6 +578,16 @@ class SoftNMS(PostProcessor):
             return masks, scores, labels
 
         iou_matrix = _pairwise_mask_iou(masks.bool())
+
+        if torch.onnx.is_in_onnx_export():
+            keep, decayed_scores = _matrix_soft_nms(
+                scores,
+                iou_matrix,
+                self.sigma,
+                self.score_threshold,
+            )
+            return masks[keep], decayed_scores, labels[keep]
+
         n = masks.size(0)
         decayed_scores = scores.clone().float()
 
