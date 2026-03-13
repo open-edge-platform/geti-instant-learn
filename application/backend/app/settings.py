@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
 
     # Runtime
-    device: Literal["cpu", "cuda", "xpu"] = Field(default="cpu", alias="DEVICE")
+    device: Literal["auto", "cpu", "cuda", "xpu"] = Field(default="cpu", alias="DEVICE")
 
     # Server
     host: str = Field(default="localhost", alias="HOST")
