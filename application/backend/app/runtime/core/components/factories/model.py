@@ -52,7 +52,12 @@ class ModelFactory:
     def __init__(self, device_resolver: DeviceResolver | None = None) -> None:
         self._device_resolver = device_resolver or DeviceResolver()
 
-    def create(self, reference_batch: Batch | None, config: ModelConfig | None) -> ModelHandler:  # noqa: PLR0911
+    def create(
+        self,
+        reference_batch: Batch | None,
+        config: ModelConfig | None,
+        configured_device: str | None = None,
+    ) -> ModelHandler:  # noqa: PLR0911
         if reference_batch is None:
             return PassThroughModelHandler()
         settings = get_settings()
@@ -61,7 +66,7 @@ class ModelFactory:
         if config is None:
             return PassThroughModelHandler()
 
-        selected_device = self._device_resolver.resolve_device(settings.device)
+        selected_device = self._device_resolver.resolve_device(configured_device or settings.device)
         is_cuda = selected_device == "cuda"
 
         match config:

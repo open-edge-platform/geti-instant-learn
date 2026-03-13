@@ -52,7 +52,11 @@ class DefaultComponentFactory(ComponentFactory):
         logger.info("Creating processor with model config: %s", cfg.processor)
         settings = get_settings()
         return Processor(
-            model_handler=self._model_factory.create(reference_batch, cfg.processor),
+            model_handler=self._model_factory.create(
+                reference_batch=reference_batch,
+                config=cfg.processor,
+                configured_device=cfg.device,
+            ),
             batch_size=settings.processor_batch_size,
             frame_skip_interval=settings.processor_frame_skip_interval,
             frame_skip_amount=settings.processor_frame_skip_amount,
