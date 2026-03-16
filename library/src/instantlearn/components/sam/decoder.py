@@ -234,17 +234,19 @@ class SamDecoder(nn.Module):
             return_logits=True,
         )
 
-        # masks: [1, num_multimask, H, W] — take best mask (index 0)
-        masks = masks[:, 0, :, :]  # [1, H, W]
+        # Select best mask by IoU prediction (more robust than fixed index 0,
+        # since GPU noise could reorder the 3 multimask outputs).
+        best_idx = iou_preds[:, :3].argmax(dim=1)  # [1]
+        masks = masks[torch.arange(masks.size(0), device=masks.device), best_idx]  # [1, H, W]
         masks = (masks > 0).to(masks.dtype)
-        mask_weights = iou_preds[:, :1]  # [1, 1]
+        mask_weights = iou_preds[torch.arange(iou_preds.size(0), device=iou_preds.device), best_idx]  # [1]
 
         # Similarity-based scoring
         sim_resized = self._resize_similarity(similarity, original_size)
         mask_sum = (sim_resized * masks).sum(dim=(1, 2))
         mask_area = masks.sum(dim=(1, 2)) + 1e-6
         mask_scores = mask_sum / mask_area
-        weighted_scores = mask_scores * mask_weights[:, 0]
+        weighted_scores = mask_scores * mask_weights
 
         return masks, weighted_scores
 

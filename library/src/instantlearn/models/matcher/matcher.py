@@ -3,6 +3,7 @@
 
 """Matcher model, based on the paper 'Segment Anything with One Shot Using All-Purpose Feature Matching'."""
 
+import logging
 from pathlib import Path
 
 import torch
@@ -18,6 +19,8 @@ from instantlearn.models.base import Model
 from instantlearn.utils.constants import Backend, SAMModelName
 
 from .prompt_generators import BidirectionalPromptGenerator
+
+logger = logging.getLogger(__name__)
 
 
 class EncoderForwardFeaturesWrapper(nn.Module):
@@ -417,16 +420,33 @@ class Matcher(Model):
                 # Direct PyTorch → OpenVINO conversion fails on many ops (aten::pad, aten::unbind, etc.)
                 # ONNX → OpenVINO conversion has much better support.
                 onnx_path = export_path / "matcher.onnx"
-                torch.onnx.export(
-                    matcher,
-                    args=(target_image,),
-                    f=onnx_path,
-                    input_names=["target_image"],
-                    output_names=["masks", "scores", "labels"],
-                    # Keep OpenVINO export graph static for stable GPU shape inference.
-                    # Dynamic axes here can lead to infer-time broadcast mismatches.
-                    dynamo=False,
-                )
+                try:
+                    torch.onnx.export(
+                        matcher,
+                        args=(target_image,),
+                        f=onnx_path,
+                        input_names=["target_image"],
+                        output_names=["masks", "scores", "labels"],
+                        # Keep OpenVINO export graph static for stable GPU shape inference.
+                        # Dynamic axes here can lead to infer-time broadcast mismatches.
+                        dynamo=False,
+                    )
+                except RuntimeError as onnx_err:
+                    if "2GiB" in str(onnx_err) or "protobuf" in str(onnx_err):
+                        # Large models (e.g. SAM-HQ ViT-H ~2.6GB) exceed protobuf limit.
+                        # Re-export with string path so ONNX writes external data files.
+                        logger.info("Model exceeds ONNX 2GiB limit, re-exporting with external data")
+                        torch.onnx.export(
+                            matcher,
+                            args=(target_image,),
+                            f=str(onnx_path),
+                            input_names=["target_image"],
+                            output_names=["masks", "scores", "labels"],
+                            dynamo=False,
+                        )
+                    else:
+                        raise
+
                 # Prefer ONNX frontend path for better operator coverage.
                 # Fall back to direct conversion when ONNX export output is unavailable.
                 core = openvino.Core()

@@ -314,13 +314,9 @@ class BidirectionalPromptGenerator(nn.Module):
         mask_float = flatten_ref_mask.float()  # [num_ref]
 
         # Max-pooled similarity: for each target, max similarity to any masked ref.
-        # Use -65504 (FP16 minimum) instead of -1e9 which overflows FP16 range (~65504)
-        # and produces garbage when OpenVINO compress_to_fp16=True converts the constant.
         neg_inf = torch.tensor(-65504.0, device=device, dtype=similarity_map.dtype)
         masked_sim = torch.where(
-            mask_float.unsqueeze(1) > 0.5,
-            similarity_map,
-            neg_inf,
+            mask_float.unsqueeze(1) > 0.5, similarity_map, neg_inf,
         )  # [num_ref, num_target]
         max_sim_per_target = masked_sim.max(dim=0).values  # [num_target]
 

@@ -19,7 +19,7 @@ ref_sample = Sample(
 
 # fit the model
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model = Matcher(device=device)
+model = Matcher(device=device, sam="SAM-HQ")
 model.fit(ref_sample)
 
 # Target sample
