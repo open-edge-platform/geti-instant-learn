@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
 
     # Runtime
-    device: Literal["cpu", "cuda", "xpu"] = Field(default="cpu", alias="DEVICE")
+    device: Literal["auto", "cpu", "cuda", "xpu"] = Field(default="cpu", alias="DEVICE")
 
     # Server
     host: str = Field(default="localhost", alias="HOST")
@@ -55,6 +55,30 @@ class Settings(BaseSettings):
 
     # Template datasets
     template_dataset_path: str = Field(default="templates/datasets/coffee-berries", alias="TEMPLATE_DATASET_PATH")
+
+    # License
+    license_accept_env_var: str = "INSTANTLEARN_LICENSE_ACCEPTED"
+
+    @property
+    def config_dir(self) -> Path:
+        """Path to the config directory (~/.config/instantlearn on Unix, %APPDATA%/instantlearn on Windows)."""
+        if sys.platform == "win32":
+            # Windows: use APPDATA or fall back to home
+            appdata = os.environ.get("APPDATA")
+            if appdata:
+                return Path(appdata) / "instantlearn"
+            return Path.home() / "AppData" / "Roaming" / "instantlearn"
+
+        # Unix-like (Linux, macOS): use XDG_CONFIG_HOME or ~/.config
+        xdg_config = os.environ.get("XDG_CONFIG_HOME")
+        if xdg_config:
+            return Path(xdg_config) / "instantlearn"
+        return Path.home() / ".config" / "instantlearn"
+
+    @property
+    def license_consent_file_path(self) -> Path:
+        """Path to the license consent file."""
+        return self.config_dir / ".license_accepted"
 
     @property
     def template_dataset_dir(self) -> Path:

@@ -109,7 +109,7 @@ jobs:
 
       - name: Log in to GHCR
         if: inputs.push_images
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -124,6 +124,6 @@ jobs:
 
       - name: Sign image for ${{ matrix.ai-device }}
         if: inputs.push_images
-        uses: open-edge-platform/geti-ci/actions/sign-image@375de2eb018dae396c959f9b3a464f40271de969
+        uses: open-edge-platform/geti-ci/actions/sign-image@cc6fbe840db6ebd16ebd18d409f475bff5a8c182
         with:
           image-uri: ${{ env.IMAGE_NAME }}
