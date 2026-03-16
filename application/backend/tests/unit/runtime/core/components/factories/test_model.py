@@ -43,6 +43,7 @@ class TestModelFactory:
         settings = MagicMock()
         settings.device = "cpu"
         settings.processor_inference_enabled = True
+        settings.processor_openvino_enabled = False
         return settings
 
     @pytest.fixture
@@ -83,6 +84,7 @@ class TestModelFactory:
             use_nms=True,
         )
         mock_settings.device = "auto"
+        mock_settings.processor_openvino_enabled = not use_torch_handler
 
         with (
             patch.multiple(
@@ -127,6 +129,7 @@ class TestModelFactory:
                 mock_torch_handler.assert_not_called()
 
     def test_factory_creates_matcher_model_with_config(self, mock_reference_batch, mock_settings, model_factory):
+        mock_settings.processor_openvino_enabled = True
         config = MatcherConfig(
             num_foreground_points=50,
             num_background_points=3,
@@ -331,6 +334,7 @@ class TestModelFactory:
     def test_factory_returns_inference_handler_for_valid_configs(
         self, mock_reference_batch, mock_settings, model_factory, config_class, model_patch_name
     ):
+        mock_settings.processor_openvino_enabled = config_class == MatcherConfig
         if config_class == MatcherConfig:
             config = MatcherConfig(
                 num_foreground_points=5,
