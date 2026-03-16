@@ -60,6 +60,7 @@ class TestModelFactory:
         ("resolved_device", "expected_precision", "use_torch_handler"),
         [
             ("cuda", "bf16", True),
+            ("cpu", "bf16", True),
             ("xpu", "fp32", False),
         ],
     )
