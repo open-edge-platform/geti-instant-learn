@@ -43,7 +43,6 @@ logger = logging.getLogger(__name__)
                                     "sam_model": "SAM-HQ-tiny",
                                     "encoder_model": "dinov3_small",
                                     "use_mask_refinement": False,
-                                    "use_nms": True,
                                 },
                             },
                             {
@@ -60,7 +59,6 @@ logger = logging.getLogger(__name__)
                                     "point_selection_threshold": 0.65,
                                     "confidence_threshold": 0.42,
                                     "precision": "bf16",
-                                    "use_nms": True,
                                 },
                             },
                             {
@@ -80,7 +78,6 @@ logger = logging.getLogger(__name__)
                                     "softmatching_score_threshold": 0.4,
                                     "softmatching_bidirectional": False,
                                     "precision": "bf16",
-                                    "use_nms": True,
                                 },
                             },
                         ]
@@ -275,7 +272,6 @@ def get_model(project_id: UUID, model_id: UUID, model_service: ModelServiceDep) 
                                     "sam_model": "SAM-HQ-tiny",
                                     "encoder_model": "dinov3_small",
                                     "use_mask_refinement": False,
-                                    "use_nms": True,
                                 },
                             },
                         },
@@ -298,7 +294,6 @@ def get_model(project_id: UUID, model_id: UUID, model_service: ModelServiceDep) 
                                     "softmatching_score_threshold": 0.4,
                                     "softmatching_bidirectional": False,
                                     "precision": "bf16",
-                                    "use_nms": True,
                                 },
                             },
                         },

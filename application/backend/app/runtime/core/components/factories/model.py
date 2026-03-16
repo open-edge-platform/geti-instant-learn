@@ -78,7 +78,6 @@ class ModelFactory:
                     num_background_points=config.num_background_points,
                     confidence_threshold=config.confidence_threshold,
                     use_mask_refinement=config.use_mask_refinement,
-                    use_nms=config.use_nms,
                     precision=precision,
                     device=selected_device,
                 )
@@ -94,7 +93,6 @@ class ModelFactory:
                     num_grid_cells=config.num_grid_cells,
                     point_selection_threshold=config.point_selection_threshold,
                     confidence_threshold=config.confidence_threshold,
-                    use_nms=config.use_nms,
                     precision=config.precision,
                     device=selected_device,
                 )
@@ -111,7 +109,6 @@ class ModelFactory:
                     approximate_matching=config.approximate_matching,
                     softmatching_score_threshold=config.softmatching_score_threshold,
                     softmatching_bidirectional=config.softmatching_bidirectional,
-                    use_nms=config.use_nms,
                     precision=config.precision,
                     device=selected_device,
                 )

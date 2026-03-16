@@ -84,17 +84,16 @@ class MaskedFeatureExtractor(nn.Module):
             strict=True,
         ):
             for category_id, mask in zip(category_ids_tensor, masks_tensor, strict=True):
-                if isinstance(category_id, torch.Tensor):
-                    category_id = int(category_id.item())
+                cat_id = int(category_id.item()) if isinstance(category_id, torch.Tensor) else category_id
                 pooled_mask = self.transform(mask).to(embedding.device)
-                masks_per_cat[category_id].append(pooled_mask)
+                masks_per_cat[cat_id].append(pooled_mask)
 
                 # Extract masked embeddings
                 keep = pooled_mask.flatten().bool()
-                masked_embeddings_per_cat[category_id].append(embedding[keep])
+                masked_embeddings_per_cat[cat_id].append(embedding[keep])
 
                 # Store full embedding for this reference
-                ref_embeddings_per_cat[category_id].append(embedding)
+                ref_embeddings_per_cat[cat_id].append(embedding)
 
         # Get unique categories in sorted order for deterministic output
         unique_cats = sorted(masked_embeddings_per_cat.keys())
@@ -114,7 +113,15 @@ class MaskedFeatureExtractor(nn.Module):
                 averaged_embed = cat_masked_embeds.mean(dim=0, keepdim=True)
                 averaged_embed /= averaged_embed.norm(dim=-1, keepdim=True)
             else:
-                averaged_embed = cat_masked_embeds  # Empty tensor
+                # No mask pixels overlapped any encoder patches (mask too small
+                # or misaligned at patch-grid resolution). Return an empty tensor
+                # so the shape reflects zero masked embeddings.
+                averaged_embed = torch.zeros(
+                    0,
+                    cat_masked_embeds.shape[-1],
+                    device=cat_masked_embeds.device,
+                    dtype=cat_masked_embeds.dtype,
+                )
             masked_ref_embeddings_list.append(averaged_embed)
 
             # Get ref embeddings and masks for this category

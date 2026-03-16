@@ -32,7 +32,6 @@ class BaseModelConfig(BaseModel):
     sam_model: SAMModelName = Field(default=SAMModelName.SAM_HQ_TINY)
     encoder_model: str = Field(default="dinov3_small")
     precision: str = Field(default="bf16", description="Model precision")
-    use_nms: bool = Field(default=True)
 
     @field_validator("sam_model", mode="before")
     @classmethod
@@ -71,7 +70,6 @@ class PerDinoConfig(BaseModelConfig):
                 "point_selection_threshold": 0.65,
                 "confidence_threshold": 0.42,
                 "precision": "bf16",
-                "use_nms": True,
             }
         }
     }
@@ -95,7 +93,6 @@ class MatcherConfig(BaseModelConfig):
                 "sam_model": "SAM-HQ-tiny",
                 "encoder_model": "dinov3_small",
                 "use_mask_refinement": False,
-                "use_nms": True,
             }
         }
     }
@@ -127,7 +124,6 @@ class SoftMatcherConfig(BaseModelConfig):
                 "softmatching_score_threshold": 0.4,
                 "softmatching_bidirectional": False,
                 "precision": "bf16",
-                "use_nms": True,
             }
         }
     }

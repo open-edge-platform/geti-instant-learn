@@ -135,7 +135,6 @@ class TestModelFactory:
             sam_model=SAMModelName.SAM_HQ_TINY,
             encoder_model="dinov3_small",
             use_mask_refinement=True,
-            use_nms=True,
         )
 
         with patch.multiple(
@@ -162,7 +161,6 @@ class TestModelFactory:
                 use_mask_refinement=True,
                 sam=SAMModelName.SAM_HQ_TINY,
                 encoder_model="dinov3_small",
-                use_nms=True,
             )
             mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch, precision="fp32")
 
@@ -176,7 +174,6 @@ class TestModelFactory:
             point_selection_threshold=0.65,
             confidence_threshold=0.42,
             precision="bf16",
-            use_nms=True,
         )
 
         with patch.multiple(
@@ -202,7 +199,6 @@ class TestModelFactory:
                 num_grid_cells=16,
                 point_selection_threshold=0.65,
                 confidence_threshold=0.42,
-                use_nms=True,
                 precision="bf16",
                 device="cpu",
             )
@@ -221,7 +217,6 @@ class TestModelFactory:
             softmatching_score_threshold=0.5,
             softmatching_bidirectional=True,
             precision="bf16",
-            use_nms=True,
         )
 
         with patch.multiple(
@@ -250,7 +245,6 @@ class TestModelFactory:
                 approximate_matching=True,
                 softmatching_score_threshold=0.5,
                 softmatching_bidirectional=True,
-                use_nms=True,
                 precision="bf16",
                 device="cpu",
             )

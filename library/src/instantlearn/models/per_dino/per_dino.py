@@ -8,6 +8,10 @@ import torch
 from instantlearn.components import CosineSimilarity, SamDecoder
 from instantlearn.components.encoders import ImageEncoder
 from instantlearn.components.feature_extractors import MaskedFeatureExtractor, ReferenceFeatures
+from instantlearn.components.postprocessing import (
+    PostProcessor,
+    default_postprocessor,
+)
 from instantlearn.components.sam import load_sam_model
 from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
@@ -67,10 +71,10 @@ class PerDino(Model):
         num_grid_cells: int = 16,
         point_selection_threshold: float = 0.65,
         confidence_threshold: float | None = 0.42,
-        use_nms: bool = True,
         precision: str = "bf16",
         compile_models: bool = False,
         device: str = "cuda",
+        postprocessor: PostProcessor | None = None,
     ) -> None:
         """Initialize the PerDino model.
 
@@ -88,12 +92,16 @@ class PerDino(Model):
                 in the final output. Computed as a weighted combination of SAM's IoU
                 prediction and mean similarity within the mask region. Higher values =
                 stricter filtering, fewer masks.
-            use_nms: Whether to use NMS in SamDecoder.
             precision: Model precision ("bf16", "fp32").
             compile_models: Whether to compile models with torch.compile.
             device: Device for inference.
+            postprocessor: Post-processor applied after predict().
+                Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
+                (MaskIoMNMS + BoxIoMNMS).
         """
-        super().__init__()
+        if postprocessor is None:
+            postprocessor = default_postprocessor()
+        super().__init__(postprocessor=postprocessor)
         self.sam_predictor = load_sam_model(
             sam,
             device=device,
@@ -129,7 +137,6 @@ class PerDino(Model):
         self.segmenter = SamDecoder(
             sam_predictor=self.sam_predictor,
             confidence_threshold=confidence_threshold,
-            use_nms=use_nms,
         )
 
         self.ref_features: ReferenceFeatures | None = None
@@ -200,9 +207,10 @@ class PerDino(Model):
         )
 
         # Decode masks
-        return self.segmenter(
+        predictions = self.segmenter(
             target_batch.images,
             self.ref_features.category_ids,
             point_prompts=point_prompts,
             similarities=similarities,
         )
+        return self.apply_postprocessing(predictions)
