@@ -99,6 +99,18 @@ class SamDecoder(nn.Module):
         Returns:
             Tuple of (point_coords, point_labels, original_points)
         """
+        if torch.onnx.is_in_onnx_export():
+            # Keep export shapes stable: pass a single fixed-size prompt set [1, max_points, ...]
+            # and convert padding label 0 -> -1 so SAM treats padded slots as not-a-point.
+            point_coords = points[:, :2].unsqueeze(0)
+            point_labels = torch.where(
+                points[:, 3] == 0,
+                torch.full_like(points[:, 3], -1),
+                points[:, 3],
+            ).to(torch.float32).unsqueeze(0)
+            original_points = points
+            return point_coords, point_labels, original_points
+
         valid_points = points[points[:, 3] != 0]
 
         # Check if there are any foreground points (label == 1)
@@ -154,7 +166,7 @@ class SamDecoder(nn.Module):
         Returns:
             Padded masks [max_masks, H, W], scores [max_masks], labels [max_masks]
         """
-        device = self.device
+        device = masks.device
         h, w = original_size
 
         num_masks = masks.size(0)
@@ -165,7 +177,11 @@ class SamDecoder(nn.Module):
         padded_labels = torch.full((max_masks,), -1, device=device, dtype=torch.int64)
 
         if torch.onnx.is_in_onnx_export():
-            n = torch.minimum(num_masks, torch.tensor(max_masks))
+            # Keep scalar tensors on the same device to avoid CPU/XPU mixed-index ops during tracing.
+            n = torch.minimum(
+                torch.scalar_tensor(num_masks, dtype=torch.long, device=device),
+                torch.scalar_tensor(max_masks, dtype=torch.long, device=device),
+            )
         else:
             n = min(num_masks, max_masks)
         padded_masks[:n] = masks[:n]
@@ -212,16 +228,21 @@ class SamDecoder(nn.Module):
         """
         # Initial prediction
         # masks: [num_fg, 1, H, W], iou_preds: [num_fg, 1]
+        export_mode = torch.onnx.is_in_onnx_export()
         masks, iou_preds, low_res_logits = self.predictor.forward(
             point_coords=point_coords,
             point_labels=point_labels,
             boxes=None,
             mask_input=None,
             multimask_output=True,
+            return_logits=export_mode,
         )
 
         # Filter empty masks
         masks = masks[:, 0, :, :]  # [num_fg, H, W]
+        if export_mode:
+            # Keep export tensors numeric (float) to avoid u8 GatherND on GPU.
+            masks = (masks > 0).to(masks.dtype)
         keep = masks.sum(dim=(-1, -2)) > 0
         if not keep.any():
             return (
@@ -248,8 +269,11 @@ class SamDecoder(nn.Module):
                 boxes=boxes,
                 mask_input=low_res_logits,
                 multimask_output=True,  # Match SamDecoder behavior
+                return_logits=export_mode,
             )
             masks = masks[:, 0, :, :]  # [N, H, W]
+            if export_mode:
+                masks = (masks > 0).to(masks.dtype)
         else:
             mask_weights = iou_preds[keep]
 
@@ -357,7 +381,8 @@ class SamDecoder(nn.Module):
 
         # Flatten and filter valid predictions
         valid_mask = all_labels >= 0
-        pred_masks = all_masks.bool()[valid_mask]
+        # Select on float tensor first; convert to bool after indexing to avoid u8 GatherND in export graphs.
+        pred_masks = all_masks[valid_mask] > 0
         pred_scores = all_scores[valid_mask]
         pred_labels = all_labels[valid_mask]
         pred_points = torch.cat(used_points_list, dim=0)

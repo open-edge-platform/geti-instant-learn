@@ -328,7 +328,7 @@ class Matcher(Model):
 
         export_device = self.ref_features.device
         if backend == Backend.OPENVINO:
-            export_device = torch.device("cpu")
+            export_device = torch.device("xpu")
         first_encoder_param = next(iter(self.encoder._model.model.parameters()), None)
         if backend != Backend.OPENVINO and isinstance(first_encoder_param, torch.Tensor):
             export_device = first_encoder_param.device
@@ -380,12 +380,8 @@ class Matcher(Model):
                     f=onnx_path,
                     input_names=["target_image"],
                     output_names=["masks", "scores", "labels"],
-                    dynamic_axes={
-                        "target_image": {2: "height", 3: "width"},
-                        "masks": {0: "num_masks", 1: "height", 2: "width"},
-                        "scores": {0: "num_masks"},
-                        "labels": {0: "num_masks"},
-                    },
+                    # Keep OpenVINO export graph static for stable GPU shape inference.
+                    # Dynamic axes here can lead to infer-time broadcast mismatches.
                     dynamo=False,
                 )
                 # Prefer ONNX frontend path for better operator coverage.
