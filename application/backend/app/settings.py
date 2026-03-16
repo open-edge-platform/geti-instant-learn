@@ -36,9 +36,6 @@ class Settings(BaseSettings):
     environment: Literal["dev", "prod"] = "dev"
     static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
 
-    # Runtime
-    device: Literal["auto", "cpu", "cuda", "xpu"] = Field(default="cpu", alias="DEVICE")
-
     # Server
     host: str = Field(default="localhost", alias="HOST")
     port: int = Field(default=9100, alias="PORT")

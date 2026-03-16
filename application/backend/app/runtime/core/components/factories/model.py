@@ -33,12 +33,12 @@ class DeviceResolver:
         except (ImportError, AttributeError, RuntimeError):
             return False
 
-    def resolve_device(self, configured_device: str) -> str:
+    def resolve_device(self, configured_device: str | None) -> str:
         """Resolve `auto` device selection to a concrete backend.
 
         Selection priority for `auto`: Intel GPU (xpu), NVIDIA GPU (cuda), then CPU.
         """
-        if configured_device != "auto":
+        if configured_device is not None and configured_device != "auto":
             return configured_device
 
         if self._has_intel_gpu():
@@ -66,7 +66,7 @@ class ModelFactory:
         if config is None:
             return PassThroughModelHandler()
 
-        selected_device = self._device_resolver.resolve_device(configured_device or settings.device)
+        selected_device = self._device_resolver.resolve_device(configured_device)
         is_cuda = selected_device == "cuda"
 
         match config:
