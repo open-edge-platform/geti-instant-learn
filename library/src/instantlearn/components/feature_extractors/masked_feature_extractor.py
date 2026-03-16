@@ -114,10 +114,10 @@ class MaskedFeatureExtractor(nn.Module):
                 averaged_embed /= averaged_embed.norm(dim=-1, keepdim=True)
             else:
                 # No mask pixels overlapped any encoder patches (mask too small
-                # or misaligned at patch-grid resolution). Use a zero vector so
-                # stacking across categories produces uniform [1, embed_dim] shapes.
+                # or misaligned at patch-grid resolution). Return an empty tensor
+                # so the shape reflects zero masked embeddings.
                 averaged_embed = torch.zeros(
-                    1,
+                    0,
                     cat_masked_embeds.shape[-1],
                     device=cat_masked_embeds.device,
                     dtype=cat_masked_embeds.dtype,
