@@ -12,10 +12,10 @@ import { getDistinctColorBasedOnHash } from '@geti/ui/utils';
 
 import classes from './text-prompt-badge.module.scss';
 
-interface TextPromptBadgeProps {
+type TextPromptBadgeProps = {
     prompt: TextPromptType;
     onDelete: (id: string) => void;
-}
+};
 
 export const TextPromptBadge = ({ prompt, onDelete }: TextPromptBadgeProps) => {
     const color = getDistinctColorBasedOnHash(prompt.id);

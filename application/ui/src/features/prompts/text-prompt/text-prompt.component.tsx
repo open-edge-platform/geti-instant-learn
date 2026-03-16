@@ -12,7 +12,7 @@ import { Add } from '@geti/ui/icons';
 import { useCreateTextPrompt, useDeleteTextPrompt, useGetTextPrompts } from './api/use-text-prompts';
 import { TextPromptBadge } from './text-prompt-badge/text-prompt-badge.component';
 
-import styles from './text-prompt.module.scss';
+import classes from './text-prompt.module.scss';
 
 const TextPromptBadgeList = () => {
     const prompts = useGetTextPrompts();
@@ -26,7 +26,7 @@ const TextPromptBadgeList = () => {
     };
 
     if (prompts.length === 0) {
-        return <Text UNSAFE_className={styles.emptyState}>No text prompts yet.</Text>;
+        return <Text UNSAFE_className={classes.emptyState}>No text prompts yet.</Text>;
     }
 
     return (
@@ -48,11 +48,11 @@ export const TextPrompt = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || !e.shiftKey)) {
             e.preventDefault();
-            if (!isSubmitDisabled) handleAdd();
+            if (!isSubmitDisabled) handleAddTextPrompt();
         }
     };
 
-    const handleAdd = () => {
+    const handleAddTextPrompt = () => {
         const trimmed = content.trim();
 
         if (!trimmed) return;
@@ -79,7 +79,7 @@ export const TextPrompt = () => {
                     onKeyDown={handleKeyDown}
                     flex={1}
                 />
-                <ActionButton isDisabled={isSubmitDisabled} onPress={handleAdd} aria-label={'Add prompt'}>
+                <ActionButton isDisabled={isSubmitDisabled} onPress={handleAddTextPrompt} aria-label={'Add prompt'}>
                     <Add />
                 </ActionButton>
             </Flex>
