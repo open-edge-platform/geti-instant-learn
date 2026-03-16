@@ -299,18 +299,55 @@ class Matcher(Model):
             similarities=similarities,
         )
 
+    @staticmethod
+    def _fix_onnx_output_names(onnx_path: Path, expected_names: list[str]) -> None:
+        """Ensure ONNX graph outputs have the expected names.
+
+        Registered buffers returned as outputs often get auto-generated names
+        (e.g. '39982') because the ONNX tracer treats them as graph constants.
+        Renames outputs in-place using the ONNX protobuf, also updating all
+        internal node references and initializers so the graph stays valid.
+        """
+        if not onnx_path.exists():
+            return
+
+        import onnx
+
+        model = onnx.load(str(onnx_path))
+        rename_map: dict[str, str] = {}
+        for output, expected in zip(model.graph.output, expected_names, strict=False):
+            if output.name != expected:
+                rename_map[output.name] = expected
+        if not rename_map:
+            return
+        # Update node outputs that feed into graph outputs.
+        for node in model.graph.node:
+            for i, name in enumerate(node.output):
+                if name in rename_map:
+                    node.output[i] = rename_map[name]
+        # Update initializers (registered buffers appear here).
+        for initializer in model.graph.initializer:
+            if initializer.name in rename_map:
+                initializer.name = rename_map[initializer.name]
+        # Update the graph output names.
+        for output in model.graph.output:
+            if output.name in rename_map:
+                output.name = rename_map[output.name]
+        onnx.save(model, str(onnx_path))
+
     @torch.no_grad()
     def export(
         self,
         export_dir: str | Path = Path("./exports/matcher"),
         backend: str | Backend = Backend.ONNX,
+        compress_to_fp16: bool = False,
     ) -> Path:
         """Export model components.
 
         Args:
             export_dir: Directory to save exported models.
             backend: Export backend (ONNX, OpenVINO).
-            **kwargs: Additional export parameters.
+            compress_to_fp16: Whether to compress OpenVINO model to FP16.
 
         Returns:
             Path to export directory.
@@ -333,21 +370,26 @@ class Matcher(Model):
         if backend != Backend.OPENVINO and isinstance(first_encoder_param, torch.Tensor):
             export_device = first_encoder_param.device
 
-        self.sam_predictor.sync_device(export_device)
+        self.sam_predictor.sync_device(export_device, dtype=torch.float32)
         self.segmenter.device = self.sam_predictor.device
         ref_features = self.ref_features.to(export_device)
 
-        matcher = MatcherInferenceGraph(
-            encoder=EncoderForwardFeaturesWrapper(
-                self.encoder._model.model,
-                ignore_token_length=self.encoder._model.ignore_token_length,
-            ),
-            prompt_generator=self.prompt_generator,
-            sam_decoder=self.segmenter,
-            ref_features=ref_features,
-        ).to(export_device)
+        matcher = (
+            MatcherInferenceGraph(
+                encoder=EncoderForwardFeaturesWrapper(
+                    self.encoder._model.model,
+                    ignore_token_length=self.encoder._model.ignore_token_length,
+                ),
+                prompt_generator=self.prompt_generator,
+                sam_decoder=self.segmenter,
+                ref_features=ref_features,
+            )
+            .to(export_device)
+            .float()
+        )  # Force FP32 for stable CPU tracing
 
-        target_image = torch.randn(1, 3, self.encoder.input_size, self.encoder.input_size, device=export_device)
+        input_size = self.encoder.input_size
+        target_image = torch.randn(1, 3, input_size, input_size, device=export_device)
         if backend == Backend.ONNX:
             onnx_path = export_path / "matcher.onnx"
             torch.onnx.export(
@@ -364,15 +406,16 @@ class Matcher(Model):
                 },
                 dynamo=False,
             )
+            self._fix_onnx_output_names(onnx_path, ["masks", "scores", "labels"])
             return onnx_path
 
         if backend == Backend.OPENVINO:
             try:
                 import openvino
 
-                # Export to ONNX first, then convert to OpenVINO
+                # Export to ONNX first, then convert to OpenVINO.
                 # Direct PyTorch → OpenVINO conversion fails on many ops (aten::pad, aten::unbind, etc.)
-                # ONNX → OpenVINO conversion has much better support
+                # ONNX → OpenVINO conversion has much better support.
                 onnx_path = export_path / "matcher.onnx"
                 torch.onnx.export(
                     matcher,
@@ -380,12 +423,8 @@ class Matcher(Model):
                     f=onnx_path,
                     input_names=["target_image"],
                     output_names=["masks", "scores", "labels"],
-                    dynamic_axes={
-                        "target_image": {2: "height", 3: "width"},
-                        "masks": {0: "num_masks", 1: "height", 2: "width"},
-                        "scores": {0: "num_masks"},
-                        "labels": {0: "num_masks"},
-                    },
+                    # Keep OpenVINO export graph static for stable GPU shape inference.
+                    # Dynamic axes here can lead to infer-time broadcast mismatches.
                     dynamo=False,
                 )
                 # Prefer ONNX frontend path for better operator coverage.
@@ -398,7 +437,22 @@ class Matcher(Model):
                         ov_model = openvino.convert_model(matcher, example_input=target_image)
                 else:
                     ov_model = openvino.convert_model(matcher, example_input=target_image)
-                openvino.save_model(ov_model, export_path / "matcher.xml")
+
+                # Fix output names: registered buffers returned as model outputs
+                # get auto-generated names (e.g. '39982') from the ONNX tracer.
+                expected_names = ["masks", "scores", "labels"]
+                for output, name in zip(ov_model.outputs, expected_names, strict=False):
+                    output.tensor.set_names({name})
+
+                # Reshape to static input for optimal GPU kernel compilation.
+                input_name = ov_model.inputs[0].get_any_name()
+                ov_model.reshape({input_name: [1, 3, input_size, input_size]})
+
+                openvino.save_model(
+                    ov_model,
+                    export_path / "matcher.xml",
+                    compress_to_fp16=compress_to_fp16,
+                )
                 return export_path / "matcher.xml"
             except ImportError as e:
                 msg = "OpenVINO is not installed. Please install it to use OpenVINO export."
