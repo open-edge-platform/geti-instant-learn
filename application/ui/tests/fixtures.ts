@@ -30,6 +30,7 @@ const test = testBase.extend<Fixtures>({
             http.get('/health', ({ response }) => {
                 return response(200).json({
                     status: 'ok',
+                    license_accepted: true,
                 });
             }),
             http.get('/api/v1/projects', ({ response }) => {

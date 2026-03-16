@@ -31,7 +31,7 @@ runs:
   steps:
     - name: Initial cleanup
       if: ${{ inputs.cleanup-runner == 'true' }}
-      uses: open-edge-platform/geti-ci/actions/cleanup-runner@9b1ef60a8b2b802da428621e192c322960f4b3d5
+      uses: open-edge-platform/geti-ci/actions/cleanup-runner@cc6fbe840db6ebd16ebd18d409f475bff5a8c182
       with:
         type: "initial"
 
@@ -43,7 +43,7 @@ runs:
 
     - name: Install uv
       if: ${{ inputs.install-uv == 'true' }}
-      uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7.3.1
+      uses: astral-sh/setup-uv@e06108dd0aef18192324c70427afc47652e63a82 # v7.5.0
       with:
         version: ${{ inputs.uv-version }}
         enable-cache: ${{ inputs.uv-cache-dependency-glob != '' && 'true' || 'false' }}
