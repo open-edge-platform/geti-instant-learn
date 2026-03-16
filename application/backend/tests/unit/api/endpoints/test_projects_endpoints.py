@@ -124,7 +124,7 @@ class TestCreateProject:
             def create_project(self, payload):
                 assert payload.name == "myproj"
                 if behavior == "success":
-                    return ProjectSchema(id=PROJECT_ID, name="myproj", active=True)
+                    return ProjectSchema(id=PROJECT_ID, name="myproj", active=True, config={"device": "cpu"})
                 if behavior == "conflict":
                     raise ResourceAlreadyExistsError(
                         resource_type=ResourceType.PROJECT,
