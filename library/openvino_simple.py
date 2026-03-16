@@ -1,14 +1,15 @@
 from pathlib import Path
 from time import time
 
-import torch
-import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import numpy as np
 import openvino
+import torch
+import torch.nn.functional as F
 
 from instantlearn.data import Sample
 from instantlearn.models import Matcher
+from instantlearn.utils.constants import SAMModelName
 
 # reference image
 root_dir = Path("examples/assets/coco")
@@ -19,7 +20,7 @@ ref_sample = Sample(
 
 # fit the model
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model = Matcher(device=device, sam="SAM-HQ")
+model = Matcher(device=device, sam=SAMModelName.SAM_HQ)
 model.fit(ref_sample)
 
 # Target sample
