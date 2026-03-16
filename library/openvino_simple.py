@@ -40,6 +40,10 @@ pt_labels = predictions[0]["pred_labels"].cpu().numpy()
 ov_path = model.export(backend="openvino", compress_to_fp16=True)
 print(f"Model exported to {ov_path}")
 
+# Free PyTorch model from memory before loading OpenVINO
+del model
+if device == "cuda":
+    torch.cuda.empty_cache()
 
 core = openvino.Core()
 ov_model = core.read_model(str(ov_path))
@@ -62,6 +66,8 @@ outputs = compiled_model(input_data)
 ov_gpu_time = time() - tic
 ov_gpu_masks, ov_gpu_scores, ov_gpu_labels = outputs.values()
 
+# Free GPU compiled model before loading CPU model
+del compiled_model
 
 # do the same but on CPU
 compiled_model = core.compile_model(ov_model, "CPU")
