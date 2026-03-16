@@ -52,12 +52,12 @@ class ModelFactory:
     def __init__(self, device_resolver: DeviceResolver | None = None) -> None:
         self._device_resolver = device_resolver or DeviceResolver()
 
-    def create(
+    def create(  # noqa: PLR0911
         self,
         reference_batch: Batch | None,
         config: ModelConfig | None,
         configured_device: str | None = None,
-    ) -> ModelHandler:  # noqa: PLR0911
+    ) -> ModelHandler:
         if reference_batch is None:
             return PassThroughModelHandler()
         settings = get_settings()
