@@ -31,6 +31,8 @@ from domain.services.schemas.mappers.project import (
 from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.processor import ModelConfig
 from domain.services.schemas.project import (
+    Device,
+    ProjectConfig,
     ProjectCreateSchema,
     ProjectSchema,
     ProjectsListSchema,
@@ -128,11 +130,18 @@ class ProjectService(BaseService):
           - Rename if `name` provided and different (enforces uniqueness via DB constraint).
           - Apply desired activation state if it differs.
         """
+        config_updates = (
+            update_data.config.model_dump(exclude_unset=True, exclude_none=True)
+            if update_data.config is not None
+            else {}
+        )
+        update_device = config_updates.get("device")
         logger.debug(
-            "Project update requested: id=%s name=%s active=%s",
+            "Project update requested: id=%s name=%s active=%s device=%s",
             project_id,
             update_data.name,
             update_data.active,
+            update_device,
         )
         project = self.project_repository.get_by_id(project_id)
         if not project:
@@ -144,6 +153,11 @@ class ProjectService(BaseService):
                 if update_data.name is not None and update_data.name != project.name:
                     logger.debug("Renaming project id=%s from '%s' to '%s'", project_id, project.name, update_data.name)
                     project.name = update_data.name
+
+                if config_updates:
+                    project_config = dict(project.config or {})
+                    project_config.update(config_updates)
+                    project.config = project_config
 
                 if update_data.active is not None and project.active != update_data.active:
                     if update_data.active:
@@ -252,8 +266,16 @@ class ProjectService(BaseService):
                 writer_cfg = TypeAdapter(WriterConfig).validate_python(active_sink.config)
             except Exception:
                 logger.exception(f"Invalid active sink config ignored: sink_id={active_sink.id}")
+
+        project_device = Device.CPU
+        try:
+            project_device = TypeAdapter(ProjectConfig).validate_python(project.config or {}).device
+        except Exception:
+            logger.exception("Invalid project config ignored: project_id=%s", project.id)
+
         return PipelineConfig(
             project_id=project.id,
+            device=project_device,
             reader=reader_cfg,
             processor=processor_cfg,
             writer=writer_cfg,

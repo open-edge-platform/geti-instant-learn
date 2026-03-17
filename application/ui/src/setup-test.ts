@@ -25,6 +25,9 @@ const MOCKED_PROJECT_RESPONSE: ProjectType = {
     id: '1',
     name: 'Project #1',
     active: true,
+    config: {
+        device: 'cpu',
+    },
 };
 const MOCKED_PROJECTS_LIST_RESPONSE: ProjectsListType = {
     projects: [MOCKED_PROJECT_RESPONSE],

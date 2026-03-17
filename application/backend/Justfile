@@ -32,7 +32,6 @@ dev: _venv (download-dataset dataset-dir)
     {{ if stun-server != "" { "STUN_SERVER='" + stun-server + "'" } else { "" } }} \
     CORS_ORIGINS='*' \
     WEBRTC_ADVERTISE_IP='{{ host-ip }}' \
-    DEVICE='{{ if device =~ "cu.*" { "cuda" } else { device } }}' \
     PYTHONPATH=app uv run uvicorn main:app --reload --host {{ host }} --port {{ port }}
 
 
