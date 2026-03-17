@@ -17,13 +17,22 @@ class Device(StrEnum):
     CPU = "cpu"
 
 
+class PromptMode(StrEnum):
+    """Active prompt mode selected in the UI."""
+
+    TEXT = "text"
+    VISUAL = "visual"
+
+
 class ProjectConfig(BaseModel):
     device: Device = Device.CPU
+    prompt_mode: PromptMode = PromptMode.VISUAL
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "device": "cpu",
+                "prompt_mode": "visual",
             }
         }
     }
