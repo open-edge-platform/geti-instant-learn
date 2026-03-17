@@ -68,7 +68,6 @@ class ModelFactory:
             return PassThroughModelHandler()
 
         selected_device = self._device_resolver.resolve_device(configured_device)
-        is_cuda = selected_device == Device.CUDA
 
         match config:
             case MatcherConfig() as config:
@@ -76,7 +75,7 @@ class ModelFactory:
                 # as a suggestion we can handle conversion at the higher level factory,
                 # as it knows if the model should be converted or not and can override the configuration
                 # of the model
-                precision = config.precision if is_cuda else "fp32"
+                precision = config.precision if not settings.processor_openvino_enabled else "fp32"
                 model = Matcher(
                     sam=config.sam_model,
                     encoder_model=config.encoder_model,
@@ -87,9 +86,9 @@ class ModelFactory:
                     precision=precision,
                     device=selected_device,
                 )
-                if is_cuda:
-                    return TorchModelHandler(model, reference_batch)
-                return OpenVINOModelHandler(model, reference_batch, precision=precision)
+                if settings.processor_openvino_enabled:
+                    return OpenVINOModelHandler(model, reference_batch, precision=precision)
+                return TorchModelHandler(model, reference_batch)
             case PerDinoConfig() as config:
                 model = PerDino(
                     sam=config.sam_model,

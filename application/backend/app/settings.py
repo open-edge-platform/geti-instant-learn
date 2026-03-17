@@ -124,6 +124,7 @@ class Settings(BaseSettings):
     processor_frame_skip_interval: int = Field(default=3, ge=0, alias="PROCESSOR_FRAME_SKIP_INTERVAL")
     processor_frame_skip_amount: int = Field(default=1, ge=0, alias="PROCESSOR_FRAME_SKIP_AMOUNT")
     processor_inference_enabled: bool = Field(default=True, alias="PROCESSOR_INFERENCE_ENABLED")
+    processor_openvino_enabled: bool = Field(default=False, alias="PROCESSOR_OPENVINO_ENABLED")
 
     # WebRTC
     webrtc_advertise_ip: str | None = Field(default=None, alias="WEBRTC_ADVERTISE_IP")
