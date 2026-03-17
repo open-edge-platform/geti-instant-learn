@@ -27,9 +27,7 @@ export const License = ({ onAccept, isAccepting = false }: LicenseProps) => {
                     <Divider marginY={'size-200'} size={'S'} />
                     <Content>
                         <Flex direction={'column'} gap={'size-200'}>
-                            <Text>
-                                By installing, using, or distributing this application, you acknowledge that:
-                            </Text>
+                            <Text>By installing, using, or distributing this application, you acknowledge that:</Text>
                             <ul>
                                 <li>you have read and understood the license terms at the links below;</li>
                                 <li>confirmed the linked terms govern the contents you seek to access and use; and</li>
