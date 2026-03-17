@@ -365,7 +365,12 @@ class SAMPredictor(nn.Module):
             config_path = "configs/sam2.1/" + model_info["config_filename"]
             sam_model = build_sam2(config_path, str(checkpoint_path))
             self._predictor = SAM2ImagePredictor(sam_model)
-        elif sam_model_name in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
+        elif sam_model_name in {
+            SAMModelName.SAM_HQ,
+            SAMModelName.SAM_HQ_BASE,
+            SAMModelName.SAM_HQ_LARGE,
+            SAMModelName.SAM_HQ_TINY,
+        }:
             registry_name = MODEL_MAP[sam_model_name]["registry_name"]
             sam_model = sam_model_registry[registry_name]().to(device)
             # suppress - loading the snapshot from the local path
