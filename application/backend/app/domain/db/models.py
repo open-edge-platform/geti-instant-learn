@@ -170,6 +170,8 @@ class ProjectDB(Base):
     __tablename__ = "Project"
     name: Mapped[str] = mapped_column(nullable=False)
     active: Mapped[bool] = mapped_column(nullable=False, default=False)
+    # added default value so every direct ProjectDB() creation does not need to provide config explicitly.
+    config: Mapped[dict] = mapped_column(JSON, nullable=False, default=lambda: {"device": "cpu"})
     sources: Mapped[list[SourceDB]] = relationship(
         back_populates="project", cascade="all, delete-orphan", passive_deletes=True
     )

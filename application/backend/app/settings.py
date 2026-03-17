@@ -36,9 +36,6 @@ class Settings(BaseSettings):
     environment: Literal["dev", "prod"] = "dev"
     static_files_dir: str | None = Field(default=None, alias="STATIC_FILES_DIR")
 
-    # Runtime
-    device: Literal["auto", "cpu", "cuda", "xpu"] = Field(default="cpu", alias="DEVICE")
-
     # Server
     host: str = Field(default="localhost", alias="HOST")
     port: int = Field(default=9100, alias="PORT")
@@ -140,8 +137,11 @@ class Settings(BaseSettings):
     stun_server: str | None = Field(default=None, alias="STUN_SERVER")
 
     # Inference visualization settings
+    visualize_masks: bool = Field(default=False, alias="VISUALIZE_MASKS")
+    visualize_boxes: bool = Field(default=True, alias="VISUALIZE_BOXES")
     mask_alpha: float = Field(default=0.5, alias="MASK_ALPHA")
     mask_outline_thickness: int = Field(default=3, alias="MASK_OUTLINE_THICKNESS")
+    box_thickness: int = Field(default=4, alias="BOX_THICKNESS")
 
     @property
     def ice_servers(self) -> list[dict]:

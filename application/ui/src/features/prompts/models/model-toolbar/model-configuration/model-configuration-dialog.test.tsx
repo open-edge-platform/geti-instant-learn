@@ -179,7 +179,6 @@ describe('ModelConfigurationDialog', () => {
                     sam_model: 'SAM2-small',
                     encoder_model: 'dinov3_base',
                     precision: precision.toLowerCase(),
-                    use_nms: model.config.use_nms,
                 })
             );
         });

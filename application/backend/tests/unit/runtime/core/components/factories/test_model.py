@@ -32,6 +32,22 @@ class TestDeviceResolver:
         resolver = DeviceResolver()
         assert resolver.resolve_device("cuda") == "cuda"
 
+    @pytest.mark.parametrize(
+        ("has_intel_gpu", "has_nvidia_gpu", "expected_device"),
+        [
+            (True, True, "xpu"),
+            (False, True, "cuda"),
+            (False, False, "cpu"),
+        ],
+    )
+    def test_resolve_device_none_behaves_like_auto(self, has_intel_gpu, has_nvidia_gpu, expected_device):
+        resolver = DeviceResolver()
+        with (
+            patch.object(DeviceResolver, "_has_intel_gpu", return_value=has_intel_gpu),
+            patch.object(DeviceResolver, "_has_nvidia_gpu", return_value=has_nvidia_gpu),
+        ):
+            assert resolver.resolve_device(None) == expected_device
+
 
 class TestModelFactory:
     @pytest.fixture
@@ -41,7 +57,6 @@ class TestModelFactory:
     @pytest.fixture
     def mock_settings(self):
         settings = MagicMock()
-        settings.device = "cpu"
         settings.processor_inference_enabled = True
         settings.processor_openvino_enabled = False
         return settings
@@ -112,7 +127,7 @@ class TestModelFactory:
 
             result = model_factory.create(mock_reference_batch, config)
 
-            mock_device_resolver.resolve_device.assert_called_once_with("auto")
+            mock_device_resolver.resolve_device.assert_called_once_with(None)
             assert mock_matcher.call_args.kwargs["device"] == resolved_device
             assert mock_matcher.call_args.kwargs["precision"] == expected_precision
 
@@ -139,7 +154,6 @@ class TestModelFactory:
             sam_model=SAMModelName.SAM_HQ_TINY,
             encoder_model="dinov3_small",
             use_mask_refinement=True,
-            use_nms=True,
         )
 
         with patch.multiple(
@@ -166,7 +180,6 @@ class TestModelFactory:
                 use_mask_refinement=True,
                 sam=SAMModelName.SAM_HQ_TINY,
                 encoder_model="dinov3_small",
-                use_nms=True,
             )
             mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch, precision="fp32")
 
@@ -180,7 +193,6 @@ class TestModelFactory:
             point_selection_threshold=0.65,
             confidence_threshold=0.42,
             precision="bf16",
-            use_nms=True,
         )
 
         with patch.multiple(
@@ -206,7 +218,6 @@ class TestModelFactory:
                 num_grid_cells=16,
                 point_selection_threshold=0.65,
                 confidence_threshold=0.42,
-                use_nms=True,
                 precision="bf16",
                 device="cpu",
             )
@@ -225,7 +236,6 @@ class TestModelFactory:
             softmatching_score_threshold=0.5,
             softmatching_bidirectional=True,
             precision="bf16",
-            use_nms=True,
         )
 
         with patch.multiple(
@@ -254,7 +264,6 @@ class TestModelFactory:
                 approximate_matching=True,
                 softmatching_score_threshold=0.5,
                 softmatching_bidirectional=True,
-                use_nms=True,
                 precision="bf16",
                 device="cpu",
             )
@@ -277,8 +286,6 @@ class TestModelFactory:
     def test_factory_returns_passthrough_for_none_config(
         self, mock_reference_batch, mock_settings, model_factory, mock_device_resolver
     ):
-        mock_settings.device = "auto"
-
         with patch.multiple("runtime.core.components.factories.model", get_settings=DEFAULT) as mocks:
             mocks["get_settings"].return_value = mock_settings
             result = model_factory.create(mock_reference_batch, None)
@@ -304,7 +311,6 @@ class TestModelFactory:
         )
         mock_settings = MagicMock()
         mock_settings.processor_inference_enabled = False
-        mock_settings.device = "cpu"
 
         with (
             patch.multiple(
