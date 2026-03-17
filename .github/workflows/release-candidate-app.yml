@@ -1,0 +1,74 @@
+name: Application Release Candidate
+on:
+  push:
+    tags:
+      - 'app/v[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+'
+
+permissions: {} # No permissions by default
+
+jobs:
+  build-parameters:
+    name: Prepare build parameters
+    runs-on: ubuntu-latest
+    environment: 'prod'
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    outputs:
+      build_version: "${{ steps.build-version.outputs.version }}"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Validate tag matches VERSION
+        id: build-version
+        working-directory: application
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          TAG_BASE="${TAG#app/v}"
+          TAG_VERSION="${TAG_BASE%rc*}"
+          FILE_VERSION="$(cat VERSION | tr -d '\n\r')"
+
+          echo "::group::Build parameters"
+          echo "Tag name: $TAG"
+          echo "Tag base: $TAG_BASE"
+          echo "Tag version: $TAG_VERSION"
+          echo "File version: $FILE_VERSION"
+          echo "::endgroup::"
+
+          if [[ "$TAG_VERSION" != "$FILE_VERSION" ]]; then
+            echo "Error: Tag version '$TAG_VERSION' does not match VERSION file '$FILE_VERSION'"
+            exit 1
+          fi
+
+          echo "version=$TAG_BASE" >> "$GITHUB_OUTPUT"
+
+  distrib:
+    name: Build and publish docker images
+    needs: build-parameters
+    uses: ./.github/workflows/distrib.yml
+    permissions:
+      contents: read
+      packages: write # Permission to push packages to GHCR
+      id-token: write # Permission to request OIDC token for signing images
+    with:
+      ai_devices: '["xpu"]'
+      build_version: ${{ needs.build-parameters.outputs.build_version }}
+      push_images: true
+      image_name_prefix: "ghcr.io/open-edge-platform/geti-instant-learn"
+
+  windows-installer:
+    name: Build Windows installer
+    needs: build-parameters
+    uses: ./.github/workflows/windows-installer.yml
+    permissions:
+      contents: read
+    secrets:
+      MSIX_SIGN_CERTIFICATE: ${{ secrets.MSIX_SIGN_CERTIFICATE }}
+      MSIX_SIGN_CERTIFICATE_PASSWORD: ${{ secrets.MSIX_SIGN_CERTIFICATE_PASSWORD }}
+    with:
+      build_version: ${{ needs.build-parameters.outputs.build_version }}
+      device: xpu

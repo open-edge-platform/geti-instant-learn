@@ -26,3 +26,8 @@ markdown:
   - '!SECURITY.md'
   - '!.github/copilot-instructions.md'
   - .github/workflows/**
+
+documentation:
+  - application/docs/**/*.md
+  - library/docs/**/*.md
+  - .github/workflows/**

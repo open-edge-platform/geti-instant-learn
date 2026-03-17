@@ -3,7 +3,6 @@
 
 import logging
 from dataclasses import dataclass
-from queue import Queue
 from uuid import UUID
 
 from aiortc import RTCConfiguration, RTCIceServer, RTCPeerConnection, RTCSessionDescription
@@ -22,7 +21,6 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ConnectionData:
     connection: RTCPeerConnection
-    queue: Queue
 
 
 class WebRTCManager:
@@ -47,19 +45,18 @@ class WebRTCManager:
         config = RTCConfiguration(iceServers=ice_servers)
         pc = RTCPeerConnection(configuration=config)
 
-        # use PipelineManager to get queue
+        # Get the shared output slot — no per-connection queue needed
         try:
-            rtc_queue = self.pipeline_manager.register_webrtc(project_id=project_id)
+            output_slot = self.pipeline_manager.get_output_slot(project_id=project_id)
         except (PipelineProjectMismatchError, PipelineNotActiveError) as exc:
-            logger.exception(f"Failed to register WebRTC for project {project_id}: {exc}")
+            logger.exception(f"Failed to get output slot for project {project_id}: {exc}")
             raise
 
-        # Store both connection and queue together
-        self._pcs[offer.webrtc_id] = ConnectionData(connection=pc, queue=rtc_queue)
+        self._pcs[offer.webrtc_id] = ConnectionData(connection=pc)
 
         # Add video track
         track = InferenceVideoStreamTrack(
-            stream_queue=rtc_queue,
+            output_slot=output_slot,
             enable_visualization=True,
             visualization_info_provider=lambda: self.get_visualization_info(project_id),
         )
@@ -68,15 +65,7 @@ class WebRTCManager:
         @pc.on("connectionstatechange")
         async def connection_state_change() -> None:
             if pc.connectionState in ["failed", "closed"]:
-                try:
-                    # First unregister from pipeline manager (stops broadcasting to this queue)
-                    self.pipeline_manager.unregister_webrtc(rtc_queue, project_id=project_id)
-                except (PipelineProjectMismatchError, PipelineNotActiveError) as exc:
-                    logger.exception(f"Failed to unregister WebRTC for project {project_id}: {exc}")
-                    raise
-                finally:
-                    # Then cleanup the connection (shuts down the queue)
-                    await self.cleanup_connection(offer.webrtc_id)
+                await self.cleanup_connection(offer.webrtc_id)
 
         # Set remote description from client's offer
         await pc.setRemoteDescription(RTCSessionDescription(sdp=offer.sdp, type=offer.type))

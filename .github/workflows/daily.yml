@@ -1,8 +1,10 @@
 name: daily
 on:
   schedule:
-    - cron: '0 0 * * *' # Run every day at midnight UTC
+    - cron: "0 0 * * *" # Run every day at midnight UTC
   workflow_dispatch:
+
+permissions: {} # No permissions by default
 
 jobs:
   build-parameters:
@@ -11,7 +13,7 @@ jobs:
     permissions:
       contents: read
     outputs:
-      build_version: "${{ steps.build-version.outputs.version }}"
+      app_version: "${{ steps.app-version.outputs.version }}"
 
     steps:
       - name: Checkout code
@@ -20,9 +22,11 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: build-version
-        id: build-version
+      - name: app-version
+        id: app-version
         uses: ./.github/actions/build-version
+        with:
+          version-file-path: 'application/VERSION'
 
   distrib:
     name: Daily Distrib Check
@@ -30,8 +34,10 @@ jobs:
     uses: ./.github/workflows/distrib.yml
     permissions:
       contents: read
+      packages: write # Required by nested job
+      id-token: write # Required by nested job
     with:
-      build_version: ${{ needs.build-parameters.outputs.build_version }}
+      build_version: ${{ needs.build-parameters.outputs.app_version }}
 
   create-issue-on-failure:
     name: Create issue on scheduled workflow failure

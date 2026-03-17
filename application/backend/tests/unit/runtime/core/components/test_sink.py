@@ -1,19 +1,28 @@
 from queue import Empty, Queue
 from unittest.mock import MagicMock, call
 
+import numpy as np
 import pytest
 
+from domain.services.schemas.processor import OutputData
 from runtime.core.components.base import StreamWriter
 from runtime.core.components.broadcaster import FrameBroadcaster
 from runtime.core.components.sink import Sink
 
+
+def make_output(name: str) -> OutputData:
+    return OutputData(results=[], frame=np.zeros((2, 2, 3), dtype=np.uint8))
+
+
+data1, data2, data3 = make_output("data1"), make_output("data2"), make_output("data3")
+
 test_cases = [
-    ("writes_all_items", ["data1", "data2", "data3"], ["data1", "data2", "data3"]),
+    ("writes_all_items", [data1, data2, data3], [data1, data2, data3]),
     ("handles_empty_queue", [], []),
     (
         "handles_intermittent_empty_exceptions",
-        ["data1", Empty(), "data2", Empty(), Empty(), "data3"],
-        ["data1", "data2", "data3"],
+        [data1, Empty(), data2, Empty(), Empty(), data3],
+        [data1, data2, data3],
     ),
 ]
 

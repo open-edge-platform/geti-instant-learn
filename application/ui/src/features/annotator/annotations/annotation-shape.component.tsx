@@ -22,16 +22,7 @@ export const AnnotationShape = ({ annotation }: AnnotationShapeProps) => {
     };
 
     if (shape.type === 'rectangle') {
-        return (
-            <Rectangle
-                ariaLabel={'annotation rect'}
-                x={shape.x}
-                y={shape.y}
-                width={shape.width}
-                height={shape.height}
-                styles={styles}
-            />
-        );
+        return <Rectangle ariaLabel={'annotation rect'} rect={shape} styles={styles} />;
     }
 
     if (shape.type === 'polygon') {

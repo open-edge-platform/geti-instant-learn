@@ -6,7 +6,6 @@
 import torch
 from torch import nn
 from torch.nn import functional
-from torchvision.ops import nms
 
 from instantlearn.components.sam.predictor import SAMPredictor
 
@@ -59,38 +58,28 @@ class SamDecoder(nn.Module):
 
     Args:
         sam_predictor: PyTorch SAM predictor instance.
-        target_length: Target length for image preprocessing. Default: 1024.
         confidence_threshold: Minimum confidence score for keeping predicted masks
-        in the final output. Higher values = stricter filtering. Default: 0.38.
-        nms_iou_threshold: IoU threshold for NMS. Default: 0.1.
-        max_masks_per_category: Maximum masks to return per category (for padding). Default: 10.
+            in the final output. Higher values = stricter filtering. Default: 0.38.
+        max_masks_per_category: Maximum masks to return per category (for padding). Default: 40.
         use_mask_refinement: Whether to use 2-stage mask refinement with box prompts. Default: False.
-        merge_masks_per_class: Whether to merge all masks into single mask per class. Default: True.
-        use_nms: Whether to use NMS when predicting masks. Default: True.
     """
 
     def __init__(
         self,
         sam_predictor: SAMPredictor,
         confidence_threshold: float = 0.38,
-        nms_iou_threshold: float = 0.1,
         max_masks_per_category: int = 40,
         use_mask_refinement: bool = False,
-        merge_masks_per_class: bool = False,
-        use_nms: bool = True,
     ) -> None:
         """Initialize the traceable SAM decoder."""
         super().__init__()
         self.predictor = sam_predictor
         self.confidence_threshold = confidence_threshold
-        self.nms_iou_threshold = nms_iou_threshold
         self.max_masks_per_category = max_masks_per_category
         self.use_mask_refinement = use_mask_refinement
-        self.merge_masks_per_class = merge_masks_per_class
-        self.use_nms = use_nms
         self.device = sam_predictor.device
 
-    def _preprocess_points(self, points: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def _preprocess_points(self, points: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:  # noqa: PLR6301
         """Preprocess points for SAM predictor.
 
         Args:
@@ -174,7 +163,7 @@ class SamDecoder(nn.Module):
 
         return padded_masks, padded_scores, padded_labels
 
-    def _resize_similarity(
+    def _resize_similarity(  # noqa: PLR6301
         self,
         similarity: torch.Tensor,
         target_size: tuple[int, int],
@@ -253,17 +242,7 @@ class SamDecoder(nn.Module):
         else:
             mask_weights = iou_preds[keep]
 
-        # NMS - NOTE: torchvision NMS requires float32 inputs
-        if self.use_nms:
-            nms_indices = nms(
-                boxes[:, 0, :].to(torch.float32),
-                mask_weights[:, 0].to(torch.float32),
-                iou_threshold=self.nms_iou_threshold,
-            )
-            masks = masks[nms_indices]
-            mask_weights = mask_weights[nms_indices]
-
-        # Similarity-based scoring - always compute
+        # Similarity-based scoring
         sim_resized = self._resize_similarity(similarity, original_size)
         mask_sum = (sim_resized * masks).sum(dim=(1, 2))
         mask_area = masks.sum(dim=(1, 2)) + 1e-6  # Avoid div by zero
@@ -276,21 +255,8 @@ class SamDecoder(nn.Module):
         # Zero out scores for filtered masks instead of removing them
         weighted_scores = torch.where(keep, weighted_scores, torch.zeros_like(weighted_scores))
 
-        # For merge: compute merged result (handles empty case gracefully)
-        if self.merge_masks_per_class:
-            # Mask out filtered masks before merging
-            valid_masks = masks * keep.unsqueeze(-1).unsqueeze(-1)
-            merged_mask = (valid_masks.sum(0) > 0).unsqueeze(0)  # [1, H, W]
-
-            # For max score, use -inf for invalid to ensure they're not selected
-            scores_for_max = torch.where(keep, weighted_scores, torch.full_like(weighted_scores, -float("inf")))
-            merged_score = scores_for_max.max().unsqueeze(0)
-            # If all filtered out, score becomes -inf, clamp to 0
-            merged_score = torch.clamp(merged_score, min=0.0)
-            return merged_mask, merged_score
-
-        # For non-merge case: return with validity mask
-        # Caller should filter by scores > 0
+        # Return per-instance masks and scores
+        # Any post-processing like NMS or per-class merging is handled at the model level.
         return masks, weighted_scores
 
     def _process_single_image_with_points(
@@ -318,7 +284,7 @@ class SamDecoder(nn.Module):
         orig_size = (h, w)
         self.predictor.set_image(image)
 
-        num_categories = len(category_ids)
+        num_categories = category_ids.shape[0] if hasattr(category_ids, "shape") else len(category_ids)
         device = self.device
 
         all_masks = torch.zeros(num_categories, self.max_masks_per_category, h, w, device=device)
@@ -375,7 +341,6 @@ class SamDecoder(nn.Module):
         Args:
             image: Input image [3, H, W]
             box_prompts: Box prompts [C, max_boxes, 5] with (x1, y1, x2, y2, score)
-            num_boxes: Number of valid boxes per category [C]
             category_ids: Category ID mapping [C]
 
         Returns:
@@ -473,9 +438,6 @@ class SamDecoder(nn.Module):
             box_prompts: Box prompts [T, C, max_boxes, 5] (optional)
             similarities: Similarity maps [T, C, feat_size, feat_size] (optional)
 
-        Raises:
-            ValueError: If both or neither of point_prompts and box_prompts are provided.
-
         Returns:
             List of predictions per image, each containing:
                 "pred_masks": [num_valid_masks, H, W]
@@ -483,6 +445,9 @@ class SamDecoder(nn.Module):
                 "pred_labels": [num_valid_masks]
                 "pred_points": [num_points_used, 4] (point mode only)
                 "pred_boxes": [num_boxes, 5] (box mode only)
+
+        Raises:
+            ValueError: If both or neither of point_prompts and box_prompts are provided.
         """
         use_points = point_prompts is not None
         use_boxes = box_prompts is not None
@@ -501,13 +466,11 @@ class SamDecoder(nn.Module):
                     sims,
                     category_ids,
                 )
-                boxes = masks_to_boxes_traceable(masks)
                 predictions.append({
                     "pred_masks": masks,
                     "pred_scores": scores,
                     "pred_labels": labels,
                     "pred_points": points,
-                    "pred_boxes": boxes,
                 })
         else:
             for image, bxs in zip(images, box_prompts, strict=True):

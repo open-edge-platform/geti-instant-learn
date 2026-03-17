@@ -8,69 +8,113 @@ from threading import Lock
 logger = logging.getLogger(__name__)
 
 
+class FrameSlot[T]:
+    """A shared container holding the latest frame for external consumers."""
+
+    def __init__(self) -> None:
+        self._frame: T | None = None
+
+    @property
+    def latest(self) -> T | None:
+        """The most recently published frame, or None if nothing has been published."""
+        return self._frame
+
+    def update(self, frame: T) -> None:
+        """Publish a new frame, replacing any previously held value."""
+        self._frame = frame
+
+    def clear(self) -> None:
+        """Discard the held frame."""
+        self._frame = None
+
+
 class FrameBroadcaster[T]:
     """
     A thread-safe class to broadcast frames to multiple consumers.
 
-    It manages a queue for each registered consumer. If a consumer's
+    It manages a named queue for each registered consumer. If a consumer's
     queue is full the oldest frame is dropped to make space for the new one.
 
-    The live nature of WebRTC streams requires consumers to be registered and unregistered dynamically as they connect
-    and disconnect. If we were to share a single queue for all consumers, they would compete for frames, effectively
-    stealing them from each other. This broadcaster ensures every consumer gets its own queue.
+    A FrameSlot is maintained alongside the queues so that external consumers
+    (e.g. WebRTC streams) can poll the latest frame without registering a queue.
     """
 
-    def __init__(self) -> None:
-        self.queues: list[Queue[T]] = []
+    def __init__(self, name: str = "unnamed") -> None:
+        self.name = name
+        self._consumers: dict[str, Queue[T]] = {}
         self._lock = Lock()
-        self._latest_frame: T | None = None
+        self._slot: FrameSlot[T] = FrameSlot[T]()
+
+    @property
+    def slot(self) -> FrameSlot[T]:
+        """Shared slot that always holds the latest broadcasted frame."""
+        return self._slot
 
     @property
     def latest_frame(self) -> T | None:
         """Get the most recently broadcasted frame."""
-        return self._latest_frame
+        return self._slot.latest
 
-    def register(self) -> Queue[T]:
+    @property
+    def consumer_count(self) -> int:
+        """Number of registered consumers."""
+        return len(self._consumers)
+
+    def register(self, consumer_name: str) -> Queue[T]:
         """Register a new consumer and return its personal queue.
 
         If a frame has already been broadcast, the latest frame is immediately
         added to the new consumer's queue so they don't miss the current state.
+
+        Raises:
+            ValueError: If a consumer with the same name is already registered.
         """
         with self._lock:
+            if consumer_name in self._consumers:
+                raise ValueError(
+                    f"{self.name}: consumer '{consumer_name}' is already registered. "
+                    "Unregister it first to avoid orphaned queues."
+                )
+
             queue: Queue[T] = Queue(maxsize=5)
-            self.queues.append(queue)
+            self._consumers[consumer_name] = queue
 
             # Send the latest frame to new consumer if available
-            if self._latest_frame is not None:
+            if self._slot.latest is not None:
                 try:
-                    queue.put_nowait(self._latest_frame)
+                    queue.put_nowait(self._slot.latest)
                 except Full:
                     logging.warning("Could not send latest frame to new consumer - queue full")
 
-            logging.info("FrameBroadcaster registered a new consumer. Total consumers: %d", len(self.queues))
+            logging.info(
+                "%s: registered consumer '%s'. Total consumers: %d", self.name, consumer_name, len(self._consumers)
+            )
             return queue
 
-    def unregister(self, queue: Queue[T]) -> None:
-        """Unregister a consumer by its queue."""
+    def unregister(self, consumer_name: str) -> None:
+        """Unregister a consumer by name."""
         with self._lock:
-            try:
-                self.queues.remove(queue)
-                logging.info("FrameBroadcaster unregistered a consumer. Total consumers:%d", len(self.queues))
-            except ValueError:
-                # if a client unregisters twice.
-                pass
+            if self._consumers.pop(consumer_name, None) is not None:
+                logging.info(
+                    "%s: unregistered consumer '%s'. Total consumers: %d",
+                    self.name,
+                    consumer_name,
+                    len(self._consumers),
+                )
 
     def broadcast(self, frame: T) -> None:
-        """Broadcast frame to all registered queues."""
-        self._latest_frame = frame
+        """Broadcast frame to all registered queues and update the shared slot."""
+        self._slot.update(frame)
         with self._lock:
-            for queue in self.queues:
+            for consumer_name, queue in self._consumers.items():
                 try:
                     queue.put_nowait(frame)
                 except Full:
-                    self._handle_full_queue(queue, frame)
+                    self._handle_full_queue(consumer_name, queue, frame)
                 except Exception:
                     logger.exception("Error broadcasting to queue")
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug("%s/%s depth: %d/%d", self.name, consumer_name, queue.qsize(), queue.maxsize)
 
     def clear(self) -> None:
         """
@@ -79,17 +123,20 @@ class FrameBroadcaster[T]:
         after a component swap (e.g., changing the source).
         """
         with self._lock:
-            for q in self.queues:
+            for consumer_name, q in self._consumers.items():
                 while True:
                     try:
                         q.get_nowait()
                     except Empty:
-                        logger.debug("Drained queued frames for consumer queue %s", id(q))
+                        logger.debug("Drained queued frames for consumer '%s'", consumer_name)
                         break
-            self._latest_frame = None
+            self._slot.clear()
 
-    def _handle_full_queue(self, queue: Queue[T], frame: T) -> None:
+    def _handle_full_queue(self, consumer_name: str, queue: Queue[T], frame: T) -> None:
         """Handle a full queue by dropping the oldest frame and adding the new one."""
+        logger.warning(
+            "%s/%s full (%d/%d), dropping oldest frame", self.name, consumer_name, queue.qsize(), queue.maxsize
+        )
         try:
             queue.get_nowait()
         except Empty:

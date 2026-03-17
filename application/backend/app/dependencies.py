@@ -19,6 +19,7 @@ from domain.services import LabelService, ModelService, ProjectService, PromptSe
 from runtime.core.components.validators.sink_connection import SinkConnectionValidator
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.frame import FrameService
+from runtime.services.license import LicenseService
 from runtime.services.source_type import SourceTypeService
 from runtime.webrtc.manager import WebRTCManager
 from settings import get_settings
@@ -145,6 +146,11 @@ def get_discovery_service() -> SourceTypeService:
     return SourceTypeService()
 
 
+def get_license_service() -> LicenseService:
+    """Dependency that provides a LicenseService instance."""
+    return LicenseService()
+
+
 # --- Dependency aliases ---
 ProjectServiceDep = Annotated[ProjectService, Depends(get_project_service)]
 SourceServiceDep = Annotated[SourceService, Depends(get_source_service)]
@@ -156,3 +162,4 @@ ModelServiceDep = Annotated[ModelService, Depends(get_model_service)]
 SinkServiceDep = Annotated[SinkService, Depends(get_sink_service)]
 SinkConnectionValidatorDep = Annotated[SinkConnectionValidator, Depends(get_sink_connection_validator)]
 DiscoveryServiceDep = Annotated[SourceTypeService, Depends(get_discovery_service)]
+LicenseServiceDep = Annotated[LicenseService, Depends(get_license_service)]

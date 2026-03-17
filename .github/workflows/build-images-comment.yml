@@ -122,4 +122,3 @@ jobs:
 
             **Result** :x: The build failed.
             [Check the logs](https://github.com/open-edge-platform/instant-learn/actions/runs/${{ github.run_id }}) for the details.
-

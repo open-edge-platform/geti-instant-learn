@@ -31,19 +31,19 @@ runs:
   steps:
     - name: Initial cleanup
       if: ${{ inputs.cleanup-runner == 'true' }}
-      uses: open-edge-platform/geti-ci/actions/cleanup-runner@3a4b81ea648711eb638b34757427cd3ef71d19f1
+      uses: open-edge-platform/geti-ci/actions/cleanup-runner@cc6fbe840db6ebd16ebd18d409f475bff5a8c182
       with:
         type: "initial"
 
     - name: Install Just
       if: ${{ inputs.install-just == 'true' }}
-      uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3.0.0
+      uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3.1.0
       with:
         just-version: ${{ inputs.just-version }}
 
     - name: Install uv
       if: ${{ inputs.install-uv == 'true' }}
-      uses: astral-sh/setup-uv@803947b9bd8e9f986429fa0c5a41c367cd732b41 # v7.2.1
+      uses: astral-sh/setup-uv@e06108dd0aef18192324c70427afc47652e63a82 # v7.5.0
       with:
         version: ${{ inputs.uv-version }}
         enable-cache: ${{ inputs.uv-cache-dependency-glob != '' && 'true' || 'false' }}

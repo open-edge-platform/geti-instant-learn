@@ -5,6 +5,7 @@ import logging
 import time
 from threading import Condition
 
+from domain.services.schemas.frame_trace import FrameTrace
 from domain.services.schemas.processor import InputData
 from domain.services.schemas.reader import FrameListResponse
 from runtime.core.components.base import PipelineComponent, StreamReader
@@ -60,10 +61,16 @@ class Source(PipelineComponent):
                     self._next_frame_requested = False
 
             try:
+                trace = FrameTrace.create()
+                trace.record_start("source")
+
                 data = self._reader.read()
                 if data is None:
                     time.sleep(0.01)
                     continue
+
+                data.trace = trace
+                trace.record_end("source")
 
                 self._inbound_broadcaster.broadcast(data)
 

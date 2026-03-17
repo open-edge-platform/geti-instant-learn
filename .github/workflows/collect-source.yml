@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/install-dependencies
         with:
-          cleanup-runner: 'true'
+          cleanup-runner: "true"
 
       - name: Build docker image
         working-directory: application
@@ -59,7 +59,7 @@ jobs:
           ] | unique[]' > pkg_list_$DEVICE.txt
 
       - name: Upload packages list
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: pkg_list_${{ matrix.ai-device }}
           path: pkg_list_*
@@ -78,7 +78,7 @@ jobs:
 
       # Download all reports
       - name: Download all reports
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: "pkg_list_*"
           merge-multiple: true
@@ -97,45 +97,45 @@ jobs:
     runs-on: ubuntu-latest
     needs: get-unique-names
     container:
-      image: debian:bookworm-slim@sha256:98f4b71de414932439ac6ac690d7060df1f27161073c5036a7553723881bffbe
+      image: debian:bookworm-slim@sha256:74d56e3931e0d5a1dd51f8c8a2466d21de84a271cd3b5a733b803aa91abf4421
     steps:
-    - name: Add apt sources for deb-src
-      shell: bash
-      run: |
-        sed -Ei "s/^Types: deb$/Types: deb deb-src/" /etc/apt/sources.list.d/debian.sources
-        apt-get update
+      - name: Add apt sources for deb-src
+        shell: bash
+        run: |
+          sed -Ei "s/^Types: deb$/Types: deb deb-src/" /etc/apt/sources.list.d/debian.sources
+          apt-get update
 
-    - name: Find GPL/MPL licensed packages
-      shell: bash
-      env:
-        PACKAGES: ${{ needs.get-unique-names.outputs.unique_package_names_oneline }}
-      run: |
-        OUTPUT_DIR="output"
-        ARCHIVE_NAME="source_code.tar.gz"
-        mkdir -p "$OUTPUT_DIR"
-        cd "$OUTPUT_DIR"
-        # Split comma-separated list into an array
-        IFS=',' read -r -a PACKAGES_ARR <<< "$PACKAGES"
-        # Collect missing packages
-        # Install GNU Parallel for faster downloads
-        apt-get update && apt-get install -y parallel
+      - name: Find GPL/MPL licensed packages
+        shell: bash
+        env:
+          PACKAGES: ${{ needs.get-unique-names.outputs.unique_package_names_oneline }}
+        run: |
+          OUTPUT_DIR="output"
+          ARCHIVE_NAME="source_code.tar.gz"
+          mkdir -p "$OUTPUT_DIR"
+          cd "$OUTPUT_DIR"
+          # Split comma-separated list into an array
+          IFS=',' read -r -a PACKAGES_ARR <<< "$PACKAGES"
+          # Collect missing packages
+          # Install GNU Parallel for faster downloads
+          apt-get update && apt-get install -y parallel
 
-        # Download sources for GPL/MPL packages in parallel with error handling
-        if [ ${#PACKAGES_ARR[@]} -gt 0 ]; then
-          export OUTPUT_DIR
-          printf "%s\n" "${PACKAGES_ARR[@]}" | parallel --jobs 4 '
-            echo "Downloading source for {}"
-            if ! apt-get source -q --download-only "{}"; then
-              echo "Warning: Source not available for {}" >&2
-            fi
-          '
-        fi
-        cd ..
-        tar -czf "$ARCHIVE_NAME" -C "$OUTPUT_DIR" .
+          # Download sources for GPL/MPL packages in parallel with error handling
+          if [ ${#PACKAGES_ARR[@]} -gt 0 ]; then
+            export OUTPUT_DIR
+            printf "%s\n" "${PACKAGES_ARR[@]}" | parallel --jobs 4 '
+              echo "Downloading source for {}"
+              if ! apt-get source -q --download-only "{}"; then
+                echo "Warning: Source not available for {}" >&2
+              fi
+            '
+          fi
+          cd ..
+          tar -czf "$ARCHIVE_NAME" -C "$OUTPUT_DIR" .
 
-    - name: Upload source code archive
-      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-      with:
-        name: source-code-archive
-        path: source_code.tar.gz
-        retention-days: 3
+      - name: Upload source code archive
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: source-code-archive
+          path: source_code.tar.gz
+          retention-days: 3
