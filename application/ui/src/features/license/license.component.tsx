@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Button, ButtonGroup, Content, Divider, Flex, Heading, Link, Text, Tooltip, TooltipTrigger, View } from '@geti/ui';
+import { Button, Content, Divider, Flex, Heading, Link, Text, View } from '@geti/ui';
 
 import { Layout } from '../project/projects-list-entry/layout.component';
 
@@ -58,25 +58,11 @@ export const License = ({ onAccept, isAccepting = false }: LicenseProps) => {
                             </ul>
                         </Flex>
                     </Content>
-                    <ButtonGroup marginTop={'size-300'}>
-                        <TooltipTrigger delay={0}>
-                            {/* Wrap in span so hover events register even when the button is disabled */}
-                            <span style={{ display: 'inline-flex', cursor: 'not-allowed' }}>
-                                <Button
-                                    variant={'secondary'}
-                                    isDisabled
-                                    aria-label={'Cancel'}
-                                    UNSAFE_style={{ pointerEvents: 'none' }}
-                                >
-                                    Cancel
-                                </Button>
-                            </span>
-                            <Tooltip>You must accept the license to use this app</Tooltip>
-                        </TooltipTrigger>
+                    <Flex justifyContent={'end'} marginTop={'size-300'}>
                         <Button variant={'accent'} onPress={onAccept} isPending={isAccepting}>
                             Accept and continue
                         </Button>
-                    </ButtonGroup>
+                    </Flex>
                 </View>
             </Flex>
         </Layout>

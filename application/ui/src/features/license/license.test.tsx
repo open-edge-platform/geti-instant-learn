@@ -37,10 +37,4 @@ describe('License', () => {
 
         expect(onAccept).toHaveBeenCalledTimes(1);
     });
-
-    it('Cancel button is disabled', () => {
-        renderLicense();
-
-        expect(screen.getByRole('button', { name: /Cancel/i })).toBeDisabled();
-    });
 });

@@ -33,33 +33,10 @@ test.describe('License agreement', () => {
             await expect(page.getByRole('link', { name: /DINOv3 License/i })).toBeVisible();
         });
 
-        await test.step('Cancel button is disabled', async () => {
-            await expect(page.getByRole('button', { name: /Cancel/i })).toBeDisabled();
-        });
-
         await test.step('accepting the license loads the app', async () => {
             await page.getByRole('button', { name: /Accept and continue/i }).click();
 
             await expect(page.getByRole('heading', { name: /License Agreement/i })).toBeHidden();
         });
-    });
-
-    test('Cancel button shows a tooltip explaining it is disabled', async ({ page, network }) => {
-        network.use(
-            http.get('/health', ({ response }) => {
-                return response(200).json({
-                    status: 'ok',
-                    license_accepted: false,
-                });
-            })
-        );
-
-        await page.goto(paths.root({}));
-
-        await expect(page.getByRole('heading', { name: /License Agreement/i })).toBeVisible();
-
-        await page.getByRole('button', { name: /Cancel/i }).hover();
-
-        await expect(page.getByRole('tooltip')).toHaveText('You must accept the license to use this app');
     });
 });
