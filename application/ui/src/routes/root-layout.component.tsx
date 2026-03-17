@@ -9,14 +9,23 @@ import { $api } from '@/api';
 import { IntelBrandedLoading, Toast } from '@geti/ui';
 import { Outlet } from 'react-router';
 
+import { useAcceptLicense } from '../features/license/api/use-accept-license.hook';
+import { License } from '../features/license/license.component';
+
 const HealthCheckup = ({ children }: { children: ReactNode }) => {
     const { data } = $api.useQuery('get', '/health', undefined, {
         refetchInterval: (query) => {
-            return query.state.data?.status === 'ok' ? false : 2000;
+            const healthData = query.state.data;
+            return healthData?.status === 'ok' && healthData.license_accepted ? false : 2000;
         },
     });
+    const { mutate: acceptLicense, isPending: isAccepting } = useAcceptLicense();
 
     if (data?.status === 'ok') {
+        if (!data.license_accepted) {
+            return <License onAccept={() => acceptLicense({})} isAccepting={isAccepting} />;
+        }
+
         return children;
     }
 
