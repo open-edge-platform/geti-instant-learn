@@ -31,6 +31,7 @@ from domain.services.schemas.mappers.project import (
 from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.processor import ModelConfig
 from domain.services.schemas.project import (
+    Device,
     ProjectConfig,
     ProjectCreateSchema,
     ProjectSchema,
@@ -266,7 +267,7 @@ class ProjectService(BaseService):
             except Exception:
                 logger.exception(f"Invalid active sink config ignored: sink_id={active_sink.id}")
 
-        project_device = "cpu"
+        project_device = Device.CPU
         try:
             project_device = TypeAdapter(ProjectConfig).validate_python(project.config or {}).device
         except Exception:

@@ -7,6 +7,7 @@ from instantlearn.models.per_dino import PerDino
 from instantlearn.models.soft_matcher import SoftMatcher
 
 from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, SoftMatcherConfig
+from domain.services.schemas.project import Device
 from runtime.core.components.base import ModelHandler
 from runtime.core.components.models.openvino_model import OpenVINOModelHandler
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
@@ -33,19 +34,19 @@ class DeviceResolver:
         except (ImportError, AttributeError, RuntimeError):
             return False
 
-    def resolve_device(self, configured_device: str | None) -> str:
+    def resolve_device(self, configured_device: Device | None) -> Device:
         """Resolve `auto` device selection to a concrete backend.
 
         Selection priority for `auto`: Intel GPU (xpu), NVIDIA GPU (cuda), then CPU.
         """
-        if configured_device is not None and configured_device != "auto":
+        if configured_device is not None and configured_device != Device.AUTO:
             return configured_device
 
         if self._has_intel_gpu():
-            return "xpu"
+            return Device.XPU
         if self._has_nvidia_gpu():
-            return "cuda"
-        return "cpu"
+            return Device.CUDA
+        return Device.CPU
 
 
 class ModelFactory:
@@ -56,7 +57,7 @@ class ModelFactory:
         self,
         reference_batch: Batch | None,
         config: ModelConfig | None,
-        configured_device: str | None = None,
+        configured_device: Device | None = None,
     ) -> ModelHandler:
         if reference_batch is None:
             return PassThroughModelHandler()
@@ -67,7 +68,7 @@ class ModelFactory:
             return PassThroughModelHandler()
 
         selected_device = self._device_resolver.resolve_device(configured_device)
-        is_cuda = selected_device == "cuda"
+        is_cuda = selected_device == Device.CUDA
 
         match config:
             case MatcherConfig() as config:

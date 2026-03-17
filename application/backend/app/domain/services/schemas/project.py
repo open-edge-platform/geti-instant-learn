@@ -1,16 +1,24 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-
-from typing import Literal
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
 
 
+class Device(StrEnum):
+    """Enum for configurable types of pipeline components."""
+
+    AUTO = "auto"
+    CUDA = "cuda"
+    XPU = "xpu"
+    CPU = "cpu"
+
+
 class ProjectConfig(BaseModel):
-    device: Literal["auto", "cuda", "xpu", "cpu"] = "cpu"
+    device: Device = Device.CPU
 
     model_config = {
         "json_schema_extra": {
