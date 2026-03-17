@@ -7,16 +7,33 @@ from uuid import UUID
 
 from fastapi import Query, Response, status
 
-from api.routers import projects_router
+from api.routers import projects_router, supported_models_router
 from dependencies import ModelServiceDep
+from domain.services.schemas.mappers.processor import SUPPORTED_MODELS_METADATA
 from domain.services.schemas.processor import (
     ProcessorCreateSchema,
     ProcessorListSchema,
     ProcessorSchema,
     ProcessorUpdateSchema,
+    SupportedModelsSchema,
 )
 
 logger = logging.getLogger(__name__)
+
+
+@supported_models_router.get(
+    path="",
+    tags=["Supported Models"],
+    status_code=status.HTTP_200_OK,
+    responses={
+        status.HTTP_200_OK: {
+            "description": "Successfully retrieved supported models and their default configurations."
+        },
+    },
+)
+def get_supported_models() -> SupportedModelsSchema:
+    """Return all supported model types with default configs and accepted prompt types."""
+    return SupportedModelsSchema(models=SUPPORTED_MODELS_METADATA)
 
 
 @projects_router.get(

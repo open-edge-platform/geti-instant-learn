@@ -150,7 +150,29 @@ class Sam3Config(BaseModel):
     }
 
 
-ModelConfig = Annotated[PerDinoConfig | MatcherConfig | SoftMatcherConfig | Sam3Config, Field(discriminator="model_type")]
+ModelConfig = Annotated[
+    PerDinoConfig | MatcherConfig | SoftMatcherConfig | Sam3Config, Field(discriminator="model_type")
+]
+
+
+class SupportedPromptType(StrEnum):
+    """Supported prompt types for a given model type."""
+
+    TEXT = "text"
+    VISUAL_POLYGON = "visual_polygon"
+    VISUAL_RECTANGLE = "visual_rectangle"
+
+
+class SupportedModelMetadataSchema(BaseModel):
+    """Metadata for a supported model type: its defaults and accepted prompt types."""
+
+    model_type: ModelType
+    default_config: ModelConfig
+    supported_prompt_types: list[SupportedPromptType]
+
+
+class SupportedModelsSchema(BaseModel):
+    models: list[SupportedModelMetadataSchema]
 
 
 @dataclass(kw_only=True)
