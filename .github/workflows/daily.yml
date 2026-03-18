@@ -65,10 +65,6 @@ jobs:
 
             core.info(`Found ${issues.data.length} open issue(s) with matching labels`);
 
-            const existingIssue = issues.data.find(issue =>
-              issue.title.includes('[Scheduled Check] Distrib workflow failed')
-            );
-
             const matchingIssues = issues.data.filter(issue =>
               issue.title.includes('[Scheduled Check] Distrib workflow failed')
             );
