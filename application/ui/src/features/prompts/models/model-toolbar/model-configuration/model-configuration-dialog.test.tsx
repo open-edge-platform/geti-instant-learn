@@ -95,7 +95,7 @@ describe('ModelConfigurationDialog', () => {
                 num_foreground_points: 10,
                 num_background_points: 10,
                 confidence_threshold: 0.2,
-                sam_model: 'SAM-HQ-tiny',
+                sam_model: 'SAM-HQ-base',
                 encoder_model: 'dinov3_small',
                 use_mask_refinement: true,
                 precision: 'bf16',

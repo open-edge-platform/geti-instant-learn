@@ -60,7 +60,7 @@ class PerDino(Model):
 
     def __init__(
         self,
-        sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
+        sam: SAMModelName = SAMModelName.SAM_HQ_BASE,
         encoder_model: str = "dinov3_large",
         num_foreground_points: int = 40,
         num_background_points: int = 2,

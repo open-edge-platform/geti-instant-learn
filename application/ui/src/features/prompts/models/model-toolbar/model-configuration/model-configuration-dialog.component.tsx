@@ -31,8 +31,12 @@ const DECODER_MODELS: { label: string; value: DecoderModel }[] = [
         value: 'SAM-HQ',
     },
     {
-        label: 'SAM-HQ Tiny',
-        value: 'SAM-HQ-tiny',
+        label: 'SAM-HQ Base',
+        value: 'SAM-HQ-base',
+    },
+    {
+        label: 'SAM-HQ Large',
+        value: 'SAM-HQ-large',
     },
     {
         label: 'SAM2 Tiny',

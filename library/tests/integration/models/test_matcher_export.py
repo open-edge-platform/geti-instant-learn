@@ -67,7 +67,7 @@ def reference_batch(dataset: FolderDataset) -> Batch:
 class TestMatcherExportIntegration:
     """Integration tests for Matcher export functionality."""
 
-    @pytest.mark.parametrize("sam_model", [SAMModelName.SAM_HQ_TINY])
+    @pytest.mark.parametrize("sam_model", [SAMModelName.SAM_HQ_BASE])
     def test_export_onnx_and_inference(
         self,
         sam_model: SAMModelName,
@@ -128,7 +128,7 @@ class TestMatcherExportIntegration:
         assert masks.shape[1] == target_image.shape[1], "Mask height should match input"
         assert masks.shape[2] == target_image.shape[2], "Mask width should match input"
 
-    @pytest.mark.parametrize("sam_model", [SAMModelName.SAM_HQ_TINY])
+    @pytest.mark.parametrize("sam_model", [SAMModelName.SAM_HQ_BASE])
     def test_export_openvino_and_inference(
         self,
         sam_model: SAMModelName,

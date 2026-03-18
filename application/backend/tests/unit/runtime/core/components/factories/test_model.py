@@ -77,7 +77,7 @@ class TestModelFactory:
             num_background_points=3,
             confidence_threshold=0.5,
             precision="bf16",
-            sam_model=SAMModelName.SAM_HQ_TINY,
+            sam_model=SAMModelName.SAM_HQ_BASE,
             encoder_model="dinov3_small",
             use_mask_refinement=True,
             use_nms=True,
@@ -132,7 +132,7 @@ class TestModelFactory:
             num_background_points=3,
             confidence_threshold=0.5,
             precision="fp32",
-            sam_model=SAMModelName.SAM_HQ_TINY,
+            sam_model=SAMModelName.SAM_HQ_BASE,
             encoder_model="dinov3_small",
             use_mask_refinement=True,
             use_nms=True,
@@ -160,7 +160,7 @@ class TestModelFactory:
                 precision="fp32",
                 device="cpu",
                 use_mask_refinement=True,
-                sam=SAMModelName.SAM_HQ_TINY,
+                sam=SAMModelName.SAM_HQ_BASE,
                 encoder_model="dinov3_small",
                 use_nms=True,
             )
@@ -168,7 +168,7 @@ class TestModelFactory:
 
     def test_factory_creates_perdino_model_with_config(self, mock_reference_batch, mock_settings, model_factory):
         config = PerDinoConfig(
-            sam_model=SAMModelName.SAM_HQ_TINY,
+            sam_model=SAMModelName.SAM_HQ_BASE,
             encoder_model="dinov3_large",
             num_foreground_points=80,
             num_background_points=2,
@@ -195,7 +195,7 @@ class TestModelFactory:
             model_factory.create(mock_reference_batch, config)
 
             mock_perdino.assert_called_once_with(
-                sam=SAMModelName.SAM_HQ_TINY,
+                sam=SAMModelName.SAM_HQ_BASE,
                 encoder_model="dinov3_large",
                 num_foreground_points=80,
                 num_background_points=2,
@@ -210,7 +210,7 @@ class TestModelFactory:
 
     def test_factory_creates_softmatcher_model_with_config(self, mock_reference_batch, mock_settings, model_factory):
         config = SoftMatcherConfig(
-            sam_model=SAMModelName.SAM_HQ_TINY,
+            sam_model=SAMModelName.SAM_HQ_BASE,
             encoder_model="dinov3_large",
             num_foreground_points=40,
             num_background_points=2,
@@ -240,7 +240,7 @@ class TestModelFactory:
             model_factory.create(mock_reference_batch, config)
 
             mock_softmatcher.assert_called_once_with(
-                sam=SAMModelName.SAM_HQ_TINY,
+                sam=SAMModelName.SAM_HQ_BASE,
                 encoder_model="dinov3_large",
                 num_foreground_points=40,
                 num_background_points=2,
@@ -262,7 +262,7 @@ class TestModelFactory:
             num_background_points=3,
             confidence_threshold=0.5,
             precision="fp32",
-            sam_model=SAMModelName.SAM_HQ_TINY,
+            sam_model=SAMModelName.SAM_HQ_BASE,
             encoder_model="dinov3_small",
         )
 
@@ -295,7 +295,7 @@ class TestModelFactory:
             num_background_points=1,
             confidence_threshold=0.5,
             precision="fp32",
-            sam_model=SAMModelName.SAM_HQ_TINY,
+            sam_model=SAMModelName.SAM_HQ_BASE,
             encoder_model="dinov3_small",
         )
         mock_settings = MagicMock()
@@ -336,21 +336,21 @@ class TestModelFactory:
                 num_foreground_points=5,
                 num_background_points=3,
                 confidence_threshold=0.5,
-                sam_model=SAMModelName.SAM_HQ_TINY,
+                sam_model=SAMModelName.SAM_HQ_BASE,
                 encoder_model="dinov3_small",
             )
         elif config_class == PerDinoConfig:
             config = PerDinoConfig(
                 num_foreground_points=80,
                 num_background_points=2,
-                sam_model=SAMModelName.SAM_HQ_TINY,
+                sam_model=SAMModelName.SAM_HQ_BASE,
                 encoder_model="dinov3_large",
             )
         else:
             config = SoftMatcherConfig(
                 num_foreground_points=40,
                 num_background_points=2,
-                sam_model=SAMModelName.SAM_HQ_TINY,
+                sam_model=SAMModelName.SAM_HQ_BASE,
                 encoder_model="dinov3_large",
             )
 

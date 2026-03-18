@@ -41,7 +41,7 @@ def load_sam_model(
     which implementation to use.
 
     Args:
-        sam: The SAM model architecture to load (e.g., SAM_HQ_TINY, SAM2_BASE)
+        sam: The SAM model architecture to load (e.g., SAM_HQ_BASE, SAM2_BASE)
         device: Device to run inference on:
             - PyTorch backend: "cuda", "cpu"
             - OpenVINO backend: "CPU", "GPU", "AUTO"
@@ -63,10 +63,20 @@ def load_sam_model(
     Examples:
         >>> # PyTorch backend with auto-download
         >>> predictor = load_sam_model(
-        ...     SAMModelName.SAM_HQ_TINY,
+        ...     SAMModelName.SAM_HQ_BASE,
         ...     device="cuda",
         ... )
     """
+    if sam == SAMModelName.SAM_HQ_TINY:
+        import warnings
+
+        warnings.warn(
+            "SAM_HQ_TINY is deprecated due to GPU non-determinism. "
+            "Use SAM_HQ_BASE instead. SAM_HQ_TINY will be removed in a future release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
     if sam not in MODEL_MAP:
         msg = f"Invalid model type: {sam}"
         raise ValueError(msg)
@@ -329,7 +339,7 @@ class SAMPredictor(nn.Module):
         """Initialize SAM predictor.
 
         Args:
-            sam_model_name: The SAM model architecture (e.g., SAM_HQ_TINY, SAM2_BASE)
+            sam_model_name: The SAM model architecture (e.g., SAM_HQ_BASE, SAM2_BASE)
             device: Device to run inference on ("cuda", "cpu")
             model_path: Path to .pth checkpoint file (optional, auto-downloads if None)
             target_length: Target length for the longest side of the image during transformation. Defaults to 1024.
