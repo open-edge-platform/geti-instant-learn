@@ -24,6 +24,12 @@ Measures component-level and end-to-end latency for live-inference scenarios:
   - Reduced inference threads
   - BF16 precision hint (if supported)
 
+**Device support:**
+  - CPU (default)
+  - GPU — Intel iGPU/dGPU (pass ``--device GPU``). XPU users should use
+    ``--device GPU`` since OpenVINO maps Intel XPU as GPU device.
+  - AUTO — let OpenVINO select the best available device
+
 **Component breakdown:**
   - Image preprocessing (CPU/PyTorch)
   - Vision encoder (OpenVINO)
@@ -32,15 +38,24 @@ Measures component-level and end-to-end latency for live-inference scenarios:
   - Prompt decoder (OpenVINO)
   - Postprocessing (CPU/PyTorch)
 
+**Output:**
+  - Rich terminal tables with summary, variant comparison, speedups, and FPS
+  - Excel file with detailed results (``sam3_benchmark_{device}_{timestamp}.xlsx``)
+  - PNG chart with latency comparison, component breakdown, and FPS
+    (requires matplotlib; use ``--no-charts`` to skip)
+
 Usage:
     # Auto-download models from HuggingFace and benchmark (default)
     python scripts/benchmark_sam3_openvino.py
 
-    # Specific variant only
+    # Auto-download INT8 quantised variant
     python scripts/benchmark_sam3_openvino.py --variants openvino-fp16
 
     # Use local model directory instead of HuggingFace
     python scripts/benchmark_sam3_openvino.py --base-dir ./sam3-openvino
+
+    # Benchmark on Intel GPU (XPU)
+    python scripts/benchmark_sam3_openvino.py --device GPU
 
     # More warmup / iterations
     python scripts/benchmark_sam3_openvino.py --warmup 5 --iterations 20
@@ -113,6 +128,15 @@ OV_CONFIGS_GPU: dict[str, dict] = {
     "default": {},
     "latency-hint": {"PERFORMANCE_HINT": "LATENCY"},
 }
+
+
+def _is_gpu_available() -> bool:
+    """Check whether an OpenVINO GPU device is available."""
+    try:
+        core = ov.Core()
+        return "GPU" in core.available_devices
+    except Exception:  # noqa: BKA001
+        return False
 
 
 def _get_ov_configs(device: str) -> dict[str, dict]:
@@ -1048,6 +1072,138 @@ def _get_device_full_name(device: str) -> str:
         return device
 
 
+def save_charts(
+    results: list[BenchmarkResult],
+    device: str,
+    output_dir: Path,
+) -> Path | None:
+    """Generate benchmark comparison charts and save as PNG.
+
+    Creates a multi-panel figure with:
+      - Bar chart: mean end-to-end latency per variant and prompt type
+      - Bar chart: component breakdown (stacked) per variant
+      - Bar chart: live-stream FPS per variant
+
+    Args:
+        results: Benchmark results to visualize.
+        device: OpenVINO device string used for benchmarking.
+        output_dir: Directory to write the chart PNG.
+
+    Returns:
+        Path to the saved chart, or ``None`` if matplotlib is unavailable.
+    """
+    try:
+        import matplotlib  # noqa: PLC0415
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt  # noqa: PLC0415
+    except ImportError:
+        console.print("[yellow]matplotlib not installed — skipping chart generation[/yellow]")
+        return None
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    device_name = _get_device_full_name(device)
+
+    # Filter to default config for cleaner charts
+    default_full = [
+        r
+        for r in results
+        if r.config_name == "default" and "cached" not in r.prompt_type and r.prompt_type != "live-stream"
+    ]
+    live_results = [r for r in results if r.prompt_type == "live-stream" and r.config_name == "default"]
+
+    if not default_full:
+        console.print("[yellow]No default-config results for charting[/yellow]")
+        return None
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    fig.suptitle(f"SAM3 OpenVINO Benchmark — {device_name}", fontsize=14, fontweight="bold")
+
+    # --- Panel 1: End-to-end latency by variant × prompt type ---
+    ax1 = axes[0]
+    variants = sorted({r.variant for r in default_full})
+    prompt_types = sorted({r.prompt_type for r in default_full})
+    bar_width = 0.8 / max(len(prompt_types), 1)
+
+    x = np.arange(len(variants))
+    for i, pt in enumerate(prompt_types):
+        means = []
+        for v in variants:
+            match = [r for r in default_full if r.variant == v and r.prompt_type == pt]
+            means.append(match[0].stats("total_ms")["mean"] if match else 0)
+        ax1.bar(x + i * bar_width, means, bar_width, label=pt)
+
+    ax1.set_xlabel("Model Variant")
+    ax1.set_ylabel("Latency (ms)")
+    ax1.set_title("End-to-End Latency")
+    ax1.set_xticks(x + bar_width * (len(prompt_types) - 1) / 2)
+    ax1.set_xticklabels(variants, rotation=15, ha="right", fontsize=9)
+    ax1.legend(fontsize=8)
+    ax1.grid(axis="y", alpha=0.3)
+
+    # --- Panel 2: Component breakdown (stacked bar, text prompt) ---
+    ax2 = axes[1]
+    text_results = [r for r in default_full if r.prompt_type == "text"]
+    components = [
+        ("preprocess_ms", "Preprocess"),
+        ("vision_encoder_ms", "Vision Encoder"),
+        ("text_encoder_ms", "Text Encoder"),
+        ("geometry_encoder_ms", "Geometry Encoder"),
+        ("decoder_ms", "Decoder"),
+        ("postprocess_ms", "Postprocess"),
+    ]
+    colors = ["#4c72b0", "#55a868", "#c44e52", "#8172b2", "#ccb974", "#64b5cd"]
+
+    text_variants = [r.variant for r in text_results]
+    x2 = np.arange(len(text_variants))
+    bottom = np.zeros(len(text_variants))
+
+    for (attr, label), color in zip(components, colors, strict=False):
+        vals = [r.stats(attr)["mean"] for r in text_results]
+        ax2.bar(x2, vals, bottom=bottom, label=label, color=color, width=0.6)
+        bottom += np.array(vals)
+
+    ax2.set_xlabel("Model Variant")
+    ax2.set_ylabel("Latency (ms)")
+    ax2.set_title("Component Breakdown (text prompt)")
+    ax2.set_xticks(x2)
+    ax2.set_xticklabels(text_variants, rotation=15, ha="right", fontsize=9)
+    ax2.legend(fontsize=7, loc="upper left")
+    ax2.grid(axis="y", alpha=0.3)
+
+    # --- Panel 3: Live-stream FPS ---
+    ax3 = axes[2]
+    if live_results:
+        live_variants = [r.variant for r in live_results]
+        fps_values = [1000.0 / r.stats("total_ms")["mean"] if r.stats("total_ms")["mean"] > 0 else 0 for r in live_results]
+        x3 = np.arange(len(live_variants))
+        bars = ax3.bar(x3, fps_values, color="#55a868", width=0.6)
+
+        for bar, fps in zip(bars, fps_values, strict=False):
+            ax3.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.1, f"{fps:.1f}", ha="center", va="bottom", fontsize=9)
+
+        ax3.set_xlabel("Model Variant")
+        ax3.set_ylabel("FPS")
+        ax3.set_title("Live Stream FPS (text prompt)")
+        ax3.set_xticks(x3)
+        ax3.set_xticklabels(live_variants, rotation=15, ha="right", fontsize=9)
+        ax3.grid(axis="y", alpha=0.3)
+    else:
+        ax3.text(0.5, 0.5, "No live-stream data", transform=ax3.transAxes, ha="center", va="center")
+        ax3.set_title("Live Stream FPS")
+
+    plt.tight_layout()
+
+    device_tag = device.lower().replace(".", "_")
+    timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
+    chart_path = output_dir / f"sam3_benchmark_{device_tag}_{timestamp}.png"
+    fig.savefig(chart_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+    console.print(f"[bold green]Chart saved to:[/bold green] {chart_path}")
+    return chart_path
+
+
 def _results_to_dataframe(results: list[BenchmarkResult]):  # noqa: ANN202
     """Convert benchmark results to a pandas DataFrame with per-row statistics.
 
@@ -1184,7 +1340,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--device",
         type=str,
         default="CPU",
-        help="OpenVINO device. Default: CPU",
+        help='OpenVINO device: "CPU", "GPU" (Intel iGPU/dGPU/XPU), or "AUTO". Default: CPU',
     )
     parser.add_argument(
         "--warmup",
@@ -1215,6 +1371,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default=Path("./benchmark_results"),
         help="Directory to save benchmark results Excel file. Default: ./benchmark_results",
     )
+    parser.add_argument(
+        "--no-charts",
+        action="store_true",
+        help="Skip chart generation (requires matplotlib).",
+    )
     return parser
 
 
@@ -1233,6 +1394,9 @@ def main() -> None:
     console.rule("[bold]SAM3 OpenVINO Benchmark[/bold]")
     device_name = _get_device_full_name(args.device)
     console.print(f"Device: {args.device} ([cyan]{device_name}[/cyan])")
+    if _is_gpu_available():
+        gpu_name = _get_device_full_name("GPU")
+        console.print(f"Intel GPU available: [cyan]{gpu_name}[/cyan]")
     console.print(f"Warmup: {args.warmup}, Iterations: {args.iterations}, Live frames: {args.live_frames}")
     console.print(f"Variants: {args.variants}")
     if args.base_dir is not None:
@@ -1274,6 +1438,10 @@ def main() -> None:
 
     # Save results to Excel
     save_results(results, args.device, args.output_dir)
+
+    # Generate comparison charts
+    if not args.no_charts:
+        save_charts(results, args.device, args.output_dir)
 
 
 if __name__ == "__main__":
