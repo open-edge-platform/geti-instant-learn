@@ -23,7 +23,7 @@ const HealthCheckup = ({ children }: { children: ReactNode }) => {
 
     if (data?.status === 'ok') {
         if (!data.license_accepted) {
-            return <License onAccept={() => acceptLicense({})} isAccepting={isAccepting} />;
+            return <License onAccept={() => acceptLicense(undefined)} isAccepting={isAccepting} />;
         }
 
         return children;
