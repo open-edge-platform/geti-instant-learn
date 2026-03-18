@@ -57,6 +57,7 @@ export {
     type SchemaVisualPromptSchema as VisualPromptType,
     type SchemaPromptsListSchema as VisualPromptListType,
     type SchemaVisualPromptListItemSchema as VisualPromptItemType,
+    type SchemaTextPromptSchema as TextPromptType,
     type SchemaFrameMetadata as FrameAPIType,
     type SchemaFrameListResponse as FramesResponseType,
     type SchemaSinkCreateSchema as SinkCreateType,

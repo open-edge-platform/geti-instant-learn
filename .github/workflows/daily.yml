@@ -34,6 +34,8 @@ jobs:
     uses: ./.github/workflows/distrib.yml
     permissions:
       contents: read
+      packages: write # Required by nested job
+      id-token: write # Required by nested job
     with:
       build_version: ${{ needs.build-parameters.outputs.app_version }}
 
