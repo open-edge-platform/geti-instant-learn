@@ -59,7 +59,7 @@ jobs:
             const issues = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              labels: ['daily-failure', 'automated'],
+              labels: 'daily-failure,automated',
               state: 'open',
             });
 
