@@ -37,6 +37,7 @@ test.describe('License agreement', () => {
             await page.getByRole('button', { name: /Accept and continue/i }).click();
 
             await expect(page.getByRole('heading', { name: /License Agreement/i })).toBeHidden();
+            await expect(page.getByRole('link', { name: /Geti Instant Learn/i })).toBeVisible();
         });
     });
 });

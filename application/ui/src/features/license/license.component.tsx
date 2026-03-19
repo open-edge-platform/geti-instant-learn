@@ -26,7 +26,7 @@ export const License = ({ onAccept, isAccepting = false }: LicenseProps) => {
                     <Heading level={2}>License Agreement</Heading>
                     <Divider marginY={'size-200'} size={'S'} />
                     <Content>
-                        <Flex direction={'column'} gap={'size-200'}>
+                        <Flex direction={'column'}>
                             <Text>By installing, using, or distributing this application, you acknowledge that:</Text>
                             <ul>
                                 <li>you have read and understood the license terms at the links below;</li>
