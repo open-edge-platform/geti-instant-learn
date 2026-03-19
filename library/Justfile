@@ -5,14 +5,17 @@ set shell := ["bash", "-cu"]
 py_path := "tests:src"
 
 # Ensure version in GHA workflow matches uv version here
+
 uv_version := "0.10.0"
 
 # Sphinx documentation variables
+
 DOCSSOURCEDIR := "sphinx"
 DOCSBUILDDIR := "sphinx/.build"
 
 # Benchmark variables
-lvis-directory := "~/datasets/lvis/"
+
+lvis-directory := "$HOME/datasets/lvis/"
 benchmark-dataset := "LVIS"
 benchmark-model := "Matcher"
 benchmark-devices := "xpu"
@@ -92,14 +95,16 @@ clean-api-reference:
 # download lvis dataset
 download-lvis:
     #!/usr/bin/env bash
+    set -euo pipefail
+
     LVIS_DIR="{{ lvis-directory }}" 
 
-    if [ -d "$LVIS_DIR" ] && [ "$(ls -A $LVIS_DIR)" ]; then
+    if [ -d "$LVIS_DIR" ] && [ "$(ls -A "$LVIS_DIR")" ]; then
         echo "LVIS dataset directory already exists and is not empty. Skipping download."
         exit 0
     fi
-    mkdir -p $LVIS_DIR
-    cd $LVIS_DIR
+    mkdir -p "$LVIS_DIR"
+    cd "$LVIS_DIR"
 
     echo "Downloading COCO images..."
     wget -q --show-progress http://images.cocodataset.org/zips/train2017.zip
