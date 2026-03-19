@@ -57,7 +57,7 @@ export const License = ({ onAccept, isAccepting = false }: LicenseProps) => {
                         </Flex>
                     </Content>
                     <Flex justifyContent={'end'} marginTop={'size-300'}>
-                        <Button variant={'accent'} onPress={onAccept} isPending={isAccepting} isDisable={isAccepting}>
+                        <Button variant={'accent'} onPress={onAccept} isPending={isAccepting} isDisabled={isAccepting}>
                             Accept and continue
                         </Button>
                     </Flex>
