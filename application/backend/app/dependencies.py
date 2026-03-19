@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+from functools import lru_cache
 from typing import Annotated
 
 from fastapi import Depends, Request
@@ -15,7 +16,15 @@ from domain.repositories.project import ProjectRepository
 from domain.repositories.prompt import PromptRepository
 from domain.repositories.sink import SinkRepository
 from domain.repositories.source import SourceRepository
-from domain.services import LabelService, ModelService, ProjectService, PromptService, SinkService, SourceService
+from domain.services import (
+    DatasetRegistryService,
+    LabelService,
+    ModelService,
+    ProjectService,
+    PromptService,
+    SinkService,
+    SourceService,
+)
 from runtime.core.components.validators.sink_connection import SinkConnectionValidator
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.frame import FrameService
@@ -151,6 +160,12 @@ def get_license_service() -> LicenseService:
     return LicenseService()
 
 
+@lru_cache
+def get_dataset_registry_service() -> DatasetRegistryService:
+    """Dependency that provides a singleton DatasetRegistryService instance."""
+    return DatasetRegistryService()
+
+
 # --- Dependency aliases ---
 ProjectServiceDep = Annotated[ProjectService, Depends(get_project_service)]
 SourceServiceDep = Annotated[SourceService, Depends(get_source_service)]
@@ -163,3 +178,4 @@ SinkServiceDep = Annotated[SinkService, Depends(get_sink_service)]
 SinkConnectionValidatorDep = Annotated[SinkConnectionValidator, Depends(get_sink_connection_validator)]
 DiscoveryServiceDep = Annotated[SourceTypeService, Depends(get_discovery_service)]
 LicenseServiceDep = Annotated[LicenseService, Depends(get_license_service)]
+DatasetRegistryServiceDep = Annotated[DatasetRegistryService, Depends(get_dataset_registry_service)]

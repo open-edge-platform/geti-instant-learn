@@ -37,7 +37,7 @@ download-datasets target_dir:
     for filename in {{ dataset-names }}; do
         dataset_subdir="$DATASET_DIR/$filename"
         if [ -d "$dataset_subdir" ] && [ "$(ls -A "$dataset_subdir")" ]; then
-            echo "Dataset subdirectory $dataset_subdir already exists and is not empty. Skipping $filename."
+            echo "Dataset subdirectory $dataset_subdir already exists and is not empty. Skipping download."
             continue
         fi
         mkdir -p "$dataset_subdir"
@@ -52,34 +52,3 @@ download-datasets target_dir:
         echo "Removing downloaded archive $filename.zip"
         rm "$filename.zip"
     done
-
-prepare-manifest target_dir manifest_path="backend/.data/templates/datasets/manifest.json":
-    #!/usr/bin/env python3
-    import json
-    from pathlib import Path
-
-    target_dir = Path("{{ target_dir }}")
-    manifest_path = Path("{{ manifest_path }}")
-    base_url = "{{ dataset-base-url }}".rstrip("/")
-
-    if not target_dir.exists():
-        raise SystemExit(f"Error: Dataset directory does not exist: {target_dir}")
-
-    datasets: list[dict[str, str]] = []
-    for dataset_dir in sorted(path for path in target_dir.iterdir() if path.is_dir()):
-        if not any(dataset_dir.iterdir()):
-            continue
-
-        human_name = dataset_dir.name.replace("-", " ").replace("_", " ").title()
-        datasets.append(
-            {
-                "name": human_name,
-                "description": f"This is sample dataset of {human_name.lower()}.",
-                "directory": f"{base_url}/{dataset_dir.name}",
-            }
-        )
-
-    manifest = {"datasets": datasets}
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    print(f"Prepared {manifest_path} with {len(datasets)} datasets from {target_dir}")

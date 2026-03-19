@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     db_filename: str = "instant_learn.db"
 
     # Template datasets
-    template_dataset_path: str = Field(default="templates/datasets/coffee-berries", alias="TEMPLATE_DATASET_PATH")
+    template_dataset_path: str = Field(default="templates/datasets", alias="TEMPLATE_DATASET_PATH")
 
     # License
     license_accept_env_var: str = "INSTANTLEARN_LICENSE_ACCEPTED"
