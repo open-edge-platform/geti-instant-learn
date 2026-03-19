@@ -3,12 +3,19 @@
 set shell := ["bash", "-cu"]
 
 py_path := "tests:src"
+
 # Ensure version in GHA workflow matches uv version here
 uv_version := "0.10.0"
 
 # Sphinx documentation variables
 DOCSSOURCEDIR := "sphinx"
-DOCSBUILDDIR  := "sphinx/.build"
+DOCSBUILDDIR := "sphinx/.build"
+
+# Benchmark variables
+lvis-directory := "~/datasets/lvis/"
+benchmark-dataset := "LVIS"
+benchmark-model := "Matcher"
+benchmark-devices := "xpu"
 
 # List available tasks
 default:
@@ -16,8 +23,8 @@ default:
 
 # Install uv
 pre-venv:
-    if ! uv self version | grep {{uv_version}} >/dev/null; then \
-        curl --proto '=https' --tlsv1.2 -LsSf "https://github.com/astral-sh/uv/releases/download/{{uv_version}}/uv-installer.sh" | sh; \
+    if ! uv self version | grep {{ uv_version }} >/dev/null; then \
+        curl --proto '=https' --tlsv1.2 -LsSf "https://github.com/astral-sh/uv/releases/download/{{ uv_version }}/uv-installer.sh" | sh; \
     fi
 
 # Create virtual environment
@@ -32,14 +39,15 @@ venv-lock: pre-venv
 # Unit tests
 test-unit: venv
     if [ -d "./tests/unit" ]; then \
-        PYTHONPATH={{py_path}} uv run pytest ./tests/unit -v; \
+        PYTHONPATH={{ py_path }} uv run pytest ./tests/unit -v; \
     else \
         echo "./tests/unit directory not found - skipping unit tests"; \
     fi
+
 # Integration tests
 test-integration: venv
     if [ -d "./tests/integration" ]; then \
-        PYTHONPATH={{py_path}} uv run pytest ./tests/integration -v; \
+        PYTHONPATH={{ py_path }} uv run pytest ./tests/integration -v; \
     else \
         echo "./tests/integration directory not found - skipping integration tests"; \
     fi
@@ -71,12 +79,47 @@ venv-api-reference: pre-venv
 
 # Build API reference HTML documentation
 api-reference-html: venv-api-reference
-	uv run sphinx-build -b html {{DOCSSOURCEDIR}} "{{DOCSBUILDDIR}}"/html
+    uv run sphinx-build -b html {{ DOCSSOURCEDIR }} "{{ DOCSBUILDDIR }}"/html
 
 # Build API reference Markdown documentation
 api-reference-markdown: venv-api-reference
-	uv run sphinx-build -b markdown {{DOCSSOURCEDIR}} "{{DOCSBUILDDIR}}"/md
+    uv run sphinx-build -b markdown {{ DOCSSOURCEDIR }} "{{ DOCSBUILDDIR }}"/md
 
 # Remove autosummary generated files. Can be removed when https://github.com/sphinx-doc/sphinx/issues/1999 is fixed.
 clean-api-reference:
-	rm -rf "{{DOCSSOURCEDIR}}/_autosummary"
+    rm -rf "{{ DOCSSOURCEDIR }}/_autosummary"
+
+# download lvis dataset
+download-lvis:
+    #!/usr/bin/env bash
+    LVIS_DIR="{{ lvis-directory }}" 
+
+    if [ -d "$LVIS_DIR" ] && [ "$(ls -A $LVIS_DIR)" ]; then
+        echo "LVIS dataset directory already exists and is not empty. Skipping download."
+        exit 0
+    fi
+    mkdir -p $LVIS_DIR
+    cd $LVIS_DIR
+
+    echo "Downloading COCO images..."
+    wget -q --show-progress http://images.cocodataset.org/zips/train2017.zip
+    wget -q --show-progress http://images.cocodataset.org/zips/val2017.zip
+
+    echo "Downloading LVIS annotations..."
+    wget -q --show-progress https://dl.fbaipublicfiles.com/LVIS/lvis_v1_train.json.zip
+    wget -q --show-progress https://dl.fbaipublicfiles.com/LVIS/lvis_v1_val.json.zip
+
+    echo "Extracting all zip files..."
+    unzip -q train2017.zip
+    unzip -q val2017.zip
+    unzip -q lvis_v1_train.json.zip
+    unzip -q lvis_v1_val.json.zip
+
+    echo "Cleaning up downloaded archives..."
+    rm train2017.zip val2017.zip lvis_v1_train.json.zip lvis_v1_val.json.zip
+
+    echo "LVIS dataset downloaded and extracted to {{ lvis-directory }}"
+
+# launch benchmark
+benchmark: download-lvis
+    uv run --extra {{ benchmark-devices }} instantlearn benchmark --dataset_name {{ benchmark-dataset }} --model {{ benchmark-model }} --device {{ benchmark-devices }} --overwrite
