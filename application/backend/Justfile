@@ -8,7 +8,7 @@ enable-coturn := "false"
 host-ip := `uv run python -c "import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.connect(('8.8.8.8',80)); print(s.getsockname()[0]); s.close()"`
 stun-server := ""
 coturn-port := "443"
-dataset-dir := ".data/templates/datasets"
+dataset-dir := justfile_directory() + "/.data/templates/datasets"
 
 # Ensure version in GHA workflow matches uv version here
 uv_version := "0.10.0"
@@ -86,7 +86,7 @@ _mypy:
 # Installer
 # -------------------------------------------------------------------------------------------------
 
-pyinstaller: _venv (download-dataset dataset-dir)
+pyinstaller: _venv (download-dataset dataset-dir) (download-datasets dataset-dir)
     echo 'DEVICE="{{device}}"' > .env
     uv sync --extra installer --extra {{device}} --extra mqtt --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
     uv run pyinstaller --clean --noconfirm instant-learn.spec
