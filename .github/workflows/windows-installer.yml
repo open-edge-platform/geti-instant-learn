@@ -33,6 +33,7 @@ on:
         required: true
       device:
         description: "Specifies the device to build the backend for (cpu, xpu, cuda)"
+        type: choice
         required: true
         options:
           - xpu
