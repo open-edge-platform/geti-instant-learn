@@ -3,6 +3,7 @@
 
 """SoftMatcher model."""
 
+from instantlearn.components.postprocessing import PostProcessor
 from instantlearn.models.matcher import Matcher
 from instantlearn.utils.constants import SAMModelName
 
@@ -81,10 +82,10 @@ class SoftMatcher(Matcher):
         softmatching_score_threshold: float = 0.4,
         softmatching_bidirectional: bool = False,
         encoder_model: str = "dinov3_large",
-        use_nms: bool = True,
         precision: str = "bf16",
         compile_models: bool = False,
         device: str = "cuda",
+        postprocessor: PostProcessor | None = None,
     ) -> None:
         """Initialize the SoftMatcher model.
 
@@ -100,21 +101,23 @@ class SoftMatcher(Matcher):
             softmatching_score_threshold: The score threshold for the soft matching.
             softmatching_bidirectional: Whether to use bidirectional soft matching.
             encoder_model: The encoder model to use.
-            use_nms: Whether to use non-maximum suppression on the predicted masks.
             precision: The precision to use for the model.
             compile_models: Whether to compile the models.
             device: The device to use for the model.
+            postprocessor: Post-processor applied after predict().
+                Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
+                (MaskIoMNMS + BoxIoMNMS).
         """
         super().__init__(
             sam=sam,
             num_foreground_points=num_foreground_points,
             num_background_points=num_background_points,
             confidence_threshold=confidence_threshold,
-            use_nms=use_nms,
             encoder_model=encoder_model,
             precision=precision,
             compile_models=compile_models,
             device=device,
+            postprocessor=postprocessor,
         )
         self.prompt_generator = SoftmatcherPromptGenerator(
             encoder_input_size=self.encoder.input_size,

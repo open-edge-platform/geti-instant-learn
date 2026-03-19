@@ -25,6 +25,9 @@ const MOCKED_PROJECT_RESPONSE: ProjectType = {
     id: '1',
     name: 'Project #1',
     active: true,
+    config: {
+        device: 'cpu',
+    },
 };
 const MOCKED_PROJECTS_LIST_RESPONSE: ProjectsListType = {
     projects: [MOCKED_PROJECT_RESPONSE],
@@ -85,7 +88,6 @@ const MOCKED_MODELS_RESPONSE: ModelListType = {
                 sam_model: 'SAM-HQ-base',
                 encoder_model: 'dinov3_large',
                 use_mask_refinement: false,
-                use_nms: false,
             },
             active: true,
             name: 'Mega model',

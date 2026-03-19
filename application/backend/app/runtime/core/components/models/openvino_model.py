@@ -125,11 +125,42 @@ class OpenVINOModelHandler(ModelHandler):
             output = self._infer_request.infer({self._input_port: image})
             pred_masks = np.asarray(output[self._masks_output_port])
             pred_masks = self._resize_masks_to_frame(pred_masks, input_data.frame.shape[0], input_data.frame.shape[1])
+            pred_scores = np.asarray(output[self._scores_output_port])
+            boxes = _masks_to_boxes(pred_masks, pred_scores)
             results.append(
                 {
                     "pred_masks": pred_masks,
-                    "pred_scores": np.asarray(output[self._scores_output_port]),
+                    "pred_scores": pred_scores,
                     "pred_labels": np.asarray(output[self._labels_output_port]),
+                    "pred_boxes": boxes,
                 }
             )
         return results
+
+
+def _masks_to_boxes(masks: np.ndarray, scores: np.ndarray) -> np.ndarray:
+    """Derive [x1, y1, x2, y2, score] bounding boxes from binary masks.
+
+    Args:
+        masks: Binary masks ``[N, H, W]``.
+        scores: Confidence scores ``[N]``.
+
+    Returns:
+        Bounding boxes ``[N, 5]`` with ``(x1, y1, x2, y2, score)``.
+    """
+    n = masks.shape[0]
+    if n == 0:
+        return np.empty((0, 5), dtype=np.float32)
+
+    boxes = np.empty((n, 5), dtype=np.float32)
+    for i in range(n):
+        rows = np.any(masks[i], axis=1)
+        cols = np.any(masks[i], axis=0)
+        if not rows.any():
+            boxes[i] = [0, 0, 0, 0, scores[i]]
+            continue
+        y1, y2 = np.where(rows)[0][[0, -1]]
+        x1, x2 = np.where(cols)[0][[0, -1]]
+        boxes[i] = [x1, y1, x2 + 1, y2 + 1, scores[i]]
+
+    return boxes

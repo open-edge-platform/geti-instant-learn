@@ -127,3 +127,5 @@ class TestOpenVINOModelHandler:
         np.testing.assert_array_equal(results[0]["pred_masks"], masks > 0.5)
         np.testing.assert_array_equal(results[0]["pred_scores"], scores)
         np.testing.assert_array_equal(results[0]["pred_labels"], labels)
+        assert "pred_boxes" in results[0]
+        assert results[0]["pred_boxes"].shape[1] == 5
