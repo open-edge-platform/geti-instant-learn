@@ -3,8 +3,10 @@
 
 """PyTorch backend implementation for SAM predictor."""
 
+import warnings
 from logging import getLogger
 from pathlib import Path
+from types import MethodType
 
 import numpy as np
 import torch
@@ -40,7 +42,7 @@ def load_sam_model(
     which implementation to use.
 
     Args:
-        sam: The SAM model architecture to load (e.g., SAM_HQ_TINY, SAM2_BASE)
+        sam: The SAM model architecture to load (e.g., SAM_HQ_BASE, SAM2_BASE)
         device: Device to run inference on:
             - PyTorch backend: "cuda", "cpu"
             - OpenVINO backend: "CPU", "GPU", "AUTO"
@@ -62,10 +64,18 @@ def load_sam_model(
     Examples:
         >>> # PyTorch backend with auto-download
         >>> predictor = load_sam_model(
-        ...     SAMModelName.SAM_HQ_TINY,
+        ...     SAMModelName.SAM_HQ_BASE,
         ...     device="cuda",
         ... )
     """
+    if sam == SAMModelName.SAM_HQ_TINY:
+        warnings.warn(
+            "SAM_HQ_TINY is deprecated due to GPU non-determinism. "
+            "Use SAM_HQ_BASE instead. SAM_HQ_TINY will be removed in a future release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
     if sam not in MODEL_MAP:
         msg = f"Invalid model type: {sam}"
         raise ValueError(msg)
@@ -78,8 +88,8 @@ def load_sam_model(
     )
 
     # Apply PyTorch-specific optimizations
-    predictor._predictor = optimize_model(
-        model=predictor._predictor,
+    predictor._predictor = optimize_model(  # noqa: SLF001
+        model=predictor._predictor,  # noqa: SLF001
         device=device,
         precision=precision_to_torch_dtype(precision),
         compile_models=compile_models,
@@ -137,7 +147,7 @@ class PositionEmbeddingRandom(_PositionEmbeddingRandom):
         gaussian_matrix = self.positional_encoding_gaussian_matrix
         coords = coords.to(device=gaussian_matrix.device, dtype=gaussian_matrix.dtype)
         coords = 2 * coords - 1
-        coords = coords @ gaussian_matrix
+        coords = coords @ gaussian_matrix  # noqa: PLR6104
         coords = 2 * np.pi * coords
         return torch.cat([torch.sin(coords), torch.cos(coords)], dim=-1)
 
@@ -328,7 +338,7 @@ class SAMPredictor(nn.Module):
         """Initialize SAM predictor.
 
         Args:
-            sam_model_name: The SAM model architecture (e.g., SAM_HQ_TINY, SAM2_BASE)
+            sam_model_name: The SAM model architecture (e.g., SAM_HQ_BASE, SAM2_BASE)
             device: Device to run inference on ("cuda", "cpu")
             model_path: Path to .pth checkpoint file (optional, auto-downloads if None)
             target_length: Target length for the longest side of the image during transformation. Defaults to 1024.
@@ -364,7 +374,12 @@ class SAMPredictor(nn.Module):
             config_path = "configs/sam2.1/" + model_info["config_filename"]
             sam_model = build_sam2(config_path, str(checkpoint_path))
             self._predictor = SAM2ImagePredictor(sam_model)
-        elif sam_model_name in {SAMModelName.SAM_HQ, SAMModelName.SAM_HQ_TINY}:
+        elif sam_model_name in {
+            SAMModelName.SAM_HQ_BASE,
+            SAMModelName.SAM_HQ_LARGE,
+            SAMModelName.SAM_HQ,
+            SAMModelName.SAM_HQ_TINY,
+        }:
             registry_name = MODEL_MAP[sam_model_name]["registry_name"]
             sam_model = sam_model_registry[registry_name]().to(device)
             # suppress - loading the snapshot from the local path
@@ -381,6 +396,7 @@ class SAMPredictor(nn.Module):
             self._predictor = _SamPredictor(sam_model)
             # Patch with ONNX-compatible prompt encoder for SAM-HQ models
             self._patch_prompt_encoder(device)
+            self._patch_hq_mask_decoder_xpu_repeat()
 
             self._freeze_modules([
                 self._predictor.model.mask_decoder,
@@ -410,8 +426,77 @@ class SAMPredictor(nn.Module):
         patched_encoder.to(device)
         self._predictor.model.prompt_encoder = patched_encoder
 
-    def sync_device(self, device: str | torch.device) -> None:
-        """Synchronize predictor runtime and wrapped model to a target device."""
+    def _patch_hq_mask_decoder_xpu_repeat(self) -> None:
+        """Patch SAM-HQ mask decoder to avoid XPU repeat_interleave failures."""
+        if not hasattr(self._predictor, "model") or not hasattr(self._predictor.model, "mask_decoder"):
+            return
+
+        mask_decoder = self._predictor.model.mask_decoder
+
+        def _expand_repeat(x: torch.Tensor, repeats: int) -> torch.Tensor:
+            if repeats <= 1:
+                return x
+            return x.unsqueeze(1).expand(-1, repeats, *([-1] * (x.dim() - 1))).reshape(-1, *x.shape[1:])
+
+        def _predict_masks_xpu_safe(
+            decoder_self: nn.Module,
+            image_embeddings: torch.Tensor,
+            image_pe: torch.Tensor,
+            sparse_prompt_embeddings: torch.Tensor,
+            dense_prompt_embeddings: torch.Tensor,
+            hq_features: torch.Tensor,
+        ) -> tuple[torch.Tensor, torch.Tensor]:
+            output_tokens = torch.cat(
+                [decoder_self.iou_token.weight, decoder_self.mask_tokens.weight, decoder_self.hf_token.weight],
+                dim=0,
+            )
+            output_tokens = output_tokens.unsqueeze(0).expand(sparse_prompt_embeddings.size(0), -1, -1)
+            tokens = torch.cat((output_tokens, sparse_prompt_embeddings), dim=1)
+
+            repeat_count = int(tokens.shape[0])
+            src = _expand_repeat(image_embeddings, repeat_count)
+            src = src + dense_prompt_embeddings  # noqa: PLR6104
+            pos_src = _expand_repeat(image_pe, repeat_count)
+            b, c, h, w = src.shape
+
+            hs, src = decoder_self.transformer(src, pos_src, tokens)
+            iou_token_out = hs[:, 0, :]
+            mask_tokens_out = hs[:, 1 : (1 + decoder_self.num_mask_tokens), :]
+
+            src = src.transpose(1, 2).view(b, c, h, w)
+
+            upscaled_embedding_sam = decoder_self.output_upscaling(src)
+            upscaled_embedding_hq = decoder_self.embedding_maskfeature(upscaled_embedding_sam) + hq_features.repeat(
+                b,
+                1,
+                1,
+                1,
+            )
+
+            hyper_in_list: list[torch.Tensor] = []
+            for i in range(decoder_self.num_mask_tokens):
+                if i < decoder_self.num_mask_tokens - 1:
+                    hyper_in_list.append(decoder_self.output_hypernetworks_mlps[i](mask_tokens_out[:, i, :]))
+                else:
+                    hyper_in_list.append(decoder_self.hf_mlp(mask_tokens_out[:, i, :]))
+
+            hyper_in = torch.stack(hyper_in_list, dim=1)
+            b, c, h, w = upscaled_embedding_sam.shape
+
+            masks_sam = (
+                hyper_in[:, : decoder_self.num_mask_tokens - 1] @ upscaled_embedding_sam.view(b, c, h * w)
+            ).view(b, -1, h, w)
+            masks_sam_hq = (
+                hyper_in[:, decoder_self.num_mask_tokens - 1 :] @ upscaled_embedding_hq.view(b, c, h * w)
+            ).view(b, -1, h, w)
+            masks = torch.cat([masks_sam, masks_sam_hq], dim=1)
+            iou_pred = decoder_self.iou_prediction_head(iou_token_out)
+            return masks, iou_pred
+
+        mask_decoder.predict_masks = MethodType(_predict_masks_xpu_safe, mask_decoder)
+
+    def sync_device(self, device: str | torch.device, dtype: torch.dtype | None = None) -> None:
+        """Synchronize predictor runtime and wrapped model to a target device and optional dtype."""
         target_device = torch.device(device)
         self.device = str(target_device)
 
@@ -419,6 +504,8 @@ class SAMPredictor(nn.Module):
             model = self._predictor.model
             if isinstance(model, nn.Module):
                 model.to(target_device)
+                if dtype is not None:
+                    model.to(dtype)
 
     def set_image(self, image: torch.Tensor | str | Path) -> None:
         """Set image using PyTorch backend.
@@ -493,6 +580,24 @@ class SAMPredictor(nn.Module):
             boxes_flat = boxes.reshape(-1, 4)
             transformed_boxes_flat = self.transform.apply_boxes_torch(boxes_flat, self._original_size)
             transformed_boxes = transformed_boxes_flat.reshape(original_shape)
+
+        runtime_device = torch.device(self.device)
+        if transformed_point_coords is not None:
+            transformed_point_coords = transformed_point_coords.to(device=runtime_device)
+        if point_labels is not None:
+            point_labels = point_labels.to(device=runtime_device)
+        if transformed_boxes is not None:
+            transformed_boxes = transformed_boxes.to(device=runtime_device)
+        if mask_input is not None:
+            mask_input = mask_input.to(device=runtime_device)
+
+        if hasattr(self._predictor, "features") and isinstance(self._predictor.features, torch.Tensor):
+            self._predictor.features = self._predictor.features.to(device=runtime_device)
+        if hasattr(self._predictor, "interm_features") and isinstance(self._predictor.interm_features, list):
+            self._predictor.interm_features = [
+                feat.to(device=runtime_device) if isinstance(feat, torch.Tensor) else feat
+                for feat in self._predictor.interm_features
+            ]
 
         return self._predictor.predict_torch(
             point_coords=transformed_point_coords,

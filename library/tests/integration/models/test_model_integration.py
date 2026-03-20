@@ -9,11 +9,10 @@ fss-1000 dataset to ensure models work correctly end-to-end.
 
 from pathlib import Path
 
+import numpy as np
 import pytest
 import torch
 from torchmetrics.segmentation import MeanIoU
-
-import numpy as np
 
 from instantlearn.data.base import Batch
 from instantlearn.data.base.sample import Sample
@@ -75,7 +74,7 @@ MODEL_CLASSES = {
 }
 
 # SAM models to test (SAM3 doesn't use SAM backend, will be handled separately)
-SAM_MODELS = [SAMModelName.SAM_HQ_TINY, SAMModelName.SAM2_TINY]
+SAM_MODELS = [SAMModelName.SAM_HQ_BASE, SAMModelName.SAM2_TINY]
 
 # Models that support n-shots (all except GroundedSAM and SAM3)
 N_SHOT_SUPPORTED_MODELS = [ModelName.MATCHER, ModelName.PER_DINO, ModelName.SOFT_MATCHER]
@@ -103,7 +102,6 @@ class TestModelIntegration:
             sam_model: The SAM model to use.
             model_name: The model type to test.
         """
-
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
@@ -140,7 +138,6 @@ class TestModelIntegration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
-
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
@@ -297,7 +294,6 @@ class TestModelIntegration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
-
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
@@ -353,7 +349,6 @@ class TestModelIntegration:
             model_name: The model type to test.
             dataset: The dataset to use for testing.
         """
-
         # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
         # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
@@ -460,7 +455,7 @@ class TestSAM3Integration:
                         bboxes=np.array([[w // 4, h // 4, 3 * w // 4, 3 * h // 4]]),
                         categories=sample.categories[:1],
                         category_ids=np.array([sample.category_ids[0]]),
-                    )
+                    ),
                 )
             ref_input = Batch.collate(ref_samples)
         else:
@@ -502,7 +497,7 @@ class TestSAM3Integration:
                         bboxes=np.array([[w // 4, h // 4, 3 * w // 4, 3 * h // 4]]),
                         categories=sample.categories[:1],
                         category_ids=np.array([sample.category_ids[0]]),
-                    )
+                    ),
                 )
             ref_input = Batch.collate(ref_samples)
         else:
@@ -525,7 +520,12 @@ class TestSAM3Integration:
 
     def test_sam3_visual_requires_prompts(self) -> None:
         """Test that visual exemplar mode raises when no bboxes/points are provided."""
-        model = SAM3(device="cpu", precision="fp32", prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR, model_id="jetjodh/sam3")
+        model = SAM3(
+            device="cpu",
+            precision="fp32",
+            prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR,
+            model_id="jetjodh/sam3",
+        )
 
         ref_sample = Sample(
             image=torch.zeros((3, 256, 256)),
@@ -567,7 +567,7 @@ class TestSAM3Integration:
                         bboxes=np.array([[w // 4, h // 4, 3 * w // 4, 3 * h // 4]]),
                         categories=sample.categories[:1],
                         category_ids=np.array([sample.category_ids[0]]),
-                    )
+                    ),
                 )
             ref_input = Batch.collate(ref_samples)
         else:
@@ -580,9 +580,7 @@ class TestSAM3Integration:
 
         predictions = model.predict(target_batch)
 
-        category_id_to_index = {
-            dataset.get_category_id(cat_name): idx for idx, cat_name in enumerate(categories)
-        }
+        category_id_to_index = {dataset.get_category_id(cat_name): idx for idx, cat_name in enumerate(categories)}
         batch_pred_tensors, batch_gt_tensors = convert_masks_to_one_hot_tensor(
             predictions=predictions,
             ground_truths=target_batch,

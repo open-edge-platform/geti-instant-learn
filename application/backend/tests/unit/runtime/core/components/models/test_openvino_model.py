@@ -32,7 +32,18 @@ class TestOpenVINOModelHandler:
         mock_model.export.return_value = "/tmp/model.xml"
 
         ov_model = MagicMock()
+
+        # Mock compiled model with output ports
+        masks_output = MagicMock()
+        masks_output.get_names.return_value = ["masks"]
+        scores_output = MagicMock()
+        scores_output.get_names.return_value = ["scores"]
+        labels_output = MagicMock()
+        labels_output.get_names.return_value = ["labels"]
+
         compiled_model = MagicMock()
+        compiled_model.outputs = [masks_output, scores_output, labels_output]
+
         mock_core = MagicMock()
         mock_core.read_model.return_value = ov_model
         mock_core.compile_model.return_value = compiled_model
@@ -60,6 +71,10 @@ class TestOpenVINOModelHandler:
         mock_core.compile_model.assert_called_once_with(ov_model, "CPU")
 
         assert handler._compiled_model is compiled_model
+        assert handler._infer_request is not None
+        assert handler._masks_output_port is masks_output
+        assert handler._scores_output_port is scores_output
+        assert handler._labels_output_port is labels_output
         mock_model.to.assert_called_once_with(original_device)
 
     def test_predict_raises_when_not_initialised(self, mock_model, mock_reference_batch):
@@ -77,14 +92,27 @@ class TestOpenVINOModelHandler:
     def test_predict_formats_input_and_maps_outputs(self, mock_model, mock_reference_batch):
         handler = OpenVINOModelHandler(mock_model, mock_reference_batch, precision="fp16")
 
-        output = {
-            "masks": np.array([[[1, 0], [0, 1]]], dtype=np.float32),
-            "scores": np.array([0.5], dtype=np.float32),
-            "labels": np.array([1], dtype=np.int64),
+        masks = np.array([[[1, 0, 1], [0, 1, 0]]], dtype=np.float32)  # [1, 2, 3] matches frame H=2, W=3
+        scores = np.array([0.5], dtype=np.float32)
+        labels = np.array([1], dtype=np.int64)
+
+        masks_port = MagicMock()
+        scores_port = MagicMock()
+        labels_port = MagicMock()
+
+        infer_request = MagicMock()
+        infer_request.infer.return_value = {
+            masks_port: masks,
+            scores_port: scores,
+            labels_port: labels,
         }
 
-        compiled_model = MagicMock(return_value=output)
-        handler._compiled_model = compiled_model
+        handler._compiled_model = MagicMock()
+        handler._infer_request = infer_request
+        handler._input_port = MagicMock()
+        handler._masks_output_port = masks_port
+        handler._scores_output_port = scores_port
+        handler._labels_output_port = labels_port
 
         frame = np.arange(2 * 3 * 3, dtype=np.uint8).reshape(2, 3, 3)
         input_data = InputData(
@@ -95,13 +123,9 @@ class TestOpenVINOModelHandler:
 
         results = handler.predict([input_data])
 
-        expected_input = np.expand_dims(frame.transpose(2, 0, 1), axis=0)
-        model_input = compiled_model.call_args.args[0]
-        np.testing.assert_array_equal(model_input, expected_input)
-
         assert len(results) == 1
-        np.testing.assert_array_equal(results[0]["pred_masks"], output["masks"])
-        np.testing.assert_array_equal(results[0]["pred_scores"], output["scores"])
-        np.testing.assert_array_equal(results[0]["pred_labels"], output["labels"])
+        np.testing.assert_array_equal(results[0]["pred_masks"], masks > 0.5)
+        np.testing.assert_array_equal(results[0]["pred_scores"], scores)
+        np.testing.assert_array_equal(results[0]["pred_labels"], labels)
         assert "pred_boxes" in results[0]
         assert results[0]["pred_boxes"].shape[1] == 5

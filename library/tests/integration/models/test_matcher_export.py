@@ -67,7 +67,7 @@ def reference_batch(dataset: FolderDataset) -> Batch:
 class TestMatcherExportIntegration:
     """Integration tests for Matcher export functionality."""
 
-    @pytest.mark.parametrize("sam_model", [SAMModelName.SAM_HQ_TINY])
+    @pytest.mark.parametrize("sam_model", [SAMModelName.SAM_HQ_BASE])
     def test_export_onnx_and_inference(
         self,
         sam_model: SAMModelName,
@@ -128,7 +128,7 @@ class TestMatcherExportIntegration:
         assert masks.shape[1] == target_image.shape[1], "Mask height should match input"
         assert masks.shape[2] == target_image.shape[2], "Mask width should match input"
 
-    @pytest.mark.parametrize("sam_model", [SAMModelName.SAM_HQ_TINY])
+    @pytest.mark.parametrize("sam_model", [SAMModelName.SAM_HQ_BASE])
     def test_export_openvino_and_inference(
         self,
         sam_model: SAMModelName,
@@ -176,8 +176,17 @@ class TestMatcherExportIntegration:
         ov_model = core.read_model(str(exported_path))
         compiled_model = core.compile_model(ov_model, "CPU")
 
-        # Prepare input
+        # Resize input to match the model's static input shape.
+        expected_shape = compiled_model.input(0).shape
         input_data = target_image.numpy()[None, ...].astype(np.float32)
+        if input_data.shape != tuple(expected_shape):
+            import torch
+            import torch.nn.functional as F
+
+            tensor = torch.from_numpy(input_data)
+            tensor = F.interpolate(tensor, size=(expected_shape[2], expected_shape[3]), mode="bilinear")
+            input_data = tensor.numpy()
+
         outputs = compiled_model(input_data)
 
         masks, scores, labels = outputs.values()
@@ -188,6 +197,6 @@ class TestMatcherExportIntegration:
         assert labels.ndim == 1, f"Expected labels to have 1 dim, got {labels.ndim}"
         assert masks.shape[0] == scores.shape[0] == labels.shape[0], "Output counts should match"
 
-        # Validate mask spatial dimensions match input
-        assert masks.shape[1] == target_image.shape[1], "Mask height should match input"
-        assert masks.shape[2] == target_image.shape[2], "Mask width should match input"
+        # Validate mask spatial dimensions match model input (static shape export)
+        assert masks.shape[1] == expected_shape[2], "Mask height should match model input"
+        assert masks.shape[2] == expected_shape[3], "Mask width should match model input"
