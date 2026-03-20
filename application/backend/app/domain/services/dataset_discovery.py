@@ -22,6 +22,13 @@ def scan_datasets(datasets_root: Path) -> tuple[DatasetsListSchema, dict[UUID, P
         logger.warning("Template dataset directory '%s' does not exist, returning empty list", datasets_root)
         return DatasetsListSchema(datasets=[]), dataset_paths
 
+    if not datasets_root.is_dir():
+        logger.warning(
+            "Template dataset path '%s' exists but is not a directory, returning empty list",
+            datasets_root,
+        )
+        return DatasetsListSchema(datasets=[]), dataset_paths
+
     for entry in sorted(datasets_root.iterdir()):
         if not entry.is_dir():
             logger.debug("Skipping non-directory entry '%s'", entry.name)
