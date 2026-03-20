@@ -5,11 +5,11 @@
 
 Usage:
     cd library
-    uv run python tools/benchmark_variants.py
-    uv run python tools/benchmark_variants.py --sam SAM-HQ-base SAM-HQ-large
-    uv run python tools/benchmark_variants.py --encoder dinov3_small dinov3_base
-    uv run python tools/benchmark_variants.py --sam SAM-HQ-base --encoder dinov3_small dinov3_large
-    uv run python tools/benchmark_variants.py --sam SAM-HQ-tiny --gpu-iterations 20
+    uv run python tools/benchmark_matcher_variants.py
+    uv run python tools/benchmark_matcher_variants.py --sam SAM-HQ-base SAM-HQ-large
+    uv run python tools/benchmark_matcher_variants.py --encoder dinov3_small dinov3_base
+    uv run python tools/benchmark_matcher_variants.py --sam SAM-HQ-base --encoder dinov3_small dinov3_large
+    uv run python tools/benchmark_matcher_variants.py --sam SAM-HQ-tiny --gpu-iterations 20
 """
 
 import argparse
@@ -134,12 +134,12 @@ def benchmark_variant(
         core = openvino.Core()
         ov_model = core.read_model(str(ov_path))
 
-        # Prepare input
-        input_data = TARGET_SAMPLE.image.numpy()
-        expected_shape = ov_model.input(0).shape
-        if input_data.shape != tuple(expected_shape[1:]):
+        # Prepare input (add batch dimension for NCHW layout)
+        input_data = TARGET_SAMPLE.image.numpy()[None]  # [1, 3, H, W]
+        expected_shape = tuple(ov_model.input(0).shape)
+        if input_data.shape != expected_shape:
             tensor = torch.from_numpy(input_data)
-            tensor = F.interpolate(tensor[None], size=(expected_shape[2], expected_shape[3]), mode="bilinear")
+            tensor = F.interpolate(tensor, size=(expected_shape[2], expected_shape[3]), mode="bilinear")
             input_data = tensor.numpy()
 
         # --- GPU inference ---
@@ -169,7 +169,10 @@ def benchmark_variant(
         tic = time()
         outputs = compiled_gpu(input_data)
         result["ov_gpu_time_first"] = time() - tic
-        ov_gpu_masks, ov_gpu_scores, _ = outputs.values()
+        masks_port = compiled_gpu.output("masks")
+        scores_port = compiled_gpu.output("scores")
+        ov_gpu_masks = np.asarray(outputs[masks_port])
+        ov_gpu_scores = np.asarray(outputs[scores_port])
         result["ov_gpu_scores"] = ov_gpu_scores.round(4).tolist()
 
         # GPU vs PyTorch mask IoU (resize OV masks to PT resolution)
@@ -182,9 +185,8 @@ def benchmark_variant(
             tic = time()
             outputs = compiled_gpu(input_data)
             result["ov_gpu_times"].append(time() - tic)
-            m, s, _ = outputs.values()
-            all_gpu_scores.append(s.copy())
-            all_gpu_masks.append(m.copy())
+            all_gpu_masks.append(np.asarray(outputs[masks_port]).copy())
+            all_gpu_scores.append(np.asarray(outputs[scores_port]).copy())
 
         # Score std across GPU runs
         scores_array = np.array(all_gpu_scores)
@@ -212,7 +214,10 @@ def benchmark_variant(
         tic = time()
         outputs = compiled_cpu(input_data)
         result["ov_cpu_time"] = time() - tic
-        ov_cpu_masks, ov_cpu_scores, _ = outputs.values()
+        cpu_masks_port = compiled_cpu.output("masks")
+        cpu_scores_port = compiled_cpu.output("scores")
+        ov_cpu_masks = np.asarray(outputs[cpu_masks_port])
+        ov_cpu_scores = np.asarray(outputs[cpu_scores_port])
         result["ov_cpu_scores"] = ov_cpu_scores.round(4).tolist()
         result["cpu_mask_iou_vs_pt"] = round(compute_iou(pt_masks, resize_masks_to_pt(ov_cpu_masks)), 4)
         result["gpu_cpu_mask_iou"] = round(compute_iou(ov_gpu_masks, ov_cpu_masks), 4)

@@ -157,7 +157,8 @@ class SamDecoder(nn.Module):
             original_size: Original image size (H, W)
 
         Returns:
-            Padded masks [max_masks, H, W], scores [max_masks], labels [max_masks]
+            Padded masks [max_masks, H, W] (float32 for ONNX tracing
+            compatibility), scores [max_masks], labels [max_masks]
         """
         device = masks.device
         h, w = original_size

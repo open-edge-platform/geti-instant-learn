@@ -54,15 +54,15 @@ class OpenVINOModelHandler(ModelHandler):
         if masks.ndim == 4 and masks.shape[0] == 1:
             masks = masks[0]
 
-        if masks.ndim != 3 or (masks.shape[1] == frame_h and masks.shape[2] == frame_w):
-            return masks
+        if masks.ndim == 3 and (masks.shape[1] != frame_h or masks.shape[2] != frame_w):
+            resized = np.empty((masks.shape[0], frame_h, frame_w), dtype=np.float32)
+            for i in range(masks.shape[0]):
+                resized[i] = cv2.resize(
+                    masks[i].astype(np.float32, copy=False), (frame_w, frame_h), interpolation=cv2.INTER_NEAREST
+                )
+            masks = resized
 
-        resized = np.empty((masks.shape[0], frame_h, frame_w), dtype=np.float32)
-        for i in range(masks.shape[0]):
-            resized[i] = cv2.resize(
-                masks[i].astype(np.float32, copy=False), (frame_w, frame_h), interpolation=cv2.INTER_NEAREST
-            )
-        return resized > 0.5
+        return masks > 0.5
 
     def initialise(self) -> None:
         self._model.fit(self._reference_batch)
