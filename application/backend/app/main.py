@@ -69,8 +69,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.dataset_paths = dataset_paths
     if dataset_paths:
         dataset_lines = "\n".join(
-            f"- {dataset.name}: {dataset.id} -> {dataset_paths[dataset.id]}"
-            for dataset in datasets.datasets
+            f"- {dataset.name}: {dataset.id} -> {dataset_paths[dataset.id]}" for dataset in datasets.datasets
         )
         logger.debug("Dataset cache entries:\n%s", dataset_lines)
     logger.info("Cached %d dataset(s) during startup", len(dataset_paths))
