@@ -18,10 +18,11 @@ from starlette.responses import Response
 
 import api.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
 from api.error_handler import custom_exception_handler
-from api.routers import license_router, projects_router, source_types_router, webrtc_router
+from api.routers import license_router, projects_router, source_types_router, system_router, webrtc_router
 from dependencies import LicenseServiceDep
 from domain.db.engine import get_session_factory, run_db_migrations
 from domain.dispatcher import ConfigChangeDispatcher
+from domain.services.dataset_discovery import scan_datasets
 from domain.services.schemas.health import HealthCheckSchema, HealthStatus
 from runtime.pipeline_manager import PipelineManager
 from runtime.webrtc.manager import WebRTCManager
@@ -62,6 +63,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         pipeline_manager=app.state.pipeline_manager, sdp_handler=app.state.sdp_handler
     )
 
+    # Dataset cache is startup-static by design and refreshed only on app restart.
+    datasets, dataset_paths = scan_datasets(settings.template_dataset_dir)
+    app.state.available_datasets = datasets
+    app.state.dataset_paths = dataset_paths
+    if dataset_paths:
+        dataset_lines = "\n".join(
+            f"- {dataset.name}: {dataset.id} -> {dataset_paths[dataset.id]}" for dataset in datasets.datasets
+        )
+        logger.debug("Dataset cache entries:\n%s", dataset_lines)
+    logger.info("Cached %d dataset(s) during startup", len(dataset_paths))
+
     logger.info("Application startup completed")
     yield
 
@@ -97,6 +109,7 @@ fastapi_app.include_router(projects_router, prefix="/api/v1")
 fastapi_app.include_router(source_types_router, prefix="/api/v1")
 fastapi_app.include_router(webrtc_router, prefix="/api/v1")
 fastapi_app.include_router(license_router, prefix="/api/v1")
+fastapi_app.include_router(system_router, prefix="/api/v1")
 
 if (
     settings.static_files_dir
