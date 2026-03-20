@@ -4,7 +4,7 @@
 from fastapi import status
 
 from api.routers import system_router
-from dependencies import DatasetRegistryServiceDep
+from dependencies import AvailableDatasetsDep
 from domain.services.schemas.dataset import DatasetsListSchema
 
 
@@ -17,6 +17,9 @@ from domain.services.schemas.dataset import DatasetsListSchema
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Unexpected error occurred."},
     },
 )
-def get_datasets(dataset_registry_service: DatasetRegistryServiceDep) -> DatasetsListSchema:
-    """List datasets metadata available for download."""
-    return dataset_registry_service.list_datasets()
+def get_datasets(available_datasets: AvailableDatasetsDep) -> DatasetsListSchema:
+    """
+    List datasets metadata available for download.
+    Return startup-static dataset metadata cache (no runtime filesystem rescan).
+    """
+    return available_datasets
