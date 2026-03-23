@@ -22,9 +22,9 @@ from api.routers import license_router, projects_router, source_types_router, sy
 from dependencies import LicenseServiceDep
 from domain.db.engine import get_session_factory, run_db_migrations
 from domain.dispatcher import ConfigChangeDispatcher
-from domain.services.dataset_discovery import scan_datasets
 from domain.services.schemas.health import HealthCheckSchema, HealthStatus
 from runtime.pipeline_manager import PipelineManager
+from runtime.services.dataset_discovery import scan_datasets
 from runtime.webrtc.manager import WebRTCManager
 from runtime.webrtc.sdp_handler import SDPHandler
 from settings import get_settings

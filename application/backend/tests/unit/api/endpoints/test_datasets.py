@@ -7,9 +7,9 @@ from uuid import uuid4, uuid5
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from domain.services.dataset_discovery import DATASET_NS, scan_datasets
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.dataset import DatasetSchema, DatasetsListSchema
+from runtime.services.dataset_discovery import DATASET_NS, scan_datasets
 
 
 def _create_client(datasets: DatasetsListSchema) -> TestClient:
