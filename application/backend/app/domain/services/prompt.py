@@ -544,7 +544,7 @@ class PromptService(BaseService):
             )
 
     @staticmethod
-    def _normalization(
+    def _normalization(  #todo process rectangles as well?
         data: VisualPromptCreateSchema | VisualPromptUpdateSchema, height: int, width: int
     ) -> VisualPromptCreateSchema | VisualPromptUpdateSchema:
         """Normalize pixel coordinates to [0, 1] range."""
@@ -555,7 +555,7 @@ class PromptService(BaseService):
 
         return data
 
-    def _denormalization(self, project_id: UUID, data: PromptDB) -> PromptDB:
+    def _denormalization(self, project_id: UUID, data: PromptDB) -> PromptDB:  #todo process rectangles as well?
         """Denormalize coordinates from [0, 1] range to pixel coordinates."""
 
         # Skip denormalization for text prompts

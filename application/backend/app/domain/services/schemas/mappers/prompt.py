@@ -180,7 +180,7 @@ def visual_prompt_to_sample(
         )
 
     polygon_annotations = [(ann, ann.config) for ann in annotations if ann.config.type == AnnotationType.POLYGON]
-    if not polygon_annotations:
+    if not polygon_annotations:  #todo process rectangles as well
         raise ServiceError("Cannot create training sample: visual prompt must have at least one polygon annotation.")
 
     # Convert frame: HWC numpy → CHW tensor
