@@ -35,3 +35,5 @@ def polygons_to_masks(polygons: list[PolygonAnnotation], image_height: int, imag
         masks[i] = mask
 
     return masks
+
+#todo process rectangles as well
