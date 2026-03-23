@@ -6,7 +6,8 @@ from pathlib import Path
 from uuid import UUID, uuid5
 
 from domain.services.schemas.base import Pagination
-from domain.services.schemas.dataset import DatasetSchema, DatasetsListSchema, empty_datasets_list
+from domain.services.schemas.dataset import DatasetSchema, DatasetsListSchema
+from runtime.errors import DatasetNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -20,15 +21,15 @@ def scan_datasets(datasets_root: Path) -> tuple[DatasetsListSchema, dict[UUID, P
     dataset_paths: dict[UUID, Path] = {}
 
     if not datasets_root.exists():
-        logger.warning("Template dataset directory '%s' does not exist, returning empty list", datasets_root)
-        return empty_datasets_list(), dataset_paths
-
+        logger.error("Template dataset directory '%s' does not exist", datasets_root)
+        raise DatasetNotFoundError(f"Template dataset directory '{datasets_root}' does not exist.")
+    
     if not datasets_root.is_dir():
         logger.warning(
-            "Template dataset path '%s' exists but is not a directory, returning empty list",
+            "Template dataset path '%s' exists but is not a directory",
             datasets_root,
         )
-        return empty_datasets_list(), dataset_paths
+        raise DatasetNotFoundError(f"Template dataset path '{datasets_root}' is not a directory.")
 
     for entry in sorted(datasets_root.iterdir()):
         if not entry.is_dir():

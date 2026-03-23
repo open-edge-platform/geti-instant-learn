@@ -7,6 +7,7 @@ from uuid import uuid4, uuid5
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from api.error_handler import custom_exception_handler
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.dataset import DatasetSchema, DatasetsListSchema
 from runtime.services.dataset_discovery import DATASET_NS, scan_datasets
@@ -14,6 +15,7 @@ from runtime.services.dataset_discovery import DATASET_NS, scan_datasets
 
 def _create_client(datasets: DatasetsListSchema) -> TestClient:
     app = FastAPI()
+    app.add_exception_handler(Exception, custom_exception_handler)
     app.state.available_datasets = datasets
     app.state.dataset_paths = {}
 
@@ -51,11 +53,8 @@ def test_get_datasets_empty_list_when_cache_is_empty():
         )
     ).get("/api/v1/system/datasets")
 
-    assert response.status_code == 200
-    assert response.json() == {
-        "datasets": [],
-        "pagination": {"count": 0, "total": 0, "offset": 0, "limit": 20},
-    }
+    assert response.status_code == 404
+    assert response.json() == {"detail": "No datasets found in startup cache."}
 
 
 def test_get_datasets_with_offset_and_limit(tmp_path: Path):

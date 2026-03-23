@@ -22,11 +22,14 @@ from api.routers import license_router, projects_router, source_types_router, sy
 from dependencies import LicenseServiceDep
 from domain.db.engine import get_session_factory, run_db_migrations
 from domain.dispatcher import ConfigChangeDispatcher
+from domain.services.schemas.base import Pagination
+from domain.services.schemas.dataset import DatasetsListSchema
 from domain.services.schemas.health import HealthCheckSchema, HealthStatus
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.dataset_discovery import scan_datasets
 from runtime.webrtc.manager import WebRTCManager
 from runtime.webrtc.sdp_handler import SDPHandler
+from runtime.errors import DatasetNotFoundError
 from settings import get_settings
 
 settings = get_settings()
@@ -64,9 +67,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     )
 
     # Dataset cache is startup-static by design and refreshed only on app restart.
-    datasets, dataset_paths = scan_datasets(settings.template_dataset_dir)
+    datasets = DatasetsListSchema(
+        datasets=[],
+        pagination=Pagination(count=0, total=0, offset=0, limit=0),
+    )
+    dataset_paths: dict = {}
+    try:
+        datasets, dataset_paths = scan_datasets(settings.template_dataset_dir)
+    except DatasetNotFoundError as e:
+        logger.error("Dataset discovery failed during startup: %s", str(e))
+
     app.state.available_datasets = datasets
     app.state.dataset_paths = dataset_paths
+
     if dataset_paths:
         dataset_lines = "\n".join(
             f"- {dataset.name}: {dataset.id} -> {dataset_paths[dataset.id]}" for dataset in datasets.datasets

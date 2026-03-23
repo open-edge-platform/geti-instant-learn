@@ -3,7 +3,7 @@
 
 from pydantic import Field
 
-from domain.services.schemas.base import BaseIDSchema, PaginatedResponse, Pagination
+from domain.services.schemas.base import BaseIDSchema, PaginatedResponse
 
 
 class DatasetSchema(BaseIDSchema):
@@ -17,8 +17,3 @@ class DatasetsListSchema(PaginatedResponse):
     """Wrapper schema for datasets list responses."""
 
     datasets: list[DatasetSchema]
-
-
-def empty_datasets_list() -> DatasetsListSchema:
-    """Create an empty datasets list with consistent pagination metadata."""
-    return DatasetsListSchema(datasets=[], pagination=Pagination(count=0, total=0, offset=0, limit=0))

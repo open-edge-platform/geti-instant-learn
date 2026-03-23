@@ -23,6 +23,7 @@ from runtime.errors import (
     SourceNotSeekableError,
 )
 from runtime.services.license import LicenseNotAcceptedError
+from runtime.errors import DatasetNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,14 @@ def custom_exception_handler(request: Request, exc: Exception) -> JSONResponse: 
             f"raised {type(exc).__name__}: {str(exc)}. Body: {body_str}"
         )
         message = str(exc) if str(exc) else "The requested resource was not found."
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": message})
+    
+    if isinstance(exc, DatasetNotFoundError):
+        logger.debug(
+            f"Exception handler called: {request.method} {request.url.path} "
+            f"raised {type(exc).__name__}: {str(exc)}. Body: {body_str}"
+        )
+        message = str(exc) if str(exc) else "The requested dataset was not found."
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": message})
 
     if isinstance(exc, ResourceAlreadyExistsError):

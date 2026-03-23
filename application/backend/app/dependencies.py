@@ -28,6 +28,7 @@ from domain.services import (
 from domain.services.schemas.dataset import DatasetsListSchema
 from runtime.core.components.validators.sink_connection import SinkConnectionValidator
 from runtime.pipeline_manager import PipelineManager
+from runtime.errors import DatasetNotFoundError
 from runtime.services.frame import FrameService
 from runtime.services.license import LicenseService
 from runtime.services.source_type import SourceTypeService
@@ -61,7 +62,10 @@ def get_dataset_paths(request: Request) -> dict[UUID, Path]:
 
 def get_available_datasets(request: Request) -> DatasetsListSchema:
     """Dependency that provides startup-cached dataset metadata list."""
-    return request.app.state.available_datasets
+    available_datasets: DatasetsListSchema = request.app.state.available_datasets
+    if not available_datasets.datasets:
+        raise DatasetNotFoundError("No datasets found in startup cache.")
+    return available_datasets
 
 
 def get_dataset_path_by_id(
