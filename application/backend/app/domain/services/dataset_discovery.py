@@ -5,7 +5,8 @@ import logging
 from pathlib import Path
 from uuid import UUID, uuid5
 
-from domain.services.schemas.dataset import DatasetSchema, DatasetsListSchema
+from domain.services.schemas.base import Pagination
+from domain.services.schemas.dataset import DatasetSchema, DatasetsListSchema, empty_datasets_list
 
 logger = logging.getLogger(__name__)
 
@@ -20,14 +21,14 @@ def scan_datasets(datasets_root: Path) -> tuple[DatasetsListSchema, dict[UUID, P
 
     if not datasets_root.exists():
         logger.warning("Template dataset directory '%s' does not exist, returning empty list", datasets_root)
-        return DatasetsListSchema(datasets=[]), dataset_paths
+        return empty_datasets_list(), dataset_paths
 
     if not datasets_root.is_dir():
         logger.warning(
             "Template dataset path '%s' exists but is not a directory, returning empty list",
             datasets_root,
         )
-        return DatasetsListSchema(datasets=[]), dataset_paths
+        return empty_datasets_list(), dataset_paths
 
     for entry in sorted(datasets_root.iterdir()):
         if not entry.is_dir():
@@ -46,4 +47,11 @@ def scan_datasets(datasets_root: Path) -> tuple[DatasetsListSchema, dict[UUID, P
         )
 
     logger.info("Discovered %d dataset(s) under '%s'", len(dataset_paths), datasets_root)
-    return DatasetsListSchema(datasets=datasets), dataset_paths
+    count = len(datasets)
+    return (
+        DatasetsListSchema(
+            datasets=datasets,
+            pagination=Pagination(count=count, total=count, offset=0, limit=count),
+        ),
+        dataset_paths,
+    )
