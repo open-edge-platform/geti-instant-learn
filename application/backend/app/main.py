@@ -25,11 +25,11 @@ from domain.dispatcher import ConfigChangeDispatcher
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.dataset import DatasetsListSchema
 from domain.services.schemas.health import HealthCheckSchema, HealthStatus
+from runtime.errors import DatasetNotFoundError
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.dataset_discovery import scan_datasets
 from runtime.webrtc.manager import WebRTCManager
 from runtime.webrtc.sdp_handler import SDPHandler
-from runtime.errors import DatasetNotFoundError
 from settings import get_settings
 
 settings = get_settings()

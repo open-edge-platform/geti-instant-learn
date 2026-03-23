@@ -16,6 +16,7 @@ from domain.errors import (
     ResourceUpdateConflictError,
 )
 from runtime.errors import (
+    DatasetNotFoundError,
     PipelineNotActiveError,
     PipelineProjectMismatchError,
     SinkConnectionError,
@@ -23,7 +24,6 @@ from runtime.errors import (
     SourceNotSeekableError,
 )
 from runtime.services.license import LicenseNotAcceptedError
-from runtime.errors import DatasetNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ def custom_exception_handler(request: Request, exc: Exception) -> JSONResponse: 
         )
         message = str(exc) if str(exc) else "The requested resource was not found."
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": message})
-    
+
     if isinstance(exc, DatasetNotFoundError):
         logger.debug(
             f"Exception handler called: {request.method} {request.url.path} "

@@ -25,5 +25,6 @@ class SourceMismatchError(PipelineManagerError):
 class SinkConnectionError(Exception):
     """Exception raised when a resource fails connectivity validation."""
 
+
 class DatasetNotFoundError(Exception):
     """Exception raised when a dataset is not found."""
