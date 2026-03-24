@@ -38,9 +38,11 @@ class StreamReaderFactory:
     def _resolve_dataset_path(dataset_id: UUID, template_dataset_dir: Path) -> Path | None:
         """Resolve startup-stable dataset ID to a directory path under template datasets."""
         if not template_dataset_dir.exists() or not template_dataset_dir.is_dir():
+            logger.warning("Template dataset directory '%s' is not available.", template_dataset_dir)
             return None
         for entry in sorted(template_dataset_dir.iterdir()):
             if entry.is_dir() and uuid5(DATASET_NS, entry.name) == dataset_id:
+                logger.debug("Resolved sample dataset id '%s' to '%s'.", dataset_id, entry)
                 return entry
         return None
 
@@ -48,6 +50,7 @@ class StreamReaderFactory:
     def _get_first_dataset_path(template_dataset_dir: Path) -> Path | None:
         """Return the first available dataset directory under template datasets."""
         if not template_dataset_dir.exists() or not template_dataset_dir.is_dir():
+            logger.warning("Template dataset directory '%s' is not available.", template_dataset_dir)
             return None
         return next((e for e in sorted(template_dataset_dir.iterdir()) if e.is_dir()), None)
 
@@ -61,13 +64,26 @@ class StreamReaderFactory:
                 return ImageFolderReader(config, supported_extensions=settings.supported_extensions)
             case SampleDatasetConfig() as config:
                 if config.dataset_id is not None:
+                    logger.info("Creating sample dataset reader for dataset_id '%s'.", config.dataset_id)
                     dataset_path = cls._resolve_dataset_path(config.dataset_id, settings.template_dataset_dir)
                     if dataset_path is None:
+                        logger.warning(
+                            "Sample dataset id '%s' could not be resolved in '%s'.",
+                            config.dataset_id,
+                            settings.template_dataset_dir,
+                        )
                         raise DatasetNotFoundError(f"Sample dataset id '{config.dataset_id}' was not found.")
                 else:
+                    logger.info("Creating sample dataset reader without dataset_id; using first available dataset.")
                     dataset_path = cls._get_first_dataset_path(settings.template_dataset_dir)
                     if dataset_path is None:
+                        logger.warning(
+                            "No sample datasets available in '%s'.",
+                            settings.template_dataset_dir,
+                        )
                         raise DatasetNotFoundError("No sample datasets available.")
+
+                logger.info("Using sample dataset path '%s'.", dataset_path)
 
                 template_config = ImagesFolderConfig(
                     source_type=SourceType.IMAGES_FOLDER,

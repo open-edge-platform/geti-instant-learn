@@ -36,10 +36,20 @@ const mockDatasetsResponse = {
     },
 };
 
-const renderCreateSampleDataset = (onSaved = vi.fn()) => {
+const emptyDatasetsResponse = {
+    datasets: [],
+    pagination: {
+        count: 0,
+        total: 0,
+        offset: 0,
+        limit: 20,
+    },
+};
+
+const renderCreateSampleDataset = (onSaved = vi.fn(), datasetsResponse = mockDatasetsResponse) => {
     server.use(
         http.get('/api/v1/system/datasets', () => {
-            return HttpResponse.json(mockDatasetsResponse);
+            return HttpResponse.json(datasetsResponse);
         })
     );
 
@@ -94,5 +104,60 @@ describe('CreateSampleDataset', () => {
         });
 
         expect(onSaved).toHaveBeenCalled();
+    });
+
+    it('updates preview and submit payload when a different dataset is selected', async () => {
+        let body: SourceCreateType | null = null;
+
+        server.use(
+            http.get('/api/v1/system/datasets', () => {
+                return HttpResponse.json(mockDatasetsResponse);
+            }),
+            http.post('/api/v1/projects/{project_id}/sources', async ({ request }) => {
+                body = await request.json();
+                return HttpResponse.json({}, { status: 201 });
+            })
+        );
+
+        render(<CreateSampleDataset onSaved={vi.fn()} />);
+
+        await screen.findByRole('heading', { name: 'Aquarium' });
+
+        const hiddenSelectContainer = await screen.findByTestId('hidden-select-container');
+        const select = hiddenSelectContainer.querySelector('select');
+        expect(select).not.toBeNull();
+        fireEvent.change(select as HTMLSelectElement, {
+            target: { value: DATASET_2.id },
+        });
+
+        await screen.findByRole('heading', { name: 'Nuts' });
+
+        const image = screen.getByRole('img', { name: 'Nuts' });
+        expect(image).toHaveAttribute('src', DATASET_2.thumbnail);
+
+        const applyButton = screen.getByRole('button', { name: 'Apply' });
+        const form = applyButton.closest('form');
+        expect(form).not.toBeNull();
+        fireEvent.submit(form as HTMLFormElement);
+
+        await waitFor(() => {
+            expect(body).toEqual(
+                expect.objectContaining({
+                    active: true,
+                    config: {
+                        seekable: true,
+                        source_type: 'sample_dataset',
+                        dataset_id: DATASET_2.id,
+                    },
+                })
+            );
+        });
+    });
+
+    it('renders empty datasets message and keeps apply disabled when no datasets are available', async () => {
+        renderCreateSampleDataset(vi.fn(), emptyDatasetsResponse);
+
+        expect(await screen.findByText('No sample datasets are available.')).toBeVisible();
+        expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled();
     });
 });
