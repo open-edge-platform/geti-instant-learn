@@ -12,7 +12,6 @@ from domain.services.schemas.processor import (
     ProcessorCreateSchema,
     ProcessorListSchema,
     ProcessorSchema,
-    Sam3Config,
     SoftMatcherConfig,
     SupportedModelMetadataSchema,
     SupportedPromptType,
@@ -84,8 +83,8 @@ SUPPORTED_MODELS_METADATA: list[SupportedModelMetadataSchema] = [
         default_config=SoftMatcherConfig(),
         supported_prompt_types=[SupportedPromptType.VISUAL_POLYGON],
     ),
-    SupportedModelMetadataSchema(
-        default_config=Sam3Config(),
-        supported_prompt_types=[SupportedPromptType.TEXT, SupportedPromptType.VISUAL_RECTANGLE],
-    ),
+    # SupportedModelMetadataSchema(  #todo will be enabled in the following tasks
+    #     default_config=Sam3Config(),
+    #     supported_prompt_types=[SupportedPromptType.TEXT, SupportedPromptType.VISUAL_RECTANGLE],
+    # ),
 ]

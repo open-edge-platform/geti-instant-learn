@@ -150,9 +150,7 @@ class Sam3Config(BaseModel):
     }
 
 
-ModelConfig = Annotated[
-    PerDinoConfig | MatcherConfig | SoftMatcherConfig | Sam3Config, Field(discriminator="model_type")
-]
+ModelConfig = Annotated[PerDinoConfig | MatcherConfig | SoftMatcherConfig, Field(discriminator="model_type")]
 
 
 class SupportedPromptType(StrEnum):
