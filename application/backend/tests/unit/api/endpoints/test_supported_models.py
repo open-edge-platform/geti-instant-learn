@@ -13,7 +13,7 @@ from domain.services.schemas.processor import (
     PerDinoConfig,
     Sam3Config,
     SoftMatcherConfig,
-    SupportedModelsSchema,
+    SupportedModelsListSchema,
     SupportedPromptType,
 )
 
@@ -55,7 +55,7 @@ class TestGetSupportedModels:
     def test_all_four_models_returned(self, client):
         response = client.get("/api/v1/supported-models")
 
-        model_types = {m["model_type"] for m in response.json()["models"]}
+        model_types = {m["default_config"]["model_type"] for m in response.json()["models"]}
         assert model_types == {
             ModelType.MATCHER,
             ModelType.PERDINO,
@@ -67,17 +67,24 @@ class TestGetSupportedModels:
         response = client.get("/api/v1/supported-models")
 
         for model in response.json()["models"]:
-            assert "model_type" in model
             assert "default_config" in model
             assert "supported_prompt_types" in model
             assert isinstance(model["supported_prompt_types"], list)
             assert len(model["supported_prompt_types"]) > 0
 
+    def test_response_has_pagination(self, client):
+        response = client.get("/api/v1/supported-models")
+
+        body = response.json()
+        assert "pagination" in body
+        assert body["pagination"]["total"] == 4
+        assert body["pagination"]["count"] == 4
+
     def test_response_is_parseable_by_schema(self, client):
         response = client.get("/api/v1/supported-models")
 
         # Pydantic parse — raises if anything is structurally wrong
-        parsed = SupportedModelsSchema.model_validate(response.json())
+        parsed = SupportedModelsListSchema.model_validate(response.json())
         assert len(parsed.models) == 4
 
 
@@ -87,17 +94,12 @@ class TestMatcherModel:
     def _get_matcher(self, client):
         response = client.get("/api/v1/supported-models")
         models = response.json()["models"]
-        return next(m for m in models if m["model_type"] == ModelType.MATCHER)
+        return next(m for m in models if m["default_config"]["model_type"] == ModelType.MATCHER)
 
     def test_matcher_prompt_types(self, client):
         matcher = self._get_matcher(client)
 
         assert matcher["supported_prompt_types"] == [SupportedPromptType.VISUAL_POLYGON]
-
-    def test_matcher_default_config_model_type(self, client):
-        matcher = self._get_matcher(client)
-
-        assert matcher["default_config"]["model_type"] == ModelType.MATCHER
 
     def test_matcher_default_config_matches_class_defaults(self, client):
         matcher = self._get_matcher(client)
@@ -118,17 +120,12 @@ class TestPerDinoModel:
     def _get_perdino(self, client):
         response = client.get("/api/v1/supported-models")
         models = response.json()["models"]
-        return next(m for m in models if m["model_type"] == ModelType.PERDINO)
+        return next(m for m in models if m["default_config"]["model_type"] == ModelType.PERDINO)
 
     def test_perdino_prompt_types(self, client):
         perdino = self._get_perdino(client)
 
         assert perdino["supported_prompt_types"] == [SupportedPromptType.VISUAL_POLYGON]
-
-    def test_perdino_default_config_model_type(self, client):
-        perdino = self._get_perdino(client)
-
-        assert perdino["default_config"]["model_type"] == ModelType.PERDINO
 
     def test_perdino_default_config_matches_class_defaults(self, client):
         perdino = self._get_perdino(client)
@@ -150,17 +147,12 @@ class TestSoftMatcherModel:
     def _get_soft_matcher(self, client):
         response = client.get("/api/v1/supported-models")
         models = response.json()["models"]
-        return next(m for m in models if m["model_type"] == ModelType.SOFT_MATCHER)
+        return next(m for m in models if m["default_config"]["model_type"] == ModelType.SOFT_MATCHER)
 
     def test_soft_matcher_prompt_types(self, client):
         soft_matcher = self._get_soft_matcher(client)
 
         assert soft_matcher["supported_prompt_types"] == [SupportedPromptType.VISUAL_POLYGON]
-
-    def test_soft_matcher_default_config_model_type(self, client):
-        soft_matcher = self._get_soft_matcher(client)
-
-        assert soft_matcher["default_config"]["model_type"] == ModelType.SOFT_MATCHER
 
     def test_soft_matcher_default_config_matches_class_defaults(self, client):
         soft_matcher = self._get_soft_matcher(client)
@@ -185,7 +177,7 @@ class TestSam3Model:
     def _get_sam3(self, client):
         response = client.get("/api/v1/supported-models")
         models = response.json()["models"]
-        return next(m for m in models if m["model_type"] == ModelType.SAM3)
+        return next(m for m in models if m["default_config"]["model_type"] == ModelType.SAM3)
 
     def test_sam3_prompt_types(self, client):
         sam3 = self._get_sam3(client)
@@ -199,11 +191,6 @@ class TestSam3Model:
         sam3 = self._get_sam3(client)
 
         assert SupportedPromptType.VISUAL_POLYGON not in sam3["supported_prompt_types"]
-
-    def test_sam3_default_config_model_type(self, client):
-        sam3 = self._get_sam3(client)
-
-        assert sam3["default_config"]["model_type"] == ModelType.SAM3
 
     def test_sam3_default_config_matches_class_defaults(self, client):
         sam3 = self._get_sam3(client)
@@ -229,7 +216,9 @@ class TestPromptTypeCoverage:
         models = response.json()["models"]
 
         polygon_models = {
-            m["model_type"] for m in models if SupportedPromptType.VISUAL_POLYGON in m["supported_prompt_types"]
+            m["default_config"]["model_type"]
+            for m in models
+            if SupportedPromptType.VISUAL_POLYGON in m["supported_prompt_types"]
         }
         assert polygon_models == {ModelType.MATCHER, ModelType.PERDINO, ModelType.SOFT_MATCHER}
 
@@ -237,7 +226,9 @@ class TestPromptTypeCoverage:
         response = client.get("/api/v1/supported-models")
         models = response.json()["models"]
 
-        text_models = {m["model_type"] for m in models if SupportedPromptType.TEXT in m["supported_prompt_types"]}
+        text_models = {
+            m["default_config"]["model_type"] for m in models if SupportedPromptType.TEXT in m["supported_prompt_types"]
+        }
         assert text_models == {ModelType.SAM3}
 
     def test_visual_rectangle_models(self, client):
@@ -245,7 +236,9 @@ class TestPromptTypeCoverage:
         models = response.json()["models"]
 
         rect_models = {
-            m["model_type"] for m in models if SupportedPromptType.VISUAL_RECTANGLE in m["supported_prompt_types"]
+            m["default_config"]["model_type"]
+            for m in models
+            if SupportedPromptType.VISUAL_RECTANGLE in m["supported_prompt_types"]
         }
         assert rect_models == {ModelType.SAM3}
 

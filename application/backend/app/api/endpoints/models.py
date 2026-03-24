@@ -9,13 +9,14 @@ from fastapi import Query, Response, status
 
 from api.routers import projects_router, supported_models_router
 from dependencies import ModelServiceDep
+from domain.services.schemas.base import Pagination
 from domain.services.schemas.mappers.processor import SUPPORTED_MODELS_METADATA
 from domain.services.schemas.processor import (
     ProcessorCreateSchema,
     ProcessorListSchema,
     ProcessorSchema,
     ProcessorUpdateSchema,
-    SupportedModelsSchema,
+    SupportedModelsListSchema,
 )
 
 logger = logging.getLogger(__name__)
@@ -31,9 +32,16 @@ logger = logging.getLogger(__name__)
         },
     },
 )
-def get_supported_models() -> SupportedModelsSchema:
+def get_supported_models(
+    offset: Annotated[int, Query(ge=0, le=1000)] = 0, limit: Annotated[int, Query(ge=0, le=1000)] = 20
+) -> SupportedModelsListSchema:
     """Return all supported model types with default configs and accepted prompt types."""
-    return SupportedModelsSchema(models=SUPPORTED_MODELS_METADATA)
+    all_models = SUPPORTED_MODELS_METADATA
+    paginated_models = all_models[offset : offset + limit]
+    return SupportedModelsListSchema(
+        models=paginated_models,
+        pagination=Pagination(count=len(paginated_models), total=len(all_models), offset=offset, limit=limit),
+    )
 
 
 @projects_router.get(

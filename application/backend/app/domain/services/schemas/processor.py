@@ -166,12 +166,11 @@ class SupportedPromptType(StrEnum):
 class SupportedModelMetadataSchema(BaseModel):
     """Metadata for a supported model type: its defaults and accepted prompt types."""
 
-    model_type: ModelType
     default_config: ModelConfig
     supported_prompt_types: list[SupportedPromptType]
 
 
-class SupportedModelsSchema(BaseModel):
+class SupportedModelsListSchema(PaginatedResponse):
     models: list[SupportedModelMetadataSchema]
 
 

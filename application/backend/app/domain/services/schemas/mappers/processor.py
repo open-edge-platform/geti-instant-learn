@@ -8,7 +8,6 @@ from domain.db.models import ProcessorDB
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.processor import (
     MatcherConfig,
-    ModelType,
     PerDinoConfig,
     ProcessorCreateSchema,
     ProcessorListSchema,
@@ -75,22 +74,17 @@ def processors_db_to_list_items(
 
 SUPPORTED_MODELS_METADATA: list[SupportedModelMetadataSchema] = [
     SupportedModelMetadataSchema(
-        model_type=ModelType.MATCHER,
-        default_config=MatcherConfig(),
-        supported_prompt_types=[SupportedPromptType.VISUAL_POLYGON],
+        default_config=MatcherConfig(), supported_prompt_types=[SupportedPromptType.VISUAL_POLYGON]
     ),
     SupportedModelMetadataSchema(
-        model_type=ModelType.PERDINO,
         default_config=PerDinoConfig(),
         supported_prompt_types=[SupportedPromptType.VISUAL_POLYGON],
     ),
     SupportedModelMetadataSchema(
-        model_type=ModelType.SOFT_MATCHER,
         default_config=SoftMatcherConfig(),
         supported_prompt_types=[SupportedPromptType.VISUAL_POLYGON],
     ),
     SupportedModelMetadataSchema(
-        model_type=ModelType.SAM3,
         default_config=Sam3Config(),
         supported_prompt_types=[SupportedPromptType.TEXT, SupportedPromptType.VISUAL_RECTANGLE],
     ),
