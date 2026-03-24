@@ -27,7 +27,7 @@ gen-openapi-md: gen-openapi
 
 
 # Start FastAPI development server with auto-reload
-dev: _venv (download-dataset dataset-dir) (download-datasets dataset-dir)
+dev: _venv (download-datasets dataset-dir)
     {{ if enable-coturn == "true" { "COTURN_HOST='" + host-ip + "' COTURN_PORT='" + coturn-port + "'" } else { "" } }} \
     {{ if stun-server != "" { "STUN_SERVER='" + stun-server + "'" } else { "" } }} \
     CORS_ORIGINS='*' \
@@ -86,7 +86,7 @@ _mypy:
 # Installer
 # -------------------------------------------------------------------------------------------------
 
-pyinstaller: _venv (download-dataset dataset-dir) (download-datasets dataset-dir)
+pyinstaller: _venv (download-datasets dataset-dir)
     echo 'DEVICE="{{device}}"' > .env
     uv sync --extra installer --extra {{device}} --extra mqtt --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
     uv run pyinstaller --clean --noconfirm instant-learn.spec

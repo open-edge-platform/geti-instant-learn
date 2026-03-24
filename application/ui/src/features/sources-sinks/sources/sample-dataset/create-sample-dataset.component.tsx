@@ -8,7 +8,6 @@ import { useEffect, useState } from 'react';
 import { Button, ButtonGroup, Flex, Form, Heading, Item, Picker, Text, View } from '@geti/ui';
 import { isNull } from 'lodash-es';
 
-import TestDatasetImg from '../../../../assets/coffee-berries-placeholder.webp';
 import { useCreateSource } from '../api/use-create-source';
 import { useAvailableDatasets } from './api/use-available-datasets';
 
@@ -18,7 +17,7 @@ interface SampleDatasetTextProps {
     text?: string;
 }
 
-export const SampleDatasetTitle = ({ text = 'Coffee Bean Quality Dataset' }: SampleDatasetTextProps) => {
+export const SampleDatasetTitle = ({ text = 'Sample dataset' }: SampleDatasetTextProps) => {
     return (
         <Heading margin={0} UNSAFE_className={styles.title}>
             {text}
@@ -27,7 +26,7 @@ export const SampleDatasetTitle = ({ text = 'Coffee Bean Quality Dataset' }: Sam
 };
 
 export const SampleDatasetDescription = ({
-    text = 'This dataset contains information about the quality of coffee beans.',
+    text = 'A collection of images for visual AI training and inference.',
 }: SampleDatasetTextProps) => {
     return <Text UNSAFE_className={styles.description}>{text}</Text>;
 };
@@ -68,11 +67,13 @@ export const CreateSampleDataset = ({ onSaved }: CreateSampleDatasetProps) => {
     return (
         <View borderRadius={'small'}>
             <View>
-                <img
-                    src={selectedDataset?.thumbnail ?? TestDatasetImg}
-                    alt={selectedDataset?.name ?? 'Coffee Bean Quality Dataset'}
-                    className={styles.img}
-                />
+                {selectedDataset?.thumbnail && (
+                    <img
+                        src={selectedDataset.thumbnail}
+                        alt={selectedDataset.name}
+                        className={styles.img}
+                    />
+                )}
             </View>
             <View padding={'size-200'} backgroundColor={'gray-200'}>
                 <Form validationBehavior={'native'} onSubmit={handleCreateSampleDataset}>

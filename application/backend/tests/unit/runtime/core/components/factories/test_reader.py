@@ -50,7 +50,7 @@ class TestStreamReaderFactory:
         assert result._config == config
 
     def test_factory_returns_image_folder_reader_for_template_dataset_config(self, tmp_path):
-        dataset_dir = tmp_path / "coffee-berries"
+        dataset_dir = tmp_path / "aquarium"
         dataset_dir.mkdir()
         image_file = dataset_dir / "test.jpg"
         image_file.touch()
