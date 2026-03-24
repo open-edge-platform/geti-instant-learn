@@ -30,6 +30,7 @@ def test_add_and_get_by_id(repo, fxt_session, clean_after):
     assert fetched.id == p.id
     assert fetched.name == "alpha"
     assert fetched.active is False
+    assert fetched.config == {"device": "cpu"}
 
 
 def test_get_by_id_not_found(repo, clean_after):

@@ -26,10 +26,11 @@ SECOND_PROJECT_ID = uuid4()
 SECOND_PROJECT_ID_STR = str(SECOND_PROJECT_ID)
 
 
-def assert_project_schema(data: dict, project_id: str, name: str, active: bool = False):
+def assert_project_schema(data: dict, project_id: str, name: str, active: bool = False, device: str = "cpu"):
     assert data["id"] == project_id
     assert data["name"] == name
     assert data["active"] == active
+    assert data["config"] == {"device": device}
 
 
 @pytest.fixture
@@ -53,13 +54,44 @@ def app():
 
 
 @pytest.fixture
+def client(app):
+    return TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture
 def mock_license_service():
     return MagicMock()
 
 
-@pytest.fixture
-def client(app):
-    return TestClient(app, raise_server_exceptions=False)
+@pytest.mark.parametrize(
+    "behavior,expected_status,expect_location,expect_substring",
+    [
+        ("success", 201, True, None),
+        ("conflict", 409, False, "already exists"),
+        ("error", 500, False, "internal server error"),
+    ],
+)
+def test_create_project(client, behavior, expected_status, expect_location, expect_substring):
+    class FakeService:
+        def __init__(self, session, config_change_dispatcher):
+            pass
+
+        def create_project(self, payload):
+            assert payload.name == "myproj"
+            if behavior == "success":
+                return ProjectSchema(id=PROJECT_ID, name="myproj", active=True, config={"device": "cpu"})
+            if behavior == "conflict":
+                raise ResourceAlreadyExistsError(
+                    resource_type=ResourceType.PROJECT,
+                    resource_value="myproj",
+                    field="name",
+                    message="A project with this name already exists.",
+                )
+            if behavior == "error":
+                raise RuntimeError("Database connection failed")
+            raise AssertionError("Unhandled behavior")
+
+    client.app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
 
 
 class TestCreateProject:
@@ -92,7 +124,7 @@ class TestCreateProject:
             def create_project(self, payload):
                 assert payload.name == "myproj"
                 if behavior == "success":
-                    return ProjectSchema(id=PROJECT_ID, name="myproj", active=True)
+                    return ProjectSchema(id=PROJECT_ID, name="myproj", active=True, config={"device": "cpu"})
                 if behavior == "conflict":
                     raise ResourceAlreadyExistsError(
                         resource_type=ResourceType.PROJECT,
@@ -192,7 +224,7 @@ def test_get_active_project(client, behavior, expected_status):
 
         def get_active_project_info(self):
             if behavior == "success":
-                return ProjectSchema(id=PROJECT_ID, name="activeproj", active=True)
+                return ProjectSchema(id=PROJECT_ID, name="activeproj", active=True, config={"device": "cpu"})
             if behavior == "notfound":
                 raise ResourceNotFoundError(
                     resource_type=ResourceType.PROJECT,
@@ -233,8 +265,8 @@ def test_get_projects_list(client, behavior, expected_status, expected_count):
                 )
             if behavior == "some_projects":
                 projects = [
-                    ProjectSchema(id=PROJECT_ID, name="proj1", active=False),
-                    ProjectSchema(id=SECOND_PROJECT_ID, name="proj2", active=False),
+                    ProjectSchema(id=PROJECT_ID, name="proj1", active=False, config={"device": "cpu"}),
+                    ProjectSchema(id=SECOND_PROJECT_ID, name="proj2", active=False, config={"device": "cpu"}),
                 ]
                 return ProjectsListSchema(
                     projects=projects, pagination=Pagination(count=2, total=2, offset=offset, limit=limit)
@@ -272,7 +304,7 @@ def test_get_projects_list_with_pagination_params(client):
         def list_projects(self, offset=0, limit=20):
             assert offset == 10
             assert limit == 5
-            projects = [ProjectSchema(id=PROJECT_ID, name="proj1", active=False)]
+            projects = [ProjectSchema(id=PROJECT_ID, name="proj1", active=False, config={"device": "cpu"})]
             return ProjectsListSchema(projects=projects, pagination=Pagination(count=1, total=15, offset=10, limit=5))
 
     client.app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
@@ -304,7 +336,7 @@ def test_get_project(client, behavior, expected_status, expect_payload):
         def get_project(self, project_id: UUID):
             assert project_id == PROJECT_ID
             if behavior == "minimal":
-                return ProjectSchema(id=PROJECT_ID, name="minproj", active=False)
+                return ProjectSchema(id=PROJECT_ID, name="minproj", active=False, config={"device": "cpu"})
             if behavior == "notfound":
                 raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
             if behavior == "error":
@@ -340,8 +372,10 @@ def test_update_project(client, behavior, expected_status):
         def update_project(self, project_id: UUID, update_data):
             assert project_id == PROJECT_ID
             assert update_data.name == NEW_NAME
+            assert update_data.config is not None
+            assert update_data.config.device == "cuda"
             if behavior == "success":
-                return ProjectSchema(id=PROJECT_ID, name=NEW_NAME, active=False)
+                return ProjectSchema(id=PROJECT_ID, name=NEW_NAME, active=False, config={"device": "cuda"})
             if behavior == "notfound":
                 raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
             if behavior == "conflict":
@@ -357,10 +391,13 @@ def test_update_project(client, behavior, expected_status):
 
     client.app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
 
-    resp = client.put(f"/api/v1/projects/{PROJECT_ID_STR}", json={"name": NEW_NAME, "active": False})
+    resp = client.put(
+        f"/api/v1/projects/{PROJECT_ID_STR}",
+        json={"name": NEW_NAME, "active": False, "config": {"device": "cuda"}},
+    )
     assert resp.status_code == expected_status
     if behavior == "success":
-        assert_project_schema(resp.json(), PROJECT_ID_STR, NEW_NAME, active=False)
+        assert_project_schema(resp.json(), PROJECT_ID_STR, NEW_NAME, active=False, device="cuda")
     else:
         assert "detail" in resp.json()
 

@@ -7,6 +7,7 @@ from instantlearn.models.per_dino import PerDino
 from instantlearn.models.soft_matcher import SoftMatcher
 
 from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, SoftMatcherConfig
+from domain.services.schemas.project import Device
 from runtime.core.components.base import ModelHandler
 from runtime.core.components.models.openvino_model import OpenVINOModelHandler
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
@@ -33,26 +34,31 @@ class DeviceResolver:
         except (ImportError, AttributeError, RuntimeError):
             return False
 
-    def resolve_device(self, configured_device: str) -> str:
+    def resolve_device(self, configured_device: Device | None) -> Device:
         """Resolve `auto` device selection to a concrete backend.
 
         Selection priority for `auto`: Intel GPU (xpu), NVIDIA GPU (cuda), then CPU.
         """
-        if configured_device != "auto":
+        if configured_device is not None and configured_device != Device.AUTO:
             return configured_device
 
         if self._has_intel_gpu():
-            return "xpu"
+            return Device.XPU
         if self._has_nvidia_gpu():
-            return "cuda"
-        return "cpu"
+            return Device.CUDA
+        return Device.CPU
 
 
 class ModelFactory:
     def __init__(self, device_resolver: DeviceResolver | None = None) -> None:
         self._device_resolver = device_resolver or DeviceResolver()
 
-    def create(self, reference_batch: Batch | None, config: ModelConfig | None) -> ModelHandler:  # noqa: PLR0911
+    def create(  # noqa: PLR0911
+        self,
+        reference_batch: Batch | None,
+        config: ModelConfig | None,
+        configured_device: Device | None = None,
+    ) -> ModelHandler:
         if reference_batch is None:
             return PassThroughModelHandler()
         settings = get_settings()
@@ -61,8 +67,7 @@ class ModelFactory:
         if config is None:
             return PassThroughModelHandler()
 
-        selected_device = self._device_resolver.resolve_device(settings.device)
-        is_cuda = selected_device == "cuda"
+        selected_device = self._device_resolver.resolve_device(configured_device)
 
         match config:
             case MatcherConfig() as config:
@@ -70,7 +75,7 @@ class ModelFactory:
                 # as a suggestion we can handle conversion at the higher level factory,
                 # as it knows if the model should be converted or not and can override the configuration
                 # of the model
-                precision = config.precision if is_cuda else "fp32"
+                precision = config.precision if not settings.processor_openvino_enabled else "fp32"
                 model = Matcher(
                     sam=config.sam_model,
                     encoder_model=config.encoder_model,
@@ -81,9 +86,9 @@ class ModelFactory:
                     precision=precision,
                     device=selected_device,
                 )
-                if is_cuda:
-                    return TorchModelHandler(model, reference_batch)
-                return OpenVINOModelHandler(model, reference_batch, precision=precision)
+                if settings.processor_openvino_enabled:
+                    return OpenVINOModelHandler(model, reference_batch, precision=precision)
+                return TorchModelHandler(model, reference_batch)
             case PerDinoConfig() as config:
                 model = PerDino(
                     sam=config.sam_model,
