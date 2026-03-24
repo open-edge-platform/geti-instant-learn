@@ -6,6 +6,7 @@
 import { SampleDatasetSourceType } from '@/api';
 import { Flex, View } from '@geti/ui';
 import { Datasets } from '@geti/ui/icons';
+
 import { PipelineEntityCard } from '../../pipeline-entity-card/pipeline-entity-card.component';
 import { useAvailableDatasets } from './api/use-available-datasets';
 import { SampleDatasetDescription, SampleDatasetTitle } from './create-sample-dataset.component';

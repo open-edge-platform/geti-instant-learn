@@ -68,11 +68,7 @@ export const CreateSampleDataset = ({ onSaved }: CreateSampleDatasetProps) => {
         <View borderRadius={'small'}>
             <View>
                 {selectedDataset?.thumbnail && (
-                    <img
-                        src={selectedDataset.thumbnail}
-                        alt={selectedDataset.name}
-                        className={styles.img}
-                    />
+                    <img src={selectedDataset.thumbnail} alt={selectedDataset.name} className={styles.img} />
                 )}
             </View>
             <View padding={'size-200'} backgroundColor={'gray-200'}>
