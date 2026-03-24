@@ -4,6 +4,8 @@
 from pathlib import Path
 from uuid import uuid4, uuid5
 
+import cv2
+import numpy as np
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -89,3 +91,33 @@ def test_scan_datasets_builds_id_to_path_mapping(tmp_path: Path):
     assert dataset_id == uuid5(DATASET_NS, "aquarium")
     assert dataset_id in dataset_paths
     assert dataset_paths[dataset_id] == dataset_dir
+
+
+def test_scan_datasets_sets_thumbnail_from_first_supported_image(tmp_path: Path):
+    dataset_dir = tmp_path / "aquarium"
+    dataset_dir.mkdir()
+
+    # Non-image files should be ignored when selecting thumbnail source.
+    (dataset_dir / "README.txt").write_text("info")
+
+    image = np.zeros((10, 10, 3), dtype=np.uint8)
+    image[:, :] = [255, 0, 0]
+    cv2.imwrite(str(dataset_dir / "0001.jpg"), image)
+
+    datasets, _ = scan_datasets(tmp_path)
+
+    assert len(datasets.datasets) == 1
+    thumbnail = datasets.datasets[0].thumbnail
+    assert thumbnail is not None
+    assert thumbnail.startswith("data:image/jpeg;base64,")
+
+
+def test_scan_datasets_thumbnail_none_when_no_supported_images(tmp_path: Path):
+    dataset_dir = tmp_path / "aquarium"
+    dataset_dir.mkdir()
+    (dataset_dir / "README.txt").write_text("no images")
+
+    datasets, _ = scan_datasets(tmp_path)
+
+    assert len(datasets.datasets) == 1
+    assert datasets.datasets[0].thumbnail is None

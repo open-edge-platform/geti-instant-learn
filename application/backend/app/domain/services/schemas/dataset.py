@@ -11,6 +11,7 @@ class DatasetSchema(BaseIDSchema):
 
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(min_length=1, max_length=500)
+    thumbnail: str | None = None
 
 
 class DatasetsListSchema(PaginatedResponse):
