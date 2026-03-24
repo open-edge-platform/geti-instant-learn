@@ -91,6 +91,19 @@ run-image: build-image
         RENDER_NODE=$(uv run python -c "from pathlib import Path; print(render_nodes[0]) if (render_nodes := sorted(Path('/dev/dri').glob('renderD*'))) else ''")
       fi
       if [[ -n "$RENDER_NODE" ]]; then
+        # Validate that RENDER_NODE looks like a proper render device, exists, and is a char device
+        if [[ "$RENDER_NODE" != /dev/dri/renderD* ]]; then
+          echo "Error: render-node '$RENDER_NODE' does not match expected pattern '/dev/dri/renderD*'." >&2
+          exit 1
+        fi
+        if [[ ! -e "$RENDER_NODE" ]]; then
+          echo "Error: render-node '$RENDER_NODE' does not exist on the host." >&2
+          exit 1
+        fi
+        if [[ ! -c "$RENDER_NODE" ]]; then
+          echo "Error: render-node '$RENDER_NODE' is not a character device." >&2
+          exit 1
+        fi
         extra_render_args+=(--device "$RENDER_NODE")
       fi
       if [[ -n "$RENDER_GID" ]]; then
