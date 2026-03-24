@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     db_filename: str = "instant_learn.db"
 
     # Template datasets
-    template_dataset_path: str = Field(default="templates/datasets/coffee-berries", alias="TEMPLATE_DATASET_PATH")
+    template_dataset_path: str = Field(default="templates/datasets", alias="TEMPLATE_DATASET_PATH")
 
     # License
     license_accept_env_var: str = "INSTANTLEARN_LICENSE_ACCEPTED"
@@ -124,6 +124,7 @@ class Settings(BaseSettings):
     processor_frame_skip_interval: int = Field(default=3, ge=0, alias="PROCESSOR_FRAME_SKIP_INTERVAL")
     processor_frame_skip_amount: int = Field(default=1, ge=0, alias="PROCESSOR_FRAME_SKIP_AMOUNT")
     processor_inference_enabled: bool = Field(default=True, alias="PROCESSOR_INFERENCE_ENABLED")
+    processor_openvino_enabled: bool = Field(default=False, alias="PROCESSOR_OPENVINO_ENABLED")
 
     # WebRTC
     webrtc_advertise_ip: str | None = Field(default=None, alias="WEBRTC_ADVERTISE_IP")
@@ -136,8 +137,11 @@ class Settings(BaseSettings):
     stun_server: str | None = Field(default=None, alias="STUN_SERVER")
 
     # Inference visualization settings
+    visualize_masks: bool = Field(default=False, alias="VISUALIZE_MASKS")
+    visualize_boxes: bool = Field(default=True, alias="VISUALIZE_BOXES")
     mask_alpha: float = Field(default=0.5, alias="MASK_ALPHA")
     mask_outline_thickness: int = Field(default=3, alias="MASK_OUTLINE_THICKNESS")
+    box_thickness: int = Field(default=4, alias="BOX_THICKNESS")
 
     @property
     def ice_servers(self) -> list[dict]:

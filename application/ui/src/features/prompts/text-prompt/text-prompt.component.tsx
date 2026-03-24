@@ -3,37 +3,89 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { KeyboardEvent, Suspense, useState } from 'react';
 
-import { Button, Flex, TextArea, View } from '@geti/ui';
+import { useProjectIdentifier } from '@/hooks';
+import { ActionButton, Flex, Loading, Text, TextArea } from '@geti/ui';
+import { Add } from '@geti/ui/icons';
 
-export const TextPrompt = () => {
-    const [prompt, setPrompt] = useState<string>('Enter your text prompt here');
+import { useCreateTextPrompt, useDeleteTextPrompt, useGetTextPrompts } from './api/use-text-prompts';
+import { TextPromptBadge } from './text-prompt-badge/text-prompt-badge.component';
 
-    const isSubmitDisabled = prompt.trim() === '';
+import classes from './text-prompt.module.scss';
+
+const TextPromptBadgeList = () => {
+    const prompts = useGetTextPrompts();
+    const { projectId } = useProjectIdentifier();
+    const deleteMutation = useDeleteTextPrompt();
+
+    const handleDelete = (promptId: string) => {
+        deleteMutation.mutate({
+            params: { path: { project_id: projectId, prompt_id: promptId } },
+        });
+    };
+
+    if (prompts.length === 0) {
+        return <Text UNSAFE_className={classes.emptyState}>No text prompts yet.</Text>;
+    }
 
     return (
-        <View height={'100%'}>
-            <View
-                backgroundColor={'gray-50'}
-                padding={'size-100'}
-                borderRadius={'regular'}
-                height={'100%'}
-                maxHeight={'size-3000'}
-            >
+        <Flex direction={'column'} gap={'size-100'}>
+            {prompts.map((prompt) => (
+                <TextPromptBadge key={prompt.id} prompt={prompt} onDelete={handleDelete} />
+            ))}
+        </Flex>
+    );
+};
+
+export const TextPrompt = () => {
+    const [content, setContent] = useState('');
+    const { projectId } = useProjectIdentifier();
+    const createMutation = useCreateTextPrompt();
+
+    const isSubmitDisabled = content.trim() === '' || createMutation.isPending;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || !e.shiftKey)) {
+            e.preventDefault();
+            if (!isSubmitDisabled) handleAddTextPrompt();
+        }
+    };
+
+    const handleAddTextPrompt = () => {
+        const trimmed = content.trim();
+
+        if (!trimmed) return;
+
+        createMutation.mutate(
+            {
+                body: { type: 'TEXT', content: trimmed },
+                params: { path: { project_id: projectId } },
+            },
+            {
+                onSuccess: () => setContent(''),
+            }
+        );
+    };
+
+    return (
+        <Flex direction={'column'} gap={'size-200'}>
+            <Flex gap={'size-100'} alignItems={'end'}>
                 <TextArea
-                    aria-label={'Text prompt'}
-                    value={prompt}
-                    onChange={setPrompt}
-                    width={'100%'}
-                    height={'100%'}
+                    aria-label={'New text prompt'}
+                    placeholder={'e.g. red car'}
+                    value={content}
+                    onChange={setContent}
+                    onKeyDown={handleKeyDown}
+                    flex={1}
                 />
-            </View>
-            <Flex justifyContent={'end'}>
-                <Button marginTop={'size-200'} isDisabled={isSubmitDisabled}>
-                    Submit
-                </Button>
+                <ActionButton isDisabled={isSubmitDisabled} onPress={handleAddTextPrompt} aria-label={'Add prompt'}>
+                    <Add />
+                </ActionButton>
             </Flex>
-        </View>
+            <Suspense fallback={<Loading mode={'inline'} size={'M'} />}>
+                <TextPromptBadgeList />
+            </Suspense>
+        </Flex>
     );
 };

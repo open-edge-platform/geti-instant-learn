@@ -34,8 +34,11 @@ class InferenceVisualizer:
     def __init__(self, enable_visualization: bool = True) -> None:
         self._enabled = enable_visualization
         settings = get_settings()
+        self._visualize_masks = settings.visualize_masks
+        self._visualize_boxes = settings.visualize_boxes
         self._mask_alpha = settings.mask_alpha
         self._mask_outline_thickness = settings.mask_outline_thickness
+        self._box_thickness = settings.box_thickness
 
     def visualize(self, output_data: OutputData, visualization_info: VisualizationInfo | None = None) -> np.ndarray:
         """Render model predictions onto the frame."""
@@ -53,15 +56,18 @@ class InferenceVisualizer:
 
         logger.debug("Visualizing the output data: %s, categories=%s", output_data, category_id_to_label_id)
         for prediction in output_data.results:
-            boxes = prediction.get("pred_boxes")
-            if boxes is not None and boxes.size > 0:
-                logger.warning("pred_boxes visualization is not supported and will be ignored")
-
-            masks = prediction.get("pred_masks")
             labels = prediction.get("pred_labels")
 
-            if masks is not None and masks.size > 0:
-                annotated = self._draw_masks(annotated, masks, labels, label_id_to_color, category_id_to_label_id)
+            if self._visualize_masks:
+                masks = prediction.get("pred_masks")
+                if masks is not None and masks.size > 0:
+                    annotated = self._draw_masks(annotated, masks, labels, label_id_to_color, category_id_to_label_id)
+
+            if self._visualize_boxes:
+                boxes = prediction.get("pred_boxes")
+                if boxes is not None and boxes.size > 0:
+                    annotated = self._draw_boxes(annotated, boxes, labels, label_id_to_color, category_id_to_label_id)
+
         return annotated
 
     def _draw_masks(
@@ -99,6 +105,40 @@ class InferenceVisualizer:
             overlay = self._draw_mask_contours(overlay, mask_bool, color)
 
         return overlay
+
+    def _draw_boxes(
+        self,
+        frame: np.ndarray,
+        boxes: np.ndarray,
+        labels: np.ndarray | None,
+        label_colors: dict[str, tuple[int, int, int]],
+        category_id_to_label_id: dict[int, str],
+    ) -> np.ndarray:
+        """
+        Draw bounding boxes for a prediction.
+
+        Args:
+            frame: RGB frame to draw on.
+            boxes: Array of shape [N, 4] or [N, 5] with box coords [x1, y1, x2, y2, (score)].
+            labels: Array of shape [N] with category IDs for each box.
+            label_colors: Mapping of label UUID (str) to RGB color tuple.
+            category_id_to_label_id: Mapping of category ID (int) to label UUID (str).
+
+        Returns:
+            A new RGB frame with bounding boxes drawn.
+        """
+        labels_np: np.ndarray | None = None
+        if labels is not None and labels.size > 0:
+            labels_np = labels
+
+        for box_idx, box in enumerate(boxes):
+            category_id = self._extract_category_id_from_array(labels_np, box_idx)
+            color = self._resolve_color_for_category(category_id, label_colors, category_id_to_label_id)
+
+            x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, self._box_thickness)
+
+        return frame
 
     @staticmethod
     def _extract_category_id_from_array(labels_np: np.ndarray | None, index: int) -> int | None:

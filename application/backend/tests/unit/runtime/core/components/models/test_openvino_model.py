@@ -78,7 +78,7 @@ class TestOpenVINOModelHandler:
         handler = OpenVINOModelHandler(mock_model, mock_reference_batch, precision="fp16")
 
         output = {
-            "masks": np.array([[1, 0], [0, 1]], dtype=np.float32),
+            "masks": np.array([[[1, 0], [0, 1]]], dtype=np.float32),
             "scores": np.array([0.5], dtype=np.float32),
             "labels": np.array([1], dtype=np.int64),
         }
@@ -103,3 +103,5 @@ class TestOpenVINOModelHandler:
         np.testing.assert_array_equal(results[0]["pred_masks"], output["masks"])
         np.testing.assert_array_equal(results[0]["pred_scores"], output["scores"])
         np.testing.assert_array_equal(results[0]["pred_labels"], output["labels"])
+        assert "pred_boxes" in results[0]
+        assert results[0]["pred_boxes"].shape[1] == 5

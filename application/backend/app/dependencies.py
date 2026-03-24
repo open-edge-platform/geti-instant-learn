@@ -2,9 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+from pathlib import Path
 from typing import Annotated
+from uuid import UUID
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from domain.db.engine import get_session
@@ -15,8 +17,17 @@ from domain.repositories.project import ProjectRepository
 from domain.repositories.prompt import PromptRepository
 from domain.repositories.sink import SinkRepository
 from domain.repositories.source import SourceRepository
-from domain.services import LabelService, ModelService, ProjectService, PromptService, SinkService, SourceService
+from domain.services import (
+    LabelService,
+    ModelService,
+    ProjectService,
+    PromptService,
+    SinkService,
+    SourceService,
+)
+from domain.services.schemas.dataset import DatasetsListSchema
 from runtime.core.components.validators.sink_connection import SinkConnectionValidator
+from runtime.errors import DatasetNotFoundError
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.frame import FrameService
 from runtime.services.license import LicenseService
@@ -42,6 +53,33 @@ def get_config_dispatcher(request: Request) -> ConfigChangeDispatcher:
 def get_webrtc_manager(request: Request) -> WebRTCManager:
     """Provides the global WebRTCManager instance from FastAPI application's state."""
     return request.app.state.webrtc_manager
+
+
+def get_dataset_paths(request: Request) -> dict[UUID, Path]:
+    """Dependency that provides startup-cached dataset id-to-path mapping."""
+    return request.app.state.dataset_paths
+
+
+def get_available_datasets(request: Request) -> DatasetsListSchema:
+    """Dependency that provides startup-cached dataset metadata list."""
+    available_datasets: DatasetsListSchema = request.app.state.available_datasets
+    if not available_datasets.datasets:
+        raise DatasetNotFoundError("No datasets found in startup cache.")
+    return available_datasets
+
+
+def get_dataset_path_by_id(
+    dataset_id: UUID,
+    dataset_paths: Annotated[dict[UUID, Path], Depends(get_dataset_paths)],
+) -> Path:
+    """Resolve dataset path by id from the in-memory startup cache."""
+    try:
+        return dataset_paths[dataset_id]
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Dataset with id '{dataset_id}' was not found.",
+        ) from exc
 
 
 # --- DB session dependency ---
@@ -163,3 +201,5 @@ SinkServiceDep = Annotated[SinkService, Depends(get_sink_service)]
 SinkConnectionValidatorDep = Annotated[SinkConnectionValidator, Depends(get_sink_connection_validator)]
 DiscoveryServiceDep = Annotated[SourceTypeService, Depends(get_discovery_service)]
 LicenseServiceDep = Annotated[LicenseService, Depends(get_license_service)]
+DatasetPathDep = Annotated[Path, Depends(get_dataset_path_by_id)]
+AvailableDatasetsDep = Annotated[DatasetsListSchema, Depends(get_available_datasets)]
