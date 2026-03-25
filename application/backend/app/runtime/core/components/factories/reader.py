@@ -2,8 +2,9 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from uuid import UUID, uuid5
+from uuid import UUID
 
 from domain.services.schemas.reader import (
     ImagesFolderConfig,
@@ -19,7 +20,7 @@ from runtime.core.components.readers.noop_reader import NoOpReader
 from runtime.core.components.readers.usb_camera_reader import UsbCameraReader
 from runtime.core.components.readers.video_file import VideoFileReader
 from runtime.errors import DatasetNotFoundError
-from runtime.services.dataset_discovery import DATASET_NS
+from runtime.services.dataset_discovery import get_first_dataset_path, resolve_dataset_path
 from settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -34,28 +35,13 @@ class StreamReaderFactory:
     based on the provided configuration.
     """
 
-    @staticmethod
-    def _resolve_dataset_path(dataset_id: UUID, template_dataset_dir: Path) -> Path | None:
-        """Resolve startup-stable dataset ID to a directory path under template datasets."""
-        if not template_dataset_dir.exists() or not template_dataset_dir.is_dir():
-            logger.warning("Template dataset directory '%s' is not available.", template_dataset_dir)
-            return None
-        for entry in sorted(template_dataset_dir.iterdir()):
-            if entry.is_dir() and uuid5(DATASET_NS, entry.name) == dataset_id:
-                logger.debug("Resolved sample dataset id '%s' to '%s'.", dataset_id, entry)
-                return entry
-        return None
-
-    @staticmethod
-    def _get_first_dataset_path(template_dataset_dir: Path) -> Path | None:
-        """Return the first available dataset directory under template datasets."""
-        if not template_dataset_dir.exists() or not template_dataset_dir.is_dir():
-            logger.warning("Template dataset directory '%s' is not available.", template_dataset_dir)
-            return None
-        return next((e for e in sorted(template_dataset_dir.iterdir()) if e.is_dir()), None)
-
     @classmethod
-    def create(cls, config: ReaderConfig | None) -> StreamReader:
+    def create(
+        cls,
+        config: ReaderConfig | None,
+        dataset_path_resolver: Callable[[UUID, Path], Path | None] = resolve_dataset_path,
+        first_dataset_path_resolver: Callable[[Path], Path | None] = get_first_dataset_path,
+    ) -> StreamReader:
         settings = get_settings()
         match config:
             case UsbCameraConfig() as config:
@@ -65,7 +51,7 @@ class StreamReaderFactory:
             case SampleDatasetConfig() as config:
                 if config.dataset_id is not None:
                     logger.info("Creating sample dataset reader for dataset_id '%s'.", config.dataset_id)
-                    dataset_path = cls._resolve_dataset_path(config.dataset_id, settings.template_dataset_dir)
+                    dataset_path = dataset_path_resolver(config.dataset_id, settings.template_dataset_dir)
                     if dataset_path is None:
                         logger.warning(
                             "Sample dataset id '%s' could not be resolved in '%s'.",
@@ -75,7 +61,7 @@ class StreamReaderFactory:
                         raise DatasetNotFoundError(f"Sample dataset id '{config.dataset_id}' was not found.")
                 else:
                     logger.info("Creating sample dataset reader without dataset_id; using first available dataset.")
-                    dataset_path = cls._get_first_dataset_path(settings.template_dataset_dir)
+                    dataset_path = first_dataset_path_resolver(settings.template_dataset_dir)
                     if dataset_path is None:
                         logger.warning(
                             "No sample datasets available in '%s'.",
