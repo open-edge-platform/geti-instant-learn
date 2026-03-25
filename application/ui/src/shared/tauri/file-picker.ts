@@ -15,6 +15,18 @@ const getSingleSelectedPath = (selectedPath: string | string[] | null): string |
     return null;
 };
 
+const getParentDirectoryPath = (path: string): string => {
+    const lastSlashIndex = path.lastIndexOf('/');
+    const lastBackslashIndex = path.lastIndexOf('\\');
+    const separatorIndex = Math.max(lastSlashIndex, lastBackslashIndex);
+
+    if (separatorIndex <= 0) {
+        return path;
+    }
+
+    return path.slice(0, separatorIndex);
+};
+
 export const pickFilePath = async (): Promise<string | null> => {
     if (!isTauriContext()) {
         return null;
@@ -36,11 +48,22 @@ export const pickFolderPath = async (): Promise<string | null> => {
 
     const { open } = await import('@tauri-apps/plugin-dialog');
     const selectedPath = await open({
-        directory: true,
+        directory: false,
         multiple: false,
+        filters: [
+            {
+                name: 'Images',
+                extensions: ['png', 'jpg', 'jpeg', 'bmp', 'gif', 'webp', 'tif', 'tiff'],
+            },
+        ],
     });
+    const imagePath = getSingleSelectedPath(selectedPath);
 
-    return getSingleSelectedPath(selectedPath);
+    if (imagePath === null) {
+        return null;
+    }
+
+    return getParentDirectoryPath(imagePath);
 };
 
 export const isTauriRuntime = isTauriContext;
