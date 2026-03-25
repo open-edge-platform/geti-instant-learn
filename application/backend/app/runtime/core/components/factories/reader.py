@@ -2,9 +2,6 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 import logging
-from collections.abc import Callable
-from pathlib import Path
-from uuid import UUID
 
 from domain.services.schemas.reader import (
     ImagesFolderConfig,
@@ -39,8 +36,6 @@ class StreamReaderFactory:
     def create(
         cls,
         config: ReaderConfig | None,
-        dataset_path_resolver: Callable[[UUID, Path], Path | None] = resolve_dataset_path,
-        first_dataset_path_resolver: Callable[[Path], Path | None] = get_first_dataset_path,
     ) -> StreamReader:
         settings = get_settings()
         match config:
@@ -51,7 +46,7 @@ class StreamReaderFactory:
             case SampleDatasetConfig() as config:
                 if config.dataset_id is not None:
                     logger.info("Creating sample dataset reader for dataset_id '%s'.", config.dataset_id)
-                    dataset_path = dataset_path_resolver(config.dataset_id, settings.template_dataset_dir)
+                    dataset_path = resolve_dataset_path(config.dataset_id, settings.template_dataset_dir)
                     if dataset_path is None:
                         logger.warning(
                             "Sample dataset id '%s' could not be resolved in '%s'.",
@@ -61,7 +56,7 @@ class StreamReaderFactory:
                         raise DatasetNotFoundError(f"Sample dataset id '{config.dataset_id}' was not found.")
                 else:
                     logger.info("Creating sample dataset reader without dataset_id; using first available dataset.")
-                    dataset_path = first_dataset_path_resolver(settings.template_dataset_dir)
+                    dataset_path = get_first_dataset_path(settings.template_dataset_dir)
                     if dataset_path is None:
                         logger.warning(
                             "No sample datasets available in '%s'.",
