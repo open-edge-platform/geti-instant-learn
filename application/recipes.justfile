@@ -3,7 +3,7 @@ dataset-names := "led aquarium candies cards nuts potatoes"
 
 download-datasets target_dir:
     #!/usr/bin/env bash
-    DATASET_DIR="{{ target_dir }}/coffee-berries"
+    DATASET_DIR="{{ target_dir }}"
 
     mkdir -p $DATASET_DIR
     for filename in {{ dataset-names }}; do

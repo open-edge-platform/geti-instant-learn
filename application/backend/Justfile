@@ -92,3 +92,5 @@ pyinstaller: _venv (download-datasets dataset-dir)
     uv run pyinstaller --clean --noconfirm instant-learn.spec
     mkdir -p dist/instant-learn-backend/InitialData/templates/datasets
     cp -r "{{ dataset-dir }}/." dist/instant-learn-backend/InitialData/templates/datasets/
+    ls -al "{{ dataset-dir }}"
+    ls -al dist/instant-learn-backend/InitialData/templates/datasets/
