@@ -91,4 +91,4 @@ pyinstaller: _venv (download-dataset dataset-dir) (download-datasets dataset-dir
     uv sync --extra installer --extra {{device}} --extra mqtt --frozen --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org
     uv run pyinstaller --clean --noconfirm instant-learn.spec
     mkdir -p dist/instant-learn-backend/InitialData/templates/datasets
-    cp -r {{ dataset-dir }}/* dist/instant-learn-backend/InitialData/templates/datasets/
+    cp -r "{{ dataset-dir }}/." dist/instant-learn-backend/InitialData/templates/datasets/
