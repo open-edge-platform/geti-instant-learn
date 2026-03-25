@@ -1,0 +1,42 @@
+name: Benchmark Library
+on:
+  workflow_call:
+    inputs:
+      build_version:
+        description: "Specifies the build version to apply to all binaries produced by this workflow"
+        type: string
+        required: true
+  workflow_dispatch:
+
+permissions: {} # No permissions by default
+
+jobs:
+  component-check:
+    name: Library workflow
+    runs-on: [self-hosted, Linux, X64, gpu]
+    permissions:
+      contents: read
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        uses: ./.github/actions/install-dependencies
+        with:
+          uv-cache-dependency-glob: "library/uv.lock"
+          cleanup-runner: true
+
+      - name: Launch benchmark tests
+        working-directory: library
+        run: |
+          just benchmark-devices=cuda benchmark
+
+    # TODO: Add CPU benchmarks if needed
+    #   - name: Launch benchmark tests
+    #     working-directory: library
+    #     run: |
+    #       just benchmark-devices=cpu benchmark
