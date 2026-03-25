@@ -13,7 +13,7 @@ import { ImagesFolderFields } from './images-folder-fields.component';
 
 // Mock the file picker
 vi.mock('../../../../shared/tauri/file-picker', () => ({
-    pickFilePath: vi.fn(),
+    pickVideoFilePath: vi.fn(),
     pickFolderPath: vi.fn(),
     isTauriRuntime: vi.fn(),
 }));

@@ -5,7 +5,7 @@
 
 import { Button, Flex, TextField, View } from '@geti/ui';
 
-import { isTauriRuntime, pickFilePath } from '../../../../shared/tauri/file-picker';
+import { isTauriRuntime, pickVideoFilePath } from '../../../../shared/tauri/file-picker';
 
 interface VideoFileFieldsProps {
     filePath: string;
@@ -14,7 +14,7 @@ interface VideoFileFieldsProps {
 
 export const VideoFileFields = ({ filePath, onFilePathChange }: VideoFileFieldsProps) => {
     const handleBrowse = async (): Promise<void> => {
-        const selectedPath = await pickFilePath();
+        const selectedPath = await pickVideoFilePath();
 
         if (selectedPath !== null) {
             onFilePathChange(selectedPath);

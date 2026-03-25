@@ -15,7 +15,7 @@ const getSingleSelectedPath = (selectedPath: string | string[] | null): string |
     return null;
 };
 
-export const pickFilePath = async (): Promise<string | null> => {
+export const pickVideoFilePath = async (): Promise<string | null> => {
     if (!isTauriContext()) {
         return null;
     }
@@ -24,6 +24,12 @@ export const pickFilePath = async (): Promise<string | null> => {
     const selectedPath = await open({
         directory: false,
         multiple: false,
+        filters: [
+            {
+                name: 'Videos',
+                extensions: ['mp4', 'mov', 'mkv', 'avi', 'webm', 'm4v'],
+            },
+        ],
     });
 
     return getSingleSelectedPath(selectedPath);

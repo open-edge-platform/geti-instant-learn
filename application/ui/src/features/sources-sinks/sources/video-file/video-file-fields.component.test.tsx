@@ -13,7 +13,7 @@ import { VideoFileFields } from './video-file-fields.component';
 
 // Mock the file picker
 vi.mock('../../../../shared/tauri/file-picker', () => ({
-    pickFilePath: vi.fn(),
+    pickVideoFilePath: vi.fn(),
     pickFolderPath: vi.fn(),
     isTauriRuntime: vi.fn(),
 }));
@@ -60,7 +60,7 @@ describe('VideoFileFields', () => {
     describe('File picker integration', () => {
         it('opens file picker when browse button is clicked in Tauri', async () => {
             vi.mocked(filePicker.isTauriRuntime).mockReturnValue(true);
-            vi.mocked(filePicker.pickFilePath).mockResolvedValue(null);
+            vi.mocked(filePicker.pickVideoFilePath).mockResolvedValue(null);
 
             const onChange = vi.fn();
             render(<VideoFileFields filePath='' onFilePathChange={onChange} />);
@@ -68,13 +68,13 @@ describe('VideoFileFields', () => {
             const browseButton = screen.getByRole('button', { name: /Browse/ });
             await userEvent.click(browseButton);
 
-            expect(vi.mocked(filePicker.pickFilePath)).toHaveBeenCalled();
+            expect(vi.mocked(filePicker.pickVideoFilePath)).toHaveBeenCalled();
         });
 
         it('updates file path when file is selected', async () => {
             const testFilePath = '/home/user/video.mp4';
             vi.mocked(filePicker.isTauriRuntime).mockReturnValue(true);
-            vi.mocked(filePicker.pickFilePath).mockResolvedValue(testFilePath);
+            vi.mocked(filePicker.pickVideoFilePath).mockResolvedValue(testFilePath);
 
             const onChange = vi.fn();
             render(<VideoFileFields filePath='' onFilePathChange={onChange} />);
@@ -87,7 +87,7 @@ describe('VideoFileFields', () => {
 
         it('does not update file path when picker returns null', async () => {
             vi.mocked(filePicker.isTauriRuntime).mockReturnValue(true);
-            vi.mocked(filePicker.pickFilePath).mockResolvedValue(null);
+            vi.mocked(filePicker.pickVideoFilePath).mockResolvedValue(null);
 
             const onChange = vi.fn();
             render(<VideoFileFields filePath='/existing/path.mp4' onFilePathChange={onChange} />);
@@ -100,7 +100,7 @@ describe('VideoFileFields', () => {
 
         it('does not call file picker when browse button is disabled (web runtime)', async () => {
             vi.mocked(filePicker.isTauriRuntime).mockReturnValue(false);
-            vi.mocked(filePicker.pickFilePath).mockResolvedValue(null);
+            vi.mocked(filePicker.pickVideoFilePath).mockResolvedValue(null);
 
             const onChange = vi.fn();
             render(<VideoFileFields filePath='' onFilePathChange={onChange} />);
@@ -111,7 +111,7 @@ describe('VideoFileFields', () => {
             expect(browseButton).toBeDisabled();
             await userEvent.click(browseButton);
 
-            expect(vi.mocked(filePicker.pickFilePath)).not.toHaveBeenCalled();
+            expect(vi.mocked(filePicker.pickVideoFilePath)).not.toHaveBeenCalled();
         });
     });
 
