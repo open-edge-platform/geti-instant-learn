@@ -12,6 +12,9 @@ const getSingleSelectedPath = (selectedPath: string | string[] | null): string |
         return selectedPath;
     }
 
+    if (Array.isArray(selectedPath)) {
+        return selectedPath.length > 0 ? selectedPath[0] : null;
+    }
     return null;
 };
 
