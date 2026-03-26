@@ -24,35 +24,24 @@ class PromptMode(StrEnum):
     VISUAL = "visual"
 
 
-class ProjectConfig(BaseModel):
-    device: Device = Device.CPU
-    prompt_mode: PromptMode = PromptMode.VISUAL
-
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "device": "cpu",
-                "prompt_mode": "visual",
-            }
-        }
-    }
-
-
 class ProjectCreateSchema(BaseIDPayload):
     name: str = Field(max_length=80, min_length=1)
-    config: ProjectConfig = Field(default_factory=ProjectConfig)
+    device: Device = Device.AUTO
+    prompt_mode: PromptMode = PromptMode.VISUAL
 
 
 class ProjectUpdateSchema(BaseModel):
     name: str | None = Field(max_length=80, min_length=1, default=None)
     active: bool | None = None
-    config: ProjectConfig | None = None
+    device: Device | None = None
+    prompt_mode: PromptMode | None = None
 
 
 class ProjectSchema(BaseIDSchema):
     name: str
     active: bool
-    config: ProjectConfig
+    device: Device
+    prompt_mode: PromptMode
 
 
 class ProjectsListSchema(PaginatedResponse):
