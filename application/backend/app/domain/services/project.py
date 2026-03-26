@@ -12,6 +12,8 @@ from api.error_handler import extract_constraint_name
 from domain.db.constraints import UniqueConstraintName
 from domain.db.models import ProjectDB
 from domain.dispatcher import (
+    ComponentConfigChangeEvent,
+    ComponentType,
     ConfigChangeDispatcher,
     ProjectActivationEvent,
     ProjectDeactivationEvent,
@@ -21,6 +23,7 @@ from domain.errors import (
     ResourceNotFoundError,
     ResourceType,
 )
+from domain.repositories.processor import ProcessorRepository
 from domain.repositories.project import ProjectRepository
 from domain.services.base import BaseService
 from domain.services.schemas.mappers.project import (
@@ -32,7 +35,6 @@ from domain.services.schemas.pipeline import PipelineConfig
 from domain.services.schemas.processor import ModelConfig
 from domain.services.schemas.project import (
     Device,
-    ProjectConfig,
     ProjectCreateSchema,
     ProjectSchema,
     ProjectsListSchema,
@@ -59,6 +61,7 @@ class ProjectService(BaseService):
         self,
         session: Session,
         project_repository: ProjectRepository | None = None,
+        processor_repository: ProcessorRepository | None = None,
         config_change_dispatcher: ConfigChangeDispatcher | None = None,
     ):
         """
@@ -66,6 +69,7 @@ class ProjectService(BaseService):
         """
         super().__init__(session=session, config_change_dispatcher=config_change_dispatcher)
         self.project_repository = project_repository or ProjectRepository(session=session)
+        self.processor_repository = processor_repository or ProcessorRepository(session=session)
 
     def create_project(self, create_data: ProjectCreateSchema) -> ProjectSchema:
         """
@@ -129,24 +133,23 @@ class ProjectService(BaseService):
         Update a project:
           - Rename if `name` provided and different (enforces uniqueness via DB constraint).
           - Apply desired activation state if it differs.
+          - Reload processor if device changes in the active project.
         """
-        config_updates = (
-            update_data.config.model_dump(exclude_unset=True, exclude_none=True)
-            if update_data.config is not None
-            else {}
-        )
-        update_device = config_updates.get("device")
         logger.debug(
-            "Project update requested: id=%s name=%s active=%s device=%s",
+            "Project update requested: id=%s name=%s active=%s device=%s prompt_mode=%s",
             project_id,
             update_data.name,
             update_data.active,
-            update_device,
+            update_data.device,
+            update_data.prompt_mode,
         )
         project = self.project_repository.get_by_id(project_id)
         if not project:
             logger.error("Update failed; project not found id=%s", project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
+
+        device_changed = update_data.device is not None and update_data.device != project.device
+        activation_happening = False
 
         try:
             with self.db_transaction():
@@ -154,14 +157,16 @@ class ProjectService(BaseService):
                     logger.debug("Renaming project id=%s from '%s' to '%s'", project_id, project.name, update_data.name)
                     project.name = update_data.name
 
-                if config_updates:
-                    project_config = dict(project.config or {})
-                    project_config.update(config_updates)
-                    project.config = project_config
+                if update_data.device is not None:
+                    project.device = update_data.device
+
+                if update_data.prompt_mode is not None:
+                    project.prompt_mode = update_data.prompt_mode
 
                 if update_data.active is not None and project.active != update_data.active:
                     if update_data.active:
                         logger.debug("Activating project id=%s via update request", project_id)
+                        activation_happening = True
                         try:
                             self._activate_project(project)
                         except Exception as exc:
@@ -174,6 +179,9 @@ class ProjectService(BaseService):
                         self._emit_deactivation(project.id)
 
                 project = self.project_repository.update(project)
+
+                if device_changed and project.active and not activation_happening:
+                    self._emit_processor_change_event(project.id)
 
         except IntegrityError as exc:
             logger.error("Project update failed due to constraint violation: %s", exc)
@@ -267,11 +275,7 @@ class ProjectService(BaseService):
             except Exception:
                 logger.exception(f"Invalid active sink config ignored: sink_id={active_sink.id}")
 
-        project_device = Device.CPU
-        try:
-            project_device = TypeAdapter(ProjectConfig).validate_python(project.config or {}).device
-        except Exception:
-            logger.exception("Invalid project config ignored: project_id=%s", project.id)
+        project_device = Device(project.device)
 
         return PipelineConfig(
             project_id=project.id,
@@ -364,6 +368,18 @@ class ProjectService(BaseService):
         """
         if self._dispatcher:
             self._pending_events.append(ProjectDeactivationEvent(project_id=project_id))
+
+    def _emit_processor_change_event(self, project_id: UUID) -> None:
+        """Emit a ComponentConfigChangeEvent for the active processor in the project."""
+        active_processor = self.processor_repository.get_active_in_project(project_id)
+        if active_processor and self._dispatcher:
+            self._pending_events.append(
+                ComponentConfigChangeEvent(
+                    project_id=project_id,
+                    component_type=ComponentType.PROCESSOR,
+                    component_id=active_processor.id,
+                )
+            )
 
     def _handle_project_integrity_error(
         self, exc: IntegrityError, project_id: UUID, project_name: str | None = None
