@@ -1,7 +1,6 @@
 #  Copyright (C) 2025 Intel Corporation
 #  SPDX-License-Identifier: Apache-2.0
 
-import base64
 import logging
 import re
 import time
@@ -15,6 +14,7 @@ from domain.services.schemas.base import Pagination
 from domain.services.schemas.processor import InputData
 from domain.services.schemas.reader import FrameListResponse, FrameMetadata, ReaderConfig
 from runtime.core.components.base import StreamReader
+from runtime.services.image_thumbnail import generate_image_thumbnail
 
 logger = logging.getLogger(__name__)
 
@@ -49,24 +49,7 @@ class ImageFolderReader(StreamReader):
     @staticmethod
     def _generate_thumbnail(image_path: Path, max_size: int = 150) -> str | None:
         """Generate a base64-encoded thumbnail for an image."""
-        try:
-            image = cv2.imread(str(image_path))
-            if image is None:
-                return None
-
-            # Resize while maintaining aspect ratio
-            h, w = image.shape[:2]
-            scale = min(max_size / w, max_size / h)
-            new_w, new_h = int(w * scale), int(h * scale)
-            thumbnail = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
-
-            # Encode to base64 with data URI prefix
-            _, buffer = cv2.imencode(".jpg", thumbnail, [cv2.IMWRITE_JPEG_QUALITY, 80])
-            base64_string = base64.b64encode(buffer).decode("utf-8")
-            return f"data:image/jpeg;base64,{base64_string}"
-        except Exception as e:
-            logger.warning(f"Failed to generate thumbnail for {image_path}: {e}")
-            return None
+        return generate_image_thumbnail(image_path, max_size=max_size, jpeg_quality=80)
 
     def _get_image_files(self, folder_path: Path) -> list[Path]:
         """

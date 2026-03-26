@@ -83,7 +83,7 @@ RUN useradd -l -u ${UID} ${USER_NAME} \
 RUN mkdir -p /instant_learn/app/backend
 WORKDIR /instant_learn/app/backend
 
-# Add sample dataset with coffee berries
+# Add sample datasets
 COPY --link --chown=${UID} ${SOURCE_DATASET_DIR} ${TARGET_DATASET_DIR}
 
 # Copy library and create proper directory structure
@@ -254,21 +254,21 @@ RUN echo "deb [arch=amd64 trusted=yes] https://ppa.launchpadcontent.net/kobuk-te
 # hadolint ignore=DL3008
 RUN apt-get update  \
     && apt-get install -y --no-install-recommends \
-    libze-intel-gpu1=26.05.37020.3-1~24.04~ppa2 \
-    libze1=1.27.0-1~24.04~ppa1 \
-    libze-dev=1.27.0-1~24.04~ppa1 \
+    libze-intel-gpu1=26.05.37020.3-1~24.04~ppa3 \
+    libze1=1.27.0-1~24.04~ppa2 \
+    libze-dev=1.27.0-1~24.04~ppa2 \
     intel-metrics-discovery=1.14.183-1~24.04~ppa1 \
-    intel-opencl-icd=26.05.37020.3-1~24.04~ppa2 \
+    intel-opencl-icd=26.05.37020.3-1~24.04~ppa3 \
     clinfo=3.0.25.02.14-1 \
     intel-gsc=0.9.5-1~24.04~ppa2 \
-    intel-ocloc=26.05.37020.3-1~24.04~ppa2 \
-    intel-media-va-driver-non-free=26.1.1-1~24.04~ppa1 \
+    intel-ocloc=26.05.37020.3-1~24.04~ppa3 \
+    intel-media-va-driver-non-free=26.1.4-1~24.04~ppa1 \
     libmfx-gen1=25.4.0-0ubuntu1~24.04~ppa1 \
     libvpl2=1:2.16.0-1~24.04~ppa1 \
     libvpl-tools=1.5.0-1~24.04~ppa1 \
-    libva-glx2=2.22.0-3 \
-    va-driver-all=2.22.0-3 \
-    vainfo=2.22.0+ds1-2 \
+    libva-glx2=2.23.0-1~24.04~ppa5 \
+    va-driver-all=2.23.0-1~24.04~ppa5 \
+    vainfo=2.23.0-1~24.04~ppa4 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 

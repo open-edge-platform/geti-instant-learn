@@ -4,6 +4,7 @@
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -102,12 +103,14 @@ class SampleDatasetConfig(BaseModel):
 
     source_type: Literal[SourceType.SAMPLE_DATASET]
     seekable: bool = True
+    dataset_id: UUID | None = None
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "seekable": True,
-                "source_type": "template_dataset",
+                "source_type": "sample_dataset",
+                "dataset_id": "a12de9d4-5f52-5f1f-a819-fe7c5186dc53",
             }
         }
     }

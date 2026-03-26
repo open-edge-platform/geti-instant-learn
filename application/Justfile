@@ -59,7 +59,7 @@ dev:
     wait
 
 # build Geti Instant Learn with optional port mapping
-build-image: (download-dataset source-dataset-dir) (download-datasets source-dataset-dir)
+build-image: (download-datasets source-dataset-dir)
     @echo "Building docker image for component: {{ component-name }}"
     @docker build \
         {{ docker-build-args }} \
