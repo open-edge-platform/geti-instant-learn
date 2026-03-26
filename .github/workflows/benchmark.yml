@@ -13,7 +13,7 @@ permissions: {} # No permissions by default
 
 jobs:
   component-check:
-    name: Library workflow
+    name: Benchmark Library workflow
     runs-on: [self-hosted, Linux, X64, gpu]
     permissions:
       contents: read
