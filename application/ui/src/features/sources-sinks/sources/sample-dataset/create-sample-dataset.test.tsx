@@ -60,7 +60,7 @@ describe('CreateSampleDataset', () => {
     it('renders first dataset thumbnail and metadata by default', async () => {
         renderCreateSampleDataset();
 
-        await screen.findByRole('heading', { name: 'Aquarium' });
+        expect(await screen.findByRole('heading', { name: 'Aquarium' })).toBeVisible();
         expect(screen.getByText('Aquarium dataset')).toBeVisible();
 
         const image = screen.getByRole('img', { name: 'Aquarium' });
@@ -83,12 +83,9 @@ describe('CreateSampleDataset', () => {
 
         render(<CreateSampleDataset onSaved={onSaved} />);
 
-        await screen.findByRole('heading', { name: 'Aquarium' });
+        expect(await screen.findByRole('heading', { name: 'Aquarium' })).toBeVisible();
 
-        const applyButton = screen.getByRole('button', { name: 'Apply' });
-        const form = applyButton.closest('form');
-        expect(form).not.toBeNull();
-        fireEvent.submit(form as HTMLFormElement);
+        fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
 
         await waitFor(() => {
             expect(body).toEqual(
@@ -121,24 +118,17 @@ describe('CreateSampleDataset', () => {
 
         render(<CreateSampleDataset onSaved={vi.fn()} />);
 
-        await screen.findByRole('heading', { name: 'Aquarium' });
+        expect(await screen.findByRole('heading', { name: 'Aquarium' })).toBeVisible();
 
-        const hiddenSelectContainer = await screen.findByTestId('hidden-select-container');
-        const select = hiddenSelectContainer.querySelector('select');
-        expect(select).not.toBeNull();
-        fireEvent.change(select as HTMLSelectElement, {
-            target: { value: DATASET_2.id },
-        });
+        fireEvent.click(screen.getByLabelText('Dataset'));
+        fireEvent.click(screen.getByRole('option', { name: DATASET_2.name }));
 
-        await screen.findByRole('heading', { name: 'Nuts' });
+        expect(await screen.findByRole('heading', { name: 'Nuts' })).toBeVisible();
 
         const image = screen.getByRole('img', { name: 'Nuts' });
         expect(image).toHaveAttribute('src', DATASET_2.thumbnail);
 
-        const applyButton = screen.getByRole('button', { name: 'Apply' });
-        const form = applyButton.closest('form');
-        expect(form).not.toBeNull();
-        fireEvent.submit(form as HTMLFormElement);
+        fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
 
         await waitFor(() => {
             expect(body).toEqual(

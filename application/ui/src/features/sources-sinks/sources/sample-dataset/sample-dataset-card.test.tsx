@@ -4,7 +4,7 @@
  */
 
 import { SampleDatasetSourceType } from '@/api';
-import { render } from '@/test-utils';
+import { getMockedSource, render } from '@/test-utils';
 import { screen } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 import { vi } from 'vitest';
@@ -44,7 +44,7 @@ describe('SampleDatasetCard', () => {
             })
         );
 
-        const source = {
+        const source = getMockedSource({
             id: 'source-id',
             active: false,
             config: {
@@ -52,11 +52,11 @@ describe('SampleDatasetCard', () => {
                 seekable: true,
                 dataset_id: DATASET_2.id,
             },
-        } as SampleDatasetSourceType;
+        }) as SampleDatasetSourceType;
 
         render(<SampleDatasetCard source={source} menuItems={[]} onAction={vi.fn()} />);
 
-        await screen.findByText('Nuts');
+        expect(await screen.findByText('Nuts')).toBeVisible();
         expect(screen.getByText('Nuts dataset')).toBeVisible();
 
         const image = screen.getByRole('img', { name: 'Nuts' });

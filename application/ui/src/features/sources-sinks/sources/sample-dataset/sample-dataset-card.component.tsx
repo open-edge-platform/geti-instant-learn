@@ -22,19 +22,24 @@ export const SampleDatasetCard = ({ source, onAction, menuItems }: SampleDataset
     const { data: datasets = [] } = useAvailableDatasets();
     const selectedDataset = datasets.find((dataset) => dataset.id === source.config.dataset_id);
 
+    if (selectedDataset === undefined) {
+        return null;
+    }
+
+    const thumbnail =
+        'thumbnail' in selectedDataset && typeof selectedDataset.thumbnail === 'string'
+            ? selectedDataset.thumbnail
+            : undefined;
+
     return (
         <PipelineEntityCard isActive={isActiveSource} icon={<Datasets width={'32px'} />} title={'Sample dataset'}>
             <Flex direction={'column'} gap={'size-200'}>
-                {selectedDataset?.thumbnail && (
-                    <img
-                        src={selectedDataset.thumbnail}
-                        alt={selectedDataset.name}
-                        style={{ display: 'block', width: '100%' }}
-                    />
+                {thumbnail && (
+                    <img src={thumbnail} alt={selectedDataset.name} style={{ display: 'block', width: '100%' }} />
                 )}
-                <SampleDatasetTitle text={selectedDataset?.name} />
+                <SampleDatasetTitle text={selectedDataset.name} />
                 <Flex>
-                    <SampleDatasetDescription text={selectedDataset?.description} />
+                    <SampleDatasetDescription text={selectedDataset.description} />
                     <View alignSelf={'end'}>
                         <PipelineEntityCard.Menu isActive={isActiveSource} items={menuItems} onAction={onAction} />
                     </View>

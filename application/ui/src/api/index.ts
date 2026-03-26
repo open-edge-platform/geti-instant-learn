@@ -40,7 +40,7 @@ export type MatcherModel = Omit<ModelType, 'config'> & { config: MatcherConfig }
 export type PerDINOModel = Omit<ModelType, 'config'> & { config: PerDINOConfig };
 export type SoftMatcherModel = Omit<ModelType, 'config'> & { config: SoftMatcherConfig };
 
-export { $api, baseUrl, client } from './client';
+export { $api, client } from './client';
 export {
     type paths,
     type SchemaProcessorUpdateSchema as ModelUpdateType,
