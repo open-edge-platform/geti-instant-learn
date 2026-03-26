@@ -40,6 +40,8 @@ RUN npm run build
 FROM python:3.13-slim@sha256:8bc60ca09afaa8ea0d6d1220bde073bacfedd66a4bf8129cbdc8ef0e16c8a952 AS runtime-base
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
+# If not limited, uv will use all cores (more than 100 for servers), resulting in No file descriptors available error
+ENV UV_CONCURRENT_INSTALLS=10
 # Disable Python downloads, because we want to use the system interpreter
 ENV UV_PYTHON_DOWNLOADS=0
 
