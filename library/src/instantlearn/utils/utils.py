@@ -128,7 +128,7 @@ def device_to_openvino_device(device: str) -> str:
         return "CPU"
     device_upper = device.upper()
     # Map PyTorch-style names to OpenVINO names
-    if device_upper == "CUDA":
+    if device_upper in {"CUDA", "XPU"}:
         return "GPU"
     # OpenVINO names pass through unchanged
     if device_upper in {"CPU", "GPU", "AUTO"}:

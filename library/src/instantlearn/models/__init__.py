@@ -12,7 +12,7 @@ from .dinotxt import DinoTxtZeroShotClassification
 from .grounded_sam import GroundedSAM
 from .matcher import Matcher
 from .per_dino import PerDino
-from .sam3 import SAM3
+from .sam3 import SAM3, SAM3OpenVINO, SAM3OVVariant
 from .soft_matcher import SoftMatcher
 
 __all__ = [
@@ -22,5 +22,7 @@ __all__ = [
     "Matcher",
     "Model",
     "PerDino",
+    "SAM3OVVariant",
+    "SAM3OpenVINO",
     "SoftMatcher",
 ]
