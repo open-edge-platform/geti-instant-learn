@@ -1,12 +1,13 @@
 name: Benchmark Library
 on:
-  workflow_call:
-    inputs:
-      build_version:
-        description: "Specifies the build version to apply to all binaries produced by this workflow"
-        type: string
-        required: true
-  workflow_dispatch:
+  # workflow_call:
+  #   inputs:
+  #     build_version:
+  #       description: "Specifies the build version to apply to all binaries produced by this workflow"
+  #       type: string
+  #       required: true
+  # workflow_dispatch:
+  push:
 
 permissions: {} # No permissions by default
 
