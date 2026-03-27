@@ -13,12 +13,16 @@ test.describe('Source file picker fields', () => {
 
         await page.getByRole('button', { name: 'Video file' }).click();
 
-        await expect(page.getByRole('textbox', { name: 'File path' })).toBeVisible();
-        await expect(page.getByRole('button', { name: 'Browse' })).toBeDisabled();
+        const videoFilePanel = page.getByLabel('Video file');
+
+        await expect(videoFilePanel.getByRole('textbox', { name: 'File path' })).toBeVisible();
+        await expect(videoFilePanel.getByRole('button', { name: 'Browse' })).toBeDisabled();
 
         await page.getByRole('button', { name: 'Image folder' }).click();
 
-        await expect(page.getByRole('textbox', { name: 'Folder path' })).toBeVisible();
-        await expect(page.getByRole('button', { name: 'Browse' })).toBeDisabled();
+        const imageFolderPanel = page.getByLabel('Image folder');
+
+        await expect(imageFolderPanel.getByRole('textbox', { name: 'Folder path' })).toBeVisible();
+        await expect(imageFolderPanel.getByRole('button', { name: 'Browse' })).toBeDisabled();
     });
 });
