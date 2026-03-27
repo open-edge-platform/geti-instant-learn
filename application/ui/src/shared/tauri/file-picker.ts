@@ -4,6 +4,7 @@
  */
 
 import { open } from '@tauri-apps/plugin-dialog';
+
 import { isTauriContext } from '../../api/client';
 
 const getSingleSelectedPath = (selectedPath: string | string[] | null): string | null => {
