@@ -32,7 +32,7 @@ def populate_benchmark_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--sam",
         type=str,
-        default="SAM-HQ-tiny",
+        default="SAM-HQ-base",
         help=HELP_SAM_ARG_MSG,
     )
     parser.add_argument(
