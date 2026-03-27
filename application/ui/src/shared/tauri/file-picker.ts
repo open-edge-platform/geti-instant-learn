@@ -3,9 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/* eslint-disable no-underscore-dangle */
-const isTauriContext = (): boolean => typeof window.__TAURI__?.core?.invoke === 'function';
-/* eslint-enable no-underscore-dangle */
+import { open } from '@tauri-apps/plugin-dialog';
+import { isTauriContext } from '../../api/client';
 
 const getSingleSelectedPath = (selectedPath: string | string[] | null): string | null => {
     if (typeof selectedPath === 'string') {
@@ -23,7 +22,6 @@ export const pickVideoFilePath = async (): Promise<string | null> => {
         return null;
     }
 
-    const { open } = await import('@tauri-apps/plugin-dialog');
     const selectedPath = await open({
         directory: false,
         multiple: false,
@@ -43,7 +41,6 @@ export const pickFolderPath = async (): Promise<string | null> => {
         return null;
     }
 
-    const { open } = await import('@tauri-apps/plugin-dialog');
     const selectedPath = await open({
         directory: true,
         multiple: false,

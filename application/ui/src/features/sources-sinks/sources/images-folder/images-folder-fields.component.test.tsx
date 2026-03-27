@@ -6,7 +6,6 @@
 import { render } from '@/test-utils';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { vi } from 'vitest';
 
 import * as filePicker from '../../../../shared/tauri/file-picker';
 import { ImagesFolderFields } from './images-folder-fields.component';
