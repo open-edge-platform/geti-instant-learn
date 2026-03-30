@@ -10,9 +10,8 @@ export const getMockedProject = (customProject: Partial<ProjectType>): ProjectTy
         id: '7b073838-99d3-42ff-9018-4e901eb047fc',
         name: 'animals',
         active: false,
-        config: {
-            device: 'cpu',
-        },
+        device: 'cpu',
+        prompt_mode: 'visual',
         ...customProject,
     };
 };

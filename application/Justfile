@@ -15,6 +15,7 @@ enable-coturn := "false"
 stun-server := ""
 webrtc-ports := "50000-51000"
 device := "cpu"  # cpu, cu128, xpu
+render-node := ""  # override XPU render device node (e.g. /dev/dri/renderD128); auto-detected when empty
 
 # Note: Binding port 443 may conflict with other services (e.g., HTTPS) on this host. Replace it with whatever port works/open for you.
 coturn-port := "443"
@@ -84,8 +85,25 @@ run-image: build-image
     extra_render_args=()
     if [[ "{{ device }}" == "xpu" ]]; then
       RENDER_GID=$(uv run python -c "import grp; print((grp.getgrnam('render').gr_gid) if any(g.gr_name == 'render' for g in grp.getgrall()) else '')")
-      RENDER_NODE=$(uv run python -c "from pathlib import Path; print(render_nodes[0]) if (render_nodes := sorted(Path('/dev/dri').glob('renderD*'))) else ''")
+      if [[ -n "{{ render-node }}" ]]; then
+        RENDER_NODE="{{ render-node }}"
+      else
+        RENDER_NODE=$(uv run python -c "from pathlib import Path; print(render_nodes[0]) if (render_nodes := sorted(Path('/dev/dri').glob('renderD*'))) else ''")
+      fi
       if [[ -n "$RENDER_NODE" ]]; then
+        # Validate that RENDER_NODE looks like a proper render device, exists, and is a char device
+        if [[ "$RENDER_NODE" != /dev/dri/renderD* ]]; then
+          echo "Error: render-node '$RENDER_NODE' does not match expected pattern '/dev/dri/renderD*'." >&2
+          exit 1
+        fi
+        if [[ ! -e "$RENDER_NODE" ]]; then
+          echo "Error: render-node '$RENDER_NODE' does not exist on the host." >&2
+          exit 1
+        fi
+        if [[ ! -c "$RENDER_NODE" ]]; then
+          echo "Error: render-node '$RENDER_NODE' is not a character device." >&2
+          exit 1
+        fi
         extra_render_args+=(--device "$RENDER_NODE")
       fi
       if [[ -n "$RENDER_GID" ]]; then
