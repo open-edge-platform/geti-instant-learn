@@ -12,27 +12,13 @@ from runtime.core.components.base import ModelHandler
 from runtime.core.components.models.openvino_model import OpenVINOModelHandler
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
 from runtime.core.components.models.torch_model import TorchModelHandler
+from runtime.services.device import list_available_devices
 from settings import get_settings
 
 
 class DeviceResolver:
-    def _has_intel_gpu(self) -> bool:
-        """Check whether an Intel GPU backend is available via PyTorch XPU."""
-        try:
-            import torch
-
-            return torch.xpu.is_available()
-        except (ImportError, AttributeError, RuntimeError):
-            return False
-
-    def _has_nvidia_gpu(self) -> bool:
-        """Check whether a CUDA-capable NVIDIA GPU is available."""
-        try:
-            import torch
-
-            return torch.cuda.is_available()
-        except (ImportError, AttributeError, RuntimeError):
-            return False
+    def __init__(self, available_devices: list[Device] | None = None) -> None:
+        self._available_devices = available_devices
 
     def resolve_device(self, configured_device: Device | None) -> Device:
         """Resolve `auto` device selection to a concrete backend.
@@ -42,16 +28,22 @@ class DeviceResolver:
         if configured_device is not None and configured_device != Device.AUTO:
             return configured_device
 
-        if self._has_intel_gpu():
+        available_devices = self._available_devices or list_available_devices()
+
+        if Device.XPU in available_devices:
             return Device.XPU
-        if self._has_nvidia_gpu():
+        if Device.CUDA in available_devices:
             return Device.CUDA
         return Device.CPU
 
 
 class ModelFactory:
-    def __init__(self, device_resolver: DeviceResolver | None = None) -> None:
-        self._device_resolver = device_resolver or DeviceResolver()
+    def __init__(
+        self,
+        device_resolver: DeviceResolver | None = None,
+        available_devices: list[Device] | None = None,
+    ) -> None:
+        self._device_resolver = device_resolver or DeviceResolver(available_devices=available_devices)
 
     def create(  # noqa: PLR0911
         self,

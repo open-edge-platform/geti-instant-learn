@@ -7,25 +7,23 @@ import pytest
 from instantlearn.utils.constants import SAMModelName
 
 from domain.services.schemas.processor import MatcherConfig, PerDinoConfig, SoftMatcherConfig
+from domain.services.schemas.project import Device
 from runtime.core.components.factories.model import DeviceResolver, ModelFactory
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
 
 
 class TestDeviceResolver:
     @pytest.mark.parametrize(
-        ("has_intel_gpu", "has_nvidia_gpu", "expected_device"),
+        ("available_devices", "expected_device"),
         [
-            (True, True, "xpu"),
-            (False, True, "cuda"),
-            (False, False, "cpu"),
+            ([Device.XPU, Device.CUDA, Device.CPU], "xpu"),
+            ([Device.CUDA, Device.CPU], "cuda"),
+            ([Device.CPU], "cpu"),
         ],
     )
-    def test_resolve_device_auto_priority(self, has_intel_gpu, has_nvidia_gpu, expected_device):
+    def test_resolve_device_auto_priority(self, available_devices, expected_device):
         resolver = DeviceResolver()
-        with (
-            patch.object(DeviceResolver, "_has_intel_gpu", return_value=has_intel_gpu),
-            patch.object(DeviceResolver, "_has_nvidia_gpu", return_value=has_nvidia_gpu),
-        ):
+        with patch("runtime.core.components.factories.model.list_available_devices", return_value=available_devices):
             assert resolver.resolve_device("auto") == expected_device
 
     def test_resolve_device_keeps_explicit_device(self):
@@ -33,19 +31,16 @@ class TestDeviceResolver:
         assert resolver.resolve_device("cuda") == "cuda"
 
     @pytest.mark.parametrize(
-        ("has_intel_gpu", "has_nvidia_gpu", "expected_device"),
+        ("available_devices", "expected_device"),
         [
-            (True, True, "xpu"),
-            (False, True, "cuda"),
-            (False, False, "cpu"),
+            ([Device.XPU, Device.CUDA, Device.CPU], "xpu"),
+            ([Device.CUDA, Device.CPU], "cuda"),
+            ([Device.CPU], "cpu"),
         ],
     )
-    def test_resolve_device_none_behaves_like_auto(self, has_intel_gpu, has_nvidia_gpu, expected_device):
+    def test_resolve_device_none_behaves_like_auto(self, available_devices, expected_device):
         resolver = DeviceResolver()
-        with (
-            patch.object(DeviceResolver, "_has_intel_gpu", return_value=has_intel_gpu),
-            patch.object(DeviceResolver, "_has_nvidia_gpu", return_value=has_nvidia_gpu),
-        ):
+        with patch("runtime.core.components.factories.model.list_available_devices", return_value=available_devices):
             assert resolver.resolve_device(None) == expected_device
 
 
