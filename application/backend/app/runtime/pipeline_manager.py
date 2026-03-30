@@ -338,7 +338,7 @@ class PipelineManager:
             prompt_repo = PromptRepository(session=session)
             label_svc = LabelService(session=session)
 
-            db_prompts = prompt_repo.list_all_by_project(project_id=project_id, prompt_type=prompt_type)  #todo directly from db in normalized form - is it ok for inference in case of SAM3?
+            db_prompts = prompt_repo.list_all_by_project(project_id=project_id, prompt_type=prompt_type)
             if not db_prompts:
                 logger.info("No prompts found for project_id=%s, prompt_type=%s", project_id, prompt_type)
                 return None

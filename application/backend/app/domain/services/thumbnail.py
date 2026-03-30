@@ -30,8 +30,7 @@ settings = get_settings()
 
 
 def generate_thumbnail(frame: np.ndarray, annotations: list[tuple[AnnotationSchema, LabelSchema]]) -> str:
-    """
-    Generate a thumbnail with annotation overlays.
+    """Generate a thumbnail with annotation overlays.
 
     Args:
         frame: Original frame as numpy array
@@ -41,11 +40,16 @@ def generate_thumbnail(frame: np.ndarray, annotations: list[tuple[AnnotationSche
         Base64-encoded data URI of the thumbnail with JPEG encoding
     """
     try:
+        orig_height, orig_width = frame.shape[:2]
         thumbnail = _resize_frame_to_thumbnail_size(frame)
-        height, width = thumbnail.shape[:2]
+        thumb_height, thumb_width = thumbnail.shape[:2]
+
+        scale_x = thumb_width / orig_width
+        scale_y = thumb_height / orig_height
+
         line_thickness = max(
             settings.thumbnail_min_line_thickness,
-            int(min(height, width) * settings.thumbnail_line_thickness_ratio),
+            int(min(thumb_height, thumb_width) * settings.thumbnail_line_thickness_ratio),
         )
 
         # create overlay for semi-transparent annotations
@@ -57,11 +61,11 @@ def generate_thumbnail(frame: np.ndarray, annotations: list[tuple[AnnotationSche
 
             if annotation.type == AnnotationType.RECTANGLE:
                 annotation_overlay = _draw_filled_rectangle(
-                    annotation_overlay, annotation, color_bgr, width, height, line_thickness
+                    annotation_overlay, annotation, color_bgr, scale_x, scale_y, line_thickness
                 )
             elif annotation.type == AnnotationType.POLYGON:
                 annotation_overlay = _draw_filled_polygon(
-                    annotation_overlay, annotation, color_bgr, width, height, line_thickness
+                    annotation_overlay, annotation, color_bgr, scale_x, scale_y, line_thickness
                 )
             else:
                 logger.warning(f"Unsupported annotation type: {annotation.type}")
@@ -107,26 +111,25 @@ def _draw_filled_rectangle(
     overlay: np.ndarray,
     rect: RectangleAnnotation,
     color_bgr: tuple[int, int, int],
-    image_width: int,
-    image_height: int,
+    scale_x: float,
+    scale_y: float,
     border_thickness: int,
 ) -> np.ndarray:
-    """
-    Draw a rectangle annotation with semi-transparent fill and opaque border.
+    """Draw a rectangle annotation with semi-transparent fill and opaque border.
 
     Args:
         overlay: Image overlay to draw on
-        rect: Rectangle annotation with normalized coordinates
+        rect: Rectangle annotation with pixel coordinates (x1, y1, x2, y2)
         color_bgr: Color in BGR format
-        image_width: Width of the image in pixels
-        image_height: Height of the image in pixels
+        scale_x: Horizontal scale factor (thumbnail_width / original_width)
+        scale_y: Vertical scale factor (thumbnail_height / original_height)
         border_thickness: Thickness of the rectangle border
 
     Returns:
         Overlay with rectangle drawn
     """
-    top_left = (int(rect.points[0].x * image_width), int(rect.points[0].y * image_height))
-    bottom_right = (int(rect.points[1].x * image_width), int(rect.points[1].y * image_height))
+    top_left = (int(rect.points[0].x * scale_x), int(rect.points[0].y * scale_y))
+    bottom_right = (int(rect.points[1].x * scale_x), int(rect.points[1].y * scale_y))
 
     # draw filled rectangle
     cv2.rectangle(overlay, top_left, bottom_right, color_bgr, -1)
@@ -141,26 +144,25 @@ def _draw_filled_polygon(
     overlay: np.ndarray,
     polygon: PolygonAnnotation,
     color_bgr: tuple[int, int, int],
-    image_width: int,
-    image_height: int,
+    scale_x: float,
+    scale_y: float,
     border_thickness: int,
 ) -> np.ndarray:
-    """
-    Draw a polygon annotation with semi-transparent fill and opaque border.
+    """Draw a polygon annotation with semi-transparent fill and opaque border.
 
     Args:
         overlay: Image overlay to draw on
-        polygon: Polygon annotation with normalized coordinates
+        polygon: Polygon annotation with pixel coordinates
         color_bgr: Color in BGR format
-        image_width: Width of the image in pixels
-        image_height: Height of the image in pixels
+        scale_x: Horizontal scale factor (thumbnail_width / original_width)
+        scale_y: Vertical scale factor (thumbnail_height / original_height)
         border_thickness: Thickness of the polygon border
 
     Returns:
         Overlay with polygon drawn
     """
     pixel_points = np.array(
-        [[int(pt.x * image_width), int(pt.y * image_height)] for pt in polygon.points],
+        [[int(pt.x * scale_x), int(pt.y * scale_y)] for pt in polygon.points],
         dtype=np.int32,
     )
 
