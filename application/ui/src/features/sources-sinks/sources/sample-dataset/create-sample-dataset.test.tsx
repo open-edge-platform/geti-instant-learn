@@ -120,7 +120,7 @@ describe('CreateSampleDataset', () => {
 
         expect(await screen.findByRole('heading', { name: 'Aquarium' })).toBeVisible();
 
-        fireEvent.click(screen.getByLabelText('Dataset'));
+        fireEvent.click(screen.getByRole('button', { name: /Dataset/i }));
         fireEvent.click(screen.getByRole('option', { name: DATASET_2.name }));
 
         expect(await screen.findByRole('heading', { name: 'Nuts' })).toBeVisible();
