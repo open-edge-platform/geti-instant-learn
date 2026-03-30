@@ -6,27 +6,25 @@
 import { expect, test } from '@/test-fixtures';
 import type { Page } from '@playwright/test';
 
+const openSourceTypePanel = async (page: Page, sourceType: 'Video file' | 'Image folder') => {
+    const pipelineConfigurationButton = page.getByRole('button', { name: 'Pipeline configuration' });
+
+    await expect(pipelineConfigurationButton).toBeVisible();
+    await pipelineConfigurationButton.click();
+
+    const addNewSourceButton = page.getByRole('button', { name: 'Add new source' });
+
+    if ((await addNewSourceButton.count()) > 0) {
+        await addNewSourceButton.click();
+    }
+
+    const sourceTypeButton = page.getByRole('button', { name: sourceType });
+    await expect(sourceTypeButton).toBeVisible();
+    await sourceTypeButton.click();
+};
+
 test.describe('Source file picker fields', () => {
-    const openSourceTypePanel = async (page: Page, sourceType: 'Video file' | 'Image folder') => {
-        const pipelineConfigurationButton = page.getByRole('button', { name: 'Pipeline configuration' });
-
-        await expect(pipelineConfigurationButton).toBeVisible();
-        await pipelineConfigurationButton.click();
-
-        const addNewSourceButton = page.getByRole('button', { name: 'Add new source' });
-
-        // Click "Add new source" if it's visible (meaning there are existing sources)
-        if ((await addNewSourceButton.count()) > 0) {
-            await addNewSourceButton.click();
-        }
-
-        // Wait for and click the source type button (it should now be visible in either path)
-        const sourceTypeButton = page.getByRole('button', { name: sourceType });
-        await sourceTypeButton.waitFor({ state: 'visible', timeout: 10000 });
-        await sourceTypeButton.click();
-    };
-
-    test.beforeEach(async ({ page }) => {
+    test.beforeEach(async ({ page, network: _network }) => {
         await page.addInitScript(() => {
             /* eslint-disable no-underscore-dangle */
             const runtime = window as typeof window & {
@@ -66,7 +64,7 @@ test.describe('Source file picker fields', () => {
         });
     });
 
-    test('updates the video file path after selecting a file from the dialog', async ({ page, network: _ }) => {
+    test('updates the video file path after selecting a file from the dialog', async ({ page }) => {
         await page.goto('/');
 
         await openSourceTypePanel(page, 'Video file');
@@ -78,7 +76,7 @@ test.describe('Source file picker fields', () => {
         await expect(videoFilePanel.getByRole('textbox', { name: 'File path' })).toHaveValue('/home/user/video.mp4');
     });
 
-    test('updates the image folder path after selecting a folder from the dialog', async ({ page, network: _ }) => {
+    test('updates the image folder path after selecting a folder from the dialog', async ({ page }) => {
         await page.goto('/');
 
         await openSourceTypePanel(page, 'Image folder');
