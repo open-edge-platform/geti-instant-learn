@@ -15,13 +15,14 @@ test.describe('Source file picker fields', () => {
 
         const addNewSourceButton = page.getByRole('button', { name: 'Add new source' });
 
-        if (await addNewSourceButton.isVisible()) {
+        // Click "Add new source" if it's visible (meaning there are existing sources)
+        if ((await addNewSourceButton.count()) > 0) {
             await addNewSourceButton.click();
         }
 
+        // Wait for and click the source type button (it should now be visible in either path)
         const sourceTypeButton = page.getByRole('button', { name: sourceType });
-
-        await expect(sourceTypeButton).toBeVisible();
+        await sourceTypeButton.waitFor({ state: 'visible', timeout: 10000 });
         await sourceTypeButton.click();
     };
 
