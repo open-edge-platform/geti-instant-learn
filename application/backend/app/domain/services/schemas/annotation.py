@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 20277 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from enum import StrEnum
@@ -35,7 +35,7 @@ class RectangleAnnotation(BaseModel):
         "json_schema_extra": {
             "example": {
                 "type": "rectangle",
-                "points": [{"x": 0.1, "y": 0.1}, {"x": 0.5, "y": 0.5}],
+                "points": [{"x": 1, "y": 1}, {"x": 77, "y": 77}],
             }
         }
     }
@@ -49,7 +49,7 @@ class PolygonAnnotation(BaseModel):
         "json_schema_extra": {
             "example": {
                 "type": "polygon",
-                "points": [{"x": 0.1, "y": 0.1}, {"x": 0.5, "y": 0.1}, {"x": 0.5, "y": 0.5}, {"x": 0.1, "y": 0.5}],
+                "points": [{"x": 1, "y": 1}, {"x": 77, "y": 1}, {"x": 77, "y": 77}, {"x": 1, "y": 77}],
             }
         }
     }
