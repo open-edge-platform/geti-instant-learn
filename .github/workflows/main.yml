@@ -2,11 +2,15 @@ name: main
 on:
   workflow_dispatch:
   pull_request:
+    branches:
+      - main
+      - 'release/app-[0-9]+\.[0-9]+'
+      - 'release/lib-[0-9]+\.[0-9]+'
   push:
     branches:
       - main
-    tags:
-      - v[0-9]+\.[0-9]+\.[0-9]+-RC[0-9]+
+      - 'release/app-[0-9]+\.[0-9]+'
+      - 'release/lib-[0-9]+\.[0-9]+'
 
 permissions: {} # No permissions by default
 
@@ -22,7 +26,8 @@ jobs:
       contents: read
     timeout-minutes: 10
     outputs:
-      build_version: "${{ steps.build-version.outputs.version }}"
+      app_version: "${{ steps.app-version.outputs.version }}"
+      lib_version: "${{ steps.lib-version.outputs.version }}"
       components-list: ${{ steps.change-detection.outputs.paths_list }}
 
     steps:
@@ -36,9 +41,17 @@ jobs:
         id: change-detection
         uses: ./.github/actions/change-detection
 
-      - name: build-version
-        id: build-version
+      - name: app-version
+        id: app-version
         uses: ./.github/actions/build-version
+        with:
+          version-file-path: 'application/VERSION'
+
+      - name: lib-version
+        id: lib-version
+        uses: ./.github/actions/build-version
+        with:
+          version-file-path: 'library/VERSION'
 
   library:
     name: Library build
@@ -48,7 +61,7 @@ jobs:
     if: needs.build-parameters.outputs.components-list && contains(fromJson(needs.build-parameters.outputs.components-list), 'library')
     uses: ./.github/workflows/library.yml
     with:
-      build_version: ${{ needs.build-parameters.outputs.build_version }}
+      build_version: ${{ needs.build-parameters.outputs.lib_version }}
 
   backend:
     name: Backend build
@@ -58,7 +71,7 @@ jobs:
     if: needs.build-parameters.outputs.components-list && contains(fromJson(needs.build-parameters.outputs.components-list), 'backend')
     uses: ./.github/workflows/backend.yml
     with:
-      build_version: ${{ needs.build-parameters.outputs.build_version }}
+      build_version: ${{ needs.build-parameters.outputs.app_version }}
 
   ui:
     name: UI build
@@ -74,10 +87,12 @@ jobs:
     needs: [build-parameters]
     permissions:
       contents: read
+      packages: write # Permission to push packages to GHCR
+      id-token: write # Permission to request OIDC token for signing images
     if: github.event_name != 'push' && needs.build-parameters.outputs.components-list && contains(fromJson(needs.build-parameters.outputs.components-list), 'distrib')
     uses: ./.github/workflows/distrib.yml
     with:
-      build_version: ${{ needs.build-parameters.outputs.build_version }}
+      build_version: ${{ needs.build-parameters.outputs.app_version }}
 
   markdown:
     name: Markdown build
@@ -94,11 +109,19 @@ jobs:
 
       - uses: DavidAnson/markdownlint-cli2-action@07035fd053f7be764496c0f8d8f9f41f98305101 #v22.0.0
         with:
-          config: ".github/.markdownlint-cli2.jsonc"
+          config: '.github/.markdownlint-cli2.jsonc'
+
+  documentation:
+    name: Documentation markdown checks
+    needs: build-parameters
+    permissions:
+      contents: read
+    if: needs.build-parameters.outputs.components-list && contains(fromJson(needs.build-parameters.outputs.components-list), 'documentation')
+    uses: ./.github/workflows/documentation.yml
 
   success:
     name: Status checks
-    needs: [build-parameters, library, backend, ui, distrib, markdown]
+    needs: [ build-parameters, library, backend, ui, distrib, markdown, documentation ]
     runs-on: ubuntu-latest
     if: ${{ always() && !cancelled() }}
     env:

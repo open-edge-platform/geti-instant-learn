@@ -16,12 +16,14 @@ from domain.errors import (
     ResourceUpdateConflictError,
 )
 from runtime.errors import (
+    DatasetNotFoundError,
     PipelineNotActiveError,
     PipelineProjectMismatchError,
     SinkConnectionError,
     SourceMismatchError,
     SourceNotSeekableError,
 )
+from runtime.services.license import LicenseNotAcceptedError
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +45,28 @@ def custom_exception_handler(request: Request, exc: Exception) -> JSONResponse: 
     except Exception:
         body_str = "<unable to read body>"
 
+    if isinstance(exc, LicenseNotAcceptedError):
+        logger.warning(
+            f"License not accepted: {request.method} {request.url.path}. "
+            f"User must accept license terms before using this endpoint."
+        )
+        message = "License not accepted. Please accept the license terms before using this feature."
+        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": message})
+
     if isinstance(exc, ResourceNotFoundError):
         logger.debug(
             f"Exception handler called: {request.method} {request.url.path} "
             f"raised {type(exc).__name__}: {str(exc)}. Body: {body_str}"
         )
         message = str(exc) if str(exc) else "The requested resource was not found."
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": message})
+
+    if isinstance(exc, DatasetNotFoundError):
+        logger.debug(
+            f"Exception handler called: {request.method} {request.url.path} "
+            f"raised {type(exc).__name__}: {str(exc)}. Body: {body_str}"
+        )
+        message = str(exc) if str(exc) else "The requested dataset was not found."
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": message})
 
     if isinstance(exc, ResourceAlreadyExistsError):

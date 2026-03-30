@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from contextlib import nullcontext
 from transformers import CLIPTokenizerFast
 
+from instantlearn.components.postprocessing import PostProcessor, default_postprocessor
 from instantlearn.models.sam3.post_processing import PostProcessingConfig
 from instantlearn.models.sam3.processing import (
     Sam3Postprocessor as EfficientSam3Postprocessor,
@@ -101,6 +102,7 @@ class EfficientSAM3(SAM3):
         post_processing: PostProcessingConfig | None = None,
         prompt_mode: Sam3PromptMode | str = Sam3PromptMode.CLASSIC,
         drop_spatial_bias: bool = False,
+        postprocessor: PostProcessor | None = None,
     ) -> None:
         """Initialize the EfficientSAM3 model.
 
@@ -123,13 +125,18 @@ class EfficientSAM3(SAM3):
             drop_spatial_bias: When True and in VISUAL_EXEMPLAR mode, skip
                 coordinate projection and position encoding in the geometry
                 encoder, keeping only ROI-pooled visual features.
+            postprocessor: Post-processor applied after predict().
+                Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
+                (MaskIoMNMS + BoxIoMNMS).
 
         Raises:
             ValueError: If backbone_type/variant is not supported.
         """
         # Skip SAM3.__init__ -- we initialize nn.Module and set attributes directly
         # because EfficientSAM3 uses different model, tokenizer, and defaults.
-        super(SAM3, self).__init__()
+        if postprocessor is None:
+            postprocessor = default_postprocessor()
+        super(SAM3, self).__init__(postprocessor=postprocessor)
 
         key = (backbone_type, variant)
         if key not in BACKBONE_CONFIG:
@@ -161,7 +168,7 @@ class EfficientSAM3(SAM3):
         # Reuse SAM3 preprocessors (same image pipeline)
         self.image_preprocessor = EfficientSam3Preprocessor(target_size=resolution).to(device)
         self.prompt_preprocessor = EfficientSam3PromptPreprocessor(target_size=resolution).to(device)
-        self.postprocessor = EfficientSam3Postprocessor(
+        self.sam3_postprocessor = EfficientSam3Postprocessor(
             target_size=resolution,
             threshold=confidence_threshold,
             mask_threshold=0.5,

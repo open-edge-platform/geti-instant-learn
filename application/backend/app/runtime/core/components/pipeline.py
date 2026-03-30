@@ -3,7 +3,6 @@
 
 import logging
 import uuid
-from queue import Queue
 from threading import Lock, Thread
 from typing import Self
 from uuid import UUID
@@ -12,7 +11,7 @@ from domain.repositories.frame import FrameRepository
 from domain.services.schemas.processor import InputData, OutputData
 from domain.services.schemas.reader import FrameListResponse
 from runtime.core.components.base import PipelineComponent
-from runtime.core.components.broadcaster import FrameBroadcaster
+from runtime.core.components.broadcaster import FrameBroadcaster, FrameSlot
 from runtime.core.components.processor import Processor
 from runtime.core.components.sink import Sink
 from runtime.core.components.source import Source
@@ -54,8 +53,8 @@ class Pipeline:
         self,
         project_id: UUID,
         frame_repository: FrameRepository,
-        inbound_broadcaster: FrameBroadcaster[InputData] = FrameBroadcaster[InputData](),
-        outbound_broadcaster: FrameBroadcaster[OutputData] = FrameBroadcaster[OutputData](),
+        inbound_broadcaster: FrameBroadcaster[InputData] = FrameBroadcaster[InputData]("inbound"),
+        outbound_broadcaster: FrameBroadcaster[OutputData] = FrameBroadcaster[OutputData]("outbound"),
     ):
         # todo: remove project id from the pipeline as it is the application impl details
         self._project_id = project_id
@@ -79,14 +78,10 @@ class Pipeline:
         """Check if the pipeline is currently running."""
         return self._is_running
 
-    def register_webrtc(self) -> Queue:
-        """Register a WebRTC consumer for processed output frames."""
-        logger.debug("WebRTC registering to OutboundBroadcaster for processed frames (project_id=%s)", self._project_id)
-        return self._outbound_broadcaster.register()
-
-    def unregister_webrtc(self, queue: Queue) -> None:
-        """Unregister a WebRTC consumer."""
-        return self._outbound_broadcaster.unregister(queue=queue)
+    @property
+    def outbound_slot(self) -> FrameSlot[OutputData]:
+        """Shared slot holding the latest processed frame for external consumers."""
+        return self._outbound_broadcaster.slot
 
     def start(self) -> None:
         with self._lock:
@@ -120,19 +115,34 @@ class Pipeline:
         logger.debug(f"Pipeline stopped for project_id={self._project_id}")
 
     def set_source(self, source: Source, start: bool = False) -> Self:
-        source.setup(self._inbound_broadcaster)
-        self._register_component(source, start)
+        with self._lock:
+            self._stop_component(Source)
+            source.setup(self._inbound_broadcaster)
+            self._register_component(source, start)
         return self
 
     def set_sink(self, sink: Sink, start: bool = False) -> Self:
-        sink.setup(self._outbound_broadcaster)
-        self._register_component(sink, start)
+        with self._lock:
+            self._stop_component(Sink)
+            sink.setup(self._outbound_broadcaster)
+            self._register_component(sink, start)
         return self
 
     def set_processor(self, processor: Processor, start: bool = False) -> Self:
-        processor.setup(self._inbound_broadcaster, self._outbound_broadcaster)
-        self._register_component(processor, start)
+        with self._lock:
+            self._stop_component(Processor)
+            processor.setup(self._inbound_broadcaster, self._outbound_broadcaster)
+            self._register_component(processor, start)
         return self
+
+    def _stop_component(self, component_cls: type[PipelineComponent]) -> None:
+        """Stop and join the existing component of the given type, if any."""
+        current = self._components.get(component_cls)
+        if current:
+            current.stop()
+            thread = self._threads.get(component_cls)
+            if thread and thread.is_alive():
+                thread.join(timeout=5)
 
     def _register_component(self, new_component: PipelineComponent, start: bool = True) -> None:
         """
@@ -144,27 +154,14 @@ class Pipeline:
             new_component: The new component instance.
         """
         component_cls = new_component.__class__
-
-        with self._lock:
-            # Stop the current component if one exists
-            current_component = self._components.get(component_cls)
-            if current_component:
-                current_component.stop()
-                thread = self._threads.get(component_cls)
-                if thread and thread.is_alive():
-                    thread.join(timeout=5)
-                    if thread.is_alive():
-                        logger.warning(f"{component_cls.__name__} thread did not stop cleanly")
-
-            self._inbound_broadcaster.clear()
-            self._outbound_broadcaster.clear()
-
-            self._components[component_cls] = new_component
-            if start:
-                thread = Thread(target=new_component, daemon=False)
-                thread.start()
-                self._threads[component_cls] = thread
-                logger.debug(f"Started new {component_cls.__name__}")
+        self._inbound_broadcaster.clear()
+        self._outbound_broadcaster.clear()
+        self._components[component_cls] = new_component
+        if start:
+            thread = Thread(target=new_component, daemon=False)
+            thread.start()
+            self._threads[component_cls] = thread
+            logger.debug(f"Started new {component_cls.__name__}")
 
     def seek(self, index: int) -> None:
         """Seek to a specific frame in the source."""

@@ -41,7 +41,7 @@ jobs:
         run: docker builder prune -f
 
       - name: Generate SBOM for container image
-        uses: anchore/sbom-action@deef08a0db64bfad603422135db61477b16cef56 # v0.22.1
+        uses: anchore/sbom-action@57aae528053a48a3f6235f2d9461b05fbcb7366d # v0.23.1
         env:
           SYFT_GOLANG_SEARCH_LOCAL_MOD_CACHE_LICENSES: "true"
           SYFT_GOLANG_SEARCH_REMOTE_LICENSES: "true"
@@ -83,7 +83,7 @@ jobs:
             @csv' sbom-container-image.spdx.json >> sbom-container-image.csv
 
       - name: Upload docker image CSV
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: sbom-container-image-${{ matrix.ai-device }}-csv
           path: sbom-container-image.csv
@@ -101,7 +101,7 @@ jobs:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@803947b9bd8e9f986429fa0c5a41c367cd732b41 # v7.2.1
+        uses: astral-sh/setup-uv@e06108dd0aef18192324c70427afc47652e63a82 # v7.5.0
         with:
           version: "0.7.13"
 
@@ -114,7 +114,7 @@ jobs:
           uv run pip-licenses --format=csv --output-file=../licenses-library.csv
 
       - name: Upload CSV
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: licenses-list-csv
           path: licenses-library.csv

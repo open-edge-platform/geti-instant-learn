@@ -13,6 +13,7 @@ import numpy as np
 import torch
 from transformers import CLIPTokenizerFast
 
+from instantlearn.components.postprocessing import PostProcessor, default_postprocessor
 from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.base import Model
@@ -141,6 +142,7 @@ class SAM3(Model):
         post_processing: PostProcessingConfig | None = None,
         prompt_mode: Sam3PromptMode | str = Sam3PromptMode.CLASSIC,
         drop_spatial_bias: bool = False,
+        postprocessor: PostProcessor | None = None,
     ) -> None:
         """Initialize the SAM3 model.
 
@@ -160,8 +162,13 @@ class SAM3(Model):
                 coordinate projection and position encoding in the geometry
                 encoder, keeping only ROI-pooled visual features. This removes
                 spatial bias from the reference image position. Default: False.
+            postprocessor: Post-processor applied after predict().
+                Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
+                (MaskIoMNMS + BoxIoMNMS).
         """
-        super().__init__()
+        if postprocessor is None:
+            postprocessor = default_postprocessor()
+        super().__init__(postprocessor=postprocessor)
 
         self.device = device
         self.confidence_threshold = confidence_threshold
@@ -185,7 +192,7 @@ class SAM3(Model):
         # Preprocessors and postprocessor
         self.image_preprocessor = Sam3Preprocessor(target_size=resolution).to(device)
         self.prompt_preprocessor = Sam3PromptPreprocessor(target_size=resolution).to(device)
-        self.postprocessor = Sam3Postprocessor(
+        self.sam3_postprocessor = Sam3Postprocessor(
             target_size=resolution,
             threshold=confidence_threshold,
             mask_threshold=0.5,
@@ -279,8 +286,8 @@ class SAM3(Model):
             'pred_labels'.
         """
         if self.prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
-            return self._predict_visual_exemplar(target)
-        return self._predict_classic(target)
+            return self.apply_postprocessing(self._predict_visual_exemplar(target))
+        return self.apply_postprocessing(self._predict_classic(target))
 
     # -- Fit internals --
 
@@ -595,7 +602,7 @@ class SAM3(Model):
                         pt = pt.unsqueeze(0)  # (2,) -> (1, 2)
                     pixel_points = [pt.to(self.device)]
                     pixel_points_labels = [torch.ones(pt.shape[0], dtype=torch.long, device=self.device)]
-                result = self.postprocessor(
+                result = self.sam3_postprocessor(
                     outputs,
                     target_sizes=[img_size],
                     input_points=pixel_points,
@@ -668,7 +675,7 @@ class SAM3(Model):
 
                 # Postprocess — no raw point prompts needed here because
                 # geometry features were already encoded during fit().
-                result = self.postprocessor(outputs, target_sizes=[img_size])
+                result = self.sam3_postprocessor(outputs, target_sizes=[img_size])
                 boxes_with_scores = torch.cat(
                     [result[0]["boxes"], result[0]["scores"].unsqueeze(1)],
                     dim=1,

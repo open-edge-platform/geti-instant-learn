@@ -8,7 +8,12 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from domain.dispatcher import ProjectActivationEvent, ProjectDeactivationEvent
+from domain.dispatcher import (
+    ComponentConfigChangeEvent,
+    ComponentType,
+    ProjectActivationEvent,
+    ProjectDeactivationEvent,
+)
 from domain.errors import ResourceAlreadyExistsError, ResourceNotFoundError
 from domain.services.project import ProjectService
 from domain.services.schemas.pipeline import PipelineConfig
@@ -61,7 +66,15 @@ def make_project(
     if prompts is None:
         prompts = []
     return SimpleNamespace(
-        id=project_id, name=name, active=active, sources=sources, processors=processors, sinks=sinks, prompts=prompts
+        id=project_id,
+        name=name,
+        active=active,
+        device="auto",
+        prompt_mode="visual",
+        sources=sources,
+        processors=processors,
+        sinks=sinks,
+        prompts=prompts,
     )
 
 
@@ -76,14 +89,20 @@ def repo_mock():
 
 
 @pytest.fixture
+def processor_repo_mock():
+    return MagicMock(name="ProcessorRepositoryMock")
+
+
+@pytest.fixture
 def dispatcher_mock():
     return MagicMock(name="ConfigChangeDispatcher")
 
 
 @pytest.fixture
-def service(session_mock, repo_mock, dispatcher_mock):
+def service(session_mock, repo_mock, processor_repo_mock, dispatcher_mock):
     svc = ProjectService(session=session_mock, config_change_dispatcher=dispatcher_mock)
     svc.project_repository = repo_mock
+    svc.processor_repository = processor_repo_mock
     return svc
 
 
@@ -100,6 +119,7 @@ def test_create_project_success(service, repo_mock, session_mock, explicit_id):
     assert isinstance(result, ProjectSchema)
     assert result.name == "alpha"
     assert result.active is True
+    assert result.device == "auto"
     repo_mock.add.assert_called_once()
     session_mock.commit.assert_called_once()
     session_mock.refresh.assert_called_once()
@@ -211,8 +231,123 @@ def test_update_project_success(service, repo_mock, session_mock):
 
     assert updated.name == "new"
     assert updated.active is False
+    assert updated.device == "auto"
     session_mock.commit.assert_called_once()
     repo_mock.update.assert_called_once()
+
+
+def test_update_project_device_success(service, repo_mock, session_mock):
+    pid = uuid.uuid4()
+    existing = make_project(project_id=pid, name="old")
+    repo_mock.get_by_id.return_value = existing
+    repo_mock.update.return_value = existing
+
+    data = ProjectUpdateSchema(device="cuda")
+    updated = service.update_project(pid, data)
+
+    assert updated.device == "cuda"
+    assert existing.device == "cuda"
+    session_mock.commit.assert_called_once()
+    repo_mock.update.assert_called_once()
+
+
+def test_update_project_empty_update_does_not_reset_device(service, repo_mock, session_mock):
+    pid = uuid.uuid4()
+    existing = make_project(project_id=pid, name="old")
+    existing.device = "xpu"
+    repo_mock.get_by_id.return_value = existing
+    repo_mock.update.return_value = existing
+
+    data = ProjectUpdateSchema()
+    updated = service.update_project(pid, data)
+
+    assert updated.device == "xpu"
+    assert existing.device == "xpu"
+    session_mock.commit.assert_called_once()
+    repo_mock.update.assert_called_once()
+
+
+def test_update_device_on_active_project_emits_processor_change_event(
+    service, repo_mock, processor_repo_mock, dispatcher_mock
+):
+    pid = uuid.uuid4()
+    project = make_project(project_id=pid, active=True)
+    repo_mock.get_by_id.return_value = project
+    repo_mock.update.return_value = project
+
+    active_processor = MagicMock(id=uuid.uuid4())
+    processor_repo_mock.get_active_in_project.return_value = active_processor
+
+    service.update_project(pid, ProjectUpdateSchema(device="cuda"))
+
+    processor_repo_mock.get_active_in_project.assert_called_once_with(pid)
+    # Expect exactly one event: ComponentConfigChangeEvent for processor
+    assert dispatcher_mock.dispatch.call_count == 1
+    ev = dispatcher_mock.dispatch.call_args_list[0].args[0]
+    assert isinstance(ev, ComponentConfigChangeEvent)
+    assert ev.component_type == ComponentType.PROCESSOR
+    assert ev.component_id == active_processor.id
+    assert ev.project_id == pid
+
+
+def test_update_device_on_inactive_project_does_not_emit_processor_event(
+    service, repo_mock, processor_repo_mock, dispatcher_mock
+):
+    pid = uuid.uuid4()
+    project = make_project(project_id=pid, active=False)
+    repo_mock.get_by_id.return_value = project
+    repo_mock.update.return_value = project
+
+    service.update_project(pid, ProjectUpdateSchema(device="cuda"))
+
+    processor_repo_mock.get_active_in_project.assert_not_called()
+    dispatcher_mock.dispatch.assert_not_called()
+
+
+def test_update_device_with_activation_does_not_emit_processor_event(
+    service, repo_mock, processor_repo_mock, dispatcher_mock
+):
+    pid = uuid.uuid4()
+    project = make_project(project_id=pid, active=False)
+    repo_mock.get_by_id.return_value = project
+    repo_mock.get_active.return_value = None
+    repo_mock.update.return_value = project
+
+    service.update_project(pid, ProjectUpdateSchema(device="cuda", active=True))
+
+    processor_repo_mock.get_active_in_project.assert_not_called()
+    # Only the activation event should be dispatched
+    assert dispatcher_mock.dispatch.call_count == 1
+    ev = dispatcher_mock.dispatch.call_args_list[0].args[0]
+    assert isinstance(ev, ProjectActivationEvent)
+
+
+def test_update_same_device_on_active_project_does_not_emit_processor_event(
+    service, repo_mock, processor_repo_mock, dispatcher_mock
+):
+    pid = uuid.uuid4()
+    project = make_project(project_id=pid, active=True)
+    repo_mock.get_by_id.return_value = project
+    repo_mock.update.return_value = project
+
+    service.update_project(pid, ProjectUpdateSchema(device="auto"))
+
+    processor_repo_mock.get_active_in_project.assert_not_called()
+    dispatcher_mock.dispatch.assert_not_called()
+
+
+def test_update_device_on_active_project_no_active_processor(service, repo_mock, processor_repo_mock, dispatcher_mock):
+    pid = uuid.uuid4()
+    project = make_project(project_id=pid, active=True)
+    repo_mock.get_by_id.return_value = project
+    repo_mock.update.return_value = project
+
+    processor_repo_mock.get_active_in_project.return_value = None
+
+    service.update_project(pid, ProjectUpdateSchema(device="cuda"))
+
+    processor_repo_mock.get_active_in_project.assert_called_once_with(pid)
+    dispatcher_mock.dispatch.assert_not_called()
 
 
 def test_update_project_duplicate_name_raises_integrity_error(service, repo_mock, session_mock):

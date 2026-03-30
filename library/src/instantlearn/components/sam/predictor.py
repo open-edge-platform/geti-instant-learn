@@ -133,10 +133,11 @@ class PositionEmbeddingRandom(_PositionEmbeddingRandom):
 
     def _pe_encoding(self, coords: torch.Tensor) -> torch.Tensor:
         """Positionally encode points normalized to [0,1], preserving dtype."""
-        # Convert coords to match the gaussian matrix dtype
-        coords = coords.to(self.positional_encoding_gaussian_matrix.dtype)
+        # Convert coords to match the gaussian matrix device and dtype
+        gaussian_matrix = self.positional_encoding_gaussian_matrix
+        coords = coords.to(device=gaussian_matrix.device, dtype=gaussian_matrix.dtype)
         coords = 2 * coords - 1
-        coords = coords @ self.positional_encoding_gaussian_matrix
+        coords = coords @ gaussian_matrix
         coords = 2 * np.pi * coords
         return torch.cat([torch.sin(coords), torch.cos(coords)], dim=-1)
 
@@ -183,19 +184,23 @@ class PromptEncoder(_PromptEncoder):
         self.pe_layer = PositionEmbeddingRandom(embed_dim // 2)
 
     def _embed_points(self, points: torch.Tensor, labels: torch.Tensor, pad: bool) -> torch.Tensor:
+        target_device = self._get_device()
+        target_dtype = self._get_dtype()
+        points = points.to(device=target_device, dtype=target_dtype)
+        labels = labels.to(device=target_device)
         points += 0.5  # Shift to center of pixel
         if pad:
-            padding_point = torch.zeros((points.shape[0], 1, 2), device=points.device, dtype=points.dtype)
-            padding_label = -torch.ones((labels.shape[0], 1), device=labels.device, dtype=labels.dtype)
+            padding_point = torch.zeros((points.shape[0], 1, 2), device=target_device, dtype=target_dtype)
+            padding_label = -torch.ones((labels.shape[0], 1), device=target_device, dtype=labels.dtype)
             points = torch.cat([points, padding_point], dim=1)
             labels = torch.cat([labels, padding_label], dim=1)
 
         point_embedding = self.pe_layer.forward_with_coords(points, self.input_image_size)
         # Use ONNX-compatible operations instead of boolean indexing
         # Create masks for each label type
-        mask_neg1 = (labels == -1).float().unsqueeze(-1)  # [B, N, 1]
-        mask_0 = (labels == 0).float().unsqueeze(-1)  # [B, N, 1]
-        mask_1 = (labels == 1).float().unsqueeze(-1)  # [B, N, 1]
+        mask_neg1 = (labels == -1).to(point_embedding.dtype).unsqueeze(-1)  # [B, N, 1]
+        mask_0 = (labels == 0).to(point_embedding.dtype).unsqueeze(-1)  # [B, N, 1]
+        mask_1 = (labels == 1).to(point_embedding.dtype).unsqueeze(-1)  # [B, N, 1]
 
         # Apply embeddings using element-wise multiplication
         point_embedding *= 1 - mask_neg1  # Zero out -1 labels
@@ -404,6 +409,16 @@ class SAMPredictor(nn.Module):
         patched_encoder.load_state_dict(original_encoder.state_dict(), strict=True)
         patched_encoder.to(device)
         self._predictor.model.prompt_encoder = patched_encoder
+
+    def sync_device(self, device: str | torch.device) -> None:
+        """Synchronize predictor runtime and wrapped model to a target device."""
+        target_device = torch.device(device)
+        self.device = str(target_device)
+
+        if hasattr(self, "_predictor") and hasattr(self._predictor, "model"):
+            model = self._predictor.model
+            if isinstance(model, nn.Module):
+                model.to(target_device)
 
     def set_image(self, image: torch.Tensor | str | Path) -> None:
         """Set image using PyTorch backend.

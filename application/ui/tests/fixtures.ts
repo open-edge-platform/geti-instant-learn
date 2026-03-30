@@ -30,6 +30,7 @@ const test = testBase.extend<Fixtures>({
             http.get('/health', ({ response }) => {
                 return response(200).json({
                     status: 'ok',
+                    license_accepted: true,
                 });
             }),
             http.get('/api/v1/projects', ({ response }) => {
@@ -39,6 +40,8 @@ const test = testBase.extend<Fixtures>({
                             id: '1',
                             name: 'Project #1',
                             active: true,
+                            device: 'cpu',
+                            prompt_mode: 'visual',
                         },
                     ],
                     pagination: { total: 1, count: 1, offset: 0, limit: 10 },
@@ -49,6 +52,8 @@ const test = testBase.extend<Fixtures>({
                     id: '1',
                     name: 'Project #1',
                     active: true,
+                    device: 'cpu',
+                    prompt_mode: 'visual',
                 });
             }),
             http.get('/api/v1/projects/{project_id}/sources', ({ response }) => {

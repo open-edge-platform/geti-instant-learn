@@ -16,6 +16,13 @@ on:
         type: boolean
         required: false
         default: false
+    secrets:
+      MSIX_SIGN_CERTIFICATE:
+        description: "Base64-encoded PFX certificate for MSIX signing"
+        required: true
+      MSIX_SIGN_CERTIFICATE_PASSWORD:
+        description: "Password for the MSIX signing certificate"
+        required: true
 
   # allow to manually trigger this workflow
   workflow_dispatch:
@@ -26,6 +33,7 @@ on:
         required: true
       device:
         description: "Specifies the device to build the backend for (cpu, xpu, cuda)"
+        type: choice
         required: true
         options:
           - xpu
@@ -97,7 +105,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@803947b9bd8e9f986429fa0c5a41c367cd732b41 # v7.2.1
+        uses: astral-sh/setup-uv@e06108dd0aef18192324c70427afc47652e63a82 # v7.5.0
         with:
           version: "0.10.0"
           enable-cache: true
@@ -107,12 +115,12 @@ jobs:
         run: choco install just --yes
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: stable
 
       - name: Cache Rust dependencies & target
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
           save-if: ${{ startsWith(github.ref_name, 'release/') || github.ref_name == 'main' }}
           workspaces: |
@@ -149,7 +157,7 @@ jobs:
         # Build UI with Tauri
 
       - name: Setup Node & npm
-        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version-file: application/ui/.nvmrc
           cache: "npm"
@@ -217,7 +225,7 @@ jobs:
           }
 
       - name: Upload MSIX package
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           path: ${{ env.MSIX_FILE_PATH }}
           retention-days: 20

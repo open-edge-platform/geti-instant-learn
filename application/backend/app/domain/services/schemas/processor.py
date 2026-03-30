@@ -1,7 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
@@ -11,12 +11,14 @@ from instantlearn.utils.constants import SAMModelName
 from pydantic import BaseModel, Field, field_validator
 
 from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
+from domain.services.schemas.frame_trace import FrameTrace
 
 
 class ModelType(StrEnum):
     MATCHER = "matcher"
     PERDINO = "perdino"
     SOFT_MATCHER = "soft_matcher"
+    SAM3 = "sam3"
 
 
 ALLOWED_SAM_MODELS: tuple[SAMModelName, ...] = (
@@ -31,7 +33,6 @@ class BaseModelConfig(BaseModel):
     sam_model: SAMModelName = Field(default=SAMModelName.SAM_HQ_TINY)
     encoder_model: str = Field(default="dinov3_small")
     precision: str = Field(default="bf16", description="Model precision")
-    use_nms: bool = Field(default=True)
 
     @field_validator("sam_model", mode="before")
     @classmethod
@@ -52,8 +53,8 @@ class BaseModelConfig(BaseModel):
 
 class PerDinoConfig(BaseModelConfig):
     model_type: Literal[ModelType.PERDINO] = ModelType.PERDINO
-    num_foreground_points: int = Field(default=80, gt=0, lt=300)
-    num_background_points: int = Field(default=2, ge=0, lt=10)
+    num_foreground_points: int = Field(default=80, gt=0, le=300)
+    num_background_points: int = Field(default=2, ge=0, le=10)
     num_grid_cells: int = Field(default=16, gt=0)
     point_selection_threshold: float = Field(default=0.65, gt=0.0, lt=1.0)
     confidence_threshold: float = Field(default=0.01, gt=0.0, lt=1.0)
@@ -70,7 +71,6 @@ class PerDinoConfig(BaseModelConfig):
                 "point_selection_threshold": 0.65,
                 "confidence_threshold": 0.42,
                 "precision": "bf16",
-                "use_nms": True,
             }
         }
     }
@@ -78,8 +78,8 @@ class PerDinoConfig(BaseModelConfig):
 
 class MatcherConfig(BaseModelConfig):
     model_type: Literal[ModelType.MATCHER] = ModelType.MATCHER
-    num_foreground_points: int = Field(default=5, gt=0, lt=300)
-    num_background_points: int = Field(default=3, ge=0, lt=10)
+    num_foreground_points: int = Field(default=5, gt=0, le=300)
+    num_background_points: int = Field(default=3, ge=0, le=10)
     confidence_threshold: float = Field(default=0.38, gt=0.0, lt=1.0)
     use_mask_refinement: bool = Field(default=False)
 
@@ -94,7 +94,6 @@ class MatcherConfig(BaseModelConfig):
                 "sam_model": "SAM-HQ-tiny",
                 "encoder_model": "dinov3_small",
                 "use_mask_refinement": False,
-                "use_nms": True,
             }
         }
     }
@@ -102,8 +101,8 @@ class MatcherConfig(BaseModelConfig):
 
 class SoftMatcherConfig(BaseModelConfig):
     model_type: Literal[ModelType.SOFT_MATCHER] = ModelType.SOFT_MATCHER
-    num_foreground_points: int = Field(default=40, gt=0, lt=300)
-    num_background_points: int = Field(default=2, ge=0, lt=10)
+    num_foreground_points: int = Field(default=40, gt=0, le=300)
+    num_background_points: int = Field(default=2, ge=0, le=10)
     confidence_threshold: float = Field(default=0.42, gt=0.0, lt=1.0)
     use_sampling: bool = Field(default=False)
     use_spatial_sampling: bool = Field(default=False)
@@ -126,7 +125,26 @@ class SoftMatcherConfig(BaseModelConfig):
                 "softmatching_score_threshold": 0.4,
                 "softmatching_bidirectional": False,
                 "precision": "bf16",
-                "use_nms": True,
+            }
+        }
+    }
+
+
+class Sam3Config(BaseModel):
+    """Configuration for SAM3 visual or text-prompted segmentation model."""
+
+    model_type: Literal[ModelType.SAM3] = ModelType.SAM3
+    confidence_threshold: float = Field(default=0.5, gt=0.0, lt=1.0)
+    resolution: int = Field(default=1008, gt=0)
+    precision: str = Field(default="fp32", description="Model precision ('bf16' or 'fp32')")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "model_type": "sam3",
+                "confidence_threshold": 0.5,
+                "resolution": 1008,
+                "precision": "fp32",
             }
         }
     }
@@ -135,17 +153,38 @@ class SoftMatcherConfig(BaseModelConfig):
 ModelConfig = Annotated[PerDinoConfig | MatcherConfig | SoftMatcherConfig, Field(discriminator="model_type")]
 
 
+class SupportedPromptType(StrEnum):
+    """Supported prompt types for a given model type."""
+
+    TEXT = "text"
+    VISUAL_POLYGON = "visual_polygon"
+    VISUAL_RECTANGLE = "visual_rectangle"
+
+
+class SupportedModelMetadataSchema(BaseModel):
+    """Metadata for a supported model type: its defaults and accepted prompt types."""
+
+    default_config: ModelConfig
+    supported_prompt_types: list[SupportedPromptType]
+
+
+class SupportedModelsListSchema(PaginatedResponse):
+    models: list[SupportedModelMetadataSchema]
+
+
 @dataclass(kw_only=True)
 class InputData:
     timestamp: int  # processing date-time in epoch milliseconds.
     frame: np.ndarray  # frame loaded as numpy array in RGB HWC format (H, W, 3) with dtype=uint8
     context: dict[str, Any]  # unstructured metadata about the source of the frame (camera ID, video file, etc.)
+    trace: FrameTrace | None = field(default=None, repr=False)  # optional per-frame tracing context
 
 
 @dataclass(kw_only=True)
 class OutputData:
     results: list[dict[str, np.ndarray]]
     frame: np.ndarray  # frame loaded as numpy array in RGB HWC format (H, W, 3) with dtype=uint8
+    trace: FrameTrace | None = field(default=None, repr=False)  # optional per-frame tracing context
 
 
 class ProcessorSchema(BaseIDSchema):

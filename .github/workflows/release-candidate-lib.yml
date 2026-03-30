@@ -1,0 +1,70 @@
+name: Publish to TestPyPI
+
+on:
+  push:
+    tags:
+      - 'lib/v[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+'
+
+permissions: {} # No permissions by default
+
+jobs:
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+    environment: 'prod'
+    permissions:
+      contents: read
+      id-token: write # required by trusted publisher
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Validate tag matches VERSION
+        working-directory: library
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |  
+          TAG_BASE="${TAG#lib/v}"
+          TAG_VERSION="${TAG_BASE%rc*}"
+          FILE_VERSION="$(cat VERSION | tr -d '\n\r')"
+
+          echo "::group::Build parameters"
+          echo "Tag name: $TAG"
+          echo "Tag base: $TAG_BASE"
+          echo "Tag version: $TAG_VERSION"
+          echo "File version: $FILE_VERSION"
+          echo "::endgroup::"
+
+          if [[ "$TAG_VERSION" != "$FILE_VERSION" ]]; then
+            echo "Error: Tag version '$TAG_VERSION' does not match VERSION file '$FILE_VERSION'"
+            exit 1
+          fi
+
+          echo "Overwriting VERSION file with RC TAG: $TAG_BASE"
+          echo $TAG_BASE > VERSION
+
+      - name: Install dependencies
+        uses: ./.github/actions/install-dependencies
+        with:
+          uv-cache-dependency-glob: 'library/uv.lock'
+
+      - name: Build sdist and wheel
+        working-directory: library
+        run: uv build
+
+      - name: Verify distributions
+        working-directory: library
+        run: |
+          uv sync
+          uv pip install twine
+          uv run python -m twine check dist/*
+
+      - name: Publish package distributions to TestPyPI
+        working-directory: library
+        run:  |
+          TAG=$(cat VERSION)
+          echo "Publishing to TestPyPI with tag: ${TAG}"
+          uv publish --index testpypi

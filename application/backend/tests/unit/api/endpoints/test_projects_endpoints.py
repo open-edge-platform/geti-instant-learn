@@ -1,6 +1,7 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
 import pytest
@@ -10,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from api.error_handler import custom_exception_handler
 from api.routers import projects_router
-from dependencies import SessionDep, get_config_dispatcher, get_project_service
+from dependencies import SessionDep, get_config_dispatcher, get_license_service, get_project_service
 from domain.errors import (
     ResourceAlreadyExistsError,
     ResourceNotFoundError,
@@ -25,10 +26,14 @@ SECOND_PROJECT_ID = uuid4()
 SECOND_PROJECT_ID_STR = str(SECOND_PROJECT_ID)
 
 
-def assert_project_schema(data: dict, project_id: str, name: str, active: bool = False):
+def assert_project_schema(
+    data: dict, project_id: str, name: str, active: bool = False, device: str = "cpu", prompt_mode: str = "visual"
+):
     assert data["id"] == project_id
     assert data["name"] == name
     assert data["active"] == active
+    assert data["device"] == device
+    assert data["prompt_mode"] == prompt_mode
 
 
 @pytest.fixture
@@ -56,6 +61,11 @@ def client(app):
     return TestClient(app, raise_server_exceptions=False)
 
 
+@pytest.fixture
+def mock_license_service():
+    return MagicMock()
+
+
 @pytest.mark.parametrize(
     "behavior,expected_status,expect_location,expect_substring",
     [
@@ -72,7 +82,7 @@ def test_create_project(client, behavior, expected_status, expect_location, expe
         def create_project(self, payload):
             assert payload.name == "myproj"
             if behavior == "success":
-                return ProjectSchema(id=PROJECT_ID, name="myproj", active=True)
+                return ProjectSchema(id=PROJECT_ID, name="myproj", active=True, device="cpu", prompt_mode="visual")
             if behavior == "conflict":
                 raise ResourceAlreadyExistsError(
                     resource_type=ResourceType.PROJECT,
@@ -86,18 +96,84 @@ def test_create_project(client, behavior, expected_status, expect_location, expe
 
     client.app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
 
-    payload = {"id": PROJECT_ID_STR, "name": "myproj"}
-    resp = client.post("/api/v1/projects", json=payload)
 
-    assert resp.status_code == expected_status
-    if expect_location:
-        assert resp.headers.get("Location") == f"/projects/{PROJECT_ID_STR}"
-        response_data = resp.json()
-        assert_project_schema(response_data, PROJECT_ID_STR, "myproj", active=True)
-    else:
-        assert "Location" not in resp.headers
-        if expect_substring:
-            assert expect_substring.lower() in resp.json()["detail"].lower()
+class TestCreateProject:
+    """Tests for POST /projects endpoint."""
+
+    @pytest.fixture(autouse=True)
+    def override_license_service(self, app, mock_license_service):
+        app.dependency_overrides[get_license_service] = lambda: mock_license_service
+        yield
+        app.dependency_overrides.pop(get_license_service, None)
+
+    @pytest.mark.parametrize(
+        "behavior,expected_status,expect_location,expect_substring",
+        [
+            ("success", 201, True, None),
+            ("conflict", 409, False, "already exists"),
+            ("error", 500, False, "internal server error"),
+        ],
+    )
+    def test_create_project_with_license_accepted(
+        self, app, client, mock_license_service, behavior, expected_status, expect_location, expect_substring
+    ):
+        """Test project creation with license accepted."""
+        mock_license_service.is_accepted.return_value = True
+
+        class FakeService:
+            def __init__(self, session, config_change_dispatcher):
+                pass
+
+            def create_project(self, payload):
+                assert payload.name == "myproj"
+                if behavior == "success":
+                    return ProjectSchema(id=PROJECT_ID, name="myproj", active=True, device="cpu", prompt_mode="visual")
+                if behavior == "conflict":
+                    raise ResourceAlreadyExistsError(
+                        resource_type=ResourceType.PROJECT,
+                        resource_value="myproj",
+                        field="name",
+                        message="A project with this name already exists.",
+                    )
+                if behavior == "error":
+                    raise RuntimeError("Database connection failed")
+                raise AssertionError("Unhandled behavior")
+
+        app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
+
+        payload = {"id": PROJECT_ID_STR, "name": "myproj"}
+        resp = client.post("/api/v1/projects", json=payload)
+
+        assert resp.status_code == expected_status
+        mock_license_service.is_accepted.assert_called_once()
+        if expect_location:
+            assert resp.headers.get("Location") == f"/projects/{PROJECT_ID_STR}"
+            response_data = resp.json()
+            assert_project_schema(response_data, PROJECT_ID_STR, "myproj", active=True)
+        else:
+            assert "Location" not in resp.headers
+            if expect_substring:
+                assert expect_substring.lower() in resp.json()["detail"].lower()
+
+    def test_create_project_license_not_accepted(self, app, client, mock_license_service):
+        """Creating a project without accepting license returns 403."""
+        mock_license_service.is_accepted.return_value = False
+
+        class FakeService:
+            def __init__(self, session, config_change_dispatcher):
+                pass
+
+            def create_project(self, payload):
+                raise AssertionError("create_project should not be called when license is not accepted")
+
+        app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
+
+        payload = {"name": "myproj"}
+        resp = client.post("/api/v1/projects", json=payload)
+
+        assert resp.status_code == 403
+        assert "license" in resp.json()["detail"].lower()
+        mock_license_service.is_accepted.assert_called_once()
 
 
 @pytest.mark.parametrize(
@@ -108,7 +184,7 @@ def test_create_project(client, behavior, expected_status, expect_location, expe
         ("error", 500),
     ],
 )
-def test_delete_project(client, behavior, expected_status):
+def test_delete_project(app, client, behavior, expected_status):
     class FakeService:
         def __init__(self, session, config_change_dispatcher):
             pass
@@ -126,7 +202,7 @@ def test_delete_project(client, behavior, expected_status):
                 raise RuntimeError("Database error")
             raise AssertionError("Unhandled behavior")
 
-    client.app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
+    app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
 
     resp = client.delete(f"/api/v1/projects/{PROJECT_ID_STR}")
     assert resp.status_code == expected_status
@@ -151,7 +227,7 @@ def test_get_active_project(client, behavior, expected_status):
 
         def get_active_project_info(self):
             if behavior == "success":
-                return ProjectSchema(id=PROJECT_ID, name="activeproj", active=True)
+                return ProjectSchema(id=PROJECT_ID, name="activeproj", active=True, device="cpu", prompt_mode="visual")
             if behavior == "notfound":
                 raise ResourceNotFoundError(
                     resource_type=ResourceType.PROJECT,
@@ -192,8 +268,8 @@ def test_get_projects_list(client, behavior, expected_status, expected_count):
                 )
             if behavior == "some_projects":
                 projects = [
-                    ProjectSchema(id=PROJECT_ID, name="proj1", active=False),
-                    ProjectSchema(id=SECOND_PROJECT_ID, name="proj2", active=False),
+                    ProjectSchema(id=PROJECT_ID, name="proj1", active=False, device="cpu", prompt_mode="visual"),
+                    ProjectSchema(id=SECOND_PROJECT_ID, name="proj2", active=False, device="cpu", prompt_mode="visual"),
                 ]
                 return ProjectsListSchema(
                     projects=projects, pagination=Pagination(count=2, total=2, offset=offset, limit=limit)
@@ -231,7 +307,7 @@ def test_get_projects_list_with_pagination_params(client):
         def list_projects(self, offset=0, limit=20):
             assert offset == 10
             assert limit == 5
-            projects = [ProjectSchema(id=PROJECT_ID, name="proj1", active=False)]
+            projects = [ProjectSchema(id=PROJECT_ID, name="proj1", active=False, device="cpu", prompt_mode="visual")]
             return ProjectsListSchema(projects=projects, pagination=Pagination(count=1, total=15, offset=10, limit=5))
 
     client.app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
@@ -263,7 +339,7 @@ def test_get_project(client, behavior, expected_status, expect_payload):
         def get_project(self, project_id: UUID):
             assert project_id == PROJECT_ID
             if behavior == "minimal":
-                return ProjectSchema(id=PROJECT_ID, name="minproj", active=False)
+                return ProjectSchema(id=PROJECT_ID, name="minproj", active=False, device="cpu", prompt_mode="visual")
             if behavior == "notfound":
                 raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
             if behavior == "error":
@@ -299,8 +375,9 @@ def test_update_project(client, behavior, expected_status):
         def update_project(self, project_id: UUID, update_data):
             assert project_id == PROJECT_ID
             assert update_data.name == NEW_NAME
+            assert update_data.device == "cuda"
             if behavior == "success":
-                return ProjectSchema(id=PROJECT_ID, name=NEW_NAME, active=False)
+                return ProjectSchema(id=PROJECT_ID, name=NEW_NAME, active=False, device="cuda", prompt_mode="visual")
             if behavior == "notfound":
                 raise ResourceNotFoundError(resource_type=ResourceType.PROJECT, resource_id=str(project_id))
             if behavior == "conflict":
@@ -316,10 +393,13 @@ def test_update_project(client, behavior, expected_status):
 
     client.app.dependency_overrides[get_project_service] = lambda: FakeService(None, None)
 
-    resp = client.put(f"/api/v1/projects/{PROJECT_ID_STR}", json={"name": NEW_NAME, "active": False})
+    resp = client.put(
+        f"/api/v1/projects/{PROJECT_ID_STR}",
+        json={"name": NEW_NAME, "active": False, "device": "cuda"},
+    )
     assert resp.status_code == expected_status
     if behavior == "success":
-        assert_project_schema(resp.json(), PROJECT_ID_STR, NEW_NAME, active=False)
+        assert_project_schema(resp.json(), PROJECT_ID_STR, NEW_NAME, active=False, device="cuda")
     else:
         assert "detail" in resp.json()
 

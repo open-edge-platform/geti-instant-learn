@@ -1,21 +1,56 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Base class for all models."""
 
+from __future__ import annotations
+
 from abc import abstractmethod
-from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import torch
 from torch import nn
 
-from instantlearn.data.base.batch import Batch, Collatable
-from instantlearn.data.base.sample import Sample
+from instantlearn.components.postprocessing.base import PostProcessor, apply_postprocessing
 from instantlearn.utils.constants import Backend
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from instantlearn.data.base.batch import Batch, Collatable
+    from instantlearn.data.base.sample import Sample
 
 
 class Model(nn.Module):
-    """This class is the base class for all models."""
+    """This class is the base class for all models.
+
+    Args:
+        postprocessor: Optional post-processor (single or pipeline) applied
+            after ``predict()`` to clean masks, resolve overlaps, etc.
+            Use :class:`~instantlearn.components.postprocessing.PostProcessorPipeline`
+            to chain multiple processors.
+    """
+
+    def __init__(self, postprocessor: PostProcessor | None = None) -> None:
+        """Initialize the model with an optional post-processor."""
+        super().__init__()
+        self.postprocessor = postprocessor
+
+    def apply_postprocessing(
+        self,
+        predictions: list[dict[str, torch.Tensor]],
+    ) -> list[dict[str, torch.Tensor]]:
+        """Apply the configured post-processor to prediction dicts.
+
+        If no post-processor is set, returns predictions unchanged.
+
+        Args:
+            predictions: List of prediction dicts from ``predict()``.
+
+        Returns:
+            Post-processed prediction dicts.
+        """
+        return apply_postprocessing(predictions, self.postprocessor)
 
     @abstractmethod
     def fit(self, reference: Sample | list[Sample] | Batch) -> None:
@@ -53,7 +88,7 @@ class Model(nn.Module):
         self,
         export_dir: str | Path,
         backend: str | Backend = Backend.ONNX,
-        **kwargs,
+        **kwargs: Any,  # noqa: ANN401
     ) -> Path:
         """This method exports the model to a given path.
 
