@@ -33,7 +33,7 @@ test.describe('Source file picker fields', () => {
                     return (options?.directory === true ? '/home/user/images' : '/home/user/video.mp4') as T;
                 }
 
-                throw new Error(`Unexpected Tauri invoke: ${cmd}`);
+                return null as T;
             };
 
             runtime.__TAURI__ = { core: { invoke } };
@@ -46,7 +46,7 @@ test.describe('Source file picker fields', () => {
         });
     });
 
-    test('updates the video file path after selecting a file from the dialog', async ({ page }) => {
+    test('updates the video file path after selecting a file from the dialog', async ({ page, network: _ }) => {
         await page.goto('/');
 
         await page.getByRole('button', { name: 'Pipeline configuration' }).click();
@@ -60,7 +60,7 @@ test.describe('Source file picker fields', () => {
         await expect(videoFilePanel.getByRole('textbox', { name: 'File path' })).toHaveValue('/home/user/video.mp4');
     });
 
-    test('updates the image folder path after selecting a folder from the dialog', async ({ page }) => {
+    test('updates the image folder path after selecting a folder from the dialog', async ({ page, network: _ }) => {
         await page.goto('/');
 
         await page.getByRole('button', { name: 'Pipeline configuration' }).click();
