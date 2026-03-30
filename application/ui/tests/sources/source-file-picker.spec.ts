@@ -4,8 +4,27 @@
  */
 
 import { expect, test } from '@/test-fixtures';
+import type { Page } from '@playwright/test';
 
 test.describe('Source file picker fields', () => {
+    const openSourceTypePanel = async (page: Page, sourceType: 'Video file' | 'Image folder') => {
+        const pipelineConfigurationButton = page.getByRole('button', { name: 'Pipeline configuration' });
+
+        await expect(pipelineConfigurationButton).toBeVisible();
+        await pipelineConfigurationButton.click();
+
+        const addNewSourceButton = page.getByRole('button', { name: 'Add new source' });
+
+        if (await addNewSourceButton.isVisible()) {
+            await addNewSourceButton.click();
+        }
+
+        const sourceTypeButton = page.getByRole('button', { name: sourceType });
+
+        await expect(sourceTypeButton).toBeVisible();
+        await sourceTypeButton.click();
+    };
+
     test.beforeEach(async ({ page }) => {
         await page.addInitScript(() => {
             /* eslint-disable no-underscore-dangle */
@@ -49,9 +68,7 @@ test.describe('Source file picker fields', () => {
     test('updates the video file path after selecting a file from the dialog', async ({ page, network: _ }) => {
         await page.goto('/');
 
-        await page.getByRole('button', { name: 'Pipeline configuration' }).click();
-
-        await page.getByRole('button', { name: 'Video file' }).click();
+        await openSourceTypePanel(page, 'Video file');
 
         const videoFilePanel = page.getByLabel('Video file');
 
@@ -63,9 +80,7 @@ test.describe('Source file picker fields', () => {
     test('updates the image folder path after selecting a folder from the dialog', async ({ page, network: _ }) => {
         await page.goto('/');
 
-        await page.getByRole('button', { name: 'Pipeline configuration' }).click();
-
-        await page.getByRole('button', { name: 'Image folder' }).click();
+        await openSourceTypePanel(page, 'Image folder');
 
         const imageFolderPanel = page.getByLabel('Image folder');
 
