@@ -9,7 +9,7 @@ def polygons_to_masks(polygons: list[PolygonAnnotation], image_height: int, imag
     Convert multiple polygon annotations to a stacked array of binary masks.
 
     Args:
-        polygons: List of PolygonAnnotation objects with normalized coordinates (0.0-1.0)
+        polygons: List of PolygonAnnotation objects with pixel coordinates
         image_height: Height of the output masks in pixels
         image_width: Width of the output masks in pixels
 
@@ -26,14 +26,9 @@ def polygons_to_masks(polygons: list[PolygonAnnotation], image_height: int, imag
     masks = np.zeros((len(polygons), image_height, image_width), dtype=np.uint8)
 
     for i, polygon in enumerate(polygons):
-        pixel_points = np.array(
-            [[int(pt.x * image_width), int(pt.y * image_height)] for pt in polygon.points],
-            dtype=np.int32,
-        )
+        pixel_points = np.array([[int(pt.x), int(pt.y)] for pt in polygon.points], dtype=np.int32)
         mask = np.zeros((image_height, image_width), dtype=np.uint8)
         cv2.fillPoly(mask, [pixel_points], (1,))
         masks[i] = mask
 
     return masks
-
-#todo process rectangles as well
