@@ -12,6 +12,7 @@ from torch.nn import functional
 
 from instantlearn.components.encoders import ImageEncoder
 from instantlearn.components.feature_extractors import MaskedFeatureExtractor, ReferenceFeatures
+from instantlearn.components.negative_prompts import NegativeMaskToPoints
 from instantlearn.components.postprocessing import (
     PostProcessor,
     default_postprocessor,
@@ -20,6 +21,7 @@ from instantlearn.components.sam import SamDecoder, load_sam_model
 from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.base import Model
+from instantlearn.models.negative_embedding import NegativeEmbeddingMixin
 from instantlearn.utils.constants import Backend, SAMModelName
 
 from .prompt_generators import BidirectionalPromptGenerator
@@ -134,7 +136,7 @@ class MatcherInferenceGraph(nn.Module):
         return masks, scores, labels
 
 
-class Matcher(Model):
+class Matcher(NegativeEmbeddingMixin, Model):
     """Matcher model for one-shot segmentation.
 
     Based on "[ICLR'24] Matcher: Segment Anything with One Shot Using All-Purpose Feature Matching"
@@ -186,6 +188,7 @@ class Matcher(Model):
         sam: SAMModelName = SAMModelName.SAM_HQ_TINY,
         num_foreground_points: int = 40,
         num_background_points: int = 2,
+        num_negative_points: int = 5,
         encoder_model: str = "dinov3_large",
         confidence_threshold: float | None = 0.38,
         use_mask_refinement: bool = True,
@@ -200,6 +203,7 @@ class Matcher(Model):
             sam: SAM model variant to use.
             num_foreground_points: Maximum foreground points per category.
             num_background_points: Background points per category.
+            num_negative_points: Points to sample per negative mask. Default: 5.
             encoder_model: Image encoder model ID.
             confidence_threshold: Minimum confidence score for keeping predicted masks
                                  in the final output. Higher values = stricter filtering, fewer masks.
@@ -254,11 +258,19 @@ class Matcher(Model):
             use_mask_refinement=use_mask_refinement,
         )
 
+        # Negative mask handling
+        self.negative_mask_converter = NegativeMaskToPoints(num_points_per_mask=num_negative_points)
+        self._negative_embedding: torch.Tensor | None = None  # (1, embed_dim) cached during fit
+
         # Reference features (set during fit)
         self.ref_features: ReferenceFeatures | None = None
 
     def fit(self, reference: Sample | list[Sample] | Batch) -> ReferenceFeatures:
         """Learn from reference images.
+
+        Negative masks (category_id == BACKGROUND_CATEGORY_ID) are used to
+        extract negative embeddings that suppress similar-looking regions
+        in target images during prediction.
 
         Args:
             reference: Reference data to learn from. Accepts:
@@ -267,7 +279,14 @@ class Matcher(Model):
                 - Batch: A batch of reference samples
         """
         reference_batch = Batch.collate(reference)
+
+        # Feature extraction operates only on foreground masks
+        # (MaskedFeatureExtractor already skips BACKGROUND_CATEGORY_ID)
         ref_embeddings = self.encoder(images=reference_batch.images)
+
+        # Extract negative embedding from background mask regions
+        self._negative_embedding = self._extract_negative_embedding(ref_embeddings, reference_batch)
+
         self.ref_features = self.masked_feature_extractor(
             ref_embeddings,
             reference_batch.masks,
@@ -318,6 +337,10 @@ class Matcher(Model):
             target_embeddings,
             original_sizes,
         )
+
+        # Penalize target regions similar to negative reference (if any)
+        if self._negative_embedding is not None:
+            similarities = self._adjust_similarities(similarities, target_embeddings)
 
         # Decode masks for all images
         predictions = self.segmenter(

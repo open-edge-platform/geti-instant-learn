@@ -12,9 +12,10 @@ import numpy as np
 import torch
 from transformers import CLIPTokenizerFast
 
+from instantlearn.components.negative_prompts import NegativeMaskToPoints
 from instantlearn.components.postprocessing import PostProcessor, default_postprocessor
 from instantlearn.data.base.batch import Batch, Collatable
-from instantlearn.data.base.sample import Sample
+from instantlearn.data.base.sample import BACKGROUND_CATEGORY_ID, Sample
 from instantlearn.models.base import Model
 from instantlearn.utils import precision_to_torch_dtype
 
@@ -54,6 +55,17 @@ class SAM3(Model):
     At least one of these prompt types must be provided for each sample during inference.
 
     NOTE: Currently, SAM3 does not work well with torch.bfloat16 precision.
+
+    Negative Prompts:
+        Background masks (``category_id == BACKGROUND_CATEGORY_ID``) provided
+        during ``fit()`` are converted to negative point prompts and pre-encoded
+        against the reference image. These geometry features are then concatenated
+        with positive prompts during ``predict()`` to suppress false positives.
+
+        **Limitation**: When the reference and target images differ significantly
+        in resolution or composition (e.g. 2500×2500 reference vs 680×540 target),
+        the transferred negative features may be less effective at suppressing
+        marginal detections. This is inherent to SAM3's cross-image transfer.
 
     Prompt Modes:
         **CLASSIC** (default): Original SAM3 behavior. Text/box prompts are
@@ -139,6 +151,7 @@ class SAM3(Model):
         model_id: str = "facebook/sam3",
         prompt_mode: Sam3PromptMode | str = Sam3PromptMode.CLASSIC,
         drop_spatial_bias: bool = False,
+        num_negative_points: int = 5,
         postprocessor: PostProcessor | None = None,
     ) -> None:
         """Initialize the SAM3 model.
@@ -157,6 +170,8 @@ class SAM3(Model):
                 coordinate projection and position encoding in the geometry
                 encoder, keeping only ROI-pooled visual features. This removes
                 spatial bias from the reference image position. Default: False.
+            num_negative_points: Number of points to sample from each negative
+                (background) mask. Default: 5.
             postprocessor: Post-processor applied after predict().
                 Defaults to :func:`~instantlearn.components.postprocessing.default_postprocessor`
                 (MaskIoMNMS + BoxIoMNMS).
@@ -183,6 +198,12 @@ class SAM3(Model):
         self.exemplar_text_features: list[torch.Tensor] | None = None
         self.exemplar_text_mask: list[torch.Tensor] | None = None
         self.exemplar_category_ids: list[int] | None = None
+
+        # Negative prompt support
+        self.negative_mask_converter = NegativeMaskToPoints(num_points_per_mask=num_negative_points)
+        self._negative_points: torch.Tensor | None = None
+        self._negative_geometry_features: torch.Tensor | None = None
+        self._negative_geometry_mask: torch.Tensor | None = None
 
         # Preprocessors and postprocessor
         self.image_preprocessor = Sam3Preprocessor(target_size=resolution).to(device)
@@ -222,6 +243,7 @@ class SAM3(Model):
                 - Batch: A batch of reference samples
         """
         reference_batch = Batch.collate(reference)
+        self._extract_negative_points(reference_batch)
 
         if self.prompt_mode == Sam3PromptMode.CLASSIC:
             self._fit_classic(reference_batch)
@@ -253,6 +275,43 @@ class SAM3(Model):
 
     # -- Fit internals --
 
+    def _extract_negative_points(self, reference_batch: Batch) -> None:
+        """Extract negative points from background masks in reference samples.
+
+        Scans all samples for masks with category_id == BACKGROUND_CATEGORY_ID,
+        converts them to point prompts, and normalizes coordinates to [0, 1].
+        Points are cached in ``self._negative_points`` for use in predict.
+
+        Args:
+            reference_batch: Batch of reference samples.
+        """
+        self._negative_points = None
+        all_neg_points: list[torch.Tensor] = []
+
+        for sample in reference_batch.samples:
+            if sample.masks is None or sample.category_ids is None:
+                continue
+
+            for mask, cat_id in zip(sample.masks, sample.category_ids, strict=True):
+                if int(cat_id) != BACKGROUND_CATEGORY_ID:
+                    continue
+                mask_t = torch.as_tensor(mask, dtype=torch.bool, device=self.device)
+                if not mask_t.any():
+                    continue
+                neg_pts, _ = self.negative_mask_converter(mask_t.unsqueeze(0))
+                if neg_pts.numel() == 0:
+                    continue
+                # Normalize to [0, 1] relative to mask spatial dims (x / w, y / h)
+                img_h, img_w = mask_t.shape[-2:]
+                neg_pts_norm = neg_pts.float()
+                neg_pts_norm[:, 0] = neg_pts_norm[:, 0] / img_w
+                neg_pts_norm[:, 1] = neg_pts_norm[:, 1] / img_h
+                all_neg_points.append(neg_pts_norm)
+
+        if all_neg_points:
+            self._negative_points = torch.cat(all_neg_points, dim=0).to(self.device)
+            logger.info("Cached %d negative points from background masks", self._negative_points.shape[0])
+
     def _fit_classic(self, reference_batch: Batch) -> None:
         """Store category mapping from reference batch.
 
@@ -260,6 +319,56 @@ class SAM3(Model):
             reference_batch: Batch of reference samples.
         """
         self.category_mapping = self._build_category_mapping(reference_batch)
+        self._pre_encode_negative_geometry(reference_batch)
+
+    def _pre_encode_negative_geometry(self, reference_batch: Batch) -> None:
+        """Pre-encode negative points using reference image vision features.
+
+        Encodes the cached negative points against the reference image so that
+        cross-image transfer uses visual content from the reference rather than
+        spatial coordinates that may not transfer to different target images.
+
+        Args:
+            reference_batch: Batch of reference samples with images.
+        """
+        self._negative_geometry_features = None
+        self._negative_geometry_mask = None
+
+        if self._negative_points is None or self._negative_points.numel() == 0:
+            return
+
+        # Find the first reference sample with an image
+        ref_sample = next((s for s in reference_batch.samples if s.image is not None), None)
+        if ref_sample is None:
+            return
+
+        image_tensor = ref_sample.image.unsqueeze(0) if ref_sample.image.ndim == 3 else ref_sample.image
+        pixel_values, _ = self.image_preprocessor(image_tensor.to(self.device))
+        vision_embeds = self.model.get_vision_features(pixel_values)
+        fpn_hidden_states = vision_embeds["fpn_hidden_states"][:-1]
+        fpn_position_encoding = vision_embeds["fpn_position_encoding"][:-1]
+
+        neg_pts = self._negative_points.unsqueeze(0).to(dtype=fpn_hidden_states[0].dtype)
+        num_neg = neg_pts.shape[1]
+        neg_labels = torch.zeros((1, num_neg), dtype=torch.long, device=self.device)
+        neg_mask = torch.ones(1, num_neg, dtype=torch.bool, device=self.device)
+
+        geometry_outputs = self.model.geometry_encoder(
+            point_embeddings=neg_pts,
+            point_mask=neg_mask,
+            point_labels=neg_labels,
+            img_feats=fpn_hidden_states,
+            img_pos_embeds=fpn_position_encoding,
+            drop_spatial_bias=True,
+        )
+
+        self._negative_geometry_features = geometry_outputs["last_hidden_state"]
+        self._negative_geometry_mask = geometry_outputs["attention_mask"]
+        logger.info(
+            "Pre-encoded %d negative points into geometry features [%s]",
+            num_neg,
+            self._negative_geometry_features.shape,
+        )
 
     def _fit_visual_exemplar(self, reference_batch: Batch) -> None:
         """Encode visual exemplar features from reference images and boxes/points.
@@ -384,24 +493,39 @@ class SAM3(Model):
         prompts = bboxes if has_bboxes else points
 
         for prompt, category, cat_id in zip(prompts, categories, category_ids, strict=True):
+            cat_id_int = int(cat_id)
+            if cat_id_int == BACKGROUND_CATEGORY_ID:
+                continue  # handled via _extract_negative_points
             if has_bboxes:
                 input_boxes, _ = self.prompt_preprocessor(original_sizes, input_boxes=prompt)
                 coord = input_boxes[..., :2]  # box center (1, 1, 2)
             else:
                 _, coord = self.prompt_preprocessor(original_sizes, input_points=prompt)
-            cat_id_int = int(cat_id)
             category_coords[cat_id_int].append(coord)
             category_text_map[cat_id_int] = category
+
+        # Prepare negative points (already normalized to [0,1] during _extract_negative_points)
+        neg_coords = None
+        if self._negative_points is not None and self._negative_points.numel() > 0:
+            neg_coords = self._negative_points.unsqueeze(0)  # [1, M, 2]
 
         # Encode each category's points together (same-image n-shot batching)
         for cat_id, coords_list in category_coords.items():
             all_coords = torch.cat(coords_list, dim=1)  # [1, N, 2]
-            num_points = all_coords.shape[1]
+            num_positive = all_coords.shape[1]
+
+            # Append negative points so they participate in geometry self-attention
+            if neg_coords is not None:
+                all_coords = torch.cat([all_coords, neg_coords.to(all_coords)], dim=1)
+            total_points = all_coords.shape[1]
+
+            labels = torch.ones((1, total_points), dtype=torch.long, device=self.device)
+            labels[:, num_positive:] = 0  # label=0 for negative points
 
             geometry_outputs = self.model.geometry_encoder(
                 point_embeddings=all_coords.to(dtype=fpn_hidden_states[0].dtype),
-                point_mask=torch.ones(1, num_points, dtype=torch.bool, device=self.device),
-                point_labels=torch.ones((1, num_points), dtype=torch.long, device=self.device),
+                point_mask=torch.ones(1, total_points, dtype=torch.bool, device=self.device),
+                point_labels=labels,
                 img_feats=fpn_hidden_states,
                 img_pos_embeds=fpn_position_encoding,
                 drop_spatial_bias=self.drop_spatial_bias,
@@ -545,15 +669,64 @@ class SAM3(Model):
                     _, input_points = self.prompt_preprocessor(original_sizes, input_points=point)
                     input_points_labels = torch.ones((1, 1), dtype=torch.long, device=self.device)
 
+                # Build precomputed geometry features from positive prompts + cached negatives
+                precomputed_geo = None
+                precomputed_geo_mask = None
+
+                # Encode positive points/boxes on the target image (if any)
+                has_positive_geo = (input_boxes is not None and input_boxes.numel() > 0) or (
+                    input_points is not None and input_points.numel() > 0
+                )
+                if has_positive_geo:
+                    fpn_hidden_states = vision_embeds["fpn_hidden_states"][:-1]
+                    fpn_position_encoding = vision_embeds["fpn_position_encoding"][:-1]
+                    dtype = fpn_hidden_states[0].dtype
+
+                    geo_kwargs: dict = {
+                        "img_feats": fpn_hidden_states,
+                        "img_pos_embeds": fpn_position_encoding,
+                    }
+                    if input_points is not None and input_points.numel() > 0:
+                        geo_kwargs["point_embeddings"] = input_points.to(dtype=dtype)
+                        geo_kwargs["point_mask"] = torch.ones(
+                            1,
+                            input_points.shape[1],
+                            dtype=torch.bool,
+                            device=self.device,
+                        )
+                        geo_kwargs["point_labels"] = input_points_labels
+                    if input_boxes is not None and input_boxes.numel() > 0:
+                        geo_kwargs["box_embeddings"] = input_boxes.to(dtype=dtype)
+                        geo_kwargs["box_mask"] = torch.ones(
+                            1,
+                            input_boxes.shape[1],
+                            dtype=torch.bool,
+                            device=self.device,
+                        )
+                        geo_kwargs["box_labels"] = input_boxes_labels
+
+                    geo_out = self.model.geometry_encoder(**geo_kwargs)
+                    precomputed_geo = geo_out["last_hidden_state"]
+                    precomputed_geo_mask = geo_out["attention_mask"]
+
+                # Append cached negative geometry features (pre-encoded on reference image)
+                if self._negative_geometry_features is not None:
+                    neg_geo = self._negative_geometry_features
+                    neg_mask = self._negative_geometry_mask
+                    if precomputed_geo is not None:
+                        precomputed_geo = torch.cat([precomputed_geo, neg_geo], dim=1)
+                        precomputed_geo_mask = torch.cat([precomputed_geo_mask, neg_mask], dim=1)
+                    else:
+                        precomputed_geo = neg_geo
+                        precomputed_geo_mask = neg_mask
+
                 with torch.no_grad():
                     outputs = self.model(
                         vision_embeds=vision_embeds,
                         input_ids=input_ids,
                         attention_mask=attention_mask,
-                        input_boxes=input_boxes,
-                        input_boxes_labels=input_boxes_labels,
-                        input_points=input_points,
-                        input_points_labels=input_points_labels,
+                        precomputed_geometry_features=precomputed_geo,
+                        precomputed_geometry_mask=precomputed_geo_mask,
                     )
 
                 # Postprocess
@@ -653,6 +826,8 @@ class SAM3(Model):
             if sample.categories is None or sample.category_ids is None:
                 continue
             for category_id, category in zip(sample.category_ids, sample.categories, strict=False):
+                if int(category_id) == BACKGROUND_CATEGORY_ID:
+                    continue
                 if category not in mapping:
                     mapping[category] = int(category_id)
         return mapping

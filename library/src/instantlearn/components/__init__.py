@@ -6,6 +6,7 @@
 from .cosine_similarity import CosineSimilarity
 from .encoders import ImageEncoder
 from .linear_sum_assignment import linear_sum_assignment
+from .negative_prompts import NegativeMaskToPoints
 from .postprocessing import (
     BoxIoMNMS,
     BoxNMS,
@@ -34,6 +35,7 @@ __all__ = [
     "MinimumAreaFilter",
     "MorphologicalClosing",
     "MorphologicalOpening",
+    "NegativeMaskToPoints",
     "PostProcessor",
     "PostProcessorPipeline",
     "SamDecoder",

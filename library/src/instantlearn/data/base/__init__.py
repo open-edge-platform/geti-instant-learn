@@ -5,9 +5,11 @@
 
 from .base import Dataset
 from .batch import Batch, Collatable
-from .sample import Sample
+from .sample import BACKGROUND_CATEGORY, BACKGROUND_CATEGORY_ID, Sample
 
 __all__ = [
+    "BACKGROUND_CATEGORY",
+    "BACKGROUND_CATEGORY_ID",
     "Batch",
     "Collatable",
     "Dataset",

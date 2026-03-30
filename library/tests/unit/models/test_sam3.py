@@ -18,7 +18,6 @@ from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.sam3.sam3 import SAM3, Sam3PromptMode
 
-
 # -- Helpers --
 
 
@@ -223,29 +222,29 @@ class TestSAM3Classic:
         """Test fit() in classic mode stores category mapping."""
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.CLASSIC)
 
-        ref = Sample(categories=["shoe", "bag"], category_ids=[0, 1])
+        ref = Sample(categories=["shoe", "bag"], category_ids=[1, 2])
         model.fit(ref)
 
         assert model.category_mapping is not None
-        assert model.category_mapping == {"shoe": 0, "bag": 1}
+        assert model.category_mapping == {"shoe": 1, "bag": 2}
 
     def test_fit_multiple_samples(self, mock_sam3_deps: dict[str, Any]) -> None:
         """Test fit() merges categories across samples."""
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.CLASSIC)
 
         refs = [
-            Sample(categories=["shoe"], category_ids=[0]),
-            Sample(categories=["bag"], category_ids=[1]),
+            Sample(categories=["shoe"], category_ids=[1]),
+            Sample(categories=["bag"], category_ids=[2]),
         ]
         model.fit(refs)
 
-        assert model.category_mapping == {"shoe": 0, "bag": 1}
+        assert model.category_mapping == {"shoe": 1, "bag": 2}
 
     def test_predict_returns_correct_structure(self, mock_sam3_deps: dict[str, Any]) -> None:
         """Test predict() in classic mode returns expected keys and shapes."""
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.CLASSIC)
 
-        ref = Sample(categories=["shoe"], category_ids=[0])
+        ref = Sample(categories=["shoe"], category_ids=[1])
         model.fit(ref)
 
         target = Sample(image=torch.zeros(3, 224, 224))
@@ -262,7 +261,7 @@ class TestSAM3Classic:
         """Test that masks match target image spatial dims."""
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.CLASSIC)
 
-        ref = Sample(categories=["shoe"], category_ids=[0])
+        ref = Sample(categories=["shoe"], category_ids=[1])
         model.fit(ref)
 
         target = Sample(image=torch.zeros(3, 224, 224))
@@ -276,7 +275,7 @@ class TestSAM3Classic:
         """Test predict() with multiple target images."""
         model = _build_sam3(mock_sam3_deps, Sam3PromptMode.CLASSIC)
 
-        ref = Sample(categories=["shoe"], category_ids=[0])
+        ref = Sample(categories=["shoe"], category_ids=[1])
         model.fit(ref)
 
         targets = [
@@ -299,7 +298,7 @@ class TestSAM3Classic:
             image=torch.zeros(3, 224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
             categories=["shoe"],
-            category_ids=[0],
+            category_ids=[1],
         )
         predictions = model.predict(target)
 
@@ -323,7 +322,7 @@ class TestSAM3VisualExemplar:
             image=torch.zeros(3, 224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
             categories=["shoe"],
-            category_ids=np.array([0]),
+            category_ids=np.array([1]),
         )
         model.fit(ref)
 
@@ -332,7 +331,7 @@ class TestSAM3VisualExemplar:
         assert model.exemplar_text_features is not None
         assert model.exemplar_text_mask is not None
         assert model.exemplar_category_ids is not None
-        assert 0 in model.exemplar_category_ids
+        assert 1 in model.exemplar_category_ids
 
     def test_fit_with_points(self, mock_sam3_deps: dict[str, Any]) -> None:
         """Test fit() in visual mode with point prompts."""
@@ -342,7 +341,7 @@ class TestSAM3VisualExemplar:
             image=torch.zeros(3, 224, 224),
             points=np.array([[100, 100]]),
             categories=["shoe"],
-            category_ids=np.array([0]),
+            category_ids=np.array([1]),
         )
         model.fit(ref)
 
@@ -356,7 +355,7 @@ class TestSAM3VisualExemplar:
         ref = Sample(
             image=torch.zeros(3, 224, 224),
             categories=["shoe"],
-            category_ids=[0],
+            category_ids=[1],
         )
 
         with pytest.raises(ValueError, match="bboxes or points"):
@@ -369,7 +368,7 @@ class TestSAM3VisualExemplar:
         ref = Sample(
             bboxes=np.array([[10, 10, 50, 50]]),
             categories=["shoe"],
-            category_ids=np.array([0]),
+            category_ids=np.array([1]),
         )
 
         with pytest.raises(ValueError, match="images"):
@@ -383,7 +382,7 @@ class TestSAM3VisualExemplar:
             image=torch.zeros(3, 224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
             categories=["shoe"],
-            category_ids=np.array([0]),
+            category_ids=np.array([1]),
         )
         model.fit(ref)
 
@@ -399,19 +398,19 @@ class TestSAM3VisualExemplar:
                 image=torch.zeros(3, 224, 224),
                 bboxes=np.array([[10, 10, 50, 50]]),
                 categories=["shoe"],
-                category_ids=np.array([0]),
+                category_ids=np.array([1]),
             ),
             Sample(
                 image=torch.zeros(3, 224, 224),
                 bboxes=np.array([[60, 60, 100, 100]]),
                 categories=["bag"],
-                category_ids=np.array([1]),
+                category_ids=np.array([2]),
             ),
         ]
         model.fit(refs)
 
         assert len(model.exemplar_category_ids) == 2
-        assert set(model.exemplar_category_ids) == {0, 1}
+        assert set(model.exemplar_category_ids) == {1, 2}
 
     def test_predict_returns_correct_structure(self, mock_sam3_deps: dict[str, Any]) -> None:
         """Test predict() in visual mode returns expected keys."""
@@ -421,7 +420,7 @@ class TestSAM3VisualExemplar:
             image=torch.zeros(3, 224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
             categories=["shoe"],
-            category_ids=np.array([0]),
+            category_ids=np.array([1]),
         )
         model.fit(ref)
 
@@ -451,7 +450,7 @@ class TestSAM3VisualExemplar:
             image=torch.zeros(3, 224, 224),
             bboxes=np.array([[10, 10, 50, 50]]),
             categories=["shoe"],
-            category_ids=np.array([0]),
+            category_ids=np.array([1]),
         )
         model.fit(ref)
 
@@ -475,26 +474,26 @@ class TestSAM3Utilities:
     def test_build_category_mapping(self) -> None:
         """Test _build_category_mapping builds correct mapping."""
         samples = [
-            Sample(categories=["shoe", "bag"], category_ids=[0, 1]),
-            Sample(categories=["hat"], category_ids=[2]),
+            Sample(categories=["shoe", "bag"], category_ids=[1, 2]),
+            Sample(categories=["hat"], category_ids=[3]),
         ]
         batch = Batch.collate(samples)
 
         mapping = SAM3._build_category_mapping(batch)
 
-        assert mapping == {"shoe": 0, "bag": 1, "hat": 2}
+        assert mapping == {"shoe": 1, "bag": 2, "hat": 3}
 
     def test_build_category_mapping_no_duplicates(self) -> None:
         """Test _build_category_mapping keeps first occurrence."""
         samples = [
-            Sample(categories=["shoe"], category_ids=[0]),
+            Sample(categories=["shoe"], category_ids=[1]),
             Sample(categories=["shoe"], category_ids=[5]),
         ]
         batch = Batch.collate(samples)
 
         mapping = SAM3._build_category_mapping(batch)
 
-        assert mapping == {"shoe": 0}
+        assert mapping == {"shoe": 1}
 
     def test_aggregate_results_with_detections(self) -> None:
         """Test _aggregate_results concatenates non-empty results."""

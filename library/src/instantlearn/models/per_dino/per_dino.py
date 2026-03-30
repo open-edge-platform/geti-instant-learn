@@ -5,7 +5,7 @@
 
 import torch
 
-from instantlearn.components import CosineSimilarity, SamDecoder
+from instantlearn.components import CosineSimilarity, NegativeMaskToPoints, SamDecoder
 from instantlearn.components.encoders import ImageEncoder
 from instantlearn.components.feature_extractors import MaskedFeatureExtractor, ReferenceFeatures
 from instantlearn.components.postprocessing import (
@@ -16,12 +16,13 @@ from instantlearn.components.sam import load_sam_model
 from instantlearn.data.base.batch import Batch, Collatable
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.base import Model
+from instantlearn.models.negative_embedding import NegativeEmbeddingMixin
 from instantlearn.utils.constants import Backend, SAMModelName
 
 from .prompt_generators import GridPromptGenerator
 
 
-class PerDino(Model):
+class PerDino(NegativeEmbeddingMixin, Model):
     """PerDino algorithm model for one-shot segmentation.
 
     Matches reference objects to target images by comparing features extracted by DINOv2
@@ -68,6 +69,7 @@ class PerDino(Model):
         encoder_model: str = "dinov3_large",
         num_foreground_points: int = 40,
         num_background_points: int = 2,
+        num_negative_points: int = 5,
         num_grid_cells: int = 16,
         point_selection_threshold: float = 0.65,
         confidence_threshold: float | None = 0.42,
@@ -83,6 +85,7 @@ class PerDino(Model):
             encoder_model: ImageEncoder model ID to use.
             num_foreground_points: Maximum foreground points per category.
             num_background_points: Background points per category.
+            num_negative_points: Points to sample per negative mask. Default: 5.
             num_grid_cells: Number of grid cells for prompt generation.
             point_selection_threshold: Minimum feature similarity for a pixel to be
                 selected as a foreground point prompt for SAM. Used during prompt
@@ -139,10 +142,18 @@ class PerDino(Model):
             confidence_threshold=confidence_threshold,
         )
 
+        # Negative mask handling
+        self.negative_mask_converter = NegativeMaskToPoints(num_points_per_mask=num_negative_points)
+        self._negative_embedding: torch.Tensor | None = None  # (1, embed_dim) cached during fit
+
         self.ref_features: ReferenceFeatures | None = None
 
     def fit(self, reference: Sample | list[Sample] | Batch) -> None:
         """Learn from reference images.
+
+        Negative masks (category_id == BACKGROUND_CATEGORY_ID) are used to
+        extract negative embeddings that suppress similar-looking regions
+        in target images during prediction.
 
         Args:
             reference: Reference data to learn from. Accepts:
@@ -151,7 +162,12 @@ class PerDino(Model):
                 - Batch: A batch of reference samples
         """
         reference_batch = Batch.collate(reference)
+
         reference_embeddings = self.encoder(reference_batch.images)
+
+        # Extract negative embedding from background mask regions
+        self._negative_embedding = self._extract_negative_embedding(reference_embeddings, reference_batch)
+
         self.ref_features = self.masked_feature_extractor(
             reference_embeddings,
             reference_batch.masks,
@@ -205,6 +221,10 @@ class PerDino(Model):
             self.ref_features.category_ids,
             original_sizes,
         )
+
+        # Penalize target regions similar to negative reference (if any)
+        if self._negative_embedding is not None:
+            similarities = self._adjust_similarities(similarities, target_embeddings)
 
         # Decode masks
         predictions = self.segmenter(

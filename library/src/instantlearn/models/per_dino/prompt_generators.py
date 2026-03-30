@@ -268,7 +268,7 @@ class GridPromptGenerator(nn.Module):
         background_points = self._get_background_points(similarity_map)
         if background_points.numel() > 0:
             background_points = self._convert_points_to_original_size(background_points, map_shape, original_size)
-            background_labels = -torch.ones((background_points.shape[0], 1), device=device)
+            background_labels = torch.zeros((background_points.shape[0], 1), device=device)
             background_points = torch.cat([background_points, background_labels], dim=1)
         else:
             background_points = torch.empty(0, 4, device=device)

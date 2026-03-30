@@ -329,3 +329,67 @@ class TestSample:
         assert sample.points[0, 1] == 60  # y1
         assert sample.points[1, 0] == 100  # x2
         assert sample.points[1, 1] == 150  # y2
+
+    def test_has_background_true(self) -> None:
+        """Test has_background returns True when background category is present."""
+        from instantlearn.data.base.sample import BACKGROUND_CATEGORY_ID
+
+        sample = Sample(
+            image=_rng.integers(0, 255, (64, 64, 3), dtype=np.uint8),
+            masks=_rng.integers(0, 2, (2, 64, 64), dtype=np.uint8),
+            categories=["shoe", "background"],
+            category_ids=np.array([1, BACKGROUND_CATEGORY_ID]),
+        )
+        assert sample.has_background() is True
+
+    def test_has_background_false(self) -> None:
+        """Test has_background returns False when no background category."""
+        sample = Sample(
+            image=_rng.integers(0, 255, (64, 64, 3), dtype=np.uint8),
+            masks=_rng.integers(0, 2, (1, 64, 64), dtype=np.uint8),
+            categories=["shoe"],
+            category_ids=np.array([1]),
+        )
+        assert sample.has_background() is False
+
+    def test_has_background_no_category_ids(self) -> None:
+        """Test has_background returns False when category_ids is None."""
+        sample = Sample(image=_rng.integers(0, 255, (64, 64, 3), dtype=np.uint8))
+        sample.category_ids = None
+        assert sample.has_background() is False
+
+    def test_split_foreground_background(self) -> None:
+        """Test splitting a sample into foreground and background parts."""
+        from instantlearn.data.base.sample import BACKGROUND_CATEGORY_ID
+
+        image = _rng.integers(0, 255, (64, 64, 3), dtype=np.uint8)
+        masks = _rng.integers(0, 2, (3, 64, 64), dtype=np.uint8)
+        sample = Sample(
+            image=image,
+            masks=masks,
+            categories=["shoe", "background", "bag"],
+            category_ids=np.array([1, BACKGROUND_CATEGORY_ID, 2]),
+            is_reference=[True, True, True],
+            n_shot=[1, 1, 1],
+        )
+
+        fg, bg = sample.split_foreground_background()
+
+        assert fg is not None
+        assert bg is not None
+        assert fg.categories == ["shoe", "bag"]
+        assert len(fg.masks) == 2
+        assert bg.categories == ["background"]
+        assert len(bg.masks) == 1
+
+    def test_split_foreground_only(self) -> None:
+        """Test split when there is no background."""
+        sample = Sample(
+            image=_rng.integers(0, 255, (64, 64, 3), dtype=np.uint8),
+            masks=_rng.integers(0, 2, (1, 64, 64), dtype=np.uint8),
+            categories=["shoe"],
+            category_ids=np.array([1]),
+        )
+        fg, bg = sample.split_foreground_background()
+        assert fg is not None
+        assert bg is None

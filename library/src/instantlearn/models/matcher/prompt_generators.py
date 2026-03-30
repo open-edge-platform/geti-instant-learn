@@ -320,7 +320,7 @@ class BidirectionalPromptGenerator(nn.Module):
         # Process background points
         background_points = self._extract_point_coordinates([None, background_indices], background_scores)
         background_points = self._convert_to_image_coords(background_points, original_size)
-        background_labels = -background_points.new_ones((background_points.size(0), 1))
+        background_labels = background_points.new_zeros((background_points.size(0), 1))
         background_points = torch.cat([background_points, background_labels], dim=1)
         points = torch.cat([foreground_points, background_points])
 

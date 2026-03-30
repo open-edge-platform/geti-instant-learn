@@ -10,6 +10,7 @@ from torch import nn
 from torchvision import transforms
 
 from instantlearn.components.feature_extractors.reference_features import ReferenceFeatures
+from instantlearn.data.base.sample import BACKGROUND_CATEGORY_ID
 from instantlearn.data.transforms import ToTensor
 
 
@@ -85,6 +86,8 @@ class MaskedFeatureExtractor(nn.Module):
         ):
             for category_id, mask in zip(category_ids_tensor, masks_tensor, strict=True):
                 cat_id = int(category_id.item()) if isinstance(category_id, torch.Tensor) else category_id
+                if cat_id == BACKGROUND_CATEGORY_ID:
+                    continue  # Skip background / negative masks
                 pooled_mask = self.transform(mask).to(embedding.device)
                 masks_per_cat[cat_id].append(pooled_mask)
 

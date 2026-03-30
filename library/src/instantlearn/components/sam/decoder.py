@@ -82,27 +82,32 @@ class SamDecoder(nn.Module):
     def _preprocess_points(self, points: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:  # noqa: PLR6301
         """Preprocess points for SAM predictor.
 
+        Points are separated into foreground (label=1) and background (label=0)
+        groups. Each foreground point is paired with all background points.
+
+        Label convention (matches SAM native labels):
+            - 1  = foreground
+            - 0  = background / negative
+            - padding rows have all-zero entries and are filtered out
+
         Args:
             points: Points tensor [max_points, 4] with (x, y, score, label)
 
         Returns:
             Tuple of (point_coords, point_labels, original_points)
         """
-        valid_points = points[points[:, 3] != 0]
+        # Filter all-zero padding rows (not just label=0, which is valid background)
+        valid_points = points[points.abs().sum(dim=-1) > 0]
 
-        # Check if there are any foreground points (label == 1)
+        # Foreground (label == 1) and background (label == 0) masks
         fg_mask = valid_points[:, 3] == 1
+        bg_mask = valid_points[:, 3] == 0
 
-        # Transform coordinates
         coords = valid_points[:, :2]
-
-        # Separate foreground and background
-        bg_mask = valid_points[:, 3] == -1
 
         fg_coords = coords[fg_mask]
         bg_coords = coords[bg_mask]
 
-        # Keep original points for output (contains x, y, score, label)
         fg_original = valid_points[fg_mask]
         bg_original = valid_points[bg_mask]
 
@@ -115,13 +120,12 @@ class SamDecoder(nn.Module):
         # Combine: [fg_point, bg_points...]
         point_coords = torch.cat([fg_coords.unsqueeze(1), bg_coords_expanded], dim=1)
 
-        # Labels: 1 for fg, -1 for bg
+        # Labels: 1 for fg, 0 for bg (SAM convention)
         fg_labels = torch.ones(num_fg, 1, device=points.device, dtype=torch.float32)
-        bg_labels = -torch.ones(num_fg, num_bg, device=points.device, dtype=torch.float32)
+        bg_labels = torch.zeros(num_fg, num_bg, device=points.device, dtype=torch.float32)
         point_labels = torch.cat([fg_labels, bg_labels], dim=1)
 
-        # Combine original points: all foreground + all background
-        original_points = torch.cat([fg_original, bg_original], dim=0)  # [num_fg + num_bg, 4]
+        original_points = torch.cat([fg_original, bg_original], dim=0)
 
         return point_coords, point_labels, original_points
 
