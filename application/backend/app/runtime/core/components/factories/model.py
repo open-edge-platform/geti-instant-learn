@@ -7,6 +7,7 @@ from instantlearn.models.per_dino import PerDino
 from instantlearn.models.soft_matcher import SoftMatcher
 
 from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, SoftMatcherConfig
+from domain.services.schemas.project import Device
 from runtime.core.components.base import ModelHandler
 from runtime.core.components.models.openvino_model import OpenVINOModelHandler
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
@@ -14,24 +15,67 @@ from runtime.core.components.models.torch_model import TorchModelHandler
 from settings import get_settings
 
 
+class DeviceResolver:
+    def _has_intel_gpu(self) -> bool:
+        """Check whether an Intel GPU backend is available via PyTorch XPU."""
+        try:
+            import torch
+
+            return torch.xpu.is_available()
+        except (ImportError, AttributeError, RuntimeError):
+            return False
+
+    def _has_nvidia_gpu(self) -> bool:
+        """Check whether a CUDA-capable NVIDIA GPU is available."""
+        try:
+            import torch
+
+            return torch.cuda.is_available()
+        except (ImportError, AttributeError, RuntimeError):
+            return False
+
+    def resolve_device(self, configured_device: Device | None) -> Device:
+        """Resolve `auto` device selection to a concrete backend.
+
+        Selection priority for `auto`: Intel GPU (xpu), NVIDIA GPU (cuda), then CPU.
+        """
+        if configured_device is not None and configured_device != Device.AUTO:
+            return configured_device
+
+        if self._has_intel_gpu():
+            return Device.XPU
+        if self._has_nvidia_gpu():
+            return Device.CUDA
+        return Device.CPU
+
+
 class ModelFactory:
-    @classmethod
-    def create(cls, reference_batch: Batch | None, config: ModelConfig | None) -> ModelHandler:  # noqa: PLR0911
+    def __init__(self, device_resolver: DeviceResolver | None = None) -> None:
+        self._device_resolver = device_resolver or DeviceResolver()
+
+    def create(  # noqa: PLR0911
+        self,
+        reference_batch: Batch | None,
+        config: ModelConfig | None,
+        configured_device: Device | None = None,
+    ) -> ModelHandler:
         if reference_batch is None:
             return PassThroughModelHandler()
         settings = get_settings()
-
-        is_cuda = settings.device == "cuda"
-
         if not settings.processor_inference_enabled:
             return PassThroughModelHandler()
+        if config is None:
+            return PassThroughModelHandler()
+
+        selected_device = self._device_resolver.resolve_device(configured_device)
+
         match config:
             case MatcherConfig() as config:
                 # if the model is converted to the OV format, the precision should be strictly fp32
                 # as a suggestion we can handle conversion at the higher level factory,
                 # as it knows if the model should be converted or not and can override the configuration
                 # of the model
-                precision = config.precision if is_cuda else "fp32"
+                precision = config.precision if not settings.processor_openvino_enabled else "fp32"
                 model = Matcher(
                     sam=config.sam_model,
                     encoder_model=config.encoder_model,
@@ -39,13 +83,12 @@ class ModelFactory:
                     num_background_points=config.num_background_points,
                     confidence_threshold=config.confidence_threshold,
                     use_mask_refinement=config.use_mask_refinement,
-                    use_nms=config.use_nms,
                     precision=precision,
-                    device=settings.device,
+                    device=selected_device,
                 )
-                if is_cuda:
-                    return TorchModelHandler(model, reference_batch)
-                return OpenVINOModelHandler(model, reference_batch, precision=precision)
+                if settings.processor_openvino_enabled:
+                    return OpenVINOModelHandler(model, reference_batch, precision=precision)
+                return TorchModelHandler(model, reference_batch)
             case PerDinoConfig() as config:
                 model = PerDino(
                     sam=config.sam_model,
@@ -55,9 +98,8 @@ class ModelFactory:
                     num_grid_cells=config.num_grid_cells,
                     point_selection_threshold=config.point_selection_threshold,
                     confidence_threshold=config.confidence_threshold,
-                    use_nms=config.use_nms,
                     precision=config.precision,
-                    device=settings.device,
+                    device=selected_device,
                 )
                 return TorchModelHandler(model, reference_batch)
             case SoftMatcherConfig() as config:
@@ -72,9 +114,8 @@ class ModelFactory:
                     approximate_matching=config.approximate_matching,
                     softmatching_score_threshold=config.softmatching_score_threshold,
                     softmatching_bidirectional=config.softmatching_bidirectional,
-                    use_nms=config.use_nms,
                     precision=config.precision,
-                    device=settings.device,
+                    device=selected_device,
                 )
                 return TorchModelHandler(model, reference_batch)
             case _:

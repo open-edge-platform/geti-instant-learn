@@ -18,11 +18,23 @@ from starlette.responses import Response
 
 import api.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
 from api.error_handler import custom_exception_handler
-from api.routers import projects_router, source_types_router, webrtc_router
+from api.routers import (
+    license_router,
+    projects_router,
+    source_types_router,
+    supported_models_router,
+    system_router,
+    webrtc_router,
+)
+from dependencies import LicenseServiceDep
 from domain.db.engine import get_session_factory, run_db_migrations
 from domain.dispatcher import ConfigChangeDispatcher
-from domain.services.schemas.health import HealthCheckSchema
+from domain.services.schemas.base import Pagination
+from domain.services.schemas.dataset import DatasetsListSchema
+from domain.services.schemas.health import HealthCheckSchema, HealthStatus
+from runtime.errors import DatasetNotFoundError
 from runtime.pipeline_manager import PipelineManager
+from runtime.services.dataset_discovery import scan_datasets
 from runtime.webrtc.manager import WebRTCManager
 from runtime.webrtc.sdp_handler import SDPHandler
 from settings import get_settings
@@ -61,6 +73,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         pipeline_manager=app.state.pipeline_manager, sdp_handler=app.state.sdp_handler
     )
 
+    # Dataset cache is startup-static by design and refreshed only on app restart.
+    datasets = DatasetsListSchema(
+        datasets=[],
+        pagination=Pagination(count=0, total=0, offset=0, limit=0),
+    )
+    dataset_paths: dict = {}
+    try:
+        datasets, dataset_paths = scan_datasets(settings.template_dataset_dir)
+    except DatasetNotFoundError as e:
+        logger.error("Dataset discovery failed during startup: %s", str(e))
+
+    app.state.available_datasets = datasets
+    app.state.dataset_paths = dataset_paths
+
+    if dataset_paths:
+        dataset_lines = "\n".join(
+            f"- {dataset.name}: {dataset.id} -> {dataset_paths[dataset.id]}" for dataset in datasets.datasets
+        )
+        logger.debug("Dataset cache entries:\n%s", dataset_lines)
+    logger.info("Cached %d dataset(s) during startup", len(dataset_paths))
+
     logger.info("Application startup completed")
     yield
 
@@ -87,14 +120,18 @@ fastapi_app.add_exception_handler(RequestValidationError, custom_exception_handl
 
 
 @fastapi_app.get(path="/health", tags=["Health"])
-async def health_check() -> HealthCheckSchema:
+def health_check(license_service: LicenseServiceDep) -> HealthCheckSchema:
     """Health check endpoint"""
-    return HealthCheckSchema(status="ok")
+    return HealthCheckSchema(status=HealthStatus.OK, license_accepted=license_service.is_accepted())
 
 
 fastapi_app.include_router(projects_router, prefix="/api/v1")
 fastapi_app.include_router(source_types_router, prefix="/api/v1")
 fastapi_app.include_router(webrtc_router, prefix="/api/v1")
+fastapi_app.include_router(license_router, prefix="/api/v1")
+fastapi_app.include_router(system_router, prefix="/api/v1")
+fastapi_app.include_router(supported_models_router, prefix="/api/v1")
+
 
 if (
     settings.static_files_dir

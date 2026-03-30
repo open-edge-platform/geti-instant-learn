@@ -83,18 +83,27 @@ class MaskedFeatureExtractor(nn.Module):
             category_ids,
             strict=True,
         ):
+            # Merge same-category masks within this image to avoid
+            # duplicating the image embedding (which breaks bidirectional
+            # matching in downstream prompt generators).
+            per_image_cat_masks: dict[int, torch.Tensor] = {}
             for category_id, mask in zip(category_ids_tensor, masks_tensor, strict=True):
-                if isinstance(category_id, torch.Tensor):
-                    category_id = int(category_id.item())
-                pooled_mask = self.transform(mask).to(embedding.device)
-                masks_per_cat[category_id].append(pooled_mask)
+                cat_id = int(category_id.item()) if isinstance(category_id, torch.Tensor) else category_id
+                if cat_id in per_image_cat_masks:
+                    per_image_cat_masks[cat_id] = torch.maximum(per_image_cat_masks[cat_id], mask)
+                else:
+                    per_image_cat_masks[cat_id] = mask
+
+            for cat_id, merged_mask in per_image_cat_masks.items():
+                pooled_mask = self.transform(merged_mask).to(embedding.device)
+                masks_per_cat[cat_id].append(pooled_mask)
 
                 # Extract masked embeddings
                 keep = pooled_mask.flatten().bool()
-                masked_embeddings_per_cat[category_id].append(embedding[keep])
+                masked_embeddings_per_cat[cat_id].append(embedding[keep])
 
                 # Store full embedding for this reference
-                ref_embeddings_per_cat[category_id].append(embedding)
+                ref_embeddings_per_cat[cat_id].append(embedding)
 
         # Get unique categories in sorted order for deterministic output
         unique_cats = sorted(masked_embeddings_per_cat.keys())
@@ -114,7 +123,15 @@ class MaskedFeatureExtractor(nn.Module):
                 averaged_embed = cat_masked_embeds.mean(dim=0, keepdim=True)
                 averaged_embed /= averaged_embed.norm(dim=-1, keepdim=True)
             else:
-                averaged_embed = cat_masked_embeds  # Empty tensor
+                # No mask pixels overlapped any encoder patches (mask too small
+                # or misaligned at patch-grid resolution). Return an empty tensor
+                # so the shape reflects zero masked embeddings.
+                averaged_embed = torch.zeros(
+                    0,
+                    cat_masked_embeds.shape[-1],
+                    device=cat_masked_embeds.device,
+                    dtype=cat_masked_embeds.dtype,
+                )
             masked_ref_embeddings_list.append(averaged_embed)
 
             # Get ref embeddings and masks for this category

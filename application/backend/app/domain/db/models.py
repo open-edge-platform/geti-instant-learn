@@ -170,6 +170,8 @@ class ProjectDB(Base):
     __tablename__ = "Project"
     name: Mapped[str] = mapped_column(nullable=False)
     active: Mapped[bool] = mapped_column(nullable=False, default=False)
+    device: Mapped[str] = mapped_column(nullable=False, default="auto")
+    prompt_mode: Mapped[str] = mapped_column(nullable=False, default="visual")
     sources: Mapped[list[SourceDB]] = relationship(
         back_populates="project", cascade="all, delete-orphan", passive_deletes=True
     )

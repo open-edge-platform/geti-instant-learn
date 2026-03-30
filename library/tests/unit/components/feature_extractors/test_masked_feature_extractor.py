@@ -251,7 +251,12 @@ class TestMaskedFeatureExtractor:
         pytest.assume(ref_features.masked_ref_embeddings.shape == (1, 1, embedding_dim))
 
     def test_forward_same_class_id_multiple_masks(self) -> None:
-        """Test MaskedFeatureExtractor with multiple masks for the same class."""
+        """Test that same-category masks on one image are OR-merged.
+
+        When multiple instance masks share a category on a single image,
+        they should be merged into one semantic mask. The image embedding
+        is stored once (not duplicated per instance mask).
+        """
         extractor = MaskedFeatureExtractor(
             input_size=224,
             patch_size=14,
@@ -273,10 +278,44 @@ class TestMaskedFeatureExtractor:
 
         ref_features = extractor(embeddings, masks, category_ids)
 
-        # Both masks have same category, so aggregated
+        # Both masks have same category — merged into one
         pytest.assume(ref_features.category_ids == [1])
         pytest.assume(ref_features.masked_ref_embeddings.shape == (1, 1, embedding_dim))
-        # flatten_ref_masks should have 2x patches (one per mask)
+        # Embedding stored once (no duplication)
+        pytest.assume(ref_features.ref_embeddings.shape == (1, total_patches, embedding_dim))
+        pytest.assume(ref_features.flatten_ref_masks.shape == (1, total_patches))
+        # Merged mask covers both regions
+        pytest.assume(ref_features.flatten_ref_masks[0].sum() > 0)
+
+    def test_forward_same_category_not_merged_across_images(self) -> None:
+        """Test that same-category masks on different images are NOT merged.
+
+        Cross-image embeddings represent different visual features and must
+        be concatenated, not collapsed.
+        """
+        extractor = MaskedFeatureExtractor(
+            input_size=224,
+            patch_size=14,
+            device="cpu",
+        )
+
+        batch_size = 2
+        patches_per_dim = 16
+        total_patches = patches_per_dim * patches_per_dim
+        embedding_dim = 768
+        mask_height, mask_width = 224, 224
+
+        embeddings = torch.randn(batch_size, total_patches, embedding_dim)
+        masks = torch.zeros(batch_size, 1, mask_height, mask_width, dtype=torch.bool)
+        masks[0, 0, 50:100, 50:100] = True
+        masks[1, 0, 50:100, 50:100] = True
+        category_ids = torch.tensor([[1], [1]], dtype=torch.long)
+
+        ref_features = extractor(embeddings, masks, category_ids)
+
+        pytest.assume(ref_features.category_ids == [1])
+        # Two images → two embeddings concatenated (not merged)
+        pytest.assume(ref_features.ref_embeddings.shape == (1, total_patches * 2, embedding_dim))
         pytest.assume(ref_features.flatten_ref_masks.shape == (1, total_patches * 2))
 
     def test_forward_masked_embeddings_normalized(self) -> None:

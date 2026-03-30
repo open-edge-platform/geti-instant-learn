@@ -37,6 +37,7 @@ class DefaultComponentFactory(ComponentFactory):
         session_factory: sessionmaker[Session],
     ) -> None:
         self._session_factory = session_factory
+        self._model_factory = ModelFactory()
 
     def create_source(self, project_id: UUID) -> Source:
         with self._session_factory() as session:
@@ -51,7 +52,11 @@ class DefaultComponentFactory(ComponentFactory):
         logger.info("Creating processor with model config: %s", cfg.processor)
         settings = get_settings()
         return Processor(
-            model_handler=ModelFactory.create(reference_batch, cfg.processor),
+            model_handler=self._model_factory.create(
+                reference_batch=reference_batch,
+                config=cfg.processor,
+                configured_device=cfg.device,
+            ),
             batch_size=settings.processor_batch_size,
             frame_skip_interval=settings.processor_frame_skip_interval,
             frame_skip_amount=settings.processor_frame_skip_amount,

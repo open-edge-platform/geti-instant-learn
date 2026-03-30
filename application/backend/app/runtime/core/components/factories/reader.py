@@ -37,7 +37,7 @@ class StreamReaderFactory:
             case SampleDatasetConfig() as config:
                 template_config = ImagesFolderConfig(
                     source_type=SourceType.IMAGES_FOLDER,
-                    images_folder_path=str(settings.template_dataset_dir),
+                    images_folder_path=str(settings.template_dataset_dir / "coffee-berries"),
                     seekable=config.seekable,
                 )
                 return ImageFolderReader(template_config, supported_extensions=settings.supported_extensions)
