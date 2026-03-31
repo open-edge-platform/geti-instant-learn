@@ -39,6 +39,7 @@ from domain.services.schemas.project import (
     ProjectSchema,
     ProjectsListSchema,
     ProjectUpdateSchema,
+    PromptMode,
 )
 from domain.services.schemas.reader import ReaderConfig
 from domain.services.schemas.writer import WriterConfig
@@ -280,6 +281,7 @@ class ProjectService(BaseService):
         return PipelineConfig(
             project_id=project.id,
             device=project_device,
+            prompt_mode=PromptMode(project.prompt_mode),
             reader=reader_cfg,
             processor=processor_cfg,
             writer=writer_cfg,
