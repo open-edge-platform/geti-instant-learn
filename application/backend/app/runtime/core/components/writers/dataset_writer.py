@@ -18,11 +18,19 @@ class DatasetWriter(StreamWriter):
         self._buffered_frame_count: int = 0
         self._chunk_index: int = 0
         self._chunk_size: int | None = config.export_chunk_size
-        self._export_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="dataset-export")  #TODO: consider making this configurable so multiple chunks can export in parallel when disk I/O is slow.
+
+        # TODO: Consider making this configurable so multiple chunks can
+        # export in parallel when disk I/O is slow.
+        self._export_executor = ThreadPoolExecutor(
+            max_workers=1,
+            thread_name_prefix="dataset-export",
+        )
         self._export_futures: list[Future[None]] = []
 
-        if self._chunk_size is not None and not self._config.dataset_format:
-            raise ValueError("dataset_format must be set when export_chunk_size is configured")
+        if self._config.dataset_format is None:
+            raise ValueError("dataset_format must be set")
+        if self._config.output_dir is None:
+            raise ValueError("output_dir must be set")
         self._dataset = Dataset()
         logger.info("DatasetWriter ready. Dataset format: %s, Output dir: %s", self._config.dataset_format, self._config.output_dir)
 
@@ -87,11 +95,11 @@ class DatasetWriter(StreamWriter):
 
         Handles Detection, Segmentation, and Point predictions based on the presence of keys:
 
-            pred_masks  (Tensor): Segmentation masks, shape [N, H, W].
-            pred_points (Tensor): Point predictions, shape [N, 4] as [x, y, score, fg_label].
-            pred_boxes  (Tensor): Bounding boxes, shape [N, 5] as [x1, y1, x2, y2, score].
-            pred_labels (Tensor): Class indices, shape [N].
-            pred_scores (Tensor): Confidence scores, shape [N].
+            pred_masks  : Segmentation masks, shape [N, H, W].
+            pred_points : Point predictions, shape [N, 4] as [x, y, score, fg_label].
+            pred_boxes  : Bounding boxes, shape [N, 5] as [x1, y1, x2, y2, score].
+            pred_labels : Class indices, shape [N].
+            pred_scores : Confidence scores, shape [N].
 
         Args:
             data: OutputData containing frame and model predictions.
@@ -103,7 +111,6 @@ class DatasetWriter(StreamWriter):
 
         if self._config.max_frames is not None and self._frame_count >= self._config.max_frames:
             return
-
         if not data.results:
             raise ValueError("OutputData.results is empty")
 
@@ -112,14 +119,11 @@ class DatasetWriter(StreamWriter):
             if pred_labels is None:
                 raise ValueError("OutputData result is missing 'pred_labels'")
             annotations = []
-            
             # Determine number of instances from pred_labels
-            num_instances = len(pred_labels) 
-            
+            num_instances = len(pred_labels)
             # Process each instance
             for i in range(num_instances):
-                label_id = int(pred_labels[i]) 
-                
+                label_id = int(pred_labels[i])
                 # Add mask if available
                 if "pred_masks" in result:
                     mask = result["pred_masks"][i]
@@ -130,7 +134,6 @@ class DatasetWriter(StreamWriter):
                             attributes={"score": float(result["pred_scores"][i])} if "pred_scores" in result else None,
                         )
                     )
-                   
                 # Add bbox if available
                 if "pred_boxes" in result:
                     x1, y1, x2, y2, score = result["pred_boxes"][i].tolist()
@@ -142,7 +145,6 @@ class DatasetWriter(StreamWriter):
                             attributes={"score": score},
                         )
                     )
-                
                 # Add points if available
                 if "pred_points" in result:
                     x, y, score, fg_label = result["pred_points"][i].tolist()
@@ -154,9 +156,7 @@ class DatasetWriter(StreamWriter):
                         )
                     )
 
-
             item_id = f"frame_{self._frame_count:06d}"
-
             attributes = {}
             if self._config.frame_trace and data.trace:
                 attributes["trace_id"] = data.trace.frame_id
@@ -170,13 +170,13 @@ class DatasetWriter(StreamWriter):
                 attributes=attributes or None,
             )
             self._dataset.put(item)
-            self._frame_count += 1
-            self._buffered_frame_count += 1
             logger.debug(
                 "Frame %d buffered. Objects: %d",
                 self._frame_count,
                 num_instances,
             )
+            self._frame_count += 1
+            self._buffered_frame_count += 1
             self._flush_chunk_if_needed()
 
     def _export(
