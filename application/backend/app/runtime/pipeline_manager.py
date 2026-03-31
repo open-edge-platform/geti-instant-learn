@@ -25,7 +25,8 @@ from domain.services.project import ProjectService
 from domain.services.schemas.label import VisualizationInfo
 from domain.services.schemas.mappers.prompt import visual_prompt_to_sample
 from domain.services.schemas.pipeline import PipelineConfig
-from domain.services.schemas.processor import InputData, OutputData
+from domain.services.schemas.processor import InputData, OutputData, Sam3Config
+from domain.services.schemas.project import PromptMode
 from domain.services.schemas.reader import FrameListResponse
 from runtime.components import ComponentFactory, DefaultComponentFactory
 from runtime.core.components.broadcaster import FrameBroadcaster, FrameSlot
@@ -159,6 +160,21 @@ class PipelineManager:
                         self._refresh_visualization_info(e.project_id)
                     logger.info("Pipeline components updated for project %s", e.project_id)
 
+    def _build_reference_batch(self, project_id: UUID) -> tuple[Batch, dict[int, str]] | None:
+        """Build the appropriate reference batch based on project config."""
+        with self._session_factory() as session:
+            svc = ProjectService(session=session)
+            cfg = svc.get_pipeline_config(project_id)
+
+        # TODO For SAM3 with text prompt_mode, build a text-only batch - issue #758 enabling text prompts
+        if isinstance(cfg.processor, Sam3Config) and cfg.prompt_mode == PromptMode.TEXT:
+            logger.warning("Text prompts are not supported yet for SAM3: project_id=%s", project_id)
+            return None
+        #     return self.get_text_reference_batch(project_id)
+
+        # all other models (and SAM3 with visual prompts) use visual batch
+        return self.get_reference_batch(project_id, PromptType.VISUAL)
+
     def _create_pipeline(self, project_id: UUID) -> Pipeline:
         """
         Create a new Pipeline instance with components built from the given configuration.
@@ -170,7 +186,7 @@ class PipelineManager:
             A fully initialized Pipeline instance (not yet started).
         """
         source = self._component_factory.create_source(project_id)
-        reference_batch, category_id_to_label_id = self.get_reference_batch(project_id, PromptType.VISUAL) or (None, {})
+        reference_batch, category_id_to_label_id = self._build_reference_batch(project_id) or (None, {})
         processor = self._component_factory.create_processor(project_id, reference_batch)
         sink = self._component_factory.create_sink(project_id)
 

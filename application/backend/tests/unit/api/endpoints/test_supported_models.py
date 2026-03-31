@@ -11,6 +11,7 @@ from domain.services.schemas.processor import (
     MatcherConfig,
     ModelType,
     PerDinoConfig,
+    Sam3Config,
     SoftMatcherConfig,
     SupportedModelsListSchema,
     SupportedPromptType,
@@ -167,41 +168,41 @@ class TestSoftMatcherModel:
         assert soft_matcher["default_config"]["encoder_model"] == expected.encoder_model
 
 
-# class TestSam3Model:
-#     """Verify SAM3 model metadata."""
-#
-#     def _get_sam3(self, client):
-#         response = client.get("/api/v1/system/supported-models")
-#         models = response.json()["models"]
-#         return next(m for m in models if m["default_config"]["model_type"] == ModelType.SAM3)
-#
-#     def test_sam3_prompt_types(self, client):
-#         sam3 = self._get_sam3(client)
-#
-#         assert set(sam3["supported_prompt_types"]) == {
-#             SupportedPromptType.TEXT,
-#             SupportedPromptType.VISUAL_RECTANGLE,
-#         }
-#
-#     def test_sam3_does_not_support_visual_polygon(self, client):
-#         sam3 = self._get_sam3(client)
-#
-#         assert SupportedPromptType.VISUAL_POLYGON not in sam3["supported_prompt_types"]
-#
-#     def test_sam3_default_config_matches_class_defaults(self, client):
-#         sam3 = self._get_sam3(client)
-#         expected = Sam3Config()
-#
-#         assert sam3["default_config"]["confidence_threshold"] == expected.confidence_threshold
-#         assert sam3["default_config"]["resolution"] == expected.resolution
-#         assert sam3["default_config"]["precision"] == expected.precision
-#
-#     def test_sam3_has_no_sam_or_encoder_fields(self, client):
-#         """SAM3 uses its own base — it has no sam_model / encoder_model fields."""
-#         sam3 = self._get_sam3(client)
-#
-#         assert "sam_model" not in sam3["default_config"]
-#         assert "encoder_model" not in sam3["default_config"]
+class TestSam3Model:
+    """Verify SAM3 model metadata."""
+
+    def _get_sam3(self, client):
+        response = client.get("/api/v1/system/supported-models")
+        models = response.json()["models"]
+        return next(m for m in models if m["default_config"]["model_type"] == ModelType.SAM3)
+
+    def test_sam3_prompt_types(self, client):
+        sam3 = self._get_sam3(client)
+
+        assert set(sam3["supported_prompt_types"]) == {
+            SupportedPromptType.TEXT,
+            SupportedPromptType.VISUAL_RECTANGLE,
+        }
+
+    def test_sam3_does_not_support_visual_polygon(self, client):
+        sam3 = self._get_sam3(client)
+
+        assert SupportedPromptType.VISUAL_POLYGON not in sam3["supported_prompt_types"]
+
+    def test_sam3_default_config_matches_class_defaults(self, client):
+        sam3 = self._get_sam3(client)
+        expected = Sam3Config()
+
+        assert sam3["default_config"]["confidence_threshold"] == expected.confidence_threshold
+        assert sam3["default_config"]["resolution"] == expected.resolution
+        assert sam3["default_config"]["precision"] == expected.precision
+
+    def test_sam3_has_no_sam_or_encoder_fields(self, client):
+        """SAM3 uses its own base — it has no sam_model / encoder_model fields."""
+        sam3 = self._get_sam3(client)
+
+        assert "sam_model" not in sam3["default_config"]
+        assert "encoder_model" not in sam3["default_config"]
 
 
 class TestPromptTypeCoverage:
@@ -218,25 +219,25 @@ class TestPromptTypeCoverage:
         }
         assert polygon_models == {ModelType.MATCHER, ModelType.PERDINO, ModelType.SOFT_MATCHER}
 
-    # def test_text_prompt_models(self, client):
-    #     response = client.get("/api/v1/system/supported-models")
-    #     models = response.json()["models"]
-    #
-    #     text_models = {
-    #         m["default_config"]["model_type"] for m in models if SupportedPromptType.TEXT in m["supported_prompt_types"]
-    #     }
-    #     assert text_models == {ModelType.SAM3}
+    def test_text_prompt_models(self, client):
+        response = client.get("/api/v1/system/supported-models")
+        models = response.json()["models"]
 
-    # def test_visual_rectangle_models(self, client):
-    #     response = client.get("/api/v1/system/supported-models")
-    #     models = response.json()["models"]
-    #
-    #     rect_models = {
-    #         m["default_config"]["model_type"]
-    #         for m in models
-    #         if SupportedPromptType.VISUAL_RECTANGLE in m["supported_prompt_types"]
-    #     }
-    #     assert rect_models == {ModelType.SAM3}
+        text_models = {
+            m["default_config"]["model_type"] for m in models if SupportedPromptType.TEXT in m["supported_prompt_types"]
+        }
+        assert text_models == {ModelType.SAM3}
+
+    def test_visual_rectangle_models(self, client):
+        response = client.get("/api/v1/system/supported-models")
+        models = response.json()["models"]
+
+        rect_models = {
+            m["default_config"]["model_type"]
+            for m in models
+            if SupportedPromptType.VISUAL_RECTANGLE in m["supported_prompt_types"]
+        }
+        assert rect_models == {ModelType.SAM3}
 
     def test_no_unknown_prompt_types(self, client):
         response = client.get("/api/v1/system/supported-models")
