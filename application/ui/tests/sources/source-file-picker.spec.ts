@@ -24,44 +24,24 @@ const openSourceTypePanel = async (page: Page, sourceType: 'Video file' | 'Image
 };
 
 test.describe('Source file picker fields', () => {
-    test.beforeEach(async ({ page, network: _network }) => {
-        await page.addInitScript(() => {
-            /* eslint-disable no-underscore-dangle */
-            const runtime = window as typeof window & {
-                __TAURI__?: {
-                    core: {
-                        invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
-                    };
-                };
-                __TAURI_INTERNALS__?: {
-                    invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
-                    transformCallback: () => number;
-                    unregisterCallback: () => void;
-                };
-            };
-
-            const invoke = async <T>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
-                if (cmd === 'get_public_api_url') {
-                    return '' as T;
-                }
-
+    test.beforeEach(async ({ page }) => {
+        await page.addInitScript((apiUrl: string) => {
+            const invoke = async (cmd: string, args?: Record<string, unknown>) => {
+                if (cmd === 'get_public_api_url') return apiUrl;
                 if (cmd === 'plugin:dialog|open') {
-                    const options = args?.options as { directory?: boolean } | undefined;
-
-                    return (options?.directory === true ? '/home/user/images' : '/home/user/video.mp4') as T;
+                    return (args?.options as { directory?: boolean })?.directory === true
+                        ? '/home/user/images'
+                        : '/home/user/video.mp4';
                 }
 
-                return null as T;
+                return null;
             };
 
-            runtime.__TAURI__ = { core: { invoke } };
-            runtime.__TAURI_INTERNALS__ = {
-                invoke,
-                transformCallback: () => 1,
-                unregisterCallback: () => undefined,
-            };
-            /* eslint-enable no-underscore-dangle */
-        });
+            Object.assign(window, {
+                __TAURI__: { core: { invoke } },
+                __TAURI_INTERNALS__: { invoke, transformCallback: () => 1, unregisterCallback: () => undefined },
+            });
+        }, process.env.PUBLIC_API_URL ?? '');
     });
 
     test('updates the video file path after selecting a file from the dialog', async ({ page }) => {

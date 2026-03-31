@@ -30,7 +30,7 @@
         "test:unit:ui": "vitest --ui --watch=true",
         "test:unit:coverage": "vitest --coverage",
         "test:unit:watch": "vitest --watch=true",
-        "test:component": "npx playwright test --config=playwright.config.ts",
+        "test:component": "NODE_OPTIONS='--no-webstorage' npx playwright test --config=playwright.config.ts",
         "tauri": "tauri"
     },
     "dependencies": {
