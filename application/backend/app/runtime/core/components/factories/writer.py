@@ -3,9 +3,10 @@
 
 import os
 
-from domain.services.schemas.writer import MqttConfig, WriterConfig
+from domain.services.schemas.writer import DatasetConfig, MqttConfig, WriterConfig
 from runtime.core.components.base import StreamWriter
 from runtime.core.components.writers.mqtt_writer import MqttWriter
+from runtime.core.components.writers.dataset_writer import DatasetWriter
 from runtime.core.components.writers.noop_writer import NoOpWriter
 
 
@@ -27,5 +28,7 @@ class StreamWriterFactory:
                     username=os.getenv("MQTT_USERNAME", "username"),
                     password=os.getenv("MQTT_PASSWORD", "password"),
                 )
+            case DatasetConfig() as config:
+                return DatasetWriter(config=config)
             case _:
                 return NoOpWriter()
