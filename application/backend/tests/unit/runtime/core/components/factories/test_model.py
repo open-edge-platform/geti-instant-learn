@@ -6,19 +6,37 @@ from unittest.mock import DEFAULT, MagicMock, patch
 import pytest
 from instantlearn.utils.constants import SAMModelName
 
+from domain.services.schemas.device import AvailableDeviceSchema
 from domain.services.schemas.processor import MatcherConfig, PerDinoConfig, SoftMatcherConfig
 from domain.services.schemas.project import Device
 from runtime.core.components.factories.model import DeviceResolver, ModelFactory
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
 
 
+def _device(backend: Device, device_id: str) -> AvailableDeviceSchema:
+    return AvailableDeviceSchema(backend=backend, device_id=device_id, name=device_id)
+
+
 class TestDeviceResolver:
     @pytest.mark.parametrize(
         ("available_devices", "expected_device"),
         [
-            ([Device.XPU, Device.CUDA, Device.CPU], "xpu"),
-            ([Device.CUDA, Device.CPU], "cuda"),
-            ([Device.CPU], "cpu"),
+            (
+                [
+                    _device(Device.XPU, "xpu:0"),
+                    _device(Device.CUDA, "cuda:0"),
+                    _device(Device.CPU, "cpu"),
+                ],
+                "xpu",
+            ),
+            (
+                [
+                    _device(Device.CUDA, "cuda:0"),
+                    _device(Device.CPU, "cpu"),
+                ],
+                "cuda",
+            ),
+            ([_device(Device.CPU, "cpu")], "cpu"),
         ],
     )
     def test_resolve_device_auto_priority(self, available_devices, expected_device):
@@ -33,9 +51,22 @@ class TestDeviceResolver:
     @pytest.mark.parametrize(
         ("available_devices", "expected_device"),
         [
-            ([Device.XPU, Device.CUDA, Device.CPU], "xpu"),
-            ([Device.CUDA, Device.CPU], "cuda"),
-            ([Device.CPU], "cpu"),
+            (
+                [
+                    _device(Device.XPU, "xpu:0"),
+                    _device(Device.CUDA, "cuda:0"),
+                    _device(Device.CPU, "cpu"),
+                ],
+                "xpu",
+            ),
+            (
+                [
+                    _device(Device.CUDA, "cuda:0"),
+                    _device(Device.CPU, "cpu"),
+                ],
+                "cuda",
+            ),
+            ([_device(Device.CPU, "cpu")], "cpu"),
         ],
     )
     def test_resolve_device_none_behaves_like_auto(self, available_devices, expected_device):

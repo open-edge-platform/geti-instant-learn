@@ -6,6 +6,7 @@ from instantlearn.models.matcher import Matcher
 from instantlearn.models.per_dino import PerDino
 from instantlearn.models.soft_matcher import SoftMatcher
 
+from domain.services.schemas.device import AvailableDeviceSchema
 from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, SoftMatcherConfig
 from domain.services.schemas.project import Device
 from runtime.core.components.base import ModelHandler
@@ -17,7 +18,7 @@ from settings import get_settings
 
 
 class DeviceResolver:
-    def __init__(self, available_devices: list[Device] | None = None) -> None:
+    def __init__(self, available_devices: list[AvailableDeviceSchema] | None = None) -> None:
         self._available_devices = available_devices
 
     def resolve_device(self, configured_device: Device | None) -> Device:
@@ -30,9 +31,9 @@ class DeviceResolver:
 
         available_devices = self._available_devices or list_available_devices()
 
-        if Device.XPU in available_devices:
+        if any(device.backend == Device.XPU for device in available_devices):
             return Device.XPU
-        if Device.CUDA in available_devices:
+        if any(device.backend == Device.CUDA for device in available_devices):
             return Device.CUDA
         return Device.CPU
 
@@ -41,7 +42,7 @@ class ModelFactory:
     def __init__(
         self,
         device_resolver: DeviceResolver | None = None,
-        available_devices: list[Device] | None = None,
+        available_devices: list[AvailableDeviceSchema] | None = None,
     ) -> None:
         self._device_resolver = device_resolver or DeviceResolver(available_devices=available_devices)
 
