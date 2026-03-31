@@ -36,8 +36,8 @@ class MqttConfig(BaseModel):
 class DatasetConfig(BaseModel):
     sink_type: Literal[WriterType.DATASET] = WriterType.DATASET
     name: str = "Dataset Writer"
-    output_dir: str = "/path/to/output/dataset"
-    dataset_format: str | None = None
+    output_dir: str 
+    dataset_format: str 
     max_frames: int | None = Field(default=None, ge=1)
     export_chunk_size: int | None = Field(default=None, ge=1)
     category_mapping: dict[int, str] | None = None
@@ -49,7 +49,7 @@ class DatasetConfig(BaseModel):
                 "sink_type": "dataset",
                 "name": "Dataset Writer",
                 "output_dir": "/path/to/output/dataset",
-                "dataset_format": None,
+                "dataset_format": "COCO",
                 "max_frames": None,
                 "export_chunk_size": None,
                 "category_mapping": None,
