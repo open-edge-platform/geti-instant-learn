@@ -6,7 +6,7 @@ from unittest.mock import DEFAULT, MagicMock, patch
 import pytest
 from instantlearn.utils.constants import SAMModelName
 
-from domain.services.schemas.processor import MatcherConfig, PerDinoConfig, SoftMatcherConfig
+from domain.services.schemas.processor import MatcherConfig, PerDinoConfig, Sam3Config, SoftMatcherConfig
 from runtime.core.components.factories.model import DeviceResolver, ModelFactory
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
 
@@ -265,6 +265,36 @@ class TestModelFactory:
                 softmatching_score_threshold=0.5,
                 softmatching_bidirectional=True,
                 precision="bf16",
+                device="cpu",
+            )
+            mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch)
+
+    def test_factory_creates_sam3_model_with_config(self, mock_reference_batch, mock_settings, model_factory):
+        config = Sam3Config(
+            confidence_threshold=0.5,
+            resolution=1008,
+            precision="fp32",
+        )
+
+        with patch.multiple(
+            "runtime.core.components.factories.model",
+            get_settings=DEFAULT,
+            SAM3=DEFAULT,
+            TorchModelHandler=DEFAULT,
+        ) as mocks:
+            mocks["get_settings"].return_value = mock_settings
+            mock_sam3 = mocks["SAM3"]
+            mock_handler = mocks["TorchModelHandler"]
+
+            mock_model_instance = MagicMock()
+            mock_sam3.return_value = mock_model_instance
+
+            model_factory.create(mock_reference_batch, config)
+
+            mock_sam3.assert_called_once_with(
+                confidence_threshold=0.5,
+                resolution=1008,
+                precision="fp32",
                 device="cpu",
             )
             mock_handler.assert_called_once_with(mock_model_instance, mock_reference_batch)

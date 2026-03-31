@@ -131,7 +131,10 @@ class SoftMatcherConfig(BaseModelConfig):
 
 
 class Sam3Config(BaseModel):
-    """Configuration for SAM3 visual or text-prompted segmentation model."""
+    """
+    Configuration for SAM3 visual or text-prompted segmentation model.
+    NOTE: Currently, SAM3 does not work well with torch.bfloat16 precision.
+    """
 
     model_type: Literal[ModelType.SAM3] = ModelType.SAM3
     confidence_threshold: float = Field(default=0.5, gt=0.0, lt=1.0)
@@ -150,7 +153,9 @@ class Sam3Config(BaseModel):
     }
 
 
-ModelConfig = Annotated[PerDinoConfig | MatcherConfig | SoftMatcherConfig, Field(discriminator="model_type")]
+ModelConfig = Annotated[
+    PerDinoConfig | MatcherConfig | SoftMatcherConfig | Sam3Config, Field(discriminator="model_type")
+]
 
 
 class SupportedPromptType(StrEnum):
