@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 class WriterType(StrEnum):
     MQTT = "mqtt"
+    DATASET = "dataset"
 
 
 class MqttConfig(BaseModel):
@@ -32,5 +33,29 @@ class MqttConfig(BaseModel):
         }
     }
 
+class DatasetConfig(BaseModel):
+    sink_type: Literal[WriterType.DATASET] = WriterType.DATASET
+    name: str = "Dataset Writer"
+    output_dir: str = "/path/to/output/dataset"
+    dataset_format: str | None = None
+    max_frames: int | None = Field(default=None, ge=1)
+    export_chunk_size: int | None = Field(default=None, ge=1)
+    category_mapping: dict[int, str] | None = None
+    frame_trace: bool = False
 
-WriterConfig = Annotated[MqttConfig, Field(discriminator="sink_type")]
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "sink_type": "dataset",
+                "name": "Dataset Writer",
+                "output_dir": "/path/to/output/dataset",
+                "dataset_format": None,
+                "max_frames": None,
+                "export_chunk_size": None,
+                "category_mapping": None,
+                "frame_trace": False
+            }
+        }
+    }
+
+WriterConfig = Annotated[MqttConfig | DatasetConfig, Field(discriminator="sink_type")]
