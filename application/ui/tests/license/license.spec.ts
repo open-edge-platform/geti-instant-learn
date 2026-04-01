@@ -18,7 +18,7 @@ test.describe('License agreement', () => {
                     license_accepted: licenseAccepted,
                 });
             }),
-            http.post('/api/v1/license/accept', ({ response }) => {
+            http.post('/api/v1/system/license/accept', ({ response }) => {
                 licenseAccepted = true;
 
                 return response(200).json({ accepted: true });
