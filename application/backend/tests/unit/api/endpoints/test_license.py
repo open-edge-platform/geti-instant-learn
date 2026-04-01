@@ -18,7 +18,7 @@ def mock_license_service():
 
 @pytest.fixture
 def app(mock_license_service):
-    """Create a test FastAPI app with the system license endpoint."""
+    """Create a test FastAPI app with the license endpoint."""
     app = FastAPI()
     app.add_exception_handler(Exception, custom_exception_handler)
 
