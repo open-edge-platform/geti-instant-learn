@@ -96,6 +96,54 @@ boxes = predictions[0]["pred_boxes"]
 labels = predictions[0]["pred_labels"]
 ```
 
+### Zero-Shot Segmentation with SAM3 OpenVINO
+
+SAM3OpenVINO provides text, box, point, and visual exemplar prompting using
+pre-exported OpenVINO IR models — no PyTorch required at inference time.
+
+```python
+from instantlearn.models import SAM3OpenVINO
+from instantlearn.models.sam3 import SAM3OVVariant
+from instantlearn.data import Sample
+
+# Auto-downloads FP16 model from HuggingFace (also supports INT8, INT4, FP32)
+model = SAM3OpenVINO(variant=SAM3OVVariant.FP16, device="CPU")
+
+# Text prompt — detect elephants
+predictions = model.predict([
+    Sample(image_path="examples/assets/coco/000000286874.jpg", categories=["elephant"]),
+])
+```
+
+<details>
+<summary><strong>Visual exemplar mode — fit once, predict on any image</strong></summary>
+
+```python
+from instantlearn.models.sam3 import Sam3PromptMode
+import numpy as np
+
+model_ve = SAM3OpenVINO(
+    variant=SAM3OVVariant.FP16,
+    prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR,
+    device="CPU",
+)
+
+ref = Sample(
+    image_path="examples/assets/coco/000000286874.jpg",
+    bboxes=np.array([[180, 105, 490, 370]]),
+    categories=["elephant"],
+    category_ids=[0],
+)
+model_ve.fit(ref)
+predictions = model_ve.predict([
+    Sample(image_path="examples/assets/coco/000000390341.jpg"),
+])
+```
+
+</details>
+
+See the full set of examples in [sam3_openvino_example.py](../examples/sam3_openvino_example.py).
+
 ## CLI Usage
 
 The library provides a command-line interface with three subcommands: `run`, `benchmark`, and `ui`.
