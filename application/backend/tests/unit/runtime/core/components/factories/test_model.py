@@ -22,7 +22,10 @@ class TestDeviceResolver:
     @pytest.mark.parametrize(
         ("available_devices", "expected_device"),
         [
-            ([_device(Device.XPU, "Intel GPU 0"), _device(Device.CUDA, "NVIDIA GPU 0"), _device(Device.CPU, "CPU")], "xpu"),
+            (
+                [_device(Device.XPU, "Intel GPU 0"), _device(Device.CUDA, "NVIDIA GPU 0"), _device(Device.CPU, "CPU")],
+                "xpu",
+            ),
             ([_device(Device.CUDA, "NVIDIA GPU 0"), _device(Device.CPU, "CPU")], "cuda"),
             ([_device(Device.CPU, "CPU")], "cpu"),
         ],
@@ -39,7 +42,10 @@ class TestDeviceResolver:
     @pytest.mark.parametrize(
         ("available_devices", "expected_device"),
         [
-            ([_device(Device.XPU, "Intel GPU 0"), _device(Device.CUDA, "NVIDIA GPU 0"), _device(Device.CPU, "CPU")], "xpu"),
+            (
+                [_device(Device.XPU, "Intel GPU 0"), _device(Device.CUDA, "NVIDIA GPU 0"), _device(Device.CPU, "CPU")],
+                "xpu",
+            ),
             ([_device(Device.CUDA, "NVIDIA GPU 0"), _device(Device.CPU, "CPU")], "cuda"),
             ([_device(Device.CPU, "CPU")], "cpu"),
         ],
