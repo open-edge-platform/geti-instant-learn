@@ -29,7 +29,10 @@ class DeviceResolver:
         if configured_device is not None and configured_device != Device.AUTO:
             return configured_device
 
-        available_devices = self._available_devices or list_available_devices()
+        if self._available_devices is None:
+            available_devices = list_available_devices()
+        else:
+            available_devices = self._available_devices
 
         if any(device.backend == Device.XPU for device in available_devices):
             return Device.XPU

@@ -6,13 +6,12 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from domain.services.schemas.device import AvailableDeviceSchema
 from domain.services.schemas.project import Device
 
-
-DEVICE_URL = uuid5(NAMESPACE_URL, "geti-instant-learn/device")
+DEVICE_NS = uuid5(NAMESPACE_URL, "device")
 
 
 def _build_device_id(backend: Device, name: str, index: int | None = None) -> UUID:
     """Build a deterministic UUID for a discovered runtime device."""
-    return uuid5(DEVICE_URL, f"{backend}/{index}/{name}")
+    return uuid5(DEVICE_NS, f"{backend}/{index}/{name}")
 
 
 def _list_xpu_devices() -> list[AvailableDeviceSchema]:
