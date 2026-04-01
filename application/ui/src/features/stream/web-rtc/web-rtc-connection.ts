@@ -10,22 +10,22 @@ export type WebRTCConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disc
 
 type WebRTCConnectionEvent =
     | {
-        type: 'status_change';
-        status: WebRTCConnectionStatus;
-    }
+          type: 'status_change';
+          status: WebRTCConnectionStatus;
+      }
     | {
-        type: 'error';
-        error: Error;
-    };
+          type: 'error';
+          error: Error;
+      };
 
 export type Listener = (event: WebRTCConnectionEvent) => void;
 
 type SessionData =
     | RTCSessionDescriptionInit
     | {
-        status: 'failed';
-        meta: { error: 'concurrency_limit_reached'; limit: number };
-    };
+          status: 'failed';
+          meta: { error: 'concurrency_limit_reached'; limit: number };
+      };
 
 const CONNECTION_TIMEOUT = 5000;
 const CLOSE_CONNECTION_DELAY = 500;
