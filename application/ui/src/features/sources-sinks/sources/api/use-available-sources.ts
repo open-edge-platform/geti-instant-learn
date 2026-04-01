@@ -6,7 +6,7 @@
 import { $api, SourceType } from '@/api';
 
 export const useAvailableSources = (sourceType: SourceType) => {
-    return $api.useSuspenseQuery('get', '/api/v1/source-types/{source_type}/sources', {
+    return $api.useSuspenseQuery('get', '/api/v1/system/source-types/{source_type}/sources', {
         params: {
             path: {
                 source_type: sourceType,
@@ -16,7 +16,7 @@ export const useAvailableSources = (sourceType: SourceType) => {
 };
 
 export const usePrefetchAvailableSources = (sourceType: SourceType) => {
-    return $api.useQuery('get', '/api/v1/source-types/{source_type}/sources', {
+    return $api.useQuery('get', '/api/v1/system/source-types/{source_type}/sources', {
         params: {
             path: {
                 source_type: sourceType,

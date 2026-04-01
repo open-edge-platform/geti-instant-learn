@@ -9,7 +9,7 @@ from uuid import UUID
 
 from fastapi import Depends, status
 
-from api.routers import projects_router, webrtc_router
+from api.routers import projects_router, system_router
 from dependencies import get_webrtc_manager
 from domain.services.schemas.webrtc import Answer, Offer, WebRTCConfigResponse, WebRTCIceServer
 from runtime.webrtc.manager import WebRTCManager
@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-@webrtc_router.get(
-    path="/config",
+@system_router.get(
+    path="/webrtc/config",
     tags=["WebRTC"],
     response_model=WebRTCConfigResponse,
 )
