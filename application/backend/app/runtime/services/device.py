@@ -1,38 +1,77 @@
 # Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from uuid import NAMESPACE_URL, UUID, uuid5
+
+from domain.services.schemas.device import AvailableDeviceSchema
 from domain.services.schemas.project import Device
 
 
-def has_intel_gpu() -> bool:
-    """Check whether an Intel GPU backend is available via PyTorch XPU."""
+DEVICE_URL = uuid5(NAMESPACE_URL, "geti-instant-learn/device")
+
+
+def _build_device_id(backend: Device, name: str, index: int | None = None) -> UUID:
+    """Build a deterministic UUID for a discovered runtime device."""
+    return uuid5(DEVICE_URL, f"{backend}/{index}/{name}")
+
+
+def _list_xpu_devices() -> list[AvailableDeviceSchema]:
+    """List all Intel XPU devices exposed by PyTorch."""
     try:
         import torch
 
-        return torch.xpu.is_available()
+        if not torch.xpu.is_available():
+            return []
+
+        devices: list[AvailableDeviceSchema] = []
+        for index in range(torch.xpu.device_count()):
+            name = torch.xpu.get_device_name(index)
+            devices.append(
+                AvailableDeviceSchema(
+                    id=_build_device_id(Device.XPU, name, index),
+                    backend=Device.XPU,
+                    name=name,
+                )
+            )
+        return devices
     except (ImportError, AttributeError, RuntimeError):
-        return False
+        return []
 
 
-def has_nvidia_gpu() -> bool:
-    """Check whether a CUDA-capable NVIDIA GPU is available."""
+def _list_cuda_devices() -> list[AvailableDeviceSchema]:
+    """List all CUDA devices exposed by PyTorch."""
     try:
         import torch
 
-        return torch.cuda.is_available()
+        if not torch.cuda.is_available():
+            return []
+
+        devices: list[AvailableDeviceSchema] = []
+        for index in range(torch.cuda.device_count()):
+            name = torch.cuda.get_device_name(index)
+            devices.append(
+                AvailableDeviceSchema(
+                    id=_build_device_id(Device.CUDA, name, index),
+                    backend=Device.CUDA,
+                    name=name,
+                )
+            )
+        return devices
     except (ImportError, AttributeError, RuntimeError):
-        return False
+        return []
 
 
-def list_available_devices() -> list[Device]:
+def list_available_devices() -> list[AvailableDeviceSchema]:
     """List all currently available runtime devices.
 
-    CPU is always available. Intel XPU and NVIDIA CUDA are added when detected.
+    CPU is always available. Intel XPU and NVIDIA CUDA devices are enumerated when detected.
     """
-    devices: list[Device] = []
-    if has_intel_gpu():
-        devices.append(Device.XPU)
-    if has_nvidia_gpu():
-        devices.append(Device.CUDA)
-    devices.append(Device.CPU)
-    return devices
+    return [
+        *_list_xpu_devices(),
+        *_list_cuda_devices(),
+        AvailableDeviceSchema(
+            id=_build_device_id(Device.CPU, "CPU"),
+            backend=Device.CPU,
+            name="CPU",
+        ),
+    ]

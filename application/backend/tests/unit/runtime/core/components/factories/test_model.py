@@ -2,23 +2,29 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 from unittest.mock import DEFAULT, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 from instantlearn.utils.constants import SAMModelName
 
+from domain.services.schemas.device import AvailableDeviceSchema
 from domain.services.schemas.processor import MatcherConfig, PerDinoConfig, SoftMatcherConfig
 from domain.services.schemas.project import Device
 from runtime.core.components.factories.model import DeviceResolver, ModelFactory
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
 
 
+def _device(backend: Device, name: str) -> AvailableDeviceSchema:
+    return AvailableDeviceSchema(id=uuid4(), backend=backend, name=name)
+
+
 class TestDeviceResolver:
     @pytest.mark.parametrize(
         ("available_devices", "expected_device"),
         [
-            ([Device.XPU, Device.CUDA, Device.CPU], "xpu"),
-            ([Device.CUDA, Device.CPU], "cuda"),
-            ([Device.CPU], "cpu"),
+            ([_device(Device.XPU, "Intel GPU 0"), _device(Device.CUDA, "NVIDIA GPU 0"), _device(Device.CPU, "CPU")], "xpu"),
+            ([_device(Device.CUDA, "NVIDIA GPU 0"), _device(Device.CPU, "CPU")], "cuda"),
+            ([_device(Device.CPU, "CPU")], "cpu"),
         ],
     )
     def test_resolve_device_auto_priority(self, available_devices, expected_device):
@@ -33,9 +39,9 @@ class TestDeviceResolver:
     @pytest.mark.parametrize(
         ("available_devices", "expected_device"),
         [
-            ([Device.XPU, Device.CUDA, Device.CPU], "xpu"),
-            ([Device.CUDA, Device.CPU], "cuda"),
-            ([Device.CPU], "cpu"),
+            ([_device(Device.XPU, "Intel GPU 0"), _device(Device.CUDA, "NVIDIA GPU 0"), _device(Device.CPU, "CPU")], "xpu"),
+            ([_device(Device.CUDA, "NVIDIA GPU 0"), _device(Device.CPU, "CPU")], "cuda"),
+            ([_device(Device.CPU, "CPU")], "cpu"),
         ],
     )
     def test_resolve_device_none_behaves_like_auto(self, available_devices, expected_device):

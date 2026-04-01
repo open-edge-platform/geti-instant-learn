@@ -26,7 +26,7 @@ from domain.services import (
     SourceService,
 )
 from domain.services.schemas.dataset import DatasetsListSchema
-from domain.services.schemas.project import Device
+from domain.services.schemas.device import AvailableDeviceSchema
 from runtime.core.components.validators.sink_connection import SinkConnectionValidator
 from runtime.errors import DatasetNotFoundError
 from runtime.pipeline_manager import PipelineManager
@@ -69,7 +69,7 @@ def get_available_datasets(request: Request) -> DatasetsListSchema:
     return available_datasets
 
 
-def get_available_devices(request: Request) -> list[Device]:
+def get_available_devices(request: Request) -> list[AvailableDeviceSchema]:
     """Dependency that provides startup-cached available devices list."""
     return request.app.state.available_devices
 
@@ -209,4 +209,4 @@ DiscoveryServiceDep = Annotated[SourceTypeService, Depends(get_discovery_service
 LicenseServiceDep = Annotated[LicenseService, Depends(get_license_service)]
 DatasetPathDep = Annotated[Path, Depends(get_dataset_path_by_id)]
 AvailableDatasetsDep = Annotated[DatasetsListSchema, Depends(get_available_datasets)]
-AvailableDevicesDep = Annotated[list[Device], Depends(get_available_devices)]
+AvailableDevicesDep = Annotated[list[AvailableDeviceSchema], Depends(get_available_devices)]
