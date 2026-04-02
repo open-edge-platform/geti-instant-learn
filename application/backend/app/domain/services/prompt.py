@@ -25,7 +25,7 @@ from domain.repositories.processor import ProcessorRepository
 from domain.repositories.project import ProjectRepository
 from domain.repositories.prompt import PromptRepository
 from domain.services.base import BaseService
-from domain.services.schemas.annotation import AnnotationSchema, Point
+from domain.services.schemas.annotation import AnnotationSchema
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.mappers.annotation import annotations_db_to_schemas
 from domain.services.schemas.mappers.label import label_db_to_schema
@@ -101,10 +101,7 @@ class PromptService(BaseService):
             project_id=project_id, offset=offset, limit=limit
         )
 
-        # Denormalize coordinates for visual prompts
-        denormalized_prompts = [self._denormalization(project_id=project_id, data=prompt) for prompt in db_prompts]
-
-        prompts = prompts_db_to_schemas(denormalized_prompts, include_thumbnail=True)
+        prompts = prompts_db_to_schemas(db_prompts, include_thumbnail=True)
 
         pagination = Pagination(
             count=len(prompts),
@@ -134,8 +131,7 @@ class PromptService(BaseService):
         if not prompt:
             logger.error("Prompt not found: id=%s project_id=%s", prompt_id, project_id)
             raise ResourceNotFoundError(resource_type=ResourceType.PROMPT, resource_id=str(prompt_id))
-        denormalized_prompt = self._denormalization(project_id=project_id, data=prompt)
-        return prompt_db_to_schema(denormalized_prompt, include_thumbnail=False)
+        return prompt_db_to_schema(prompt, include_thumbnail=False)
 
     def create_prompt(self, project_id: UUID, create_data: PromptCreateSchema) -> PromptSchema:
         """
@@ -202,21 +198,16 @@ class PromptService(BaseService):
 
             height, width = frame.shape[:2]
 
-            logger.debug("Normalizing prompt data for project_id=%s", project_id)
-            normalized_data = self._normalization(create_data, height, width)
-
-            original_count = len(normalized_data.annotations)
-            normalized_data.annotations = deduplicate_annotations(normalized_data.annotations, height, width)
-            if len(normalized_data.annotations) < original_count:
+            original_count = len(create_data.annotations)
+            create_data.annotations = deduplicate_annotations(create_data.annotations, height, width)
+            if len(create_data.annotations) < original_count:
                 logger.info(
                     "Removed %d duplicate annotations from visual prompt creation request",
-                    original_count - len(normalized_data.annotations),
+                    original_count - len(create_data.annotations),
                 )
 
-            self._validate_annotation_labels(normalized_data.annotations, project_id)
-            thumbnail = self._generate_thumbnail(project_id, normalized_data.annotations, frame)
-
-            create_data = normalized_data
+            self._validate_annotation_labels(create_data.annotations, project_id)
+            thumbnail = self._generate_thumbnail(project_id, create_data.annotations, frame)
 
         try:
             with self.db_transaction():
@@ -385,19 +376,14 @@ class PromptService(BaseService):
                             resource_id=str(frame_id),
                             message=f"Failed to read frame {frame_id}",
                         )
-
                 height, width = frame.shape[:2]
-
-                normalized_data = self._normalization(update_data, height, width)
-
-                original_count = len(normalized_data.annotations)
-                normalized_data.annotations = deduplicate_annotations(normalized_data.annotations, height, width)
-                if len(normalized_data.annotations) < original_count:
+                original_count = len(update_data.annotations)
+                update_data.annotations = deduplicate_annotations(update_data.annotations, height, width)
+                if len(update_data.annotations) < original_count:
                     logger.info(
                         "Removed %d duplicate annotations from visual prompt update request",
-                        original_count - len(normalized_data.annotations),
+                        original_count - len(update_data.annotations),
                     )
-                update_data.annotations = normalized_data.annotations
 
             self._validate_annotation_labels(update_data.annotations, project_id)
             regenerate_thumbnail = True
@@ -542,43 +528,3 @@ class PromptService(BaseService):
                     component_id=active_processor.id,
                 )
             )
-
-    @staticmethod
-    def _normalization(
-        data: VisualPromptCreateSchema | VisualPromptUpdateSchema, height: int, width: int
-    ) -> VisualPromptCreateSchema | VisualPromptUpdateSchema:
-        """Normalize pixel coordinates to [0, 1] range."""
-        if data.annotations is not None:
-            for annotation in data.annotations:
-                normalized_points = [Point(x=point.x / width, y=point.y / height) for point in annotation.config.points]
-                annotation.config.points = normalized_points
-
-        return data
-
-    def _denormalization(self, project_id: UUID, data: PromptDB) -> PromptDB:
-        """Denormalize coordinates from [0, 1] range to pixel coordinates."""
-
-        # Skip denormalization for text prompts
-        if data.type == PromptType.TEXT:
-            return data
-
-        frame = self.frame_repository.read_frame(project_id=project_id, frame_id=data.frame_id)
-        if frame is None:
-            raise ResourceNotFoundError(
-                resource_type=ResourceType.FRAME,
-                resource_id=str(data.frame_id),
-            )
-        height, width = frame.shape[:2]
-
-        for annotation in data.annotations:
-            points = annotation.config.get("points")
-            denormalized_points = []
-            for point in points:
-                denormalized_point = {
-                    "x": int(point["x"] * width),
-                    "y": int(point["y"] * height),
-                }
-                denormalized_points.append(denormalized_point)
-            annotation.config = {**annotation.config, "points": denormalized_points}
-
-        return data

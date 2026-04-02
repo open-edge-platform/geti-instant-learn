@@ -29,14 +29,19 @@ type SinkWithoutConfig = Omit<SinkConfig, 'config'>;
 export type MQTTConfig = components['schemas']['MqttConfig'];
 export type MQTTSinkType = SinkWithoutConfig & { config: MQTTConfig };
 
+export type { SchemaSupportedModelMetadataSchema as SupportedModelMetadataType } from './openapi-spec';
+export type { SchemaSupportedPromptType as SupportedPromptType } from './openapi-spec';
+
 type MatcherConfig = components['schemas']['MatcherConfig'];
 type PerDINOConfig = components['schemas']['PerDinoConfig'];
 type SoftMatcherConfig = components['schemas']['SoftMatcherConfig'];
+type Sam3Config = components['schemas']['Sam3Config'];
 
 export type ModelType = components['schemas']['ProcessorSchema'];
 export type MatcherModel = Omit<ModelType, 'config'> & { config: MatcherConfig };
 export type PerDINOModel = Omit<ModelType, 'config'> & { config: PerDINOConfig };
 export type SoftMatcherModel = Omit<ModelType, 'config'> & { config: SoftMatcherConfig };
+export type Sam3Model = Omit<ModelType, 'config'> & { config: Sam3Config };
 
 export { $api, client } from './client';
 export {
