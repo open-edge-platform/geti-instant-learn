@@ -1,3 +1,8 @@
+/**
+ * Copyright (C) 2025 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { useGetSupportedModels, type SupportedPromptType } from './api/use-get-supported-models';
 
 /**
@@ -7,7 +12,5 @@ import { useGetSupportedModels, type SupportedPromptType } from './api/use-get-s
 export const useSupportedPromptTypesMap = (): Map<string, SupportedPromptType[]> => {
     const supportedModels = useGetSupportedModels();
 
-    return new Map(
-        supportedModels.map((m) => [m.default_config.model_type, m.supported_prompt_types])
-    );
+    return new Map(supportedModels.map((m) => [m.default_config.model_type, m.supported_prompt_types]));
 };

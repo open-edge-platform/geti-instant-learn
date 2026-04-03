@@ -10,10 +10,10 @@ import { usePromptMode, type PromptMode } from '@/hooks';
 import { Flex, Item, Loading, Picker, Text, View } from '@geti/ui';
 
 import { useGetModels } from '../api/use-get-models';
+import { type SupportedPromptType } from '../api/use-get-supported-models';
 import { useUpdateModel } from '../api/use-update-model';
 import { useSupportedPromptTypesMap } from '../use-supported-prompt-types';
 import { ModelConfiguration } from './model-configuration/model-configuration.component';
-import { type SupportedPromptType } from '../api/use-get-supported-models';
 
 const isModelCompatible = (
     model: ModelType,

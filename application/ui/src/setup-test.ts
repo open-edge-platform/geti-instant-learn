@@ -19,9 +19,8 @@ import { HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import fetchPolyfill, { Request as RequestPolyfill } from 'node-fetch';
 
-import { handlers, http } from './api/utils';
-
 import type { components } from './api/openapi-spec';
+import { handlers, http } from './api/utils';
 
 type SupportedModelsListSchema = components['schemas']['SupportedModelsListSchema'];
 
@@ -195,9 +194,21 @@ const initialHandlers = [
     http.get('/api/v1/projects/{project_id}/models', () => {
         return HttpResponse.json(MOCKED_MODELS_RESPONSE);
     }),
+
+    http.post('/api/v1/projects/{project_id}/models', async ({ request }) => {
+        const body = await request.json();
+        return HttpResponse.json(body, { status: 201 });
+    }),
+
+    http.put('/api/v1/projects/{project_id}/models/{model_id}', async ({ request }) => {
+        const body = await request.json();
+        return HttpResponse.json(body);
+    }),
 ];
 
-const server = setupServer(...handlers, ...initialHandlers);
+// initialHandlers must come first so deterministic mocks take priority
+// over the auto-generated fromOpenApi handlers
+const server = setupServer(...initialHandlers, ...handlers);
 export { http, server };
 
 beforeAll(() => {
