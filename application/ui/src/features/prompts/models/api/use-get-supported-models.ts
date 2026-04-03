@@ -1,5 +1,11 @@
+/**
+ * Copyright (C) 2025 Intel Corporation
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { $api } from '@/api';
 import type { components } from '@/api/openapi-spec';
+
 export type SupportedModelMetadata = components['schemas']['SupportedModelMetadataSchema'];
 export type SupportedPromptType = components['schemas']['SupportedPromptType'];
 
