@@ -1,3 +1,4 @@
+import json
 import socket
 import time
 from queue import Queue
@@ -30,10 +31,6 @@ def mqtt_broker():
         else:
             raise RuntimeError("MQTT broker did not start in time")
         yield host, port
-
-
-def _frame(payload):
-    return SimpleNamespace(results=payload)
 
 
 def mqtt_config(broker_host: str, broker_port: int, topic: str, auth_required: bool = False) -> WriterConfig:
@@ -73,6 +70,11 @@ def _subscribe(host: str, port: int, topic: str):
     return queue, cleanup
 
 
+def mqtt_test_data():
+    payload = [{"box": np.full((2, 2), 1), "mask": np.full((2, 2), 1)}]
+    return SimpleNamespace(results=payload), [{pos[0]: pos[1].tolist() for pos in el.items()} for el in payload]
+
+
 class TestMqtt:
     def test_publish_round_trip(self, mqtt_broker):
         host, port = mqtt_broker
@@ -82,10 +84,10 @@ class TestMqtt:
 
         try:
             with MqttWriter(config=config) as writer:
-                message = _frame([{"box": np.full((2, 2), 1), "mask": np.full((2, 2), 1)}])
+                message, output = mqtt_test_data()
                 writer.connect()
                 writer.write(message)
-                assert queue.get(timeout=5) == '[{"box": [[1, 1], [1, 1]], "mask": [[1, 1], [1, 1]]}]'
+                assert json.loads(queue.get(timeout=5)) == output
         finally:
             teardown()
 
@@ -97,9 +99,10 @@ class TestMqtt:
 
         try:
             with MqttWriter(config=config) as writer:
+                message, output = mqtt_test_data()
                 writer.connect()
-                writer.write(_frame([{"box": np.full((2, 2), 1), "mask": np.full((2, 2), 1)}]))
-                assert queue.get(timeout=5) == '[{"box": [[1, 1], [1, 1]], "mask": [[1, 1], [1, 1]]}]'
+                writer.write(message)
+                assert json.loads(queue.get(timeout=5)) == output
                 assert writer._connected is True
         finally:
             teardown()
@@ -116,9 +119,10 @@ class TestMqtt:
 
         try:
             with MqttWriter(config=config, username=username, password=password) as writer:
+                message, output = mqtt_test_data()
                 writer.connect()
-                writer.write(_frame([{"box": np.full((2, 2), 1), "mask": np.full((2, 2), 1)}]))
-                assert queue.get(timeout=5) == '[{"box": [[1, 1], [1, 1]], "mask": [[1, 1], [1, 1]]}]'
+                writer.write(message)
+                assert json.loads(queue.get(timeout=5)) == output
                 assert writer._connected is True
                 assert writer._client._username.decode("utf-8") == "integration-user"
                 assert writer._client._password.decode("utf-8") == "integration-pass"
