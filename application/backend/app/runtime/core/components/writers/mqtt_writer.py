@@ -71,8 +71,8 @@ class MqttWriter(StreamWriter):
             result = self._client.publish(self._config.topic, payload)
             if result.rc != mqtt.MQTT_ERR_SUCCESS:
                 logger.error(f"Publishing data to MQTT failed: {result.rc} - {mqtt.error_string(result.rc)}")
-        except Exception as exe:
-            logger.error(f"Failed to serialize data to JSON/publishing message to mqtt: {exe}")
+        except Exception:
+            logger.exception("Failed to serialize data to JSON/publishing message to mqtt")
 
     def close(self) -> None:
         if self._client is None:
