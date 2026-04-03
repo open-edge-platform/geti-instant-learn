@@ -5,8 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from domain.services.schemas.device import Device
 from domain.services.schemas.processor import ModelConfig
-from domain.services.schemas.project import Device
 from domain.services.schemas.reader import ReaderConfig
 from domain.services.schemas.writer import WriterConfig
 

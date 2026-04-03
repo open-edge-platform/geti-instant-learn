@@ -1,8 +1,18 @@
-# Copyright (C) 2026 Intel Corporation
+# Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from enum import StrEnum
+
 from domain.services.schemas.base import BaseIDSchema, PaginatedResponse
-from domain.services.schemas.project import Device
+
+
+class Device(StrEnum):
+    """Enum for configurable types of pipeline components."""
+
+    AUTO = "auto"
+    CUDA = "cuda"
+    XPU = "xpu"
+    CPU = "cpu"
 
 
 class AvailableDeviceSchema(BaseIDSchema):

@@ -3,8 +3,7 @@
 
 from uuid import NAMESPACE_URL, UUID, uuid5
 
-from domain.services.schemas.device import AvailableDeviceSchema
-from domain.services.schemas.project import Device
+from domain.services.schemas.device import AvailableDeviceSchema, Device
 
 DEVICE_NS = uuid5(NAMESPACE_URL, "device")
 

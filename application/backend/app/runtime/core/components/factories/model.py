@@ -6,9 +6,8 @@ from instantlearn.models.matcher import Matcher
 from instantlearn.models.per_dino import PerDino
 from instantlearn.models.soft_matcher import SoftMatcher
 
-from domain.services.schemas.device import AvailableDeviceSchema
+from domain.services.schemas.device import AvailableDeviceSchema, Device
 from domain.services.schemas.processor import MatcherConfig, ModelConfig, PerDinoConfig, SoftMatcherConfig
-from domain.services.schemas.project import Device
 from runtime.core.components.base import ModelHandler
 from runtime.core.components.models.openvino_model import OpenVINOModelHandler
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler

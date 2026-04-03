@@ -7,8 +7,7 @@ from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 
 from api.error_handler import custom_exception_handler
-from domain.services.schemas.device import AvailableDeviceSchema
-from domain.services.schemas.project import Device
+from domain.services.schemas.device import AvailableDeviceSchema, Device
 
 
 def _create_client(devices: list[AvailableDeviceSchema]) -> TestClient:
