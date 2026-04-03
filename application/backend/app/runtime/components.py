@@ -9,6 +9,7 @@ from instantlearn.data.base.batch import Batch
 from sqlalchemy.orm import Session, sessionmaker
 
 from domain.services.project import ProjectService
+from domain.services.schemas.device import AvailableDeviceSchema
 from runtime.core.components.factories.model import ModelFactory
 from runtime.core.components.factories.reader import StreamReaderFactory
 from runtime.core.components.factories.writer import StreamWriterFactory
@@ -35,9 +36,10 @@ class DefaultComponentFactory(ComponentFactory):
     def __init__(
         self,
         session_factory: sessionmaker[Session],
+        available_devices: list[AvailableDeviceSchema] | None = None,
     ) -> None:
         self._session_factory = session_factory
-        self._model_factory = ModelFactory()
+        self._model_factory = ModelFactory(available_devices=available_devices)
 
     def create_source(self, project_id: UUID) -> Source:
         with self._session_factory() as session:

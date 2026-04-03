@@ -32,9 +32,11 @@ from domain.dispatcher import ConfigChangeDispatcher
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.dataset import DatasetsListSchema
 from domain.services.schemas.health import HealthCheckSchema, HealthStatus
+from runtime.components import DefaultComponentFactory
 from runtime.errors import DatasetNotFoundError
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.dataset_discovery import scan_datasets
+from runtime.services.device import list_available_devices
 from runtime.webrtc.manager import WebRTCManager
 from runtime.webrtc.sdp_handler import SDPHandler
 from settings import get_settings
@@ -61,9 +63,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     logger.info(settings.format_for_logging())
     run_db_migrations()
 
+    app.state.available_devices = list_available_devices()
+    session_factory = get_session_factory()
+
     app.state.config_dispatcher = ConfigChangeDispatcher()
+    component_factory = DefaultComponentFactory(
+        session_factory=session_factory,
+        available_devices=app.state.available_devices,
+    )
     app.state.pipeline_manager = PipelineManager(
-        event_dispatcher=app.state.config_dispatcher, session_factory=get_session_factory()
+        event_dispatcher=app.state.config_dispatcher,
+        session_factory=session_factory,
+        component_factory=component_factory,
     )
     app.state.pipeline_manager.start()
 
@@ -86,7 +97,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     app.state.available_datasets = datasets
     app.state.dataset_paths = dataset_paths
-
     if dataset_paths:
         dataset_lines = "\n".join(
             f"- {dataset.name}: {dataset.id} -> {dataset_paths[dataset.id]}" for dataset in datasets.datasets

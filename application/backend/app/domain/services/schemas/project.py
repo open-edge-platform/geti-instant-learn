@@ -6,15 +6,7 @@ from enum import StrEnum
 from pydantic import BaseModel, Field
 
 from domain.services.schemas.base import BaseIDPayload, BaseIDSchema, PaginatedResponse
-
-
-class Device(StrEnum):
-    """Enum for configurable types of pipeline components."""
-
-    AUTO = "auto"
-    CUDA = "cuda"
-    XPU = "xpu"
-    CPU = "cpu"
+from domain.services.schemas.device import Device
 
 
 class PromptMode(StrEnum):
