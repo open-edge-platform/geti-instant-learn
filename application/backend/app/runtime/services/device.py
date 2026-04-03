@@ -9,7 +9,7 @@ from domain.services.schemas.project import Device
 DEVICE_NS = uuid5(NAMESPACE_URL, "device")
 
 
-def _build_device_id(backend: Device, name: str, index: int | None = None) -> UUID:
+def _build_id(backend: Device, name: str, index: int | None = None) -> UUID:
     """Build a deterministic UUID for a discovered runtime device."""
     return uuid5(DEVICE_NS, f"{backend}/{index}/{name}")
 
@@ -27,9 +27,10 @@ def _list_xpu_devices() -> list[AvailableDeviceSchema]:
             name = torch.xpu.get_device_name(index)
             devices.append(
                 AvailableDeviceSchema(
-                    id=_build_device_id(Device.XPU, name, index),
+                    id=_build_id(Device.XPU, name, index),
                     backend=Device.XPU,
                     name=name,
+                    device_id=f"{Device.XPU}:{index}",
                 )
             )
         return devices
@@ -50,9 +51,10 @@ def _list_cuda_devices() -> list[AvailableDeviceSchema]:
             name = torch.cuda.get_device_name(index)
             devices.append(
                 AvailableDeviceSchema(
-                    id=_build_device_id(Device.CUDA, name, index),
+                    id=_build_id(Device.CUDA, name, index),
                     backend=Device.CUDA,
                     name=name,
+                    device_id=f"{Device.CUDA}:{index}",
                 )
             )
         return devices
@@ -69,8 +71,9 @@ def list_available_devices() -> list[AvailableDeviceSchema]:
         *_list_xpu_devices(),
         *_list_cuda_devices(),
         AvailableDeviceSchema(
-            id=_build_device_id(Device.CPU, "CPU"),
+            id=_build_id(Device.CPU, "CPU"),
             backend=Device.CPU,
             name="CPU",
+            device_id=Device.CPU,
         ),
     ]

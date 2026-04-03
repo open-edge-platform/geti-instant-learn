@@ -14,8 +14,8 @@ from runtime.core.components.factories.model import DeviceResolver, ModelFactory
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
 
 
-def _device(backend: Device, name: str) -> AvailableDeviceSchema:
-    return AvailableDeviceSchema(id=uuid4(), backend=backend, name=name)
+def _device(backend: Device, name: str, index: int) -> AvailableDeviceSchema:
+    return AvailableDeviceSchema(id=uuid4(), backend=backend, name=name, device_id=f"{backend}:{index}")
 
 
 class TestDeviceResolver:
@@ -23,11 +23,15 @@ class TestDeviceResolver:
         ("available_devices", "expected_device"),
         [
             (
-                [_device(Device.XPU, "Intel GPU 0"), _device(Device.CUDA, "NVIDIA GPU 0"), _device(Device.CPU, "CPU")],
+                [
+                    _device(Device.XPU, "Intel GPU 0", 0),
+                    _device(Device.CUDA, "NVIDIA GPU 0", 0),
+                    _device(Device.CPU, "CPU", 0),
+                ],
                 "xpu",
             ),
-            ([_device(Device.CUDA, "NVIDIA GPU 0"), _device(Device.CPU, "CPU")], "cuda"),
-            ([_device(Device.CPU, "CPU")], "cpu"),
+            ([_device(Device.CUDA, "NVIDIA GPU 0", 0), _device(Device.CPU, "CPU", 0)], "cuda"),
+            ([_device(Device.CPU, "CPU", 0)], "cpu"),
         ],
     )
     def test_resolve_device_auto_priority(self, available_devices, expected_device):
@@ -43,11 +47,15 @@ class TestDeviceResolver:
         ("available_devices", "expected_device"),
         [
             (
-                [_device(Device.XPU, "Intel GPU 0"), _device(Device.CUDA, "NVIDIA GPU 0"), _device(Device.CPU, "CPU")],
+                [
+                    _device(Device.XPU, "Intel GPU 0", 0),
+                    _device(Device.CUDA, "NVIDIA GPU 0", 0),
+                    _device(Device.CPU, "CPU", 0),
+                ],
                 "xpu",
             ),
-            ([_device(Device.CUDA, "NVIDIA GPU 0"), _device(Device.CPU, "CPU")], "cuda"),
-            ([_device(Device.CPU, "CPU")], "cpu"),
+            ([_device(Device.CUDA, "NVIDIA GPU 0", 0), _device(Device.CPU, "CPU", 0)], "cuda"),
+            ([_device(Device.CPU, "CPU", 0)], "cpu"),
         ],
     )
     def test_resolve_device_none_behaves_like_auto(self, available_devices, expected_device):

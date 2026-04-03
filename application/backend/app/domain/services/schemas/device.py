@@ -10,6 +10,7 @@ class AvailableDeviceSchema(BaseIDSchema):
 
     backend: Device
     name: str
+    device_id: str
 
 
 class DevicesListSchema(PaginatedResponse):
