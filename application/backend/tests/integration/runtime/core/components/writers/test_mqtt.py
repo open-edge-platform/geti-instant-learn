@@ -1,10 +1,10 @@
-import json
 import socket
 import time
 from queue import Queue
 from threading import Event
 from types import SimpleNamespace
 
+import numpy as np
 import paho.mqtt.client as mqtt
 import pytest
 from testcontainers.mqtt import MosquittoContainer
@@ -82,10 +82,10 @@ class TestMqtt:
 
         try:
             with MqttWriter(config=config) as writer:
-                message = _frame({"foo": "bar"})
+                message = _frame([{"box": np.full((2, 2), 1), "mask": np.full((2, 2), 1)}])
                 writer.connect()
                 writer.write(message)
-                assert queue.get(timeout=5) == json.dumps(message.results)
+                assert queue.get(timeout=5) == '[{"box": [[1, 1], [1, 1]], "mask": [[1, 1], [1, 1]]}]'
         finally:
             teardown()
 
@@ -98,8 +98,8 @@ class TestMqtt:
         try:
             with MqttWriter(config=config) as writer:
                 writer.connect()
-                writer.write(_frame("anonymous-message"))
-                assert queue.get(timeout=5) == json.dumps("anonymous-message")
+                writer.write(_frame([{"box": np.full((2, 2), 1), "mask": np.full((2, 2), 1)}]))
+                assert queue.get(timeout=5) == '[{"box": [[1, 1], [1, 1]], "mask": [[1, 1], [1, 1]]}]'
                 assert writer._connected is True
         finally:
             teardown()
@@ -117,8 +117,8 @@ class TestMqtt:
         try:
             with MqttWriter(config=config, username=username, password=password) as writer:
                 writer.connect()
-                writer.write(_frame("authenticated-message"))
-                assert queue.get(timeout=5) == json.dumps("authenticated-message")
+                writer.write(_frame([{"box": np.full((2, 2), 1), "mask": np.full((2, 2), 1)}]))
+                assert queue.get(timeout=5) == '[{"box": [[1, 1], [1, 1]], "mask": [[1, 1], [1, 1]]}]'
                 assert writer._connected is True
                 assert writer._client._username.decode("utf-8") == "integration-user"
                 assert writer._client._password.decode("utf-8") == "integration-pass"
