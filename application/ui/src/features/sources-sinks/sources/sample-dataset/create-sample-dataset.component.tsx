@@ -3,27 +3,32 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Button, ButtonGroup, Flex, Form, Heading, Text, View } from '@geti/ui';
+import { useEffect, useState } from 'react';
 
-import TestDatasetImg from '../../../../assets/coffee-berries-placeholder.webp';
+import { Button, ButtonGroup, Flex, Form, Heading, Item, Picker, Text, View } from '@geti/ui';
+import { isNull } from 'lodash-es';
+
 import { useCreateSource } from '../api/use-create-source';
+import { useAvailableDatasets } from './api/use-available-datasets';
 
 import styles from './sample-dataset.module.scss';
 
-export const SampleDatasetTitle = () => {
+interface SampleDatasetTextProps {
+    text?: string;
+}
+
+export const SampleDatasetTitle = ({ text = 'Sample dataset' }: SampleDatasetTextProps) => {
     return (
         <Heading margin={0} UNSAFE_className={styles.title}>
-            Coffee Bean Quality Dataset
+            {text}
         </Heading>
     );
 };
 
-export const SampleDatasetDescription = () => {
-    return (
-        <Text UNSAFE_className={styles.description}>
-            This dataset contains information about the quality of coffee beans.
-        </Text>
-    );
+export const SampleDatasetDescription = ({
+    text = 'A collection of images for visual AI training and inference.',
+}: SampleDatasetTextProps) => {
+    return <Text UNSAFE_className={styles.description}>{text}</Text>;
 };
 
 interface CreateSampleDatasetProps {
@@ -32,29 +37,59 @@ interface CreateSampleDatasetProps {
 
 export const CreateSampleDataset = ({ onSaved }: CreateSampleDatasetProps) => {
     const createSampleDataset = useCreateSource();
+    const { data: datasets = [], isPending: isLoadingDatasets } = useAvailableDatasets();
+    const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
+    const selectedDataset = datasets.find((dataset) => dataset.id === selectedDatasetId);
+
+    useEffect(() => {
+        if (selectedDatasetId === null && datasets.length > 0) {
+            setSelectedDatasetId(datasets[0].id);
+        }
+    }, [datasets, selectedDatasetId]);
 
     const handleCreateSampleDataset = () => {
+        if (!selectedDatasetId) {
+            return;
+        }
+
         createSampleDataset.mutate(
             {
                 seekable: true,
                 source_type: 'sample_dataset',
+                dataset_id: selectedDatasetId,
             },
             onSaved
         );
     };
 
-    const isApplyDisabled = createSampleDataset.isPending;
+    const isApplyDisabled = createSampleDataset.isPending || isLoadingDatasets || !selectedDatasetId;
 
     return (
         <View borderRadius={'small'}>
             <View>
-                <img src={TestDatasetImg} alt={'Coffee Bean Quality Dataset'} className={styles.img} />
+                {selectedDataset?.thumbnail && (
+                    <img src={selectedDataset.thumbnail} alt={selectedDataset.name} className={styles.img} />
+                )}
             </View>
             <View padding={'size-200'} backgroundColor={'gray-200'}>
                 <Form validationBehavior={'native'} onSubmit={handleCreateSampleDataset}>
                     <Flex direction={'column'} gap={'size-200'}>
-                        <SampleDatasetTitle />
-                        <SampleDatasetDescription />
+                        <SampleDatasetTitle text={selectedDataset?.name} />
+                        <SampleDatasetDescription text={selectedDataset?.description} />
+
+                        {datasets.length > 0 ? (
+                            <Picker
+                                label={'Dataset'}
+                                selectedKey={selectedDatasetId ?? undefined}
+                                items={datasets}
+                                onSelectionChange={(key) => !isNull(key) && setSelectedDatasetId(key as string)}
+                            >
+                                {(item) => <Item key={item.id}>{item.name}</Item>}
+                            </Picker>
+                        ) : (
+                            <Text>No sample datasets are available.</Text>
+                        )}
+
                         <ButtonGroup>
                             <Button
                                 type={'submit'}
