@@ -382,7 +382,7 @@ class GeometryEncoder(nn.Module):
         point_embeddings: torch.Tensor | None = None,
         point_mask: torch.Tensor | None = None,
         point_labels: torch.Tensor | None = None,
-        img_feats: tuple[torch.Tensor, ...] = None,
+        img_feats: tuple[torch.Tensor, ...] | None = None,
         img_pos_embeds: tuple[torch.Tensor, ...] | None = None,
         drop_spatial_bias: bool = False,
     ) -> dict[str, torch.Tensor]:
@@ -409,14 +409,14 @@ class GeometryEncoder(nn.Module):
                 position encoding in box/point encoding, keeping only pooled
                 visual features. Default: False.
 
-        Raises:
-            ValueError: If neither box nor point embeddings are provided to
-                determine batch size for CLS token and attention mask creation.
-
         Returns:
             dict[str, torch.Tensor]: Dictionary with 'last_hidden_state' containing
                 encoded geometry features [batch_size, num_prompts, hidden_size]
                 and 'attention_mask' for padding.
+
+        Raises:
+            ValueError: If neither box nor point embeddings are provided to
+                determine batch size for CLS token and attention mask creation.
         """
         # Determine batch size from available inputs
         if box_embeddings is not None:
@@ -1031,8 +1031,37 @@ class Sam3Model(nn.Module):
             dropout=detr_decoder_dropout,
         )
 
+    def _get_scoring_features(  # noqa: PLR6301
+        self,
+        text_features: torch.Tensor,  # noqa: ARG002
+        text_mask: torch.Tensor | None,  # noqa: ARG002
+        encoder_text_features: torch.Tensor,
+        combined_prompt_mask: torch.Tensor | None,
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
+        """Return the features and mask used for dot-product scoring.
+
+        SAM3 default: use the encoder's combined text+geometry features so that
+        geometry prompts participate in the mean-pooled scoring signal.
+
+        Override in subclasses to change scoring behaviour (e.g. text-only).
+
+        Args:
+            text_features: Raw text encoder output
+                [batch_size, seq_len, hidden_size].
+            text_mask: Mask for raw text features [batch_size, seq_len].
+            encoder_text_features: DETR encoder output text features,
+                which may include geometry prompt features concatenated
+                [batch_size, combined_len, hidden_size].
+            combined_prompt_mask: Mask for encoder_text_features
+                [batch_size, combined_len].
+
+        Returns:
+            (features, mask) tuple to pass to ``DotProductScoring``.
+        """
+        return encoder_text_features, combined_prompt_mask
+
     @classmethod
-    def from_pretrained(
+    def from_pretrained(  # noqa: C901
         cls,
         pretrained_model_name_or_path: str,
         device: str | torch.device | None = None,
@@ -1105,9 +1134,17 @@ class Sam3Model(nn.Module):
         missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=False)
 
         # Filter out expected missing/unexpected keys
-        # - tracker_* keys are from SAM2 tracker (not used in detection)
-        tracker_pattern = re.compile(r"^(tracker_model\.|tracker_neck\.)")
-        unexpected_keys = [k for k in unexpected_keys if not tracker_pattern.match(k)]
+        # - tracker* keys are from the SAM2 video tracker (not used in detection)
+        # - sam2_convs keys are SAM2-specific FPN convolutions
+        # - rotary_emb.rope_embeddings are registered buffers, not parameters
+        _expected_unexpected = re.compile(
+            r"^("
+            r"tracker_model\.|tracker_neck\.|tracker\."
+            r"|backbone\.vision_backbone\.sam2_convs\."
+            r"|vision_encoder\.backbone\.layers\.\d+\.rotary_emb\.rope_embeddings"
+            r")",
+        )
+        unexpected_keys = [k for k in unexpected_keys if not _expected_unexpected.match(k)]
 
         if missing_keys:
             msg = f"Missing keys when loading SAM3 model: {missing_keys}"
@@ -1176,7 +1213,7 @@ class Sam3Model(nn.Module):
         """
         return self.vision_encoder(pixel_values, **kwargs)
 
-    def forward(
+    def forward(  # noqa: C901, PLR0915
         self,
         pixel_values: torch.FloatTensor | None = None,
         vision_embeds: dict[str, torch.Tensor] | None = None,
@@ -1379,16 +1416,25 @@ class Sam3Model(nn.Module):
         all_pred_boxes_cxcywh = (reference_boxes_inv_sig + all_box_offsets).sigmoid()
         all_pred_boxes = box_cxcywh_to_xyxy(all_pred_boxes_cxcywh)
 
+        scoring_features, scoring_mask = self._get_scoring_features(
+            text_features=text_features,
+            text_mask=text_mask,
+            encoder_text_features=encoder_outputs["text_features"],
+            combined_prompt_mask=combined_prompt_mask,
+        )
+
         all_pred_logits = self.dot_product_scoring(
             decoder_hidden_states=decoder_outputs["intermediate_hidden_states"],
-            text_features=encoder_outputs["text_features"],
-            text_mask=combined_prompt_mask,
+            text_features=scoring_features,
+            text_mask=scoring_mask,
         ).squeeze(-1)
 
         pred_logits = all_pred_logits[-1]
         pred_boxes = all_pred_boxes[-1]
         decoder_hidden_states = decoder_outputs["intermediate_hidden_states"][-1]
-        presence_logits = decoder_outputs["presence_logits"][-1]
+        presence_logits = (
+            decoder_outputs["presence_logits"][-1] if decoder_outputs["presence_logits"] is not None else None
+        )
 
         mask_outputs = self.mask_decoder(
             decoder_queries=decoder_hidden_states,
