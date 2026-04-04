@@ -27,12 +27,16 @@ type DecoderModel = ModelType['config']['sam_model'];
 
 const DECODER_MODELS: { label: string; value: DecoderModel }[] = [
     {
-        label: 'SAM-HQ',
-        value: 'SAM-HQ',
+        label: 'SAM-HQ Base',
+        value: 'SAM-HQ-base',
     },
     {
-        label: 'SAM-HQ Tiny',
-        value: 'SAM-HQ-tiny',
+        label: 'SAM-HQ Large',
+        value: 'SAM-HQ-large',
+    },
+    {
+        label: 'SAM-HQ',
+        value: 'SAM-HQ',
     },
     {
         label: 'SAM2 Tiny',
