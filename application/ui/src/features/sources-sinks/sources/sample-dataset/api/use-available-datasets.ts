@@ -5,11 +5,11 @@
 
 import { $api } from '@/api';
 
-export const useAvailableDatasets = () => {
+export const useAvailableDatasets = (notifyError = true) => {
     return $api.useQuery('get', '/api/v1/system/datasets', undefined, {
         meta: {
             error: {
-                notify: true,
+                notify: notifyError,
             },
         },
         select: (data) => data.datasets,

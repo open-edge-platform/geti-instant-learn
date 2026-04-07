@@ -26,10 +26,7 @@ export const SampleDatasetCard = ({ source, onAction, menuItems }: SampleDataset
         return null;
     }
 
-    const thumbnail =
-        'thumbnail' in selectedDataset && typeof selectedDataset.thumbnail === 'string'
-            ? selectedDataset.thumbnail
-            : undefined;
+    const thumbnail = selectedDataset.thumbnail ?? undefined;
 
     return (
         <PipelineEntityCard isActive={isActiveSource} icon={<Datasets width={'32px'} />} title={'Sample dataset'}>
