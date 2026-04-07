@@ -85,7 +85,7 @@ RUN useradd -l -u ${UID} ${USER_NAME} \
 RUN mkdir -p /instant_learn/app/backend
 WORKDIR /instant_learn/app/backend
 
-# Add sample dataset with coffee berries
+# Add sample datasets
 COPY --link --chown=${UID} ${SOURCE_DATASET_DIR} ${TARGET_DATASET_DIR}
 
 # Copy library and create proper directory structure

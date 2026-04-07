@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
 from domain.db.engine import get_session
@@ -82,10 +82,7 @@ def get_dataset_path_by_id(
     try:
         return dataset_paths[dataset_id]
     except KeyError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Dataset with id '{dataset_id}' was not found.",
-        ) from exc
+        raise DatasetNotFoundError(f"Dataset with id '{dataset_id}' was not found.") from exc
 
 
 # --- DB session dependency ---
