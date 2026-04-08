@@ -19,12 +19,8 @@ from starlette.responses import Response
 import api.endpoints  # noqa: F401, pylint: disable=unused-import  # Importing for endpoint registration
 from api.error_handler import custom_exception_handler
 from api.routers import (
-    license_router,
     projects_router,
-    source_types_router,
-    supported_models_router,
     system_router,
-    webrtc_router,
 )
 from dependencies import LicenseServiceDep
 from domain.db.engine import get_session_factory, run_db_migrations
@@ -136,11 +132,7 @@ def health_check(license_service: LicenseServiceDep) -> HealthCheckSchema:
 
 
 fastapi_app.include_router(projects_router, prefix="/api/v1")
-fastapi_app.include_router(source_types_router, prefix="/api/v1")
-fastapi_app.include_router(webrtc_router, prefix="/api/v1")
-fastapi_app.include_router(license_router, prefix="/api/v1")
 fastapi_app.include_router(system_router, prefix="/api/v1")
-fastapi_app.include_router(supported_models_router, prefix="/api/v1")
 
 
 if (

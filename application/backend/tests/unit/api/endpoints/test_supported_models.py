@@ -20,12 +20,12 @@ from domain.services.schemas.processor import (
 @pytest.fixture
 def app():
     from api.endpoints import models as _  # noqa: F401
-    from api.routers import supported_models_router
+    from api.routers import system_router
 
     test_app = FastAPI()
     test_app.add_exception_handler(Exception, custom_exception_handler)
     test_app.add_exception_handler(RequestValidationError, custom_exception_handler)
-    test_app.include_router(supported_models_router, prefix="/api/v1")
+    test_app.include_router(system_router, prefix="/api/v1")
 
     return test_app
 
@@ -36,15 +36,15 @@ def client(app):
 
 
 class TestGetSupportedModels:
-    """Tests for GET /api/v1/supported-models."""
+    """Tests for GET /api/v1/system/supported-models."""
 
     def test_returns_200(self, client):
-        response = client.get("/api/v1/supported-models")
+        response = client.get("/api/v1/system/supported-models")
 
         assert response.status_code == status.HTTP_200_OK
 
     def test_response_is_valid_schema(self, client):
-        response = client.get("/api/v1/supported-models")
+        response = client.get("/api/v1/system/supported-models")
 
         body = response.json()
         # Validates the top-level structure
@@ -52,7 +52,7 @@ class TestGetSupportedModels:
         assert isinstance(body["models"], list)
 
     def test_all_models_returned(self, client):
-        response = client.get("/api/v1/supported-models")
+        response = client.get("/api/v1/system/supported-models")
 
         model_types = {m["default_config"]["model_type"] for m in response.json()["models"]}
         assert model_types == {
@@ -63,7 +63,7 @@ class TestGetSupportedModels:
         }
 
     def test_each_model_has_required_fields(self, client):
-        response = client.get("/api/v1/supported-models")
+        response = client.get("/api/v1/system/supported-models")
 
         for model in response.json()["models"]:
             assert "default_config" in model
@@ -72,14 +72,14 @@ class TestGetSupportedModels:
             assert len(model["supported_prompt_types"]) > 0
 
     def test_response_has_pagination(self, client):
-        response = client.get("/api/v1/supported-models")
+        response = client.get("/api/v1/system/supported-models")
         body = response.json()
         assert "pagination" in body
         assert body["pagination"]["total"] == 3
         assert body["pagination"]["count"] == 3
 
     def test_response_is_parseable_by_schema(self, client):
-        response = client.get("/api/v1/supported-models")
+        response = client.get("/api/v1/system/supported-models")
         parsed = SupportedModelsListSchema.model_validate(response.json())
         assert len(parsed.models) == 3
 
@@ -88,7 +88,7 @@ class TestMatcherModel:
     """Verify Matcher model metadata."""
 
     def _get_matcher(self, client):
-        response = client.get("/api/v1/supported-models")
+        response = client.get("/api/v1/system/supported-models")
         models = response.json()["models"]
         return next(m for m in models if m["default_config"]["model_type"] == ModelType.MATCHER)
 
@@ -114,7 +114,7 @@ class TestPerDinoModel:
     """Verify PerDINO model metadata."""
 
     def _get_perdino(self, client):
-        response = client.get("/api/v1/supported-models")
+        response = client.get("/api/v1/system/supported-models")
         models = response.json()["models"]
         return next(m for m in models if m["default_config"]["model_type"] == ModelType.PERDINO)
 
@@ -141,7 +141,7 @@ class TestSoftMatcherModel:
     """Verify SoftMatcher model metadata."""
 
     def _get_soft_matcher(self, client):
-        response = client.get("/api/v1/supported-models")
+        response = client.get("/api/v1/system/supported-models")
         models = response.json()["models"]
         return next(m for m in models if m["default_config"]["model_type"] == ModelType.SOFT_MATCHER)
 
@@ -171,7 +171,7 @@ class TestSoftMatcherModel:
 #     """Verify SAM3 model metadata."""
 #
 #     def _get_sam3(self, client):
-#         response = client.get("/api/v1/supported-models")
+#         response = client.get("/api/v1/system/supported-models")
 #         models = response.json()["models"]
 #         return next(m for m in models if m["default_config"]["model_type"] == ModelType.SAM3)
 #
@@ -208,7 +208,7 @@ class TestPromptTypeCoverage:
     """Cross-cutting checks on prompt type assignments."""
 
     def test_visual_polygon_models(self, client):
-        response = client.get("/api/v1/supported-models")
+        response = client.get("/api/v1/system/supported-models")
         models = response.json()["models"]
 
         polygon_models = {
@@ -219,7 +219,7 @@ class TestPromptTypeCoverage:
         assert polygon_models == {ModelType.MATCHER, ModelType.PERDINO, ModelType.SOFT_MATCHER}
 
     # def test_text_prompt_models(self, client):
-    #     response = client.get("/api/v1/supported-models")
+    #     response = client.get("/api/v1/system/supported-models")
     #     models = response.json()["models"]
     #
     #     text_models = {
@@ -228,7 +228,7 @@ class TestPromptTypeCoverage:
     #     assert text_models == {ModelType.SAM3}
 
     # def test_visual_rectangle_models(self, client):
-    #     response = client.get("/api/v1/supported-models")
+    #     response = client.get("/api/v1/system/supported-models")
     #     models = response.json()["models"]
     #
     #     rect_models = {
@@ -239,7 +239,7 @@ class TestPromptTypeCoverage:
     #     assert rect_models == {ModelType.SAM3}
 
     def test_no_unknown_prompt_types(self, client):
-        response = client.get("/api/v1/supported-models")
+        response = client.get("/api/v1/system/supported-models")
         models = response.json()["models"]
 
         known = {pt.value for pt in SupportedPromptType}

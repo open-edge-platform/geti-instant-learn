@@ -79,7 +79,7 @@ export class WebRTCConnection {
 
     private async fetchIceServers(): Promise<RTCIceServer[]> {
         try {
-            const response = await client.GET('/api/v1/webrtc/config');
+            const response = await client.GET('/api/v1/system/webrtc/config');
 
             if (response.error !== undefined) {
                 console.warn('Failed to fetch WebRTC config, using defaults');

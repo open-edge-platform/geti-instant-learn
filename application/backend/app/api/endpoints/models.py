@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import Query, Response, status
 
-from api.routers import projects_router, supported_models_router
+from api.routers import projects_router, system_router
 from dependencies import ModelServiceDep
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.mappers.processor import SUPPORTED_MODELS_METADATA
@@ -22,8 +22,8 @@ from domain.services.schemas.processor import (
 logger = logging.getLogger(__name__)
 
 
-@supported_models_router.get(
-    path="",
+@system_router.get(
+    path="/supported-models",
     tags=["Supported Models"],
     status_code=status.HTTP_200_OK,
     responses={
