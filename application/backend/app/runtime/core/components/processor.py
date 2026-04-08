@@ -149,3 +149,5 @@ class Processor(PipelineComponent):
 
     def _stop(self) -> None:
         self._inbound_broadcaster.unregister(self.__class__.__name__)
+        if hasattr(self, "_model_handler") and hasattr(self._model_handler, "close"):
+            self._model_handler.close()

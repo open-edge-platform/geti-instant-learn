@@ -48,3 +48,15 @@ class TorchModelHandler(ModelHandler):
     def _build_batch(inputs: list[InputData]) -> Batch:
         samples = [Sample(image=tv_tensors.Image(torch.from_numpy(data.frame).permute(2, 0, 1))) for data in inputs]
         return Batch.collate(samples)
+
+    def close(self) -> None:
+        logger.info(
+            "Closing TorchModelHandler and releasing resources: model=%s",
+            type(self._model).__name__ if self._model else "None",
+        )
+        self._model = None
+        self._reference_batch = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        if hasattr(torch, "xpu") and torch.xpu.is_available():
+            torch.xpu.empty_cache()
