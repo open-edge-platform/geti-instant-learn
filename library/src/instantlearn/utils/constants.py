@@ -47,6 +47,7 @@ class DatasetName(Enum):
 
     PERSEG = "PerSeg"
     LVIS = "lvis"
+    COFFEE_BERRY = "coffee_berry"
 
 
 class DINOv3BackboneSize(Enum):
@@ -220,8 +221,14 @@ def get_category_presets() -> dict[str, dict[str, list[str]]]:
         "perseg": {
             "default": None,  # Uses all available categories
         },
+        "coffee_berry": {
+            "default": COFFEE_BERRY_CATEGORIES,
+            "benchmark": COFFEE_BERRY_CATEGORIES,
+        },
     }
 
+
+COFFEE_BERRY_CATEGORIES = ["berry"]
 
 LVIS_DEFAULT_CATEGORIES = ["cupcake", "sheep", "pastry", "doughnut"]
 
