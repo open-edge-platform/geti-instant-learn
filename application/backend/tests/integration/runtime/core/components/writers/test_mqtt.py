@@ -3,13 +3,13 @@ import socket
 import time
 from queue import Queue
 from threading import Event
-from types import SimpleNamespace
 
 import numpy as np
 import paho.mqtt.client as mqtt
 import pytest
 from testcontainers.mqtt import MosquittoContainer
 
+from domain.services.schemas.processor import OutputData
 from domain.services.schemas.writer import WriterConfig
 from runtime.core.components.writers.mqtt_writer import MqttWriter
 
@@ -71,8 +71,7 @@ def _subscribe(host: str, port: int, topic: str):
 
 
 def mqtt_test_data():
-    payload = [{"box": np.full((2, 2), 1), "mask": np.full((2, 2), 1)}]
-    return SimpleNamespace(results=payload), [{pos[0]: pos[1].tolist() for pos in el.items()} for el in payload]
+    return OutputData(frame=np.full((1), 1), results=[{"box": np.full((2, 2), 1), "mask": np.full((2, 2), 1)}])
 
 
 class TestMqtt:
@@ -84,10 +83,10 @@ class TestMqtt:
 
         try:
             with MqttWriter(config=config) as writer:
-                message, output = mqtt_test_data()
+                message = mqtt_test_data()
                 writer.connect()
                 writer.write(message)
-                assert json.loads(queue.get(timeout=5)) == output
+                assert json.loads(queue.get(timeout=5)) == message.to_list()
         finally:
             teardown()
 
@@ -99,10 +98,10 @@ class TestMqtt:
 
         try:
             with MqttWriter(config=config) as writer:
-                message, output = mqtt_test_data()
+                message = mqtt_test_data()
                 writer.connect()
                 writer.write(message)
-                assert json.loads(queue.get(timeout=5)) == output
+                assert json.loads(queue.get(timeout=5)) == message.to_list()
                 assert writer._connected is True
         finally:
             teardown()
@@ -119,10 +118,10 @@ class TestMqtt:
 
         try:
             with MqttWriter(config=config, username=username, password=password) as writer:
-                message, output = mqtt_test_data()
+                message = mqtt_test_data()
                 writer.connect()
                 writer.write(message)
-                assert json.loads(queue.get(timeout=5)) == output
+                assert json.loads(queue.get(timeout=5)) == message.to_list()
                 assert writer._connected is True
                 assert writer._client._username.decode("utf-8") == "integration-user"
                 assert writer._client._password.decode("utf-8") == "integration-pass"
