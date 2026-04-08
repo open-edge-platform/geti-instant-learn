@@ -18,7 +18,6 @@ from instantlearn.data.base.batch import Batch
 from instantlearn.data.base.sample import Sample
 from instantlearn.models.sam3.sam3 import SAM3, Sam3PromptMode
 
-
 # -- Helpers --
 
 
@@ -433,6 +432,32 @@ class TestSAM3VisualExemplar:
         assert "pred_masks" in predictions[0]
         assert "pred_boxes" in predictions[0]
         assert "pred_labels" in predictions[0]
+
+    def test_fit_with_long_category_name(self, mock_sam3_deps: dict[str, Any]) -> None:
+        """Test fit() truncates long category names (e.g. UUIDs) to CLIP max_length.
+
+        The backend passes label UUIDs as category names, which tokenize to ~35
+        subword tokens — exceeding CLIP's 32-token max_position_embeddings.
+        The tokenizer must truncate to avoid ValueError.
+        """
+        model = _build_sam3(mock_sam3_deps, Sam3PromptMode.VISUAL_EXEMPLAR)
+
+        uuid_category = "550e8400-e29b-41d4-a716-446655440000"
+        ref = Sample(
+            image=torch.zeros(3, 224, 224),
+            bboxes=np.array([[10, 10, 50, 50]]),
+            categories=[uuid_category],
+            category_ids=np.array([0]),
+        )
+        model.fit(ref)
+
+        # Tokenizer must have been called with truncation=True
+        call_args = mock_sam3_deps["tokenizer"].call_args
+        assert call_args is not None
+        _, kwargs = call_args
+        assert kwargs.get("truncation") is True
+
+        assert model.exemplar_text_features is not None
 
     def test_predict_raises_without_fit(self, mock_sam3_deps: dict[str, Any]) -> None:
         """Test predict() raises RuntimeError before fit() is called."""

@@ -460,7 +460,13 @@ class SAM3(Model):
         unique_prompts = list(dict.fromkeys(text_prompts))
         text_cache: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
         for prompt in unique_prompts:
-            text_inputs = self.tokenizer([prompt], return_tensors="pt", padding="max_length", max_length=32)
+            text_inputs = self.tokenizer(
+                [prompt],
+                return_tensors="pt",
+                padding="max_length",
+                truncation=True,
+                max_length=32,
+            )
             input_ids = text_inputs.input_ids.to(self.device)
             attention_mask = text_inputs.attention_mask.to(self.device)
             text_outputs = self.model.get_text_features(
@@ -526,6 +532,7 @@ class SAM3(Model):
                     [text or "visual"],
                     return_tensors="pt",
                     padding="max_length",
+                    truncation=True,
                     max_length=32,
                 )
                 input_ids = text_inputs.input_ids.to(self.device)
