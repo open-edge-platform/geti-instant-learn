@@ -136,7 +136,7 @@ class SAM3(Model):
         resolution: int = 1008,
         precision: str = "fp32",
         compile_models: bool = False,
-        model_id: str = "facebook/sam3",
+        model_id: str = "facebook/sam3.1",
         prompt_mode: Sam3PromptMode | str = Sam3PromptMode.CLASSIC,
         drop_spatial_bias: bool = False,
         postprocessor: PostProcessor | None = None,
@@ -150,7 +150,7 @@ class SAM3(Model):
             precision: The precision to use for the model ('bf16' or 'fp32').
             compile_models: Whether to compile the models.
             model_id: HuggingFace model ID or local path to load the SAM3 model
-                and tokenizer from. Default: "facebook/sam3".
+                and tokenizer from. Default: "facebook/sam3.1".
             prompt_mode: Prompt mode for inference. 'classic' for original SAM3
                 behavior, 'visual_exemplar' for cross-image visual query detection.
             drop_spatial_bias: When True and in VISUAL_EXEMPLAR mode, skip

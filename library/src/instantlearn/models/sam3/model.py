@@ -1057,24 +1057,31 @@ class Sam3Model(nn.Module):
             Loaded Sam3Model instance.
 
         Example:
-            >>> model = Sam3Model.from_pretrained("facebook/sam3")
-            >>> model = Sam3Model.from_pretrained("facebook/sam3", device="cuda", dtype=torch.bfloat16)
+            >>> model = Sam3Model.from_pretrained("facebook/sam3.1")
+            >>> model = Sam3Model.from_pretrained("facebook/sam3.1", device="cuda", dtype=torch.bfloat16)
         """
         # Handle dtype aliases
         if torch_dtype is not None and dtype is None:
             dtype = torch_dtype
 
-        filename = "sam3.pt"
+        # SAM3.1 checkpoint filename
+        checkpoint_filename = "sam3.1_multiplex.pt"
 
         # Determine if local path or HuggingFace Hub
         path = Path(pretrained_model_name_or_path)
         if path.exists():
             # Local path - check if it's a file or directory
-            model_path = path if path.is_file() else path / filename
+            if path.is_file():
+                model_path = path
+            else:
+                model_path = path / checkpoint_filename
+                if not model_path.exists():
+                    msg = f"No checkpoint found in {path}. Expected: {checkpoint_filename}"
+                    raise FileNotFoundError(msg)
         else:
             model_path = hf_hub_download(
                 repo_id=pretrained_model_name_or_path,
-                filename=filename,
+                filename=checkpoint_filename,
             )
 
         # Load state dict from .pt file
@@ -1106,8 +1113,18 @@ class Sam3Model(nn.Module):
 
         # Filter out expected missing/unexpected keys
         # - tracker_* keys are from SAM2 tracker (not used in detection)
-        tracker_pattern = re.compile(r"^(tracker_model\.|tracker_neck\.)")
-        unexpected_keys = [k for k in unexpected_keys if not tracker_pattern.match(k)]
+        # - backbone.vision_backbone.* convs are tracker neck features (not used in detection)
+        # - rotary_emb.rope_embeddings are computed at runtime, not loaded from checkpoint
+        expected_unexpected = re.compile(
+            r"^(tracker_model\.|tracker_neck\.|tracker\."
+            r"|backbone\.vision_backbone\.(sam2_convs|interactive_convs|propagation_convs)\."
+            r"|vision_encoder\.backbone\.layers\.\d+\.rotary_emb\.)"
+        )
+        unexpected_keys = [k for k in unexpected_keys if not expected_unexpected.match(k)]
+
+        # fpn_layers.3 may be missing in SAM3.1 (detector only uses first 3 FPN levels)
+        expected_missing = re.compile(r"^vision_encoder\.neck\.fpn_layers\.3\.")
+        missing_keys = [k for k in missing_keys if not expected_missing.match(k)]
 
         if missing_keys:
             msg = f"Missing keys when loading SAM3 model: {missing_keys}"

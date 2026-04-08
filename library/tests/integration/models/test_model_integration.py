@@ -421,7 +421,7 @@ class TestSAM3Integration:
         Args:
             prompt_mode: The SAM3 prompt mode to test.
         """
-        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id="jetjodh/sam3")
+        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id="research21/sam3.1")
 
         assert model is not None
         assert model.prompt_mode == prompt_mode
@@ -447,7 +447,7 @@ class TestSAM3Integration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
-        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id="jetjodh/sam3")
+        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id="research21/sam3.1")
 
         if prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
             # Visual exemplar needs bboxes on reference images
@@ -490,7 +490,7 @@ class TestSAM3Integration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
-        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id="jetjodh/sam3")
+        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id="research21/sam3.1")
 
         if prompt_mode == Sam3PromptMode.VISUAL_EXEMPLAR:
             ref_samples = []
@@ -525,7 +525,7 @@ class TestSAM3Integration:
 
     def test_sam3_visual_requires_prompts(self) -> None:
         """Test that visual exemplar mode raises when no bboxes/points are provided."""
-        model = SAM3(device="cpu", precision="fp32", prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR, model_id="jetjodh/sam3")
+        model = SAM3(device="cpu", precision="fp32", prompt_mode=Sam3PromptMode.VISUAL_EXEMPLAR, model_id="research21/sam3.1")
 
         ref_sample = Sample(
             image=torch.zeros((3, 256, 256)),
@@ -548,7 +548,7 @@ class TestSAM3Integration:
             prompt_mode: The SAM3 prompt mode to test.
             dataset: The dataset to use for testing.
         """
-        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id="jetjodh/sam3")
+        model = SAM3(device="cpu", precision="fp32", prompt_mode=prompt_mode, model_id="research21/sam3.1")
 
         categories = dataset.categories
         if not categories:
