@@ -67,7 +67,7 @@ class MqttWriter(StreamWriter):
 
         logger.info(f"Publishing data to MQTT topic: {self._config.topic}")
         try:
-            payload = json.dumps([{pos[0]: pos[1].tolist() for pos in el.items()} for el in data.results])
+            payload = json.dumps(data.to_list())
             result = self._client.publish(self._config.topic, payload)
             if result.rc != mqtt.MQTT_ERR_SUCCESS:
                 logger.error(f"Publishing data to MQTT failed: {result.rc} - {mqtt.error_string(result.rc)}")
