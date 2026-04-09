@@ -118,7 +118,7 @@ from instantlearn.data.utils import read_image
 ref_image = read_image("examples/assets/coco/000000286874.jpg")
 
 # Initialize SAM predictor (auto-downloads weights)
-# Available models: "SAM-HQ-base", "SAM-HQ-large", "SAM-HQ", "SAM2-tiny", "SAM2-small", "SAM2-base", "SAM2-large"
+# Available models: "SAM-HQ-tiny", "SAM-HQ-base", "SAM-HQ-large", "SAM-HQ", "SAM2-tiny", "SAM2-small", "SAM2-base", "SAM2-large"
 predictor = SAMPredictor("SAM-HQ-base", device="xpu")
 
 # Set image and generate mask from a point click
@@ -217,6 +217,7 @@ model = Matcher(
 
 | Model | Description |
 | ----- | ----------- |
+| `SAMModelName.SAM_HQ_TINY` | SAM-HQ Tiny — ViT-Tiny, ~5M params (fastest, PyTorch only — no OpenVINO export) |
 | `SAMModelName.SAM_HQ_BASE` | SAM-HQ Base — ViT-B, ~86M params (default, balanced) |
 | `SAMModelName.SAM_HQ_LARGE` | SAM-HQ Large — ViT-L, ~307M params (high quality) |
 | `SAMModelName.SAM_HQ` | SAM-HQ — ViT-H, ~632M params (highest quality) |
@@ -386,7 +387,7 @@ Approximate GPU memory requirements for different model configurations:
 
 | Family | Models | Description | Paper | Repository |
 | ------ | ------ | ----------- | ----- | ---------- |
-| **SAM** | SAM-HQ-base, SAM-HQ-large, SAM-HQ | High-quality variants of the original Segment Anything Model (ViT-B ~86M, ViT-L ~307M, ViT-H ~632M). | [Segment Anything](https://arxiv.org/abs/2304.02643), [SAM-HQ](https://arxiv.org/abs/2306.01567) | [SAM](https://github.com/facebookresearch/segment-anything), [SAM-HQ](https://github.com/SysCV/sam-hq) |
+| **SAM** | SAM-HQ-tiny, SAM-HQ-base, SAM-HQ-large, SAM-HQ | High-quality variants of the original Segment Anything Model (ViT-Tiny ~5M, ViT-B ~86M, ViT-L ~307M, ViT-H ~632M). SAM-HQ-tiny is the fastest but does not support OpenVINO export. | [Segment Anything](https://arxiv.org/abs/2304.02643), [SAM-HQ](https://arxiv.org/abs/2306.01567) | [SAM](https://github.com/facebookresearch/segment-anything), [SAM-HQ](https://github.com/SysCV/sam-hq) |
 | **SAM 2** | SAM2-tiny, SAM2-small, SAM2-base, SAM2-large | The next generation of Segment Anything, offering improved performance and speed. | [SAM 2](https://arxiv.org/abs/2408.00714) | [sam2](https://github.com/facebookresearch/sam2) |
 | **SAM 3** | SAM 3 | Segment Anything with Concepts, supporting open-vocabulary prompts. | [SAM 3](https://arxiv.org/abs/2511.16719) | [SAM 3](https://github.com/facebookresearch/sam3) |
 | **DINOv2** | Small, Base, Large, Giant | Self-supervised vision transformers with registers, used for feature extraction. | [DINOv2](https://arxiv.org/abs/2304.07193), [Registers](https://arxiv.org/abs/2309.16588) | [dinov2](https://github.com/facebookresearch/dinov2) |

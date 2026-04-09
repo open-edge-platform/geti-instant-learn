@@ -60,7 +60,7 @@ predictions = model.predict(Sample(image_path=target_image))
 
 | Family | Models |
 | ------ | ------ |
-| **SAM** | SAM-HQ-base, SAM-HQ-large, SAM-HQ |
+| **SAM** | SAM-HQ-tiny, SAM-HQ-base, SAM-HQ-large, SAM-HQ |
 | **SAM 2** | SAM2-tiny, SAM2-small, SAM2-base, SAM2-large |
 | **SAM 3** | Segment Anything with Concepts (open-vocabulary) |
 | **DINOv2** | Small, Base, Large, Giant |
