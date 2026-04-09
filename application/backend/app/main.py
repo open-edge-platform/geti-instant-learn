@@ -25,12 +25,12 @@ from api.routers import (
 from dependencies import LicenseServiceDep
 from domain.db.engine import get_session_factory, run_db_migrations
 from domain.dispatcher import ConfigChangeDispatcher
+from domain.errors import DatasetNotFoundError
 from domain.services.dataset_discovery import scan_datasets
 from domain.services.schemas.base import Pagination
 from domain.services.schemas.dataset import DatasetsListSchema
 from domain.services.schemas.health import HealthCheckSchema, HealthStatus
 from runtime.components import DefaultComponentFactory
-from runtime.errors import DatasetNotFoundError
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.device import list_available_devices
 from runtime.webrtc.manager import WebRTCManager

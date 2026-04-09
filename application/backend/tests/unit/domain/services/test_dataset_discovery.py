@@ -6,6 +6,7 @@ from uuid import uuid4, uuid5
 
 import pytest
 
+from domain.errors import DatasetNotFoundError
 from domain.services.dataset_discovery import (
     DATASET_NS,
     _get_first_image,
@@ -13,7 +14,6 @@ from domain.services.dataset_discovery import (
     resolve_dataset_path,
     scan_datasets,
 )
-from runtime.errors import DatasetNotFoundError
 
 
 class TestResolveDatasetPath:

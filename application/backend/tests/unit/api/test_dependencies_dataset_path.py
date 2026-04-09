@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 
 from dependencies import get_dataset_path_by_id
-from runtime.errors import DatasetNotFoundError
+from domain.errors import DatasetNotFoundError
 
 
 def test_get_dataset_path_by_id_returns_path() -> None:
