@@ -11,10 +11,15 @@ on:
         description: "Specifies the build version to apply to all binaries produced by this workflow"
         type: string
         required: true
-      image_name_prefix:
-        description: "Base name for the docker images (without tag)"
+      container_registry:
+        description: "Container registry for the docker images"
         type: string
-        default: "ghcr.io/open-edge-platform/instant-learn-dev"
+        default: "ghcr.io/open-edge-platform"
+        required: false
+      image_tag_suffix:
+        description: "Suffix to append to the image tag (e.g. -dev, -nightly)"
+        type: string
+        default: "-dev"
         required: false
       push_images:
         description: "Push and sign docker images to GHCR"
@@ -37,6 +42,16 @@ on:
         description: "Specifies the build version to apply to all binaries produced by this workflow"
         type: string
         required: true
+      container_registry:
+        description: "Container registry for the docker images"
+        type: string
+        default: "ghcr.io/open-edge-platform"
+        required: false
+      image_tag_suffix:
+        description: "Suffix to append to the image tag (e.g. -dev, -nightly)"
+        type: string
+        default: "-dev"
+        required: false
 
 permissions: {} # No permissions by default
 
@@ -55,8 +70,14 @@ jobs:
     env:
       BUILD_VERSION: ${{ inputs.build_version }}
       DEVICE: ${{ matrix.ai-device }}
-      IMAGE_NAME_PREFIX: ${{ inputs.image_name_prefix }}
+      CONTAINER_REGISTRY: ${{ inputs.container_registry }}
+      IMAGE_TAG_SUFFIX: ${{ inputs.image_tag_suffix }}
     steps:
+      - name: Construct image name
+        run: |
+          IMAGE_NAME="${CONTAINER_REGISTRY}/instant-learn-${DEVICE}:${BUILD_VERSION}${IMAGE_TAG_SUFFIX}"
+          echo "IMAGE_NAME=${IMAGE_NAME}" >> "$GITHUB_ENV"
+
       - name: Validate SHA format
         if: inputs.sha-commit != ''
         env:
@@ -85,7 +106,7 @@ jobs:
           just \
             build-target="${DEVICE}" \
             version="${BUILD_VERSION}" \
-            image-name="${IMAGE_NAME_PREFIX}-${DEVICE}:${BUILD_VERSION}" \
+            image-name="${IMAGE_NAME}" \
             docker-build-context="--no-cache" \
             build-image
 
@@ -95,7 +116,7 @@ jobs:
           just \
             build-target="${DEVICE}" \
             version="${BUILD_VERSION}" \
-            image-name="${IMAGE_NAME_PREFIX}-${DEVICE}:${BUILD_VERSION}" \
+            image-name="${IMAGE_NAME}" \
             show-size
 
       - name: Test image for ${{ matrix.ai-device }}
@@ -104,7 +125,7 @@ jobs:
           just \
             build-target="${DEVICE}" \
             version="${BUILD_VERSION}" \
-            image-name="${IMAGE_NAME_PREFIX}-${DEVICE}:${BUILD_VERSION}" \
+            image-name="${IMAGE_NAME}" \
             test-image
 
       - name: Log in to GHCR
@@ -117,10 +138,9 @@ jobs:
 
       - name: Tag and push image for ${{ matrix.ai-device }}
         if: inputs.push_images
+        working-directory: application
         run: |
-          IMAGE_NAME="${IMAGE_NAME_PREFIX}-${DEVICE}:${BUILD_VERSION}"
           docker push "${IMAGE_NAME}"
-          echo "IMAGE_NAME=${IMAGE_NAME}" >> "$GITHUB_ENV"
 
       - name: Sign image for ${{ matrix.ai-device }}
         if: inputs.push_images
