@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from uuid import UUID
 
-from domain.errors import DatasetNotFoundError
+from domain.services.dataset_discovery import resolve_dataset_path_from_cache
 from domain.services.schemas.reader import (
     ImagesFolderConfig,
     ReaderConfig,
@@ -48,23 +48,14 @@ class StreamReaderFactory:
             case ImagesFolderConfig() as config:
                 return ImageFolderReader(config, supported_extensions=settings.supported_extensions)
             case SampleDatasetConfig() as config:
-                dataset_path: Path | None = None
                 if config.dataset_id is not None:
                     logger.info("Creating sample dataset reader for dataset_id '%s'.", config.dataset_id)
-                    try:
-                        dataset_path = cached_dataset_paths[config.dataset_id]
-                    except KeyError as exc:
-                        logger.warning(
-                            "Sample dataset id '%s' could not be resolved from startup cache.",
-                            config.dataset_id,
-                        )
-                        raise DatasetNotFoundError(f"Sample dataset id '{config.dataset_id}' was not found.") from exc
                 else:
                     logger.info("Creating sample dataset reader without dataset_id; using first available dataset.")
-                    dataset_path = next(iter(cached_dataset_paths.values()), None)
-                    if dataset_path is None:
-                        logger.warning("No sample datasets available in startup cache.")
-                        raise DatasetNotFoundError("No sample datasets available.")
+                dataset_path = resolve_dataset_path_from_cache(
+                    dataset_id=config.dataset_id,
+                    dataset_paths=cached_dataset_paths,
+                )
 
                 logger.info("Using sample dataset path '%s'.", dataset_path)
 

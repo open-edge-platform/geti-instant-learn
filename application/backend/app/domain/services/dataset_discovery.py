@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+from collections.abc import Mapping
 from pathlib import Path
 from uuid import UUID, uuid5
 
@@ -23,6 +24,34 @@ def _get_first_image(dataset_dir: Path) -> Path | None:
         if entry.is_file() and entry.suffix.lower() in settings.supported_extensions:
             return entry
     return None
+
+
+def resolve_dataset_path_from_cache(dataset_id: UUID | None, dataset_paths: Mapping[UUID, Path]) -> Path:
+    """Resolve a dataset path from the startup cache.
+
+    Args:
+        dataset_id: Stable dataset UUID, or None to use the first cached dataset.
+        dataset_paths: Startup-cached dataset id-to-path mapping.
+
+    Returns:
+        Resolved dataset path.
+
+    Raises:
+        DatasetNotFoundError: If the dataset id is missing or no cached datasets exist.
+    """
+    if dataset_id is not None:
+        try:
+            return dataset_paths[dataset_id]
+        except KeyError as exc:
+            logger.warning("Sample dataset id '%s' could not be resolved from startup cache.", dataset_id)
+            raise DatasetNotFoundError(f"Sample dataset id '{dataset_id}' was not found.") from exc
+
+    dataset_path = next(iter(dataset_paths.values()), None)
+    if dataset_path is None:
+        logger.warning("No sample datasets available in startup cache.")
+        raise DatasetNotFoundError("No sample datasets available.")
+
+    return dataset_path
 
 
 def scan_datasets(datasets_root: Path) -> tuple[DatasetsListSchema, dict[UUID, Path]]:

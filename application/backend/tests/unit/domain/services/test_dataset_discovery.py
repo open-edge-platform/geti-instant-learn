@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
-from uuid import uuid5
+from uuid import uuid4, uuid5
 
 import pytest
 
@@ -10,6 +10,7 @@ from domain.errors import DatasetNotFoundError
 from domain.services.dataset_discovery import (
     DATASET_NS,
     _get_first_image,
+    resolve_dataset_path_from_cache,
     scan_datasets,
 )
 
@@ -34,6 +35,38 @@ class TestGetFirstImage:
         first_image = _get_first_image(tmp_path)
 
         assert first_image is None
+
+
+class TestResolveDatasetPathFromCache:
+    def test_returns_matching_dataset_path_for_id(self, tmp_path: Path) -> None:
+        dataset_dir = tmp_path / "aquarium"
+        dataset_dir.mkdir()
+        dataset_id = uuid4()
+
+        result = resolve_dataset_path_from_cache(dataset_id=dataset_id, dataset_paths={dataset_id: dataset_dir})
+
+        assert result == dataset_dir
+
+    def test_returns_first_cached_dataset_when_id_missing(self, tmp_path: Path) -> None:
+        first_dataset_dir = tmp_path / "aquarium"
+        first_dataset_dir.mkdir()
+        second_dataset_dir = tmp_path / "zebra"
+        second_dataset_dir.mkdir()
+
+        result = resolve_dataset_path_from_cache(
+            dataset_id=None,
+            dataset_paths={uuid4(): first_dataset_dir, uuid4(): second_dataset_dir},
+        )
+
+        assert result == first_dataset_dir
+
+    def test_raises_when_id_not_found(self) -> None:
+        with pytest.raises(DatasetNotFoundError, match="was not found"):
+            resolve_dataset_path_from_cache(dataset_id=uuid4(), dataset_paths={})
+
+    def test_raises_when_no_datasets_are_cached(self) -> None:
+        with pytest.raises(DatasetNotFoundError, match="No sample datasets available"):
+            resolve_dataset_path_from_cache(dataset_id=None, dataset_paths={})
 
 
 class TestScanDatasets:
