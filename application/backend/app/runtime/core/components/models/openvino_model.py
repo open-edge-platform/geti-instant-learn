@@ -79,6 +79,12 @@ class OpenVINOModelHandler(ModelHandler):
             )
         return results
 
+    def close(self) -> None:
+        logger.info("Closing OpenVINOModelHandler and releasing resources")
+        self._compiled_model = None
+        self._model = None
+        self._reference_batch = None
+
 
 def _masks_to_boxes(masks: np.ndarray, scores: np.ndarray) -> np.ndarray:
     """Derive [x1, y1, x2, y2, score] bounding boxes from binary masks.
