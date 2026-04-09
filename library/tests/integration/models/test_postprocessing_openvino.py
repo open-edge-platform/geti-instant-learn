@@ -73,7 +73,7 @@ def reference_batch(dataset: FolderDataset) -> Batch:
 class TestPostProcessingOpenVINO:
     """Integration tests for post-processing in OpenVINO exported models."""
 
-    @pytest.mark.parametrize("sam_model", [SAMModelName.SAM_HQ_TINY])
+    @pytest.mark.parametrize("sam_model", [SAMModelName.SAM_HQ_BASE])
     def test_default_postprocessor_openvino(
         self,
         sam_model: SAMModelName,
@@ -155,7 +155,7 @@ class TestPostProcessingOpenVINO:
             f"difference is unexpectedly large"
         )
 
-    @pytest.mark.parametrize("sam_model", [SAMModelName.SAM_HQ_TINY])
+    @pytest.mark.parametrize("sam_model", [SAMModelName.SAM_HQ_BASE])
     def test_custom_postprocessor_openvino(
         self,
         sam_model: SAMModelName,
@@ -226,7 +226,7 @@ class TestPostProcessingOpenVINO:
             areas = ov_masks.astype(bool).reshape(ov_masks.shape[0], -1).sum(axis=1)
             assert np.all(areas >= 50), "MinimumAreaFilter should have removed small masks"
 
-    @pytest.mark.parametrize("sam_model", [SAMModelName.SAM_HQ_TINY])
+    @pytest.mark.parametrize("sam_model", [SAMModelName.SAM_HQ_BASE])
     def test_no_postprocessor_vs_with_postprocessor(
         self,
         sam_model: SAMModelName,
@@ -291,7 +291,7 @@ class TestPostProcessingOpenVINO:
             f"got {masks_with_pp.shape[0]} vs {masks_no_pp.shape[0]} without PP"
         )
 
-    @pytest.mark.parametrize("sam_model", [SAMModelName.SAM_HQ_TINY])
+    @pytest.mark.parametrize("sam_model", [SAMModelName.SAM_HQ_BASE])
     def test_box_nms_openvino(
         self,
         sam_model: SAMModelName,

@@ -84,7 +84,7 @@ const MOCKED_MODELS_RESPONSE: ModelListType = {
                 num_background_points: 2,
                 num_foreground_points: 40,
                 precision: 'bf16',
-                sam_model: 'SAM-HQ-tiny',
+                sam_model: 'SAM-HQ-base',
                 encoder_model: 'dinov3_large',
                 use_mask_refinement: false,
             },

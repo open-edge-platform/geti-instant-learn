@@ -33,7 +33,7 @@ const getDefaultMatcherModel = (id: string): MatcherModel => {
             num_background_points: 2,
             num_foreground_points: 40,
             precision: 'bf16',
-            sam_model: 'SAM-HQ-tiny',
+            sam_model: 'SAM-HQ-base',
             encoder_model: 'dinov3_small',
             use_mask_refinement: false,
         },
@@ -48,7 +48,7 @@ const getDefaultPerDINOModel = (id: string): PerDINOModel => {
         config: {
             model_type: 'perdino',
             encoder_model: 'dinov3_small',
-            sam_model: 'SAM-HQ-tiny',
+            sam_model: 'SAM-HQ-base',
             num_foreground_points: 90,
             num_background_points: 2,
             num_grid_cells: 16,
@@ -66,7 +66,7 @@ const getDefaultSoftMatcherModel = (id: string): SoftMatcherModel => {
         id,
         config: {
             model_type: 'soft_matcher',
-            sam_model: 'SAM-HQ-tiny',
+            sam_model: 'SAM-HQ-base',
             encoder_model: 'dinov3_small',
             num_foreground_points: 40,
             num_background_points: 2,

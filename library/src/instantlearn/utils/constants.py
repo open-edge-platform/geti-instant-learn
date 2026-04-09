@@ -22,8 +22,10 @@ class Backend(StrEnum):
 class SAMModelName(StrEnum):
     """Enum for SAM model types."""
 
+    SAM_HQ_BASE = "SAM-HQ-base"
+    SAM_HQ_LARGE = "SAM-HQ-large"
     SAM_HQ = "SAM-HQ"
-    SAM_HQ_TINY = "SAM-HQ-tiny"
+    SAM_HQ_TINY = "SAM-HQ-tiny"  # Not compatible with OpenVINO export
     SAM2_TINY = "SAM2-tiny"
     SAM2_SMALL = "SAM2-small"
     SAM2_BASE = "SAM2-base"
@@ -102,13 +104,25 @@ MODEL_MAP = {
         "download_url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_large.pt",
         "sha_sum": "2647878d5dfa5098f2f8649825738a9345572bae2d4350a2468587ece47dd318",
     },
-    SAMModelName.SAM_HQ: {  # 1024x1024 input resolution
+    SAMModelName.SAM_HQ_BASE: {  # 1024x1024 input resolution, ViT-B (~86M params)
+        "registry_name": "vit_b",
+        "local_filename": "sam_hq_vit_b.pth",
+        "download_url": "https://huggingface.co/lkeab/hq-sam/resolve/main/sam_hq_vit_b.pth",
+        "sha_sum": "14a9d662cd6f5a9c2dba6d40ab0058d88d287e4a18fd6fdc6ad5fb1a3fdeaa57",
+    },
+    SAMModelName.SAM_HQ_LARGE: {  # 1024x1024 input resolution, ViT-L (~307M params)
+        "registry_name": "vit_l",
+        "local_filename": "sam_hq_vit_l.pth",
+        "download_url": "https://huggingface.co/lkeab/hq-sam/resolve/main/sam_hq_vit_l.pth",
+        "sha_sum": "e1a6c385d62bf005ded91a54d5ec55c985cfc4103ef89c08d90f39f04934c343",
+    },
+    SAMModelName.SAM_HQ: {  # 1024x1024 input resolution, ViT-H (~632M params)
         "registry_name": "vit_h",
         "local_filename": "sam_hq_vit_h.pth",
         "download_url": "https://huggingface.co/lkeab/hq-sam/resolve/main/sam_hq_vit_h.pth",
         "sha_sum": "a7ac14a085326d9fa6199c8c698c4f0e7280afdbb974d2c4660ec60877b45e35",
     },
-    SAMModelName.SAM_HQ_TINY: {  # 1024x1024 input resolution
+    SAMModelName.SAM_HQ_TINY: {  # 1024x1024 input resolution, TinyViT (~5M params) — deprecated
         "registry_name": "vit_tiny",
         "local_filename": "sam_hq_vit_tiny.pth",
         "download_url": "https://huggingface.co/lkeab/hq-sam/resolve/main/sam_hq_vit_tiny.pth",
