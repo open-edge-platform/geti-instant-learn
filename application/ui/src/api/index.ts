@@ -13,7 +13,9 @@ type SourceWithoutConfig = Omit<SchemaSourceSchema, 'config'>;
 export type USBCameraConfig = components['schemas']['UsbCameraConfig'];
 type VideoFileConfig = components['schemas']['VideoFileConfig'];
 export type ImagesFolderConfig = components['schemas']['ImagesFolderConfig'];
-type SampleDatasetConfig = components['schemas']['SampleDatasetConfig'];
+type SampleDatasetConfig = components['schemas']['SampleDatasetConfig'] & {
+    dataset_id?: string | null;
+};
 
 export type SourceConfig = USBCameraConfig | VideoFileConfig | ImagesFolderConfig | SampleDatasetConfig;
 

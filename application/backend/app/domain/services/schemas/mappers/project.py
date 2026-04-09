@@ -12,7 +12,9 @@ def project_db_to_schema(project: ProjectDB) -> ProjectSchema:
     """
     Map a ProjectDB ORM instance to a ProjectSchema.
     """
-    return ProjectSchema(id=project.id, name=project.name, active=project.active, config=project.config)
+    return ProjectSchema(
+        id=project.id, name=project.name, active=project.active, device=project.device, prompt_mode=project.prompt_mode
+    )
 
 
 def projects_db_to_list_items(
@@ -48,4 +50,4 @@ def project_schema_to_db(payload: ProjectCreateSchema) -> ProjectDB:
     The caller (service layer) is responsible for adding it to the session,
     flushing, activation handling, and committing.
     """
-    return ProjectDB(id=payload.id, name=payload.name, config=payload.config.model_dump())
+    return ProjectDB(id=payload.id, name=payload.name, device=payload.device, prompt_mode=payload.prompt_mode)

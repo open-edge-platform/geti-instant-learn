@@ -83,9 +83,19 @@ class MaskedFeatureExtractor(nn.Module):
             category_ids,
             strict=True,
         ):
+            # Merge same-category masks within this image to avoid
+            # duplicating the image embedding (which breaks bidirectional
+            # matching in downstream prompt generators).
+            per_image_cat_masks: dict[int, torch.Tensor] = {}
             for category_id, mask in zip(category_ids_tensor, masks_tensor, strict=True):
                 cat_id = int(category_id.item()) if isinstance(category_id, torch.Tensor) else category_id
-                pooled_mask = self.transform(mask).to(embedding.device)
+                if cat_id in per_image_cat_masks:
+                    per_image_cat_masks[cat_id] = torch.maximum(per_image_cat_masks[cat_id], mask)
+                else:
+                    per_image_cat_masks[cat_id] = mask
+
+            for cat_id, merged_mask in per_image_cat_masks.items():
+                pooled_mask = self.transform(merged_mask).to(embedding.device)
                 masks_per_cat[cat_id].append(pooled_mask)
 
                 # Extract masked embeddings

@@ -2,30 +2,40 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 from unittest.mock import DEFAULT, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 from instantlearn.utils.constants import SAMModelName
 
+from domain.services.schemas.device import AvailableDeviceSchema, Device
 from domain.services.schemas.processor import MatcherConfig, PerDinoConfig, SoftMatcherConfig
 from runtime.core.components.factories.model import DeviceResolver, ModelFactory
 from runtime.core.components.models.passthrough_model import PassThroughModelHandler
 
 
+def _device(backend: Device, name: str, index: int) -> AvailableDeviceSchema:
+    return AvailableDeviceSchema(id=uuid4(), backend=backend, name=name, device_id=f"{backend}:{index}")
+
+
 class TestDeviceResolver:
     @pytest.mark.parametrize(
-        ("has_intel_gpu", "has_nvidia_gpu", "expected_device"),
+        ("available_devices", "expected_device"),
         [
-            (True, True, "xpu"),
-            (False, True, "cuda"),
-            (False, False, "cpu"),
+            (
+                [
+                    _device(Device.XPU, "Intel GPU 0", 0),
+                    _device(Device.CUDA, "NVIDIA GPU 0", 0),
+                    _device(Device.CPU, "CPU", 0),
+                ],
+                "xpu",
+            ),
+            ([_device(Device.CUDA, "NVIDIA GPU 0", 0), _device(Device.CPU, "CPU", 0)], "cuda"),
+            ([_device(Device.CPU, "CPU", 0)], "cpu"),
         ],
     )
-    def test_resolve_device_auto_priority(self, has_intel_gpu, has_nvidia_gpu, expected_device):
+    def test_resolve_device_auto_priority(self, available_devices, expected_device):
         resolver = DeviceResolver()
-        with (
-            patch.object(DeviceResolver, "_has_intel_gpu", return_value=has_intel_gpu),
-            patch.object(DeviceResolver, "_has_nvidia_gpu", return_value=has_nvidia_gpu),
-        ):
+        with patch("runtime.core.components.factories.model.list_available_devices", return_value=available_devices):
             assert resolver.resolve_device("auto") == expected_device
 
     def test_resolve_device_keeps_explicit_device(self):
@@ -33,19 +43,23 @@ class TestDeviceResolver:
         assert resolver.resolve_device("cuda") == "cuda"
 
     @pytest.mark.parametrize(
-        ("has_intel_gpu", "has_nvidia_gpu", "expected_device"),
+        ("available_devices", "expected_device"),
         [
-            (True, True, "xpu"),
-            (False, True, "cuda"),
-            (False, False, "cpu"),
+            (
+                [
+                    _device(Device.XPU, "Intel GPU 0", 0),
+                    _device(Device.CUDA, "NVIDIA GPU 0", 0),
+                    _device(Device.CPU, "CPU", 0),
+                ],
+                "xpu",
+            ),
+            ([_device(Device.CUDA, "NVIDIA GPU 0", 0), _device(Device.CPU, "CPU", 0)], "cuda"),
+            ([_device(Device.CPU, "CPU", 0)], "cpu"),
         ],
     )
-    def test_resolve_device_none_behaves_like_auto(self, has_intel_gpu, has_nvidia_gpu, expected_device):
+    def test_resolve_device_none_behaves_like_auto(self, available_devices, expected_device):
         resolver = DeviceResolver()
-        with (
-            patch.object(DeviceResolver, "_has_intel_gpu", return_value=has_intel_gpu),
-            patch.object(DeviceResolver, "_has_nvidia_gpu", return_value=has_nvidia_gpu),
-        ):
+        with patch("runtime.core.components.factories.model.list_available_devices", return_value=available_devices):
             assert resolver.resolve_device(None) == expected_device
 
 

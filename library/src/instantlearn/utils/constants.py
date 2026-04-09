@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Intel Corporation
+# Copyright (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 """Constants used in Geti Instant Learn."""
@@ -35,6 +35,7 @@ class SAMModelName(StrEnum):
 class ModelName(StrEnum):
     """Enum for model types."""
 
+    EFFICIENT_SAM3 = "EfficientSAM3"
     GROUNDED_SAM = "GroundedSAM"
     MATCHER = "Matcher"
     PER_DINO = "PerDino"

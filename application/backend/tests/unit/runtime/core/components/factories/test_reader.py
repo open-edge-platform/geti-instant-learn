@@ -3,13 +3,11 @@
 
 from collections.abc import Callable
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
 from domain.services.schemas.reader import (
     ImagesFolderConfig,
-    SampleDatasetConfig,
     SourceType,
     UsbCameraConfig,
     VideoFileConfig,
@@ -48,21 +46,6 @@ class TestStreamReaderFactory:
 
         assert isinstance(result, ImageFolderReader)
         assert result._config == config
-
-    def test_factory_returns_image_folder_reader_for_template_dataset_config(self, tmp_path):
-        image_file = tmp_path / "test.jpg"
-        image_file.touch()
-
-        config = SampleDatasetConfig(source_type=SourceType.SAMPLE_DATASET)
-
-        with patch("runtime.core.components.factories.reader.get_settings") as mock_settings:
-            mock_settings.return_value.template_dataset_dir = tmp_path
-            mock_settings.return_value.supported_extensions = {".jpg", ".jpeg", ".png"}
-            result = StreamReaderFactory.create(config)
-
-        assert isinstance(result, ImageFolderReader)
-        assert isinstance(result._config, ImagesFolderConfig)
-        assert result._config.images_folder_path == str(tmp_path)
 
     def test_factory_returns_video_file_reader_for_video_file_config(self, tmp_path: Path) -> None:
         video_path = tmp_path / "test.mp4"

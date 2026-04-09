@@ -13,7 +13,7 @@ import torch
 
 from instantlearn.data.base import Batch
 from instantlearn.data.lvis import LVISAnnotationMode
-from instantlearn.models import SAM3, GroundedSAM, Matcher, Model, PerDino, SoftMatcher
+from instantlearn.models import SAM3, EfficientSAM3, GroundedSAM, Matcher, Model, PerDino, SoftMatcher
 from instantlearn.models.grounded_sam import GroundingModel
 from instantlearn.utils.constants import DatasetName, ModelName, SAMModelName
 
@@ -40,11 +40,11 @@ def prepare_output_directory(output_path: str, overwrite: bool) -> Path:
         output_path: The path to the output data
         overwrite: Whether to overwrite existing data
 
-    Raises:
-        ValueError: If the output path already exists and overwrite is False
-
     Returns:
         The path to the output data
+
+    Raises:
+        ValueError: If the output path already exists and overwrite is False
     """
     output_path_obj = Path(output_path)
     if output_path_obj.exists():
@@ -174,7 +174,7 @@ def convert_masks_to_one_hot_tensor(
     return batch_pred_tensors, batch_gt_tensors
 
 
-def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Model:
+def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Model:  # noqa: PLR0911
     """Instantiate and return the requested model.
 
     Args:
@@ -255,6 +255,12 @@ def load_model(sam: SAMModelName, model_name: ModelName, args: Namespace) -> Mod
                 compile_models=args.compile_models,
                 device=args.device,
                 prompt_mode="visual_exemplar",
+            )
+        case ModelName.EFFICIENT_SAM3:
+            return EfficientSAM3(
+                confidence_threshold=args.confidence_threshold,
+                precision=args.precision,
+                device=args.device,
             )
         case _:
             msg = f"Algorithm {model_name.value} not implemented yet"

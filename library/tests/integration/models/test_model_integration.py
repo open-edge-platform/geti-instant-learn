@@ -79,8 +79,12 @@ SAM_MODELS = [SAMModelName.SAM_HQ_BASE, SAMModelName.SAM2_TINY]
 # Models that support n-shots (all except GroundedSAM and SAM3)
 N_SHOT_SUPPORTED_MODELS = [ModelName.MATCHER, ModelName.PER_DINO, ModelName.SOFT_MATCHER]
 
-# Non-SAM3 model names (SAM3 is tested separately with dedicated methods)
-NON_SAM3_MODELS = [m for m in ModelName if m not in (ModelName.SAM3, ModelName.SAM3_CLASSIC, ModelName.SAM3_VISUAL)]
+# Non-SAM3 model names (SAM3 and EfficientSAM3 are tested separately with dedicated methods)
+NON_SAM3_MODELS = [
+    m
+    for m in ModelName
+    if m not in {ModelName.SAM3, ModelName.SAM3_CLASSIC, ModelName.SAM3_VISUAL, ModelName.EFFICIENT_SAM3}
+]
 
 # SAM3 prompt modes to test
 SAM3_PROMPT_MODES = [Sam3PromptMode.CLASSIC, Sam3PromptMode.VISUAL_EXEMPLAR]
@@ -102,7 +106,7 @@ class TestModelIntegration:
             sam_model: The SAM model to use.
             model_name: The model type to test.
         """
-        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
+        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.  # noqa: FIX002
         # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
             pytest.skip("Skipping test_model_initialization for SAM2-tiny")
@@ -138,7 +142,7 @@ class TestModelIntegration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
-        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
+        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.  # noqa: FIX002
         # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
             pytest.skip("Skipping test_model_learn_infer for SAM2-tiny")
@@ -185,7 +189,7 @@ class TestModelIntegration:
             model_name: The model type to test (must support n-shots).
             fss1000_root: Path to fss-1000 dataset.
         """
-        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
+        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.  # noqa: FIX002
         # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
             pytest.skip("Skipping test_n_shots_capability for SAM2-tiny")
@@ -260,7 +264,7 @@ class TestModelIntegration:
             reference_batch: Batch of reference samples (for category mapping).
             target_batch: Batch of target samples.
         """
-        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
+        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.  # noqa: FIX002
         # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
             pytest.skip("Skipping test_model_input_validation for SAM2-tiny")
@@ -294,7 +298,7 @@ class TestModelIntegration:
             reference_batch: Batch of reference samples.
             target_batch: Batch of target samples.
         """
-        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
+        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.  # noqa: FIX002
         # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
             pytest.skip("Skipping test_model_input_validation for SAM2-tiny")
@@ -349,7 +353,7 @@ class TestModelIntegration:
             model_name: The model type to test.
             dataset: The dataset to use for testing.
         """
-        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.
+        # TODO(Eugene): SAM2 is currently not supported due to a bug in the SAM2 model.  # noqa: FIX002
         # https://github.com/open-edge-platform/instant-learn/issues/367
         if sam_model == SAMModelName.SAM2_TINY:
             pytest.skip("Skipping test_model_metrics_calculation for SAM2-tiny")
