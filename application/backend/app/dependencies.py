@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from domain.db.engine import get_session
 from domain.dispatcher import ConfigChangeDispatcher
+from domain.errors import DatasetNotFoundError
 from domain.repositories.frame import FrameRepository
 from domain.repositories.processor import ProcessorRepository
 from domain.repositories.project import ProjectRepository
@@ -28,7 +29,6 @@ from domain.services import (
 from domain.services.schemas.dataset import DatasetsListSchema
 from domain.services.schemas.device import AvailableDeviceSchema
 from runtime.core.components.validators.sink_connection import SinkConnectionValidator
-from runtime.errors import DatasetNotFoundError
 from runtime.pipeline_manager import PipelineManager
 from runtime.services.frame import FrameService
 from runtime.services.license import LicenseService

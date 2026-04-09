@@ -3,6 +3,8 @@
 
 import logging
 
+from domain.errors import DatasetNotFoundError
+from domain.services.dataset_discovery import get_first_dataset_path, resolve_dataset_path
 from domain.services.schemas.reader import (
     ImagesFolderConfig,
     ReaderConfig,
@@ -16,8 +18,6 @@ from runtime.core.components.readers.image_folder_reader import ImageFolderReade
 from runtime.core.components.readers.noop_reader import NoOpReader
 from runtime.core.components.readers.usb_camera_reader import UsbCameraReader
 from runtime.core.components.readers.video_file import VideoFileReader
-from runtime.errors import DatasetNotFoundError
-from runtime.services.dataset_discovery import get_first_dataset_path, resolve_dataset_path
 from settings import get_settings
 
 logger = logging.getLogger(__name__)

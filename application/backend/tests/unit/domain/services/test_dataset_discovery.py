@@ -6,8 +6,8 @@ from uuid import uuid4, uuid5
 
 import pytest
 
-from runtime.errors import DatasetNotFoundError
-from runtime.services.dataset_discovery import (
+from domain.errors import DatasetNotFoundError
+from domain.services.dataset_discovery import (
     DATASET_NS,
     _get_first_image,
     get_first_dataset_path,
@@ -71,7 +71,7 @@ class TestGetFirstDatasetPath:
 
 class TestGetFirstImage:
     def test_returns_first_supported_image_in_sorted_order(self, tmp_path: Path, monkeypatch) -> None:
-        monkeypatch.setattr("runtime.services.dataset_discovery.settings.supported_extensions", {".jpg", ".png"})
+        monkeypatch.setattr("domain.services.dataset_discovery.settings.supported_extensions", {".jpg", ".png"})
 
         (tmp_path / "z_image.png").touch()
         expected = tmp_path / "a_image.jpg"
@@ -83,7 +83,7 @@ class TestGetFirstImage:
         assert first_image == expected
 
     def test_returns_none_when_no_supported_images_exist(self, tmp_path: Path, monkeypatch) -> None:
-        monkeypatch.setattr("runtime.services.dataset_discovery.settings.supported_extensions", {".jpg", ".png"})
+        monkeypatch.setattr("domain.services.dataset_discovery.settings.supported_extensions", {".jpg", ".png"})
         (tmp_path / "README.txt").touch()
 
         first_image = _get_first_image(tmp_path)
@@ -95,8 +95,8 @@ class TestScanDatasets:
     def test_builds_id_to_path_mapping_and_pagination(self, tmp_path: Path, monkeypatch) -> None:
         dataset_dir = tmp_path / "aquarium"
         dataset_dir.mkdir()
-        monkeypatch.setattr("runtime.services.dataset_discovery.generate_image_thumbnail", lambda _path: "thumb")
-        monkeypatch.setattr("runtime.services.dataset_discovery.settings.supported_extensions", {".jpg", ".png"})
+        monkeypatch.setattr("domain.services.dataset_discovery.generate_image_thumbnail", lambda _path: "thumb")
+        monkeypatch.setattr("domain.services.dataset_discovery.settings.supported_extensions", {".jpg", ".png"})
         (dataset_dir / "image.jpg").touch()
 
         datasets, dataset_paths = scan_datasets(tmp_path)
@@ -115,9 +115,9 @@ class TestScanDatasets:
         (dataset_dir / "README.txt").write_text("info")
         first_image = dataset_dir / "0001.jpg"
         first_image.touch()
-        monkeypatch.setattr("runtime.services.dataset_discovery.settings.supported_extensions", {".jpg", ".png"})
+        monkeypatch.setattr("domain.services.dataset_discovery.settings.supported_extensions", {".jpg", ".png"})
         monkeypatch.setattr(
-            "runtime.services.dataset_discovery.generate_image_thumbnail",
+            "domain.services.dataset_discovery.generate_image_thumbnail",
             lambda image_path: f"thumb::{image_path.name}",
         )
 
@@ -130,7 +130,7 @@ class TestScanDatasets:
         dataset_dir = tmp_path / "aquarium"
         dataset_dir.mkdir()
         (dataset_dir / "README.txt").write_text("no images")
-        monkeypatch.setattr("runtime.services.dataset_discovery.settings.supported_extensions", {".jpg", ".png"})
+        monkeypatch.setattr("domain.services.dataset_discovery.settings.supported_extensions", {".jpg", ".png"})
 
         datasets, _ = scan_datasets(tmp_path)
 
