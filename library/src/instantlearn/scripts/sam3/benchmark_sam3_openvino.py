@@ -117,9 +117,12 @@ OV_CONFIGS_CPU: dict[str, dict] = {
 }
 
 # GPU configs — skip throughput-hint (multiplies VRAM usage, causes OOM)
+# Enable model caching and FP16 precision hint to stabilise GPU compilation
+# on Intel Arc dGPUs (e.g. B580) where the OpenCL JIT compiler can crash
+# without these settings.
 OV_CONFIGS_GPU: dict[str, dict] = {
-    "default": {},
-    "latency-hint": {"PERFORMANCE_HINT": "LATENCY"},
+    "default": {"INFERENCE_PRECISION_HINT": "f16"},
+    "latency-hint": {"PERFORMANCE_HINT": "LATENCY", "INFERENCE_PRECISION_HINT": "f16"},
 }
 
 
@@ -132,11 +135,20 @@ def _is_gpu_available() -> bool:
         return False
 
 
-def _get_ov_configs(device: str) -> dict[str, dict]:
-    """Return device-appropriate compile configs."""
-    if device.upper().startswith("GPU"):
-        return OV_CONFIGS_GPU
-    return OV_CONFIGS_CPU
+def _get_ov_configs(device: str, cache_dir: Path | None = None) -> dict[str, dict]:
+    """Return device-appropriate compile configs.
+
+    Args:
+        device: OpenVINO device string.
+        cache_dir: Optional model cache directory. Strongly recommended for GPU
+            to avoid repeated OpenCL JIT compilation which can crash on some
+            Intel Arc dGPUs.
+    """
+    base = OV_CONFIGS_GPU if device.upper().startswith("GPU") else OV_CONFIGS_CPU
+    if cache_dir is not None:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        base = {name: {**cfg, "CACHE_DIR": str(cache_dir)} for name, cfg in base.items()}
+    return base
 
 
 def _download_variant(variant: str, repo_id: str = SAM3_HF_REPO_ID) -> Path:
@@ -262,11 +274,26 @@ class BenchmarkModel:
         geo_ex_path = self._find(model_dir, GEOMETRY_ENCODER_EXEMPLAR)
         decoder_path = self._find(model_dir, PROMPT_DECODER)
 
-        self.vision_model = core.compile_model(vision_path, device, compile_config)
-        self.text_model = core.compile_model(text_path, device, compile_config)
-        self.geometry_model = core.compile_model(geo_path, device, compile_config)
-        self.geometry_exemplar_model = core.compile_model(geo_ex_path, device, compile_config)
-        self.decoder_model = core.compile_model(decoder_path, device, compile_config)
+        models = [
+            ("vision-encoder", vision_path),
+            ("text-encoder", text_path),
+            ("geometry-encoder", geo_path),
+            ("geometry-encoder-exemplar", geo_ex_path),
+            ("prompt-decoder", decoder_path),
+        ]
+        compiled = {}
+        for name, path in models:
+            console.print(f"    Compiling [cyan]{name}[/cyan] on {device}...", end=" ")
+            t0 = time.perf_counter()
+            compiled[name] = core.compile_model(path, device, compile_config)
+            elapsed = time.perf_counter() - t0
+            console.print(f"[green]{elapsed:.1f}s[/green]")
+
+        self.vision_model = compiled["vision-encoder"]
+        self.text_model = compiled["text-encoder"]
+        self.geometry_model = compiled["geometry-encoder"]
+        self.geometry_exemplar_model = compiled["geometry-encoder-exemplar"]
+        self.decoder_model = compiled["prompt-decoder"]
 
         # Create infer requests for sync inference (avoids request creation overhead)
         self.vision_request = self.vision_model.create_infer_request()
@@ -735,6 +762,7 @@ def run_benchmarks(
     warmup: int = 3,
     iterations: int = 10,
     live_frames: int = 15,
+    ov_configs: dict[str, dict] | None = None,
 ) -> list[BenchmarkResult]:
     """Run all benchmarks across variants, prompt types, and configs."""
     # Prepare images
@@ -783,7 +811,8 @@ def run_benchmarks(
 
         label = DEFAULT_VARIANTS.get(variant_dir_name, variant_dir_name)
 
-        ov_configs = _get_ov_configs(device)
+        if ov_configs is None:
+            ov_configs = _get_ov_configs(device)
         for config_name, config in ov_configs.items():
             console.rule(f"[bold cyan]{label} — {config_name}[/bold cyan]")
 
@@ -1337,6 +1366,16 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Skip chart generation (requires matplotlib).",
     )
+    parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=None,
+        help=(
+            "OpenVINO model cache directory. Caches compiled GPU kernels so "
+            "JIT compilation only runs once. Strongly recommended for GPU to "
+            "avoid driver crashes. Default: auto-set to ./ov_cache for GPU."
+        ),
+    )
     return parser
 
 
@@ -1364,7 +1403,14 @@ def main() -> None:
         console.print(f"Model source: local ({args.base_dir})")
     else:
         console.print(f"Model source: HuggingFace ({SAM3_HF_REPO_ID})")
-    ov_configs = _get_ov_configs(args.device)
+
+    # Default to ./ov_cache for GPU if no cache dir specified
+    cache_dir: Path | None = args.cache_dir
+    if cache_dir is None and args.device.upper().startswith("GPU"):
+        cache_dir = Path("./ov_cache")
+        console.print(f"[yellow]GPU detected — enabling model cache: {cache_dir}[/yellow]")
+
+    ov_configs = _get_ov_configs(args.device, cache_dir=cache_dir)
     console.print(f"OV configs: {list(ov_configs.keys())}")
     console.print()
 
@@ -1375,6 +1421,7 @@ def main() -> None:
         warmup=args.warmup,
         iterations=args.iterations,
         live_frames=args.live_frames,
+        ov_configs=ov_configs,
     )
 
     if not results:
