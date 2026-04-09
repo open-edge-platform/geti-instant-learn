@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
-from uuid import uuid4, uuid5
+from uuid import uuid5
 
 import pytest
 
@@ -10,63 +10,8 @@ from domain.errors import DatasetNotFoundError
 from domain.services.dataset_discovery import (
     DATASET_NS,
     _get_first_image,
-    get_first_dataset_path,
-    resolve_dataset_path,
     scan_datasets,
 )
-
-
-class TestResolveDatasetPath:
-    def test_returns_matching_dataset_directory(self, tmp_path: Path) -> None:
-        (tmp_path / "zebra").mkdir()
-        target_dir = tmp_path / "aquarium"
-        target_dir.mkdir()
-
-        dataset_id = uuid5(DATASET_NS, "aquarium")
-
-        resolved_path = resolve_dataset_path(dataset_id, tmp_path)
-
-        assert resolved_path == target_dir
-
-    def test_returns_none_when_dataset_id_does_not_exist(self, tmp_path: Path) -> None:
-        (tmp_path / "aquarium").mkdir()
-
-        resolved_path = resolve_dataset_path(uuid4(), tmp_path)
-
-        assert resolved_path is None
-
-    def test_returns_none_when_template_dataset_path_is_missing(self, tmp_path: Path) -> None:
-        missing_dir = tmp_path / "missing"
-
-        resolved_path = resolve_dataset_path(uuid4(), missing_dir)
-
-        assert resolved_path is None
-
-
-class TestGetFirstDatasetPath:
-    def test_returns_first_directory_in_sorted_order(self, tmp_path: Path) -> None:
-        (tmp_path / "b_dataset").mkdir()
-        expected_dir = tmp_path / "a_dataset"
-        expected_dir.mkdir()
-        (tmp_path / "notes.txt").touch()
-
-        first_path = get_first_dataset_path(tmp_path)
-
-        assert first_path == expected_dir
-
-    def test_returns_none_when_no_dataset_directories_exist(self, tmp_path: Path) -> None:
-        (tmp_path / "notes.txt").touch()
-
-        first_path = get_first_dataset_path(tmp_path)
-
-        assert first_path is None
-
-    def test_returns_none_when_template_dataset_path_is_missing(self, tmp_path: Path) -> None:
-        missing_dir = tmp_path / "missing"
-
-        first_path = get_first_dataset_path(missing_dir)
-
-        assert first_path is None
 
 
 class TestGetFirstImage:

@@ -3,11 +3,15 @@
 
 from collections.abc import Callable
 from pathlib import Path
+from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 
+from domain.errors import DatasetNotFoundError
 from domain.services.schemas.reader import (
     ImagesFolderConfig,
+    SampleDatasetConfig,
     SourceType,
     UsbCameraConfig,
     VideoFileConfig,
@@ -57,6 +61,67 @@ class TestStreamReaderFactory:
 
         assert isinstance(result, VideoFileReader)
         assert result._config == config
+
+    def test_factory_returns_sample_dataset_reader_for_cached_dataset_id(self, tmp_path: Path, monkeypatch) -> None:
+        dataset_dir = tmp_path / "aquarium"
+        dataset_dir.mkdir()
+        (dataset_dir / "frame.jpg").touch()
+        dataset_id = uuid4()
+        config = SampleDatasetConfig(source_type=SourceType.SAMPLE_DATASET, dataset_id=dataset_id)
+        monkeypatch.setattr(
+            "runtime.core.components.factories.reader.get_settings",
+            lambda: SimpleNamespace(supported_extensions={".jpg", ".png"}),
+        )
+
+        result = StreamReaderFactory.create(config, dataset_paths={dataset_id: dataset_dir})
+
+        assert isinstance(result, ImageFolderReader)
+        assert result._config.images_folder_path == str(dataset_dir)
+
+    def test_factory_raises_for_unknown_sample_dataset_id(self, monkeypatch) -> None:
+        config = SampleDatasetConfig(source_type=SourceType.SAMPLE_DATASET, dataset_id=uuid4())
+        monkeypatch.setattr(
+            "runtime.core.components.factories.reader.get_settings",
+            lambda: SimpleNamespace(supported_extensions={".jpg", ".png"}),
+        )
+
+        with pytest.raises(DatasetNotFoundError, match="was not found"):
+            StreamReaderFactory.create(config, dataset_paths={})
+
+    def test_factory_uses_first_cached_sample_dataset_when_dataset_id_missing(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ) -> None:
+        first_dataset_dir = tmp_path / "aquarium"
+        first_dataset_dir.mkdir()
+        (first_dataset_dir / "frame.jpg").touch()
+        second_dataset_dir = tmp_path / "zebra"
+        second_dataset_dir.mkdir()
+        (second_dataset_dir / "frame.jpg").touch()
+        config = SampleDatasetConfig(source_type=SourceType.SAMPLE_DATASET, dataset_id=None)
+        monkeypatch.setattr(
+            "runtime.core.components.factories.reader.get_settings",
+            lambda: SimpleNamespace(supported_extensions={".jpg", ".png"}),
+        )
+
+        result = StreamReaderFactory.create(
+            config,
+            dataset_paths={uuid4(): first_dataset_dir, uuid4(): second_dataset_dir},
+        )
+
+        assert isinstance(result, ImageFolderReader)
+        assert result._config.images_folder_path == str(first_dataset_dir)
+
+    def test_factory_raises_when_no_cached_sample_datasets_are_available(self, monkeypatch) -> None:
+        config = SampleDatasetConfig(source_type=SourceType.SAMPLE_DATASET, dataset_id=None)
+        monkeypatch.setattr(
+            "runtime.core.components.factories.reader.get_settings",
+            lambda: SimpleNamespace(supported_extensions={".jpg", ".png"}),
+        )
+
+        with pytest.raises(DatasetNotFoundError, match="No sample datasets available"):
+            StreamReaderFactory.create(config, dataset_paths={})
 
 
 class TestImagesFolderConfigValidation:

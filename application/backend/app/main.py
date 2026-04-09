@@ -5,6 +5,7 @@ import logging
 import os
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING
 
 import uvicorn
 from fastapi import FastAPI
@@ -37,6 +38,10 @@ from runtime.webrtc.manager import WebRTCManager
 from runtime.webrtc.sdp_handler import SDPHandler
 from settings import get_settings
 
+if TYPE_CHECKING:
+    from pathlib import Path
+    from uuid import UUID
+
 settings = get_settings()
 settings.logs_dir.mkdir(parents=True, exist_ok=True)
 
@@ -62,30 +67,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.available_devices = list_available_devices()
     session_factory = get_session_factory()
 
-    app.state.config_dispatcher = ConfigChangeDispatcher()
-    component_factory = DefaultComponentFactory(
-        session_factory=session_factory,
-        available_devices=app.state.available_devices,
-    )
-    app.state.pipeline_manager = PipelineManager(
-        event_dispatcher=app.state.config_dispatcher,
-        session_factory=session_factory,
-        component_factory=component_factory,
-    )
-    app.state.pipeline_manager.start()
-
-    # Initialize WebRTC Manager
-    app.state.sdp_handler = SDPHandler()
-    app.state.webrtc_manager = WebRTCManager(
-        pipeline_manager=app.state.pipeline_manager, sdp_handler=app.state.sdp_handler
-    )
-
     # Dataset cache is startup-static by design and refreshed only on app restart.
     datasets = DatasetsListSchema(
         datasets=[],
         pagination=Pagination(count=0, total=0, offset=0, limit=0),
     )
-    dataset_paths: dict = {}
+    dataset_paths: dict[UUID, Path] = {}
     try:
         datasets, dataset_paths = scan_datasets(settings.template_dataset_dir)
     except DatasetNotFoundError as e:
@@ -99,6 +86,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         )
         logger.debug("Dataset cache entries:\n%s", dataset_lines)
     logger.info("Cached %d dataset(s) during startup", len(dataset_paths))
+
+    app.state.config_dispatcher = ConfigChangeDispatcher()
+    component_factory = DefaultComponentFactory(
+        session_factory=session_factory,
+        available_devices=app.state.available_devices,
+        dataset_paths=dataset_paths,
+    )
+    app.state.pipeline_manager = PipelineManager(
+        event_dispatcher=app.state.config_dispatcher,
+        session_factory=session_factory,
+        component_factory=component_factory,
+    )
+    app.state.pipeline_manager.start()
+
+    # Initialize WebRTC Manager
+    app.state.sdp_handler = SDPHandler()
+    app.state.webrtc_manager = WebRTCManager(
+        pipeline_manager=app.state.pipeline_manager, sdp_handler=app.state.sdp_handler
+    )
 
     logger.info("Application startup completed")
     yield

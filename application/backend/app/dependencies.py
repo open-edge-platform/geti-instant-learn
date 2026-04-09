@@ -2,9 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from pathlib import Path
 from typing import Annotated
-from uuid import UUID
 
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
@@ -56,11 +54,6 @@ def get_webrtc_manager(request: Request) -> WebRTCManager:
     return request.app.state.webrtc_manager
 
 
-def get_dataset_paths(request: Request) -> dict[UUID, Path]:
-    """Dependency that provides startup-cached dataset id-to-path mapping."""
-    return request.app.state.dataset_paths
-
-
 def get_available_datasets(request: Request) -> DatasetsListSchema:
     """Dependency that provides startup-cached dataset metadata list."""
     available_datasets: DatasetsListSchema = request.app.state.available_datasets
@@ -72,17 +65,6 @@ def get_available_datasets(request: Request) -> DatasetsListSchema:
 def get_available_devices(request: Request) -> list[AvailableDeviceSchema]:
     """Dependency that provides startup-cached available devices list."""
     return request.app.state.available_devices
-
-
-def get_dataset_path_by_id(
-    dataset_id: UUID,
-    dataset_paths: Annotated[dict[UUID, Path], Depends(get_dataset_paths)],
-) -> Path:
-    """Resolve dataset path by id from the in-memory startup cache."""
-    try:
-        return dataset_paths[dataset_id]
-    except KeyError as exc:
-        raise DatasetNotFoundError(f"Dataset with id '{dataset_id}' was not found.") from exc
 
 
 # --- DB session dependency ---
@@ -204,6 +186,5 @@ SinkServiceDep = Annotated[SinkService, Depends(get_sink_service)]
 SinkConnectionValidatorDep = Annotated[SinkConnectionValidator, Depends(get_sink_connection_validator)]
 DiscoveryServiceDep = Annotated[SourceTypeService, Depends(get_discovery_service)]
 LicenseServiceDep = Annotated[LicenseService, Depends(get_license_service)]
-DatasetPathDep = Annotated[Path, Depends(get_dataset_path_by_id)]
 AvailableDatasetsDep = Annotated[DatasetsListSchema, Depends(get_available_datasets)]
 AvailableDevicesDep = Annotated[list[AvailableDeviceSchema], Depends(get_available_devices)]

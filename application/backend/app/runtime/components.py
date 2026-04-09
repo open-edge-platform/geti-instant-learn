@@ -3,6 +3,8 @@
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
+from pathlib import Path
 from uuid import UUID
 
 from instantlearn.data.base.batch import Batch
@@ -37,15 +39,17 @@ class DefaultComponentFactory(ComponentFactory):
         self,
         session_factory: sessionmaker[Session],
         available_devices: list[AvailableDeviceSchema] | None = None,
+        dataset_paths: Mapping[UUID, Path] | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._model_factory = ModelFactory(available_devices=available_devices)
+        self._dataset_paths = dataset_paths if dataset_paths is not None else {}
 
     def create_source(self, project_id: UUID) -> Source:
         with self._session_factory() as session:
             svc = ProjectService(session=session)
             cfg = svc.get_pipeline_config(project_id)
-        return Source(StreamReaderFactory.create(cfg.reader))
+        return Source(StreamReaderFactory.create(cfg.reader, dataset_paths=self._dataset_paths))
 
     def create_processor(self, project_id: UUID, reference_batch: Batch) -> Processor:
         with self._session_factory() as session:
