@@ -19,7 +19,7 @@ on:
       image_tag_suffix:
         description: "Suffix to append to the image tag (e.g. -dev, -nightly)"
         type: string
-        default: "-dev"
+        default: ""
         required: false
       push_images:
         description: "Push and sign docker images to GHCR"
