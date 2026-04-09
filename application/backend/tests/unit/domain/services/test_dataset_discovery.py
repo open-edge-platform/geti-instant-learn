@@ -47,7 +47,7 @@ class TestResolveDatasetPathFromCache:
 
         assert result == dataset_dir
 
-    def test_returns_first_cached_dataset_when_id_missing(self, tmp_path: Path) -> None:
+    def test_returns_lexicographically_first_dataset_when_id_missing(self, tmp_path: Path) -> None:
         first_dataset_dir = tmp_path / "aquarium"
         first_dataset_dir.mkdir()
         second_dataset_dir = tmp_path / "zebra"
@@ -55,7 +55,7 @@ class TestResolveDatasetPathFromCache:
 
         result = resolve_dataset_path_from_cache(
             dataset_id=None,
-            dataset_paths={uuid4(): first_dataset_dir, uuid4(): second_dataset_dir},
+            dataset_paths={uuid4(): second_dataset_dir, uuid4(): first_dataset_dir},
         )
 
         assert result == first_dataset_dir
@@ -86,6 +86,18 @@ class TestScanDatasets:
         assert dataset_id == uuid5(DATASET_NS, "aquarium")
         assert dataset_id in dataset_paths
         assert dataset_paths[dataset_id] == dataset_dir
+
+    def test_default_cache_resolution_matches_sorted_scan_order(self, tmp_path: Path, monkeypatch) -> None:
+        zebra_dir = tmp_path / "zebra"
+        zebra_dir.mkdir()
+        aquarium_dir = tmp_path / "aquarium"
+        aquarium_dir.mkdir()
+        monkeypatch.setattr("domain.services.dataset_discovery.settings.supported_extensions", {".jpg", ".png"})
+
+        datasets, dataset_paths = scan_datasets(tmp_path)
+
+        assert [dataset.name for dataset in datasets.datasets] == ["Aquarium", "Zebra"]
+        assert resolve_dataset_path_from_cache(dataset_id=None, dataset_paths=dataset_paths) == aquarium_dir
 
     def test_sets_thumbnail_from_first_supported_image(self, tmp_path: Path, monkeypatch) -> None:
         dataset_dir = tmp_path / "aquarium"

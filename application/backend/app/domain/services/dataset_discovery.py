@@ -30,7 +30,7 @@ def resolve_dataset_path_from_cache(dataset_id: UUID | None, dataset_paths: Mapp
     """Resolve a dataset path from the startup cache.
 
     Args:
-        dataset_id: Stable dataset UUID, or None to use the first cached dataset.
+        dataset_id: Stable dataset UUID, or None to use the lexicographically first cached dataset directory.
         dataset_paths: Startup-cached dataset id-to-path mapping.
 
     Returns:
@@ -46,12 +46,11 @@ def resolve_dataset_path_from_cache(dataset_id: UUID | None, dataset_paths: Mapp
             logger.warning("Sample dataset id '%s' could not be resolved from startup cache.", dataset_id)
             raise DatasetNotFoundError(f"Sample dataset id '{dataset_id}' was not found.") from exc
 
-    dataset_path = next(iter(dataset_paths.values()), None)
-    if dataset_path is None:
+    if not dataset_paths:
         logger.warning("No sample datasets available in startup cache.")
         raise DatasetNotFoundError("No sample datasets available.")
 
-    return dataset_path
+    return min(dataset_paths.values(), key=lambda dataset_path: (dataset_path.name, str(dataset_path)))
 
 
 def scan_datasets(datasets_root: Path) -> tuple[DatasetsListSchema, dict[UUID, Path]]:
