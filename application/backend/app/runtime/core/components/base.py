@@ -154,6 +154,7 @@ class ModelHandler(ABC):
     def predict(self, inputs: list[InputData]) -> list[dict[str, np.ndarray]]:
         pass
 
+    @abstractmethod
     def close(self) -> None:
         """Release underlying resources (e.g. models from GPU memory)."""
         pass
