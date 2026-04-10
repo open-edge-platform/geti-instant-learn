@@ -58,7 +58,6 @@ jobs:
       ai_devices: '["xpu"]'
       build_version: ${{ needs.build-parameters.outputs.build_version }}
       push_images: true
-      image_name_prefix: "ghcr.io/open-edge-platform/geti-instant-learn"
 
   windows-installer:
     name: Build Windows installer
