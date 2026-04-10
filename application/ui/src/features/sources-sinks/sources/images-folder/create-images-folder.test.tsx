@@ -14,10 +14,14 @@ import { http, server } from '../../../../setup-test';
 import { CreateImagesFolder } from './create-images-folder.component';
 
 class ImagesFolderSourcePage {
-    constructor() {}
+    constructor() { }
 
     get folderPathField() {
         return screen.getByRole('textbox', { name: /Folder path/ });
+    }
+
+    get browseButton() {
+        return screen.queryByRole('button', { name: 'Browse' });
     }
 
     get applyButton() {
@@ -48,6 +52,7 @@ describe('CreateImagesFolder', () => {
         const { imagesFolderSourcePage } = renderImagesFolder();
 
         expect(imagesFolderSourcePage.folderPathField).toHaveValue('');
+        expect(imagesFolderSourcePage.browseButton).not.toBeInTheDocument();
         expect(imagesFolderSourcePage.applyButton).toBeDisabled();
     });
 

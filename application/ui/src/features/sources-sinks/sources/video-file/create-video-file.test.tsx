@@ -15,10 +15,14 @@ import { server } from '../../../../setup-test';
 import { CreateVideoFile } from './create-video-file.component';
 
 class VideoFilePage {
-    constructor() {}
+    constructor() { }
 
     get filePathField() {
         return screen.getByRole('textbox', { name: /File path/ });
+    }
+
+    get browseButton() {
+        return screen.queryByRole('button', { name: 'Browse' });
     }
 
     get applyButton() {
@@ -49,6 +53,7 @@ describe('CreateVideoFile', () => {
         const { videoFilePage } = renderVideoFile();
 
         expect(videoFilePage.filePathField).toHaveValue('');
+        expect(videoFilePage.browseButton).not.toBeInTheDocument();
         expect(videoFilePage.applyButton).toBeDisabled();
     });
 
