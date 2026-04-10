@@ -9,7 +9,7 @@ import { Datasets } from '@geti/ui/icons';
 
 import { PipelineEntityCard } from '../../pipeline-entity-card/pipeline-entity-card.component';
 import { useAvailableDatasets } from './api/use-available-datasets';
-import { SampleDatasetDescription, SampleDatasetTitle } from './create-sample-dataset.component';
+import { SampleDatasetTitle } from './create-sample-dataset.component';
 
 interface SampleDatasetCardProps {
     source: SampleDatasetSourceType;
@@ -34,9 +34,8 @@ export const SampleDatasetCard = ({ source, onAction, menuItems }: SampleDataset
                 {thumbnail && (
                     <img src={thumbnail} alt={selectedDataset.name} style={{ display: 'block', width: '100%' }} />
                 )}
-                <SampleDatasetTitle text={selectedDataset.name} />
-                <Flex>
-                    <SampleDatasetDescription text={selectedDataset.description} />
+                <Flex justifyContent={'space-between'} alignItems={'end'} gap={'size-100'}>
+                    <SampleDatasetTitle text={selectedDataset.name} />
                     <View alignSelf={'end'}>
                         <PipelineEntityCard.Menu isActive={isActiveSource} items={menuItems} onAction={onAction} />
                     </View>
