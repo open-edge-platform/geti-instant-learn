@@ -76,7 +76,6 @@ def scan_datasets(datasets_root: Path) -> tuple[DatasetsListSchema, dict[UUID, P
             DatasetSchema(
                 id=dataset_id,
                 name=name,
-                description=f"This is sample dataset of {name.lower()}.",
                 thumbnail=generate_image_thumbnail(first_image) if first_image is not None else None,
             )
         )
