@@ -14,7 +14,7 @@ import { http, server } from '../../../../setup-test';
 import { CreateImagesFolder } from './create-images-folder.component';
 
 class ImagesFolderSourcePage {
-    constructor() { }
+    constructor() {}
 
     get folderPathField() {
         return screen.getByRole('textbox', { name: /Folder path/ });

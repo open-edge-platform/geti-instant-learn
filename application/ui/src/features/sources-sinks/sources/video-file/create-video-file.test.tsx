@@ -15,7 +15,7 @@ import { server } from '../../../../setup-test';
 import { CreateVideoFile } from './create-video-file.component';
 
 class VideoFilePage {
-    constructor() { }
+    constructor() {}
 
     get filePathField() {
         return screen.getByRole('textbox', { name: /File path/ });
