@@ -4,7 +4,7 @@
  */
 
 import { SourceCreateType } from '@/api';
-import { render } from '@/test-utils';
+import { clearMockedTauriContext, render, setMockedTauriContext } from '@/test-utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
@@ -47,23 +47,14 @@ const renderVideoFile = (onSaved = vi.fn()) => {
         videoFilePage: new VideoFilePage(),
     };
 };
-/* eslint-disable no-underscore-dangle */
-const setTauriContext = () => {
-    window.__TAURI__ = {
-        core: {
-            invoke: vi.fn(),
-        },
-    };
-};
-
-afterEach(() => {
-    window.__TAURI__ = undefined;
-});
-/* eslint-enable no-underscore-dangle */
 
 describe('CreateVideoFile', () => {
+    afterEach(() => {
+        clearMockedTauriContext();
+    });
+
     it('shows browse button in tauri context', () => {
-        setTauriContext();
+        setMockedTauriContext();
 
         const { videoFilePage } = renderVideoFile();
 

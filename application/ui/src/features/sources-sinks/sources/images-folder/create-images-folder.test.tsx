@@ -4,7 +4,7 @@
  */
 
 import { SourceCreateType } from '@/api';
-import { render } from '@/test-utils';
+import { clearMockedTauriContext, render, setMockedTauriContext } from '@/test-utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
@@ -46,22 +46,14 @@ const renderImagesFolder = (onSaved = vi.fn()) => {
         imagesFolderSourcePage: new ImagesFolderSourcePage(),
     };
 };
-/* eslint-disable no-underscore-dangle */
-const setTauriContext = () => {
-    window.__TAURI__ = {
-        core: {
-            invoke: vi.fn(),
-        },
-    };
-};
 
-afterEach(() => {
-    window.__TAURI__ = undefined;
-});
-/* eslint-enable no-underscore-dangle */
 describe('CreateImagesFolder', () => {
+    afterEach(() => {
+        clearMockedTauriContext();
+    });
+
     it('shows browse button in tauri context', () => {
-        setTauriContext();
+        setMockedTauriContext();
 
         const { imagesFolderSourcePage } = renderImagesFolder();
 
