@@ -47,8 +47,29 @@ const renderVideoFile = (onSaved = vi.fn()) => {
         videoFilePage: new VideoFilePage(),
     };
 };
+/* eslint-disable no-underscore-dangle */
+const setTauriContext = () => {
+    window.__TAURI__ = {
+        core: {
+            invoke: vi.fn(),
+        },
+    };
+};
+
+afterEach(() => {
+    window.__TAURI__ = undefined;
+});
+/* eslint-enable no-underscore-dangle */
 
 describe('CreateVideoFile', () => {
+    it('shows browse button in tauri context', () => {
+        setTauriContext();
+
+        const { videoFilePage } = renderVideoFile();
+
+        expect(videoFilePage.browseButton).toBeInTheDocument();
+    });
+
     it('disables apply button when file path is empty', () => {
         const { videoFilePage } = renderVideoFile();
 

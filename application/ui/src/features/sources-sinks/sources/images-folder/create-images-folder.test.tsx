@@ -46,8 +46,28 @@ const renderImagesFolder = (onSaved = vi.fn()) => {
         imagesFolderSourcePage: new ImagesFolderSourcePage(),
     };
 };
+/* eslint-disable no-underscore-dangle */
+const setTauriContext = () => {
+    window.__TAURI__ = {
+        core: {
+            invoke: vi.fn(),
+        },
+    };
+};
 
+afterEach(() => {
+    window.__TAURI__ = undefined;
+});
+/* eslint-enable no-underscore-dangle */
 describe('CreateImagesFolder', () => {
+    it('shows browse button in tauri context', () => {
+        setTauriContext();
+
+        const { imagesFolderSourcePage } = renderImagesFolder();
+
+        expect(imagesFolderSourcePage.browseButton).toBeInTheDocument();
+    });
+
     it('disables submit button when path is empty', () => {
         const { imagesFolderSourcePage } = renderImagesFolder();
 
