@@ -10,8 +10,7 @@ stun-server := ""
 coturn-port := "443"
 dataset-dir := justfile_directory() + "/.data/templates/datasets"
 
-# Ensure version in GHA workflow matches uv version here
-uv_version := "0.10.0"
+uv_version := `grep -A 3 '\[tool\.uv\]' pyproject.toml | grep 'required-version' | sed 's/.*"[~=<>]*\([0-9][0-9.]*\)"/\1/'`
 device := "cpu" # cpu, cu128, xpu
 
 default:
@@ -36,7 +35,7 @@ dev: _venv (download-datasets dataset-dir)
 
 
 _pre-venv:
-    if ! uv self version | grep {{uv_version}} >/dev/null; then \
+    @if ! command -v uv > /dev/null; then \
         curl --proto '=https' --tlsv1.2 -LsSf "https://github.com/astral-sh/uv/releases/download/{{uv_version}}/uv-installer.sh" | sh; \
     fi
 
